@@ -4,7 +4,7 @@ import type { ParentContact } from "../types";
 export const DEMO_NOW = "2026-05-19T09:00:00+08:00";
 
 export const parentContacts: ParentContact[] = [
-  // Chan Ho Yin (s-001) — recent, no follow-up needed
+  // Chan Ho Yin (s-001), recent, no follow-up needed
   {
     id: "pc-001",
     studentId: "s-001",
@@ -27,7 +27,7 @@ export const parentContacts: ParentContact[] = [
     followUpNeeded: false,
   },
 
-  // Wong Mei Ling (s-002) — concern raised, follow-up overdue
+  // Wong Mei Ling (s-002), concern raised, follow-up overdue
   {
     id: "pc-101",
     studentId: "s-002",
@@ -42,7 +42,7 @@ export const parentContacts: ParentContact[] = [
     followUpDone: false,
   },
 
-  // Lee Tsz Kit (s-003) — been a while
+  // Lee Tsz Kit (s-003), been a while
   {
     id: "pc-201",
     studentId: "s-003",
@@ -54,7 +54,7 @@ export const parentContacts: ParentContact[] = [
     followUpNeeded: false,
   },
 
-  // Ng Wing Yan (s-004) — concern, follow-up due tomorrow
+  // Ng Wing Yan (s-004), concern, follow-up due tomorrow
   {
     id: "pc-301",
     studentId: "s-004",

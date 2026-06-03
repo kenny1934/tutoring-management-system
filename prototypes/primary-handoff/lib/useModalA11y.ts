@@ -11,7 +11,7 @@ const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // Stack of open modals (innermost last) so that when one modal is opened from
-// within another — e.g. the worksheet preview launched from the record picker —
+// within another (e.g. the worksheet preview launched from the record picker),
 // Escape only closes the topmost one, not both at once.
 const modalStack: symbol[] = [];
 

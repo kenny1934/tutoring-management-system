@@ -8,10 +8,9 @@ export default function CommsPage() {
           Parent communications
         </h1>
         <p className="text-sm text-ink-600 max-w-3xl">
-          Record of tutor↔parent contacts. Three-panel view: students on the
-          left with contact status, a calendar of all contact events in the
-          middle, and a detail panel on the right. Stats and pending
-          follow-ups sit at the top so nothing urgent gets buried.
+          A log of every contact with parents. Pick a student to see their
+          contact status, browse the calendar of contact events, and open any
+          entry for detail. Pending follow-ups stay pinned at the top.
         </p>
       </div>
       <ParentContactsApp />

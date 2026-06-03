@@ -16,7 +16,7 @@ import { Legend } from "@/components/checktable/Legend";
 
 type Props = {
   student: Student;
-  /** Optional item to scroll into focus on open — used by the per-row
+  /** Optional item to scroll into focus on open, used by the per-row
    *  "Next" pill so the user lands on the suggested untouched item. */
   focusItemId?: string;
   onClose: () => void;
@@ -30,7 +30,7 @@ export function ChecktableDrawer({ student, focusItemId, onClose }: Props) {
 
   // Two-phase mount/unmount so the slide-in and slide-out animations have
   // time to play. `visible` flips after first paint to trigger the
-  // translate-x → 0 transition; `close` flips it back then waits for the
+  // translate-x-to-0 transition; `close` flips it back then waits for the
   // transition before calling `onClose` (which actually unmounts).
   const [visible, setVisible] = useState(false);
 

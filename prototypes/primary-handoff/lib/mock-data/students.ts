@@ -33,7 +33,7 @@ export const students: Student[] = [
     school: "MCS",
     hwLoad: "Normal",
   },
-  // P3 pair in Mr Lawrence Lee's parallel Tuesday class — gives the weekly
+  // P3 pair in Mr Lawrence Lee's parallel Tuesday class, gives the weekly
   // view a concurrent meeting (different tutor, overlapping time) so the
   // time-grid's side-by-side overlap layout has real data to render.
   {

@@ -291,13 +291,13 @@ export default function DashboardPage() {
             href="/students"
             Icon={Users}
             title="Students"
-            blurb="Per-student hub. Sessions, checktables, comms, and history all in one place."
+            blurb="Each student's sessions, checktables, comms, and history."
           />
           <ModuleCard
             href="/assessments"
             Icon={ClipboardCheck}
             title="Assessments"
-            blurb="Booked → attended → follow-up → enrolled or lost."
+            blurb="Track prospects from booking through follow-up to enrolled or lost."
           />
           <ModuleCard
             href="/comms"

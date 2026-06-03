@@ -58,8 +58,8 @@ const completionByExerciseId = new Map(
 );
 
 // item id -> CW/HW, derived from each book's variant pairs (variant 1 = CW,
-// variant 2 = HW). Used to tag history assignments — the session record already
-// knows its own kind — so the Checktables grid stripes (and its legend) reflect
+// variant 2 = HW). Used to tag history assignments, the session record already
+// knows its own kind, so the Checktables grid stripes (and its legend) reflect
 // real classwork vs homework coverage, not just done/assigned.
 const kindByItemId = new Map<string, ExerciseKind>();
 for (const grade of new Set(Object.values(STUDENT_GRADES))) {
@@ -136,8 +136,8 @@ for (const session of orderedSessions) {
 
 // Worksheets the student finished before the visible session window, so the
 // grid shows real prior coverage. The first `historyUnits` CW/HW pairs are
-// fully done (both variants), which is the flat-list slice [0, 2*historyUnits)
-// — exactly where the session record picks up (see SEED_PLAN). Items already
+// fully done (both variants), which is the flat-list slice [0, 2*historyUnits),
+// exactly where the session record picks up (see SEED_PLAN). Items already
 // recorded in a session are skipped defensively.
 type History = { primaryDone: number; secondaryDone: number };
 const HISTORY: Record<string, History> = Object.fromEntries(

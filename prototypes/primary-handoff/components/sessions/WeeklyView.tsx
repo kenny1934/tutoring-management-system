@@ -29,11 +29,11 @@ type Props = {
   onPick: (meeting: ClassMeeting) => void;
 };
 
-// Vertical scale of the time grid. 56px/hour keeps a 90-min slot ~84px tall —
+// Vertical scale of the time grid. 56px/hour keeps a 90-min slot ~84px tall,
 // enough for two text lines without the week getting unwieldy on screen.
 const HOUR_PX = 56;
 const RAIL_W = 52;
-// Default visible window for a primary centre (afternoon → early evening).
+// Default visible window for a primary centre (afternoon to early evening).
 // Expanded automatically if the week has sessions outside it.
 const DEFAULT_START_MIN = 15 * 60;
 const DEFAULT_END_MIN = 21 * 60;
@@ -322,8 +322,8 @@ function DayHeader({
   );
 }
 
-/** One meeting as a clickable card. Used both absolutely-positioned in the
- *  desktop grid (`fill` → fills its wrapper) and in-flow in the mobile agenda. */
+/** One meeting as a clickable card. Used absolutely-positioned in the desktop
+ *  grid (with `fill`) and in-flow in the mobile agenda. */
 function MeetingChip({
   meeting,
   studentById,
@@ -387,10 +387,10 @@ function MeetingChip({
   );
 }
 
-/** Compact "who's here" line — promotes students over the (often-redundant)
- *  tutor name, and carries the attended/total count as a fixed right-anchor so
- *  it survives even when the lane is narrow. One student → name + grade badge;
- *  several → grade badges that clip cleanly behind a +N overflow. */
+/** Compact "who's here" line. Shows students ahead of the often-redundant tutor
+ *  name, with the attended/total count pinned right so it survives a narrow
+ *  lane. One student gets a name and grade badge; several collapse to grade
+ *  badges behind a +N overflow. */
 function MemberSummary({
   members,
   attended,
@@ -476,9 +476,8 @@ type PeekState = {
   rect: { top: number; left: number; bottom: number; right: number };
 };
 
-/** Lightweight detail popover anchored to a clicked chip. Keeps the weekly
- *  context (vs. jumping straight to the list) while still offering a one-click
- *  drill-in. */
+/** Detail popover anchored to a clicked chip. Keeps the weekly context instead
+ *  of jumping straight to the list, but still offers a one-click drill-in. */
 function ChipPeekPopover({
   state,
   studentById,
@@ -630,8 +629,8 @@ function ChipPeekPopover({
   );
 }
 
-/** Meeting stripe colour by the most action-worthy member state, so the cue
- *  is honest for mixed-status meetings (the old code coloured by members[0]).
+/** Meeting stripe colour by the most action-worthy member state, so the cue is
+ *  honest for mixed-status meetings rather than just reflecting the first member.
  *  Priority: pending make-up > no-show/cancelled > all attended > scheduled. */
 function meetingStripe(meeting: ClassMeeting): string {
   const statuses = meeting.members.map((m) => m.session_status);
@@ -658,7 +657,7 @@ function meetingStripe(meeting: ClassMeeting): string {
 
 /** Short label for the peek popover so verbose make-up statuses (e.g.
  *  "Weather Cancelled - Pending Make-up") don't crowd out the student name.
- *  The icon + colour carry the reason; the full status is kept in the row's
+ *  The icon and colour carry the reason; the full status stays in the row's
  *  title for hover. Other statuses are already short and pass through. */
 function compactStatusLabel(status: SessionStatusValue): string {
   if (status.endsWith("- Pending Make-up")) return "Pending make-up";
@@ -675,7 +674,7 @@ function isPendingMakeup(s: SessionStatusValue): boolean {
   );
 }
 
-/** "HH:MM" → minutes since midnight. */
+/** "HH:MM" to minutes since midnight. */
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;

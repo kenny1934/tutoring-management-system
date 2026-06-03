@@ -386,7 +386,7 @@ function main() {
   );
   console.log(
     mismatches === 0
-      ? "viewer-URL helper matches all scraped URLs ✓"
+      ? "OK: viewer-URL helper matches all scraped URLs"
       : `WARNING: ${mismatches} viewer-URL mismatches`
   );
 }

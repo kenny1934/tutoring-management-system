@@ -67,7 +67,7 @@ function statusIcon(status: AssignmentStatus | null): {
   className: string;
 } {
   // Distinct silhouettes (filled-check / dashed / outline) so the three
-  // states are still readable at the small size we use in the list — pure
+  // states are still readable at the small size we use in the list, pure
   // color dots blurred together at 8px.
   if (status === "done")
     return { Icon: CircleCheck, className: "text-emerald-600" };
@@ -136,7 +136,7 @@ export function RecordExerciseModal({
     };
   }, []);
 
-  // Reset search whenever the tutor switches checktables — a query that
+  // Reset search whenever the tutor switches checktables, a query that
   // matched items in the old table almost never matches the new one.
   useEffect(() => {
     setSearch("");
@@ -337,7 +337,7 @@ export function RecordExerciseModal({
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
                   // Enter records the top filtered hit so a tutor can search
-                  // → enter to capture without reaching for the mouse.
+                  // then capture without reaching for the mouse.
                   if (e.key === "Enter" && filtered.length > 0) {
                     e.preventDefault();
                     submit(filtered[0].item);

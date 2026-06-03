@@ -28,7 +28,7 @@ type Props = {
     page_end?: number;
     remarks?: string;
   }) => void;
-  /** Edit mode only — remove the logged exercise. */
+  /** Edit mode only, remove the logged exercise. */
   onRemove?: () => void;
 };
 

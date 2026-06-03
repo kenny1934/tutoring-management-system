@@ -210,7 +210,7 @@ function SectionRows({
           </td>
           {table.series.map((s) => {
             const cell = ch.cells[s.id];
-            // Apply the status filter at the chip level too — earlier
+            // Apply the status filter at the chip level too, earlier
             // versions only filtered chapter rows, so "Untouched" still
             // surfaced done/assigned chips inside visible rows.
             const visibleItems = cell

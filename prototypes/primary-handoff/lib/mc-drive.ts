@@ -12,8 +12,8 @@ export const MC_DRIVE_VIEWER_BASE =
   "https://mcdrive.mathconcept.com/viewer/pdf-js/generic/web/viewer_readonly.html";
 
 /** rawurlencode semantics (PHP-style): like encodeURIComponent but also encodes
- *  !'()* — matching how MC Drive percent-encodes each path segment (space→%20,
- *  "("→%28). encodeURIComponent alone leaves those un-encoded. */
+ *  !'()*, matching how MC Drive percent-encodes each path segment (space as
+ *  %20, "(" as %28). encodeURIComponent alone leaves those un-encoded. */
 function rawEnc(segment: string): string {
   return encodeURIComponent(segment).replace(
     /[!'()*]/g,

@@ -5,9 +5,9 @@ import { cwRef, hwRef, studentUnits, SEED_PLAN } from "./mc-drive-seed-helpers";
 // Classwork/homework worksheets are pulled from each student's grade-matched
 // MC Drive plan as CW/HW *variant pairs*: a session's classwork is the "...1"
 // copy and its matching homework is the "...2" copy of the same worksheet
-// (e.g. SG601A1 in class → SG601A2 for homework). u001 is P6, u002 is P4,
+// (e.g. SG601A1 in class, SG601A2 for homework). u001 is P6, u002 is P4,
 // u003 is P2. Each student's sessions start at unit `historyUnits` (the
-// earlier units are seeded as already-done history — see assignments.ts), so
+// earlier units are seeded as already-done history, see assignments.ts), so
 // the grid and the session record line up with no overlap.
 const u001 = studentUnits["s-001"];
 const u002 = studentUnits["s-002"];
@@ -20,7 +20,7 @@ const o3 = SEED_PLAN["s-003"].historyUnits;
 export const DEMO_DAY = "2026-05-19";
 
 // Each student has one enrollment with their primary tutor. CSM enrollments
-// don't carry a "class" — they're just (student, tutor, term) plus session
+// don't carry a "class", they're just (student, tutor, term) plus session
 // rows slotted into recurring time_slots.
 export const enrollments: Enrollment[] = [
   {
@@ -79,7 +79,7 @@ export const enrollments: Enrollment[] = [
     room: "Room 2",
     first_lesson_date: "2026-04-01",
   },
-  // Mr Lawrence Lee's P3 pair — Tuesday 16:30 in Room 1. Deliberately offset
+  // Mr Lawrence Lee's P3 pair, Tuesday 16:30 in Room 1. Deliberately offset
   // 30 min from Ms Wong's 16:00 class so the two meetings overlap in the
   // weekly time-grid (different tutors, same afternoon).
   {
@@ -127,10 +127,10 @@ const lee = { tutor_id: "t-lee", tutor_name: "Mr Lawrence Lee" };
 
 // One Session row per student per occurrence. Rows sharing
 // (tutor_id, session_date, start_time) form one class meeting that the
-// UI groups — mirrors how CSM identifies a "class meeting" without ever
+// UI groups, mirrors how CSM identifies a "class meeting" without ever
 // storing a class entity.
 export const sessions: Session[] = [
-  // === Today (2026-05-19 16:00) — Ms Wong P6 meeting, lesson 12 ===
+  // === Today (2026-05-19 16:00), Ms Wong P6 meeting, lesson 12 ===
   {
     id: "sess-001-s-001",
     enrollment_id: "enr-001",
@@ -193,12 +193,12 @@ export const sessions: Session[] = [
     performance_rating: 3,
     notes: "Arrived 15 min late, sibling pickup issue",
     class_wide_note: "Check last week's homework, then this week's core worksheets.",
-    // One CW/HW variant pair (shorter session — arrived late).
+    // One CW/HW variant pair (shorter session, arrived late).
     cw: [{ id: "rec-8", session_id: "sess-001-s-003", exercise_type: "CW", ...cwRef(u003[o3 + 2]) }],
     hw: [{ id: "rec-8h", session_id: "sess-001-s-003", exercise_type: "HW", ...hwRef(u003[o3 + 2]) }],
   },
 
-  // === Today (2026-05-19 17:30) — Ms Wong P5 meeting, lesson 9 ===
+  // === Today (2026-05-19 17:30), Ms Wong P5 meeting, lesson 9 ===
   {
     id: "sess-002-s-004",
     enrollment_id: "enr-004",
@@ -214,7 +214,7 @@ export const sessions: Session[] = [
     hw: [],
   },
 
-  // === Today (2026-05-19 16:30) — Mr Lawrence Lee P3 meeting, lesson 8 ===
+  // === Today (2026-05-19 16:30), Mr Lawrence Lee P3 meeting, lesson 8 ===
   // Runs alongside Ms Wong's 16:00 + 17:30 classes, so under the "All tutors"
   // filter the weekly grid shows these side-by-side. Mixed attendance (one
   // present, one no-show) also demos the meeting stripe's worst-state colour.
@@ -270,8 +270,8 @@ export const sessions: Session[] = [
     hw: [],
   },
   // Original session that the make-up replaces (cancelled by weather, now
-  // marked as booked-and-rescheduled). Friday slot (not the Tue recurrence)
-  // — this was itself an ad-hoc session for enr-001, so lesson_number 0
+  // marked as booked-and-rescheduled). Friday slot (not the Tue recurrence).
+  // This was itself an ad-hoc session for enr-001, so lesson_number 0
   // per the convention in types.ts (Session.lesson_number).
   {
     id: "sess-old-typhoon",
@@ -290,7 +290,7 @@ export const sessions: Session[] = [
     hw: [],
   },
 
-  // === Last week (2026-05-12 16:00) — Ms Wong P6 meeting, lesson 11 ===
+  // === Last week (2026-05-12 16:00), Ms Wong P6 meeting, lesson 11 ===
   {
     id: "sess-004-s-001",
     enrollment_id: "enr-001",

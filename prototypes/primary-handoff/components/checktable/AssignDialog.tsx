@@ -38,7 +38,7 @@ type Props = {
   existingAssignment?: ChecktableAssignment;
   upcomingSessions?: Session[];
   /** How many assigned-not-done items the student currently has across all
-   *  checktables — used for the low-HW-load warning. */
+   *  checktables, used for the low-HW-load warning. */
   openAssignmentCount?: number;
   formatSessionLabel?: (sessionId: string) => string;
   onAssign?: (input: {
@@ -95,7 +95,7 @@ export function AssignDialog({
 
   // Student-mode single session link.
   const [sessionId, setSessionId] = useState<string>(initialSessionId);
-  // Student-mode CW/HW choice — only matters when a session is linked.
+  // Student-mode CW/HW choice, only matters when a session is linked.
   const [studentKind, setStudentKind] = useState<ExerciseKind>("HW");
 
   // Courseware-mode multi-select: sessionId -> CW/HW. `defaultKind` is applied
@@ -285,7 +285,7 @@ export function AssignDialog({
                 // The MC Drive viewer renders the page a touch wider than this
                 // narrow frame (and ignores #zoom). Render the iframe at 125%
                 // and scale it back to 80% so the viewer gets the extra width
-                // and the whole page shrinks to fit — no stray horizontal scroll.
+                // and the whole page shrinks to fit, no stray horizontal scroll.
                 <div
                   className="origin-top-left"
                   style={{

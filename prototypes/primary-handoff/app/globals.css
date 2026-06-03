@@ -12,7 +12,7 @@
   --color-ink-800: #1c1c22;
   --color-ink-900: #0e0e12;
 
-  /* MathConcept brand palette — red / white / black dominate, with yellow
+  /* MathConcept brand palette, red / white / black dominate, with yellow
    * and peach as warm accents. Mirrors mathconcept.com.mo. */
   --color-mc-red-50: #fff1f1;
   --color-mc-red-100: #ffdedd;
@@ -32,7 +32,7 @@
   --color-mc-peach-500: #ffbc7d;
   --color-mc-peach-600: #f59e4a;
 
-  /* Page surfaces — mostly white with a near-black text and hairline
+  /* Page surfaces, mostly white with a near-black text and hairline
    * gray borders. Cream is reserved for hero / banner moments. */
   --color-mc-paper: #ffffff;
   --color-mc-cream: #fef7e5;
@@ -72,7 +72,7 @@ body {
   border-radius: 10px;
 }
 
-/* MathConcept-aligned surface — white card on a near-black hairline
+/* MathConcept-aligned surface, white card on a near-black hairline
  * border. Used by the Sessions page. */
 .surface-mc {
   background: var(--color-mc-paper);

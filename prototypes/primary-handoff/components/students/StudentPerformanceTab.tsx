@@ -8,7 +8,7 @@ import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import type { Session } from "@/lib/types";
 
-/** Roll-up of tutor star ratings on past sessions — average, recent trend,
+/** Roll-up of tutor star ratings on past sessions, average, recent trend,
  *  and the rated-session list. "Assessment" is reserved for the prospect
  *  funnel (entry score, source, conversion); ongoing per-session ratings
  *  live here instead. */

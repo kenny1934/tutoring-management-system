@@ -2,7 +2,7 @@ import type { ChecktableAssignment, Session, Student } from "@/lib/types";
 
 export function getInitials(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean);
-  // Whitespace-split first (Romanised names → first letter of given + family).
+  // Whitespace-split first (Romanised names give the first letter of each part).
   // Chinese names like "陳浩賢" carry no spaces; fall back to the first two
   // characters of the name.
   if (parts.length > 1) {
@@ -55,7 +55,7 @@ export function getLastSession(
   );
 }
 
-/** Coarse human-readable "n days/weeks/months ago" — driven off DEMO_DAY so
+/** Coarse human-readable "n days/weeks/months ago", driven off DEMO_DAY so
  *  the prototype reads consistently regardless of wall-clock. */
 export function daysAgoLabel(iso: string, todayIso: string): string {
   const today = new Date(`${todayIso}T00:00:00+08:00`);

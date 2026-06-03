@@ -61,7 +61,7 @@ export function StudentsIndex() {
         <div>
           <h1 className="text-2xl font-semibold text-ink-900">Students</h1>
           <p className="text-sm text-ink-500 mt-1">
-            Pick a student to open their hub — sessions, checktables, comms,
+            Pick a student to open their hub. Sessions, checktables, comms, and
             history all live there.
           </p>
         </div>

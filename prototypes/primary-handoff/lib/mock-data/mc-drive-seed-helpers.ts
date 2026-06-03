@@ -18,7 +18,7 @@ export const PRIMARY_FAMILY = "SG (Letter Size)";
 export const SECONDARY_FAMILY = "Math 1-6 (A4)";
 
 // R / P / PS are render-only note codes (revision marker, project, problem-set
-// header) — not assignable worksheets. Mirrors PrimaryStore.nextSuggestion.
+// header), not assignable worksheets. Mirrors PrimaryStore.nextSuggestion.
 const NON_ASSIGNABLE = new Set(["R", "P", "PS"]);
 
 export type PlanItem = {
@@ -38,7 +38,7 @@ export function findTable(
   );
 }
 
-/** Flatten a checktable's assignable worksheets in chapter → series order. */
+/** Flatten a checktable's assignable worksheets in chapter, then series, order. */
 export function assignableItems(table: Checktable): PlanItem[] {
   const out: PlanItem[] = [];
   for (const sec of table.sections) {
@@ -99,9 +99,9 @@ export const studentPlans: Record<string, StudentPlan> = Object.fromEntries(
 // per cell, so a "unit" is just that pair.
 
 export type PlanUnit = {
-  /** Variant 1 — the classwork copy. */
+  /** Variant 1, the classwork copy. */
   cw: ChecktableItem;
-  /** Variant 2 — the matching homework copy. */
+  /** Variant 2, the matching homework copy. */
   hw: ChecktableItem;
   chapter: ChecktableChapter;
   sectionLabel: string;
@@ -110,7 +110,7 @@ export type PlanUnit = {
 };
 
 /** Pair up a checktable's worksheets into CW (variant 1) / HW (variant 2)
- *  units, in chapter → series order. Cells without a clean pair are skipped. */
+ *  units, in chapter then series order. Cells without a clean pair are skipped. */
 export function assignableUnits(table: Checktable): PlanUnit[] {
   const out: PlanUnit[] = [];
   for (const sec of table.sections) {
@@ -149,10 +149,10 @@ export const studentUnits: Record<string, PlanUnit[]> = Object.fromEntries(
  *  unit offsets) and the assignment seed (to layer history). */
 export type SeedPlan = { historyUnits: number; secondaryDone: number };
 export const SEED_PLAN: Record<string, SeedPlan> = {
-  "s-001": { historyUnits: 4, secondaryDone: 2 }, // P6 — mid-semester
-  "s-002": { historyUnits: 7, secondaryDone: 2 }, // P4 — heavy load, well ahead
-  "s-003": { historyUnits: 0, secondaryDone: 0 }, // P2 — just started
-  "s-004": { historyUnits: 1, secondaryDone: 1 }, // P1 — newer student
+  "s-001": { historyUnits: 4, secondaryDone: 2 }, // P6, mid-semester
+  "s-002": { historyUnits: 7, secondaryDone: 2 }, // P4, heavy load, well ahead
+  "s-003": { historyUnits: 0, secondaryDone: 0 }, // P2, just started
+  "s-004": { historyUnits: 1, secondaryDone: 1 }, // P1, newer student
 };
 
 /** Worksheet fields for a unit's CW (variant 1) copy. */

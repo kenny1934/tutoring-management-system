@@ -120,7 +120,7 @@ export function AssessmentKanban() {
 
   const visible = useMemo(() => {
     return items.filter((a) => {
-      // Source pill matches by category prefix — seed sources like
+      // Source pill matches by category prefix, seed sources like
       // "Referral · existing P5 family" should match the "Referral" pill.
       if (sourceFilter && !a.source.startsWith(sourceFilter)) return false;
       if (gradeFilter && a.childGrade !== gradeFilter) return false;
@@ -206,7 +206,7 @@ export function AssessmentKanban() {
           return (
             <section
               key={lane.id}
-              aria-label={`${lane.label} — ${cards.length} ${
+              aria-label={`${lane.label}, ${cards.length} ${
                 cards.length === 1 ? "assessment" : "assessments"
               }`}
               onDragOver={(e) => {

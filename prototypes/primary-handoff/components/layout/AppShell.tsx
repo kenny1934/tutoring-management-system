@@ -24,7 +24,7 @@ type NavItem = {
   href: string;
   label: string;
   Icon: typeof Home;
-  /** Accent dot color — drives the active-state indicator. */
+  /** Accent dot color, drives the active-state indicator. */
   dot: string;
 };
 

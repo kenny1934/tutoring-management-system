@@ -45,7 +45,7 @@ export function useChecktableEditor(
   const student = students.find((s) => s.id === studentId);
 
   // Open on the checktable the student is most active in (their narrative book),
-  // not just the first grade match — otherwise a merged MC Drive table could win.
+  // not just the first grade match, otherwise a merged MC Drive table could win.
   const initialChecktableId = useMemo(
     () => (student ? primaryChecktableId(studentId) : checktables[0]?.id ?? ""),
     [student, studentId, primaryChecktableId, checktables]
@@ -137,9 +137,9 @@ export function useChecktableEditor(
   const handleAssign = useCallback(
     (item: ChecktableItem, input: AssignInput) => {
       const existing = existingAssignmentFor(item);
-      // New assignment linked to a session → record it as a real session
+      // New assignment linked to a session: record it as a real session
       // exercise so it shows on the Sessions page too. recordExercise also
-      // writes the matching ChecktableAssignment (CW → done, HW → assigned).
+      // writes the matching ChecktableAssignment (CW as done, HW as assigned).
       if (!existing && input.sessionId && input.kind) {
         const { page_start, page_end } = parsePageRange(input.pageRange);
         recordExercise({

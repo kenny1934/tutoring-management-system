@@ -53,7 +53,7 @@ export type GenerateInput = {
 /** Mirrors CSM's weekly recurrence: starting at first_lesson_date (snapped
  *  to assigned_day), step one week at a time. A holiday-candidate emits a
  *  visible "skipped" row (date + holiday label) and the loop advances to
- *  the next week without consuming a lesson number — the actual lesson
+ *  the next week without consuming a lesson number, the actual lesson
  *  lands on the next available week. */
 export function generateSessions(
   input: GenerateInput

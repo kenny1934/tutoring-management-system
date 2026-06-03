@@ -1,7 +1,7 @@
 // Shared types across prototypes. Mock-only.
 //
 // CSM-aligned types (Session, Enrollment, SessionExercise, HomeworkCompletion,
-// SessionStatus) mirror the real backend schema in shape and field name —
+// SessionStatus) mirror the real backend schema in shape and field name:
 // snake_case, statuses string-enum'd from the same set CSM uses. Prototype-only
 // concepts (Checktable, Assessment, ParentContact, ChecktableAssignment) keep
 // the lighter camelCase since they don't have a CSM counterpart yet.
@@ -82,7 +82,7 @@ export type AssignTarget = {
   studentId: string;
   studentName: string;
   tutorName: string;
-  date: string; // session_date, YYYY-MM-DD — groups the multi-select list
+  date: string; // session_date, YYYY-MM-DD, groups the multi-select list
   dateLabel: string; // "Tue 19 May"
   timeLabel: string; // "4:00 pm"
 };
@@ -161,7 +161,7 @@ export const SessionStatus = {
 export type SessionStatusValue =
   (typeof SessionStatus)[keyof typeof SessionStatus];
 
-/** Mirrors CSM's enrollment_type — drives session generation rules.
+/** Mirrors CSM's enrollment_type, drives session generation rules.
  *  Assessment is a single trial-style lesson at a flat fee, tracked
  *  alongside the prospects funnel on the /assessments page. */
 export type EnrollmentType = "Regular" | "Assessment" | "One-Time";
@@ -169,10 +169,10 @@ export type EnrollmentType = "Regular" | "Assessment" | "One-Time";
 /** Mon=1 .. Sun=7, ISO weekday numbering. */
 export type WeekdayNum = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
-/** A student's enrollment with a tutor. One student → many enrollments;
- *  each enrollment → many sessions (typically lessons_paid of them). CSM
- *  has no "class" concept — an enrollment is just (student, tutor, term)
- *  with sessions slotted into recurring time_slots. */
+/** A student's enrollment with a tutor. A student can have many enrollments,
+ *  and each enrollment has many sessions (typically lessons_paid of them). CSM
+ *  has no "class" concept; an enrollment is just (student, tutor, term) with
+ *  sessions slotted into recurring time_slots. */
 export interface Enrollment {
   id: string;
   student_id: string;
@@ -204,7 +204,7 @@ export type EnrollmentPreviewRow =
     }
   | {
       kind: "skipped";
-      session_date: string; // YYYY-MM-DD — the holiday date itself
+      session_date: string; // YYYY-MM-DD, the holiday date itself
       holiday_label: string;
     };
 
@@ -228,7 +228,7 @@ export interface SessionExercise {
 /** A scheduled occurrence of an enrollment for a single student. Mirrors
  *  CSM's Session: one row per student per occurrence. Sessions sharing
  *  (tutor_id, session_date, start_time) form a single "class meeting"
- *  that the UI groups into one card — there is no class entity in CSM,
+ *  that the UI groups into one card, there is no class entity in CSM,
  *  so meeting identity is derived purely from who is teaching when. */
 export interface Session {
   id: string;
@@ -265,7 +265,7 @@ export interface Session {
 /** Record of homework being checked/submitted, mirroring CSM's
  *  HomeworkCompletion (webapp/frontend/types/index.ts:254+). In CSM the
  *  completion is typically recorded in the *next* session after the HW
- *  was assigned — current_session_id is where the check happened,
+ *  was assigned, current_session_id is where the check happened,
  *  session_exercise_id points back to the HW that was assigned. */
 export interface HomeworkCompletion {
   id: string;

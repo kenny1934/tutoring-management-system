@@ -88,7 +88,7 @@ export function parsePageRange(raw?: string): {
   return { page_start: start, page_end: end };
 }
 
-/** Inverse of parsePageRange — render a page-range for display. */
+/** Inverse of parsePageRange, render a page-range for display. */
 export function formatPageRange(
   page_start?: number,
   page_end?: number
@@ -117,8 +117,8 @@ export type NextSuggestion = {
 export type PendingHomeworkEntry = {
   exercise: SessionExercise;
   /** Completion row, if one has been recorded. The selector only returns
-   *  entries whose completion (if any) was made in the current session
-   *  — older completions made elsewhere are dropped so the row doesn't
+   *  entries whose completion (if any) was made in the current session.
+   *  Older completions made elsewhere are dropped so the row doesn't
    *  re-surface stale checks. */
   completion?: HomeworkCompletion;
 };
@@ -593,7 +593,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
           if (input.submitted) {
             return { ...a, status: "done", doneAt: nowIso };
           }
-          // Re-marked as "Not done" — flip the assignment back to
+          // Re-marked as "Not done", flip the assignment back to
           // "assigned" so the grid chip no longer reads as complete.
           return { ...a, status: "assigned", doneAt: undefined };
         })
@@ -751,19 +751,18 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
         const entries: PendingHomeworkEntry[] = [];
         for (const ex of session.hw) {
           const completion = completionsByExerciseId.get(ex.id);
-          // No completion at all → still pending, show it.
+          // No completion at all: still pending, show it.
           if (!completion) {
             entries.push({ exercise: ex });
             continue;
           }
-          // Completion was recorded in *this* current session → keep it
-          // visible so the tutor can see what they just marked (and
-          // re-mark if needed).
+          // Completion recorded in *this* current session: keep it visible so
+          // the tutor can see what they just marked (and re-mark if needed).
           if (completion.current_session_id === currentSessionId) {
             entries.push({ exercise: ex, completion });
           }
-          // Completion recorded in some other (later) session → suppress
-          // here; it belongs in that session's row.
+          // Completion recorded in some other (later) session: suppress here,
+          // it belongs in that session's row.
         }
         if (entries.length > 0) return { session, entries };
       }

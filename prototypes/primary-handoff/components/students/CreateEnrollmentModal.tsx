@@ -500,7 +500,7 @@ function FeeSummary({
         )}
         {fee.discount > fee.base + fee.regFee && (
           <div className="text-xs text-amber-700 mt-0.5">
-            Discount exceeds base — total clamps to HK$0
+            Discount exceeds base, total clamps to HK$0
           </div>
         )}
         {fee.regFee > 0 && (

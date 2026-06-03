@@ -9,10 +9,9 @@ export default function AssessmentsPage() {
           Assessment booking & follow-up
         </h1>
         <p className="text-sm text-ink-600 max-w-3xl">
-          Lifecycle board for prospective students going through an assessment.
-          Cards move left-to-right as the parent commits or drops out. Same
-          shape as CSM's Trial page but with assessment-specific fields:
-          assessed score, follow-up due date, conversion outcome.
+          Track prospective students through each assessment stage. Move a card
+          right as the parent commits, or out when they drop. Each card carries
+          the assessed score, follow-up date, and conversion outcome.
         </p>
       </div>
       <Suspense fallback={null}>

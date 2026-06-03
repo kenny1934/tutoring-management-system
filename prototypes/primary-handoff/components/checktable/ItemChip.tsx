@@ -10,7 +10,7 @@ import type {
 type Props = {
   item: ChecktableItem;
   status?: AssignmentStatus | null;
-  /** CW/HW this item was recorded as, if known — drives the colored category
+  /** CW/HW this item was recorded as, if known, drives the colored category
    *  stripe (rose = classwork, blue = homework). */
   kind?: ExerciseKind;
   isSelected: boolean;

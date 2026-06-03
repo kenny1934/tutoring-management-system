@@ -128,7 +128,7 @@ export function SessionsApp() {
     initialNote?: string;
   } | null>(null);
 
-  // Open the worksheet modal (preview + page range) — either to log a
+  // Open the worksheet modal (preview + page range), either to log a
   // suggestion or to edit a logged exercise. For edits, resolve the logged
   // exercise's item through itemMeta to recover its PDF; fall back to a stub.
   const openWorksheet = (
@@ -240,7 +240,7 @@ export function SessionsApp() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [sessionState]);
 
-  // Distinct statuses present in the seed — keeps the filter dropdown tight
+  // Distinct statuses present in the seed, keeps the filter dropdown tight
   // and only shows options the user can actually pick.
   const statusOptions = useMemo<SessionStatusValue[]>(() => {
     const set = new Set<SessionStatusValue>();
@@ -857,7 +857,7 @@ function StudentRow({
   );
 }
 
-/** Single-element status indicator — replaces both the old colored text-only
+/** Single-element status indicator, replaces both the old colored text-only
  *  status and the 40px-wide right-edge stripe. One coloured pill carries
  *  state for the whole row. */
 function StatusPill({
@@ -910,7 +910,7 @@ function ActionButtonsRow({
       : SessionStatus.ATTENDED;
 
   // A row is "finalized" once attendance has been marked. Offer a reset so a
-  // mis-tap can be corrected (returns to SCHEDULED → re-opens the picker).
+  // mis-tap can be corrected (returns to SCHEDULED, re-opening the picker).
   const canResetAttendance =
     session.session_status === SessionStatus.ATTENDED ||
     session.session_status === SessionStatus.ATTENDED_MAKEUP ||
@@ -971,7 +971,7 @@ function ActionButtonsRow({
   );
 }
 
-/** Segmented attendance picker — replaces three colored buttons (Attended /
+/** Segmented attendance picker, replaces three colored buttons (Attended /
  *  No show / Can't attend ▾) with one quiet inline-flex group. State colour
  *  shows up only after a choice is made, via the row's status pill. */
 function AttendancePicker({
@@ -1191,9 +1191,9 @@ function PreviousHwChoiceButtons({
   selected: PreviousHwChoice | null;
   onMark: (choice: PreviousHwChoice) => void;
 }) {
-  // Icon-only segmented control — labels live in the title for screen
-  // readers / hover. The three meanings (✓ ~ ✗) read well enough as glyphs
-  // when sitting next to a PDF chip.
+  // Icon-only segmented control; labels live in the title for screen readers
+  // and hover. The three meanings (done, partial, not done) read well enough
+  // as glyphs when sitting next to a PDF chip.
   const options: {
     id: PreviousHwChoice;
     label: string;
@@ -1259,7 +1259,7 @@ function ExerciseRow({
   /** Next worksheet to suggest for this row's kind, or null when the book is
    *  covered. */
   nextSuggestion?: NextSuggestion | null;
-  /** Accept the suggestion → log it as a real CW/HW for this session. */
+  /** Accept the suggestion, logging it as a real CW/HW for this session. */
   onAcceptSuggestion?: (item: ChecktableItem) => void;
   /** Open the worksheet modal (preview + page range) to log or edit. */
   onOpenWorksheet?: OpenWorksheet;
@@ -1331,7 +1331,7 @@ function ExerciseRow({
         })}
 
         {/* The browse-everything door: opens the searchable picker (any
-         *  worksheet, page range, notes) — distinct from the one-tap
+         *  worksheet, page range, notes), distinct from the one-tap
          *  suggestion. Plan-ahead assigning lives in the checktable. */}
         <button
           onClick={onOpen}
@@ -1343,7 +1343,7 @@ function ExerciseRow({
           {empty && <span>browse</span>}
         </button>
 
-        {/* Suggestion. Expanded: a labeled split-button — a "Suggested: CODE"
+        {/* Suggestion. Expanded: a labeled split-button, a "Suggested: CODE"
          *  read-out with explicit Log and Preview actions (no guessing that
          *  tapping the code logs it). Collapsed: a lone lightbulb to re-open. */}
         {nextSuggestion &&
@@ -1416,7 +1416,7 @@ function CantAttendMenu({
   const [open, setOpen] = useState(false);
   // Portal-rendered, fixed-positioned popover. Rendering into <body> is the
   // only way to escape ancestor CSS opacity (e.g. Pending/Booked Make-up
-  // tints) which would otherwise cascade onto the menu — opacity cannot
+  // tints) which would otherwise cascade onto the menu, opacity cannot
   // be restored from a descendant. It also frees the popover from any
   // overflow-hidden clipping on the meeting card.
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);

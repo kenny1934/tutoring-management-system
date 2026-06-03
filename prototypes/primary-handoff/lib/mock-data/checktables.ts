@@ -1,4 +1,4 @@
-// ARCHIVED — these hand-coded textbooks are no longer wired into the app.
+// ARCHIVED, these hand-coded textbooks are no longer wired into the app.
 // The store now uses only the real MC Drive worksheet checktables
 // (mock-data/mc-drive-checktables.ts). Kept for reference only; nothing
 // imports this file.
@@ -26,7 +26,7 @@ const SERIES = [
   { id: "extra", label: "Extra", hint: "Numbered supplementary exercises" },
 ];
 
-// 現代小學中文版 六年級 V12 (P6) — transcribed faithfully but simplified for
+// 現代小學中文版 六年級 V12 (P6), transcribed faithfully but simplified for
 // prototype rendering. Real production data would be richer (e.g., M1-6_Rev
 // cells row-spanning chapter groups, PS/Extra grouped by topic).
 const p6ChineseV12: Checktable = {

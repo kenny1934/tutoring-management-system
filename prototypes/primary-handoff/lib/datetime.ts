@@ -4,7 +4,7 @@
  *  an explicit `+08:00` offset and all date-only values (YYYY-MM-DD) are
  *  HKT calendar days. Mixing those with the host JS Date's local-timezone
  *  methods (getDay/setDate/toISOString) silently drifts by a day when a
- *  reviewer opens the prototype outside HK — see audit B2-B4. These helpers
+ *  reviewer opens the prototype outside HK, see audit B2-B4. These helpers
  *  do all arithmetic in pure UTC and only convert at the display boundary.
  */
 

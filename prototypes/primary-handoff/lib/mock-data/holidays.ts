@@ -1,4 +1,4 @@
-/** Mock holiday seed — sourced from CSM's production `holidays` table
+/** Mock holiday seed, sourced from CSM's production `holidays` table
  *  (GET /api/holidays?from_date=2026-01-01&to_date=2026-12-31, May 2026).
  *  Includes both statutory HK holidays and MathConcept's own non-teaching
  *  days. The create-enrollment preview consults this list to skip
