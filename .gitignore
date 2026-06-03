@@ -133,3 +133,7 @@ quarterly_report_*.csv
 # Summer course private data (Google Sheet exports, Apps Script)
 docs/summer-course/*.xlsx
 docs/summer-course/*.gs
+
+# Local-only handoff docs (kept out of version control)
+docs/tutor-revenue-calculation.md
+docs/tutor-revenue-calculation.html
