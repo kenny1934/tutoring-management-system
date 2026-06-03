@@ -97,6 +97,20 @@ export function useChecktableEditor(
     return map;
   }, [assignments, studentId, checktableId]);
 
+  const kindByItemId = useMemo(() => {
+    const map: Record<string, ExerciseKind | undefined> = {};
+    for (const a of assignments) {
+      if (
+        a.studentId === studentId &&
+        a.checktableId === checktableId &&
+        a.kind
+      ) {
+        map[a.itemId] = a.kind;
+      }
+    }
+    return map;
+  }, [assignments, studentId, checktableId]);
+
   const noteByItemId = useMemo(() => {
     const map: Record<string, string | undefined> = {};
     for (const a of assignments) {
@@ -249,6 +263,7 @@ export function useChecktableEditor(
     activeItem,
     setActiveItem,
     statusByItemId,
+    kindByItemId,
     noteByItemId,
     openAssignmentCount,
     upcomingSessions,

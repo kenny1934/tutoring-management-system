@@ -1,5 +1,13 @@
-import type { ChecktableAssignment, Session } from "../types";
-import { studentPlans, SEED_PLAN } from "./mc-drive-seed-helpers";
+import type { ChecktableAssignment, ExerciseKind, Session } from "../types";
+import {
+  studentPlans,
+  SEED_PLAN,
+  STUDENT_GRADES,
+  PRIMARY_FAMILY,
+  SECONDARY_FAMILY,
+  findTable,
+  assignableUnits,
+} from "./mc-drive-seed-helpers";
 import { sessions } from "./sessions";
 import { seedHomeworkCompletions } from "./homework-completions";
 
@@ -49,6 +57,22 @@ const completionByExerciseId = new Map(
   seedHomeworkCompletions.map((c) => [c.session_exercise_id, c])
 );
 
+// item id -> CW/HW, derived from each book's variant pairs (variant 1 = CW,
+// variant 2 = HW). Used to tag history assignments — the session record already
+// knows its own kind — so the Checktables grid stripes (and its legend) reflect
+// real classwork vs homework coverage, not just done/assigned.
+const kindByItemId = new Map<string, ExerciseKind>();
+for (const grade of new Set(Object.values(STUDENT_GRADES))) {
+  for (const family of [PRIMARY_FAMILY, SECONDARY_FAMILY]) {
+    const table = findTable(grade, family);
+    if (!table) continue;
+    for (const unit of assignableUnits(table)) {
+      kindByItemId.set(unit.cw.id, "CW");
+      kindByItemId.set(unit.hw.id, "HW");
+    }
+  }
+}
+
 // --- 1. replay the session record into assignments -------------------------
 
 const out: ChecktableAssignment[] = [];
@@ -96,6 +120,7 @@ for (const session of orderedSessions) {
       checktableId,
       itemId: ex.item_id,
       status: done ? "done" : "assigned",
+      kind,
       assignedAt: iso,
       doneAt: done ? completion?.checked_at ?? iso : undefined,
       pageRange: formatPageRange(ex.page_start, ex.page_end),
@@ -156,6 +181,7 @@ function addHistory(studentId: string, hist: History) {
         checktableId: pi.checktableId,
         itemId: pi.item.id,
         status: "done",
+        kind: kindByItemId.get(pi.item.id),
         assignedAt: di.iso,
         doneAt: di.iso,
         sessionLabel: di.label,

@@ -490,10 +490,12 @@ function CoursewarePicker({
               key={k}
               type="button"
               onClick={() => onDefaultKind(k)}
-              className={`px-2.5 py-0.5 rounded-md ${
+              className={`px-2.5 py-0.5 rounded-md font-semibold ${
                 defaultKind === k
-                  ? "bg-ink-800 text-white"
-                  : "text-ink-600 hover:bg-ink-100"
+                  ? k === "CW"
+                    ? "bg-mc-red-100 text-mc-red-700"
+                    : "bg-blue-100 text-blue-700"
+                  : "text-ink-400 hover:bg-ink-100"
               }`}
             >
               {k}
@@ -651,10 +653,12 @@ function StudentControls({
                   key={k}
                   type="button"
                   onClick={() => onKind(k)}
-                  className={`px-2.5 py-0.5 rounded-md ${
+                  className={`px-2.5 py-0.5 rounded-md font-semibold ${
                     kind === k
-                      ? "bg-ink-800 text-white"
-                      : "text-ink-600 hover:bg-ink-100"
+                      ? k === "CW"
+                        ? "bg-mc-red-100 text-mc-red-700"
+                        : "bg-blue-100 text-blue-700"
+                      : "text-ink-400 hover:bg-ink-100"
                   }`}
                 >
                   {k}

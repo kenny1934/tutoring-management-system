@@ -1,11 +1,18 @@
 "use client";
 
 import { Check } from "lucide-react";
-import type { AssignmentStatus, ChecktableItem } from "@/lib/types";
+import type {
+  AssignmentStatus,
+  ChecktableItem,
+  ExerciseKind,
+} from "@/lib/types";
 
 type Props = {
   item: ChecktableItem;
   status?: AssignmentStatus | null;
+  /** CW/HW this item was recorded as, if known — drives the colored category
+   *  stripe (rose = classwork, blue = homework). */
+  kind?: ExerciseKind;
   isSelected: boolean;
   tutorNote?: string;
   onClick: () => void;
@@ -14,6 +21,7 @@ type Props = {
 export function ItemChip({
   item,
   status,
+  kind,
   isSelected,
   tutorNote,
   onClick,
@@ -29,6 +37,7 @@ export function ItemChip({
   const isNote = ["R", "P", "PS"].includes(item.code);
   const title = [
     item.code,
+    kind ? (kind === "CW" ? "Classwork" : "Homework") : null,
     tutorNote ? `Note: ${tutorNote}` : null,
     item.pdfPath,
   ]
@@ -39,10 +48,20 @@ export function ItemChip({
     <button
       type="button"
       onClick={onClick}
-      className="chip relative"
+      className="chip relative overflow-hidden"
       data-state={state}
       title={title}
     >
+      {/* Category stripe: rose = classwork, blue = homework. Sits on the left
+       *  edge so it reads even when the chip's fill flips to done/selected. */}
+      {kind && (
+        <span
+          aria-hidden
+          className={`absolute left-0 top-0 bottom-0 w-1 ${
+            kind === "CW" ? "bg-rose-500" : "bg-blue-500"
+          }`}
+        />
+      )}
       {state === "done" && <Check className="h-3 w-3" strokeWidth={3} />}
       <span className={isNote ? "italic text-ink-400" : ""}>{item.code}</span>
       {tutorNote && (

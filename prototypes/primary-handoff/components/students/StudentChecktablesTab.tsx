@@ -80,6 +80,7 @@ export function StudentChecktablesTab() {
       <ChecktableGrid
         table={table}
         statusByItemId={editor.statusByItemId}
+        kindByItemId={editor.kindByItemId}
         noteByItemId={editor.noteByItemId}
         selectedItemIds={editor.selectedIds}
         statusFilter={gridStatus}

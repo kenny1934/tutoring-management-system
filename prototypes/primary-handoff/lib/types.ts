@@ -95,6 +95,9 @@ export type ChecktableAssignment = {
   checktableId: string;
   itemId: string;
   status: AssignmentStatus;
+  /** CW/HW this item was recorded as, when known (set via a session record).
+   *  Lets the grid show classwork vs homework, not just assigned vs done. */
+  kind?: ExerciseKind;
   assignedAt: string;
   doneAt?: string;
   pageRange?: string;

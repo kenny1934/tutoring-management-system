@@ -414,6 +414,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
             ? {
                 ...a,
                 status,
+                kind: input.kind,
                 pageRange: pageRangeStr || a.pageRange,
                 tutorNote: input.remarks ?? a.tutorNote,
                 sessionLabel: label || a.sessionLabel,
@@ -430,6 +431,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
         checktableId,
         itemId,
         status,
+        kind: input.kind,
         assignedAt: nowIso,
         doneAt: status === "done" ? nowIso : undefined,
         pageRange: pageRangeStr || undefined,

@@ -5,6 +5,7 @@ import type {
   AssignmentStatus,
   Checktable,
   ChecktableItem,
+  ExerciseKind,
 } from "@/lib/types";
 import { ItemChip } from "./ItemChip";
 
@@ -14,6 +15,7 @@ export type GridSectionFilter = "all" | "supp" | string;
 type Props = {
   table: Checktable;
   statusByItemId: Record<string, AssignmentStatus | null>;
+  kindByItemId?: Record<string, ExerciseKind | undefined>;
   noteByItemId?: Record<string, string | undefined>;
   selectedItemIds: Set<string>;
   statusFilter?: GridStatusFilter;
@@ -36,6 +38,7 @@ function itemMatchesStatus(
 export function ChecktableGrid({
   table,
   statusByItemId,
+  kindByItemId,
   noteByItemId,
   selectedItemIds,
   statusFilter = "all",
@@ -109,6 +112,7 @@ export function ChecktableGrid({
                   table={table}
                   section={section}
                   statusByItemId={statusByItemId}
+                  kindByItemId={kindByItemId}
                   noteByItemId={noteByItemId}
                   selectedItemIds={selectedItemIds}
                   statusFilter={statusFilter}
@@ -131,6 +135,7 @@ export function ChecktableGrid({
                 key={item.id}
                 item={item}
                 status={statusByItemId[item.id] ?? null}
+                kind={kindByItemId?.[item.id]}
                 tutorNote={noteByItemId?.[item.id]}
                 isSelected={selectedItemIds.has(item.id)}
                 onClick={() => onItemClick(item)}
@@ -153,6 +158,7 @@ function SectionRows({
   table,
   section,
   statusByItemId,
+  kindByItemId,
   noteByItemId,
   selectedItemIds,
   statusFilter,
@@ -161,6 +167,7 @@ function SectionRows({
   table: Checktable;
   section: Checktable["sections"][number];
   statusByItemId: Record<string, AssignmentStatus | null>;
+  kindByItemId?: Record<string, ExerciseKind | undefined>;
   noteByItemId?: Record<string, string | undefined>;
   selectedItemIds: Set<string>;
   statusFilter: GridStatusFilter;
@@ -223,6 +230,7 @@ function SectionRows({
                         key={item.id}
                         item={item}
                         status={statusByItemId[item.id] ?? null}
+                        kind={kindByItemId?.[item.id]}
                         tutorNote={noteByItemId?.[item.id]}
                         isSelected={selectedItemIds.has(item.id)}
                         onClick={() => onItemClick(item)}

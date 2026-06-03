@@ -15,6 +15,8 @@ import {
 } from "@/components/checktable/AssignDialog";
 
 const EMPTY_SELECTION = new Set<string>();
+// Neutral status map: courseware chips carry no per-student progress.
+const EMPTY_STATUS: Record<string, AssignmentStatus | null> = {};
 
 /** Build a search-filtered copy of a checktable, keeping only items whose code
  *  or chapter title matches the query. Empty rows/sections are dropped so the
@@ -74,7 +76,7 @@ function shortLevel(levelLabel: string): string {
 }
 
 export function CoursewareBrowser() {
-  const { checktables, assignments, assignableSessions, recordExercise } =
+  const { checktables, assignableSessions, recordExercise } =
     usePrimaryStore();
 
   const mcTables = useMemo(
@@ -129,20 +131,10 @@ export function CoursewareBrowser() {
     [table, search]
   );
 
-  // Mark already-assigned/done worksheets across all students for the active
-  // checktable, so browsed items aren't shown as if untouched. Done wins over
-  // assigned when an item appears in more than one student's checktable.
-  const statusByItemId = useMemo(() => {
-    const map: Record<string, AssignmentStatus | null> = {};
-    if (!table) return map;
-    for (const a of assignments) {
-      if (a.checktableId !== table.id) continue;
-      if (a.status === "done" || map[a.itemId] == null) {
-        map[a.itemId] = a.status;
-      }
-    }
-    return map;
-  }, [assignments, table]);
+  // Courseware is a student-less "pick material to assign" view, so the grid
+  // deliberately shows no per-student progress: done/assigned (and CW/HW) are
+  // per-student concepts that read as ambiguous here ("done by whom?"). Chips
+  // stay neutral; selection/coverage state lives on each student's checktable.
 
   const handleAssignSessions = (
     picks: SessionPick[],
@@ -283,7 +275,7 @@ export function CoursewareBrowser() {
 
           <ChecktableGrid
             table={filteredTable ?? table}
-            statusByItemId={statusByItemId}
+            statusByItemId={EMPTY_STATUS}
             selectedItemIds={EMPTY_SELECTION}
             statusFilter="all"
             sectionFilter="all"

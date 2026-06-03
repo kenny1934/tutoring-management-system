@@ -22,6 +22,8 @@ import {
   Lightbulb,
   Eye,
   RotateCcw,
+  PenTool,
+  Home as HomeIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -1256,9 +1258,23 @@ function ExerciseRow({
   const showSuggestion = !!nextSuggestion && revealed;
 
   return (
-    <div className="flex items-start gap-2 min-w-0">
-      {/* 22px wide so CW + HW align vertically across exercise rows. */}
-      <span className="w-8 shrink-0 text-[10px] font-semibold text-ink-400 tracking-wide pt-0.5 text-right pr-1">
+    <div className="flex items-baseline gap-2 min-w-0">
+      {/* Icon + color carry the CW/HW distinction (rose PenTool = classwork,
+       *  blue Home = homework), matching the record/worksheet modals so the
+       *  two rows are tellable apart at a glance, not just by reading 2 chars.
+       *  Row is items-baseline so this label's text lines up with the chip
+       *  text regardless of how tall the chips (with their buttons) get. */}
+      <span
+        className={`w-8 shrink-0 inline-flex items-center justify-end gap-0.5 text-[10px] font-semibold tracking-wide pr-1 ${
+          kind === "CW" ? "text-rose-600" : "text-blue-600"
+        }`}
+        title={kind === "CW" ? "Classwork" : "Homework"}
+      >
+        {kind === "CW" ? (
+          <PenTool className="h-2.5 w-2.5" />
+        ) : (
+          <HomeIcon className="h-2.5 w-2.5" />
+        )}
         {kind}
       </span>
       <div className="flex flex-wrap items-center gap-1 min-w-0">
