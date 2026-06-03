@@ -32,6 +32,10 @@ export type ChecktableItem = {
 
 export type ChecktableCell = {
   items: ChecktableItem[];
+  /** Learning objective for this set (the cell's items share one objective,
+   *  e.g. SG101A1 + SG101A2). Populated from the courseware-objectives overlay
+   *  at load time; absent until an objective is authored for the set. */
+  objective?: string;
 };
 
 export type ChecktableChapter = {

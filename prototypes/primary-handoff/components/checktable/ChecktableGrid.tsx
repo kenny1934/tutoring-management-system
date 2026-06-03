@@ -232,6 +232,7 @@ function SectionRows({
                         status={statusByItemId[item.id] ?? null}
                         kind={kindByItemId?.[item.id]}
                         tutorNote={noteByItemId?.[item.id]}
+                        objective={cell?.objective}
                         isSelected={selectedItemIds.has(item.id)}
                         onClick={() => onItemClick(item)}
                       />

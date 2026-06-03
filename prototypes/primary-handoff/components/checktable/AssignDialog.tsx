@@ -10,6 +10,7 @@ import {
   CalendarClock,
   AlertTriangle,
   ExternalLink,
+  Target,
 } from "lucide-react";
 import type {
   AssignTarget,
@@ -31,6 +32,9 @@ export type SessionPick = {
 type Props = {
   item: ChecktableItem;
   basePath: string;
+  /** Learning objective for the set this worksheet belongs to, shown as a band
+   *  under the header so the tutor sees what it teaches before assigning. */
+  objective?: string;
   onClose: () => void;
 
   // --- Student flow (per-student checktable). Provide `student` + `onAssign`. ---
@@ -68,6 +72,7 @@ export function AssignDialog({
   item,
   student,
   basePath,
+  objective,
   existingAssignment,
   upcomingSessions = [],
   openAssignmentCount = 0,
@@ -250,6 +255,18 @@ export function AssignDialog({
             <X className="h-5 w-5" />
           </button>
         </header>
+
+        {objective && (
+          <div className="flex items-start gap-2 border-b border-ink-200 bg-ink-50 px-5 py-2.5 text-sm text-ink-700">
+            <Target className="h-4 w-4 mt-0.5 shrink-0 text-ink-500" />
+            <div>
+              <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+                Learning objective
+              </span>
+              <div className="text-ink-800">{objective}</div>
+            </div>
+          </div>
+        )}
 
         {showLowLoadWarning && (
           <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-xs text-amber-800">

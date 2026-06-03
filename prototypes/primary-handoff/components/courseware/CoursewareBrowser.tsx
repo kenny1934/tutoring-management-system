@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Library, CheckCircle2, Search, X } from "lucide-react";
+import {
+  Library,
+  CheckCircle2,
+  Search,
+  X,
+  LayoutGrid,
+  ListTree,
+} from "lucide-react";
 import type {
   AssignmentStatus,
   Checktable,
@@ -9,10 +16,12 @@ import type {
 } from "@/lib/types";
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
+import { CoursewareSyllabus } from "@/components/courseware/CoursewareSyllabus";
 import {
   AssignDialog,
   type SessionPick,
 } from "@/components/checktable/AssignDialog";
+import { objectiveForItemCode } from "@/lib/mock-data/courseware-objectives";
 
 const EMPTY_SELECTION = new Set<string>();
 // Neutral status map: courseware chips carry no per-student progress.
@@ -35,10 +44,15 @@ function filterTableBySearch(table: Checktable, query: string): Checktable {
         .map((ch) => {
           const cells: typeof ch.cells = {};
           for (const sId of Object.keys(ch.cells)) {
-            const items = ch.cells[sId].items.filter((it) =>
-              matchItem(it, ch.title)
-            );
-            if (items.length > 0) cells[sId] = { items };
+            const cell = ch.cells[sId];
+            // An objective match keeps the whole set, so searching by what a
+            // worksheet teaches (not just its code) surfaces it.
+            const objMatch = cell.objective?.toLowerCase().includes(q) ?? false;
+            const items = objMatch
+              ? cell.items
+              : cell.items.filter((it) => matchItem(it, ch.title));
+            if (items.length > 0)
+              cells[sId] = { items, objective: cell.objective };
           }
           return Object.keys(cells).length > 0 ? { ...ch, cells } : null;
         })
@@ -124,6 +138,10 @@ export function CoursewareBrowser() {
   const targets = useMemo(() => assignableSessions(), [assignableSessions]);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  // Grid = dense matrix for scanning across variants; Syllabus = objective-led
+  // reading view. Default to grid so every family looks complete even before
+  // objectives are authored.
+  const [view, setView] = useState<"grid" | "syllabus">("grid");
 
   // Filtered view of the active checktable for the code/chapter search.
   const filteredTable = useMemo(
@@ -251,36 +269,73 @@ export function CoursewareBrowser() {
             session.
           </p>
 
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by code or chapter"
-              aria-label="Search worksheets by code or chapter"
-              className="w-full rounded-md border border-ink-200 pl-9 pr-9 py-2 text-sm focus:outline-none focus:border-ink-400"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-800 p-0.5"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by code, chapter, or objective"
+                aria-label="Search worksheets by code, chapter, or objective"
+                className="w-full rounded-md border border-ink-200 pl-9 pr-9 py-2 text-sm focus:outline-none focus:border-ink-400"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-800 p-0.5"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <div
+              role="group"
+              aria-label="View"
+              className="inline-flex shrink-0 rounded-md border border-ink-200 bg-white p-0.5 text-sm"
+            >
+              {(
+                [
+                  { id: "grid", label: "Grid", Icon: LayoutGrid },
+                  { id: "syllabus", label: "Syllabus", Icon: ListTree },
+                ] as const
+              ).map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setView(id)}
+                  aria-pressed={view === id}
+                  className={`flex items-center gap-1.5 rounded px-2.5 py-1 font-medium transition-colors ${
+                    view === id
+                      ? "bg-ink-800 text-white"
+                      : "text-ink-600 hover:bg-ink-100"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <ChecktableGrid
-            table={filteredTable ?? table}
-            statusByItemId={EMPTY_STATUS}
-            selectedItemIds={EMPTY_SELECTION}
-            statusFilter="all"
-            sectionFilter="all"
-            onItemClick={setActiveItem}
-          />
+          {view === "grid" ? (
+            <ChecktableGrid
+              table={filteredTable ?? table}
+              statusByItemId={EMPTY_STATUS}
+              selectedItemIds={EMPTY_SELECTION}
+              statusFilter="all"
+              sectionFilter="all"
+              onItemClick={setActiveItem}
+            />
+          ) : (
+            <CoursewareSyllabus
+              table={filteredTable ?? table}
+              onItemClick={setActiveItem}
+            />
+          )}
         </>
       ) : (
         <div className="surface px-4 py-10 text-center text-sm text-ink-500">
@@ -292,6 +347,7 @@ export function CoursewareBrowser() {
         <AssignDialog
           item={activeItem}
           basePath={table.basePath}
+          objective={objectiveForItemCode(activeItem.code)}
           assignTargets={targets}
           onClose={() => setActiveItem(null)}
           onAssignSessions={handleAssignSessions}

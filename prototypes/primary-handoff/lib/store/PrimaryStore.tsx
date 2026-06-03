@@ -33,6 +33,7 @@ import { generateSessions } from "@/lib/enrollment-utils";
 import { bookGrade } from "@/lib/grade";
 import { students as seedStudents } from "@/lib/mock-data/students";
 import { mcDriveChecktables } from "@/lib/mock-data/mc-drive-checktables";
+import { attachObjectives } from "@/lib/mock-data/courseware-objectives";
 import { assignableUnits } from "@/lib/mock-data/mc-drive-seed-helpers";
 import { seedAssignments } from "@/lib/mock-data/assignments";
 import {
@@ -313,7 +314,9 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   // carry source:"mc-drive" so they show on the Courseware page and only
   // surface in a student's book dropdown when grade-appropriate. (The old
   // hand-coded textbooks in mock-data/checktables.ts are archived/unused.)
-  const [checktables] = useState<Checktable[]>(() => mcDriveChecktables);
+  const [checktables] = useState<Checktable[]>(() =>
+    attachObjectives(mcDriveChecktables)
+  );
   const [sessions, setSessions] = useState<Session[]>(seedSessions);
   const [assignments, setAssignments] =
     useState<ChecktableAssignment[]>(seedAssignments);

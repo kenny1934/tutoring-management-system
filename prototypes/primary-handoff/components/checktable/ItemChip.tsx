@@ -15,6 +15,9 @@ type Props = {
   kind?: ExerciseKind;
   isSelected: boolean;
   tutorNote?: string;
+  /** Learning objective for the set this item belongs to; surfaced in the
+   *  hover tooltip so it stays reachable in the compact grid view. */
+  objective?: string;
   onClick: () => void;
 };
 
@@ -24,6 +27,7 @@ export function ItemChip({
   kind,
   isSelected,
   tutorNote,
+  objective,
   onClick,
 }: Props) {
   const state = isSelected
@@ -37,6 +41,7 @@ export function ItemChip({
   const isNote = ["R", "P", "PS"].includes(item.code);
   const title = [
     item.code,
+    objective ? `Objective: ${objective}` : null,
     kind ? (kind === "CW" ? "Classwork" : "Homework") : null,
     tutorNote ? `Note: ${tutorNote}` : null,
     item.pdfPath,
