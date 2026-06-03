@@ -30,6 +30,7 @@ import type {
 } from "@/lib/types";
 import { SessionStatus } from "@/lib/types";
 import { generateSessions } from "@/lib/enrollment-utils";
+import { bookGrade } from "@/lib/grade";
 import { students as seedStudents } from "@/lib/mock-data/students";
 import { mcDriveChecktables } from "@/lib/mock-data/mc-drive-checktables";
 import { assignableUnits } from "@/lib/mock-data/mc-drive-seed-helpers";
@@ -821,7 +822,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       // grade-appropriate book rather than P1.
       const student = students.find((s) => s.id === studentId);
       const gradeMatch = student
-        ? checktables.find((c) => c.grade === student.grade)
+        ? checktables.find((c) => c.grade === bookGrade(student.grade))
         : undefined;
       return gradeMatch?.id ?? checktables[0].id;
     },

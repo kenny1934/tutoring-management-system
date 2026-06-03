@@ -14,8 +14,8 @@ type Props = {
   onSaved?: (studentId: string) => void;
 };
 
-// Primary-handoff grades. SG/Math/PS run P1–P6; Kindergarten is its own band.
-const GRADES = ["K", "P1", "P2", "P3", "P4", "P5", "P6"] as const;
+// Primary-handoff grades. SG/Math/PS run P1–P6; Kindergarten splits into K1–K3.
+const GRADES = ["K1", "K2", "K3", "P1", "P2", "P3", "P4", "P5", "P6"] as const;
 const HW_LOADS: HWLoad[] = ["NO", "Little", "Normal", "Many"];
 
 export function StudentFormModal({ student, onClose, onSaved }: Props) {
@@ -196,11 +196,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-xs font-medium text-ink-700 mb-1">
-        {label}
-        {hint && <span className="font-normal text-ink-400"> · {hint}</span>}
-      </span>
+      <span className="block text-xs font-medium text-ink-700 mb-1">{label}</span>
       {children}
+      {hint && <span className="mt-1 block text-xs text-ink-400">{hint}</span>}
     </label>
   );
 }

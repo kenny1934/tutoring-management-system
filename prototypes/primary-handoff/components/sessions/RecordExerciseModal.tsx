@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useModalA11y } from "@/lib/useModalA11y";
+import { bookGrade } from "@/lib/grade";
 import {
   X,
   PenTool,
@@ -104,7 +105,7 @@ export function RecordExerciseModal({
   // the first one (CSM has no "primary checktable" link on the student
   // record itself; the prototype just heuristics on grade text match).
   const initialChecktableId = useMemo(() => {
-    const match = checktables.find((c) => c.grade === student.grade);
+    const match = checktables.find((c) => c.grade === bookGrade(student.grade));
     return (match ?? checktables[0]).id;
   }, [checktables, student.grade]);
   const [checktableId, setChecktableId] = useState(initialChecktableId);

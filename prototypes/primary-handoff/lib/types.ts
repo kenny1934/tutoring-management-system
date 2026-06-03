@@ -116,6 +116,8 @@ export type Assessment = {
   id: string;
   childName: string;
   childGrade: string;
+  /** School the child currently attends (as given at booking). */
+  childSchool?: string;
   guardianName: string;
   guardianContact: string;
   bookedFor: string; // ISO

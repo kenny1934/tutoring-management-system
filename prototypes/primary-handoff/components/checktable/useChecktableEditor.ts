@@ -10,6 +10,7 @@ import type {
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { newId } from "@/lib/id";
+import { bookGrade } from "@/lib/grade";
 
 type AssignInput = {
   pageRange?: string;
@@ -59,7 +60,9 @@ export function useChecktableEditor(
   // student sees Level 5 MC Drive material, not every level). The current
   // selection is always included so the <select> can render its own value.
   const bookOptions = useMemo(() => {
-    const opts = checktables.filter((c) => c.grade === student?.grade);
+    const opts = checktables.filter(
+      (c) => student && c.grade === bookGrade(student.grade)
+    );
     if (!opts.some((c) => c.id === checktableId)) {
       const current = checktables.find((c) => c.id === checktableId);
       if (current) opts.unshift(current);

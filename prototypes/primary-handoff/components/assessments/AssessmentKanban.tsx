@@ -2,9 +2,12 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   CalendarDays,
   GraduationCap,
+  School,
+  IdCard,
   Phone,
   Quote,
   TrendingUp,
@@ -14,7 +17,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import type { Assessment, AssessmentStage } from "@/lib/types";
+import type { Assessment, AssessmentStage, Student } from "@/lib/types";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 
 const LANES: { id: AssessmentStage; label: string; hint: string }[] = [
@@ -71,7 +74,11 @@ const SOURCES = ["Referral", "Walk-in", "Online"] as const;
 const GRADES = ["P1", "P2", "P3", "P4", "P5", "P6"] as const;
 
 export function AssessmentKanban() {
-  const { assessments: items, setAssessmentStage } = usePrimaryStore();
+  const { assessments: items, setAssessmentStage, students } = usePrimaryStore();
+  const studentsById = useMemo(
+    () => new Map(students.map((s) => [s.id, s])),
+    [students]
+  );
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverLane, setHoverLane] = useState<AssessmentStage | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
@@ -237,6 +244,9 @@ export function AssessmentKanban() {
                     <Card
                       key={a.id}
                       a={a}
+                      linkedStudent={
+                        a.studentId ? studentsById.get(a.studentId) : undefined
+                      }
                       onDragStart={() => setDraggingId(a.id)}
                       onDragEnd={() => {
                         setDraggingId(null);
@@ -406,6 +416,7 @@ function FilterPill({
 
 function Card({
   a,
+  linkedStudent,
   onDragStart,
   onDragEnd,
   dragging,
@@ -416,6 +427,7 @@ function Card({
   cardRef,
 }: {
   a: Assessment;
+  linkedStudent?: Student;
   onDragStart: () => void;
   onDragEnd: () => void;
   dragging: boolean;
@@ -447,7 +459,11 @@ function Card({
         dragging ? "opacity-50" : ""
       } ${focusClass}`}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div
+        className={`flex items-start justify-between gap-2 ${
+          canMoveNext ? "pr-7" : ""
+        }`}
+      >
         <div className="min-w-0">
           <div className="font-medium text-ink-900 truncate">{a.childName}</div>
           <div className="text-xs text-ink-500 flex items-center gap-1 mt-0.5">
@@ -475,6 +491,12 @@ function Card({
           <CalendarDays className="h-3 w-3 text-ink-400" />
           {formatDateTime(a.bookedFor)}
         </div>
+        {a.childSchool && (
+          <div className="flex items-center gap-1.5">
+            <School className="h-3 w-3 text-ink-400" />
+            {a.childSchool}
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <Phone className="h-3 w-3 text-ink-400" />
           {a.guardianName} · {a.guardianContact}
@@ -483,6 +505,15 @@ function Card({
           <TrendingUp className="h-3 w-3 text-ink-400" />
           {a.source}
         </div>
+        {linkedStudent && (
+          <Link
+            href={`/students/${linkedStudent.id}`}
+            className="flex items-center gap-1.5 text-mc-red-700 hover:underline"
+          >
+            <IdCard className="h-3 w-3" />
+            Student #{linkedStudent.code}
+          </Link>
+        )}
       </div>
 
       {followUpFlag && (

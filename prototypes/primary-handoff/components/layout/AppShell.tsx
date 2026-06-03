@@ -85,7 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className={`
             fixed lg:sticky top-0 left-0 z-50 lg:z-auto
             h-screen bg-white border-r border-mc-line
-            flex flex-col transition-[width,transform] duration-200 ease-out
+            flex flex-col transition-[width,translate] duration-200 ease-out
             ${collapsed ? "w-[72px]" : "w-[240px]"}
             ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
             lg:translate-x-0

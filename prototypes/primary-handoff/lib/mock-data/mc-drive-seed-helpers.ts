@@ -4,6 +4,7 @@ import type {
   ChecktableItem,
 } from "../types";
 import { mcDriveChecktables } from "./mc-drive-checktables";
+import { bookGrade } from "../grade";
 
 // Helpers that pull *real* MC Drive worksheet items, grade-matched, so the
 // students/sessions/history seeds reference live checktable data instead of
@@ -31,8 +32,9 @@ export function findTable(
   grade: string,
   family: string
 ): Checktable | undefined {
+  const key = bookGrade(grade);
   return mcDriveChecktables.find(
-    (t) => t.grade === grade && t.family === family
+    (t) => t.grade === key && t.family === family
   );
 }
 
