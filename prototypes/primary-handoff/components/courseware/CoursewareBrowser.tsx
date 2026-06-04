@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Library,
   CheckCircle2,
@@ -8,6 +8,8 @@ import {
   X,
   LayoutGrid,
   ListTree,
+  ChevronsDownUp,
+  ChevronsUpDown,
 } from "lucide-react";
 import type {
   AssignmentStatus,
@@ -17,6 +19,8 @@ import type {
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
+import { useStuckBottom } from "@/components/checktable/useStickyOffset";
+import { useChapterCollapse } from "@/components/checktable/useChapterCollapse";
 import {
   AssignDialog,
   type SessionPick,
@@ -141,6 +145,12 @@ export function CoursewareBrowser() {
   // Syllabus = objective-led reading view (default); Grid = dense matrix for
   // scanning across variants.
   const [view, setView] = useState<"grid" | "syllabus">("syllabus");
+
+  const collapse = useChapterCollapse(table);
+  // Search + view controls pin to the top; content headers (grid thead,
+  // syllabus chapter headers) park just below that strip.
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const contentTop = useStuckBottom(toolbarRef);
 
   // Filtered view of the active checktable for the code/chapter search.
   const filteredTable = useMemo(
@@ -268,7 +278,10 @@ export function CoursewareBrowser() {
             session.
           </p>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            ref={toolbarRef}
+            className="sticky top-[53px] lg:top-0 z-20 -mx-4 flex flex-col gap-2 bg-ink-50/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:-mx-8 lg:px-8"
+          >
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
               <input
@@ -291,32 +304,57 @@ export function CoursewareBrowser() {
               )}
             </div>
 
-            <div
-              role="group"
-              aria-label="View"
-              className="inline-flex shrink-0 rounded-md border border-ink-200 bg-white p-0.5 text-sm"
-            >
-              {(
-                [
-                  { id: "syllabus", label: "Syllabus", Icon: ListTree },
-                  { id: "grid", label: "Grid", Icon: LayoutGrid },
-                ] as const
-              ).map(({ id, label, Icon }) => (
+            <div className="flex shrink-0 items-center gap-2">
+              {view === "syllabus" && (
                 <button
-                  key={id}
                   type="button"
-                  onClick={() => setView(id)}
-                  aria-pressed={view === id}
-                  className={`flex items-center gap-1.5 rounded px-2.5 py-1 font-medium transition-colors ${
-                    view === id
-                      ? "bg-ink-800 text-white"
-                      : "text-ink-600 hover:bg-ink-100"
-                  }`}
+                  onClick={
+                    collapse.allCollapsed
+                      ? collapse.expandAll
+                      : collapse.collapseAll
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2.5 py-1 text-sm font-medium text-ink-600 hover:bg-ink-100"
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
+                  {collapse.allCollapsed ? (
+                    <>
+                      <ChevronsUpDown className="h-3.5 w-3.5" />
+                      Expand all
+                    </>
+                  ) : (
+                    <>
+                      <ChevronsDownUp className="h-3.5 w-3.5" />
+                      Collapse all
+                    </>
+                  )}
                 </button>
-              ))}
+              )}
+              <div
+                role="group"
+                aria-label="View"
+                className="inline-flex shrink-0 rounded-md border border-ink-200 bg-white p-0.5 text-sm"
+              >
+                {(
+                  [
+                    { id: "syllabus", label: "Syllabus", Icon: ListTree },
+                    { id: "grid", label: "Grid", Icon: LayoutGrid },
+                  ] as const
+                ).map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setView(id)}
+                    aria-pressed={view === id}
+                    className={`flex items-center gap-1.5 rounded px-2.5 py-1 font-medium transition-colors ${
+                      view === id
+                        ? "bg-ink-800 text-white"
+                        : "text-ink-600 hover:bg-ink-100"
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -327,11 +365,15 @@ export function CoursewareBrowser() {
               selectedItemIds={EMPTY_SELECTION}
               statusFilter="all"
               sectionFilter="all"
+              stickyTop={contentTop}
               onItemClick={setActiveItem}
             />
           ) : (
             <ChecktableSyllabus
               table={filteredTable ?? table}
+              collapsed={collapse.collapsed}
+              onToggleChapter={collapse.toggle}
+              stickyTop={contentTop}
               onItemClick={setActiveItem}
             />
           )}

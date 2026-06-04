@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { notFound, useParams } from "next/navigation";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
 import { StudentDetailHeader } from "./StudentDetailHeader";
 import { StudentTabStrip } from "./StudentTabStrip";
 import { getPendingCount } from "./student-utils";
+import { useStuckBottom } from "@/components/checktable/useStickyOffset";
 
 export function StudentDetailShell({ children }: { children: React.ReactNode }) {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +19,21 @@ export function StudentDetailShell({ children }: { children: React.ReactNode }) 
 
   const sessionCount = sessions.filter((s) => s.student_id === student.id).length;
   const pending = getPendingCount(student.id, assignments);
+
+  // Publish where this pinned header's bottom edge rests so a tab's own sticky
+  // controls strip (and the content headers under it) can stack beneath it
+  // instead of hiding behind it. Read in the checktables tab via `--ct-stick`.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const headerBottom = useStuckBottom(headerRef);
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--ct-stick",
+      `${headerBottom}px`
+    );
+    return () => {
+      document.documentElement.style.removeProperty("--ct-stick");
+    };
+  }, [headerBottom]);
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -34,7 +51,10 @@ export function StudentDetailShell({ children }: { children: React.ReactNode }) 
        *  assigning work to while scrolling a long checktable. Full-bleed bg
        *  (negative margins cancel the main padding) lets content scroll cleanly
        *  underneath; offset below the mobile nav bar on small screens. */}
-      <div className="sticky top-[52px] lg:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-1 space-y-3 bg-ink-50/95 backdrop-blur-sm shadow-sm">
+      <div
+        ref={headerRef}
+        className="sticky top-[52px] lg:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-1 space-y-3 bg-ink-50/95 backdrop-blur-sm shadow-sm"
+      >
         <StudentDetailHeader
           student={student}
           sessions={sessions}

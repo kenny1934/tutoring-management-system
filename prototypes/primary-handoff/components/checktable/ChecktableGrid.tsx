@@ -20,6 +20,11 @@ type Props = {
   selectedItemIds: Set<string>;
   statusFilter?: GridStatusFilter;
   sectionFilter?: GridSectionFilter;
+  /** Viewport offset (px) of the sticky chrome above the grid (student header +
+   *  controls strip). The grid scrolls inside a height-bounded box starting
+   *  here so its header row can stay genuinely sticky — a plain `sticky top`
+   *  can't, because the horizontal-scroll wrapper is itself a scroll container. */
+  stickyTop?: number;
   onItemClick: (item: ChecktableItem) => void;
 };
 
@@ -43,6 +48,7 @@ export function ChecktableGrid({
   selectedItemIds,
   statusFilter = "all",
   sectionFilter = "all",
+  stickyTop = 0,
   onItemClick,
 }: Props) {
   const visibleSections = useMemo(() => {
@@ -79,7 +85,19 @@ export function ChecktableGrid({
   return (
     <div className="surface overflow-hidden">
       {visibleSections.length > 0 && (
-        <div className="overflow-x-auto">
+        <div
+          // On a page surface (stickyTop set) bound the height so the matrix
+          // scrolls inside the box and its header row stays sticky; the
+          // horizontal-scroll wrapper is itself a scroll container, so a plain
+          // sticky `top` can't pin to the viewport. Inside a drawer/modal
+          // (no offset) keep the original horizontal-only scroll.
+          className={stickyTop > 0 ? "overflow-auto" : "overflow-x-auto"}
+          style={
+            stickyTop > 0
+              ? { maxHeight: `calc(100vh - ${stickyTop + 12}px)` }
+              : undefined
+          }
+        >
           <table className="w-full text-sm border-collapse">
             <thead className="bg-ink-100 text-ink-700 sticky top-0 z-10">
               <tr>
