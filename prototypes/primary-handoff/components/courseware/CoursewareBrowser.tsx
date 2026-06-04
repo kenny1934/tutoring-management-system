@@ -13,6 +13,7 @@ import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
 import { ChecktableViewControls } from "@/components/checktable/ChecktableViewControls";
 import { useStuckBottom } from "@/components/checktable/useStickyOffset";
 import { useChapterCollapse } from "@/components/checktable/useChapterCollapse";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   AssignDialog,
   type SessionPick,
@@ -144,10 +145,13 @@ export function CoursewareBrowser() {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const contentTop = useStuckBottom(toolbarRef);
 
-  // Filtered view of the active checktable for the code/chapter search.
+  // Filtered view of the active checktable for the code/chapter search. The
+  // term is debounced so each keystroke doesn't deep-rebuild the whole filtered
+  // section/chapter/cell tree on the largest (400+ worksheet) books.
+  const debouncedSearch = useDebouncedValue(search, 150);
   const filteredTable = useMemo(
-    () => (table ? filterTableBySearch(table, search) : undefined),
-    [table, search]
+    () => (table ? filterTableBySearch(table, debouncedSearch) : undefined),
+    [table, debouncedSearch]
   );
 
   // Courseware is a student-less "pick material to assign" view, so the grid

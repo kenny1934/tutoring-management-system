@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Check } from "lucide-react";
 import type {
   AssignmentStatus,
@@ -18,17 +19,23 @@ type Props = {
   /** Learning objective for the set this item belongs to; surfaced in the
    *  hover tooltip so it stays reachable in the compact grid view. */
   objective?: string;
-  onClick: () => void;
+  /** Takes the item so callers can pass a stable handler (the chip builds its
+   *  own click closure internally), which keeps the React.memo below effective
+   *  even in a 400-chip grid. */
+  onItemClick: (item: ChecktableItem) => void;
 };
 
-export function ItemChip({
+/** Memoised: a big grid renders hundreds of these, and marking one worksheet
+ *  done re-renders the whole table. With a stable `onItemClick` and primitive
+ *  status/kind props, only the chip whose status actually changed re-renders. */
+function ItemChipBase({
   item,
   status,
   kind,
   isSelected,
   tutorNote,
   objective,
-  onClick,
+  onItemClick,
 }: Props) {
   const state = isSelected
     ? "selected"
@@ -52,7 +59,7 @@ export function ItemChip({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => onItemClick(item)}
       className="chip relative overflow-hidden"
       data-state={state}
       title={title}
@@ -78,3 +85,5 @@ export function ItemChip({
     </button>
   );
 }
+
+export const ItemChip = memo(ItemChipBase);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type {
   AssignmentStatus,
   Checktable,
@@ -77,16 +77,21 @@ export function ChecktableGrid({
     [showSupplementary, table.supplementary, statusByItemId, statusFilter]
   );
 
-  const hasAnyRows =
-    visibleSections.some((sec) =>
-      sec.chapters.some((ch) =>
-        table.series.some((s) =>
-          (ch.cells[s.id]?.items ?? []).some((it) =>
-            itemMatchesStatus(it, statusByItemId, statusFilter)
+  // Nested walk over every cell; memoise so unrelated re-renders (sticky-offset
+  // measurement, parent state) don't re-scan the whole table.
+  const hasAnyRows = useMemo(
+    () =>
+      visibleSections.some((sec) =>
+        sec.chapters.some((ch) =>
+          table.series.some((s) =>
+            (ch.cells[s.id]?.items ?? []).some((it) =>
+              itemMatchesStatus(it, statusByItemId, statusFilter)
+            )
           )
         )
-      )
-    ) || visibleSupplementary.length > 0;
+      ) || visibleSupplementary.length > 0,
+    [visibleSections, table.series, statusByItemId, statusFilter, visibleSupplementary]
+  );
 
   return (
     <div className="surface overflow-hidden">
@@ -164,7 +169,7 @@ export function ChecktableGrid({
                 kind={kindByItemId?.[item.id]}
                 tutorNote={noteByItemId?.[item.id]}
                 isSelected={selectedItemIds.has(item.id)}
-                onClick={() => onItemClick(item)}
+                onItemClick={onItemClick}
               />
             ))}
           </div>
@@ -180,7 +185,10 @@ export function ChecktableGrid({
   );
 }
 
-function SectionRows({
+// Memoised: with stable per-student status/selection maps from the editor, a
+// section only re-renders when its own data changes, not on every parent
+// re-render (sticky measurement, view toggle, search keystroke).
+const SectionRows = memo(function SectionRows({
   table,
   section,
   statusByItemId,
@@ -260,7 +268,7 @@ function SectionRows({
                         tutorNote={noteByItemId?.[item.id]}
                         objective={cell?.objective}
                         isSelected={selectedItemIds.has(item.id)}
-                        onClick={() => onItemClick(item)}
+                        onItemClick={onItemClick}
                       />
                     ))}
                   </div>
@@ -274,4 +282,4 @@ function SectionRows({
       ))}
     </>
   );
-}
+});

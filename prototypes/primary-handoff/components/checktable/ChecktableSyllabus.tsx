@@ -67,7 +67,7 @@ export function ChecktableSyllabus({
           tutorNote={noteByItemId?.[item.id]}
           objective={objective}
           isSelected={selectedItemIds.has(item.id)}
-          onClick={() => onItemClick(item)}
+          onItemClick={onItemClick}
         />
       ))}
     </div>
