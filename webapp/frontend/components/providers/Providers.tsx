@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SWRConfig } from "swr";
 import { ThemeProvider } from "next-themes";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { RoleProvider } from "@/contexts/RoleContext";
@@ -28,10 +28,13 @@ const SWR_CONFIG = {
 /** Hides admin-only floating widgets (command palette, zen, exercise clipboard)
  *  on the public-facing summer/prospect/buddy subdomains and on the clean
  *  public URLs (/apply, /status, /summer/*) — these widgets opened on the
- *  deployed apply form via Ctrl+K, leaking admin functionality to parents. */
+ *  deployed apply form via Ctrl+K, leaking admin functionality to parents.
+ *  Also hidden until the user is authenticated, so the command palette can't
+ *  be opened (e.g. via Ctrl+K) on the login page before sign-in. */
 function AdminOnly({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [allowed, setAllowed] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const [pathAllowed, setPathAllowed] = useState(false);
   useEffect(() => {
     const host = window.location.hostname;
     const onPublicSubdomain =
@@ -43,9 +46,9 @@ function AdminOnly({ children }: { children: ReactNode }) {
       pathname === "/status" || pathname?.startsWith("/status/") ||
       pathname?.startsWith("/summer/") ||
       (onPublicSubdomain && pathname === "/");
-    setAllowed(!onPublicSubdomain && !onPublicPath);
+    setPathAllowed(!onPublicSubdomain && !onPublicPath);
   }, [pathname]);
-  if (!allowed) return null;
+  if (!pathAllowed || !isAuthenticated) return null;
   return <>{children}</>;
 }
 
