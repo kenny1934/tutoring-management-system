@@ -64,7 +64,7 @@ export function PrintTray({
       }`}
       className={
         docked
-          ? "border-t border-ink-200 bg-white"
+          ? "border-t border-ink-200 bg-white shrink-0"
           : "fixed bottom-4 right-4 left-4 sm:left-auto z-30 surface shadow-lg max-w-xl ml-auto bg-white"
       }
     >

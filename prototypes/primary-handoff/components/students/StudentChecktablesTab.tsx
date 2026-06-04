@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ListChecks, Printer, Search, X } from "lucide-react";
+import { BookOpen, FileText, ListChecks, Printer, Search, X } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { useChecktableEditor } from "@/components/checktable/useChecktableEditor";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
@@ -19,6 +19,7 @@ import { usePrintBatchUI } from "@/components/checktable/usePrintBatchUI";
 import { useStuckBottom } from "@/components/checktable/useStickyOffset";
 import { useChapterCollapse } from "@/components/checktable/useChapterCollapse";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { filterTableBySearch } from "@/lib/checktable-search";
 import { objectiveForItemCode } from "@/lib/mock-data/courseware-objectives";
 import type {
@@ -50,6 +51,11 @@ export function StudentChecktablesTab() {
   const batch = usePrintBatchUI(editor, gridStatus, gridSection, filteredTable);
 
   const collapse = useChapterCollapse(editor.table);
+  // On a wide monitor the capped list leaves the right two-thirds empty, so the
+  // assign/preview panel docks there as a master-detail rail instead of popping
+  // a centered modal. Below this width it stays a modal (matchMedia, not a CSS
+  // breakpoint, so we render a single dialog instance rather than two).
+  const wide = useMediaQuery("(min-width: 1280px)");
   // The controls strip pins under the student header; content headers (grid
   // thead, syllabus chapter headers) park just below the strip.
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -64,13 +70,55 @@ export function StudentChecktablesTab() {
 
   if (!student || !editor.table) return null;
   const { table } = editor;
+  const activeItem = editor.activeItem;
+
+  // Built once and rendered either docked (wide) or as a modal (narrow), so the
+  // long prop list lives in a single place.
+  const assignDialog = (variant: "modal" | "docked") =>
+    activeItem ? (
+      <AssignDialog
+        variant={variant}
+        item={activeItem}
+        student={student}
+        basePath={table.basePath}
+        objective={objectiveForItemCode(activeItem.code)}
+        existingAssignment={editor.existingAssignmentFor(activeItem)}
+        upcomingSessions={editor.upcomingSessions}
+        openAssignmentCount={editor.openAssignmentCount}
+        formatSessionLabel={sessionLabel}
+        onClose={() => editor.setActiveItem(null)}
+        onAssign={(input) => editor.handleAssign(activeItem, input)}
+        onMarkDone={() => editor.handleMarkDone(activeItem)}
+        onUnassign={() => editor.handleUnassign(activeItem)}
+        onAddToPrintBatch={(pages) =>
+          editor.togglePrintBatch(activeItem.id, pages)
+        }
+        isInPrintBatch={editor.selectedIds.has(activeItem.id)}
+      />
+    ) : null;
+
+  // Floating (fixed bottom-right) on narrow screens; docked into the bottom of
+  // the detail rail on wide ones, so the print queue sits under the panel's
+  // "Add to print batch" button instead of overlapping it.
+  const printTray = (variant: "floating" | "docked") => (
+    <PrintTray
+      variant={variant}
+      entries={editor.printBatchEntries}
+      student={student}
+      onRemove={(pid) => removeFromPrintBatch(editor.printBatchKey, pid)}
+      onSetPageRange={editor.setPageRange}
+      onClear={batch.onClearBatch}
+      onPrint={batch.onPrintBatch}
+    />
+  );
 
   return (
-    // Cap to a comfortable reading width (matching the Performance tab) so the
-    // worksheet rows don't stretch across a wide monitor, which would strand
-    // the chips ~460px from their objective text. The sticky toolbar spans this
-    // capped column rather than bleeding to the page edge.
-    <div className="space-y-3 max-w-3xl">
+    // Wide screens split into a capped worksheet list (left) and a docked
+    // assign/preview rail (right); below xl it's a single capped column with a
+    // modal. Capping the list keeps rows at a comfortable reading width so the
+    // chips don't strand ~460px from their objective text.
+    <div className="xl:flex xl:items-start xl:gap-6">
+      <div className="space-y-3 max-w-3xl xl:flex-[2] xl:min-w-0">
       {/* Single sticky controls strip: the book switcher doubles as the title
           and the chip legend is on-demand, so this one band replaces the old
           title + legend + two-row toolbar stack. */}
@@ -203,35 +251,52 @@ export function StudentChecktablesTab() {
         onItemClick={batch.handleChipClick}
       />
 
-      <PrintTray
-        entries={editor.printBatchEntries}
-        student={student}
-        onRemove={(pid) => removeFromPrintBatch(editor.printBatchKey, pid)}
-        onSetPageRange={editor.setPageRange}
-        onClear={batch.onClearBatch}
-        onPrint={batch.onPrintBatch}
-      />
+      </div>
 
-      {editor.activeItem && (
-        <AssignDialog
-          item={editor.activeItem}
-          student={student}
-          basePath={table.basePath}
-          objective={objectiveForItemCode(editor.activeItem.code)}
-          existingAssignment={editor.existingAssignmentFor(editor.activeItem)}
-          upcomingSessions={editor.upcomingSessions}
-          openAssignmentCount={editor.openAssignmentCount}
-          formatSessionLabel={sessionLabel}
-          onClose={() => editor.setActiveItem(null)}
-          onAssign={(input) => editor.handleAssign(editor.activeItem!, input)}
-          onMarkDone={() => editor.handleMarkDone(editor.activeItem!)}
-          onUnassign={() => editor.handleUnassign(editor.activeItem!)}
-          onAddToPrintBatch={(pages) =>
-            editor.togglePrintBatch(editor.activeItem!.id, pages)
-          }
-          isInPrintBatch={editor.selectedIds.has(editor.activeItem.id)}
-        />
+      {/* Wide-screen detail rail: a single sticky card holding the docked
+          assign/preview panel (or a placeholder) above, and the print batch
+          docked at the bottom when it has items — so the panel's "Add to print
+          batch" feeds a queue right beneath it instead of a floating tray
+          overlapping the footer. The aside is the sticky element (self-start)
+          so it pins below the student header through the whole list scroll; it
+          flex-grows to absorb leftover width (capped), and `@container` lets the
+          panel reflow to 2 columns when wide. Full viewport height while a
+          worksheet is open so the preview can fill; natural height otherwise. */}
+      {wide && (
+        <aside
+          aria-label="Worksheet detail"
+          style={{ top: "calc(var(--ct-stick, 0px) + 1rem)" }}
+          className={`hidden xl:flex xl:flex-col xl:flex-1 xl:min-w-[380px] xl:max-w-[880px] xl:self-start xl:sticky @container surface overflow-hidden bg-white ${
+            activeItem
+              ? "xl:h-[calc(100vh_-_var(--ct-stick-live,var(--ct-stick,0px))_-_2rem)]"
+              : "xl:max-h-[calc(100vh_-_var(--ct-stick-live,var(--ct-stick,0px))_-_2rem)]"
+          }`}
+        >
+          <div className="min-h-0 flex-1">
+            {activeItem ? (
+              assignDialog("docked")
+            ) : (
+              <div className="grid h-full place-items-center px-6 py-16 text-center">
+                <div>
+                  <FileText className="mx-auto mb-3 h-10 w-10 text-ink-300" />
+                  <div className="text-sm font-medium text-ink-700">
+                    No worksheet selected
+                  </div>
+                  <p className="mx-auto mt-1 max-w-[230px] text-xs text-ink-500">
+                    Click a worksheet to preview it and assign, mark it done, or
+                    queue it for printing right here.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          {printTray("docked")}
+        </aside>
       )}
+
+      {/* Narrow screens keep the centered modal + floating tray. */}
+      {!wide && assignDialog("modal")}
+      {!wide && printTray("floating")}
 
       <PrintBatchToast toast={batch.toast} onDismiss={batch.dismissToast} />
     </div>

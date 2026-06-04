@@ -35,6 +35,11 @@ type Props = {
   /** Learning objective for the set this worksheet belongs to, shown as a band
    *  under the header so the tutor sees what it teaches before assigning. */
   objective?: string;
+  /** "modal" (default) renders a centered overlay with a focus trap. "docked"
+   *  renders the same content inline as a non-modal side panel (no overlay, no
+   *  focus trap), for the wide-screen master-detail layout where the panel sits
+   *  in a rail beside a still-interactive worksheet list. */
+  variant?: "modal" | "docked";
   onClose: () => void;
 
   // --- Student flow (per-student checktable). Provide `student` + `onAssign`. ---
@@ -76,6 +81,7 @@ export function AssignDialog({
   student,
   basePath,
   objective,
+  variant = "modal",
   existingAssignment,
   upcomingSessions = [],
   openAssignmentCount = 0,
@@ -92,6 +98,7 @@ export function AssignDialog({
   // Courseware mode = no fixed student; a multi-select session picker chooses
   // which sessions (and therefore students) get the worksheet.
   const courseware = !student;
+  const docked = variant === "docked";
 
   const initialPageRange = existingAssignment?.pageRange ?? "";
   const initialTutorNote = existingAssignment?.tutorNote ?? "";
@@ -141,6 +148,7 @@ export function AssignDialog({
   const { dialogRef, onKeyDownTrap, onBackdropClick } = useModalA11y({
     onClose,
     isPristine: !dirty,
+    enabled: !docked,
   });
 
   const status: AssignmentStatus | null = existingAssignment?.status ?? null;
@@ -203,25 +211,43 @@ export function AssignDialog({
       : "Pick the sessions to assign this worksheet to"
     : `${student!.name} · ${student!.code} · ${student!.hwLoad} HW`;
 
-  const previewSpan = courseware ? "sm:col-span-2" : "sm:col-span-3";
-  const controlSpan = courseware ? "sm:col-span-3" : "sm:col-span-2";
+  // Modal lays preview + controls side by side across a 5-col grid. Docked
+  // stacks them in a narrow rail, but switches to the same side-by-side layout
+  // once the rail itself is wide enough — driven by a container query (@2xl =
+  // 672px of panel width) so it reflows on panel size, not viewport size.
+  const previewSpan = docked
+    ? "@2xl:col-span-3"
+    : courseware
+      ? "sm:col-span-2"
+      : "sm:col-span-3";
+  const controlSpan = docked
+    ? "@2xl:col-span-2"
+    : courseware
+      ? "sm:col-span-3"
+      : "sm:col-span-2";
+  const gridClass = docked
+    ? "grid grid-cols-1 @2xl:grid-cols-5 @2xl:flex-1 @2xl:min-h-0"
+    : "grid sm:grid-cols-5";
+  const previewDivider = docked
+    ? "border-b @2xl:border-r @2xl:border-b-0"
+    : "border-r";
 
-  return (
+  const card = (
     <div
-      className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
-      onClick={onBackdropClick}
+      ref={dialogRef}
+      role="dialog"
+      aria-modal={docked ? undefined : "true"}
+      aria-labelledby="assign-dialog-title"
+      tabIndex={-1}
+      onKeyDown={docked ? undefined : onKeyDownTrap}
+      className={
+        docked
+          ? "bg-white outline-none h-full overflow-y-auto @2xl:overflow-hidden @2xl:flex @2xl:flex-col"
+          : "surface w-full sm:max-w-3xl bg-white max-h-[92vh] overflow-y-auto outline-none"
+      }
+      onClick={docked ? undefined : (e) => e.stopPropagation()}
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="assign-dialog-title"
-        tabIndex={-1}
-        onKeyDown={onKeyDownTrap}
-        className="surface w-full sm:max-w-3xl bg-white max-h-[92vh] overflow-y-auto outline-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-ink-200 px-5 py-3 sticky top-0 bg-white z-10">
+        <header className="flex items-start justify-between gap-4 border-b border-ink-200 px-5 py-3 sticky top-0 bg-white z-10 shrink-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span
@@ -260,7 +286,7 @@ export function AssignDialog({
         </header>
 
         {objective && (
-          <div className="flex items-start gap-2 border-b border-ink-200 bg-ink-50 px-5 py-2.5 text-sm text-ink-700">
+          <div className="flex items-start gap-2 border-b border-ink-200 bg-ink-50 px-5 py-2.5 text-sm text-ink-700 shrink-0">
             <Target className="h-4 w-4 mt-0.5 shrink-0 text-ink-500" />
             <div>
               <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
@@ -272,7 +298,7 @@ export function AssignDialog({
         )}
 
         {showLowLoadWarning && (
-          <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-xs text-amber-800">
+          <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-xs text-amber-800 shrink-0">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
             <div>
               <span className="font-medium">Heads up:</span> {student!.name}{" "}
@@ -284,8 +310,12 @@ export function AssignDialog({
           </div>
         )}
 
-        <div className="grid sm:grid-cols-5 gap-0">
-          <div className={`${previewSpan} border-r border-ink-100 p-5`}>
+        <div className={`${gridClass} gap-0`}>
+          <div
+            className={`${previewSpan} ${previewDivider} border-ink-100 ${
+              docked ? "p-4 @2xl:flex @2xl:flex-col @2xl:min-h-0" : "p-5"
+            }`}
+          >
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs text-ink-500">Preview</div>
               {previewUrl && (
@@ -300,7 +330,13 @@ export function AssignDialog({
                 </a>
               )}
             </div>
-            <div className="aspect-[3/4] surface-muted overflow-hidden">
+            <div
+              className={`surface-muted overflow-hidden ${
+                docked
+                  ? "aspect-[3/4] mx-auto w-full max-w-[280px] @2xl:max-w-none @2xl:mx-0 @2xl:aspect-auto @2xl:flex-1 @2xl:min-h-0"
+                  : "aspect-[3/4]"
+              }`}
+            >
               {previewUrl ? (
                 // The MC Drive viewer renders the page a touch wider than this
                 // narrow frame (and ignores #zoom). Render the iframe at 125%
@@ -335,7 +371,13 @@ export function AssignDialog({
             </div>
           </div>
 
-          <div className={`${controlSpan} p-5 space-y-4`}>
+          <div
+            className={`${controlSpan} ${
+              docked
+                ? "p-4 space-y-3 @2xl:min-h-0 @2xl:overflow-y-auto"
+                : "p-5 space-y-4"
+            }`}
+          >
             {courseware ? (
               <CoursewarePicker
                 groups={groupedTargets}
@@ -364,12 +406,13 @@ export function AssignDialog({
                 tutorNote={tutorNote}
                 onTutorNote={setTutorNote}
                 existingAssignment={existingAssignment}
+                dense={docked}
               />
             )}
           </div>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-200 px-5 py-3 bg-white sticky bottom-0">
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-200 px-5 py-3 bg-white sticky bottom-0 shrink-0">
           {courseware ? (
             <button
               onClick={submitSessions}
@@ -462,7 +505,19 @@ export function AssignDialog({
             </>
           )}
         </footer>
-      </div>
+    </div>
+  );
+
+  // Docked: render inline so the parent rail can position/stick it. Modal: wrap
+  // in a dismissible overlay.
+  if (docked) return card;
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
+      onClick={onBackdropClick}
+    >
+      {card}
     </div>
   );
 }
@@ -642,6 +697,7 @@ function StudentControls({
   tutorNote,
   onTutorNote,
   existingAssignment,
+  dense = false,
 }: {
   student: Student;
   upcomingSessions: Session[];
@@ -656,6 +712,10 @@ function StudentControls({
   tutorNote: string;
   onTutorNote: (v: string) => void;
   existingAssignment?: ChecktableAssignment;
+  /** Tighten for the docked rail: page range + note share a row (note as a
+   *  single line) instead of stacking with a multi-line textarea, so the panel
+   *  fits without vertical scrolling. */
+  dense?: boolean;
 }) {
   return (
     <>
@@ -707,27 +767,54 @@ function StudentControls({
         )}
       </div>
 
-      <div>
-        <label className="block text-xs text-ink-500 mb-1">Page range</label>
-        <input
-          type="text"
-          value={pageRange}
-          onChange={(e) => onPageRange(e.target.value)}
-          placeholder="e.g. 1-2, or leave blank for full"
-          className="w-full rounded-md border border-ink-200 px-3 py-1.5 text-sm focus:outline-none focus:border-ink-400"
-        />
-      </div>
+      {dense ? (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-ink-500 mb-1">Page range</label>
+            <input
+              type="text"
+              value={pageRange}
+              onChange={(e) => onPageRange(e.target.value)}
+              placeholder="e.g. 1-2"
+              className="w-full rounded-md border border-ink-200 px-2.5 py-1.5 text-sm focus:outline-none focus:border-ink-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-ink-500 mb-1">Note</label>
+            <input
+              type="text"
+              value={tutorNote}
+              onChange={(e) => onTutorNote(e.target.value)}
+              placeholder="optional"
+              className="w-full rounded-md border border-ink-200 px-2.5 py-1.5 text-sm focus:outline-none focus:border-ink-400"
+            />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div>
+            <label className="block text-xs text-ink-500 mb-1">Page range</label>
+            <input
+              type="text"
+              value={pageRange}
+              onChange={(e) => onPageRange(e.target.value)}
+              placeholder="e.g. 1-2, or leave blank for full"
+              className="w-full rounded-md border border-ink-200 px-3 py-1.5 text-sm focus:outline-none focus:border-ink-400"
+            />
+          </div>
 
-      <div>
-        <label className="block text-xs text-ink-500 mb-1">Tutor note</label>
-        <textarea
-          value={tutorNote}
-          onChange={(e) => onTutorNote(e.target.value)}
-          rows={3}
-          placeholder="Anything to flag for this student"
-          className="w-full rounded-md border border-ink-200 px-3 py-1.5 text-sm focus:outline-none focus:border-ink-400 resize-none"
-        />
-      </div>
+          <div>
+            <label className="block text-xs text-ink-500 mb-1">Tutor note</label>
+            <textarea
+              value={tutorNote}
+              onChange={(e) => onTutorNote(e.target.value)}
+              rows={3}
+              placeholder="Anything to flag for this student"
+              className="w-full rounded-md border border-ink-200 px-3 py-1.5 text-sm focus:outline-none focus:border-ink-400 resize-none"
+            />
+          </div>
+        </>
+      )}
 
       {existingAssignment?.assignedAt && (
         <div className="text-xs text-ink-500 border-t border-ink-100 pt-3">

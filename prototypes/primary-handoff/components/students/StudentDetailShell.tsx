@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { notFound, useParams } from "next/navigation";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
@@ -34,6 +34,33 @@ export function StudentDetailShell({ children }: { children: React.ReactNode }) 
       document.documentElement.style.removeProperty("--ct-stick");
     };
   }, [headerBottom]);
+
+  // `--ct-stick` is the header's *parked* bottom (constant), right for parking
+  // sticky offsets. But before the first scroll the page sits ~24px lower (main
+  // padding "slack"), so the header's *live* bottom is taller until it parks. A
+  // viewport-height panel (the docked assign rail) must size off this live value
+  // or it overflows the fold at rest; publish it and track it on scroll.
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    // The bottom only changes over the first ~24px of scroll (while the header
+    // parks), then holds; skip the redundant writes the rest of the scroll.
+    let last = -1;
+    const setLive = () => {
+      const bottom = Math.round(el.getBoundingClientRect().bottom);
+      if (bottom === last) return;
+      last = bottom;
+      document.documentElement.style.setProperty("--ct-stick-live", `${bottom}px`);
+    };
+    setLive();
+    window.addEventListener("scroll", setLive, { passive: true });
+    window.addEventListener("resize", setLive);
+    return () => {
+      window.removeEventListener("scroll", setLive);
+      window.removeEventListener("resize", setLive);
+      document.documentElement.style.removeProperty("--ct-stick-live");
+    };
+  }, []);
 
   const tabs = [
     { id: "overview", label: "Overview" },

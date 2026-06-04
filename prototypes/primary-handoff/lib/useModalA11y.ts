@@ -24,6 +24,11 @@ type Options = {
   /** Element to focus on open. Falls back to the first focusable element in
    *  the dialog, then the dialog container itself. */
   initialFocusRef?: RefObject<HTMLElement | null>;
+  /** When false, skip all modal focus management (auto-focus, focus-trap,
+   *  focus-restore) and Escape-to-close. Use when the same content renders as a
+   *  non-modal docked panel beside live page content rather than as an overlay,
+   *  so focus isn't trapped in or stolen by the panel. Defaults to true. */
+  enabled?: boolean;
 };
 
 /**
@@ -40,6 +45,7 @@ export function useModalA11y({
   onClose,
   isPristine = true,
   initialFocusRef,
+  enabled = true,
 }: Options) {
   const dialogRef = useRef<HTMLDivElement>(null);
   // Read the latest onClose without re-running the mount-only effect.
@@ -47,6 +53,7 @@ export function useModalA11y({
   onCloseRef.current = onClose;
 
   useEffect(() => {
+    if (!enabled) return;
     const token = Symbol("modal");
     modalStack.push(token);
     const previouslyFocused = document.activeElement as HTMLElement | null;
