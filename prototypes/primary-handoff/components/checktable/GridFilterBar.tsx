@@ -61,6 +61,13 @@ export function GridFilterBar({
     sectionOptions.push({ id: "supp", label: "補充" });
   }
 
+  // A single-section book with no supplementary would only offer
+  // "All sections | <that section>" — two buttons that filter to the same
+  // thing. Hide the section toggle there; it's only meaningful when the book
+  // splits into multiple sections or has supplementary material.
+  const showSectionFilter =
+    table.sections.length > 1 || table.supplementary.length > 0;
+
   return (
     <div className="surface flex flex-wrap items-center gap-2 px-3 py-2">
       <span className="text-xs text-ink-500 mr-1">Filter</span>
@@ -88,25 +95,27 @@ export function GridFilterBar({
           );
         })}
       </div>
-      <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
-        {sectionOptions.map((opt) => {
-          const active = section === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => onSectionChange(opt.id)}
-              className={`px-2 py-0.5 rounded-md ${
-                active
-                  ? "bg-ink-800 text-white"
-                  : "text-ink-600 hover:bg-ink-100"
-              }`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
+      {showSectionFilter && (
+        <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
+          {sectionOptions.map((opt) => {
+            const active = section === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => onSectionChange(opt.id)}
+                className={`px-2 py-0.5 rounded-md ${
+                  active
+                    ? "bg-ink-800 text-white"
+                    : "text-ink-600 hover:bg-ink-100"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {(status !== "all" || section !== "all") && (
         <button
           type="button"

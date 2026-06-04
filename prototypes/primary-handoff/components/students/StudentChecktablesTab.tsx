@@ -39,6 +39,13 @@ export function StudentChecktablesTab() {
     []
   );
 
+  // Section ids are book-specific, so a selection carried over from another
+  // book would filter the new one to nothing (and its toggle may be hidden).
+  // Reset to "all" whenever the active book changes.
+  useEffect(() => {
+    setGridSection("all");
+  }, [editor.checktableId]);
+
   if (!student || !editor.table) return null;
   const { table } = editor;
 
