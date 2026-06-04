@@ -28,7 +28,9 @@ type Props = {
   onItemClick: (item: ChecktableItem) => void;
 };
 
-function itemMatchesStatus(
+/** Shared status-filter predicate for both the grid and the syllabus view, so
+ *  the two stay in lockstep when the filter set changes. */
+export function itemMatchesStatus(
   item: ChecktableItem,
   statusByItemId: Record<string, AssignmentStatus | null>,
   filter: GridStatusFilter
@@ -39,6 +41,10 @@ function itemMatchesStatus(
   if (filter === "untouched") return s === null;
   return true;
 }
+
+// Breathing room below a height-bounded grid so its scrollbox doesn't run flush
+// to the viewport edge.
+const GRID_BOTTOM_GUTTER_PX = 12;
 
 export function ChecktableGrid({
   table,
@@ -94,7 +100,9 @@ export function ChecktableGrid({
           className={stickyTop > 0 ? "overflow-auto" : "overflow-x-auto"}
           style={
             stickyTop > 0
-              ? { maxHeight: `calc(100vh - ${stickyTop + 12}px)` }
+              ? {
+                  maxHeight: `calc(100vh - ${stickyTop + GRID_BOTTOM_GUTTER_PX}px)`,
+                }
               : undefined
           }
         >

@@ -1,18 +1,12 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import {
-  BookOpen,
-  Printer,
-  LayoutGrid,
-  ListTree,
-  ChevronsDownUp,
-  ChevronsUpDown,
-} from "lucide-react";
+import { BookOpen, Printer } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { useChecktableEditor } from "@/components/checktable/useChecktableEditor";
 import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
+import { ChecktableViewControls } from "@/components/checktable/ChecktableViewControls";
 import { AssignDialog } from "@/components/checktable/AssignDialog";
 import { PrintTray } from "@/components/checktable/PrintTray";
 import { GridFilterBar } from "@/components/checktable/GridFilterBar";
@@ -85,54 +79,12 @@ export function StudentChecktablesTab() {
         className="sticky z-20 -mx-4 space-y-2 bg-ink-50/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <div
-              role="group"
-              aria-label="View"
-              className="inline-flex shrink-0 rounded-md border border-ink-200 bg-white p-0.5 text-xs"
-            >
-              {(
-                [
-                  { id: "syllabus", label: "Syllabus", Icon: ListTree },
-                  { id: "grid", label: "Grid", Icon: LayoutGrid },
-                ] as const
-              ).map(({ id: vid, label, Icon }) => (
-                <button
-                  key={vid}
-                  type="button"
-                  onClick={() => setView(vid)}
-                  aria-pressed={view === vid}
-                  className={`flex items-center gap-1.5 rounded px-2 py-0.5 font-medium transition-colors ${
-                    view === vid
-                      ? "bg-ink-800 text-white"
-                      : "text-ink-600 hover:bg-ink-100"
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                </button>
-              ))}
-            </div>
-            {view === "syllabus" && (
-              <button
-                type="button"
-                onClick={collapse.allCollapsed ? collapse.expandAll : collapse.collapseAll}
-                className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-600 hover:bg-ink-100"
-              >
-                {collapse.allCollapsed ? (
-                  <>
-                    <ChevronsUpDown className="h-3.5 w-3.5" />
-                    Expand all
-                  </>
-                ) : (
-                  <>
-                    <ChevronsDownUp className="h-3.5 w-3.5" />
-                    Collapse all
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          <ChecktableViewControls
+            view={view}
+            onViewChange={setView}
+            collapse={collapse}
+            size="sm"
+          />
           <div className="flex items-center gap-2 text-xs">
             <span className="text-ink-500">Switch book</span>
             <select

@@ -35,7 +35,7 @@ export function useChapterCollapse(table: Checktable | undefined) {
   );
   const expandAll = useCallback(() => setCollapsed(new Set()), []);
 
-  const allCollapsed = allIds.length > 0 && collapsed.size >= allIds.length;
+  const allCollapsed = allIds.length > 0 && collapsed.size === allIds.length;
 
   return { collapsed, toggle, collapseAll, expandAll, allCollapsed };
 }

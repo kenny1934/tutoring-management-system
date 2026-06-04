@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import type {
   AssignmentStatus,
@@ -8,6 +9,7 @@ import type {
   ExerciseKind,
 } from "@/lib/types";
 import { ItemChip } from "./ItemChip";
+import { itemMatchesStatus } from "./ChecktableGrid";
 import type { GridSectionFilter, GridStatusFilter } from "./ChecktableGrid";
 
 type Props = {
@@ -33,18 +35,6 @@ type Props = {
 const EMPTY_STATUS: Record<string, AssignmentStatus | null> = {};
 const EMPTY_SELECTION = new Set<string>();
 const EMPTY_COLLAPSED = new Set<string>();
-
-function itemMatchesStatus(
-  item: ChecktableItem,
-  statusByItemId: Record<string, AssignmentStatus | null>,
-  filter: GridStatusFilter
-): boolean {
-  if (filter === "all") return true;
-  const s = statusByItemId[item.id] ?? null;
-  if (filter === "pending") return s === "assigned";
-  if (filter === "untouched") return s === null;
-  return true;
-}
 
 /** Objective-led reading view of a checktable: each chapter is a card, with one
  *  row per set (series that has worksheets), showing the series badge, the
@@ -83,13 +73,6 @@ export function ChecktableSyllabus({
     </div>
   );
 
-  const visibleSections =
-    sectionFilter === "supp"
-      ? []
-      : sectionFilter === "all"
-        ? table.sections
-        : table.sections.filter((s) => s.id === sectionFilter);
-
   const showSupplementary =
     table.supplementary.length > 0 &&
     (sectionFilter === "all" || sectionFilter === "supp");
@@ -99,34 +82,52 @@ export function ChecktableSyllabus({
       )
     : [];
 
-  const sectionBlocks = visibleSections
-    .map((section) => {
-      const chapters = section.chapters
-        .map((ch) => {
-          let done = 0;
-          let assigned = 0;
-          const sets = table.series
-            .map((sr) => {
-              const cell = ch.cells[sr.id];
-              for (const it of cell?.items ?? []) {
-                const s = statusByItemId[it.id] ?? null;
-                if (s === "done") done += 1;
-                else if (s === "assigned") assigned += 1;
-              }
-              const items = (cell?.items ?? []).filter((it) =>
-                itemMatchesStatus(it, statusByItemId, statusFilter)
-              );
-              return { series: sr, cell, items };
+  // Derived purely from the table + status/filters, so memoise it: collapse and
+  // sticky-offset state changes re-render this component without changing which
+  // sets match or the per-chapter tallies. A single pass over each cell's items
+  // both counts done/assigned and collects the filtered set.
+  const sectionBlocks = useMemo(() => {
+    const visibleSections =
+      sectionFilter === "supp"
+        ? []
+        : sectionFilter === "all"
+          ? table.sections
+          : table.sections.filter((s) => s.id === sectionFilter);
+    return visibleSections
+        .map((section) => {
+          const chapters = section.chapters
+            .map((ch) => {
+              let done = 0;
+              let assigned = 0;
+              const sets = table.series
+                .map((sr) => {
+                  const cell = ch.cells[sr.id];
+                  const items: ChecktableItem[] = [];
+                  for (const it of cell?.items ?? []) {
+                    const s = statusByItemId[it.id] ?? null;
+                    if (s === "done") done += 1;
+                    else if (s === "assigned") assigned += 1;
+                    if (itemMatchesStatus(it, statusByItemId, statusFilter))
+                      items.push(it);
+                  }
+                  return { series: sr, cell, items };
+                })
+                .filter((s) => s.items.length > 0);
+              return sets.length > 0
+                ? { chapter: ch, sets, done, assigned }
+                : null;
             })
-            .filter((s) => s.items.length > 0);
-          return sets.length > 0
-            ? { chapter: ch, sets, done, assigned }
-            : null;
+            .filter((c): c is NonNullable<typeof c> => c !== null);
+          return chapters.length > 0 ? { section, chapters } : null;
         })
-        .filter((c): c is NonNullable<typeof c> => c !== null);
-      return chapters.length > 0 ? { section, chapters } : null;
-    })
-    .filter((b): b is NonNullable<typeof b> => b !== null);
+        .filter((b): b is NonNullable<typeof b> => b !== null);
+  }, [
+    table.sections,
+    table.series,
+    sectionFilter,
+    statusByItemId,
+    statusFilter,
+  ]);
 
   if (sectionBlocks.length === 0 && visibleSupplementary.length === 0) {
     return (
