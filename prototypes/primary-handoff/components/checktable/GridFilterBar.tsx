@@ -69,8 +69,7 @@ export function GridFilterBar({
     table.sections.length > 1 || table.supplementary.length > 0;
 
   return (
-    <div className="surface flex flex-wrap items-center gap-2 px-3 py-2">
-      <span className="text-xs text-ink-500 mr-1">Filter</span>
+    <div className="flex flex-wrap items-center gap-2">
       <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
         {statusOptions.map((opt) => {
           const active = status === opt.id;

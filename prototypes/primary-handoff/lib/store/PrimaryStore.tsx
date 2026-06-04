@@ -51,6 +51,10 @@ import { newId } from "@/lib/id";
 /** localStorage key for the per-(student, book) print batch. */
 const PRINT_BATCH_STORAGE_KEY = "primary-handoff:print-batch";
 
+/** Stable empty result for `getPrintBatch` so the common (no queue) case keeps
+ *  array identity and doesn't churn the memos that derive from it. */
+const EMPTY_BATCH: readonly PrintBatchEntry[] = [];
+
 type ExerciseInput = {
   sessionId: string;
   studentId: string;
@@ -191,11 +195,9 @@ type Store = {
    *  adding from the assign dialog with a range already typed); omit it to
    *  queue all pages. */
   togglePrintBatch: (key: string, itemId: string, pageRange?: string) => void;
-  /** Add several items at once (e.g. a whole chapter), all pages; items already
-   *  queued are left untouched rather than duplicated. */
-  addManyToPrintBatch: (key: string, itemIds: string[]) => void;
-  /** Add a batch of entries preserving their page ranges (used to restore a
-   *  cleared/printed batch on Undo); existing items are left as-is. */
+  /** Add a batch of entries, preserving any page ranges; items already queued
+   *  are left untouched rather than duplicated. Used both to add a whole
+   *  chapter (entries with no range) and to restore a cleared batch on Undo. */
   addEntriesToPrintBatch: (key: string, entries: PrintBatchEntry[]) => void;
   /** Set or clear the page range for a queued item (blank/undefined = all). */
   setPrintBatchPageRange: (
@@ -572,7 +574,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const getPrintBatch = useCallback(
-    (key: string) => printBatchByStudent[key] ?? [],
+    (key: string) => printBatchByStudent[key] ?? (EMPTY_BATCH as PrintBatchEntry[]),
     [printBatchByStudent]
   );
 
@@ -588,21 +590,6 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
     },
     []
   );
-
-  const addManyToPrintBatch = useCallback((key: string, itemIds: string[]) => {
-    setPrintBatchByStudent((prev) => {
-      const cur = prev[key] ?? [];
-      const seen = new Set(cur.map((e) => e.itemId));
-      const next = [...cur];
-      for (const id of itemIds) {
-        if (!seen.has(id)) {
-          seen.add(id);
-          next.push({ itemId: id });
-        }
-      }
-      return next.length === cur.length ? prev : { ...prev, [key]: next };
-    });
-  }, []);
 
   const addEntriesToPrintBatch = useCallback(
     (key: string, entries: PrintBatchEntry[]) => {
@@ -994,7 +981,6 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       recordHomeworkCompletion,
       getPrintBatch,
       togglePrintBatch,
-      addManyToPrintBatch,
       addEntriesToPrintBatch,
       setPrintBatchPageRange,
       removeFromPrintBatch,
@@ -1026,7 +1012,6 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       recordHomeworkCompletion,
       getPrintBatch,
       togglePrintBatch,
-      addManyToPrintBatch,
       addEntriesToPrintBatch,
       setPrintBatchPageRange,
       removeFromPrintBatch,

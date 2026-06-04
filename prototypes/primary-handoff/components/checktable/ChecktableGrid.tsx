@@ -42,6 +42,34 @@ export function itemMatchesStatus(
   return true;
 }
 
+/** Ids of every item currently visible under the given status + section
+ *  filters — i.e. exactly what the grid/syllabus is rendering. Drives the
+ *  "Add all shown" bulk action so it honours the active filter. Shared so the
+ *  student tab and the session drawer can't drift on what "shown" means. */
+export function collectShownItemIds(
+  table: Checktable,
+  statusByItemId: Record<string, AssignmentStatus | null>,
+  sectionFilter: GridSectionFilter,
+  statusFilter: GridStatusFilter
+): string[] {
+  const ids: string[] = [];
+  const sections =
+    sectionFilter === "supp"
+      ? []
+      : sectionFilter === "all"
+        ? table.sections
+        : table.sections.filter((s) => s.id === sectionFilter);
+  for (const section of sections)
+    for (const ch of section.chapters)
+      for (const sr of table.series)
+        for (const it of ch.cells[sr.id]?.items ?? [])
+          if (itemMatchesStatus(it, statusByItemId, statusFilter)) ids.push(it.id);
+  if (sectionFilter === "all" || sectionFilter === "supp")
+    for (const it of table.supplementary)
+      if (itemMatchesStatus(it, statusByItemId, statusFilter)) ids.push(it.id);
+  return ids;
+}
+
 // Breathing room below a height-bounded grid so its scrollbox doesn't run flush
 // to the viewport edge.
 const GRID_BOTTOM_GUTTER_PX = 12;

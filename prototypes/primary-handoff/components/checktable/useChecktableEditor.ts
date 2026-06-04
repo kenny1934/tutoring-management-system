@@ -39,7 +39,6 @@ export function useChecktableEditor(
     recordExercise,
     getPrintBatch,
     togglePrintBatch,
-    addManyToPrintBatch,
     addEntriesToPrintBatch,
     setPrintBatchPageRange,
     itemMeta,
@@ -233,11 +232,10 @@ export function useChecktableEditor(
   const printBatchKey = `${studentId}::${checktableId}`;
   // Raw entries (id + optional page range) for snapshotting on Undo.
   const printBatchEntriesRaw = getPrintBatch(printBatchKey);
-  const printBatchIds = useMemo(
-    () => printBatchEntriesRaw.map((e) => e.itemId),
+  const selectedIds = useMemo(
+    () => new Set(printBatchEntriesRaw.map((e) => e.itemId)),
     [printBatchEntriesRaw]
   );
-  const selectedIds = useMemo(() => new Set(printBatchIds), [printBatchIds]);
   // Resolved entries for the tray: pair each queued id with its ChecktableItem
   // and page range, dropping ids that don't belong to the current book.
   const printBatchEntries = useMemo(() => {
@@ -277,7 +275,6 @@ export function useChecktableEditor(
     handleMarkDone,
     handleUnassign,
     printBatchKey,
-    printBatchIds,
     selectedIds,
     printBatchEntries,
     printBatchEntriesRaw,
@@ -285,7 +282,10 @@ export function useChecktableEditor(
     togglePrintBatch: (itemId: string, pageRange?: string) =>
       togglePrintBatch(printBatchKey, itemId, pageRange),
     addItemsToBatch: (itemIds: string[]) =>
-      addManyToPrintBatch(printBatchKey, itemIds),
+      addEntriesToPrintBatch(
+        printBatchKey,
+        itemIds.map((itemId) => ({ itemId }))
+      ),
     addEntriesToBatch: (entries: PrintBatchEntry[]) =>
       addEntriesToPrintBatch(printBatchKey, entries),
     setPageRange: (itemId: string, pageRange?: string) =>
