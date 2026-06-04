@@ -138,10 +138,9 @@ export function CoursewareBrowser() {
   const targets = useMemo(() => assignableSessions(), [assignableSessions]);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  // Grid = dense matrix for scanning across variants; Syllabus = objective-led
-  // reading view. Default to grid so every family looks complete even before
-  // objectives are authored.
-  const [view, setView] = useState<"grid" | "syllabus">("grid");
+  // Syllabus = objective-led reading view (default); Grid = dense matrix for
+  // scanning across variants.
+  const [view, setView] = useState<"grid" | "syllabus">("syllabus");
 
   // Filtered view of the active checktable for the code/chapter search.
   const filteredTable = useMemo(

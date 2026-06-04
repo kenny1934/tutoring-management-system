@@ -28,7 +28,7 @@ export function StudentChecktablesTab() {
   const editor = useChecktableEditor(id, focusItemId);
   const [gridStatus, setGridStatus] = useState<GridStatusFilter>("all");
   const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
-  const [view, setView] = useState<"grid" | "syllabus">("grid");
+  const [view, setView] = useState<"grid" | "syllabus">("syllabus");
   const [printToast, setPrintToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
