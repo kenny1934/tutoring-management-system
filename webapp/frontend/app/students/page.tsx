@@ -292,9 +292,12 @@ export default function StudentsPage() {
   // Calculate if there might be more pages
   const hasMorePages = students.length === STUDENTS_PER_PAGE;
 
-  // Toolbar classes
-  const toolbarClasses = cn(
-    "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3 bg-paper-cream border-2 border-oak-soft rounded-lg px-3 sm:px-4 py-2",
+  // Toolbar: outer div is a clean sticky container, inner div carries the
+  // visual styling. Sticky breaks if applied to the same element as the flex
+  // layout, so the two responsibilities are split (matches the Sessions page).
+  const toolbarStickyClasses = "sticky top-0 z-30";
+  const toolbarInnerClasses = cn(
+    "flex flex-wrap items-center gap-2 sm:gap-3 bg-paper-cream border-2 border-oak-soft rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
   );
 
@@ -303,13 +306,15 @@ export default function StudentsPage() {
       <DeskSurface fullHeight>
         <PageTransition className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
           {/* Toolbar Skeleton */}
-          <div className={toolbarClasses}>
-            <div className="h-5 w-5 bg-[#d4a574]/50 rounded animate-pulse" />
-            <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-            <div className="h-7 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-            <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
-            <div className="ml-auto h-5 w-16 bg-amber-200/50 rounded-full animate-pulse" />
+          <div className={toolbarStickyClasses}>
+            <div className={toolbarInnerClasses}>
+              <div className="h-5 w-5 bg-[#d4a574]/50 rounded animate-pulse" />
+              <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+              <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+              <div className="h-7 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
+              <div className="ml-auto h-5 w-16 bg-amber-200/50 rounded-full animate-pulse" />
+            </div>
           </div>
 
           {/* Card Skeletons */}
@@ -365,7 +370,8 @@ export default function StudentsPage() {
           viewMode === 'my' && "flex-1 min-h-0"
         )}>
           {/* Compact Toolbar */}
-          <div className={toolbarClasses}>
+          <div className={toolbarStickyClasses}>
+          <div className={toolbarInnerClasses}>
             {/* Title */}
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
@@ -569,6 +575,7 @@ export default function StudentsPage() {
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Add Student</span>
             </button>
+          </div>
           </div>
 
           {/* All Students View */}
