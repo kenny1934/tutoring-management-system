@@ -37,9 +37,11 @@ function ItemChipBase({
   objective,
   onItemClick,
 }: Props) {
-  const state = isSelected
-    ? "selected"
-    : status === "done"
+  // Status drives the chip's fill. Print-batch membership is layered on top as
+  // a ring + corner dot (data-batched) rather than its own fill, so queuing an
+  // already-assigned/done item never hides its real status.
+  const state =
+    status === "done"
       ? "done"
       : status === "assigned"
         ? "assigned"
@@ -50,6 +52,7 @@ function ItemChipBase({
     item.code,
     objective ? `Objective: ${objective}` : null,
     kind ? (kind === "CW" ? "Classwork" : "Homework") : null,
+    isSelected ? "In print batch" : null,
     tutorNote ? `Note: ${tutorNote}` : null,
     item.pdfPath,
   ]
@@ -62,6 +65,7 @@ function ItemChipBase({
       onClick={() => onItemClick(item)}
       className="chip relative overflow-hidden"
       data-state={state}
+      data-batched={isSelected ? "true" : undefined}
       title={title}
     >
       {/* Category stripe: rose = classwork, blue = homework. Sits on the left
@@ -76,6 +80,14 @@ function ItemChipBase({
       )}
       {state === "done" && <Check className="h-3 w-3" strokeWidth={3} />}
       <span className={isNote ? "italic text-ink-400" : ""}>{item.code}</span>
+      {/* Print-batch marker: a red dot on the leading edge, distinct in both
+       *  colour and position from the amber note dot on the trailing edge. */}
+      {isSelected && (
+        <span
+          aria-label="In print batch"
+          className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-mc-red-500 ring-1 ring-white"
+        />
+      )}
       {tutorNote && (
         <span
           aria-label="Has tutor note"

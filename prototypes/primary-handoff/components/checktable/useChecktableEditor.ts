@@ -6,6 +6,7 @@ import type {
   ChecktableAssignment,
   ChecktableItem,
   ExerciseKind,
+  PrintBatchEntry,
 } from "@/lib/types";
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { DEMO_DAY } from "@/lib/mock-data/sessions";
@@ -38,6 +39,9 @@ export function useChecktableEditor(
     recordExercise,
     getPrintBatch,
     togglePrintBatch,
+    addManyToPrintBatch,
+    addEntriesToPrintBatch,
+    setPrintBatchPageRange,
     itemMeta,
     primaryChecktableId,
   } = usePrimaryStore();
@@ -221,15 +225,39 @@ export function useChecktableEditor(
     [existingAssignmentFor, setAssignments]
   );
 
-  const printBatchIds = getPrintBatch(studentId);
-  const selectedIds = useMemo(() => new Set(printBatchIds), [printBatchIds]);
-  const printBatchItems = useMemo(
-    () =>
-      printBatchIds
-        .map((pid) => itemMeta.get(pid)?.item)
-        .filter((i): i is ChecktableItem => Boolean(i)),
-    [printBatchIds, itemMeta]
+  // Scope the print batch per (student, book): item ids are only unique within
+  // a table, and resolving against the *current* book's itemMeta means a batch
+  // built in another book would silently resolve to nothing. Keying by book
+  // keeps each book's queue intact and makes clear/print act on exactly what
+  // the tray shows.
+  const printBatchKey = `${studentId}::${checktableId}`;
+  // Raw entries (id + optional page range) for snapshotting on Undo.
+  const printBatchEntriesRaw = getPrintBatch(printBatchKey);
+  const printBatchIds = useMemo(
+    () => printBatchEntriesRaw.map((e) => e.itemId),
+    [printBatchEntriesRaw]
   );
+  const selectedIds = useMemo(() => new Set(printBatchIds), [printBatchIds]);
+  // Resolved entries for the tray: pair each queued id with its ChecktableItem
+  // and page range, dropping ids that don't belong to the current book.
+  const printBatchEntries = useMemo(() => {
+    const out: { item: ChecktableItem; pageRange?: string }[] = [];
+    for (const e of printBatchEntriesRaw) {
+      const item = itemMeta.get(e.itemId)?.item;
+      if (item) out.push({ item, pageRange: e.pageRange });
+    }
+    return out;
+  }, [printBatchEntriesRaw, itemMeta]);
+  // Items queued under this student's *other* books. With the batch scoped per
+  // book, the tray only shows the current book, so this keeps the rest visible.
+  const otherBookBatchCount = useMemo(() => {
+    let n = 0;
+    for (const b of bookOptions) {
+      if (b.id === checktableId) continue;
+      n += getPrintBatch(`${studentId}::${b.id}`).length;
+    }
+    return n;
+  }, [bookOptions, checktableId, studentId, getPrintBatch]);
 
   return {
     checktables,
@@ -248,9 +276,19 @@ export function useChecktableEditor(
     handleAssign,
     handleMarkDone,
     handleUnassign,
+    printBatchKey,
     printBatchIds,
     selectedIds,
-    printBatchItems,
-    togglePrintBatch: (itemId: string) => togglePrintBatch(studentId, itemId),
+    printBatchEntries,
+    printBatchEntriesRaw,
+    otherBookBatchCount,
+    togglePrintBatch: (itemId: string, pageRange?: string) =>
+      togglePrintBatch(printBatchKey, itemId, pageRange),
+    addItemsToBatch: (itemIds: string[]) =>
+      addManyToPrintBatch(printBatchKey, itemIds),
+    addEntriesToBatch: (entries: PrintBatchEntry[]) =>
+      addEntriesToPrintBatch(printBatchKey, entries),
+    setPageRange: (itemId: string, pageRange?: string) =>
+      setPrintBatchPageRange(printBatchKey, itemId, pageRange),
   };
 }

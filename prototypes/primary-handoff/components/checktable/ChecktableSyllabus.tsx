@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Printer } from "lucide-react";
 import type {
   AssignmentStatus,
   Checktable,
@@ -29,6 +29,9 @@ type Props = {
   /** Viewport offset (px) where a chapter header parks when stuck, so it sits
    *  below the sticky chrome above the list rather than under it. */
   stickyTop?: number;
+  /** Queue every (currently visible) worksheet in a chapter for printing in one
+   *  click. Without it, the per-chapter batch button is hidden. */
+  onAddItemsToBatch?: (itemIds: string[]) => void;
   onItemClick: (item: ChecktableItem) => void;
 };
 
@@ -54,6 +57,7 @@ export function ChecktableSyllabus({
   collapsed = EMPTY_COLLAPSED,
   onToggleChapter,
   stickyTop = 0,
+  onAddItemsToBatch,
   onItemClick,
 }: Props) {
   const chips = (items: ChecktableItem[], objective?: string) => (
@@ -146,41 +150,75 @@ export function ChecktableSyllabus({
           </div>
           {chapters.map(({ chapter: ch, sets, done, assigned }) => {
             const isCollapsed = collapsed.has(ch.id);
+            // Visible worksheets in this chapter, and how many aren't queued yet.
+            // Drives the one-click "add chapter to batch" affordance.
+            const chapterItemIds = sets.flatMap((s) =>
+              s.items.map((i) => i.id)
+            );
+            const pendingToBatch = chapterItemIds.filter(
+              (id) => !selectedItemIds.has(id)
+            ).length;
             return (
               <div key={ch.id} className="surface">
-                <button
-                  type="button"
-                  onClick={() => onToggleChapter?.(ch.id)}
-                  disabled={!onToggleChapter}
-                  aria-expanded={!isCollapsed}
+                {/* Sticky wrapper holds two sibling buttons: nesting the batch
+                 *  button inside the collapse <button> would be invalid HTML. */}
+                <div
                   style={{ top: stickyTop }}
-                  className="sticky z-10 flex w-full items-center gap-2 rounded-t-[9px] border-b border-ink-100 bg-ink-50 px-4 py-2 text-left last:rounded-b-[9px] last:border-b-0 disabled:cursor-default enabled:hover:bg-ink-100/70"
+                  className="sticky z-10 flex items-stretch overflow-hidden rounded-t-[9px] border-b border-ink-100 bg-ink-50 last:rounded-b-[9px] last:border-b-0"
                 >
-                  <ChevronDown
-                    aria-hidden
-                    className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${
-                      isCollapsed ? "-rotate-90" : ""
-                    } ${onToggleChapter ? "" : "invisible"}`}
-                  />
-                  <span className="text-xs tabular-nums text-ink-400">
-                    Ch {ch.number}
-                  </span>
-                  <span className="font-medium text-ink-800">{ch.title}</span>
-                  {showProgress && (assigned > 0 || done > 0) && (
-                    <span className="ml-auto flex items-center gap-1.5 text-xs">
-                      {assigned > 0 && (
-                        <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-700">
-                          {assigned} pending
-                        </span>
-                      )}
-                      {done > 0 && (
-                        <span className="rounded bg-good/15 px-1.5 py-0.5 font-medium text-good">
-                          {done} done
-                        </span>
-                      )}
+                  <button
+                    type="button"
+                    onClick={() => onToggleChapter?.(ch.id)}
+                    disabled={!onToggleChapter}
+                    aria-expanded={!isCollapsed}
+                    className="flex flex-1 items-center gap-2 px-4 py-2 text-left disabled:cursor-default enabled:hover:bg-ink-100/70"
+                  >
+                    <ChevronDown
+                      aria-hidden
+                      className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${
+                        isCollapsed ? "-rotate-90" : ""
+                      } ${onToggleChapter ? "" : "invisible"}`}
+                    />
+                    <span className="text-xs tabular-nums text-ink-400">
+                      Ch {ch.number}
                     </span>
+                    <span className="font-medium text-ink-800">{ch.title}</span>
+                    {showProgress && (assigned > 0 || done > 0) && (
+                      <span className="ml-auto flex items-center gap-1.5 text-xs">
+                        {assigned > 0 && (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-700">
+                            {assigned} pending
+                          </span>
+                        )}
+                        {done > 0 && (
+                          <span className="rounded bg-good/15 px-1.5 py-0.5 font-medium text-good">
+                            {done} done
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </button>
+                  {onAddItemsToBatch && chapterItemIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onAddItemsToBatch(chapterItemIds)}
+                      disabled={pendingToBatch === 0}
+                      title={
+                        pendingToBatch === 0
+                          ? "Every worksheet in this chapter is already queued"
+                          : `Queue ${pendingToBatch} worksheet${
+                              pendingToBatch === 1 ? "" : "s"
+                            } in this chapter for printing`
+                      }
+                      className="flex shrink-0 items-center gap-1 border-l border-ink-100 px-3 text-xs font-medium text-ink-600 hover:bg-ink-100/70 disabled:cursor-default disabled:text-ink-300 disabled:hover:bg-transparent"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      {pendingToBatch === 0
+                        ? "Queued"
+                        : `Add ${pendingToBatch}`}
+                    </button>
                   )}
-                </button>
+                </div>
                 {!isCollapsed && (
                   <div className="divide-y divide-ink-100">
                     {sets.map(({ series, cell, items }) => (

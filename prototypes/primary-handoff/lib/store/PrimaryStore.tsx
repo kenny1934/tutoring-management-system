@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -22,6 +23,7 @@ import type {
   ExerciseKind,
   HomeworkCompletion,
   ParentContact,
+  PrintBatchEntry,
   Session,
   SessionExercise,
   SessionStatusValue,
@@ -45,6 +47,9 @@ import { seedHomeworkCompletions } from "@/lib/mock-data/homework-completions";
 import { parentContacts as seedContacts } from "@/lib/mock-data/parent-contacts";
 import { assessments as seedAssessments } from "@/lib/mock-data/assessments";
 import { newId } from "@/lib/id";
+
+/** localStorage key for the per-(student, book) print batch. */
+const PRINT_BATCH_STORAGE_KEY = "primary-handoff:print-batch";
 
 type ExerciseInput = {
   sessionId: string;
@@ -178,12 +183,28 @@ type Store = {
     patch: { page_start?: number; page_end?: number; remarks?: string }
   ) => void;
 
-  /** Items queued for printing, scoped per student so switching students
-   *  shows that student's own batch. */
-  getPrintBatch: (studentId: string) => string[];
-  togglePrintBatch: (studentId: string, itemId: string) => void;
-  removeFromPrintBatch: (studentId: string, itemId: string) => void;
-  clearPrintBatch: (studentId: string) => void;
+  /** Worksheets queued for printing. The `key` is opaque to the store; callers
+   *  scope it per (student, book) so switching books shows that book's own
+   *  batch and clearing/printing one book never touches another's queue. */
+  getPrintBatch: (key: string) => PrintBatchEntry[];
+  /** Toggle membership. On add, an optional page range is recorded (used when
+   *  adding from the assign dialog with a range already typed); omit it to
+   *  queue all pages. */
+  togglePrintBatch: (key: string, itemId: string, pageRange?: string) => void;
+  /** Add several items at once (e.g. a whole chapter), all pages; items already
+   *  queued are left untouched rather than duplicated. */
+  addManyToPrintBatch: (key: string, itemIds: string[]) => void;
+  /** Add a batch of entries preserving their page ranges (used to restore a
+   *  cleared/printed batch on Undo); existing items are left as-is. */
+  addEntriesToPrintBatch: (key: string, entries: PrintBatchEntry[]) => void;
+  /** Set or clear the page range for a queued item (blank/undefined = all). */
+  setPrintBatchPageRange: (
+    key: string,
+    itemId: string,
+    pageRange?: string
+  ) => void;
+  removeFromPrintBatch: (key: string, itemId: string) => void;
+  clearPrintBatch: (key: string) => void;
 
   /** Record that a homework SessionExercise was checked in a (later) session.
    *  Creates a HomeworkCompletion row and also flips any matching
@@ -351,8 +372,48 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const [printBatchByStudent, setPrintBatchByStudent] = useState<
-    Record<string, string[]>
+    Record<string, PrintBatchEntry[]>
   >({});
+
+  // Persist the print batch so a refresh doesn't silently empty a tutor's queue.
+  // Hydrate after mount (not in the useState initialiser) to avoid a server/
+  // client hydration mismatch, and only start writing once hydrated so the
+  // initial empty state never clobbers stored data.
+  const batchHydrated = useRef(false);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PRINT_BATCH_STORAGE_KEY);
+      if (raw) {
+        // Tolerate the earlier shape (plain item-id arrays) by lifting each id
+        // into a no-page-range entry.
+        const parsed = JSON.parse(raw) as Record<
+          string,
+          (string | PrintBatchEntry)[]
+        >;
+        const migrated: Record<string, PrintBatchEntry[]> = {};
+        for (const [k, v] of Object.entries(parsed)) {
+          migrated[k] = (v ?? []).map((e) =>
+            typeof e === "string" ? { itemId: e } : e
+          );
+        }
+        setPrintBatchByStudent(migrated);
+      }
+    } catch {
+      // ignore corrupt/unavailable storage
+    }
+    batchHydrated.current = true;
+  }, []);
+  useEffect(() => {
+    if (!batchHydrated.current) return;
+    try {
+      window.localStorage.setItem(
+        PRINT_BATCH_STORAGE_KEY,
+        JSON.stringify(printBatchByStudent)
+      );
+    } catch {
+      // ignore quota/unavailable storage
+    }
+  }, [printBatchByStudent]);
 
   const itemMeta = useMemo(() => buildItemMeta(checktables), [checktables]);
 
@@ -511,38 +572,84 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const getPrintBatch = useCallback(
-    (studentId: string) => printBatchByStudent[studentId] ?? [],
+    (key: string) => printBatchByStudent[key] ?? [],
     [printBatchByStudent]
   );
 
   const togglePrintBatch = useCallback(
-    (studentId: string, itemId: string) => {
+    (key: string, itemId: string, pageRange?: string) => {
       setPrintBatchByStudent((prev) => {
-        const cur = prev[studentId] ?? [];
-        const next = cur.includes(itemId)
-          ? cur.filter((id) => id !== itemId)
-          : [...cur, itemId];
-        return { ...prev, [studentId]: next };
+        const cur = prev[key] ?? [];
+        const next = cur.some((e) => e.itemId === itemId)
+          ? cur.filter((e) => e.itemId !== itemId)
+          : [...cur, { itemId, pageRange: pageRange || undefined }];
+        return { ...prev, [key]: next };
       });
     },
     []
   );
 
-  const removeFromPrintBatch = useCallback(
-    (studentId: string, itemId: string) => {
-      setPrintBatchByStudent((prev) => {
-        const cur = prev[studentId] ?? [];
-        return { ...prev, [studentId]: cur.filter((id) => id !== itemId) };
-      });
-    },
-    []
-  );
-
-  const clearPrintBatch = useCallback((studentId: string) => {
+  const addManyToPrintBatch = useCallback((key: string, itemIds: string[]) => {
     setPrintBatchByStudent((prev) => {
-      if (!(studentId in prev)) return prev;
+      const cur = prev[key] ?? [];
+      const seen = new Set(cur.map((e) => e.itemId));
+      const next = [...cur];
+      for (const id of itemIds) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          next.push({ itemId: id });
+        }
+      }
+      return next.length === cur.length ? prev : { ...prev, [key]: next };
+    });
+  }, []);
+
+  const addEntriesToPrintBatch = useCallback(
+    (key: string, entries: PrintBatchEntry[]) => {
+      setPrintBatchByStudent((prev) => {
+        const cur = prev[key] ?? [];
+        const seen = new Set(cur.map((e) => e.itemId));
+        const next = [...cur];
+        for (const e of entries) {
+          if (!seen.has(e.itemId)) {
+            seen.add(e.itemId);
+            next.push(e);
+          }
+        }
+        return next.length === cur.length ? prev : { ...prev, [key]: next };
+      });
+    },
+    []
+  );
+
+  const setPrintBatchPageRange = useCallback(
+    (key: string, itemId: string, pageRange?: string) => {
+      setPrintBatchByStudent((prev) => {
+        const cur = prev[key] ?? [];
+        if (!cur.some((e) => e.itemId === itemId)) return prev;
+        const next = cur.map((e) =>
+          e.itemId === itemId
+            ? { ...e, pageRange: pageRange || undefined }
+            : e
+        );
+        return { ...prev, [key]: next };
+      });
+    },
+    []
+  );
+
+  const removeFromPrintBatch = useCallback((key: string, itemId: string) => {
+    setPrintBatchByStudent((prev) => {
+      const cur = prev[key] ?? [];
+      return { ...prev, [key]: cur.filter((e) => e.itemId !== itemId) };
+    });
+  }, []);
+
+  const clearPrintBatch = useCallback((key: string) => {
+    setPrintBatchByStudent((prev) => {
+      if (!(key in prev)) return prev;
       const next = { ...prev };
-      delete next[studentId];
+      delete next[key];
       return next;
     });
   }, []);
@@ -887,6 +994,9 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       recordHomeworkCompletion,
       getPrintBatch,
       togglePrintBatch,
+      addManyToPrintBatch,
+      addEntriesToPrintBatch,
+      setPrintBatchPageRange,
       removeFromPrintBatch,
       clearPrintBatch,
       createEnrollment,
@@ -916,6 +1026,9 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       recordHomeworkCompletion,
       getPrintBatch,
       togglePrintBatch,
+      addManyToPrintBatch,
+      addEntriesToPrintBatch,
+      setPrintBatchPageRange,
       removeFromPrintBatch,
       clearPrintBatch,
       createEnrollment,

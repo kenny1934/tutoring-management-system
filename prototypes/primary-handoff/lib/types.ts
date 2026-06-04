@@ -30,6 +30,13 @@ export type ChecktableItem = {
   mcDriveS3Path?: string;
 };
 
+/** One worksheet queued for printing. `pageRange` is free-text (e.g. "1-5, 8")
+ *  mirroring the assign-dialog convention; undefined means print all pages. */
+export type PrintBatchEntry = {
+  itemId: string;
+  pageRange?: string;
+};
+
 export type ChecktableCell = {
   items: ChecktableItem[];
   /** Learning objective for this set (the cell's items share one objective,

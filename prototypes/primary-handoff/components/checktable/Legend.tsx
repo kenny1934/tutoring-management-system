@@ -20,7 +20,7 @@ export function Legend() {
         <span>Done</span>
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="chip" data-state="selected">
+        <span className="chip" data-batched="true">
           601A
         </span>
         <span>In print batch</span>
@@ -42,7 +42,9 @@ export function Legend() {
           <span>{label}</span>
         </span>
       ))}
-      <span className="text-ink-400 ml-auto">Click a chip to manage.</span>
+      <span className="text-ink-400 ml-auto">
+        Click a chip to assign, mark done, or queue it for printing.
+      </span>
     </div>
   );
 }

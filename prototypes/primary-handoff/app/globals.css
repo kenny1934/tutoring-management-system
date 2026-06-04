@@ -138,8 +138,10 @@ body {
   color: white;
 }
 
-.chip[data-state="selected"] {
-  background: var(--color-ink-800);
-  border-color: var(--color-ink-800);
-  color: white;
+/* Print-batch membership is additive: a red ring drawn over whatever status
+ * fill the chip already has, so an assigned/done item keeps its colour while
+ * still reading as queued. Box-shadow (not border) so it never shifts layout
+ * and survives the chip's overflow-hidden. */
+.chip[data-batched="true"] {
+  box-shadow: 0 0 0 2px var(--color-mc-red-500);
 }

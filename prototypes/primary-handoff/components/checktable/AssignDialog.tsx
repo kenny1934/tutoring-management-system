@@ -54,7 +54,10 @@ type Props = {
   }) => void;
   onMarkDone?: () => void;
   onUnassign?: () => void;
-  onAddToPrintBatch?: () => void;
+  /** Queue/unqueue this worksheet for printing. When adding, the page range
+   *  currently typed in the dialog is passed through so it carries into the
+   *  print batch. */
+  onAddToPrintBatch?: (pageRange?: string) => void;
   isInPrintBatch?: boolean;
 
   // --- Courseware flow (student-less): pick one or more sessions, each tagged
@@ -426,15 +429,34 @@ export function AssignDialog({
               </div>
               {onAddToPrintBatch && (
                 <button
-                  onClick={onAddToPrintBatch}
+                  onClick={() =>
+                    onAddToPrintBatch(
+                      isInPrintBatch ? undefined : pageRange.trim() || undefined
+                    )
+                  }
+                  aria-pressed={isInPrintBatch}
+                  title={
+                    isInPrintBatch
+                      ? "Remove this worksheet from the print batch"
+                      : "Queue this worksheet for batch printing"
+                  }
                   className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1 ${
                     isInPrintBatch
-                      ? "bg-ink-800 text-white"
+                      ? "bg-mc-red-50 text-mc-red-700 border border-mc-red-200 hover:bg-mc-red-100"
                       : "border border-ink-300 text-ink-700 hover:bg-ink-50"
                   }`}
                 >
-                  <Printer className="h-3.5 w-3.5" />
-                  {isInPrintBatch ? "In print batch" : "Add to print batch"}
+                  {isInPrintBatch ? (
+                    <>
+                      <X className="h-3.5 w-3.5" />
+                      Remove from batch
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="h-3.5 w-3.5" />
+                      Add to print batch
+                    </>
+                  )}
                 </button>
               )}
             </>
