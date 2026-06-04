@@ -1,10 +1,12 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Printer } from "lucide-react";
 
-/** "Add N shown" — queues every worksheet matching the active filters. Hidden
- *  when nothing is shown; disabled (with a different label) when everything
- *  shown is already queued. Shared by both checktable views. */
+/** "Add N shown" — queues every worksheet matching the active filters into the
+ *  print batch. Hidden when nothing is shown; disabled (with a different label)
+ *  when everything shown is already queued. Uses the same Printer icon as the
+ *  per-chapter add button and the tray so the "queue to print" action reads
+ *  consistently. Shared by both checktable views. */
 export function AddShownButton({
   shownCount,
   pendingCount,
@@ -29,7 +31,7 @@ export function AddShownButton({
       }
       className="inline-flex shrink-0 items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-700 hover:bg-ink-100 disabled:cursor-default disabled:text-ink-300 disabled:hover:bg-white"
     >
-      <Plus className="h-3.5 w-3.5" />
+      <Printer className="h-3.5 w-3.5" />
       {pendingCount === 0 ? "All shown queued" : `Add ${pendingCount} shown`}
     </button>
   );

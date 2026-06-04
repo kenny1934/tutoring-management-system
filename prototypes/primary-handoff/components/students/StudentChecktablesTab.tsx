@@ -52,31 +52,21 @@ export function StudentChecktablesTab() {
   const { table } = editor;
 
   return (
-    <div className="space-y-3">
+    // Cap to a comfortable reading width (matching the Performance tab) so the
+    // worksheet rows don't stretch across a wide monitor, which would strand
+    // the chips ~460px from their objective text. The sticky toolbar spans this
+    // capped column rather than bleeding to the page edge.
+    <div className="space-y-3 max-w-3xl">
       {/* Single sticky controls strip: the book switcher doubles as the title
           and the chip legend is on-demand, so this one band replaces the old
           title + legend + two-row toolbar stack. */}
       <div
         ref={toolbarRef}
         style={{ top: "var(--ct-stick, 0px)" }}
-        className="sticky z-20 -mx-4 space-y-2 bg-ink-50/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        className="sticky z-20 space-y-2 bg-ink-50/95 px-4 py-2 backdrop-blur-sm"
       >
         <div className="flex items-center gap-2 flex-wrap">
           <CollapseAllControl collapse={collapse} size="sm" />
-          <button
-            type="button"
-            onClick={() => batch.setSelectMode((v) => !v)}
-            aria-pressed={batch.selectMode}
-            title="Tap worksheets to add or remove them from the print batch without opening each one"
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
-              batch.selectMode
-                ? "bg-mc-red-600 text-white hover:bg-mc-red-700"
-                : "border border-ink-200 text-ink-700 hover:bg-ink-100"
-            }`}
-          >
-            <ListChecks className="h-3.5 w-3.5" />
-            {batch.selectMode ? "Selecting" : "Select"}
-          </button>
 
           <div className="ml-auto flex items-center gap-2 text-xs">
             {editor.otherBookBatchCount > 0 && (
@@ -119,11 +109,29 @@ export function StudentChecktablesTab() {
             onStatusChange={setGridStatus}
             onSectionChange={setGridSection}
           />
-          <AddShownButton
-            shownCount={batch.shownItemIds.length}
-            pendingCount={batch.shownPending}
-            onAdd={() => editor.addItemsToBatch(batch.shownItemIds)}
-          />
+          {/* Batch-building cluster: enter tap-to-queue mode, or queue every
+              worksheet matching the current filter, side by side. */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => batch.setSelectMode((v) => !v)}
+              aria-pressed={batch.selectMode}
+              title="Tap worksheets to add or remove them from the print batch without opening each one"
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
+                batch.selectMode
+                  ? "bg-mc-red-600 text-white hover:bg-mc-red-700"
+                  : "border border-ink-200 text-ink-700 hover:bg-ink-100"
+              }`}
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              {batch.selectMode ? "Selecting" : "Select"}
+            </button>
+            <AddShownButton
+              shownCount={batch.shownItemIds.length}
+              pendingCount={batch.shownPending}
+              onAdd={() => editor.addItemsToBatch(batch.shownItemIds)}
+            />
+          </div>
         </div>
 
         {batch.selectMode && (

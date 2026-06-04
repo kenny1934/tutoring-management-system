@@ -226,7 +226,7 @@ export function ChecktableSyllabus({
                         key={series.id}
                         className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-4"
                       >
-                        <div className="flex items-center gap-2 sm:w-32 sm:shrink-0">
+                        <div className="flex items-center gap-2 sm:w-24 sm:shrink-0">
                           <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-ink-800 text-xs font-semibold text-white">
                             {series.label}
                           </span>
