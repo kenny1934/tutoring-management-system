@@ -298,8 +298,8 @@ export function CoursewareBrowser() {
             >
               {(
                 [
-                  { id: "grid", label: "Grid", Icon: LayoutGrid },
                   { id: "syllabus", label: "Syllabus", Icon: ListTree },
+                  { id: "grid", label: "Grid", Icon: LayoutGrid },
                 ] as const
               ).map(({ id, label, Icon }) => (
                 <button
