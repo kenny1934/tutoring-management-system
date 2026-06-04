@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.72](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.71...v2.0.72) (2026-06-04)
+
+
+### Bug Fixes
+
+* **courseware:** make toolbar actually stick on scroll ([3be9191](https://github.com/kenny1934/tutoring-management-system/commit/3be919106bc0ecd8ddd9e88039985e8d57273954))
+* **students:** make search toolbar actually stick on scroll ([9fdaa35](https://github.com/kenny1934/tutoring-management-system/commit/9fdaa35ddfba5f7a5a01baa4e791123cbda81edf))
+
 ## [2.0.71](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.71) (2026-06-04)
 
 ### Bug Fixes
