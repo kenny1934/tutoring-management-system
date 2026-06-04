@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useModalA11y } from "@/lib/useModalA11y";
 import { X, UserPlus, Pencil } from "lucide-react";
 import { usePrimaryStore, type StudentInput } from "@/lib/store/PrimaryStore";
@@ -64,7 +65,13 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
     onClose();
   };
 
-  return (
+  // Portal to the body: this modal is rendered from inside the detail page's
+  // sticky header, which uses `backdrop-blur` — a backdrop-filter creates a
+  // containing block for fixed descendants, which would otherwise trap the
+  // overlay inside the header box instead of covering the viewport.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-ink-900/40 p-0 sm:p-4"
       onClick={onBackdropClick}
@@ -181,7 +188,8 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
