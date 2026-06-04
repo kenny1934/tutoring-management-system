@@ -145,7 +145,7 @@ export function ChecktableSyllabus({
     <div className="space-y-4">
       {sectionBlocks.map(({ section, chapters }) => (
         <div key={section.id} className="space-y-2">
-          <div className="text-xs uppercase tracking-wide text-ink-500 font-medium px-1">
+          <div className="text-xs uppercase tracking-wide text-ink-500 font-medium px-4">
             {section.label}
           </div>
           {chapters.map(({ chapter: ch, sets, done, assigned }) => {

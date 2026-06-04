@@ -2,25 +2,21 @@
 
 import { useMemo } from "react";
 import type { AssignmentStatus, Checktable } from "@/lib/types";
-import type {
-  GridSectionFilter,
-  GridStatusFilter,
-} from "./ChecktableGrid";
+import type { GridStatusFilter } from "./ChecktableGrid";
 
+/** Status filter for the checktable (All / Pending / Untouched, with live
+ *  counts). Section scoping lives in <SectionTabs> above the list, so this is
+ *  status-only. */
 export function GridFilterBar({
   table,
   statusByItemId,
   status,
-  section,
   onStatusChange,
-  onSectionChange,
 }: {
   table: Checktable;
   statusByItemId: Record<string, AssignmentStatus | null>;
   status: GridStatusFilter;
-  section: GridSectionFilter;
   onStatusChange: (v: GridStatusFilter) => void;
-  onSectionChange: (v: GridSectionFilter) => void;
 }) {
   const counts = useMemo(() => {
     let total = 0;
@@ -50,24 +46,6 @@ export function GridFilterBar({
       { id: "untouched", label: "Untouched", count: counts.untouched },
     ];
 
-  const sectionOptions: { id: GridSectionFilter; label: string }[] = [
-    { id: "all", label: "All sections" },
-    ...table.sections.map((s) => ({
-      id: s.id as GridSectionFilter,
-      label: s.label,
-    })),
-  ];
-  if (table.supplementary.length > 0) {
-    sectionOptions.push({ id: "supp", label: "補充" });
-  }
-
-  // A single-section book with no supplementary would only offer
-  // "All sections | <that section>" — two buttons that filter to the same
-  // thing. Hide the section toggle there; it's only meaningful when the book
-  // splits into multiple sections or has supplementary material.
-  const showSectionFilter =
-    table.sections.length > 1 || table.supplementary.length > 0;
-
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
@@ -94,34 +72,10 @@ export function GridFilterBar({
           );
         })}
       </div>
-      {showSectionFilter && (
-        <div className="inline-flex rounded-md border border-ink-200 bg-white p-0.5 text-xs">
-          {sectionOptions.map((opt) => {
-            const active = section === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => onSectionChange(opt.id)}
-                className={`px-2 py-0.5 rounded-md ${
-                  active
-                    ? "bg-ink-800 text-white"
-                    : "text-ink-600 hover:bg-ink-100"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {(status !== "all" || section !== "all") && (
+      {status !== "all" && (
         <button
           type="button"
-          onClick={() => {
-            onStatusChange("all");
-            onSectionChange("all");
-          }}
+          onClick={() => onStatusChange("all")}
           className="text-xs text-ink-500 hover:text-ink-800 ml-auto"
         >
           Reset

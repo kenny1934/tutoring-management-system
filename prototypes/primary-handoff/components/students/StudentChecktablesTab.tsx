@@ -10,6 +10,7 @@ import { CollapseAllControl } from "@/components/checktable/CollapseAllControl";
 import { AssignDialog } from "@/components/checktable/AssignDialog";
 import { PrintTray } from "@/components/checktable/PrintTray";
 import { GridFilterBar } from "@/components/checktable/GridFilterBar";
+import { SectionTabs } from "@/components/checktable/SectionTabs";
 import { LegendPopover } from "@/components/checktable/LegendPopover";
 import { AddShownButton } from "@/components/checktable/AddShownButton";
 import { SelectModeBanner } from "@/components/checktable/SelectModeBanner";
@@ -145,9 +146,7 @@ export function StudentChecktablesTab() {
             table={table}
             statusByItemId={editor.statusByItemId}
             status={gridStatus}
-            section={gridSection}
             onStatusChange={setGridStatus}
-            onSectionChange={setGridSection}
           />
           {/* Batch-building cluster: enter tap-to-queue mode, or queue every
               worksheet matching the current filter, side by side. */}
@@ -178,6 +177,15 @@ export function StudentChecktablesTab() {
           <SelectModeBanner onDone={() => batch.setSelectMode(false)} />
         )}
       </div>
+
+      {/* Strand navigation above the list, for books that split into multiple
+          sections (renders nothing for single-section books). */}
+      <SectionTabs
+        table={table}
+        value={gridSection}
+        onChange={setGridSection}
+        className="px-4"
+      />
 
       <ChecktableSyllabus
         table={filteredTable ?? table}

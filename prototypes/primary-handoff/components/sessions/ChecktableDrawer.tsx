@@ -13,6 +13,7 @@ import {
 import { AssignDialog } from "@/components/checktable/AssignDialog";
 import { PrintTray } from "@/components/checktable/PrintTray";
 import { GridFilterBar } from "@/components/checktable/GridFilterBar";
+import { SectionTabs } from "@/components/checktable/SectionTabs";
 import { LegendPopover } from "@/components/checktable/LegendPopover";
 import { AddShownButton } from "@/components/checktable/AddShownButton";
 import { SelectModeBanner } from "@/components/checktable/SelectModeBanner";
@@ -138,9 +139,7 @@ export function ChecktableDrawer({ student, focusItemId, onClose }: Props) {
               table={table}
               statusByItemId={editor.statusByItemId}
               status={gridStatus}
-              section={gridSection}
               onStatusChange={setGridStatus}
-              onSectionChange={setGridSection}
             />
             <div className="flex items-center gap-2 shrink-0">
               <AddShownButton
@@ -154,6 +153,11 @@ export function ChecktableDrawer({ student, focusItemId, onClose }: Props) {
           {batch.selectMode && (
             <SelectModeBanner onDone={() => batch.setSelectMode(false)} />
           )}
+          <SectionTabs
+            table={table}
+            value={gridSection}
+            onChange={setGridSection}
+          />
           <ChecktableGrid
             table={table}
             statusByItemId={editor.statusByItemId}
