@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { KeyRound } from "lucide-react";
+import { Info } from "lucide-react";
 import { useDismiss } from "@/lib/useDismiss";
 
 /** The chip key, demoted from an always-on row to an on-demand popover so it
@@ -23,10 +23,11 @@ export function LegendPopover() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-600 hover:bg-ink-100"
+        aria-label="Legend"
+        title="Legend"
+        className="inline-flex items-center rounded-md border border-ink-200 bg-white p-1.5 text-ink-600 hover:bg-ink-100"
       >
-        <KeyRound className="h-3.5 w-3.5" />
-        Legend
+        <Info className="h-3.5 w-3.5" />
       </button>
       {open && (
         <div

@@ -21,7 +21,11 @@ export type BatchToast = { message: string; onUndo?: () => void } | null;
 export function usePrintBatchUI(
   editor: Editor,
   gridStatus: GridStatusFilter,
-  gridSection: GridSectionFilter
+  gridSection: GridSectionFilter,
+  /** Table to derive the "shown" set from. Pass a search-filtered copy so
+   *  "Add N shown" queues exactly what the list is rendering; defaults to the
+   *  editor's full table. */
+  shownTable: Editor["table"] = editor.table
 ) {
   const { togglePrintBatch, clearPrintBatch } = usePrimaryStore();
 
@@ -43,18 +47,19 @@ export function usePrintBatchUI(
     [togglePrintBatch, printBatchKey, setActiveItem]
   );
 
-  // Everything matching the current filters — what the grid/syllabus shows.
+  // Everything matching the current filters (incl. search) — what the
+  // grid/syllabus shows.
   const shownItemIds = useMemo(
     () =>
-      editor.table
+      shownTable
         ? collectShownItemIds(
-            editor.table,
+            shownTable,
             editor.statusByItemId,
             gridSection,
             gridStatus
           )
         : [],
-    [editor.table, editor.statusByItemId, gridSection, gridStatus]
+    [shownTable, editor.statusByItemId, gridSection, gridStatus]
   );
   const shownPending = useMemo(
     () => shownItemIds.filter((i) => !editor.selectedIds.has(i)).length,

@@ -1,8 +1,8 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { BookOpen, ListChecks, Printer } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, ListChecks, Printer, Search, X } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { useChecktableEditor } from "@/components/checktable/useChecktableEditor";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
@@ -17,6 +17,8 @@ import { PrintBatchToast } from "@/components/checktable/PrintBatchToast";
 import { usePrintBatchUI } from "@/components/checktable/usePrintBatchUI";
 import { useStuckBottom } from "@/components/checktable/useStickyOffset";
 import { useChapterCollapse } from "@/components/checktable/useChapterCollapse";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { filterTableBySearch } from "@/lib/checktable-search";
 import { objectiveForItemCode } from "@/lib/mock-data/courseware-objectives";
 import type {
   GridSectionFilter,
@@ -33,7 +35,18 @@ export function StudentChecktablesTab() {
   const editor = useChecktableEditor(id, focusItemId);
   const [gridStatus, setGridStatus] = useState<GridStatusFilter>("all");
   const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
-  const batch = usePrintBatchUI(editor, gridStatus, gridSection);
+  const [search, setSearch] = useState("");
+
+  // Debounce so each keystroke doesn't deep-rebuild the filtered tree on the
+  // largest (400+ worksheet) books. The filtered table feeds both the rendered
+  // list and the "Add N shown" set, so queueing respects the search too.
+  const debouncedSearch = useDebouncedValue(search, 150);
+  const filteredTable = useMemo(
+    () =>
+      editor.table ? filterTableBySearch(editor.table, debouncedSearch) : undefined,
+    [editor.table, debouncedSearch]
+  );
+  const batch = usePrintBatchUI(editor, gridStatus, gridSection, filteredTable);
 
   const collapse = useChapterCollapse(editor.table);
   // The controls strip pins under the student header; content headers (grid
@@ -66,8 +79,34 @@ export function StudentChecktablesTab() {
         className="sticky z-20 space-y-2 bg-ink-50/95 px-4 py-2 backdrop-blur-sm"
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <CollapseAllControl collapse={collapse} size="sm" />
+          {/* Search leads the toolbar as the primary find control. */}
+          <div className="relative min-w-[180px] flex-1">
+            <Search
+              className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400"
+              aria-hidden
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by code, chapter, or objective"
+              aria-label="Search worksheets by code, chapter, or objective"
+              className="w-full rounded-md border border-ink-200 bg-white py-1 pl-8 pr-7 text-xs focus:border-ink-400 focus:outline-none"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-ink-400 hover:text-ink-800"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
+          {/* Quiet utility cluster (collapse-all, legend) + the book switcher,
+              which doubles as the title. */}
           <div className="ml-auto flex items-center gap-2 text-xs">
             {editor.otherBookBatchCount > 0 && (
               <span
@@ -78,6 +117,7 @@ export function StudentChecktablesTab() {
                 {editor.otherBookBatchCount} queued in other books
               </span>
             )}
+            <CollapseAllControl collapse={collapse} size="sm" iconOnly />
             <LegendPopover />
             <label className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white pl-2">
               <BookOpen
@@ -140,7 +180,7 @@ export function StudentChecktablesTab() {
       </div>
 
       <ChecktableSyllabus
-        table={table}
+        table={filteredTable ?? table}
         statusByItemId={editor.statusByItemId}
         kindByItemId={editor.kindByItemId}
         noteByItemId={editor.noteByItemId}
