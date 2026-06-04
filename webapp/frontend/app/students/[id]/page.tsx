@@ -1649,7 +1649,11 @@ function AutocompleteInput({ value, onChange, suggestions, className }: {
   className: string;
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const filtered = suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()));
+
+  // Reset highlight when the suggestion list changes
+  useEffect(() => { setHighlightedIndex(-1); }, [value]);
 
   return (
     <div className="relative flex-1">
@@ -1659,17 +1663,39 @@ function AutocompleteInput({ value, onChange, suggestions, className }: {
         onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
         onFocus={() => setShowSuggestions(true)}
         onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+        onKeyDown={(e) => {
+          if (!showSuggestions || filtered.length === 0) return;
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(i => (i + 1) % filtered.length);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(i => (i <= 0 ? filtered.length - 1 : i - 1));
+          } else if (e.key === 'Enter') {
+            if (highlightedIndex >= 0) {
+              e.preventDefault();
+              onChange(filtered[highlightedIndex]);
+              setShowSuggestions(false);
+            }
+          } else if (e.key === 'Escape') {
+            setShowSuggestions(false);
+          }
+        }}
         className={className}
       />
       {showSuggestions && filtered.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 max-h-32 overflow-y-auto bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-700 rounded-md shadow-lg z-10">
-          {filtered.map(s => (
+          {filtered.map((s, i) => (
             <button
               key={s}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => { onChange(s); setShowSuggestions(false); }}
-              className="w-full px-2 py-1 text-left text-sm hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              onMouseEnter={() => setHighlightedIndex(i)}
+              className={cn(
+                "w-full px-2 py-1 text-left text-sm hover:bg-amber-50 dark:hover:bg-amber-900/20",
+                i === highlightedIndex && "bg-amber-50 dark:bg-amber-900/20"
+              )}
             >
               {s}
             </button>

@@ -94,6 +94,7 @@ export default function StudentsPage() {
   const [allSchools, setAllSchools] = useState<string[]>([]);
   const [schoolSearchInput, setSchoolSearchInput] = useState(searchParams.get('school') || '');
   const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false);
+  const [schoolHighlightIndex, setSchoolHighlightIndex] = useState(-1);
   const schoolInputRef = useRef<HTMLInputElement>(null);
 
   // Popover state (lifted to page level for correct positioning)
@@ -427,6 +428,7 @@ export default function StudentsPage() {
                 onChange={(e) => {
                   setSchoolSearchInput(e.target.value);
                   setShowSchoolSuggestions(true);
+                  setSchoolHighlightIndex(-1);
                 }}
                 onFocus={() => setShowSchoolSuggestions(true)}
                 onBlur={() => {
@@ -434,19 +436,32 @@ export default function StudentsPage() {
                   setTimeout(() => setShowSchoolSuggestions(false), 150);
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    // If exact match, select it
-                    const match = allSchools.find(s => s.toLowerCase() === schoolSearchInput.toLowerCase());
-                    if (match) {
-                      setSchoolFilter(match);
-                      setSchoolSearchInput(match);
+                  if (e.key === 'ArrowDown' && showSchoolSuggestions && filteredSchools.length > 0) {
+                    e.preventDefault();
+                    setSchoolHighlightIndex(i => (i + 1) % filteredSchools.length);
+                  } else if (e.key === 'ArrowUp' && showSchoolSuggestions && filteredSchools.length > 0) {
+                    e.preventDefault();
+                    setSchoolHighlightIndex(i => (i <= 0 ? filteredSchools.length - 1 : i - 1));
+                  } else if (e.key === 'Enter') {
+                    // Prefer a highlighted suggestion, then an exact text match
+                    let selected: string | undefined;
+                    if (showSchoolSuggestions && schoolHighlightIndex >= 0) {
+                      selected = filteredSchools[schoolHighlightIndex];
+                    } else {
+                      selected = allSchools.find(s => s.toLowerCase() === schoolSearchInput.toLowerCase());
+                    }
+                    if (selected) {
+                      setSchoolFilter(selected);
+                      setSchoolSearchInput(selected);
                     } else if (schoolSearchInput === '') {
                       setSchoolFilter('');
                     }
                     setShowSchoolSuggestions(false);
+                    setSchoolHighlightIndex(-1);
                     setCurrentPage(1);
                   } else if (e.key === 'Escape') {
                     setShowSchoolSuggestions(false);
+                    setSchoolHighlightIndex(-1);
                   }
                 }}
                 className="w-28 pl-7 pr-6 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100"
@@ -466,18 +481,21 @@ export default function StudentsPage() {
               {/* Suggestions dropdown */}
               {showSchoolSuggestions && filteredSchools.length > 0 && (
                 <div className="absolute top-full left-0 mt-1 w-40 max-h-48 overflow-y-auto bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md shadow-lg z-50">
-                  {filteredSchools.map((school) => (
+                  {filteredSchools.map((school, i) => (
                     <button
                       key={school}
                       onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setSchoolHighlightIndex(i)}
                       onClick={() => {
                         setSchoolFilter(school);
                         setSchoolSearchInput(school);
                         setShowSchoolSuggestions(false);
+                        setSchoolHighlightIndex(-1);
                         setCurrentPage(1);
                       }}
                       className={cn(
                         "w-full px-3 py-1.5 text-left text-sm hover:bg-[#a0704b]/10",
+                        i === schoolHighlightIndex && "bg-[#a0704b]/10",
                         schoolFilter === school && "bg-[#a0704b]/20 font-medium"
                       )}
                     >
