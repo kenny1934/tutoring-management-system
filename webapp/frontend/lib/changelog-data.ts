@@ -15,6 +15,9 @@ const changelogData = [
           },
           {
             "description": "**Command palette stays closed on the login page**: the quick command palette no longer opens before you have signed in."
+          },
+          {
+            "description": "**Filter toolbars stay pinned while scrolling**: the toolbar holding the search and filters at the top of the Students and Courseware pages now stays fixed in place as you scroll the list, instead of scrolling out of view."
           }
         ]
       }

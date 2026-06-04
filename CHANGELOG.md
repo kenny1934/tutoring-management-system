@@ -7,6 +7,7 @@
 * **School suggestions can be picked with the keyboard**: the school field's suggestion list on the students page and the student profile edit form now responds to the up and down arrow keys, with Enter to choose the highlighted school and Escape to dismiss. The highlighted option scrolls into view in longer lists, and the Add Student dialog's school field gained the same keyboard support.
 * **Tutor profile reads better on phones**: the tutor detail page is more responsive on small screens, and the tutor header stays on a single row so a long email address truncates cleanly instead of stretching the card taller.
 * **Command palette stays closed on the login page**: the quick command palette no longer opens before you have signed in.
+* **Filter toolbars stay pinned while scrolling**: the toolbar holding the search and filters at the top of the Students and Courseware pages now stays fixed in place as you scroll the list, instead of scrolling out of view.
 
 ## [2.0.70](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.70) (2026-05-30)
 
