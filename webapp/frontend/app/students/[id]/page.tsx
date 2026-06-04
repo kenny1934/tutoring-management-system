@@ -28,6 +28,7 @@ import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
+import { Autocomplete } from "@/components/ui/autocomplete";
 import { formatShortDate, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { getToday } from "@/lib/calendar-utils";
@@ -1641,71 +1642,6 @@ function InfoRow({ label, value, icon: Icon, mono }: { label: string; value?: st
   );
 }
 
-// Autocomplete Input component
-function AutocompleteInput({ value, onChange, suggestions, className }: {
-  value: string;
-  onChange: (val: string) => void;
-  suggestions: string[];
-  className: string;
-}) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const filtered = suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()));
-
-  // Reset highlight when the suggestion list changes
-  useEffect(() => { setHighlightedIndex(-1); }, [value]);
-
-  return (
-    <div className="relative flex-1">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
-        onFocus={() => setShowSuggestions(true)}
-        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-        onKeyDown={(e) => {
-          if (!showSuggestions || filtered.length === 0) return;
-          if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setHighlightedIndex(i => (i + 1) % filtered.length);
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setHighlightedIndex(i => (i <= 0 ? filtered.length - 1 : i - 1));
-          } else if (e.key === 'Enter') {
-            if (highlightedIndex >= 0) {
-              e.preventDefault();
-              onChange(filtered[highlightedIndex]);
-              setShowSuggestions(false);
-            }
-          } else if (e.key === 'Escape') {
-            setShowSuggestions(false);
-          }
-        }}
-        className={className}
-      />
-      {showSuggestions && filtered.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 max-h-32 overflow-y-auto bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-700 rounded-md shadow-lg z-10">
-          {filtered.map((s, i) => (
-            <button
-              key={s}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { onChange(s); setShowSuggestions(false); }}
-              onMouseEnter={() => setHighlightedIndex(i)}
-              className={cn(
-                "w-full px-2 py-1 text-left text-sm hover:bg-amber-50 dark:hover:bg-amber-900/20",
-                i === highlightedIndex && "bg-amber-50 dark:bg-amber-900/20"
-              )}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // Icon Select component for Academic Stream
 function IconSelect({ value, onChange, options, className }: {
   value: string;
@@ -1810,7 +1746,7 @@ function EditableInfoRow({
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </span>
       {type === "autocomplete" && suggestions ? (
-        <AutocompleteInput
+        <Autocomplete
           value={value || ""}
           onChange={(val) => onChange(field, val)}
           suggestions={suggestions}

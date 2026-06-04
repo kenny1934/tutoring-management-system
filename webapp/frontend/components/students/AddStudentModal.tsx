@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
+import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/contexts/ToastContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { User, Loader2, GraduationCap, Phone, Building2, MapPin, BookOpen, FlaskConical, AlertTriangle, Hash, Plus, Trash2 } from "lucide-react";
@@ -68,7 +69,6 @@ export function AddStudentModal({
 
   // School autocomplete
   const [allSchools, setAllSchools] = useState<string[]>([]);
-  const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false);
 
   // Next ID preview
   const [nextId, setNextId] = useState<string | null>(null);
@@ -149,17 +149,9 @@ export function AddStudentModal({
     }
   }, [grade]);
 
-  // Filter schools for autocomplete
-  const filteredSchools = school
-    ? allSchools.filter((s) =>
-        s.toLowerCase().includes(school.toLowerCase())
-      ).slice(0, 8)
-    : [];
-
   // Handle school selection from autocomplete - fetch school info for lang stream
   const handleSchoolSelect = async (selectedSchool: string) => {
     setSchool(selectedSchool);
-    setShowSchoolSuggestions(false);
 
     // Only auto-fill lang stream if not manually set
     if (!langStreamManuallySet) {
@@ -304,37 +296,26 @@ export function AddStudentModal({
         </div>
 
         {/* School (autocomplete) */}
-        <div className="relative">
+        <div>
           <label className="block text-sm font-medium text-foreground/70 mb-1">
             <Building2 className="h-3.5 w-3.5 inline mr-1" />
             School
           </label>
-          <input
-            type="text"
+          <Autocomplete
             value={school}
-            onChange={(e) => {
-              setSchool(e.target.value);
-              setShowSchoolSuggestions(true);
-            }}
-            onFocus={() => setShowSchoolSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSchoolSuggestions(false), 200)}
+            onChange={setSchool}
+            onSelect={handleSchoolSelect}
+            suggestions={allSchools}
+            maxSuggestions={8}
+            showAllWhenEmpty={false}
+            blurDelayMs={200}
             placeholder="Search or enter school name"
+            wrapperClassName="relative"
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            dropdownClassName="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto"
+            itemClassName="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+            highlightClassName="bg-gray-100 dark:bg-gray-700"
           />
-          {showSchoolSuggestions && filteredSchools.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-              {filteredSchools.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleSchoolSelect(s)}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Lang Stream & Academic Stream Row */}
