@@ -2,15 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Library, CheckCircle2, Search, X } from "lucide-react";
-import type {
-  AssignmentStatus,
-  Checktable,
-  ChecktableItem,
-} from "@/lib/types";
+import type { Checktable, ChecktableItem } from "@/lib/types";
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
-import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
-import { ChecktableViewControls } from "@/components/checktable/ChecktableViewControls";
+import { CollapseAllControl } from "@/components/checktable/CollapseAllControl";
 import { useStuckBottom } from "@/components/checktable/useStickyOffset";
 import { useChapterCollapse } from "@/components/checktable/useChapterCollapse";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
@@ -19,10 +14,6 @@ import {
   type SessionPick,
 } from "@/components/checktable/AssignDialog";
 import { objectiveForItemCode } from "@/lib/mock-data/courseware-objectives";
-
-const EMPTY_SELECTION = new Set<string>();
-// Neutral status map: courseware chips carry no per-student progress.
-const EMPTY_STATUS: Record<string, AssignmentStatus | null> = {};
 
 /** Build a search-filtered copy of a checktable, keeping only items whose code
  *  or chapter title matches the query. Empty rows/sections are dropped so the
@@ -135,13 +126,10 @@ export function CoursewareBrowser() {
   const targets = useMemo(() => assignableSessions(), [assignableSessions]);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  // Syllabus = objective-led reading view (default); Grid = dense matrix for
-  // scanning across variants.
-  const [view, setView] = useState<"grid" | "syllabus">("syllabus");
 
   const collapse = useChapterCollapse(table);
-  // Search + view controls pin to the top; content headers (grid thead,
-  // syllabus chapter headers) park just below that strip.
+  // Search + collapse control pin to the top; syllabus chapter headers park
+  // just below that strip.
   const toolbarRef = useRef<HTMLDivElement>(null);
   const contentTop = useStuckBottom(toolbarRef);
 
@@ -300,32 +288,16 @@ export function CoursewareBrowser() {
               )}
             </div>
 
-            <ChecktableViewControls
-              view={view}
-              onViewChange={setView}
-              collapse={collapse}
-            />
+            <CollapseAllControl collapse={collapse} />
           </div>
 
-          {view === "grid" ? (
-            <ChecktableGrid
-              table={filteredTable ?? table}
-              statusByItemId={EMPTY_STATUS}
-              selectedItemIds={EMPTY_SELECTION}
-              statusFilter="all"
-              sectionFilter="all"
-              stickyTop={contentTop}
-              onItemClick={setActiveItem}
-            />
-          ) : (
-            <ChecktableSyllabus
-              table={filteredTable ?? table}
-              collapsed={collapse.collapsed}
-              onToggleChapter={collapse.toggle}
-              stickyTop={contentTop}
-              onItemClick={setActiveItem}
-            />
-          )}
+          <ChecktableSyllabus
+            table={filteredTable ?? table}
+            collapsed={collapse.collapsed}
+            onToggleChapter={collapse.toggle}
+            stickyTop={contentTop}
+            onItemClick={setActiveItem}
+          />
         </>
       ) : (
         <div className="surface px-4 py-10 text-center text-sm text-ink-500">

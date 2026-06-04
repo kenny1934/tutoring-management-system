@@ -5,9 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { BookOpen, ListChecks, Printer } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { useChecktableEditor } from "@/components/checktable/useChecktableEditor";
-import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
-import { ChecktableViewControls } from "@/components/checktable/ChecktableViewControls";
+import { CollapseAllControl } from "@/components/checktable/CollapseAllControl";
 import { AssignDialog } from "@/components/checktable/AssignDialog";
 import { PrintTray } from "@/components/checktable/PrintTray";
 import { GridFilterBar } from "@/components/checktable/GridFilterBar";
@@ -34,7 +33,6 @@ export function StudentChecktablesTab() {
   const editor = useChecktableEditor(id, focusItemId);
   const [gridStatus, setGridStatus] = useState<GridStatusFilter>("all");
   const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
-  const [view, setView] = useState<"grid" | "syllabus">("syllabus");
   const batch = usePrintBatchUI(editor, gridStatus, gridSection);
 
   const collapse = useChapterCollapse(editor.table);
@@ -64,12 +62,7 @@ export function StudentChecktablesTab() {
         className="sticky z-20 -mx-4 space-y-2 bg-ink-50/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <ChecktableViewControls
-            view={view}
-            onViewChange={setView}
-            collapse={collapse}
-            size="sm"
-          />
+          <CollapseAllControl collapse={collapse} size="sm" />
           <button
             type="button"
             onClick={() => batch.setSelectMode((v) => !v)}
@@ -138,35 +131,21 @@ export function StudentChecktablesTab() {
         )}
       </div>
 
-      {view === "grid" ? (
-        <ChecktableGrid
-          table={table}
-          statusByItemId={editor.statusByItemId}
-          kindByItemId={editor.kindByItemId}
-          noteByItemId={editor.noteByItemId}
-          selectedItemIds={editor.selectedIds}
-          statusFilter={gridStatus}
-          sectionFilter={gridSection}
-          stickyTop={contentTop}
-          onItemClick={batch.handleChipClick}
-        />
-      ) : (
-        <ChecktableSyllabus
-          table={table}
-          statusByItemId={editor.statusByItemId}
-          kindByItemId={editor.kindByItemId}
-          noteByItemId={editor.noteByItemId}
-          selectedItemIds={editor.selectedIds}
-          statusFilter={gridStatus}
-          sectionFilter={gridSection}
-          showProgress
-          collapsed={collapse.collapsed}
-          onToggleChapter={collapse.toggle}
-          stickyTop={contentTop}
-          onAddItemsToBatch={editor.addItemsToBatch}
-          onItemClick={batch.handleChipClick}
-        />
-      )}
+      <ChecktableSyllabus
+        table={table}
+        statusByItemId={editor.statusByItemId}
+        kindByItemId={editor.kindByItemId}
+        noteByItemId={editor.noteByItemId}
+        selectedItemIds={editor.selectedIds}
+        statusFilter={gridStatus}
+        sectionFilter={gridSection}
+        showProgress
+        collapsed={collapse.collapsed}
+        onToggleChapter={collapse.toggle}
+        stickyTop={contentTop}
+        onAddItemsToBatch={editor.addItemsToBatch}
+        onItemClick={batch.handleChipClick}
+      />
 
       <PrintTray
         entries={editor.printBatchEntries}
