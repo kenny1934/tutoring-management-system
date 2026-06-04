@@ -2828,9 +2828,12 @@ export default function CoursewarePage() {
     setExpandedFilename((prev) => (prev === filename ? null : filename));
   };
 
-  // Toolbar classes
-  const toolbarClasses = cn(
-    "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3",
+  // Toolbar: outer div is a clean sticky container, inner div carries the
+  // visual styling. Sticky breaks if applied to the same element as the flex
+  // layout, so the two responsibilities are split (matches the Sessions page).
+  const toolbarStickyClasses = "sticky top-0 z-30";
+  const toolbarInnerClasses = cn(
+    "flex flex-wrap items-center gap-2 sm:gap-3",
     "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
     "rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
@@ -2903,7 +2906,8 @@ export default function CoursewarePage() {
       <PageTransition className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Toolbar */}
-          <div className={toolbarClasses}>
+          <div className={toolbarStickyClasses}>
+            <div className={toolbarInnerClasses}>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full flex-wrap">
               {/* Title */}
               <div className="flex items-center gap-2">
@@ -3061,6 +3065,7 @@ export default function CoursewarePage() {
                   </div>
                 </>
               )}
+            </div>
             </div>
           </div>
 
