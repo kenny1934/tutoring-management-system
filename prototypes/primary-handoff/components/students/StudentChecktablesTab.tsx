@@ -125,7 +125,7 @@ export function StudentChecktablesTab() {
       <div
         ref={toolbarRef}
         style={{ top: "var(--ct-stick, 0px)" }}
-        className="sticky z-20 space-y-2 bg-ink-50/95 px-4 py-2 backdrop-blur-sm"
+        className="sticky z-20 space-y-2 bg-ink-50 px-4 py-2"
       >
         <div className="flex items-center gap-2 flex-wrap">
           {/* Search leads the toolbar as the primary find control. */}

@@ -46,11 +46,26 @@ export function StudentDetailShell({ children }: { children: React.ReactNode }) 
     // The bottom only changes over the first ~24px of scroll (while the header
     // parks), then holds; skip the redundant writes the rest of the scroll.
     let last = -1;
-    const setLive = () => {
-      const bottom = Math.round(el.getBoundingClientRect().bottom);
+    let settled = false;
+    const write = (bottom: number) => {
       if (bottom === last) return;
       last = bottom;
       document.documentElement.style.setProperty("--ct-stick-live", `${bottom}px`);
+    };
+    const setLive = () => {
+      // The header only shrinks (its bottom moves) over the first ~24px of
+      // scroll, while it parks. Past a small margin it's fully stuck and its
+      // bottom holds, so take one final reading on the way past and then skip
+      // the per-frame layout read (getBoundingClientRect) for the rest of the
+      // scroll; re-engage if we scroll back up into the parking zone.
+      if (window.scrollY > 64) {
+        if (settled) return;
+        settled = true;
+        write(Math.round(el.getBoundingClientRect().bottom));
+        return;
+      }
+      settled = false;
+      write(Math.round(el.getBoundingClientRect().bottom));
     };
     setLive();
     window.addEventListener("scroll", setLive, { passive: true });
@@ -80,7 +95,7 @@ export function StudentDetailShell({ children }: { children: React.ReactNode }) 
        *  underneath; offset below the mobile nav bar on small screens. */}
       <div
         ref={headerRef}
-        className="sticky top-[52px] lg:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-1 space-y-3 bg-ink-50/95 backdrop-blur-sm shadow-sm"
+        className="sticky top-[52px] lg:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-1 space-y-3 bg-ink-50 shadow-sm"
       >
         <StudentDetailHeader
           student={student}

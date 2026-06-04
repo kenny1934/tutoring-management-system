@@ -224,7 +224,7 @@ export function CoursewareBrowser() {
 
           <div
             ref={toolbarRef}
-            className="sticky top-[52px] lg:top-0 z-20 -mx-4 flex flex-col gap-2 bg-ink-50/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:-mx-8 lg:px-8"
+            className="sticky top-[52px] lg:top-0 z-20 -mx-4 flex flex-col gap-2 bg-ink-50 px-4 py-2 sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:-mx-8 lg:px-8"
           >
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
