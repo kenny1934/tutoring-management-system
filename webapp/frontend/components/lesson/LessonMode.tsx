@@ -264,12 +264,16 @@ export function LessonMode({
     return exercises;
   }, [currentSession, previousSession, selectedIsFromPrevious]);
 
-  // Auto-select first exercise on mount / session change
+  // Auto-select first exercise on mount / session change. Current session
+  // only: with nothing assigned yet (fresh summer sessions especially), the
+  // viewer should stay empty rather than silently loading the previous
+  // session's file.
   useEffect(() => {
-    if (allExercises.length > 0 && !selectedExercise) {
-      setSelectedExercise(allExercises[0]);
+    const exercises = currentSession?.exercises;
+    if (exercises && exercises.length > 0 && !selectedExercise) {
+      setSelectedExercise(exercises[0]);
     }
-  }, [allExercises, selectedExercise]);
+  }, [currentSession, selectedExercise]);
 
   // S5: Load PDF when exercise changes (with caching) — uses getExercisePageNumbers
   useEffect(() => {
