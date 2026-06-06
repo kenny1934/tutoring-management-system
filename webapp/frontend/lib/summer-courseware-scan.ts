@@ -195,6 +195,18 @@ export function parseSummerCoursewarePath(
   return m ? { year: parseInt(m[1], 10), relPath: m[2] } : null;
 }
 
+/** Walk the stored per-year root handle to a file, keeping the error reason. */
+async function resolveCoursewareFile(
+  year: number,
+  relPath: string
+): Promise<{ handle: FileSystemFileHandle } | { error: OpenCoursewareError }> {
+  const root = await getRootHandle(year);
+  if (!root) return { error: "no_handle" };
+  // navigateToFile verifies (and re-requests) permission itself.
+  const result = await navigateToFile(root, relPath.split("\\").filter(Boolean));
+  return result.success ? { handle: result.handle } : { error: result.error };
+}
+
 /**
  * File handle for an indexed courseware PDF via the stored per-year root
  * handle. Returns null when no handle is stored or the file is missing —
@@ -204,11 +216,8 @@ export async function getCoursewareFileHandle(
   year: number,
   relPath: string
 ): Promise<FileSystemFileHandle | null> {
-  const root = await getRootHandle(year);
-  if (!root) return null;
-  // navigateToFile verifies (and re-requests) permission itself.
-  const result = await navigateToFile(root, relPath.split("\\").filter(Boolean));
-  return result.success ? result.handle : null;
+  const result = await resolveCoursewareFile(year, relPath);
+  return "handle" in result ? result.handle : null;
 }
 
 /** Read an indexed courseware PDF's bytes, or null when unreachable. */
@@ -235,10 +244,7 @@ export async function openCoursewareFile(
   year: number,
   relPath: string
 ): Promise<OpenCoursewareError | null> {
-  const root = await getRootHandle(year);
-  if (!root) return "no_handle";
-  // navigateToFile verifies (and re-requests) permission itself.
-  const result = await navigateToFile(root, relPath.split("\\").filter(Boolean));
-  if (!result.success) return result.error;
+  const result = await resolveCoursewareFile(year, relPath);
+  if ("error" in result) return result.error;
   return (await openFileInNewTab(result.handle)) ? null : "open_failed";
 }

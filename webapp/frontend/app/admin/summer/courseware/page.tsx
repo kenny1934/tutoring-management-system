@@ -10,6 +10,7 @@ import { usePageTitle } from "@/lib/hooks";
 import { summerAPI, summerCoursewareAPI } from "@/lib/api";
 import type { SummerCoursewareFile, SummerCoursewareIndexResponse } from "@/types";
 import { CoursewareMatrix } from "@/components/summer/CoursewareMatrix";
+import { ConnectDriveButton } from "@/components/summer/ConnectDriveButton";
 import { isFileSystemAccessSupported } from "@/lib/file-system";
 import {
   pickAndScanTree,
@@ -21,7 +22,7 @@ import {
 } from "@/lib/summer-courseware-scan";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatShortDate } from "@/lib/formatters";
-import { BookOpen, FolderSearch, AlertTriangle, Loader2, Cable } from "lucide-react";
+import { BookOpen, FolderSearch, AlertTriangle, Loader2 } from "lucide-react";
 
 export default function AdminSummerCoursewarePage() {
   usePageTitle("Summer Courseware");
@@ -290,14 +291,12 @@ export default function AdminSummerCoursewarePage() {
                     </>
                   )}
                   {driveConnected === false && (
-                    <button
+                    <ConnectDriveButton
                       onClick={handleConnectDrive}
                       title="Pick the Finalised folder once on this computer so chips can open PDFs"
-                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors text-xs font-medium"
-                    >
-                      <Cable className="h-3.5 w-3.5" />
-                      Connect drive to open PDFs
-                    </button>
+                      label="Connect drive to open PDFs"
+                      size="sm"
+                    />
                   )}
                 </div>
 

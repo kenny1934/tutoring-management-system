@@ -10,7 +10,7 @@ import type {
   SummerCoursewareIndexResponse,
 } from "@/types";
 
-export const INDEXED_GRADES = ["F1", "F2", "F3"];
+const INDEXED_GRADES = ["F1", "F2", "F3"];
 
 const DOC_TYPE_LABELS: Record<"CW" | "HW" | "Extra", string> = {
   CW: "Classwork",
@@ -159,7 +159,7 @@ export function CoursewareMatrix({
 }) {
   const chaptersByGrade = useMemo(
     () => groupChapters(index.files ?? []),
-    [index]
+    [index.files]
   );
   // Derive grade sections from the data (with F1-F3 as the empty-state
   // floor) so grades added to the backend scope later show up unchanged.

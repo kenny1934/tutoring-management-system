@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Sun, Cable } from "lucide-react";
+import { Sun } from "lucide-react";
+import { ConnectDriveButton } from "@/components/summer/ConnectDriveButton";
 import { useToast } from "@/contexts/ToastContext";
 import {
   pickDefaults,
@@ -185,14 +186,10 @@ function WideGradeSection({
         </span>
         <span className="flex-1" />
         {driveConnected === false && (
-          <button
+          <ConnectDriveButton
             onClick={handleConnect}
             title="Pick the courseware Finalised folder once on this computer so files load straight from the drive"
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
-          >
-            <Cable className="h-3 w-3" />
-            Connect drive
-          </button>
+          />
         )}
       </div>
 

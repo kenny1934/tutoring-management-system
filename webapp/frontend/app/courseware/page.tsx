@@ -52,10 +52,10 @@ import {
   Flame,
   User,
   Sun,
-  Cable,
 } from "lucide-react";
 import { studentsAPI, api, summerCoursewareAPI, type PaperlessSearchMode, type PaperlessTagMatchMode } from "@/lib/api";
 import { CoursewareMatrix } from "@/components/summer/CoursewareMatrix";
+import { ConnectDriveButton } from "@/components/summer/ConnectDriveButton";
 import { useCoursewareDrive } from "@/lib/summer-courseware-session";
 import { getCoursewareFileHandle } from "@/lib/summer-courseware-scan";
 import { buildFullPath } from "@/lib/summer-courseware-defaults";
@@ -813,6 +813,10 @@ async function withTimeout<T>(
 type SortOption = "name-asc" | "name-desc" | "date-desc" | "date-asc";
 type ViewMode = "grid" | "list";
 
+// The summer whose courseware index the Browse tab surfaces: the calendar
+// year at page load (the year-listing configs endpoint is admin-gated).
+const SUMMER_YEAR = new Date().getFullYear();
+
 // Browse tab - Courseware file browser with preview (modern breadcrumb navigation)
 function CoursewareBrowserTab() {
   // Root folders and navigation state
@@ -877,15 +881,16 @@ function CoursewareBrowserTab() {
   // Summer courseware: a pinned virtual folder at root, seasonal by
   // construction — it only appears while the current year has a scanned
   // index. Opening it shows the chapter matrix instead of folder contents.
-  const summerYear = new Date().getFullYear();
+  // Same key family as useSummerCoursewareIndex; the null grade marks the
+  // unfiltered all-grades fetch (the hook never fetches without a grade).
   const { data: summerIndex } = useSWR(
-    ["summer-courseware-index-all", summerYear],
-    () => summerCoursewareAPI.getIndex(summerYear),
+    ["summer-courseware-index", SUMMER_YEAR, null],
+    () => summerCoursewareAPI.getIndex(SUMMER_YEAR),
     { revalidateOnFocus: false }
   );
   const hasSummer = (summerIndex?.files?.length ?? 0) > 0;
   const [summerOpen, setSummerOpen] = useState(false);
-  const summerDrive = useCoursewareDrive(summerYear);
+  const summerDrive = useCoursewareDrive(SUMMER_YEAR);
 
   // Load root folders on mount
   useEffect(() => {
@@ -1152,7 +1157,7 @@ function CoursewareBrowserTab() {
   // path lesson exercises use. Without one, fall back to the native open
   // (which shows the connect-drive toast).
   const handleSummerFileOpen = useCallback(async (file: SummerCoursewareFile) => {
-    const handle = await getCoursewareFileHandle(summerYear, file.rel_path);
+    const handle = await getCoursewareFileHandle(SUMMER_YEAR, file.rel_path);
     if (!handle) {
       summerDrive.open(file.rel_path);
       return;
@@ -1164,7 +1169,7 @@ function CoursewareBrowserTab() {
       kind: "file",
       handle,
     });
-  }, [summerYear, summerDrive, summerIndex, handlePreview]);
+  }, [summerDrive, summerIndex, handlePreview]);
 
   // Toggle file selection (replicated from FolderTreeModal)
   const toggleSelection = useCallback(async (node: TreeNode) => {
@@ -1531,7 +1536,7 @@ function CoursewareBrowserTab() {
                   <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
                   <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">
                     <Sun className="h-3.5 w-3.5" />
-                    Summer Course {summerYear}
+                    Summer Course {SUMMER_YEAR}
                   </span>
                 </>
               )}
@@ -1687,7 +1692,7 @@ function CoursewareBrowserTab() {
               <div className="w-3.5" />
               <Sun className="h-5 w-5 text-amber-500 shrink-0" />
               <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                Summer Course {summerYear}
+                Summer Course {SUMMER_YEAR}
               </span>
               <span className="text-xs text-[#8b7355] dark:text-[#a09080] shrink-0">
                 Courseware drive
@@ -1698,14 +1703,12 @@ function CoursewareBrowserTab() {
           {summerOpen && summerIndex ? (
             <div className="space-y-4">
               {summerDrive.connected === false && (
-                <button
+                <ConnectDriveButton
                   onClick={summerDrive.connect}
                   title="Pick the courseware Finalised folder once on this computer so chips can open PDFs"
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors text-xs font-medium"
-                >
-                  <Cable className="h-3.5 w-3.5" />
-                  Connect drive to open PDFs
-                </button>
+                  label="Connect drive to open PDFs"
+                  size="sm"
+                />
               )}
               <CoursewareMatrix
                 index={summerIndex}
