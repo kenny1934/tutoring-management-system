@@ -177,7 +177,8 @@ def scan_courseware(
         unclassified_count=len(result.unclassified),
         excluded_count=result.excluded_count,
         skipped_grade_count=result.skipped_grade_count,
-        scanned_by=admin.user_email,
+        # Display name, not email — shown verbatim in the admin panel.
+        scanned_by=admin.tutor_name,
     )
     db.add(scan)
     db.commit()

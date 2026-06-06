@@ -68,7 +68,7 @@ def test_scan_classifies_and_accounts(client: TestClient):
     assert scan["excluded_count"] == 1
     assert scan["skipped_grade_count"] == 1
     assert scan["total_files"] == 10
-    assert scan["scanned_by"] == "me@example.com"
+    assert scan["scanned_by"] == "Me"
     # Default path prefix derives from year + picked folder name.
     assert scan["path_prefix"] == (
         "[Courseware Developer 中學]\\Secondary\\Summer Course\\2026 Summer\\Finalised"
