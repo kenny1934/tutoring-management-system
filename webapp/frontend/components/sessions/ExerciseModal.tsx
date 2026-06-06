@@ -33,6 +33,7 @@ import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
 import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
+import { SummerMaterialsSection } from "./SummerMaterialsSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 
@@ -1418,6 +1419,22 @@ export function ExerciseModal({
               </div>
             )}
           </div>
+        )}
+
+        {/* Summer Materials - scan-based defaults for summer lessons */}
+        {!readOnly && session.lesson_number != null && (
+          <SummerMaterialsSection
+            session={session}
+            exerciseType={exerciseType}
+            existingPaths={exercises.map((ex) => ex.pdf_name).filter(Boolean)}
+            onAdd={(pdfName, answerPdfName) => {
+              setExercises((prev) => [
+                ...prev,
+                { ...createExercise(exerciseType, pdfName), answer_pdf_name: answerPdfName ?? "" },
+              ]);
+              setIsDirty(true);
+            }}
+          />
         )}
 
         {/* Action Buttons */}
