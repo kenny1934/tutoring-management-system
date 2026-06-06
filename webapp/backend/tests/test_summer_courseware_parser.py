@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 
 from services.summer_courseware_parser import (
-    ParsedFile,
     lesson_number_from_code,
     parse_listing,
     split_topic,

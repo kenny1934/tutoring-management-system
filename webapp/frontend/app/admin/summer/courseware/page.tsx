@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,10 +9,10 @@ import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle } from "@/lib/hooks";
 import { summerAPI, summerCoursewareAPI } from "@/lib/api";
 import type {
-  SummerCourseConfig,
   SummerCoursewareFile,
   SummerCoursewareIndexResponse,
 } from "@/types";
+import { Popover } from "@/components/ui/popover";
 import { isFileSystemAccessSupported } from "@/lib/file-system";
 import {
   pickAndScanTree,
@@ -77,120 +78,127 @@ const DOC_TYPE_LABELS: Record<"CW" | "HW" | "Extra", string> = {
   Extra: "Extra",
 };
 
-/** What a clicked chip hands to the page so it can show the file popover. */
-interface ChipSelection {
-  rect: DOMRect;
-  chapter: Chapter;
-  docType: "CW" | "HW" | "Extra";
-  variantLabel: string; // 中文 / English / Parallel
-  question: SummerCoursewareFile;
-  answer: SummerCoursewareFile | null;
+type ChipVariant = "c" | "e" | "parallel";
+
+/** One file row inside the chip popover (worksheet or answers). */
+function ChipFileRow({
+  file,
+  label,
+  icon,
+  onOpenFile,
+}: {
+  file: SummerCoursewareFile;
+  label: string;
+  icon: React.ReactNode;
+  onOpenFile: (relPath: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => onOpenFile(file.rel_path)}
+      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+    >
+      {icon}
+      <span className="flex-1 text-left">{label}</span>
+      {file.file_mtime && (
+        <span className="text-xs text-muted-foreground">
+          {formatShortDate(file.file_mtime)}
+        </span>
+      )}
+    </button>
+  );
 }
 
-type ChipSelectHandler = (sel: ChipSelection) => void;
-
-/** Presence chip for one language variant of a document type. */
-function LangChip({
+/**
+ * Presence chip for one variant (Chinese, English, or parallel merged) of a
+ * document type. Present chips open a worksheet/answers popover.
+ */
+function Chip({
   chapter,
   docType,
-  lang,
-  onSelect,
+  variant,
+  onOpenFile,
 }: {
   chapter: Chapter;
   docType: "CW" | "HW" | "Extra";
-  lang: "e" | "c";
-  onSelect: ChipSelectHandler;
+  variant: ChipVariant;
+  onOpenFile: (relPath: string) => void;
 }) {
-  const question = chapter.files.find(
-    (f) => f.doc_type === docType && f.lang === lang && !f.is_parallel && !f.is_answer
-  );
-  const answer = chapter.files.find(
-    (f) => f.doc_type === docType && f.lang === lang && !f.is_parallel && f.is_answer
-  );
-  const label = lang === "e" ? "E" : "C";
-  const langName = lang === "e" ? "English" : "Chinese";
+  const isParallel = variant === "parallel";
+  const matches = (f: SummerCoursewareFile) =>
+    f.doc_type === docType &&
+    (isParallel ? f.is_parallel : !f.is_parallel && f.lang === variant);
+  const question = chapter.files.find((f) => matches(f) && !f.is_answer);
+  const answer = chapter.files.find((f) => matches(f) && f.is_answer);
+
+  const label = isParallel ? docType : variant === "e" ? "E" : "C";
+  const variantName = isParallel ? "Parallel" : variant === "e" ? "English" : "Chinese";
+  const sizing = isParallel ? "h-6 px-1.5" : "w-6 h-6";
 
   if (!question) {
     // Extra material legitimately exists in one language only, so an absent
     // chip is informational rather than an error.
     return (
       <span
-        title={`No ${langName} ${DOC_TYPE_LABELS[docType]} file`}
-        className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-300 dark:text-gray-600"
+        title={`No ${variantName} ${DOC_TYPE_LABELS[docType]} ${isParallel ? "version" : "file"}`}
+        className={`inline-flex items-center justify-center ${sizing} rounded text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-300 dark:text-gray-600`}
       >
         {label}
       </span>
     );
   }
-  return (
-    <button
-      type="button"
-      onClick={(e) =>
-        onSelect({
-          rect: e.currentTarget.getBoundingClientRect(),
-          chapter,
-          docType,
-          variantLabel: lang === "e" ? "English" : "中文",
-          question,
-          answer: answer ?? null,
-        })
-      }
-      title={`${langName} ${DOC_TYPE_LABELS[docType]}. Click for worksheet and answers.`}
-      className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-semibold cursor-pointer transition-shadow hover:ring-2 hover:ring-offset-1 dark:hover:ring-offset-gray-900 ${
-        answer
-          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:ring-green-300"
-          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:ring-amber-300"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
 
-/** Presence chip for a parallel (merged-language) version. */
-function ParallelChip({
-  chapter,
-  docType,
-  onSelect,
-}: {
-  chapter: Chapter;
-  docType: "CW" | "HW" | "Extra";
-  onSelect: ChipSelectHandler;
-}) {
-  const question = chapter.files.find(
-    (f) => f.doc_type === docType && f.is_parallel && !f.is_answer
-  );
-  const answer = chapter.files.find(
-    (f) => f.doc_type === docType && f.is_parallel && f.is_answer
-  );
-  if (!question) {
-    return (
-      <span
-        title={`No parallel ${DOC_TYPE_LABELS[docType]} version`}
-        className="inline-flex items-center justify-center h-6 px-1.5 rounded text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-300 dark:text-gray-600"
-      >
-        {docType}
-      </span>
-    );
-  }
+  const colour = isParallel
+    ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 hover:ring-sky-300"
+    : answer
+      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:ring-green-300"
+      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:ring-amber-300";
+
   return (
-    <button
-      type="button"
-      onClick={(e) =>
-        onSelect({
-          rect: e.currentTarget.getBoundingClientRect(),
-          chapter,
-          docType,
-          variantLabel: "Parallel",
-          question,
-          answer: answer ?? null,
-        })
+    <Popover
+      closeOnContentClick
+      className="p-0 w-64 overflow-hidden"
+      trigger={
+        <button
+          type="button"
+          title={`${variantName} ${DOC_TYPE_LABELS[docType]}. Click for worksheet and answers.`}
+          className={`inline-flex items-center justify-center ${sizing} rounded text-xs font-semibold cursor-pointer transition-shadow hover:ring-2 hover:ring-offset-1 dark:hover:ring-offset-gray-900 ${colour}`}
+        >
+          {label}
+        </button>
       }
-      title={`Parallel ${DOC_TYPE_LABELS[docType]} version. Click for worksheet and answers.`}
-      className="inline-flex items-center justify-center h-6 px-1.5 rounded text-xs font-semibold cursor-pointer bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 transition-shadow hover:ring-2 hover:ring-sky-300 hover:ring-offset-1 dark:hover:ring-offset-gray-900"
-    >
-      {docType}
-    </button>
+      content={
+        <>
+          <div className="px-3 py-2 border-b border-gray-200/60 dark:border-gray-700/60 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">
+              SM{chapter.code} {chapter.topicZh}
+            </span>
+            {" · "}
+            {DOC_TYPE_LABELS[docType]}
+            {" · "}
+            {isParallel ? "Parallel" : variant === "e" ? "English" : "中文"}
+          </div>
+          <ChipFileRow
+            file={question}
+            label="Worksheet"
+            icon={<FileText className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />}
+            onOpenFile={onOpenFile}
+          />
+          {answer ? (
+            <ChipFileRow
+              file={answer}
+              label="Answers"
+              icon={<FileCheck className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />}
+              onOpenFile={onOpenFile}
+            />
+          ) : (
+            <div className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+              <FileCheck className="h-4 w-4 shrink-0 opacity-40" />
+              <span>Answers not on the drive</span>
+            </div>
+          )}
+        </>
+      }
+    />
   );
 }
 
@@ -199,10 +207,21 @@ export default function AdminSummerCoursewarePage() {
   const { user, isLoading: authLoading, canViewAdminPages, isReadOnly } = useAuth();
   const { showToast } = useToast();
 
-  const [configs, setConfigs] = useState<SummerCourseConfig[]>([]);
   const [year, setYear] = useState<number | null>(null);
   const [index, setIndex] = useState<SummerCoursewareIndexResponse | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Same SWR key as the sibling summer admin tabs, so flipping between tabs
+  // shares the cached configs.
+  const { data: configsData } = useSWR(
+    user && canViewAdminPages ? "summer-configs" : null,
+    () => summerAPI.getConfigs(),
+    { revalidateOnFocus: false }
+  );
+  const configs = useMemo(
+    () => (configsData ?? []).slice().sort((a, b) => b.year - a.year),
+    [configsData]
+  );
 
   // Rescan flow: walk the picked folder first, then confirm before replacing.
   const [scanning, setScanning] = useState(false);
@@ -214,30 +233,11 @@ export default function AdminSummerCoursewarePage() {
   // what lets chips open PDFs straight from the mapped drive.
   const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
 
-  // Worksheet/answers popover anchored to the clicked chip.
-  const [chipMenu, setChipMenu] = useState<ChipSelection | null>(null);
-
   useEffect(() => {
-    if (!chipMenu) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setChipMenu(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [chipMenu]);
-
-  useEffect(() => {
-    if (!user || !canViewAdminPages) return;
-    summerAPI
-      .getConfigs()
-      .then((data) => {
-        const sorted = data.sort((a, b) => b.year - a.year);
-        setConfigs(sorted);
-        const active = sorted.find((c) => c.is_active) ?? sorted[0];
-        setYear((y) => y ?? active?.year ?? new Date().getFullYear());
-      })
-      .catch(() => showToast("Failed to load summer configs", "error"));
-  }, [user, canViewAdminPages, showToast]);
+    if (configs.length === 0) return;
+    const active = configs.find((c) => c.is_active) ?? configs[0];
+    setYear((y) => y ?? active.year);
+  }, [configs]);
 
   const loadIndex = useCallback(async (targetYear: number) => {
     setLoading(true);
@@ -275,7 +275,6 @@ export default function AdminSummerCoursewarePage() {
 
   const handleOpenFile = async (relPath: string) => {
     if (year === null) return;
-    setChipMenu(null);
     const error = await openCoursewareFile(year, relPath);
     if (!error) return;
     if (error === "no_handle") {
@@ -338,7 +337,15 @@ export default function AdminSummerCoursewarePage() {
     () => groupChapters(index?.files ?? []),
     [index]
   );
-  const totalLessons = configs.find((c) => c.year === year)?.total_lessons ?? 8;
+  // Derive grade sections from the data (with F1-F3 as the empty-state
+  // floor) so grades added to the backend scope later show up unchanged.
+  const grades = useMemo(
+    () => Array.from(new Set([...INDEXED_GRADES, ...chaptersByGrade.keys()])).sort(),
+    [chaptersByGrade]
+  );
+  // null = no config for this year; skip the extra-chapter badge rather
+  // than guessing a course length.
+  const totalLessons = configs.find((c) => c.year === year)?.total_lessons ?? null;
 
   if (authLoading) {
     return (
@@ -509,7 +516,7 @@ export default function AdminSummerCoursewarePage() {
                 )}
 
                 {/* Health matrix per grade */}
-                {INDEXED_GRADES.map((grade) => {
+                {grades.map((grade) => {
                   const chapters = chaptersByGrade.get(grade) ?? [];
                   return (
                     <div key={grade} className="rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -540,7 +547,9 @@ export default function AdminSummerCoursewarePage() {
                             <tbody>
                               {chapters.map((ch) => {
                                 const isExtraChapter =
-                                  ch.lessonNumber !== null && ch.lessonNumber > totalLessons;
+                                  ch.lessonNumber !== null &&
+                                  totalLessons !== null &&
+                                  ch.lessonNumber > totalLessons;
                                 return (
                                   <tr key={ch.code} className="border-b border-gray-50 dark:border-gray-800/50 last:border-0">
                                     <td className="px-4 py-2 whitespace-nowrap">
@@ -571,18 +580,18 @@ export default function AdminSummerCoursewarePage() {
                                     </td>
                                     {(["CW", "HW", "Extra"] as const).map((dt) => (
                                       <td key={dt} className="px-2 py-2 whitespace-nowrap">
-                                        <span className="inline-flex gap-1">
-                                          <LangChip chapter={ch} docType={dt} lang="c" onSelect={setChipMenu} />
-                                          <LangChip chapter={ch} docType={dt} lang="e" onSelect={setChipMenu} />
-                                        </span>
+                                        <div className="flex gap-1">
+                                          <Chip chapter={ch} docType={dt} variant="c" onOpenFile={handleOpenFile} />
+                                          <Chip chapter={ch} docType={dt} variant="e" onOpenFile={handleOpenFile} />
+                                        </div>
                                       </td>
                                     ))}
                                     <td className="px-2 py-2 whitespace-nowrap">
-                                      <span className="inline-flex gap-1">
-                                        <ParallelChip chapter={ch} docType="CW" onSelect={setChipMenu} />
-                                        <ParallelChip chapter={ch} docType="HW" onSelect={setChipMenu} />
-                                        <ParallelChip chapter={ch} docType="Extra" onSelect={setChipMenu} />
-                                      </span>
+                                      <div className="flex gap-1">
+                                        <Chip chapter={ch} docType="CW" variant="parallel" onOpenFile={handleOpenFile} />
+                                        <Chip chapter={ch} docType="HW" variant="parallel" onOpenFile={handleOpenFile} />
+                                        <Chip chapter={ch} docType="Extra" variant="parallel" onOpenFile={handleOpenFile} />
+                                      </div>
                                     </td>
                                     <td className="px-4 py-2 whitespace-nowrap text-xs text-muted-foreground">
                                       {ch.latestMtime ? formatShortDate(ch.latestMtime) : "-"}
@@ -608,61 +617,6 @@ export default function AdminSummerCoursewarePage() {
               </>
             )}
           </div>
-
-          {/* Worksheet/answers popover anchored to the clicked chip */}
-          {chipMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setChipMenu(null)} />
-              <div
-                className="fixed z-50 w-64 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg overflow-hidden"
-                style={{
-                  top: Math.min(chipMenu.rect.bottom + 6, window.innerHeight - 150),
-                  left: Math.min(chipMenu.rect.left, window.innerWidth - 272),
-                }}
-              >
-                <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    SM{chipMenu.chapter.code} {chipMenu.chapter.topicZh}
-                  </span>
-                  {" · "}
-                  {DOC_TYPE_LABELS[chipMenu.docType]}
-                  {" · "}
-                  {chipMenu.variantLabel}
-                </div>
-                <button
-                  onClick={() => handleOpenFile(chipMenu.question.rel_path)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <FileText className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />
-                  <span className="flex-1 text-left">Worksheet</span>
-                  {chipMenu.question.file_mtime && (
-                    <span className="text-xs text-muted-foreground">
-                      {formatShortDate(chipMenu.question.file_mtime)}
-                    </span>
-                  )}
-                </button>
-                {chipMenu.answer ? (
-                  <button
-                    onClick={() => handleOpenFile(chipMenu.answer!.rel_path)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <FileCheck className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
-                    <span className="flex-1 text-left">Answers</span>
-                    {chipMenu.answer.file_mtime && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatShortDate(chipMenu.answer.file_mtime)}
-                      </span>
-                    )}
-                  </button>
-                ) : (
-                  <div className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-                    <FileCheck className="h-4 w-4 shrink-0 opacity-40" />
-                    <span>Answers not on the drive</span>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
 
           {/* Replace-index confirmation */}
           <ConfirmDialog

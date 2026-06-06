@@ -11,7 +11,12 @@
  * from lib/file-system first.
  */
 
-import { verifyPermission, openFileInNewTab } from "./file-system";
+import {
+  pickDirectory,
+  openFileInNewTab,
+  navigateToFile,
+  type FileOperationError,
+} from "./file-system";
 
 export interface ScannedFile {
   path: string; // relative to the picked root, "/" separated
@@ -37,27 +42,38 @@ async function walk(
   out: ScannedFile[],
   onProgress?: (count: number) => void
 ): Promise<boolean> {
-  if (depth > MAX_DEPTH) return false;
-  let truncated = false;
+  if (depth > MAX_DEPTH || out.length >= MAX_FILES) return true;
+
+  const files: [string, FileSystemFileHandle][] = [];
+  const dirs: [string, FileSystemDirectoryHandle][] = [];
   for await (const [name, handle] of dir.entries()) {
-    if (out.length >= MAX_FILES) return true;
-    const path = prefix ? `${prefix}/${name}` : name;
-    if (handle.kind === "file") {
+    if (handle.kind === "file") files.push([name, handle as FileSystemFileHandle]);
+    else dirs.push([name, handle as FileSystemDirectoryHandle]);
+  }
+
+  // On a network share each getFile() is a per-file stat, so do them
+  // concurrently — serially this is the slowest step of the whole scan.
+  await Promise.all(
+    files.map(async ([name, handle]) => {
+      if (out.length >= MAX_FILES) return;
       let mtime_ms: number | undefined;
       try {
-        mtime_ms = (await (handle as FileSystemFileHandle).getFile()).lastModified;
+        mtime_ms = (await handle.getFile()).lastModified;
       } catch {
         // Permission hiccup on one file shouldn't sink the scan.
       }
-      out.push({ path, mtime_ms });
+      out.push({ path: prefix ? `${prefix}/${name}` : name, mtime_ms });
       if (out.length % 50 === 0) onProgress?.(out.length);
-    } else {
-      truncated =
-        (await walk(handle as FileSystemDirectoryHandle, path, depth + 1, out, onProgress)) ||
-        truncated;
-    }
-  }
-  return truncated;
+    })
+  );
+  if (out.length >= MAX_FILES) return true;
+
+  const results = await Promise.all(
+    dirs.map(([name, handle]) =>
+      walk(handle, prefix ? `${prefix}/${name}` : name, depth + 1, out, onProgress)
+    )
+  );
+  return results.some(Boolean);
 }
 
 /**
@@ -67,13 +83,8 @@ async function walk(
 export async function pickAndScanTree(
   onProgress?: (count: number) => void
 ): Promise<ScanTreeResult | null> {
-  let root: FileSystemDirectoryHandle;
-  try {
-    // @ts-expect-error - showDirectoryPicker exists in Chrome/Edge
-    root = await window.showDirectoryPicker({ mode: "read" });
-  } catch {
-    return null; // user cancelled
-  }
+  const root = await pickDirectory();
+  if (!root) return null;
 
   const files: ScannedFile[] = [];
   const truncated = await walk(root, "", 0, files, onProgress);
@@ -84,6 +95,10 @@ export async function pickAndScanTree(
 // Root handle persistence — lets the index open PDFs straight from the
 // mapped drive later (admin panel previews, lesson mode defaults) without
 // re-picking the folder. One handle per year per machine.
+//
+// Deliberately a separate store from file-system.ts's saved folders: those
+// feed user-facing folder lists in Settings, and a synthetic per-year entry
+// would pollute them.
 // ============================================================================
 
 const DB_NAME = "summer-courseware";
@@ -147,13 +162,8 @@ export async function getRootHandle(
 export async function connectRootHandle(
   year: number
 ): Promise<"connected" | "cancelled" | "wrong_folder"> {
-  let root: FileSystemDirectoryHandle;
-  try {
-    // @ts-expect-error - showDirectoryPicker exists in Chrome/Edge
-    root = await window.showDirectoryPicker({ mode: "read" });
-  } catch {
-    return "cancelled";
-  }
+  const root = await pickDirectory();
+  if (!root) return "cancelled";
   let looksRight = false;
   try {
     for await (const [name, handle] of root.entries()) {
@@ -170,11 +180,7 @@ export async function connectRootHandle(
   return "connected";
 }
 
-export type OpenCoursewareError =
-  | "no_handle"
-  | "permission_denied"
-  | "not_found"
-  | "open_failed";
+export type OpenCoursewareError = FileOperationError | "no_handle" | "open_failed";
 
 /**
  * Open an indexed courseware PDF in a new tab, navigating the stored root
@@ -186,18 +192,8 @@ export async function openCoursewareFile(
 ): Promise<OpenCoursewareError | null> {
   const root = await getRootHandle(year);
   if (!root) return "no_handle";
-  if (!(await verifyPermission(root))) return "permission_denied";
-  try {
-    const parts = relPath.split("\\").filter(Boolean);
-    const fileName = parts.pop();
-    if (!fileName) return "not_found";
-    let dir = root;
-    for (const part of parts) {
-      dir = await dir.getDirectoryHandle(part);
-    }
-    const fileHandle = await dir.getFileHandle(fileName);
-    return (await openFileInNewTab(fileHandle)) ? null : "open_failed";
-  } catch {
-    return "not_found";
-  }
+  // navigateToFile verifies (and re-requests) permission itself.
+  const result = await navigateToFile(root, relPath.split("\\").filter(Boolean));
+  if (!result.success) return result.error;
+  return (await openFileInNewTab(result.handle)) ? null : "open_failed";
 }

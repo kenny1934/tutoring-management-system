@@ -9,9 +9,11 @@ interface PopoverProps {
   content: ReactNode;
   className?: string;
   align?: "left" | "right";
+  /** Close the popover after any click inside the content (menu-style usage). */
+  closeOnContentClick?: boolean;
 }
 
-export function Popover({ trigger, content, className, align = "left" }: PopoverProps) {
+export function Popover({ trigger, content, className, align = "left", closeOnContentClick }: PopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +106,7 @@ export function Popover({ trigger, content, className, align = "left" }: Popover
               transform: align === "right" ? "translateX(-100%)" : undefined,
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)",
             }}
+            onClick={closeOnContentClick ? () => setIsOpen(false) : undefined}
           >
             {content}
           </div>,

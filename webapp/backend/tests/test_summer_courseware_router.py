@@ -57,7 +57,7 @@ def test_scan_requires_admin_write(client: TestClient):
     assert resp.status_code == 403
 
 
-def test_scan_classifies_and_accounts(client: TestClient, db_session):
+def test_scan_classifies_and_accounts(client: TestClient):
     _override_role("Admin")
     resp = _scan(client)
     assert resp.status_code == 200
@@ -112,7 +112,7 @@ def test_rescan_leaves_other_years_untouched(client: TestClient, db_session):
     assert counts == {2026: 8, 2027: 4}
 
 
-def test_wrong_folder_scan_keeps_previous_index(client: TestClient, db_session):
+def test_wrong_folder_scan_keeps_previous_index(client: TestClient):
     """A scan with zero classifiable files is almost certainly a mis-pick —
     reject it instead of wiping the live index."""
     _override_role("Admin")
@@ -129,7 +129,7 @@ def test_empty_scan_rejected(client: TestClient):
     assert _scan(client, files=[]).status_code == 400
 
 
-def test_index_readable_by_tutors_and_filters_by_grade(client: TestClient, db_session):
+def test_index_readable_by_tutors_and_filters_by_grade(client: TestClient):
     _override_role("Admin")
     files = LISTING + [{"path": "F2/SM801 代數的運算 Mixed Operations of Algebra/SM_801_代數的運算_C_c.pdf"}]
     assert _scan(client, files=files).status_code == 200

@@ -46,7 +46,6 @@ class ScanFileEntry(BaseModel):
 class CoursewareScanRequest(BaseModel):
     year: int = Field(ge=2000, le=2100)
     root_name: Optional[str] = Field(default=None, max_length=255)
-    path_prefix: Optional[str] = Field(default=None, max_length=500)
     files: list[ScanFileEntry] = Field(max_length=MAX_SCAN_FILES)
 
 
@@ -127,7 +126,7 @@ def scan_courseware(
             ),
         )
 
-    path_prefix = body.path_prefix or DEFAULT_PATH_PREFIX.format(
+    path_prefix = DEFAULT_PATH_PREFIX.format(
         year=body.year, root=body.root_name or "Finalised"
     )
 
@@ -135,8 +134,10 @@ def scan_courseware(
         SummerCoursewareFile.year == body.year
     ).delete(synchronize_session=False)
 
-    for f in result.classified:
-        db.add(SummerCoursewareFile(
+    # Bulk insert: per-row db.add() would cost one round trip per row to
+    # Cloud MySQL (~450/scan); the generated PKs aren't needed here.
+    db.bulk_insert_mappings(SummerCoursewareFile, [
+        dict(
             year=body.year,
             grade=f.grade,
             course_code=f.course_code,
@@ -151,16 +152,21 @@ def scan_courseware(
             rel_path=f.rel_path,
             file_name=f.file_name,
             file_mtime=_mtime_to_datetime(f.mtime_ms),
-        ))
-    for u in result.unclassified:
-        db.add(SummerCoursewareFile(
+        )
+        for f in result.classified
+    ] + [
+        dict(
             year=body.year,
             is_classified=False,
+            is_parallel=False,
+            is_answer=False,
             unclassified_reason=u.reason,
             rel_path=u.rel_path,
             file_name=u.file_name,
             file_mtime=_mtime_to_datetime(u.mtime_ms),
-        ))
+        )
+        for u in result.unclassified
+    ])
 
     scan = SummerCoursewareScan(
         year=body.year,

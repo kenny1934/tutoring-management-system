@@ -134,19 +134,31 @@ export async function verifyPermission(
 }
 
 /**
+ * Prompt the user to pick a directory. Returns null when unsupported or
+ * the user cancels.
+ */
+export async function pickDirectory(): Promise<FileSystemDirectoryHandle | null> {
+  if (!isFileSystemAccessSupported()) {
+    return null;
+  }
+  try {
+    // @ts-expect-error - showDirectoryPicker exists in Chrome/Edge
+    return await window.showDirectoryPicker({ mode: 'read' });
+  } catch {
+    return null; // user cancelled or permission denied
+  }
+}
+
+/**
  * Prompt user to select a new folder and add it to the saved list.
  */
 export async function addFolder(): Promise<SavedFolder | null> {
-  if (!isFileSystemAccessSupported()) {
+  const handle = await pickDirectory();
+  if (!handle) {
     return null;
   }
 
   try {
-    // @ts-expect-error - showDirectoryPicker exists in Chrome/Edge
-    const handle = await window.showDirectoryPicker({
-      mode: 'read',
-    });
-
     const folder: SavedFolder = {
       id: generateId(),
       name: handle.name,
@@ -176,16 +188,12 @@ export async function addFolder(): Promise<SavedFolder | null> {
  * Used when granting access to path-mapped drives from Settings.
  */
 export async function addSharedFolder(name: string): Promise<SavedFolder | null> {
-  if (!isFileSystemAccessSupported()) {
+  const handle = await pickDirectory();
+  if (!handle) {
     return null;
   }
 
   try {
-    // @ts-expect-error - showDirectoryPicker exists in Chrome/Edge
-    const handle = await window.showDirectoryPicker({
-      mode: 'read',
-    });
-
     const folder: SavedFolder = {
       id: generateId(),
       name,  // Use the provided canonical name
@@ -415,7 +423,7 @@ function findDriveFolder(folders: SavedFolder[], driveLetter: string): SavedFold
 }
 
 /** Navigate a directory handle to a file using relative path segments */
-async function navigateToFile(folderHandle: FileSystemDirectoryHandle, relativeParts: string[]): Promise<FileOperationResult> {
+export async function navigateToFile(folderHandle: FileSystemDirectoryHandle, relativeParts: string[]): Promise<FileOperationResult> {
   const hasPermission = await verifyPermission(folderHandle);
   if (!hasPermission) {
     return { success: false, error: 'permission_denied' };

@@ -2670,7 +2670,6 @@ export const summerCoursewareAPI = {
   scan: (data: {
     year: number;
     root_name?: string;
-    path_prefix?: string;
     files: { path: string; mtime_ms?: number }[];
   }) =>
     fetchAPI<SummerCoursewareIndexResponse>("/summer/courseware/scan", {
