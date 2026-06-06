@@ -208,7 +208,7 @@ function WideGradeSection({
       <select
         value={chapter?.code ?? ""}
         onChange={(e) => setChapterCode(e.target.value)}
-        className="mt-1.5 w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#5a4d3a] bg-white/70 dark:bg-[#1a1a1a]/70 text-xs text-[#6b5a42] dark:text-[#c4a882]"
+        className="mt-1.5 w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#5a4d3a] bg-white/70 dark:bg-[#1a1a1a]/70 text-xs text-[#6b5a42] dark:text-[#c4a882] [&>option]:bg-white [&>option]:text-[#6b5a42] dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-[#c4a882]"
       >
         {!chapter && <option value="">Choose chapter…</option>}
         {chapters.map((c) => (

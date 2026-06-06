@@ -98,7 +98,7 @@ function ChapterSelect({
     <select
       value={chapter?.code ?? ""}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/70 dark:bg-[#1a1a1a]/70 text-xs text-gray-700 dark:text-gray-300"
+      className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/70 dark:bg-[#1a1a1a]/70 text-xs text-gray-700 dark:text-gray-300 [&>option]:bg-white [&>option]:text-gray-700 dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-gray-300"
     >
       {!chapter && <option value="">Choose chapter…</option>}
       {chapters.map((c) => (
