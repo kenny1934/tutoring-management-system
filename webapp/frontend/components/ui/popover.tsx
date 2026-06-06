@@ -101,6 +101,9 @@ export function Popover({ trigger, content, className, align = "left", closeOnCo
               className
             )}
             style={{
+              // Inline so the un-layered `.paper-texture { position: relative }`
+              // rule in globals.css can't override Tailwind's layered `fixed`.
+              position: "fixed",
               top: posRef.current.top,
               left: posRef.current.left,
               transform: align === "right" ? "translateX(-100%)" : undefined,
