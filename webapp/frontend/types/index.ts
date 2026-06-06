@@ -2314,6 +2314,49 @@ export interface SummerCourseConfig {
 // Note: also see SummerPublishResponse / SummerPublishErrorDetail below for
 // the publish bridge surface area.
 
+// ---- Summer Courseware Index ----
+// Scanned snapshot of the net-drive courseware tree. Mirrors
+// webapp/backend/routers/summer_courseware.py response models.
+
+export interface SummerCoursewareFile {
+  id: number;
+  grade: string | null;
+  course_code: string | null;
+  lesson_number: number | null;
+  topic_zh: string | null;
+  topic_en: string | null;
+  doc_type: "CW" | "HW" | "Extra" | null;
+  lang: "e" | "c" | null; // null for parallel versions (both languages merged)
+  is_parallel: boolean;
+  is_answer: boolean;
+  is_classified: boolean;
+  unclassified_reason: string | null;
+  rel_path: string;
+  file_name: string;
+  file_mtime: string | null;
+}
+
+export interface SummerCoursewareScanSummary {
+  id: number;
+  year: number;
+  root_name: string | null;
+  path_prefix: string | null;
+  total_files: number;
+  classified_count: number;
+  unclassified_count: number;
+  excluded_count: number;
+  skipped_grade_count: number;
+  scanned_by: string | null;
+  scanned_at: string | null;
+}
+
+export interface SummerCoursewareIndexResponse {
+  year: number;
+  scan: SummerCoursewareScanSummary | null;
+  files: SummerCoursewareFile[];
+  unclassified: SummerCoursewareFile[];
+}
+
 export interface SummerApplication {
   id: number;
   config_id: number;

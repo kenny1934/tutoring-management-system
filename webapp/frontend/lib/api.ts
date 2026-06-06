@@ -170,6 +170,7 @@ import type {
   SummerLessonCalendarResponse,
   SummerFindSlotResult,
   SummerStudentLessonsResponse,
+  SummerCoursewareIndexResponse,
   PrimaryProspect,
   PrimaryProspectBulkCreate,
   PrimaryProspectStats,
@@ -2655,6 +2656,27 @@ export const summerAPI = {
     fetchAPI<SummerStudentLessonsResponse>(
       `/summer/students/lessons?config_id=${configId}&location=${encodeURIComponent(location)}`
     ),
+};
+
+// ---- Summer Courseware Index API ----
+
+export const summerCoursewareAPI = {
+  getIndex: (year: number, grade?: string) =>
+    fetchAPI<SummerCoursewareIndexResponse>(
+      `/summer/courseware/index?year=${year}${grade ? `&grade=${encodeURIComponent(grade)}` : ""}`
+    ),
+
+  // Replaces the year's index with a freshly scanned net-drive listing.
+  scan: (data: {
+    year: number;
+    root_name?: string;
+    path_prefix?: string;
+    files: { path: string; mtime_ms?: number }[];
+  }) =>
+    fetchAPI<SummerCoursewareIndexResponse>("/summer/courseware/scan", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 
 // ---- Primary Prospects API ----
