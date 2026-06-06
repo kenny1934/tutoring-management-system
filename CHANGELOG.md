@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.72](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.72) (2026-06-06)
+
+### New Features
+
+* **Summer unavailable dates show up when arranging make-ups**: the dates a parent flagged as unavailable on their summer application now appear on the matching summer enrollment, so a tutor can avoid booking a make-up class on a day the student already said they can't attend. The note shows in the enrollment popover and at the top of the Schedule Make-up dialog, with a small flag on the student's enrollment list for a quick heads-up.
+
+### Bug Fixes
+
+* **Summer enrollment label uses a consistent colour**: the Summer type badge on a student's enrollment list and in the enrollment popover now appears in orange to match the enrollment detail page, instead of the green used for regular enrollments.
+
 ## [2.0.71](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.71) (2026-06-04)
 
 ### Bug Fixes
