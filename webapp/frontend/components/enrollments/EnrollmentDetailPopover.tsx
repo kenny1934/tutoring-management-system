@@ -537,6 +537,8 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                   ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
                   : enrollment.enrollment_type === 'One-Time'
                   ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300"
+                  : enrollment.enrollment_type === 'Summer'
+                  ? "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300"
                   : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
               )}>
                 {enrollment.enrollment_type}
