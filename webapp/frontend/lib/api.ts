@@ -758,6 +758,10 @@ export const sessionsAPI = {
       page_start?: number | null;
       page_end?: number | null;
       remarks?: string | null;
+      answer_pdf_name?: string | null;
+      answer_page_start?: number | null;
+      answer_page_end?: number | null;
+      answer_remarks?: string | null;
     }>,
     options?: { append?: boolean }
   ) => {

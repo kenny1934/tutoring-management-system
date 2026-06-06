@@ -12,6 +12,7 @@ import { getPageLabel, getPrintButtonTitle, type PrintingState } from "@/lib/les
 import { formatShortDate } from "@/lib/formatters";
 import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
+import { SummerCoursewarePanel } from "./SummerCoursewarePanel";
 
 interface LessonExerciseSidebarProps {
   currentSession: Session | null;
@@ -365,6 +366,11 @@ export function LessonExerciseSidebar({
 
   return (
     <div className="flex flex-col gap-1 py-2 px-1 overflow-y-auto">
+      {/* Summer sessions: lesson materials resolved from the courseware index */}
+      {currentSession && currentSession.lesson_number != null && (
+        <SummerCoursewarePanel session={currentSession} isReadOnly={isReadOnly} />
+      )}
+
       {currentSession && (
         <SessionBlock
           key={currentSession.id}

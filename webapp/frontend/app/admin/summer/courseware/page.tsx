@@ -13,6 +13,7 @@ import type {
   SummerCoursewareIndexResponse,
 } from "@/types";
 import { Popover } from "@/components/ui/popover";
+import { groupChapters, type Chapter } from "@/lib/summer-courseware-defaults";
 import { isFileSystemAccessSupported } from "@/lib/file-system";
 import {
   pickAndScanTree,
@@ -27,50 +28,6 @@ import { formatShortDate } from "@/lib/formatters";
 import { BookOpen, FolderSearch, AlertTriangle, Loader2, Cable, FileText, FileCheck } from "lucide-react";
 
 const INDEXED_GRADES = ["F1", "F2", "F3"];
-
-interface Chapter {
-  grade: string;
-  code: string;
-  lessonNumber: number | null;
-  topicZh: string | null;
-  topicEn: string | null;
-  files: SummerCoursewareFile[];
-  latestMtime: string | null;
-}
-
-function groupChapters(files: SummerCoursewareFile[]): Map<string, Chapter[]> {
-  const byChapter = new Map<string, Chapter>();
-  for (const f of files) {
-    if (!f.grade || !f.course_code) continue;
-    const key = `${f.grade}|${f.course_code}`;
-    let ch = byChapter.get(key);
-    if (!ch) {
-      ch = {
-        grade: f.grade,
-        code: f.course_code,
-        lessonNumber: f.lesson_number,
-        topicZh: f.topic_zh,
-        topicEn: f.topic_en,
-        files: [],
-        latestMtime: null,
-      };
-      byChapter.set(key, ch);
-    }
-    ch.files.push(f);
-    if (f.file_mtime && (!ch.latestMtime || f.file_mtime > ch.latestMtime)) {
-      ch.latestMtime = f.file_mtime;
-    }
-  }
-  const byGrade = new Map<string, Chapter[]>();
-  for (const ch of byChapter.values()) {
-    if (!byGrade.has(ch.grade)) byGrade.set(ch.grade, []);
-    byGrade.get(ch.grade)!.push(ch);
-  }
-  for (const chapters of byGrade.values()) {
-    chapters.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
-  }
-  return byGrade;
-}
 
 const DOC_TYPE_LABELS: Record<"CW" | "HW" | "Extra", string> = {
   CW: "Classwork",
