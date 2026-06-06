@@ -22,6 +22,7 @@ import {
   getRootHandle,
   connectRootHandle,
 } from "./summer-courseware-scan";
+import { isFileSystemAccessSupported } from "./file-system";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session, SessionExercise, SummerCoursewareFile, SummerCoursewareIndexResponse } from "@/types";
 
@@ -58,11 +59,19 @@ export function useCoursewareDrive(year: number) {
   const [connected, setConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
+    // Browsers without the File System Access API (Firefox, all mobile)
+    // can never connect; leaving `connected` null keeps the connect
+    // button hidden instead of offering a picker that cannot open.
+    if (!isFileSystemAccessSupported()) return;
     getRootHandle(year).then((h) => setConnected(!!h));
   }, [year]);
 
   const open = useCallback(
     async (relPath: string) => {
+      if (!isFileSystemAccessSupported()) {
+        showToast("Courseware PDFs open from the drive on a centre PC using Chrome or Edge", "error");
+        return;
+      }
       const error = await openCoursewareFile(year, relPath);
       if (!error) return;
       if (error === "no_handle" || error === "folder_not_found") {

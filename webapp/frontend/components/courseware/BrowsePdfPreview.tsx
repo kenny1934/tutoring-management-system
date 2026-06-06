@@ -127,7 +127,7 @@ export function BrowsePdfPreview({
       </div>
 
       {/* Footer with path and actions */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-y-2 mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden">
         <span className="text-xs text-gray-500 truncate flex-1 min-w-0 mr-2">
           {previewNode?.path}
         </span>

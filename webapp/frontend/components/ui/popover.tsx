@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, ReactNode } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
@@ -28,16 +28,46 @@ export function Popover({ trigger, content, className, align = "left", closeOnCo
     };
   }, [align]);
 
+  // Position from posRef, then keep the panel on screen: slide it back
+  // inside the horizontal edges and flip above the trigger when it would
+  // run off the bottom (triggers near the right edge or in bottom rows).
+  const applyPosition = useCallback(() => {
+    const el = popoverRef.current;
+    if (!el) return;
+    el.style.top = `${posRef.current.top}px`;
+    el.style.left = `${posRef.current.left}px`;
+
+    const margin = 8;
+    const rect = el.getBoundingClientRect();
+    let dx = 0;
+    if (rect.right > window.innerWidth - margin) {
+      dx = window.innerWidth - margin - rect.right;
+    }
+    if (rect.left + dx < margin) dx = margin - rect.left;
+    let dy = 0;
+    if (rect.bottom > window.innerHeight - margin) {
+      const trigger = triggerRef.current?.getBoundingClientRect();
+      const flippedTop = trigger ? trigger.top - margin - rect.height : -Infinity;
+      dy = flippedTop >= margin
+        ? flippedTop - rect.top
+        : window.innerHeight - margin - rect.bottom;
+    }
+    if (dx) el.style.left = `${posRef.current.left + dx}px`;
+    if (dy) el.style.top = `${posRef.current.top + dy}px`;
+  }, []);
+
+  // Clamp before first paint (the inline style is the unclamped anchor)
+  useLayoutEffect(() => {
+    if (isOpen) applyPosition();
+  }, [isOpen, applyPosition]);
+
   // Update position on scroll/resize while open
   useEffect(() => {
     if (!isOpen) return;
 
     function handleReposition() {
       measurePosition();
-      if (popoverRef.current) {
-        popoverRef.current.style.top = `${posRef.current.top}px`;
-        popoverRef.current.style.left = `${posRef.current.left}px`;
-      }
+      applyPosition();
     }
 
     window.addEventListener("scroll", handleReposition, true);
@@ -46,7 +76,7 @@ export function Popover({ trigger, content, className, align = "left", closeOnCo
       window.removeEventListener("scroll", handleReposition, true);
       window.removeEventListener("resize", handleReposition);
     };
-  }, [isOpen, measurePosition]);
+  }, [isOpen, measurePosition, applyPosition]);
 
   // Close on click outside
   useEffect(() => {

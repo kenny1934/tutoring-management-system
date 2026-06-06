@@ -58,6 +58,7 @@ import { CoursewareMatrix } from "@/components/summer/CoursewareMatrix";
 import { ConnectDriveButton } from "@/components/summer/ConnectDriveButton";
 import { useCoursewareDrive } from "@/lib/summer-courseware-session";
 import { getCoursewareFileHandle } from "@/lib/summer-courseware-scan";
+import { isFileSystemAccessSupported } from "@/lib/file-system";
 import { buildFullPath } from "@/lib/summer-courseware-defaults";
 import type { SummerCoursewareFile } from "@/types";
 import { cn } from "@/lib/utils";
@@ -892,6 +893,11 @@ function CoursewareBrowserTab() {
   const [summerOpen, setSummerOpen] = useState(false);
   const summerDrive = useCoursewareDrive(SUMMER_YEAR);
 
+  // File System Access API (local folders) only exists in desktop
+  // Chrome/Edge. Resolved in an effect so SSR and first paint agree.
+  const [fsSupported, setFsSupported] = useState(true);
+  useEffect(() => setFsSupported(isFileSystemAccessSupported()), []);
+
   // Load root folders on mount
   useEffect(() => {
     loadRootFolders();
@@ -1490,13 +1496,15 @@ function CoursewareBrowserTab() {
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
               Set up shared drives in Settings → Path Mappings to browse files here.
             </p>
-            <button
-              onClick={handleAddFolder}
-              className="flex items-center gap-2 mx-auto px-4 py-2 rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
-            >
-              <FolderPlus className="h-4 w-4" />
-              Add Folder
-            </button>
+            {fsSupported && (
+              <button
+                onClick={handleAddFolder}
+                className="flex items-center gap-2 mx-auto px-4 py-2 rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
+              >
+                <FolderPlus className="h-4 w-4" />
+                Add Folder
+              </button>
+            )}
           </div>
         </StickyNote>
       </div>
@@ -1506,7 +1514,9 @@ function CoursewareBrowserTab() {
   return (
     <div className="h-full flex gap-4 bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
       {/* Browser panel */}
-      <div className={cn("flex flex-col", previewUrl ? "w-2/5 border-r border-[#e8d4b8] dark:border-[#6b5a4a]" : "w-full")}>
+      {/* Below md the preview takes over the whole tab (a 40% split leaves
+          an unusable sliver on phones); the preview's X brings this back. */}
+      <div className={cn("flex flex-col", previewUrl ? "max-md:hidden w-2/5 border-r border-[#e8d4b8] dark:border-[#6b5a4a]" : "w-full")}>
         {/* Header: Breadcrumb + Controls */}
         <div className="p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
           {/* Row 1: Breadcrumb + View toggle */}
@@ -1522,7 +1532,7 @@ function CoursewareBrowserTab() {
               >
                 <Home className="h-4 w-4" />
               </button>
-              {isAtRoot && !summerOpen && (
+              {isAtRoot && !summerOpen && fsSupported && (
                 <button
                   onClick={handleAddFolder}
                   className="shrink-0 ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-amber-500"
@@ -1754,7 +1764,8 @@ function CoursewareBrowserTab() {
                     {node.kind === "file" && (
                       <div className={cn(
                         "transition-opacity duration-100",
-                        showCheckbox ? "opacity-100" : "opacity-0 pointer-events-none"
+                        // Touch has no hover, so keep checkboxes reachable there.
+                        showCheckbox ? "opacity-100" : "opacity-0 pointer-events-none pointer-coarse:opacity-100 pointer-coarse:pointer-events-auto"
                       )}>
                         <input
                           type="checkbox"
@@ -1795,7 +1806,7 @@ function CoursewareBrowserTab() {
                           "p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-opacity duration-150",
                           copiedPath === node.path || isFocused
                             ? "opacity-100"
-                            : "opacity-0 group-hover:opacity-100"
+                            : "opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100"
                         )}
                         title="Copy path"
                       >
@@ -1807,7 +1818,7 @@ function CoursewareBrowserTab() {
                     {isAtRoot && node.kind === "folder" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500"
+                        className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500"
                         title="Remove folder"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1846,7 +1857,7 @@ function CoursewareBrowserTab() {
                     {node.kind === "file" && (
                       <div className={cn(
                         "absolute top-1 left-1 transition-opacity duration-100",
-                        showCheckbox ? "opacity-100" : "opacity-0 pointer-events-none"
+                        showCheckbox ? "opacity-100" : "opacity-0 pointer-events-none pointer-coarse:opacity-100 pointer-coarse:pointer-events-auto"
                       )}>
                         <input
                           type="checkbox"
@@ -1862,7 +1873,7 @@ function CoursewareBrowserTab() {
                     {isAtRoot && node.kind === "folder" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
-                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500"
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500"
                         title="Remove folder"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1905,8 +1916,8 @@ function CoursewareBrowserTab() {
           )}
         </div>
 
-        {/* Footer: Keyboard hints */}
-        <div className="p-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-[10px] text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {/* Footer: Keyboard hints (pointless on touch, so reclaim the space) */}
+        <div className="pointer-coarse:hidden p-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-[10px] text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">
               {viewMode === "grid" ? "←↑↓→" : "↑↓"}
@@ -3002,7 +3013,10 @@ export default function CoursewarePage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-3 p-2 sm:p-4">
+        {/* Browse/search fill the visible area exactly (their boxes are
+            flex-1, so the mobile header and stacked toolbar are accounted
+            for naturally); ranking keeps the normal page scroll. */}
+        <div className={cn("flex flex-col gap-3 p-2 sm:p-4", activeTab !== "ranking" && "h-full min-h-0")}>
           {/* Toolbar */}
           <div className={toolbarStickyClasses}>
             <div className={toolbarInnerClasses}>
@@ -3288,14 +3302,14 @@ export default function CoursewarePage() {
 
           {/* Browse Tab Content */}
           {activeTab === "browse" && (
-            <div className="h-[calc(100vh-140px)] flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <CoursewareBrowserTab />
             </div>
           )}
 
           {/* Search Tab Content */}
           {activeTab === "search" && (
-            <div className="h-[calc(100vh-140px)] flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <CoursewareSearchTab />
             </div>
           )}

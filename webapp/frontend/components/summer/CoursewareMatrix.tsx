@@ -173,7 +173,10 @@ export function CoursewareMatrix({
       {grades.map((grade) => {
         const chapters = chaptersByGrade.get(grade) ?? [];
         return (
-          <div key={grade} className="rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 overflow-hidden">
+          // @container: the matrix renders in panes of very different widths
+          // (full admin page vs the 40% browse pane beside a preview), so the
+          // narrow layout keys off the card's own width, not the viewport.
+          <div key={grade} className="@container rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
               <span className="font-semibold text-foreground">{grade}</span>
               <span className="text-xs text-muted-foreground">
@@ -189,13 +192,15 @@ export function CoursewareMatrix({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-muted-foreground border-b border-gray-100 dark:border-gray-800">
-                      <th className="text-left font-medium px-4 py-2">Lesson</th>
+                      {/* Lesson stays sticky so rows keep their identity when
+                          the table scrolls sideways in a narrow pane. */}
+                      <th className="sticky left-0 z-10 bg-white dark:bg-gray-900 text-left font-medium px-4 py-2">Lesson</th>
                       <th className="text-left font-medium px-2 py-2">Chapter</th>
                       <th className="text-left font-medium px-2 py-2">Classwork</th>
                       <th className="text-left font-medium px-2 py-2">Homework</th>
                       <th className="text-left font-medium px-2 py-2">Extra</th>
                       <th className="text-left font-medium px-2 py-2">Parallel</th>
-                      <th className="text-left font-medium px-4 py-2">Updated</th>
+                      <th className="@max-3xl:hidden text-left font-medium px-4 py-2">Updated</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -206,7 +211,7 @@ export function CoursewareMatrix({
                         ch.lessonNumber > totalLessons;
                       return (
                         <tr key={ch.code} className="border-b border-gray-50 dark:border-gray-800/50 last:border-0">
-                          <td className="px-4 py-2 whitespace-nowrap">
+                          <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 px-4 py-2 whitespace-nowrap">
                             {ch.lessonNumber === null ? (
                               <span className="text-muted-foreground">-</span>
                             ) : isExtraChapter ? (
@@ -222,12 +227,12 @@ export function CoursewareMatrix({
                               </span>
                             )}
                           </td>
-                          <td className="px-2 py-2 min-w-[14rem]">
-                            <div className="font-medium text-foreground whitespace-nowrap">
+                          <td className="px-2 py-2 min-w-[14rem] @max-3xl:min-w-[9rem]">
+                            <div className="font-medium text-foreground whitespace-nowrap @max-3xl:whitespace-normal">
                               SM{ch.code} {ch.topicZh}
                             </div>
                             {ch.topicEn && (
-                              <div className="text-xs text-muted-foreground whitespace-nowrap">
+                              <div className="text-xs text-muted-foreground whitespace-nowrap @max-3xl:whitespace-normal">
                                 {ch.topicEn}
                               </div>
                             )}
@@ -247,7 +252,7 @@ export function CoursewareMatrix({
                               <Chip chapter={ch} docType="Extra" variant="parallel" onOpenFile={onOpenFile} />
                             </div>
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap text-xs text-muted-foreground">
+                          <td className="@max-3xl:hidden px-4 py-2 whitespace-nowrap text-xs text-muted-foreground">
                             {ch.latestMtime ? formatShortDate(ch.latestMtime) : "-"}
                           </td>
                         </tr>
