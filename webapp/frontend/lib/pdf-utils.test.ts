@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parsePageRange, validatePageRange } from './pdf-utils';
+import { parsePageRange, validatePageRange, composeSideBySidePdf } from './pdf-utils';
 
 // ============================================================================
 // parsePageRange
@@ -88,5 +88,46 @@ describe('validatePageRange', () => {
 
   it('returns true for single page within bounds', () => {
     expect(validatePageRange('5', 5)).toBe(true);
+  });
+});
+
+// ============================================================================
+// composeSideBySidePdf
+// ============================================================================
+
+describe('composeSideBySidePdf', () => {
+  const A4: [number, number] = [595, 842];
+
+  async function makePdf(pageCount: number, size: [number, number] = A4): Promise<ArrayBuffer> {
+    const { PDFDocument, rgb } = await import('pdf-lib');
+    const doc = await PDFDocument.create();
+    for (let i = 0; i < pageCount; i++) {
+      // Pages need a content stream to be embeddable (as real PDFs have).
+      doc.addPage(size).drawRectangle({ x: 10, y: 10, width: 50, height: 50, color: rgb(0, 0, 0) });
+    }
+    const bytes = await doc.save();
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  }
+
+  async function pageSizes(data: ArrayBuffer): Promise<Array<{ width: number; height: number }>> {
+    const { PDFDocument } = await import('pdf-lib');
+    const doc = await PDFDocument.load(data);
+    return doc.getPages().map((p) => p.getSize());
+  }
+
+  it('pairs page n of each side onto one double-width page', async () => {
+    const composed = await composeSideBySidePdf(await makePdf(3), await makePdf(3));
+    const sizes = await pageSizes(composed);
+    expect(sizes).toHaveLength(3);
+    expect(sizes[0].width).toBe(A4[0] * 2);
+    expect(sizes[0].height).toBe(A4[1]);
+  });
+
+  it('leaves a blank half when page counts differ', async () => {
+    const composed = await composeSideBySidePdf(await makePdf(2), await makePdf(1));
+    const sizes = await pageSizes(composed);
+    // The trailing left-only page still gets a full-width spread.
+    expect(sizes).toHaveLength(2);
+    expect(sizes[1].width).toBe(A4[0] * 2);
   });
 });

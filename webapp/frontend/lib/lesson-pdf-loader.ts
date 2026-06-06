@@ -10,6 +10,9 @@ import {
   getCachedPaperlessDocumentId,
   setPaperlessPathCache,
 } from './file-system';
+import { parseSummerCoursewarePath, readCoursewareFile } from './summer-courseware-scan';
+import { parseParallelPath } from './parallel-path';
+import { composeSideBySidePdf } from './pdf-utils';
 import { searchPaperlessByPath } from './paperless-utils';
 
 export interface PdfLoadResult {
@@ -23,9 +26,35 @@ export interface PdfLoadError {
 
 /**
  * Load a PDF as ArrayBuffer from an exercise's pdf_name.
- * Tries local File System Access API first, falls back to Paperless.
+ * Composed parallel previews (`parallel:` paths) resolve both halves and
+ * merge them side by side; real paths go straight to the single-PDF chain.
  */
 export async function loadExercisePdf(
+  pdfName: string,
+  onProgress?: (message: string) => void
+): Promise<PdfLoadResult | PdfLoadError> {
+  const parallel = parseParallelPath(pdfName);
+  if (!parallel) {
+    return loadSinglePdf(pdfName, onProgress);
+  }
+  onProgress?.("Loading both language versions…");
+  const [left, right] = await Promise.all([
+    loadSinglePdf(parallel.left),
+    loadSinglePdf(parallel.right),
+  ]);
+  if ('error' in left) return left;
+  if ('error' in right) return right;
+  onProgress?.("Composing side by side…");
+  try {
+    const data = await composeSideBySidePdf(left.data, right.data);
+    return { data, source: left.source };
+  } catch {
+    return { error: 'fetch_failed' };
+  }
+}
+
+/** Single real path: local File System Access first, Paperless fallback. */
+async function loadSinglePdf(
   pdfName: string,
   onProgress?: (message: string) => void
 ): Promise<PdfLoadResult | PdfLoadError> {
@@ -49,6 +78,21 @@ export async function loadExercisePdf(
         }
       } catch {
         // Local read failed, continue to Paperless fallback
+      }
+    }
+  }
+
+  // 1.5. Summer courseware paths can also resolve via the per-year drive
+  // handle connected in the Summer Materials panel (the share isn't in
+  // Paperless, and the Settings folder alias may not exist on this machine).
+  const summer = parseSummerCoursewarePath(pdfName);
+  if (summer && isFileSystemAccessSupported()) {
+    onProgress?.("Reading from the courseware drive…");
+    const data = await readCoursewareFile(summer.year, summer.relPath);
+    if (data) {
+      const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
+      if (String.fromCharCode(...header).startsWith('%PDF-')) {
+        return { data, source: 'local' };
       }
     }
   }

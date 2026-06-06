@@ -97,7 +97,18 @@ export async function getPdfJs() {
   }
 
   if (!pdfjsLib) {
-    pdfjsLib = await import('pdfjs-dist');
+    try {
+      pdfjsLib = await import('pdfjs-dist');
+    } catch {
+      // Webpack's eval-* devtool (used by `next dev`) breaks evaluating the
+      // pdfjs bundle: "Object.defineProperty called on non-object"
+      // (webpack#20095). Bypass the bundler with a native browser import
+      // from the same CDN the worker already loads from. Production builds
+      // use a non-eval devtool and keep the bundled copy above.
+      const pkg = await import('pdfjs-dist/package.json');
+      const url = `https://unpkg.com/pdfjs-dist@${pkg.version}/build/pdf.min.mjs`;
+      pdfjsLib = (await import(/* webpackIgnore: true */ url)) as typeof import('pdfjs-dist');
+    }
     // Use unpkg CDN which directly serves npm package files
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
   }
@@ -276,6 +287,44 @@ export async function stampPdf(
 
   const pdfBytes = await pdfDoc.save();
   return new Blob([pdfBytes], { type: 'application/pdf' });
+}
+
+/**
+ * Compose two PDFs side by side: page n of `left` beside page n of `right`
+ * on one wide page (tops aligned, native sizes preserved). Used to show a
+ * class both language versions of a summer material without a pre-made
+ * merge. A missing page on either side leaves that half blank.
+ */
+export async function composeSideBySidePdf(
+  left: ArrayBuffer,
+  right: ArrayBuffer
+): Promise<ArrayBuffer> {
+  const { PDFDocument } = await import('pdf-lib');
+  const [leftDoc, rightDoc] = await Promise.all([
+    PDFDocument.load(left, { ignoreEncryption: true }),
+    PDFDocument.load(right, { ignoreEncryption: true }),
+  ]);
+  const outDoc = await PDFDocument.create();
+  const embedAll = (doc: typeof leftDoc) =>
+    outDoc.embedPdf(doc, Array.from({ length: doc.getPageCount() }, (_, i) => i));
+  const [leftPages, rightPages] = await Promise.all([embedAll(leftDoc), embedAll(rightDoc)]);
+
+  // Halves default to the other side's size so a lone trailing page still
+  // gets a full-width spread with a blank other half.
+  const pageCount = Math.max(leftPages.length, rightPages.length);
+  for (let i = 0; i < pageCount; i++) {
+    const l = leftPages[i];
+    const r = rightPages[i];
+    const leftWidth = l?.width ?? r!.width;
+    const rightWidth = r?.width ?? l!.width;
+    const height = Math.max(l?.height ?? 0, r?.height ?? 0);
+    const page = outDoc.addPage([leftWidth + rightWidth, height]);
+    if (l) page.drawPage(l, { x: 0, y: height - l.height });
+    if (r) page.drawPage(r, { x: leftWidth, y: height - r.height });
+  }
+
+  const bytes = await outDoc.save();
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 /**

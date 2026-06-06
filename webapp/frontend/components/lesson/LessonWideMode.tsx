@@ -11,7 +11,7 @@ import { getGradeColor } from "@/lib/constants";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
-import { printFileFromPathWithFallback } from "@/lib/file-system";
+import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonWideSidebar } from "./LessonWideSidebar";
@@ -31,6 +31,7 @@ import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
 import { groupExercisesByStudent, bulkPrintAllStudents, type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
+import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
@@ -239,8 +240,10 @@ export function LessonWideMode({
   const tutorName = sessions[0]?.tutor_name || "";
 
   // --- Stamp for current selection ---
+  // Ephemeral previews (parallel versions) are class-wide, so no
+  // per-student stamp.
   const stamp = useMemo<PrintStampInfo | undefined>(() => {
-    if (!selectedEntry) return undefined;
+    if (!selectedEntry || isPreviewExercise(selectedEntry.exercise)) return undefined;
     return {
       location: selectedEntry.session.location,
       schoolStudentId: selectedEntry.session.school_student_id,
@@ -251,7 +254,7 @@ export function LessonWideMode({
   }, [selectedEntry]);
 
   // Student ID display for header
-  const studentIdDisplay = selectedEntry
+  const studentIdDisplay = selectedEntry && !isPreviewExercise(selectedEntry.exercise)
     ? getStudentIdDisplay(selectedEntry.session, selectedLocation)
     : null;
 
@@ -602,6 +605,17 @@ export function LessonWideMode({
     if (!target?.exercise?.pdf_name) return;
     setPrinting({ id: target.exercise.id, progress: null });
     try {
+      // Class-wide previews (parallel versions): their paths aren't real
+      // files, so print the loaded/composed bytes directly — no stamp.
+      if (isPreviewExercise(target.exercise)) {
+        const result = await loadExercisePdf(target.exercise.pdf_name);
+        if ('error' in result) {
+          showToast("Couldn't load the file for printing", 'error');
+        } else if (!printPdfBlob(new Blob([result.data], { type: 'application/pdf' }))) {
+          showToast('Print failed. Check popup blocker settings.', 'error');
+        }
+        return;
+      }
       const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
       const entryStamp: PrintStampInfo = {
         location: target.session.location,
@@ -621,7 +635,7 @@ export function LessonWideMode({
     } finally {
       setPrinting({ id: null, progress: null });
     }
-  }, [selectedEntry, paperlessSearchWithProgress]);
+  }, [selectedEntry, paperlessSearchWithProgress, showToast]);
 
   // --- Bulk print ---
   const [showPrintMenu, setShowPrintMenu] = useState(false);

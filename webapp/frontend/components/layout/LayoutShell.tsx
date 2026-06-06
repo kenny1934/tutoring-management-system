@@ -33,7 +33,9 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const isLoginPage = pathname === "/login";
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    // h-dvh (not h-screen): static 100vh is taller than the visible area on
+    // phones while the browser URL bar shows, hiding the app's bottom edge.
+    <div className="flex h-dvh overflow-hidden">
       {!isLoginPage && (
         <Sidebar
           isMobileOpen={isMobileMenuOpen}

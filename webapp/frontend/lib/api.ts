@@ -170,6 +170,7 @@ import type {
   SummerLessonCalendarResponse,
   SummerFindSlotResult,
   SummerStudentLessonsResponse,
+  SummerCoursewareIndexResponse,
   PrimaryProspect,
   PrimaryProspectBulkCreate,
   PrimaryProspectStats,
@@ -757,6 +758,10 @@ export const sessionsAPI = {
       page_start?: number | null;
       page_end?: number | null;
       remarks?: string | null;
+      answer_pdf_name?: string | null;
+      answer_page_start?: number | null;
+      answer_page_end?: number | null;
+      answer_remarks?: string | null;
     }>,
     options?: { append?: boolean }
   ) => {
@@ -2655,6 +2660,26 @@ export const summerAPI = {
     fetchAPI<SummerStudentLessonsResponse>(
       `/summer/students/lessons?config_id=${configId}&location=${encodeURIComponent(location)}`
     ),
+};
+
+// ---- Summer Courseware Index API ----
+
+export const summerCoursewareAPI = {
+  getIndex: (year: number, grade?: string) =>
+    fetchAPI<SummerCoursewareIndexResponse>(
+      `/summer/courseware/index?year=${year}${grade ? `&grade=${encodeURIComponent(grade)}` : ""}`
+    ),
+
+  // Replaces the year's index with a freshly scanned net-drive listing.
+  scan: (data: {
+    year: number;
+    root_name?: string;
+    files: { path: string; mtime_ms?: number }[];
+  }) =>
+    fetchAPI<SummerCoursewareIndexResponse>("/summer/courseware/scan", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 
 // ---- Primary Prospects API ----

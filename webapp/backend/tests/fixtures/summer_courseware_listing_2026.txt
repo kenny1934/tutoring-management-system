@@ -1,0 +1,446 @@
+F1\SM701 有理數 Directed Numbers\SM_701_Directed_Numbers_C_e.pdf
+F1\SM701 有理數 Directed Numbers\SM_701_Directed_Numbers_H_e.pdf
+F1\SM701 有理數 Directed Numbers\SM_701_有理數_C_c.pdf
+F1\SM701 有理數 Directed Numbers\SM_701_有理數_H_c.pdf
+F1\SM701 有理數 Directed Numbers\Ans\Parallel-SM_701_有理數_C_ans.pdf
+F1\SM701 有理數 Directed Numbers\Ans\Parallel-SM_701_有理數_Extra_ans.pdf
+F1\SM701 有理數 Directed Numbers\Ans\Parallel-SM_701_有理數_H_ans.pdf
+F1\SM701 有理數 Directed Numbers\Ans\SM_701_Directed_Numbers_C_e_ans.pdf
+F1\SM701 有理數 Directed Numbers\Ans\SM_701_Directed_Numbers_Extra_e_ans.pdf
+F1\SM701 有理數 Directed Numbers\Ans\SM_701_Directed_Numbers_H_e_ans.pdf
+F1\SM701 有理數 Directed Numbers\Ans\SM_701_有理數_C_c_ans.pdf
+F1\SM701 有理數 Directed Numbers\Ans\SM_701_有理數_Extra_c_ans.pdf
+F1\SM701 有理數 Directed Numbers\Ans\SM_701_有理數_H_c_ans.pdf
+F1\SM701 有理數 Directed Numbers\Extra\SM_701_Directed_Numbers_Extra_e.pdf
+F1\SM701 有理數 Directed Numbers\Extra\SM_701_有理數_Extra_c.pdf
+F1\SM701 有理數 Directed Numbers\Parallel Version\Parallel-SM_701_有理數_C.pdf
+F1\SM701 有理數 Directed Numbers\Parallel Version\Parallel-SM_701_有理數_Extra.pdf
+F1\SM701 有理數 Directed Numbers\Parallel Version\Parallel-SM_701_有理數_H.pdf
+F1\SM702 有理數 Directed Numbers\SM_702_Directed Numbers_C_e.pdf
+F1\SM702 有理數 Directed Numbers\SM_702_Directed_Numbers_H_e.pdf
+F1\SM702 有理數 Directed Numbers\SM_702_有理數_C_c.pdf
+F1\SM702 有理數 Directed Numbers\SM_702_有理數_H_c.pdf
+F1\SM702 有理數 Directed Numbers\Ans\Parallel-SM_702_有理數_C_ans.pdf
+F1\SM702 有理數 Directed Numbers\Ans\Parallel-SM_702_有理數_Extra_ans.pdf
+F1\SM702 有理數 Directed Numbers\Ans\Parallel-SM_702_有理數_H_ans.pdf
+F1\SM702 有理數 Directed Numbers\Ans\SM_702_Directed Numbers_C_e_ans.pdf
+F1\SM702 有理數 Directed Numbers\Ans\SM_702_Directed_Numbers_Extra_e_ans.pdf
+F1\SM702 有理數 Directed Numbers\Ans\SM_702_Directed_Numbers_H_e_ans.pdf
+F1\SM702 有理數 Directed Numbers\Ans\SM_702_有理數_C_c_ans.pdf
+F1\SM702 有理數 Directed Numbers\Ans\SM_702_有理數_Extra_c_ans.pdf
+F1\SM702 有理數 Directed Numbers\Ans\SM_702_有理數_H_c_ans.pdf
+F1\SM702 有理數 Directed Numbers\Extra\SM_702_Directed_Numbers_Extra_e.pdf
+F1\SM702 有理數 Directed Numbers\Extra\SM_702_有理數_Extra_c.pdf
+F1\SM702 有理數 Directed Numbers\Parallel Version\Parallel-SM_702_有理數_C.pdf
+F1\SM702 有理數 Directed Numbers\Parallel Version\Parallel-SM_702_有理數_Extra.pdf
+F1\SM702 有理數 Directed Numbers\Parallel Version\Parallel-SM_702_有理數_H.pdf
+F1\SM703 代數的認識 Introduction to Algebra\SM_703_Introduction_to_Algebra_C_e.pdf
+F1\SM703 代數的認識 Introduction to Algebra\SM_703_Introduction_to_Algebra_H_e.pdf
+F1\SM703 代數的認識 Introduction to Algebra\SM_703_代數的認識_C_c.pdf
+F1\SM703 代數的認識 Introduction to Algebra\SM_703_代數的認識_H_c.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Ans\Parallel-SM_703_代數的認識_C_ans.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Ans\Parallel-SM_703_代數的認識_H_ans.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Ans\SM_703_Introduction_to_Algebra_C_e_ans.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Ans\SM_703_Introduction_to_Algebra_H_e_ans.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Ans\SM_703_代數的認識_C_c_ans.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Ans\SM_703_代數的認識_Extra_c_ans.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Ans\SM_703_代數的認識_H_c_ans.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Extra\SM_703_代數的認識_Extra_c.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Parallel Version\Parallel-SM_703_代數的認識_C.pdf
+F1\SM703 代數的認識 Introduction to Algebra\Parallel Version\Parallel-SM_703_代數的認識_H.pdf
+F1\SM704 代數的認識 Introduction to Algebra\SM_704_Introduction_to_Algebra_C_e.pdf
+F1\SM704 代數的認識 Introduction to Algebra\SM_704_Introduction_to_Algebra_H_e.pdf
+F1\SM704 代數的認識 Introduction to Algebra\SM_704_代數的認識_C_c.pdf
+F1\SM704 代數的認識 Introduction to Algebra\SM_704_代數的認識_H_c.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Ans\Parallel-SM_704_代數的認識_C_ans.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Ans\Parallel-SM_704_代數的認識_H_ans.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Ans\SM_704_Introduction_to_Algebra_C_e_ans.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Ans\SM_704_Introduction_to_Algebra_H_e_ans.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Ans\SM_704_代數的認識_C_c_ans.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Ans\SM_704_代數的認識_Extra_c_ans.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Ans\SM_704_代數的認識_H_c_ans.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Extra\SM_704_代數的認識_Extra_c.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Parallel Version\Parallel-SM_704_代數的認識_C.pdf
+F1\SM704 代數的認識 Introduction to Algebra\Parallel Version\Parallel-SM_704_代數的認識_H.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\1D to 5D – GeoGebra.url
+F1\SM705 幾何圖形初步 Introduction to Geometry\SM_705_Introduction_to_Geometry_C_e.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\SM_705_Introduction_to_Geometry_H_e.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\SM_705_幾何圖形初步_C_c.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\SM_705_幾何圖形初步_H_c.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Ans\Parallel-SM_705_幾何圖形初步_C_ans.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Ans\Parallel-SM_705_幾何圖形初步_H_ans.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Ans\SM_705_Introduction_to_Geometry_C_e_ans.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Ans\SM_705_Introduction_to_Geometry_H_e_ans.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Ans\SM_705_幾何圖形初步_C_c_ans.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Ans\SM_705_幾何圖形初步_Extra_c_ans.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Ans\SM_705_幾何圖形初步_H_c_ans.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Extra\SM_705_幾何圖形初步_Extra_c.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Parallel Version\Parallel-SM_705_幾何圖形初步_C.pdf
+F1\SM705 幾何圖形初步 Introduction to Geometry\Parallel Version\Parallel-SM_705_幾何圖形初步_H.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\SM_706_Introduction_to_Geometry_C_e.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\SM_706_Introduction_to_Geometry_H_e.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\SM_706_幾何圖形初步_C_c.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\SM_706_幾何圖形初步_H_c.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Ans\Parallel-SM_706_幾何圖形初步_C_ans.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Ans\Parallel-SM_706_幾何圖形初步_H_ans.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Ans\SM_706_Introduction_to_Geometry_C_e_ans.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Ans\SM_706_Introduction_to_Geometry_H_e_ans.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Ans\SM_706_幾何圖形初步_C_c_ans.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Ans\SM_706_幾何圖形初步_Extra_c_ans.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Ans\SM_706_幾何圖形初步_H_c_ans.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Extra\SM_706_幾何圖形初步_Extra_c.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Parallel Version\Parallel-SM_706_幾何圖形初步_C.pdf
+F1\SM706 幾何圖形初步 Introduction to Geometry\Parallel Version\Parallel-SM_706_幾何圖形初步_H.pdf
+F1\SM707 平行線 Parallel Lines\SM_707_Parallel_Lines_C_e.pdf
+F1\SM707 平行線 Parallel Lines\SM_707_Parallel_Lines_H_e.pdf
+F1\SM707 平行線 Parallel Lines\SM_707_平行線_C_c.pdf
+F1\SM707 平行線 Parallel Lines\SM_707_平行線_H_c.pdf
+F1\SM707 平行線 Parallel Lines\平行線 (Geogebra).url
+F1\SM707 平行線 Parallel Lines\Ans\Parallel-SM_707_平行線_C_ans.pdf
+F1\SM707 平行線 Parallel Lines\Ans\Parallel-SM_707_平行線_H_ans.pdf
+F1\SM707 平行線 Parallel Lines\Ans\SM_707_Parallel_Lines_C_e_ans.pdf
+F1\SM707 平行線 Parallel Lines\Ans\SM_707_Parallel_Lines_H_e_ans.pdf
+F1\SM707 平行線 Parallel Lines\Ans\SM_707_平行線_C_c_ans.pdf
+F1\SM707 平行線 Parallel Lines\Ans\SM_707_平行線_Extra_c_ans.pdf
+F1\SM707 平行線 Parallel Lines\Ans\SM_707_平行線_H_c_ans.pdf
+F1\SM707 平行線 Parallel Lines\Extra\SM_707_平行線_Extra_c.pdf
+F1\SM707 平行線 Parallel Lines\Parallel Version\Parallel-SM_707_平行線_C.pdf
+F1\SM707 平行線 Parallel Lines\Parallel Version\Parallel-SM_707_平行線_H.pdf
+F1\SM708 平行線 Parallel Lines\SM_708_Parallel_Lines_C_e.pdf
+F1\SM708 平行線 Parallel Lines\SM_708_Parallel_Lines_H_e.pdf
+F1\SM708 平行線 Parallel Lines\SM_708_平行線_C_c.pdf
+F1\SM708 平行線 Parallel Lines\SM_708_平行線_H_c.pdf
+F1\SM708 平行線 Parallel Lines\Ans\Parallel-SM_708_平行線_C_ans.pdf
+F1\SM708 平行線 Parallel Lines\Ans\Parallel-SM_708_平行線_H_ans.pdf
+F1\SM708 平行線 Parallel Lines\Ans\SM_708_Parallel_Lines_C_e_ans.pdf
+F1\SM708 平行線 Parallel Lines\Ans\SM_708_Parallel_Lines_H_e_ans.pdf
+F1\SM708 平行線 Parallel Lines\Ans\SM_708_平行線_C_c_ans.pdf
+F1\SM708 平行線 Parallel Lines\Ans\SM_708_平行線_Extra_c_ans.pdf
+F1\SM708 平行線 Parallel Lines\Ans\SM_708_平行線_H_c_ans.pdf
+F1\SM708 平行線 Parallel Lines\Extra\SM_708_平行線_Extra_c.pdf
+F1\SM708 平行線 Parallel Lines\Parallel Version\Parallel-SM_708_平行線_C.pdf
+F1\SM708 平行線 Parallel Lines\Parallel Version\Parallel-SM_708_平行線_H.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\SM_801_Mixed_Operations_of_Algebra_C_e.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\SM_801_Mixed_Operations_of_Algebra_H_e.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\SM_801_代數的運算_C_c.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\SM_801_代數的運算_H_c.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\Parallel-SM_801_代數的運算_C_ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\Parallel-SM_801_代數的運算_Extra_ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\Parallel-SM_801_代數的運算_H_ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\SM_801_Mixed_Operations_of_Algebra_C_e_ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\SM_801_Mixed_Operations_of_Algebra_Extra_e_ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\SM_801_Mixed_Operations_of_Algebra_H_e_ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\SM_801_代數的運算_C_c_Ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\SM_801_代數的運算_Extra_c_ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Ans\SM_801_代數的運算_H_c_Ans.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Extra\SM_801_Mixed_Operations_of_Algebra_Extra_e.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Extra\SM_801_代數的運算_Extra_c.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Parallel Version\Parallel-SM_801_代數的運算_C.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Parallel Version\Parallel-SM_801_代數的運算_Extra.pdf
+F2\SM801 代數的運算 Mixed Operations of Algebra\Parallel Version\Parallel-SM_801_代數的運算_H.pdf
+F2\SM802 整式乘法 Algebraic Identities\SM_802_Algebraic_Identities_C_e.pdf
+F2\SM802 整式乘法 Algebraic Identities\SM_802_Algebraic_Identities_H_e.pdf
+F2\SM802 整式乘法 Algebraic Identities\SM_802_整式乘法_C_c.pdf
+F2\SM802 整式乘法 Algebraic Identities\SM_802_整式乘法_H_c.pdf
+F2\SM802 整式乘法 Algebraic Identities\Ans\Parallel-SM_802_整式乘法_C_ans.pdf
+F2\SM802 整式乘法 Algebraic Identities\Ans\Parallel-SM_802_整式乘法_H_ans.pdf
+F2\SM802 整式乘法 Algebraic Identities\Ans\SM_802_Algebraic_Identities_C_e_ans.pdf
+F2\SM802 整式乘法 Algebraic Identities\Ans\SM_802_Algebraic_Identities_H_e_ans.pdf
+F2\SM802 整式乘法 Algebraic Identities\Ans\SM_802_整式乘法_C_c_ans.pdf
+F2\SM802 整式乘法 Algebraic Identities\Ans\SM_802_整式乘法_Extra_c_ans.pdf
+F2\SM802 整式乘法 Algebraic Identities\Ans\SM_802_整式乘法_Extra_e_ans.pdf
+F2\SM802 整式乘法 Algebraic Identities\Ans\SM_802_整式乘法_H_c_ans.pdf
+F2\SM802 整式乘法 Algebraic Identities\Extra\SM_802_Algebraic_Identities_Extra_e.pdf
+F2\SM802 整式乘法 Algebraic Identities\Extra\SM_802_整式乘法_Extra_c.pdf
+F2\SM802 整式乘法 Algebraic Identities\Parallel Version\Parallel-SM_802_整式乘法_C.pdf
+F2\SM802 整式乘法 Algebraic Identities\Parallel Version\Parallel-SM_802_整式乘法_H.pdf
+F2\SM803 因式分解 Factorization\SM_803_Factorization_C_e.pdf
+F2\SM803 因式分解 Factorization\SM_803_Factorization_H_e.pdf
+F2\SM803 因式分解 Factorization\SM_803_因式分解_C_c.pdf
+F2\SM803 因式分解 Factorization\SM_803_因式分解_H_c.pdf
+F2\SM803 因式分解 Factorization\Ans\Parallel-SM_803_因式分解_C_ans.pdf
+F2\SM803 因式分解 Factorization\Ans\Parallel-SM_803_因式分解_H_ans.pdf
+F2\SM803 因式分解 Factorization\Ans\SM_803_Factorization_C_e_ans.pdf
+F2\SM803 因式分解 Factorization\Ans\SM_803_Factorization_Extra_e_ans.pdf
+F2\SM803 因式分解 Factorization\Ans\SM_803_Factorization_H_e_ans.pdf
+F2\SM803 因式分解 Factorization\Ans\SM_803_因式分解_C_c_ans.pdf
+F2\SM803 因式分解 Factorization\Ans\SM_803_因式分解_Extra_c_ans.pdf
+F2\SM803 因式分解 Factorization\Ans\SM_803_因式分解_H_c_ans.pdf
+F2\SM803 因式分解 Factorization\Extra\SM_803_Factorization_Extra_e.pdf
+F2\SM803 因式分解 Factorization\Extra\SM_803_因式分解_Extra_c.pdf
+F2\SM803 因式分解 Factorization\Parallel Version\Parallel-SM_803_因式分解_C.pdf
+F2\SM803 因式分解 Factorization\Parallel Version\Parallel-SM_803_因式分解_H.pdf
+F2\SM803 因式分解 Factorization\Raw\SM_803_分組分解法_Extra.docx
+F2\SM803 因式分解 Factorization\Raw\SM_803_因式分解_Extra_c_ans.docx
+F2\SM803 因式分解 Factorization\Raw\SM_803_因式分解的概念_Extra.docx
+F2\SM803 因式分解 Factorization\Raw\SM_803_完全平方公式_Extra.docx
+F2\SM803 因式分解 Factorization\Raw\SM_803_平方差公式_Extra.docx
+F2\SM803 因式分解 Factorization\Raw\SM_803_提取公因式_Extra.docx
+F2\SM803 因式分解 Factorization\Raw\SM_803_進階題_Extra.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\NEW_SM_804_C _ans.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\NEW_SM_804_C.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\NEW_SM_804_C_e.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\NEW_SM_804_H _ans.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\NEW_SM_804_H.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_804_十字相乘_H_c(改).docx
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_804_因式分解_十字相乘_C_c(改).docx
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_803\SM_803_Factorization_C_e.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_803\SM_803_Factorization_H_e.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_803\SM_803_Factorization_H_e_ans.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_803\SM_803_因式分解_C_c.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_803\SM_803_因式分解_C_c.pdf
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_803\SM_803_因式分解_H_c.docx
+F2\SM803 因式分解 Factorization\Raw\Misc\SM_803\SM_803_因式分解_H_c_ans.docx
+F2\SM804 因式分解 Factorization\SM_804_Factorization_C_e.pdf
+F2\SM804 因式分解 Factorization\SM_804_Factorization_H_e.pdf
+F2\SM804 因式分解 Factorization\SM_804_因式分解_C_c.pdf
+F2\SM804 因式分解 Factorization\SM_804_因式分解_H_c.pdf
+F2\SM804 因式分解 Factorization\Ans\Parallel-SM_804_因式分解_C_ans.pdf
+F2\SM804 因式分解 Factorization\Ans\Parallel-SM_804_因式分解_H_ans.pdf
+F2\SM804 因式分解 Factorization\Ans\SM_804_Factorization_C_e_ans.pdf
+F2\SM804 因式分解 Factorization\Ans\SM_804_Factorization_H_e_ans.pdf
+F2\SM804 因式分解 Factorization\Ans\SM_804_因式分解_C_c_ans.pdf
+F2\SM804 因式分解 Factorization\Ans\SM_804_因式分解_Extra_c_ans.pdf
+F2\SM804 因式分解 Factorization\Ans\SM_804_因式分解_H_c_ans.pdf
+F2\SM804 因式分解 Factorization\Extra\SM_804_因式分解_Extra_c.pdf
+F2\SM804 因式分解 Factorization\Parallel Version\Parallel-SM_804_因式分解_C.pdf
+F2\SM804 因式分解 Factorization\Parallel Version\Parallel-SM_804_因式分解_H.pdf
+F2\SM805 全等三角形 Congruent Triangles\SM_805_Congruent_Triangles_C_e.pdf
+F2\SM805 全等三角形 Congruent Triangles\SM_805_Congruent_Triangles_H_e.pdf
+F2\SM805 全等三角形 Congruent Triangles\SM_805_全等三角形_C_c.pdf
+F2\SM805 全等三角形 Congruent Triangles\SM_805_全等三角形_H_c.pdf
+F2\SM805 全等三角形 Congruent Triangles\Ans\Parallel-SM_805_全等三角形_C_ans.pdf
+F2\SM805 全等三角形 Congruent Triangles\Ans\Parallel-SM_805_全等三角形_H_ans.pdf
+F2\SM805 全等三角形 Congruent Triangles\Ans\SM_805_Congruent_Triangles_C_e_ans.pdf
+F2\SM805 全等三角形 Congruent Triangles\Ans\SM_805_Congruent_Triangles_Extra_e_ans.pdf
+F2\SM805 全等三角形 Congruent Triangles\Ans\SM_805_Congruent_Triangles_H_e_ans.pdf
+F2\SM805 全等三角形 Congruent Triangles\Ans\SM_805_全等三角形_C_c_ans.pdf
+F2\SM805 全等三角形 Congruent Triangles\Ans\SM_805_全等三角形_Extra_c_ans.pdf
+F2\SM805 全等三角形 Congruent Triangles\Ans\SM_805_全等三角形_H_c_ans.pdf
+F2\SM805 全等三角形 Congruent Triangles\Extra\SM_805_Congruent_Triangles_Extra_e.pdf
+F2\SM805 全等三角形 Congruent Triangles\Extra\SM_805_全等三角形_Extra_c.pdf
+F2\SM805 全等三角形 Congruent Triangles\Parallel Version\Parallel-SM_805_全等三角形_C.pdf
+F2\SM805 全等三角形 Congruent Triangles\Parallel Version\Parallel-SM_805_全等三角形_H.pdf
+F2\SM806 全等三角形 Congruent Triangles\SM_806_Congruent_Triangles_C_e.pdf
+F2\SM806 全等三角形 Congruent Triangles\SM_806_Congruent_Triangles_H_e.pdf
+F2\SM806 全等三角形 Congruent Triangles\SM_806_全等三角形_C_c.pdf
+F2\SM806 全等三角形 Congruent Triangles\SM_806_全等三角形_H_c.pdf
+F2\SM806 全等三角形 Congruent Triangles\Ans\Parallel-SM_806_全等三角形_C_ans.pdf
+F2\SM806 全等三角形 Congruent Triangles\Ans\Parallel-SM_806_全等三角形_H_ans.pdf
+F2\SM806 全等三角形 Congruent Triangles\Ans\SM_806_Congruent_Triangles_C_e_ans.pdf
+F2\SM806 全等三角形 Congruent Triangles\Ans\SM_806_Congruent_Triangles_Extra_e_ans.pdf
+F2\SM806 全等三角形 Congruent Triangles\Ans\SM_806_Congruent_Triangles_H_e_ans.pdf
+F2\SM806 全等三角形 Congruent Triangles\Ans\SM_806_全等三角形_C_c_ans.pdf
+F2\SM806 全等三角形 Congruent Triangles\Ans\SM_806_全等三角形_Extra_c_ans.pdf
+F2\SM806 全等三角形 Congruent Triangles\Ans\SM_806_全等三角形_H_c_ans.pdf
+F2\SM806 全等三角形 Congruent Triangles\Extra\SM_806_Congruent_Triangles_Extra_e.pdf
+F2\SM806 全等三角形 Congruent Triangles\Extra\SM_806_全等三角形_Extra_c.pdf
+F2\SM806 全等三角形 Congruent Triangles\Parallel Version\Parallel-SM_806_全等三角形_C.pdf
+F2\SM806 全等三角形 Congruent Triangles\Parallel Version\Parallel-SM_806_全等三角形_H.pdf
+F2\SM807 二次根式 Surds\SM_807_Surds_C_e.pdf
+F2\SM807 二次根式 Surds\SM_807_Surds_H_e.pdf
+F2\SM807 二次根式 Surds\SM_807_二次根式_C_c.pdf
+F2\SM807 二次根式 Surds\SM_807_二次根式_H_c.pdf
+F2\SM807 二次根式 Surds\Ans\Parallel-SM_807_二次根式_C_ans.pdf
+F2\SM807 二次根式 Surds\Ans\Parallel-SM_807_二次根式_H_ans.pdf
+F2\SM807 二次根式 Surds\Ans\SM_807_Surds_C_e_ans.pdf
+F2\SM807 二次根式 Surds\Ans\SM_807_Surds_H_e_ans.pdf
+F2\SM807 二次根式 Surds\Ans\SM_807_二次根式_C_c_ans.pdf
+F2\SM807 二次根式 Surds\Ans\SM_807_二次根式_Extra_c_ans.pdf
+F2\SM807 二次根式 Surds\Ans\SM_807_二次根式_H_c_ans.pdf
+F2\SM807 二次根式 Surds\Extra\SM_807_二次根式_Extra_c.pdf
+F2\SM807 二次根式 Surds\Parallel Version\Parallel-SM_807_二次根式_C.pdf
+F2\SM807 二次根式 Surds\Parallel Version\Parallel-SM_807_二次根式_H.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\SM_808_Pythagoras_Theorem_C_e.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\SM_808_Pythagoras_Theorem_H_e.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\SM_808_勾股定理_C_c.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\SM_808_勾股定理_H_c.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Ans\Parallel-SM_808_勾股定理_C_ans.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Ans\Parallel-SM_808_勾股定理_H_ans.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Ans\SM_808_Pythagoras_Theorem_C_e_ans.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Ans\SM_808_Pythagoras_Theorem_Extra_e_ans.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Ans\SM_808_Pythagoras_Theorem_H_e_ans.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Ans\SM_808_勾股定理_C_c_ans.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Ans\SM_808_勾股定理_Extra_c_ans.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Ans\SM_808_勾股定理_H_c_ans.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Extra\SM_808_Pythagoras_Theorem_Extra_e.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Extra\SM_808_勾股定理_Extra_c.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Parallel Version\Parallel-SM_808_勾股定理_C.pdf
+F2\SM808 勾股定理 Pythagoras' Theorem\Parallel Version\Parallel-SM_808_勾股定理_H.pdf
+F2\SM809 因式分解 Factorization\SM_809_Factorization_C_e.pdf
+F2\SM809 因式分解 Factorization\SM_809_Factorization_H_e.pdf
+F2\SM809 因式分解 Factorization\SM_809_因式分解_C_c.pdf
+F2\SM809 因式分解 Factorization\SM_809_因式分解_H_c.pdf
+F2\SM809 因式分解 Factorization\Ans\Parallel-SM_809_因式分解_C_ans.pdf
+F2\SM809 因式分解 Factorization\Ans\Parallel-SM_809_因式分解_H_ans.pdf
+F2\SM809 因式分解 Factorization\Ans\SM_809_Factorization_C_e_ans.pdf
+F2\SM809 因式分解 Factorization\Ans\SM_809_Factorization_H_e_ans.pdf
+F2\SM809 因式分解 Factorization\Ans\SM_809_因式分解_C_c_ans.pdf
+F2\SM809 因式分解 Factorization\Ans\SM_809_因式分解_H_c_ans.pdf
+F2\SM809 因式分解 Factorization\Parallel Version\Parallel-SM_809_因式分解_C.pdf
+F2\SM809 因式分解 Factorization\Parallel Version\Parallel-SM_809_因式分解_H.pdf
+F2\SM810 分式 Algebraic Fractions\SM_810_Algebraic_Fractions_C_e.pdf
+F2\SM810 分式 Algebraic Fractions\SM_810_Algebraic_Fractions_H_e.pdf
+F2\SM810 分式 Algebraic Fractions\SM_810_分式_C_c.pdf
+F2\SM810 分式 Algebraic Fractions\SM_810_分式_H_c.pdf
+F2\SM810 分式 Algebraic Fractions\Ans\Parallel-SM_810_分式_C_ans.pdf
+F2\SM810 分式 Algebraic Fractions\Ans\Parallel-SM_810_分式_H_ans.pdf
+F2\SM810 分式 Algebraic Fractions\Ans\SM_810_Algebraic_Fractions_C_e_ans.pdf
+F2\SM810 分式 Algebraic Fractions\Ans\SM_810_Algebraic_Fractions_H_e_ans.pdf
+F2\SM810 分式 Algebraic Fractions\Ans\SM_810_分式_C_c_ans.pdf
+F2\SM810 分式 Algebraic Fractions\Ans\SM_810_分式_H_c_ans.pdf
+F2\SM810 分式 Algebraic Fractions\Parallel Version\Parallel-SM_810_分式_C.pdf
+F2\SM810 分式 Algebraic Fractions\Parallel Version\Parallel-SM_810_分式_H.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\SM_901_Quadratic_Equations_in_One_Unknown_C_e.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\SM_901_Quadratic_Equations_in_One_Unknown_H_e.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\SM_901_一元二次方程_C_c.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\SM_901_一元二次方程_H_c.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\Parallel-SM_901_一元二次方程_C_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\Parallel-SM_901_一元二次方程_Extra_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\Parallel-SM_901_一元二次方程_H_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_901_Quadratic_Equations_in_One_Unknown_C_e_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_901_Quadratic_Equations_in_One_Unknown_Extra_e_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_901_Quadratic_Equations_in_One_Unknown_H_e_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_901_一元二次方程_C_c_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_901_一元二次方程_Extra_c_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_901_一元二次方程_H_c_ans.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Extra\SM_901_Quadratic_Equations_in_One_Unknown_Extra_e.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Extra\SM_901_一元二次方程_Extra_c.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Parallel Version\Parallel-SM_901_一元二次方程_C.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Parallel Version\Parallel-SM_901_一元二次方程_Extra.pdf
+F3\SM901 一元二次方程 Quadratic Equations in One Unknown\Parallel Version\Parallel-SM_901_一元二次方程_H.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\SM_902_Quadratic_Equations_in_One_Unknown_C_e.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\SM_902_Quadratic_Equations_in_One_Unknown_H_e.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\SM_902_一元二次方程_C_c.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\SM_902_一元二次方程_H_c.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\Parallel-SM_902_一元二次方程_C_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\Parallel-SM_902_一元二次方程_Extra_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\Parallel-SM_902_一元二次方程_H_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_902_Quadratic_Equations_in_One_Unknown_C_e_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_902_Quadratic_Equations_in_One_Unknown_Extra_e_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_902_Quadratic_Equations_in_One_Unknown_H_e_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_902_一元二次方程_C_c_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_902_一元二次方程_Extra_c_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Ans\SM_902_一元二次方程_H_c_ans.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Extra\SM_902_Quadratic_Equations_in_One_Unknown_Extra_e.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Extra\SM_902_一元二次方程_Extra_c.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Parallel Version\Parallel-SM_902_一元二次方程_C.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Parallel Version\Parallel-SM_902_一元二次方程_Extra.pdf
+F3\SM902 一元二次方程 Quadratic Equations in One Unknown\Parallel Version\Parallel-SM_902_一元二次方程_H.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\SM_903_Introduction_to_Quadratic_Functions_C_e.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\SM_903_Introduction_to_Quadratic_Functions_H_e.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\SM_903_認識二次函數_C_c.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\SM_903_認識二次函數_H_c.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Ans\Parallel-SM_903_認識二次函數_C_ans.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Ans\Parallel-SM_903_認識二次函數_H_ans.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Ans\SM_903_Introduction_to_Quadratic_Functions_C_e_ans.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Ans\SM_903_Introduction_to_Quadratic_Functions_H_e_ans.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Ans\SM_903_認識二次函數_C_c_ans.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Ans\SM_903_認識二次函數_Extra_c_ans.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Ans\SM_903_認識二次函數_H_c_ans.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Extra\SM_903_認識二次函數_Extra_c.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Parallel Version\Parallel-SM_903_認識二次函數_C.pdf
+F3\SM903 認識二次函數 Introduction to Quadratic Functions\Parallel Version\Parallel-SM_903_認識二次函數_H.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Graphs of Quadratic Functions- a(x-h)^2+k – GeoGebra.url
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\SM_904_Introduction_to_Quadratic_Functions_C_e.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\SM_904_Introduction_to_Quadratic_Functions_H_e.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\SM_904_認識二次函數_C_c.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\SM_904_認識二次函數_H_c.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Ans\Parallel-SM_904_認識二次函數_C_ans.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Ans\Parallel-SM_904_認識二次函數_H_ans.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Ans\SM_904_Introduction_to_Quadratic_Functions_C_e_ans.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Ans\SM_904_Introduction_to_Quadratic_Functions_H_e_ans.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Ans\SM_904_認識二次函數_C_c_ans.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Ans\SM_904_認識二次函數_Extra_c_ans.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Ans\SM_904_認識二次函數_H_c_ans.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Extra\SM_904_認識二次函數_Extra_c.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Parallel Version\Parallel-SM_904_認識二次函數_C.pdf
+F3\SM904 認識二次函數 Introduction to Quadratic Functions\Parallel Version\Parallel-SM_904_認識二次函數_H.pdf
+F3\SM905 圓 Circle\SM_905_Circle_C_e.pdf
+F3\SM905 圓 Circle\SM_905_Circle_H_e.pdf
+F3\SM905 圓 Circle\SM_905_圓_C_c.pdf
+F3\SM905 圓 Circle\SM_905_圓_H_c.pdf
+F3\SM905 圓 Circle\Ans\Parallel-SM_905_圓_C_ans.pdf
+F3\SM905 圓 Circle\Ans\Parallel-SM_905_圓_H_ans.pdf
+F3\SM905 圓 Circle\Ans\SM_905_Circle_C_e_ans.pdf
+F3\SM905 圓 Circle\Ans\SM_905_Circle_H_e_ans.pdf
+F3\SM905 圓 Circle\Ans\SM_905_圓_C_c_ans.pdf
+F3\SM905 圓 Circle\Ans\SM_905_圓_Extra_c_ans.pdf
+F3\SM905 圓 Circle\Ans\SM_905_圓_H_c_ans.pdf
+F3\SM905 圓 Circle\Extra\SM_905_圓_Extra_c.pdf
+F3\SM905 圓 Circle\Parallel Version\Parallel-SM_905_圓_C.pdf
+F3\SM905 圓 Circle\Parallel Version\Parallel-SM_905_圓_H.pdf
+F3\SM906 圓 Circle\SM_906_Circle_C_e.pdf
+F3\SM906 圓 Circle\SM_906_Circle_H_e.pdf
+F3\SM906 圓 Circle\SM_906_圓_C_c.pdf
+F3\SM906 圓 Circle\SM_906_圓_H_c.pdf
+F3\SM906 圓 Circle\Ans\Parallel-SM_906_圓_C_ans.pdf
+F3\SM906 圓 Circle\Ans\Parallel-SM_906_圓_H_ans.pdf
+F3\SM906 圓 Circle\Ans\SM_906_Circle_C_e_ans.pdf
+F3\SM906 圓 Circle\Ans\SM_906_Circle_H_e_ans.pdf
+F3\SM906 圓 Circle\Ans\SM_906_圓_C_c_ans.pdf
+F3\SM906 圓 Circle\Ans\SM_906_圓_Extra_c_ans.pdf
+F3\SM906 圓 Circle\Ans\SM_906_圓_H_c_ans.pdf
+F3\SM906 圓 Circle\Extra\SM_906_圓_Extra_c.pdf
+F3\SM906 圓 Circle\Parallel Version\Parallel-SM_906_圓_C.pdf
+F3\SM906 圓 Circle\Parallel Version\Parallel-SM_906_圓_H.pdf
+F3\SM907 機率 Probability\SM_907_Probability_C_e.pdf
+F3\SM907 機率 Probability\SM_907_Probability_H_e.pdf
+F3\SM907 機率 Probability\SM_907_機率_C_c.pdf
+F3\SM907 機率 Probability\SM_907_機率_H_c.pdf
+F3\SM907 機率 Probability\Ans\Parallel-SM_907_機率_C_ans.pdf
+F3\SM907 機率 Probability\Ans\Parallel-SM_907_機率_H_ans.pdf
+F3\SM907 機率 Probability\Ans\SM_907_Probability_C_e_ans.pdf
+F3\SM907 機率 Probability\Ans\SM_907_Probability_H_e_ans.pdf
+F3\SM907 機率 Probability\Ans\SM_907_機率_C_c_ans.pdf
+F3\SM907 機率 Probability\Ans\SM_907_機率_Extra_c_ans.pdf
+F3\SM907 機率 Probability\Ans\SM_907_機率_H_c_ans.pdf
+F3\SM907 機率 Probability\Extra\SM_907_機率_Extra_c.pdf
+F3\SM907 機率 Probability\Parallel Version\Parallel-SM_907_機率_C.pdf
+F3\SM907 機率 Probability\Parallel Version\Parallel-SM_907_機率_H.pdf
+F3\SM908 機率 Probability\geogebra.txt
+F3\SM908 機率 Probability\SM_908_Probability_C_e.pdf
+F3\SM908 機率 Probability\SM_908_Probability_H_e.pdf
+F3\SM908 機率 Probability\SM_908_機率_C_c.pdf
+F3\SM908 機率 Probability\SM_908_機率_H_c.pdf
+F3\SM908 機率 Probability\Ans\Parallel-SM_908_機率_C_ans.pdf
+F3\SM908 機率 Probability\Ans\Parallel-SM_908_機率_H_ans.pdf
+F3\SM908 機率 Probability\Ans\SM_908_Probability_C_e_ans.pdf
+F3\SM908 機率 Probability\Ans\SM_908_Probability_H_e_ans.pdf
+F3\SM908 機率 Probability\Ans\SM_908_機率_C_c_ans.pdf
+F3\SM908 機率 Probability\Ans\SM_908_機率_Extra_c_ans.pdf
+F3\SM908 機率 Probability\Ans\SM_908_機率_H_c_ans.pdf
+F3\SM908 機率 Probability\Extra\SM_908_機率_Extra_c.pdf
+F3\SM908 機率 Probability\Parallel Version\Parallel-SM_908_機率_C.pdf
+F3\SM908 機率 Probability\Parallel Version\Parallel-SM_908_機率_H.pdf
+F3\SM909 三角函數 Trigonometric Ratios\SM_909_Trigonometric_Ratios_C_e.pdf
+F3\SM909 三角函數 Trigonometric Ratios\SM_909_Trigonometric_Ratios_H_e.pdf
+F3\SM909 三角函數 Trigonometric Ratios\SM_909_三角函數_C_c.pdf
+F3\SM909 三角函數 Trigonometric Ratios\SM_909_三角函數_H_c.pdf
+F3\SM909 三角函數 Trigonometric Ratios\Ans\Parallel-SM_909_三角函數_C_ans.pdf
+F3\SM909 三角函數 Trigonometric Ratios\Ans\Parallel-SM_909_三角函數_H_ans.pdf
+F3\SM909 三角函數 Trigonometric Ratios\Ans\SM_909_Trigonometric_Ratios_C_e_ans.pdf
+F3\SM909 三角函數 Trigonometric Ratios\Ans\SM_909_Trigonometric_Ratios_H_e_ans.pdf
+F3\SM909 三角函數 Trigonometric Ratios\Ans\SM_909_三角函數_C_c_ans.pdf
+F3\SM909 三角函數 Trigonometric Ratios\Ans\SM_909_三角函數_H_c_ans.pdf
+F3\SM909 三角函數 Trigonometric Ratios\Parallel Version\Parallel-SM_909_三角函數_C.pdf
+F3\SM909 三角函數 Trigonometric Ratios\Parallel Version\Parallel-SM_909_三角函數_H.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\SM_910_Applications_of_Trigonometry_C_e.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\SM_910_Applications_of_Trigonometry_H_e.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\SM_910_三角函數的應用_C_c.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\SM_910_三角函數的應用_H_c.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\Ans\Parallel-SM_910_三角函數的應用_C_ans.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\Ans\Parallel-SM_910_三角函數的應用_H_ans.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\Ans\SM_910_Applications_of_Trigonometry_C_e_ans.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\Ans\SM_910_Applications_of_Trigonometry_H_e_ans.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\Ans\SM_910_三角函數的應用_C_c_ans.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\Ans\SM_910_三角函數的應用_H_c_ans.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\Parallel Version\Parallel-SM_910_三角函數的應用_C.pdf
+F3\SM910 三角函數的應用 Applications of Trigonometry\Parallel Version\Parallel-SM_910_三角函數的應用_H.pdf
+F4\SMSS05 集合與常用邏輯用語\SMSS05集合和常用邏輯用語.pdf
+F4\SMSS05 集合與常用邏輯用語\Ans\SMSS05集合和常用邏輯用語_ans.pdf
+F4\SMSS05 集合與常用邏輯用語\Word Files\SMSS05Raw.docx
+F4\SMSS05 集合與常用邏輯用語\Word Files\SMSS05集合和常用邏輯用語_ans.docx
+F4\SMSS07 平面向量及其應用\SMSS07平面向量及其應用.pdf
+F4\SMSS07 平面向量及其應用\Ans\SMSS07平面向量及其應用_ans.pdf
+F4\SMSS07 平面向量及其應用\Word Files\SMSS07平面向量及其應用_ans.docx

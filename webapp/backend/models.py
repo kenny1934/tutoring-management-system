@@ -1557,6 +1557,63 @@ class WaitlistSlotPreference(Base):
     preferred_tutor = relationship("Tutor")
 
 
+class SummerCoursewareScan(Base):
+    """One record per net-drive courseware scan (history), with accounting counts.
+
+    The scan itself happens client-side: an admin on a centre PC picks the
+    year's Finalised folder via the File System Access API and the browser
+    posts the raw listing. See services/summer_courseware_parser.py for the
+    naming conventions.
+    """
+    __tablename__ = "summer_courseware_scans"
+    __table_args__ = (
+        Index('idx_scw_scan_year', 'year'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False)
+    root_name = Column(String(255), nullable=True)
+    path_prefix = Column(String(500), nullable=True)
+    total_files = Column(Integer, nullable=False, default=0)
+    classified_count = Column(Integer, nullable=False, default=0)
+    unclassified_count = Column(Integer, nullable=False, default=0)
+    excluded_count = Column(Integer, nullable=False, default=0)
+    skipped_grade_count = Column(Integer, nullable=False, default=0)
+    scanned_by = Column(String(255), nullable=True)
+    scanned_at = Column(DateTime, server_default=func.now())
+
+
+class SummerCoursewareFile(Base):
+    """A classified (or unclassified) PDF from the latest courseware scan.
+
+    Rows are replaced wholesale per year on each rescan. Defaults are
+    resolved from this index live at render time — never copied into
+    per-session rows until a tutor overrides or marks homework.
+    """
+    __tablename__ = "summer_courseware_files"
+    __table_args__ = (
+        Index('idx_scw_year_grade_lesson', 'year', 'grade', 'lesson_number'),
+        Index('idx_scw_year_classified', 'year', 'is_classified'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False)
+    grade = Column(String(10), nullable=True)
+    course_code = Column(String(20), nullable=True)
+    lesson_number = Column(Integer, nullable=True)
+    topic_zh = Column(String(255), nullable=True)
+    topic_en = Column(String(255), nullable=True)
+    doc_type = Column(String(10), nullable=True)  # CW | HW | Extra
+    lang = Column(String(5), nullable=True)  # e | c; NULL for parallel versions
+    is_parallel = Column(Boolean, nullable=False, default=False)
+    is_answer = Column(Boolean, nullable=False, default=False)
+    is_classified = Column(Boolean, nullable=False, default=True)
+    unclassified_reason = Column(String(255), nullable=True)
+    rel_path = Column(String(500), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    file_mtime = Column(DateTime, nullable=True)
+
+
 class SavedReport(Base):
     """Internal saved report snapshots for tutor reference."""
     __tablename__ = "saved_reports"

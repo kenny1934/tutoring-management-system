@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 're
 import useSWR, { mutate } from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
+import { isFileSystemAccessSupported } from './file-system';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
@@ -48,6 +49,18 @@ export function useUnseenUpdates(): boolean {
   }, []);
 
   return hasUnseen;
+}
+
+/**
+ * Hydration-safe File System Access support check (Chrome/Edge desktop
+ * only). Defaults to true so supported browsers, the common case, don't
+ * flash their file affordances in after mount; unsupported ones drop
+ * them right after.
+ */
+export function useFileSystemAccessSupported(): boolean {
+  const [supported, setSupported] = useState(true);
+  useEffect(() => setSupported(isFileSystemAccessSupported()), []);
+  return supported;
 }
 
 /**

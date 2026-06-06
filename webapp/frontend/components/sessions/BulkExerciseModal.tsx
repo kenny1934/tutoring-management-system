@@ -25,6 +25,7 @@ import { ResourceBrowseDropdown } from "./ResourceBrowseDropdown";
 import { YouTubeThumbnail } from "@/components/ui/url-badge";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
+import { SummerBulkAssignSection } from "./SummerMaterialsSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 
@@ -803,6 +804,9 @@ export function BulkExerciseModal({
             })}
           </div>
         </div>
+
+        {/* Summer Materials - lang-aware quick assign for same-grade summer sessions */}
+        <SummerBulkAssignSection sessions={sessions} exerciseType={exerciseType} />
 
         {/* Action Buttons */}
         <div className="flex flex-wrap justify-between items-center gap-2">
