@@ -97,7 +97,18 @@ export async function getPdfJs() {
   }
 
   if (!pdfjsLib) {
-    pdfjsLib = await import('pdfjs-dist');
+    try {
+      pdfjsLib = await import('pdfjs-dist');
+    } catch {
+      // Webpack's eval-* devtool (used by `next dev`) breaks evaluating the
+      // pdfjs bundle: "Object.defineProperty called on non-object"
+      // (webpack#20095). Bypass the bundler with a native browser import
+      // from the same CDN the worker already loads from. Production builds
+      // use a non-eval devtool and keep the bundled copy above.
+      const pkg = await import('pdfjs-dist/package.json');
+      const url = `https://unpkg.com/pdfjs-dist@${pkg.version}/build/pdf.min.mjs`;
+      pdfjsLib = (await import(/* webpackIgnore: true */ url)) as typeof import('pdfjs-dist');
+    }
     // Use unpkg CDN which directly serves npm package files
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
   }
