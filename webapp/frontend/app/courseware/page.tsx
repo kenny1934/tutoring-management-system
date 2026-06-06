@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, Fragment, useMemo } from "react";
 import dynamic from "next/dynamic";
-import useSWR from "swr";
+import useSWR, { preload } from "swr";
 import Fuse from "fuse.js";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -2840,6 +2840,15 @@ export default function CoursewarePage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Warm the summer index cache on page load so the Browse tab's pinned
+  // summer entry renders with the folder list instead of popping in after
+  // its own fetch (preload dedupes with the tab's useSWR on the same key).
+  useEffect(() => {
+    preload(["summer-courseware-index", SUMMER_YEAR, null], () =>
+      summerCoursewareAPI.getIndex(SUMMER_YEAR)
+    );
+  }, []);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<CoursewareTab>(() => {
