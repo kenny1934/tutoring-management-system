@@ -514,7 +514,7 @@ export default function TrialsPage() {
 
   return (
     <DeskSurface>
-      <PageTransition className="h-[calc(100vh-5rem)] sm:h-[calc(100vh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 overflow-hidden">
+      <PageTransition className="h-[calc(100dvh-5rem)] sm:h-[calc(100dvh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 overflow-hidden">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 h-full flex flex-col">
           {/* Header */}
           <div className="mb-6">

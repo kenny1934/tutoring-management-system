@@ -12,6 +12,10 @@ import type {
 
 const INDEXED_GRADES = ["F1", "F2", "F3"];
 
+// Lesson column stays put during horizontal scroll; the opaque background
+// (matching the grade card) must come with it or rows show through.
+const STICKY_LESSON_CELL = "sticky left-0 z-10 bg-white dark:bg-gray-900";
+
 const DOC_TYPE_LABELS: Record<"CW" | "HW" | "Extra", string> = {
   CW: "Classwork",
   HW: "Homework",
@@ -194,7 +198,7 @@ export function CoursewareMatrix({
                     <tr className="text-xs text-muted-foreground border-b border-gray-100 dark:border-gray-800">
                       {/* Lesson stays sticky so rows keep their identity when
                           the table scrolls sideways in a narrow pane. */}
-                      <th className="sticky left-0 z-10 bg-white dark:bg-gray-900 text-left font-medium px-4 py-2">Lesson</th>
+                      <th className={`${STICKY_LESSON_CELL} text-left font-medium px-4 py-2`}>Lesson</th>
                       <th className="text-left font-medium px-2 py-2">Chapter</th>
                       <th className="text-left font-medium px-2 py-2">Classwork</th>
                       <th className="text-left font-medium px-2 py-2">Homework</th>
@@ -211,7 +215,7 @@ export function CoursewareMatrix({
                         ch.lessonNumber > totalLessons;
                       return (
                         <tr key={ch.code} className="border-b border-gray-50 dark:border-gray-800/50 last:border-0">
-                          <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 px-4 py-2 whitespace-nowrap">
+                          <td className={`${STICKY_LESSON_CELL} px-4 py-2 whitespace-nowrap`}>
                             {ch.lessonNumber === null ? (
                               <span className="text-muted-foreground">-</span>
                             ) : isExtraChapter ? (

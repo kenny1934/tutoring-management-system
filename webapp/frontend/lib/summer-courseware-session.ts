@@ -87,6 +87,10 @@ export function useCoursewareDrive(year: number) {
   );
 
   const connect = useCallback(async () => {
+    if (!isFileSystemAccessSupported()) {
+      showToast("Connecting the drive needs Chrome or Edge", "error");
+      return;
+    }
     const result = await connectRootHandle(year);
     if (result === "connected") {
       setConnected(true);

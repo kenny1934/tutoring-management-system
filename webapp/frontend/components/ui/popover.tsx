@@ -17,7 +17,7 @@ export function Popover({ trigger, content, className, align = "left", closeOnCo
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
-  const posRef = useRef({ top: 0, left: 0 });
+  const posRef = useRef({ top: 0, left: 0, triggerTop: 0 });
 
   const measurePosition = useCallback(() => {
     if (!triggerRef.current) return;
@@ -25,12 +25,15 @@ export function Popover({ trigger, content, className, align = "left", closeOnCo
     posRef.current = {
       top: rect.bottom + 8,
       left: align === "right" ? rect.right : rect.left,
+      triggerTop: rect.top,
     };
   }, [align]);
 
   // Position from posRef, then keep the panel on screen: slide it back
   // inside the horizontal edges and flip above the trigger when it would
   // run off the bottom (triggers near the right edge or in bottom rows).
+  // The anchor write comes before the rect read because a fixed element's
+  // shrink-to-fit width depends on where it sits in the viewport.
   const applyPosition = useCallback(() => {
     const el = popoverRef.current;
     if (!el) return;
@@ -46,8 +49,7 @@ export function Popover({ trigger, content, className, align = "left", closeOnCo
     if (rect.left + dx < margin) dx = margin - rect.left;
     let dy = 0;
     if (rect.bottom > window.innerHeight - margin) {
-      const trigger = triggerRef.current?.getBoundingClientRect();
-      const flippedTop = trigger ? trigger.top - margin - rect.height : -Infinity;
+      const flippedTop = posRef.current.triggerTop - margin - rect.height;
       dy = flippedTop >= margin
         ? flippedTop - rect.top
         : window.innerHeight - margin - rect.bottom;
@@ -56,14 +58,11 @@ export function Popover({ trigger, content, className, align = "left", closeOnCo
     if (dy) el.style.top = `${posRef.current.top + dy}px`;
   }, []);
 
-  // Clamp before first paint (the inline style is the unclamped anchor)
+  // Clamp before first paint, then keep following the trigger on
+  // scroll/resize while open.
   useLayoutEffect(() => {
-    if (isOpen) applyPosition();
-  }, [isOpen, applyPosition]);
-
-  // Update position on scroll/resize while open
-  useEffect(() => {
     if (!isOpen) return;
+    applyPosition();
 
     function handleReposition() {
       measurePosition();

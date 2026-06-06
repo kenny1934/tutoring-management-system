@@ -6,7 +6,7 @@ import useSWR from "swr";
 import Fuse from "fuse.js";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle } from "@/lib/hooks";
+import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle, useFileSystemAccessSupported } from "@/lib/hooks";
 import { useMapSelection, type DocSelection } from "@/lib/hooks/useMapSelection";
 import { useLocation } from "@/contexts/LocationContext";
 import { CompactErrorBoundary } from "@/components/ui/error-boundary";
@@ -58,7 +58,6 @@ import { CoursewareMatrix } from "@/components/summer/CoursewareMatrix";
 import { ConnectDriveButton } from "@/components/summer/ConnectDriveButton";
 import { useCoursewareDrive } from "@/lib/summer-courseware-session";
 import { getCoursewareFileHandle } from "@/lib/summer-courseware-scan";
-import { isFileSystemAccessSupported } from "@/lib/file-system";
 import { buildFullPath } from "@/lib/summer-courseware-defaults";
 import type { SummerCoursewareFile } from "@/types";
 import { cn } from "@/lib/utils";
@@ -893,10 +892,8 @@ function CoursewareBrowserTab() {
   const [summerOpen, setSummerOpen] = useState(false);
   const summerDrive = useCoursewareDrive(SUMMER_YEAR);
 
-  // File System Access API (local folders) only exists in desktop
-  // Chrome/Edge. Resolved in an effect so SSR and first paint agree.
-  const [fsSupported, setFsSupported] = useState(true);
-  useEffect(() => setFsSupported(isFileSystemAccessSupported()), []);
+  // File System Access API (local folders) only exists in desktop Chrome/Edge.
+  const fsSupported = useFileSystemAccessSupported();
 
   // Load root folders on mount
   useEffect(() => {
@@ -1764,8 +1761,8 @@ function CoursewareBrowserTab() {
                     {node.kind === "file" && (
                       <div className={cn(
                         "transition-opacity duration-100",
-                        // Touch has no hover, so keep checkboxes reachable there.
-                        showCheckbox ? "opacity-100" : "opacity-0 pointer-events-none pointer-coarse:opacity-100 pointer-coarse:pointer-events-auto"
+                        // Only hide where hover exists to reveal it; touch keeps it visible.
+                        showCheckbox ? "opacity-100" : "pointer-fine:opacity-0 pointer-fine:pointer-events-none"
                       )}>
                         <input
                           type="checkbox"
@@ -1857,7 +1854,7 @@ function CoursewareBrowserTab() {
                     {node.kind === "file" && (
                       <div className={cn(
                         "absolute top-1 left-1 transition-opacity duration-100",
-                        showCheckbox ? "opacity-100" : "opacity-0 pointer-events-none pointer-coarse:opacity-100 pointer-coarse:pointer-events-auto"
+                        showCheckbox ? "opacity-100" : "pointer-fine:opacity-0 pointer-fine:pointer-events-none"
                       )}>
                         <input
                           type="checkbox"
@@ -3016,7 +3013,7 @@ export default function CoursewarePage() {
         {/* Browse/search fill the visible area exactly (their boxes are
             flex-1, so the mobile header and stacked toolbar are accounted
             for naturally); ranking keeps the normal page scroll. */}
-        <div className={cn("flex flex-col gap-3 p-2 sm:p-4", activeTab !== "ranking" && "h-full min-h-0")}>
+        <div className={cn("flex flex-col gap-3 p-2 sm:p-4", activeTab !== "ranking" && "h-full")}>
           {/* Toolbar */}
           <div className={toolbarStickyClasses}>
             <div className={toolbarInnerClasses}>
