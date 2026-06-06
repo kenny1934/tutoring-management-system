@@ -115,7 +115,7 @@ function WideGradeSection({
         key={`${docType}-${type}`}
         onClick={() => setPicker(isPickerFor(target) ? null : target)}
         disabled={assigning}
-        title={`Assign each student their own language version as ${type === "CW" ? "classwork" : "homework"}…`}
+        title={`Assign each student their own language version as ${type === "CW" ? "classwork" : "homework"}`}
         className={summerAssignButtonClass(type)}
       >
         <SummerAssignIcon type={type} busy={assigning} />
