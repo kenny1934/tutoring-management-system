@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Sun, Cable, Columns2 } from "lucide-react";
+import { Sun, Cable } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import {
   pickDefaults,
+  pickDocDefaults,
   resolveParallelPreview,
   type Chapter,
-  type ChapterDefaults,
   type ParallelPreviewSource,
 } from "@/lib/summer-courseware-defaults";
 import {
@@ -21,17 +21,9 @@ import {
   type SummerDocType,
 } from "@/lib/summer-courseware-session";
 import { StudentPickerPopover } from "./StudentPickerPopover";
-import { summerAssignButtonClass, SummerAssignIcon, parallelChipClass, parallelChipTitle } from "./SummerCoursewarePanel";
+import { summerAssignButtonClass, SummerAssignIcon, ParallelChipsRow } from "./SummerCoursewarePanel";
 import type { Session } from "@/types";
 import type { StudentExerciseEntry } from "./LessonWideMode";
-
-function rowDefaults(defaults: ChapterDefaults, docType: SummerDocType) {
-  switch (docType) {
-    case "CW": return { file: defaults.cw, answer: defaults.cwAnswer };
-    case "HW": return { file: defaults.hw, answer: defaults.hwAnswer };
-    case "Extra": return { file: defaults.extra, answer: defaults.extraAnswer };
-  }
-}
 
 interface PickerTarget {
   docType: SummerDocType;
@@ -136,8 +128,8 @@ function WideGradeSection({
   // pane, and the answer key is a keystroke away ("a") since assignment
   // links answer_pdf_name. Only languages present in the index resolve.
   const materialRow = (label: string, docType: SummerDocType, actions: ReactNode) => {
-    const c = rowDefaults(cDefaults, docType);
-    const e = rowDefaults(eDefaults, docType);
+    const c = pickDocDefaults(cDefaults, docType);
+    const e = pickDocDefaults(eDefaults, docType);
     if (!c.file && !e.file) return null;
     return (
       <div
@@ -235,46 +227,12 @@ function WideGradeSection({
             </>
           ))}
 
-          {/* Parallel versions: both languages side by side, for mixed
-              classes. Click shows it in the PDF pane (never assigned). */}
-          {(parallelCw || parallelHw || parallelExtra) && (
-            <div className="flex items-center gap-1.5 min-h-[28px]">
-              <span
-                className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080] inline-flex items-center gap-1"
-                title="Both languages side by side, for mixed classes"
-              >
-                <Columns2 className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">Parallel</span>
-              </span>
-              {parallelCw && (
-                <button
-                  onClick={() => handlePreview("CW", parallelCw)}
-                  title={parallelChipTitle(parallelCw)}
-                  className={parallelChipClass("CW")}
-                >
-                  CW
-                </button>
-              )}
-              {parallelHw && (
-                <button
-                  onClick={() => handlePreview("HW", parallelHw)}
-                  title={parallelChipTitle(parallelHw)}
-                  className={parallelChipClass("HW")}
-                >
-                  HW
-                </button>
-              )}
-              {parallelExtra && (
-                <button
-                  onClick={() => handlePreview("Extra", parallelExtra)}
-                  title={parallelChipTitle(parallelExtra)}
-                  className={parallelChipClass("Extra")}
-                >
-                  Extra
-                </button>
-              )}
-            </div>
-          )}
+          <ParallelChipsRow
+            cw={parallelCw}
+            hw={parallelHw}
+            extra={parallelExtra}
+            onPreview={handlePreview}
+          />
 
           {picker && (
             <StudentPickerPopover

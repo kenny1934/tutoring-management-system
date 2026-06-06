@@ -560,6 +560,22 @@ export async function printFile(handle: FileSystemFileHandle): Promise<boolean> 
  * @param complexRange - Complex range string like "1,3,5-7"
  * @param stamp - Optional stamp info to display on each page
  */
+/**
+ * Open a PDF blob in a print window. Returns false when the popup is
+ * blocked; the object URL is cleaned up after printing either way.
+ */
+export function printPdfBlob(blob: Blob): boolean {
+  const url = URL.createObjectURL(blob);
+  const printWindow = window.open(url, '_blank', 'width=800,height=600');
+  if (!printWindow) {
+    URL.revokeObjectURL(url);
+    return false;
+  }
+  printWindow.onload = () => { setTimeout(() => printWindow.print(), 500); };
+  printWindow.onafterprint = () => { printWindow.close(); URL.revokeObjectURL(url); };
+  return true;
+}
+
 export async function printFilePages(
   handle: FileSystemFileHandle,
   pageStart?: number,
@@ -575,13 +591,7 @@ export async function printFilePages(
     try {
       const file = await handle.getFile();
       const arrayBuffer = await file.arrayBuffer();
-      const stampedBlob = await stampPdf(arrayBuffer, stamp);
-      const url = URL.createObjectURL(stampedBlob);
-      const printWindow = window.open(url, '_blank', 'width=800,height=600');
-      if (!printWindow) { URL.revokeObjectURL(url); return false; }
-      printWindow.onload = () => { setTimeout(() => printWindow.print(), 500); };
-      printWindow.onafterprint = () => { printWindow.close(); URL.revokeObjectURL(url); };
-      return true;
+      return printPdfBlob(await stampPdf(arrayBuffer, stamp));
     } catch {
       return printFile(handle);
     }
@@ -613,30 +623,7 @@ export async function printFilePages(
 
     // Extract specific pages using pdf-utils (with optional stamp — renders to HTML)
     const extractedBlob = await extractPagesForPrint(arrayBuffer, pageNumbers, stamp);
-
-    // Create URL and print
-    const url = URL.createObjectURL(extractedBlob);
-    const printWindow = window.open(url, '_blank', 'width=800,height=600');
-
-    if (!printWindow) {
-      URL.revokeObjectURL(url);
-      return false;
-    }
-
-    // Wait for the window to load, then print
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-      }, 500);
-    };
-
-    // Clean up after printing
-    printWindow.onafterprint = () => {
-      printWindow.close();
-      URL.revokeObjectURL(url);
-    };
-
-    return true;
+    return printPdfBlob(extractedBlob);
   } catch (err) {
     // Fallback to printing entire file
     return printFile(handle);
@@ -1031,20 +1018,7 @@ export async function printFileFromPathWithFallback(
       const printBlob = stamp
         ? await stampPdf(arrayBuffer, stamp)
         : new Blob([arrayBuffer], { type: 'application/pdf' });
-      const url = URL.createObjectURL(printBlob);
-      const printWindow = window.open(url, '_blank', 'width=800,height=600');
-      if (!printWindow) {
-        URL.revokeObjectURL(url);
-        return 'popup_blocked';
-      }
-      printWindow.onload = () => {
-        setTimeout(() => printWindow.print(), 500);
-      };
-      printWindow.onafterprint = () => {
-        printWindow.close();
-        URL.revokeObjectURL(url);
-      };
-      return null;
+      return printPdfBlob(printBlob) ? null : 'popup_blocked';
     }
 
     // Build page numbers array for specific page ranges
@@ -1064,20 +1038,7 @@ export async function printFileFromPathWithFallback(
 
     // Extract specific pages and print (with optional stamp — renders to HTML)
     const extractedBlob = await extractPagesForPrint(arrayBuffer, pageNumbers, stamp);
-    const url = URL.createObjectURL(extractedBlob);
-    const printWindow = window.open(url, '_blank', 'width=800,height=600');
-    if (!printWindow) {
-      URL.revokeObjectURL(url);
-      return 'popup_blocked';
-    }
-    printWindow.onload = () => {
-      setTimeout(() => printWindow.print(), 500);
-    };
-    printWindow.onafterprint = () => {
-      printWindow.close();
-      URL.revokeObjectURL(url);
-    };
-    return null;
+    return printPdfBlob(extractedBlob) ? null : 'popup_blocked';
   } catch (error) {
     return 'print_failed';
   }

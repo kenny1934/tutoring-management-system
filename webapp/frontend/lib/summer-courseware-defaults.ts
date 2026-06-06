@@ -5,6 +5,7 @@
  * bundles for the admin health matrix and lesson mode.
  */
 
+import { buildParallelPath } from "./parallel-path";
 import type { SummerCoursewareFile } from "@/types";
 
 export type CoursewareLang = "e" | "c";
@@ -143,30 +144,6 @@ export function buildFullPath(
 // Composed parallel previews
 // ============================================================================
 
-/**
- * Synthetic pdf_name encoding two real paths to compose side by side at
- * load time (C left, E right). "|" is illegal in Windows filenames, so it
- * can't collide with a real path. These only ever live inside ephemeral
- * preview exercises — never persisted.
- */
-const PARALLEL_SCHEME = "parallel:";
-
-export function buildParallelPath(left: string, right: string): string {
-  return `${PARALLEL_SCHEME}${left}|${right}`;
-}
-
-export function parseParallelPath(
-  pdfName: string
-): { left: string; right: string } | null {
-  if (!pdfName.startsWith(PARALLEL_SCHEME)) return null;
-  const sep = pdfName.indexOf("|", PARALLEL_SCHEME.length);
-  if (sep < 0) return null;
-  return {
-    left: pdfName.slice(PARALLEL_SCHEME.length, sep),
-    right: pdfName.slice(sep + 1),
-  };
-}
-
 export interface ParallelPreviewSource {
   pdfName: string;
   answerPdfName?: string;
@@ -186,7 +163,8 @@ function parallelFor(defaults: ChapterDefaults, docType: "CW" | "HW" | "Extra") 
   }
 }
 
-function langFor(defaults: ChapterDefaults, docType: "CW" | "HW" | "Extra") {
+/** A doc type's default file + answer from resolved ChapterDefaults. */
+export function pickDocDefaults(defaults: ChapterDefaults, docType: "CW" | "HW" | "Extra") {
   switch (docType) {
     case "CW": return { file: defaults.cw, answer: defaults.cwAnswer };
     case "HW": return { file: defaults.hw, answer: defaults.hwAnswer };
@@ -206,8 +184,8 @@ export function resolveParallelPreview(
   docType: "CW" | "HW" | "Extra",
   pathPrefix: string | null | undefined
 ): ParallelPreviewSource | null {
-  const c = langFor(cDefaults, docType);
-  const e = langFor(eDefaults, docType);
+  const c = pickDocDefaults(cDefaults, docType);
+  const e = pickDocDefaults(eDefaults, docType);
   if (c.file && e.file) {
     const cAns = c.answer && buildFullPath(pathPrefix, c.answer.rel_path);
     const eAns = e.answer && buildFullPath(pathPrefix, e.answer.rel_path);

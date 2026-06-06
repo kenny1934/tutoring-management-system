@@ -45,14 +45,14 @@ export function SummerAssignIcon({ type, busy }: { type: "CW" | "HW"; busy?: boo
 }
 
 /** Chip tooltip: composed previews name both sources, pre-made files one. */
-export function parallelChipTitle(source: ParallelPreviewSource): string {
+function parallelChipTitle(source: ParallelPreviewSource): string {
   return source.composed
     ? `View ${source.fileNames.join(" + ")} side by side in the lesson pane`
     : `View ${source.fileNames[0]} in the lesson pane`;
 }
 
 /** Parallel view chips follow the same colour convention (Extra in amber). */
-export function parallelChipClass(kind: "CW" | "HW" | "Extra"): string {
+function parallelChipClass(kind: "CW" | "HW" | "Extra"): string {
   return cn(
     "px-1.5 py-0.5 rounded text-[11px] font-medium transition-colors",
     kind === "CW"
@@ -60,6 +60,48 @@ export function parallelChipClass(kind: "CW" | "HW" | "Extra"): string {
       : kind === "HW"
         ? "text-blue-500 dark:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-blue-900/20"
         : "text-amber-600 dark:text-amber-400 hover:bg-amber-100/60 dark:hover:bg-amber-900/20"
+  );
+}
+
+/**
+ * Parallel row shared by the lesson panels: both languages side by side,
+ * for teaching a mixed class from one PDF. Click shows it in the PDF pane
+ * (never assigned), with the answer key on "a" as usual.
+ */
+export function ParallelChipsRow({
+  cw,
+  hw,
+  extra,
+  onPreview,
+}: {
+  cw: ParallelPreviewSource | null;
+  hw: ParallelPreviewSource | null;
+  extra: ParallelPreviewSource | null;
+  onPreview: (label: "CW" | "HW" | "Extra", source: ParallelPreviewSource) => void;
+}) {
+  if (!cw && !hw && !extra) return null;
+  const chip = (label: "CW" | "HW" | "Extra", source: ParallelPreviewSource) => (
+    <button
+      onClick={() => onPreview(label, source)}
+      title={parallelChipTitle(source)}
+      className={parallelChipClass(label)}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex items-center gap-1.5 min-h-[28px]">
+      <span
+        className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080] inline-flex items-center gap-1"
+        title="Both languages side by side, for mixed classes"
+      >
+        <Columns2 className="h-3 w-3 flex-shrink-0" />
+        <span className="truncate">Parallel</span>
+      </span>
+      {cw && chip("CW", cw)}
+      {hw && chip("HW", hw)}
+      {extra && chip("Extra", extra)}
+    </div>
   );
 }
 
@@ -272,47 +314,12 @@ export function SummerCoursewarePanel({ session, isReadOnly, onPreview }: Summer
               </p>
             )}
 
-            {/* Parallel versions: both languages side by side, for teaching
-                a mixed class from one PDF. Click shows it in the PDF pane
-                (never assigned), with the answer key on "a" as usual. */}
-            {(parallelCw || parallelHw || parallelExtra) && (
-              <div className="flex items-center gap-1.5 min-h-[28px]">
-                <span
-                  className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080] inline-flex items-center gap-1"
-                  title="Both languages side by side, for mixed classes"
-                >
-                  <Columns2 className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">Parallel</span>
-                </span>
-                {parallelCw && (
-                  <button
-                    onClick={() => handlePreview(parallelCw)}
-                    title={parallelChipTitle(parallelCw)}
-                    className={parallelChipClass("CW")}
-                  >
-                    CW
-                  </button>
-                )}
-                {parallelHw && (
-                  <button
-                    onClick={() => handlePreview(parallelHw)}
-                    title={parallelChipTitle(parallelHw)}
-                    className={parallelChipClass("HW")}
-                  >
-                    HW
-                  </button>
-                )}
-                {parallelExtra && (
-                  <button
-                    onClick={() => handlePreview(parallelExtra)}
-                    title={parallelChipTitle(parallelExtra)}
-                    className={parallelChipClass("Extra")}
-                  >
-                    Extra
-                  </button>
-                )}
-              </div>
-            )}
+            <ParallelChipsRow
+              cw={parallelCw}
+              hw={parallelHw}
+              extra={parallelExtra}
+              onPreview={(_label, source) => handlePreview(source)}
+            />
           </div>
         </>
       )}

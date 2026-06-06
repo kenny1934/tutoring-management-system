@@ -4,7 +4,7 @@
  */
 
 import type { PageSelection, ExerciseHistorySession } from '@/types';
-import { parseParallelPath } from './summer-courseware-defaults';
+import { parseParallelPath } from './parallel-path';
 
 // ============================================================================
 // Exercise Creation Utilities

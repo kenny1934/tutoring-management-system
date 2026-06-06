@@ -12,9 +12,9 @@ import {
   normalizeLangStream,
   groupChapters,
   pickDefaults,
+  pickDocDefaults,
   buildFullPath,
   type Chapter,
-  type ChapterDefaults,
   type ParallelPreviewSource,
 } from "./summer-courseware-defaults";
 import {
@@ -132,14 +132,6 @@ export interface AssignmentPlan {
   already: Session[];
 }
 
-function defaultsFor(defaults: ChapterDefaults, docType: SummerDocType) {
-  switch (docType) {
-    case "CW": return { file: defaults.cw, answer: defaults.cwAnswer };
-    case "HW": return { file: defaults.hw, answer: defaults.hwAnswer };
-    case "Extra": return { file: defaults.extra, answer: defaults.extraAnswer };
-  }
-}
-
 /**
  * Work out, per session, which file each student should get based on
  * their language stream. Pure; the caller decides what to do with skips.
@@ -162,7 +154,7 @@ export function buildAssignmentPlan(
       plan.noLang.push(session);
       continue;
     }
-    const { file, answer } = defaultsFor(byLang[lang], docType);
+    const { file, answer } = pickDocDefaults(byLang[lang], docType);
     if (!file) {
       plan.noFile.push(session);
       continue;

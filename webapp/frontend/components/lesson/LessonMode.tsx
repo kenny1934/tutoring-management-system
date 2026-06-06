@@ -14,7 +14,7 @@ import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exerci
 import { useToast } from "@/contexts/ToastContext";
 import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
-import { printFileFromPathWithFallback } from "@/lib/file-system";
+import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
@@ -527,20 +527,30 @@ export function LessonMode({
     if (!exercise.pdf_name) return;
     setPrinting({ id: exercise.id, progress: null });
     try {
+      // Class-wide previews (parallel versions): their paths aren't real
+      // files, so print the loaded/composed bytes directly — no stamp.
+      if (isPreviewExercise(exercise)) {
+        const result = await loadExercisePdf(exercise.pdf_name);
+        if ('error' in result) {
+          showToast("Couldn't load the file for printing", 'error');
+        } else if (!printPdfBlob(new Blob([result.data], { type: 'application/pdf' }))) {
+          showToast('Print failed. Check popup blocker settings.', 'error');
+        }
+        return;
+      }
       const { complexPages } = parseExerciseRemarks(exercise.remarks);
       await printFileFromPathWithFallback(
         exercise.pdf_name,
         exercise.page_start,
         exercise.page_end,
         complexPages || undefined,
-        // Ephemeral previews (parallel versions) are class-wide: no stamp.
-        isPreviewExercise(exercise) ? undefined : stamp,
+        stamp,
         paperlessSearchWithProgress
       );
     } finally {
       setPrinting({ id: null, progress: null });
     }
-  }, [stamp, paperlessSearchWithProgress]);
+  }, [stamp, paperlessSearchWithProgress, showToast]);
 
   // Print: bulk print all CW or HW
   const [showPrintMenu, setShowPrintMenu] = useState(false);

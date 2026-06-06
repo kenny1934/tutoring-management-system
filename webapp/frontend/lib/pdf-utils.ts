@@ -305,12 +305,9 @@ export async function composeSideBySidePdf(
     PDFDocument.load(right, { ignoreEncryption: true }),
   ]);
   const outDoc = await PDFDocument.create();
-  const allIndices = (doc: typeof leftDoc) =>
-    Array.from({ length: doc.getPageCount() }, (_, i) => i);
-  const [leftPages, rightPages] = await Promise.all([
-    outDoc.embedPdf(leftDoc, allIndices(leftDoc)),
-    outDoc.embedPdf(rightDoc, allIndices(rightDoc)),
-  ]);
+  const embedAll = (doc: typeof leftDoc) =>
+    outDoc.embedPdf(doc, Array.from({ length: doc.getPageCount() }, (_, i) => i));
+  const [leftPages, rightPages] = await Promise.all([embedAll(leftDoc), embedAll(rightDoc)]);
 
   // Halves default to the other side's size so a lone trailing page still
   // gets a full-width spread with a blank other half.

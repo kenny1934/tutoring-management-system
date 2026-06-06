@@ -11,7 +11,7 @@ import { getGradeColor } from "@/lib/constants";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
-import { printFileFromPathWithFallback } from "@/lib/file-system";
+import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonWideSidebar } from "./LessonWideSidebar";
@@ -605,17 +605,25 @@ export function LessonWideMode({
     if (!target?.exercise?.pdf_name) return;
     setPrinting({ id: target.exercise.id, progress: null });
     try {
+      // Class-wide previews (parallel versions): their paths aren't real
+      // files, so print the loaded/composed bytes directly — no stamp.
+      if (isPreviewExercise(target.exercise)) {
+        const result = await loadExercisePdf(target.exercise.pdf_name);
+        if ('error' in result) {
+          showToast("Couldn't load the file for printing", 'error');
+        } else if (!printPdfBlob(new Blob([result.data], { type: 'application/pdf' }))) {
+          showToast('Print failed. Check popup blocker settings.', 'error');
+        }
+        return;
+      }
       const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
-      // Class-wide previews print without a per-student stamp.
-      const entryStamp: PrintStampInfo | undefined = isPreviewExercise(target.exercise)
-        ? undefined
-        : {
-            location: target.session.location,
-            schoolStudentId: target.session.school_student_id,
-            studentName: target.session.student_name,
-            sessionDate: target.session.session_date,
-            sessionTime: target.session.time_slot,
-          };
+      const entryStamp: PrintStampInfo = {
+        location: target.session.location,
+        schoolStudentId: target.session.school_student_id,
+        studentName: target.session.student_name,
+        sessionDate: target.session.session_date,
+        sessionTime: target.session.time_slot,
+      };
       await printFileFromPathWithFallback(
         target.exercise.pdf_name,
         target.exercise.page_start,
@@ -627,7 +635,7 @@ export function LessonWideMode({
     } finally {
       setPrinting({ id: null, progress: null });
     }
-  }, [selectedEntry, paperlessSearchWithProgress]);
+  }, [selectedEntry, paperlessSearchWithProgress, showToast]);
 
   // --- Bulk print ---
   const [showPrintMenu, setShowPrintMenu] = useState(false);

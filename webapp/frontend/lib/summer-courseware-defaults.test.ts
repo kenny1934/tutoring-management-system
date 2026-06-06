@@ -4,10 +4,9 @@ import {
   groupChapters,
   pickDefaults,
   buildFullPath,
-  buildParallelPath,
-  parseParallelPath,
   resolveParallelPreview,
 } from "./summer-courseware-defaults";
+import { buildParallelPath, parseParallelPath } from "./parallel-path";
 import type { SummerCoursewareFile } from "@/types";
 
 let nextId = 1;

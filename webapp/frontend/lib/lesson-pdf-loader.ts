@@ -11,7 +11,7 @@ import {
   setPaperlessPathCache,
 } from './file-system';
 import { parseSummerCoursewarePath, readCoursewareFile } from './summer-courseware-scan';
-import { parseParallelPath } from './summer-courseware-defaults';
+import { parseParallelPath } from './parallel-path';
 import { composeSideBySidePdf } from './pdf-utils';
 import { searchPaperlessByPath } from './paperless-utils';
 
@@ -26,34 +26,40 @@ export interface PdfLoadError {
 
 /**
  * Load a PDF as ArrayBuffer from an exercise's pdf_name.
- * Tries local File System Access API first, falls back to Paperless.
+ * Composed parallel previews (`parallel:` paths) resolve both halves and
+ * merge them side by side; real paths go straight to the single-PDF chain.
  */
 export async function loadExercisePdf(
   pdfName: string,
   onProgress?: (message: string) => void
 ): Promise<PdfLoadResult | PdfLoadError> {
+  const parallel = parseParallelPath(pdfName);
+  if (!parallel) {
+    return loadSinglePdf(pdfName, onProgress);
+  }
+  onProgress?.("Loading both language versions…");
+  const [left, right] = await Promise.all([
+    loadSinglePdf(parallel.left),
+    loadSinglePdf(parallel.right),
+  ]);
+  if ('error' in left) return left;
+  if ('error' in right) return right;
+  onProgress?.("Composing side by side…");
+  try {
+    const data = await composeSideBySidePdf(left.data, right.data);
+    return { data, source: left.source };
+  } catch {
+    return { error: 'fetch_failed' };
+  }
+}
+
+/** Single real path: local File System Access first, Paperless fallback. */
+async function loadSinglePdf(
+  pdfName: string,
+  onProgress?: (message: string) => void
+): Promise<PdfLoadResult | PdfLoadError> {
   if (!pdfName || !pdfName.trim()) {
     return { error: 'no_file' };
-  }
-
-  // 0. Composed parallel previews: two real paths, loaded independently
-  // through this same chain and merged side by side (C left, E right).
-  const parallel = parseParallelPath(pdfName);
-  if (parallel) {
-    onProgress?.("Loading both language versions…");
-    const [left, right] = await Promise.all([
-      loadExercisePdf(parallel.left),
-      loadExercisePdf(parallel.right),
-    ]);
-    if ('error' in left) return left;
-    if ('error' in right) return right;
-    onProgress?.("Composing side by side…");
-    try {
-      const data = await composeSideBySidePdf(left.data, right.data);
-      return { data, source: left.source };
-    } catch {
-      return { error: 'fetch_failed' };
-    }
   }
 
   // 1. Try local file access
