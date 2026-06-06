@@ -13,10 +13,17 @@ import type {
   SummerCoursewareIndexResponse,
 } from "@/types";
 import { isFileSystemAccessSupported } from "@/lib/file-system";
-import { pickAndScanTree, ScanTreeResult } from "@/lib/summer-courseware-scan";
+import {
+  pickAndScanTree,
+  ScanTreeResult,
+  saveRootHandle,
+  getRootHandle,
+  connectRootHandle,
+  openCoursewareFile,
+} from "@/lib/summer-courseware-scan";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatShortDate } from "@/lib/formatters";
-import { BookOpen, FolderSearch, AlertTriangle, Loader2 } from "lucide-react";
+import { BookOpen, FolderSearch, AlertTriangle, Loader2, Cable } from "lucide-react";
 
 const INDEXED_GRADES = ["F1", "F2", "F3"];
 
@@ -69,25 +76,28 @@ function LangChip({
   chapter,
   docType,
   lang,
+  onOpen,
 }: {
   chapter: Chapter;
   docType: "CW" | "HW" | "Extra";
   lang: "e" | "c";
+  onOpen: (relPath: string) => void;
 }) {
-  const question = chapter.files.some(
+  const question = chapter.files.find(
     (f) => f.doc_type === docType && f.lang === lang && !f.is_parallel && !f.is_answer
   );
   const answer = chapter.files.some(
     (f) => f.doc_type === docType && f.lang === lang && !f.is_parallel && f.is_answer
   );
   const label = lang === "e" ? "E" : "C";
+  const langName = lang === "e" ? "English" : "Chinese";
 
   if (!question) {
     // Extra material legitimately exists in one language only, so an absent
     // chip is informational rather than an error.
     return (
       <span
-        title={`No ${lang === "e" ? "English" : "Chinese"} ${docType} file`}
+        title={`No ${langName} ${docType} file`}
         className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-300 dark:text-gray-600"
       >
         {label}
@@ -95,29 +105,40 @@ function LangChip({
     );
   }
   return (
-    <span
+    <button
+      type="button"
+      onClick={() => onOpen(question.rel_path)}
       title={
-        answer
-          ? `${lang === "e" ? "English" : "Chinese"} ${docType} with answer file`
-          : `${lang === "e" ? "English" : "Chinese"} ${docType} found, but its answer file is missing`
+        (answer
+          ? `${langName} ${docType} with answer file`
+          : `${langName} ${docType} found, but its answer file is missing`) +
+        ". Click to open."
       }
-      className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-semibold ${
+      className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-semibold cursor-pointer transition-shadow hover:ring-2 hover:ring-offset-1 dark:hover:ring-offset-gray-900 ${
         answer
-          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:ring-green-300"
+          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:ring-amber-300"
       }`}
     >
       {label}
-    </span>
+    </button>
   );
 }
 
 /** Presence chip for a parallel (merged-language) version. */
-function ParallelChip({ chapter, docType }: { chapter: Chapter; docType: "CW" | "HW" | "Extra" }) {
-  const present = chapter.files.some(
+function ParallelChip({
+  chapter,
+  docType,
+  onOpen,
+}: {
+  chapter: Chapter;
+  docType: "CW" | "HW" | "Extra";
+  onOpen: (relPath: string) => void;
+}) {
+  const file = chapter.files.find(
     (f) => f.doc_type === docType && f.is_parallel && !f.is_answer
   );
-  if (!present) {
+  if (!file) {
     return (
       <span
         title={`No parallel ${docType} version`}
@@ -128,12 +149,14 @@ function ParallelChip({ chapter, docType }: { chapter: Chapter; docType: "CW" | 
     );
   }
   return (
-    <span
-      title={`Parallel ${docType} version available`}
-      className="inline-flex items-center justify-center h-6 px-1.5 rounded text-xs font-semibold bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+    <button
+      type="button"
+      onClick={() => onOpen(file.rel_path)}
+      title={`Parallel ${docType} version available. Click to open.`}
+      className="inline-flex items-center justify-center h-6 px-1.5 rounded text-xs font-semibold cursor-pointer bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 transition-shadow hover:ring-2 hover:ring-sky-300 hover:ring-offset-1 dark:hover:ring-offset-gray-900"
     >
       {docType}
-    </span>
+    </button>
   );
 }
 
@@ -152,6 +175,10 @@ export default function AdminSummerCoursewarePage() {
   const [scanProgress, setScanProgress] = useState(0);
   const [pendingScan, setPendingScan] = useState<ScanTreeResult | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Whether THIS machine has a stored handle to the courseware root, which is
+  // what lets chips open PDFs straight from the mapped drive.
+  const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!user || !canViewAdminPages) return;
@@ -180,6 +207,39 @@ export default function AdminSummerCoursewarePage() {
   useEffect(() => {
     if (year !== null) loadIndex(year);
   }, [year, loadIndex]);
+
+  useEffect(() => {
+    if (year !== null) getRootHandle(year).then((h) => setDriveConnected(!!h));
+  }, [year]);
+
+  const handleConnectDrive = async () => {
+    if (year === null) return;
+    if (!isFileSystemAccessSupported()) {
+      showToast("Connecting the drive needs Chrome or Edge", "error");
+      return;
+    }
+    const result = await connectRootHandle(year);
+    if (result === "connected") {
+      setDriveConnected(true);
+      showToast("Drive connected. Click any chip to open its PDF.", "success");
+    } else if (result === "wrong_folder") {
+      showToast("That folder doesn't look like the Finalised folder (no F1-F3 inside)", "error");
+    }
+  };
+
+  const handleOpenFile = async (relPath: string) => {
+    if (year === null) return;
+    const error = await openCoursewareFile(year, relPath);
+    if (!error) return;
+    if (error === "no_handle") {
+      showToast('Use "Connect drive" above the table to open PDFs on this computer', "error");
+      setDriveConnected(false);
+    } else if (error === "permission_denied") {
+      showToast("Drive access was declined. Try the chip again to re-grant.", "error");
+    } else {
+      showToast("File not found on the drive. It may have moved since the last scan.", "error");
+    }
+  };
 
   const handlePickFolder = async () => {
     if (!isFileSystemAccessSupported()) {
@@ -215,6 +275,9 @@ export default function AdminSummerCoursewarePage() {
         files: pendingScan.files,
       });
       setIndex(result);
+      // Keep the scanned folder's handle so chips can open PDFs directly.
+      await saveRootHandle(year, pendingScan.handle);
+      setDriveConnected(true);
       showToast(`Courseware index updated for ${year}`, "success");
       setPendingScan(null);
     } catch (e: unknown) {
@@ -361,6 +424,16 @@ export default function AdminSummerCoursewarePage() {
                       </span>
                     </>
                   )}
+                  {driveConnected === false && (
+                    <button
+                      onClick={handleConnectDrive}
+                      title="Pick the Finalised folder once on this computer so chips can open PDFs"
+                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors text-xs font-medium"
+                    >
+                      <Cable className="h-3.5 w-3.5" />
+                      Connect drive to open PDFs
+                    </button>
+                  )}
                 </div>
 
                 {/* Unclassified files: the naming-drift alarm */}
@@ -452,16 +525,16 @@ export default function AdminSummerCoursewarePage() {
                                     {(["CW", "HW", "Extra"] as const).map((dt) => (
                                       <td key={dt} className="px-2 py-2 whitespace-nowrap">
                                         <span className="inline-flex gap-1">
-                                          <LangChip chapter={ch} docType={dt} lang="e" />
-                                          <LangChip chapter={ch} docType={dt} lang="c" />
+                                          <LangChip chapter={ch} docType={dt} lang="c" onOpen={handleOpenFile} />
+                                          <LangChip chapter={ch} docType={dt} lang="e" onOpen={handleOpenFile} />
                                         </span>
                                       </td>
                                     ))}
                                     <td className="px-2 py-2 whitespace-nowrap">
                                       <span className="inline-flex gap-1">
-                                        <ParallelChip chapter={ch} docType="CW" />
-                                        <ParallelChip chapter={ch} docType="HW" />
-                                        <ParallelChip chapter={ch} docType="Extra" />
+                                        <ParallelChip chapter={ch} docType="CW" onOpen={handleOpenFile} />
+                                        <ParallelChip chapter={ch} docType="HW" onOpen={handleOpenFile} />
+                                        <ParallelChip chapter={ch} docType="Extra" onOpen={handleOpenFile} />
                                       </span>
                                     </td>
                                     <td className="px-4 py-2 whitespace-nowrap text-xs text-muted-foreground">
@@ -480,9 +553,10 @@ export default function AdminSummerCoursewarePage() {
 
                 {/* Legend */}
                 <p className="text-xs text-muted-foreground">
-                  E / C = English / Chinese version. Green = file and answer present,
+                  C / E = Chinese / English version. Green = file and answer present,
                   amber = answer file missing, dashed = not on the drive.
                   Parallel versions merge both languages side by side for mixed classes.
+                  Click any chip to open its PDF from the mapped drive.
                 </p>
               </>
             )}
