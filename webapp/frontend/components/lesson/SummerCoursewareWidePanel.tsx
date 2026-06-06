@@ -5,8 +5,10 @@ import { Sun, Cable, Columns2 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import {
   pickDefaults,
+  resolveParallelPreview,
   type Chapter,
   type ChapterDefaults,
+  type ParallelPreviewSource,
 } from "@/lib/summer-courseware-defaults";
 import {
   sessionSummerYear,
@@ -19,8 +21,8 @@ import {
   type SummerDocType,
 } from "@/lib/summer-courseware-session";
 import { StudentPickerPopover } from "./StudentPickerPopover";
-import { summerAssignButtonClass, SummerAssignIcon, parallelChipClass } from "./SummerCoursewarePanel";
-import type { Session, SummerCoursewareFile } from "@/types";
+import { summerAssignButtonClass, SummerAssignIcon, parallelChipClass, parallelChipTitle } from "./SummerCoursewarePanel";
+import type { Session } from "@/types";
 import type { StudentExerciseEntry } from "./LessonWideMode";
 
 function rowDefaults(defaults: ChapterDefaults, docType: SummerDocType) {
@@ -88,8 +90,11 @@ function WideGradeSection({
   const pathPrefix = index.scan?.path_prefix;
   const cDefaults = chapter ? pickDefaults(chapter.files, "c") : {};
   const eDefaults = chapter ? pickDefaults(chapter.files, "e") : {};
-  // Parallel files are language-independent; either pick resolves them.
-  const parallel = cDefaults;
+  // Composed live from the C + E versions where both exist, falling back
+  // to a pre-made parallel file (a manual merge can lag behind an edit).
+  const parallelCw = resolveParallelPreview(cDefaults, eDefaults, "CW", pathPrefix);
+  const parallelHw = resolveParallelPreview(cDefaults, eDefaults, "HW", pathPrefix);
+  const parallelExtra = resolveParallelPreview(cDefaults, eDefaults, "Extra", pathPrefix);
 
   const handleAssign = async (target: PickerTarget, sessionIds: number[]) => {
     if (!chapter) return;
@@ -150,11 +155,11 @@ function WideGradeSection({
 
   // Show a parallel version in the PDF pane via an ephemeral entry (never
   // assigned); "a" toggles its answer key like any exercise.
-  const handlePreview = (label: string, file: SummerCoursewareFile, answer?: SummerCoursewareFile) => {
+  const handlePreview = (label: string, source: ParallelPreviewSource) => {
     const session = sessions[0];
     onPreviewEntry({
       session,
-      exercise: previewExercise(session.id, file, answer, pathPrefix),
+      exercise: previewExercise(session.id, source),
       studentName: `Parallel ${label}`,
       studentId: null,
       grade,
@@ -230,39 +235,39 @@ function WideGradeSection({
             </>
           ))}
 
-          {/* Parallel versions: both languages merged, for mixed classes.
-              Click shows it in the PDF pane (never assigned). */}
-          {(parallel.parallelCw || parallel.parallelHw || parallel.parallelExtra) && (
+          {/* Parallel versions: both languages side by side, for mixed
+              classes. Click shows it in the PDF pane (never assigned). */}
+          {(parallelCw || parallelHw || parallelExtra) && (
             <div className="flex items-center gap-1.5 min-h-[28px]">
               <span
                 className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080] inline-flex items-center gap-1"
-                title="Both languages merged side by side, for mixed classes"
+                title="Both languages side by side, for mixed classes"
               >
                 <Columns2 className="h-3 w-3 flex-shrink-0" />
                 <span className="truncate">Parallel</span>
               </span>
-              {parallel.parallelCw && (
+              {parallelCw && (
                 <button
-                  onClick={() => handlePreview("CW", parallel.parallelCw!, parallel.parallelCwAnswer)}
-                  title={`View ${parallel.parallelCw.file_name} in the lesson pane`}
+                  onClick={() => handlePreview("CW", parallelCw)}
+                  title={parallelChipTitle(parallelCw)}
                   className={parallelChipClass("CW")}
                 >
                   CW
                 </button>
               )}
-              {parallel.parallelHw && (
+              {parallelHw && (
                 <button
-                  onClick={() => handlePreview("HW", parallel.parallelHw!, parallel.parallelHwAnswer)}
-                  title={`View ${parallel.parallelHw.file_name} in the lesson pane`}
+                  onClick={() => handlePreview("HW", parallelHw)}
+                  title={parallelChipTitle(parallelHw)}
                   className={parallelChipClass("HW")}
                 >
                   HW
                 </button>
               )}
-              {parallel.parallelExtra && (
+              {parallelExtra && (
                 <button
-                  onClick={() => handlePreview("Extra", parallel.parallelExtra!, parallel.parallelExtraAnswer)}
-                  title={`View ${parallel.parallelExtra.file_name} in the lesson pane`}
+                  onClick={() => handlePreview("Extra", parallelExtra)}
+                  title={parallelChipTitle(parallelExtra)}
                   className={parallelChipClass("Extra")}
                 >
                   Extra

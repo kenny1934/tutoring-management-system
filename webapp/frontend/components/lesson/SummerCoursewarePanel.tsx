@@ -10,7 +10,9 @@ import {
   normalizeLangStream,
   pickDefaults,
   buildFullPath,
+  resolveParallelPreview,
   type Chapter,
+  type ParallelPreviewSource,
 } from "@/lib/summer-courseware-defaults";
 import {
   sessionSummerYear,
@@ -40,6 +42,13 @@ export function summerAssignButtonClass(type: "CW" | "HW"): string {
 export function SummerAssignIcon({ type, busy }: { type: "CW" | "HW"; busy?: boolean }) {
   if (busy) return <Loader2 className="h-3 w-3 animate-spin" />;
   return type === "CW" ? <PenTool className="h-3 w-3" /> : <BookOpen className="h-3 w-3" />;
+}
+
+/** Chip tooltip: composed previews name both sources, pre-made files one. */
+export function parallelChipTitle(source: ParallelPreviewSource): string {
+  return source.composed
+    ? `View ${source.fileNames.join(" + ")} side by side in the lesson pane`
+    : `View ${source.fileNames[0]} in the lesson pane`;
 }
 
 /** Parallel view chips follow the same colour convention (Extra in amber). */
@@ -117,6 +126,8 @@ export function SummerCoursewarePanel({ session, isReadOnly, onPreview }: Summer
   if (!index || chapters.length === 0) return null;
 
   const defaults = chapter ? pickDefaults(chapter.files, lang) : {};
+  const cDefaults = chapter ? pickDefaults(chapter.files, "c") : {};
+  const eDefaults = chapter ? pickDefaults(chapter.files, "e") : {};
   const pathPrefix = index.scan?.path_prefix;
   const exercises = session.exercises ?? [];
   const hasPath = (f?: SummerCoursewareFile) =>
@@ -166,8 +177,14 @@ export function SummerCoursewarePanel({ session, isReadOnly, onPreview }: Summer
     </button>
   );
 
-  const handlePreview = (file: SummerCoursewareFile, answer?: SummerCoursewareFile) =>
-    onPreview?.(previewExercise(session.id, file, answer, pathPrefix));
+  // Composed live from the C + E versions where both exist, falling back
+  // to a pre-made parallel file (a manual merge can lag behind an edit).
+  const parallelCw = resolveParallelPreview(cDefaults, eDefaults, "CW", pathPrefix);
+  const parallelHw = resolveParallelPreview(cDefaults, eDefaults, "HW", pathPrefix);
+  const parallelExtra = resolveParallelPreview(cDefaults, eDefaults, "Extra", pathPrefix);
+
+  const handlePreview = (source: ParallelPreviewSource) =>
+    onPreview?.(previewExercise(session.id, source));
 
   const isLessonChapter = chapter && chapter.lessonNumber === session.lesson_number;
 
@@ -258,37 +275,37 @@ export function SummerCoursewarePanel({ session, isReadOnly, onPreview }: Summer
             {/* Parallel versions: both languages side by side, for teaching
                 a mixed class from one PDF. Click shows it in the PDF pane
                 (never assigned), with the answer key on "a" as usual. */}
-            {(defaults.parallelCw || defaults.parallelHw || defaults.parallelExtra) && (
+            {(parallelCw || parallelHw || parallelExtra) && (
               <div className="flex items-center gap-1.5 min-h-[28px]">
                 <span
                   className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080] inline-flex items-center gap-1"
-                  title="Both languages merged side by side, for mixed classes"
+                  title="Both languages side by side, for mixed classes"
                 >
                   <Columns2 className="h-3 w-3 flex-shrink-0" />
                   <span className="truncate">Parallel</span>
                 </span>
-                {defaults.parallelCw && (
+                {parallelCw && (
                   <button
-                    onClick={() => handlePreview(defaults.parallelCw!, defaults.parallelCwAnswer)}
-                    title={`View ${defaults.parallelCw.file_name} in the lesson pane`}
+                    onClick={() => handlePreview(parallelCw)}
+                    title={parallelChipTitle(parallelCw)}
                     className={parallelChipClass("CW")}
                   >
                     CW
                   </button>
                 )}
-                {defaults.parallelHw && (
+                {parallelHw && (
                   <button
-                    onClick={() => handlePreview(defaults.parallelHw!, defaults.parallelHwAnswer)}
-                    title={`View ${defaults.parallelHw.file_name} in the lesson pane`}
+                    onClick={() => handlePreview(parallelHw)}
+                    title={parallelChipTitle(parallelHw)}
                     className={parallelChipClass("HW")}
                   >
                     HW
                   </button>
                 )}
-                {defaults.parallelExtra && (
+                {parallelExtra && (
                   <button
-                    onClick={() => handlePreview(defaults.parallelExtra!, defaults.parallelExtraAnswer)}
-                    title={`View ${defaults.parallelExtra.file_name} in the lesson pane`}
+                    onClick={() => handlePreview(parallelExtra)}
+                    title={parallelChipTitle(parallelExtra)}
                     className={parallelChipClass("Extra")}
                   >
                     Extra

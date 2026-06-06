@@ -11,6 +11,8 @@ import {
   setPaperlessPathCache,
 } from './file-system';
 import { parseSummerCoursewarePath, readCoursewareFile } from './summer-courseware-scan';
+import { parseParallelPath } from './summer-courseware-defaults';
+import { composeSideBySidePdf } from './pdf-utils';
 import { searchPaperlessByPath } from './paperless-utils';
 
 export interface PdfLoadResult {
@@ -32,6 +34,26 @@ export async function loadExercisePdf(
 ): Promise<PdfLoadResult | PdfLoadError> {
   if (!pdfName || !pdfName.trim()) {
     return { error: 'no_file' };
+  }
+
+  // 0. Composed parallel previews: two real paths, loaded independently
+  // through this same chain and merged side by side (C left, E right).
+  const parallel = parseParallelPath(pdfName);
+  if (parallel) {
+    onProgress?.("Loading both language versions…");
+    const [left, right] = await Promise.all([
+      loadExercisePdf(parallel.left),
+      loadExercisePdf(parallel.right),
+    ]);
+    if ('error' in left) return left;
+    if ('error' in right) return right;
+    onProgress?.("Composing side by side…");
+    try {
+      const data = await composeSideBySidePdf(left.data, right.data);
+      return { data, source: left.source };
+    } catch {
+      return { error: 'fetch_failed' };
+    }
   }
 
   // 1. Try local file access

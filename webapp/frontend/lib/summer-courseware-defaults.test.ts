@@ -4,6 +4,9 @@ import {
   groupChapters,
   pickDefaults,
   buildFullPath,
+  buildParallelPath,
+  parseParallelPath,
+  resolveParallelPreview,
 } from "./summer-courseware-defaults";
 import type { SummerCoursewareFile } from "@/types";
 
@@ -133,5 +136,75 @@ describe("buildFullPath", () => {
 
   it("falls back to rel_path without a prefix", () => {
     expect(buildFullPath(null, "F1\\a.pdf")).toBe("F1\\a.pdf");
+  });
+});
+
+describe("parallel paths", () => {
+  it("round-trips two real paths", () => {
+    const built = buildParallelPath("X\\F1\\cw_c.pdf", "X\\F1\\cw_e.pdf");
+    expect(parseParallelPath(built)).toEqual({
+      left: "X\\F1\\cw_c.pdf",
+      right: "X\\F1\\cw_e.pdf",
+    });
+  });
+
+  it("real paths are not parallel paths", () => {
+    expect(parseParallelPath("X\\F1\\cw_c.pdf")).toBeNull();
+  });
+});
+
+describe("resolveParallelPreview", () => {
+  const PREFIX = "X";
+  const defaultsFor = (files: SummerCoursewareFile[]) => ({
+    c: pickDefaults(files, "c"),
+    e: pickDefaults(files, "e"),
+  });
+
+  it("composes from C + E when both exist, even with a pre-made parallel", () => {
+    const { c, e } = defaultsFor(sm701);
+    const source = resolveParallelPreview(c, e, "CW", PREFIX)!;
+    expect(source.composed).toBe(true);
+    expect(parseParallelPath(source.pdfName)).toEqual({
+      left: `${PREFIX}\\${c.cw!.rel_path}`,
+      right: `${PREFIX}\\${e.cw!.rel_path}`,
+    });
+    // Both languages have answers → the answer view is composed too.
+    expect(parseParallelPath(source.answerPdfName!)).toEqual({
+      left: `${PREFIX}\\${c.cwAnswer!.rel_path}`,
+      right: `${PREFIX}\\${e.cwAnswer!.rel_path}`,
+    });
+    expect(source.fileNames).toHaveLength(2);
+  });
+
+  it("uses a lone answer as-is when only one language has one", () => {
+    const files = [
+      file({ doc_type: "CW", lang: "c", rel_path: "F1\\cw_c.pdf" }),
+      file({ doc_type: "CW", lang: "c", is_answer: true, rel_path: "F1\\cw_c_ans.pdf" }),
+      file({ doc_type: "CW", lang: "e", rel_path: "F1\\cw_e.pdf" }),
+    ];
+    const { c, e } = defaultsFor(files);
+    const source = resolveParallelPreview(c, e, "CW", PREFIX)!;
+    expect(source.composed).toBe(true);
+    expect(source.answerPdfName).toBe(`${PREFIX}\\F1\\cw_c_ans.pdf`);
+  });
+
+  it("falls back to the pre-made parallel when a language version is missing", () => {
+    const files = [
+      file({ doc_type: "HW", lang: "c", rel_path: "F1\\hw_c.pdf" }),
+      file({ doc_type: "HW", lang: null, is_parallel: true, rel_path: "F1\\hw_p.pdf" }),
+      file({ doc_type: "HW", lang: null, is_parallel: true, is_answer: true, rel_path: "F1\\hw_p_ans.pdf" }),
+    ];
+    const { c, e } = defaultsFor(files);
+    const source = resolveParallelPreview(c, e, "HW", PREFIX)!;
+    expect(source.composed).toBe(false);
+    expect(source.pdfName).toBe(`${PREFIX}\\F1\\hw_p.pdf`);
+    expect(source.answerPdfName).toBe(`${PREFIX}\\F1\\hw_p_ans.pdf`);
+    expect(source.fileNames).toHaveLength(1);
+  });
+
+  it("resolves nothing without both languages or a pre-made file", () => {
+    const { c, e } = defaultsFor(sm701);
+    // Extra exists only in Chinese and has no pre-made parallel.
+    expect(resolveParallelPreview(c, e, "Extra", PREFIX)).toBeNull();
   });
 });

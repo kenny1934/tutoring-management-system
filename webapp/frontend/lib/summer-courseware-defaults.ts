@@ -138,3 +138,103 @@ export function buildFullPath(
 ): string {
   return pathPrefix ? `${pathPrefix}\\${relPath}` : relPath;
 }
+
+// ============================================================================
+// Composed parallel previews
+// ============================================================================
+
+/**
+ * Synthetic pdf_name encoding two real paths to compose side by side at
+ * load time (C left, E right). "|" is illegal in Windows filenames, so it
+ * can't collide with a real path. These only ever live inside ephemeral
+ * preview exercises — never persisted.
+ */
+const PARALLEL_SCHEME = "parallel:";
+
+export function buildParallelPath(left: string, right: string): string {
+  return `${PARALLEL_SCHEME}${left}|${right}`;
+}
+
+export function parseParallelPath(
+  pdfName: string
+): { left: string; right: string } | null {
+  if (!pdfName.startsWith(PARALLEL_SCHEME)) return null;
+  const sep = pdfName.indexOf("|", PARALLEL_SCHEME.length);
+  if (sep < 0) return null;
+  return {
+    left: pdfName.slice(PARALLEL_SCHEME.length, sep),
+    right: pdfName.slice(sep + 1),
+  };
+}
+
+export interface ParallelPreviewSource {
+  pdfName: string;
+  answerPdfName?: string;
+  /** Negative id for the ephemeral preview exercise. */
+  previewId: number;
+  /** Composed live from the two language versions (vs a pre-made file). */
+  composed: boolean;
+  /** Source file names, for tooltips. */
+  fileNames: string[];
+}
+
+function parallelFor(defaults: ChapterDefaults, docType: "CW" | "HW" | "Extra") {
+  switch (docType) {
+    case "CW": return { file: defaults.parallelCw, answer: defaults.parallelCwAnswer };
+    case "HW": return { file: defaults.parallelHw, answer: defaults.parallelHwAnswer };
+    case "Extra": return { file: defaults.parallelExtra, answer: defaults.parallelExtraAnswer };
+  }
+}
+
+function langFor(defaults: ChapterDefaults, docType: "CW" | "HW" | "Extra") {
+  switch (docType) {
+    case "CW": return { file: defaults.cw, answer: defaults.cwAnswer };
+    case "HW": return { file: defaults.hw, answer: defaults.hwAnswer };
+    case "Extra": return { file: defaults.extra, answer: defaults.extraAnswer };
+  }
+}
+
+/**
+ * Resolve what the Parallel chip shows for a doc type. Composing live from
+ * the C + E versions is preferred — it always reflects the current files,
+ * whereas a pre-made merge can lag behind an edit. The pre-made parallel
+ * file is the fallback when a language version is missing.
+ */
+export function resolveParallelPreview(
+  cDefaults: ChapterDefaults,
+  eDefaults: ChapterDefaults,
+  docType: "CW" | "HW" | "Extra",
+  pathPrefix: string | null | undefined
+): ParallelPreviewSource | null {
+  const c = langFor(cDefaults, docType);
+  const e = langFor(eDefaults, docType);
+  if (c.file && e.file) {
+    const cAns = c.answer && buildFullPath(pathPrefix, c.answer.rel_path);
+    const eAns = e.answer && buildFullPath(pathPrefix, e.answer.rel_path);
+    return {
+      pdfName: buildParallelPath(
+        buildFullPath(pathPrefix, c.file.rel_path),
+        buildFullPath(pathPrefix, e.file.rel_path)
+      ),
+      // Compose answers too when both exist; a lone answer shows as-is.
+      answerPdfName: cAns && eAns ? buildParallelPath(cAns, eAns) : cAns || eAns || undefined,
+      previewId: -c.file.id,
+      composed: true,
+      fileNames: [c.file.file_name, e.file.file_name],
+    };
+  }
+  // Parallel files are language-independent; either pick resolves them.
+  const premade = parallelFor(cDefaults, docType);
+  if (premade.file) {
+    return {
+      pdfName: buildFullPath(pathPrefix, premade.file.rel_path),
+      answerPdfName: premade.answer
+        ? buildFullPath(pathPrefix, premade.answer.rel_path)
+        : undefined,
+      previewId: -premade.file.id,
+      composed: false,
+      fileNames: [premade.file.file_name],
+    };
+  }
+  return null;
+}

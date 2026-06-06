@@ -15,6 +15,7 @@ import {
   buildFullPath,
   type Chapter,
   type ChapterDefaults,
+  type ParallelPreviewSource,
 } from "./summer-courseware-defaults";
 import {
   openCoursewareFile,
@@ -97,16 +98,14 @@ export function useCoursewareDrive(year: number) {
  */
 export function previewExercise(
   sessionId: number,
-  file: SummerCoursewareFile,
-  answer: SummerCoursewareFile | undefined,
-  pathPrefix: string | null | undefined
+  source: ParallelPreviewSource
 ): SessionExercise {
   return {
-    id: -file.id,
+    id: source.previewId,
     session_id: sessionId,
     exercise_type: "CW",
-    pdf_name: buildFullPath(pathPrefix, file.rel_path),
-    answer_pdf_name: answer ? buildFullPath(pathPrefix, answer.rel_path) : undefined,
+    pdf_name: source.pdfName,
+    answer_pdf_name: source.answerPdfName,
     created_by: "preview",
   };
 }

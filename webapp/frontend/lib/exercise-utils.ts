@@ -4,6 +4,7 @@
  */
 
 import type { PageSelection, ExerciseHistorySession } from '@/types';
+import { parseParallelPath } from './summer-courseware-defaults';
 
 // ============================================================================
 // Exercise Creation Utilities
@@ -338,6 +339,11 @@ export function validateExercisePageRange(
  */
 export function getDisplayName(pdfName: string | null | undefined): string {
   if (!pdfName) return '';
+  // Composed parallel previews encode two paths; show both names as a pair.
+  const parallel = parseParallelPath(pdfName);
+  if (parallel) {
+    return `${getDisplayName(parallel.left)} + ${getDisplayName(parallel.right)}`;
+  }
   const filename = pdfName.split(/[/\\]/).pop() || pdfName;
   return filename.replace(/\.[^.]+$/, '');
 }

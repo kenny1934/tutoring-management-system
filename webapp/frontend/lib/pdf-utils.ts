@@ -290,6 +290,47 @@ export async function stampPdf(
 }
 
 /**
+ * Compose two PDFs side by side: page n of `left` beside page n of `right`
+ * on one wide page (tops aligned, native sizes preserved). Used to show a
+ * class both language versions of a summer material without a pre-made
+ * merge. A missing page on either side leaves that half blank.
+ */
+export async function composeSideBySidePdf(
+  left: ArrayBuffer,
+  right: ArrayBuffer
+): Promise<ArrayBuffer> {
+  const { PDFDocument } = await import('pdf-lib');
+  const [leftDoc, rightDoc] = await Promise.all([
+    PDFDocument.load(left, { ignoreEncryption: true }),
+    PDFDocument.load(right, { ignoreEncryption: true }),
+  ]);
+  const outDoc = await PDFDocument.create();
+  const allIndices = (doc: typeof leftDoc) =>
+    Array.from({ length: doc.getPageCount() }, (_, i) => i);
+  const [leftPages, rightPages] = await Promise.all([
+    outDoc.embedPdf(leftDoc, allIndices(leftDoc)),
+    outDoc.embedPdf(rightDoc, allIndices(rightDoc)),
+  ]);
+
+  // Halves default to the other side's size so a lone trailing page still
+  // gets a full-width spread with a blank other half.
+  const pageCount = Math.max(leftPages.length, rightPages.length);
+  for (let i = 0; i < pageCount; i++) {
+    const l = leftPages[i];
+    const r = rightPages[i];
+    const leftWidth = l?.width ?? r!.width;
+    const rightWidth = r?.width ?? l!.width;
+    const height = Math.max(l?.height ?? 0, r?.height ?? 0);
+    const page = outDoc.addPage([leftWidth + rightWidth, height]);
+    if (l) page.drawPage(l, { x: 0, y: height - l.height });
+    if (r) page.drawPage(r, { x: leftWidth, y: height - r.height });
+  }
+
+  const bytes = await outDoc.save();
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+/**
  * Extract specific pages from a PDF and return as a new PDF blob.
  * Uses pdf-lib for reliable page extraction and optional stamp overlay.
  *
