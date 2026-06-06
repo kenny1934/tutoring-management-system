@@ -43,6 +43,7 @@ import {
   Trash2,
   MessageSquare,
   Clock,
+  CalendarX,
 } from "lucide-react";
 import type { Session, MakeupSlotSuggestion, MakeupScoreBreakdown, Tutor, MakeupProposalSlotCreate } from "@/types";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
@@ -1321,6 +1322,23 @@ export function ScheduleMakeupModal({
           <span className="text-gray-400">|</span>
           <span className="text-orange-600 dark:text-orange-400">{session.session_status}</span>
         </div>
+
+        {/* Summer unavailability notes — dates the parent flagged on the application, so the make-up isn't booked on a day the student can't attend */}
+        {enrollment?.summer_unavailability_notes && (
+          <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60">
+            <div className="flex items-start gap-2">
+              <CalendarX className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-0.5">
+                  Unavailable Dates (from summer application)
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words">
+                  {enrollment.summer_unavailability_notes}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mode Toggle - Book vs Propose */}
         <div className="flex items-center gap-2 flex-wrap">

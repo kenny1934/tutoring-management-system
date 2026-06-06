@@ -208,6 +208,7 @@ class EnrollmentResponse(EnrollmentBase):
     fee_message_sent: bool = False
     is_new_student: bool = False
     summer_application_id: Optional[int] = Field(None, description="Source summer application id if this is a published Summer enrollment")
+    summer_unavailability_notes: Optional[str] = Field(None, description="Dates the student can't attend, from the source summer application (for arranging make-ups)")
     payment_deadline: Optional[date] = Field(None, description="Summer: discount deadline or first_lesson_date, whichever is earlier")
     locked_discount_code: Optional[str] = Field(None, max_length=32, description="Summer tier code currently in effect: EB / EB3P / 3P / NONE")
     locked_discount_amount: Optional[int] = Field(None, description="Summer discount amount currently in effect (HKD)")

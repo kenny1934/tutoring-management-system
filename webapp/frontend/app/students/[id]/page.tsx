@@ -16,7 +16,7 @@ import {
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
   Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
-Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, Download, TrendingUp, StickyNote as StickyNoteIcon
+Copy, Check, Ticket, Gift, Trash2, Loader2, Printer, XCircle, CalendarX, Download, TrendingUp, StickyNote as StickyNoteIcon
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -1350,6 +1350,15 @@ function ProfileTab({
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
+                  {/* Summer unavailability flag — parent noted dates the student can't attend */}
+                  {enrollment.summer_unavailability_notes && (
+                    <span
+                      className="shrink-0 text-amber-600 dark:text-amber-400"
+                      title={`Unavailable: ${enrollment.summer_unavailability_notes}`}
+                    >
+                      <CalendarX className="h-3.5 w-3.5" />
+                    </span>
+                  )}
                   {/* Enrollment Type badge (only for non-Regular) */}
                   {enrollment.enrollment_type && (
                     <span className={cn(

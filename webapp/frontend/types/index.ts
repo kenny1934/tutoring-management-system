@@ -220,6 +220,8 @@ export interface Enrollment {
   fee_message_sent?: boolean;
   is_new_student?: boolean;
   summer_application_id?: number | null;
+  // Dates the student can't attend, from the source summer application (for arranging make-ups).
+  summer_unavailability_notes?: string | null;
   // Summer tier snapshot — locked at publish, kept in sync by nightly sweep.
   payment_deadline?: string | null;
   locked_discount_code?: string | null;

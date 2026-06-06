@@ -203,6 +203,30 @@ def bulk_load_summer_end_dates(
     return {app_id: end_date for app_id, end_date in rows}
 
 
+def bulk_load_summer_unavailability_notes(
+    db: Session, enrollments: list[Enrollment]
+) -> dict[int, str]:
+    """Pre-load `unavailability_notes` for every Summer enrollment in one query,
+    keyed by `summer_application_id`. These are the dates a parent flagged on the
+    summer application; surfacing them on the enrollment helps tutors avoid booking
+    make-ups on a day the student already said they can't attend."""
+    summer_app_ids = [
+        e.summer_application_id for e in enrollments
+        if e.enrollment_type == 'Summer' and e.summer_application_id
+    ]
+    if not summer_app_ids:
+        return {}
+    rows = (
+        db.query(SummerApplication.id, SummerApplication.unavailability_notes)
+        .filter(
+            SummerApplication.id.in_(summer_app_ids),
+            SummerApplication.unavailability_notes.isnot(None),
+        )
+        .all()
+    )
+    return {app_id: notes for app_id, notes in rows if notes}
+
+
 def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optional[date]:
     """Calculate effective end date with holiday awareness.
 
@@ -1005,6 +1029,7 @@ async def get_enrollments(
     today = hk_now().date()
     holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
     summer_end_dates = bulk_load_summer_end_dates(db, enrollments)
+    summer_unavailability = bulk_load_summer_unavailability_notes(db, enrollments)
 
     # Build response with related data
     result = []
@@ -1018,6 +1043,7 @@ async def get_enrollments(
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
+        enrollment_data.summer_unavailability_notes = summer_unavailability.get(enrollment.summer_application_id)
         result.append(enrollment_data)
 
     return result
@@ -1556,6 +1582,9 @@ async def get_enrollment_detail(
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
     enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
+    enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
+        db, [enrollment]
+    ).get(enrollment.summer_application_id)
 
     return enrollment_data
 
@@ -1975,6 +2004,9 @@ async def update_enrollment(
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
     enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
+    enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
+        db, [enrollment]
+    ).get(enrollment.summer_application_id)
 
     return enrollment_data
 
@@ -2039,6 +2071,9 @@ async def update_enrollment_extension(
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
     enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
+    enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
+        db, [enrollment]
+    ).get(enrollment.summer_application_id)
 
     return enrollment_data
 
@@ -2096,6 +2131,9 @@ async def set_discount_override(
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
     enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
+    enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
+        db, [enrollment]
+    ).get(enrollment.summer_application_id)
 
     return enrollment_data
 
@@ -2137,6 +2175,9 @@ async def clear_discount_override(
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
     enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
+    enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
+        db, [enrollment]
+    ).get(enrollment.summer_application_id)
 
     return enrollment_data
 

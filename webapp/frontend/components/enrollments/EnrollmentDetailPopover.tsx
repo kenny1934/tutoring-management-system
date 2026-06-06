@@ -633,6 +633,21 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
           )}
         </div>
 
+        {/* Summer unavailability notes — what the parent flagged on the application, to help arrange make-ups */}
+        {enrollment.summer_unavailability_notes && (
+          <div className="mb-4 p-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60">
+            <div className="flex items-center gap-1.5 mb-1">
+              <CalendarX className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+                Unavailable Dates
+              </span>
+            </div>
+            <p className="text-xs text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words">
+              {enrollment.summer_unavailability_notes}
+            </p>
+          </div>
+        )}
+
         {/* Upcoming Sessions Preview */}
         <div className="py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
           <div className="flex items-center gap-1 mb-2">
