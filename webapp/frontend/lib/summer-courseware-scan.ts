@@ -196,20 +196,30 @@ export function parseSummerCoursewarePath(
 }
 
 /**
- * Read an indexed courseware PDF's bytes via the stored per-year root
+ * File handle for an indexed courseware PDF via the stored per-year root
  * handle. Returns null when no handle is stored or the file is missing —
  * callers fall back to their other loaders.
  */
+export async function getCoursewareFileHandle(
+  year: number,
+  relPath: string
+): Promise<FileSystemFileHandle | null> {
+  const root = await getRootHandle(year);
+  if (!root) return null;
+  // navigateToFile verifies (and re-requests) permission itself.
+  const result = await navigateToFile(root, relPath.split("\\").filter(Boolean));
+  return result.success ? result.handle : null;
+}
+
+/** Read an indexed courseware PDF's bytes, or null when unreachable. */
 export async function readCoursewareFile(
   year: number,
   relPath: string
 ): Promise<ArrayBuffer | null> {
-  const root = await getRootHandle(year);
-  if (!root) return null;
-  const result = await navigateToFile(root, relPath.split("\\").filter(Boolean));
-  if (!result.success) return null;
+  const handle = await getCoursewareFileHandle(year, relPath);
+  if (!handle) return null;
   try {
-    return await (await result.handle.getFile()).arrayBuffer();
+    return await (await handle.getFile()).arrayBuffer();
   } catch {
     return null;
   }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, Fragment, useMemo } from "react";
 import dynamic from "next/dynamic";
+import useSWR from "swr";
 import Fuse from "fuse.js";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -50,8 +51,15 @@ import {
   Eye,
   Flame,
   User,
+  Sun,
+  Cable,
 } from "lucide-react";
-import { studentsAPI, api, type PaperlessSearchMode, type PaperlessTagMatchMode } from "@/lib/api";
+import { studentsAPI, api, summerCoursewareAPI, type PaperlessSearchMode, type PaperlessTagMatchMode } from "@/lib/api";
+import { CoursewareMatrix } from "@/components/summer/CoursewareMatrix";
+import { useCoursewareDrive } from "@/lib/summer-courseware-session";
+import { getCoursewareFileHandle } from "@/lib/summer-courseware-scan";
+import { buildFullPath } from "@/lib/summer-courseware-defaults";
+import type { SummerCoursewareFile } from "@/types";
 import { cn } from "@/lib/utils";
 import { CopyPathButton } from "@/components/ui/copy-path-button";
 import Link from "next/link";
@@ -866,6 +874,19 @@ function CoursewareBrowserTab() {
   const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
   const currentZoom = ZOOM_LEVELS[zoomIndex];
 
+  // Summer courseware: a pinned virtual folder at root, seasonal by
+  // construction — it only appears while the current year has a scanned
+  // index. Opening it shows the chapter matrix instead of folder contents.
+  const summerYear = new Date().getFullYear();
+  const { data: summerIndex } = useSWR(
+    ["summer-courseware-index-all", summerYear],
+    () => summerCoursewareAPI.getIndex(summerYear),
+    { revalidateOnFocus: false }
+  );
+  const hasSummer = (summerIndex?.files?.length ?? 0) > 0;
+  const [summerOpen, setSummerOpen] = useState(false);
+  const summerDrive = useCoursewareDrive(summerYear);
+
   // Load root folders on mount
   useEffect(() => {
     loadRootFolders();
@@ -1125,6 +1146,26 @@ function CoursewareBrowserTab() {
     }
   }, [previewUrl]);
 
+  // Open a summer matrix file in the preview pane. With a drive handle the
+  // file becomes an ordinary TreeNode, so preview, Assign, Import and
+  // open-in-new-tab all work unchanged; its path is the canonical alias
+  // path lesson exercises use. Without one, fall back to the native open
+  // (which shows the connect-drive toast).
+  const handleSummerFileOpen = useCallback(async (file: SummerCoursewareFile) => {
+    const handle = await getCoursewareFileHandle(summerYear, file.rel_path);
+    if (!handle) {
+      summerDrive.open(file.rel_path);
+      return;
+    }
+    handlePreview({
+      id: `summer-${file.id}`,
+      name: file.file_name,
+      path: buildFullPath(summerIndex?.scan?.path_prefix, file.rel_path),
+      kind: "file",
+      handle,
+    });
+  }, [summerYear, summerDrive, summerIndex, handlePreview]);
+
   // Toggle file selection (replicated from FolderTreeModal)
   const toggleSelection = useCallback(async (node: TreeNode) => {
     const path = node.path;
@@ -1290,6 +1331,8 @@ function CoursewareBrowserTab() {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // The summer matrix has no focusable rows; leave keys alone there.
+      if (summerOpen) return;
       // Ctrl+F or / to focus search
       if ((e.ctrlKey && e.key === "f") || (e.key === "/" && !(e.target instanceof HTMLInputElement))) {
         e.preventDefault();
@@ -1411,7 +1454,7 @@ function CoursewareBrowserTab() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedIndex, sortedContents, currentPath, viewMode, navigateInto, navigateTo, handlePreview, handleDoubleClick, toggleSelection, selections]);
+  }, [focusedIndex, sortedContents, currentPath, viewMode, navigateInto, navigateTo, handlePreview, handleDoubleClick, toggleSelection, selections, summerOpen]);
 
   // Reset focus when contents change
   useEffect(() => {
@@ -1429,7 +1472,10 @@ function CoursewareBrowserTab() {
     );
   }
 
-  if (rootFolders.length === 0 && !error) {
+  // Without the summer entry an empty folder list has nothing to show, so
+  // keep the setup hint as a full-pane state; with it, fall through so the
+  // pinned summer folder still renders above the (empty) list.
+  if (rootFolders.length === 0 && !error && !hasSummer) {
     return (
       <div className="flex justify-center py-12">
         <StickyNote variant="yellow" size="lg" showTape rotation={1}>
@@ -1462,16 +1508,16 @@ function CoursewareBrowserTab() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-sm flex-1 min-w-0 overflow-x-auto">
               <button
-                onClick={() => navigateTo(-1)}
+                onClick={() => { setSummerOpen(false); navigateTo(-1); }}
                 className={cn(
                   "shrink-0 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
-                  isAtRoot && "text-amber-600"
+                  isAtRoot && !summerOpen && "text-amber-600"
                 )}
                 title="Root"
               >
                 <Home className="h-4 w-4" />
               </button>
-              {isAtRoot && (
+              {isAtRoot && !summerOpen && (
                 <button
                   onClick={handleAddFolder}
                   className="shrink-0 ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-amber-500"
@@ -1479,6 +1525,15 @@ function CoursewareBrowserTab() {
                 >
                   <FolderPlus className="h-4 w-4" />
                 </button>
+              )}
+              {summerOpen && (
+                <>
+                  <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                  <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                    <Sun className="h-3.5 w-3.5" />
+                    Summer Course {summerYear}
+                  </span>
+                </>
               )}
               {currentPath.map((segment, i) => (
                 <Fragment key={i}>
@@ -1498,6 +1553,7 @@ function CoursewareBrowserTab() {
             </div>
 
             {/* View toggle */}
+            {!summerOpen && (
             <div className="flex items-center gap-0.5 border border-gray-300 dark:border-gray-600 rounded-md p-0.5 shrink-0">
               <button
                 onClick={() => setViewMode("list")}
@@ -1524,9 +1580,11 @@ function CoursewareBrowserTab() {
                 <LayoutGrid className="h-4 w-4" />
               </button>
             </div>
+            )}
           </div>
 
-          {/* Row 2: Sort + Search + Item count */}
+          {/* Row 2: Sort + Search + Item count (not applicable to the summer matrix) */}
+          {!summerOpen && (
           <div className="flex items-center gap-3">
             <select
               value={sortBy}
@@ -1572,6 +1630,7 @@ function CoursewareBrowserTab() {
                     : ""}
             </span>
           </div>
+          )}
         </div>
 
         {/* Error banner */}
@@ -1618,7 +1677,43 @@ function CoursewareBrowserTab() {
 
         {/* Content area */}
         <div ref={contentScrollRef} className="flex-1 overflow-y-auto p-3">
-          {contentsLoading ? (
+          {/* Pinned summer entry: a virtual folder over the scanned courseware
+              drive (not in Paperless or the saved-folder list). */}
+          {isAtRoot && hasSummer && !summerOpen && !contentsLoading && (
+            <div
+              onClick={() => setSummerOpen(true)}
+              className="flex items-center gap-3 px-3 py-2 mb-1 rounded-lg cursor-pointer border border-[#e8d4b8] dark:border-[#5a4d3a] bg-[#fdf6ec]/70 dark:bg-[#2a2318]/60 hover:bg-[#f8eedd] dark:hover:bg-[#332b1c] transition-colors"
+            >
+              <div className="w-3.5" />
+              <Sun className="h-5 w-5 text-amber-500 shrink-0" />
+              <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                Summer Course {summerYear}
+              </span>
+              <span className="text-xs text-[#8b7355] dark:text-[#a09080] shrink-0">
+                Courseware drive
+              </span>
+              <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+            </div>
+          )}
+          {summerOpen && summerIndex ? (
+            <div className="space-y-4">
+              {summerDrive.connected === false && (
+                <button
+                  onClick={summerDrive.connect}
+                  title="Pick the courseware Finalised folder once on this computer so chips can open PDFs"
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors text-xs font-medium"
+                >
+                  <Cable className="h-3.5 w-3.5" />
+                  Connect drive to open PDFs
+                </button>
+              )}
+              <CoursewareMatrix
+                index={summerIndex}
+                totalLessons={null}
+                onOpenFile={handleSummerFileOpen}
+              />
+            </div>
+          ) : contentsLoading ? (
             <div className="flex items-center justify-center py-8 text-gray-500 dark:text-gray-400">
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
               Loading...
