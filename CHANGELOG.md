@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.73](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.73) (2026-06-07)
+
+### New Features
+
+* **Summer courseware at a glance for admins**: a new Summer Courseware page under Admin maps the summer teaching materials on the shared drive into a per-grade chapter table, showing which classwork, homework, and extra worksheets exist in each language and whether their answer keys are on the drive. Files that don't follow the naming convention are flagged so they can be fixed at the source, and a rescan picks up changes in moments.
+* **Summer materials built into lesson mode**: summer sessions now show their chapter's materials right in the lesson view, preselected by the slot's lesson number. Assigning classwork or homework gives each picked student their own language version with the answer key linked automatically, and tutors can switch to a different chapter when a class is ahead or behind.
+* **Bilingual side-by-side worksheets without the manual merge**: the parallel version of a worksheet is now composed on the fly from the Chinese and English PDFs and shown side by side in the lesson view, with the pre-made parallel file from the drive as a backup when one language's file is missing. The answer key shortcut works on these previews like any other exercise.
+* **Summer course folder in the courseware browser**: the Browse tab on the Courseware page now pins a Summer Course entry at the top while summer materials are available, opening the same chapter table for every tutor. Clicking a worksheet previews it in the side pane, where Assign and Import work just like for any other PDF, and the entry is ready the moment the page opens.
+
+### Bug Fixes
+
+* **Courseware pages fit phone screens properly**: the summer chapter table adapts to narrow spaces and keeps the lesson number in view while scrolling sideways, the PDF preview takes over the screen on phones instead of squeezing beside the file list, and pages now respect the visible screen height so bottom buttons are no longer hidden behind the browser bar. Touch devices always show the selection and copy buttons that previously only appeared on hover, and small pop-up panels stay fully on screen near the edges.
+* **Chapter dropdowns are readable again**: the chapter pickers in lesson mode and the exercise dialogs showed light text on a grey list; the options now use a solid background in both light and dark mode.
+
 ## [2.0.72](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.72) (2026-06-06)
 
 ### New Features
