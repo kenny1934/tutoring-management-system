@@ -18,6 +18,7 @@ import { printFileFromPathWithFallback } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
+import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { PdfPageViewer } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
@@ -532,7 +533,8 @@ export function LessonMode({
         exercise.page_start,
         exercise.page_end,
         complexPages || undefined,
-        stamp,
+        // Ephemeral previews (parallel versions) are class-wide: no stamp.
+        isPreviewExercise(exercise) ? undefined : stamp,
         paperlessSearchWithProgress
       );
     } finally {
@@ -1242,7 +1244,7 @@ export function LessonMode({
                 <PdfPageViewer
                   pdfData={pdfData}
                   pageNumbers={pageNumbers}
-                  stamp={stamp}
+                  stamp={selectedExercise && isPreviewExercise(selectedExercise) ? undefined : stamp}
                   exerciseId={selectedExercise?.id}
                   isLoading={pdfLoading}
                   loadingMessage={pdfLoadingMessage}

@@ -78,8 +78,11 @@ export interface ChapterDefaults {
   extra?: SummerCoursewareFile;
   extraAnswer?: SummerCoursewareFile;
   parallelCw?: SummerCoursewareFile;
+  parallelCwAnswer?: SummerCoursewareFile;
   parallelHw?: SummerCoursewareFile;
+  parallelHwAnswer?: SummerCoursewareFile;
   parallelExtra?: SummerCoursewareFile;
+  parallelExtraAnswer?: SummerCoursewareFile;
 }
 
 function findFile(
@@ -108,8 +111,11 @@ export function pickDefaults(
 ): ChapterDefaults {
   const defaults: ChapterDefaults = {
     parallelCw: findFile(files, "CW", true, false),
+    parallelCwAnswer: findFile(files, "CW", true, true),
     parallelHw: findFile(files, "HW", true, false),
+    parallelHwAnswer: findFile(files, "HW", true, true),
     parallelExtra: findFile(files, "Extra", true, false),
+    parallelExtraAnswer: findFile(files, "Extra", true, true),
   };
   if (lang) {
     defaults.cw = findFile(files, "CW", false, false, lang);

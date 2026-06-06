@@ -10,6 +10,7 @@ import {
   getCachedPaperlessDocumentId,
   setPaperlessPathCache,
 } from './file-system';
+import { parseSummerCoursewarePath, readCoursewareFile } from './summer-courseware-scan';
 import { searchPaperlessByPath } from './paperless-utils';
 
 export interface PdfLoadResult {
@@ -49,6 +50,21 @@ export async function loadExercisePdf(
         }
       } catch {
         // Local read failed, continue to Paperless fallback
+      }
+    }
+  }
+
+  // 1.5. Summer courseware paths can also resolve via the per-year drive
+  // handle connected in the Summer Materials panel (the share isn't in
+  // Paperless, and the Settings folder alias may not exist on this machine).
+  const summer = parseSummerCoursewarePath(pdfName);
+  if (summer && isFileSystemAccessSupported()) {
+    onProgress?.("Reading from the courseware drive…");
+    const data = await readCoursewareFile(summer.year, summer.relPath);
+    if (data) {
+      const header = new Uint8Array(data, 0, Math.min(5, data.byteLength));
+      if (String.fromCharCode(...header).startsWith('%PDF-')) {
+        return { data, source: 'local' };
       }
     }
   }

@@ -180,6 +180,41 @@ export async function connectRootHandle(
   return "connected";
 }
 
+/**
+ * Recognise a full materialised courseware path (as stored on exercises,
+ * e.g. "[Courseware Developer 中學]\\Secondary\\Summer Course\\2026 Summer\\
+ * Finalised\\F1\\…") and split it into the year + path relative to the
+ * stored root handle. Returns null for non-courseware paths.
+ */
+const FULL_PATH_RE = /\\Summer Course\\(\d{4}) Summer\\[^\\]+\\(.+)$/;
+
+export function parseSummerCoursewarePath(
+  fullPath: string
+): { year: number; relPath: string } | null {
+  const m = FULL_PATH_RE.exec(fullPath);
+  return m ? { year: parseInt(m[1], 10), relPath: m[2] } : null;
+}
+
+/**
+ * Read an indexed courseware PDF's bytes via the stored per-year root
+ * handle. Returns null when no handle is stored or the file is missing —
+ * callers fall back to their other loaders.
+ */
+export async function readCoursewareFile(
+  year: number,
+  relPath: string
+): Promise<ArrayBuffer | null> {
+  const root = await getRootHandle(year);
+  if (!root) return null;
+  const result = await navigateToFile(root, relPath.split("\\").filter(Boolean));
+  if (!result.success) return null;
+  try {
+    return await (await result.handle.getFile()).arrayBuffer();
+  } catch {
+    return null;
+  }
+}
+
 export type OpenCoursewareError = FileOperationError | "no_handle" | "open_failed";
 
 /**

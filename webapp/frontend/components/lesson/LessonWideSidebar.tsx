@@ -575,6 +575,7 @@ export function LessonWideSidebar({
           sessions={students}
           selectedLocation={selectedLocation}
           isReadOnly={isReadOnly}
+          onPreviewEntry={onEntrySelect}
         />
 
         {/* Bulk assign buttons (both modes) */}

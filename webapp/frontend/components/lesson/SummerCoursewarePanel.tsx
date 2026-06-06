@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Sun, FileText, FileCheck, Plus, Loader2, Cable, Columns2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Sun, PenTool, BookOpen, Loader2, Cable, Columns2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -15,76 +16,71 @@ import {
   sessionSummerYear,
   useSummerCoursewareIndex,
   useCoursewareDrive,
+  previewExercise,
 } from "@/lib/summer-courseware-session";
-import type { Session, SummerCoursewareFile } from "@/types";
+import type { Session, SessionExercise, SummerCoursewareFile } from "@/types";
 
 interface SummerCoursewarePanelProps {
   session: Session;
   isReadOnly?: boolean;
+  /** Show a material in the lesson PDF pane (parallel versions). */
+  onPreview?: (exercise: SessionExercise) => void;
 }
 
-/** One material row: name, open worksheet/answers, optional assign actions. */
+/** Dashed assign button matching the app's CW (pen/rose) / HW (book/blue) language. */
+export function summerAssignButtonClass(type: "CW" | "HW"): string {
+  return cn(
+    "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border border-dashed transition-colors disabled:opacity-50",
+    type === "CW"
+      ? "border-rose-300 dark:border-rose-700/50 text-rose-500 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-900/10"
+      : "border-blue-300 dark:border-blue-700/50 text-blue-500 dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
+  );
+}
+
+export function SummerAssignIcon({ type, busy }: { type: "CW" | "HW"; busy?: boolean }) {
+  if (busy) return <Loader2 className="h-3 w-3 animate-spin" />;
+  return type === "CW" ? <PenTool className="h-3 w-3" /> : <BookOpen className="h-3 w-3" />;
+}
+
+/** Parallel view chips follow the same colour convention (Extra in amber). */
+export function parallelChipClass(kind: "CW" | "HW" | "Extra"): string {
+  return cn(
+    "px-1.5 py-0.5 rounded text-[11px] font-medium transition-colors",
+    kind === "CW"
+      ? "text-rose-500 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-900/20"
+      : kind === "HW"
+        ? "text-blue-500 dark:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-blue-900/20"
+        : "text-amber-600 dark:text-amber-400 hover:bg-amber-100/60 dark:hover:bg-amber-900/20"
+  );
+}
+
+/**
+ * One material row: label + assign control. No open/answer buttons here:
+ * assigned files show in the lesson PDF pane, and the answer key is a
+ * keystroke away ("a") since assignment links answer_pdf_name.
+ */
 function MaterialRow({
   label,
-  file,
-  answer,
-  onOpen,
-  assignActions,
-  onAssign,
+  fileName,
+  assignControl,
   assigned,
-  assigning,
 }: {
   label: string;
-  file: SummerCoursewareFile;
-  answer?: SummerCoursewareFile;
-  onOpen: (relPath: string) => void;
-  /** Buttons that add this file to the session, e.g. [{type:"CW", label:"Assign"}]. */
-  assignActions?: { type: "CW" | "HW"; label: string }[];
-  onAssign?: (type: "CW" | "HW") => void;
+  fileName: string;
+  /** Right-aligned assign button (hidden once assigned). */
+  assignControl?: ReactNode;
   assigned?: boolean;
-  assigning?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1.5 flex-wrap min-h-[28px]">
+    <div className="flex items-center gap-1 min-h-[28px]" title={fileName}>
       <span className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080]">
         {label}
       </span>
-      <button
-        onClick={() => onOpen(file.rel_path)}
-        title={`Open ${file.file_name}`}
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-[#6b5a42] dark:text-[#c4a882] hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors"
-      >
-        <FileText className="h-3 w-3" />
-        Open
-      </button>
-      {answer && (
-        <button
-          onClick={() => onOpen(answer.rel_path)}
-          title={`Open ${answer.file_name}`}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-[#6b5a42] dark:text-[#c4a882] hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors"
-        >
-          <FileCheck className="h-3 w-3" />
-          Ans
-        </button>
-      )}
       <span className="flex-1" />
-      {assignActions && onAssign && (
-        assigned ? (
-          <span className="text-[10px] text-green-600 dark:text-green-400 pr-1">Assigned</span>
-        ) : (
-          assignActions.map(({ type, label: actionLabel }) => (
-            <button
-              key={type}
-              onClick={() => onAssign(type)}
-              disabled={assigning}
-              title={`Add to this session's ${type === "CW" ? "classwork" : "homework"}`}
-              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-[#8b6040] dark:text-[#c4a882] border border-[#d4c4a8] dark:border-[#5a4d3a] hover:bg-[#e8d4b8]/40 dark:hover:bg-[#3a3228] transition-colors disabled:opacity-50"
-            >
-              {assigning ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Plus className="h-2.5 w-2.5" />}
-              {actionLabel}
-            </button>
-          ))
-        )
+      {assigned ? (
+        <span className="text-[10px] text-green-600 dark:text-green-400 pr-1">Assigned</span>
+      ) : (
+        assignControl
       )}
     </div>
   );
@@ -95,7 +91,7 @@ function MaterialRow({
  * scanned courseware index. Nothing is stored per session until the tutor
  * assigns a file, so mid-season PDF updates are always reflected.
  */
-export function SummerCoursewarePanel({ session, isReadOnly }: SummerCoursewarePanelProps) {
+export function SummerCoursewarePanel({ session, isReadOnly, onPreview }: SummerCoursewarePanelProps) {
   const { showToast } = useToast();
   const year = sessionSummerYear(session);
   const grade = session.grade;
@@ -112,8 +108,9 @@ export function SummerCoursewarePanel({ session, isReadOnly }: SummerCoursewareP
 
   const [assigning, setAssigning] = useState<string | null>(null);
 
-  // Opening uses the per-machine stored handle to the courseware root.
-  const { connected: driveConnected, connect: handleConnect, open: handleOpen } = useCoursewareDrive(year);
+  // The connected drive feeds the PDF pane's loader (the share isn't in
+  // Paperless and the Settings folder alias may not exist on this machine).
+  const { connected: driveConnected, connect: handleConnect } = useCoursewareDrive(year);
 
   if (!grade || session.lesson_number == null) return null;
   // No index for this year (or grade missing from scan): stay out of the way.
@@ -151,6 +148,27 @@ export function SummerCoursewarePanel({ session, isReadOnly }: SummerCoursewareP
     }
   };
 
+  const assignButton = (
+    type: "CW" | "HW",
+    label: string,
+    file: SummerCoursewareFile,
+    answer?: SummerCoursewareFile
+  ) => (
+    <button
+      key={`${type}-${label}`}
+      onClick={() => assign(type, file, answer)}
+      disabled={assigning !== null}
+      title={`Add to this session's ${type === "CW" ? "classwork" : "homework"}`}
+      className={summerAssignButtonClass(type)}
+    >
+      <SummerAssignIcon type={type} busy={assigning === file.rel_path} />
+      {label}
+    </button>
+  );
+
+  const handlePreview = (file: SummerCoursewareFile, answer?: SummerCoursewareFile) =>
+    onPreview?.(previewExercise(session.id, file, answer, pathPrefix));
+
   const isLessonChapter = chapter && chapter.lessonNumber === session.lesson_number;
 
   return (
@@ -165,7 +183,7 @@ export function SummerCoursewarePanel({ session, isReadOnly }: SummerCoursewareP
         {driveConnected === false && (
           <button
             onClick={handleConnect}
-            title="Pick the courseware Finalised folder once on this computer so files open directly"
+            title="Pick the courseware Finalised folder once on this computer so files load straight from the drive"
             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
           >
             <Cable className="h-3 w-3" />
@@ -205,40 +223,30 @@ export function SummerCoursewarePanel({ session, isReadOnly }: SummerCoursewareP
             {defaults.cw && (
               <MaterialRow
                 label="Classwork"
-                file={defaults.cw}
-                answer={defaults.cwAnswer}
-                onOpen={handleOpen}
-                assignActions={isReadOnly ? undefined : [{ type: "CW", label: "Assign" }]}
-                onAssign={(type) => assign(type, defaults.cw!, defaults.cwAnswer)}
+                fileName={defaults.cw.file_name}
+                assignControl={isReadOnly ? undefined : assignButton("CW", "Assign", defaults.cw, defaults.cwAnswer)}
                 assigned={hasPath(defaults.cw)}
-                assigning={assigning === defaults.cw.rel_path}
               />
             )}
             {defaults.hw && (
               <MaterialRow
                 label="Homework"
-                file={defaults.hw}
-                answer={defaults.hwAnswer}
-                onOpen={handleOpen}
-                assignActions={isReadOnly ? undefined : [{ type: "HW", label: "Assign" }]}
-                onAssign={(type) => assign(type, defaults.hw!, defaults.hwAnswer)}
+                fileName={defaults.hw.file_name}
+                assignControl={isReadOnly ? undefined : assignButton("HW", "Assign", defaults.hw, defaults.hwAnswer)}
                 assigned={hasPath(defaults.hw)}
-                assigning={assigning === defaults.hw.rel_path}
               />
             )}
             {defaults.extra && (
               <MaterialRow
                 label="Extra"
-                file={defaults.extra}
-                answer={defaults.extraAnswer}
-                onOpen={handleOpen}
-                assignActions={isReadOnly ? undefined : [
-                  { type: "CW", label: "CW" },
-                  { type: "HW", label: "HW" },
-                ]}
-                onAssign={(type) => assign(type, defaults.extra!, defaults.extraAnswer)}
+                fileName={defaults.extra.file_name}
+                assignControl={isReadOnly ? undefined : (
+                  <>
+                    {assignButton("CW", "CW", defaults.extra, defaults.extraAnswer)}
+                    {assignButton("HW", "HW", defaults.extra, defaults.extraAnswer)}
+                  </>
+                )}
                 assigned={hasPath(defaults.extra)}
-                assigning={assigning === defaults.extra.rel_path}
               />
             )}
             {!lang && (
@@ -248,36 +256,40 @@ export function SummerCoursewarePanel({ session, isReadOnly }: SummerCoursewareP
             )}
 
             {/* Parallel versions: both languages side by side, for teaching
-                a mixed class from one PDF. */}
+                a mixed class from one PDF. Click shows it in the PDF pane
+                (never assigned), with the answer key on "a" as usual. */}
             {(defaults.parallelCw || defaults.parallelHw || defaults.parallelExtra) && (
               <div className="flex items-center gap-1.5 min-h-[28px]">
                 <span
                   className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080] inline-flex items-center gap-1"
                   title="Both languages merged side by side, for mixed classes"
                 >
-                  <Columns2 className="h-3 w-3" />
-                  Parallel
+                  <Columns2 className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">Parallel</span>
                 </span>
                 {defaults.parallelCw && (
                   <button
-                    onClick={() => handleOpen(defaults.parallelCw!.rel_path)}
-                    className="px-1.5 py-0.5 rounded text-[11px] font-medium text-sky-700 dark:text-sky-400 hover:bg-sky-100/60 dark:hover:bg-sky-900/30 transition-colors"
+                    onClick={() => handlePreview(defaults.parallelCw!, defaults.parallelCwAnswer)}
+                    title={`View ${defaults.parallelCw.file_name} in the lesson pane`}
+                    className={parallelChipClass("CW")}
                   >
                     CW
                   </button>
                 )}
                 {defaults.parallelHw && (
                   <button
-                    onClick={() => handleOpen(defaults.parallelHw!.rel_path)}
-                    className="px-1.5 py-0.5 rounded text-[11px] font-medium text-sky-700 dark:text-sky-400 hover:bg-sky-100/60 dark:hover:bg-sky-900/30 transition-colors"
+                    onClick={() => handlePreview(defaults.parallelHw!, defaults.parallelHwAnswer)}
+                    title={`View ${defaults.parallelHw.file_name} in the lesson pane`}
+                    className={parallelChipClass("HW")}
                   >
                     HW
                   </button>
                 )}
                 {defaults.parallelExtra && (
                   <button
-                    onClick={() => handleOpen(defaults.parallelExtra!.rel_path)}
-                    className="px-1.5 py-0.5 rounded text-[11px] font-medium text-sky-700 dark:text-sky-400 hover:bg-sky-100/60 dark:hover:bg-sky-900/30 transition-colors"
+                    onClick={() => handlePreview(defaults.parallelExtra!, defaults.parallelExtraAnswer)}
+                    title={`View ${defaults.parallelExtra.file_name} in the lesson pane`}
+                    className={parallelChipClass("Extra")}
                   >
                     Extra
                   </button>

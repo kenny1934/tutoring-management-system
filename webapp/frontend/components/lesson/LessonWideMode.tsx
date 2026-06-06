@@ -31,6 +31,7 @@ import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
 import { groupExercisesByStudent, bulkPrintAllStudents, type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
+import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
@@ -239,8 +240,10 @@ export function LessonWideMode({
   const tutorName = sessions[0]?.tutor_name || "";
 
   // --- Stamp for current selection ---
+  // Ephemeral previews (parallel versions) are class-wide, so no
+  // per-student stamp.
   const stamp = useMemo<PrintStampInfo | undefined>(() => {
-    if (!selectedEntry) return undefined;
+    if (!selectedEntry || isPreviewExercise(selectedEntry.exercise)) return undefined;
     return {
       location: selectedEntry.session.location,
       schoolStudentId: selectedEntry.session.school_student_id,
@@ -251,7 +254,7 @@ export function LessonWideMode({
   }, [selectedEntry]);
 
   // Student ID display for header
-  const studentIdDisplay = selectedEntry
+  const studentIdDisplay = selectedEntry && !isPreviewExercise(selectedEntry.exercise)
     ? getStudentIdDisplay(selectedEntry.session, selectedLocation)
     : null;
 
@@ -603,13 +606,16 @@ export function LessonWideMode({
     setPrinting({ id: target.exercise.id, progress: null });
     try {
       const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
-      const entryStamp: PrintStampInfo = {
-        location: target.session.location,
-        schoolStudentId: target.session.school_student_id,
-        studentName: target.session.student_name,
-        sessionDate: target.session.session_date,
-        sessionTime: target.session.time_slot,
-      };
+      // Class-wide previews print without a per-student stamp.
+      const entryStamp: PrintStampInfo | undefined = isPreviewExercise(target.exercise)
+        ? undefined
+        : {
+            location: target.session.location,
+            schoolStudentId: target.session.school_student_id,
+            studentName: target.session.student_name,
+            sessionDate: target.session.session_date,
+            sessionTime: target.session.time_slot,
+          };
       await printFileFromPathWithFallback(
         target.exercise.pdf_name,
         target.exercise.page_start,

@@ -22,7 +22,7 @@ import {
   connectRootHandle,
 } from "./summer-courseware-scan";
 import { useToast } from "@/contexts/ToastContext";
-import type { Session, SummerCoursewareFile, SummerCoursewareIndexResponse } from "@/types";
+import type { Session, SessionExercise, SummerCoursewareFile, SummerCoursewareIndexResponse } from "@/types";
 
 export type SummerDocType = "CW" | "HW" | "Extra";
 
@@ -87,6 +87,33 @@ export function useCoursewareDrive(year: number) {
   }, [year, showToast]);
 
   return { connected, connect, open };
+}
+
+/**
+ * Ephemeral exercise for viewing un-assigned materials (parallel versions)
+ * in the lesson PDF pane. The negative id keeps it clear of real exercises
+ * (annotations, selection) and it is never persisted; the answer key
+ * shortcut works because answer_pdf_name is linked like a real assignment.
+ */
+export function previewExercise(
+  sessionId: number,
+  file: SummerCoursewareFile,
+  answer: SummerCoursewareFile | undefined,
+  pathPrefix: string | null | undefined
+): SessionExercise {
+  return {
+    id: -file.id,
+    session_id: sessionId,
+    exercise_type: "CW",
+    pdf_name: buildFullPath(pathPrefix, file.rel_path),
+    answer_pdf_name: answer ? buildFullPath(pathPrefix, answer.rel_path) : undefined,
+    created_by: "preview",
+  };
+}
+
+/** True for ephemeral preview exercises created by previewExercise(). */
+export function isPreviewExercise(exercise: { id: number }): boolean {
+  return exercise.id < 0;
 }
 
 export interface AssignmentPlanItem {

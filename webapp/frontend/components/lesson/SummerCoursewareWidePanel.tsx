@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Sun, FileCheck, Plus, Loader2, Cable, Columns2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Sun, Cable, Columns2 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import {
   pickDefaults,
@@ -16,44 +15,13 @@ import {
   buildAssignmentPlan,
   executeAssignmentPlan,
   describeAssignmentResult,
+  previewExercise,
   type SummerDocType,
 } from "@/lib/summer-courseware-session";
 import { StudentPickerPopover } from "./StudentPickerPopover";
+import { summerAssignButtonClass, SummerAssignIcon, parallelChipClass } from "./SummerCoursewarePanel";
 import type { Session, SummerCoursewareFile } from "@/types";
-
-const langChipClass =
-  "px-1.5 py-0.5 rounded text-[11px] font-medium text-[#6b5a42] dark:text-[#c4a882] hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors";
-
-/** Open chips for one language: worksheet + answers (C before E). */
-function LangChips({
-  lang,
-  file,
-  answer,
-  onOpen,
-}: {
-  lang: "C" | "E";
-  file?: SummerCoursewareFile;
-  answer?: SummerCoursewareFile;
-  onOpen: (relPath: string) => void;
-}) {
-  if (!file) return null;
-  return (
-    <span className="inline-flex items-center">
-      <button onClick={() => onOpen(file.rel_path)} title={`Open ${file.file_name}`} className={langChipClass}>
-        {lang}
-      </button>
-      {answer && (
-        <button
-          onClick={() => onOpen(answer.rel_path)}
-          title={`Open ${lang} answers: ${answer.file_name}`}
-          className={cn(langChipClass, "px-1")}
-        >
-          <FileCheck className="h-3 w-3" />
-        </button>
-      )}
-    </span>
-  );
-}
+import type { StudentExerciseEntry } from "./LessonWideMode";
 
 function rowDefaults(defaults: ChapterDefaults, docType: SummerDocType) {
   switch (docType) {
@@ -75,17 +43,21 @@ function WideGradeSection({
   showGrade,
   selectedLocation,
   isReadOnly,
+  onPreviewEntry,
 }: {
   grade: string;
   sessions: Session[];
   showGrade: boolean;
   selectedLocation: string;
   isReadOnly?: boolean;
+  onPreviewEntry: (entry: StudentExerciseEntry) => void;
 }) {
   const { showToast } = useToast();
   const year = sessionSummerYear(sessions[0]);
   const { index, chapters } = useSummerCoursewareIndex(year, grade);
-  const { connected: driveConnected, connect: handleConnect, open: handleOpen } = useCoursewareDrive(year);
+  // The connected drive feeds the PDF pane's loader (the share isn't in
+  // Paperless and the Settings folder alias may not exist on this machine).
+  const { connected: driveConnected, connect: handleConnect } = useCoursewareDrive(year);
 
   // Default to the most common lesson number in this slot.
   const commonLesson = useMemo(() => {
@@ -136,34 +108,58 @@ function WideGradeSection({
     }
   };
 
-  const assignButton = (docType: SummerDocType, type: "CW" | "HW", label: string) => (
-    <button
-      key={`${docType}-${type}`}
-      onClick={() => setPicker(picker?.docType === docType && picker?.type === type ? null : { docType, type })}
-      disabled={assigning}
-      title={`Add each student's own language version to their ${type === "CW" ? "classwork" : "homework"}`}
-      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-[#8b6040] dark:text-[#c4a882] border border-[#d4c4a8] dark:border-[#5a4d3a] hover:bg-[#e8d4b8]/40 dark:hover:bg-[#3a3228] transition-colors disabled:opacity-50"
-    >
-      {assigning ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Plus className="h-2.5 w-2.5" />}
-      {label}
-    </button>
-  );
+  const isPickerFor = (t: PickerTarget) =>
+    picker?.docType === t.docType && picker?.type === t.type;
 
+  const assignButton = (docType: SummerDocType, type: "CW" | "HW", label: string) => {
+    const target: PickerTarget = { docType, type };
+    return (
+      <button
+        key={`${docType}-${type}`}
+        onClick={() => setPicker(isPickerFor(target) ? null : target)}
+        disabled={assigning}
+        title={`Assign each student their own language version as ${type === "CW" ? "classwork" : "homework"}…`}
+        className={summerAssignButtonClass(type)}
+      >
+        <SummerAssignIcon type={type} busy={assigning} />
+        {label}
+      </button>
+    );
+  };
+
+  // No open/answer buttons here: assigned files show in the lesson PDF
+  // pane, and the answer key is a keystroke away ("a") since assignment
+  // links answer_pdf_name. Only languages present in the index resolve.
   const materialRow = (label: string, docType: SummerDocType, actions: ReactNode) => {
     const c = rowDefaults(cDefaults, docType);
     const e = rowDefaults(eDefaults, docType);
     if (!c.file && !e.file) return null;
     return (
-      <div className="flex items-center gap-1 flex-wrap min-h-[28px]">
+      <div
+        className="flex items-center gap-1 min-h-[28px]"
+        title={[c.file?.file_name, e.file?.file_name].filter(Boolean).join("\n")}
+      >
         <span className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080]">
           {label}
         </span>
-        <LangChips lang="C" file={c.file} answer={c.answer} onOpen={handleOpen} />
-        <LangChips lang="E" file={e.file} answer={e.answer} onOpen={handleOpen} />
         <span className="flex-1" />
         {!isReadOnly && actions}
       </div>
     );
+  };
+
+  // Show a parallel version in the PDF pane via an ephemeral entry (never
+  // assigned); "a" toggles its answer key like any exercise.
+  const handlePreview = (label: string, file: SummerCoursewareFile, answer?: SummerCoursewareFile) => {
+    const session = sessions[0];
+    onPreviewEntry({
+      session,
+      exercise: previewExercise(session.id, file, answer, pathPrefix),
+      studentName: `Parallel ${label}`,
+      studentId: null,
+      grade,
+      langStream: null,
+    });
   };
 
   // Preselect students who would actually receive the file (skip those
@@ -194,7 +190,7 @@ function WideGradeSection({
         {driveConnected === false && (
           <button
             onClick={handleConnect}
-            title="Pick the courseware Finalised folder once on this computer so files open directly"
+            title="Pick the courseware Finalised folder once on this computer so files load straight from the drive"
             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
           >
             <Cable className="h-3 w-3" />
@@ -225,8 +221,8 @@ function WideGradeSection({
             </p>
           )}
 
-          {materialRow("Classwork", "CW", assignButton("CW", "CW", "Assign…"))}
-          {materialRow("Homework", "HW", assignButton("HW", "HW", "Assign…"))}
+          {materialRow("Classwork", "CW", assignButton("CW", "CW", "Assign"))}
+          {materialRow("Homework", "HW", assignButton("HW", "HW", "Assign"))}
           {materialRow("Extra", "Extra", (
             <>
               {assignButton("Extra", "CW", "CW")}
@@ -234,28 +230,41 @@ function WideGradeSection({
             </>
           ))}
 
-          {/* Parallel versions: both languages merged, for mixed classes. */}
+          {/* Parallel versions: both languages merged, for mixed classes.
+              Click shows it in the PDF pane (never assigned). */}
           {(parallel.parallelCw || parallel.parallelHw || parallel.parallelExtra) && (
             <div className="flex items-center gap-1.5 min-h-[28px]">
               <span
                 className="w-16 flex-shrink-0 text-[11px] font-medium text-[#8b7355] dark:text-[#a09080] inline-flex items-center gap-1"
                 title="Both languages merged side by side, for mixed classes"
               >
-                <Columns2 className="h-3 w-3" />
-                Parallel
+                <Columns2 className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">Parallel</span>
               </span>
               {parallel.parallelCw && (
-                <button onClick={() => handleOpen(parallel.parallelCw!.rel_path)} className={cn(langChipClass, "text-sky-700 dark:text-sky-400")}>
+                <button
+                  onClick={() => handlePreview("CW", parallel.parallelCw!, parallel.parallelCwAnswer)}
+                  title={`View ${parallel.parallelCw.file_name} in the lesson pane`}
+                  className={parallelChipClass("CW")}
+                >
                   CW
                 </button>
               )}
               {parallel.parallelHw && (
-                <button onClick={() => handleOpen(parallel.parallelHw!.rel_path)} className={cn(langChipClass, "text-sky-700 dark:text-sky-400")}>
+                <button
+                  onClick={() => handlePreview("HW", parallel.parallelHw!, parallel.parallelHwAnswer)}
+                  title={`View ${parallel.parallelHw.file_name} in the lesson pane`}
+                  className={parallelChipClass("HW")}
+                >
                   HW
                 </button>
               )}
               {parallel.parallelExtra && (
-                <button onClick={() => handleOpen(parallel.parallelExtra!.rel_path)} className={cn(langChipClass, "text-sky-700 dark:text-sky-400")}>
+                <button
+                  onClick={() => handlePreview("Extra", parallel.parallelExtra!, parallel.parallelExtraAnswer)}
+                  title={`View ${parallel.parallelExtra.file_name} in the lesson pane`}
+                  className={parallelChipClass("Extra")}
+                >
                   Extra
                 </button>
               )}
@@ -288,10 +297,13 @@ export function SummerCoursewareWidePanel({
   sessions,
   selectedLocation,
   isReadOnly,
+  onPreviewEntry,
 }: {
   sessions: Session[];
   selectedLocation: string;
   isReadOnly?: boolean;
+  /** Show a material in the lesson PDF pane (parallel versions). */
+  onPreviewEntry: (entry: StudentExerciseEntry) => void;
 }) {
   const summerSessions = useMemo(
     () => sessions.filter((s) => s.lesson_number != null && s.grade),
@@ -313,6 +325,7 @@ export function SummerCoursewareWidePanel({
           showGrade={grades.length > 1}
           selectedLocation={selectedLocation}
           isReadOnly={isReadOnly}
+          onPreviewEntry={onPreviewEntry}
         />
       ))}
     </>

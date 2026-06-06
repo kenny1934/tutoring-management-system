@@ -43,6 +43,7 @@ const sm701 = [
   file({ doc_type: "Extra", lang: "c" }),
   file({ doc_type: "Extra", lang: "c", is_answer: true }),
   file({ doc_type: "CW", lang: null, is_parallel: true }),
+  file({ doc_type: "CW", lang: null, is_parallel: true, is_answer: true }),
   file({ doc_type: "HW", lang: null, is_parallel: true }),
 ];
 
@@ -82,10 +83,13 @@ describe("pickDefaults", () => {
     expect(pickDefaults(sm701, "e").extra).toBeUndefined();
   });
 
-  it("parallel versions resolve regardless of language", () => {
+  it("parallel versions resolve regardless of language, with answers", () => {
     const d = pickDefaults(sm701, null);
     expect(d.parallelCw?.is_parallel).toBe(true);
+    expect(d.parallelCw?.is_answer).toBe(false);
+    expect(d.parallelCwAnswer?.is_answer).toBe(true);
     expect(d.parallelHw?.is_parallel).toBe(true);
+    expect(d.parallelHwAnswer).toBeUndefined();
     expect(d.parallelExtra).toBeUndefined();
   });
 

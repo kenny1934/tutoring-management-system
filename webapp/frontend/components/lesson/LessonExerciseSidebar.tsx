@@ -368,7 +368,11 @@ export function LessonExerciseSidebar({
     <div className="flex flex-col gap-1 py-2 px-1 overflow-y-auto">
       {/* Summer sessions: lesson materials resolved from the courseware index */}
       {currentSession && currentSession.lesson_number != null && (
-        <SummerCoursewarePanel session={currentSession} isReadOnly={isReadOnly} />
+        <SummerCoursewarePanel
+          session={currentSession}
+          isReadOnly={isReadOnly}
+          onPreview={onExerciseSelect}
+        />
       )}
 
       {currentSession && (
