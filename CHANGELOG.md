@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.74](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.74) (2026-06-07)
+
+### Bug Fixes
+
+* **Make-up slots stay off the weekly slot grid**: one-off make-up slots were appearing in the Slot Setup grid on the summer arrangement page as if they repeated every week, sometimes looking like duplicates of the regular class beside them. They now show only on the Calendar tab, and the tutor workload summary no longer counts them as weekly classes.
+* **Summer courseware tables line up across grades**: the lesson column on the Summer Courseware page now has the same width in every grade's table, and chapters beyond the scheduled lessons show their lesson number in violet (with a tooltip explaining they are extra material) instead of an "Extra chapter" label, matching the numbering on the courseware Browse tab.
+
 ## [2.0.73](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.73) (2026-06-07)
 
 ### New Features
