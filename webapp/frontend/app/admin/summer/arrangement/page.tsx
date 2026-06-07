@@ -325,6 +325,17 @@ export default function SummerArrangementPage() {
 
   const isValidating = slotsValidating || demandValidating || unassignedValidating;
 
+  // Ad-hoc Make-up Slots are date-pinned one-offs that belong to the Calendar
+  // tab; the Slot Setup grid models weekly recurrence only. Keep them out of
+  // the grid and everything keyed off its cells (buddy highlights, search
+  // scroll targets, workload). Header tentative/confirmed stats and id
+  // lookups keep the full `slots` list — bulk confirm includes ad-hoc
+  // sessions, so those counts must stay whole.
+  const regularSlots = useMemo(
+    () => (slots ?? []).filter((s) => !s.is_adhoc),
+    [slots],
+  );
+
   // Fetch active tutors and duties
   const { data: activeTutors } = useSWR(
     canView ? "summer-active-tutors" : null,
@@ -780,11 +791,11 @@ export default function SummerArrangementPage() {
     });
   }, [demandPrefFilter, demandFilterApps]);
 
-  // Pre-index buddy_group_id → slot keys so drag start is O(1).
+  // Pre-index buddy_group_id → slot keys so drag start is O(1). Grid cells
+  // only render regular slots, so ad-hoc placements must not light up cells.
   const buddySlotIndex = useMemo(() => {
     const idx = new Map<number, Set<string>>();
-    if (!slots) return idx;
-    for (const slot of slots) {
+    for (const slot of regularSlots) {
       const key = `${slot.slot_day}|${slot.time_slot}`;
       for (const s of slot.sessions) {
         if (s.buddy_group_id != null) {
@@ -794,7 +805,7 @@ export default function SummerArrangementPage() {
       }
     }
     return idx;
-  }, [slots]);
+  }, [regularSlots]);
 
   const handleDragStart = useCallback((app: SummerApplication) => {
     const { primary, backup } = classifyPrefs(app);
@@ -921,10 +932,11 @@ export default function SummerArrangementPage() {
       setSelectedAppId(entry.applicationId);
       return;
     }
-    // Slot Setup is the primary target — find every slot the student sits in,
-    // pick the earliest by day/time as the scroll anchor, let all matching
-    // cards ring.
-    const matchingSlots = (slots ?? []).filter((s) =>
+    // Slot Setup is the primary target — find every regular slot the student
+    // sits in, pick the earliest by day/time as the scroll anchor, let all
+    // matching cards ring. Ad-hoc Make-up Slots don't render in the grid, so
+    // a student placed only via make-ups falls through to the Calendar path.
+    const matchingSlots = regularSlots.filter((s) =>
       s.sessions.some((p) => p.application_id === entry.applicationId),
     );
     if (matchingSlots.length > 0) {
@@ -948,7 +960,7 @@ export default function SummerArrangementPage() {
       return;
     }
     setSelectedAppId(entry.applicationId);
-  }, [activeTab, bumpStudentsTarget, slots, openDays, bumpSlotTarget, bumpCalendarTarget, showToast]);
+  }, [activeTab, bumpStudentsTarget, regularSlots, openDays, bumpSlotTarget, bumpCalendarTarget, showToast]);
 
   // Stats
   const { totalIncomplete, totalTentative, totalConfirmed } = useMemo(() => {
@@ -1113,7 +1125,7 @@ export default function SummerArrangementPage() {
           </div>
 
           <SummerTutorWorkloadPanel
-            slots={slots ?? []}
+            slots={regularSlots}
             open={workloadOpen && activeTab === "slots"}
           />
         </div>
@@ -1172,7 +1184,7 @@ export default function SummerArrangementPage() {
                     days={openDays}
                     timeSlots={timeSlots}
                     demand={demand?.cells ?? []}
-                    slots={slots ?? []}
+                    slots={regularSlots}
                     loading={slots === undefined || demand === undefined}
                     grades={grades}
                     readOnly={readOnly}
