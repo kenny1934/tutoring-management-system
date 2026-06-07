@@ -197,8 +197,10 @@ export function CoursewareMatrix({
                   <thead>
                     <tr className="text-xs text-muted-foreground border-b border-gray-100 dark:border-gray-800">
                       {/* Lesson stays sticky so rows keep their identity when
-                          the table scrolls sideways in a narrow pane. */}
-                      <th className={`${STICKY_LESSON_CELL} text-left font-medium px-4 py-2`}>Lesson</th>
+                          the table scrolls sideways in a narrow pane. Fixed
+                          width keeps the column aligned across the per-grade
+                          tables, which otherwise size it independently. */}
+                      <th className={`${STICKY_LESSON_CELL} w-20 text-left font-medium px-4 py-2`}>Lesson</th>
                       <th className="text-left font-medium px-2 py-2">Chapter</th>
                       <th className="text-left font-medium px-2 py-2">Classwork</th>
                       <th className="text-left font-medium px-2 py-2">Homework</th>
@@ -220,10 +222,10 @@ export function CoursewareMatrix({
                               <span className="text-muted-foreground">-</span>
                             ) : isExtraChapter ? (
                               <span
-                                title="Beyond the scheduled lessons. Available for tutors to assign, never a default."
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+                                title="Extra chapter, beyond the scheduled lessons. Available for tutors to assign, never a default."
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
                               >
-                                Extra chapter
+                                L{ch.lessonNumber}
                               </span>
                             ) : (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
