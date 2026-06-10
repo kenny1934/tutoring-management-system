@@ -8,6 +8,7 @@ import { STATUS_COLORS, ALL_STATUSES } from "./SummerApplicationCard";
 import { Users, User, Send, Loader2, ExternalLink } from "lucide-react";
 import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
+import BranchRevenueCard from "./BranchRevenueCard";
 import type { SummerApplication, SummerCourseConfig, SummerMarketingSnapshotResponse } from "@/types";
 import type { DiscountResult } from "@/lib/summer-discounts";
 import { suggestReceiptCode } from "@/lib/summer-receipt-codes";
@@ -491,6 +492,7 @@ export function SummerApplicationStats({ applications, filters, config, discount
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {!readOnly && <MarketingSnapshotCard className="lg:col-span-2" />}
+      {!readOnly && <BranchRevenueCard className="lg:col-span-2" />}
 
       {/* Row 1: Status Pipeline + Placement (full width) */}
       <ChartCard title="Status Pipeline" badge={`${statusData.total} total`} className="lg:col-span-2">

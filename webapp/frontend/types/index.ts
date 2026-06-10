@@ -3060,6 +3060,72 @@ export interface SummerMarketingSnapshotResponse {
   cells: Record<string, Record<string, SummerMarketingSnapshotCell>>;
 }
 
+export interface RevenueTierBreakdown {
+  code: string;
+  name: string;
+  discount_amount: number;
+  fee_per_student: number;
+  paid_count: number;
+  paid_amount: number;
+  fee_sent_count: number;
+  fee_sent_amount: number;
+}
+
+export interface RevenuePipelineEntry {
+  status: string;
+  students: number;
+  amount: number;
+}
+
+export interface RevenueTermFeeEntry {
+  status: string;
+  enrollments: number;
+  amount: number;
+}
+
+export interface RegularRevenueSummary {
+  jul_sessions: number;
+  aug_sessions: number;
+  jul_revenue: number;
+  aug_revenue: number;
+  enrollments_jul: number;
+  enrollments_aug: number;
+  term_fees: RevenueTermFeeEntry[];
+}
+
+export interface BranchRevenueSummary {
+  receivable_students: number;
+  receivable_amount: number;
+  collected_students: number;
+  collected_amount: number;
+  outstanding_students: number;
+  outstanding_amount: number;
+  collection_rate_amount: number;
+  collection_rate_students: number;
+  tiers: RevenueTierBreakdown[];
+  pipeline: RevenuePipelineEntry[];
+  pipeline_potential_amount: number;
+  regular: RegularRevenueSummary;
+  outlook_confirmed: number;
+  outlook_with_potential: number;
+}
+
+export interface BranchRevenueReportResponse {
+  as_of: string;
+  config_id: number;
+  year: number;
+  spreadsheet_id: string | null;
+  branches: Record<string, BranchRevenueSummary>;
+}
+
+export interface RevenueSheetRefreshResponse {
+  as_of: string;
+  config_id: number;
+  spreadsheet_id: string;
+  sheet_name: string | null;
+  modified_time: string | null;
+}
+
 // Student Progress Analytics Types
 // ============================================
 

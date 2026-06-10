@@ -3500,6 +3500,79 @@ class SummerMarketingSnapshotResponse(BaseModel):
     cells: Dict[str, Dict[str, SummerMarketingSnapshotCell]] = {}
 
 
+class RevenueTierBreakdown(BaseModel):
+    """One discount tier's receivable split (Paid vs Fee Sent)."""
+    code: str
+    name: str
+    discount_amount: int
+    fee_per_student: int
+    paid_count: int
+    paid_amount: int
+    fee_sent_count: int
+    fee_sent_amount: int
+
+
+class RevenuePipelineEntry(BaseModel):
+    status: str
+    students: int
+    amount: int
+
+
+class RevenueTermFeeEntry(BaseModel):
+    status: str
+    enrollments: int
+    amount: int
+
+
+class RegularRevenueSummary(BaseModel):
+    """Regular-course sessions falling in July/August of the summer year.
+
+    Revenue uses the revenue page's discount-prorated per-session rate;
+    published Summer enrollments are excluded (already in the receivable)."""
+    jul_sessions: int
+    aug_sessions: int
+    jul_revenue: float
+    aug_revenue: float
+    enrollments_jul: int
+    enrollments_aug: int
+    term_fees: List[RevenueTermFeeEntry]
+
+
+class BranchRevenueSummary(BaseModel):
+    receivable_students: int
+    receivable_amount: int
+    collected_students: int
+    collected_amount: int
+    outstanding_students: int
+    outstanding_amount: int
+    collection_rate_amount: float
+    collection_rate_students: float
+    tiers: List[RevenueTierBreakdown]
+    pipeline: List[RevenuePipelineEntry]
+    pipeline_potential_amount: int
+    regular: RegularRevenueSummary
+    outlook_confirmed: float
+    outlook_with_potential: float
+
+
+class BranchRevenueReportResponse(BaseModel):
+    """Summer fee collection + Jul/Aug regular revenue, per branch (MSA/MSB)."""
+    as_of: datetime
+    config_id: int
+    year: int
+    spreadsheet_id: Optional[str] = None
+    branches: Dict[str, BranchRevenueSummary]
+
+
+class RevenueSheetRefreshResponse(BaseModel):
+    """Result of replacing the revenue Google Sheet's content."""
+    as_of: datetime
+    config_id: int
+    spreadsheet_id: str
+    sheet_name: Optional[str] = None
+    modified_time: Optional[str] = None
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
