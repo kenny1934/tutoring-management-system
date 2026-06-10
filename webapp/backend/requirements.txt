@@ -60,3 +60,6 @@ opencc-python-reimplemented>=0.1.7
 
 # Fuzzy string matching (prospect/application name similarity)
 rapidfuzz>=3.0.0
+
+# Revenue workbook generation (branch revenue sheet refresh)
+openpyxl==3.1.5

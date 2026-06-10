@@ -42,6 +42,7 @@ PUBLIC_PATHS = frozenset({
     # Cron-or-admin endpoints: self-validate X-Cron-Secret OR an admin cookie
     "/api/admin/promote-grades",
     "/api/summer/marketing/snapshot",
+    "/api/summer/revenue/sheet-refresh",
 })
 
 # Path prefixes that do not require an access_token cookie. Handlers underneath

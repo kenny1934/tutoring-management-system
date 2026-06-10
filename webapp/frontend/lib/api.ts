@@ -2440,6 +2440,17 @@ export const summerAPI = {
       { method: "POST" },
     ),
 
+  getRevenueReport: () =>
+    fetchAPI<import("@/types").BranchRevenueReportResponse>(
+      "/summer/revenue/report",
+    ),
+
+  refreshRevenueSheet: () =>
+    fetchAPI<import("@/types").RevenueSheetRefreshResponse>(
+      "/summer/revenue/sheet-refresh",
+      { method: "POST" },
+    ),
+
   getApplicationStats: (params?: {
     config_id?: number;
     application_status?: string;
