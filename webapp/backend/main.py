@@ -13,6 +13,7 @@ import os
 from dotenv import load_dotenv
 
 from auth.gate import AuthGateMiddleware
+from auth.origin_guard import OriginGuardMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +271,11 @@ else:
 # the 401s it returns. It enforces a blanket login requirement on /api/* with
 # an explicit public allowlist (see auth/gate.py).
 app.add_middleware(AuthGateMiddleware)
+
+# Origin guard sits just OUTSIDE the auth gate so non-Cloudflare direct hits to
+# the Cloud Run URL are refused (403) before any auth/handler logic runs. No-op
+# until CF_ORIGIN_SECRET is configured (see auth/origin_guard.py).
+app.add_middleware(OriginGuardMiddleware)
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)

@@ -16,6 +16,8 @@ sensitive, because those handlers keep their own ``get_current_user``
 dependency (e.g. ``POST``/``DELETE`` under ``/api/report-shares``).
 """
 import logging
+import os
+from typing import Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -61,6 +63,60 @@ def is_public_path(path: str) -> bool:
     return any(path.startswith(prefix) for prefix in PUBLIC_PREFIXES)
 
 
+# Public branch-staff tools whose non-/admin endpoints are gated by Cloudflare
+# Access (Google SSO at the edge) instead of a login cookie. Their /admin
+# sub-routes keep cookie auth via their own require_admin_* dependencies and are
+# therefore NOT Access-gated here.
+CF_ACCESS_PREFIXES = (
+    "/api/prospects",
+    "/api/buddy-tracker",
+)
+
+
+def _cf_access_enabled() -> bool:
+    return os.getenv("CF_ACCESS_REQUIRED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _cf_access_allowed_domains() -> tuple[str, ...]:
+    raw = os.getenv(
+        "CF_ACCESS_ALLOWED_DOMAINS",
+        "mathconcept.com,mathconceptsecondary.academy",
+    )
+    return tuple(d.strip().lower() for d in raw.split(",") if d.strip())
+
+
+def cf_access_denial(request: Request, path: str) -> Optional[Response]:
+    """Return a 403 Response if ``path`` requires a Cloudflare Access identity
+    and the request lacks an allowlisted one; otherwise None.
+
+    Cloudflare injects ``Cf-Access-Authenticated-User-Email`` after the user
+    passes the Access login. Trusting that header is safe ONLY because
+    OriginGuard refuses any request that did not transit Cloudflare, so a direct
+    caller cannot forge it. Enable ``CF_ORIGIN_SECRET`` before
+    ``CF_ACCESS_REQUIRED``.
+
+    No-op unless ``CF_ACCESS_REQUIRED`` is set, so it is safe to deploy before
+    the Cloudflare Access application is configured.
+    """
+    if not _cf_access_enabled():
+        return None
+    if not any(path.startswith(prefix) for prefix in CF_ACCESS_PREFIXES):
+        return None
+    # /admin sub-routes belong to CSM staff in the main (cookie-authed) app, not
+    # the Access-gated public pages, so they are exempt from the Access check.
+    if "/admin" in path:
+        return None
+    email = (request.headers.get("cf-access-authenticated-user-email") or "").strip().lower()
+    domain = email.rsplit("@", 1)[-1] if "@" in email else ""
+    if not email or domain not in _cf_access_allowed_domains():
+        logger.warning("Blocked non-Access request to %s (email=%r)", path, email or None)
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Cloudflare Access authentication required"},
+        )
+    return None
+
+
 class AuthGateMiddleware(BaseHTTPMiddleware):
     """Require a valid access_token cookie for all /api/* routes by default."""
 
@@ -77,6 +133,9 @@ class AuthGateMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if is_public_path(path):
+            denied = cf_access_denial(request, path)
+            if denied is not None:
+                return denied
             return await call_next(request)
 
         token = request.cookies.get("access_token")
