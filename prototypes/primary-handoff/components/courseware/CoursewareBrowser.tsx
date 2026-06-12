@@ -164,9 +164,10 @@ export function CoursewareBrowser() {
 
   return (
     <div className="space-y-3">
-      {/* Family tabs: active product lines, then a toggle that reveals the
-          retired ones (muted so they read as reference material). */}
-      <div className="flex flex-wrap items-center gap-1">
+      {/* One picker row: family tabs (active lines, then the archived
+          toggle), a divider, then the selected family's level pills — two
+          stacked rows wasted height over the plan matrix. */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {activeFamilies.map(([name]) => {
           const active = name === family;
           return (
@@ -225,10 +226,9 @@ export function CoursewareBrowser() {
               </button>
             );
           })}
-      </div>
 
-      {/* Level pills for the active family */}
-      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mx-1 h-5 w-px bg-ink-200" aria-hidden />
+
         {levels.map((t) => {
           const active = t.id === (table?.id ?? "");
           return (
@@ -275,25 +275,26 @@ export function CoursewareBrowser() {
 
       {table ? (
         <>
-          <div className="flex items-center gap-2 text-sm text-ink-700 pt-1">
-            <Library className="h-4 w-4 text-ink-500" />
-            <span className="font-medium">{table.family}</span>
-            <span className="text-ink-400">/</span>
-            <span className="font-medium">{table.levelLabel}</span>
-            <span className="text-ink-500">
-              {table.grade} · {worksheetCount} worksheets
-            </span>
+          {/* Compact meta line: the selected family/level already read off
+              the highlighted pickers above, so only the count, the archived
+              badge, and the what-clicking-does hint remain. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
+            <Library className="h-3.5 w-3.5" />
+            <span>{worksheetCount} worksheets</span>
             {table.archived && (
-              <span className="inline-flex items-center gap-1 rounded bg-ink-100 px-1.5 py-0.5 text-xs font-medium text-ink-500">
+              <span className="inline-flex items-center gap-1 rounded bg-ink-100 px-1.5 py-0.5 font-medium">
                 <Archive className="h-3 w-3" />
                 Archived
               </span>
             )}
+            <span className="text-ink-300" aria-hidden>
+              ·
+            </span>
+            <span>
+              Click any code to preview the PDF and assign it to an upcoming
+              session.
+            </span>
           </div>
-          <p className="text-xs text-ink-500 max-w-3xl">
-            Click any code to preview the PDF and assign it to an upcoming
-            session.
-          </p>
 
           <div
             ref={toolbarRef}
