@@ -131,47 +131,85 @@ export function StudentChecktablesTab() {
         style={{ top: "var(--ct-stick, 0px)" }}
         className="sticky z-20 space-y-2 bg-ink-50 px-4 py-2"
       >
+        {/* Context row: what you're looking at. The book switcher leads as the
+            title; the view toggle, its Print action, and the legend sit right,
+            so toggling views never reflows the row. */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Syllabus is the day-to-day reading view; Learning Plan is the
-              dense matrix the tutor prints and follows on paper. */}
-          <div
-            role="group"
-            aria-label="Switch view"
-            className="flex items-center rounded-md border border-ink-200 bg-white p-0.5 text-xs font-medium"
-          >
-            {(
-              [
-                ["syllabus", "Syllabus"],
-                ["plan", "Learning Plan"],
-              ] as const
-            ).map(([v, label]) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                aria-pressed={view === v}
-                className={`rounded px-2 py-0.5 transition-colors ${
-                  view === v
-                    ? "bg-ink-800 text-white"
-                    : "text-ink-600 hover:bg-ink-100"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {view === "plan" && (
-            <button
-              type="button"
-              onClick={() => window.print()}
-              title="Print this learning plan so the tutor can follow it on paper"
-              className="inline-flex items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-700 hover:bg-ink-100"
+          <label className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white pl-2">
+            <BookOpen
+              className="h-3.5 w-3.5 shrink-0 text-ink-500"
+              aria-hidden
+            />
+            <select
+              value={editor.checktableId}
+              onChange={(e) => editor.setChecktableId(e.target.value)}
+              className="max-w-[260px] bg-transparent py-1 pr-2 text-xs font-medium text-ink-800 focus:outline-none"
+              aria-label="Switch book"
             >
-              <Printer className="h-3.5 w-3.5" />
-              Print
-            </button>
-          )}
-          {/* Search leads the toolbar as the primary find control. */}
+              {editor.bookOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.textbook} · {c.grade} · {c.version}
+                  {c.archived ? " · Archived" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="ml-auto flex items-center gap-2 text-xs">
+            {editor.otherBookBatchCount > 0 && (
+              <span
+                title="Worksheets queued under this student's other books. Switch to that book to print them."
+                className="inline-flex items-center gap-1 rounded-md border border-mc-red-200 bg-mc-red-50 px-2 py-1 font-medium text-mc-red-700"
+              >
+                <Printer className="h-3 w-3" />
+                {editor.otherBookBatchCount} queued in other books
+              </span>
+            )}
+            {/* Syllabus is the day-to-day reading view; Learning Plan is the
+                dense matrix the tutor prints and follows on paper. */}
+            <div
+              role="group"
+              aria-label="Switch view"
+              className="flex items-center rounded-md border border-ink-200 bg-white p-0.5 text-xs font-medium"
+            >
+              {(
+                [
+                  ["syllabus", "Syllabus"],
+                  ["plan", "Learning Plan"],
+                ] as const
+              ).map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  aria-pressed={view === v}
+                  className={`rounded px-2 py-0.5 transition-colors ${
+                    view === v
+                      ? "bg-ink-800 text-white"
+                      : "text-ink-600 hover:bg-ink-100"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {view === "plan" && (
+              <button
+                type="button"
+                onClick={() => window.print()}
+                title="Print this learning plan so the tutor can follow it on paper"
+                className="inline-flex items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-700 hover:bg-ink-100"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Print
+              </button>
+            )}
+            <LegendPopover />
+          </div>
+        </div>
+
+        {/* Work row: narrowing (search, status) and batch building (collapse,
+            select, add shown). */}
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="relative min-w-[180px] flex-1">
             <Search
               className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400"
@@ -196,55 +234,16 @@ export function StudentChecktablesTab() {
               </button>
             )}
           </div>
-
-          {/* Quiet utility cluster (collapse-all, legend) + the book switcher,
-              which doubles as the title. */}
-          <div className="ml-auto flex items-center gap-2 text-xs">
-            {editor.otherBookBatchCount > 0 && (
-              <span
-                title="Worksheets queued under this student's other books. Switch to that book to print them."
-                className="inline-flex items-center gap-1 rounded-md border border-mc-red-200 bg-mc-red-50 px-2 py-1 font-medium text-mc-red-700"
-              >
-                <Printer className="h-3 w-3" />
-                {editor.otherBookBatchCount} queued in other books
-              </span>
-            )}
-            {view === "syllabus" && (
-              <CollapseAllControl collapse={collapse} size="sm" iconOnly />
-            )}
-            <LegendPopover />
-            <label className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white pl-2">
-              <BookOpen
-                className="h-3.5 w-3.5 shrink-0 text-ink-500"
-                aria-hidden
-              />
-              <select
-                value={editor.checktableId}
-                onChange={(e) => editor.setChecktableId(e.target.value)}
-                className="max-w-[220px] bg-transparent py-1 pr-2 text-xs font-medium text-ink-800 focus:outline-none"
-                aria-label="Switch book"
-              >
-                {editor.bookOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.textbook} · {c.grade} · {c.version}
-                    {c.archived ? " · Archived" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-2 flex-wrap">
           <GridFilterBar
             table={table}
             statusByItemId={editor.statusByItemId}
             status={gridStatus}
             onStatusChange={setGridStatus}
           />
-          {/* Batch-building cluster: enter tap-to-queue mode, or queue every
-              worksheet matching the current filter, side by side. */}
           <div className="flex items-center gap-2">
+            {view === "syllabus" && (
+              <CollapseAllControl collapse={collapse} size="sm" iconOnly />
+            )}
             <button
               type="button"
               onClick={() => batch.setSelectMode((v) => !v)}
