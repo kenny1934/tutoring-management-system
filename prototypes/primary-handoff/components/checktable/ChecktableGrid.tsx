@@ -9,7 +9,10 @@ import type {
   ExerciseKind,
 } from "@/lib/types";
 import { ItemChip } from "./ItemChip";
-import { objectiveForItemCode } from "@/lib/mock-data/courseware-objectives";
+import {
+  objectiveForItemCode,
+  setCodeFromItemCode,
+} from "@/lib/mock-data/courseware-objectives";
 import {
   journeyForTable,
   topicPrefixForChapter,
@@ -211,7 +214,15 @@ export function ChecktableGrid({
                 {table.series.map((s) => (
                   <th
                     key={s.id}
-                    className="border-r border-b border-ink-200 px-3 py-2 text-left font-medium last:border-r-0 min-w-[120px] sm:min-w-[140px]"
+                    // Columns are sized so a CW/HW variant pair sits on ONE
+                    // line (iconless done chips included), which keeps most
+                    // rows single-line. Measured: a "NAxxx" chip is ~74px so
+                    // a pair + gap + cell padding needs 168px; the merged PS
+                    // column's "PS.NAxxx" chips are ~93px so its pairs (one
+                    // line per set) need 206px. A few px of headroom on top.
+                    className={`border-r border-b border-ink-200 px-3 py-2 text-left font-medium last:border-r-0 ${
+                      s.id === "PS" ? "min-w-[215px]" : "min-w-[175px]"
+                    }`}
                     title={s.hint}
                   >
                     <div>{s.label}</div>
@@ -273,6 +284,7 @@ export function ChecktableGrid({
                 kind={kindByItemId?.[item.id]}
                 tutorNote={noteByItemId?.[item.id]}
                 isSelected={selectedItemIds.has(item.id)}
+                hideDoneIcon
                 onItemClick={onItemClick}
               />
             ))}
@@ -355,6 +367,21 @@ const SectionRows = memo(function SectionRows({
   );
 });
 
+/** Consecutive runs of items sharing a set code ("PS.NA104A1"/"PS.NA104A2" ->
+ *  one group). Cells render one line per group so multi-set cells stay
+ *  shallow. */
+function groupBySet(items: ChecktableItem[]): ChecktableItem[][] {
+  const groups: ChecktableItem[][] = [];
+  let prev: string | null = null;
+  for (const it of items) {
+    const set = setCodeFromItemCode(it.code);
+    if (set === prev) groups[groups.length - 1].push(it);
+    else groups.push([it]);
+    prev = set;
+  }
+  return groups;
+}
+
 // Journey-mode strand tags: only the minority strands get a tint so the MG/ST
 // interruptions pop against the (untagged-colour) NA spine — colouring every
 // row would just be noise, and saturated tags would compete with the amber
@@ -398,10 +425,10 @@ const ChapterRow = memo(function ChapterRow({
   // because their opaque background would otherwise mask the tr tint.
   return (
     <tr className="group hover:bg-ink-50/50">
-      <td className="sticky left-0 z-10 border-r border-b border-ink-100 bg-white px-2 py-2 text-center text-ink-500 align-top group-last:border-b-0 group-hover:bg-ink-50">
+      <td className="sticky left-0 z-10 border-r border-b border-ink-100 bg-white px-2 py-1.5 text-center text-ink-500 align-top group-last:border-b-0 group-hover:bg-ink-50">
         {step}
       </td>
-      <td className="sticky left-10 z-10 border-r border-b border-ink-100 bg-white px-3 py-2 text-ink-800 align-top group-last:border-b-0 group-hover:bg-ink-50">
+      <td className="sticky left-10 z-10 border-r border-b border-ink-100 bg-white px-3 py-1.5 text-ink-800 align-top group-last:border-b-0 group-hover:bg-ink-50">
         {ch.title}
         {strand && (
           <span
@@ -427,21 +454,30 @@ const ChapterRow = memo(function ChapterRow({
         return (
           <td
             key={s.id}
-            className="border-r border-b border-ink-100 px-2 py-2 last:border-r-0 align-top group-last:border-b-0"
+            className="border-r border-b border-ink-100 px-2 py-1.5 last:border-r-0 align-top group-last:border-b-0"
           >
             {visibleItems.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {visibleItems.map((item) => (
-                  <ItemChip
-                    key={item.id}
-                    item={item}
-                    status={statusByItemId[item.id] ?? null}
-                    kind={kindByItemId?.[item.id]}
-                    tutorNote={noteByItemId?.[item.id]}
-                    objective={objectiveForItemCode(item.code)}
-                    isSelected={selectedItemIds.has(item.id)}
-                    onItemClick={onItemClick}
-                  />
+              // One line per set (variant pair), not one free-flowing wrap:
+              // the merged PS cell holds many sets, and free wrapping at this
+              // column width stacked every chip on its own line, stretching
+              // the whole row. Single-set cells render identically to before.
+              <div className="space-y-1">
+                {groupBySet(visibleItems).map((group) => (
+                  <div key={group[0].id} className="flex flex-wrap gap-1">
+                    {group.map((item) => (
+                      <ItemChip
+                        key={item.id}
+                        item={item}
+                        status={statusByItemId[item.id] ?? null}
+                        kind={kindByItemId?.[item.id]}
+                        tutorNote={noteByItemId?.[item.id]}
+                        objective={objectiveForItemCode(item.code)}
+                        isSelected={selectedItemIds.has(item.id)}
+                        hideDoneIcon
+                        onItemClick={onItemClick}
+                      />
+                    ))}
+                  </div>
                 ))}
               </div>
             ) : (

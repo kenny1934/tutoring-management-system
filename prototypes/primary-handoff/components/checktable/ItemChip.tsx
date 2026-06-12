@@ -19,6 +19,10 @@ type Props = {
   /** Learning objective for the set this item belongs to; surfaced in the
    *  hover tooltip so it stays reachable in the compact grid view. */
   objective?: string;
+  /** Skip the check icon on done chips. The plan grid encodes done in the
+   *  fill colour already, and the icon's extra width is exactly what keeps a
+   *  CW/HW variant pair from sitting side by side in a matrix column. */
+  hideDoneIcon?: boolean;
   /** Takes the item so callers can pass a stable handler (the chip builds its
    *  own click closure internally), which keeps the React.memo below effective
    *  even in a 400-chip grid. */
@@ -35,6 +39,7 @@ function ItemChipBase({
   isSelected,
   tutorNote,
   objective,
+  hideDoneIcon,
   onItemClick,
 }: Props) {
   // Status drives the chip's fill. Print-batch membership is layered on top as
@@ -78,7 +83,9 @@ function ItemChipBase({
           }`}
         />
       )}
-      {state === "done" && <Check className="h-3 w-3" strokeWidth={3} />}
+      {state === "done" && !hideDoneIcon && (
+        <Check className="h-3 w-3" strokeWidth={3} />
+      )}
       <span className={isNote ? "italic text-ink-400" : ""}>{item.code}</span>
       {/* Print-batch marker: a red dot on the leading edge, distinct in both
        *  colour and position from the amber note dot on the trailing edge. */}
