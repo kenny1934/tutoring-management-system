@@ -36,7 +36,10 @@ import { bookGrade } from "@/lib/grade";
 import { students as seedStudents } from "@/lib/mock-data/students";
 import { mcDriveChecktables } from "@/lib/mock-data/mc-drive-checktables";
 import { attachObjectives } from "@/lib/mock-data/courseware-objectives";
-import { assignableUnits } from "@/lib/mock-data/mc-drive-seed-helpers";
+import {
+  assignableUnits,
+  CA_FAMILY,
+} from "@/lib/mock-data/mc-drive-seed-helpers";
 import { seedAssignments } from "@/lib/mock-data/assignments";
 import {
   DEMO_DAY,
@@ -337,8 +340,13 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   // carry source:"mc-drive" so they show on the Courseware page and only
   // surface in a student's book dropdown when grade-appropriate. (The old
   // hand-coded textbooks in mock-data/checktables.ts are archived/unused.)
+  // Only the CA line is in active use; every other family is flagged archived
+  // (kept in the store so seeded assignments/history still resolve, but hidden
+  // from the book switcher and tucked away on the Courseware page).
   const [checktables] = useState<Checktable[]>(() =>
-    attachObjectives(mcDriveChecktables)
+    attachObjectives(mcDriveChecktables).map((t) =>
+      t.family === CA_FAMILY ? t : { ...t, archived: true }
+    )
   );
   const [sessions, setSessions] = useState<Session[]>(seedSessions);
   const [assignments, setAssignments] =
@@ -916,13 +924,15 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
       }
       if (topId) return topId;
       // No assignments yet (e.g. a freshly-added student): default to the
-      // first checktable matching the student's grade so the grid opens on a
-      // grade-appropriate book rather than P1.
+      // first *active* checktable matching the student's grade so the grid
+      // opens on a grade-appropriate book rather than P1; if the active line
+      // doesn't cover their grade, fall back to its first book.
       const student = students.find((s) => s.id === studentId);
+      const active = checktables.filter((c) => !c.archived);
       const gradeMatch = student
-        ? checktables.find((c) => c.grade === bookGrade(student.grade))
+        ? active.find((c) => c.grade === bookGrade(student.grade))
         : undefined;
-      return gradeMatch?.id ?? checktables[0].id;
+      return gradeMatch?.id ?? active[0]?.id ?? checktables[0].id;
     },
     [assignments, checktables, students]
   );

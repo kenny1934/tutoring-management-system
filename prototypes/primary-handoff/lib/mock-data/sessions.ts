@@ -5,7 +5,8 @@ import { cwRef, hwRef, studentUnits, SEED_PLAN } from "./mc-drive-seed-helpers";
 // Classwork/homework worksheets are pulled from each student's grade-matched
 // MC Drive plan as CW/HW *variant pairs*: a session's classwork is the "...1"
 // copy and its matching homework is the "...2" copy of the same worksheet
-// (e.g. SG601A1 in class, SG601A2 for homework). u001 is P6, u002 is P4,
+// (e.g. SG601A1 in class, SG601A2 for homework; P1-P2 students draw from the
+// active CA books instead, e.g. MG201A1/MG201A2). u001 is P6, u002 is P4,
 // u003 is P2. Each student's sessions start at unit `historyUnits` (the
 // earlier units are seeded as already-done history, see assignments.ts), so
 // the grid and the session record line up with no overlap.

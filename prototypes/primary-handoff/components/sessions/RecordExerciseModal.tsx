@@ -101,13 +101,19 @@ export function RecordExerciseModal({
   onPreviewItem,
 }: Props) {
   const { assignments } = usePrimaryStore();
+  // Only active (non-archived) books are offered; the retired lines stay in
+  // the store for old records but shouldn't be picked for new exercises.
+  const bookOptions = useMemo(() => {
+    const active = checktables.filter((c) => !c.archived);
+    return active.length > 0 ? active : checktables;
+  }, [checktables]);
   // Auto-pick a checktable that matches the student's grade. Falls back to
   // the first one (CSM has no "primary checktable" link on the student
   // record itself; the prototype just heuristics on grade text match).
   const initialChecktableId = useMemo(() => {
-    const match = checktables.find((c) => c.grade === bookGrade(student.grade));
-    return (match ?? checktables[0]).id;
-  }, [checktables, student.grade]);
+    const match = bookOptions.find((c) => c.grade === bookGrade(student.grade));
+    return (match ?? bookOptions[0]).id;
+  }, [bookOptions, student.grade]);
   const [checktableId, setChecktableId] = useState(initialChecktableId);
   const [search, setSearch] = useState("");
   const [note, setNote] = useState("");
@@ -303,9 +309,10 @@ export function RecordExerciseModal({
               onChange={(e) => setChecktableId(e.target.value)}
               className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm bg-white"
             >
-              {checktables.map((c) => (
+              {bookOptions.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.textbook} · {c.grade} · {c.version}
+                  {c.archived ? " · Archived" : ""}
                 </option>
               ))}
             </select>

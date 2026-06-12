@@ -185,8 +185,13 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-/** A-Z then numeric-ish; "R" (revision) naturally sorts after A-E. */
-const seriesSort = (a: string, b: string) => a.localeCompare(b);
+/** A-Z then numeric-ish; "R" (revision) naturally sorts after A-E. "PS"
+ *  (problem solving) is pinned last so it reads as the column after R. */
+const seriesSort = (a: string, b: string) => {
+  if (a === "PS" && b !== "PS") return 1;
+  if (b === "PS" && a !== "PS") return -1;
+  return a.localeCompare(b);
+};
 
 function gradeFor(levelLabel: string): string {
   const m = levelLabel.match(/Level\s*(\d+)/i);
@@ -206,6 +211,10 @@ function buildChecktable(
   // section -> unit -> series -> items
   const sections = new Map<string, Map<string, Map<string, ChecktableItem[]>>>();
   const unitTopic = new Map<string, string>(); // `${sec}|${unit}` -> title
+  // Topics seen only on merged PS worksheets, used as a chapter-title fallback
+  // when a PS unit has no main-strand counterpart (shouldn't happen, but the
+  // chapter still needs a title if it does).
+  const psUnitTopic = new Map<string, string>();
   const seriesSet = new Set<string>();
   const supplementary: ChecktableItem[] = [];
   const seenCode = new Set<string>();
@@ -240,20 +249,38 @@ function buildChecktable(
     }
     seenCode.add(p.code);
 
-    const sec = p.strand ?? "main";
+    // CA's PS.* strands are problem-solving sets for an existing main-strand
+    // unit (PS.NA u04 belongs in NA u04). Fold them back into that chapter as
+    // a dedicated "PS" series so they read as the set after R, instead of
+    // standing apart as their own strand tab.
+    let sec = p.strand ?? "main";
+    let seriesId = p.series;
+    const psMerged = sec.startsWith("PS.");
+    if (psMerged) {
+      sec = sec.slice(3);
+      seriesId = "PS";
+    }
     if (!sections.has(sec)) sections.set(sec, new Map());
     const units = sections.get(sec)!;
     if (!units.has(p.unit)) units.set(p.unit, new Map());
     const series = units.get(p.unit)!;
-    if (!series.has(p.series)) series.set(p.series, []);
-    series.get(p.series)!.push({
+    if (!series.has(seriesId)) series.set(seriesId, []);
+    series.get(seriesId)!.push({
       id: `${id}/${p.code}`,
       code: p.code,
       mcDriveS3Path: mat.s3_path,
     });
-    seriesSet.add(p.series);
+    seriesSet.add(seriesId);
     const tKey = `${sec}|${p.unit}`;
-    if (p.topic && !unitTopic.has(tKey)) unitTopic.set(tKey, p.topic);
+    // Merged PS topics only title a chapter when no main-strand worksheet
+    // names it first (PS filenames often shorten the unit topic).
+    if (p.topic) {
+      if (psMerged) {
+        if (!psUnitTopic.has(tKey)) psUnitTopic.set(tKey, p.topic);
+      } else if (!unitTopic.has(tKey)) {
+        unitTopic.set(tKey, p.topic);
+      }
+    }
     itemCount++;
   }
 
@@ -262,7 +289,7 @@ function buildChecktable(
     .map((s) => ({
       id: s,
       label: s,
-      hint: s === "R" ? "Revision" : undefined,
+      hint: s === "R" ? "Revision" : s === "PS" ? "Problem Solving" : undefined,
     }));
 
   // CA sections in strand order; otherwise a single "main" section.
@@ -291,7 +318,10 @@ function buildChecktable(
       return {
         id: `${id}-${slug(secKey)}-u${unit}`,
         number: parseInt(unit, 10) || i + 1,
-        title: unitTopic.get(`${secKey}|${unit}`) ?? `Unit ${unit}`,
+        title:
+          unitTopic.get(`${secKey}|${unit}`) ??
+          psUnitTopic.get(`${secKey}|${unit}`) ??
+          `Unit ${unit}`,
         cells,
       };
     });

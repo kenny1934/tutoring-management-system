@@ -80,7 +80,7 @@ export function StudentDetailShell({ children }: { children: React.ReactNode }) 
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "sessions", label: "Sessions", count: sessionCount },
-    { id: "checktables", label: "Checktables", count: pending },
+    { id: "checktables", label: "Curriculum", count: pending },
     { id: "performance", label: "Performance" },
     { id: "assessments", label: "Assessments" },
     { id: "parent-comms", label: "Parent comms" },

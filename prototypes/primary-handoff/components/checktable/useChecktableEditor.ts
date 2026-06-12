@@ -59,13 +59,18 @@ export function useChecktableEditor(
 
   const table = checktables.find((c) => c.id === checktableId);
 
-  // Books offered in the switch dropdown: only grade-appropriate ones (a P5
-  // student sees Level 5 MC Drive material, not every level). The current
-  // selection is always included so the <select> can render its own value.
+  // Books offered in the switch dropdown: active (non-archived) ones, grade
+  // matched where possible (a P2 student sees CA Level 2, not every level).
+  // The active CA line only covers P1-P2, so when it has no book for the
+  // student's grade, offer the whole line rather than nothing. The current
+  // selection is always included so the <select> can render its own value
+  // (it may be an archived book carrying the student's existing work).
   const bookOptions = useMemo(() => {
-    const opts = checktables.filter(
+    const active = checktables.filter((c) => !c.archived);
+    let opts = active.filter(
       (c) => student && c.grade === bookGrade(student.grade)
     );
+    if (opts.length === 0) opts = [...active];
     if (!opts.some((c) => c.id === checktableId)) {
       const current = checktables.find((c) => c.id === checktableId);
       if (current) opts.unshift(current);

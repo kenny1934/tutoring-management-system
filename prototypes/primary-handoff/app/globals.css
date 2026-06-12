@@ -145,3 +145,66 @@ body {
 .chip[data-batched="true"] {
   box-shadow: 0 0 0 2px var(--color-mc-red-500);
 }
+
+/* --- Learning Plan print -----------------------------------------------
+ * The student Curriculum tab's "Learning Plan" view wraps its matrix grid in
+ * .ct-plan-print. When the tutor hits Print, isolate that wrapper (plus its
+ * print-only header) so the plan lands on paper without the app chrome, and
+ * unclamp the grid's scrollbox so every chapter row flows across pages. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body:has(.ct-plan-print) * {
+    visibility: hidden;
+  }
+  /* Reveal rules repeat the body:has() anchor so they outrank the hide rule
+   * above (plain `.ct-plan-print *` would lose on specificity). */
+  body:has(.ct-plan-print) .ct-plan-print,
+  body:has(.ct-plan-print) .ct-plan-print * {
+    visibility: visible;
+  }
+  body:has(.ct-plan-print) .ct-plan-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+  /* On screen the grid scrolls inside a height-bounded box (sticky header
+   * trick); on paper it must simply flow. !important outranks the inline
+   * maxHeight style. */
+  .ct-plan-print * {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  /* Static thead so the browser repeats it per printed page instead of
+   * trying to honour the on-screen sticky positioning. */
+  .ct-plan-print thead {
+    position: static !important;
+  }
+  /* Keep the chip status colours (done green / pending amber) on paper —
+   * the printout is exactly the coverage map the tutor follows. */
+  .ct-plan-print .chip {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  /* Compress the matrix to paper: drop the on-screen per-column min-widths
+   * and tighten type/padding so a 13+ series book fits A4 landscape. */
+  .ct-plan-print table {
+    font-size: 10px;
+  }
+  .ct-plan-print th,
+  .ct-plan-print td {
+    min-width: 0 !important;
+    padding: 3px 4px !important;
+  }
+  .ct-plan-print .chip {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+  /* Keep a chapter row together rather than splitting mid-row across pages. */
+  .ct-plan-print tr {
+    break-inside: avoid;
+  }
+}

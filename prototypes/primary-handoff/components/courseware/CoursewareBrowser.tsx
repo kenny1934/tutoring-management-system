@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Library, CheckCircle2, Search, X } from "lucide-react";
+import { Archive, Library, CheckCircle2, Search, X } from "lucide-react";
 import type { Checktable, ChecktableItem } from "@/lib/types";
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
@@ -46,24 +46,33 @@ export function CoursewareBrowser() {
     [checktables]
   );
 
-  // Group level-checktables under their product-line family, preserving the
-  // generator's order (SG, Math 1-6, PS, Kindergarten, CA).
-  const families = useMemo(() => {
+  // Group level-checktables under their product-line family. Active lines
+  // (CA) lead; retired ones sit behind an "Archived" toggle so the browse
+  // surface stays focused on the material actually in use.
+  const { families, activeFamilies, archivedFamilies } = useMemo(() => {
     const map = new Map<string, Checktable[]>();
     for (const t of mcTables) {
       const key = t.family ?? "Other";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(t);
     }
-    return [...map.entries()];
+    const entries = [...map.entries()];
+    return {
+      families: entries,
+      activeFamilies: entries.filter(([, ts]) => !ts[0].archived),
+      archivedFamilies: entries.filter(([, ts]) => ts[0].archived),
+    };
   }, [mcTables]);
 
-  const [family, setFamily] = useState(families[0]?.[0] ?? "");
+  const [showArchived, setShowArchived] = useState(false);
+  const [family, setFamily] = useState(activeFamilies[0]?.[0] ?? "");
   const levels = useMemo(
     () => families.find(([f]) => f === family)?.[1] ?? [],
     [families, family]
   );
-  const [selectedId, setSelectedId] = useState(families[0]?.[1][0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(
+    activeFamilies[0]?.[1][0]?.id ?? ""
+  );
 
   // Keep the selected level inside the active family.
   const table =
@@ -139,9 +148,10 @@ export function CoursewareBrowser() {
 
   return (
     <div className="space-y-3">
-      {/* Family tabs */}
-      <div className="flex flex-wrap gap-1">
-        {families.map(([name]) => {
+      {/* Family tabs: active product lines, then a toggle that reveals the
+          retired ones (muted so they read as reference material). */}
+      <div className="flex flex-wrap items-center gap-1">
+        {activeFamilies.map(([name]) => {
           const active = name === family;
           return (
             <button
@@ -158,6 +168,47 @@ export function CoursewareBrowser() {
             </button>
           );
         })}
+        {archivedFamilies.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              // Collapsing the archive while browsing an archived family
+              // would leave a headless selection; snap back to the active line.
+              if (
+                showArchived &&
+                archivedFamilies.some(([n]) => n === family) &&
+                activeFamilies[0]
+              ) {
+                pickFamily(activeFamilies[0][0]);
+              }
+              setShowArchived(!showArchived);
+            }}
+            aria-expanded={showArchived}
+            title="Retired product lines, kept for reference"
+            className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-ink-300 px-3 py-1.5 text-sm text-ink-500 hover:bg-ink-100"
+          >
+            <Archive className="h-3.5 w-3.5" />
+            {showArchived ? "Hide archived" : `Archived (${archivedFamilies.length})`}
+          </button>
+        )}
+        {showArchived &&
+          archivedFamilies.map(([name]) => {
+            const active = name === family;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => pickFamily(name)}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  active
+                    ? "bg-ink-500 text-white"
+                    : "text-ink-500 hover:bg-ink-100 border border-ink-200"
+                }`}
+              >
+                {name}
+              </button>
+            );
+          })}
       </div>
 
       {/* Level pills for the active family */}
@@ -216,6 +267,12 @@ export function CoursewareBrowser() {
             <span className="text-ink-500">
               {table.grade} · {worksheetCount} worksheets
             </span>
+            {table.archived && (
+              <span className="inline-flex items-center gap-1 rounded bg-ink-100 px-1.5 py-0.5 text-xs font-medium text-ink-500">
+                <Archive className="h-3 w-3" />
+                Archived
+              </span>
+            )}
           </div>
           <p className="text-xs text-ink-500 max-w-3xl">
             Click any code to preview the PDF and assign it to an upcoming

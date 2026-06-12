@@ -12,10 +12,20 @@ import { bookGrade } from "../grade";
 // grade + a worksheet family, which keeps the seed referentially intact even
 // if grades change.
 
-/** Family used as each student's main checktable. */
-export const PRIMARY_FAMILY = "SG (Letter Size)";
+/** The active CA line, used as the main checktable wherever it covers the
+ *  student's grade (it only spans P1-P2). */
+export const CA_FAMILY = "CA (Level 1&2)";
+/** Legacy main family, the fallback for grades the CA line doesn't cover so
+ *  older students' demo history still has a (now archived) book to live in. */
+export const SG_FAMILY = "SG (Letter Size)";
 /** Secondary family so a student's history spans more than one book. */
 export const SECONDARY_FAMILY = "Math 1-6 (A4)";
+
+/** Family used as each student's main checktable: CA when it has a book for
+ *  the grade, otherwise the legacy SG line. */
+export function primaryFamily(grade: string): string {
+  return findTable(grade, CA_FAMILY) ? CA_FAMILY : SG_FAMILY;
+}
 
 // R / P / PS are render-only note codes (revision marker, project, problem-set
 // header), not assignable worksheets. Mirrors PrimaryStore.nextSuggestion.
@@ -61,18 +71,19 @@ export function assignableItems(table: Checktable): PlanItem[] {
 
 export type StudentPlan = {
   grade: string;
-  /** Ordered assignable items in the student's primary (SG) book. */
+  /** Ordered assignable items in the student's primary book (CA for P1-P2,
+   *  legacy SG otherwise). */
   primary: PlanItem[];
   /** Ordered assignable items in the student's secondary (Math 1-6) book. */
   secondary: PlanItem[];
 };
 
 function planFor(grade: string): StudentPlan {
-  const sg = findTable(grade, PRIMARY_FAMILY);
+  const main = findTable(grade, primaryFamily(grade));
   const m16 = findTable(grade, SECONDARY_FAMILY);
   return {
     grade,
-    primary: sg ? assignableItems(sg) : [],
+    primary: main ? assignableItems(main) : [],
     secondary: m16 ? assignableItems(m16) : [],
   };
 }
@@ -134,11 +145,11 @@ export function assignableUnits(table: Checktable): PlanUnit[] {
   return out;
 }
 
-/** Per-student CW/HW unit list from their primary (SG) book. */
+/** Per-student CW/HW unit list from their primary book. */
 export const studentUnits: Record<string, PlanUnit[]> = Object.fromEntries(
   Object.entries(STUDENT_GRADES).map(([id, g]) => {
-    const sg = findTable(g, PRIMARY_FAMILY);
-    return [id, sg ? assignableUnits(sg) : []];
+    const main = findTable(g, primaryFamily(g));
+    return [id, main ? assignableUnits(main) : []];
   })
 );
 

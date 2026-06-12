@@ -3,7 +3,7 @@ import {
   studentPlans,
   SEED_PLAN,
   STUDENT_GRADES,
-  PRIMARY_FAMILY,
+  primaryFamily,
   SECONDARY_FAMILY,
   findTable,
   assignableUnits,
@@ -63,7 +63,7 @@ const completionByExerciseId = new Map(
 // real classwork vs homework coverage, not just done/assigned.
 const kindByItemId = new Map<string, ExerciseKind>();
 for (const grade of new Set(Object.values(STUDENT_GRADES))) {
-  for (const family of [PRIMARY_FAMILY, SECONDARY_FAMILY]) {
+  for (const family of [primaryFamily(grade), SECONDARY_FAMILY]) {
     const table = findTable(grade, family);
     if (!table) continue;
     for (const unit of assignableUnits(table)) {

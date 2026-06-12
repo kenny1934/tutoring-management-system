@@ -120,6 +120,7 @@ export function ChecktableDrawer({ student, focusItemId, onClose }: Props) {
               {editor.bookOptions.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.textbook} · {c.grade} · {c.version}
+                  {c.archived ? " · Archived" : ""}
                 </option>
               ))}
             </select>

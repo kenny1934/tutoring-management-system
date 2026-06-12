@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, FileText, ListChecks, Printer, Search, X } from "lucide-react";
 import { usePrimaryStore } from "@/lib/store/PrimaryStore";
 import { useChecktableEditor } from "@/components/checktable/useChecktableEditor";
+import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
 import { CollapseAllControl } from "@/components/checktable/CollapseAllControl";
 import { AssignDialog } from "@/components/checktable/AssignDialog";
@@ -37,6 +38,9 @@ export function StudentChecktablesTab() {
   const editor = useChecktableEditor(id, focusItemId);
   const [gridStatus, setGridStatus] = useState<GridStatusFilter>("all");
   const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
+  // Syllabus is the working view; "Learning Plan" resurfaces the dense matrix
+  // grid as the printable chapter to-do the tutor follows on paper.
+  const [view, setView] = useState<"syllabus" | "plan">("syllabus");
   const [search, setSearch] = useState("");
 
   // Debounce so each keystroke doesn't deep-rebuild the filtered tree on the
@@ -128,6 +132,45 @@ export function StudentChecktablesTab() {
         className="sticky z-20 space-y-2 bg-ink-50 px-4 py-2"
       >
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Syllabus is the day-to-day reading view; Learning Plan is the
+              dense matrix the tutor prints and follows on paper. */}
+          <div
+            role="group"
+            aria-label="Switch view"
+            className="flex items-center rounded-md border border-ink-200 bg-white p-0.5 text-xs font-medium"
+          >
+            {(
+              [
+                ["syllabus", "Syllabus"],
+                ["plan", "Learning Plan"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={`rounded px-2 py-0.5 transition-colors ${
+                  view === v
+                    ? "bg-ink-800 text-white"
+                    : "text-ink-600 hover:bg-ink-100"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {view === "plan" && (
+            <button
+              type="button"
+              onClick={() => window.print()}
+              title="Print this learning plan so the tutor can follow it on paper"
+              className="inline-flex items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-700 hover:bg-ink-100"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              Print
+            </button>
+          )}
           {/* Search leads the toolbar as the primary find control. */}
           <div className="relative min-w-[180px] flex-1">
             <Search
@@ -166,7 +209,9 @@ export function StudentChecktablesTab() {
                 {editor.otherBookBatchCount} queued in other books
               </span>
             )}
-            <CollapseAllControl collapse={collapse} size="sm" iconOnly />
+            {view === "syllabus" && (
+              <CollapseAllControl collapse={collapse} size="sm" iconOnly />
+            )}
             <LegendPopover />
             <label className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white pl-2">
               <BookOpen
@@ -182,6 +227,7 @@ export function StudentChecktablesTab() {
                 {editor.bookOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.textbook} · {c.grade} · {c.version}
+                    {c.archived ? " · Archived" : ""}
                   </option>
                 ))}
               </select>
@@ -235,21 +281,52 @@ export function StudentChecktablesTab() {
         className="px-4"
       />
 
-      <ChecktableSyllabus
-        table={filteredTable ?? table}
-        statusByItemId={editor.statusByItemId}
-        kindByItemId={editor.kindByItemId}
-        noteByItemId={editor.noteByItemId}
-        selectedItemIds={editor.selectedIds}
-        statusFilter={gridStatus}
-        sectionFilter={gridSection}
-        showProgress
-        collapsed={collapse.collapsed}
-        onToggleChapter={collapse.toggle}
-        stickyTop={contentTop}
-        onAddItemsToBatch={editor.addItemsToBatch}
-        onItemClick={batch.handleChipClick}
-      />
+      {view === "plan" ? (
+        // The print stylesheet (globals.css) isolates .ct-plan-print when the
+        // tutor hits Print, so only this header + matrix land on paper.
+        <div className="ct-plan-print">
+          <div className="hidden print:block pb-3">
+            <div className="text-lg font-semibold text-ink-900">
+              Learning Plan · {student.name} ({student.grade})
+            </div>
+            <div className="text-sm text-ink-600">
+              {table.textbook} · {table.grade} · {table.version} · Printed{" "}
+              {new Date().toLocaleDateString("en-HK", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </div>
+          </div>
+          <ChecktableGrid
+            table={filteredTable ?? table}
+            statusByItemId={editor.statusByItemId}
+            kindByItemId={editor.kindByItemId}
+            noteByItemId={editor.noteByItemId}
+            selectedItemIds={editor.selectedIds}
+            statusFilter={gridStatus}
+            sectionFilter={gridSection}
+            stickyTop={contentTop}
+            onItemClick={batch.handleChipClick}
+          />
+        </div>
+      ) : (
+        <ChecktableSyllabus
+          table={filteredTable ?? table}
+          statusByItemId={editor.statusByItemId}
+          kindByItemId={editor.kindByItemId}
+          noteByItemId={editor.noteByItemId}
+          selectedItemIds={editor.selectedIds}
+          statusFilter={gridStatus}
+          sectionFilter={gridSection}
+          showProgress
+          collapsed={collapse.collapsed}
+          onToggleChapter={collapse.toggle}
+          stickyTop={contentTop}
+          onAddItemsToBatch={editor.addItemsToBatch}
+          onItemClick={batch.handleChipClick}
+        />
+      )}
 
       </div>
 

@@ -83,6 +83,11 @@ export type Checktable = {
   family?: string;
   /** Level folder label within the family, e.g. "SG Level 1". */
   levelLabel?: string;
+  /** Retired product lines (everything except CA). Archived books are hidden
+   *  from the student book switcher and tucked behind a toggle on the
+   *  Courseware page, but stay in the store so existing seed assignments and
+   *  print batches still resolve. */
+  archived?: boolean;
 };
 
 /** A session a worksheet can be assigned to, used by the Courseware page's

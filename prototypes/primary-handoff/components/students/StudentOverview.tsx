@@ -101,7 +101,7 @@ export function StudentOverview() {
       <Card
         icon={<ClipboardList className="h-4 w-4 text-amber-600" />}
         title={`Pending HW (${pending.length})`}
-        actionLabel="Open Checktables"
+        actionLabel="Open Curriculum"
         actionHref={`/students/${student.id}/checktables`}
       >
         {pending.length === 0 ? (
