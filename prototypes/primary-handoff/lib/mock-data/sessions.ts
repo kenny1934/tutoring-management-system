@@ -5,11 +5,11 @@ import { cwRef, hwRef, studentUnits, SEED_PLAN } from "./mc-drive-seed-helpers";
 // Classwork/homework worksheets are pulled from each student's grade-matched
 // MC Drive plan as CW/HW *variant pairs*: a session's classwork is the "...1"
 // copy and its matching homework is the "...2" copy of the same worksheet
-// (e.g. SG601A1 in class, SG601A2 for homework; P1-P2 students draw from the
-// active CA books instead, e.g. MG201A1/MG201A2). u001 is P6, u002 is P4,
-// u003 is P2. Each student's sessions start at unit `historyUnits` (the
-// earlier units are seeded as already-done history, see assignments.ts), so
-// the grid and the session record line up with no overlap.
+// (e.g. NA204A1 in class, NA204A2 for homework). Every demo student is P1 or
+// P2, so all plans draw from the active CA books. u001/u002/u003 are P2.
+// Each student's sessions start at unit `historyUnits` (the earlier units are
+// seeded as already-done history, see assignments.ts), so the grid and the
+// session record line up with no overlap.
 const u001 = studentUnits["s-001"];
 const u002 = studentUnits["s-002"];
 const u003 = studentUnits["s-003"];
@@ -80,7 +80,7 @@ export const enrollments: Enrollment[] = [
     room: "Room 2",
     first_lesson_date: "2026-04-01",
   },
-  // Mr Lawrence Lee's P3 pair, Tuesday 16:30 in Room 1. Deliberately offset
+  // Mr Lawrence Lee's P1 pair, Tuesday 16:30 in Room 1. Deliberately offset
   // 30 min from Ms Wong's 16:00 class so the two meetings overlap in the
   // weekly time-grid (different tutors, same afternoon).
   {
@@ -131,7 +131,7 @@ const lee = { tutor_id: "t-lee", tutor_name: "Mr Lawrence Lee" };
 // UI groups, mirrors how CSM identifies a "class meeting" without ever
 // storing a class entity.
 export const sessions: Session[] = [
-  // === Today (2026-05-19 16:00), Ms Wong P6 meeting, lesson 12 ===
+  // === Today (2026-05-19 16:00), Ms Wong P2 meeting, lesson 12 ===
   {
     id: "sess-001-s-001",
     enrollment_id: "enr-001",
@@ -199,7 +199,7 @@ export const sessions: Session[] = [
     hw: [{ id: "rec-8h", session_id: "sess-001-s-003", exercise_type: "HW", ...hwRef(u003[o3 + 2]) }],
   },
 
-  // === Today (2026-05-19 17:30), Ms Wong P5 meeting, lesson 9 ===
+  // === Today (2026-05-19 17:30), Ms Wong P1 meeting, lesson 9 ===
   {
     id: "sess-002-s-004",
     enrollment_id: "enr-004",
@@ -215,7 +215,7 @@ export const sessions: Session[] = [
     hw: [],
   },
 
-  // === Today (2026-05-19 16:30), Mr Lawrence Lee P3 meeting, lesson 8 ===
+  // === Today (2026-05-19 16:30), Mr Lawrence Lee P1 meeting, lesson 8 ===
   // Runs alongside Ms Wong's 16:00 + 17:30 classes, so under the "All tutors"
   // filter the weekly grid shows these side-by-side. Mixed attendance (one
   // present, one no-show) also demos the meeting stripe's worst-state colour.
@@ -231,7 +231,7 @@ export const sessions: Session[] = [
     lesson_number: 8,
     session_status: SessionStatus.ATTENDED,
     performance_rating: 4,
-    class_wide_note: "Fractions recap, then this week's worksheet set.",
+    class_wide_note: "Addition within 20 recap, then this week's worksheet set.",
     cw: [],
     hw: [],
   },
@@ -247,7 +247,7 @@ export const sessions: Session[] = [
     lesson_number: 8,
     session_status: SessionStatus.NO_SHOW,
     notes: "No call, no show",
-    class_wide_note: "Fractions recap, then this week's worksheet set.",
+    class_wide_note: "Addition within 20 recap, then this week's worksheet set.",
     cw: [],
     hw: [],
   },
@@ -291,7 +291,7 @@ export const sessions: Session[] = [
     hw: [],
   },
 
-  // === Last week (2026-05-12 16:00), Ms Wong P6 meeting, lesson 11 ===
+  // === Last week (2026-05-12 16:00), Ms Wong P2 meeting, lesson 11 ===
   {
     id: "sess-004-s-001",
     enrollment_id: "enr-001",

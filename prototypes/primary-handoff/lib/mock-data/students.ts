@@ -5,7 +5,7 @@ export const students: Student[] = [
     id: "s-001",
     name: "Chan Ho Yin",
     code: "1001",
-    grade: "P6",
+    grade: "P2",
     school: "PCMS",
     hwLoad: "Normal",
   },
@@ -13,7 +13,7 @@ export const students: Student[] = [
     id: "s-002",
     name: "Wong Mei Ling",
     code: "1002",
-    grade: "P4",
+    grade: "P2",
     school: "SPCS",
     hwLoad: "Many",
   },
@@ -33,14 +33,14 @@ export const students: Student[] = [
     school: "MCS",
     hwLoad: "Normal",
   },
-  // P3 pair in Mr Lawrence Lee's parallel Tuesday class, gives the weekly
+  // P1 pair in Mr Lawrence Lee's parallel Tuesday class, gives the weekly
   // view a concurrent meeting (different tutor, overlapping time) so the
   // time-grid's side-by-side overlap layout has real data to render.
   {
     id: "s-005",
     name: "Cheung Ka Ho",
     code: "1005",
-    grade: "P3",
+    grade: "P1",
     school: "SKH",
     hwLoad: "Normal",
   },
@@ -48,7 +48,7 @@ export const students: Student[] = [
     id: "s-006",
     name: "Lam Sze Wun",
     code: "1006",
-    grade: "P3",
+    grade: "P1",
     school: "MGS",
     hwLoad: "Many",
   },

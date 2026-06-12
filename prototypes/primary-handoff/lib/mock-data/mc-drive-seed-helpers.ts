@@ -90,8 +90,8 @@ function planFor(grade: string): StudentPlan {
 
 /** Grade each demo student is in. Drives every grade-matched seed below. */
 export const STUDENT_GRADES: Record<string, string> = {
-  "s-001": "P6",
-  "s-002": "P4",
+  "s-001": "P2",
+  "s-002": "P2",
   "s-003": "P2",
   "s-004": "P1",
 };
@@ -160,8 +160,8 @@ export const studentUnits: Record<string, PlanUnit[]> = Object.fromEntries(
  *  unit offsets) and the assignment seed (to layer history). */
 export type SeedPlan = { historyUnits: number; secondaryDone: number };
 export const SEED_PLAN: Record<string, SeedPlan> = {
-  "s-001": { historyUnits: 4, secondaryDone: 2 }, // P6, mid-semester
-  "s-002": { historyUnits: 7, secondaryDone: 2 }, // P4, heavy load, well ahead
+  "s-001": { historyUnits: 4, secondaryDone: 2 }, // P2, mid-semester
+  "s-002": { historyUnits: 7, secondaryDone: 2 }, // P2, heavy load, well ahead
   "s-003": { historyUnits: 0, secondaryDone: 0 }, // P2, just started
   "s-004": { historyUnits: 1, secondaryDone: 1 }, // P1, newer student
 };
