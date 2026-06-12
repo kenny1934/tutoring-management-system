@@ -1,11 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Archive, Library, CheckCircle2, Search, X } from "lucide-react";
+import { Archive, Library, CheckCircle2, Printer, Search, X } from "lucide-react";
 import type { Checktable, ChecktableItem } from "@/lib/types";
 import { usePrimaryStore, parsePageRange } from "@/lib/store/PrimaryStore";
+import { ChecktableGrid } from "@/components/checktable/ChecktableGrid";
+import type { GridSectionFilter } from "@/components/checktable/ChecktableGrid";
 import { ChecktableSyllabus } from "@/components/checktable/ChecktableSyllabus";
 import { CollapseAllControl } from "@/components/checktable/CollapseAllControl";
+import { SectionTabs } from "@/components/checktable/SectionTabs";
 import { useStuckBottom } from "@/components/checktable/useStickyOffset";
 import { useChapterCollapse } from "@/components/checktable/useChapterCollapse";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
@@ -25,6 +28,11 @@ function countItems(t: Checktable): number {
   }
   return n;
 }
+
+// Courseware has no student, so the plan grid renders every chip neutral:
+// stable empty maps keep the memoised section rows from re-rendering.
+const NO_STATUS: Record<string, null> = {};
+const NO_SELECTION = new Set<string>();
 
 /** Short pill label from a level's full label: "Math 1 to 6 Level 1" -> "Level 1",
  *  "First Step(Stage 1)" -> "Stage 1", "Little First Step / N1" -> "N1". */
@@ -79,9 +87,12 @@ export function CoursewareBrowser() {
     levels.find((t) => t.id === selectedId) ?? levels[0];
   const worksheetCount = useMemo(() => (table ? countItems(table) : 0), [table]);
 
+  // Section ids are book-specific, so a strand selection carried across a
+  // family/level switch would filter the new book to nothing.
   const pickFamily = (f: string) => {
     setFamily(f);
     setSearch("");
+    setGridSection("all");
     const first = families.find(([name]) => name === f)?.[1][0];
     if (first) setSelectedId(first.id);
   };
@@ -89,12 +100,17 @@ export function CoursewareBrowser() {
   const pickLevel = (id: string) => {
     setSelectedId(id);
     setSearch("");
+    setGridSection("all");
   };
 
   const [activeItem, setActiveItem] = useState<ChecktableItem | null>(null);
   const targets = useMemo(() => assignableSessions(), [assignableSessions]);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  // Same pairing as the student Curriculum tab: Syllabus is the reading view,
+  // Learning Plan is the dense printable matrix.
+  const [view, setView] = useState<"syllabus" | "plan">("syllabus");
+  const [gridSection, setGridSection] = useState<GridSectionFilter>("all");
 
   const collapse = useChapterCollapse(table);
   // Search + collapse control pin to the top; syllabus chapter headers park
@@ -281,9 +297,9 @@ export function CoursewareBrowser() {
 
           <div
             ref={toolbarRef}
-            className="sticky top-[52px] lg:top-0 z-20 -mx-4 flex flex-col gap-2 bg-ink-50 px-4 py-2 sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:-mx-8 lg:px-8"
+            className="sticky top-[52px] lg:top-0 z-20 -mx-4 flex flex-wrap items-center gap-2 bg-ink-50 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
           >
-            <div className="relative w-full max-w-md">
+            <div className="relative w-full sm:w-auto sm:max-w-md sm:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
               <input
                 type="text"
@@ -305,16 +321,95 @@ export function CoursewareBrowser() {
               )}
             </div>
 
-            <CollapseAllControl collapse={collapse} />
+            <div className="ml-auto flex items-center gap-2">
+              {/* Same pairing as the student Curriculum tab: Syllabus to read,
+                  Learning Plan to print and follow on paper. */}
+              <div
+                role="group"
+                aria-label="Switch view"
+                className="flex items-center rounded-md border border-ink-200 bg-white p-0.5 text-xs font-medium"
+              >
+                {(
+                  [
+                    ["syllabus", "Syllabus"],
+                    ["plan", "Learning Plan"],
+                  ] as const
+                ).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setView(v)}
+                    aria-pressed={view === v}
+                    className={`rounded px-2 py-0.5 transition-colors ${
+                      view === v
+                        ? "bg-ink-800 text-white"
+                        : "text-ink-600 hover:bg-ink-100"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {view === "plan" ? (
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  title="Print this learning plan so the tutor can follow it on paper"
+                  className="inline-flex items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-700 hover:bg-ink-100"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Print
+                </button>
+              ) : (
+                <CollapseAllControl collapse={collapse} size="sm" iconOnly />
+              )}
+            </div>
           </div>
 
-          <ChecktableSyllabus
-            table={filteredTable ?? table}
-            collapsed={collapse.collapsed}
-            onToggleChapter={collapse.toggle}
-            stickyTop={contentTop}
-            onItemClick={setActiveItem}
+          {/* Strand navigation, as on the student tab (renders nothing for
+              single-section books). */}
+          <SectionTabs
+            table={table}
+            value={gridSection}
+            onChange={setGridSection}
           />
+
+          {view === "plan" ? (
+            // The print stylesheet (globals.css) isolates .ct-plan-print when
+            // the tutor hits Print, so only this header + matrix land on paper.
+            <div className="ct-plan-print">
+              <div className="hidden print:block pb-3">
+                <div className="text-lg font-semibold text-ink-900">
+                  Learning Plan · {table.family} · {table.levelLabel}
+                </div>
+                <div className="text-sm text-ink-600">
+                  {table.grade} · {table.version} · Printed{" "}
+                  {new Date().toLocaleDateString("en-HK", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </div>
+              </div>
+              <ChecktableGrid
+                table={filteredTable ?? table}
+                statusByItemId={NO_STATUS}
+                selectedItemIds={NO_SELECTION}
+                sectionFilter={gridSection}
+                stickyTop={contentTop}
+                onItemClick={setActiveItem}
+              />
+            </div>
+          ) : (
+            <ChecktableSyllabus
+              table={filteredTable ?? table}
+              sectionFilter={gridSection}
+              collapsed={collapse.collapsed}
+              onToggleChapter={collapse.toggle}
+              stickyTop={contentTop}
+              onItemClick={setActiveItem}
+            />
+          )}
         </>
       ) : (
         <div className="surface px-4 py-10 text-center text-sm text-ink-500">
