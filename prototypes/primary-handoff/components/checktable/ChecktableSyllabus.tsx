@@ -9,6 +9,10 @@ import type {
   ExerciseKind,
 } from "@/lib/types";
 import { ItemChip } from "./ItemChip";
+import {
+  objectiveForItemCode,
+  setCodeFromItemCode,
+} from "@/lib/mock-data/courseware-objectives";
 import { itemMatchesStatus } from "./ChecktableGrid";
 import type { GridSectionFilter, GridStatusFilter } from "./ChecktableGrid";
 
@@ -103,20 +107,35 @@ export function ChecktableSyllabus({
             .map((ch) => {
               let done = 0;
               let assigned = 0;
-              const sets = table.series
-                .map((sr) => {
-                  const cell = ch.cells[sr.id];
-                  const items: ChecktableItem[] = [];
-                  for (const it of cell?.items ?? []) {
-                    const s = statusByItemId[it.id] ?? null;
-                    if (s === "done") done += 1;
-                    else if (s === "assigned") assigned += 1;
-                    if (itemMatchesStatus(it, statusByItemId, statusFilter))
-                      items.push(it);
-                  }
-                  return { series: sr, cell, items };
-                })
-                .filter((s) => s.items.length > 0);
+              const sets = table.series.flatMap((sr) => {
+                const cell = ch.cells[sr.id];
+                const visible: ChecktableItem[] = [];
+                for (const it of cell?.items ?? []) {
+                  const s = statusByItemId[it.id] ?? null;
+                  if (s === "done") done += 1;
+                  else if (s === "assigned") assigned += 1;
+                  if (itemMatchesStatus(it, statusByItemId, statusFilter))
+                    visible.push(it);
+                }
+                // One row per SET, not per cell: the merged PS series packs a
+                // chapter's PS.A/PS.B/... sets into a single cell, and each
+                // set carries its own objective.
+                const groups: { setCode: string; items: ChecktableItem[] }[] =
+                  [];
+                for (const it of visible) {
+                  const setCode = setCodeFromItemCode(it.code);
+                  const last = groups[groups.length - 1];
+                  if (last && last.setCode === setCode) last.items.push(it);
+                  else groups.push({ setCode, items: [it] });
+                }
+                return groups.map((g, i) => ({
+                  series: sr,
+                  setCode: g.setCode,
+                  objective: objectiveForItemCode(g.items[0].code),
+                  items: g.items,
+                  firstOfSeries: i === 0,
+                }));
+              });
               return sets.length > 0
                 ? { chapter: ch, sets, done, assigned }
                 : null;
@@ -221,37 +240,44 @@ export function ChecktableSyllabus({
                 </div>
                 {!isCollapsed && (
                   <div className="divide-y divide-ink-100">
-                    {sets.map(({ series, cell, items }) => (
-                      <div
-                        key={series.id}
-                        className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-4"
-                      >
-                        <div className="flex items-center gap-2 sm:w-24 sm:shrink-0">
-                          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-ink-800 text-xs font-semibold text-white">
-                            {series.label}
-                          </span>
-                          {series.hint && (
-                            <span className="text-xs text-ink-500">
-                              {series.hint}
+                    {sets.map(
+                      ({ series, setCode, objective, items, firstOfSeries }) => (
+                        <div
+                          key={`${series.id}/${setCode}`}
+                          className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-4"
+                        >
+                          {/* Badge + hint only on the series' first set row, so
+                           *  a multi-set series (PS) reads as one labelled block
+                           *  instead of repeating its badge down the column. */}
+                          <div className="flex items-center gap-2 sm:w-24 sm:shrink-0">
+                            <span
+                              className={`grid h-6 w-6 shrink-0 place-items-center rounded-md bg-ink-800 text-xs font-semibold text-white ${
+                                firstOfSeries ? "" : "invisible"
+                              }`}
+                            >
+                              {series.label}
                             </span>
-                          )}
+                            {firstOfSeries && series.hint && (
+                              <span className="text-xs text-ink-500">
+                                {series.hint}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1 text-sm">
+                            {objective ? (
+                              <span className="text-ink-700">{objective}</span>
+                            ) : (
+                              <span className="text-ink-400 italic">
+                                Objective not set yet
+                              </span>
+                            )}
+                          </div>
+                          <div className="sm:w-40 sm:shrink-0">
+                            {chips(items, objective)}
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1 text-sm">
-                          {cell?.objective ? (
-                            <span className="text-ink-700">
-                              {cell.objective}
-                            </span>
-                          ) : (
-                            <span className="text-ink-400 italic">
-                              Objective not set yet
-                            </span>
-                          )}
-                        </div>
-                        <div className="sm:w-40 sm:shrink-0">
-                          {chips(items, cell?.objective)}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                   </div>
                 )}
               </div>

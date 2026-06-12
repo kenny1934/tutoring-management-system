@@ -16,8 +16,6 @@
 //     FullList" PDFs (every NA/MG/ST/PS set code in both books).
 //   - SG Level 1: PLACEHOLDER samples only, pending the authored objectives.
 
-import type { Checktable } from "../types";
-
 export const coursewareObjectives: Record<string, string> = {
   // --- SG Level 1 (PLACEHOLDER — replace when authored) -------------------
   // Ch 1 — Numbers to 10
@@ -395,32 +393,10 @@ export function setCodeFromItemCode(code: string): string {
   return code.replace(/\d+$/, "");
 }
 
-/** Look up the objective for a single item via its set code. */
+/** Look up the objective for a single item via its set code. This is the only
+ *  resolution path: a cell can hold several sets (the merged PS series packs a
+ *  chapter's PS.A/PS.B/... sets into one cell), so objectives are always
+ *  derived per item, never stored per cell. */
 export function objectiveForItemCode(code: string): string | undefined {
   return coursewareObjectives[setCodeFromItemCode(code)];
-}
-
-/** Return a copy of the checktables with each cell's `objective` filled in from
- *  the overlay above, derived from the first item's set code. Cells without a
- *  matching entry (or with no items) are left untouched. */
-export function attachObjectives(tables: Checktable[]): Checktable[] {
-  const objFor = (cell: { items: { code: string }[] }) => {
-    const first = cell.items[0];
-    return first ? coursewareObjectives[setCodeFromItemCode(first.code)] : undefined;
-  };
-  return tables.map((t) => ({
-    ...t,
-    sections: t.sections.map((sec) => ({
-      ...sec,
-      chapters: sec.chapters.map((ch) => {
-        const cells: typeof ch.cells = {};
-        for (const sId of Object.keys(ch.cells)) {
-          const cell = ch.cells[sId];
-          const objective = objFor(cell);
-          cells[sId] = objective ? { ...cell, objective } : cell;
-        }
-        return { ...ch, cells };
-      }),
-    })),
-  }));
 }

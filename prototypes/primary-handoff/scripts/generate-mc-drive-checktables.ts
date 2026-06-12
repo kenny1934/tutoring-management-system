@@ -47,10 +47,10 @@ const BRANCH_META: Record<string, { family: string; order: number }> = {
 
 const STRAND_LABEL: Record<string, string> = {
   MG: "Measurement and Geometry",
-  NA: "Number & Algebra",
+  NA: "Number and Algebra",
   PS: "Problem Solving",
   ST: "Statistics",
-  "PS.NA": "Problem Solving · Number & Algebra",
+  "PS.NA": "Problem Solving · Number and Algebra",
   "PS.MG": "Problem Solving · Measurement and Geometry",
   "PS.ST": "Problem Solving · Statistics",
 };
@@ -292,8 +292,10 @@ function buildChecktable(
       hint: s === "R" ? "Revision" : s === "PS" ? "Problem Solving" : undefined,
     }));
 
-  // CA sections in strand order; otherwise a single "main" section.
-  const STRAND_ORDER = ["MG", "NA", "PS", "ST"];
+  // CA sections in strand order (matching the Learning Plan PDFs: Number and
+  // Algebra, then Measurement and Geometry, then Statistics); otherwise a
+  // single "main" section.
+  const STRAND_ORDER = ["NA", "MG", "ST"];
   const sectionKeys = [...sections.keys()].sort((a, b) => {
     const ia = STRAND_ORDER.indexOf(a);
     const ib = STRAND_ORDER.indexOf(b);

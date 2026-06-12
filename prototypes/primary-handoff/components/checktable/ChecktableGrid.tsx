@@ -8,6 +8,7 @@ import type {
   ExerciseKind,
 } from "@/lib/types";
 import { ItemChip } from "./ItemChip";
+import { objectiveForItemCode } from "@/lib/mock-data/courseware-objectives";
 
 export type GridStatusFilter = "all" | "pending" | "untouched";
 export type GridSectionFilter = "all" | "supp" | string;
@@ -294,7 +295,7 @@ const SectionRows = memo(function SectionRows({
                         status={statusByItemId[item.id] ?? null}
                         kind={kindByItemId?.[item.id]}
                         tutorNote={noteByItemId?.[item.id]}
-                        objective={cell?.objective}
+                        objective={objectiveForItemCode(item.code)}
                         isSelected={selectedItemIds.has(item.id)}
                         onItemClick={onItemClick}
                       />

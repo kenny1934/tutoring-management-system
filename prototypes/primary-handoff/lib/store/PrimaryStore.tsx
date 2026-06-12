@@ -35,7 +35,6 @@ import { generateSessions } from "@/lib/enrollment-utils";
 import { bookGrade } from "@/lib/grade";
 import { students as seedStudents } from "@/lib/mock-data/students";
 import { mcDriveChecktables } from "@/lib/mock-data/mc-drive-checktables";
-import { attachObjectives } from "@/lib/mock-data/courseware-objectives";
 import {
   assignableUnits,
   CA_FAMILY,
@@ -344,7 +343,7 @@ export function PrimaryStoreProvider({ children }: { children: ReactNode }) {
   // (kept in the store so seeded assignments/history still resolve, but hidden
   // from the book switcher and tucked away on the Courseware page).
   const [checktables] = useState<Checktable[]>(() =>
-    attachObjectives(mcDriveChecktables).map((t) =>
+    mcDriveChecktables.map((t) =>
       t.family === CA_FAMILY ? t : { ...t, archived: true }
     )
   );
