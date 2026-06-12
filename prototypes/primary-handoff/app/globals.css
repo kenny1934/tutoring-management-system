@@ -194,10 +194,13 @@ body {
   .ct-plan-print table {
     font-size: 10px;
   }
+  /* position: static also unfreezes the sticky #/Chapter columns — on paper
+   * there is no horizontal scroll for them to pin against. */
   .ct-plan-print th,
   .ct-plan-print td {
     min-width: 0 !important;
     padding: 3px 4px !important;
+    position: static !important;
   }
   .ct-plan-print .chip {
     font-size: 9px;

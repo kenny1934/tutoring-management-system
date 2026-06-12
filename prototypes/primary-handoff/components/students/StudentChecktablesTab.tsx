@@ -122,7 +122,14 @@ export function StudentChecktablesTab() {
     // modal. Capping the list keeps rows at a comfortable reading width so the
     // chips don't strand ~460px from their objective text.
     <div className="xl:flex xl:items-start xl:gap-6">
-      <div className="space-y-3 max-w-3xl xl:flex-[2] xl:min-w-0">
+      {/* The 3xl cap keeps syllabus rows at a comfortable reading width, but
+          the Learning Plan is a wide matrix — give it the full column so
+          fewer series end up behind the horizontal scroll. */}
+      <div
+        className={`space-y-3 xl:flex-[2] xl:min-w-0 ${
+          view === "plan" ? "" : "max-w-3xl"
+        }`}
+      >
       {/* Single sticky controls strip: the book switcher doubles as the title
           and the chip legend is on-demand, so this one band replaces the old
           title + legend + two-row toolbar stack. */}

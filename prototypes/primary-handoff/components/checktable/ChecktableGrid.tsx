@@ -187,19 +187,31 @@ export function ChecktableGrid({
               : undefined
           }
         >
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-ink-100 text-ink-700 sticky top-0 z-10">
+          {/* border-separate (not collapse): collapsed borders don't travel
+              with position:sticky cells, so the frozen #/Chapter columns and
+              the pinned header would scroll out of their borders. Every border
+              here is one-sided (border-r/border-b), so nothing double-paints. */}
+          <table className="w-full text-sm border-separate border-spacing-0">
+            <thead className="bg-ink-100 text-ink-700 sticky top-0 z-20">
               <tr>
-                <th className="border-r border-ink-200 px-2 py-2 text-left font-medium w-10">
+                {/* #/Chapter freeze against horizontal scroll so the topic
+                    stays readable while panning across a 15-column book.
+                    Sticky cells need their own opaque bg; the chapter offset
+                    (left-10) matches the # column width. min-w matters: under
+                    min-width pressure from the series columns, auto table
+                    layout shrinks a plain w-10 below 40px, opening a seam at
+                    the chapter cell's pinned offset for scrolled chips to
+                    peek through. */}
+                <th className="sticky left-0 z-10 w-10 min-w-10 border-r border-b border-ink-200 bg-ink-100 px-2 py-2 text-left font-medium">
                   #
                 </th>
-                <th className="border-r border-ink-200 px-3 py-2 text-left font-medium min-w-[180px]">
+                <th className="sticky left-10 z-10 min-w-[140px] border-r border-b border-ink-200 bg-ink-100 px-3 py-2 text-left font-medium sm:min-w-[180px]">
                   Chapter
                 </th>
                 {table.series.map((s) => (
                   <th
                     key={s.id}
-                    className="border-r border-ink-200 px-3 py-2 text-left font-medium last:border-r-0 min-w-[140px]"
+                    className="border-r border-b border-ink-200 px-3 py-2 text-left font-medium last:border-r-0 min-w-[120px] sm:min-w-[140px]"
                     title={s.hint}
                   >
                     <div>{s.label}</div>
@@ -318,9 +330,11 @@ const SectionRows = memo(function SectionRows({
       <tr className="bg-ink-50">
         <td
           colSpan={2 + table.series.length}
-          className="px-3 py-1.5 text-xs uppercase tracking-wide text-ink-500 font-medium border-y border-ink-200"
+          className="px-3 py-1.5 text-xs uppercase tracking-wide text-ink-500 font-medium border-b border-ink-200"
         >
-          {section.label}
+          {/* The cell spans the full (overflowing) table width, so the label
+              itself pins to the scrollport's left edge to stay readable. */}
+          <span className="sticky left-3 inline-block">{section.label}</span>
         </td>
       </tr>
       {visibleChapters.map((ch) => (
@@ -379,12 +393,15 @@ const ChapterRow = memo(function ChapterRow({
   statusFilter: GridStatusFilter;
   onItemClick: (item: ChecktableItem) => void;
 }) {
+  // Row borders live on the cells (tr borders don't render with
+  // border-separate); the frozen cells repeat the row hover via group-hover
+  // because their opaque background would otherwise mask the tr tint.
   return (
-    <tr className="hover:bg-ink-50/50 border-b border-ink-100 last:border-b-0">
-      <td className="border-r border-ink-100 px-2 py-2 text-center text-ink-500 align-top">
+    <tr className="group hover:bg-ink-50/50">
+      <td className="sticky left-0 z-10 border-r border-b border-ink-100 bg-white px-2 py-2 text-center text-ink-500 align-top group-last:border-b-0 group-hover:bg-ink-50">
         {step}
       </td>
-      <td className="border-r border-ink-100 px-3 py-2 text-ink-800 align-top">
+      <td className="sticky left-10 z-10 border-r border-b border-ink-100 bg-white px-3 py-2 text-ink-800 align-top group-last:border-b-0 group-hover:bg-ink-50">
         {ch.title}
         {strand && (
           <span
@@ -410,7 +427,7 @@ const ChapterRow = memo(function ChapterRow({
         return (
           <td
             key={s.id}
-            className="border-r border-ink-100 px-2 py-2 last:border-r-0 align-top"
+            className="border-r border-b border-ink-100 px-2 py-2 last:border-r-0 align-top group-last:border-b-0"
           >
             {visibleItems.length > 0 ? (
               <div className="flex flex-wrap gap-1">
