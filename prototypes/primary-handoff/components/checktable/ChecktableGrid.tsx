@@ -4,11 +4,16 @@ import { memo, useMemo } from "react";
 import type {
   AssignmentStatus,
   Checktable,
+  ChecktableChapter,
   ChecktableItem,
   ExerciseKind,
 } from "@/lib/types";
 import { ItemChip } from "./ItemChip";
 import { objectiveForItemCode } from "@/lib/mock-data/courseware-objectives";
+import {
+  journeyForTable,
+  topicPrefixForChapter,
+} from "@/lib/mock-data/ca-journey";
 
 export type GridStatusFilter = "all" | "pending" | "untouched";
 export type GridSectionFilter = "all" | "supp" | string;
@@ -106,6 +111,48 @@ export function ChecktableGrid({
     [showSupplementary, table.supplementary, statusByItemId, statusFilter]
   );
 
+  // Books with a learning journey (the CA line) render as one continuous
+  // topic sequence instead of strand-grouped blocks: the journey interleaves
+  // strands deliberately (shapes after the first add/sub arc, length after
+  // subtraction within 20, ...), so grouping by strand would misread as "finish
+  // all of Number and Algebra first". Step numbers index into the full journey,
+  // so they stay stable under strand/search/status filtering; each row carries
+  // its strand as a tag since the strand header rows are gone.
+  const journey = useMemo(() => journeyForTable(table), [table]);
+  const journeyRows = useMemo(() => {
+    if (!journey) return undefined;
+    const rows: {
+      chapter: ChecktableChapter;
+      strand: { id: string; label: string };
+      pos: number;
+    }[] = [];
+    for (const sec of visibleSections) {
+      for (const ch of sec.chapters) {
+        const visible = table.series.some((s) =>
+          (ch.cells[s.id]?.items ?? []).some((it) =>
+            itemMatchesStatus(it, statusByItemId, statusFilter)
+          )
+        );
+        if (!visible) continue;
+        const prefix = topicPrefixForChapter(ch);
+        const pos = prefix ? journey.indexOf(prefix) : -1;
+        rows.push({
+          chapter: ch,
+          strand: { id: sec.id, label: sec.label },
+          pos,
+        });
+      }
+    }
+    // Unknown topics (not in the journey) sink to the end in source order.
+    rows.sort(
+      (a, b) => (a.pos === -1 ? 9999 : a.pos) - (b.pos === -1 ? 9999 : b.pos)
+    );
+    return rows.map((r) => ({
+      ...r,
+      step: r.pos === -1 ? r.chapter.number : r.pos + 1,
+    }));
+  }, [journey, visibleSections, table.series, statusByItemId, statusFilter]);
+
   // Nested walk over every cell; memoise so unrelated re-renders (sticky-offset
   // measurement, parent state) don't re-scan the whole table.
   const hasAnyRows = useMemo(
@@ -166,19 +213,35 @@ export function ChecktableGrid({
               </tr>
             </thead>
             <tbody>
-              {visibleSections.map((section) => (
-                <SectionRows
-                  key={section.id}
-                  table={table}
-                  section={section}
-                  statusByItemId={statusByItemId}
-                  kindByItemId={kindByItemId}
-                  noteByItemId={noteByItemId}
-                  selectedItemIds={selectedItemIds}
-                  statusFilter={statusFilter}
-                  onItemClick={onItemClick}
-                />
-              ))}
+              {journeyRows
+                ? journeyRows.map((r) => (
+                    <ChapterRow
+                      key={r.chapter.id}
+                      table={table}
+                      chapter={r.chapter}
+                      step={r.step}
+                      strand={r.strand}
+                      statusByItemId={statusByItemId}
+                      kindByItemId={kindByItemId}
+                      noteByItemId={noteByItemId}
+                      selectedItemIds={selectedItemIds}
+                      statusFilter={statusFilter}
+                      onItemClick={onItemClick}
+                    />
+                  ))
+                : visibleSections.map((section) => (
+                    <SectionRows
+                      key={section.id}
+                      table={table}
+                      section={section}
+                      statusByItemId={statusByItemId}
+                      kindByItemId={kindByItemId}
+                      noteByItemId={noteByItemId}
+                      selectedItemIds={selectedItemIds}
+                      statusFilter={statusFilter}
+                      onItemClick={onItemClick}
+                    />
+                  ))}
             </tbody>
           </table>
         </div>
@@ -261,54 +324,115 @@ const SectionRows = memo(function SectionRows({
         </td>
       </tr>
       {visibleChapters.map((ch) => (
-        <tr
+        <ChapterRow
           key={ch.id}
-          className="hover:bg-ink-50/50 border-b border-ink-100 last:border-b-0"
-        >
-          <td className="border-r border-ink-100 px-2 py-2 text-center text-ink-500 align-top">
-            {ch.number}
-          </td>
-          <td className="border-r border-ink-100 px-3 py-2 text-ink-800 align-top">
-            {ch.title}
-          </td>
-          {table.series.map((s) => {
-            const cell = ch.cells[s.id];
-            // Apply the status filter at the chip level too, earlier
-            // versions only filtered chapter rows, so "Untouched" still
-            // surfaced done/assigned chips inside visible rows.
-            const visibleItems = cell
-              ? cell.items.filter((it) =>
-                  itemMatchesStatus(it, statusByItemId, statusFilter)
-                )
-              : [];
-            return (
-              <td
-                key={s.id}
-                className="border-r border-ink-100 px-2 py-2 last:border-r-0 align-top"
-              >
-                {visibleItems.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {visibleItems.map((item) => (
-                      <ItemChip
-                        key={item.id}
-                        item={item}
-                        status={statusByItemId[item.id] ?? null}
-                        kind={kindByItemId?.[item.id]}
-                        tutorNote={noteByItemId?.[item.id]}
-                        objective={objectiveForItemCode(item.code)}
-                        isSelected={selectedItemIds.has(item.id)}
-                        onItemClick={onItemClick}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-ink-300 text-xs">·</span>
-                )}
-              </td>
-            );
-          })}
-        </tr>
+          table={table}
+          chapter={ch}
+          step={ch.number}
+          statusByItemId={statusByItemId}
+          kindByItemId={kindByItemId}
+          noteByItemId={noteByItemId}
+          selectedItemIds={selectedItemIds}
+          statusFilter={statusFilter}
+          onItemClick={onItemClick}
+        />
       ))}
     </>
+  );
+});
+
+// Journey-mode strand tags: only the minority strands get a tint so the MG/ST
+// interruptions pop against the (untagged-colour) NA spine — colouring every
+// row would just be noise, and saturated tags would compete with the amber
+// assigned / green done chip colours that carry workflow meaning. The mc
+// palette has no dark peach/yellow text shades, so the tints pair with dark
+// stock text colours, same as the amber "Assigned" badge does.
+const STRAND_TAG_CLASS: Record<string, string> = {
+  MG: "bg-mc-peach-100 text-orange-800",
+  ST: "bg-mc-yellow-100 text-yellow-800",
+};
+
+// One chapter (topic) row: shared between the strand-sectioned layout (step =
+// chapter number within the strand) and the journey layout (step = position in
+// the learning journey, plus a strand tag standing in for the removed strand
+// header rows).
+const ChapterRow = memo(function ChapterRow({
+  table,
+  chapter: ch,
+  step,
+  strand,
+  statusByItemId,
+  kindByItemId,
+  noteByItemId,
+  selectedItemIds,
+  statusFilter,
+  onItemClick,
+}: {
+  table: Checktable;
+  chapter: ChecktableChapter;
+  step: number;
+  strand?: { id: string; label: string };
+  statusByItemId: Record<string, AssignmentStatus | null>;
+  kindByItemId?: Record<string, ExerciseKind | undefined>;
+  noteByItemId?: Record<string, string | undefined>;
+  selectedItemIds: Set<string>;
+  statusFilter: GridStatusFilter;
+  onItemClick: (item: ChecktableItem) => void;
+}) {
+  return (
+    <tr className="hover:bg-ink-50/50 border-b border-ink-100 last:border-b-0">
+      <td className="border-r border-ink-100 px-2 py-2 text-center text-ink-500 align-top">
+        {step}
+      </td>
+      <td className="border-r border-ink-100 px-3 py-2 text-ink-800 align-top">
+        {ch.title}
+        {strand && (
+          <span
+            title={strand.label}
+            className={`ml-1.5 inline-block rounded px-1 py-px align-middle text-[10px] font-medium ${
+              STRAND_TAG_CLASS[strand.id] ?? "bg-ink-100 text-ink-500"
+            }`}
+          >
+            {strand.id}
+          </span>
+        )}
+      </td>
+      {table.series.map((s) => {
+        const cell = ch.cells[s.id];
+        // Apply the status filter at the chip level too, earlier
+        // versions only filtered chapter rows, so "Untouched" still
+        // surfaced done/assigned chips inside visible rows.
+        const visibleItems = cell
+          ? cell.items.filter((it) =>
+              itemMatchesStatus(it, statusByItemId, statusFilter)
+            )
+          : [];
+        return (
+          <td
+            key={s.id}
+            className="border-r border-ink-100 px-2 py-2 last:border-r-0 align-top"
+          >
+            {visibleItems.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {visibleItems.map((item) => (
+                  <ItemChip
+                    key={item.id}
+                    item={item}
+                    status={statusByItemId[item.id] ?? null}
+                    kind={kindByItemId?.[item.id]}
+                    tutorNote={noteByItemId?.[item.id]}
+                    objective={objectiveForItemCode(item.code)}
+                    isSelected={selectedItemIds.has(item.id)}
+                    onItemClick={onItemClick}
+                  />
+                ))}
+              </div>
+            ) : (
+              <span className="text-ink-300 text-xs">·</span>
+            )}
+          </td>
+        );
+      })}
+    </tr>
   );
 });
