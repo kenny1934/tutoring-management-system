@@ -244,6 +244,9 @@ class EnrollmentUpdate(BaseModel):
     fee_message_sent: Optional[bool] = None
     discount_id: Optional[int] = Field(None, gt=0)
     is_new_student: Optional[bool] = None
+    # Transient confirm flag (not a column): set when recording a Summer payment
+    # on/after a tier deadline that would strip the discount, to proceed anyway.
+    acknowledge_discount_loss: bool = False
 
 
 class EnrollmentExtensionUpdate(BaseModel):
@@ -1391,12 +1394,40 @@ class MarkAllReadResponse(BaseModel):
 class BatchEnrollmentRequest(BaseModel):
     """Request for batch enrollment operations"""
     enrollment_ids: List[int] = Field(..., min_length=1, max_length=100)
+    # Confirm "record paid today, drop the discount" for Summer rows whose
+    # early-bird tier would be stripped by marking them paid after the deadline.
+    acknowledge_discount_loss: bool = False
+
+
+class EarlyBirdLossDetail(BaseModel):
+    """The early-bird discount a late payment would forfeit (mirrors the
+    frontend `EarlyBirdDeadlineDetail`)."""
+    code: str
+    message: str
+    tier_code: str
+    tier_name_en: Optional[str] = None
+    tier_name_zh: Optional[str] = None
+    deadline: Optional[str] = None
+    amount_at_risk: int
+    full_fee: int
+    discounted_fee: int
+
+
+class EarlyBirdBlockedEnrollment(BaseModel):
+    """A Summer enrolment a batch mark-paid skipped because doing so today would
+    strip its early-bird discount."""
+    enrollment_id: int
+    student_name: str
+    detail: EarlyBirdLossDetail
 
 
 class BatchOperationResponse(BaseModel):
     """Response for batch operations"""
     updated: List[int] = Field(default_factory=list, description="IDs of updated enrollments")
     count: int = Field(default=0, ge=0, description="Number of enrollments updated")
+    # Summer rows skipped because marking them paid today would drop an early-bird
+    # discount; the caller resends with acknowledge_discount_loss to proceed.
+    early_bird_blocked: List[EarlyBirdBlockedEnrollment] = Field(default_factory=list)
 
 
 class EligibilityResult(BaseModel):

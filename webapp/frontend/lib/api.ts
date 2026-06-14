@@ -562,7 +562,7 @@ export const enrollmentsAPI = {
     return fetchAPI<Enrollment>(`/enrollments/${id}`);
   },
 
-  update: (id: number, data: Partial<Enrollment>) => {
+  update: (id: number, data: Partial<Enrollment> & { acknowledge_discount_loss?: boolean }) => {
     return fetchAPI<Enrollment>(`/enrollments/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -643,10 +643,13 @@ export const enrollmentsAPI = {
     return fetchAPI<FeeMessageResponse>(`/enrollments/${id}/fee-message?${params}`);
   },
 
-  batchMarkPaid: (enrollmentIds: number[]) => {
+  batchMarkPaid: (enrollmentIds: number[], opts?: { acknowledgeDiscountLoss?: boolean }) => {
     return fetchAPI<BatchUpdateResponse>("/enrollments/batch-mark-paid", {
       method: "POST",
-      body: JSON.stringify({ enrollment_ids: enrollmentIds }),
+      body: JSON.stringify({
+        enrollment_ids: enrollmentIds,
+        acknowledge_discount_loss: opts?.acknowledgeDiscountLoss ?? false,
+      }),
     });
   },
 

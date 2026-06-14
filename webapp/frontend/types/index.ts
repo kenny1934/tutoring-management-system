@@ -1223,9 +1223,31 @@ export interface CountResponse {
 }
 
 /** Batch update response for mark-paid/mark-sent operations */
+/** The early-bird discount a late payment would forfeit. Mirrors the backend
+ *  409 detail / batch blocked-item payload; the dialog component reads this. */
+export interface EarlyBirdDeadlineDetail {
+  code: string; // "early_bird_deadline_passed"
+  message: string;
+  tier_code: string;
+  tier_name_en: string | null;
+  tier_name_zh: string | null;
+  deadline: string | null; // YYYY-MM-DD
+  amount_at_risk: number;
+  full_fee: number;
+  discounted_fee: number;
+}
+
+/** A Summer enrolment a batch mark-paid skipped to avoid stripping its discount. */
+export interface EarlyBirdBlockedEnrollment {
+  enrollment_id: number;
+  student_name: string;
+  detail: EarlyBirdDeadlineDetail;
+}
+
 export interface BatchUpdateResponse {
   updated: number[];
   count: number;
+  early_bird_blocked?: EarlyBirdBlockedEnrollment[];
 }
 
 /** Response for calendar sync operations */

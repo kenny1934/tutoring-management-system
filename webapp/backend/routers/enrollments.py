@@ -1917,6 +1917,8 @@ async def update_enrollment(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     update_data = enrollment_update.model_dump(exclude_unset=True)
+    # Transient confirm flag — never a column, so pop before the setattr loop.
+    acknowledge_discount_loss = bool(update_data.pop("acknowledge_discount_loss", False))
 
     # Discounts require a minimum lesson count. Evaluate the resulting state so
     # this catches both adding a discount and shrinking lessons below the floor.
@@ -1943,12 +1945,44 @@ async def update_enrollment(
 
     prev_payment_date = enrollment.payment_date
 
+    # Early-bird guard (before mutating): recording a Summer payment on/after a
+    # tier deadline would strip a discount the family could keep by being
+    # recorded as paid on time. Work out the date this request would land on
+    # (an explicit payment_date wins; otherwise marking paid defaults to today),
+    # and block if that date drops a tier. Admin resends with the real date, or
+    # with acknowledge_discount_loss=true.
+    if (
+        enrollment.enrollment_type == "Summer"
+        and enrollment.summer_application_id is not None
+        and not acknowledge_discount_loss
+    ):
+        if "payment_date" in update_data:
+            candidate_date = update_data["payment_date"]
+        elif updating_to_paid:
+            candidate_date = hk_now().date()
+        else:
+            candidate_date = prev_payment_date
+        if candidate_date is not None and candidate_date != prev_payment_date:
+            app = (
+                db.query(SummerApplication)
+                .filter(SummerApplication.id == enrollment.summer_application_id)
+                .first()
+            )
+            if app is not None:
+                from utils.summer_discounts import early_bird_loss_on_paid_date
+                loss = early_bird_loss_on_paid_date(db, app, candidate_date)
+                if loss is not None:
+                    raise HTTPException(status_code=409, detail=loss)
+
     for field, value in update_data.items():
         setattr(enrollment, field, value)
 
-    # If marking enrollment as paid, update all sessions' financial_status to Paid
+    # If marking enrollment as paid, default the payment date to today — unless
+    # the request supplied one explicitly (e.g. backdating to the real receipt
+    # date to keep an early-bird tier), which the setattr loop already applied.
     if updating_to_paid:
-        enrollment.payment_date = hk_now().date()
+        if "payment_date" not in update_data:
+            enrollment.payment_date = hk_now().date()
         db.query(SessionLog).filter(
             SessionLog.enrollment_id == enrollment_id
         ).update({'financial_status': 'Paid'})
@@ -2587,13 +2621,18 @@ async def batch_mark_paid(
     current_user: Tutor = Depends(require_admin_write)
 ):
     """
-    Mark multiple enrollments as paid.
-    Also updates all associated sessions' financial_status to 'Paid'.
-    Admin only.
+    Mark multiple enrollments as paid (payment date = today).
+
+    Also updates associated sessions' financial_status to 'Paid' and, for Summer
+    rows, syncs the application's paid_at and re-snaps the locked discount tier
+    (matching the single-enrolment path). Summer rows whose early-bird tier would
+    be stripped by paying today are skipped and returned in `early_bird_blocked`,
+    unless the caller sets acknowledge_discount_loss. Admin only.
     """
-    # Batch load all enrollments with discounts in one query
+    # Batch load all enrollments with discounts + students in one query
     enrollments = db.query(Enrollment).options(
-        joinedload(Enrollment.discount)
+        joinedload(Enrollment.discount),
+        joinedload(Enrollment.student),
     ).filter(
         Enrollment.id.in_(request.enrollment_ids),
         Enrollment.payment_status != 'Paid',
@@ -2604,16 +2643,50 @@ async def batch_mark_paid(
 
     now = hk_now()
     today = hk_now().date()
-    eids = [e.id for e in enrollments]
 
-    # Batch update all sessions' financial_status in one query
-    db.query(SessionLog).filter(
-        SessionLog.enrollment_id.in_(eids)
-    ).update({'financial_status': 'Paid'}, synchronize_session=False)
+    # Load linked Summer applications (with config) to guard + resnap their tier.
+    from utils.summer_discounts import early_bird_loss_on_paid_date, resnap_enrollment_tier
+    summer_app_ids = {
+        e.summer_application_id for e in enrollments
+        if e.enrollment_type == "Summer" and e.summer_application_id is not None
+    }
+    apps_by_id = {}
+    if summer_app_ids:
+        apps_by_id = {
+            a.id: a for a in (
+                db.query(SummerApplication)
+                .options(joinedload(SummerApplication.config))
+                .filter(SummerApplication.id.in_(summer_app_ids))
+                .all()
+            )
+        }
+
+    # Partition into payable vs early-bird-blocked. A Summer row is blocked when
+    # marking it paid today would drop its tier and the caller hasn't confirmed.
+    blocked = []
+    payable = []
+    for e in enrollments:
+        app = apps_by_id.get(e.summer_application_id) if e.enrollment_type == "Summer" else None
+        if app is not None and not request.acknowledge_discount_loss:
+            loss = early_bird_loss_on_paid_date(db, app, today)
+            if loss is not None:
+                blocked.append({
+                    "enrollment_id": e.id,
+                    "student_name": e.student.student_name if e.student else "",
+                    "detail": loss,
+                })
+                continue
+        payable.append((e, app))
+
+    eids = [e.id for e, _ in payable]
+    if eids:
+        db.query(SessionLog).filter(
+            SessionLog.enrollment_id.in_(eids)
+        ).update({'financial_status': 'Paid'}, synchronize_session=False)
 
     # Batch load coupons for students that used coupon discounts
     coupon_student_ids = [
-        e.student_id for e in enrollments
+        e.student_id for e, _ in payable
         if (e.discount and e.discount.discount_value and
             int(e.discount.discount_value) in (200, 300))
     ]
@@ -2625,7 +2698,7 @@ async def batch_mark_paid(
         coupon_map = {c.student_id: c for c in coupons}
 
     updated = []
-    for enrollment in enrollments:
+    for enrollment, app in payable:
         enrollment.payment_status = 'Paid'
         enrollment.payment_date = today
         enrollment.last_modified_time = now
@@ -2635,10 +2708,16 @@ async def batch_mark_paid(
             coupon = coupon_map[enrollment.student_id]
             if coupon.available_coupons and coupon.available_coupons > 0:
                 coupon.available_coupons -= 1
+        # Summer: sync paid_at to the payment date and resnap the locked tier.
+        if app is not None:
+            app.paid_at = datetime.combine(today, datetime.min.time())
+            resnap_enrollment_tier(db, app, today=today)
         updated.append(enrollment.id)
 
     db.commit()
-    return BatchOperationResponse(updated=updated, count=len(updated))
+    return BatchOperationResponse(
+        updated=updated, count=len(updated), early_bird_blocked=blocked,
+    )
 
 
 @router.post("/enrollments/batch-mark-sent", response_model=BatchOperationResponse)

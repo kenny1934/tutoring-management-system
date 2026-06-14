@@ -132,6 +132,18 @@ class TestEarlyBirdLossGuard:
         # on date grounds — guard must stay silent.
         assert self._loss(make_app(paid_at=None), date(2026, 6, 16), discounts=(EB3P, P3)) is None
 
+    def test_ignores_existing_paid_at(self):
+        # Correcting the recorded date on an already-paid app must evaluate the
+        # new candidate date, not the stale paid_at on the row.
+        app = make_app(paid_at=datetime(2026, 6, 10))  # originally recorded on time
+        # Re-recording as paid after the deadline still reports the EB loss...
+        loss = self._loss(app, date(2026, 6, 16))
+        assert loss is not None and loss.tier.code == "EB"
+        # ...and moving it back to an on-time date reports nothing.
+        assert self._loss(app, date(2026, 6, 14)) is None
+        # The app's paid_at is left untouched by the check.
+        assert app.paid_at == datetime(2026, 6, 10)
+
 
 # ---------------------------------------------------------------------------
 # Solo Early Bird — payment-aware deadline check

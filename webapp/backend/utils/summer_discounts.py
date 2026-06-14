@@ -220,17 +220,25 @@ def early_bird_loss_if_paid_today(
     config: SummerCourseConfig,
     today: date,
 ) -> Optional[EarlyBirdLoss]:
-    """Discount forfeited by stamping paid_at=today on an as-yet-unpaid app.
+    """Discount forfeited by recording this applicant as paid on `today`.
 
-    Compares the tier the app gets recorded-as-paid-today (`current`, where
-    effective_date == today since paid_at is still None) against the tier it
-    would keep if recorded as paid on/before the deadline (`ontime`, where a
+    Compares the tier they'd get paid on `today` (`current`) against the tier
+    they'd keep if recorded as paid on/before the deadline (`ontime`, where a
     floor date trivially beats every `before_date`). Returns None when nothing
     would be lost — before any deadline, partial plans, or apps that don't
     qualify for a date-gated tier on non-date grounds (group size, etc).
+
+    Evaluated purely on `today`, ignoring any `paid_at` already on the app, so
+    it also answers "would changing the recorded date to `today` strip a tier?"
+    for an already-paid enrolment.
     """
-    current = compute_best_discount(app, group_apps, siblings, config, today=today)
-    ontime = compute_best_discount(app, group_apps, siblings, config, today=date.min)
+    saved_paid_at = app.paid_at
+    try:
+        app.paid_at = None  # let `today` drive the effective date in both calls
+        current = compute_best_discount(app, group_apps, siblings, config, today=today)
+        ontime = compute_best_discount(app, group_apps, siblings, config, today=date.min)
+    finally:
+        app.paid_at = saved_paid_at
     if not ontime.best or ontime.amount <= current.amount:
         return None
     return EarlyBirdLoss(
@@ -239,6 +247,41 @@ def early_bird_loss_if_paid_today(
         full_fee=current.final_fee,
         discounted_fee=ontime.final_fee,
     )
+
+
+def early_bird_loss_payload(loss: EarlyBirdLoss) -> dict:
+    """Shape an EarlyBirdLoss into the shared 409 / blocked-item payload (the
+    `EarlyBirdDeadlineDetail` the frontend dialog reads)."""
+    tier_label = loss.tier.name_en or loss.tier.code
+    return {
+        "code": "early_bird_deadline_passed",
+        "message": (
+            f"Recording payment on this date removes the {tier_label} discount "
+            f"(${loss.amount_at_risk} more to pay)."
+        ),
+        "tier_code": loss.tier.code,
+        "tier_name_en": loss.tier.name_en,
+        "tier_name_zh": loss.tier.name_zh,
+        "deadline": loss.tier.before_date.isoformat() if loss.tier.before_date else None,
+        "amount_at_risk": loss.amount_at_risk,
+        "full_fee": loss.full_fee,
+        "discounted_fee": loss.discounted_fee,
+    }
+
+
+def early_bird_loss_on_paid_date(db, app: SummerApplication, when: date) -> Optional[dict]:
+    """Loss payload (or None) if `app` were recorded as paid on `when`.
+
+    Loads the app's discount context (config + buddy group) and delegates to the
+    pure comparison. Shared by the application status→Paid guard and the
+    enrolment payment_date guards so the 409 shape lives in one place.
+    """
+    config = app.config
+    if config is None:
+        return None
+    group_apps, siblings = load_group_context(db, app)
+    loss = early_bird_loss_if_paid_today(app, group_apps, siblings, config, when)
+    return early_bird_loss_payload(loss) if loss else None
 
 
 def load_group_context(

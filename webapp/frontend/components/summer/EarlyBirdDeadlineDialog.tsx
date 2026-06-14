@@ -5,22 +5,11 @@ import { AlertTriangle, CalendarClock, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { ApiError } from "@/lib/api";
 import { formatHKDate } from "@/lib/summer-utils";
+import type { EarlyBirdDeadlineDetail } from "@/types";
 
-// Structured payload from the backend 409 when marking an application
-// Paid/Enrolled after an early-bird deadline would strip a discount the parent
-// could keep by being recorded as paid on/before the deadline. Mirrors
-// `_early_bird_loss_on_stamp` in routers/summer_course.py.
-export interface EarlyBirdDeadlineDetail {
-  code: "early_bird_deadline_passed";
-  message: string;
-  tier_code: string;
-  tier_name_en: string | null;
-  tier_name_zh: string | null;
-  deadline: string | null; // YYYY-MM-DD
-  amount_at_risk: number;
-  full_fee: number;
-  discounted_fee: number;
-}
+// Re-export the canonical detail type so existing callers can keep importing it
+// from the dialog alongside the component and `earlyBirdDetail` guard.
+export type { EarlyBirdDeadlineDetail } from "@/types";
 
 export interface AffectedApp {
   id: number;

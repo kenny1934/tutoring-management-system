@@ -11,6 +11,12 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { enrollmentsAPI } from "@/lib/api";
+import {
+  EarlyBirdDeadlineDialog,
+  earlyBirdDetail,
+  type AffectedApp,
+  type EarlyBirdDeadlineDetail,
+} from "@/components/summer/EarlyBirdDeadlineDialog";
 import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check, Search, X, MessageSquareShare, CreditCard } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -121,6 +127,11 @@ export default function OverduePaymentsPage() {
   const [showWecom, setShowWecom] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [batchLoading, setBatchLoading] = useState(false);
+  // Early-bird guard: recording a Summer payment after the deadline would strip
+  // the discount. `deadlineBlock` drives the single-payment confirm, `batchBlocked`
+  // the batch confirm (rows the batch skipped).
+  const [deadlineBlock, setDeadlineBlock] = useState<EarlyBirdDeadlineDetail | null>(null);
+  const [batchBlocked, setBatchBlocked] = useState<AffectedApp[]>([]);
 
   // Pagination limits per urgency section
   const [sectionLimits, setSectionLimits] = useState<Record<UrgencyLevel, number>>({
@@ -267,6 +278,37 @@ export default function OverduePaymentsPage() {
       setShowPaymentModal(false);
       setSelectedEnrollment(null);
     } catch (error) {
+      // A post-deadline Summer payment is blocked so we don't silently strip the
+      // early-bird discount; open the confirm dialog instead of erroring.
+      const detail = earlyBirdDetail(error);
+      if (detail) {
+        setDeadlineBlock(detail);
+      } else {
+        showToast("Failed to record payment", "error");
+      }
+    } finally {
+      setMarkingPaidId(null);
+    }
+  }, [selectedEnrollment, paymentDate, mutateOverdue, showToast]);
+
+  // Resolve the single-payment block: re-send with the real on-time date (keeps
+  // the discount) or with acknowledge_discount_loss (records today, drops it).
+  const resolveDeadline = useCallback(async (extra: { payment_date?: string; acknowledge_discount_loss?: boolean }) => {
+    if (!selectedEnrollment) return;
+    setMarkingPaidId(selectedEnrollment.id);
+    try {
+      await enrollmentsAPI.update(selectedEnrollment.id, {
+        payment_status: 'Paid',
+        payment_date: paymentDate,
+        ...extra,
+      });
+      mutateOverdue();
+      mutate(['dashboard-stats']);
+      showToast(`Payment recorded for ${selectedEnrollment.student_name}`, "success");
+      setDeadlineBlock(null);
+      setShowPaymentModal(false);
+      setSelectedEnrollment(null);
+    } catch {
       showToast("Failed to record payment", "error");
     } finally {
       setMarkingPaidId(null);
@@ -321,7 +363,20 @@ export default function OverduePaymentsPage() {
 
       try {
         const result = await enrollmentsAPI.batchMarkPaid(ids);
-        if (result.count < ids.length) {
+        // Summer rows the batch skipped to avoid stripping their discount get
+        // surfaced in a confirm dialog (they reappear in the list on revalidate).
+        const blocked = result.early_bird_blocked ?? [];
+        if (blocked.length > 0) {
+          setBatchBlocked(blocked.map((b) => ({
+            id: b.enrollment_id,
+            studentName: b.student_name,
+            detail: b.detail,
+          })));
+          showToast(
+            `${result.count} confirmed, ${blocked.length} need a discount decision`,
+            "info",
+          );
+        } else if (result.count < ids.length) {
           showToast(`${result.count} confirmed, ${ids.length - result.count} failed`, "info");
         } else {
           showToast(`${result.count} payment${result.count !== 1 ? 's' : ''} confirmed`, "success");
@@ -337,6 +392,25 @@ export default function OverduePaymentsPage() {
       setBatchLoading(false);
     }
   }, [checkedIds, effectiveLocation, effectiveTutorId, clearChecked, mutateOverdue, showToast]);
+
+  // Confirm the early-bird loss for every batch-blocked row: mark paid today,
+  // drop the discount. Re-sends with acknowledge so the backend proceeds.
+  const resolveBatchDrop = useCallback(async () => {
+    if (batchBlocked.length === 0) return;
+    setBatchLoading(true);
+    try {
+      const ids = batchBlocked.map((b) => b.id);
+      await enrollmentsAPI.batchMarkPaid(ids, { acknowledgeDiscountLoss: true });
+      showToast(`${ids.length} marked paid, discount dropped`, "success");
+      setBatchBlocked([]);
+    } catch (error) {
+      showToast(`Failed to confirm payments: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+    } finally {
+      setBatchLoading(false);
+      mutateOverdue();
+      mutate(['dashboard-stats']);
+    }
+  }, [batchBlocked, mutateOverdue, showToast]);
 
   return (
     <DeskSurface>
@@ -700,6 +774,31 @@ export default function OverduePaymentsPage() {
         onClose={() => setShowWecom(false)}
         initialContent={`Payment Reminder: There are currently ${overdueCount} overdue enrollment(s) requiring follow-up. Please check the overdue payments page for details.`}
       />
+
+      {deadlineBlock && selectedEnrollment && (
+        <EarlyBirdDeadlineDialog
+          open
+          busy={markingPaidId === selectedEnrollment.id}
+          apps={[{
+            id: selectedEnrollment.id,
+            studentName: selectedEnrollment.student_name,
+            detail: deadlineBlock,
+          }]}
+          onEnterDate={(iso) => resolveDeadline({ payment_date: iso })}
+          onDropAll={() => resolveDeadline({ acknowledge_discount_loss: true })}
+          onCancel={() => setDeadlineBlock(null)}
+        />
+      )}
+
+      {batchBlocked.length > 0 && (
+        <EarlyBirdDeadlineDialog
+          open
+          apps={batchBlocked}
+          busy={batchLoading}
+          onDropAll={resolveBatchDrop}
+          onCancel={() => setBatchBlocked([])}
+        />
+      )}
       </AdminPageGuard>
     </DeskSurface>
   );

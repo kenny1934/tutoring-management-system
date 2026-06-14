@@ -2054,42 +2054,6 @@ def list_application_edits(
     return rows
 
 
-def _early_bird_loss_on_stamp(
-    db: Session,
-    app: SummerApplication,
-    today: date_type,
-) -> Optional[dict]:
-    """409 detail when auto-stamping paid_at=today would strip a discount.
-
-    Loads the app's discount context and delegates the comparison to
-    `early_bird_loss_if_paid_today`; this layer only translates the result into
-    the HTTP error payload. Returns None when nothing would be lost.
-    """
-    config = app.config
-    if config is None:
-        return None
-    from utils.summer_discounts import early_bird_loss_if_paid_today, load_group_context
-    group_apps, siblings = load_group_context(db, app)
-    loss = early_bird_loss_if_paid_today(app, group_apps, siblings, config, today)
-    if loss is None:
-        return None
-    tier_label = loss.tier.name_en or loss.tier.code
-    return {
-        "code": "early_bird_deadline_passed",
-        "message": (
-            f"Recording payment today removes the {tier_label} discount "
-            f"(${loss.amount_at_risk} more to pay)."
-        ),
-        "tier_code": loss.tier.code,
-        "tier_name_en": loss.tier.name_en,
-        "tier_name_zh": loss.tier.name_zh,
-        "deadline": loss.tier.before_date.isoformat() if loss.tier.before_date else None,
-        "amount_at_risk": loss.amount_at_risk,
-        "full_fee": loss.full_fee,
-        "discounted_fee": loss.discounted_fee,
-    }
-
-
 @router.patch("/summer/applications/{app_id}", response_model=SummerApplicationResponse)
 def update_application(
     app_id: int,
@@ -2137,7 +2101,8 @@ def update_application(
         and "paid_at" not in data.model_fields_set
         and not acknowledge_discount_loss
     ):
-        loss = _early_bird_loss_on_stamp(db, app, hk_now().date())
+        from utils.summer_discounts import early_bird_loss_on_paid_date
+        loss = early_bird_loss_on_paid_date(db, app, hk_now().date())
         if loss is not None:
             raise HTTPException(status_code=409, detail=loss)
 

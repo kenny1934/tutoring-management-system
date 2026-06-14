@@ -17,6 +17,11 @@ import { SummerMessagePanel } from "@/components/admin/SummerMessagePanel";
 import { computeBestDiscount } from "@/lib/summer-discounts";
 import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
 import { DiscountOverrideControls } from "@/components/summer/DiscountOverrideControls";
+import {
+  EarlyBirdDeadlineDialog,
+  earlyBirdDetail,
+  type EarlyBirdDeadlineDetail,
+} from "@/components/summer/EarlyBirdDeadlineDialog";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -84,6 +89,12 @@ export default function EnrollmentDetailPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [confirmPayment, setConfirmPayment] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  // Set when recording a Summer payment after the deadline would strip the
+  // discount. Holds the 409 detail plus the base payload to re-send on resolve.
+  const [deadlineBlock, setDeadlineBlock] = useState<{
+    detail: EarlyBirdDeadlineDetail;
+    base: Partial<Enrollment> & { acknowledge_discount_loss?: boolean };
+  } | null>(null);
 
   // For tutor dropdown (only active teaching staff)
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
@@ -152,14 +163,14 @@ export default function EnrollmentDetailPage() {
     setIsSaving(true);
     setSaveError(null);
 
+    // Include discount_id if editing payment. Discounts require a minimum
+    // lesson count, so strip the discount when below the floor (also keeps
+    // legacy rows editable instead of tripping the backend guard).
+    const effectiveLessons = editForm.lessons_paid ?? enrollment.lessons_paid ?? 0;
+    const updateData = isEditingPayment
+      ? { ...editForm, discount_id: effectiveLessons < MIN_LESSONS_FOR_DISCOUNT ? null : selectedDiscountId }
+      : editForm;
     try {
-      // Include discount_id if editing payment. Discounts require a minimum
-      // lesson count, so strip the discount when below the floor (also keeps
-      // legacy rows editable instead of tripping the backend guard).
-      const effectiveLessons = editForm.lessons_paid ?? enrollment.lessons_paid ?? 0;
-      const updateData = isEditingPayment
-        ? { ...editForm, discount_id: effectiveLessons < MIN_LESSONS_FOR_DISCOUNT ? null : selectedDiscountId }
-        : editForm;
       const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, updateData);
       mutate(['enrollment', enrollment.id], { ...enrollment, ...updatedEnrollment }, false);
       setIsEditingSchedule(false);
@@ -168,7 +179,14 @@ export default function EnrollmentDetailPage() {
       setSelectedDiscountId(null);
       showToast("Enrollment updated");
     } catch (error) {
-      setSaveError(formatError(error, 'Failed to save changes'));
+      // A post-deadline Summer payment-date edit is blocked so the discount
+      // isn't silently stripped; open the confirm dialog instead of erroring.
+      const detail = earlyBirdDetail(error);
+      if (detail) {
+        setDeadlineBlock({ detail, base: updateData });
+      } else {
+        setSaveError(formatError(error, 'Failed to save changes'));
+      }
     } finally {
       setIsSaving(false);
     }
@@ -230,7 +248,35 @@ export default function EnrollmentDetailPage() {
       showToast("Payment confirmed!");
       setConfirmPayment(false);
     } catch (err) {
-      showToast(formatError(err, "Failed to confirm payment"), "error");
+      // A post-deadline Summer payment is blocked so the discount isn't silently
+      // stripped; open the confirm dialog to enter the real date or drop it.
+      const detail = earlyBirdDetail(err);
+      if (detail) {
+        setDeadlineBlock({ detail, base: { payment_status: "Paid" } });
+      } else {
+        showToast(formatError(err, "Failed to confirm payment"), "error");
+      }
+    } finally {
+      setMarkingPaid(false);
+    }
+  };
+
+  // Resolve an early-bird block: re-send the same update with the real on-time
+  // payment date (keeps the discount) or acknowledge_discount_loss (drops it).
+  const resolveDeadline = async (extra: { payment_date?: string; acknowledge_discount_loss?: boolean }) => {
+    if (!enrollment || !deadlineBlock) return;
+    setMarkingPaid(true);
+    try {
+      const updated = await enrollmentsAPI.update(enrollment.id, { ...deadlineBlock.base, ...extra });
+      mutate(['enrollment', enrollment.id], { ...enrollment, ...updated }, false);
+      showToast("Enrollment updated");
+      setDeadlineBlock(null);
+      setConfirmPayment(false);
+      setIsEditingPayment(false);
+      setEditForm({});
+      setSelectedDiscountId(null);
+    } catch (err) {
+      showToast(formatError(err, "Failed to save changes"), "error");
     } finally {
       setMarkingPaid(false);
     }
@@ -1705,6 +1751,21 @@ export default function EnrollmentDetailPage() {
         loading={isCancelling}
         variant="danger"
       />
+
+      {deadlineBlock && enrollment && (
+        <EarlyBirdDeadlineDialog
+          open
+          busy={markingPaid}
+          apps={[{
+            id: enrollment.id,
+            studentName: enrollment.student_name ?? "",
+            detail: deadlineBlock.detail,
+          }]}
+          onEnterDate={(iso) => resolveDeadline({ payment_date: iso })}
+          onDropAll={() => resolveDeadline({ acknowledge_discount_loss: true })}
+          onCancel={() => setDeadlineBlock(null)}
+        />
+      )}
     </DeskSurface>
   );
 }
