@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.76](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.76) (2026-06-14)
+
+### Bug Fixes
+
+* **Early Bird protection now covers recording payments too**: the safeguard added in 2.0.75 now also applies when you record a payment on the Overdue Payments page or on an enrolment's own page, not just when updating a summer application. Recording a summer payment after the Early Bird deadline pauses and asks before removing the discount, so you can enter the date the family actually paid to keep it, or confirm they paid late. Recording the payment date you choose is now honoured (it was previously always saved as today), and marking several paid at once lists anyone affected so you can decide together.
+
 ## [2.0.75](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.75) (2026-06-14)
 
 ### New Features
