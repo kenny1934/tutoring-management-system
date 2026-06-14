@@ -19,6 +19,11 @@ import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { List, type RowComponentProps, useListRef, useDynamicRowHeight } from "react-window";
 import { summerAPI } from "@/lib/api";
+import {
+  EarlyBirdDeadlineDialog,
+  earlyBirdDetail,
+  type AffectedApp,
+} from "@/components/summer/EarlyBirdDeadlineDialog";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationStats } from "@/components/admin/SummerApplicationStats";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
@@ -360,6 +365,9 @@ export default function SummerApplicationsPage() {
   const [batchStatus, setBatchStatus] = useState("Under Review");
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
+  // Apps a batch status→Paid couldn't update because doing so today would strip
+  // their early-bird discount. Surfaced in a confirm dialog (drop all / leave).
+  const [batchBlocked, setBatchBlocked] = useState<AffectedApp[]>([]);
   // Batch publish state — separate from the status-update batch path so the
   // two flows don't entangle.
   const [batchPublishing, setBatchPublishing] = useState(false);
@@ -510,22 +518,63 @@ export default function SummerApplicationsPage() {
     if (checkedIds.size === 0 || batchUpdating) return;
     setBatchUpdating(true);
     try {
+      const ids = Array.from(checkedIds);
+      const nameById = new Map(applications?.map((a) => [a.id, a.student_name]));
       const results = await Promise.allSettled(
-        Array.from(checkedIds).map((id) =>
+        ids.map((id) =>
           summerAPI.updateApplication(id, { application_status: batchStatus })
         )
       );
-      const succeeded = results.filter((r) => r.status === "fulfilled").length;
-      const failed = results.filter((r) => r.status === "rejected").length;
-      if (failed > 0) {
-        showToast(`Updated ${succeeded}, failed ${failed}`, "error");
-      } else {
+      let succeeded = 0;
+      let otherFailed = 0;
+      const blocked: AffectedApp[] = [];
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled") { succeeded++; return; }
+        const detail = earlyBirdDetail(r.reason);
+        if (detail) {
+          blocked.push({ id: ids[i], studentName: nameById.get(ids[i]) ?? `#${ids[i]}`, detail });
+        } else {
+          otherFailed++;
+        }
+      });
+      if (otherFailed > 0) {
+        showToast(`Updated ${succeeded}, failed ${otherFailed}`, "error");
+      } else if (succeeded > 0) {
         showToast(`Updated ${succeeded} application${succeeded !== 1 ? "s" : ""}`, "success");
       }
-      setCheckedIds(new Set());
+      // Keep the early-bird-blocked rows for the confirm dialog; everything else
+      // is resolved, so drop those checks.
+      setCheckedIds(new Set(blocked.map((b) => b.id)));
+      setBatchBlocked(blocked);
       handleRefresh();
     } catch {
       showToast("Batch update failed", "error");
+    } finally {
+      setBatchUpdating(false);
+    }
+  };
+
+  // Confirm the early-bird loss for every blocked app: mark paid today, drop
+  // the discount. Re-sends with acknowledge_discount_loss so the guard passes.
+  const handleBatchDropDiscount = async () => {
+    if (batchBlocked.length === 0 || batchUpdating) return;
+    setBatchUpdating(true);
+    try {
+      const ids = batchBlocked.map((b) => b.id);
+      await Promise.allSettled(
+        ids.map((id) =>
+          summerAPI.updateApplication(id, {
+            application_status: batchStatus,
+            acknowledge_discount_loss: true,
+          })
+        )
+      );
+      showToast(`Marked ${ids.length} paid, discount dropped`, "success");
+      setBatchBlocked([]);
+      setCheckedIds(new Set());
+      handleRefresh();
+    } catch {
+      showToast("Failed to update", "error");
     } finally {
       setBatchUpdating(false);
     }
@@ -546,8 +595,17 @@ export default function SummerApplicationsPage() {
     try {
       await summerAPI.updateApplication(id, { application_status: status });
       handleRefresh();
-    } catch {
-      showToast("Status update failed", "error");
+    } catch (e) {
+      if (earlyBirdDetail(e)) {
+        // The inline dropdown has no room for the full confirm flow — send the
+        // admin to the application, where the dialog offers date-entry vs drop.
+        showToast(
+          "Early Bird deadline passed. Open the application to set the actual payment date or confirm dropping the discount.",
+          "error",
+        );
+      } else {
+        showToast("Status update failed", "error");
+      }
     }
   }, [handleRefresh, showToast]);
 
@@ -1851,6 +1909,16 @@ export default function SummerApplicationsPage() {
                 handleRefresh();
               }}
               readOnly={readOnly}
+            />
+          )}
+
+          {batchBlocked.length > 0 && (
+            <EarlyBirdDeadlineDialog
+              open
+              apps={batchBlocked}
+              busy={batchUpdating}
+              onDropAll={handleBatchDropDiscount}
+              onCancel={() => { setBatchBlocked([]); setCheckedIds(new Set()); }}
             />
           )}
 

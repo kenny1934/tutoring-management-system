@@ -145,6 +145,14 @@ export function formatShortDate(dateStr: string): string {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+/** Format an ISO date "2026-06-15" as "15/06/2026" (HK admin convention).
+ *  Returns "" for empty input and the original value if it isn't ISO-shaped. */
+export function formatHKDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const [y, m, d] = value.slice(0, 10).split("-");
+  return y && m && d ? `${d}/${m}/${y}` : value;
+}
+
 /** Build a prospect code like "MCP-1023" from a branch + primary student id.
  *  Strips a duplicate leading branch prefix so a raw id of "MCP1023" doesn't
  *  render as "MCP-MCP1023". Falls back to just the branch when no id exists. */

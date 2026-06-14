@@ -2480,6 +2480,9 @@ export interface SummerApplicationUpdate {
   lessons_paid?: number;
   /** Editable for receipt-date corrections. Send null to clear. */
   paid_at?: string | null;
+  /** Confirm "record as paid today and drop the discount" after the backend
+   *  blocks a post-deadline status→Paid with a 409 early_bird_deadline_passed. */
+  acknowledge_discount_loss?: boolean;
 }
 
 export interface SummerApplicationStats {

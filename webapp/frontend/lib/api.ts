@@ -285,6 +285,22 @@ async function refreshToken(): Promise<boolean> {
   return refreshPromise;
 }
 
+// Error thrown by fetchAPI on a non-OK response. Carries the HTTP status and
+// the parsed `detail` payload so callers can branch on structured errors (e.g.
+// a 409 with detail.code === "early_bird_deadline_passed") instead of string
+// matching. `message` is unchanged from before, so existing `e.message` callers
+// keep working.
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+  constructor(message: string, status: number, detail: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 // Generic fetch wrapper with error handling and automatic token refresh
 async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
   try {
@@ -335,7 +351,11 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = fa
       const detailMessage = typeof error.detail === 'object'
         ? (error.detail.message || JSON.stringify(error.detail))
         : error.detail;
-      throw new Error(detailMessage || `HTTP error! status: ${response.status}`);
+      throw new ApiError(
+        detailMessage || `HTTP error! status: ${response.status}`,
+        response.status,
+        error.detail,
+      );
     }
 
     if (response.status === 204) return undefined as T;

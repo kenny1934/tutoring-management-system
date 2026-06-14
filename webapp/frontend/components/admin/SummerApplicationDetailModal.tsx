@@ -41,6 +41,11 @@ import type {
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
 import { PaidAtEditor } from "@/components/summer/PaidAtEditor";
+import {
+  EarlyBirdDeadlineDialog,
+  earlyBirdDetail,
+  type EarlyBirdDeadlineDetail,
+} from "@/components/summer/EarlyBirdDeadlineDialog";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
@@ -352,6 +357,9 @@ export function SummerApplicationDetailModal({
   const [studentId, setStudentId] = useState("");
   const [branchOrigin, setBranchOrigin] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  // Set when a status→Paid save is blocked by the early-bird deadline guard.
+  // Holds the 409 detail so the confirm dialog can show the tier/fee impact.
+  const [deadlineBlock, setDeadlineBlock] = useState<EarlyBirdDeadlineDetail | null>(null);
   const [showAllStatuses, setShowAllStatuses] = useState(false);
   const [studentSearch, setStudentSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -786,29 +794,57 @@ export function SummerApplicationDetailModal({
     return update;
   };
 
+  // Push one update to the backend + run the post-save side effects. Throws on
+  // failure so callers can branch (e.g. the early-bird 409 handling in doSave).
+  const submitUpdate = async (update: SummerApplicationUpdate) => {
+    await summerAPI.updateApplication(app.id, update);
+    // When the admin moves the app to "Placement Confirmed", also flip
+    // any tentative sessions to Confirmed so the label matches reality.
+    // Without this, sessions stay Tentative and publish blocks later.
+    if (
+      update.application_status === "Placement Confirmed" &&
+      app.config_id != null &&
+      (app.sessions ?? []).some((s) => s.session_status === "Tentative")
+    ) {
+      try {
+        await summerAPI.bulkConfirmSessions({ configId: app.config_id, applicationId: app.id });
+      } catch (confirmErr) {
+        const msg = confirmErr instanceof Error ? confirmErr.message : "session confirm failed";
+        showToast(`Status saved but sessions not confirmed: ${msg}`, "error");
+      }
+    }
+    showToast("Application updated", "success");
+    onUpdated();
+    onClose();
+  };
+
   const doSave = async () => {
     setSaving(true);
     try {
-      const update = buildUpdate();
-      await summerAPI.updateApplication(app.id, update);
-      // When the admin moves the app to "Placement Confirmed", also flip
-      // any tentative sessions to Confirmed so the label matches reality.
-      // Without this, sessions stay Tentative and publish blocks later.
-      if (
-        update.application_status === "Placement Confirmed" &&
-        app.config_id != null &&
-        (app.sessions ?? []).some((s) => s.session_status === "Tentative")
-      ) {
-        try {
-          await summerAPI.bulkConfirmSessions({ configId: app.config_id, applicationId: app.id });
-        } catch (confirmErr) {
-          const msg = confirmErr instanceof Error ? confirmErr.message : "session confirm failed";
-          showToast(`Status saved but sessions not confirmed: ${msg}`, "error");
-        }
+      await submitUpdate(buildUpdate());
+    } catch (e) {
+      // Marking Paid/Enrolled after an early-bird deadline is blocked with a
+      // 409 so we don't silently strip the discount. Open the confirm dialog
+      // instead of toasting an error — the admin decides from there.
+      const detail = earlyBirdDetail(e);
+      if (detail) {
+        setDeadlineBlock(detail);
+      } else {
+        showToast(e instanceof Error ? e.message : "Update failed", "error");
       }
-      showToast("Application updated", "success");
-      onUpdated();
-      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Resolve the early-bird block: re-send the pending update with one extra
+  // field — `paid_at` to record the real on-time date (keeps the discount), or
+  // `acknowledge_discount_loss` to record paid today (drops it).
+  const resolveDeadline = async (extra: Partial<SummerApplicationUpdate>) => {
+    setSaving(true);
+    try {
+      await submitUpdate({ ...buildUpdate(), ...extra });
+      setDeadlineBlock(null);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Update failed", "error");
     } finally {
@@ -3086,6 +3122,21 @@ export function SummerApplicationDetailModal({
           home_location: systemLocation || undefined,
         }}
       />
+
+      {deadlineBlock && (
+        <EarlyBirdDeadlineDialog
+          open
+          busy={saving}
+          apps={[{
+            id: app.id,
+            studentName: app.linked_student?.student_name ?? app.student_name,
+            detail: deadlineBlock,
+          }]}
+          onEnterDate={(iso) => resolveDeadline({ paid_at: `${iso}T00:00:00` })}
+          onDropAll={() => resolveDeadline({ acknowledge_discount_loss: true })}
+          onCancel={() => setDeadlineBlock(null)}
+        />
+      )}
     </Modal>
   );
 }

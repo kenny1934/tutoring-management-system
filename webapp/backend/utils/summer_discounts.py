@@ -204,6 +204,43 @@ def compute_payment_deadline(
     return min(candidates)
 
 
+@dataclass
+class EarlyBirdLoss:
+    """What an applicant forfeits if recorded as paid today vs. by the deadline."""
+    tier: DiscountEntry   # the better tier they'd keep by paying on time
+    amount_at_risk: int   # extra paid if recorded paid today (ontime − today)
+    full_fee: int         # fee under the downgraded (today) tier
+    discounted_fee: int   # fee under the on-time tier
+
+
+def early_bird_loss_if_paid_today(
+    app: SummerApplication,
+    group_apps: list[SummerApplication],
+    siblings: list[SummerBuddyMember],
+    config: SummerCourseConfig,
+    today: date,
+) -> Optional[EarlyBirdLoss]:
+    """Discount forfeited by stamping paid_at=today on an as-yet-unpaid app.
+
+    Compares the tier the app gets recorded-as-paid-today (`current`, where
+    effective_date == today since paid_at is still None) against the tier it
+    would keep if recorded as paid on/before the deadline (`ontime`, where a
+    floor date trivially beats every `before_date`). Returns None when nothing
+    would be lost — before any deadline, partial plans, or apps that don't
+    qualify for a date-gated tier on non-date grounds (group size, etc).
+    """
+    current = compute_best_discount(app, group_apps, siblings, config, today=today)
+    ontime = compute_best_discount(app, group_apps, siblings, config, today=date.min)
+    if not ontime.best or ontime.amount <= current.amount:
+        return None
+    return EarlyBirdLoss(
+        tier=ontime.best,
+        amount_at_risk=ontime.amount - current.amount,
+        full_fee=current.final_fee,
+        discounted_fee=ontime.final_fee,
+    )
+
+
 def load_group_context(
     db,
     app: SummerApplication,

@@ -94,6 +94,46 @@ class TestParseDiscounts:
 
 
 # ---------------------------------------------------------------------------
+# Early-bird "mark Paid after deadline" guard (_early_bird_loss_on_stamp)
+# ---------------------------------------------------------------------------
+
+class TestEarlyBirdLossGuard:
+    """`early_bird_loss_if_paid_today` reports the discount an as-yet-unpaid app
+    would forfeit if recorded paid today, vs. paying on/before the deadline."""
+
+    def _loss(self, app, today, discounts=(EB, EB3P, P3)):
+        from utils.summer_discounts import early_bird_loss_if_paid_today
+        return early_bird_loss_if_paid_today(
+            app, [app], [], make_config(list(discounts)), today,
+        )
+
+    def test_on_deadline_day_no_loss(self):
+        # 15 Jun is inclusive — still qualifies, so nothing to warn about.
+        assert self._loss(make_app(paid_at=None), date(2026, 6, 15)) is None
+
+    def test_before_deadline_no_loss(self):
+        assert self._loss(make_app(paid_at=None), date(2026, 6, 14)) is None
+
+    def test_after_deadline_reports_eb_loss(self):
+        loss = self._loss(make_app(paid_at=None), date(2026, 6, 16))
+        assert loss is not None
+        assert loss.tier.code == "EB"
+        assert loss.tier.before_date == date(2026, 6, 15)
+        assert loss.amount_at_risk == 150
+        assert loss.full_fee == 1600       # base_fee, EB stripped
+        assert loss.discounted_fee == 1450  # base_fee - 150
+
+    def test_partial_plan_never_fires(self):
+        # Partial plans get a flat per-lesson price, no discounts at stake.
+        assert self._loss(make_app(paid_at=None, lessons_paid=4), date(2026, 6, 16)) is None
+
+    def test_solo_app_with_only_group_tiers_no_false_positive(self):
+        # A solo applicant can't reach a group of 3, so there's no tier to lose
+        # on date grounds — guard must stay silent.
+        assert self._loss(make_app(paid_at=None), date(2026, 6, 16), discounts=(EB3P, P3)) is None
+
+
+# ---------------------------------------------------------------------------
 # Solo Early Bird — payment-aware deadline check
 # ---------------------------------------------------------------------------
 

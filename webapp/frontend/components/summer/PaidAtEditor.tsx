@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Pencil, Check, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
+import { formatHKDate } from "@/lib/summer-utils";
 import { useToast } from "@/contexts/ToastContext";
 
 // Inline editor for a summer application's paid_at timestamp. Shown on
@@ -22,14 +23,6 @@ interface Props {
 function toDateInput(value: string | null | undefined): string {
   if (!value) return "";
   return value.slice(0, 10);
-}
-
-/** Render an ISO YYYY-MM-DD as dd/mm/yyyy (HK admin convention). */
-function toDisplay(value: string | null | undefined): string {
-  if (!value) return "";
-  const [y, m, d] = value.slice(0, 10).split("-");
-  if (!y || !m || !d) return value;
-  return `${d}/${m}/${y}`;
 }
 
 export function PaidAtEditor({ applicationId, paidAt, readOnly, onSaved }: Props) {
@@ -99,7 +92,7 @@ export function PaidAtEditor({ applicationId, paidAt, readOnly, onSaved }: Props
         </>
       ) : (
         <>
-          <span className="font-medium">{toDisplay(current) || "not set"}</span>
+          <span className="font-medium">{formatHKDate(current) || "not set"}</span>
           {!readOnly && (
             <button
               type="button"

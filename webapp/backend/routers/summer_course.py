@@ -2054,6 +2054,42 @@ def list_application_edits(
     return rows
 
 
+def _early_bird_loss_on_stamp(
+    db: Session,
+    app: SummerApplication,
+    today: date_type,
+) -> Optional[dict]:
+    """409 detail when auto-stamping paid_at=today would strip a discount.
+
+    Loads the app's discount context and delegates the comparison to
+    `early_bird_loss_if_paid_today`; this layer only translates the result into
+    the HTTP error payload. Returns None when nothing would be lost.
+    """
+    config = app.config
+    if config is None:
+        return None
+    from utils.summer_discounts import early_bird_loss_if_paid_today, load_group_context
+    group_apps, siblings = load_group_context(db, app)
+    loss = early_bird_loss_if_paid_today(app, group_apps, siblings, config, today)
+    if loss is None:
+        return None
+    tier_label = loss.tier.name_en or loss.tier.code
+    return {
+        "code": "early_bird_deadline_passed",
+        "message": (
+            f"Recording payment today removes the {tier_label} discount "
+            f"(${loss.amount_at_risk} more to pay)."
+        ),
+        "tier_code": loss.tier.code,
+        "tier_name_en": loss.tier.name_en,
+        "tier_name_zh": loss.tier.name_zh,
+        "deadline": loss.tier.before_date.isoformat() if loss.tier.before_date else None,
+        "amount_at_risk": loss.amount_at_risk,
+        "full_fee": loss.full_fee,
+        "discounted_fee": loss.discounted_fee,
+    }
+
+
 @router.patch("/summer/applications/{app_id}", response_model=SummerApplicationResponse)
 def update_application(
     app_id: int,
@@ -2073,9 +2109,37 @@ def update_application(
     updates = data.model_dump(exclude_unset=True)
     admin_label = admin.tutor_name or admin.user_email or "admin"
 
+    # Transient confirm flag — never a model column, so pop it before any
+    # setattr loop can try to write it onto the ORM object.
+    acknowledge_discount_loss = bool(updates.pop("acknowledge_discount_loss", False))
+
     # Snapshot paid_at so we can re-snap the published enrollment's tier if
     # this request changes it (either explicitly or via a status→Paid transition).
     prev_paid_at = app.paid_at
+
+    # Early-bird guard: when this request would auto-stamp paid_at=now on a
+    # status→Paid/Enrolled transition (paid_at not already set, not supplied
+    # explicitly), and doing so today would silently strip a discount the parent
+    # could keep by being recorded as paid on/before the deadline, block with a
+    # 409. Runs before any mutation so nothing is half-applied. The admin then
+    # resolves by resending with the real paid_at, or with
+    # acknowledge_discount_loss=true. Buddy-only / detail-only edits never trip
+    # this because incoming_status won't be Paid/Enrolled.
+    incoming_status = data.application_status
+    if hasattr(incoming_status, "value"):
+        incoming_status = incoming_status.value
+    if (
+        incoming_status in (
+            SummerApplicationStatus.PAID.value,
+            SummerApplicationStatus.ENROLLED.value,
+        )
+        and app.paid_at is None
+        and "paid_at" not in data.model_fields_set
+        and not acknowledge_discount_loss
+    ):
+        loss = _early_bird_loss_on_stamp(db, app, hk_now().date())
+        if loss is not None:
+            raise HTTPException(status_code=409, detail=loss)
 
     # Handle buddy_code changes specially
     buddy_code_value = updates.pop("buddy_code", None)
@@ -2130,9 +2194,10 @@ def update_application(
         app.reviewed_by = admin_label
         app.reviewed_at = hk_now()
         # Stamp paid_at the first time we see Paid/Enrolled. Used by the
-        # discount-tier check to compare against the tier's before_date.
-        # Admins with a real receipt date that differs from today should edit
-        # paid_at directly on the application (not covered here yet).
+        # discount-tier check to compare against the tier's before_date. The
+        # early-bird guard above has already either cleared this stamp as safe,
+        # been handed the real paid_at, or had the discount loss acknowledged —
+        # so stamping "now" here is the intended fallback.
         if new_status in (
             SummerApplicationStatus.PAID.value,
             SummerApplicationStatus.ENROLLED.value,

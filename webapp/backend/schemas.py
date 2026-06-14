@@ -2525,6 +2525,11 @@ class SummerApplicationUpdate(BaseModel):
     # transferred before the early-bird deadline but admin marked Paid later).
     # Sent as an ISO datetime string; None clears it.
     paid_at: Optional[datetime] = None
+    # Transient acknowledgement (not a stored column): when an admin marks an
+    # app Paid/Enrolled after an early-bird deadline, the endpoint blocks with a
+    # 409 to prevent silently stripping the discount. Resending with this flag
+    # set confirms "yes, record as paid today and drop the discount".
+    acknowledge_discount_loss: bool = False
 
 
 class SummerApplicationStats(BaseModel):
