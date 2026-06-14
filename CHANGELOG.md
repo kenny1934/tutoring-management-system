@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.75](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.75) (2026-06-14)
+
+### New Features
+
+* **Branch revenue report on the Summer stats panel**: a new card shows summer fee collection for each branch, broken down by discount and by application stage, alongside the value of July and August regular sessions. A button refreshes the shared revenue spreadsheet on demand.
+
+### Bug Fixes
+
+* **Early Bird discount is no longer dropped when a payment is recorded late**: marking a summer application as paid after the Early Bird deadline used to quietly remove the discount, so a family who paid on time could be charged the full fee if the office logged their payment a day or two afterwards. The system now pauses and asks first: enter the date the family actually paid to keep the discount, or confirm they paid late to drop it. The same check applies whether you mark one application paid or update several together.
+
 ## [2.0.74](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.74) (2026-06-07)
 
 ### Bug Fixes
