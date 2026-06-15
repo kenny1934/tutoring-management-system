@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.77](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.77) (2026-06-15)
+
+### New Features
+
+* **"Extra Lessons" discount for one-off sessions**: a new Extra Lessons (per 2) discount takes $100 off for every two extra lessons, so two one-off sessions are $100 off, four are $200, and so on. It applies to One-Time enrolments without the usual six-lesson minimum, so the office can pick it from the discount dropdown after setting the number of lessons. One-Time enrolments can now hold more than one lesson, and their fee message lists each lesson's actual date and time instead of a weekly schedule, so it stays correct once the lessons are moved to their real days.
+
+### Bug Fixes
+
+* **Early Bird discount stays valid until the deadline ends**: the Early Bird tier now remains available through the end of the deadline day in Hong Kong time instead of expiring early, so a family paying on the final day keeps the discount.
+* **Tighter protection for sensitive data**: prospect information is now reachable only through the secure site, closing a gap where some data could be opened by bypassing the normal sign-in. Everyday use is unchanged.
+
 ## [2.0.76](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.76) (2026-06-14)
 
 ### Bug Fixes
