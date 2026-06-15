@@ -411,22 +411,21 @@ def is_office_ip(request: Request, db: Session) -> bool:
     Check if the request originates from a whitelisted office IP.
 
     Used for restricting sensitive data (like phone numbers) to office access only.
-    Handles X-Forwarded-For header for requests behind proxies/load balancers.
+
+    The client IP comes from ``get_client_ip``, which prefers the Cloudflare-set
+    ``CF-Connecting-IP`` header. That matters: the previous implementation
+    trusted the *left-most* ``X-Forwarded-For`` entry, which a client can spoof
+    (Cloudflare/Cloud Run only *append* to XFF, so an attacker-supplied value
+    stays left-most). Reading ``CF-Connecting-IP`` instead means the office gate
+    cannot be unlocked by forging a header.
 
     Returns:
         True if the client IP is in the office_ip_whitelist table.
     """
-    # Get client IP - check X-Forwarded-For first (for proxy/load balancer setups)
-    forwarded_for = request.headers.get("X-Forwarded-For", "")
-    if forwarded_for:
-        # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
-        # The first one is the original client
-        client_ip = forwarded_for.split(",")[0].strip()
-    else:
-        # Direct connection - use client.host
-        client_ip = request.client.host if request.client else None
+    from utils.rate_limiter import get_client_ip
 
-    if not client_ip:
+    client_ip = get_client_ip(request)
+    if not client_ip or client_ip == "unknown":
         return False
 
     # Check against whitelist
