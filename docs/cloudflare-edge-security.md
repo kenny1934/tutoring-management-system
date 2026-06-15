@@ -1,41 +1,51 @@
-# Cloudflare edge security: OriginGuard + Access
+# Cloudflare edge security: origin trust + Access
 
-This documents the rollout for two related hardening features added to the
-backend:
+This documents two related hardening features added to the backend:
 
-1. **OriginGuard** — refuses `/api/*` traffic that did not transit Cloudflare,
-   closing direct access to the backend `*.run.app` URL.
+1. **Origin trust** — the backend stays directly reachable on its `*.run.app`
+   URL (the frontend run.app URL is used deliberately to save Cloudflare Worker
+   invocations), but it only *trusts* Cloudflare-only headers when the request
+   carries the Worker's `X-Origin-Verify` secret. Login-gated data is already
+   protected by the auth cookie, so direct access is not itself a hole — the
+   risk was *trusting forged headers* on the direct path.
 2. **Cloudflare Access** on the prospect / buddy-tracker branch tools — replaces
    the weak branch-phone PIN as the real perimeter with Google SSO restricted to
    `@mathconcept.com` and `@mathconceptsecondary.academy`.
 
 ## Why
 
-The backend Cloud Run service is publicly addressable. Hitting it directly
-bypasses Cloudflare entirely, which defeats:
+The backend Cloud Run service is publicly addressable. A caller hitting it
+directly could forge headers that only Cloudflare should set:
 
-- **per-IP rate limiting** — a direct caller sets `CF-Connecting-IP` itself and
-  rotates it for unlimited request budget (verified: rotating the header gave 0
-  throttling vs. a fixed IP throttling at the configured limit);
-- the **Cloudflare WAF / bot** rules;
-- any **Cloudflare Access** policy (Access only runs at the edge).
+- **`CF-Connecting-IP`** — used for per-IP rate limiting. A direct caller can set
+  and rotate it for unlimited request budget (verified: rotating the header gave
+  0 throttling vs. a fixed IP throttling at the configured limit).
+- **`Cf-Access-Authenticated-User-Email`** — used by the Access gate. A direct
+  caller could forge it to bypass Cloudflare Access on the prospect/buddy pages.
 
-OriginGuard makes the edge non-bypassable, which in turn makes edge Access a
-trustworthy gate and lets the backend safely trust the `Cf-Access-*` headers.
+We do **not** block direct access (that broke the legitimate frontend run.app
+path). Instead the backend only honours those two headers when
+`is_cloudflare_origin` confirms the `X-Origin-Verify` secret. Off-Cloudflare,
+`CF-Connecting-IP` is ignored (real connecting IP used instead) and the Access
+email is not trusted (so prospect/buddy endpoints are only reachable through
+Cloudflare, where Access lives — exactly the intent).
 
-## Code behaviour (already merged, fail-open)
+## Code behaviour (fail-open)
 
-All three switches are **no-ops until their env vars are set**, so the backend
-can ship before any infra change:
+All switches are **no-ops until their env vars are set**:
 
 | Env var | Effect when set |
 | --- | --- |
-| `CF_ORIGIN_SECRET` | `/api/*` requests without `X-Origin-Verify: <secret>` → `403 Forbidden`. Health checks (`/`, `/health`) and CORS preflight are exempt. |
-| `CF_ACCESS_REQUIRED` | Public `/api/prospects*` and `/api/buddy-tracker*` (excluding `/admin` sub-routes) require `Cf-Access-Authenticated-User-Email` in an allowed domain → else `403`. |
+| `CF_ORIGIN_SECRET` | Requests carrying `X-Origin-Verify: <secret>` are treated as Cloudflare-origin → `CF-Connecting-IP` / `Cf-Access-*` are trusted. Other requests are **not blocked**; those headers are simply ignored. |
+| `CF_ACCESS_REQUIRED` | Public `/api/prospects*` and `/api/buddy-tracker*` (excluding `/admin` sub-routes) require a trusted `Cf-Access-Authenticated-User-Email` in an allowed domain → else `403`. |
 | `CF_ACCESS_ALLOWED_DOMAINS` | Comma-separated allow-list (default `mathconcept.com,mathconceptsecondary.academy`). |
 
-`is_office_ip` was also fixed to read `CF-Connecting-IP` (unspoofable) instead of
-the left-most `X-Forwarded-For`.
+`is_office_ip` uses the same hardened `get_client_ip`, so it can no longer be
+unlocked by forging the left-most `X-Forwarded-For`.
+
+> The backend Cloud Run URL stays reachable by design. The Cloudflare Worker
+> still injects `X-Origin-Verify` on `/api/*`; that header is the *trust signal*,
+> not a gate. There is no longer any blanket `403`.
 
 ## Rollout order (do NOT reorder — wrong order causes an outage)
 
@@ -61,13 +71,11 @@ the left-most `X-Forwarded-For`.
    gcloud run services update tutoring-backend --region asia-east2 \
      --update-env-vars CF_ORIGIN_SECRET=<secret>
    ```
-5. **Verify enforcement:**
-   - Direct: `curl -s -o /dev/null -w '%{http_code}' https://tutoring-backend-284725664511.asia-east2.run.app/api/holidays` → **403**.
-   - Via Cloudflare: `…/api/holidays` via `csm.mathconceptsecondary.academy` → **200**.
-
-   > Note: the `next.config.ts` "direct frontend Cloud Run" fallback for `/api`
-   > stops working after this — that path bypasses Cloudflare and is exactly what
-   > we are closing. Real users go through `csm*.mathconceptsecondary.academy`.
+5. **Verify:** both still return **200** (direct access is intentionally kept) —
+   `…/api/holidays` direct on the `run.app` URL **and** via
+   `csm.mathconceptsecondary.academy`. The difference is invisible on a public
+   endpoint; what changed is that the rate limiter now ignores a client-set
+   `CF-Connecting-IP` on the direct path (see `tests/test_origin_guard.py`).
 
 ### Phase 2 — Cloudflare Access on the prospect tool
 
