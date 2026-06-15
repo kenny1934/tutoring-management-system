@@ -119,6 +119,12 @@ REGISTRATION_FEE = 100
 # enrollments of at least this many lessons. Summer tier discounts are separate.
 MIN_LESSONS_FOR_DISCOUNT = 6
 
+# Promo discount type whose dollar value scales with the lesson count
+# (discount_value per 2 lessons, e.g. $100 off every 2 sessions) and which is
+# exempt from MIN_LESSONS_FOR_DISCOUNT. Used for the "extra lessons" promotion,
+# where one-off sessions are sold in pairs. Stored in discounts.discount_type.
+PER_TWO_LESSONS_DISCOUNT_TYPE = "per_2_lessons"
+
 # Grace period: students remain in "active" lists for this many days after enrollment expires
 ACTIVE_GRACE_PERIOD_DAYS = 21
 

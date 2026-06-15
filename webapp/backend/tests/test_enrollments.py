@@ -7,8 +7,9 @@ These tests verify critical business logic for:
 - Student conflict detection
 
 Key business rules:
-- Trial and One-Time enrollments generate exactly 1 session
-- Regular enrollments generate lessons_paid sessions
+- Trial enrollments generate exactly 1 session
+- Regular and One-Time enrollments generate lessons_paid sessions
+  (One-Time holds off-cadence extra lessons, rescheduled afterwards)
 - Holidays are skipped (not counted) but included in session list
 - Effective end date = lessons_paid + extension_weeks non-holiday dates
 """
@@ -28,7 +29,10 @@ from routers.enrollments import (
     get_holidays_in_range,
     check_student_conflicts,
     format_fee_message,
+    compute_discount_value,
+    discount_requires_min_lessons,
 )
+from constants import PER_TWO_LESSONS_DISCOUNT_TYPE
 from models import Holiday, Enrollment, Tutor, Student, SessionLog
 from schemas import SessionPreview
 
@@ -75,20 +79,22 @@ class TestGenerateSessionDates:
         assert sessions[0].session_date == first_lesson
         assert end_date == first_lesson
 
-    def test_one_time_enrollment_single_session(self, db_session):
-        """One-Time enrollment should generate exactly 1 session."""
-        first_lesson = date(2026, 3, 2)
+    def test_one_time_enrollment_honours_lessons_paid(self, db_session):
+        """One-Time generates one session per paid lesson; these are off-cadence
+        extra lessons that get rescheduled to their real dates afterwards."""
+        first_lesson = date(2026, 3, 2)  # Monday
 
         sessions, skipped, end_date = generate_session_dates(
             first_lesson_date=first_lesson,
             assigned_day="Monday",
-            lessons_paid=20,  # Should be ignored for One-Time
+            lessons_paid=2,
             enrollment_type="One-Time",
             db=db_session
         )
 
-        assert len(sessions) == 1
+        assert len(sessions) == 2
         assert sessions[0].session_date == first_lesson
+        assert sessions[1].session_date == first_lesson + timedelta(weeks=1)
 
     def test_holiday_on_first_lesson_date(self, db_session, sample_holidays):
         """If first_lesson_date falls on holiday, it should be marked as holiday and not counted."""
@@ -813,3 +819,97 @@ class TestDiscountMinimumLessons:
         )
         assert at_floor.status_code == 200
         assert "Discounted $300" in at_floor.json()["message"]
+
+    def test_create_allows_per_two_promo_below_floor(self, client, db_session):
+        """The per-2-lessons promo is exempt from the minimum-lesson floor."""
+        student, tutor, _ = self._seed(db_session)
+        promo = Discount(
+            discount_name="Extra Lessons (per 2)", discount_value=100,
+            discount_type=PER_TWO_LESSONS_DISCOUNT_TYPE, is_active=True,
+        )
+        db_session.add(promo)
+        db_session.commit()
+        resp = client.post(
+            "/api/enrollments",
+            json=self._create_payload(student, tutor, lessons_paid=2, discount_id=promo.id),
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+
+    def test_one_time_per_two_promo_fee_message_scales(self, client, db_session):
+        """One-Time enrollment + per-2 promo: discount scales with the actual
+        sessions, and the message lists each ad-hoc date and time."""
+        student, tutor, _ = self._seed(db_session)
+        promo = Discount(
+            discount_name="Extra Lessons (per 2)", discount_value=100,
+            discount_type=PER_TWO_LESSONS_DISCOUNT_TYPE, is_active=True,
+        )
+        db_session.add(promo)
+        db_session.flush()
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=tutor.id, first_lesson_date=date(2026, 3, 2),
+            assigned_day="Monday", assigned_time="15:00 - 16:30", location="MSA",
+            lessons_paid=2, enrollment_type="One-Time", discount_id=promo.id,
+        )
+        db_session.add(enrollment)
+        db_session.flush()
+        # Two ad-hoc sessions on different days and times.
+        db_session.add_all([
+            SessionLog(
+                enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
+                session_date=date(2026, 3, 3), time_slot="16:00 - 17:30", location="MSA",
+                session_status="Scheduled", financial_status="Unpaid",
+            ),
+            SessionLog(
+                enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
+                session_date=date(2026, 3, 6), time_slot="18:00 - 19:30", location="MSA",
+                session_status="Scheduled", financial_status="Unpaid",
+            ),
+        ])
+        db_session.commit()
+
+        resp = client.get(
+            f"/api/enrollments/{enrollment.id}/fee-message?lang=en",
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+        msg = resp.json()["message"]
+        assert "Discounted $100" in msg                # floor(2 / 2) * 100
+        assert "Fee: $700" in msg                      # base 800 - 100
+        assert "2026/03/03 16:00 - 17:30" in msg       # ad-hoc date + time listed
+        assert "2026/03/06 18:00 - 19:30" in msg
+        assert "Every" not in msg                      # recurring schedule line dropped
+
+
+class TestComputeDiscountValue:
+    """Unit tests for the per-2-lessons scaling / floor helper."""
+
+    def _flat(self):
+        return Discount(discount_name="Coupon", discount_value=300, discount_type=None, is_active=True)
+
+    def _promo(self):
+        return Discount(
+            discount_name="Extra Lessons (per 2)", discount_value=100,
+            discount_type=PER_TWO_LESSONS_DISCOUNT_TYPE, is_active=True,
+        )
+
+    def test_flat_applies_at_or_above_floor(self):
+        assert compute_discount_value(self._flat(), 6) == 300
+
+    def test_flat_zeroed_below_floor(self):
+        assert compute_discount_value(self._flat(), 5) == 0
+
+    def test_per_two_scales_and_floors_odd(self):
+        promo = self._promo()
+        assert compute_discount_value(promo, 1) == 0    # below a full pair
+        assert compute_discount_value(promo, 2) == 100
+        assert compute_discount_value(promo, 4) == 200
+        assert compute_discount_value(promo, 5) == 200  # odd lesson floored
+
+    def test_min_lessons_exemption(self):
+        assert discount_requires_min_lessons(self._promo()) is False
+        assert discount_requires_min_lessons(self._flat()) is True
+
+    def test_none_discount(self):
+        assert compute_discount_value(None, 10) == 0
+        assert discount_requires_min_lessons(None) is False

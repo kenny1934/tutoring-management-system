@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
-from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, ACTIVE_GRACE_PERIOD_DAYS
+from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus, NON_COUNTABLE_STATUSES, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, PER_TWO_LESSONS_DISCOUNT_TYPE, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo, SummerApplication, SummerCourseConfig
@@ -65,8 +65,11 @@ def generate_session_dates(
     current_date = first_lesson_date
     sessions_generated = 0
 
-    # Trial and One-Time generate exactly 1 session
-    max_sessions = 1 if enrollment_type in ('Trial', 'One-Time') else lessons_paid
+    # Trial is always a single session. One-Time honours lessons_paid so a
+    # one-off can hold several ad-hoc lessons (e.g. a 2-lesson "extra lessons"
+    # enrollment); these start on the weekly cadence and are rescheduled to
+    # their real dates afterwards.
+    max_sessions = 1 if enrollment_type == 'Trial' else lessons_paid
 
     # Load holidays for date range (first_lesson_date + 104 weeks to be safe)
     end_range = first_lesson_date + timedelta(weeks=104)
@@ -106,6 +109,33 @@ def generate_session_dates(
 
     effective_end_date = current_date
     return sessions, skipped_holidays, effective_end_date
+
+
+def compute_discount_value(discount, lessons_paid: int) -> int:
+    """Resolve a discount's dollar value for a given lesson count.
+
+    A 'per_2_lessons' promo scales with the lesson count (discount_value per
+    2 lessons, integer-floored) and is exempt from the minimum-lesson floor.
+    Every other discount is a flat value that only applies at or above
+    MIN_LESSONS_FOR_DISCOUNT. Returns 0 for no/None discount.
+    """
+    if discount is None:
+        return 0
+    value = int(discount.discount_value or 0)
+    if discount.discount_type == PER_TWO_LESSONS_DISCOUNT_TYPE:
+        return (lessons_paid // 2) * value
+    if lessons_paid < MIN_LESSONS_FOR_DISCOUNT:
+        return 0
+    return value
+
+
+def discount_requires_min_lessons(discount) -> bool:
+    """Whether a discount is subject to the MIN_LESSONS_FOR_DISCOUNT floor.
+
+    Per-2-lessons promos scale from the first pair of lessons, so they are not
+    rejected on small enrollments; all other discounts are floored.
+    """
+    return bool(discount) and discount.discount_type != PER_TWO_LESSONS_DISCOUNT_TYPE
 
 
 def check_student_conflicts(
@@ -433,7 +463,7 @@ async def create_enrollment(
         discount = db.query(Discount).filter(Discount.id == enrollment_data.discount_id).first()
         if not discount:
             raise HTTPException(status_code=404, detail=f"Discount with ID {enrollment_data.discount_id} not found")
-        if enrollment_data.lessons_paid < MIN_LESSONS_FOR_DISCOUNT:
+        if discount_requires_min_lessons(discount) and enrollment_data.lessons_paid < MIN_LESSONS_FOR_DISCOUNT:
             raise HTTPException(
                 status_code=400,
                 detail=f"Discounts are not available for enrollments of fewer than {MIN_LESSONS_FOR_DISCOUNT} lessons.",
@@ -1749,33 +1779,50 @@ async def get_fee_message(
             days_until_target = 7  # Move to next week if same day
         first_lesson_date = (effective_end if effective_end else hk_now().date()) + timedelta(days=days_until_target)
 
-    # Generate session dates
-    sessions, _, _ = generate_session_dates(
-        first_lesson_date=first_lesson_date,
-        assigned_day=enrollment.assigned_day or "Mon",
-        lessons_paid=lessons_paid,
-        enrollment_type="Regular",
-        db=db
-    )
+    # One-Time enrollments are off-cadence: their lessons are individual ad-hoc
+    # sessions (often on different days/times), so list the real scheduled
+    # sessions rather than projecting a weekly cadence. This keeps the fee
+    # message correct after the sessions are rescheduled to their actual dates.
+    is_adhoc = enrollment.enrollment_type == 'One-Time'
+    session_times = None
+    if is_adhoc:
+        adhoc_sessions = sorted(
+            [s for s in enrollment.sessions if s.session_status not in NON_COUNTABLE_STATUSES],
+            key=lambda s: (s.session_date, s.time_slot or ''),
+        )
+        session_dates = [s.session_date for s in adhoc_sessions]
+        session_times = [s.time_slot or enrollment.assigned_time or '' for s in adhoc_sessions]
+        # Bill for the lessons actually scheduled (fall back to the stored count).
+        lessons_paid = len(session_dates) or enrollment.lessons_paid or lessons_paid
+    else:
+        # Generate renewal session dates from the weekly cadence.
+        sessions, _, _ = generate_session_dates(
+            first_lesson_date=first_lesson_date,
+            assigned_day=enrollment.assigned_day or "Mon",
+            lessons_paid=lessons_paid,
+            enrollment_type="Regular",
+            db=db
+        )
+        session_dates = [s.session_date for s in sessions if not s.is_holiday]
 
-    # Get non-holiday session dates
-    session_dates = [s.session_date for s in sessions if not s.is_holiday]
-
-    # Use enrollment's explicit discount first (admin's choice), fall back to student coupons
-    if enrollment.discount and enrollment.discount.discount_value:
-        discount_value = int(enrollment.discount.discount_value)
+    # Resolve the discount: enrollment's explicit discount first (admin's
+    # choice — may scale for a per-2-lessons promo and is floor-aware), then
+    # fall back to the student's coupons (flat, floor-gated).
+    if enrollment.discount:
+        discount_value = compute_discount_value(enrollment.discount, lessons_paid)
     else:
         student_coupon = db.query(StudentCoupon).filter(
             StudentCoupon.student_id == enrollment.student_id
         ).first()
-        if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
+        if (
+            student_coupon
+            and student_coupon.available_coupons
+            and student_coupon.available_coupons > 0
+            and lessons_paid >= MIN_LESSONS_FOR_DISCOUNT
+        ):
             discount_value = int(student_coupon.coupon_value or 300)
         else:
             discount_value = 0
-
-    # Discounts don't apply below the minimum lesson count, regardless of source.
-    if lessons_paid < MIN_LESSONS_FOR_DISCOUNT:
-        discount_value = 0
 
     # Determine new student status: use override if provided, otherwise use enrollment value
     # Trial enrollments never have reg fee
@@ -1794,7 +1841,9 @@ async def get_fee_message(
         lessons_paid=lessons_paid,
         session_dates=session_dates,
         discount_value=discount_value,
-        is_new_student=effective_is_new_student
+        is_new_student=effective_is_new_student,
+        is_adhoc=is_adhoc,
+        session_times=session_times,
     )
 
     return {"message": message, "lessons_paid": lessons_paid, "first_lesson_date": str(first_lesson_date)}
@@ -1810,9 +1859,16 @@ def format_fee_message(
     lessons_paid: int,
     session_dates: list,
     discount_value: int = 0,
-    is_new_student: bool = False
+    is_new_student: bool = False,
+    is_adhoc: bool = False,
+    session_times: Optional[list] = None,
 ) -> str:
-    """Format a fee message in Chinese or English."""
+    """Format a fee message in Chinese or English.
+
+    When ``is_adhoc`` is set (One-Time enrollments), each lesson is listed with
+    its own date and time and the recurring "every weekday" schedule line is
+    dropped, since the lessons are individual off-cadence sessions.
+    """
     day_map_zh = {'Mon': '一', 'Tue': '二', 'Wed': '三', 'Thu': '四', 'Fri': '五', 'Sat': '六', 'Sun': '日',
                   'Monday': '一', 'Tuesday': '二', 'Wednesday': '三', 'Thursday': '四',
                   'Friday': '五', 'Saturday': '六', 'Sunday': '日'}
@@ -1828,9 +1884,26 @@ def format_fee_message(
     reg_fee = REGISTRATION_FEE if is_new_student else 0
     discount_value = int(discount_value)  # Ensure no decimals
     total_fee = base_fee - discount_value + reg_fee
-    lesson_dates_str = '\n                  '.join([d.strftime('%Y/%m/%d') for d in session_dates])
+    if is_adhoc and session_times:
+        lesson_dates_str = '\n                  '.join(
+            f"{d.strftime('%Y/%m/%d')} {t}".strip()
+            for d, t in zip(session_dates, session_times)
+        )
+    else:
+        lesson_dates_str = '\n                  '.join([d.strftime('%Y/%m/%d') for d in session_dates])
 
     if lang == 'zh':
+        # Ad-hoc one-off lessons vary in day/time, so list date+time per lesson
+        # and omit the recurring "every weekday" schedule line.
+        if is_adhoc:
+            schedule_section = f"""上課日期及時間：
+                  {lesson_dates_str}
+                  (共{lessons_paid}堂)"""
+        else:
+            schedule_section = f"""上課時間：逢星期{day_map_zh.get(assigned_day, assigned_day)} {assigned_time} (90分鐘)
+上課日期：
+                  {lesson_dates_str}
+                  (共{lessons_paid}堂)"""
         # Build fee description parts
         fee_parts = []
         if discount_value > 0 and reg_fee > 0:
@@ -1846,10 +1919,7 @@ def format_fee_message(
 
 學生編號：{school_student_id}
 學生姓名：{student_name}
-上課時間：逢星期{day_map_zh.get(assigned_day, assigned_day)} {assigned_time} (90分鐘)
-上課日期：
-                  {lesson_dates_str}
-                  (共{lessons_paid}堂)
+{schedule_section}
 
 費用： ${total_fee:,}{discount_text}
 
@@ -1865,6 +1935,17 @@ def format_fee_message(
 MathConcept 中學教室 ({location_map_zh.get(location, location)})"""
 
     else:  # English
+        # Ad-hoc one-off lessons vary in day/time, so list date+time per lesson
+        # and omit the recurring "every weekday" schedule line.
+        if is_adhoc:
+            schedule_section = f"""Lesson Dates & Times:
+                  {lesson_dates_str}
+                  ({lessons_paid} lessons total)"""
+        else:
+            schedule_section = f"""Schedule: Every {day_map_en.get(assigned_day, assigned_day)} {assigned_time} (90 minutes)
+Lesson Dates:
+                  {lesson_dates_str}
+                  ({lessons_paid} lessons total)"""
         # Build fee description parts
         fee_parts = []
         if discount_value > 0 and reg_fee > 0:
@@ -1882,10 +1963,7 @@ This is a payment reminder for MathConcept Secondary Academy regular course:
 
 Student ID: {school_student_id}
 Student Name: {student_name}
-Schedule: Every {day_map_en.get(assigned_day, assigned_day)} {assigned_time} (90 minutes)
-Lesson Dates:
-                  {lesson_dates_str}
-                  ({lessons_paid} lessons total)
+{schedule_section}
 
 Fee: ${total_fee:,}{discount_text}
 
@@ -1923,18 +2001,31 @@ async def update_enrollment(
     # Discounts require a minimum lesson count. Evaluate the resulting state so
     # this catches both adding a discount and shrinking lessons below the floor.
     # Summer enrollments use a separate tier-discount system and are exempt.
-    if enrollment.enrollment_type != 'Summer':
+    # Only re-check the floor when the update could move the enrollment across
+    # it (changing the discount or the lesson count). Summer enrollments use a
+    # separate tier-discount system and are exempt.
+    if enrollment.enrollment_type != 'Summer' and (
+        'discount_id' in update_data or 'lessons_paid' in update_data
+    ):
         effective_discount_id = update_data.get('discount_id', enrollment.discount_id)
         effective_lessons = update_data.get('lessons_paid', enrollment.lessons_paid)
-        if (
-            effective_discount_id
-            and effective_lessons is not None
-            and effective_lessons < MIN_LESSONS_FOR_DISCOUNT
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Discounts are not available for enrollments of fewer than {MIN_LESSONS_FOR_DISCOUNT} lessons.",
-            )
+        if effective_discount_id and effective_lessons is not None:
+            # Reuse the eager-loaded discount when the id is unchanged; only
+            # query when the caller assigns a different discount.
+            if effective_discount_id == enrollment.discount_id:
+                effective_discount = enrollment.discount
+            else:
+                effective_discount = db.query(Discount).filter(Discount.id == effective_discount_id).first()
+            # Per-2-lessons promos are exempt from the floor (they scale with
+            # the lesson count); all other discounts require the minimum.
+            if (
+                discount_requires_min_lessons(effective_discount)
+                and effective_lessons < MIN_LESSONS_FOR_DISCOUNT
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Discounts are not available for enrollments of fewer than {MIN_LESSONS_FOR_DISCOUNT} lessons.",
+                )
 
     # Check if payment_status is being changed to "Paid"
     updating_to_paid = (

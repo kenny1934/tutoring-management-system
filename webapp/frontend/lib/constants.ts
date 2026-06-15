@@ -52,6 +52,21 @@ export const DEFAULT_GRADE_COLOR = "#e5e7eb";
 // enrollments of at least this many lessons. Mirrors the backend constant.
 export const MIN_LESSONS_FOR_DISCOUNT = 6;
 
+// Promo discount type whose value scales per 2 lessons (e.g. $100 off every
+// 2 extra lessons) and which is exempt from MIN_LESSONS_FOR_DISCOUNT.
+// Mirrors the backend constant. Stored on Discount.discount_type.
+export const PER_TWO_LESSONS_DISCOUNT_TYPE = "per_2_lessons";
+
+// Minimum lesson count a given discount needs to apply. Per-2-lessons promos
+// start from the first pair; all other discounts require the standard floor.
+export function minLessonsForDiscount(
+  discount?: { discount_type?: string } | null
+): number {
+  return discount?.discount_type === PER_TWO_LESSONS_DISCOUNT_TYPE
+    ? 2
+    : MIN_LESSONS_FOR_DISCOUNT;
+}
+
 // Grade levels (regular). P6 is admin-only (summer create-student flow);
 // Graduated is the auto-promotion target for F6 students.
 export const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6", "Graduated"] as const;
