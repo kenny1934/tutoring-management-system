@@ -9,6 +9,15 @@ import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 
 export type Lang = "zh" | "en";
 
+/** Today's date as an ISO `YYYY-MM-DD` string in Hong Kong time (UTC+8),
+ *  independent of the viewer's browser timezone. Use this for all summer
+ *  deadline comparisons — `new Date().toISOString().slice(0, 10)` returns the
+ *  *UTC* date, which is a day off for HK viewers around midnight and wrongly
+ *  treats a still-current deadline day as already past. */
+export function hkTodayIso(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
+}
+
 /** Branch colors and district names — shared across summer pages. */
 export const BRANCH_INFO: Record<string, { district: string; dot: string; badge: string }> = {
   MAC: { district: "高士德", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
@@ -558,6 +567,15 @@ export function getActiveSummerPromo(
   const isGroup = (d: { conditions?: { min_group_size?: number } }) =>
     (d.conditions?.min_group_size ?? 0) >= MIN_GROUP_SIZE;
 
+  // Early-bird tiers are valid *through the whole of* `before_date` (inclusive),
+  // in HK time (UTC+8). Build the deadline as end-of-day HK so the tier only
+  // rolls forward once that day has fully ended locally — and so it behaves the
+  // same regardless of the viewer's browser timezone. Using midnight at the
+  // start of the day (T00:00:00, local) would drop the tier as soon as the
+  // deadline day began, a day too early.
+  const hkDeadline = (beforeDate: string) =>
+    new Date(beforeDate + "T23:59:59.999+08:00");
+
   // Pick the earliest still-active early-bird in each tier (group / solo).
   // "Earliest active" rolls forward automatically as deadlines pass — once
   // the June EB expires, the July EB takes over without a redeploy.
@@ -568,7 +586,7 @@ export function getActiveSummerPromo(
       .filter((d) => pred(d) && !!d.conditions?.before_date)
       .map((d) => ({
         d,
-        deadline: new Date(d.conditions!.before_date! + "T00:00:00"),
+        deadline: hkDeadline(d.conditions!.before_date!),
       }))
       .filter(({ deadline }) => deadline > now)
       .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())[0];
@@ -594,7 +612,7 @@ export function getActiveSummerPromo(
       (d) =>
         isGroup(d) &&
         !!d.conditions?.before_date &&
-        new Date(d.conditions.before_date + "T00:00:00").getTime() <
+        hkDeadline(d.conditions.before_date).getTime() <
           ebGroupActive.deadline.getTime(),
     );
 

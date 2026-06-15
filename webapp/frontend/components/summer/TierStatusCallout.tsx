@@ -3,6 +3,7 @@
 import React from "react";
 import { AlertTriangle, CheckCircle2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hkTodayIso } from "@/lib/summer-utils";
 import type { SummerPricingConfig } from "@/types";
 
 // Pure display component for the current discount-tier state of an application
@@ -53,12 +54,14 @@ export function TierStatusCallout({
   // Detect a forfeited higher tier: any discount with a larger amount whose
   // before_date has already passed. Shown so admins understand *why* the
   // applicant is on the current tier.
-  const todayIso = today ?? new Date().toISOString().slice(0, 10);
+  const todayIso = today ?? hkTodayIso();
   const currentAmt = effective?.amount ?? 0;
   const forfeited = (config?.discounts ?? []).find((d) => {
     if (d.amount <= currentAmt) return false;
     if (!d.conditions?.before_date) return false;
-    return d.conditions.before_date <= todayIso;
+    // Deadline is inclusive — a tier is only forfeited once its before_date is
+    // strictly in the past (HK time). On the deadline day itself it's still live.
+    return d.conditions.before_date < todayIso;
   });
 
   const tone: Tone = isOverride ? "override" : forfeited ? "warn" : "none";

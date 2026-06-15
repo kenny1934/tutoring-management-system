@@ -470,7 +470,10 @@ export default function SummerLandingPage() {
               <PrimaryCTA size="lg" />
               {promo.ebActive && promo.ebDateFormatted && (
                 <p className="text-xs text-white/70 tracking-widest">
-                  早鳥優惠｜{promo.ebDateFormatted}前報名 · 三人同行優惠高達 $4,200
+                  早鳥優惠｜{promo.ebDateFormatted}前報名 ·{" "}
+                  {promo.isExtension
+                    ? `三人同行優惠各減 $${(promo.groupSavings ?? 150).toLocaleString()}`
+                    : "三人同行優惠高達 $4,200"}
                 </p>
               )}
             </div>
@@ -801,7 +804,11 @@ export default function SummerLandingPage() {
               <div className="relative bg-white border border-[#F5C518]/40 p-3">
                 <div className="relative overflow-hidden">
                   <Image
-                    src="/summer/poster-pricing.jpg"
+                    src={
+                      promo.isExtension
+                        ? "/summer/poster-pricing-616.jpg"
+                        : "/summer/poster-pricing.jpg"
+                    }
                     alt="完整收費及優惠表"
                     width={1600}
                     height={2000}
@@ -819,7 +826,9 @@ export default function SummerLandingPage() {
                 className="mt-5 text-center text-sm text-[#1A1614]/55 italic"
                 style={{ fontFamily: "var(--font-serif-tc)" }}
               >
-                適用日期：2026年4月8日至6月15日
+                {promo.isExtension
+                  ? "適用日期：2026年6月16日至2026年7月15日"
+                  : "適用日期：2026年4月8日至2026年6月15日"}
               </p>
               <p
                 className="mt-3 text-center text-xs text-[#1A1614]/45 leading-relaxed px-4"

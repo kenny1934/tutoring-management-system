@@ -24,7 +24,7 @@
 // for the Nth-joined date check.
 
 import type { SummerApplication, SummerPricingConfig } from "@/types";
-import { EXIT_STATUSES, nonRejectedSiblings } from "@/lib/summer-utils";
+import { EXIT_STATUSES, hkTodayIso, nonRejectedSiblings } from "@/lib/summer-utils";
 
 export type DiscountEntry = NonNullable<SummerPricingConfig["discounts"]>[number];
 
@@ -86,7 +86,7 @@ function activeMemberCount(members: SummerApplication[]): number {
  *  deadline-gated tiers, while a paid applicant locks in their tier. */
 function effectiveDate(app: SummerApplication): string {
   if (app.paid_at) return app.paid_at.slice(0, 10);
-  return new Date().toISOString().slice(0, 10);
+  return hkTodayIso();
 }
 
 function qualifies(
@@ -157,8 +157,9 @@ export function computeBestDiscount(
     // know the exact future reach-date, but we can rule out a discount whose
     // deadline is already in the past.
     if (d.conditions?.before_date) {
-      const today = new Date().toISOString().slice(0, 10);
-      if (d.conditions.before_date <= today) continue;
+      // Deadline is inclusive, so the deadline day itself is still achievable —
+      // only a strictly-past deadline rules the tier out.
+      if (d.conditions.before_date < hkTodayIso()) continue;
     }
     const extra = d.amount - bestAmount;
     if (!nearMiss || extra > nearMiss.extraSavings) {
