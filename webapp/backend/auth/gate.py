@@ -91,10 +91,13 @@ def cf_access_denial(request: Request, path: str) -> Optional[Response]:
     and the request lacks an allowlisted one; otherwise None.
 
     Cloudflare injects ``Cf-Access-Authenticated-User-Email`` after the user
-    passes the Access login. Trusting that header is safe ONLY because
-    OriginGuard refuses any request that did not transit Cloudflare, so a direct
-    caller cannot forge it. Enable ``CF_ORIGIN_SECRET`` before
-    ``CF_ACCESS_REQUIRED``.
+    passes the Access login. That header is only trustworthy when the request
+    actually came through our Cloudflare edge — a caller hitting the Cloud Run
+    URL directly could otherwise forge it — so we only read it when
+    ``is_cloudflare_origin`` confirms the Worker's shared secret. As a result,
+    these endpoints are reachable only via Cloudflare (where Access lives), which
+    is exactly the intent: the public prospect/buddy pages are served on
+    ``csm.``/``csm-pro.``, not the direct ``*.run.app`` URL.
 
     No-op unless ``CF_ACCESS_REQUIRED`` is set, so it is safe to deploy before
     the Cloudflare Access application is configured.
@@ -107,7 +110,12 @@ def cf_access_denial(request: Request, path: str) -> Optional[Response]:
     # the Access-gated public pages, so they are exempt from the Access check.
     if "/admin" in path:
         return None
-    email = (request.headers.get("cf-access-authenticated-user-email") or "").strip().lower()
+
+    from auth.origin_guard import is_cloudflare_origin
+
+    email = ""
+    if is_cloudflare_origin(request):
+        email = (request.headers.get("cf-access-authenticated-user-email") or "").strip().lower()
     domain = email.rsplit("@", 1)[-1] if "@" in email else ""
     if not email or domain not in _cf_access_allowed_domains():
         logger.warning("Blocked non-Access request to %s (email=%r)", path, email or None)

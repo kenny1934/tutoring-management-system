@@ -77,12 +77,20 @@ RATE_LIMITS = {
 
 
 def get_client_ip(request: Request) -> str:
-    """Extract client IP from request, handling proxies.
-    Prefers CF-Connecting-IP (set by Cloudflare, not spoofable by clients),
-    then rightmost X-Forwarded-For (last trusted proxy append), then direct."""
-    cf_ip = request.headers.get("CF-Connecting-IP")
-    if cf_ip:
-        return cf_ip.strip()
+    """Extract the client IP, resisting header spoofing.
+
+    ``CF-Connecting-IP`` is only trustworthy on requests that actually came
+    through our Cloudflare edge — a caller hitting the Cloud Run URL directly can
+    set it to anything and rotate it to evade per-IP limits. So we only honour it
+    when ``is_cloudflare_origin`` confirms the Worker's shared secret is present;
+    otherwise we use the rightmost X-Forwarded-For entry (appended by the trusted
+    proxy / Cloud Run front end), then the direct peer."""
+    from auth.origin_guard import is_cloudflare_origin
+
+    if is_cloudflare_origin(request):
+        cf_ip = request.headers.get("CF-Connecting-IP")
+        if cf_ip:
+            return cf_ip.strip()
     forwarded_for = request.headers.get("X-Forwarded-For", "")
     if forwarded_for:
         return forwarded_for.split(",")[-1].strip()

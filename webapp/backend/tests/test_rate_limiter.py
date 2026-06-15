@@ -36,11 +36,21 @@ def clean_rate_limits():
 class TestGetClientIp:
     """Test suite for get_client_ip function."""
 
-    def test_cf_connecting_ip_preferred(self):
-        """Prefers CF-Connecting-IP over X-Forwarded-For."""
+    def test_cf_connecting_ip_preferred(self, monkeypatch):
+        """Prefers CF-Connecting-IP over X-Forwarded-For — but only when the
+        request carries the Worker secret (i.e. came through Cloudflare)."""
+        monkeypatch.setenv("CF_ORIGIN_SECRET", "s")
+        request = MagicMock()
+        request.headers = {"X-Origin-Verify": "s", "CF-Connecting-IP": "9.9.9.9",
+                           "X-Forwarded-For": "1.2.3.4, 5.6.7.8"}
+        assert get_client_ip(request) == "9.9.9.9"
+
+    def test_cf_connecting_ip_ignored_without_worker_secret(self, monkeypatch):
+        """A client-set CF-Connecting-IP is not trusted off-Cloudflare."""
+        monkeypatch.setenv("CF_ORIGIN_SECRET", "s")
         request = MagicMock()
         request.headers = {"CF-Connecting-IP": "9.9.9.9", "X-Forwarded-For": "1.2.3.4, 5.6.7.8"}
-        assert get_client_ip(request) == "9.9.9.9"
+        assert get_client_ip(request) == "5.6.7.8"
 
     def test_with_forwarded_for(self):
         """Extracts rightmost IP from X-Forwarded-For (closest trusted proxy)."""
