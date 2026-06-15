@@ -34,7 +34,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
-import { MIN_LESSONS_FOR_DISCOUNT } from "@/lib/constants";
+import { MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
 import { getDisplayPaymentStatus, getIsNewStudentParam } from "@/lib/enrollment-utils";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -167,8 +167,9 @@ export default function EnrollmentDetailPage() {
     // lesson count, so strip the discount when below the floor (also keeps
     // legacy rows editable instead of tripping the backend guard).
     const effectiveLessons = editForm.lessons_paid ?? enrollment.lessons_paid ?? 0;
+    const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
     const updateData = isEditingPayment
-      ? { ...editForm, discount_id: effectiveLessons < MIN_LESSONS_FOR_DISCOUNT ? null : selectedDiscountId }
+      ? { ...editForm, discount_id: effectiveLessons < minLessonsForDiscount(selectedDiscount) ? null : selectedDiscountId }
       : editForm;
     try {
       const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, updateData);
@@ -1023,7 +1024,8 @@ export default function EnrollmentDetailPage() {
                         onChange={(e) => {
                           const next = e.target.value ? parseInt(e.target.value) : null;
                           handleFormChange("lessons_paid", next);
-                          if (next === null || next < MIN_LESSONS_FOR_DISCOUNT) {
+                          const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
+                          if (next === null || next < minLessonsForDiscount(selectedDiscount)) {
                             setSelectedDiscountId(null);
                           }
                         }}
@@ -1049,12 +1051,11 @@ export default function EnrollmentDetailPage() {
                         <select
                           value={selectedDiscountId || ""}
                           onChange={(e) => setSelectedDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                          disabled={(editForm.lessons_paid ?? 0) < MIN_LESSONS_FOR_DISCOUNT}
                           className="w-full px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="">No discount</option>
                           {discounts.filter(d => d.is_active).map(discount => (
-                            <option key={discount.id} value={discount.id}>
+                            <option key={discount.id} value={discount.id} disabled={(editForm.lessons_paid ?? 0) < minLessonsForDiscount(discount)}>
                               {discount.discount_name}
                               {discount.discount_value ? ` ($${discount.discount_value})` : ''}
                             </option>
@@ -1062,7 +1063,7 @@ export default function EnrollmentDetailPage() {
                         </select>
                         {(editForm.lessons_paid ?? 0) < MIN_LESSONS_FOR_DISCOUNT && (
                           <p className="mt-1 text-xs text-gray-400">
-                            Discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
+                            Most discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
                           </p>
                         )}
                       </div>

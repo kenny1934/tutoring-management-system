@@ -31,7 +31,7 @@ import {
 import type { Discount } from "@/types";
 import { useActiveTutors, useCacheInvalidation } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
-import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISCOUNT } from "@/lib/constants";
+import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Student } from "@/types";
@@ -401,12 +401,15 @@ export function CreateEnrollmentModal({
     });
   }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts, lessonsCount]);
 
-  // Discounts require a minimum lesson count; clear any selection below the floor.
+  // Clear the selected discount only if the lesson count is below that
+  // discount's own minimum (per-2-lessons promos apply from 2 lessons).
   useEffect(() => {
-    if (lessonsCount < MIN_LESSONS_FOR_DISCOUNT && discountId !== null) {
+    if (discountId === null) return;
+    const selected = discounts.find((d) => d.id === discountId);
+    if (lessonsCount < minLessonsForDiscount(selected)) {
       setDiscountId(null);
     }
-  }, [lessonsCount, discountId]);
+  }, [lessonsCount, discountId, discounts]);
 
   // Auto-detect is_new_student when student is selected (skip for Trial enrollments)
   useEffect(() => {
@@ -839,12 +842,11 @@ export function CreateEnrollmentModal({
               <select
                 value={discountId || ""}
                 onChange={(e) => setDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                disabled={lessonsCount < MIN_LESSONS_FOR_DISCOUNT}
                 className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">No discount</option>
                 {discounts.map((d) => (
-                  <option key={d.id} value={d.id}>
+                  <option key={d.id} value={d.id} disabled={lessonsCount < minLessonsForDiscount(d)}>
                     {d.discount_name}{d.discount_value ? ` ($${d.discount_value})` : ''}
                   </option>
                 ))}
@@ -853,7 +855,7 @@ export function CreateEnrollmentModal({
             </div>
             {lessonsCount < MIN_LESSONS_FOR_DISCOUNT && (
               <p className="mt-1.5 text-xs text-foreground/50">
-                Discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
+                Most discounts apply only to enrollments of {MIN_LESSONS_FOR_DISCOUNT} lessons or more.
               </p>
             )}
           </div>
