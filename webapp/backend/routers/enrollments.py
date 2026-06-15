@@ -257,6 +257,19 @@ def bulk_load_summer_unavailability_notes(
     return {app_id: notes for app_id, notes in rows if notes}
 
 
+def _last_scheduled_session_date(enrollment: Enrollment) -> Optional[date]:
+    """Latest non-cancelled session date for an enrollment, or None if it has none.
+
+    Lets One-Time enrollments report their real last lesson instead of a
+    weekly-cadence projection — their ad-hoc lessons are rescheduled off-cadence.
+    """
+    dates = [
+        s.session_date for s in enrollment.sessions
+        if s.session_date and s.session_status not in NON_COUNTABLE_STATUSES
+    ]
+    return max(dates) if dates else None
+
+
 def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optional[date]:
     """Calculate effective end date with holiday awareness.
 
@@ -267,6 +280,7 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
     Extension weeks provide additional deadline buffer beyond the last lesson.
 
     Summer enrollments override this with the course config's end date.
+    One-Time enrollments report their last actual scheduled session.
     """
     if enrollment.enrollment_type == 'Summer':
         if not enrollment.summer_application_id:
@@ -278,6 +292,15 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
             .scalar()
         )
         return end_date or enrollment.first_lesson_date
+
+    # One-Time enrollments hold off-cadence ad-hoc lessons (rescheduled to their
+    # real dates), so the weekly-cadence projection is meaningless — report the
+    # last actual scheduled lesson. Display only: renewal/active/deadline logic
+    # all exclude One-Time. Falls through to the cadence calc when none exist yet.
+    if enrollment.enrollment_type == 'One-Time':
+        last_session = _last_scheduled_session_date(enrollment)
+        if last_session:
+            return last_session
 
     if not enrollment.first_lesson_date:
         return None
@@ -314,6 +337,14 @@ def calculate_effective_end_date_bulk(
         if summer_end_dates is not None and enrollment.summer_application_id:
             return summer_end_dates.get(enrollment.summer_application_id) or enrollment.first_lesson_date
         return enrollment.first_lesson_date
+
+    # One-Time enrollments report their last actual scheduled lesson rather than
+    # a weekly-cadence projection (see calculate_effective_end_date). Display
+    # only — One-Time is excluded from renewal/active/deadline logic.
+    if enrollment.enrollment_type == 'One-Time':
+        last_session = _last_scheduled_session_date(enrollment)
+        if last_session:
+            return last_session
 
     if not enrollment.first_lesson_date:
         return None

@@ -341,6 +341,73 @@ class TestCalculateEffectiveEndDate:
 
         assert end_date == first_lesson
 
+    def _create_one_time(self, db_session, first_lesson, lessons_paid, suffix=""):
+        tutor = Tutor(user_email=f"ot{suffix}@example.com", tutor_name="OT Tutor", role="Tutor")
+        db_session.add(tutor)
+        db_session.flush()
+        student = Student(
+            school_student_id=f"OT{suffix or '0'}", student_name="OT Student", grade="F4", phone="12345678",
+        )
+        db_session.add(student)
+        db_session.flush()
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=tutor.id, first_lesson_date=first_lesson,
+            assigned_day="Monday", assigned_time="15:00-16:00", location="Main Center",
+            lessons_paid=lessons_paid, enrollment_type="One-Time",
+        )
+        db_session.add(enrollment)
+        db_session.flush()
+        return enrollment, student, tutor
+
+    def test_one_time_uses_last_actual_session(self, db_session):
+        """One-Time end date reflects the latest scheduled session, not the weekly
+        cadence (its lessons are rescheduled off-cadence)."""
+        enrollment, student, tutor = self._create_one_time(db_session, date(2026, 3, 2), lessons_paid=2, suffix="1")
+        # Two ad-hoc sessions well past the 2-week cadence end (2026-03-09);
+        # the later one is added first to prove it sorts by date, not insert order.
+        db_session.add_all([
+            SessionLog(
+                enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
+                session_date=date(2026, 4, 1), time_slot="18:00-19:30", location="Main Center",
+                session_status="Scheduled", financial_status="Unpaid",
+            ),
+            SessionLog(
+                enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
+                session_date=date(2026, 3, 18), time_slot="16:00-17:30", location="Main Center",
+                session_status="Scheduled", financial_status="Unpaid",
+            ),
+        ])
+        db_session.commit()
+
+        assert calculate_effective_end_date(enrollment, db_session) == date(2026, 4, 1)
+
+    def test_one_time_ignores_cancelled_session(self, db_session):
+        """A cancelled session must not extend the One-Time end date."""
+        enrollment, student, tutor = self._create_one_time(db_session, date(2026, 3, 2), lessons_paid=2, suffix="2")
+        db_session.add_all([
+            SessionLog(
+                enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
+                session_date=date(2026, 3, 18), time_slot="16:00-17:30", location="Main Center",
+                session_status="Scheduled", financial_status="Unpaid",
+            ),
+            SessionLog(
+                enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
+                session_date=date(2026, 5, 1), time_slot="18:00-19:30", location="Main Center",
+                session_status="Cancelled", financial_status="Unpaid",
+            ),
+        ])
+        db_session.commit()
+
+        assert calculate_effective_end_date(enrollment, db_session) == date(2026, 3, 18)
+
+    def test_one_time_without_sessions_falls_back_to_cadence(self, db_session):
+        """A One-Time enrollment with no sessions falls back to the cadence calc."""
+        enrollment, _, _ = self._create_one_time(db_session, date(2026, 3, 2), lessons_paid=2, suffix="3")
+        db_session.commit()
+
+        # No sessions → cadence: 2 lessons = first lesson + 1 week.
+        assert calculate_effective_end_date(enrollment, db_session) == date(2026, 3, 9)
+
 
 # ============================================================================
 # Test calculate_effective_end_date_bulk()
