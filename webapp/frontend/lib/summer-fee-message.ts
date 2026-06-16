@@ -64,6 +64,11 @@ function resolvePaymentTermsBlock(
       : pricing?.payment_terms_en ?? DEFAULT_PAYMENT_TERMS_EN
   ).replaceAll("{course_start}", formatDate(courseStart));
 
+  // An admin override pins the tier after the fact — the parent has already
+  // paid and the deadline has passed, so the "pay by {deadline} to lock it in"
+  // note would be misleading. Suppress it for overrides.
+  if (discount.isOverride) return base;
+
   const tierDeadline = discount.best?.conditions?.before_date;
   if (!tierDeadline) return base;
 

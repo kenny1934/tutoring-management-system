@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES, isNonAttending, getSummerTimeSlots } from "@/lib/summer-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
-import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
+import { resolveEffectiveDiscount, type DiscountResult } from "@/lib/summer-discounts";
 import { suggestReceiptCode } from "@/lib/summer-receipt-codes";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
@@ -712,11 +712,13 @@ export function SummerApplicationDetailModal({
 
   const effectiveDiscount = useMemo((): DiscountResult | null => {
     if (!app || !config?.pricing_config) return null;
+    // Honour an admin tier override (from the published enrollment) over the
+    // live group/deadline recompute, so the fee box + fee message match the pin.
     if (!app.buddy_group_id) {
-      return computeBestDiscount(app, [app], config.pricing_config);
+      return resolveEffectiveDiscount(app, [app], config.pricing_config, app.discount_override_code);
     }
     if (!fetchedBuddyMembers) return null;
-    return computeBestDiscount(app, fetchedBuddyMembers, config.pricing_config);
+    return resolveEffectiveDiscount(app, fetchedBuddyMembers, config.pricing_config, app.discount_override_code);
   }, [app, config, fetchedBuddyMembers]);
 
   const verifySibling = async (id: number, status: SiblingVerificationStatus) => {

@@ -1590,6 +1590,7 @@ def _build_application_response(
     linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
     slot_counts: Optional[dict[int, int]] = None,
     published_enrollment_ids: Optional[dict[int, int]] = None,
+    override_codes: Optional[dict[int, str]] = None,
     live_by_summer_id: Optional[dict[int, SessionLog]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
@@ -1729,6 +1730,9 @@ def _build_application_response(
     if published_enrollment_ids:
         data["published_enrollment_id"] = published_enrollment_ids.get(app.id)
 
+    if override_codes:
+        data["discount_override_code"] = override_codes.get(app.id)
+
     return SummerApplicationResponse.model_validate(data)
 
 
@@ -1763,6 +1767,25 @@ def _get_published_enrollment_ids(
     return {app_id: enrollment_id for app_id, enrollment_id in rows}
 
 
+def _get_published_enrollment_overrides(
+    db: Session, app_ids: list[int]
+) -> dict[int, str]:
+    """Map app_id → discount_override_code for published enrollments that carry
+    an admin tier override. Surfaced on the application response so summer-side
+    fee/tier displays honour the pin instead of recomputing the tier."""
+    if not app_ids:
+        return {}
+    rows = (
+        db.query(Enrollment.summer_application_id, Enrollment.discount_override_code)
+        .filter(
+            Enrollment.summer_application_id.in_(app_ids),
+            Enrollment.discount_override_code.isnot(None),
+        )
+        .all()
+    )
+    return {app_id: code for app_id, code in rows}
+
+
 def _build_application_responses(
     db: Session, apps: list[SummerApplication]
 ) -> list[SummerApplicationResponse]:
@@ -1783,6 +1806,7 @@ def _build_application_responses(
     })
     slot_counts = _get_slot_session_counts(db, slot_ids)
     published_ids = _get_published_enrollment_ids(db, [a.id for a in apps])
+    override_codes = _get_published_enrollment_overrides(db, [a.id for a in apps])
     # Bulk-fetch live session_log rows so published placements overlay live
     # date/status/tutor onto each row (tutor joinedload'd in the helper).
     live_by_summer_id = _live_sessions_by_summer_id(
@@ -1797,6 +1821,7 @@ def _build_application_responses(
             linked_prospects,
             slot_counts=slot_counts,
             published_enrollment_ids=published_ids,
+            override_codes=override_codes,
             live_by_summer_id=live_by_summer_id,
         )
         for a in apps

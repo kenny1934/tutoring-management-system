@@ -41,6 +41,11 @@ export type DiscountResult = {
   amount: number;
   // base_fee - amount.
   finalFee: number;
+  // True when this tier was pinned by an admin override rather than auto-computed.
+  // Surfaces that gate on the tier deadline (e.g. the fee-message "pay by X to
+  // lock it in" note) suppress that messaging for an override — the deadline has
+  // typically already passed and the discount is already locked.
+  isOverride?: boolean;
   // A better-tier discount the applicant is close to, plus the *additional*
   // savings on top of `best` if they unlock it. Null when there is no better
   // tier, or when unlocking requires something non-actionable (date passed).
@@ -176,9 +181,65 @@ export function computeBestDiscount(
 }
 
 /**
+ * Resolve the discount tier actually in effect for an application, honouring an
+ * admin override when present.
+ *
+ * The override lives on the published Enrollment (`discount_override_code`) and
+ * is surfaced onto the application response. When set, it pins the tier instead
+ * of the live group/deadline recomputation — this is the manual remedy for
+ * cases the auto-tier can't express (e.g. a buddy withdrew and was replaced
+ * after the deadline, so the group's "reach date" gate fails even though the
+ * student qualified on time).
+ *
+ * Resolution order:
+ *  - Partial plans price per-lesson and never carry a tier discount, so an
+ *    override is ignored — we always defer to the auto (partial) computation.
+ *  - `overrideCode === "NONE"` pins "no discount" (full base fee).
+ *  - A known override code pins that tier from `config.discounts`.
+ *  - An empty / unknown override code falls back to the auto-computed tier, so
+ *    a stale code never silently zeroes a real discount.
+ */
+export function resolveEffectiveDiscount(
+  app: SummerApplication,
+  groupMembers: SummerApplication[],
+  config: SummerPricingConfig | null | undefined,
+  overrideCode: string | null | undefined,
+): DiscountResult {
+  // Partial plans: the per-lesson auto path is authoritative regardless of any
+  // override (group/tier discounts never apply to partial plans).
+  if (isPartialApp(app)) {
+    return computeBestDiscount(app, groupMembers, config);
+  }
+  const code = overrideCode?.trim();
+  if (!code) {
+    return computeBestDiscount(app, groupMembers, config);
+  }
+  const baseFee = config?.base_fee ?? 0;
+  if (code === "NONE") {
+    return { best: null, amount: 0, finalFee: baseFee, isOverride: true, nearMiss: null };
+  }
+  const entry = (config?.discounts ?? []).find((d) => d.code === code);
+  if (!entry) {
+    // Unknown override code — defer to the auto tier rather than dropping the
+    // discount to zero.
+    return computeBestDiscount(app, groupMembers, config);
+  }
+  return {
+    best: entry,
+    amount: entry.amount,
+    finalFee: baseFee - entry.amount,
+    isOverride: true,
+    nearMiss: null,
+  };
+}
+
+/**
  * Compute the best discount for every application in a batch, bucketing
  * buddy-grouped members together so the Nth-joined calculation is correct.
  * Solo applicants get evaluated against themselves as a group of 1.
+ *
+ * Honours an admin tier override on any application that carries one, so list
+ * views stay consistent with the detail modal / fee message.
  */
 export function computeDiscountsForAll(
   apps: SummerApplication[],
@@ -196,7 +257,7 @@ export function computeDiscountsForAll(
     const members = app.buddy_group_id != null
       ? byGroup.get(app.buddy_group_id) ?? [app]
       : [app];
-    out.set(app.id, computeBestDiscount(app, members, config));
+    out.set(app.id, resolveEffectiveDiscount(app, members, config, app.discount_override_code));
   }
   return out;
 }

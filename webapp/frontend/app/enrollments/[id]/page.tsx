@@ -14,7 +14,7 @@ import {
   MessageSquare, Copy, Check, Send, Undo2, Loader2, XCircle, ChevronDown, ChevronUp, Sun
 } from "lucide-react";
 import { SummerMessagePanel } from "@/components/admin/SummerMessagePanel";
-import { computeBestDiscount } from "@/lib/summer-discounts";
+import { resolveEffectiveDiscount } from "@/lib/summer-discounts";
 import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
 import { DiscountOverrideControls } from "@/components/summer/DiscountOverrideControls";
 import {
@@ -368,9 +368,15 @@ export default function EnrollmentDetailPage() {
   const summerDiscount = useMemo(() => {
     if (!summerApp || !summerConfig) return null;
     // Buddy context skipped — the fee is already locked in on the app at
-    // publish time; this only drives template rendering.
-    return computeBestDiscount(summerApp, [summerApp], summerConfig.pricing_config);
-  }, [summerApp, summerConfig]);
+    // publish time; this only drives template rendering. An admin tier override
+    // on the enrollment takes precedence so the fee message matches the pin.
+    return resolveEffectiveDiscount(
+      summerApp,
+      [summerApp],
+      summerConfig.pricing_config,
+      enrollment?.discount_override_code,
+    );
+  }, [summerApp, summerConfig, enrollment?.discount_override_code]);
 
   // Sync discount selection when entering edit mode
   useEffect(() => {
