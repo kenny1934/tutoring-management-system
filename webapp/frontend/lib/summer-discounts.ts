@@ -76,7 +76,7 @@ function nthJoinedAt(members: SummerApplication[], n: number): string | null {
   return times.length >= n ? times[n - 1] : null;
 }
 
-function activeMemberCount(members: SummerApplication[]): number {
+export function activeMemberCount(members: SummerApplication[]): number {
   // Partial-plan apps are ineligible for group discounts and must not inflate
   // their siblings' group size either.
   const apps = members.filter(

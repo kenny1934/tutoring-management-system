@@ -24,6 +24,11 @@ interface Props {
   // "forfeited" flag for a higher tier whose deadline had already passed when
   // they applied — they never could have qualified, so nothing was forfeited.
   submittedAt?: string | null;
+  // The applicant's active buddy-group size (from computeBestDiscount's member
+  // list). Used to suppress the "forfeited" flag for a group tier whose
+  // min_group_size the applicant never reached — they had nothing to forfeit.
+  // When omitted, the group-size check is skipped (deadline-only behaviour).
+  groupSize?: number | null;
   today?: string;  // ISO date; defaults to browser today
   className?: string;
 }
@@ -49,6 +54,7 @@ export function TierStatusCallout({
   overrideBy,
   overrideAt,
   submittedAt,
+  groupSize,
   today,
   className,
 }: Props) {
@@ -62,9 +68,24 @@ export function TierStatusCallout({
   const todayIso = today ?? hkTodayIso();
   const submittedDate = submittedAt ? submittedAt.slice(0, 10) : null;
   const currentAmt = effective?.amount ?? 0;
+  // Proven group size: the larger of the counted active members and the current
+  // tier's own min_group_size. The current tier was actually granted, so its
+  // requirement is a lower bound on the real group — this keeps the check right
+  // on surfaces (e.g. the enrollment page) that don't load the full group list.
+  const knownGroupSize =
+    groupSize != null
+      ? Math.max(groupSize, effective?.conditions?.min_group_size ?? 0)
+      : null;
   const forfeited = (config?.discounts ?? []).find((d) => {
     if (d.amount <= currentAmt) return false;
     if (!d.conditions?.before_date) return false;
+    // A group tier the applicant's buddy group was never big enough to reach
+    // isn't "forfeited" — there was nothing to lose. (A group that did reach the
+    // size but completed it late still counts as reached, so it stays flagged.)
+    const minSize = d.conditions?.min_group_size;
+    if (typeof minSize === "number" && knownGroupSize != null && knownGroupSize < minSize) {
+      return false;
+    }
     // A tier the applicant could never have reached isn't "forfeited": if they
     // applied after its deadline (inclusive), it was already unavailable to them.
     if (submittedDate && submittedDate > d.conditions.before_date) return false;

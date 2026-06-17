@@ -14,7 +14,7 @@ import {
   MessageSquare, Copy, Check, Send, Undo2, Loader2, XCircle, ChevronDown, ChevronUp, Sun
 } from "lucide-react";
 import { SummerMessagePanel } from "@/components/admin/SummerMessagePanel";
-import { resolveEffectiveDiscount } from "@/lib/summer-discounts";
+import { resolveEffectiveDiscount, activeMemberCount } from "@/lib/summer-discounts";
 import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
 import { DiscountOverrideControls } from "@/components/summer/DiscountOverrideControls";
 import {
@@ -1192,6 +1192,7 @@ export default function EnrollmentDetailPage() {
                           overrideBy={enrollment.discount_override_by}
                           overrideAt={enrollment.discount_override_at}
                           submittedAt={summerApp?.submitted_at}
+                          groupSize={summerApp ? activeMemberCount([summerApp]) : null}
                         />
                         {!isTutor && (
                           <DiscountOverrideControls
