@@ -1191,6 +1191,7 @@ export default function EnrollmentDetailPage() {
                           overrideReason={enrollment.discount_override_reason}
                           overrideBy={enrollment.discount_override_by}
                           overrideAt={enrollment.discount_override_at}
+                          submittedAt={summerApp?.submitted_at}
                         />
                         {!isTutor && (
                           <DiscountOverrideControls

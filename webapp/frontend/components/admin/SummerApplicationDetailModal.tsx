@@ -2864,6 +2864,7 @@ export function SummerApplicationDetailModal({
                     config={config?.pricing_config}
                     currentCode={effectiveDiscount.best?.code ?? "NONE"}
                     currentAmount={effectiveDiscount.amount}
+                    submittedAt={app.submitted_at}
                   />
                   {/* Pre-publish tier override. Post-publish the enrollment owns
                       it (edited on the enrollment detail page), so hide here. */}

@@ -20,6 +20,10 @@ interface Props {
   overrideReason?: string | null;
   overrideBy?: string | null;
   overrideAt?: string | null;
+  // The applicant's submission timestamp (ISO). Used to suppress the
+  // "forfeited" flag for a higher tier whose deadline had already passed when
+  // they applied — they never could have qualified, so nothing was forfeited.
+  submittedAt?: string | null;
   today?: string;  // ISO date; defaults to browser today
   className?: string;
 }
@@ -44,6 +48,7 @@ export function TierStatusCallout({
   overrideReason,
   overrideBy,
   overrideAt,
+  submittedAt,
   today,
   className,
 }: Props) {
@@ -55,10 +60,14 @@ export function TierStatusCallout({
   // before_date has already passed. Shown so admins understand *why* the
   // applicant is on the current tier.
   const todayIso = today ?? hkTodayIso();
+  const submittedDate = submittedAt ? submittedAt.slice(0, 10) : null;
   const currentAmt = effective?.amount ?? 0;
   const forfeited = (config?.discounts ?? []).find((d) => {
     if (d.amount <= currentAmt) return false;
     if (!d.conditions?.before_date) return false;
+    // A tier the applicant could never have reached isn't "forfeited": if they
+    // applied after its deadline (inclusive), it was already unavailable to them.
+    if (submittedDate && submittedDate > d.conditions.before_date) return false;
     // Deadline is inclusive — a tier is only forfeited once its before_date is
     // strictly in the past (HK time). On the deadline day itself it's still live.
     return d.conditions.before_date < todayIso;
