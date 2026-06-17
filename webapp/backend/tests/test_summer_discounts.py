@@ -145,6 +145,31 @@ class TestEarlyBirdLossGuard:
         assert app.paid_at == datetime(2026, 6, 10)
 
 
+class TestEarlyBirdLossOverrideSkip:
+    """An admin tier override pins the discount, so recording payment on any
+    date can't strip it — the guard returns None before any DB/tier work."""
+
+    def test_override_short_circuits_before_db_access(self):
+        from utils.summer_discounts import early_bird_loss_on_paid_date
+        # db=None + an after-deadline date: a normal run would hit
+        # load_group_context(db, ...) and blow up. The override makes it return
+        # None on the first line instead, proving the short-circuit.
+        app = make_app(paid_at=None)
+        assert early_bird_loss_on_paid_date(
+            None, app, date(2026, 6, 16), override_code="EB3P",
+        ) is None
+
+    def test_none_override_is_falsy_and_does_not_skip(self):
+        from utils.summer_discounts import early_bird_loss_on_paid_date
+        # No override + missing config → falls through to the config guard
+        # (returns None there), confirming an empty/None code does not trip the
+        # override short-circuit.
+        app = make_app(paid_at=None, config=None)
+        assert early_bird_loss_on_paid_date(
+            None, app, date(2026, 6, 16), override_code=None,
+        ) is None
+
+
 # ---------------------------------------------------------------------------
 # Solo Early Bird — payment-aware deadline check
 # ---------------------------------------------------------------------------

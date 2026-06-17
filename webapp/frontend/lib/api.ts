@@ -2449,6 +2449,19 @@ export const summerAPI = {
       body: JSON.stringify(data),
     }),
 
+  // Pin a discount tier on an application before publish. Mirrors
+  // enrollmentsAPI.setDiscountOverride but targets the application.
+  setApplicationDiscountOverride: (id: number, data: { code: string; reason: string }) =>
+    fetchAPI<SummerApplication>(`/summer/applications/${id}/discount-override`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  clearApplicationDiscountOverride: (id: number) =>
+    fetchAPI<SummerApplication>(`/summer/applications/${id}/discount-override`, {
+      method: "DELETE",
+    }),
+
   getApplicationEdits: (id: number) =>
     fetchAPI<SummerApplicationEditEntry[]>(`/summer/applications/${id}/edits`),
 

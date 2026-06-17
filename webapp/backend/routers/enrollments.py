@@ -2092,7 +2092,10 @@ async def update_enrollment(
             )
             if app is not None:
                 from utils.summer_discounts import early_bird_loss_on_paid_date
-                loss = early_bird_loss_on_paid_date(db, app, candidate_date)
+                loss = early_bird_loss_on_paid_date(
+                    db, app, candidate_date,
+                    override_code=enrollment.discount_override_code,
+                )
                 if loss is not None:
                     raise HTTPException(status_code=409, detail=loss)
 
@@ -2790,7 +2793,9 @@ async def batch_mark_paid(
     for e in enrollments:
         app = apps_by_id.get(e.summer_application_id) if e.enrollment_type == "Summer" else None
         if app is not None and not request.acknowledge_discount_loss:
-            loss = early_bird_loss_on_paid_date(db, app, today)
+            loss = early_bird_loss_on_paid_date(
+                db, app, today, override_code=e.discount_override_code,
+            )
             if loss is not None:
                 blocked.append({
                     "enrollment_id": e.id,

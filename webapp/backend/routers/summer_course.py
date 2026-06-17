@@ -33,6 +33,7 @@ from models import (
 from schemas import (
     SummerCourseFormConfig,
     SummerApplicationCreate,
+    DiscountOverrideRequest,
     SummerApplicationEditRequest,
     SummerApplicationEditEntry,
     SummerApplicationSubmitResponse,
@@ -1727,11 +1728,18 @@ def _build_application_response(
             claimed_center, app.is_existing_student
         )
 
+    is_published = bool(published_enrollment_ids and app.id in published_enrollment_ids)
     if published_enrollment_ids:
         data["published_enrollment_id"] = published_enrollment_ids.get(app.id)
 
-    if override_codes:
-        data["discount_override_code"] = override_codes.get(app.id)
+    # Override source of truth: once published, the enrollment owns it (and may
+    # be None if it was cleared post-publish); pre-publish, the application's own
+    # column wins. `data` already carries the app column from the ORM
+    # comprehension, so we only override the value for published apps.
+    if is_published:
+        data["discount_override_code"] = (
+            override_codes.get(app.id) if override_codes else None
+        )
 
     return SummerApplicationResponse.model_validate(data)
 
@@ -2060,6 +2068,79 @@ def get_application(
     return _build_application_responses(db, [app])[0]
 
 
+@router.patch(
+    "/summer/applications/{app_id}/discount-override",
+    response_model=SummerApplicationResponse,
+)
+def set_application_discount_override(
+    app_id: int,
+    payload: DiscountOverrideRequest,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Pin a discount tier on an application before it is published.
+
+    The fee message is sent pre-publish, so admins need to correct a forfeited
+    tier (e.g. a buddy withdrew and was replaced past the deadline) here rather
+    than only after publish. The pin carries forward onto the enrollment at
+    publish. Once published, the override is edited on the enrollment instead.
+    """
+    app = (
+        db.query(SummerApplication)
+        .filter(SummerApplication.id == app_id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    published = (
+        db.query(Enrollment.id)
+        .filter(Enrollment.summer_application_id == app_id)
+        .first()
+    )
+    if published:
+        raise HTTPException(
+            status_code=400,
+            detail="Application is published — set the tier override on the enrollment instead.",
+        )
+
+    app.discount_override_code = payload.code
+    app.discount_override_reason = payload.reason
+    app.discount_override_by = admin.user_email
+    app.discount_override_at = hk_now()
+    db.commit()
+
+    return _build_application_responses(db, [app])[0]
+
+
+@router.delete(
+    "/summer/applications/{app_id}/discount-override",
+    response_model=SummerApplicationResponse,
+)
+def clear_application_discount_override(
+    app_id: int,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Clear a pre-publish tier override, returning the application to the
+    auto-computed tier."""
+    app = (
+        db.query(SummerApplication)
+        .filter(SummerApplication.id == app_id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    app.discount_override_code = None
+    app.discount_override_reason = None
+    app.discount_override_by = None
+    app.discount_override_at = None
+    db.commit()
+
+    return _build_application_responses(db, [app])[0]
+
+
 @router.get(
     "/summer/applications/{app_id}/edits",
     response_model=list[SummerApplicationEditEntry],
@@ -2127,7 +2208,9 @@ def update_application(
         and not acknowledge_discount_loss
     ):
         from utils.summer_discounts import early_bird_loss_on_paid_date
-        loss = early_bird_loss_on_paid_date(db, app, hk_now().date())
+        loss = early_bird_loss_on_paid_date(
+            db, app, hk_now().date(), override_code=app.discount_override_code,
+        )
         if loss is not None:
             raise HTTPException(status_code=409, detail=loss)
 
@@ -3642,6 +3725,13 @@ def _publish_application_inner(
         payment_deadline=tier_deadline,
         locked_discount_code=discount_result.code,
         locked_discount_amount=discount_result.amount,
+        # Carry forward any pre-publish admin tier override so the pin (and its
+        # audit trail) survives publish — the enrollment is the source of truth
+        # for the override afterwards.
+        discount_override_code=app.discount_override_code,
+        discount_override_reason=app.discount_override_reason,
+        discount_override_by=app.discount_override_by,
+        discount_override_at=app.discount_override_at,
         last_modified_by=admin_email,
     )
     db.add(enrollment)

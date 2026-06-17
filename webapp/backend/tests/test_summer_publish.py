@@ -265,6 +265,28 @@ class TestPublishHappyPath:
         db_session.refresh(app_full)
         assert app_full.application_status == "Enrolled"
 
+    def test_publish_carries_forward_application_override(
+        self, db_session, admin, app_full, slot
+    ):
+        """A pre-publish tier override on the application is copied onto the
+        enrollment (code + audit trail), so the pin survives publish."""
+        from routers.summer_course import publish_application
+        app_full.discount_override_code = "EB3P"
+        app_full.discount_override_reason = "Buddy replaced after deadline; on file"
+        app_full.discount_override_by = "admin@example.com"
+        db_session.commit()
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        enrollment = db_session.query(Enrollment).filter(
+            Enrollment.summer_application_id == app_full.id
+        ).first()
+        assert enrollment.discount_override_code == "EB3P"
+        assert enrollment.discount_override_reason == "Buddy replaced after deadline; on file"
+        assert enrollment.discount_override_by == "admin@example.com"
+
     def test_publish_pending_payment_when_status_fee_sent(
         self, db_session, admin, app_full, slot
     ):

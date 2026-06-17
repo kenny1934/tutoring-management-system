@@ -40,6 +40,7 @@ import type {
 } from "@/types";
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
+import { DiscountOverrideControls } from "@/components/summer/DiscountOverrideControls";
 import { PaidAtEditor } from "@/components/summer/PaidAtEditor";
 import {
   EarlyBirdDeadlineDialog,
@@ -2864,6 +2865,16 @@ export function SummerApplicationDetailModal({
                     currentCode={effectiveDiscount.best?.code ?? "NONE"}
                     currentAmount={effectiveDiscount.amount}
                   />
+                  {/* Pre-publish tier override. Post-publish the enrollment owns
+                      it (edited on the enrollment detail page), so hide here. */}
+                  {!readOnly && !isPublished && (
+                    <DiscountOverrideControls
+                      applicationId={app.id}
+                      config={config?.pricing_config}
+                      currentOverrideCode={app.discount_override_code}
+                      onChanged={onUpdated}
+                    />
+                  )}
                 </div>
               </div>
             </div>

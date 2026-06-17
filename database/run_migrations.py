@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "119_extra_lessons_discount.sql",
+    "120_summer_application_discount_override.sql",
 ]
 
 def main():
