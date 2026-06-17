@@ -3915,6 +3915,16 @@ def unpublish_application(
             session_ids=[s.id for s in locked],
         )
 
+    # Preserve any tier override on the application before the enrollment (its
+    # post-publish home) is deleted — so a pre-publish view shows the right tier
+    # and a future republish carries it forward. No-op when the app already
+    # mirrors it (set_discount_override write-through) or there's no override.
+    if enrollment.discount_override_code != app.discount_override_code:
+        app.discount_override_code = enrollment.discount_override_code
+        app.discount_override_reason = enrollment.discount_override_reason
+        app.discount_override_by = enrollment.discount_override_by
+        app.discount_override_at = enrollment.discount_override_at
+
     sessions_deleted = (
         db.query(SessionLog)
         .filter(SessionLog.enrollment_id == enrollment.id)

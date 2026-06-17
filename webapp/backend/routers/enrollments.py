@@ -2275,6 +2275,19 @@ async def set_discount_override(
     enrollment.last_modified_time = now
     enrollment.last_modified_by = admin.user_email
 
+    # Mirror onto the linked application so the override survives an unpublish
+    # (which deletes the enrollment) and shows in pre-publish application views —
+    # the two override stores stay in sync regardless of where it was set.
+    if enrollment.summer_application_id:
+        app = db.query(SummerApplication).filter(
+            SummerApplication.id == enrollment.summer_application_id
+        ).first()
+        if app:
+            app.discount_override_code = payload.code
+            app.discount_override_reason = payload.reason
+            app.discount_override_by = admin.user_email
+            app.discount_override_at = now
+
     db.commit()
 
     enrollment = db.query(Enrollment).options(
@@ -2318,6 +2331,17 @@ async def clear_discount_override(
     enrollment.discount_override_at = None
     enrollment.last_modified_time = now
     enrollment.last_modified_by = admin.user_email
+
+    # Keep the linked application's mirror in sync (see set_discount_override).
+    if enrollment.summer_application_id:
+        app = db.query(SummerApplication).filter(
+            SummerApplication.id == enrollment.summer_application_id
+        ).first()
+        if app:
+            app.discount_override_code = None
+            app.discount_override_reason = None
+            app.discount_override_by = None
+            app.discount_override_at = None
 
     db.commit()
 
