@@ -2267,11 +2267,10 @@ async def set_discount_override(
             detail="Discount tier overrides are only supported for Summer enrollments",
         )
 
+    from utils.summer_discounts import set_override_fields
+
     now = hk_now()
-    enrollment.discount_override_code = payload.code
-    enrollment.discount_override_reason = payload.reason
-    enrollment.discount_override_by = admin.user_email
-    enrollment.discount_override_at = now
+    set_override_fields(enrollment, payload.code, payload.reason, admin.user_email, now)
     enrollment.last_modified_time = now
     enrollment.last_modified_by = admin.user_email
 
@@ -2283,10 +2282,7 @@ async def set_discount_override(
             SummerApplication.id == enrollment.summer_application_id
         ).first()
         if app:
-            app.discount_override_code = payload.code
-            app.discount_override_reason = payload.reason
-            app.discount_override_by = admin.user_email
-            app.discount_override_at = now
+            set_override_fields(app, payload.code, payload.reason, admin.user_email, now)
 
     db.commit()
 
@@ -2324,11 +2320,10 @@ async def clear_discount_override(
     if not enrollment:
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
+    from utils.summer_discounts import clear_override_fields
+
     now = hk_now()
-    enrollment.discount_override_code = None
-    enrollment.discount_override_reason = None
-    enrollment.discount_override_by = None
-    enrollment.discount_override_at = None
+    clear_override_fields(enrollment)
     enrollment.last_modified_time = now
     enrollment.last_modified_by = admin.user_email
 
@@ -2338,10 +2333,7 @@ async def clear_discount_override(
             SummerApplication.id == enrollment.summer_application_id
         ).first()
         if app:
-            app.discount_override_code = None
-            app.discount_override_reason = None
-            app.discount_override_by = None
-            app.discount_override_at = None
+            clear_override_fields(app)
 
     db.commit()
 

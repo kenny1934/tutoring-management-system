@@ -296,6 +296,21 @@ def early_bird_loss_on_paid_date(
     return early_bird_loss_payload(loss) if loss else None
 
 
+def set_override_fields(target, code, reason, by, at) -> None:
+    """Write the 4 discount-override columns onto an Enrollment or
+    SummerApplication (both carry the same column names). Centralised so the
+    field list can't drift across the set/clear/carry-forward/copy-back sites."""
+    target.discount_override_code = code
+    target.discount_override_reason = reason
+    target.discount_override_by = by
+    target.discount_override_at = at
+
+
+def clear_override_fields(target) -> None:
+    """Reset the discount-override columns (auto-tier restored)."""
+    set_override_fields(target, None, None, None, None)
+
+
 def load_group_context(
     db,
     app: SummerApplication,
