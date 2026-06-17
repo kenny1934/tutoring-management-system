@@ -269,19 +269,46 @@ def early_bird_loss_payload(loss: EarlyBirdLoss) -> dict:
     }
 
 
-def early_bird_loss_on_paid_date(db, app: SummerApplication, when: date) -> Optional[dict]:
+def early_bird_loss_on_paid_date(
+    db,
+    app: SummerApplication,
+    when: date,
+    override_code: Optional[str] = None,
+) -> Optional[dict]:
     """Loss payload (or None) if `app` were recorded as paid on `when`.
 
     Loads the app's discount context (config + buddy group) and delegates to the
     pure comparison. Shared by the application status→Paid guard and the
     enrolment payment_date guards so the 409 shape lives in one place.
+
+    When `override_code` is set, the tier is pinned by an admin override, so
+    recording payment on any date can't strip it — there's nothing to warn about.
+    Callers pass the override from their own source of truth (the application's
+    column pre-publish, the enrolment's post-publish).
     """
+    if override_code:
+        return None
     config = app.config
     if config is None:
         return None
     group_apps, siblings = load_group_context(db, app)
     loss = early_bird_loss_if_paid_today(app, group_apps, siblings, config, when)
     return early_bird_loss_payload(loss) if loss else None
+
+
+def set_override_fields(target, code, reason, by, at) -> None:
+    """Write the 4 discount-override columns onto an Enrollment or
+    SummerApplication (both carry the same column names). Centralised so the
+    field list can't drift across the set/clear/carry-forward/copy-back sites."""
+    target.discount_override_code = code
+    target.discount_override_reason = reason
+    target.discount_override_by = by
+    target.discount_override_at = at
+
+
+def clear_override_fields(target) -> None:
+    """Reset the discount-override columns (auto-tier restored)."""
+    set_override_fields(target, None, None, None, None)
 
 
 def load_group_context(

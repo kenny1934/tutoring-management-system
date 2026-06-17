@@ -3,18 +3,21 @@
 import React, { useState } from "react";
 import { Shield, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { enrollmentsAPI } from "@/lib/api";
+import { enrollmentsAPI, summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import type { SummerPricingConfig } from "@/types";
 
-// Admin UI for pinning a specific discount tier on a published Summer
-// enrollment. Used when a parent actually paid before the deadline but the
-// admin recorded it late — the auto-downgrade would strip their discount.
-// The override short-circuits the nightly sweep and carries an audit trail
-// (who, when, why).
+// Admin UI for pinning a specific discount tier. Two targets:
+// - a published Summer enrollment (`enrollmentId`), or
+// - a pre-publish application (`applicationId`) — the fee message is sent
+//   before publish, so the tier must be correctable there too.
+// Used when a parent actually paid / qualified on time but the auto-tier would
+// otherwise strip their discount. The override short-circuits the nightly sweep
+// and carries an audit trail (who, when, why). Pass exactly one of the two ids.
 
 interface Props {
-  enrollmentId: number;
+  enrollmentId?: number;
+  applicationId?: number;
   config: SummerPricingConfig | null | undefined;
   currentOverrideCode: string | null | undefined;
   onChanged: () => void;
@@ -22,6 +25,7 @@ interface Props {
 
 export function DiscountOverrideControls({
   enrollmentId,
+  applicationId,
   config,
   currentOverrideCode,
   onChanged,
@@ -47,10 +51,17 @@ export function DiscountOverrideControls({
     }
     setSaving(true);
     try {
-      await enrollmentsAPI.setDiscountOverride(enrollmentId, {
-        code,
-        reason: reason.trim(),
-      });
+      if (applicationId != null) {
+        await summerAPI.setApplicationDiscountOverride(applicationId, {
+          code,
+          reason: reason.trim(),
+        });
+      } else if (enrollmentId != null) {
+        await enrollmentsAPI.setDiscountOverride(enrollmentId, {
+          code,
+          reason: reason.trim(),
+        });
+      }
       showToast("Tier override saved", "success");
       setOpen(false);
       setReason("");
@@ -68,7 +79,11 @@ export function DiscountOverrideControls({
   async function handleClear() {
     setSaving(true);
     try {
-      await enrollmentsAPI.clearDiscountOverride(enrollmentId);
+      if (applicationId != null) {
+        await summerAPI.clearApplicationDiscountOverride(applicationId);
+      } else if (enrollmentId != null) {
+        await enrollmentsAPI.clearDiscountOverride(enrollmentId);
+      }
       showToast("Override cleared. Auto-tier restored.", "success");
       onChanged();
     } catch (e) {

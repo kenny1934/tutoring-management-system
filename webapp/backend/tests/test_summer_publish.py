@@ -265,6 +265,28 @@ class TestPublishHappyPath:
         db_session.refresh(app_full)
         assert app_full.application_status == "Enrolled"
 
+    def test_publish_carries_forward_application_override(
+        self, db_session, admin, app_full, slot
+    ):
+        """A pre-publish tier override on the application is copied onto the
+        enrollment (code + audit trail), so the pin survives publish."""
+        from routers.summer_course import publish_application
+        app_full.discount_override_code = "EB3P"
+        app_full.discount_override_reason = "Buddy replaced after deadline; on file"
+        app_full.discount_override_by = "admin@example.com"
+        db_session.commit()
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        enrollment = db_session.query(Enrollment).filter(
+            Enrollment.summer_application_id == app_full.id
+        ).first()
+        assert enrollment.discount_override_code == "EB3P"
+        assert enrollment.discount_override_reason == "Buddy replaced after deadline; on file"
+        assert enrollment.discount_override_by == "admin@example.com"
+
     def test_publish_pending_payment_when_status_fee_sent(
         self, db_session, admin, app_full, slot
     ):
@@ -515,6 +537,73 @@ class TestUnpublish:
         # it to Enrolled).
         db_session.refresh(app_full)
         assert app_full.application_status == "Paid"
+
+    def test_unpublish_preserves_tier_override_on_application(
+        self, db_session, admin, app_full, slot
+    ):
+        """An override set on the enrollment is copied back to the application on
+        unpublish (which deletes the enrollment), so a pre-publish view keeps the
+        right tier and a republish carries it forward."""
+        from routers.summer_course import publish_application, unpublish_application
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        enrollment = db_session.query(Enrollment).filter(
+            Enrollment.summer_application_id == app_full.id
+        ).first()
+        # Simulate an override set on the enrollment post-publish, without the
+        # application mirror (e.g. an override that predates the write-through).
+        enrollment.discount_override_code = "EB3P"
+        enrollment.discount_override_reason = "Paid on time; recorded late"
+        enrollment.discount_override_by = "admin@example.com"
+        app_full.discount_override_code = None
+        db_session.commit()
+
+        unpublish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        db_session.refresh(app_full)
+        assert app_full.discount_override_code == "EB3P"
+        assert app_full.discount_override_reason == "Paid on time; recorded late"
+        assert app_full.discount_override_by == "admin@example.com"
+
+    def test_enrollment_override_mirrors_to_application(
+        self, db_session, admin, app_full, slot
+    ):
+        """Setting (and clearing) the override on the enrollment writes through to
+        the linked application, keeping the two stores in sync."""
+        import asyncio
+        from routers.summer_course import publish_application
+        from routers.enrollments import set_discount_override, clear_discount_override
+        from schemas import DiscountOverrideRequest
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+        enrollment = db_session.query(Enrollment).filter(
+            Enrollment.summer_application_id == app_full.id
+        ).first()
+
+        asyncio.get_event_loop().run_until_complete(
+            set_discount_override(
+                enrollment_id=enrollment.id,
+                payload=DiscountOverrideRequest(code="EB3P", reason="on file"),
+                admin=admin,
+                db=db_session,
+            )
+        )
+        db_session.refresh(app_full)
+        assert app_full.discount_override_code == "EB3P"
+        assert app_full.discount_override_reason == "on file"
+
+        asyncio.get_event_loop().run_until_complete(
+            clear_discount_override(
+                enrollment_id=enrollment.id, admin=admin, db=db_session,
+            )
+        )
+        db_session.refresh(app_full)
+        assert app_full.discount_override_code is None
+        assert app_full.discount_override_reason is None
 
     def test_unpublish_blocked_by_attended_session(
         self, db_session, admin, app_full, slot

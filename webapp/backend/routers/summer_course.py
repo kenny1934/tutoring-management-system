@@ -33,6 +33,7 @@ from models import (
 from schemas import (
     SummerCourseFormConfig,
     SummerApplicationCreate,
+    DiscountOverrideRequest,
     SummerApplicationEditRequest,
     SummerApplicationEditEntry,
     SummerApplicationSubmitResponse,
@@ -1590,6 +1591,7 @@ def _build_application_response(
     linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
     slot_counts: Optional[dict[int, int]] = None,
     published_enrollment_ids: Optional[dict[int, int]] = None,
+    override_codes: Optional[dict[int, str]] = None,
     live_by_summer_id: Optional[dict[int, SessionLog]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
@@ -1726,8 +1728,18 @@ def _build_application_response(
             claimed_center, app.is_existing_student
         )
 
+    is_published = bool(published_enrollment_ids and app.id in published_enrollment_ids)
     if published_enrollment_ids:
         data["published_enrollment_id"] = published_enrollment_ids.get(app.id)
+
+    # Override source of truth: once published, the enrollment owns it (and may
+    # be None if it was cleared post-publish); pre-publish, the application's own
+    # column wins. `data` already carries the app column from the ORM
+    # comprehension, so we only override the value for published apps.
+    if is_published:
+        data["discount_override_code"] = (
+            override_codes.get(app.id) if override_codes else None
+        )
 
     return SummerApplicationResponse.model_validate(data)
 
@@ -1748,19 +1760,28 @@ def _get_slot_session_counts(db: Session, slot_ids: list[int]) -> dict[int, int]
     return {slot_id: cnt for slot_id, cnt in rows}
 
 
-def _get_published_enrollment_ids(
+def _get_published_enrollment_info(
     db: Session, app_ids: list[int]
-) -> dict[int, int]:
-    """Map app_id → published Enrollment.id for any apps that have been
-    published. Used to drive the Publish/Unpublish button state."""
+) -> tuple[dict[int, int], dict[int, str]]:
+    """For published apps, return (app_id → Enrollment.id) and (app_id →
+    discount_override_code). The first map drives the Publish/Unpublish button
+    state; the second surfaces an admin tier override on the application response
+    so summer-side fee/tier displays honour the pin instead of recomputing. One
+    query backs both maps (1:1 enrollment per app, no fan-out)."""
     if not app_ids:
-        return {}
+        return {}, {}
     rows = (
-        db.query(Enrollment.summer_application_id, Enrollment.id)
+        db.query(
+            Enrollment.summer_application_id,
+            Enrollment.id,
+            Enrollment.discount_override_code,
+        )
         .filter(Enrollment.summer_application_id.in_(app_ids))
         .all()
     )
-    return {app_id: enrollment_id for app_id, enrollment_id in rows}
+    published_ids = {app_id: eid for app_id, eid, _ in rows}
+    override_codes = {app_id: code for app_id, _, code in rows if code is not None}
+    return published_ids, override_codes
 
 
 def _build_application_responses(
@@ -1782,7 +1803,9 @@ def _build_application_responses(
         if s.session_status != "Cancelled"
     })
     slot_counts = _get_slot_session_counts(db, slot_ids)
-    published_ids = _get_published_enrollment_ids(db, [a.id for a in apps])
+    published_ids, override_codes = _get_published_enrollment_info(
+        db, [a.id for a in apps]
+    )
     # Bulk-fetch live session_log rows so published placements overlay live
     # date/status/tutor onto each row (tutor joinedload'd in the helper).
     live_by_summer_id = _live_sessions_by_summer_id(
@@ -1797,6 +1820,7 @@ def _build_application_responses(
             linked_prospects,
             slot_counts=slot_counts,
             published_enrollment_ids=published_ids,
+            override_codes=override_codes,
             live_by_summer_id=live_by_summer_id,
         )
         for a in apps
@@ -2035,6 +2059,75 @@ def get_application(
     return _build_application_responses(db, [app])[0]
 
 
+@router.patch(
+    "/summer/applications/{app_id}/discount-override",
+    response_model=SummerApplicationResponse,
+)
+def set_application_discount_override(
+    app_id: int,
+    payload: DiscountOverrideRequest,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Pin a discount tier on an application before it is published.
+
+    The fee message is sent pre-publish, so admins need to correct a forfeited
+    tier (e.g. a buddy withdrew and was replaced past the deadline) here rather
+    than only after publish. The pin carries forward onto the enrollment at
+    publish. Once published, the override is edited on the enrollment instead.
+    """
+    app = (
+        db.query(SummerApplication)
+        .filter(SummerApplication.id == app_id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    published = (
+        db.query(Enrollment.id)
+        .filter(Enrollment.summer_application_id == app_id)
+        .first()
+    )
+    if published:
+        raise HTTPException(
+            status_code=400,
+            detail="Application is published — set the tier override on the enrollment instead.",
+        )
+
+    from utils.summer_discounts import set_override_fields
+    set_override_fields(app, payload.code, payload.reason, admin.user_email, hk_now())
+    db.commit()
+
+    return _build_application_responses(db, [app])[0]
+
+
+@router.delete(
+    "/summer/applications/{app_id}/discount-override",
+    response_model=SummerApplicationResponse,
+)
+def clear_application_discount_override(
+    app_id: int,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Clear a pre-publish tier override, returning the application to the
+    auto-computed tier."""
+    app = (
+        db.query(SummerApplication)
+        .filter(SummerApplication.id == app_id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    from utils.summer_discounts import clear_override_fields
+    clear_override_fields(app)
+    db.commit()
+
+    return _build_application_responses(db, [app])[0]
+
+
 @router.get(
     "/summer/applications/{app_id}/edits",
     response_model=list[SummerApplicationEditEntry],
@@ -2102,7 +2195,9 @@ def update_application(
         and not acknowledge_discount_loss
     ):
         from utils.summer_discounts import early_bird_loss_on_paid_date
-        loss = early_bird_loss_on_paid_date(db, app, hk_now().date())
+        loss = early_bird_loss_on_paid_date(
+            db, app, hk_now().date(), override_code=app.discount_override_code,
+        )
         if loss is not None:
             raise HTTPException(status_code=409, detail=loss)
 
@@ -3617,6 +3712,13 @@ def _publish_application_inner(
         payment_deadline=tier_deadline,
         locked_discount_code=discount_result.code,
         locked_discount_amount=discount_result.amount,
+        # Carry forward any pre-publish admin tier override so the pin (and its
+        # audit trail) survives publish — the enrollment is the source of truth
+        # for the override afterwards.
+        discount_override_code=app.discount_override_code,
+        discount_override_reason=app.discount_override_reason,
+        discount_override_by=app.discount_override_by,
+        discount_override_at=app.discount_override_at,
         last_modified_by=admin_email,
     )
     db.add(enrollment)
@@ -3798,6 +3900,20 @@ def unpublish_application(
             f"{len(locked)} session(s) already attended. Cannot unpublish — "
             "delete or undo attendance on those sessions first.",
             session_ids=[s.id for s in locked],
+        )
+
+    # Preserve any tier override on the application before the enrollment (its
+    # post-publish home) is deleted — so a pre-publish view shows the right tier
+    # and a future republish carries it forward. No-op when the app already
+    # mirrors it (set_discount_override write-through) or there's no override.
+    if enrollment.discount_override_code != app.discount_override_code:
+        from utils.summer_discounts import set_override_fields
+        set_override_fields(
+            app,
+            enrollment.discount_override_code,
+            enrollment.discount_override_reason,
+            enrollment.discount_override_by,
+            enrollment.discount_override_at,
         )
 
     sessions_deleted = (

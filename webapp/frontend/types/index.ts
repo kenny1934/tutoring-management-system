@@ -2429,6 +2429,10 @@ export interface SummerApplication {
   /** Set when the application has been published into a native Summer
    *  enrollment. Drives the Publish/Unpublish button state. */
   published_enrollment_id?: number | null;
+  /** Admin tier-override pinned on the published enrollment, surfaced here so
+   *  summer-side fee/tier displays honour it instead of recomputing. Null when
+   *  no override (or not published). */
+  discount_override_code?: string | null;
   /** Stamped when admin marks status Paid; editable for receipt-date fixes.
    *  Drives discount-tier deadline checks. */
   paid_at?: string | null;

@@ -2092,7 +2092,10 @@ async def update_enrollment(
             )
             if app is not None:
                 from utils.summer_discounts import early_bird_loss_on_paid_date
-                loss = early_bird_loss_on_paid_date(db, app, candidate_date)
+                loss = early_bird_loss_on_paid_date(
+                    db, app, candidate_date,
+                    override_code=enrollment.discount_override_code,
+                )
                 if loss is not None:
                     raise HTTPException(status_code=409, detail=loss)
 
@@ -2264,13 +2267,22 @@ async def set_discount_override(
             detail="Discount tier overrides are only supported for Summer enrollments",
         )
 
+    from utils.summer_discounts import set_override_fields
+
     now = hk_now()
-    enrollment.discount_override_code = payload.code
-    enrollment.discount_override_reason = payload.reason
-    enrollment.discount_override_by = admin.user_email
-    enrollment.discount_override_at = now
+    set_override_fields(enrollment, payload.code, payload.reason, admin.user_email, now)
     enrollment.last_modified_time = now
     enrollment.last_modified_by = admin.user_email
+
+    # Mirror onto the linked application so the override survives an unpublish
+    # (which deletes the enrollment) and shows in pre-publish application views —
+    # the two override stores stay in sync regardless of where it was set.
+    if enrollment.summer_application_id:
+        app = db.query(SummerApplication).filter(
+            SummerApplication.id == enrollment.summer_application_id
+        ).first()
+        if app:
+            set_override_fields(app, payload.code, payload.reason, admin.user_email, now)
 
     db.commit()
 
@@ -2308,13 +2320,20 @@ async def clear_discount_override(
     if not enrollment:
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
+    from utils.summer_discounts import clear_override_fields
+
     now = hk_now()
-    enrollment.discount_override_code = None
-    enrollment.discount_override_reason = None
-    enrollment.discount_override_by = None
-    enrollment.discount_override_at = None
+    clear_override_fields(enrollment)
     enrollment.last_modified_time = now
     enrollment.last_modified_by = admin.user_email
+
+    # Keep the linked application's mirror in sync (see set_discount_override).
+    if enrollment.summer_application_id:
+        app = db.query(SummerApplication).filter(
+            SummerApplication.id == enrollment.summer_application_id
+        ).first()
+        if app:
+            clear_override_fields(app)
 
     db.commit()
 
@@ -2790,7 +2809,9 @@ async def batch_mark_paid(
     for e in enrollments:
         app = apps_by_id.get(e.summer_application_id) if e.enrollment_type == "Summer" else None
         if app is not None and not request.acknowledge_discount_loss:
-            loss = early_bird_loss_on_paid_date(db, app, today)
+            loss = early_bird_loss_on_paid_date(
+                db, app, today, override_code=e.discount_override_code,
+            )
             if loss is not None:
                 blocked.append({
                     "enrollment_id": e.id,

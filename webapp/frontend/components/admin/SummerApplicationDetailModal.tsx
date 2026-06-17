@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES, isNonAttending, getSummerTimeSlots } from "@/lib/summer-utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
-import { computeBestDiscount, type DiscountResult } from "@/lib/summer-discounts";
+import { resolveEffectiveDiscount, activeMemberCount, type DiscountResult } from "@/lib/summer-discounts";
 import { suggestReceiptCode } from "@/lib/summer-receipt-codes";
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { parseHKTimestamp } from "@/lib/formatters";
@@ -40,6 +40,7 @@ import type {
 } from "@/types";
 import { ClassPreferencesStep } from "@/components/summer/steps/ClassPreferencesStep";
 import { TierStatusCallout } from "@/components/summer/TierStatusCallout";
+import { DiscountOverrideControls } from "@/components/summer/DiscountOverrideControls";
 import { PaidAtEditor } from "@/components/summer/PaidAtEditor";
 import {
   EarlyBirdDeadlineDialog,
@@ -712,12 +713,22 @@ export function SummerApplicationDetailModal({
 
   const effectiveDiscount = useMemo((): DiscountResult | null => {
     if (!app || !config?.pricing_config) return null;
+    // Honour an admin tier override (from the published enrollment) over the
+    // live group/deadline recompute, so the fee box + fee message match the pin.
     if (!app.buddy_group_id) {
-      return computeBestDiscount(app, [app], config.pricing_config);
+      return resolveEffectiveDiscount(app, [app], config.pricing_config, app.discount_override_code);
     }
     if (!fetchedBuddyMembers) return null;
-    return computeBestDiscount(app, fetchedBuddyMembers, config.pricing_config);
+    return resolveEffectiveDiscount(app, fetchedBuddyMembers, config.pricing_config, app.discount_override_code);
   }, [app, config, fetchedBuddyMembers]);
+
+  // Active group size for the same member list the discount uses, so the tier
+  // callout can tell a never-reached group tier apart from a forfeited one.
+  const discountGroupSize = useMemo(() => {
+    if (!app) return null;
+    const members = app.buddy_group_id ? fetchedBuddyMembers : [app];
+    return members ? activeMemberCount(members) : null;
+  }, [app, fetchedBuddyMembers]);
 
   const verifySibling = async (id: number, status: SiblingVerificationStatus) => {
     setSiblingOverrides((prev) => ({ ...prev, [id]: status }));
@@ -2861,7 +2872,19 @@ export function SummerApplicationDetailModal({
                     config={config?.pricing_config}
                     currentCode={effectiveDiscount.best?.code ?? "NONE"}
                     currentAmount={effectiveDiscount.amount}
+                    submittedAt={app.submitted_at}
+                    groupSize={discountGroupSize}
                   />
+                  {/* Pre-publish tier override. Post-publish the enrollment owns
+                      it (edited on the enrollment detail page), so hide here. */}
+                  {!readOnly && !isPublished && (
+                    <DiscountOverrideControls
+                      applicationId={app.id}
+                      config={config?.pricing_config}
+                      currentOverrideCode={app.discount_override_code}
+                      onChanged={onUpdated}
+                    />
+                  )}
                 </div>
               </div>
             </div>

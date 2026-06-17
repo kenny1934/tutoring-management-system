@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   computeBestDiscount,
+  computeDiscountsForAll,
+  resolveEffectiveDiscount,
   DEFAULT_PARTIAL_PER_LESSON_RATE,
   isPartialApp,
 } from "./summer-discounts";
@@ -188,5 +190,88 @@ describe("computeBestDiscount — per-applicant group gate", () => {
     const c = makeApp({ id: 3, buddy_group_id: 7, buddy_joined_at: "2026-06-22T00:00:00" });
     const r = computeBestDiscount(a, [a, b, c], PRICING_TIERED);
     expect(r.best?.code).toBe("3P");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveEffectiveDiscount: admin tier override (pinned on the published
+// enrollment) takes precedence over the live group/deadline recompute.
+// ---------------------------------------------------------------------------
+
+describe("resolveEffectiveDiscount — admin override", () => {
+  it("with no override code, matches computeBestDiscount", () => {
+    const members = [
+      makeApp({ id: 1, buddy_group_id: 7, buddy_joined_at: "2026-06-14T00:00:00" }),
+      makeApp({ id: 2, buddy_group_id: 7, buddy_joined_at: "2026-06-14T00:00:00" }),
+      makeApp({ id: 3, buddy_group_id: 7, buddy_joined_at: "2026-06-14T00:00:00" }),
+    ];
+    const auto = computeBestDiscount(members[0], members, PRICING_TIERED);
+    const resolved = resolveEffectiveDiscount(members[0], members, PRICING_TIERED, null);
+    expect(resolved).toEqual(auto);
+    expect(resolved.isOverride).toBeUndefined();
+  });
+
+  it("pins EB3P even when the group re-reached size after the deadline", () => {
+    // The reported bug: a buddy withdrew and a replacement joined Jun 16, so the
+    // auto tier drops to 3P; the admin pins EB3P on the enrollment.
+    const a = makeApp({ id: 1, buddy_group_id: 7, buddy_joined_at: "2026-06-10T00:00:00", paid_at: "2026-06-14T00:00:00" });
+    const b = makeApp({ id: 2, buddy_group_id: 7, buddy_joined_at: "2026-06-10T00:00:00" });
+    const replacement = makeApp({ id: 3, buddy_group_id: 7, buddy_joined_at: "2026-06-16T00:00:00" });
+    const members = [a, b, replacement];
+
+    expect(computeBestDiscount(a, members, PRICING_TIERED).best?.code).toBe("3P");
+
+    const r = resolveEffectiveDiscount(a, members, PRICING_TIERED, "EB3P");
+    expect(r.best?.code).toBe("EB3P");
+    expect(r.amount).toBe(500);
+    expect(r.finalFee).toBe(1600 - 500);
+    expect(r.isOverride).toBe(true);
+    expect(r.nearMiss).toBeNull();
+  });
+
+  it('override "NONE" pins full price with no discount', () => {
+    const app = makeApp({ paid_at: "2026-06-10T00:00:00" });
+    const r = resolveEffectiveDiscount(app, [app], PRICING_TIERED, "NONE");
+    expect(r.best).toBeNull();
+    expect(r.amount).toBe(0);
+    expect(r.finalFee).toBe(1600);
+    expect(r.isOverride).toBe(true);
+  });
+
+  it("falls back to the auto tier when the override code is unknown", () => {
+    const app = makeApp({ paid_at: "2026-06-10T00:00:00" });
+    const r = resolveEffectiveDiscount(app, [app], PRICING_TIERED, "BOGUS");
+    // Solo on-time → EB (auto), not a zeroed discount.
+    expect(r.best?.code).toBe("EB");
+    expect(r.isOverride).toBeUndefined();
+  });
+
+  it("ignores an override on a partial plan (per-lesson pricing wins)", () => {
+    const app = makeApp({ lessons_paid: 4, total_lessons: 8, paid_at: "2026-06-10T00:00:00" });
+    const r = resolveEffectiveDiscount(app, [app], PRICING_TIERED, "EB3P");
+    expect(r.best).toBeNull();
+    expect(r.finalFee).toBe(4 * DEFAULT_PARTIAL_PER_LESSON_RATE);
+    expect(r.isOverride).toBeUndefined();
+  });
+
+  it("trims/ignores a blank override code", () => {
+    const app = makeApp({ paid_at: "2026-06-10T00:00:00" });
+    const r = resolveEffectiveDiscount(app, [app], PRICING_TIERED, "   ");
+    expect(r.best?.code).toBe("EB");
+    expect(r.isOverride).toBeUndefined();
+  });
+});
+
+describe("computeDiscountsForAll — honours per-app override", () => {
+  it("applies the override only to the app that carries it", () => {
+    const a = makeApp({ id: 1, buddy_group_id: 7, buddy_joined_at: "2026-06-10T00:00:00", discount_override_code: "EB3P" });
+    const b = makeApp({ id: 2, buddy_group_id: 7, buddy_joined_at: "2026-06-10T00:00:00" });
+    const replacement = makeApp({ id: 3, buddy_group_id: 7, buddy_joined_at: "2026-06-16T00:00:00" });
+    const map = computeDiscountsForAll([a, b, replacement], PRICING_TIERED);
+    expect(map.get(1)?.best?.code).toBe("EB3P");
+    expect(map.get(1)?.isOverride).toBe(true);
+    // Sibling without an override still reflects the auto tier (3P).
+    expect(map.get(2)?.best?.code).toBe("3P");
+    expect(map.get(2)?.isOverride).toBeUndefined();
   });
 });

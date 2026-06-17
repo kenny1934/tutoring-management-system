@@ -322,6 +322,16 @@ describe("formatSummerFeeMessage — payment terms block", () => {
     expect(out).toContain("* The Early Bird Group of 3+ discount must be paid by 2026/06/15 to lock it in.");
   });
 
+  it("suppresses the tier-lock warning for an admin override (deadline already passed)", () => {
+    const override: DiscountResult = { ...EB_GROUP_DISCOUNT, isOverride: true };
+    const zh = formatSummerFeeMessage(app, makeConfig(), override, "zh");
+    const en = formatSummerFeeMessage(app, makeConfig(), override, "en");
+    expect(zh).not.toContain("鎖定折扣");
+    expect(en).not.toContain("to lock it in");
+    // The discounted fee line itself is still rendered.
+    expect(zh).toContain("三人同行早鳥");
+  });
+
   it("honours pricing_config overrides for payment terms and tier lock note", () => {
     const config = makeConfig({
       pricing_config: {

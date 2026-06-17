@@ -1319,6 +1319,15 @@ class SummerApplication(Base):
     # evaluate discount tier against the discount's before_date deadline.
     paid_at = Column(DateTime, nullable=True)
 
+    # Admin pre-publish tier override — pins the discount tier on the application
+    # before it is published (the fee message goes out pre-publish). Carried
+    # forward onto the enrollment at publish, which is the source of truth
+    # afterwards. Mirrors the enrollment override columns.
+    discount_override_code = Column(String(32))
+    discount_override_reason = Column(Text)
+    discount_override_by = Column(String(255))
+    discount_override_at = Column(DateTime)
+
     config = relationship("SummerCourseConfig", back_populates="applications")
     buddy_group = relationship("SummerBuddyGroup", back_populates="applications")
     existing_student = relationship("Student")

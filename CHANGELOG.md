@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.78](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.78) (2026-06-17)
+
+### New Features
+
+* **Adjust a summer discount tier before sending the fee message**: the office can now pin a discount tier on a summer application from its detail panel, before the application is published. Because the fee message goes out beforehand, this makes it possible to correct a tier (for example, when a buddy group member drops out and is replaced after the deadline) and quote the right fee the first time. The pinned tier shows in the fee message and the detail panel, carries forward when the application is published, and stays in step if it is later changed on the enrolment.
+
+### Bug Fixes
+
+* **Clearer "discount forfeited" notices on summer applications**: the panel no longer warns that a higher discount tier was lost when the applicant could never have qualified for it, either because they applied after that tier's deadline or because their buddy group never reached the size it needs. The notice now appears only when a tier the applicant genuinely held was lost, so an on-time Early Bird applicant is no longer told they forfeited the three-person Early Bird tier.
+
 ## [2.0.77](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.77) (2026-06-15)
 
 ### New Features

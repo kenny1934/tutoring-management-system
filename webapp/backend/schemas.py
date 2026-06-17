@@ -2514,6 +2514,9 @@ class SummerApplicationResponse(BaseModel):
     # Summer publish bridge: set when application has been published into a
     # native Summer enrollment. Drives the Publish/Unpublish button state.
     published_enrollment_id: Optional[int] = None
+    # Admin tier-override pinned on the published enrollment, surfaced here so
+    # summer-side fee/tier displays honour it instead of recomputing the tier.
+    discount_override_code: Optional[str] = None
     # Stamped when admin marks status as Paid; editable for receipt-date
     # corrections. Drives discount-tier deadline check.
     paid_at: Optional[datetime] = None
