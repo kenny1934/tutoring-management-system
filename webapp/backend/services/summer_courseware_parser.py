@@ -14,13 +14,16 @@ live here and nowhere else — when the courseware team drifts from convention,
 files land in `unclassified` (visible in the admin panel) instead of silently
 disappearing, and the fix is a single change in this file.
 
-Verified against the real 2026 tree (446 files): 414 classified, 0 ambiguous.
+Verified against the real 2026 tree (471 files): 431 classified; the only
+unclassified file is one misnamed F4 worksheet, surfaced not dropped.
 
 Conventions encoded:
-- Grade folders F1-F3 are indexed. F4+ uses a different scheme (SMSS combined
-  bilingual files) and is intentionally skipped for now.
+- Grade folders F1-F4 are indexed. F4 adopted the SM naming in 2026 (codes
+  "SS01"-"SS08", currently Chinese-only and HW-heavy); F5+ still use other
+  schemes and stay out of scope.
 - Chapter folders: "SM<code> <topic_zh> <topic_en>". Lesson number is the
-  code's last two digits (SM701 → L1, SM810 → L10), uniform across forms.
+  code's trailing two digits (SM701 → L1, SM810 → L10, F4's SMSS01 → L1),
+  uniform across forms.
   Chapters beyond the configured lesson count (e.g. SM809/SM810 when the
   course has 8 lessons) are extra chapters, assignable but never a default.
 - Files: "[Parallel-]SM_<code>_<topic>_<C|H|Extra>[_<e|c>][_ans].pdf".
@@ -35,9 +38,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-# Grades currently indexed. F4+ summer materials (SMSS scheme) are out of
-# scope for now — extend this set if/when they adopt the SM convention.
-INDEXED_GRADES = {"F1", "F2", "F3"}
+# Grades indexed. F4 adopted the SM_<code> naming in 2026 (codes "SS01"-"SS08");
+# F5+ still use other schemes — extend this set if/when they adopt it too.
+INDEXED_GRADES = {"F1", "F2", "F3", "F4"}
 
 GRADE_RE = re.compile(r"^F[1-6]$")
 
@@ -96,7 +99,7 @@ class ScanResult:
     classified: list[ParsedFile] = field(default_factory=list)
     unclassified: list[UnclassifiedFile] = field(default_factory=list)
     excluded_count: int = 0  # non-PDFs and working folders (Raw, Word Files)
-    skipped_grade_count: int = 0  # files under non-indexed grades (F4+)
+    skipped_grade_count: int = 0  # files under non-indexed grades (F5+)
 
     @property
     def total_files(self) -> int:
@@ -117,10 +120,10 @@ def split_topic(topic: str) -> tuple[str, Optional[str]]:
 
 
 def lesson_number_from_code(code: str) -> Optional[int]:
-    """Lesson number is the code's last two digits: 701 → 1, 810 → 10."""
-    if not code.isdigit():
-        return None
-    return int(code) % 100
+    """Lesson number is the code's trailing two digits: 701 → 1, 810 → 10, and
+    F4's "SS01" → 1 … "SS08" → 8 (the chapter sequence is the lesson order)."""
+    m = re.search(r"\d+$", code)
+    return int(m.group()) % 100 if m else None
 
 
 def parse_listing(files: list[tuple[str, Optional[int]]]) -> ScanResult:

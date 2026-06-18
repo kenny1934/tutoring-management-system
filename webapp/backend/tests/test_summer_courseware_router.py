@@ -24,7 +24,7 @@ LISTING = [
     {"path": f"{CHAPTER}/Parallel Version/Parallel-SM_701_有理數_C.pdf"},
     {"path": f"{CHAPTER}/Drafts/SM_701_有理數_C_c.pdf"},  # unknown subfolder
     {"path": f"{CHAPTER}/Raw/SM_701_有理數_C_c.pdf"},  # working folder
-    {"path": "F4/SMSS05 集合與常用邏輯用語/SMSS05集合和常用邏輯用語.pdf"},  # skipped grade
+    {"path": "F5/SM1101 二項式定理 Binomial Theorem/SM_1101_二項式定理_C_e.pdf"},  # skipped grade (F5 not indexed)
 ]
 
 

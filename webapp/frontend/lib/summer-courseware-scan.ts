@@ -157,7 +157,7 @@ export async function getRootHandle(
 /**
  * Pick a folder and store it as the year's courseware root without scanning.
  * For machines other than the one that did the scan. Light sanity check:
- * the Finalised folder should contain F1-F3 subfolders.
+ * the Finalised folder should contain grade subfolders (F1-F4).
  */
 export async function connectRootHandle(
   year: number

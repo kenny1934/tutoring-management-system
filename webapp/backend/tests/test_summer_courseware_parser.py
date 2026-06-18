@@ -29,19 +29,25 @@ def real_tree():
     return parse_paths(paths)
 
 
+@pytest.fixture(scope="module")
+def f4_files(real_tree):
+    return [f for f in real_tree.classified if f.grade == "F4"]
+
+
 # ============================================================================
 # Real 2026 tree — full-listing invariants
 # ============================================================================
 
 class TestRealTree:
     def test_total_accounting(self, real_tree):
-        # 446 files: 414 teachable PDFs, 28 working files (Raw/Word Files/docx),
-        # 4 under F4 (SMSS scheme, out of scope). Nothing unclassified.
-        assert real_tree.total_files == 446
-        assert len(real_tree.classified) == 414
-        assert real_tree.excluded_count == 28
-        assert real_tree.skipped_grade_count == 4
-        assert real_tree.unclassified == []
+        # 471 files: 431 teachable PDFs, 39 working files (Raw/Word Files/docx),
+        # 0 skipped (F1-F4 all indexed now). One F4 worksheet (SMSS08) is
+        # misnamed and surfaces as unclassified — see TestF4Tree.
+        assert real_tree.total_files == 471
+        assert len(real_tree.classified) == 431
+        assert real_tree.excluded_count == 39
+        assert real_tree.skipped_grade_count == 0
+        assert len(real_tree.unclassified) == 1
 
     def test_grades_and_chapters(self, real_tree):
         chapters = {}
@@ -51,16 +57,22 @@ class TestRealTree:
             "F1": {f"70{i}" for i in range(1, 9)},
             "F2": {f"80{i}" for i in range(1, 10)} | {"810"},
             "F3": {f"90{i}" for i in range(1, 10)} | {"910"},
+            "F4": {f"SS{i:02d}" for i in range(1, 9)},
         }
 
     def test_lesson_numbers_follow_modulo_rule(self, real_tree):
+        # F1-F3 use three-digit codes; F4's SS-codes are checked in TestF4Tree.
         for f in real_tree.classified:
-            assert f.lesson_number == int(f.course_code) % 100
+            if f.course_code.isdigit():
+                assert f.lesson_number == int(f.course_code) % 100
 
     def test_every_chapter_has_complete_core_set(self, real_tree):
-        """CW and HW exist in both languages, with answers, for all 28 chapters."""
+        """CW and HW exist in both languages, with answers, for all 28 F1-F3
+        chapters. F4 is mid-rollout (Chinese-only, HW-heavy) — see TestF4Tree."""
         core = {}
         for f in real_tree.classified:
+            if f.grade == "F4":
+                continue
             if f.doc_type in ("CW", "HW") and not f.is_parallel:
                 core.setdefault((f.grade, f.course_code), set()).add(
                     (f.doc_type, f.lang, f.is_answer)
@@ -96,20 +108,52 @@ class TestRealTree:
 
     def test_topics_parsed_bilingually(self, real_tree):
         topics = {(f.grade, f.course_code): (f.topic_zh, f.topic_en)
-                  for f in real_tree.classified}
+                  for f in real_tree.classified if f.grade != "F4"}
         assert topics[("F1", "701")] == ("有理數", "Directed Numbers")
         assert topics[("F2", "808")] == ("勾股定理", "Pythagoras' Theorem")
         assert topics[("F3", "903")] == ("認識二次函數", "Introduction to Quadratic Functions")
-        # Every indexed chapter is bilingual in 2026
+        # Every F1-F3 chapter is bilingual in 2026 (F4 is Chinese-only).
         assert all(zh and en for zh, en in topics.values())
 
     def test_answers_and_questions_are_symmetric(self, real_tree):
-        """Every teachable PDF has an _ans counterpart and vice versa in 2026."""
+        """Every F1-F3 teachable PDF has an _ans counterpart and vice versa in
+        2026. F4 isn't symmetric yet (missing answers/worksheets) — see TestF4Tree."""
         def key(f):
             return (f.grade, f.course_code, f.doc_type, f.lang, f.is_parallel)
-        questions = {key(f) for f in real_tree.classified if not f.is_answer}
-        answers = {key(f) for f in real_tree.classified if f.is_answer}
+        f13 = [f for f in real_tree.classified if f.grade != "F4"]
+        questions = {key(f) for f in f13 if not f.is_answer}
+        answers = {key(f) for f in f13 if f.is_answer}
         assert questions == answers
+
+
+class TestF4Tree:
+    """F4 adopted the SM naming in 2026 but is mid-rollout: Chinese-only,
+    HW-heavy, with one misnamed worksheet surfaced as unclassified. These
+    pin the current state so a future fill-in (English/CW/Parallel) is a
+    visible, intentional change rather than a silent one."""
+
+    def test_chapters_map_to_lessons(self, f4_files):
+        # SS01-SS08, with the chapter sequence as the lesson order.
+        lessons = {f.course_code: f.lesson_number for f in f4_files}
+        assert lessons == {f"SS{i:02d}": i for i in range(1, 9)}
+
+    def test_chinese_only_no_parallel(self, f4_files):
+        assert f4_files  # guard: an empty fixture must not pass silently
+        assert all(f.lang == "c" for f in f4_files)
+        assert not any(f.is_parallel for f in f4_files)
+        assert all(f.topic_en is None for f in f4_files)
+
+    def test_classwork_only_where_authored(self, f4_files):
+        # Only SS01-SS02 have classwork so far; SS03-SS08 are homework-only.
+        cw = {f.course_code for f in f4_files if f.doc_type == "CW"}
+        assert cw == {"SS01", "SS02"}
+
+    def test_misnamed_worksheet_is_flagged(self, real_tree):
+        # SMSS08's worksheet lacks the SM_<code>_ shape, so SS08 has only an
+        # orphaned answer key until the courseware team renames the file.
+        bad = [u for u in real_tree.unclassified if "SMSS08" in u.file_name]
+        assert len(bad) == 1
+        assert "doesn't match" in bad[0].reason
 
 
 # ============================================================================
@@ -185,9 +229,10 @@ class TestExclusionsAndSkips:
         assert result.excluded_count == 2 and not result.classified
 
     def test_non_indexed_grade_skipped_not_flagged(self):
+        # F4 is indexed now; F5+ still use other schemes and are skipped.
         result = parse_paths([
-            "F4\\SMSS05 集合與常用邏輯用語\\SMSS05集合和常用邏輯用語.pdf",
             "F5\\SM1101 whatever Topic\\SM_1101_Topic_C_e.pdf",
+            "F6\\SM1201 another Topic\\SM_1201_another Topic_C_e.pdf",
         ])
         assert result.skipped_grade_count == 2
         assert not result.unclassified and not result.classified
@@ -232,4 +277,7 @@ class TestHelpers:
     def test_lesson_number_from_code(self):
         assert lesson_number_from_code("701") == 1
         assert lesson_number_from_code("810") == 10
-        assert lesson_number_from_code("SS05") is None
+        # F4 SS-codes: trailing digits are the lesson number.
+        assert lesson_number_from_code("SS01") == 1
+        assert lesson_number_from_code("SS08") == 8
+        assert lesson_number_from_code("SSXX") is None
