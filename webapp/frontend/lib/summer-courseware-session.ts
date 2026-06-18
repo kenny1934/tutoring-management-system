@@ -96,7 +96,7 @@ export function useCoursewareDrive(year: number) {
       setConnected(true);
       showToast("Drive connected", "success");
     } else if (result === "wrong_folder") {
-      showToast("That folder doesn't look like the Finalised folder (no F1-F3 inside)", "error");
+      showToast("That folder doesn't look like the Finalised folder (no grade folders inside)", "error");
     }
   }, [year, showToast]);
 

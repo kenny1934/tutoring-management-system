@@ -10,7 +10,7 @@ import type {
   SummerCoursewareIndexResponse,
 } from "@/types";
 
-const INDEXED_GRADES = ["F1", "F2", "F3"];
+const INDEXED_GRADES = ["F1", "F2", "F3", "F4"];
 
 // Lesson column stays put during horizontal scroll; the opaque background
 // (matching the grade card) must come with it or rows show through.
@@ -165,7 +165,7 @@ export function CoursewareMatrix({
     () => groupChapters(index.files ?? []),
     [index.files]
   );
-  // Derive grade sections from the data (with F1-F3 as the empty-state
+  // Derive grade sections from the data (with F1-F4 as the empty-state
   // floor) so grades added to the backend scope later show up unchanged.
   const grades = useMemo(
     () => Array.from(new Set([...INDEXED_GRADES, ...chaptersByGrade.keys()])).sort(),
