@@ -5,7 +5,6 @@
 
 ### Bug Fixes
 
-* **summer:** discount tier override propagation + smarter forfeited banner (2.0.78) ([319f7e9](https://github.com/kenny1934/tutoring-management-system/commit/319f7e974a3993d8bf0e0745bc95988d2bf7af0a))
 * **Correct summer materials for students moving up a grade**: summer worksheets now match the grade a student is about to enter in September rather than their current grade, so a student finishing P6 sees the new F1 materials all summer instead of none.
 
 ## [2.0.78](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.78) (2026-06-17)
