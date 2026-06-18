@@ -57,6 +57,17 @@ ENROLLED_SESSION_STATUSES = [
     SessionStatus.ATTENDED_MAKEUP.value,
 ]
 
+# Session statuses that constitute a real booking in a date/time slot, so an
+# overlapping new enrollment is a genuine double-booking and must be flagged as
+# a conflict. Everything NOT in this list leaves the original slot free: the
+# make-up "origin" rows (both "Pending Make-up" and "Make-up Booked" variants of
+# Rescheduled / Sick Leave / Weather Cancelled — the student is being made up on
+# a different date), and Cancelled sessions.
+CONFLICTING_SESSION_STATUSES = ENROLLED_SESSION_STATUSES + [
+    SessionStatus.TRIAL_CLASS.value,
+    SessionStatus.NO_SHOW.value,
+]
+
 # Session statuses for pending make-ups (original session was missed/rescheduled)
 PENDING_MAKEUP_STATUSES = [
     SessionStatus.RESCHEDULED_PENDING.value,

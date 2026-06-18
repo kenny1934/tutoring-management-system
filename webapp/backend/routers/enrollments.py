@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
-from constants import hk_now, PENDING_MAKEUP_STATUSES, SessionStatus, NON_COUNTABLE_STATUSES, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, PER_TWO_LESSONS_DISCOUNT_TYPE, ACTIVE_GRACE_PERIOD_DAYS
+from constants import hk_now, CONFLICTING_SESSION_STATUSES, NON_COUNTABLE_STATUSES, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, PER_TWO_LESSONS_DISCOUNT_TYPE, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo, SummerApplication, SummerCourseConfig
@@ -145,11 +145,14 @@ def check_student_conflicts(
     time_slot: str,
     exclude_enrollment_id: Optional[int] = None
 ) -> List[StudentConflict]:
-    """Check if student has existing sessions at given dates/times."""
-    conflicts = []
+    """Check if student has existing sessions at given dates/times.
 
-    # Statuses that don't count as conflicts (pending makeups are available for reassignment)
-    non_conflict_statuses = PENDING_MAKEUP_STATUSES + [SessionStatus.CANCELLED.value]
+    Only sessions that represent a real booking in the slot count as conflicts
+    (see CONFLICTING_SESSION_STATUSES). Make-up origin rows — both
+    "Pending Make-up" and "Make-up Booked" variants — plus Cancelled sessions
+    leave the original slot free, so they are not treated as duplicates.
+    """
+    conflicts = []
 
     query = db.query(SessionLog).options(
         joinedload(SessionLog.tutor)
@@ -157,7 +160,7 @@ def check_student_conflicts(
         SessionLog.student_id == student_id,
         SessionLog.session_date.in_(session_dates),
         SessionLog.time_slot == time_slot,
-        ~SessionLog.session_status.in_(non_conflict_statuses)
+        SessionLog.session_status.in_(CONFLICTING_SESSION_STATUSES)
     )
 
     if exclude_enrollment_id:

@@ -742,6 +742,48 @@ class TestCheckStudentConflicts:
         )
         assert len(conflicts) == 1
 
+    @pytest.mark.parametrize("status", [
+        "Rescheduled - Make-up Booked",
+        "Sick Leave - Make-up Booked",
+        "Weather Cancelled - Make-up Booked",
+    ])
+    def test_makeup_booked_not_conflicting(self, db_session, status):
+        """Make-up Booked origin rows have vacated their slot (the make-up lives
+        on a different date), so they must not count as conflicts."""
+        student, tutor, enrollment, session = self._setup(db_session)
+        session.session_status = status
+        db_session.commit()
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 3, 2)],
+            "15:00-16:30",
+        )
+        assert len(conflicts) == 0
+
+    @pytest.mark.parametrize("status", [
+        "Scheduled",
+        "Make-up Class",
+        "Trial Class",
+        "Attended",
+        "Attended (Make-up)",
+        "No Show",
+    ])
+    def test_real_bookings_are_conflicts(self, db_session, status):
+        """Every real booking in the slot should be flagged as a conflict."""
+        student, tutor, enrollment, session = self._setup(db_session)
+        session.session_status = status
+        db_session.commit()
+
+        conflicts = check_student_conflicts(
+            db_session,
+            student.id,
+            [date(2026, 3, 2)],
+            "15:00-16:30",
+        )
+        assert len(conflicts) == 1
+
 
 # ============================================================================
 # Test discount minimum-lesson rule (MIN_LESSONS_FOR_DISCOUNT)
