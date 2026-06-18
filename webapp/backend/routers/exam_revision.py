@@ -270,49 +270,6 @@ def _check_tutor_conflicts(
     return conflicts
 
 
-def _check_student_conflicts(
-    db: Session,
-    student_id: int,
-    session_date: date,
-    time_slot: str,
-    exclude_session_id: Optional[int] = None
-) -> List[dict]:
-    """
-    Check if the student has existing sessions that conflict with the given date/time.
-    Returns a list of conflicting session details.
-
-    Args:
-        db: Database session
-        student_id: Student to check
-        session_date: Date of the proposed session
-        time_slot: Time slot of the proposed session
-        exclude_session_id: Optional session ID to exclude (e.g., the session being consumed)
-    """
-    query = db.query(SessionLog).options(
-        joinedload(SessionLog.tutor)
-    ).filter(
-        SessionLog.student_id == student_id,
-        SessionLog.session_date == session_date,
-        SessionLog.session_status.in_(['Scheduled', 'Make-up Class', 'Rescheduled'])
-    )
-
-    if exclude_session_id:
-        query = query.filter(SessionLog.id != exclude_session_id)
-
-    existing_sessions = query.all()
-    conflicts = []
-    for session in existing_sessions:
-        if session.time_slot and _times_overlap(time_slot, session.time_slot):
-            conflicts.append({
-                "session_id": session.id,
-                "tutor_name": session.tutor.tutor_name if session.tutor else "Unknown",
-                "time_slot": session.time_slot,
-                "location": session.location,
-            })
-
-    return conflicts
-
-
 # ============================================
 # Revision Slot CRUD Endpoints
 # ============================================
