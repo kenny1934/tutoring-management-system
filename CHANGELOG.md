@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.81](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.80...v2.0.81) (2026-06-18)
+
+
+### Bug Fixes
+
+* **Enrolment preview no longer flags rescheduled slots as conflicts**: creating an enrolment on a date where the student had a session that was rescheduled with its make-up already booked no longer shows a false conflict warning. That original slot is free — the student attends the make-up on another day — so only genuine bookings (Scheduled, Make-up, Trial, Attended, and No Show) now count as conflicts.
+
 ## [2.0.80](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.79...v2.0.80) (2026-06-18)
 
 
