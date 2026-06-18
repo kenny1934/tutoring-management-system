@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.79](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.78...v2.0.79) (2026-06-18)
+
+
+### Bug Fixes
+
+* **summer:** discount tier override propagation + smarter forfeited banner (2.0.78) ([319f7e9](https://github.com/kenny1934/tutoring-management-system/commit/319f7e974a3993d8bf0e0745bc95988d2bf7af0a))
+* **summer:** use entering grade for courseware lookup during pre-grade window ([5169fb8](https://github.com/kenny1934/tutoring-management-system/commit/5169fb86c425c3c1c9d20f1d00b276c95218c72a))
+
 ## [2.0.78](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.78) (2026-06-17)
 
 ### New Features
