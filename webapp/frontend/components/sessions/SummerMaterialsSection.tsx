@@ -20,6 +20,7 @@ import {
   describeAssignmentResult,
   type SummerDocType,
 } from "@/lib/summer-courseware-session";
+import { coursewareGrade } from "@/lib/grade-utils";
 import type { Session, SummerCoursewareFile } from "@/types";
 
 function rowDefaults(defaults: ChapterDefaults, docType: SummerDocType) {
@@ -129,10 +130,13 @@ export function SummerMaterialsSection({
 }) {
   const year = sessionSummerYear(session);
   const grade = session.grade;
+  // Materials are indexed by the entering grade (F1/F2/F3); before Sept 1 the
+  // student's stored grade is still the pre-grade, so promote it for lookup.
+  const cwGrade = coursewareGrade(grade, year);
   const lang = normalizeLangStream(session.lang_stream);
   const { index, chapters } = useSummerCoursewareIndex(
     session.lesson_number != null ? year : null,
-    grade
+    cwGrade
   );
   const { connected, connect, open } = useCoursewareDrive(year);
 
@@ -251,7 +255,9 @@ export function SummerBulkAssignSection({
     sessions.every((s) => s.lesson_number != null && s.grade === grade);
 
   const year = eligible ? sessionSummerYear(sessions[0]) : null;
-  const { index, chapters } = useSummerCoursewareIndex(year, eligible ? grade : null);
+  // Index lookup uses the entering grade; sessions are grouped by stored grade.
+  const cwGrade = coursewareGrade(grade, year);
+  const { index, chapters } = useSummerCoursewareIndex(year, eligible ? cwGrade : null);
 
   // Default to the most common lesson number among the selection.
   const commonLesson = useMemo(() => {
@@ -346,7 +352,7 @@ export function SummerBulkAssignSection({
 
   const summary = (
     <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
-      {grade}
+      {cwGrade}
       {lessonChapter ? ` · L${lessonChapter.lessonNumber} SM${lessonChapter.code}` : ""}
       {" · "}
       {[

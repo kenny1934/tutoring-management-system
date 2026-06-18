@@ -21,6 +21,7 @@ import {
   useCoursewareDrive,
   previewExercise,
 } from "@/lib/summer-courseware-session";
+import { coursewareGrade } from "@/lib/grade-utils";
 import type { Session, SessionExercise, SummerCoursewareFile } from "@/types";
 
 interface SummerCoursewarePanelProps {
@@ -147,9 +148,12 @@ export function SummerCoursewarePanel({ session, isReadOnly, onPreview }: Summer
   const { showToast } = useToast();
   const year = sessionSummerYear(session);
   const grade = session.grade;
+  // Materials are indexed by the entering grade (F1/F2/F3); before Sept 1 the
+  // student's stored grade is still the pre-grade, so promote it for lookup.
+  const cwGrade = coursewareGrade(grade, year);
   const lang = normalizeLangStream(session.lang_stream);
 
-  const { index, chapters } = useSummerCoursewareIndex(year, grade);
+  const { index, chapters } = useSummerCoursewareIndex(year, cwGrade);
 
   // Default to the session's lesson chapter; tutors can switch (extra
   // chapters like SM809/810 included).

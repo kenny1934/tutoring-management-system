@@ -21,6 +21,7 @@ import {
   previewExercise,
   type SummerDocType,
 } from "@/lib/summer-courseware-session";
+import { coursewareGrade } from "@/lib/grade-utils";
 import { StudentPickerPopover } from "./StudentPickerPopover";
 import { summerAssignButtonClass, SummerAssignIcon, ParallelChipsRow } from "./SummerCoursewarePanel";
 import type { Session } from "@/types";
@@ -49,7 +50,10 @@ function WideGradeSection({
 }) {
   const { showToast } = useToast();
   const year = sessionSummerYear(sessions[0]);
-  const { index, chapters } = useSummerCoursewareIndex(year, grade);
+  // Sessions are grouped by stored grade, but materials are indexed by the
+  // entering grade (F1/F2/F3) — promote the pre-grade for lookup and display.
+  const cwGrade = coursewareGrade(grade, year);
+  const { index, chapters } = useSummerCoursewareIndex(year, cwGrade);
   // The connected drive feeds the PDF pane's loader (the share isn't in
   // Paperless and the Settings folder alias may not exist on this machine).
   const { connected: driveConnected, connect: handleConnect } = useCoursewareDrive(year);
@@ -182,7 +186,7 @@ function WideGradeSection({
       <div className="flex items-center gap-1.5">
         <Sun className="h-3.5 w-3.5 text-amber-500" />
         <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
-          Summer Materials{showGrade ? ` · ${grade}` : ""}
+          Summer Materials{showGrade ? ` · ${cwGrade}` : ""}
         </span>
         <span className="flex-1" />
         {driveConnected === false && (

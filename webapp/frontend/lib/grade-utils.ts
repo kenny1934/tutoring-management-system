@@ -89,3 +89,25 @@ export function applyTargetToPreGrade(
   if (today >= promotionDate) return targetGrade;
   return TARGET_TO_PRE_GRADE[targetGrade] ?? targetGrade;
 }
+
+/**
+ * Resolve the grade a summer course's materials are indexed under (the grade
+ * the student is *entering*: F1/F2/F3) from a student's stored grade.
+ *
+ * Inverse of applyTargetToPreGrade. Before Sept 1 of the summer's year the
+ * stored grade is still the pre-grade (a Pre-F1 student is stored "P6"), so we
+ * promote it for the courseware lookup. On/after Sept 1 the promotion job has
+ * already advanced the stored grade, so it passes through unchanged. The cutoff
+ * is Sept 1 (not the badge window) so prep before the course start also works.
+ */
+export function coursewareGrade(
+  grade: string | null | undefined,
+  summerYear: number | null | undefined,
+  today: Date = todayLocal(),
+): string | undefined {
+  if (!grade) return grade ?? undefined;
+  if (!summerYear) return grade;
+  const promotionDate = new Date(summerYear, 8, 1); // Sept 1 (month is 0-indexed)
+  if (today >= promotionDate) return grade;
+  return PROMOTE_MAP[grade] ?? grade;
+}
