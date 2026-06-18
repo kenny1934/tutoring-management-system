@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.80](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.79...v2.0.80) (2026-06-18)
+
+
+### New Features
+
+* **Summer materials now cover F4**: F4 summer worksheets are now available across the courseware pages, lesson mode, and exercise assignment, the same way F1 to F3 materials already are.
+
 ## [2.0.79](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.78...v2.0.79) (2026-06-18)
 
 
