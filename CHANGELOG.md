@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.82](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.81...v2.0.82) (2026-06-20)
+
+
+### Bug Fixes
+
+* **Exam revision make-ups keep the original lesson's enrolment and payment status**: enrolling a student into an exam revision slot creates a make-up for the lesson it replaces. That make-up now keeps the same enrolment and paid or unpaid status as the original lesson, instead of sometimes being linked to a different enrolment for the student or showing as unpaid when the original lesson had already been paid for. Existing exam revision make-ups affected by this have been corrected.
+
 ## [2.0.81](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.80...v2.0.81) (2026-06-18)
 
 
