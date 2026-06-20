@@ -1016,24 +1016,19 @@ async def enroll_student(
         exclude_session_id=request.consume_session_id,
     )
 
-    # Find the student's enrollment at this location
-    enrollment = db.query(Enrollment).filter(
-        Enrollment.student_id == request.student_id,
-        Enrollment.location == slot.location,
-        Enrollment.payment_status.in_(['Paid', 'Pending Payment'])
-    ).first()
-
-    # Create the revision session
+    # Create the revision session. As a make-up for the consumed session, it must
+    # inherit that session's enrollment and financial status (not look up an
+    # arbitrary enrollment at the location, and not default everyone to "Unpaid").
     modified_by = request.created_by or current_user.user_email
     revision_session = SessionLog(
-        enrollment_id=enrollment.id if enrollment else consume_session.enrollment_id,
+        enrollment_id=consume_session.enrollment_id,
         student_id=request.student_id,
         tutor_id=slot.tutor_id,
         session_date=slot.session_date,
         time_slot=slot.time_slot,
         location=slot.location,
         session_status="Make-up Class",  # Revision sessions are make-up sessions
-        financial_status="Unpaid",
+        financial_status=consume_session.financial_status,
         make_up_for_id=consume_session.id,
         exam_revision_slot_id=slot.id,
         notes=request.notes,
