@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
-from constants import hk_now, CONFLICTING_SESSION_STATUSES, NON_COUNTABLE_STATUSES, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, PER_TWO_LESSONS_DISCOUNT_TYPE, ACTIVE_GRACE_PERIOD_DAYS
+from constants import hk_now, CONFLICTING_SESSION_STATUSES, NON_ACTIVE_SESSION_STATUSES, BASE_FEE_PER_LESSON, REGISTRATION_FEE, MIN_LESSONS_FOR_DISCOUNT, PER_TWO_LESSONS_DISCOUNT_TYPE, ACTIVE_GRACE_PERIOD_DAYS
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo, SummerApplication, SummerCourseConfig
@@ -261,14 +261,16 @@ def bulk_load_summer_unavailability_notes(
 
 
 def _last_scheduled_session_date(enrollment: Enrollment) -> Optional[date]:
-    """Latest non-cancelled session date for an enrollment, or None if it has none.
+    """Latest active session date for an enrollment, or None if it has none.
 
     Lets One-Time enrollments report their real last lesson instead of a
     weekly-cadence projection — their ad-hoc lessons are rescheduled off-cadence.
+    Skips non-active sessions (cancelled / pending or booked make-up origins) so
+    a rescheduled-away slot isn't reported as the last lesson.
     """
     dates = [
         s.session_date for s in enrollment.sessions
-        if s.session_date and s.session_status not in NON_COUNTABLE_STATUSES
+        if s.session_date and s.session_status not in NON_ACTIVE_SESSION_STATUSES
     ]
     return max(dates) if dates else None
 
@@ -1821,7 +1823,7 @@ async def get_fee_message(
     session_times = None
     if is_adhoc:
         adhoc_sessions = sorted(
-            [s for s in enrollment.sessions if s.session_status not in NON_COUNTABLE_STATUSES],
+            [s for s in enrollment.sessions if s.session_status not in NON_ACTIVE_SESSION_STATUSES],
             key=lambda s: (s.session_date, s.time_slot or ''),
         )
         session_dates = [s.session_date for s in adhoc_sessions]

@@ -112,6 +112,19 @@ NON_COUNTABLE_STATUS_PATTERNS = [
     'Make-up Booked',
 ]
 
+# Session statuses where the student is NOT actively attending this slot:
+# Cancelled, plus every make-up "origin" row (both the Pending Make-up and the
+# Make-up Booked variants of Rescheduled / Sick Leave / Weather Cancelled — the
+# student is either awaiting or already booked into a make-up on a different
+# date). This is the canonical "non-active" list: use it to keep non-attending
+# sessions out of fee messages, lesson counts, and "last lesson" calculations
+# instead of re-assembling Cancelled + pending + booked by hand.
+NON_ACTIVE_SESSION_STATUSES = [
+    SessionStatus.CANCELLED.value,
+    *PENDING_MAKEUP_STATUSES,
+    *MAKEUP_BOOKED_STATUSES,
+]
+
 # All valid session status values (for validation)
 ALL_SESSION_STATUSES = [status.value for status in SessionStatus]
 
