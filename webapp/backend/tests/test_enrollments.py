@@ -400,10 +400,10 @@ class TestCalculateEffectiveEndDate:
 
         assert calculate_effective_end_date(enrollment, db_session) == date(2026, 3, 18)
 
-    def test_one_time_ignores_pending_and_booked_makeup_sessions(self, db_session):
-        """Make-up origin rows (pending or already booked) are non-active, so a
-        later one must not extend the One-Time end date — only active sessions
-        count as the last lesson."""
+    def test_one_time_counts_pending_makeup_but_not_booked(self, db_session):
+        """One-Time end date is live: a Pending Make-up is still an owed lesson
+        and counts, but a Make-up Booked origin does not (its make-up is a
+        separate row counted on its own date)."""
         enrollment, student, tutor = self._create_one_time(db_session, date(2026, 3, 2), lessons_paid=3, suffix="pb")
         db_session.add_all([
             SessionLog(
@@ -411,11 +411,15 @@ class TestCalculateEffectiveEndDate:
                 session_date=date(2026, 3, 18), time_slot="16:00-17:30", location="Main Center",
                 session_status="Scheduled", financial_status="Unpaid",
             ),
+            # Pending make-up: still owed → counts, even though it's later than
+            # the active session above.
             SessionLog(
                 enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
                 session_date=date(2026, 5, 1), time_slot="18:00-19:30", location="Main Center",
                 session_status="Rescheduled - Pending Make-up", financial_status="Unpaid",
             ),
+            # Make-up booked origin: superseded by its make-up row → excluded,
+            # so this later date must NOT become the end date.
             SessionLog(
                 enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
                 session_date=date(2026, 6, 1), time_slot="18:00-19:30", location="Main Center",
@@ -424,7 +428,7 @@ class TestCalculateEffectiveEndDate:
         ])
         db_session.commit()
 
-        assert calculate_effective_end_date(enrollment, db_session) == date(2026, 3, 18)
+        assert calculate_effective_end_date(enrollment, db_session) == date(2026, 5, 1)
 
     def test_one_time_without_sessions_falls_back_to_cadence(self, db_session):
         """A One-Time enrollment with no sessions falls back to the cadence calc."""

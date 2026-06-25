@@ -116,12 +116,28 @@ NON_COUNTABLE_STATUS_PATTERNS = [
 # Cancelled, plus every make-up "origin" row (both the Pending Make-up and the
 # Make-up Booked variants of Rescheduled / Sick Leave / Weather Cancelled — the
 # student is either awaiting or already booked into a make-up on a different
-# date). This is the canonical "non-active" list: use it to keep non-attending
-# sessions out of fee messages, lesson counts, and "last lesson" calculations
-# instead of re-assembling Cancelled + pending + booked by hand.
+# date). This is the canonical "non-attending" list (summer capacity, revenue
+# active-session checks, publish conflicts). For the LIVE One-Time billing rule
+# that still counts pending make-ups, see CANCELLED_OR_MAKEUP_BOOKED_STATUSES.
 NON_ACTIVE_SESSION_STATUSES = [
     SessionStatus.CANCELLED.value,
     *PENDING_MAKEUP_STATUSES,
+    *MAKEUP_BOOKED_STATUSES,
+]
+
+# Narrower exclusion for LIVE per-session calculations on One-Time enrollments
+# (fee message + last-lesson date), which are derived from the real session
+# rows rather than a fixed cadence projected from the first lesson date. Drops
+# only rows that no longer contribute a lesson of their own: Cancelled (the
+# lesson is gone) and every Make-up Booked origin (the rescheduled make-up
+# exists as its own session row and is counted there — counting the origin too
+# would double-count/double-bill).
+#
+# Unlike NON_ACTIVE_SESSION_STATUSES this intentionally KEEPS the Pending
+# Make-up variants: until a make-up is actually booked the lesson is still owed
+# to the student, so it stays listed, counted and billed.
+CANCELLED_OR_MAKEUP_BOOKED_STATUSES = [
+    SessionStatus.CANCELLED.value,
     *MAKEUP_BOOKED_STATUSES,
 ]
 
