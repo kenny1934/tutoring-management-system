@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.83](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.82...v2.0.83) (2026-06-25)
+
+
+### Bug Fixes
+
+* **One-time enrolment fee messages list the right sessions**: the fee message and last lesson date for a one-time enrolment are built from its actual sessions, so they now leave out cancelled sessions and any session whose make-up has already been booked (that make-up is listed separately on its own date), which stops those lessons being counted and charged twice. Sessions still waiting for a make-up are kept, since that lesson is still owed.
+
 ## [2.0.82](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.81...v2.0.82) (2026-06-20)
 
 
