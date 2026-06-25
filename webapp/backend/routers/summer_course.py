@@ -113,7 +113,7 @@ from constants import (
     SUMMER_INACTIVE_PLACEMENT_STATUSES,
     PRIMARY_BRANCH_OPTIONS,
     PRIMARY_BRANCH_CODES,
-    PENDING_MAKEUP_STATUSES,
+    NON_ACTIVE_SESSION_STATUSES,
     MAKEUP_BOOKED_STATUSES,
     COMPLETED_STATUSES,
     SECONDARY_LOCATION_TO_CODE,
@@ -3622,7 +3622,7 @@ def _publish_application_inner(
     target_keys = {(p.lesson.lesson_date, p.slot.time_slot) for p in publishable}
     target_dates = {k[0] for k in target_keys}
     target_time_slots = {k[1] for k in target_keys}
-    inactive_statuses = ['Cancelled'] + PENDING_MAKEUP_STATUSES + MAKEUP_BOOKED_STATUSES
+    inactive_statuses = NON_ACTIVE_SESSION_STATUSES
     # Filter date AND time_slot in DB so MySQL can narrow via the
     # (student_id, session_date) index instead of returning every active
     # session that student has on those dates. The tuple match below filters

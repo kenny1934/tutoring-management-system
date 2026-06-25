@@ -36,6 +36,8 @@ from sqlalchemy.orm import Session
 from constants import (
     BASE_FEE_PER_LESSON,
     REGISTRATION_FEE,
+    NON_COUNTABLE_STATUS_PATTERNS,
+    SessionStatus,
     SummerApplicationStatus,
     hk_now,
     normalize_secondary_location,
@@ -81,11 +83,13 @@ class RevenueSheetConfigError(RuntimeError):
 # ---------------------------------------------------------------------------
 
 def _is_active_session(session_status: str | None) -> bool:
+    # Contains-matching (not exact) is deliberate; the patterns + Cancelled
+    # cover every non-active make-up origin row. See NON_ACTIVE_SESSION_STATUSES
+    # for the exact-match equivalent used elsewhere.
     st = session_status or ""
     return (
-        st != "Cancelled"
-        and "Pending Make-up" not in st
-        and "Make-up Booked" not in st
+        st != SessionStatus.CANCELLED.value
+        and not any(p in st for p in NON_COUNTABLE_STATUS_PATTERNS)
     )
 
 
