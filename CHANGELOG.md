@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.84](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.83...v2.0.84) (2026-06-26)
+
+
+### Bug Fixes
+
+* **Published summer applications are counted again in the revenue analytics**: once a summer application was published into an enrolment, it stopped being included in the branch revenue figures, so the receivable and collected totals were undercounted. Published applications are now counted using their enrolment's payment status, so a published application that has been paid shows as collected and one still awaiting payment shows as outstanding.
+
 ## [2.0.83](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.82...v2.0.83) (2026-06-25)
 
 
