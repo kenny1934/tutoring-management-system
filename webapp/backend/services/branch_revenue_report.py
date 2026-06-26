@@ -93,6 +93,28 @@ def _is_active_session(session_status: str | None) -> bool:
     )
 
 
+def _effective_fee_status(
+    app: SummerApplication, enr_payment_by_app: dict[int, str | None]
+) -> str:
+    """Which collection bucket (Paid / Fee Sent / raw status) an app's fee sits in.
+
+    Publishing flips an application's status to 'Enrolled', so it no longer reads
+    as Paid or Fee Sent — without this it would drop out of the receivable totals
+    entirely (and isn't a pipeline status either). Post-publish the collection
+    state lives on the linked Summer enrollment's payment_status: 'Paid' →
+    collected, anything else → still outstanding (Fee Sent). A missing enrollment
+    (shouldn't happen — unpublish reverts the status) defaults to Fee Sent so the
+    fee stays counted as receivable rather than vanishing.
+    """
+    if app.application_status == _S.ENROLLED.value:
+        return (
+            _S.PAID.value
+            if enr_payment_by_app.get(app.id) == "Paid"
+            else _S.FEE_SENT.value
+        )
+    return app.application_status
+
+
 def _collect_branch(
     db: Session,
     config: SummerCourseConfig,
@@ -100,6 +122,7 @@ def _collect_branch(
     app_branch_by_id: dict[int, str | None],
     apps: list[SummerApplication],
     discounts_by_id: dict[int, Discount],
+    enr_payment_by_app: dict[int, str | None],
     today: date,
 ) -> dict[str, Any]:
     """All summer + regular figures and detail rows for one branch."""
@@ -115,7 +138,11 @@ def _collect_branch(
             "ref": app.reference_code,
             "name": app.student_name,
             "grade": app.grade,
+            # Raw status drives display + the pipeline; fee_status is the
+            # collection bucket (resolves published 'Enrolled' apps via their
+            # enrollment's payment_status).
             "status": app.application_status,
+            "fee_status": _effective_fee_status(app, enr_payment_by_app),
             "code": f"PARTIAL-{n_lessons}L" if is_partial else res.code,
             "tier_name": (
                 f"Partial booking ({n_lessons} lessons x ${BASE_FEE_PER_LESSON})"
@@ -129,8 +156,8 @@ def _collect_branch(
             "buddy": app.buddy_group_id,
         })
 
-    paid = [r for r in summer_rows if r["status"] == _S.PAID.value]
-    fee_sent = [r for r in summer_rows if r["status"] == _S.FEE_SENT.value]
+    paid = [r for r in summer_rows if r["fee_status"] == _S.PAID.value]
+    fee_sent = [r for r in summer_rows if r["fee_status"] == _S.FEE_SENT.value]
     pipeline: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     for r in summer_rows:
         pipeline[r["status"]][0] += 1
@@ -142,7 +169,7 @@ def _collect_branch(
         b = bycode[x["code"]]
         b["fee"] = x["fee"]
         b["name"] = x["tier_name"]
-        if x["status"] == _S.PAID.value:
+        if x["fee_status"] == _S.PAID.value:
             b["pn"] += 1
             b["pa"] += x["fee"]
         else:
@@ -284,9 +311,26 @@ def collect_report_data(db: Session, config: SummerCourseConfig) -> dict[str, An
     app_branch_by_id = {a.id: _branch_of_app(a, slot_locations) for a in apps}
     discounts_by_id = {d.id: d for d in db.query(Discount).all()}
 
+    # Published applications carry status 'Enrolled'; their real collection
+    # state lives on the linked Summer enrollment's payment_status. Map it back
+    # so those fees stay counted (see _effective_fee_status).
+    app_ids = [a.id for a in apps]
+    enr_payment_by_app: dict[int, str | None] = {}
+    if app_ids:
+        enr_payment_by_app = {
+            sa_id: pay
+            for sa_id, pay in db.query(
+                Enrollment.summer_application_id, Enrollment.payment_status
+            ).filter(
+                Enrollment.enrollment_type == "Summer",
+                Enrollment.summer_application_id.in_(app_ids),
+            )
+        }
+
     branches = {
         br: _collect_branch(
-            db, config, br, app_branch_by_id, apps, discounts_by_id, today
+            db, config, br, app_branch_by_id, apps, discounts_by_id,
+            enr_payment_by_app, today,
         )
         for br in BRANCHES
     }
@@ -706,7 +750,7 @@ def build_workbook(data: dict[str, Any]) -> bytes:
                 cc.border = THIN
                 if col in (7, 8):
                     cc.number_format = CUR
-            if x["status"] == _S.PAID.value:
+            if x["fee_status"] == _S.PAID.value:
                 ws2.cell(row=rr, column=4).fill = GREEN
             rr += 1
         put(ws2, rr, 1, "Total", bold=True)
