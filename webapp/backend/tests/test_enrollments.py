@@ -935,12 +935,13 @@ class TestDiscountMinimumLessons:
         assert resp.status_code == 400
 
     def test_fee_message_zeroes_discount_below_floor(self, client, db_session):
-        """A student coupon must not surface in the fee message below the floor."""
-        student, tutor, _ = self._seed(db_session, coupon=True)
+        """An explicit enrollment discount is zeroed in the fee message below the
+        floor, and applies at or above it."""
+        student, tutor, discount = self._seed(db_session)
         enrollment = Enrollment(
             student_id=student.id, tutor_id=tutor.id, first_lesson_date=date(2026, 3, 2),
             assigned_day="Monday", assigned_time="15:00 - 16:30", location="MSA",
-            lessons_paid=6, enrollment_type="Regular",
+            lessons_paid=6, enrollment_type="Regular", discount_id=discount.id,
         )
         db_session.add(enrollment)
         db_session.commit()
@@ -958,6 +959,25 @@ class TestDiscountMinimumLessons:
         )
         assert at_floor.status_code == 200
         assert "Discounted $300" in at_floor.json()["message"]
+
+    def test_held_coupon_does_not_surface_without_explicit_discount(self, client, db_session):
+        """A coupon a student merely holds is inventory only: it must not reduce a
+        fee unless it has been attached to the enrollment as its discount."""
+        student, tutor, _ = self._seed(db_session, coupon=True)
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=tutor.id, first_lesson_date=date(2026, 3, 2),
+            assigned_day="Monday", assigned_time="15:00 - 16:30", location="MSA",
+            lessons_paid=6, enrollment_type="Regular",
+        )
+        db_session.add(enrollment)
+        db_session.commit()
+
+        resp = client.get(
+            f"/api/enrollments/{enrollment.id}/fee-message?lang=en&lessons_paid=6",
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+        assert "Discounted" not in resp.json()["message"]
 
     def test_create_allows_per_two_promo_below_floor(self, client, db_session):
         """The per-2-lessons promo is exempt from the minimum-lesson floor."""
