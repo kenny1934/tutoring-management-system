@@ -138,24 +138,22 @@ def discount_requires_min_lessons(discount) -> bool:
     return bool(discount) and discount.discount_type != PER_TWO_LESSONS_DISCOUNT_TYPE
 
 
-# Sentinel so callers can pass an already-resolved coupon (including None) and
-# skip the per-row query — used by the overdue list to avoid N+1 lookups.
-_COUPON_UNSET = object()
-
-
-def compute_enrollment_total_fee(enrollment, db: Session, student_coupon=_COUPON_UNSET) -> Optional[int]:
+def compute_enrollment_total_fee(enrollment, db: Session) -> Optional[int]:
     """Total tuition shown in the fee message: base − discount + registration fee.
 
     Mirrors the resolution in ``get_fee_message`` so the displayed amount matches
-    the message a parent receives: the enrollment's own discount first, then a
-    student coupon fallback, plus the $100 registration fee for new students.
+    the message a parent receives: the enrollment's explicit discount (scaled for
+    a per-2-lessons promo and floor-aware), plus the $100 registration fee for new
+    students.
+
+    A discount applies ONLY when the enrollment carries an explicit ``discount_id``.
+    A student's ``available_coupons`` is just inventory — how many coupons they
+    hold — and never reduces a price on its own; a coupon only counts once it has
+    been attached to an enrollment as its discount.
 
     Returns ``None`` for Summer enrollments — they price via their own
     config-driven generator (the generic fee message is blocked for them), so
     the flat ``400 × lessons`` formula would be wrong.
-
-    Pass ``student_coupon`` (an object or ``None``) to reuse a bulk-loaded coupon
-    and avoid a per-row query; omit it to look the coupon up here.
     """
     if enrollment.enrollment_type == 'Summer':
         return None
@@ -166,21 +164,9 @@ def compute_enrollment_total_fee(enrollment, db: Session, student_coupon=_COUPON
     is_new = bool(enrollment.is_new_student) and enrollment.enrollment_type != 'Trial'
     reg_fee = REGISTRATION_FEE if is_new else 0
 
-    if enrollment.discount:
-        discount_value = compute_discount_value(enrollment.discount, lessons)
-    else:
-        if student_coupon is _COUPON_UNSET:
-            student_coupon = db.query(StudentCoupon).filter(
-                StudentCoupon.student_id == enrollment.student_id
-            ).first()
-        discount_value = 0
-        if (
-            student_coupon
-            and student_coupon.available_coupons
-            and student_coupon.available_coupons > 0
-            and lessons >= MIN_LESSONS_FOR_DISCOUNT
-        ):
-            discount_value = int(student_coupon.coupon_value or 300)
+    # compute_discount_value returns 0 for a None discount, so this also covers
+    # enrollments with no discount attached.
+    discount_value = compute_discount_value(enrollment.discount, lessons)
 
     return base_fee - int(discount_value) + reg_fee
 
@@ -215,7 +201,7 @@ def compute_summer_total_fee(enrollment, db: Session, today: Optional[date] = No
     return effective_final_fee(enrollment, app, app.config, result)
 
 
-def resolve_enrollment_total_fee(enrollment, db: Session, student_coupon=_COUPON_UNSET) -> Optional[int]:
+def resolve_enrollment_total_fee(enrollment, db: Session) -> Optional[int]:
     """Total fee shown in the enrollment's fee message, routing Summer vs. regular.
 
     Summer enrollments price via their own config-driven generator; everything
@@ -223,7 +209,37 @@ def resolve_enrollment_total_fee(enrollment, db: Session, student_coupon=_COUPON
     """
     if enrollment.enrollment_type == 'Summer':
         return compute_summer_total_fee(enrollment, db)
-    return compute_enrollment_total_fee(enrollment, db, student_coupon=student_coupon)
+    return compute_enrollment_total_fee(enrollment, db)
+
+
+def compute_enrollment_revenue_total(enrollment, db: Session) -> Optional[float]:
+    """Tutor-facing revenue total stored on the enrollment for the revenue views.
+
+    Equals the real fee a parent pays (``resolve_enrollment_total_fee``, which
+    matches the fee message for every enrollment type) MINUS the one-off
+    registration fee, which is not tutor revenue. The revenue views divide this
+    by ``lessons_paid`` to get the per-session worth recognised when a session's
+    attendance is taken — so Summer tiers/overrides and scaled/sub-floor regular
+    discounts are all priced correctly, unlike the old hardcoded ``400 × lessons``
+    SQL formula.
+
+    Returns ``None`` when the price can't be resolved (e.g. a Summer enrollment
+    not linked to a priceable application) so the view keeps NULL rather than a
+    wrong number.
+
+    Callers must persist this on ``enrollment.revenue_total`` at every site that
+    changes a price input (lessons_paid, discount, new-student flag, Summer tier
+    or override) so the stored snapshot never goes stale.
+    """
+    total = resolve_enrollment_total_fee(enrollment, db)
+    if total is None:
+        return None
+    # Mirror compute_enrollment_total_fee's reg-fee rule: only new, non-Trial,
+    # non-Summer enrollments carry the $100 registration fee, which is excluded
+    # from tutor revenue.
+    is_new = bool(enrollment.is_new_student) and enrollment.enrollment_type not in ('Trial', 'Summer')
+    reg_fee = REGISTRATION_FEE if is_new else 0
+    return float(total - reg_fee)
 
 
 def check_student_conflicts(
@@ -663,6 +679,9 @@ async def create_enrollment(
     )
     db.add(enrollment)
     db.flush()  # Get enrollment ID
+
+    # Snapshot per-session revenue for the revenue views (excludes reg fee).
+    enrollment.revenue_total = compute_enrollment_revenue_total(enrollment, db)
 
     # Create sessions
     sessions_created = 0
@@ -1410,22 +1429,6 @@ async def get_overdue_enrollments(
                 live_tier[e.id] = (result_tier.code, result_tier.amount)
             summer_fee[e.id] = effective_final_fee(e, app, app.config, result_tier)
 
-    # Bulk-load coupons for the non-Summer rows so the regular fee can apply the
-    # student-coupon fallback without a per-row query.
-    coupon_student_ids = {
-        e.student_id for e in overdue_enrollments
-        if e.student_id and e.enrollment_type != "Summer" and not e.discount
-    }
-    coupons_by_student = {}
-    if coupon_student_ids:
-        coupons_by_student = {
-            c.student_id: c for c in (
-                db.query(StudentCoupon)
-                .filter(StudentCoupon.student_id.in_(coupon_student_ids))
-                .all()
-            )
-        }
-
     result = []
     for enrollment in overdue_enrollments:
         # Use the earlier of the two dates — whichever triggered the row
@@ -1453,9 +1456,7 @@ async def get_overdue_enrollments(
         if enrollment.enrollment_type == "Summer":
             total_fee = summer_fee.get(enrollment.id)
         else:
-            total_fee = compute_enrollment_total_fee(
-                enrollment, db, student_coupon=coupons_by_student.get(enrollment.student_id)
-            )
+            total_fee = compute_enrollment_total_fee(enrollment, db)
 
         result.append(OverdueEnrollment(
             id=enrollment.id,
@@ -1968,24 +1969,12 @@ async def get_fee_message(
         )
         session_dates = [s.session_date for s in sessions if not s.is_holiday]
 
-    # Resolve the discount: enrollment's explicit discount first (admin's
-    # choice — may scale for a per-2-lessons promo and is floor-aware), then
-    # fall back to the student's coupons (flat, floor-gated).
-    if enrollment.discount:
-        discount_value = compute_discount_value(enrollment.discount, lessons_paid)
-    else:
-        student_coupon = db.query(StudentCoupon).filter(
-            StudentCoupon.student_id == enrollment.student_id
-        ).first()
-        if (
-            student_coupon
-            and student_coupon.available_coupons
-            and student_coupon.available_coupons > 0
-            and lessons_paid >= MIN_LESSONS_FOR_DISCOUNT
-        ):
-            discount_value = int(student_coupon.coupon_value or 300)
-        else:
-            discount_value = 0
+    # Resolve the discount from the enrollment's explicit discount only (admin's
+    # choice — may scale for a per-2-lessons promo and is floor-aware). A
+    # student's available_coupons is just inventory: a coupon reduces the price
+    # only once it has been attached to the enrollment as its discount, so there
+    # is no availability-based fallback here.
+    discount_value = compute_discount_value(enrollment.discount, lessons_paid)
 
     # Determine new student status: use override if provided, otherwise use enrollment value
     # Trial enrollments never have reg fee
@@ -2276,6 +2265,14 @@ async def update_enrollment(
             )
             resnap_enrollment_tier(db, app, today=hk_now().date())
 
+    # Re-snapshot per-session revenue after any price-input change (lessons,
+    # discount, new-student flag, or the Summer tier resnap above). When the
+    # discount changed, flush + expire so the relationship reloads the new one.
+    if 'discount_id' in update_data:
+        db.flush()
+        db.expire(enrollment, ['discount'])
+    enrollment.revenue_total = compute_enrollment_revenue_total(enrollment, db)
+
     enrollment.last_modified_time = hk_now()
     enrollment.last_modified_by = admin.user_email
 
@@ -2418,6 +2415,9 @@ async def set_discount_override(
         if app:
             set_override_fields(app, payload.code, payload.reason, admin.user_email, now)
 
+    # Re-snapshot per-session revenue with the override now applied.
+    enrollment.revenue_total = compute_enrollment_revenue_total(enrollment, db)
+
     db.commit()
 
     enrollment = db.query(Enrollment).options(
@@ -2469,6 +2469,9 @@ async def clear_discount_override(
         ).first()
         if app:
             clear_override_fields(app)
+
+    # Re-snapshot per-session revenue now the tier reverts to auto-computed.
+    enrollment.revenue_total = compute_enrollment_revenue_total(enrollment, db)
 
     db.commit()
 
@@ -3374,6 +3377,9 @@ async def batch_renew(
         )
         db.add(new_enrollment)
         db.flush()  # Get enrollment ID
+
+        # Snapshot per-session revenue for the revenue views (excludes reg fee).
+        new_enrollment.revenue_total = compute_enrollment_revenue_total(new_enrollment, db)
 
         # Create sessions
         for session_preview in sessions:

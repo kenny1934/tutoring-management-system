@@ -437,6 +437,10 @@ def resnap_enrollment_tier(db, app: SummerApplication, today: Optional[date] = N
     enrollment.locked_discount_code = result.code
     enrollment.locked_discount_amount = result.amount
     enrollment.payment_deadline = new_deadline
+    # Keep the stored per-session revenue in sync with the new tier. This path
+    # no-ops above when an override is set, so result.final_fee is the active
+    # tier's fee; Summer carries no reg fee, so the tutor revenue total equals it.
+    enrollment.revenue_total = float(result.final_fee)
     # Admin should re-notify the parent with the new amount.
     enrollment.fee_message_sent = False
     return True

@@ -166,6 +166,15 @@ class Enrollment(Base):
     discount_override_by = Column(String(255))
     discount_override_at = Column(DateTime)
 
+    # Per-session revenue snapshot (migration 122). Tutor-facing revenue total
+    # for this enrollment: the real fee a parent pays (matching the fee message,
+    # for every enrollment type) MINUS the one-off registration fee, which is not
+    # tutor revenue. The revenue views divide this by lessons_paid to get the
+    # per-session worth recognised when a session's attendance is taken. Computed
+    # in Python (resolve_enrollment_total_fee) because Summer tiers/overrides and
+    # scaled/sub-floor regular discounts can't be expressed in the view's SQL.
+    revenue_total = Column(DECIMAL(10, 2), comment='Tutor revenue total (real fee minus reg fee); views divide by lessons_paid')
+
     # Metadata
     last_modified_by = Column(String(255))
     last_modified_time = Column(DateTime, default=func.now(), onupdate=func.now())

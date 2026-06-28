@@ -88,6 +88,10 @@ def sweep(today: date | None = None) -> dict:
                     enr.payment_deadline = compute_payment_deadline(
                         result, enr.first_lesson_date
                     )
+                    # Keep the stored per-session revenue in sync with the new
+                    # tier (no override here per the query filter; Summer carries
+                    # no reg fee, so tutor revenue == the tier's final fee).
+                    enr.revenue_total = float(result.final_fee)
                     # Force admin to resend the fee message with updated total.
                     enr.fee_message_sent = False
                     stats["changed"] += 1

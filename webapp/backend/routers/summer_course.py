@@ -3724,6 +3724,12 @@ def _publish_application_inner(
     db.add(enrollment)
     db.flush()  # need enrollment.id for child sessions
 
+    # Snapshot per-session revenue for the revenue views. Summer carries no reg
+    # fee, so this is the effective tier/override fee; the shared resolver keeps
+    # it consistent with the fee message. Local import avoids a circular import.
+    from routers.enrollments import compute_enrollment_revenue_total
+    enrollment.revenue_total = compute_enrollment_revenue_total(enrollment, db)
+
     # ─── Create one session_log per placement ───
     fin_status = 'Paid' if is_paid else 'Unpaid'
     for p in publishable:
