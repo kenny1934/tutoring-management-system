@@ -216,6 +216,7 @@ class EnrollmentResponse(EnrollmentBase):
     discount_override_reason: Optional[str] = None
     discount_override_by: Optional[str] = Field(None, max_length=255)
     discount_override_at: Optional[datetime] = None
+    total_fee: Optional[int] = Field(None, description="Total tuition shown in the fee message (base - discount + reg fee). None for Summer when no priceable config is linked.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -287,6 +288,7 @@ class OverdueEnrollment(BaseModel):
     locked_discount_amount: Optional[int] = None
     discount_override_code: Optional[str] = Field(None, max_length=32)
     discount_override_reason: Optional[str] = None
+    total_fee: Optional[int] = Field(None, description="Total tuition shown in the fee message; None for Summer rows with no priceable config")
 
     model_config = ConfigDict(from_attributes=True)
 

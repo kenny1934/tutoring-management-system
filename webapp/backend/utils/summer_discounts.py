@@ -187,6 +187,25 @@ def compute_best_discount(
     )
 
 
+def effective_final_fee(enrollment, app: SummerApplication, result: DiscountResult) -> int:
+    """Final summer fee a parent is billed, honoring an admin tier override.
+
+    Mirrors ``formatSummerFeeMessage``'s ``finalFee`` so the displayed amount
+    matches the message the parent receives:
+    - partial plans price per-lesson and never stack a tier discount, so the
+      auto-computed ``final_fee`` (rate × lessons) is used as-is — an override
+      doesn't apply to them;
+    - full plans are ``base_fee`` minus the effective discount, where an
+      enrollment override pins the snapshot amount over the auto-computed tier.
+
+    ``result`` is the caller's ``compute_best_discount(app, ...)`` for this app
+    (passed in to avoid recomputing it).
+    """
+    if not _is_partial(app) and getattr(enrollment, "discount_override_code", None):
+        return result.base_fee - int(enrollment.locked_discount_amount or 0)
+    return result.final_fee
+
+
 def compute_payment_deadline(
     discount: DiscountResult,
     first_lesson_date: Optional[date],

@@ -230,6 +230,9 @@ export interface Enrollment {
   discount_override_reason?: string | null;
   discount_override_by?: string | null;
   discount_override_at?: string | null;
+  // Total tuition shown in the fee message (base - discount + reg fee).
+  // null/undefined for Summer enrollments without a priceable config.
+  total_fee?: number | null;
   student?: Student;
 }
 
@@ -729,6 +732,8 @@ export interface OverdueEnrollment {
   locked_discount_amount?: number | null;
   discount_override_code?: string | null;
   discount_override_reason?: string | null;
+  // Total tuition shown in the fee message; null for Summer rows with no priceable config.
+  total_fee?: number | null;
 }
 
 // Unchecked attendance types

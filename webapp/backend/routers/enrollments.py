@@ -138,6 +138,94 @@ def discount_requires_min_lessons(discount) -> bool:
     return bool(discount) and discount.discount_type != PER_TWO_LESSONS_DISCOUNT_TYPE
 
 
+# Sentinel so callers can pass an already-resolved coupon (including None) and
+# skip the per-row query — used by the overdue list to avoid N+1 lookups.
+_COUPON_UNSET = object()
+
+
+def compute_enrollment_total_fee(enrollment, db: Session, student_coupon=_COUPON_UNSET) -> Optional[int]:
+    """Total tuition shown in the fee message: base − discount + registration fee.
+
+    Mirrors the resolution in ``get_fee_message`` so the displayed amount matches
+    the message a parent receives: the enrollment's own discount first, then a
+    student coupon fallback, plus the $100 registration fee for new students.
+
+    Returns ``None`` for Summer enrollments — they price via their own
+    config-driven generator (the generic fee message is blocked for them), so
+    the flat ``400 × lessons`` formula would be wrong.
+
+    Pass ``student_coupon`` (an object or ``None``) to reuse a bulk-loaded coupon
+    and avoid a per-row query; omit it to look the coupon up here.
+    """
+    if enrollment.enrollment_type == 'Summer':
+        return None
+
+    lessons = enrollment.lessons_paid or 0
+    base_fee = BASE_FEE_PER_LESSON * lessons
+    # Trial enrollments never carry the registration fee.
+    is_new = bool(enrollment.is_new_student) and enrollment.enrollment_type != 'Trial'
+    reg_fee = REGISTRATION_FEE if is_new else 0
+
+    if enrollment.discount:
+        discount_value = compute_discount_value(enrollment.discount, lessons)
+    else:
+        if student_coupon is _COUPON_UNSET:
+            student_coupon = db.query(StudentCoupon).filter(
+                StudentCoupon.student_id == enrollment.student_id
+            ).first()
+        discount_value = 0
+        if (
+            student_coupon
+            and student_coupon.available_coupons
+            and student_coupon.available_coupons > 0
+            and lessons >= MIN_LESSONS_FOR_DISCOUNT
+        ):
+            discount_value = int(student_coupon.coupon_value or 300)
+
+    return base_fee - int(discount_value) + reg_fee
+
+
+def compute_summer_total_fee(enrollment, db: Session, today: Optional[date] = None) -> Optional[int]:
+    """Final summer fee for a published Summer enrollment, matching its fee message.
+
+    Loads the source application + config + buddy context and delegates to the
+    shared summer logic so the displayed amount honors the active discount tier
+    (or an admin override). Returns ``None`` when the enrollment isn't linked to
+    a priceable application/config.
+    """
+    if not enrollment.summer_application_id:
+        return None
+    from utils.summer_discounts import (
+        compute_best_discount,
+        effective_final_fee,
+        load_group_context,
+    )
+    app = (
+        db.query(SummerApplication)
+        .options(joinedload(SummerApplication.config))
+        .filter(SummerApplication.id == enrollment.summer_application_id)
+        .first()
+    )
+    if app is None or app.config is None:
+        return None
+    group_apps, siblings = load_group_context(db, app)
+    result = compute_best_discount(
+        app, group_apps, siblings, app.config, today=today or hk_now().date()
+    )
+    return effective_final_fee(enrollment, app, result)
+
+
+def resolve_enrollment_total_fee(enrollment, db: Session, student_coupon=_COUPON_UNSET) -> Optional[int]:
+    """Total fee shown in the enrollment's fee message, routing Summer vs. regular.
+
+    Summer enrollments price via their own config-driven generator; everything
+    else uses the flat ``400 × lessons`` formula.
+    """
+    if enrollment.enrollment_type == 'Summer':
+        return compute_summer_total_fee(enrollment, db)
+    return compute_enrollment_total_fee(enrollment, db, student_coupon=student_coupon)
+
+
 def check_student_conflicts(
     db: Session,
     student_id: int,
@@ -1260,7 +1348,9 @@ async def get_overdue_enrollments(
     query = (
         db.query(Enrollment)
         .options(
-            *enrollment_with_student_tutor()
+            # discount is loaded too so the per-row fee can be computed without
+            # an N+1 lazy-load on each regular enrollment's discount.
+            *enrollment_with_relations()
         )
         .filter(
             Enrollment.payment_status == "Pending Payment",
@@ -1284,16 +1374,19 @@ async def get_overdue_enrollments(
     # snapshot is updated at publish + on paid_at/payment_date edits, but can
     # still go stale if a deadline passes while the row sits untouched. Doing
     # it on read keeps the overdue list correct without a cron. Override rows
-    # and non-Summer rows pass through unchanged.
+    # keep their pinned tier; non-Summer rows pass through unchanged.
+    # We visit every Summer row (override included) here so each gets a fee
+    # matching its fee message — the override only affects the tier amount.
     from utils.summer_discounts import (
         compute_best_discount,
+        effective_final_fee,
         load_group_context,
     )
     live_tier: dict[int, tuple[str, int]] = {}
+    summer_fee: dict[int, int] = {}
     summer_rows = [
         e for e in overdue_enrollments
         if e.enrollment_type == "Summer"
-        and not e.discount_override_code
         and e.summer_application_id
     ]
     if summer_rows:
@@ -1312,7 +1405,26 @@ async def get_overdue_enrollments(
                 continue
             group_apps, siblings = load_group_context(db, app)
             result_tier = compute_best_discount(app, group_apps, siblings, app.config, today=today)
-            live_tier[e.id] = (result_tier.code, result_tier.amount)
+            # Only auto-tier rows get a live tier; pinned overrides keep theirs.
+            if not e.discount_override_code:
+                live_tier[e.id] = (result_tier.code, result_tier.amount)
+            summer_fee[e.id] = effective_final_fee(e, app, result_tier)
+
+    # Bulk-load coupons for the non-Summer rows so the regular fee can apply the
+    # student-coupon fallback without a per-row query.
+    coupon_student_ids = {
+        e.student_id for e in overdue_enrollments
+        if e.student_id and e.enrollment_type != "Summer" and not e.discount
+    }
+    coupons_by_student = {}
+    if coupon_student_ids:
+        coupons_by_student = {
+            c.student_id: c for c in (
+                db.query(StudentCoupon)
+                .filter(StudentCoupon.student_id.in_(coupon_student_ids))
+                .all()
+            )
+        }
 
     result = []
     for enrollment in overdue_enrollments:
@@ -1336,6 +1448,15 @@ async def get_overdue_enrollments(
         if enrollment.id in live_tier:
             tier_code, tier_amount = live_tier[enrollment.id]
 
+        # Fee shown in the enrollment's fee message: Summer uses its
+        # config-driven amount, everything else the flat per-lesson formula.
+        if enrollment.enrollment_type == "Summer":
+            total_fee = summer_fee.get(enrollment.id)
+        else:
+            total_fee = compute_enrollment_total_fee(
+                enrollment, db, student_coupon=coupons_by_student.get(enrollment.student_id)
+            )
+
         result.append(OverdueEnrollment(
             id=enrollment.id,
             student_id=enrollment.student_id,
@@ -1357,6 +1478,7 @@ async def get_overdue_enrollments(
             locked_discount_amount=tier_amount,
             discount_override_code=enrollment.discount_override_code,
             discount_override_reason=enrollment.discount_override_reason,
+            total_fee=total_fee,
         ))
 
     result.sort(key=lambda x: x.days_overdue, reverse=True)
@@ -1652,6 +1774,7 @@ async def get_enrollment_detail(
     enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
+    enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2175,6 +2298,7 @@ async def update_enrollment(
     enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
+    enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2242,6 +2366,7 @@ async def update_enrollment_extension(
     enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
+    enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2311,6 +2436,7 @@ async def set_discount_override(
     enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
+    enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2362,6 +2488,7 @@ async def clear_discount_override(
     enrollment_data.summer_unavailability_notes = bulk_load_summer_unavailability_notes(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
+    enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
 
     return enrollment_data
 

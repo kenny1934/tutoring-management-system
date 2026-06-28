@@ -1149,6 +1149,16 @@ export default function EnrollmentDetailPage() {
                       </div>
                     )}
 
+                    {/* Fee — total tuition from the fee message */}
+                    {enrollment.total_fee != null && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Fee</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          ${enrollment.total_fee.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Payment Date */}
                     {enrollment.payment_date && (
                       <div className="flex items-center justify-between">

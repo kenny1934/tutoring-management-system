@@ -586,6 +586,16 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             </div>
           )}
 
+          {/* Fee — total tuition from the fee message */}
+          {enrollment.total_fee != null && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Fee:</span>
+              <span className="text-gray-900 dark:text-gray-100 font-medium">
+                ${enrollment.total_fee.toLocaleString()}
+              </span>
+            </div>
+          )}
+
           {/* First Lesson Date */}
           {enrollment.first_lesson_date && (
             <div className="flex justify-between items-center">

@@ -17,12 +17,13 @@ import {
   type AffectedApp,
   type EarlyBirdDeadlineDetail,
 } from "@/components/summer/EarlyBirdDeadlineDialog";
-import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check, Search, X, MessageSquareShare, CreditCard } from "lucide-react";
+import { AlertTriangle, Loader2, DollarSign, Calendar, Eye, Check, Search, X, MessageSquareShare, CreditCard } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
-import type { OverdueEnrollment } from "@/types";
+import type { OverdueEnrollment, Enrollment } from "@/types";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
+import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { useAuth } from "@/contexts/AuthContext";
 import SendToWecomModal from "@/components/wecom/SendToWecomModal";
 
@@ -125,6 +126,9 @@ export default function OverduePaymentsPage() {
   const [selectedEnrollment, setSelectedEnrollment] = useState<OverdueEnrollment | null>(null);
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showWecom, setShowWecom] = useState(false);
+  // Enrollment detail popover (opened from the row "View" button).
+  const [popoverEnrollment, setPopoverEnrollment] = useState<OverdueEnrollment | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [batchLoading, setBatchLoading] = useState(false);
   // Early-bird guard: recording a Summer payment after the deadline would strip
@@ -258,6 +262,41 @@ export default function OverduePaymentsPage() {
     setPaymentDate(new Date().toISOString().split('T')[0]);
     setShowPaymentModal(true);
   }, []);
+
+  // Open the enrollment detail popover anchored at the click position.
+  const handleView = useCallback((enrollment: OverdueEnrollment, e: React.MouseEvent) => {
+    setPopoverPosition({ x: e.clientX, y: e.clientY });
+    setPopoverEnrollment(enrollment);
+  }, []);
+
+  // The popover expects a full Enrollment; the overdue row carries a compatible
+  // subset, so adapt it (these rows are always Pending Payment by definition).
+  const popoverEnrollmentObj = useMemo<Enrollment | null>(() => {
+    const e = popoverEnrollment;
+    if (!e) return null;
+    return {
+      id: e.id,
+      student_id: e.student_id,
+      tutor_id: e.tutor_id,
+      assigned_day: e.assigned_day,
+      assigned_time: e.assigned_time,
+      location: e.location,
+      lessons_paid: e.lessons_paid,
+      first_lesson_date: e.first_lesson_date,
+      payment_status: 'Pending Payment',
+      enrollment_type: e.enrollment_type ?? undefined,
+      student_name: e.student_name,
+      tutor_name: e.tutor_name,
+      grade: e.grade,
+      school_student_id: e.school_student_id,
+      payment_deadline: e.payment_deadline,
+      locked_discount_code: e.locked_discount_code,
+      locked_discount_amount: e.locked_discount_amount,
+      discount_override_code: e.discount_override_code,
+      discount_override_reason: e.discount_override_reason,
+      total_fee: e.total_fee,
+    };
+  }, [popoverEnrollment]);
 
   // Submit payment
   const handleSubmitPayment = useCallback(async () => {
@@ -621,6 +660,7 @@ export default function OverduePaymentsPage() {
                                 <th className="px-4 py-3 text-left font-medium w-28">Deadline</th>
                                 <th className="px-4 py-3 text-center font-medium w-16">Days</th>
                                 <th className="px-4 py-3 text-center font-medium w-16">Lessons</th>
+                                <th className="px-4 py-3 text-right font-medium w-24">Fee</th>
                                 <th className="px-4 py-3 text-right w-36"></th>
                               </tr>
                             </thead>
@@ -637,13 +677,14 @@ export default function OverduePaymentsPage() {
                                   isChecked={checkedIds.has(enrollment.id)}
                                   onToggleCheck={toggleCheck}
                                   showCheckbox={showCheckboxes}
+                                  onView={handleView}
                                 />
                               ))}
                             </tbody>
                             {enrollments.length > sectionLimits[level] && (
                               <tfoot>
                                 <tr>
-                                  <td colSpan={10} className="px-4 py-2 text-center">
+                                  <td colSpan={11} className="px-4 py-2 text-center">
                                     <button
                                       onClick={() => setSectionLimits(prev => ({
                                         ...prev,
@@ -775,6 +816,18 @@ export default function OverduePaymentsPage() {
         initialContent={`Payment Reminder: There are currently ${overdueCount} overdue enrollment(s) requiring follow-up. Please check the overdue payments page for details.`}
       />
 
+      {/* Enrollment detail popover (opened from a row's View button) */}
+      <EnrollmentDetailPopover
+        enrollment={popoverEnrollmentObj}
+        isOpen={popoverEnrollment !== null}
+        onClose={() => setPopoverEnrollment(null)}
+        clickPosition={popoverPosition}
+        onStatusChange={() => {
+          mutateOverdue();
+          mutate(['dashboard-stats']);
+        }}
+      />
+
       {deadlineBlock && selectedEnrollment && (
         <EarlyBirdDeadlineDialog
           open
@@ -845,6 +898,7 @@ function OverdueRow({
   isChecked,
   onToggleCheck,
   showCheckbox,
+  onView,
 }: {
   enrollment: OverdueEnrollment;
   onMarkPaid: (enrollment: OverdueEnrollment) => void;
@@ -855,6 +909,7 @@ function OverdueRow({
   isChecked: boolean;
   onToggleCheck: (id: number) => void;
   showCheckbox: boolean;
+  onView: (enrollment: OverdueEnrollment, e: React.MouseEvent) => void;
 }) {
   const schedule = useMemo(() => {
     if (enrollment.assigned_day && enrollment.assigned_time) {
@@ -928,6 +983,10 @@ function OverdueRow({
       <td className="px-4 py-3 text-center font-medium">
         {enrollment.lessons_paid}
       </td>
+      {/* Fee — total tuition from the fee message */}
+      <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
+        {enrollment.total_fee != null ? `$${enrollment.total_fee.toLocaleString()}` : "-"}
+      </td>
       {/* Actions */}
       <td className="px-4 py-3 text-right whitespace-nowrap">
         <div className="flex items-center justify-end gap-2 flex-nowrap">
@@ -950,17 +1009,17 @@ function OverdueRow({
             )}
             Confirm Payment
           </button>
-          <Link
-            href={`/enrollments/${enrollment.id}`}
+          <button
+            onClick={(e) => onView(enrollment, e)}
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors",
               "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] dark:text-[#cd853f]",
               "hover:bg-[#e8d4b8] dark:hover:bg-[#4d4638]"
             )}
           >
-            <ExternalLink className="h-3 w-3" />
+            <Eye className="h-3 w-3" />
             View
-          </Link>
+          </button>
         </div>
       </td>
     </tr>
