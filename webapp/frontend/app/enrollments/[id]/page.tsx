@@ -365,18 +365,29 @@ export default function EnrollmentDetailPage() {
     summerApp?.config_id ? ['summer-config', summerApp.config_id] : null,
     () => summerAPI.getConfig(summerApp!.config_id)
   );
+  // Buddy group members drive group-discount tier qualification. Without them,
+  // resolveEffectiveDiscount recomputes from a solo group and silently drops a
+  // group tier the applicant is actually entitled to (e.g. shows full base fee
+  // instead of the locked group rate). Mirrors the summer detail modal.
+  const summerBuddyGroupId = summerApp?.buddy_group_id ?? null;
+  const { data: summerBuddyMembers } = useSWR<SummerApplication[]>(
+    summerBuddyGroupId ? ['summer-buddy-group', summerBuddyGroupId] : null,
+    () => summerAPI.getApplications({ buddy_group_id: summerBuddyGroupId! })
+  );
   const summerDiscount = useMemo(() => {
     if (!summerApp || !summerConfig) return null;
-    // Buddy context skipped — the fee is already locked in on the app at
-    // publish time; this only drives template rendering. An admin tier override
-    // on the enrollment takes precedence so the fee message matches the pin.
+    // For a grouped applicant, wait for the group to load so the tier qualifies
+    // correctly; a solo applicant uses just itself. An admin tier override on
+    // the enrollment still takes precedence so the fee message matches the pin.
+    const members = summerApp.buddy_group_id ? summerBuddyMembers : [summerApp];
+    if (!members) return null;
     return resolveEffectiveDiscount(
       summerApp,
-      [summerApp],
+      members,
       summerConfig.pricing_config,
       enrollment?.discount_override_code,
     );
-  }, [summerApp, summerConfig, enrollment?.discount_override_code]);
+  }, [summerApp, summerConfig, summerBuddyMembers, enrollment?.discount_override_code]);
 
   // Sync discount selection when entering edit mode
   useEffect(() => {

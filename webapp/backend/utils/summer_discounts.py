@@ -187,23 +187,40 @@ def compute_best_discount(
     )
 
 
-def effective_final_fee(enrollment, app: SummerApplication, result: DiscountResult) -> int:
+def effective_final_fee(
+    enrollment,
+    app: SummerApplication,
+    config: SummerCourseConfig,
+    result: DiscountResult,
+) -> int:
     """Final summer fee a parent is billed, honoring an admin tier override.
 
-    Mirrors ``formatSummerFeeMessage``'s ``finalFee`` so the displayed amount
-    matches the message the parent receives:
-    - partial plans price per-lesson and never stack a tier discount, so the
-      auto-computed ``final_fee`` (rate × lessons) is used as-is — an override
-      doesn't apply to them;
-    - full plans are ``base_fee`` minus the effective discount, where an
-      enrollment override pins the snapshot amount over the auto-computed tier.
+    Mirrors the frontend ``resolveEffectiveDiscount`` → ``formatSummerFeeMessage``
+    so the displayed amount matches the message the parent receives. Resolution
+    order:
+    - partial plans price per-lesson and never carry a tier discount, so an
+      override is ignored — the auto-computed ``final_fee`` is used as-is;
+    - an override code of ``NONE`` pins the full ``base_fee`` (no discount);
+    - a known override code pins that tier's amount from ``config`` — NOT the
+      ``locked_discount_amount`` snapshot, which holds the auto-tier value and is
+      not rewritten when an override is set;
+    - an empty/unknown override code falls back to the auto-computed tier, so a
+      stale code never silently zeroes a real discount.
 
     ``result`` is the caller's ``compute_best_discount(app, ...)`` for this app
     (passed in to avoid recomputing it).
     """
-    if not _is_partial(app) and getattr(enrollment, "discount_override_code", None):
-        return result.base_fee - int(enrollment.locked_discount_amount or 0)
-    return result.final_fee
+    if _is_partial(app):
+        return result.final_fee
+    code = (getattr(enrollment, "discount_override_code", None) or "").strip()
+    if not code:
+        return result.final_fee
+    if code == NONE_CODE:
+        return result.base_fee
+    entry = next((d for d in parse_discounts(config) if d.code == code), None)
+    if entry is None:
+        return result.final_fee
+    return result.base_fee - int(entry.amount)
 
 
 def compute_payment_deadline(

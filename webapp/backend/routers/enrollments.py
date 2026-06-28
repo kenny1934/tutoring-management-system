@@ -212,7 +212,7 @@ def compute_summer_total_fee(enrollment, db: Session, today: Optional[date] = No
     result = compute_best_discount(
         app, group_apps, siblings, app.config, today=today or hk_now().date()
     )
-    return effective_final_fee(enrollment, app, result)
+    return effective_final_fee(enrollment, app, app.config, result)
 
 
 def resolve_enrollment_total_fee(enrollment, db: Session, student_coupon=_COUPON_UNSET) -> Optional[int]:
@@ -1408,7 +1408,7 @@ async def get_overdue_enrollments(
             # Only auto-tier rows get a live tier; pinned overrides keep theirs.
             if not e.discount_override_code:
                 live_tier[e.id] = (result_tier.code, result_tier.amount)
-            summer_fee[e.id] = effective_final_fee(e, app, result_tier)
+            summer_fee[e.id] = effective_final_fee(e, app, app.config, result_tier)
 
     # Bulk-load coupons for the non-Summer rows so the regular fee can apply the
     # student-coupon fallback without a per-row query.
