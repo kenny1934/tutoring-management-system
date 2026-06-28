@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.85](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.84...v2.0.85) (2026-06-28)
+
+
+### New Features
+
+* **Enrolment fee shown on the overdue payments list and detail views**: each row on the overdue payments page now shows the enrolment's total fee, and its View button opens the enrolment detail in a popover instead of navigating away. The same fee total also appears on the enrolment detail page and popover, just under the lessons paid.
+
+
+### Bug Fixes
+
+* **Each session's revenue now reflects the real enrolment fee for every type**: the per-session amount counted towards tutor revenue is worked out from the actual fee paid, after any discount, divided by the number of lessons. Summer enrolments, multi-lesson promotions that scale with the lesson count, and discounts on shorter enrolments are now all valued correctly, instead of assuming a flat per-lesson rate.
+* **Summer fees match the fee message for pinned tiers and buddy groups**: when an admin pins a specific discount tier on a summer enrolment, the fee shown now uses that tier's amount, and the detail page takes the whole buddy group into account when working out a group discount, so the displayed fee no longer differs from the fee message.
+* **Coupons only reduce a fee once added to an enrolment**: a fee is reduced by a coupon only when that coupon has been applied to the enrolment as its discount. Simply holding unused coupons no longer takes money off a quoted fee, which previously made some fees and fee messages show lower than the amount actually due.
+
 ## [2.0.84](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.83...v2.0.84) (2026-06-26)
 
 
