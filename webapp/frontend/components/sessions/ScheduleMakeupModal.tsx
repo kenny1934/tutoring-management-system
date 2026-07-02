@@ -98,7 +98,6 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
           {student.grade}{student.lang_stream || ""}
         </span>
       )}
-      <LessonNumberBadge lessonNumber={student.lesson_number} size="xs" className={compact ? "ml-1" : undefined} />
       {student.school && (
         <span className={cn(
           "rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
@@ -107,6 +106,7 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
           {student.school}
         </span>
       )}
+      <LessonNumberBadge lessonNumber={student.lesson_number} size="xs" className={compact ? "ml-1" : undefined} />
     </>
   );
 
