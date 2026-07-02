@@ -55,7 +55,7 @@ export function SessionLessonBadge({ session, size, className }: SessionLessonBa
       lessonNumber={lessonNumber}
       size={size}
       className={className}
-      moved={session.lesson_number == null && session.moved_lesson_number != null}
+      moved={session.lesson_number == null}
     />
   );
 }

@@ -24,78 +24,64 @@ export interface SummerClassInfo {
   slotLabel: string | null
 }
 
-export type SessionRenderGroup<T> =
-  | { type: 'regular'; sessions: T[] }
-  | { type: 'summer-class'; classInfo: SummerClassInfo; sessions: T[] }
-
-/**
- * Cluster an already-sorted list of sessions into render groups.
- * Summer rows (summer_slot_id set) are grouped by slot at the position
- * where that slot first appears; consecutive non-summer rows form
- * regular groups. Row order within every group follows input order.
- */
-export function clusterSummerClasses<T extends SummerSessionFields>(
-  sessions: T[]
-): SessionRenderGroup<T>[] {
-  const groups: SessionRenderGroup<T>[] = []
-  const clustersBySlot = new Map<number, Extract<SessionRenderGroup<T>, { type: 'summer-class' }>>()
-
-  for (const session of sessions) {
-    const slotId = session.summer_slot_id
-    if (slotId != null) {
-      const existing = clustersBySlot.get(slotId)
-      if (existing) {
-        existing.sessions.push(session)
-      } else {
-        const cluster: Extract<SessionRenderGroup<T>, { type: 'summer-class' }> = {
-          type: 'summer-class',
-          classInfo: {
-            slotId,
-            grade: session.summer_class_grade ?? null,
-            courseType: session.summer_course_type ?? null,
-            slotLabel: session.summer_slot_label ?? null,
-          },
-          sessions: [session],
-        }
-        clustersBySlot.set(slotId, cluster)
-        groups.push(cluster)
-      }
-    } else {
-      const last = groups[groups.length - 1]
-      if (last && last.type === 'regular') {
-        last.sessions.push(session)
-      } else {
-        groups.push({ type: 'regular', sessions: [session] })
-      }
-    }
-  }
-
-  return groups
-}
-
 export interface FlatSessionRow<T> {
   session: T
   /** Set on the first row of a summer cluster; render a class header above it. */
   classHeader: SummerClassInfo | null
 }
 
+interface Bucket<T> {
+  header: SummerClassInfo | null
+  rows: T[]
+}
+
 /**
- * Flatten clustered groups back into a single row list for views that
- * render a flat map, marking where class headers belong.
+ * Cluster an already-sorted list of sessions and return it as a flat row
+ * list. Summer rows (summer_slot_id set) are grouped by slot at the
+ * position where that slot first appears, with `classHeader` set on each
+ * cluster's first row; regular rows keep their relative order.
  */
 export function flattenSummerClusters<T extends SummerSessionFields>(
   sessions: T[]
 ): FlatSessionRow<T>[] {
-  const rows: FlatSessionRow<T>[] = []
-  for (const group of clusterSummerClasses(sessions)) {
-    group.sessions.forEach((session, i) => {
-      rows.push({
-        session,
-        classHeader: group.type === 'summer-class' && i === 0 ? group.classInfo : null,
-      })
-    })
+  const buckets: Bucket<T>[] = []
+  const bySlot = new Map<number, Bucket<T>>()
+  let regularRun: Bucket<T> | null = null
+
+  for (const session of sessions) {
+    const slotId = session.summer_slot_id
+    if (slotId != null) {
+      let bucket = bySlot.get(slotId)
+      if (!bucket) {
+        bucket = {
+          header: {
+            slotId,
+            grade: session.summer_class_grade ?? null,
+            courseType: session.summer_course_type ?? null,
+            slotLabel: session.summer_slot_label ?? null,
+          },
+          rows: [],
+        }
+        bySlot.set(slotId, bucket)
+        buckets.push(bucket)
+      }
+      bucket.rows.push(session)
+      regularRun = null
+    } else {
+      if (!regularRun) {
+        regularRun = { header: null, rows: [] }
+        buckets.push(regularRun)
+      }
+      regularRun.rows.push(session)
+    }
   }
-  return rows
+
+  return buckets.flatMap((bucket) =>
+    bucket.rows.map((session, i) => ({
+      session,
+      classHeader: i === 0 ? bucket.header : null,
+    }))
+  )
 }
 
 /** Full class header label, e.g. "F1 · Type A · Tue 10:00". */

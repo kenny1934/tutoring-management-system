@@ -7,7 +7,7 @@ from SQLAlchemy models with loaded relationships.
 from typing import Optional
 from datetime import date
 from sqlalchemy.orm import Session
-from models import SessionLog, Tutor, Enrollment, SummerSession, SummerCourseSlot, SummerLesson
+from models import SessionLog, Tutor, SummerSession, SummerCourseSlot, SummerLesson
 from schemas import SessionResponse, SessionExerciseResponse, LinkedSessionInfo
 
 
@@ -105,19 +105,16 @@ def batch_load_summer_slots(sessions: list, db: Session) -> dict:
     Returns {session_log.id: SummerCourseSlot}; rows that resolve to
     nothing are simply absent.
     """
-    linked = [s for s in sessions if s.summer_session_id]
-    unlinked = [s for s in sessions if not s.summer_session_id and s.enrollment_id]
-    candidates = list(linked)
-    if unlinked:
-        summer_enrollment_ids = {
-            eid for (eid,) in db.query(Enrollment.id).filter(
-                Enrollment.id.in_({s.enrollment_id for s in unlinked}),
-                Enrollment.enrollment_type == 'Summer',
-            ).all()
-        }
-        candidates += [s for s in unlinked if s.enrollment_id in summer_enrollment_ids]
+    # The list endpoint eager-loads enrollment, so this costs no extra
+    # queries there; single-session callers lazy-load at most one row.
+    candidates = [
+        s for s in sessions
+        if s.summer_session_id
+        or (s.enrollment_id and s.enrollment and s.enrollment.enrollment_type == 'Summer')
+    ]
     if not candidates:
         return {}
+    linked = [s for s in candidates if s.summer_session_id]
 
     dates = {s.session_date for s in candidates if s.session_date}
     host_by_cell = {}
@@ -152,7 +149,21 @@ def batch_load_summer_slots(sessions: list, db: Session) -> dict:
     return result
 
 
-def build_session_response(session: SessionLog, db: Optional[Session] = None, root_dates: Optional[dict] = None, summer_slots: Optional[dict] = None) -> SessionResponse:
+def borrowed_lesson_number(session: SessionLog, successor: Optional[SessionLog]) -> Optional[int]:
+    """
+    Summer make-up origins hand lesson_number to the successor row when a
+    make-up is booked. Return the successor's number for display when the
+    origin's own is NULL; the DB value stays NULL so the one-live-row
+    invariant and the duplicate-lesson guard are untouched.
+    """
+    if session.lesson_number is not None or successor is None:
+        return None
+    if successor.summer_session_id is None:
+        return None
+    return successor.lesson_number
+
+
+def build_session_response(session: SessionLog, db: Optional[Session] = None, root_dates: Optional[dict] = None, summer_slots: Optional[dict] = None, linked_sessions: Optional[dict] = None) -> SessionResponse:
     """
     Build a SessionResponse from a SessionLog with student/tutor/exercise data.
 
@@ -201,6 +212,18 @@ def build_session_response(session: SessionLog, db: Optional[Session] = None, ro
         data.summer_class_grade = slot.grade
         data.summer_course_type = slot.course_type
         data.summer_slot_label = slot.slot_label
+    # Borrow the successor's lesson number for make-up origins so every
+    # endpoint's response keeps the badge consistent with the list view.
+    if data.lesson_number is None and session.rescheduled_to_id:
+        if linked_sessions is not None:
+            successor = linked_sessions.get(session.rescheduled_to_id)
+        elif db is not None:
+            successor = db.query(SessionLog).filter(
+                SessionLog.id == session.rescheduled_to_id
+            ).first()
+        else:
+            successor = None
+        data.moved_lesson_number = borrowed_lesson_number(session, successor)
     return data
 
 

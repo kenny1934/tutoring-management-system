@@ -22,6 +22,10 @@ function revalidateSummerCaches() {
 
 interface EditableLessonNumberBadgeProps {
   lessonNumber: number | null | undefined;
+  /** Make-up origins: lesson number carried by the successor row. Rendered
+   * as a muted read-only badge so the value can't be written back onto the
+   * origin row. */
+  movedLessonNumber?: number | null;
   size?: "xs" | "sm" | "md";
   className?: string;
   /** Called with the new value, or `null` when admin clears the input. */
@@ -87,6 +91,7 @@ export function useSaveLessonNumber(sessionId: number | null | undefined) {
 
 export function EditableLessonNumberBadge({
   lessonNumber,
+  movedLessonNumber,
   size = "sm",
   className,
   onSave,
@@ -97,6 +102,17 @@ export function EditableLessonNumberBadge({
   const inputRef = useRef<HTMLInputElement>(null);
   // Prevents Enter → blur and Esc → blur from triggering commit twice (or at all, for Esc).
   const skipCommitRef = useRef(false);
+
+  if (lessonNumber == null && movedLessonNumber != null) {
+    return (
+      <LessonNumberBadge
+        lessonNumber={movedLessonNumber}
+        size={size}
+        className={className}
+        moved
+      />
+    );
+  }
 
   if (lessonNumber == null) return null;
 

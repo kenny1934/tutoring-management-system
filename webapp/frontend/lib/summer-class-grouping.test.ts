@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  clusterSummerClasses,
   flattenSummerClusters,
   formatSummerClassLabel,
   compactSummerClassLabel,
@@ -26,107 +25,82 @@ const summer = (
   ...overrides,
 })
 
-const ids = (group: { sessions: Row[] }) => group.sessions.map((s) => s.id)
+const ids = (rows: { session: Row }[]) => rows.map((r) => r.session.id)
+const headers = (rows: { classHeader: { slotId: number } | null }[]) =>
+  rows.map((r) => r.classHeader?.slotId ?? null)
 
-describe('clusterSummerClasses', () => {
+describe('flattenSummerClusters', () => {
   it('returns empty array for empty input', () => {
-    expect(clusterSummerClasses([])).toEqual([])
+    expect(flattenSummerClusters([])).toEqual([])
   })
 
-  it('keeps all-regular input as a single regular group in order', () => {
-    const rows = [regular(1), regular(2), regular(3)]
-    const groups = clusterSummerClasses(rows)
-    expect(groups).toHaveLength(1)
-    expect(groups[0].type).toBe('regular')
-    expect(ids(groups[0])).toEqual([1, 2, 3])
+  it('passes all-regular input through unchanged with no headers', () => {
+    const flat = flattenSummerClusters([regular(1), regular(2), regular(3)])
+    expect(ids(flat)).toEqual([1, 2, 3])
+    expect(flat.every((r) => r.classHeader === null)).toBe(true)
   })
 
-  it('clusters a single summer slot into one class group', () => {
-    const rows = [summer(1, 10), summer(2, 10)]
-    const groups = clusterSummerClasses(rows)
-    expect(groups).toHaveLength(1)
-    expect(groups[0].type).toBe('summer-class')
-    if (groups[0].type === 'summer-class') {
-      expect(groups[0].classInfo.slotId).toBe(10)
-      expect(groups[0].classInfo.grade).toBe('F1')
-      expect(groups[0].classInfo.courseType).toBe('A')
-    }
-    expect(ids(groups[0])).toEqual([1, 2])
+  it('clusters a single summer slot with a header on the first row', () => {
+    const flat = flattenSummerClusters([summer(1, 10), summer(2, 10)])
+    expect(ids(flat)).toEqual([1, 2])
+    expect(headers(flat)).toEqual([10, null])
+    expect(flat[0].classHeader).toMatchObject({ grade: 'F1', courseType: 'A' })
   })
 
   it('pulls interleaved same-slot rows into the cluster at first appearance', () => {
-    const rows = [regular(1), summer(2, 10), regular(3), summer(4, 10)]
-    const groups = clusterSummerClasses(rows)
-    expect(groups.map((g) => g.type)).toEqual([
-      'regular',
-      'summer-class',
-      'regular',
+    const flat = flattenSummerClusters([
+      regular(1),
+      summer(2, 10),
+      regular(3),
+      summer(4, 10),
     ])
-    expect(ids(groups[0])).toEqual([1])
-    expect(ids(groups[1])).toEqual([2, 4])
-    expect(ids(groups[2])).toEqual([3])
+    expect(ids(flat)).toEqual([1, 2, 4, 3])
+    expect(headers(flat)).toEqual([null, 10, null, null])
   })
 
   it('separates different slots into their own clusters', () => {
-    const rows = [summer(1, 10), summer(2, 20), summer(3, 10)]
-    const groups = clusterSummerClasses(rows)
-    expect(groups).toHaveLength(2)
-    expect(ids(groups[0])).toEqual([1, 3])
-    expect(ids(groups[1])).toEqual([2])
-    if (groups[1].type === 'summer-class') {
-      expect(groups[1].classInfo.slotId).toBe(20)
-    }
+    const flat = flattenSummerClusters([summer(1, 10), summer(2, 20), summer(3, 10)])
+    expect(ids(flat)).toEqual([1, 3, 2])
+    expect(headers(flat)).toEqual([10, null, 20])
+  })
+
+  it('marks each cluster once across regular runs', () => {
+    const flat = flattenSummerClusters([
+      regular(1),
+      summer(2, 10),
+      regular(3),
+      summer(4, 10),
+      summer(5, 20),
+    ])
+    expect(ids(flat)).toEqual([1, 2, 4, 3, 5])
+    expect(headers(flat)).toEqual([null, 10, null, null, 20])
   })
 
   it('treats rows without summer_slot_id as regular even with other summer fields', () => {
-    const rows = [
+    const flat = flattenSummerClusters([
       { id: 1, summer_class_grade: 'F2' } as Row,
       { id: 2, summer_slot_id: null } as Row,
-    ]
-    const groups = clusterSummerClasses(rows)
-    expect(groups).toHaveLength(1)
-    expect(groups[0].type).toBe('regular')
-    expect(ids(groups[0])).toEqual([1, 2])
+    ])
+    expect(ids(flat)).toEqual([1, 2])
+    expect(flat.every((r) => r.classHeader === null)).toBe(true)
   })
 
   it('takes class info from the first row of the cluster, preserving nulls', () => {
-    const rows = [
+    const flat = flattenSummerClusters([
       summer(1, 10, {
         summer_class_grade: null,
         summer_course_type: null,
         summer_slot_label: 'Make-up Slot',
       }),
       summer(2, 10),
-    ]
-    const groups = clusterSummerClasses(rows)
-    expect(groups).toHaveLength(1)
-    if (groups[0].type === 'summer-class') {
-      expect(groups[0].classInfo.grade).toBeNull()
-      expect(groups[0].classInfo.courseType).toBeNull()
-      expect(groups[0].classInfo.slotLabel).toBe('Make-up Slot')
-    }
-  })
-})
-
-describe('flattenSummerClusters', () => {
-  it('marks the first row of each summer cluster with its class header', () => {
-    const rows = [regular(1), summer(2, 10), regular(3), summer(4, 10), summer(5, 20)]
-    const flat = flattenSummerClusters(rows)
-    expect(flat.map((r) => r.session.id)).toEqual([1, 2, 4, 3, 5])
-    expect(flat.map((r) => r.classHeader?.slotId ?? null)).toEqual([
-      null,
-      10,
-      null,
-      null,
-      20,
     ])
-  })
-
-  it('is a no-op passthrough for all-regular input', () => {
-    const rows = [regular(1), regular(2)]
-    const flat = flattenSummerClusters(rows)
-    expect(flat.map((r) => r.session.id)).toEqual([1, 2])
-    expect(flat.every((r) => r.classHeader === null)).toBe(true)
+    expect(flat[0].classHeader).toEqual({
+      slotId: 10,
+      grade: null,
+      courseType: null,
+      slotLabel: 'Make-up Slot',
+    })
+    expect(flat[1].classHeader).toBeNull()
   })
 })
 
