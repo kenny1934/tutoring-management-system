@@ -28,12 +28,9 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
 // Summer profile: landing on the missed lesson's material dominates; school
 // is irrelevant during summer and language stream only matters a little.
 export const SUMMER_WEIGHTS: ScoringWeights = {
-  sameTutor: 100,
-  sameGrade: 20,
+  ...DEFAULT_WEIGHTS,
   sameLang: 5,
   sameSchool: 0,
-  soonerDate: 30,
-  moreCapacity: 10,
   sameLesson: 100,    // Per same-lesson classmate, capped at ~300
 };
 

@@ -25,6 +25,8 @@ from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTEN
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
+from routers.summer_course import _effective_lesson_number
+from collections import Counter
 from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin_write, reject_read_only, ADMIN_WRITE_ROLES
 
 router = APIRouter()
@@ -1192,9 +1194,7 @@ def _resolve_effective_lessons(db: Session, sessions: List[SessionLog]) -> dict[
             joinedload(SummerSession.lesson)
         ).filter(SummerSession.id.in_(unresolved_by_ss.keys())).all()
         for ss in summer_rows:
-            lesson_number = ss.lesson_number
-            if lesson_number is None and ss.lesson is not None:
-                lesson_number = ss.lesson.lesson_number
+            lesson_number = _effective_lesson_number(ss)
             if lesson_number is not None:
                 for session_id in unresolved_by_ss[ss.id]:
                     resolved[session_id] = lesson_number
@@ -1214,34 +1214,40 @@ def _get_lesson_match_data(
     Majority ties resolve toward the missed lesson when it participates,
     otherwise the slot has no single identity and reports no majority.
     """
-    from collections import Counter
+    empty = {
+        "missed_lesson": missed_lesson,
+        "matching_lesson_count": 0,
+        "slot_majority_lesson": None,
+        "majority_lesson_count": 0,
+    }
+    if original_grade is None:
+        return empty
 
     pool = [
         effective_lessons[s.id]
         for s in slot_sessions
         if s.id in effective_lessons
         and s.student is not None
-        and original_grade is not None
         and s.student.grade == original_grade
     ]
-
     counts = Counter(pool)
-    majority_lesson = None
-    majority_count = 0
-    if counts:
-        top = max(counts.values())
-        tied = [lesson for lesson, count in counts.items() if count == top]
-        if missed_lesson is not None and missed_lesson in tied:
-            majority_lesson = missed_lesson
-        elif len(tied) == 1:
-            majority_lesson = tied[0]
-        if majority_lesson is not None:
-            majority_count = top
+    if not counts:
+        return empty
+
+    top = max(counts.values())
+    tied = [lesson for lesson, count in counts.items() if count == top]
+    if missed_lesson in tied:
+        majority_lesson = missed_lesson
+    elif len(tied) == 1:
+        majority_lesson = tied[0]
+    else:
+        majority_lesson = None
 
     return {
-        "matching_lesson_count": counts.get(missed_lesson, 0) if missed_lesson is not None else 0,
+        "missed_lesson": missed_lesson,
+        "matching_lesson_count": counts.get(missed_lesson, 0),
         "slot_majority_lesson": majority_lesson,
-        "majority_lesson_count": majority_count,
+        "majority_lesson_count": top if majority_lesson is not None else 0,
     }
 
 
@@ -1297,9 +1303,6 @@ async def get_makeup_suggestions(
     # Summer make-ups additionally match on lesson number: the point is to
     # land the student in a class teaching the material they missed.
     is_summer_makeup = original_session.summer_session_id is not None
-    missed_lesson = None
-    if is_summer_makeup:
-        missed_lesson = _resolve_effective_lessons(db, [original_session]).get(original_session.id)
 
     # Query date range
     start_date = hk_now().date()
@@ -1367,8 +1370,12 @@ async def get_makeup_suggestions(
         key = (session.session_date, session.time_slot, session.tutor_id)
         slots[key].append(session)
 
-    # Batch-resolve candidate lesson numbers once for all slots
-    effective_lessons = _resolve_effective_lessons(db, sessions) if is_summer_makeup else {}
+    # One batch resolves the missed session's lesson and all candidates'
+    effective_lessons = (
+        _resolve_effective_lessons(db, [original_session, *sessions])
+        if is_summer_makeup else {}
+    )
+    missed_lesson = effective_lessons.get(original_session.id)
 
     # Note: tutor info is already eagerly loaded via joinedload(SessionLog.tutor)
 

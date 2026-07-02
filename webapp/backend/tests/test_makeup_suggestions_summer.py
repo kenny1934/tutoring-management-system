@@ -25,6 +25,11 @@ Summer-linked (summer_session_id is set):
     How many same-grade summer students are on that majority lesson
     (drives the "Lesson 3 · N classmates" badge).
 
+- missed_lesson (int | null, default null):
+    The missed session's resolved lesson number, echoed on every
+    suggestion so the frontend can highlight matches and detect the
+    unassigned-lesson case without re-deriving backend resolution.
+
 Effective lesson number resolution (mirrors summer_course._effective_lesson_number):
     session_log.lesson_number  →  SummerSession.lesson_number  →
     SummerLesson.lesson_number  →  None
@@ -171,20 +176,14 @@ def _make_summer_session(
     return ss
 
 
-def _add_candidate(
+def _summer_link(
     db: Session,
-    tutor: Tutor,
-    config: SummerCourseConfig | None = None,
-    *,
-    grade: str = "F1",
-    lang: str = "English",
-    lesson: int | None = None,
-    lesson_via: str = "log",  # "log" | "summer_session" | "summer_lesson" | "none"
-    status: str = "Scheduled",
-    slot_date: date = CANDIDATE_DATE,
-    time_slot: str = TIME_SLOT,
-) -> SessionLog:
-    """One student occupying the candidate slot (date + time + tutor).
+    config: SummerCourseConfig | None,
+    grade: str,
+    lesson: int | None,
+    lesson_via: str,
+) -> tuple[int | None, int | None]:
+    """(summer_session_id, session_log lesson_number) for a lesson_via mode.
 
     lesson_via controls where the lesson number lives, to exercise the
     effective-lesson resolution chain:
@@ -193,22 +192,34 @@ def _add_candidate(
       "summer_lesson"  → session_log NULL, SummerSession NULL, SummerLesson base
       "none"           → not summer-linked at all (Regular student)
     """
-    student = _make_student(db, grade=grade, lang=lang)
+    if lesson_via == "none":
+        return None, None
+    assert config is not None, "summer-linked session needs the config fixture"
+    if lesson_via == "log":
+        return _make_summer_session(db, config, grade=grade).id, lesson
+    if lesson_via == "summer_session":
+        return _make_summer_session(db, config, grade=grade, ss_lesson_number=lesson).id, None
+    if lesson_via == "summer_lesson":
+        return _make_summer_session(db, config, grade=grade, base_lesson_number=lesson).id, None
+    raise ValueError(lesson_via)
 
-    summer_session_id = None
-    log_lesson = None
-    if lesson_via != "none":
-        assert config is not None, "summer-linked candidate needs the config fixture"
-        if lesson_via == "log":
-            ss = _make_summer_session(db, config, grade=grade)
-            log_lesson = lesson
-        elif lesson_via == "summer_session":
-            ss = _make_summer_session(db, config, grade=grade, ss_lesson_number=lesson)
-        elif lesson_via == "summer_lesson":
-            ss = _make_summer_session(db, config, grade=grade, base_lesson_number=lesson)
-        else:
-            raise ValueError(lesson_via)
-        summer_session_id = ss.id
+
+def _add_candidate(
+    db: Session,
+    tutor: Tutor,
+    config: SummerCourseConfig | None = None,
+    *,
+    grade: str = "F1",
+    lang: str = "English",
+    lesson: int | None = None,
+    lesson_via: str = "log",  # see _summer_link
+    status: str = "Scheduled",
+    slot_date: date = CANDIDATE_DATE,
+    time_slot: str = TIME_SLOT,
+) -> SessionLog:
+    """One student occupying the candidate slot (date + time + tutor)."""
+    student = _make_student(db, grade=grade, lang=lang)
+    summer_session_id, log_lesson = _summer_link(db, config, grade, lesson, lesson_via)
 
     row = SessionLog(
         student_id=student.id, tutor_id=tutor.id,
@@ -228,7 +239,7 @@ def _make_missed_session(
     *,
     grade: str = "F1",
     lesson: int | None = 3,
-    lesson_via: str = "log",  # same semantics as _add_candidate
+    lesson_via: str = "log",  # see _summer_link
     enrollment_type: str = "Summer",
 ) -> SessionLog:
     """The 'Pending Make-up' session the suggestions are requested for."""
@@ -243,18 +254,7 @@ def _make_missed_session(
     db.add(enrollment)
     db.commit()
 
-    summer_session_id = None
-    log_lesson = None
-    if lesson_via != "none":
-        assert config is not None
-        if lesson_via == "log":
-            ss = _make_summer_session(db, config, grade=grade)
-            log_lesson = lesson
-        elif lesson_via == "summer_session":
-            ss = _make_summer_session(db, config, grade=grade, ss_lesson_number=lesson)
-        else:
-            raise ValueError(lesson_via)
-        summer_session_id = ss.id
+    summer_session_id, log_lesson = _summer_link(db, config, grade, lesson, lesson_via)
 
     row = SessionLog(
         enrollment_id=enrollment.id,
@@ -309,6 +309,7 @@ class TestSummerLessonBreakdown:
 
         slot = _find_slot(_get_suggestions(client, auth_cookie, missed.id), other_tutor.id)
         b = slot["score_breakdown"]
+        assert b["missed_lesson"] == 3
         assert b["matching_lesson_count"] == 3
         assert b["slot_majority_lesson"] == 3
         assert b["majority_lesson_count"] == 3
@@ -377,6 +378,7 @@ class TestSummerLessonBreakdown:
 
         slot = _find_slot(_get_suggestions(client, auth_cookie, missed.id), other_tutor.id)
         b = slot["score_breakdown"]
+        assert b["missed_lesson"] == 3
         assert b["matching_lesson_count"] == 0
         assert b["slot_majority_lesson"] is None
         assert b["majority_lesson_count"] == 0
@@ -548,6 +550,7 @@ class TestMissedSessionModes:
 
         slot = _find_slot(_get_suggestions(client, auth_cookie, missed.id), other_tutor.id)
         b = slot["score_breakdown"]
+        assert b["missed_lesson"] == 4
         assert b["matching_lesson_count"] == 1
         # Tie between lessons 4 and 2 (one student each) → prefer missed lesson 4
         assert b["slot_majority_lesson"] == 4
@@ -567,6 +570,7 @@ class TestMissedSessionModes:
 
         slot = _find_slot(_get_suggestions(client, auth_cookie, missed.id), other_tutor.id)
         b = slot["score_breakdown"]
+        assert b["missed_lesson"] is None
         assert b["matching_lesson_count"] == 0
         assert b["slot_majority_lesson"] == 6
         assert b["majority_lesson_count"] == 2
@@ -586,6 +590,7 @@ class TestMissedSessionModes:
 
         slot = _find_slot(_get_suggestions(client, auth_cookie, missed.id), other_tutor.id)
         b = slot["score_breakdown"]
+        assert b["missed_lesson"] is None
         assert b["matching_lesson_count"] == 0
         assert b["slot_majority_lesson"] is None
         assert b["majority_lesson_count"] == 0

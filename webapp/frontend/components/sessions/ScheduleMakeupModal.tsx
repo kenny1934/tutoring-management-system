@@ -192,14 +192,10 @@ const SuggestionCard = React.memo(function SuggestionCard({
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
 
-  // The majority lesson equals the missed lesson exactly when every student
-  // counted as a match is the majority group (ties resolve toward the missed
-  // lesson on the backend), so no extra field is needed to detect it.
   const majorityCount = breakdown.majority_lesson_count ?? 0;
   const isLessonMatch =
     breakdown.slot_majority_lesson != null &&
-    (breakdown.matching_lesson_count ?? 0) > 0 &&
-    breakdown.matching_lesson_count === majorityCount;
+    breakdown.slot_majority_lesson === breakdown.missed_lesson;
 
   // Sort students by compatibility with original student (grade > lang > school)
   const sortedStudents = useMemo(() =>
@@ -617,9 +613,9 @@ export function ScheduleMakeupModal({
   // async, so this also switches to the Summer profile once it resolves.
   useEffect(() => {
     if (isOpen) {
-      setWeights(isSummerMakeup ? SUMMER_WEIGHTS : DEFAULT_WEIGHTS);
+      setWeights(baseWeights);
     }
-  }, [isOpen, isSummerMakeup]);
+  }, [isOpen, baseWeights]);
 
   // Selection state for day picker
   const [selectedDayPickerSlot, setSelectedDayPickerSlot] = useState<{
@@ -749,7 +745,7 @@ export function ScheduleMakeupModal({
       setExpandedSuggestion(null);
       setShowDayPicker(false);
       setDayPickerDate(null);
-      setWeights(DEFAULT_WEIGHTS);
+      // Weights re-apply from the matching preset on next open
       setShowWeightTuner(false);
       setShowSuggestions(true);
       setSelectedDayPickerSlot(null);
@@ -1566,9 +1562,8 @@ export function ScheduleMakeupModal({
           {showSuggestions && (
             <div className="p-3">
               {/* Summer make-up with no lesson number anywhere: nothing to match on */}
-              {isSummerMakeup && session.lesson_number == null && !suggestionsLoading &&
-                suggestions.length > 0 &&
-                suggestions.every(s => !(s.score_breakdown.matching_lesson_count)) && (
+              {isSummerMakeup && !suggestionsLoading && suggestions.length > 0 &&
+                suggestions[0].score_breakdown.missed_lesson == null && (
                 <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs text-amber-700 dark:text-amber-400">
                   This session has no lesson number yet, so suggestions are ranked without lesson matching. Set a lesson number on the session to find classes covering the same material.
                 </div>
