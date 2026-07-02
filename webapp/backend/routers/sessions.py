@@ -22,7 +22,7 @@ from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompleti
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
-from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates
+from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates, batch_load_summer_slots, borrowed_lesson_number
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
 from routers.summer_course import _effective_lesson_number
@@ -130,10 +130,13 @@ async def get_sessions(
     # Batch-resolve root original session dates for makeup sessions
     root_dates = batch_find_root_original_session_dates(sessions, db)
 
+    # Batch-resolve summer class identity for summer-published rows
+    summer_slots = batch_load_summer_slots(sessions, db)
+
     # Build response with related data
     result = []
     for session in sessions:
-        session_data = _build_session_response(session, db, root_dates=root_dates)
+        session_data = _build_session_response(session, db, root_dates=root_dates, summer_slots=summer_slots, linked_sessions=linked_sessions)
 
         # Add linked session info
         if session.rescheduled_to_id and session.rescheduled_to_id in linked_sessions:
@@ -658,6 +661,13 @@ async def get_session_detail(
             joinedload(SessionLog.tutor)
         ).filter(SessionLog.id.in_(linked_ids)).all()
         linked_sessions_map = {s.id: s for s in linked_sessions}
+
+    # Summer make-up origins hand lesson_number to the successor; borrow it
+    # back for display so the detail popover keeps the badge.
+    if session_data.lesson_number is None and session.rescheduled_to_id:
+        session_data.moved_lesson_number = borrowed_lesson_number(
+            session, linked_sessions_map.get(session.rescheduled_to_id)
+        )
 
     # Batch load exercises for all related sessions (main + previous) in a single query
     session_ids_for_exercises = {session_id}

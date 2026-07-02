@@ -725,6 +725,7 @@ export function SessionDetailPopover({
             <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
             <EditableLessonNumberBadge
               lessonNumber={session.lesson_number}
+              movedLessonNumber={session.moved_lesson_number}
               size="sm"
               disabled={isReadOnly}
               onSave={saveLessonNumber}

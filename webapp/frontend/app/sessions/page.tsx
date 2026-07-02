@@ -90,7 +90,9 @@ import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/util
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
-import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
+import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
+import { flattenSummerClusters } from "@/lib/summer-class-grouping";
 const ProposalDetailModal = dynamic(
   () => import("@/components/sessions/ProposalDetailModal").then(m => m.ProposalDetailModal),
   { ssr: false }
@@ -2216,7 +2218,7 @@ export default function SessionsPage() {
                                             <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
                                               {session.student_name}
                                             </span>
-                                            <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
+                                            <SessionLessonBadge session={session} size="xs" />
                                             {session.grade && (
                                               <span
                                                 className="text-[10px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0"
@@ -2471,17 +2473,18 @@ export default function SessionsPage() {
                           className="overflow-hidden"
                         >
                           <div className="space-y-2 ml-0 sm:ml-4 p-1">
-                            {sessionsInSlot.map((session, sessionIndex) => {
+                            {flattenSummerClusters(sessionsInSlot).map(({ session, classHeader }, sessionIndex, flatRows) => {
                         const displayStatus = getDisplayStatus(session);
                         const statusConfig = getSessionStatusConfig(displayStatus);
                         const StatusIcon = statusConfig.Icon;
-                        const prevSession = sessionIndex > 0 ? sessionsInSlot[sessionIndex - 1] : null;
+                        const prevSession = sessionIndex > 0 ? flatRows[sessionIndex - 1].session : null;
                         const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
                         return (
                           <div key={session.id}>
                             {isNewTutor && (
                               <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-3" />
                             )}
+                            {classHeader && <SummerClassHeader classInfo={classHeader} />}
                             <motion.div
                               initial={{ opacity: 0, x: -20 }}
                               animate={{
@@ -2559,7 +2562,7 @@ export default function SessionsPage() {
                                         )}>
                                           {session.student_name}
                                         </span>
-                                        <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
+                                        <SessionLessonBadge session={session} size="xs" />
                                         {session.enrollment_payment_status !== 'Cancelled' && session.financial_status !== "Paid" && (
                                           <HandCoins className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                                         )}

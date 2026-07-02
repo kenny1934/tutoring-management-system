@@ -24,7 +24,9 @@ import { proposalSlotsToSessions, filterProposedSessions } from "@/lib/proposal-
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownButton";
-import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
+import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
+import { flattenSummerClusters } from "@/lib/summer-class-grouping";
 import { MemoListDrawer } from "@/components/sessions/MemoListDrawer";
 import { useAuth } from "@/contexts/AuthContext";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
@@ -375,14 +377,17 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
 
                 {/* Sessions in this time slot */}
                 <div className="divide-y divide-[#e8d4b8]/50 dark:divide-[#6b5a4a]/50">
-                  {group.sessions.map((session, idx) => {
-                    const prevSession = idx > 0 ? group.sessions[idx - 1] : null;
+                  {flattenSummerClusters(group.sessions).map(({ session, classHeader }, idx, flatRows) => {
+                    const prevSession = idx > 0 ? flatRows[idx - 1].session : null;
                     const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
 
                     return (
                       <div key={session.id}>
                         {isNewTutor && (
                           <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-1" />
+                        )}
+                        {classHeader && (
+                          <SummerClassHeader classInfo={classHeader} className="px-3 mt-1.5 mb-1" />
                         )}
                         <SessionRow
                           session={session}
@@ -654,7 +659,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
             )}
             {session.student_name}
           </span>
-          <LessonNumberBadge lessonNumber={session.lesson_number} size="sm" />
+          <SessionLessonBadge session={session} size="sm" />
           {!isCancelledEnrollment && isUnpaid && (
             <HandCoins className="h-3 w-3 text-red-500 flex-shrink-0" />
           )}

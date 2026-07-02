@@ -20,7 +20,9 @@ import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountab
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
-import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
+import { SummerClassChip } from "@/components/sessions/SummerClassHeader";
+import { flattenSummerClusters } from "@/lib/summer-class-grouping";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import type { MakeupProposal } from "@/types";
 
@@ -640,9 +642,11 @@ export const DailyGridView = memo(function DailyGridView({
 
                         const maxDisplayedSessions = Math.max(1, Math.floor((height - 6) / 28)); // ~28px per session (22px card + 2px gap + 4px buffer for subpixel rounding)
                         const hasMoreSessions = sessionsInGroup.length > maxDisplayedSessions;
-                        const displayedSessions = hasMoreSessions
-                          ? sessionsInGroup.slice(0, maxDisplayedSessions - 1)
-                          : sessionsInGroup;
+                        // Cluster summer rows by class; chip on each cluster's first row
+                        const flatRows = flattenSummerClusters(sessionsInGroup);
+                        const displayedRows = hasMoreSessions
+                          ? flatRows.slice(0, maxDisplayedSessions - 1)
+                          : flatRows;
 
                         return (
                           <div
@@ -656,7 +660,7 @@ export const DailyGridView = memo(function DailyGridView({
                             }}
                           >
                             <div className="flex flex-col gap-0.5 p-0.5 h-full overflow-hidden">
-                              {displayedSessions.map((session) => {
+                              {displayedRows.map(({ session, classHeader }) => {
                                 const displayStatus = getDisplayStatus(session);
                                 const statusConfig = getSessionStatusConfig(displayStatus);
                                 const StatusIcon = statusConfig.Icon;
@@ -692,8 +696,9 @@ export const DailyGridView = memo(function DailyGridView({
                                     <div className="flex-1 flex flex-col min-w-0 px-1.5 py-0.5">
                                       <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight flex justify-between items-center">
                                         <span className="flex items-center gap-0.5">
+                                          {classHeader && <SummerClassChip classInfo={classHeader} />}
                                           {session.school_student_id || "N/A"}
-                                          <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" />
+                                          <SessionLessonBadge session={session} size="xs" />
                                           {isCancelledEnrollment ? (
                                             <span className="text-[7px] px-1 py-px rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">
                                               Cancelled
@@ -762,7 +767,7 @@ export const DailyGridView = memo(function DailyGridView({
                                   }}
                                 >
                                   <p className="font-bold text-[9px] text-amber-800 dark:text-amber-200">
-                                    +{sessionsInGroup.length - displayedSessions.length} more
+                                    +{sessionsInGroup.length - displayedRows.length} more
                                   </p>
                                 </div>
                               )}
