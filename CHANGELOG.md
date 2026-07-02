@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.86](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.85...v2.0.86) (2026-07-02)
+
+
+### New Features
+
+* **Summer make-up suggestions now match by lesson number**: when scheduling a make-up for a summer course session, smart suggestions favour classes teaching the lesson the student missed. Each suggested slot shows which lesson most of its class is on and how many classmates are on it, with a "Same lesson" tag when it matches. The scoring switches to a summer profile automatically, with a tunable "Same Lesson" weight, school matching switched off and language stream counting for less. If the missed session has no lesson number assigned yet, a notice explains that suggestions are ranked without lesson matching.
+* **Lesson numbers are shown throughout make-up scheduling**: the summer lesson number now appears on the session summary at the top of the scheduling window, next to each student in suggested slots, in the day picker and in the slot preview, so it is always clear which lesson each class is covering.
+* **Copy a time slot to share with parents**: suggested slots and the day picker time headings now have a copy button that copies the slot as text such as "6/7 (Mon) 18:00-19:30", ready to paste into a message to parents before confirming a booking.
+
 ## [2.0.85](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.84...v2.0.85) (2026-06-28)
 
 
