@@ -45,7 +45,8 @@ import {
   Clock,
   CalendarX,
 } from "lucide-react";
-import type { Session, MakeupSlotSuggestion, MakeupScoreBreakdown, Tutor, MakeupProposalSlotCreate } from "@/types";
+import type { Session, MakeupSlotSuggestion, Tutor, MakeupProposalSlotCreate } from "@/types";
+import { calculateMakeupScore, DEFAULT_WEIGHTS, SUMMER_WEIGHTS, type ScoringWeights } from "@/lib/makeup-scoring";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
 
 // Interface for enrollment deadline exceeded error
@@ -57,37 +58,7 @@ interface DeadlineExceededError {
 
 // Time slot constants imported from @/lib/constants
 
-// Scoring weights for make-up slot suggestions
-interface ScoringWeights {
-  sameTutor: number;
-  sameGrade: number;
-  sameSchool: number;
-  sameLang: number;
-  soonerDate: number;
-  moreCapacity: number;
-}
-
-const DEFAULT_WEIGHTS: ScoringWeights = {
-  sameTutor: 100,
-  sameGrade: 20,      // Per matching student, capped at ~60
-  sameLang: 15,       // Per matching student, capped at ~45 (priority: grade > lang > school)
-  sameSchool: 10,     // Per matching student, capped at ~30
-  soonerDate: 30,     // Scaled by proximity (0-30 days)
-  moreCapacity: 10,   // Per empty spot
-};
-
-// Calculate score based on raw data and user-adjustable weights
-function calculateScore(breakdown: MakeupScoreBreakdown, weights: ScoringWeights): number {
-  let score = 0;
-  if (breakdown.is_same_tutor) score += weights.sameTutor;
-  // Caps scale proportionally: weight * 3 (e.g., default 20 * 3 = 60)
-  score += Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3);
-  score += Math.min(breakdown.matching_lang_count * weights.sameLang, weights.sameLang * 3);
-  score += Math.min(breakdown.matching_school_count * weights.sameSchool, weights.sameSchool * 3);
-  score += weights.soonerDate * Math.max(0, (30 - breakdown.days_away) / 30);
-  score += weights.moreCapacity * (8 - breakdown.current_students);
-  return Math.round(score);
-}
+// Scoring weights and score calculation live in @/lib/makeup-scoring
 
 // Helper to convert time string to minutes for sorting
 function timeToMinutes(timeStr: string): number {
@@ -198,6 +169,7 @@ interface SuggestionCardProps {
   isSuperAdmin?: boolean;
   hasApprovedExtension?: boolean;
   onRequestExtension?: () => void;
+  isSummerMakeup?: boolean;
 }
 
 const SuggestionCard = React.memo(function SuggestionCard({
@@ -216,8 +188,18 @@ const SuggestionCard = React.memo(function SuggestionCard({
   isSuperAdmin,
   hasApprovedExtension,
   onRequestExtension,
+  isSummerMakeup,
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
+
+  // The majority lesson equals the missed lesson exactly when every student
+  // counted as a match is the majority group (ties resolve toward the missed
+  // lesson on the backend), so no extra field is needed to detect it.
+  const majorityCount = breakdown.majority_lesson_count ?? 0;
+  const isLessonMatch =
+    breakdown.slot_majority_lesson != null &&
+    (breakdown.matching_lesson_count ?? 0) > 0 &&
+    breakdown.matching_lesson_count === majorityCount;
 
   // Sort students by compatibility with original student (grade > lang > school)
   const sortedStudents = useMemo(() =>
@@ -261,6 +243,16 @@ const SuggestionCard = React.memo(function SuggestionCard({
                 Same tutor
               </span>
             )}
+            {breakdown.slot_majority_lesson != null && (
+              <span className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded",
+                isLessonMatch
+                  ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-medium"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+              )}>
+                Lesson {breakdown.slot_majority_lesson} · {majorityCount} classmate{majorityCount === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
         </div>
         {isExpanded ? (
@@ -277,6 +269,9 @@ const SuggestionCard = React.memo(function SuggestionCard({
           <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[10px] text-gray-600 dark:text-gray-400">
             <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+              {isSummerMakeup && (
+                <span>Same lesson ({breakdown.matching_lesson_count ?? 0}): +{Math.min((breakdown.matching_lesson_count ?? 0) * weights.sameLesson, weights.sameLesson * 3)}</span>
+              )}
               <span>Same tutor: +{breakdown.is_same_tutor ? weights.sameTutor : 0}</span>
               <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3)}</span>
               <span>Same lang ({breakdown.matching_lang_count}): +{Math.min(breakdown.matching_lang_count * weights.sameLang, weights.sameLang * 3)}</span>
@@ -458,6 +453,11 @@ export function ScheduleMakeupModal({
   const { data: tutors } = useActiveTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
 
+  // Summer make-ups match on lesson number: suggestions favour classes
+  // teaching the lesson the student missed, via the SUMMER_WEIGHTS preset.
+  const isSummerMakeup = enrollment?.enrollment_type === 'Summer';
+  const baseWeights = isSummerMakeup ? SUMMER_WEIGHTS : DEFAULT_WEIGHTS;
+
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
   // This is needed for cross-enrollment makeups: when a session from old enrollment A needs
   // to be scheduled, the deadline should be checked against the student's current enrollment B
@@ -613,6 +613,14 @@ export function ScheduleMakeupModal({
     setVisibleSuggestionCount(5);
   };
 
+  // Apply the matching preset when the modal opens. The enrollment loads
+  // async, so this also switches to the Summer profile once it resolves.
+  useEffect(() => {
+    if (isOpen) {
+      setWeights(isSummerMakeup ? SUMMER_WEIGHTS : DEFAULT_WEIGHTS);
+    }
+  }, [isOpen, isSummerMakeup]);
+
   // Selection state for day picker
   const [selectedDayPickerSlot, setSelectedDayPickerSlot] = useState<{
     timeSlot: string;
@@ -665,7 +673,7 @@ export function ScheduleMakeupModal({
     return [...suggestions]
       .map(s => ({
         ...s,
-        calculatedScore: calculateScore(s.score_breakdown, weights),
+        calculatedScore: calculateMakeupScore(s.score_breakdown, weights),
       }))
       .sort((a, b) => b.calculatedScore - a.calculatedScore);
   }, [suggestions, weights]);
@@ -1557,6 +1565,14 @@ export function ScheduleMakeupModal({
           {/* Collapsible Content */}
           {showSuggestions && (
             <div className="p-3">
+              {/* Summer make-up with no lesson number anywhere: nothing to match on */}
+              {isSummerMakeup && session.lesson_number == null && !suggestionsLoading &&
+                suggestions.length > 0 &&
+                suggestions.every(s => !(s.score_breakdown.matching_lesson_count)) && (
+                <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs text-amber-700 dark:text-amber-400">
+                  This session has no lesson number yet, so suggestions are ranked without lesson matching. Set a lesson number on the session to find classes covering the same material.
+                </div>
+              )}
               {/* Weight Tuner Panel */}
               {showWeightTuner && (
             <div className="mb-3 p-3 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -1565,7 +1581,7 @@ export function ScheduleMakeupModal({
                   SCORING WEIGHTS
                 </span>
                 <button
-                  onClick={() => updateWeights(DEFAULT_WEIGHTS)}
+                  onClick={() => updateWeights(baseWeights)}
                   className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-[#a0704b] transition-colors"
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -1573,6 +1589,10 @@ export function ScheduleMakeupModal({
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {isSummerMakeup && (
+                  <WeightSlider label="Same Lesson (per student)" value={weights.sameLesson} min={0} max={200} step={10}
+                    onChange={(v) => updateWeights(w => ({ ...w, sameLesson: v }))} />
+                )}
                 <WeightSlider label="Same Tutor" value={weights.sameTutor} min={0} max={200} step={10}
                   onChange={(v) => updateWeights(w => ({ ...w, sameTutor: v }))} />
                 <WeightSlider label="Same Grade (per student)" value={weights.sameGrade} min={0} max={50} step={5}
@@ -1645,6 +1665,7 @@ export function ScheduleMakeupModal({
                         isSuperAdmin={isSuperAdmin}
                         hasApprovedExtension={hasApprovedExtension}
                         onRequestExtension={() => setShowExtensionModal(true)}
+                        isSummerMakeup={isSummerMakeup}
                       />
                     );
                   })}

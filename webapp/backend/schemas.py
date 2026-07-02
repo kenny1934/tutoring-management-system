@@ -771,6 +771,11 @@ class MakeupScoreBreakdown(BaseModel):
     matching_lang_count: int = Field(..., ge=0, description="Number of students with matching language stream")
     days_away: int = Field(..., ge=0, description="Days from original session date")
     current_students: int = Field(..., ge=0, description="Current student count in the slot")
+    # Summer-only lesson signals; stay at defaults for Regular make-ups.
+    # Pool = same-grade summer students in the slot with a resolvable lesson number.
+    matching_lesson_count: int = Field(0, ge=0, description="Same-grade summer students on the missed session's lesson number")
+    slot_majority_lesson: Optional[int] = Field(None, description="Dominant lesson number in the slot; None when the pool is empty or tied without the missed lesson")
+    majority_lesson_count: int = Field(0, ge=0, description="Same-grade summer students on the majority lesson")
 
 
 class MakeupSlotSuggestion(BaseModel):

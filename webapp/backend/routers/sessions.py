@@ -18,7 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
@@ -1169,6 +1169,82 @@ def _get_makeup_raw_data(
     }
 
 
+def _resolve_effective_lessons(db: Session, sessions: List[SessionLog]) -> dict[int, int]:
+    """Map session_log.id -> effective lesson number for summer-linked rows.
+
+    Same precedence as summer_course._effective_lesson_number: the live
+    session_log value wins; rows carrying NULL fall back to the frozen
+    SummerSession override, then the slot-level SummerLesson default.
+    Rows with no resolvable lesson are omitted.
+    """
+    resolved: dict[int, int] = {}
+    unresolved_by_ss: dict[int, list[int]] = {}
+    for s in sessions:
+        if s.summer_session_id is None:
+            continue
+        if s.lesson_number is not None:
+            resolved[s.id] = s.lesson_number
+        else:
+            unresolved_by_ss.setdefault(s.summer_session_id, []).append(s.id)
+
+    if unresolved_by_ss:
+        summer_rows = db.query(SummerSession).options(
+            joinedload(SummerSession.lesson)
+        ).filter(SummerSession.id.in_(unresolved_by_ss.keys())).all()
+        for ss in summer_rows:
+            lesson_number = ss.lesson_number
+            if lesson_number is None and ss.lesson is not None:
+                lesson_number = ss.lesson.lesson_number
+            if lesson_number is not None:
+                for session_id in unresolved_by_ss[ss.id]:
+                    resolved[session_id] = lesson_number
+    return resolved
+
+
+def _get_lesson_match_data(
+    slot_sessions: List[SessionLog],
+    original_grade: Optional[str],
+    missed_lesson: Optional[int],
+    effective_lessons: dict[int, int],
+) -> dict:
+    """Summer lesson signals for one candidate slot.
+
+    Pool = same-grade summer students in the slot with a resolvable lesson
+    number; other grades are different course material and never count.
+    Majority ties resolve toward the missed lesson when it participates,
+    otherwise the slot has no single identity and reports no majority.
+    """
+    from collections import Counter
+
+    pool = [
+        effective_lessons[s.id]
+        for s in slot_sessions
+        if s.id in effective_lessons
+        and s.student is not None
+        and original_grade is not None
+        and s.student.grade == original_grade
+    ]
+
+    counts = Counter(pool)
+    majority_lesson = None
+    majority_count = 0
+    if counts:
+        top = max(counts.values())
+        tied = [lesson for lesson, count in counts.items() if count == top]
+        if missed_lesson is not None and missed_lesson in tied:
+            majority_lesson = missed_lesson
+        elif len(tied) == 1:
+            majority_lesson = tied[0]
+        if majority_lesson is not None:
+            majority_count = top
+
+    return {
+        "matching_lesson_count": counts.get(missed_lesson, 0) if missed_lesson is not None else 0,
+        "slot_majority_lesson": majority_lesson,
+        "majority_lesson_count": majority_count,
+    }
+
+
 @router.get("/sessions/{session_id}/makeup-suggestions", response_model=List[MakeupSlotSuggestion])
 async def get_makeup_suggestions(
     session_id: int,
@@ -1217,6 +1293,13 @@ async def get_makeup_suggestions(
 
     original_student = original_session.student
     location = original_session.location
+
+    # Summer make-ups additionally match on lesson number: the point is to
+    # land the student in a class teaching the material they missed.
+    is_summer_makeup = original_session.summer_session_id is not None
+    missed_lesson = None
+    if is_summer_makeup:
+        missed_lesson = _resolve_effective_lessons(db, [original_session]).get(original_session.id)
 
     # Query date range
     start_date = hk_now().date()
@@ -1284,6 +1367,9 @@ async def get_makeup_suggestions(
         key = (session.session_date, session.time_slot, session.tutor_id)
         slots[key].append(session)
 
+    # Batch-resolve candidate lesson numbers once for all slots
+    effective_lessons = _resolve_effective_lessons(db, sessions) if is_summer_makeup else {}
+
     # Note: tutor info is already eagerly loaded via joinedload(SessionLog.tutor)
 
     # Generate scored suggestions
@@ -1317,6 +1403,10 @@ async def get_makeup_suggestions(
             original_session, original_student, tutor_id, active_students,
             slot_date, start_date  # start_date is today
         )
+        if is_summer_makeup:
+            raw_data.update(_get_lesson_match_data(
+                slot_sessions, original_student.grade, missed_lesson, effective_lessons
+            ))
 
         suggestions.append(MakeupSlotSuggestion(
             session_date=slot_date,
