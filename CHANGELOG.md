@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.87](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.86...v2.0.87) (2026-07-02)
+
+
+### New Features
+
+* **dashboard:** summer class headers and borrowed lesson badge in today sessions card ([02e1013](https://github.com/kenny1934/tutoring-management-system/commit/02e1013780ad72bd3be414a311405f2f51019adc))
+* **sessions:** show summer class context on sessions page ([500d12f](https://github.com/kenny1934/tutoring-management-system/commit/500d12fba9ed4e98bfea28794d3f3b816dd93c65))
+* **sessions:** summer class context on sessions pages ([9d70e48](https://github.com/kenny1934/tutoring-management-system/commit/9d70e48107e3bcb95f7b38633f910cd5e7117d65))
+
+
+### Bug Fixes
+
+* **sessions:** resolve summer class by hosting cell and keep origin lesson badge ([dd5e8ce](https://github.com/kenny1934/tutoring-management-system/commit/dd5e8cec2ca337fef5d90ef014f2d5eeada395a8))
+* **sessions:** show borrowed lesson badge in detail popover and student/enrollment pages ([e70f48e](https://github.com/kenny1934/tutoring-management-system/commit/e70f48ee86ce481458024ccbe010b9294c7a6330))
+
+
+### Improvements
+
+* **sessions:** consolidate summer badge borrowing and slim clustering module ([e95d1dc](https://github.com/kenny1934/tutoring-management-system/commit/e95d1dc803446afa888c61ba7717167790535441))
+
 ## [2.0.86](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.85...v2.0.86) (2026-07-02)
 
 
