@@ -637,6 +637,20 @@ async def get_session_detail(
     if session.enrollment:
         session_data.enrollment_payment_status = session.enrollment.payment_status
 
+    # Summer make-up origins hand lesson_number to the successor; borrow it
+    # back for display so the detail popover keeps the badge (mirrors the
+    # list endpoint's behaviour).
+    if session.lesson_number is None and session.rescheduled_to_id:
+        successor = db.query(SessionLog).filter(
+            SessionLog.id == session.rescheduled_to_id
+        ).first()
+        if (
+            successor
+            and successor.summer_session_id is not None
+            and successor.lesson_number is not None
+        ):
+            session_data.moved_lesson_number = successor.lesson_number
+
     # Load previous session (most recent attended session for same student, any tutor)
     previous_session = db.query(SessionLog).options(
         joinedload(SessionLog.student),

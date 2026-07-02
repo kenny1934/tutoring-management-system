@@ -437,6 +437,35 @@ class TestMovedLessonNumber:
         assert rows[makeup.id]["lesson_number"] == 5
         assert rows[makeup.id]["moved_lesson_number"] is None
 
+    def test_detail_endpoint_borrows_for_origin(
+        self, client, db_session, tutor, enrollment, config, application
+    ):
+        """GET /sessions/{id} (used by the detail popover when opened from
+        the enrollment modal) must borrow the successor's lesson number
+        the same way the list endpoint does."""
+        slot = _make_slot(db_session, config, tutor, grade="F3", course_type="B")
+        ss = _make_summer_session(db_session, application, slot,
+                                  lesson_number=5, lesson_date=date(2026, 7, 7))
+        origin = _make_session_log(db_session, enrollment, tutor,
+                                   session_date=date(2026, 7, 7))
+        origin.session_status = "Rescheduled - Make-up Booked"
+        makeup = _make_session_log(db_session, enrollment, tutor,
+                                   summer_session_id=ss.id,
+                                   session_date=date(2026, 7, 14),
+                                   lesson_number=5)
+        makeup.session_status = "Make-up Class"
+        makeup.make_up_for_id = origin.id
+        origin.rescheduled_to_id = makeup.id
+        db_session.commit()
+
+        token = make_auth_token(tutor.id)
+        resp = client.get(f"/api/sessions/{origin.id}",
+                          cookies={"access_token": token})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["lesson_number"] is None
+        assert body["moved_lesson_number"] == 5
+
     def test_no_borrow_when_successor_not_summer_linked(
         self, client, db_session, tutor, enrollment
     ):

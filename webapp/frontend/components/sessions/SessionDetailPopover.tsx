@@ -46,6 +46,7 @@ import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-uti
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
+import { LessonNumberBadge } from "./LessonNumberBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 
@@ -723,12 +724,18 @@ export function SessionDetailPopover({
               {session.school_student_id || "N/A"}
             </p>
             <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
-            <EditableLessonNumberBadge
-              lessonNumber={session.lesson_number}
-              size="sm"
-              disabled={isReadOnly}
-              onSave={saveLessonNumber}
-            />
+            {session.lesson_number == null && session.moved_lesson_number != null ? (
+              // Borrowed from the booked make-up: display only, never editable,
+              // so the value can't be written back onto the origin row.
+              <LessonNumberBadge lessonNumber={session.moved_lesson_number} size="sm" moved />
+            ) : (
+              <EditableLessonNumberBadge
+                lessonNumber={session.lesson_number}
+                size="sm"
+                disabled={isReadOnly}
+                onSave={saveLessonNumber}
+              />
+            )}
             <Link
               href={`/sessions/${session.id}?lesson=true`}
               onClick={(e) => {
