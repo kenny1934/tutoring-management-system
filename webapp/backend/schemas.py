@@ -759,6 +759,7 @@ class StudentInSlot(BaseModel):
     school: Optional[str] = None
     lang_stream: Optional[str] = None
     session_status: str
+    lesson_number: Optional[int] = Field(None, description="Resolved summer lesson the student is on in this slot; None for non-summer")
 
     model_config = ConfigDict(from_attributes=True)
 

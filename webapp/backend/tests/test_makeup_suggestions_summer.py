@@ -329,6 +329,8 @@ class TestSummerLessonBreakdown:
         assert b["matching_lesson_count"] == 3
         assert b["slot_majority_lesson"] == 3
         assert b["majority_lesson_count"] == 3
+        # Each student in the slot carries their own resolved lesson number
+        assert sorted(s["lesson_number"] for s in slot["students_in_slot"]) == [3, 3, 3, 5]
 
     def test_majority_differs_from_missed_lesson(
         self, client, db_session, tutor, other_tutor, summer_config, auth_cookie
@@ -594,6 +596,8 @@ class TestMissedSessionModes:
         assert b["matching_lesson_count"] == 0
         assert b["slot_majority_lesson"] is None
         assert b["majority_lesson_count"] == 0
+        # Per-student lesson numbers also stay unset in the Regular flow
+        assert all(s["lesson_number"] is None for s in slot["students_in_slot"])
 
 
 # ============================================================================

@@ -1400,7 +1400,8 @@ async def get_makeup_suggestions(
                 "grade": s.student.grade,
                 "school": s.student.school,
                 "lang_stream": s.student.lang_stream,
-                "session_status": s.session_status
+                "session_status": s.session_status,
+                "lesson_number": effective_lessons.get(s.id),
             }
             for s in slot_sessions if s.student
         ]
@@ -1425,18 +1426,7 @@ async def get_makeup_suggestions(
             available_spots=8 - len(active_students),
             compatibility_score=0,  # Frontend calculates score with user-adjustable weights
             score_breakdown=raw_data,
-            students_in_slot=[
-                StudentInSlot(
-                    id=s["id"],
-                    school_student_id=s["school_student_id"],
-                    student_name=s["student_name"],
-                    grade=s["grade"],
-                    school=s["school"],
-                    lang_stream=s["lang_stream"],
-                    session_status=s["session_status"]
-                )
-                for s in active_students
-            ]
+            students_in_slot=[StudentInSlot(**s) for s in active_students]
         ))
 
     # Also add empty slots for tutors (slots with no existing sessions but tutor is available)

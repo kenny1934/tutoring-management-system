@@ -881,6 +881,7 @@ export interface StudentInSlot {
   school?: string;
   lang_stream?: string;
   session_status: string;
+  lesson_number?: number | null;  // Resolved summer lesson; null for non-summer
 }
 
 // Raw scoring data returned by backend for frontend-side weighted scoring
