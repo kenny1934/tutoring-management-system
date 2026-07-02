@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.87](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.86...v2.0.87) (2026-07-02)
+
+
+### New Features
+
+* **Summer classes are grouped under class headings on the sessions page**: sessions belonging to the same summer class now sit together under a heading showing the class's grade and type, such as "F1 · Type A", in the main list and in the dashboard's today card. Day and week views mark each class with a compact chip such as "F1·A". Make-up slots without a set grade show their label instead.
+* **Make-up students appear with the class they join**: a summer make-up is grouped under the class actually being taught at that day and time rather than the student's own class, so each class reads as one group. A make-up at a time with no class running keeps showing the student's own class details.
+* **Rescheduled summer sessions keep their lesson number**: once a make-up is booked, the original session shows its lesson number in a faded badge borrowed from the booked make-up, in the sessions list, calendar views, the session popover, and the student and enrolment pages.
+
 ## [2.0.86](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.85...v2.0.86) (2026-07-02)
 
 
