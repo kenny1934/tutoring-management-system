@@ -22,7 +22,7 @@ import {
 } from "@/lib/calendar-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { getGradeColor, DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
-import { plural } from "@/lib/formatters";
+import { plural, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
@@ -34,6 +34,7 @@ import {
   Users,
   Loader2,
   Check,
+  Copy,
   AlertTriangle,
   Sparkles,
   X,
@@ -123,6 +124,32 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
     <div className="flex items-center gap-2 text-xs">
       {content}
     </div>
+  );
+}
+
+// Copies "6/7 (Mon) 18:00-19:30" (same format as the sessions page) so staff
+// can paste a candidate slot to parents before booking
+function CopySlotButton({ date, timeSlot, className }: { date: string; timeSlot: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copyText = formatCompactDateTimeSlot(new Date(date + 'T00:00:00'), timeSlot);
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(copyText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className={cn("p-1 hover:bg-[#a0704b]/10 dark:hover:bg-[#cd853f]/10 rounded transition-colors", className)}
+      title={copyText}
+    >
+      {copied ? (
+        <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
+      ) : (
+        <Copy className="h-3 w-3 text-gray-400 dark:text-gray-500" />
+      )}
+    </button>
   );
 }
 
@@ -229,6 +256,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
               {new Date(suggestion.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
             <span className="text-xs text-gray-500">{suggestion.time_slot}</span>
+            <CopySlotButton date={suggestion.session_date} timeSlot={suggestion.time_slot} className="-my-1" />
             <span className="text-xs text-gray-500">•</span>
             <span className="text-xs text-[#8b6f47] dark:text-[#cd853f]">{suggestion.tutor_name}</span>
           </div>
@@ -2266,8 +2294,11 @@ export function ScheduleMakeupModal({
                     filteredDayPickerSlots.map(({ timeSlot, tutors: slotTutors }) => (
                       <div key={timeSlot} className="space-y-1.5">
                         {/* Time Slot Header */}
-                        <div className="sticky top-0 z-10 text-[10px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
+                        <div className="sticky top-0 z-10 flex items-center gap-1 text-[10px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
                           {timeSlot}
+                          {dayPickerDate && (
+                            <CopySlotButton date={dayPickerDate} timeSlot={timeSlot} className="-my-1" />
+                          )}
                         </div>
 
                         {/* Tutors in this slot */}
