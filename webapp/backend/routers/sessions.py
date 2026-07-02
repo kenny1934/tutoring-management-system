@@ -1202,10 +1202,9 @@ def _resolve_effective_lessons(db: Session, sessions: List[SessionLog]) -> dict[
 
 
 def _get_lesson_match_data(
-    slot_sessions: List[SessionLog],
+    active_students: List[dict],
     original_grade: Optional[str],
     missed_lesson: Optional[int],
-    effective_lessons: dict[int, int],
 ) -> dict:
     """Summer lesson signals for one candidate slot.
 
@@ -1224,11 +1223,9 @@ def _get_lesson_match_data(
         return empty
 
     pool = [
-        effective_lessons[s.id]
-        for s in slot_sessions
-        if s.id in effective_lessons
-        and s.student is not None
-        and s.student.grade == original_grade
+        s["lesson_number"]
+        for s in active_students
+        if s["lesson_number"] is not None and s["grade"] == original_grade
     ]
     counts = Counter(pool)
     if not counts:
@@ -1413,7 +1410,7 @@ async def get_makeup_suggestions(
         )
         if is_summer_makeup:
             raw_data.update(_get_lesson_match_data(
-                slot_sessions, original_student.grade, missed_lesson, effective_lessons
+                active_students, original_student.grade, missed_lesson
             ))
 
         suggestions.append(MakeupSlotSuggestion(

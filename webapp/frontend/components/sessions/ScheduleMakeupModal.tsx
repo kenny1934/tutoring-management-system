@@ -22,6 +22,7 @@ import {
 } from "@/lib/calendar-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { getGradeColor, DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
+import { plural } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
@@ -196,6 +197,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
   const breakdown = suggestion.score_breakdown;
 
   const majorityCount = breakdown.majority_lesson_count ?? 0;
+  const matchingLessonCount = breakdown.matching_lesson_count ?? 0;
   const isLessonMatch =
     breakdown.slot_majority_lesson != null &&
     breakdown.slot_majority_lesson === breakdown.missed_lesson;
@@ -245,7 +247,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
             {breakdown.slot_majority_lesson != null && (
               <span className="flex items-center gap-1 text-[10px] text-gray-500">
                 <LessonNumberBadge lessonNumber={breakdown.slot_majority_lesson} size="xs" />
-                {majorityCount} classmate{majorityCount === 1 ? "" : "s"}
+                {plural(majorityCount, "classmate")}
               </span>
             )}
             {isLessonMatch && (
@@ -270,7 +272,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
             <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
               {isSummerMakeup && (
-                <span>Same lesson ({breakdown.matching_lesson_count ?? 0}): +{Math.min((breakdown.matching_lesson_count ?? 0) * weights.sameLesson, weights.sameLesson * 3)}</span>
+                <span>Same lesson ({matchingLessonCount}): +{Math.min(matchingLessonCount * weights.sameLesson, weights.sameLesson * 3)}</span>
               )}
               <span>Same tutor: +{breakdown.is_same_tutor ? weights.sameTutor : 0}</span>
               <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3)}</span>
@@ -678,10 +680,11 @@ export function ScheduleMakeupModal({
       .sort((a, b) => b.calculatedScore - a.calculatedScore);
   }, [suggestions, weights]);
 
-  // The missed session's lesson number, surfaced wherever students/slots are
-  // shown. The backend resolves it through the summer chain (echoed on every
-  // suggestion); the session's own value covers the pre-load moment.
-  const missedLesson = suggestions[0]?.score_breakdown.missed_lesson ?? session.lesson_number ?? null;
+  // The missed session's lesson number, shown in the header banner and
+  // driving the no-lesson notice. The backend resolves it through the summer
+  // chain (echoed on every suggestion); the session's own value covers the
+  // pre-load moment.
+  const missedLesson = suggestions[0]?.score_breakdown.missed_lesson ?? session.lesson_number;
 
   // Fetch holidays for the current month view
   const monthBounds = getMonthBounds(viewDate);
@@ -1116,6 +1119,8 @@ export function ScheduleMakeupModal({
         grade: s.grade,
         school: s.school,
         lang_stream: s.lang_stream,
+        // Raw log value; publish freezes resolved lesson numbers into
+        // session_log, so no summer-chain fallback here (unlike suggestions)
         lesson_number: s.lesson_number,
       }));
   }, [selectedDate, effectiveTimeSlot, selectedTutorId, sessionsByDate]);
@@ -1574,7 +1579,7 @@ export function ScheduleMakeupModal({
             <div className="p-3">
               {/* Summer make-up with no lesson number anywhere: nothing to match on */}
               {isSummerMakeup && !suggestionsLoading && suggestions.length > 0 &&
-                suggestions[0].score_breakdown.missed_lesson == null && (
+                missedLesson == null && (
                 <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs text-amber-700 dark:text-amber-400">
                   This session has no lesson number yet, so suggestions are ranked without lesson matching. Set a lesson number on the session to find classes covering the same material.
                 </div>

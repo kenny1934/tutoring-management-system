@@ -21,12 +21,8 @@
  * no special-casing beyond picking the weight profile.
  */
 import { describe, it, expect } from 'vitest';
-import {
-  calculateMakeupScore,
-  DEFAULT_WEIGHTS,
-  SUMMER_WEIGHTS,
-  type MakeupScoreBreakdown,
-} from './makeup-scoring';
+import { calculateMakeupScore, DEFAULT_WEIGHTS, SUMMER_WEIGHTS } from './makeup-scoring';
+import type { MakeupScoreBreakdown } from '@/types';
 
 function breakdown(overrides: Partial<MakeupScoreBreakdown> = {}): MakeupScoreBreakdown {
   return {

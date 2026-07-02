@@ -3,8 +3,6 @@
 // is computed here with user-adjustable weights so re-sorting is instant.
 import type { MakeupScoreBreakdown } from '@/types';
 
-export type { MakeupScoreBreakdown };
-
 export interface ScoringWeights {
   sameTutor: number;
   sameGrade: number;
