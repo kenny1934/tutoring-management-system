@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import type { Session, MakeupSlotSuggestion, Tutor, MakeupProposalSlotCreate } from "@/types";
 import { calculateMakeupScore, DEFAULT_WEIGHTS, SUMMER_WEIGHTS, type ScoringWeights } from "@/lib/makeup-scoring";
+import { LessonNumberBadge } from "./LessonNumberBadge";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
 
 // Interface for enrollment deadline exceeded error
@@ -78,11 +79,9 @@ interface StudentDisplayProps {
     lesson_number?: number | null;
   };
   compact?: boolean; // true = inline badge style (Day Picker), false = list item style (Suggestions/Form)
-  /** The make-up student's own lesson number; highlights matching lesson chips */
-  missedLesson?: number | null;
 }
 
-function StudentDisplay({ student, compact = false, missedLesson }: StudentDisplayProps) {
+function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
   const name = compact ? student.student_name?.split(' ')[0] : student.student_name;
 
   const content = (
@@ -99,16 +98,7 @@ function StudentDisplay({ student, compact = false, missedLesson }: StudentDispl
           {student.grade}{student.lang_stream || ""}
         </span>
       )}
-      {student.lesson_number != null && (
-        <span className={cn(
-          compact ? "ml-1 text-[9px] px-1 rounded" : "text-[9px] px-1 py-0.5 rounded",
-          student.lesson_number === missedLesson
-            ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-medium"
-            : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-        )}>
-          L{student.lesson_number}
-        </span>
-      )}
+      <LessonNumberBadge lessonNumber={student.lesson_number} size="xs" className={compact ? "ml-1" : undefined} />
       {student.school && (
         <span className={cn(
           "rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
@@ -253,13 +243,14 @@ const SuggestionCard = React.memo(function SuggestionCard({
               </span>
             )}
             {breakdown.slot_majority_lesson != null && (
-              <span className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded",
-                isLessonMatch
-                  ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-medium"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-              )}>
-                Lesson {breakdown.slot_majority_lesson} · {majorityCount} classmate{majorityCount === 1 ? "" : "s"}
+              <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                <LessonNumberBadge lessonNumber={breakdown.slot_majority_lesson} size="xs" />
+                {majorityCount} classmate{majorityCount === 1 ? "" : "s"}
+              </span>
+            )}
+            {isLessonMatch && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
+                Same lesson
               </span>
             )}
           </div>
@@ -299,7 +290,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
           ) : (
             <div className="space-y-1 mb-3">
               {sortedStudents.map((student, idx) => (
-                <StudentDisplay key={idx} student={student} missedLesson={breakdown.missed_lesson} />
+                <StudentDisplay key={idx} student={student} />
               ))}
             </div>
           )}
@@ -1330,11 +1321,7 @@ export function ScheduleMakeupModal({
               {session.school}
             </span>
           )}
-          {missedLesson != null && (
-            <span className="text-[9px] px-1 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-medium">
-              Lesson {missedLesson}
-            </span>
-          )}
+          <LessonNumberBadge lessonNumber={missedLesson} size="xs" />
           <span className="text-gray-400">|</span>
           <span className="text-gray-600 dark:text-gray-400">{session.session_date}</span>
           <span className="text-gray-400">|</span>
@@ -2157,7 +2144,7 @@ export function ScheduleMakeupModal({
                 </div>
                 <div className="space-y-1">
                   {studentsInSlot.map((student, idx) => (
-                    <StudentDisplay key={idx} student={student} missedLesson={missedLesson} />
+                    <StudentDisplay key={idx} student={student} />
                   ))}
                 </div>
               </div>
@@ -2328,7 +2315,7 @@ export function ScheduleMakeupModal({
                                   {/* Show students - simplified */}
                                   <div className="flex flex-wrap gap-1 mt-1.5">
                                     {sessions.slice(0, 3).map((s, i) => (
-                                      <StudentDisplay key={i} student={s} compact missedLesson={missedLesson} />
+                                      <StudentDisplay key={i} student={s} compact />
                                     ))}
                                     {sessions.length > 3 && (
                                       <button
@@ -2347,7 +2334,7 @@ export function ScheduleMakeupModal({
                                   {expandedSlotStudents === `${timeSlot}-${tutorId}` && sessions.length > 3 && (
                                     <div className="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700">
                                       {sessions.slice(3).map((s, i) => (
-                                        <StudentDisplay key={i} student={s} compact missedLesson={missedLesson} />
+                                        <StudentDisplay key={i} student={s} compact />
                                       ))}
                                     </div>
                                   )}
