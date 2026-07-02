@@ -592,6 +592,7 @@ class SessionResponse(SessionBase):
     summer_class_grade: Optional[str] = Field(None, max_length=50, description="Grade of the summer class (e.g. F1), distinct from the student's own grade")
     summer_course_type: Optional[str] = Field(None, max_length=10, description="Summer course type (A/B) — determines lesson order")
     summer_slot_label: Optional[str] = Field(None, max_length=100, description="Label of the summer class slot")
+    moved_lesson_number: Optional[int] = Field(None, description="For make-up origins: lesson number now carried by the successor make-up row (display only; DB value stays NULL)")
 
     model_config = ConfigDict(from_attributes=True)
 

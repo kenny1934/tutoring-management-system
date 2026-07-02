@@ -142,6 +142,14 @@ async def get_sessions(
         if session.rescheduled_to_id and session.rescheduled_to_id in linked_sessions:
             linked = linked_sessions[session.rescheduled_to_id]
             session_data.rescheduled_to = _build_linked_session_info(linked, linked.tutor)
+            # Summer make-up origins hand lesson_number to the successor;
+            # borrow it back for display so the origin keeps its badge.
+            if (
+                session_data.lesson_number is None
+                and linked.summer_session_id is not None
+                and linked.lesson_number is not None
+            ):
+                session_data.moved_lesson_number = linked.lesson_number
         if session.make_up_for_id and session.make_up_for_id in linked_sessions:
             linked = linked_sessions[session.make_up_for_id]
             session_data.make_up_for = _build_linked_session_info(linked, linked.tutor)

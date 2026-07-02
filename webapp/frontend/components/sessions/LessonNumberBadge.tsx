@@ -4,22 +4,26 @@ interface LessonNumberBadgeProps {
   lessonNumber: number | null | undefined;
   size?: "xs" | "sm" | "md";
   className?: string;
+  /** Muted style: the lesson moved to a booked make-up (origin rows). */
+  moved?: boolean;
 }
 
 export function LessonNumberBadge({
   lessonNumber,
   size = "sm",
   className,
+  moved = false,
 }: LessonNumberBadgeProps) {
   if (lessonNumber == null) return null;
 
   return (
     <span
-      title={`Lesson ${lessonNumber}`}
+      title={moved ? `Lesson ${lessonNumber} (moved to booked make-up)` : `Lesson ${lessonNumber}`}
       className={cn(
         "inline-flex items-center justify-center rounded font-semibold tabular-nums",
         "bg-amber-100 text-amber-900 border border-amber-300",
         "dark:bg-amber-900/40 dark:text-amber-100 dark:border-amber-700/60",
+        moved && "opacity-60 border-dashed",
         size === "xs" && "px-1 py-0 text-[9px] leading-[14px] min-w-[16px]",
         size === "sm" && "px-1.5 py-0 text-[10px] leading-[16px] min-w-[18px]",
         size === "md" && "px-2 py-0.5 text-xs leading-tight min-w-[22px]",
@@ -28,5 +32,30 @@ export function LessonNumberBadge({
     >
       L{lessonNumber}
     </span>
+  );
+}
+
+interface SessionLessonBadgeProps {
+  session: {
+    lesson_number?: number | null;
+    moved_lesson_number?: number | null;
+  };
+  size?: "xs" | "sm" | "md";
+  className?: string;
+}
+
+/**
+ * Lesson badge for a session row. Make-up origins hand their lesson_number
+ * to the successor row; borrow it back (muted) so the origin keeps its badge.
+ */
+export function SessionLessonBadge({ session, size, className }: SessionLessonBadgeProps) {
+  const lessonNumber = session.lesson_number ?? session.moved_lesson_number;
+  return (
+    <LessonNumberBadge
+      lessonNumber={lessonNumber}
+      size={size}
+      className={className}
+      moved={session.lesson_number == null && session.moved_lesson_number != null}
+    />
   );
 }

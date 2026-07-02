@@ -407,6 +407,7 @@ export interface Session {
   summer_class_grade?: string | null;  // Grade of the summer class, distinct from the student's own grade
   summer_course_type?: string | null;  // Summer course type (A/B) — determines lesson order
   summer_slot_label?: string | null;
+  moved_lesson_number?: number | null;  // Make-up origins: lesson number carried by the successor row (display only)
   student?: Student;
   exercises?: SessionExercise[];
   homework_completion?: HomeworkCompletion[];

@@ -7,7 +7,7 @@ from SQLAlchemy models with loaded relationships.
 from typing import Optional
 from datetime import date
 from sqlalchemy.orm import Session
-from models import SessionLog, Tutor, SummerSession, SummerCourseSlot
+from models import SessionLog, Tutor, Enrollment, SummerSession, SummerCourseSlot, SummerLesson
 from schemas import SessionResponse, SessionExerciseResponse, LinkedSessionInfo
 
 
@@ -88,23 +88,68 @@ def batch_load_summer_slots(sessions: list, db: Session) -> dict:
     """
     Resolve summer class identity for a batch of session_log rows.
 
-    Maps each row's summer_session_id to the SummerCourseSlot the placement
-    currently belongs to (summer_sessions.slot_id reflects the slot actually
-    attended, including make-up moves).
+    Per-row preference order:
+    1. Hosting match — a materialised SummerLesson whose (lesson_date,
+       slot.time_slot, slot.tutor_id) equals the row's (session_date,
+       time_slot, tutor_id). This is the class physically taught in that
+       cell, so make-ups hosted in another class resolve to the hosting
+       class, and make-up origins (whose summer linkage moved to the
+       successor row) still resolve via their cell. The tutor-conflict
+       guard keeps one slot per tutor/date/time, so the match is unique.
+    2. Home slot — summer_sessions.slot_id via the row's summer_session_id,
+       for rows at a time with no summer class (standalone make-ups).
 
-    Returns {summer_session_id: SummerCourseSlot}. IDs with no matching
-    summer_sessions row are simply absent.
+    Candidates are rows with summer_session_id plus rows on Summer
+    enrollments (origins have no linkage left after the handoff).
+
+    Returns {session_log.id: SummerCourseSlot}; rows that resolve to
+    nothing are simply absent.
     """
-    summer_ids = {s.summer_session_id for s in sessions if s.summer_session_id}
-    if not summer_ids:
+    linked = [s for s in sessions if s.summer_session_id]
+    unlinked = [s for s in sessions if not s.summer_session_id and s.enrollment_id]
+    candidates = list(linked)
+    if unlinked:
+        summer_enrollment_ids = {
+            eid for (eid,) in db.query(Enrollment.id).filter(
+                Enrollment.id.in_({s.enrollment_id for s in unlinked}),
+                Enrollment.enrollment_type == 'Summer',
+            ).all()
+        }
+        candidates += [s for s in unlinked if s.enrollment_id in summer_enrollment_ids]
+    if not candidates:
         return {}
-    rows = (
-        db.query(SummerSession.id, SummerCourseSlot)
-        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
-        .filter(SummerSession.id.in_(summer_ids))
-        .all()
-    )
-    return {ss_id: slot for ss_id, slot in rows}
+
+    dates = {s.session_date for s in candidates if s.session_date}
+    host_by_cell = {}
+    if dates:
+        rows = (
+            db.query(SummerLesson.lesson_date, SummerCourseSlot)
+            .join(SummerCourseSlot, SummerLesson.slot_id == SummerCourseSlot.id)
+            .filter(SummerLesson.lesson_date.in_(dates))
+            .all()
+        )
+        for lesson_date, slot in rows:
+            host_by_cell[(lesson_date, slot.time_slot, slot.tutor_id)] = slot
+
+    summer_ids = {s.summer_session_id for s in linked}
+    home_by_ss_id = {}
+    if summer_ids:
+        rows = (
+            db.query(SummerSession.id, SummerCourseSlot)
+            .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+            .filter(SummerSession.id.in_(summer_ids))
+            .all()
+        )
+        home_by_ss_id = {ss_id: slot for ss_id, slot in rows}
+
+    result = {}
+    for s in candidates:
+        slot = host_by_cell.get((s.session_date, s.time_slot, s.tutor_id))
+        if slot is None and s.summer_session_id:
+            slot = home_by_ss_id.get(s.summer_session_id)
+        if slot is not None:
+            result[s.id] = slot
+    return result
 
 
 def build_session_response(session: SessionLog, db: Optional[Session] = None, root_dates: Optional[dict] = None, summer_slots: Optional[dict] = None) -> SessionResponse:
@@ -145,18 +190,17 @@ def build_session_response(session: SessionLog, db: Optional[Session] = None, ro
     # Enrollment payment status (if enrollment is loaded)
     if hasattr(session, 'enrollment') and session.enrollment:
         data.enrollment_payment_status = session.enrollment.payment_status
-    # Summer class identity (slot the placement currently belongs to)
-    if session.summer_session_id:
-        slot = None
-        if summer_slots is not None:
-            slot = summer_slots.get(session.summer_session_id)
-        elif db:
-            slot = batch_load_summer_slots([session], db).get(session.summer_session_id)
-        if slot:
-            data.summer_slot_id = slot.id
-            data.summer_class_grade = slot.grade
-            data.summer_course_type = slot.course_type
-            data.summer_slot_label = slot.slot_label
+    # Summer class identity (slot of the class hosting this row's cell)
+    slot = None
+    if summer_slots is not None:
+        slot = summer_slots.get(session.id)
+    elif db:
+        slot = batch_load_summer_slots([session], db).get(session.id)
+    if slot:
+        data.summer_slot_id = slot.id
+        data.summer_class_grade = slot.grade
+        data.summer_course_type = slot.course_type
+        data.summer_slot_label = slot.slot_label
     return data
 
 
