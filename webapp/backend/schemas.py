@@ -759,6 +759,7 @@ class StudentInSlot(BaseModel):
     school: Optional[str] = None
     lang_stream: Optional[str] = None
     session_status: str
+    lesson_number: Optional[int] = Field(None, description="Resolved summer lesson the student is on in this slot; None for non-summer")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -771,6 +772,12 @@ class MakeupScoreBreakdown(BaseModel):
     matching_lang_count: int = Field(..., ge=0, description="Number of students with matching language stream")
     days_away: int = Field(..., ge=0, description="Days from original session date")
     current_students: int = Field(..., ge=0, description="Current student count in the slot")
+    # Summer-only lesson signals; stay at defaults for Regular make-ups.
+    # Pool = same-grade summer students in the slot with a resolvable lesson number.
+    missed_lesson: Optional[int] = Field(None, description="The missed session's resolved lesson number (same for every suggestion); None when unassigned")
+    matching_lesson_count: int = Field(0, ge=0, description="Same-grade summer students on the missed session's lesson number")
+    slot_majority_lesson: Optional[int] = Field(None, description="Dominant lesson number in the slot; None when the pool is empty or tied without the missed lesson")
+    majority_lesson_count: int = Field(0, ge=0, description="Same-grade summer students on the majority lesson")
 
 
 class MakeupSlotSuggestion(BaseModel):

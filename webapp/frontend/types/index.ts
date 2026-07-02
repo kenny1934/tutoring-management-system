@@ -881,6 +881,7 @@ export interface StudentInSlot {
   school?: string;
   lang_stream?: string;
   session_status: string;
+  lesson_number?: number | null;  // Resolved summer lesson; null for non-summer
 }
 
 // Raw scoring data returned by backend for frontend-side weighted scoring
@@ -891,6 +892,12 @@ export interface MakeupScoreBreakdown {
   matching_lang_count: number;
   days_away: number;
   current_students: number;
+  // Summer-only lesson signals (same-grade summer students in the slot);
+  // optional so old cached responses stay valid
+  missed_lesson?: number | null;
+  matching_lesson_count?: number;
+  slot_majority_lesson?: number | null;
+  majority_lesson_count?: number;
 }
 
 export interface MakeupSlotSuggestion {

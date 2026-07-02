@@ -22,6 +22,7 @@ import {
 } from "@/lib/calendar-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { getGradeColor, DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
+import { plural, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
@@ -33,6 +34,7 @@ import {
   Users,
   Loader2,
   Check,
+  Copy,
   AlertTriangle,
   Sparkles,
   X,
@@ -45,7 +47,9 @@ import {
   Clock,
   CalendarX,
 } from "lucide-react";
-import type { Session, MakeupSlotSuggestion, MakeupScoreBreakdown, Tutor, MakeupProposalSlotCreate } from "@/types";
+import type { Session, MakeupSlotSuggestion, Tutor, MakeupProposalSlotCreate } from "@/types";
+import { calculateMakeupScore, DEFAULT_WEIGHTS, SUMMER_WEIGHTS, type ScoringWeights } from "@/lib/makeup-scoring";
+import { LessonNumberBadge } from "./LessonNumberBadge";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
 
 // Interface for enrollment deadline exceeded error
@@ -57,37 +61,7 @@ interface DeadlineExceededError {
 
 // Time slot constants imported from @/lib/constants
 
-// Scoring weights for make-up slot suggestions
-interface ScoringWeights {
-  sameTutor: number;
-  sameGrade: number;
-  sameSchool: number;
-  sameLang: number;
-  soonerDate: number;
-  moreCapacity: number;
-}
-
-const DEFAULT_WEIGHTS: ScoringWeights = {
-  sameTutor: 100,
-  sameGrade: 20,      // Per matching student, capped at ~60
-  sameLang: 15,       // Per matching student, capped at ~45 (priority: grade > lang > school)
-  sameSchool: 10,     // Per matching student, capped at ~30
-  soonerDate: 30,     // Scaled by proximity (0-30 days)
-  moreCapacity: 10,   // Per empty spot
-};
-
-// Calculate score based on raw data and user-adjustable weights
-function calculateScore(breakdown: MakeupScoreBreakdown, weights: ScoringWeights): number {
-  let score = 0;
-  if (breakdown.is_same_tutor) score += weights.sameTutor;
-  // Caps scale proportionally: weight * 3 (e.g., default 20 * 3 = 60)
-  score += Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3);
-  score += Math.min(breakdown.matching_lang_count * weights.sameLang, weights.sameLang * 3);
-  score += Math.min(breakdown.matching_school_count * weights.sameSchool, weights.sameSchool * 3);
-  score += weights.soonerDate * Math.max(0, (30 - breakdown.days_away) / 30);
-  score += weights.moreCapacity * (8 - breakdown.current_students);
-  return Math.round(score);
-}
+// Scoring weights and score calculation live in @/lib/makeup-scoring
 
 // Helper to convert time string to minutes for sorting
 function timeToMinutes(timeStr: string): number {
@@ -104,6 +78,7 @@ interface StudentDisplayProps {
     grade?: string;
     lang_stream?: string;
     school?: string;
+    lesson_number?: number | null;
   };
   compact?: boolean; // true = inline badge style (Day Picker), false = list item style (Suggestions/Form)
 }
@@ -133,6 +108,7 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
           {student.school}
         </span>
       )}
+      <LessonNumberBadge lessonNumber={student.lesson_number} size="xs" className={compact ? "ml-1" : undefined} />
     </>
   );
 
@@ -148,6 +124,32 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
     <div className="flex items-center gap-2 text-xs">
       {content}
     </div>
+  );
+}
+
+// Copies "6/7 (Mon) 18:00-19:30" (same format as the sessions page) so staff
+// can paste a candidate slot to parents before booking
+function CopySlotButton({ date, timeSlot, className }: { date: string; timeSlot: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copyText = formatCompactDateTimeSlot(new Date(date + 'T00:00:00'), timeSlot);
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(copyText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className={cn("p-1 hover:bg-[#a0704b]/10 dark:hover:bg-[#cd853f]/10 rounded transition-colors", className)}
+      title={copyText}
+    >
+      {copied ? (
+        <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
+      ) : (
+        <Copy className="h-3 w-3 text-gray-400 dark:text-gray-500" />
+      )}
+    </button>
   );
 }
 
@@ -198,6 +200,7 @@ interface SuggestionCardProps {
   isSuperAdmin?: boolean;
   hasApprovedExtension?: boolean;
   onRequestExtension?: () => void;
+  isSummerMakeup?: boolean;
 }
 
 const SuggestionCard = React.memo(function SuggestionCard({
@@ -216,8 +219,15 @@ const SuggestionCard = React.memo(function SuggestionCard({
   isSuperAdmin,
   hasApprovedExtension,
   onRequestExtension,
+  isSummerMakeup,
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
+
+  const majorityCount = breakdown.majority_lesson_count ?? 0;
+  const matchingLessonCount = breakdown.matching_lesson_count ?? 0;
+  const isLessonMatch =
+    breakdown.slot_majority_lesson != null &&
+    breakdown.slot_majority_lesson === breakdown.missed_lesson;
 
   // Sort students by compatibility with original student (grade > lang > school)
   const sortedStudents = useMemo(() =>
@@ -246,6 +256,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
               {new Date(suggestion.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
             <span className="text-xs text-gray-500">{suggestion.time_slot}</span>
+            <CopySlotButton date={suggestion.session_date} timeSlot={suggestion.time_slot} className="-my-1" />
             <span className="text-xs text-gray-500">•</span>
             <span className="text-xs text-[#8b6f47] dark:text-[#cd853f]">{suggestion.tutor_name}</span>
           </div>
@@ -259,6 +270,17 @@ const SuggestionCard = React.memo(function SuggestionCard({
             {breakdown.is_same_tutor && (
               <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
                 Same tutor
+              </span>
+            )}
+            {breakdown.slot_majority_lesson != null && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                <LessonNumberBadge lessonNumber={breakdown.slot_majority_lesson} size="xs" />
+                {plural(majorityCount, "classmate")}
+              </span>
+            )}
+            {isLessonMatch && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
+                Same lesson
               </span>
             )}
           </div>
@@ -277,6 +299,9 @@ const SuggestionCard = React.memo(function SuggestionCard({
           <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[10px] text-gray-600 dark:text-gray-400">
             <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+              {isSummerMakeup && (
+                <span>Same lesson ({matchingLessonCount}): +{Math.min(matchingLessonCount * weights.sameLesson, weights.sameLesson * 3)}</span>
+              )}
               <span>Same tutor: +{breakdown.is_same_tutor ? weights.sameTutor : 0}</span>
               <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3)}</span>
               <span>Same lang ({breakdown.matching_lang_count}): +{Math.min(breakdown.matching_lang_count * weights.sameLang, weights.sameLang * 3)}</span>
@@ -458,6 +483,11 @@ export function ScheduleMakeupModal({
   const { data: tutors } = useActiveTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
 
+  // Summer make-ups match on lesson number: suggestions favour classes
+  // teaching the lesson the student missed, via the SUMMER_WEIGHTS preset.
+  const isSummerMakeup = enrollment?.enrollment_type === 'Summer';
+  const baseWeights = isSummerMakeup ? SUMMER_WEIGHTS : DEFAULT_WEIGHTS;
+
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
   // This is needed for cross-enrollment makeups: when a session from old enrollment A needs
   // to be scheduled, the deadline should be checked against the student's current enrollment B
@@ -613,6 +643,14 @@ export function ScheduleMakeupModal({
     setVisibleSuggestionCount(5);
   };
 
+  // Apply the matching preset when the modal opens. The enrollment loads
+  // async, so this also switches to the Summer profile once it resolves.
+  useEffect(() => {
+    if (isOpen) {
+      setWeights(baseWeights);
+    }
+  }, [isOpen, baseWeights]);
+
   // Selection state for day picker
   const [selectedDayPickerSlot, setSelectedDayPickerSlot] = useState<{
     timeSlot: string;
@@ -665,10 +703,16 @@ export function ScheduleMakeupModal({
     return [...suggestions]
       .map(s => ({
         ...s,
-        calculatedScore: calculateScore(s.score_breakdown, weights),
+        calculatedScore: calculateMakeupScore(s.score_breakdown, weights),
       }))
       .sort((a, b) => b.calculatedScore - a.calculatedScore);
   }, [suggestions, weights]);
+
+  // The missed session's lesson number, shown in the header banner and
+  // driving the no-lesson notice. The backend resolves it through the summer
+  // chain (echoed on every suggestion); the session's own value covers the
+  // pre-load moment.
+  const missedLesson = suggestions[0]?.score_breakdown.missed_lesson ?? session.lesson_number;
 
   // Fetch holidays for the current month view
   const monthBounds = getMonthBounds(viewDate);
@@ -741,7 +785,7 @@ export function ScheduleMakeupModal({
       setExpandedSuggestion(null);
       setShowDayPicker(false);
       setDayPickerDate(null);
-      setWeights(DEFAULT_WEIGHTS);
+      // Weights re-apply from the matching preset on next open
       setShowWeightTuner(false);
       setShowSuggestions(true);
       setSelectedDayPickerSlot(null);
@@ -1103,6 +1147,9 @@ export function ScheduleMakeupModal({
         grade: s.grade,
         school: s.school,
         lang_stream: s.lang_stream,
+        // Raw log value; publish freezes resolved lesson numbers into
+        // session_log, so no summer-chain fallback here (unlike suggestions)
+        lesson_number: s.lesson_number,
       }));
   }, [selectedDate, effectiveTimeSlot, selectedTutorId, sessionsByDate]);
 
@@ -1307,6 +1354,7 @@ export function ScheduleMakeupModal({
               {session.school}
             </span>
           )}
+          <LessonNumberBadge lessonNumber={missedLesson} size="xs" />
           <span className="text-gray-400">|</span>
           <span className="text-gray-600 dark:text-gray-400">{session.session_date}</span>
           <span className="text-gray-400">|</span>
@@ -1557,6 +1605,13 @@ export function ScheduleMakeupModal({
           {/* Collapsible Content */}
           {showSuggestions && (
             <div className="p-3">
+              {/* Summer make-up with no lesson number anywhere: nothing to match on */}
+              {isSummerMakeup && !suggestionsLoading && suggestions.length > 0 &&
+                missedLesson == null && (
+                <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs text-amber-700 dark:text-amber-400">
+                  This session has no lesson number yet, so suggestions are ranked without lesson matching. Set a lesson number on the session to find classes covering the same material.
+                </div>
+              )}
               {/* Weight Tuner Panel */}
               {showWeightTuner && (
             <div className="mb-3 p-3 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -1565,7 +1620,7 @@ export function ScheduleMakeupModal({
                   SCORING WEIGHTS
                 </span>
                 <button
-                  onClick={() => updateWeights(DEFAULT_WEIGHTS)}
+                  onClick={() => updateWeights(baseWeights)}
                   className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-[#a0704b] transition-colors"
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -1573,6 +1628,10 @@ export function ScheduleMakeupModal({
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {isSummerMakeup && (
+                  <WeightSlider label="Same Lesson (per student)" value={weights.sameLesson} min={0} max={200} step={10}
+                    onChange={(v) => updateWeights(w => ({ ...w, sameLesson: v }))} />
+                )}
                 <WeightSlider label="Same Tutor" value={weights.sameTutor} min={0} max={200} step={10}
                   onChange={(v) => updateWeights(w => ({ ...w, sameTutor: v }))} />
                 <WeightSlider label="Same Grade (per student)" value={weights.sameGrade} min={0} max={50} step={5}
@@ -1645,6 +1704,7 @@ export function ScheduleMakeupModal({
                         isSuperAdmin={isSuperAdmin}
                         hasApprovedExtension={hasApprovedExtension}
                         onRequestExtension={() => setShowExtensionModal(true)}
+                        isSummerMakeup={isSummerMakeup}
                       />
                     );
                   })}
@@ -2234,8 +2294,11 @@ export function ScheduleMakeupModal({
                     filteredDayPickerSlots.map(({ timeSlot, tutors: slotTutors }) => (
                       <div key={timeSlot} className="space-y-1.5">
                         {/* Time Slot Header */}
-                        <div className="sticky top-0 z-10 text-[10px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
+                        <div className="sticky top-0 z-10 flex items-center gap-1 text-[10px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
                           {timeSlot}
+                          {dayPickerDate && (
+                            <CopySlotButton date={dayPickerDate} timeSlot={timeSlot} className="-my-1" />
+                          )}
                         </div>
 
                         {/* Tutors in this slot */}
