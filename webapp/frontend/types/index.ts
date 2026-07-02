@@ -403,6 +403,10 @@ export interface Session {
   enrollment?: Enrollment;
   enrollment_payment_status?: string;  // Payment status of the enrollment (Paid, Pending Payment, Overdue, Cancelled)
   lesson_number?: number | null;
+  summer_slot_id?: number | null;  // Summer class (slot) this session belongs to; null for non-summer
+  summer_class_grade?: string | null;  // Grade of the summer class, distinct from the student's own grade
+  summer_course_type?: string | null;  // Summer course type (A/B) — determines lesson order
+  summer_slot_label?: string | null;
   student?: Student;
   exercises?: SessionExercise[];
   homework_completion?: HomeworkCompletion[];

@@ -7,7 +7,7 @@ from SQLAlchemy models with loaded relationships.
 from typing import Optional
 from datetime import date
 from sqlalchemy.orm import Session
-from models import SessionLog, Tutor
+from models import SessionLog, Tutor, SummerSession, SummerCourseSlot
 from schemas import SessionResponse, SessionExerciseResponse, LinkedSessionInfo
 
 
@@ -84,7 +84,30 @@ def batch_find_root_original_session_dates(
     return result
 
 
-def build_session_response(session: SessionLog, db: Optional[Session] = None, root_dates: Optional[dict] = None) -> SessionResponse:
+def batch_load_summer_slots(sessions: list, db: Session) -> dict:
+    """
+    Resolve summer class identity for a batch of session_log rows.
+
+    Maps each row's summer_session_id to the SummerCourseSlot the placement
+    currently belongs to (summer_sessions.slot_id reflects the slot actually
+    attended, including make-up moves).
+
+    Returns {summer_session_id: SummerCourseSlot}. IDs with no matching
+    summer_sessions row are simply absent.
+    """
+    summer_ids = {s.summer_session_id for s in sessions if s.summer_session_id}
+    if not summer_ids:
+        return {}
+    rows = (
+        db.query(SummerSession.id, SummerCourseSlot)
+        .join(SummerCourseSlot, SummerSession.slot_id == SummerCourseSlot.id)
+        .filter(SummerSession.id.in_(summer_ids))
+        .all()
+    )
+    return {ss_id: slot for ss_id, slot in rows}
+
+
+def build_session_response(session: SessionLog, db: Optional[Session] = None, root_dates: Optional[dict] = None, summer_slots: Optional[dict] = None) -> SessionResponse:
     """
     Build a SessionResponse from a SessionLog with student/tutor/exercise data.
 
@@ -122,6 +145,18 @@ def build_session_response(session: SessionLog, db: Optional[Session] = None, ro
     # Enrollment payment status (if enrollment is loaded)
     if hasattr(session, 'enrollment') and session.enrollment:
         data.enrollment_payment_status = session.enrollment.payment_status
+    # Summer class identity (slot the placement currently belongs to)
+    if session.summer_session_id:
+        slot = None
+        if summer_slots is not None:
+            slot = summer_slots.get(session.summer_session_id)
+        elif db:
+            slot = batch_load_summer_slots([session], db).get(session.summer_session_id)
+        if slot:
+            data.summer_slot_id = slot.id
+            data.summer_class_grade = slot.grade
+            data.summer_course_type = slot.course_type
+            data.summer_slot_label = slot.slot_label
     return data
 
 

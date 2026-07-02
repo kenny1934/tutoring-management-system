@@ -91,6 +91,8 @@ import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
+import { flattenSummerClusters } from "@/lib/summer-class-grouping";
 const ProposalDetailModal = dynamic(
   () => import("@/components/sessions/ProposalDetailModal").then(m => m.ProposalDetailModal),
   { ssr: false }
@@ -2471,17 +2473,18 @@ export default function SessionsPage() {
                           className="overflow-hidden"
                         >
                           <div className="space-y-2 ml-0 sm:ml-4 p-1">
-                            {sessionsInSlot.map((session, sessionIndex) => {
+                            {flattenSummerClusters(sessionsInSlot).map(({ session, classHeader }, sessionIndex, flatRows) => {
                         const displayStatus = getDisplayStatus(session);
                         const statusConfig = getSessionStatusConfig(displayStatus);
                         const StatusIcon = statusConfig.Icon;
-                        const prevSession = sessionIndex > 0 ? sessionsInSlot[sessionIndex - 1] : null;
+                        const prevSession = sessionIndex > 0 ? flatRows[sessionIndex - 1].session : null;
                         const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
                         return (
                           <div key={session.id}>
                             {isNewTutor && (
                               <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-3" />
                             )}
+                            {classHeader && <SummerClassHeader classInfo={classHeader} />}
                             <motion.div
                               initial={{ opacity: 0, x: -20 }}
                               animate={{
