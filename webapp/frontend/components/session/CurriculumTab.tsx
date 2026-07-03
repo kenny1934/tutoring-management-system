@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, ChevronDown, ChevronRight } from "lucide-react";
@@ -184,6 +185,12 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
           <Badge variant="secondary" className="text-xs">
             {isLastYear ? `Last year · ${timeline.academic_year}` : timeline.academic_year}
           </Badge>
+          <Link
+            href={`/curriculum?school=${encodeURIComponent(session.school || "")}&grade=${encodeURIComponent(session.grade || "")}&week=${week}`}
+            className="text-[11px] text-teal-700 dark:text-teal-400 hover:underline ml-auto"
+          >
+            See the full year →
+          </Link>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   GraduationCap,
   ChevronDown,
@@ -242,7 +243,20 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       {expanded && (
         <div className="border-t border-teal-100 dark:border-teal-900/50">
           <div className="flex items-center gap-2 px-3 pt-2">
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 flex-1">{subtitle}</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 flex-1">
+              {subtitle}
+              {data.week_number != null && (
+                <>
+                  {" · "}
+                  <Link
+                    href={`/curriculum?school=${encodeURIComponent(data.school || "")}&grade=${encodeURIComponent(data.grade || "")}&week=${data.week_number}`}
+                    className="text-teal-700 dark:text-teal-400 hover:underline"
+                  >
+                    See the full year →
+                  </Link>
+                </>
+              )}
+            </p>
             <button
               type="button"
               onClick={() => setTestPrep(!effectiveTestPrep)}

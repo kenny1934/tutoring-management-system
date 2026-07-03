@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Map as MapIcon, Loader2, ChevronDown, ChevronRight, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -81,13 +82,19 @@ export default function CurriculumPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const [school, setSchool] = useState<string | null>(null);
-  const [grade, setGrade] = useState<string | null>(null);
-  const [year, setYear] = useState<string | null>(null);
+  // Pickers hydrate from the URL so session pages can deep-link a
+  // school-grade-week and tutors can share what they're looking at.
+  const searchParams = useSearchParams();
+  const [school, setSchool] = useState<string | null>(() => searchParams.get("school"));
+  const [grade, setGrade] = useState<string | null>(() => searchParams.get("grade"));
+  const [year, setYear] = useState<string | null>(() => searchParams.get("year"));
   const [gapsExpanded, setGapsExpanded] = useState(false);
   const [expandedLane, setExpandedLane] = useState<number | null>(null);
   // Week the tutor jumped to (highlight column + week card on the Gantt).
-  const [focusWeek, setFocusWeek] = useState<number | null>(null);
+  const [focusWeek, setFocusWeek] = useState<number | null>(() => {
+    const w = parseInt(searchParams.get("week") || "", 10);
+    return Number.isFinite(w) && w >= 1 ? w : null;
+  });
   const [weekQuery, setWeekQuery] = useState("");
   const [weekQueryInvalid, setWeekQueryInvalid] = useState(false);
   const ganttScrollRef = useRef<HTMLDivElement>(null);
@@ -257,16 +264,35 @@ export default function CurriculumPage() {
     [ganttMaxWeek]
   );
 
-  // First load of a school-grade-year lands on "now" instead of week 1
-  // (in spring the interesting region is otherwise off-screen).
+  // First load of a school-grade-year lands on the deep-linked week if there
+  // is one, else "now" instead of week 1 (in spring the interesting region is
+  // otherwise off-screen).
   const autoScrolledKey = useRef<string | null>(null);
   useEffect(() => {
-    if (timeline?.current_week == null || lanes.length === 0) return;
+    const target = focusWeek ?? timeline?.current_week;
+    if (target == null || lanes.length === 0) return;
     const key = `${school}||${effectiveGrade}||${displayYear}`;
     if (autoScrolledKey.current === key) return;
     autoScrolledKey.current = key;
-    scrollToWeek(timeline.current_week, "auto");
-  }, [timeline, lanes, school, effectiveGrade, displayYear, scrollToWeek]);
+    scrollToWeek(target, "auto");
+  }, [timeline, lanes, school, effectiveGrade, displayYear, focusWeek, scrollToWeek]);
+
+  // Reflect the current view in the URL (guarded: Next patches replaceState,
+  // so an unconditional call would loop via useSearchParams).
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (school) {
+      params.set("school", school);
+      if (effectiveGrade) params.set("grade", effectiveGrade);
+      if (displayYear) params.set("year", displayYear);
+      if (focusWeek != null) params.set("week", String(focusWeek));
+    }
+    const qs = params.toString();
+    const newUrl = qs ? `/curriculum?${qs}` : "/curriculum";
+    if (newUrl !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(null, "", newUrl);
+    }
+  }, [school, effectiveGrade, displayYear, focusWeek]);
 
   const jumpToWeek = useCallback(
     (week: number | null) => {
