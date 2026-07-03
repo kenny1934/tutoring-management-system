@@ -111,7 +111,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
   };
 
   return (
-    <div className="mb-4">
+    <div>
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
         <input
@@ -176,8 +176,8 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
       </div>
 
       {active && (
-        <div className="mt-2 bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-white dark:from-teal-900/20 dark:to-[#1a1a1a]">
+        <div className="mt-2 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
               Search results
             </span>
