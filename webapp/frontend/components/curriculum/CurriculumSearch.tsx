@@ -9,6 +9,7 @@ import {
   ROLE_LABELS,
   conceptDisplayName,
   conceptNameForStream,
+  matchesConcept,
   sourcesText,
   stripExtension,
 } from "@/lib/curriculum-labels";
@@ -28,15 +29,6 @@ interface CurriculumSearchProps {
 type ActiveQuery =
   | { kind: "concept"; conceptId: number; label: string }
   | { kind: "text"; q: string };
-
-function matchesConcept(c: CurriculumConceptVocab, needle: string): boolean {
-  const n = needle.toLowerCase();
-  return (
-    (c.name_en || "").toLowerCase().includes(n) ||
-    (c.name_zh || "").includes(needle) ||
-    c.codes.some((code) => code.code.toLowerCase() === n)
-  );
-}
 
 function evidenceText(c: CurriculumSearchConcept): string | null {
   if (!c.evidence || c.evidence.weeks_observed.length === 0) return null;

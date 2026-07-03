@@ -48,3 +48,20 @@ export function sourcesText(sources: string[]): string {
 export function stripExtension(name: string): string {
   return name.replace(/\.(pdf|docx?|xlsx|pptx|jpg)$/i, "");
 }
+
+/**
+ * Concept-vocabulary matcher shared by the search autocomplete and the
+ * suggestion section's correction picker: bilingual name substring or an
+ * exact series code (e.g. 803).
+ */
+export function matchesConcept(
+  c: { name_en?: string | null; name_zh?: string | null; codes: { code: string }[] },
+  needle: string
+): boolean {
+  const n = needle.toLowerCase();
+  return (
+    (c.name_en || "").toLowerCase().includes(n) ||
+    (c.name_zh || "").includes(needle) ||
+    c.codes.some((code) => code.code.toLowerCase() === n)
+  );
+}

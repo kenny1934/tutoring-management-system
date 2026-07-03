@@ -547,9 +547,9 @@ export function useCurriculumCoverage() {
  * Hook for the full concept vocabulary (76 rows — cached, filtered client-side
  * for autocomplete).
  */
-export function useCurriculumConcepts() {
+export function useCurriculumConcepts(enabled: boolean = true) {
   return useSWR<CurriculumConceptVocab[]>(
-    'curriculum-concepts',
+    enabled ? 'curriculum-concepts' : null,
     () => curriculumAPI.getConcepts(),
     { revalidateOnFocus: false }
   );

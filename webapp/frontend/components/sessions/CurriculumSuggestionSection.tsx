@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   GraduationCap,
   ChevronDown,
@@ -10,18 +10,26 @@ import {
   Loader2,
   CalendarClock,
   Undo2,
+  MessageSquarePlus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
-import { useCurriculumSuggestions } from "@/lib/hooks";
+import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
 import { curriculumAPI } from "@/lib/api";
 import {
   ROLE_LABELS,
   SOURCE_LABELS,
   conceptNameForStream,
+  matchesConcept,
   stripExtension,
 } from "@/lib/curriculum-labels";
-import type { Session, CurriculumConceptSuggestion, CurriculumFile } from "@/types";
+import type {
+  Session,
+  CurriculumConceptSuggestion,
+  CurriculumConceptVocab,
+  CurriculumFile,
+} from "@/types";
 
 const SUGGESTED_GRADES = ["F1", "F2", "F3"];
 
@@ -50,6 +58,15 @@ type ConfirmState =
   | { status: "saving" }
   | { status: "confirmed"; observationId: number };
 
+// The correction picker: disagreement is worth more to the timeline than
+// agreement, so when none of the suggestions is what the school is actually
+// doing, the tutor can name the real topic instead of walking away.
+type CorrectionState =
+  | { status: "closed" }
+  | { status: "picking" }
+  | { status: "saving"; concept: CurriculumConceptVocab }
+  | { status: "confirmed"; concept: CurriculumConceptVocab; observationId: number };
+
 interface CurriculumSuggestionSectionProps {
   session: Session;
   onAdd: (path: string) => void;
@@ -75,6 +92,21 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   const [expanded, setExpanded] = useState(false);
   const [testPrep, setTestPrep] = useState<boolean | null>(null);
   const [confirmStates, setConfirmStates] = useState<Record<number, ConfirmState>>({});
+  const [correction, setCorrection] = useState<CorrectionState>({ status: "closed" });
+  const [correctionQuery, setCorrectionQuery] = useState("");
+
+  // Vocabulary for the correction picker; only fetched once it's opened.
+  const { data: vocab } = useCurriculumConcepts(correction.status !== "closed");
+  const grade = session.grade || "";
+  const correctionMatches = useMemo(() => {
+    const needle = correctionQuery.trim();
+    if (correction.status !== "picking" || !needle || !vocab) return [];
+    // Same-grade concepts first: schools drift, but rarely across two grades.
+    return vocab
+      .filter((c) => matchesConcept(c, needle))
+      .sort((a, b) => Number(b.grade === grade) - Number(a.grade === grade))
+      .slice(0, 6);
+  }, [correction.status, correctionQuery, vocab, grade]);
 
   if (!eligible) return null;
 
@@ -124,6 +156,36 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: { status: "idle" } }));
     } catch {
       setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: state }));
+      showToast("Could not undo the confirmation. Please try again.", "error");
+    }
+  };
+
+  const handleCorrection = async (concept: CurriculumConceptVocab) => {
+    setCorrection({ status: "saving", concept });
+    try {
+      const result = await curriculumAPI.confirmTopic({
+        student_id: session.student_id,
+        concept_id: concept.id,
+        session_date: session.session_date,
+        is_revision: effectiveTestPrep,
+      });
+      setCorrection({ status: "confirmed", concept, observationId: result.id });
+      setCorrectionQuery("");
+    } catch {
+      setCorrection({ status: "picking" });
+      showToast("Could not save the topic. Please try again.", "error");
+    }
+  };
+
+  const handleCorrectionUndo = async () => {
+    if (correction.status !== "confirmed") return;
+    const prev = correction;
+    setCorrection({ status: "saving", concept: prev.concept });
+    try {
+      await curriculumAPI.undoConfirm(prev.observationId);
+      setCorrection({ status: "closed" });
+    } catch {
+      setCorrection(prev);
       showToast("Could not undo the confirmation. Please try again.", "error");
     }
   };
@@ -289,6 +351,99 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                 </div>
               );
             })}
+
+            {/* Correction: record the topic the school is actually on */}
+            <div className="pt-2 border-t border-teal-100/60 dark:border-teal-900/40">
+              {correction.status === "closed" && (
+                <button
+                  type="button"
+                  onClick={() => setCorrection({ status: "picking" })}
+                  className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
+                >
+                  <MessageSquarePlus className="h-3 w-3" />
+                  School is on something else?
+                </button>
+              )}
+
+              {correction.status === "picking" && (
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={correctionQuery}
+                      onChange={(e) => setCorrectionQuery(e.target.value)}
+                      placeholder="e.g. Factorization, 因式分解 or 803"
+                      className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded border border-teal-200 dark:border-teal-800 bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Close topic picker"
+                      onClick={() => {
+                        setCorrection({ status: "closed" });
+                        setCorrectionQuery("");
+                      }}
+                      className="p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {correctionMatches.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {correctionMatches.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleCorrection(c)}
+                          className="w-full flex items-center gap-1.5 text-left rounded px-1.5 py-1 hover:bg-teal-50 dark:hover:bg-teal-900/20"
+                        >
+                          <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1">
+                            {conceptNameForStream(c, data.lang_stream || session.lang_stream || null)}
+                          </span>
+                          {c.grade && (
+                            <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
+                              {c.grade}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {correctionQuery.trim() && correctionMatches.length === 0 && (
+                    <p className="mt-1 text-[10px] text-gray-400">
+                      No matching topic. Try another name or a chapter code.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {(correction.status === "saving" || correction.status === "confirmed") && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate">
+                    {conceptNameForStream(
+                      correction.concept,
+                      data.lang_stream || session.lang_stream || null
+                    )}
+                  </span>
+                  {correction.status === "saving" ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-gray-400 shrink-0" />
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-teal-700 dark:text-teal-400 shrink-0">
+                      <Check className="h-3 w-3" />
+                      Noted, thanks!
+                      <button
+                        type="button"
+                        onClick={handleCorrectionUndo}
+                        className="inline-flex items-center gap-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1"
+                      >
+                        <Undo2 className="h-3 w-3" />
+                        Undo
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
