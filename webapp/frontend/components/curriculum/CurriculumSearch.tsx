@@ -8,6 +8,7 @@ import { useCurriculumConcepts, useCurriculumSearch } from "@/lib/hooks";
 import {
   ROLE_LABELS,
   conceptDisplayName,
+  conceptNameForStream,
   sourcesText,
   stripExtension,
 } from "@/lib/curriculum-labels";
@@ -199,8 +200,11 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
               {results.concepts.map((concept) => (
                 <div key={concept.concept_id} className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                      {conceptDisplayName(concept)}
+                    <span
+                      className="text-xs font-medium text-gray-800 dark:text-gray-200"
+                      title={conceptDisplayName(concept)}
+                    >
+                      {conceptNameForStream(concept, scope?.lang_stream || null)}
                     </span>
                     {concept.concept_grade && (
                       <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">

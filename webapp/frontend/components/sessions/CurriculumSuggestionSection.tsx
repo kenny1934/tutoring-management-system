@@ -18,7 +18,7 @@ import { curriculumAPI } from "@/lib/api";
 import {
   ROLE_LABELS,
   SOURCE_LABELS,
-  conceptDisplayName,
+  conceptNameForStream,
   stripExtension,
 } from "@/lib/curriculum-labels";
 import type { Session, CurriculumConceptSuggestion, CurriculumFile } from "@/types";
@@ -160,7 +160,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         </span>
         {!expanded && data.suggestions.length > 0 && (
           <span className="text-[10px] text-teal-700 dark:text-teal-400 truncate">
-            {conceptDisplayName(data.suggestions[0])}
+            {conceptNameForStream(data.suggestions[0], data.lang_stream || session.lang_stream || null)}
           </span>
         )}
         {examDate && (
@@ -203,7 +203,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                        {conceptDisplayName(concept)}
+                        {conceptNameForStream(concept, data.lang_stream || session.lang_stream || null)}
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400">
                         {evidenceLine(concept)}

@@ -5,7 +5,7 @@ import { Map as MapIcon, Loader2, ChevronDown, ChevronRight, Target, X } from "l
 import { cn } from "@/lib/utils";
 import { useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
 import { computeConceptLanes, type ConceptLane } from "@/lib/curriculum-bands";
-import { conceptDisplayName, sourcesText } from "@/lib/curriculum-labels";
+import { conceptDisplayName, conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
 
@@ -397,7 +397,7 @@ export default function CurriculumPage() {
                         className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
                         title={conceptDisplayName(lane)}
                       >
-                        {conceptDisplayName(lane)}
+                        {conceptNameForStream(lane, effectiveStream)}
                       </span>
                     </div>
                     <div className="relative flex-1 group-hover:bg-teal-50/40 dark:group-hover:bg-teal-900/5">
@@ -532,7 +532,7 @@ export default function CurriculumPage() {
                       className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
                       title={conceptDisplayName(row)}
                     >
-                      {conceptDisplayName(row)}
+                      {conceptNameForStream(row, effectiveStream)}
                     </span>
                   </div>
                   <div className="flex-1 flex flex-col justify-center gap-0.5 pr-4 py-0.5">

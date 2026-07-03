@@ -28,6 +28,19 @@ export function conceptDisplayName(c: {
   return c.name_en || c.name_zh || "Unknown topic";
 }
 
+/**
+ * Single-language topic name when the school's language stream is known
+ * (C = Chinese, E = English); bilingual pair otherwise.
+ */
+export function conceptNameForStream(
+  c: { name_en?: string | null; name_zh?: string | null },
+  stream?: string | null
+): string {
+  if (stream === "C") return c.name_zh || c.name_en || "Unknown topic";
+  if (stream === "E") return c.name_en || c.name_zh || "Unknown topic";
+  return conceptDisplayName(c);
+}
+
 export function sourcesText(sources: string[]): string {
   return sources.map((s) => SOURCE_LABELS[s] || s).join(", ");
 }

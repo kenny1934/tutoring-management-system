@@ -8,7 +8,7 @@ import type { Session, CurriculumTimelineConcept } from "@/types";
 import { cn } from "@/lib/utils";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useCurriculumSuggestions, useCurriculumTimeline } from "@/lib/hooks";
-import { conceptDisplayName, sourcesText } from "@/lib/curriculum-labels";
+import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
 
 const SUGGESTED_GRADES = ["F1", "F2", "F3"];
 
@@ -143,7 +143,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
                         : "text-foreground/70"
                     )}
                   >
-                    {conceptDisplayName(c)}
+                    {conceptNameForStream(c, session.lang_stream || null)}
                   </p>
                   <p className="text-[10px] text-foreground/50">
                     Seen in {sourcesText(c.sources)}
