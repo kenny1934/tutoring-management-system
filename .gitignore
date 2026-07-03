@@ -137,3 +137,6 @@ docs/summer-course/*.gs
 # Local-only handoff docs (kept out of version control)
 docs/tutor-revenue-calculation.md
 docs/tutor-revenue-calculation.html
+
+# private symlink (worktrees)
+private
