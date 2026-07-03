@@ -146,6 +146,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
     <div className="border border-teal-200 dark:border-teal-900 rounded-lg overflow-hidden">
       <button
         type="button"
+        aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",

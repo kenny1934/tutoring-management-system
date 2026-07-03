@@ -27,6 +27,87 @@ interface CurriculumTabProps {
   session: Session;
 }
 
+// Module-level so its identity is stable across renders — defined inline it
+// would remount (and replay its expand animation) on every hover of the tab.
+function WeekSection({
+  data,
+  badge,
+  badgeVariant,
+  emphasized,
+  expanded,
+  onToggle,
+  langStream,
+}: {
+  data: WeekData;
+  badge: string;
+  badgeVariant: "secondary" | "success";
+  emphasized?: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  langStream: string | null;
+}) {
+  return (
+    <div className="mb-3">
+      <button
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-2 mb-2 hover:bg-teal-700/10 dark:hover:bg-teal-600/20 p-2 -mx-2 rounded transition-colors"
+      >
+        {expanded ? (
+          <ChevronDown className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+        )}
+        <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+          Week {data.week_number}
+        </h4>
+        <Badge variant={badgeVariant} className="text-xs ml-auto">
+          {badge}
+        </Badge>
+      </button>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div
+              className={cn(
+                "p-3 rounded space-y-2",
+                emphasized
+                  ? "bg-teal-200/50 dark:bg-teal-800/40 border border-teal-600/30 ring-2 ring-teal-500/30"
+                  : "bg-teal-100/50 dark:bg-teal-900/30 border border-teal-600/20"
+              )}
+            >
+              {data.concepts.map((c) => (
+                <div key={c.concept_id}>
+                  <p
+                    className={cn(
+                      "text-xs leading-relaxed",
+                      c.rank === 1
+                        ? "font-medium text-foreground/90"
+                        : "text-foreground/70"
+                    )}
+                  >
+                    {conceptNameForStream(c, langStream)}
+                  </p>
+                  <p className="text-[10px] text-foreground/50">
+                    Seen in {sourcesText(c.sources)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function CurriculumTab({ session }: CurriculumTabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -82,83 +163,11 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
   if (!weekBefore && !sameWeek && !weekAfter) return null;
 
   const isLastYear = tier === "last_year";
+  const langStream = session.lang_stream || null;
 
-  const WeekSection = ({
-    data,
-    badge,
-    badgeVariant,
-    emphasized,
-    expanded,
-    onToggle,
-  }: {
-    data: WeekData;
-    badge: string;
-    badgeVariant: "secondary" | "success";
-    emphasized?: boolean;
-    expanded: boolean;
-    onToggle: () => void;
-  }) => (
-    <div className="mb-3">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 mb-2 hover:bg-teal-700/10 dark:hover:bg-teal-600/20 p-2 -mx-2 rounded transition-colors"
-      >
-        {expanded ? (
-          <ChevronDown className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-        )}
-        <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-          Week {data.week_number}
-        </h4>
-        <Badge variant={badgeVariant} className="text-xs ml-auto">
-          {badge}
-        </Badge>
-      </button>
-
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div
-              className={cn(
-                "p-3 rounded space-y-2",
-                emphasized
-                  ? "bg-teal-200/50 dark:bg-teal-800/40 border border-teal-600/30 ring-2 ring-teal-500/30"
-                  : "bg-teal-100/50 dark:bg-teal-900/30 border border-teal-600/20"
-              )}
-            >
-              {data.concepts.map((c) => (
-                <div key={c.concept_id}>
-                  <p
-                    className={cn(
-                      "text-xs leading-relaxed",
-                      c.rank === 1
-                        ? "font-medium text-foreground/90"
-                        : "text-foreground/70"
-                    )}
-                  >
-                    {conceptNameForStream(c, session.lang_stream || null)}
-                  </p>
-                  <p className="text-[10px] text-foreground/50">
-                    Seen in {sourcesText(c.sources)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-
-  // Shared content component
-  const TabContent = () => (
+  // A plain element (not an inline component) so the subtree keeps its
+  // identity — and its scroll position — across re-renders.
+  const tabContent = (
     <div className="relative p-4 max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-teal-600 scrollbar-track-transparent [scrollbar-gutter:stable]">
       {/* Header */}
       <div className="mb-4 pb-3 border-b-2 border-dashed border-teal-600/30">
@@ -185,6 +194,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
           badgeVariant="secondary"
           expanded={isWeekBeforeExpanded}
           onToggle={() => setIsWeekBeforeExpanded(!isWeekBeforeExpanded)}
+          langStream={langStream}
         />
       )}
       {sameWeek && (
@@ -195,6 +205,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
           emphasized
           expanded={isSameWeekExpanded}
           onToggle={() => setIsSameWeekExpanded(!isSameWeekExpanded)}
+          langStream={langStream}
         />
       )}
       {weekAfter && (
@@ -204,6 +215,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
           badgeVariant="secondary"
           expanded={isWeekAfterExpanded}
           onToggle={() => setIsWeekAfterExpanded(!isWeekAfterExpanded)}
+          langStream={langStream}
         />
       )}
     </div>
@@ -229,7 +241,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
         title="School Progress"
         className="bg-teal-50 dark:bg-teal-950"
       >
-        <TabContent />
+        {tabContent}
       </MobileBottomSheet>
 
       {/* Desktop Sidebar Tab */}
@@ -278,7 +290,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
               backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23paper)' opacity='0.5'/%3E%3C/svg%3E")`,
             }} />
 
-            <TabContent />
+            {tabContent}
           </div>
         </motion.div>
       </div>
