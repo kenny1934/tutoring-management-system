@@ -127,6 +127,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
             if (e.key === "Escape") setDropdownOpen(false);
           }}
           onFocus={() => input.trim() && setDropdownOpen(true)}
+          onBlur={() => setTimeout(() => setDropdownOpen(false), 120)}
           placeholder="e.g. 803, Factorization or 因式分解"
           aria-label="Search topics"
           className="w-full pl-8 pr-8 py-2 text-sm rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
