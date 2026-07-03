@@ -79,17 +79,22 @@ interface CurriculumSuggestionSectionProps {
 
 export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSuggestionSectionProps) {
   const { showToast } = useToast();
+  // Summer classes follow lesson numbers, not a school timeline.
+  const isSummer = session.summer_slot_id != null || session.lesson_number != null;
   const eligible =
-    SUGGESTED_GRADES.includes(session.grade || "") && !!session.school && !!session.student_id;
+    !isSummer &&
+    SUGGESTED_GRADES.includes(session.grade || "") &&
+    !!session.school &&
+    !!session.student_id;
 
   const { data, isLoading } = useCurriculumSuggestions(
     eligible ? session.student_id : null,
     session.session_date
   );
 
-  // Auto-expanded so it's hard to miss; the section only renders when there
-  // is something to show.
-  const [expanded, setExpanded] = useState(true);
+  // Collapsed by default (the modal is dense); the header still names the
+  // top topic so the information is visible at a glance.
+  const [expanded, setExpanded] = useState(false);
   const [testPrep, setTestPrep] = useState<boolean | null>(null);
   const [confirmStates, setConfirmStates] = useState<Record<number, ConfirmState>>({});
 
@@ -171,10 +176,15 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         )}
       >
         <GraduationCap className="h-3.5 w-3.5 text-teal-600" />
-        <span className="text-xs text-gray-600 dark:text-gray-300">School Progress</span>
-        <span className="text-[10px] text-gray-400 hidden sm:inline">
+        <span className="text-xs text-gray-600 dark:text-gray-300 shrink-0">School Progress</span>
+        <span className="text-[10px] text-gray-400 hidden sm:inline shrink-0">
           {data.school} · {data.grade}
         </span>
+        {!expanded && data.suggestions.length > 0 && (
+          <span className="text-[10px] text-teal-700 dark:text-teal-400 truncate">
+            {conceptDisplayName(data.suggestions[0])}
+          </span>
+        )}
         {examDate && (
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20">
             <CalendarClock className="h-3 w-3" />
@@ -277,6 +287,14 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                           <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
                             {file.role ? ROLE_LABELS[file.role] || file.role : "Worksheet"}
                           </span>
+                          {file.lang && (
+                            <span
+                              className="text-[9px] px-1 py-px rounded bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 shrink-0"
+                              title={file.lang === "e" ? "English version" : "Chinese version"}
+                            >
+                              {file.lang === "e" ? "EN" : "中"}
+                            </span>
+                          )}
                           {file.assignment_count > 0 && (
                             <span
                               className="text-[9px] text-gray-400 shrink-0"
