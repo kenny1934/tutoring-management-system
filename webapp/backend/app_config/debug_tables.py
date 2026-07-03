@@ -307,16 +307,6 @@ DEBUG_TABLE_CONFIG = {
         "default_sort": ("id", "desc"),
         "allow_hard_delete": True,
     },
-    "session_curriculum_suggestions": {
-        "display_name": "Curriculum Suggestions",
-        "primary_key": "id",
-        "priority": 53,
-        "readonly_columns": ["id"],
-        "hidden_columns": [],
-        "search_columns": [],
-        "default_sort": ("id", "desc"),
-        "allow_hard_delete": True,
-    },
     "curriculum_concepts": {
         "display_name": "Curriculum Concepts",
         "primary_key": "id",

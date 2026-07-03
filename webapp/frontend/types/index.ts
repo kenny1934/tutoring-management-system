@@ -289,51 +289,6 @@ export interface HomeworkCompletion {
   assigned_by_tutor?: string;
 }
 
-// Curriculum Suggestion types
-export interface CurriculumSuggestion {
-  id: number;
-  enrollment_id?: number;
-  student_id?: number;
-  tutor_id?: number;
-  session_date?: string;
-  time_slot?: string;
-  location?: string;
-  session_status?: string;
-  financial_status?: string;
-
-  // Student info
-  school_student_id?: string;
-  student_name?: string;
-  grade?: string;
-  school?: string;
-  lang_stream?: string;
-
-  // Tutor info
-  tutor_name?: string;
-
-  // Current week info
-  current_week_number?: number;
-  current_academic_year?: string;
-
-  // Last year's curriculum suggestions (3 weeks)
-  week_before_topic?: string;
-  week_before_number?: number;
-  same_week_topic?: string;
-  same_week_number?: number;
-  week_after_topic?: string;
-  week_after_number?: number;
-
-  // Primary suggestion and formatted display
-  primary_suggestion?: string;
-  suggestions_display?: string;
-  user_friendly_display?: string;
-  options_for_buttons?: string;
-
-  // Metadata
-  suggestion_count?: number;
-  coverage_status?: string;
-}
-
 // Linked session info for make-up/original session display
 export interface LinkedSessionInfo {
   id: number;
@@ -601,8 +556,7 @@ export interface CoursewareUsageDetail {
   tutor_name: string;
 }
 
-// School-timeline curriculum types (the concept-based system; distinct from
-// the older sheet-based CurriculumSuggestion above)
+// School-timeline curriculum types (the concept-based system)
 export interface CurriculumFile {
   file_path: string;
   file_basename: string;

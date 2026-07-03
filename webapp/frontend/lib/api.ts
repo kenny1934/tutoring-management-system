@@ -9,7 +9,6 @@ import type {
   EnrollmentCreate,
   Session,
   SessionUpdate,
-  CurriculumSuggestion,
   DashboardStats,
   StudentFilters,
   SessionFilters,
@@ -738,10 +737,6 @@ export const sessionsAPI = {
 
   getById: (id: number) => {
     return fetchAPI<Session>(`/sessions/${id}`);
-  },
-
-  getCurriculumSuggestions: (sessionId: number) => {
-    return fetchAPI<CurriculumSuggestion>(`/sessions/${sessionId}/curriculum-suggestions`);
   },
 
   getUpcomingTests: (sessionId: number) => {

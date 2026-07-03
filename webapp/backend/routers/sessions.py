@@ -18,8 +18,8 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates, batch_load_summer_slots, borrowed_lesson_number
@@ -2068,35 +2068,6 @@ async def update_session(
     session_data = _build_session_response(session, db)
 
     return session_data
-
-
-@router.get("/sessions/{session_id}/curriculum-suggestions", response_model=CurriculumSuggestionResponse)
-async def get_curriculum_suggestions(
-    session_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Get curriculum suggestions from last year for a specific session.
-
-    - **session_id**: The session's database ID
-
-    Returns:
-    - Curriculum topics from last year's Week N-1, N, and N+1
-    - Formatted suggestions display
-    - Student, tutor, and session context
-    """
-    # Query the session_curriculum_suggestions view
-    suggestion = db.query(SessionCurriculumSuggestion).filter(
-        SessionCurriculumSuggestion.id == session_id
-    ).first()
-
-    if not suggestion:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No curriculum suggestion found for session {session_id}"
-        )
-
-    return CurriculumSuggestionResponse.model_validate(suggestion)
 
 
 @router.get("/sessions/{session_id}/upcoming-tests", response_model=List[UpcomingTestAlert])

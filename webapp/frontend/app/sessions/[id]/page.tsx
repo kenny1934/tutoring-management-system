@@ -12,7 +12,7 @@ import { useBackNavigation } from "@/lib/ui-hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
+import type { Session, UpcomingTestAlert } from "@/types";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import {
   ArrowLeft,
@@ -257,7 +257,6 @@ export default function SessionDetailPage() {
   const { data: session, error, isLoading: loading, mutate } = useSession(sessionId);
   const { isReadOnly } = useAuth();
 
-  const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
   const { data: upcomingTests = [] } = useSWR<UpcomingTestAlert[]>(
     sessionId ? ['upcoming-tests', sessionId] : null,
     () => api.sessions.getUpcomingTests(sessionId)
@@ -277,21 +276,6 @@ export default function SessionDetailPage() {
 
   // Check if a memo exists for this session
   const { data: sessionMemo } = useMemoForSession(sessionId);
-
-  useEffect(() => {
-    async function fetchCurriculumSuggestion() {
-      try {
-        const data = await api.sessions.getCurriculumSuggestions(sessionId);
-        setCurriculumSuggestion(data);
-      } catch (err) {
-        // Silently fail if no curriculum suggestions available
-        setCurriculumSuggestion(null);
-      }
-    }
-
-    fetchCurriculumSuggestion();
-  }, [sessionId]);
-
 
   // Helper to check if session can be marked
   const canBeMarked = (s: Session) =>
@@ -510,8 +494,8 @@ export default function SessionDetailPage() {
           homeworkToCheck={session.homework_completion}
         />
 
-        {/* Curriculum Tab for Curriculum Suggestions (fixed position) */}
-        <CurriculumTab suggestion={curriculumSuggestion} />
+        {/* Curriculum Tab for School Progress (fixed position) */}
+        <CurriculumTab session={session} />
 
       {/* Header with Chalkboard */}
       <div>
