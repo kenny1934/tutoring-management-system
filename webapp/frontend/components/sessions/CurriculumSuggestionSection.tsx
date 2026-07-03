@@ -12,8 +12,10 @@ import {
   CalendarClock,
   Undo2,
   MessageSquarePlus,
+  Eye,
   X,
 } from "lucide-react";
+import { CurriculumPdfPreview } from "@/components/sessions/CurriculumPdfPreview";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
@@ -95,6 +97,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   const [confirmStates, setConfirmStates] = useState<Record<number, ConfirmState>>({});
   const [correction, setCorrection] = useState<CorrectionState>({ status: "closed" });
   const [correctionQuery, setCorrectionQuery] = useState("");
+  const [preview, setPreview] = useState<{ path: string; label: string } | null>(null);
 
   // Vocabulary for the correction picker; only fetched once it's opened.
   const { data: vocab } = useCurriculumConcepts(correction.status !== "closed");
@@ -332,6 +335,19 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                           >
                             <Plus className="h-3 w-3" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreview({
+                                path: file.file_path,
+                                label: stripExtension(file.file_basename),
+                              })
+                            }
+                            title="Preview"
+                            className="p-0.5 rounded text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </button>
                           <span
                             className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 cursor-pointer"
                             title={file.file_path}
@@ -475,6 +491,15 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
             </div>
           </div>
         </div>
+      )}
+
+      {preview && (
+        <CurriculumPdfPreview
+          filePath={preview.path}
+          fileLabel={preview.label}
+          onAdd={() => onAdd(preview.path)}
+          onClose={() => setPreview(null)}
+        />
       )}
     </div>
   );
