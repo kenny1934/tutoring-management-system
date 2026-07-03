@@ -34,6 +34,7 @@ import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
 import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
 import { SummerMaterialsSection } from "./SummerMaterialsSection";
+import { CurriculumSuggestionSection } from "./CurriculumSuggestionSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 
@@ -1419,6 +1420,17 @@ export function ExerciseModal({
               </div>
             )}
           </div>
+        )}
+
+        {/* School Progress - curriculum suggestions from the school timeline */}
+        {!readOnly && (
+          <CurriculumSuggestionSection
+            session={session}
+            onAdd={(path) => {
+              setExercises((prev) => [...prev, createExercise(exerciseType, path)]);
+              setIsDirty(true);
+            }}
+          />
         )}
 
         {/* Summer Materials - scan-based defaults for summer lessons */}

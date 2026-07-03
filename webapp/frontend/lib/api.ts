@@ -187,6 +187,10 @@ import type {
   WaitlistEntryCreate,
   WaitlistEntryBulkItem,
   WaitlistEntryUpdate,
+  CurriculumSuggestionsResponse,
+  CurriculumObservationResult,
+  CurriculumTimelineResponse,
+  CurriculumCoverageRow,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -1049,6 +1053,46 @@ export const coursewareAPI = {
     if (school) params.append('school', school);
     return fetchAPI<CoursewareUsageDetail[]>(`/courseware/usage-detail?${params}`);
   },
+};
+
+// School-timeline curriculum API (suggestions, flywheel confirms, explorer)
+export const curriculumAPI = {
+  getSuggestions: (studentId: number, date?: string) => {
+    const params = new URLSearchParams({ student_id: studentId.toString() });
+    if (date) params.append('date', date);
+    return fetchAPI<CurriculumSuggestionsResponse>(`/curriculum/suggestions?${params}`);
+  },
+
+  confirmTopic: (data: {
+    student_id: number;
+    concept_id: number;
+    session_date: string;
+    is_revision?: boolean;
+    action?: 'confirm' | 'accept_suggestion';
+  }) =>
+    fetchAPI<CurriculumObservationResult>('/curriculum/observations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  undoConfirm: (observationId: number) =>
+    fetchAPI<{ deleted: boolean }>(`/curriculum/observations/${observationId}`, {
+      method: 'DELETE',
+    }),
+
+  getTimeline: (
+    school: string,
+    grade: string,
+    langStream?: string | null,
+    academicYear?: string | null
+  ) => {
+    const params = new URLSearchParams({ school, grade });
+    if (langStream) params.append('lang_stream', langStream);
+    if (academicYear) params.append('academic_year', academicYear);
+    return fetchAPI<CurriculumTimelineResponse>(`/curriculum/timeline?${params}`);
+  },
+
+  getCoverage: () => fetchAPI<CurriculumCoverageRow[]>('/curriculum/coverage'),
 };
 
 // Paperless-ngx API
@@ -2942,6 +2986,7 @@ export const api = {
   stats: statsAPI,
   revenue: revenueAPI,
   courseware: coursewareAPI,
+  curriculum: curriculumAPI,
   paperless: paperlessAPI,
   pathAliases: pathAliasesAPI,
   holidays: holidaysAPI,

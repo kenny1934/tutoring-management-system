@@ -601,6 +601,111 @@ export interface CoursewareUsageDetail {
   tutor_name: string;
 }
 
+// School-timeline curriculum types (the concept-based system; distinct from
+// the older sheet-based CurriculumSuggestion above)
+export interface CurriculumFile {
+  file_path: string;
+  file_basename: string;
+  role: string | null;
+  lang: string | null;
+  confidence: number | null;
+  map_source: string;
+  assignment_count: number;
+  unique_student_count: number;
+  latest_use: string | null;
+}
+
+export interface CurriculumConceptSuggestion {
+  concept_id: number;
+  name_en: string | null;
+  name_zh: string | null;
+  kind: string;
+  concept_grade: string | null;
+  why: {
+    tier: string;
+    weight: number;
+    sources: string[];
+    weeks_observed: number[];
+    mean_week?: number;
+    years_observed?: number;
+  };
+  files: CurriculumFile[];
+}
+
+export interface CurriculumSuggestionsResponse {
+  student_id: number;
+  school: string | null;
+  grade: string | null;
+  lang_stream: string | null;
+  date: string;
+  academic_year: string | null;
+  week_number: number | null;
+  tier: string;
+  revision_mode: boolean;
+  upcoming_exam: {
+    title: string;
+    event_type: string | null;
+    start_date: string | null;
+  } | null;
+  suggestions: CurriculumConceptSuggestion[];
+  reason: string | null;
+}
+
+export interface CurriculumObservationResult {
+  id: number;
+  created: boolean;
+  academic_year: string;
+  week_number: number;
+  school: string;
+}
+
+export interface CurriculumTimelineConcept {
+  concept_id: number;
+  weight: number;
+  source_count: number;
+  sources: string[];
+  rank: number;
+  name_en?: string | null;
+  name_zh?: string | null;
+  kind?: string;
+  grade?: string | null;
+}
+
+export interface CurriculumPacingBand {
+  concept_id: number;
+  years_observed: number;
+  mean_week: number;
+  min_week: number;
+  max_week: number;
+  week_spread: number;
+  name_en?: string | null;
+  name_zh?: string | null;
+  kind?: string;
+  grade?: string | null;
+}
+
+export interface CurriculumTimelineResponse {
+  school: string;
+  grade: string;
+  lang_stream: string | null;
+  academic_year: string | null;
+  years_available: string[];
+  weeks: { week_number: number; concepts: CurriculumTimelineConcept[] }[];
+  pacing: CurriculumPacingBand[];
+}
+
+export interface CurriculumCoverageRow {
+  school: string;
+  grade: string;
+  lang_stream: string | null;
+  academic_year: string;
+  weeks_observed: number;
+  first_week: number;
+  last_week: number;
+  total_weight: number;
+  tutor_confirms: number;
+}
+
 // Holiday types
 export interface Holiday {
   id: number;

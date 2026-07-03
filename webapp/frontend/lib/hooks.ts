@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, api, type ParentCommunication } from './api';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -501,6 +501,45 @@ export function useCoursewareUsageDetail(
   return useSWR<CoursewareUsageDetail[]>(
     filename ? ['courseware-detail', filename, timeRange, limit, exerciseType, grade, school] : null,
     () => coursewareAPI.getUsageDetail(filename!, timeRange, limit, undefined, exerciseType, grade, school)
+  );
+}
+
+/**
+ * Hook for fetching school-timeline curriculum suggestions for a student.
+ * Pass null studentId to skip fetching (e.g. senior grades).
+ */
+export function useCurriculumSuggestions(
+  studentId: number | null | undefined,
+  date?: string | null
+) {
+  return useSWR<CurriculumSuggestionsResponse>(
+    studentId ? ['curriculum-suggestions', studentId, date || ''] : null,
+    () => curriculumAPI.getSuggestions(studentId!, date || undefined)
+  );
+}
+
+/**
+ * Hook for one school-grade's weekly curriculum timeline (explorer page).
+ */
+export function useCurriculumTimeline(
+  school: string | null | undefined,
+  grade: string | null | undefined,
+  langStream?: string | null,
+  academicYear?: string | null
+) {
+  return useSWR<CurriculumTimelineResponse>(
+    school && grade ? ['curriculum-timeline', school, grade, langStream || '', academicYear || ''] : null,
+    () => curriculumAPI.getTimeline(school!, grade!, langStream, academicYear)
+  );
+}
+
+/**
+ * Hook for curriculum observation coverage across all combos (explorer page).
+ */
+export function useCurriculumCoverage() {
+  return useSWR<CurriculumCoverageRow[]>(
+    'curriculum-coverage',
+    () => curriculumAPI.getCoverage()
   );
 }
 
