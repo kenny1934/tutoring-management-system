@@ -1,7 +1,11 @@
 // Turns the weekly consensus timeline into Gantt-style concept lanes for the
 // Curriculum page: one lane per concept, bands spanning consecutive weeks,
 // solid where the concept held rank 1 and faint where it was rank 2-3.
-import type { CurriculumPacingBand, CurriculumTimelineConcept } from "@/types";
+import type {
+  CurriculumPacingBand,
+  CurriculumTimelineConcept,
+  CurriculumWeekDates,
+} from "@/types";
 
 export interface LaneWeek {
   week_number: number;
@@ -180,4 +184,75 @@ export function mergePacingRows(
   );
   const extraSorted = Array.from(extras.values()).sort((a, b) => meanOf(a) - meanOf(b));
   return [...primarySorted, ...extraSorted];
+}
+
+// ---------------------------------------------------------------------------
+// Week jumping: tutors think in dates at least as often as in week numbers,
+// so the "go to week" box accepts both.
+// ---------------------------------------------------------------------------
+
+export function weekNumberForDate(
+  d: Date,
+  weekDates: CurriculumWeekDates[]
+): number | null {
+  const t = d.getTime();
+  for (const w of weekDates) {
+    if (
+      t >= new Date(`${w.start_date}T00:00:00`).getTime() &&
+      t <= new Date(`${w.end_date}T23:59:59`).getTime()
+    ) {
+      return w.week_number;
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse a jump query: a bare week number ("30"), or a date in day-first
+ * ("18/3", "18/3/2026") or free ("18 Mar") form. Dates without a year try
+ * every calendar year the academic year spans.
+ */
+export function parseWeekJumpInput(
+  input: string,
+  weekDates: CurriculumWeekDates[],
+  maxWeek: number
+): number | null {
+  const t = input.trim();
+  if (!t) return null;
+
+  if (/^\d{1,2}$/.test(t)) {
+    const week = parseInt(t, 10);
+    return week >= 1 && week <= maxWeek ? week : null;
+  }
+
+  const years = Array.from(
+    new Set(weekDates.flatMap((w) => [w.start_date.slice(0, 4), w.end_date.slice(0, 4)]))
+  );
+
+  const candidates: Date[] = [];
+  const dayFirst = t.match(/^(\d{1,2})[/.](\d{1,2})(?:[/.](\d{2,4}))?$/);
+  if (dayFirst) {
+    const day = dayFirst[1].padStart(2, "0");
+    const month = dayFirst[2].padStart(2, "0");
+    const explicit = dayFirst[3];
+    const candidateYears = explicit
+      ? [explicit.length === 2 ? `20${explicit}` : explicit]
+      : years;
+    for (const y of candidateYears) {
+      candidates.push(new Date(`${y}-${month}-${day}T12:00:00`));
+    }
+  } else {
+    const hasYear = /\d{4}/.test(t);
+    for (const y of hasYear ? [""] : years) {
+      const parsed = new Date(hasYear ? t : `${t} ${y}`);
+      if (!isNaN(parsed.getTime())) candidates.push(parsed);
+    }
+  }
+
+  for (const c of candidates) {
+    if (isNaN(c.getTime())) continue;
+    const week = weekNumberForDate(c, weekDates);
+    if (week != null) return week;
+  }
+  return null;
 }

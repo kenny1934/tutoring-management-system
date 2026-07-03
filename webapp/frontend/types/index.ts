@@ -641,6 +641,12 @@ export interface CurriculumPacingBand {
   grade?: string | null;
 }
 
+export interface CurriculumWeekDates {
+  week_number: number;
+  start_date: string;
+  end_date: string;
+}
+
 export interface CurriculumTimelineResponse {
   school: string;
   grade: string;
@@ -649,6 +655,7 @@ export interface CurriculumTimelineResponse {
   years_available: string[];
   current_week: number | null;
   weeks: { week_number: number; concepts: CurriculumTimelineConcept[] }[];
+  week_dates: CurriculumWeekDates[];
   pacing: CurriculumPacingBand[];
 }
 

@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapIcon, Loader2, ChevronDown, ChevronRight, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useCurriculumConcepts, useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
-import { computeConceptLanes, mergePacingRows, type ConceptLane } from "@/lib/curriculum-bands";
+import {
+  computeConceptLanes,
+  mergePacingRows,
+  parseWeekJumpInput,
+  type ConceptLane,
+} from "@/lib/curriculum-bands";
 import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
@@ -16,6 +21,7 @@ const selectClass =
 
 // Width of the topic-label column inside the horizontally scrollable charts.
 const LABEL_W = "11rem";
+const LABEL_W_PX = 176;
 const CHART_MIN_W = 640;
 
 // Fixed colour per comparison slot: the colour follows the school, never its
@@ -80,6 +86,11 @@ export default function CurriculumPage() {
   const [year, setYear] = useState<string | null>(null);
   const [gapsExpanded, setGapsExpanded] = useState(false);
   const [expandedLane, setExpandedLane] = useState<number | null>(null);
+  // Week the tutor jumped to (highlight column + week card on the Gantt).
+  const [focusWeek, setFocusWeek] = useState<number | null>(null);
+  const [weekQuery, setWeekQuery] = useState("");
+  const [weekQueryInvalid, setWeekQueryInvalid] = useState(false);
+  const ganttScrollRef = useRef<HTMLDivElement>(null);
   // Each comparison keeps the colour slot it claimed when added, so removing
   // one never repaints the survivors (slot 0 is the primary school).
   const [compares, setCompares] = useState<{ combo: Combo; slot: number }[]>([]);
@@ -211,6 +222,75 @@ export default function CurriculumPage() {
     return Math.max(44, ...weeks);
   }, [lanes, timeline]);
 
+  const weekDatesByNumber = useMemo(() => {
+    const m = new Map<number, { start_date: string; end_date: string }>();
+    for (const w of timeline?.week_dates || []) m.set(w.week_number, w);
+    return m;
+  }, [timeline]);
+
+  // "16–22 Mar" / "30 Mar – 5 Apr" for a week's calendar span.
+  const weekDateLabel = useCallback(
+    (week: number): string | null => {
+      const dates = weekDatesByNumber.get(week);
+      if (!dates) return null;
+      const start = new Date(`${dates.start_date}T12:00:00`);
+      const end = new Date(`${dates.end_date}T12:00:00`);
+      const dayMonth = (d: Date) =>
+        d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      if (start.getMonth() === end.getMonth()) {
+        return `${start.getDate()}–${dayMonth(end)}`;
+      }
+      return `${dayMonth(start)} – ${dayMonth(end)}`;
+    },
+    [weekDatesByNumber]
+  );
+
+  const scrollToWeek = useCallback(
+    (week: number, behavior: ScrollBehavior = "smooth") => {
+      const el = ganttScrollRef.current;
+      if (!el) return;
+      const chartWidth = el.scrollWidth - LABEL_W_PX;
+      const target =
+        LABEL_W_PX + (chartWidth * (week - 0.5)) / ganttMaxWeek - el.clientWidth / 2;
+      el.scrollTo({ left: Math.max(0, target), behavior });
+    },
+    [ganttMaxWeek]
+  );
+
+  // First load of a school-grade-year lands on "now" instead of week 1
+  // (in spring the interesting region is otherwise off-screen).
+  const autoScrolledKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (timeline?.current_week == null || lanes.length === 0) return;
+    const key = `${school}||${effectiveGrade}||${displayYear}`;
+    if (autoScrolledKey.current === key) return;
+    autoScrolledKey.current = key;
+    scrollToWeek(timeline.current_week, "auto");
+  }, [timeline, lanes, school, effectiveGrade, displayYear, scrollToWeek]);
+
+  const jumpToWeek = useCallback(
+    (week: number | null) => {
+      setFocusWeek(week);
+      if (week != null) scrollToWeek(week);
+    },
+    [scrollToWeek]
+  );
+
+  const handleWeekQuerySubmit = useCallback(() => {
+    const week = parseWeekJumpInput(weekQuery, timeline?.week_dates || [], ganttMaxWeek);
+    if (week == null) {
+      setWeekQueryInvalid(weekQuery.trim().length > 0);
+      return;
+    }
+    setWeekQueryInvalid(false);
+    jumpToWeek(week);
+  }, [weekQuery, timeline, ganttMaxWeek, jumpToWeek]);
+
+  const focusWeekConcepts = useMemo(() => {
+    if (focusWeek == null || !timeline) return null;
+    return timeline.weeks.find((w) => w.week_number === focusWeek)?.concepts || [];
+  }, [focusWeek, timeline]);
+
   // Pacing rows: union of concepts across the primary and compared schools,
   // ordered by the primary school's pace.
   const pacingCombos = useMemo(() => {
@@ -295,6 +375,9 @@ export default function CurriculumPage() {
                 setGrade(null);
                 setYear(null);
                 setExpandedLane(null);
+                setFocusWeek(null);
+                setWeekQuery("");
+                setWeekQueryInvalid(false);
               }}
             >
               <option value="">Pick a school…</option>
@@ -312,6 +395,7 @@ export default function CurriculumPage() {
                   setGrade(e.target.value);
                   setYear(null);
                   setExpandedLane(null);
+                  setFocusWeek(null);
                 }}
               >
                 {grades.map((g) => (
@@ -333,6 +417,7 @@ export default function CurriculumPage() {
                 onChange={(e) => {
                   setYear(e.target.value);
                   setExpandedLane(null);
+                  setFocusWeek(null);
                 }}
               >
                 {timeline.years_available.map((y) => (
@@ -388,17 +473,58 @@ export default function CurriculumPage() {
               !isMobile && "paper-texture"
             )}
           >
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 {timeline.school} {timeline.grade}
                 {timeline.lang_stream ? ` (${timeline.lang_stream})` : ""} · {displayYear}
               </span>
-              <span className="text-[10px] text-gray-400 ml-auto hidden sm:inline">
+              <span className="text-[10px] text-gray-400 hidden lg:inline">
                 Solid = main topic that week · Faint = also seen · Tap a row for detail
               </span>
+              <div className="ml-auto flex items-center gap-1.5">
+                <input
+                  type="text"
+                  aria-label="Go to week"
+                  value={weekQuery}
+                  onChange={(e) => {
+                    setWeekQuery(e.target.value);
+                    setWeekQueryInvalid(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleWeekQuerySubmit();
+                  }}
+                  placeholder="Week 30 or 18 Mar"
+                  className={cn(
+                    "w-32 text-[11px] px-2 py-1 rounded-lg border bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500",
+                    weekQueryInvalid
+                      ? "border-rose-300 dark:border-rose-700"
+                      : "border-[#d4a574]/60 dark:border-[#8b6f47]"
+                  )}
+                  title="Type a week number or a date and press Enter"
+                />
+                {timeline.current_week != null && (
+                  <button
+                    type="button"
+                    onClick={() => jumpToWeek(timeline.current_week)}
+                    className="text-[10px] px-1.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                  >
+                    Today
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="overflow-auto max-h-[30rem]">
+            <div className="overflow-auto max-h-[30rem]" ref={ganttScrollRef}>
               <div className="relative" style={{ minWidth: CHART_MIN_W }}>
+                {/* Focused-week column */}
+                {focusWeek != null && (
+                  <div
+                    className="absolute top-0 bottom-0 bg-teal-400/15 dark:bg-teal-300/10 border-x border-teal-400/40 dark:border-teal-500/40 z-[4] pointer-events-none"
+                    style={{
+                      left: `calc(${LABEL_W} + (100% - ${LABEL_W}) * ${(focusWeek - 1) / ganttMaxWeek})`,
+                      width: `calc((100% - ${LABEL_W}) / ${ganttMaxWeek})`,
+                    }}
+                  />
+                )}
                 {/* Now marker */}
                 {timeline.current_week != null && (
                   <div
@@ -438,6 +564,19 @@ export default function CurriculumPage() {
                         Now
                       </span>
                     )}
+                    {/* Every axis column is a week-lookup target */}
+                    <div className="absolute inset-0 flex">
+                      {Array.from({ length: ganttMaxWeek }, (_, i) => i + 1).map((w) => (
+                        <button
+                          key={w}
+                          type="button"
+                          aria-label={`Week ${w}`}
+                          title={`Week ${w}${weekDateLabel(w) ? ` · ${weekDateLabel(w)}` : ""}`}
+                          onClick={() => jumpToWeek(focusWeek === w ? null : w)}
+                          className="flex-1 h-full hover:bg-teal-400/15 dark:hover:bg-teal-300/10"
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -520,6 +659,58 @@ export default function CurriculumPage() {
                 <div className="h-2" />
               </div>
             </div>
+
+            {/* Week card: what this school was doing in the focused week */}
+            {focusWeek != null && focusWeekConcepts && (
+              <div className="border-t border-[#d4a574]/40 dark:border-[#8b6f47]/60 px-4 py-2 bg-teal-50/40 dark:bg-teal-900/10">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                      Week {focusWeek}
+                      {weekDateLabel(focusWeek) ? ` · ${weekDateLabel(focusWeek)}` : ""}
+                      {focusWeek === timeline.current_week && (
+                        <span className="ml-1.5 text-[9px] font-medium text-rose-500">
+                          this week
+                        </span>
+                      )}
+                    </div>
+                    {focusWeekConcepts.length === 0 ? (
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        No records for this week yet.
+                      </p>
+                    ) : (
+                      <div className="mt-1 space-y-0.5">
+                        {focusWeekConcepts.map((c) => (
+                          <div key={c.concept_id} className="flex items-center gap-1.5">
+                            <span
+                              className={cn(
+                                "text-[11px] truncate",
+                                c.rank === 1
+                                  ? "font-medium text-teal-800 dark:text-teal-300"
+                                  : "text-gray-600 dark:text-gray-400"
+                              )}
+                            >
+                              {conceptNameForStream(c, effectiveStream)}
+                            </span>
+                            <span className="text-[9px] text-gray-400 shrink-0">
+                              {c.rank === 1 ? "Main topic" : "Also covered"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Close week detail"
+                    onClick={() => setFocusWeek(null)}
+                    className="p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

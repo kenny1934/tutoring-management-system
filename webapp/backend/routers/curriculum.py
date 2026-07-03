@@ -830,6 +830,21 @@ def get_timeline(
     for p in pacing:
         p.update(meta.get(p["concept_id"], {}))
 
+    # Calendar dates per week so the UI can translate between the two ways
+    # tutors think about time ("week 30" vs "mid March").
+    week_dates = []
+    if year:
+        for row in db.execute(text("""
+            SELECT week_number, week_start_date, week_end_date
+            FROM academic_weeks WHERE academic_year = :year
+            ORDER BY week_number
+        """), {"year": year}):
+            week_dates.append({
+                "week_number": row.week_number,
+                "start_date": _iso(row.week_start_date),
+                "end_date": _iso(row.week_end_date),
+            })
+
     return {
         "school": school,
         "grade": grade,
@@ -842,6 +857,7 @@ def get_timeline(
             {"week_number": wk, "concepts": entries}
             for wk, entries in sorted(weeks.items())
         ],
+        "week_dates": week_dates,
         "pacing": pacing,
     }
 

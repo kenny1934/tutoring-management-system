@@ -514,6 +514,11 @@ def test_timeline(client: TestClient, db_session):
     assert body["pacing"][0]["mean_week"] == 10.5
     # Requested year is the current one, so the "now" marker is present.
     assert body["current_week"] == 44
+    # Calendar dates for every week of the requested year (fixture seeds
+    # weeks 10-12 plus the synthetic "now" week 44).
+    assert [w["week_number"] for w in body["week_dates"]] == [10, 11, 12, 44]
+    assert body["week_dates"][0]["start_date"] == "2025-11-03"
+    assert body["week_dates"][0]["end_date"] == "2025-11-09"
 
     # A past year gets no "now" marker.
     past = client.get("/api/curriculum/timeline", params={

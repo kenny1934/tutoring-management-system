@@ -1,6 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { computeConceptLanes, mergePacingRows } from "./curriculum-bands";
-import type { CurriculumPacingBand, CurriculumTimelineConcept } from "@/types";
+import {
+  computeConceptLanes,
+  mergePacingRows,
+  parseWeekJumpInput,
+  weekNumberForDate,
+} from "./curriculum-bands";
+import type {
+  CurriculumPacingBand,
+  CurriculumTimelineConcept,
+  CurriculumWeekDates,
+} from "@/types";
 
 function concept(
   id: number,
@@ -205,5 +214,44 @@ describe("mergePacingRows", () => {
     expect(rows).toHaveLength(2);
     expect(rows[1].cells[1]?.band.mean_week).toBe(20);
     expect(rows[1].cells[2]?.band.mean_week).toBe(22);
+  });
+});
+
+const WEEK_DATES: CurriculumWeekDates[] = [
+  { week_number: 15, start_date: "2025-12-15", end_date: "2025-12-21" },
+  { week_number: 28, start_date: "2026-03-16", end_date: "2026-03-22" },
+  { week_number: 29, start_date: "2026-03-23", end_date: "2026-03-29" },
+];
+
+describe("weekNumberForDate", () => {
+  it("finds the week containing a date, inclusive of both ends", () => {
+    expect(weekNumberForDate(new Date("2026-03-16T09:00:00"), WEEK_DATES)).toBe(28);
+    expect(weekNumberForDate(new Date("2026-03-22T20:00:00"), WEEK_DATES)).toBe(28);
+    expect(weekNumberForDate(new Date("2026-07-01T12:00:00"), WEEK_DATES)).toBeNull();
+  });
+});
+
+describe("parseWeekJumpInput", () => {
+  it("accepts a bare week number within range", () => {
+    expect(parseWeekJumpInput("29", WEEK_DATES, 44)).toBe(29);
+    expect(parseWeekJumpInput("0", WEEK_DATES, 44)).toBeNull();
+    expect(parseWeekJumpInput("45", WEEK_DATES, 44)).toBeNull();
+  });
+
+  it("accepts day-first dates with and without a year", () => {
+    expect(parseWeekJumpInput("18/3/2026", WEEK_DATES, 44)).toBe(28);
+    expect(parseWeekJumpInput("18/3", WEEK_DATES, 44)).toBe(28);
+    // year-less date falling in the first calendar year of the academic year
+    expect(parseWeekJumpInput("17/12", WEEK_DATES, 44)).toBe(15);
+  });
+
+  it("accepts month-name dates without a year", () => {
+    expect(parseWeekJumpInput("24 Mar", WEEK_DATES, 44)).toBe(29);
+  });
+
+  it("returns null for unparseable or out-of-year input", () => {
+    expect(parseWeekJumpInput("banana", WEEK_DATES, 44)).toBeNull();
+    expect(parseWeekJumpInput("1/7/2026", WEEK_DATES, 44)).toBeNull();
+    expect(parseWeekJumpInput("", WEEK_DATES, 44)).toBeNull();
   });
 });
