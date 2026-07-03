@@ -121,14 +121,21 @@ def _alias_like_params():
     return "(" + " OR ".join(clauses) + ")", params
 
 
-def _consensus_rows(db, school, grade, stream, year, week_lo, week_hi):
-    # No stream -> match any stream: unstreamed callers (search without the
-    # filter, students with no stream recorded) still get the timeline.
-    stream_where = "AND (lang_stream = :stream OR lang_stream IS NULL)" if stream else ""
-    params = {"school": school, "grade": grade, "year": year,
-              "lo": week_lo, "hi": week_hi}
+def _stream_where(stream):
+    """(where_fragment, params) filtering rows to a lang_stream.
+
+    No stream -> match any stream: unstreamed callers (search without the
+    filter, students with no stream recorded) still get the timeline.
+    """
     if stream:
-        params["stream"] = stream
+        return "AND (lang_stream = :stream OR lang_stream IS NULL)", {"stream": stream}
+    return "", {}
+
+
+def _consensus_rows(db, school, grade, stream, year, week_lo, week_hi):
+    stream_where, stream_param = _stream_where(stream)
+    params = {"school": school, "grade": grade, "year": year,
+              "lo": week_lo, "hi": week_hi, **stream_param}
     return db.execute(text(f"""
         SELECT week_number, concept_id, weight, sources
         FROM school_week_topic_consensus
@@ -170,11 +177,10 @@ def _predict_concepts(db, school, grade, stream, year, week):
             return "last_year", scored
 
     # Tier 3: all-years pacing band.
-    stream_where = "AND (lang_stream = :stream OR lang_stream IS NULL)" if stream else ""
+    stream_where, stream_param = _stream_where(stream)
     params = {"school": school, "grade": grade,
-              "lo": week - PACING_HALF_WINDOW, "hi": week + PACING_HALF_WINDOW}
-    if stream:
-        params["stream"] = stream
+              "lo": week - PACING_HALF_WINDOW, "hi": week + PACING_HALF_WINDOW,
+              **stream_param}
     rows = db.execute(text(f"""
         SELECT concept_id, mean_week, total_weight, years_observed
         FROM school_concept_pacing
@@ -720,10 +726,8 @@ def get_timeline(
 ):
     """One school-grade's weekly consensus timeline (top 3 concepts per week)
     plus its all-years pacing bands — the explorer page's data source."""
-    stream_where = "AND (lang_stream = :stream OR lang_stream IS NULL)" if lang_stream else ""
-    params = {"school": school, "grade": grade}
-    if lang_stream:
-        params["stream"] = lang_stream
+    stream_where, stream_param = _stream_where(lang_stream)
+    params = {"school": school, "grade": grade, **stream_param}
 
     years = [r[0] for r in db.execute(text(f"""
         SELECT DISTINCT academic_year FROM school_topic_observations
