@@ -5,8 +5,8 @@ import { Map as MapIcon, Loader2, ChevronDown, ChevronRight, Target, X } from "l
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
-import { useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
-import { computeConceptLanes, type ConceptLane } from "@/lib/curriculum-bands";
+import { useCurriculumConcepts, useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
+import { computeConceptLanes, mergePacingRows, type ConceptLane } from "@/lib/curriculum-bands";
 import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
@@ -224,35 +224,25 @@ export default function CurriculumPage() {
     return entries;
   }, [primaryCombo, timeline, compares, cmp0, cmp1]);
 
-  const pacingRows = useMemo(() => {
-    const rows = new Map<
-      number,
-      { name_en: string | null; name_zh: string | null; bands: (CurriculumPacingBand | null)[] }
-    >();
-    pacingCombos.forEach(({ pacing }, idx) => {
-      for (const band of pacing || []) {
-        let row = rows.get(band.concept_id);
-        if (!row) {
-          row = {
-            name_en: band.name_en ?? null,
-            name_zh: band.name_zh ?? null,
-            bands: pacingCombos.map(() => null),
-          };
-          rows.set(band.concept_id, row);
-        }
-        row.bands[idx] = band;
-      }
-    });
-    return Array.from(rows.entries())
-      .map(([conceptId, row]) => ({ conceptId, ...row }))
-      .sort((a, b) => {
-        const meanOf = (r: typeof a) =>
-          r.bands.find((band) => band)?.mean_week ?? Number.MAX_SAFE_INTEGER;
-        return (
-          (a.bands[0]?.mean_week ?? meanOf(a)) - (b.bands[0]?.mean_week ?? meanOf(b))
-        );
-      });
-  }, [pacingCombos]);
+  // Cross-series equivalence: lets an MAS school's chapter share a lane with
+  // the matching HK chapter when the comparison mixes series.
+  const { data: conceptVocab } = useCurriculumConcepts();
+  const equivalentIds = useMemo(() => {
+    const m = new Map<number, number[]>();
+    for (const c of conceptVocab || []) {
+      if (c.equivalent_ids?.length) m.set(c.id, c.equivalent_ids);
+    }
+    return m;
+  }, [conceptVocab]);
+
+  const pacingRows = useMemo(
+    () =>
+      mergePacingRows(
+        pacingCombos.map(({ pacing }) => pacing),
+        equivalentIds
+      ),
+    [pacingCombos, equivalentIds]
+  );
 
   // Pacing labels stay single-language unless the comparison actually mixes
   // schools of different languages.
@@ -264,7 +254,7 @@ export default function CurriculumPage() {
 
   const pacingMaxWeek = useMemo(() => {
     const weeks = pacingRows.flatMap((r) =>
-      r.bands.filter(Boolean).map((band) => (band as CurriculumPacingBand).max_week)
+      r.cells.filter(Boolean).map((cell) => cell!.band.max_week)
     );
     return Math.max(44, ...weeks);
   }, [pacingRows]);
@@ -672,7 +662,7 @@ export default function CurriculumPage() {
                         </span>
                       </div>
                       <div className="flex-1 flex flex-col justify-center gap-0.5 py-0.5">
-                        {row.bands.map((band, idx) => (
+                        {row.cells.map((cell, idx) => (
                           <div
                             key={idx}
                             className={cn(
@@ -681,21 +671,27 @@ export default function CurriculumPage() {
                             )}
                           >
                             <div className="absolute inset-y-0.5 left-0 right-0 rounded bg-black/[0.05] dark:bg-white/[0.06]" />
-                            {band && (
+                            {cell && (
                               <>
                                 <div
                                   className={cn(
                                     "absolute inset-y-0.5 rounded",
-                                    SLOT_STYLES[pacingCombos[idx].slot].band
+                                    SLOT_STYLES[pacingCombos[idx].slot].band,
+                                    cell.fromEquivalent &&
+                                      "bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,rgba(255,255,255,0.45)_3px,rgba(255,255,255,0.45)_5px)]"
                                   )}
                                   style={{
-                                    left: `${((band.min_week - 1) / pacingMaxWeek) * 100}%`,
+                                    left: `${((cell.band.min_week - 1) / pacingMaxWeek) * 100}%`,
                                     width: `${Math.max(
-                                      ((band.max_week - band.min_week + 1) / pacingMaxWeek) * 100,
+                                      ((cell.band.max_week - cell.band.min_week + 1) / pacingMaxWeek) * 100,
                                       1.5
                                     )}%`,
                                   }}
-                                  title={`${comboLabel(pacingCombos[idx].combo)}: weeks ${band.min_week} to ${band.max_week}, usually around week ${band.mean_week} (${band.years_observed} year${band.years_observed === 1 ? "" : "s"} observed)`}
+                                  title={`${comboLabel(pacingCombos[idx].combo)}: weeks ${cell.band.min_week} to ${cell.band.max_week}, usually around week ${cell.band.mean_week} (${cell.band.years_observed} year${cell.band.years_observed === 1 ? "" : "s"} observed)${
+                                    cell.fromEquivalent
+                                      ? ` · their matching chapter: ${conceptNameForStream(cell.band, pacingCombos[idx].combo.stream)}`
+                                      : ""
+                                  }`}
                                 />
                                 <div
                                   className={cn(
@@ -703,7 +699,7 @@ export default function CurriculumPage() {
                                     SLOT_STYLES[pacingCombos[idx].slot].mean
                                   )}
                                   style={{
-                                    left: `calc(${((band.mean_week - 0.5) / pacingMaxWeek) * 100}% - 2px)`,
+                                    left: `calc(${((cell.band.mean_week - 0.5) / pacingMaxWeek) * 100}% - 2px)`,
                                   }}
                                 />
                               </>

@@ -53,6 +53,10 @@ RAW_TABLES = [
         filename VARCHAR(255), normalized_paths TEXT, used_by TEXT,
         assignment_count INT, unique_student_count INT,
         earliest_use DATE, latest_use DATE)""",
+    """CREATE TABLE concept_links (
+        id INTEGER PRIMARY KEY, from_concept_id INT, to_concept_id INT,
+        kind VARCHAR(20), source VARCHAR(20), confidence DECIMAL(3,2),
+        note VARCHAR(255))""",
 ]
 
 
@@ -259,6 +263,22 @@ def test_list_concepts_with_codes(client: TestClient):
     linear = next(c for c in body if c["id"] == 1)
     assert {(a["code_space"], a["code"]) for a in linear["codes"]} == {
         ("HK_NEW", "704"), ("HK_OLD", "703")}
+
+
+def test_list_concepts_equivalent_ids_both_directions(client: TestClient, db_session):
+    # stored once (1 -> 3); both concepts must report each other, and
+    # prerequisite rows must not leak into equivalent_ids
+    db_session.execute(text("""
+        INSERT INTO concept_links (from_concept_id, to_concept_id, kind, source, confidence) VALUES
+        (1, 3, 'equivalent', 'xser', 0.9),
+        (1, 2, 'prerequisite', 'manual', 1.0)
+    """))
+    db_session.commit()
+    body = client.get("/api/curriculum/concepts", cookies=AUTH_COOKIE).json()
+    by_id = {c["id"]: c for c in body}
+    assert by_id[1]["equivalent_ids"] == [3]
+    assert by_id[3]["equivalent_ids"] == [1]
+    assert by_id[2]["equivalent_ids"] == []
 
 
 # ---------------------------------------------------------------------------

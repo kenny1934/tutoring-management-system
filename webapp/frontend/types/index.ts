@@ -669,6 +669,7 @@ export interface CurriculumConceptVocab {
   grade: string | null;
   parent_id: number | null;
   codes: { code_space: string; code: string }[];
+  equivalent_ids: number[];
 }
 
 export interface CurriculumSearchConcept {

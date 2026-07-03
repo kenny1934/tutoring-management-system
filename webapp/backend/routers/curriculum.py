@@ -451,13 +451,25 @@ def list_concepts(
     db: Session = Depends(get_db),
 ):
     """The whole concept vocabulary with per-series codes (76 rows — small
-    enough to return whole; pickers/autocomplete filter client-side)."""
+    enough to return whole; pickers/autocomplete filter client-side).
+
+    equivalent_ids carries cross-series equivalence (concept_links, symmetric,
+    stored once per pair) so the pacing comparison can align an MAS school's
+    lanes with an HK school's."""
     codes = defaultdict(list)
     for row in db.execute(text(
         "SELECT concept_id, code_space, code FROM concept_code_aliases "
         "ORDER BY code_space, code"
     )):
         codes[row.concept_id].append({"code_space": row.code_space, "code": row.code})
+
+    equivalents = defaultdict(list)
+    for row in db.execute(text(
+        "SELECT from_concept_id, to_concept_id FROM concept_links "
+        "WHERE kind = 'equivalent' ORDER BY from_concept_id, to_concept_id"
+    )):
+        equivalents[row.from_concept_id].append(row.to_concept_id)
+        equivalents[row.to_concept_id].append(row.from_concept_id)
 
     return [
         {
@@ -468,6 +480,7 @@ def list_concepts(
             "grade": row.grade,
             "parent_id": row.parent_id,
             "codes": codes.get(row.id, []),
+            "equivalent_ids": equivalents.get(row.id, []),
         }
         for row in db.execute(text(
             "SELECT id, kind, name_en, name_zh, grade, parent_id "
