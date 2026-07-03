@@ -59,7 +59,6 @@ export default function CurriculumPage() {
 
   const [school, setSchool] = useState<string | null>(null);
   const [grade, setGrade] = useState<string | null>(null);
-  const [stream, setStream] = useState<string | null>(null);
   const [year, setYear] = useState<string | null>(null);
   const [gapsExpanded, setGapsExpanded] = useState(false);
   const [expandedLane, setExpandedLane] = useState<number | null>(null);
@@ -76,21 +75,38 @@ export default function CurriculumPage() {
       ).sort(),
     [coverage, school]
   );
-  const streams = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (coverage || [])
-            .filter((r) => r.school === school && r.grade === grade)
-            .map((r) => r.lang_stream || "")
-        )
-      ).sort(),
-    [coverage, school, grade]
-  );
+  // Schools are single-language in practice; the odd opposite-stream row is
+  // labelling noise, so each school-grade resolves to its dominant stream by
+  // observation weight (no stream picker).
+  const dominantStreams = useMemo(() => {
+    const weights = new Map<string, Map<string, number>>();
+    for (const r of coverage || []) {
+      const key = `${r.school}||${r.grade}`;
+      const byStream = weights.get(key) || new Map<string, number>();
+      const s = r.lang_stream || "";
+      byStream.set(s, (byStream.get(s) || 0) + r.total_weight);
+      weights.set(key, byStream);
+    }
+    const out = new Map<string, string | null>();
+    for (const [key, byStream] of weights) {
+      let best = "";
+      let bestWeight = -1;
+      for (const [s, w] of byStream) {
+        if (w > bestWeight) {
+          bestWeight = w;
+          best = s;
+        }
+      }
+      out.set(key, best || null);
+    }
+    return out;
+  }, [coverage]);
 
   const effectiveGrade = grade && grades.includes(grade) ? grade : grades[0] || null;
   const effectiveStream =
-    stream !== null && streams.includes(stream) ? stream : streams[0] ?? null;
+    school && effectiveGrade
+      ? dominantStreams.get(`${school}||${effectiveGrade}`) ?? null
+      : null;
 
   const { data: timeline, isLoading: timelineLoading } = useCurriculumTimeline(
     school,
@@ -119,24 +135,24 @@ export default function CurriculumPage() {
       ? { school, grade: effectiveGrade, stream: effectiveStream || null }
       : null;
 
-  // All known combos for the comparison picker, minus ones already on screen.
+  // All known combos for the comparison picker (dominant stream only), minus
+  // ones already on screen.
   const compareOptions = useMemo(() => {
-    const seen = new Set<string>();
     const taken = new Set(
       [primaryCombo, ...compares].filter(Boolean).map((c) => comboKey(c as Combo))
     );
     const options: Combo[] = [];
-    for (const r of coverage || []) {
-      const combo = { school: r.school, grade: r.grade, stream: r.lang_stream || null };
-      const key = comboKey(combo);
-      if (seen.has(key) || taken.has(key)) continue;
-      seen.add(key);
+    for (const [key, s] of dominantStreams) {
+      const [schoolName, gradeName] = key.split("||");
+      const combo = { school: schoolName, grade: gradeName, stream: s };
+      if (taken.has(comboKey(combo))) continue;
       options.push(combo);
     }
     return options.sort((a, b) => comboLabel(a).localeCompare(comboLabel(b)));
-  }, [coverage, primaryCombo, compares]);
+  }, [dominantStreams, primaryCombo, compares]);
 
-  // Thin current-year combos are where tutor confirmations help most.
+  // Thin current-year combos are where tutor confirmations help most
+  // (dominant stream only — stray opposite-stream rows are not real gaps).
   const gaps = useMemo(() => {
     if (!coverage) return [] as CurriculumCoverageRow[];
     const latestYear = coverage.reduce(
@@ -144,9 +160,15 @@ export default function CurriculumPage() {
       ""
     );
     return coverage
-      .filter((r) => r.academic_year === latestYear && r.weeks_observed < 8)
+      .filter(
+        (r) =>
+          r.academic_year === latestYear &&
+          r.weeks_observed < 8 &&
+          (dominantStreams.get(`${r.school}||${r.grade}`) ?? null) ===
+            (r.lang_stream || null)
+      )
       .sort((a, b) => a.weeks_observed - b.weeks_observed);
-  }, [coverage]);
+  }, [coverage, dominantStreams]);
 
   const lanes = useMemo(
     () => (timeline ? computeConceptLanes(timeline.weeks) : []),
@@ -247,7 +269,6 @@ export default function CurriculumPage() {
           onChange={(e) => {
             setSchool(e.target.value || null);
             setGrade(null);
-            setStream(null);
             setYear(null);
             setExpandedLane(null);
           }}
@@ -265,7 +286,6 @@ export default function CurriculumPage() {
             value={effectiveGrade || ""}
             onChange={(e) => {
               setGrade(e.target.value);
-              setStream(null);
               setYear(null);
               setExpandedLane(null);
             }}
@@ -277,22 +297,10 @@ export default function CurriculumPage() {
             ))}
           </select>
         )}
-        {school && streams.filter(Boolean).length > 0 && (
-          <select
-            className={selectClass}
-            value={effectiveStream || ""}
-            onChange={(e) => {
-              setStream(e.target.value);
-              setYear(null);
-              setExpandedLane(null);
-            }}
-          >
-            {streams.map((s) => (
-              <option key={s || "none"} value={s}>
-                {s ? `${s} stream` : "No stream"}
-              </option>
-            ))}
-          </select>
+        {school && effectiveStream && (
+          <span className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/40 dark:border-[#8b6f47]/60 text-gray-500 dark:text-gray-400">
+            {effectiveStream === "C" ? "Chinese" : effectiveStream === "E" ? "English" : effectiveStream}
+          </span>
         )}
         {timeline && timeline.years_available.length > 0 && (
           <select
@@ -617,7 +625,6 @@ export default function CurriculumPage() {
                     onClick={() => {
                       setSchool(g.school);
                       setGrade(g.grade);
-                      setStream(g.lang_stream || "");
                       setYear(null);
                       setExpandedLane(null);
                       window.scrollTo({ top: 0, behavior: "smooth" });
