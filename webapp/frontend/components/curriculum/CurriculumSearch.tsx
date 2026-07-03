@@ -202,7 +202,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                   <div className="flex items-center gap-2">
                     <span
                       className="text-xs font-medium text-gray-800 dark:text-gray-200"
-                      title={conceptDisplayName(concept)}
+                      title={conceptNameForStream(concept, scope?.lang_stream || null)}
                     >
                       {conceptNameForStream(concept, scope?.lang_stream || null)}
                     </span>

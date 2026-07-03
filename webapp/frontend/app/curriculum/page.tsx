@@ -5,7 +5,7 @@ import { Map as MapIcon, Loader2, ChevronDown, ChevronRight, Target, X } from "l
 import { cn } from "@/lib/utils";
 import { useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
 import { computeConceptLanes, type ConceptLane } from "@/lib/curriculum-bands";
-import { conceptDisplayName, conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
+import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
 
@@ -221,6 +221,14 @@ export default function CurriculumPage() {
       });
   }, [pacingCombos]);
 
+  // Pacing labels stay single-language unless the comparison actually mixes
+  // schools of different languages.
+  const pacingLabelStream = useMemo(() => {
+    const streams = pacingCombos.map(({ combo }) => combo.stream);
+    if (streams.length === 0) return null;
+    return streams.every((s) => s === streams[0]) ? streams[0] : null;
+  }, [pacingCombos]);
+
   const pacingMaxWeek = useMemo(() => {
     const weeks = pacingRows.flatMap((r) =>
       r.bands.filter(Boolean).map((band) => (band as CurriculumPacingBand).max_week)
@@ -299,7 +307,7 @@ export default function CurriculumPage() {
         )}
         {school && effectiveStream && (
           <span className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/40 dark:border-[#8b6f47]/60 text-gray-500 dark:text-gray-400">
-            {effectiveStream === "C" ? "Chinese" : effectiveStream === "E" ? "English" : effectiveStream}
+            {effectiveStream}
           </span>
         )}
         {timeline && timeline.years_available.length > 0 && (
@@ -403,7 +411,7 @@ export default function CurriculumPage() {
                     >
                       <span
                         className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
-                        title={conceptDisplayName(lane)}
+                        title={conceptNameForStream(lane, effectiveStream)}
                       >
                         {conceptNameForStream(lane, effectiveStream)}
                       </span>
@@ -538,9 +546,9 @@ export default function CurriculumPage() {
                   >
                     <span
                       className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
-                      title={conceptDisplayName(row)}
+                      title={conceptNameForStream(row, pacingLabelStream)}
                     >
-                      {conceptNameForStream(row, effectiveStream)}
+                      {conceptNameForStream(row, pacingLabelStream)}
                     </span>
                   </div>
                   <div className="flex-1 flex flex-col justify-center gap-0.5 pr-4 py-0.5">
