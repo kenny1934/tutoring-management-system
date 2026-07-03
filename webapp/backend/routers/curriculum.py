@@ -45,6 +45,7 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from constants import hk_now
+from curriculum.paths import normalize
 from database import get_db
 from models import CalendarEvent, Student, Tutor
 
@@ -337,6 +338,30 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None)
     return files_by_concept, meta
 
 
+def _student_assigned_map(db, student_id):
+    """{extension-stripped lowercased basename: (count, last_date)} of every
+    PDF assigned to this student, so suggestions can flag worksheets the
+    student has already done."""
+    rows = db.execute(text("""
+        SELECT se.pdf_name, COUNT(*) AS n, MAX(sl.session_date) AS last_date
+        FROM session_exercises se
+        JOIN session_log sl ON sl.id = se.session_id
+        WHERE sl.student_id = :sid
+          AND se.pdf_name IS NOT NULL AND se.pdf_name != ''
+        GROUP BY se.pdf_name
+    """), {"sid": student_id}).fetchall()
+    out = {}
+    for r in rows:
+        key = normalize(r.pdf_name)["basename"].rsplit(".", 1)[0].lower()
+        if not key:
+            continue
+        count, last_date = out.get(key, (0, None))
+        if r.last_date and (last_date is None or r.last_date > last_date):
+            last_date = r.last_date
+        out[key] = (count + r.n, last_date)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Suggestions
 # ---------------------------------------------------------------------------
@@ -414,6 +439,7 @@ def get_curriculum_suggestions(
         preferred_lang=_preferred_lang(student.lang_stream),
         role_order=ROLE_ORDER_REVISION if revision_mode else ROLE_ORDER_NORMAL,
     )
+    assigned = _student_assigned_map(db, student.id)
 
     suggestions = []
     for concept_id, evidence in top:
@@ -427,6 +453,11 @@ def get_curriculum_suggestions(
         if "mean_week" in evidence:
             why["mean_week"] = evidence["mean_week"]
             why["years_observed"] = evidence["years_observed"]
+        files = files_by_concept.get(concept_id, [])[:MAX_FILES_PER_CONCEPT]
+        for f in files:
+            done = assigned.get((f["file_basename"] or "").rsplit(".", 1)[0].lower())
+            f["student_assigned_count"] = done[0] if done else 0
+            f["student_last_assigned"] = _iso(done[1]) if done else None
         suggestions.append({
             "concept_id": concept_id,
             "name_en": meta.get("name_en"),
@@ -434,7 +465,7 @@ def get_curriculum_suggestions(
             "kind": meta.get("kind"),
             "concept_grade": meta.get("grade"),
             "why": why,
-            "files": files_by_concept.get(concept_id, [])[:MAX_FILES_PER_CONCEPT],
+            "files": files,
         })
 
     base["suggestions"] = suggestions

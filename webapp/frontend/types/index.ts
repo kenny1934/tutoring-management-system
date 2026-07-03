@@ -567,6 +567,9 @@ export interface CurriculumFile {
   assignment_count: number;
   unique_student_count: number;
   latest_use: string | null;
+  // this student's own history with the file (suggestions endpoint only)
+  student_assigned_count?: number;
+  student_last_assigned?: string | null;
 }
 
 export interface CurriculumConceptSuggestion {

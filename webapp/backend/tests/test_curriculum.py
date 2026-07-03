@@ -5,12 +5,14 @@ tables, the migration-125 consensus/pacing views, the migration-036
 popularity view) that have no ORM models, so the fixtures create minimal
 SQLite equivalents — views become plain tables with the same columns.
 """
+from datetime import date
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from main import app
-from models import CalendarEvent, Student, Tutor
+from models import CalendarEvent, SessionExercise, SessionLog, Student, Tutor
 from auth.dependencies import get_current_user
 from routers import curriculum
 from tests.helpers import make_auth_token
@@ -191,6 +193,31 @@ def test_this_year_tier_ranks_files(client: TestClient, db_session):
     assert files[0]["assignment_count"] == 90
     # 'c' file ranks after all 'e' files
     assert basenames.index("704_EX1_c.pdf") > basenames.index("704_Rev_e.pdf")
+
+
+def test_files_flag_already_assigned(client: TestClient, db_session):
+    _consensus_row(db_session, week=11, concept_id=1, weight=3.0)
+    db_session.add(Tutor(id=50, user_email="t@example.com", tutor_name="T",
+                         role="Tutor", is_active_tutor=True))
+    log = SessionLog(student_id=1, tutor_id=50, session_date=date(2025, 10, 20),
+                     time_slot="16:00 - 17:30", location="MSA",
+                     session_status="Attended")
+    db_session.add(log)
+    db_session.flush()
+    # raw drive-letter, extensionless AppSheet-era path — must still match the
+    # suggested Center-alias .pdf variant via the stripped basename
+    db_session.add(SessionExercise(
+        session_id=log.id, exercise_type="Classwork", created_by="t@example.com",
+        pdf_name="Z:\\Courseware (Eng)\\new_math7-9EX\\704_EX2_e"))
+    db_session.commit()
+
+    files = _get(client).json()["suggestions"][0]["files"]
+    ex2 = next(f for f in files if f["file_basename"] == "704_EX2_e.pdf")
+    assert ex2["student_assigned_count"] == 1
+    assert ex2["student_last_assigned"] == "2025-10-20"
+    ex1 = next(f for f in files if f["file_basename"] == "704_EX1_e.pdf")
+    assert ex1["student_assigned_count"] == 0
+    assert ex1["student_last_assigned"] is None
 
 
 def test_exam_window_prefers_revision(client: TestClient, db_session):

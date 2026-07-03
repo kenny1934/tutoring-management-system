@@ -325,6 +325,21 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                           >
                             {stripExtension(file.file_basename)}
                           </span>
+                          {(file.student_assigned_count ?? 0) > 0 && (
+                            <span
+                              className="text-[9px] px-1 py-px rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0"
+                              title={`Already assigned to this student ${file.student_assigned_count} time${file.student_assigned_count === 1 ? "" : "s"}${
+                                file.student_last_assigned
+                                  ? `, last on ${new Date(file.student_last_assigned).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                                  : ""
+                              }`}
+                            >
+                              Done
+                              {file.student_last_assigned
+                                ? ` · ${new Date(file.student_last_assigned).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+                                : ""}
+                            </span>
+                          )}
                           <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
                             {file.role ? ROLE_LABELS[file.role] || file.role : "Worksheet"}
                           </span>
