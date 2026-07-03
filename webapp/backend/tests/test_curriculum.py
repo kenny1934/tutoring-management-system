@@ -422,8 +422,17 @@ def test_delete_own_confirmation_only(client: TestClient, db_session):
 # ---------------------------------------------------------------------------
 
 def test_timeline(client: TestClient, db_session):
+    from datetime import date, timedelta
+
     _consensus_row(db_session, week=10, concept_id=1, weight=3.0)
     _consensus_row(db_session, week=10, concept_id=2, weight=1.0)
+    # A week window around the real "now" so the current-week marker resolves
+    # (generous span absorbs the HK/local timezone difference).
+    db_session.execute(text("""
+        INSERT INTO academic_weeks (academic_year, week_number, week_start_date, week_end_date)
+        VALUES ('2025-2026', 44, :start, :end)
+    """), {"start": (date.today() - timedelta(days=3)).isoformat(),
+           "end": (date.today() + timedelta(days=3)).isoformat()})
     db_session.execute(text("""
         INSERT INTO school_topic_observations
             (school, grade, lang_stream, academic_year, week_number, concept_id,
@@ -456,6 +465,15 @@ def test_timeline(client: TestClient, db_session):
     assert [c["concept_id"] for c in wk["concepts"]] == [1, 2]
     assert wk["concepts"][0]["name_en"] == "Linear Equations in One Unknown"
     assert body["pacing"][0]["mean_week"] == 10.5
+    # Requested year is the current one, so the "now" marker is present.
+    assert body["current_week"] == 44
+
+    # A past year gets no "now" marker.
+    past = client.get("/api/curriculum/timeline", params={
+        "school": "SRL-E", "grade": "F1", "lang_stream": "E",
+        "academic_year": "2024-2025",
+    }, cookies=AUTH_COOKIE).json()
+    assert past["current_week"] is None
 
 
 def test_coverage(client: TestClient, db_session):

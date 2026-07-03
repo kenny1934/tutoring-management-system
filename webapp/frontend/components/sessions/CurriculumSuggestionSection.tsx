@@ -15,33 +15,15 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumSuggestions } from "@/lib/hooks";
 import { curriculumAPI } from "@/lib/api";
+import {
+  ROLE_LABELS,
+  SOURCE_LABELS,
+  conceptDisplayName,
+  stripExtension,
+} from "@/lib/curriculum-labels";
 import type { Session, CurriculumConceptSuggestion, CurriculumFile } from "@/types";
 
 const SUGGESTED_GRADES = ["F1", "F2", "F3"];
-
-const ROLE_LABELS: Record<string, string> = {
-  exercise: "Exercise",
-  quiz: "Quiz",
-  mc: "MC",
-  master: "Handout",
-  revision: "Revision",
-  question_bank: "Question Bank",
-  past_paper: "Past Paper",
-  mock: "Mock",
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  assignment: "assignments",
-  prep_folder: "prep folders",
-  sheet: "curriculum sheets",
-  exam_scope: "exam scopes",
-  tutor_confirm: "tutor confirmations",
-};
-
-function conceptDisplayName(c: CurriculumConceptSuggestion): string {
-  if (c.name_zh && c.name_en) return `${c.name_en} · ${c.name_zh}`;
-  return c.name_en || c.name_zh || "Unknown topic";
-}
 
 function weeksLabel(weeks: number[]): string {
   if (weeks.length === 0) return "";
@@ -61,10 +43,6 @@ function evidenceLine(c: CurriculumConceptSuggestion): string {
       : sources[0] || "past records";
   const prefix = why.tier === "last_year" ? "Last year, seen in" : "Seen in";
   return `${prefix} ${sourceText} · ${weeksLabel(why.weeks_observed)}`;
-}
-
-function stripExtension(name: string): string {
-  return name.replace(/\.(pdf|docx?|xlsx|pptx|jpg)$/i, "");
 }
 
 type ConfirmState =

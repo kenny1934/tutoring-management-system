@@ -191,6 +191,8 @@ import type {
   CurriculumObservationResult,
   CurriculumTimelineResponse,
   CurriculumCoverageRow,
+  CurriculumConceptVocab,
+  CurriculumSearchResponse,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -1093,6 +1095,25 @@ export const curriculumAPI = {
   },
 
   getCoverage: () => fetchAPI<CurriculumCoverageRow[]>('/curriculum/coverage'),
+
+  getConcepts: () => fetchAPI<CurriculumConceptVocab[]>('/curriculum/concepts'),
+
+  search: (query: {
+    q?: string;
+    concept_id?: number;
+    school?: string;
+    grade?: string;
+    lang_stream?: string;
+    academic_year?: string;
+  }) => {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value));
+      }
+    });
+    return fetchAPI<CurriculumSearchResponse>(`/curriculum/search?${params}`);
+  },
 };
 
 // Paperless-ngx API

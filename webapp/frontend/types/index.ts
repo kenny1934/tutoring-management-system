@@ -690,6 +690,7 @@ export interface CurriculumTimelineResponse {
   lang_stream: string | null;
   academic_year: string | null;
   years_available: string[];
+  current_week: number | null;
   weeks: { week_number: number; concepts: CurriculumTimelineConcept[] }[];
   pacing: CurriculumPacingBand[];
 }
@@ -704,6 +705,39 @@ export interface CurriculumCoverageRow {
   last_week: number;
   total_weight: number;
   tutor_confirms: number;
+}
+
+export interface CurriculumConceptVocab {
+  id: number;
+  kind: string;
+  name_en: string | null;
+  name_zh: string | null;
+  grade: string | null;
+  parent_id: number | null;
+  codes: { code_space: string; code: string }[];
+}
+
+export interface CurriculumSearchConcept {
+  concept_id: number;
+  name_en: string | null;
+  name_zh: string | null;
+  kind: string;
+  concept_grade: string | null;
+  evidence: {
+    weight: number;
+    weeks_observed: number[];
+    sources: string[];
+  } | null;
+  files: CurriculumFile[];
+}
+
+export interface CurriculumSearchResponse {
+  q: string | null;
+  school: string | null;
+  grade: string | null;
+  lang_stream: string | null;
+  academic_year: string | null;
+  concepts: CurriculumSearchConcept[];
 }
 
 // Holiday types

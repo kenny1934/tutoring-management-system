@@ -735,11 +735,13 @@ def get_timeline(
         ORDER BY academic_year DESC
     """), params)]
 
+    week_row = _week_for_date(db, hk_now().date())
+    current_year = week_row[0] if week_row else None
+    current_week = week_row[1] if week_row else None
+
     year = academic_year
     if not year:
-        week_row = _week_for_date(db, hk_now().date())
-        current = week_row[0] if week_row else None
-        year = current if current in years else (years[0] if years else None)
+        year = current_year if current_year in years else (years[0] if years else None)
 
     weeks = defaultdict(list)
     concept_ids = set()
@@ -790,6 +792,8 @@ def get_timeline(
         "lang_stream": lang_stream,
         "academic_year": year,
         "years_available": years,
+        # The live "now" marker only makes sense on the current year's chart.
+        "current_week": current_week if year == current_year else None,
         "weeks": [
             {"week_number": wk, "concepts": entries}
             for wk, entries in sorted(weeks.items())

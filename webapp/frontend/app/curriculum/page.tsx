@@ -1,30 +1,58 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Map, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
+import { Map as MapIcon, Loader2, ChevronDown, ChevronRight, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
-import type { CurriculumTimelineConcept, CurriculumCoverageRow } from "@/types";
-
-const SOURCE_LABELS: Record<string, string> = {
-  assignment: "assignments",
-  prep_folder: "prep folders",
-  sheet: "curriculum sheets",
-  exam_scope: "exam scopes",
-  tutor_confirm: "tutor confirmations",
-};
-
-function conceptName(c: { name_en?: string | null; name_zh?: string | null }): string {
-  if (c.name_en && c.name_zh) return `${c.name_en} · ${c.name_zh}`;
-  return c.name_en || c.name_zh || "Unknown topic";
-}
-
-function sourcesTitle(sources: string[]): string {
-  return `Seen in ${sources.map((s) => SOURCE_LABELS[s] || s).join(", ")}`;
-}
+import { computeConceptLanes, type ConceptLane } from "@/lib/curriculum-bands";
+import { conceptDisplayName, sourcesText } from "@/lib/curriculum-labels";
+import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
+import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
 
 const selectClass =
   "text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500";
+
+// Width of the topic-label column inside the horizontally scrollable charts.
+const LABEL_W = "11rem";
+const CHART_MIN_W = 640;
+
+// Fixed colour per comparison slot: the colour follows the school, never its
+// position in a filtered list.
+const SLOT_STYLES = [
+  {
+    band: "bg-teal-300 dark:bg-teal-800/80",
+    mean: "bg-teal-600 dark:bg-teal-400",
+    dot: "bg-teal-500",
+  },
+  {
+    band: "bg-amber-300 dark:bg-amber-700/80",
+    mean: "bg-amber-600 dark:bg-amber-400",
+    dot: "bg-amber-500",
+  },
+  {
+    band: "bg-violet-300 dark:bg-violet-700/80",
+    mean: "bg-violet-600 dark:bg-violet-400",
+    dot: "bg-violet-500",
+  },
+];
+
+interface Combo {
+  school: string;
+  grade: string;
+  stream: string | null;
+}
+
+function comboKey(c: Combo): string {
+  return `${c.school}||${c.grade}||${c.stream || ""}`;
+}
+
+function comboLabel(c: Combo): string {
+  return `${c.school} ${c.grade}${c.stream ? ` (${c.stream})` : ""}`;
+}
+
+function weekLeft(week: number, maxWeek: number): string {
+  return `calc(${LABEL_W} + (100% - ${LABEL_W}) * ${(week - 0.5) / maxWeek})`;
+}
 
 export default function CurriculumPage() {
   const { data: coverage, isLoading: coverageLoading } = useCurriculumCoverage();
@@ -34,6 +62,8 @@ export default function CurriculumPage() {
   const [stream, setStream] = useState<string | null>(null);
   const [year, setYear] = useState<string | null>(null);
   const [gapsExpanded, setGapsExpanded] = useState(false);
+  const [expandedLane, setExpandedLane] = useState<number | null>(null);
+  const [compares, setCompares] = useState<Combo[]>([]);
 
   const schools = useMemo(
     () => Array.from(new Set((coverage || []).map((r) => r.school))).sort(),
@@ -68,8 +98,43 @@ export default function CurriculumPage() {
     effectiveStream || null,
     year
   );
+  // Comparison timelines (pacing is all-years, so no year param).
+  const { data: cmp0 } = useCurriculumTimeline(
+    compares[0]?.school ?? null,
+    compares[0]?.grade ?? null,
+    compares[0]?.stream ?? null,
+    null
+  );
+  const { data: cmp1 } = useCurriculumTimeline(
+    compares[1]?.school ?? null,
+    compares[1]?.grade ?? null,
+    compares[1]?.stream ?? null,
+    null
+  );
 
   const displayYear = timeline?.academic_year || year;
+
+  const primaryCombo: Combo | null =
+    school && effectiveGrade
+      ? { school, grade: effectiveGrade, stream: effectiveStream || null }
+      : null;
+
+  // All known combos for the comparison picker, minus ones already on screen.
+  const compareOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const taken = new Set(
+      [primaryCombo, ...compares].filter(Boolean).map((c) => comboKey(c as Combo))
+    );
+    const options: Combo[] = [];
+    for (const r of coverage || []) {
+      const combo = { school: r.school, grade: r.grade, stream: r.lang_stream || null };
+      const key = comboKey(combo);
+      if (seen.has(key) || taken.has(key)) continue;
+      seen.add(key);
+      options.push(combo);
+    }
+    return options.sort((a, b) => comboLabel(a).localeCompare(comboLabel(b)));
+  }, [coverage, primaryCombo, compares]);
 
   // Thin current-year combos are where tutor confirmations help most.
   const gaps = useMemo(() => {
@@ -83,19 +148,75 @@ export default function CurriculumPage() {
       .sort((a, b) => a.weeks_observed - b.weeks_observed);
   }, [coverage]);
 
-  const maxWeek = useMemo(() => {
-    const weeks = [
-      ...(timeline?.weeks.map((w) => w.week_number) || []),
-      ...(timeline?.pacing.map((p) => p.max_week) || []),
-    ];
+  const lanes = useMemo(
+    () => (timeline ? computeConceptLanes(timeline.weeks) : []),
+    [timeline]
+  );
+
+  const ganttMaxWeek = useMemo(() => {
+    const weeks = lanes.map((l) => l.lastWeek);
+    if (timeline?.current_week) weeks.push(timeline.current_week);
     return Math.max(44, ...weeks);
-  }, [timeline]);
+  }, [lanes, timeline]);
+
+  // Pacing rows: union of concepts across the primary and compared schools,
+  // ordered by the primary school's pace.
+  const pacingCombos = useMemo(() => {
+    const entries: { combo: Combo; pacing: CurriculumPacingBand[] | null }[] = [];
+    if (primaryCombo) entries.push({ combo: primaryCombo, pacing: timeline?.pacing ?? null });
+    if (compares[0]) entries.push({ combo: compares[0], pacing: cmp0?.pacing ?? null });
+    if (compares[1]) entries.push({ combo: compares[1], pacing: cmp1?.pacing ?? null });
+    return entries;
+  }, [primaryCombo, timeline, compares, cmp0, cmp1]);
+
+  const pacingRows = useMemo(() => {
+    const rows = new Map<
+      number,
+      { name_en: string | null; name_zh: string | null; bands: (CurriculumPacingBand | null)[] }
+    >();
+    pacingCombos.forEach(({ pacing }, idx) => {
+      for (const band of pacing || []) {
+        let row = rows.get(band.concept_id);
+        if (!row) {
+          row = {
+            name_en: band.name_en ?? null,
+            name_zh: band.name_zh ?? null,
+            bands: pacingCombos.map(() => null),
+          };
+          rows.set(band.concept_id, row);
+        }
+        row.bands[idx] = band;
+      }
+    });
+    return Array.from(rows.entries())
+      .map(([conceptId, row]) => ({ conceptId, ...row }))
+      .sort((a, b) => {
+        const meanOf = (r: typeof a) =>
+          r.bands.find((band) => band)?.mean_week ?? Number.MAX_SAFE_INTEGER;
+        return (
+          (a.bands[0]?.mean_week ?? meanOf(a)) - (b.bands[0]?.mean_week ?? meanOf(b))
+        );
+      });
+  }, [pacingCombos]);
+
+  const pacingMaxWeek = useMemo(() => {
+    const weeks = pacingRows.flatMap((r) =>
+      r.bands.filter(Boolean).map((band) => (band as CurriculumPacingBand).max_week)
+    );
+    return Math.max(44, ...weeks);
+  }, [pacingRows]);
+
+  const axisTicks = (maxWeek: number) => {
+    const ticks: number[] = [];
+    for (let w = 4; w <= maxWeek; w += 4) ticks.push(w);
+    return ticks;
+  };
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <Map className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+        <MapIcon className="h-5 w-5 text-teal-600 dark:text-teal-400" />
         <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
           Curriculum
         </h1>
@@ -104,6 +225,19 @@ export default function CurriculumPage() {
         What each school covers, week by week. Built from assignments, prep folders,
         curriculum sheets and tutor confirmations.
       </p>
+
+      {/* Free search */}
+      <CurriculumSearch
+        scope={
+          primaryCombo
+            ? {
+                school: primaryCombo.school,
+                grade: primaryCombo.grade,
+                lang_stream: primaryCombo.stream,
+              }
+            : null
+        }
+      />
 
       {/* Pickers */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -115,6 +249,7 @@ export default function CurriculumPage() {
             setGrade(null);
             setStream(null);
             setYear(null);
+            setExpandedLane(null);
           }}
         >
           <option value="">Pick a school…</option>
@@ -132,6 +267,7 @@ export default function CurriculumPage() {
               setGrade(e.target.value);
               setStream(null);
               setYear(null);
+              setExpandedLane(null);
             }}
           >
             {grades.map((g) => (
@@ -148,6 +284,7 @@ export default function CurriculumPage() {
             onChange={(e) => {
               setStream(e.target.value);
               setYear(null);
+              setExpandedLane(null);
             }}
           >
             {streams.map((s) => (
@@ -161,7 +298,10 @@ export default function CurriculumPage() {
           <select
             className={selectClass}
             value={displayYear || ""}
-            onChange={(e) => setYear(e.target.value)}
+            onChange={(e) => {
+              setYear(e.target.value);
+              setExpandedLane(null);
+            }}
           >
             {timeline.years_available.map((y) => (
               <option key={y} value={y}>
@@ -177,94 +317,267 @@ export default function CurriculumPage() {
 
       {!school && !coverageLoading && (
         <div className="text-sm text-gray-500 dark:text-gray-400 border border-dashed border-[#d4a574]/60 dark:border-[#8b6f47] rounded-lg p-8 text-center">
-          Pick a school above to see its weekly topic timeline.
+          Pick a school above to see its weekly topic timeline, or search a topic
+          directly.
         </div>
       )}
 
-      {/* Weekly timeline */}
-      {school && timeline && timeline.weeks.length > 0 && (
+      {/* This year's progression (Gantt lanes) */}
+      {school && timeline && lanes.length > 0 && (
         <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden mb-4">
-          <div className="px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-white dark:from-teal-900/20 dark:to-[#1a1a1a]">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-white dark:from-teal-900/20 dark:to-[#1a1a1a]">
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
               {timeline.school} {timeline.grade}
               {timeline.lang_stream ? ` (${timeline.lang_stream})` : ""} · {displayYear}
             </span>
+            <span className="text-[10px] text-gray-400 ml-auto hidden sm:inline">
+              Solid = main topic that week · Faint = also seen · Tap a row for detail
+            </span>
           </div>
-          <div className="divide-y divide-[#d4a574]/20 dark:divide-[#8b6f47]/30 max-h-[28rem] overflow-y-auto">
-            {timeline.weeks.map((week) => (
-              <div key={week.week_number} className="flex items-start gap-3 px-4 py-1.5">
-                <span className="text-[10px] text-gray-400 w-12 shrink-0 pt-1 tabular-nums">
-                  Wk {week.week_number}
-                </span>
-                <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                  {week.concepts.map((c: CurriculumTimelineConcept) => (
+          <div className="overflow-auto max-h-[30rem]">
+            <div className="relative" style={{ minWidth: CHART_MIN_W }}>
+              {/* Now marker */}
+              {timeline.current_week != null && (
+                <div
+                  className="absolute top-0 bottom-0 w-px bg-rose-400/80 z-10 pointer-events-none"
+                  style={{ left: weekLeft(timeline.current_week, ganttMaxWeek) }}
+                />
+              )}
+
+              {/* Week axis */}
+              <div className="sticky top-0 z-20 flex h-6 bg-white dark:bg-[#1a1a1a] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
+                <div
+                  className="sticky left-0 z-30 shrink-0 bg-white dark:bg-[#1a1a1a] flex items-center px-4"
+                  style={{ width: LABEL_W }}
+                >
+                  <span className="text-[9px] uppercase tracking-wide text-gray-400">
+                    Topic
+                  </span>
+                </div>
+                <div className="relative flex-1">
+                  {axisTicks(ganttMaxWeek).map((w) => (
                     <span
-                      key={c.concept_id}
-                      title={`${sourcesTitle(c.sources)} · weight ${c.weight.toFixed(2)}`}
-                      className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] border",
-                        c.rank === 1
-                          ? "bg-teal-100 dark:bg-teal-900/40 border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-medium"
-                          : "bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"
-                      )}
+                      key={w}
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] text-gray-400 tabular-nums"
+                      style={{ left: `${((w - 0.5) / ganttMaxWeek) * 100}%` }}
                     >
-                      {conceptName(c)}
+                      {w}
                     </span>
                   ))}
+                  {timeline.current_week != null && (
+                    <span
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-500 bg-white dark:bg-[#1a1a1a] px-0.5"
+                      style={{
+                        left: `${((timeline.current_week - 0.5) / ganttMaxWeek) * 100}%`,
+                      }}
+                    >
+                      Now
+                    </span>
+                  )}
                 </div>
               </div>
-            ))}
+
+              {/* Lanes */}
+              {lanes.map((lane: ConceptLane) => (
+                <div key={lane.conceptId}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedLane(
+                        expandedLane === lane.conceptId ? null : lane.conceptId
+                      )
+                    }
+                    className="w-full flex h-7 items-stretch text-left group"
+                  >
+                    <div
+                      className="sticky left-0 z-20 shrink-0 bg-white dark:bg-[#1a1a1a] group-hover:bg-teal-50/60 dark:group-hover:bg-teal-900/10 flex items-center px-4"
+                      style={{ width: LABEL_W }}
+                    >
+                      <span
+                        className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
+                        title={conceptDisplayName(lane)}
+                      >
+                        {conceptDisplayName(lane)}
+                      </span>
+                    </div>
+                    <div className="relative flex-1 group-hover:bg-teal-50/40 dark:group-hover:bg-teal-900/5">
+                      {lane.segments.map((seg) => (
+                        <div
+                          key={`${seg.startWeek}-${seg.primary}`}
+                          className={cn(
+                            "absolute top-1/2 -translate-y-1/2 h-3 rounded",
+                            seg.primary
+                              ? "bg-teal-500/90 dark:bg-teal-500/80"
+                              : "bg-teal-200 dark:bg-teal-900/60"
+                          )}
+                          style={{
+                            left: `${((seg.startWeek - 1) / ganttMaxWeek) * 100}%`,
+                            width: `${Math.max(
+                              ((seg.endWeek - seg.startWeek + 1) / ganttMaxWeek) * 100,
+                              0.8
+                            )}%`,
+                          }}
+                          title={`${
+                            seg.startWeek === seg.endWeek
+                              ? `Week ${seg.startWeek}`
+                              : `Weeks ${seg.startWeek} to ${seg.endWeek}`
+                          }${seg.primary ? " · main topic" : " · also seen"}`}
+                        />
+                      ))}
+                    </div>
+                  </button>
+                  {expandedLane === lane.conceptId && (
+                    <div className="flex bg-teal-50/40 dark:bg-teal-900/10">
+                      <div
+                        className="sticky left-0 z-20 shrink-0 bg-teal-50/40 dark:bg-transparent"
+                        style={{ width: LABEL_W }}
+                      />
+                      <div className="flex-1 flex flex-wrap gap-1 px-1 py-1.5">
+                        {lane.weeks.map((w) => (
+                          <span
+                            key={w.week_number}
+                            className={cn(
+                              "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] border",
+                              w.rank === 1
+                                ? "border-teal-300 dark:border-teal-700 bg-white dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
+                                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-gray-500 dark:text-gray-400"
+                            )}
+                            title={`Weight ${w.weight.toFixed(2)}`}
+                          >
+                            Wk {w.week_number} · {sourcesText(w.sources)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div className="h-2" />
+            </div>
           </div>
         </div>
       )}
 
-      {school && timeline && timeline.weeks.length === 0 && !timelineLoading && (
+      {school && timeline && lanes.length === 0 && !timelineLoading && (
         <div className="text-sm text-gray-500 dark:text-gray-400 border border-dashed border-[#d4a574]/60 dark:border-[#8b6f47] rounded-lg p-6 text-center mb-4">
           No weekly records for this year yet. Confirming topics in the exercise
           window builds this timeline.
         </div>
       )}
 
-      {/* Pacing bands (all years) */}
-      {school && timeline && timeline.pacing.length > 0 && (
+      {/* Typical pace, with optional school comparison */}
+      {school && pacingRows.length > 0 && (
         <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden mb-4">
-          <div className="px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60">
+          <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60">
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
               Typical pace
             </span>
-            <span className="text-[10px] text-gray-400 ml-2">
-              across all observed years
-            </span>
-          </div>
-          <div className="p-4 space-y-1.5">
-            {timeline.pacing.map((p) => (
-              <div key={p.concept_id} className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-400">across all observed years</span>
+            <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+              {pacingCombos.map(({ combo, pacing }, idx) => (
                 <span
-                  className="text-[10px] text-gray-600 dark:text-gray-300 w-40 sm:w-56 truncate shrink-0"
-                  title={conceptName(p)}
+                  key={comboKey(combo)}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300"
                 >
-                  {conceptName(p)}
+                  <span className={cn("h-2 w-2 rounded-full", SLOT_STYLES[idx].dot)} />
+                  {comboLabel(combo)}
+                  {pacing === null && idx > 0 && (
+                    <Loader2 className="h-2.5 w-2.5 animate-spin text-gray-400" />
+                  )}
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      aria-label={`Stop comparing ${comboLabel(combo)}`}
+                      onClick={() =>
+                        setCompares((prev) =>
+                          prev.filter((c) => comboKey(c) !== comboKey(combo))
+                        )
+                      }
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  )}
                 </span>
-                <div className="relative flex-1 h-3.5">
-                  <div className="absolute inset-y-1 left-0 right-0 rounded bg-gray-100 dark:bg-gray-800" />
+              ))}
+              {compares.length < 2 && compareOptions.length > 0 && (
+                <select
+                  className="text-[10px] px-1.5 py-1 rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  value=""
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const [s, g, st] = e.target.value.split("||");
+                    setCompares((prev) => [...prev, { school: s, grade: g, stream: st || null }]);
+                  }}
+                >
+                  <option value="">Compare with…</option>
+                  {compareOptions.map((c) => (
+                    <option key={comboKey(c)} value={comboKey(c)}>
+                      {comboLabel(c)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: CHART_MIN_W }} className="py-3 space-y-1">
+              {pacingRows.map((row) => (
+                <div key={row.conceptId} className="flex items-stretch">
                   <div
-                    className="absolute inset-y-1 rounded bg-teal-200 dark:bg-teal-800/70"
-                    style={{
-                      left: `${((p.min_week - 1) / maxWeek) * 100}%`,
-                      width: `${Math.max(((p.max_week - p.min_week + 1) / maxWeek) * 100, 1.5)}%`,
-                    }}
-                    title={`Weeks ${p.min_week} to ${p.max_week}, usually around week ${p.mean_week} (${p.years_observed} year${p.years_observed === 1 ? "" : "s"} observed)`}
-                  />
-                  <div
-                    className="absolute top-0 h-3.5 w-1 rounded bg-teal-600 dark:bg-teal-400"
-                    style={{ left: `calc(${((p.mean_week - 0.5) / maxWeek) * 100}% - 2px)` }}
-                  />
+                    className="sticky left-0 z-10 shrink-0 bg-white dark:bg-[#1a1a1a] flex items-center px-4"
+                    style={{ width: LABEL_W }}
+                  >
+                    <span
+                      className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
+                      title={conceptDisplayName(row)}
+                    >
+                      {conceptDisplayName(row)}
+                    </span>
+                  </div>
+                  <div className="flex-1 flex flex-col justify-center gap-0.5 pr-4 py-0.5">
+                    {row.bands.map((band, idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          "relative",
+                          pacingCombos.length > 1 ? "h-2" : "h-3.5"
+                        )}
+                      >
+                        <div className="absolute inset-y-0.5 left-0 right-0 rounded bg-gray-100 dark:bg-gray-800" />
+                        {band && (
+                          <>
+                            <div
+                              className={cn(
+                                "absolute inset-y-0.5 rounded",
+                                SLOT_STYLES[idx].band
+                              )}
+                              style={{
+                                left: `${((band.min_week - 1) / pacingMaxWeek) * 100}%`,
+                                width: `${Math.max(
+                                  ((band.max_week - band.min_week + 1) / pacingMaxWeek) * 100,
+                                  1.5
+                                )}%`,
+                              }}
+                              title={`${comboLabel(pacingCombos[idx].combo)}: weeks ${band.min_week} to ${band.max_week}, usually around week ${band.mean_week} (${band.years_observed} year${band.years_observed === 1 ? "" : "s"} observed)`}
+                            />
+                            <div
+                              className={cn(
+                                "absolute inset-y-0 w-1 rounded",
+                                SLOT_STYLES[idx].mean
+                              )}
+                              style={{
+                                left: `calc(${((band.mean_week - 0.5) / pacingMaxWeek) * 100}% - 2px)`,
+                              }}
+                            />
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <span className="text-[10px] text-gray-400 w-14 shrink-0 tabular-nums text-right">
-                  ~wk {p.mean_week}
-                </span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -306,6 +619,7 @@ export default function CurriculumPage() {
                       setGrade(g.grade);
                       setStream(g.lang_stream || "");
                       setYear(null);
+                      setExpandedLane(null);
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"

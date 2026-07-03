@@ -3,7 +3,7 @@ import useSWR, { mutate } from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumConceptVocab, CurriculumSearchResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -540,6 +540,36 @@ export function useCurriculumCoverage() {
   return useSWR<CurriculumCoverageRow[]>(
     'curriculum-coverage',
     () => curriculumAPI.getCoverage()
+  );
+}
+
+/**
+ * Hook for the full concept vocabulary (76 rows — cached, filtered client-side
+ * for autocomplete).
+ */
+export function useCurriculumConcepts() {
+  return useSWR<CurriculumConceptVocab[]>(
+    'curriculum-concepts',
+    () => curriculumAPI.getConcepts(),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for free curriculum search. Pass null to skip fetching (no active query).
+ */
+export function useCurriculumSearch(
+  query: {
+    q?: string;
+    concept_id?: number;
+    school?: string;
+    grade?: string;
+    lang_stream?: string;
+  } | null
+) {
+  return useSWR<CurriculumSearchResponse>(
+    query ? ['curriculum-search', JSON.stringify(query)] : null,
+    () => curriculumAPI.search(query!)
   );
 }
 
