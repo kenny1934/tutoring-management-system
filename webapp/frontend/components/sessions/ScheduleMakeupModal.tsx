@@ -21,7 +21,7 @@ import {
   getMonthBounds,
 } from "@/lib/calendar-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
-import { getGradeColor, DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
+import { DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
 import { plural, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import {
@@ -51,6 +51,7 @@ import type { Session, MakeupSlotSuggestion, Tutor, MakeupProposalSlotCreate } f
 import { calculateMakeupScore, DEFAULT_WEIGHTS, SUMMER_WEIGHTS, type ScoringWeights } from "@/lib/makeup-scoring";
 import { LessonNumberBadge } from "./LessonNumberBadge";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
+import { GradeLabel, GradeBadge, useGradeColor } from "@/components/ui/grade-label";
 
 // Interface for enrollment deadline exceeded error
 interface DeadlineExceededError {
@@ -85,6 +86,7 @@ interface StudentDisplayProps {
 
 function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
   const name = compact ? student.student_name?.split(' ')[0] : student.student_name;
+  const gradeBg = useGradeColor(student.grade, student.lang_stream);
 
   const content = (
     <>
@@ -95,9 +97,9 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
       {student.grade && (
         <span
           className={cn(compact ? "ml-1 text-[9px] px-1 rounded" : "text-[9px] px-1 py-0.5 rounded text-gray-800")}
-          style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream), color: '#374151' }}
+          style={{ backgroundColor: gradeBg, color: '#374151' }}
         >
-          {student.grade}{student.lang_stream || ""}
+          <GradeLabel grade={student.grade} langStream={student.lang_stream} />
         </span>
       )}
       {student.school && (
@@ -1342,12 +1344,7 @@ export function ScheduleMakeupModal({
           )}
           <span className="font-medium text-[#5d4e37] dark:text-[#e8d4b8]">{session.student_name}</span>
           {session.grade && (
-            <span
-              className="text-[9px] px-1 py-0.5 rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-            >
-              {session.grade}{session.lang_stream || ""}
-            </span>
+            <GradeBadge className="text-[9px] px-1 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
             <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">

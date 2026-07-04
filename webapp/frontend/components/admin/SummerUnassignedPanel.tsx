@@ -349,6 +349,7 @@ export function SummerUnassignedPanel({
                   <div className="flex items-center gap-1 min-w-0">
                     <div className="min-w-0 flex-1">
                       <StudentInfoBadges
+                        gradeIsEntering
                         student={{
                           student_name: app.student_name,
                           grade: app.grade,

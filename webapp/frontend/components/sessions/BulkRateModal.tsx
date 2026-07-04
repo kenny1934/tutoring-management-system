@@ -12,8 +12,8 @@ import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useFormDirtyTracking } from "@/lib/ui-hooks";
 import type { Session } from "@/types";
-import { getGradeColor } from "@/lib/constants";
 import { ratingToEmoji } from "@/lib/formatters";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface BulkRateModalProps {
   sessions: Session[];
@@ -303,12 +303,7 @@ export function BulkRateModal({
 
                   {/* Grade badge */}
                   {session.grade && (
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 shrink-0"
-                      style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                    >
-                      {session.grade}{session.lang_stream}
-                    </span>
+                    <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 shrink-0" grade={session.grade} langStream={session.lang_stream} />
                   )}
                 </div>
 

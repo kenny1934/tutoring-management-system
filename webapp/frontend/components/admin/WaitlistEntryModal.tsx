@@ -11,13 +11,14 @@ import { useToast } from "@/contexts/ToastContext";
 import { useActiveTutors } from "@/lib/hooks";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
-import { getGradeColor, GRADES, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
+import { GRADES, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
 import type {
   WaitlistEntry,
   WaitlistEntryCreate,
   WaitlistSlotPreferenceCreate,
   Student,
 } from "@/types";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface WaitlistEntryModalProps {
   isOpen: boolean;
@@ -352,18 +353,7 @@ export function WaitlistEntryModal({
                     {linkedStudent?.student_name || studentId}
                   </span>
                   {linkedStudent?.grade && (
-                    <span
-                      className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0"
-                      style={{
-                        backgroundColor: getGradeColor(
-                          linkedStudent.grade,
-                          linkedStudent.lang_stream || undefined
-                        ),
-                      }}
-                    >
-                      {linkedStudent.grade}
-                      {linkedStudent.lang_stream}
-                    </span>
+                    <GradeBadge className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0" grade={linkedStudent.grade} langStream={linkedStudent.lang_stream} />
                   )}
                   {linkedStudent?.school && (
                     <span className="text-xs text-green-600 dark:text-green-400 flex-shrink-0">
@@ -411,18 +401,7 @@ export function WaitlistEntryModal({
                           {s.student_name}
                         </span>
                         {s.grade && (
-                          <span
-                            className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0"
-                            style={{
-                              backgroundColor: getGradeColor(
-                                s.grade,
-                                s.lang_stream || undefined
-                              ),
-                            }}
-                          >
-                            {s.grade}
-                            {s.lang_stream}
-                          </span>
+                          <GradeBadge className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0" grade={s.grade} langStream={s.lang_stream} />
                         )}
                         {s.school && (
                           <span className="text-[10px] text-foreground/50 flex-shrink-0">

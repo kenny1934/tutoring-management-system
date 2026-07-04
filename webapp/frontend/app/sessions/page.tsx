@@ -85,7 +85,6 @@ import { updateSessionInCache } from "@/lib/session-cache";
 import { formatCompactDateTimeSlot } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
-import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { TutorLink } from "@/components/tutors/TutorLink";
@@ -102,6 +101,7 @@ const ScheduleMakeupModal = dynamic(
   { ssr: false }
 );
 import { proposalSlotsToSessions, filterProposedSessions, createSessionProposalMap, type ProposedSession } from "@/lib/proposal-utils";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Key for storing scroll position in sessionStorage
 const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
@@ -2220,10 +2220,7 @@ export default function SessionsPage() {
                                             </span>
                                             <SessionLessonBadge session={session} size="xs" />
                                             {session.grade && (
-                                              <span
-                                                className="text-[10px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0"
-                                                style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                                              >{session.grade}{session.lang_stream || ''}</span>
+                                              <GradeBadge className="text-[10px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
                                             )}
                                           </div>
 
@@ -2568,10 +2565,7 @@ export default function SessionsPage() {
                                         )}
                                       </p>
                                       {session.grade && (
-                                        <span
-                                          className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
-                                          style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                                        >{session.grade}{session.lang_stream || ''}</span>
+                                        <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
                                       )}
                                       {session.school && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>

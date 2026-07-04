@@ -4,9 +4,9 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { proposedSessionStyles } from "@/lib/session-status";
-import { getGradeColor } from "@/lib/constants";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { CalendarClock, User } from "lucide-react";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface ProposedSessionCardProps {
   proposedSession: ProposedSession;
@@ -88,18 +88,7 @@ export const ProposedSessionCard = memo(function ProposedSessionCard({
             {proposedSession.student_name || "Unknown"}
           </span>
           {!isMobile && widthPercent >= 50 && proposedSession.grade && (
-            <span
-              className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap"
-              style={{
-                backgroundColor: getGradeColor(
-                  proposedSession.grade,
-                  proposedSession.lang_stream
-                ),
-              }}
-            >
-              {proposedSession.grade}
-              {proposedSession.lang_stream || ""}
-            </span>
+            <GradeBadge className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap" grade={proposedSession.grade} langStream={proposedSession.lang_stream} />
           )}
           {!isMobile && widthPercent > 50 && proposedSession.school && (
             <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
@@ -151,9 +140,6 @@ export const ProposedSessionRow = memo(function ProposedSessionRow({
   proposedSession: ProposedSession;
   onClick: () => void;
 }) {
-  const gradeColor = proposedSession.grade
-    ? getGradeColor(proposedSession.grade, proposedSession.lang_stream)
-    : undefined;
 
   return (
     <motion.div
@@ -192,15 +178,11 @@ export const ProposedSessionRow = memo(function ProposedSessionRow({
               <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">
                 {proposedSession.student_name}
               </span>
-              {gradeColor && (
-                <span
-                  className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 font-medium"
-                  style={{ backgroundColor: gradeColor }}
-                >
-                  {proposedSession.grade}
-                  {proposedSession.lang_stream || ""}
-                </span>
-              )}
+              <GradeBadge
+                className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 font-medium"
+                grade={proposedSession.grade}
+                langStream={proposedSession.lang_stream}
+              />
               {proposedSession.school && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
                   {proposedSession.school}

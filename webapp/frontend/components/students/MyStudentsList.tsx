@@ -6,9 +6,10 @@ import { HandCoins, Clock, AlertTriangle, GraduationCap, Building2, Calendar, Se
 import type { Enrollment } from "@/types";
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
-import { DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
+import { DAY_NAME_TO_INDEX } from "@/lib/constants";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { TutorLink } from "@/components/tutors/TutorLink";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Group options - can be combined
 export type GroupOption = 'payment_status' | 'grade_lang' | 'school' | 'day' | 'time_slot' | 'tutor';
@@ -248,12 +249,7 @@ function EnrollmentRow({
               {enrollment.student_name || "Unknown"}
             </span>
             {enrollment.grade && (
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0"
-                style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
-              >
-                {enrollment.grade}{enrollment.lang_stream || ''}
-              </span>
+              <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0" grade={enrollment.grade} langStream={enrollment.lang_stream} />
             )}
             {enrollment.school && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">
@@ -457,12 +453,7 @@ export function MyStudentsList({
               {enrollment.student_name || "Unknown"}
             </span>
             {enrollment.grade && (
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0"
-                style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
-              >
-                {enrollment.grade}{enrollment.lang_stream || ''}
-              </span>
+              <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0" grade={enrollment.grade} langStream={enrollment.lang_stream} />
             )}
             {enrollment.school && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">

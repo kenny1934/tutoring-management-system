@@ -506,6 +506,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
               >
                 <StudentInfoBadges
                   compact
+                  gradeIsEntering
                   student={{
                     student_name: displayName,
                     school_student_id: s.school_student_id ?? undefined,

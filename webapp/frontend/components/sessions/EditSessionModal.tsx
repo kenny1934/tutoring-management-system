@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
-import { getGradeColor } from "@/lib/constants";
 import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks } from "@/lib/exercise-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ratingToEmoji } from "@/lib/formatters";
@@ -19,6 +18,7 @@ import { parseTimeSlot } from "@/lib/calendar-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Interface for enrollment deadline exceeded error
 interface DeadlineExceededError {
@@ -500,12 +500,7 @@ export function EditSessionModal({
             {session.student_name}
           </span>
           {session.grade && (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-            >
-              {session.grade}{session.lang_stream}
-            </span>
+            <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">

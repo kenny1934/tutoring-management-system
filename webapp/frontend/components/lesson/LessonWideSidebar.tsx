@@ -9,12 +9,12 @@ import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge, YouTubeThumbnail } from "@/components/ui/url-badge";
 import { getPageLabel, getStudentIdDisplay, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
-import { getGradeColor } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { SummerCoursewareWidePanel } from "./SummerCoursewareWidePanel";
 import { StudentPickerPopover } from "./StudentPickerPopover";
 import type { Session, SessionExercise } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -172,12 +172,7 @@ function StudentBlock({
               {session.student_name}
             </span>
             {session.grade && (
-              <span
-                className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
-                style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-              >
-                {session.grade}{session.lang_stream || ""}
-              </span>
+              <GradeBadge className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
             )}
           </div>
           <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums flex-shrink-0">
@@ -451,14 +446,12 @@ function FileGroupItem({
                       )}>
                         {entry.studentName}
                       </span>
-                      {entry.grade && (
-                        <span
-                          className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
-                          style={{ backgroundColor: getGradeColor(entry.grade, entry.langStream) }}
-                        >
-                          {entry.grade}
-                        </span>
-                      )}
+                      <GradeBadge
+                        className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
+                        grade={entry.grade}
+                        langStream={entry.langStream}
+                        showStream={false}
+                      />
                       {pageLabel && (
                         <span className="text-[10px] text-[#b0a090] dark:text-[#706050] flex-shrink-0">
                           {pageLabel}
