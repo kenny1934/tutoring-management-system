@@ -28,6 +28,7 @@ import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { SummerBulkAssignSection } from "./SummerMaterialsSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Re-export type for external consumers
 export type ExerciseFormItem = ExerciseFormItemBase;
@@ -796,7 +797,7 @@ export function BulkExerciseModal({
                       className="px-1 py-0.5 rounded text-[9px] text-gray-800"
                       style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
                     >
-                      {s.grade}{s.lang_stream}
+                      <GradeLabel grade={s.grade} langStream={s.lang_stream} />
                     </span>
                   )}
                 </div>

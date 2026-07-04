@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, Users, AlertCircle } from "lucide-react";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import type { Enrollment, WaitlistEntry } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface SlotChangeHighlight {
   currentDay?: string | null;
@@ -582,7 +583,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
                     className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"
                     style={{ backgroundColor: getGradeColor(w.grade, w.lang_stream || undefined) }}
                   >
-                    {w.grade}{w.lang_stream}
+                    <GradeLabel grade={w.grade} langStream={w.lang_stream} />
                   </span>
                   {w.school_student_id && (
                     <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{w.school_student_id}</span>
@@ -731,8 +732,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
                   ),
                 }}
               >
-                {e.grade}
-                {e.lang_stream}
+                <GradeLabel grade={e.grade} langStream={e.lang_stream} />
               </span>
               {e.school_student_id && (
                 <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{e.school_student_id}</span>
@@ -767,7 +767,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
                     className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"
                     style={{ backgroundColor: getGradeColor(w.grade, w.lang_stream || undefined) }}
                   >
-                    {w.grade}{w.lang_stream}
+                    <GradeLabel grade={w.grade} langStream={w.lang_stream} />
                   </span>
                   {w.school_student_id && (
                     <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{w.school_student_id}</span>

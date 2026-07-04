@@ -35,6 +35,7 @@ import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
 import type { Session, SessionExercise } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface LessonModeProps {
   session: Session;
@@ -897,7 +898,7 @@ export function LessonMode({
               className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800"
               style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
             >
-              {session.grade}{session.lang_stream || ""}
+              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
             </span>
           )}
         </div>

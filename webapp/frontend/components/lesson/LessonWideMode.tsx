@@ -36,6 +36,7 @@ import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
 import type { Session, SessionExercise } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // --- Data types for grouping ---
 
@@ -1020,7 +1021,7 @@ export function LessonWideMode({
                 className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800"
                 style={{ backgroundColor: getGradeColor(selectedEntry.grade, selectedEntry.langStream) }}
               >
-                {selectedEntry.grade}{selectedEntry.langStream || ""}
+                <GradeLabel grade={selectedEntry.grade} langStream={selectedEntry.langStream} />
               </span>
             )}
           </div>

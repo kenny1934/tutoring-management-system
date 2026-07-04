@@ -19,6 +19,7 @@ import { parseTimeSlot } from "@/lib/calendar-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Interface for enrollment deadline exceeded error
 interface DeadlineExceededError {
@@ -504,7 +505,7 @@ export function EditSessionModal({
               className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
               style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
             >
-              {session.grade}{session.lang_stream}
+              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
             </span>
           )}
           {session.school && (

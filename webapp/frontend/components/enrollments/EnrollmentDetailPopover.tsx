@@ -26,6 +26,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Enrollment } from "@/types";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { useAuth } from "@/contexts/AuthContext";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Day options (short form)
 const DAY_OPTIONS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -354,7 +355,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                 className="text-xs px-1.5 py-0.5 rounded text-gray-800"
                 style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
               >
-                {enrollment.grade}{enrollment.lang_stream || ''}
+                <GradeLabel grade={enrollment.grade} langStream={enrollment.lang_stream} />
               </span>
             </div>
           )}

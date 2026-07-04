@@ -7,6 +7,7 @@ import { proposedSessionStyles } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { CalendarClock, User } from "lucide-react";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface ProposedSessionCardProps {
   proposedSession: ProposedSession;
@@ -97,8 +98,7 @@ export const ProposedSessionCard = memo(function ProposedSessionCard({
                 ),
               }}
             >
-              {proposedSession.grade}
-              {proposedSession.lang_stream || ""}
+              <GradeLabel grade={proposedSession.grade} langStream={proposedSession.lang_stream} />
             </span>
           )}
           {!isMobile && widthPercent > 50 && proposedSession.school && (
@@ -197,8 +197,7 @@ export const ProposedSessionRow = memo(function ProposedSessionRow({
                   className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 font-medium"
                   style={{ backgroundColor: gradeColor }}
                 >
-                  {proposedSession.grade}
-                  {proposedSession.lang_stream || ""}
+                  <GradeLabel grade={proposedSession.grade} langStream={proposedSession.lang_stream} />
                 </span>
               )}
               {proposedSession.school && (

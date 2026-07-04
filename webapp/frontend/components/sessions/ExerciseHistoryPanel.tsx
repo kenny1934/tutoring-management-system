@@ -13,6 +13,7 @@ import { RecapExerciseItem } from "./RecapExerciseItem";
 import type { Session, ExerciseHistorySession } from "@/types";
 import type { PrintStampInfo } from "@/lib/file-system";
 import Link from "next/link";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface ExerciseHistoryPanelProps {
   isOpen: boolean;
@@ -171,7 +172,7 @@ export function ExerciseHistoryPanel({
                     className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 shrink-0"
                     style={{ backgroundColor: getGradeColor(parentSession.grade, parentSession.lang_stream) }}
                   >
-                    {parentSession.grade}{parentSession.lang_stream}
+                    <GradeLabel grade={parentSession.grade} langStream={parentSession.lang_stream} />
                   </span>
                 )}
                 {parentSession.school && (

@@ -51,6 +51,7 @@ import type { Session, MakeupSlotSuggestion, Tutor, MakeupProposalSlotCreate } f
 import { calculateMakeupScore, DEFAULT_WEIGHTS, SUMMER_WEIGHTS, type ScoringWeights } from "@/lib/makeup-scoring";
 import { LessonNumberBadge } from "./LessonNumberBadge";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Interface for enrollment deadline exceeded error
 interface DeadlineExceededError {
@@ -97,7 +98,7 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
           className={cn(compact ? "ml-1 text-[9px] px-1 rounded" : "text-[9px] px-1 py-0.5 rounded text-gray-800")}
           style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream), color: '#374151' }}
         >
-          {student.grade}{student.lang_stream || ""}
+          <GradeLabel grade={student.grade} langStream={student.lang_stream} />
         </span>
       )}
       {student.school && (
@@ -1346,7 +1347,7 @@ export function ScheduleMakeupModal({
               className="text-[9px] px-1 py-0.5 rounded text-gray-800"
               style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
             >
-              {session.grade}{session.lang_stream || ""}
+              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
             </span>
           )}
           {session.school && (

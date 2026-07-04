@@ -35,6 +35,7 @@ import {
   Pencil,
   Save,
 } from "lucide-react";
+import { GradeLabel } from "@/components/ui/grade-label";
 interface ProposalCardFullProps {
   proposal: MakeupProposal;
   currentTutorId: number;
@@ -88,7 +89,7 @@ function StudentInSlot({ session }: { session: Session }) {
           className="px-1 py-0.5 text-[10px] font-medium rounded text-gray-800"
           style={{ backgroundColor: gradeColor }}
         >
-          {session.grade}{session.lang_stream || ""}
+          <GradeLabel grade={session.grade} langStream={session.lang_stream} />
         </span>
       )}
     </div>
@@ -692,7 +693,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                           className="px-1 py-0.5 text-[10px] font-medium rounded flex-shrink-0 text-gray-800"
                           style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
                         >
-                          {session.grade}{session.lang_stream || ""}
+                          <GradeLabel grade={session.grade} langStream={session.lang_stream} />
                         </span>
                       )}
                     </>
@@ -781,7 +782,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                           className="px-1.5 py-0.5 text-[11px] font-medium rounded text-gray-800"
                           style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
                         >
-                          {session.grade}{session.lang_stream || ""}
+                          <GradeLabel grade={session.grade} langStream={session.lang_stream} />
                         </span>
                       )}
                       {session.school && (

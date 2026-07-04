@@ -42,6 +42,7 @@ import { isCountableSession, getDisplayStatus, getSessionStatusConfig } from "@/
 import type { Session } from "@/types";
 import type { FileSelection } from "@/components/ui/folder-tree-modal";
 import { SessionDetailPopover } from "./SessionDetailPopover";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Session selection with exercise type
 interface SessionSelection {
@@ -1018,7 +1019,7 @@ function SessionDayPicker({
                                     className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap"
                                     style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
                                   >
-                                    {session.grade}{session.lang_stream || ""}
+                                    <GradeLabel grade={session.grade} langStream={session.lang_stream} />
                                   </span>
                                 )}
                                 {session.school && (

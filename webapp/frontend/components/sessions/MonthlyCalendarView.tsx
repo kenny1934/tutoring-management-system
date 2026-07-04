@@ -31,6 +31,7 @@ import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName, getTutorFirstName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import type { MakeupProposal } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Helper to get tutor initials
 const getTutorInitials = (name: string): string => {
@@ -1033,7 +1034,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
                         className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap"
                         style={{ backgroundColor: getGradeColor(ps.grade, ps.lang_stream) }}
                       >
-                        {ps.grade}{ps.lang_stream || ''}
+                        <GradeLabel grade={ps.grade} langStream={ps.lang_stream} />
                       </span>
                     )}
                     {ps.school && (
@@ -1257,7 +1258,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                               className="text-[6px] px-0.5 rounded text-gray-800"
                               style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
                             >
-                              {session.grade}{session.lang_stream || ''}
+                              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
                             </span>
                           )}
                           {session.school && (
@@ -1379,7 +1380,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
               className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap"
               style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
             >
-              {session.grade}{session.lang_stream || ''}
+              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
             </span>
           )}
           {session.school && (

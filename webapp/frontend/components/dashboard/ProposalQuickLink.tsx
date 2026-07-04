@@ -40,6 +40,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface ProposalQuickLinkProps {
   tutorId: number;
@@ -273,7 +274,7 @@ function CompactProposalCard({
                 className="px-1 py-0.5 text-[9px] font-medium rounded flex-shrink-0 text-gray-800"
                 style={{ backgroundColor: gradeColor }}
               >
-                {session.grade}{session.lang_stream || ""}
+                <GradeLabel grade={session.grade} langStream={session.lang_stream} />
               </span>
             )}
           </div>

@@ -19,6 +19,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface HeaderStatsProps {
   stats: DashboardStats;
@@ -197,7 +198,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                               className="text-[11px] px-1.5 py-0.5 rounded font-semibold text-gray-800 whitespace-nowrap flex-shrink-0"
                               style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream ?? undefined) }}
                             >
-                              {student.grade}{student.lang_stream || ""}
+                              <GradeLabel grade={student.grade} langStream={student.lang_stream} />
                             </span>
                           )}
                           {student.school && (

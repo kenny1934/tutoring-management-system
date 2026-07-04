@@ -31,6 +31,7 @@ import { MemoListDrawer } from "@/components/sessions/MemoListDrawer";
 import { useAuth } from "@/contexts/AuthContext";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { toDateString } from "@/lib/calendar-utils";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface TodaySessionsCardProps {
   className?: string;
@@ -670,7 +671,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
               className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
               style={{ backgroundColor: gradeColor }}
             >
-              {session.grade}{session.lang_stream || ''}
+              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
             </span>
           )}
 
@@ -785,7 +786,7 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
               className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
               style={{ backgroundColor: gradeColor }}
             >
-              {proposedSession.grade}{proposedSession.lang_stream || ''}
+              <GradeLabel grade={proposedSession.grade} langStream={proposedSession.lang_stream} />
             </span>
           )}
 

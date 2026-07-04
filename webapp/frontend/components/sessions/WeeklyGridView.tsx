@@ -32,6 +32,7 @@ import { SummerClassChip } from "@/components/sessions/SummerClassHeader";
 import { flattenSummerClusters } from "@/lib/summer-class-grouping";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import type { MakeupProposal } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface WeeklyGridViewProps {
   sessions: Session[];
@@ -673,7 +674,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                                           <span
                                             className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap"
                                             style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                                          >{session.grade}{session.lang_stream || ''}</span>
+                                          ><GradeLabel grade={session.grade} langStream={session.lang_stream} /></span>
                                         )}
                                         {!isMobile && widthPercent > 50 && session.school && (
                                           <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>

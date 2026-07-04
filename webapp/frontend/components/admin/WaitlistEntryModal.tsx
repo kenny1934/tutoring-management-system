@@ -18,6 +18,7 @@ import type {
   WaitlistSlotPreferenceCreate,
   Student,
 } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface WaitlistEntryModalProps {
   isOpen: boolean;
@@ -361,8 +362,7 @@ export function WaitlistEntryModal({
                         ),
                       }}
                     >
-                      {linkedStudent.grade}
-                      {linkedStudent.lang_stream}
+                      <GradeLabel grade={linkedStudent.grade} langStream={linkedStudent.lang_stream} />
                     </span>
                   )}
                   {linkedStudent?.school && (
@@ -420,8 +420,7 @@ export function WaitlistEntryModal({
                               ),
                             }}
                           >
-                            {s.grade}
-                            {s.lang_stream}
+                            <GradeLabel grade={s.grade} langStream={s.lang_stream} />
                           </span>
                         )}
                         {s.school && (

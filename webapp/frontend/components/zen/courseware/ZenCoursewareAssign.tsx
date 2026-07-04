@@ -16,6 +16,7 @@ import {
   getShortStatus,
 } from "@/components/zen/utils/sessionSorting";
 import type { Session } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface AssignTarget {
   path: string;
@@ -488,8 +489,7 @@ export function ZenCoursewareAssign({
                         fontSize: "10px",
                       }}
                     >
-                      {session.grade || "—"}
-                      {session.lang_stream || ""}
+                      {session.grade ? <GradeLabel grade={session.grade} langStream={session.lang_stream} /> : "—"}
                     </span>
 
                     {/* Short status */}

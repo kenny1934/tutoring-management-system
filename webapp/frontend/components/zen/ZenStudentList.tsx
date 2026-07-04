@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useRef } from "react";
 import type { Student } from "@/types";
 import { getGradeColor } from "@/lib/constants";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface ZenStudentListProps {
   students: Student[];
@@ -217,8 +218,7 @@ export function ZenStudentList({
                 fontSize: "11px",
               }}
             >
-              {student.grade || "—"}
-              {student.lang_stream || ""}
+              {student.grade ? <GradeLabel grade={student.grade} langStream={student.lang_stream} /> : "—"}
             </span>
 
             {/* School */}

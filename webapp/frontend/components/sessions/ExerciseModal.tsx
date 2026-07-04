@@ -36,6 +36,7 @@ import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
 import { SummerMaterialsSection } from "./SummerMaterialsSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -1085,7 +1086,7 @@ export function ExerciseModal({
               className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
               style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
             >
-              {session.grade}{session.lang_stream}
+              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
             </span>
           )}
           {session.school && (
@@ -1378,7 +1379,7 @@ export function ExerciseModal({
                                         </span>
                                       )}
                                       <span className="shrink-0 text-gray-400 dark:text-gray-500">
-                                        {detail.grade}
+                                        <GradeLabel grade={detail.grade} />
                                       </span>
                                       <span className={cn(
                                         "shrink-0 px-1 rounded text-[9px]",

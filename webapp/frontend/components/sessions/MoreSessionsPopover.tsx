@@ -18,6 +18,7 @@ import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/
 import { getGradeColor } from "@/lib/constants";
 import type { Session } from "@/types";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface MoreSessionsPopoverProps {
   sessions: Session[];
@@ -150,7 +151,7 @@ export function MoreSessionsPopover({
                         <span
                           className="text-[9px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
                           style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                        >{session.grade}{session.lang_stream || ''}</span>
+                        ><GradeLabel grade={session.grade} langStream={session.lang_stream} /></span>
                       )}
                       {session.school && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>

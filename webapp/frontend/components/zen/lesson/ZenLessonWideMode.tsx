@@ -16,6 +16,7 @@ import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useZenAnnotationHandlers } from "./useZenAnnotationHandlers";
 import type { Session } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 const zenHeaderBtn: React.CSSProperties = {
   background: "none",
@@ -323,7 +324,7 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
             {activeSession?.student_name || "Unknown"}
             {activeSession?.grade && (
               <span style={{ color: "var(--zen-dim)", fontWeight: "normal", marginLeft: "6px" }}>
-                {activeSession.grade}{activeSession.lang_stream || ""}
+                <GradeLabel grade={activeSession.grade} langStream={activeSession.lang_stream} />
               </span>
             )}
           </div>

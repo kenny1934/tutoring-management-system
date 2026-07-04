@@ -15,6 +15,7 @@ import { SummerCoursewareWidePanel } from "./SummerCoursewareWidePanel";
 import { StudentPickerPopover } from "./StudentPickerPopover";
 import type { Session, SessionExercise } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -176,7 +177,7 @@ function StudentBlock({
                 className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
                 style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
               >
-                {session.grade}{session.lang_stream || ""}
+                <GradeLabel grade={session.grade} langStream={session.lang_stream} />
               </span>
             )}
           </div>
@@ -456,7 +457,7 @@ function FileGroupItem({
                           className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
                           style={{ backgroundColor: getGradeColor(entry.grade, entry.langStream) }}
                         >
-                          {entry.grade}
+                          <GradeLabel grade={entry.grade} />
                         </span>
                       )}
                       {pageLabel && (

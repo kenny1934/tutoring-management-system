@@ -20,6 +20,7 @@ import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { isCountableSession } from "@/lib/session-status";
 import { setZenStatus } from "./ZenStatusBar";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface ZenSessionListProps {
   sessions: Session[];
@@ -479,8 +480,7 @@ export function ZenSessionList({
                     fontSize: "11px",
                   }}
                 >
-                  {session.grade || "—"}
-                  {session.lang_stream || ""}
+                  {session.grade ? <GradeLabel grade={session.grade} langStream={session.lang_stream} /> : "—"}
                 </span>
 
                 {/* School */}

@@ -22,6 +22,7 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface ProposalEmbedProps {
   messageText: string;
@@ -260,7 +261,7 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
                 className="px-1 py-0.5 text-[9px] font-medium rounded flex-shrink-0 text-gray-800"
                 style={{ backgroundColor: gradeColor }}
               >
-                {session.grade}{session.lang_stream || ""}
+                <GradeLabel grade={session.grade} langStream={session.lang_stream} />
               </span>
             )}
           </div>

@@ -45,6 +45,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import type { WaitlistEntry, WaitlistEntryBulkItem, Enrollment, Student } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 const HEADER_PATTERNS: Record<string, RegExp> = {
   name: /^(name|student|student.?name|姓名|學生)/i,
@@ -556,7 +557,7 @@ export default function AdminWaitlistPage() {
                                   className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0"
                                   style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream || undefined) }}
                                 >
-                                  {e.grade}{e.lang_stream}
+                                  <GradeLabel grade={e.grade} langStream={e.lang_stream} />
                                 </span>
                                 {e.school && <span className="text-[10px] text-foreground/40 truncate">{e.school}</span>}
                               </div>

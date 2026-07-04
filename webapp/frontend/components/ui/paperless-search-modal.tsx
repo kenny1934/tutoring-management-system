@@ -13,6 +13,7 @@ import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type Recen
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
 import { setPaperlessPathCache } from "@/lib/file-system";
 import type { PageSelection, CoursewarePopularity, CoursewareUsageDetail } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Constants
 const DEBOUNCE_MS = 300;
@@ -1042,7 +1043,7 @@ export function PaperlessSearchModal({
                                             </span>
                                           )}
                                           <span className="shrink-0 text-gray-400 dark:text-gray-500">
-                                            {detail.grade}{detail.lang_stream}
+                                            <GradeLabel grade={detail.grade} langStream={detail.lang_stream} />
                                           </span>
                                           <span className={cn(
                                             "shrink-0 px-1 py-0.5 rounded text-[10px]",

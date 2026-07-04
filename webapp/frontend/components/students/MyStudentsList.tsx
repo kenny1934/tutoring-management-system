@@ -9,6 +9,7 @@ import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollmen
 import { DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { TutorLink } from "@/components/tutors/TutorLink";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Group options - can be combined
 export type GroupOption = 'payment_status' | 'grade_lang' | 'school' | 'day' | 'time_slot' | 'tutor';
@@ -252,7 +253,7 @@ function EnrollmentRow({
                 className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0"
                 style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
               >
-                {enrollment.grade}{enrollment.lang_stream || ''}
+                <GradeLabel grade={enrollment.grade} langStream={enrollment.lang_stream} />
               </span>
             )}
             {enrollment.school && (
@@ -461,7 +462,7 @@ export function MyStudentsList({
                 className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0"
                 style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
               >
-                {enrollment.grade}{enrollment.lang_stream || ''}
+                <GradeLabel grade={enrollment.grade} langStream={enrollment.lang_stream} />
               </span>
             )}
             {enrollment.school && (

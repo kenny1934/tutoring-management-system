@@ -18,6 +18,7 @@ import type { GroupOption, SortOption, SortDirection } from "./MyStudentsList";
 import { getGroupKey, compareGroupKeys } from "./MyStudentsList";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { TutorLink } from "@/components/tutors/TutorLink";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface MyStudentsWeeklyGridProps {
   enrollments: Enrollment[];
@@ -521,7 +522,7 @@ export function MyStudentsWeeklyGrid({
                                             className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap flex-shrink-0"
                                             style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
                                           >
-                                            {enrollment.grade}{enrollment.lang_stream || ''}
+                                            <GradeLabel grade={enrollment.grade} langStream={enrollment.lang_stream} />
                                           </span>
                                         )}
                                         {!isMobile && widthPercent > 50 && enrollment.school && (

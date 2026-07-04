@@ -28,6 +28,12 @@ interface StudentInfoBadgesProps {
   /** Optional click handler on the name. When set, the name renders as a
    *  button; otherwise it stays a plain span. */
   onNameClick?: () => void;
+  /** Set when `student.grade` already holds the entering grade (summer
+   *  application / slot / placement data stores F1 for a current P6
+   *  student). Summer pages always mean F1-F4 prep classes, so the grade
+   *  renders as-is with no Pre- transform — promoting it would show Pre-F2
+   *  for a student entering F1. Stored student grades leave this unset. */
+  gradeIsEntering?: boolean;
 }
 
 /**
@@ -42,6 +48,7 @@ export function StudentInfoBadges({
   compact = false,
   nameTitle,
   onNameClick,
+  gradeIsEntering = false,
 }: StudentInfoBadgesProps) {
   // Format student ID with optional location prefix (e.g., "MSA-1234")
   const studentIdDisplay = showLocationPrefix && student.home_location
@@ -52,7 +59,9 @@ export function StudentInfoBadges({
   // so tutors can pick the correct curriculum even though the stored grade
   // (still F1) only flips on the Sept 1 promotion.
   const preGradeWindow = useSummerPreGradeWindow();
-  const gradeForDisplay = displayGrade(student.grade, preGradeWindow);
+  const gradeForDisplay = gradeIsEntering
+    ? student.grade
+    : displayGrade(student.grade, preGradeWindow);
 
   const nameClass = cn(
     "font-semibold text-gray-900 dark:text-white",

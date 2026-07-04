@@ -59,6 +59,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Tab types
 type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "contacts";
@@ -508,7 +509,7 @@ export default function StudentDetailPage() {
                 className="text-xs px-2 py-0.5 rounded text-gray-800"
                 style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
               >
-                {student.grade}{student.lang_stream || ''}
+                <GradeLabel grade={student.grade} langStream={student.lang_stream} />
               </span>
             )}
 

@@ -11,6 +11,7 @@ import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
 import { getGradeColor } from "@/lib/constants";
 import { ratingToEmoji } from "@/lib/formatters";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 interface RateSessionModalProps {
   session: Session;
@@ -205,7 +206,7 @@ export function RateSessionModal({
               className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
               style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
             >
-              {session.grade}{session.lang_stream}
+              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
             </span>
           )}
           {session.school && (

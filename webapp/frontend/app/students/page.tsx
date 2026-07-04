@@ -32,6 +32,7 @@ import { getGradeColor } from "@/lib/constants";
 import { formatShortDate } from "@/lib/formatters";
 import { getDaysUntil } from "@/lib/calendar-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -883,7 +884,7 @@ function RichPopoverContent({
               className="text-xs px-2 py-0.5 rounded text-gray-800"
               style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
             >
-              {student.grade}{student.lang_stream || ''}
+              <GradeLabel grade={student.grade} langStream={student.lang_stream} />
             </span>
           )}
           {student.academic_stream && (
@@ -1149,7 +1150,7 @@ const StudentCard = memo(function StudentCard({
               className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
               style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
             >
-              {student.grade}{student.lang_stream || ''}
+              <GradeLabel grade={student.grade} langStream={student.lang_stream} />
             </span>
           )}
           {/* School Badge */}
