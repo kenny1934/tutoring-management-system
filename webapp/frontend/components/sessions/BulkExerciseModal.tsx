@@ -9,7 +9,6 @@ import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check, GripVe
 import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
@@ -28,7 +27,7 @@ import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { SummerBulkAssignSection } from "./SummerMaterialsSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Re-export type for external consumers
 export type ExerciseFormItem = ExerciseFormItemBase;
@@ -793,12 +792,7 @@ export function BulkExerciseModal({
                   <span className="text-gray-500 dark:text-gray-400">{s.school_student_id}</span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">{s.student_name}</span>
                   {s.grade && (
-                    <span
-                      className="px-1 py-0.5 rounded text-[9px] text-gray-800"
-                      style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
-                    >
-                      <GradeLabel grade={s.grade} langStream={s.lang_stream} />
-                    </span>
+                    <GradeBadge className="px-1 py-0.5 rounded text-[9px] text-gray-800" grade={s.grade} langStream={s.lang_stream} />
                   )}
                 </div>
               );

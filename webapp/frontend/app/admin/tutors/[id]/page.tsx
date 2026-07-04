@@ -14,7 +14,7 @@ import { usePageTitle, useTutor } from "@/lib/hooks";
 import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
 import { getSessionStatusConfig, getMainGradeGroup, compareSessionsInSlot } from "@/lib/session-status";
-import { getGradeColor, BONUS_TIERS } from "@/lib/constants";
+import { BONUS_TIERS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { getWeekBounds, toDateString, getDayName, getMonthName, isSameDay } from "@/lib/calendar-utils";
 import { formatMOP } from "@/lib/formatters";
@@ -45,6 +45,7 @@ import {
   type RosterFacets,
   type RosterSort,
 } from "@/lib/tutor-roster";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // --- date helpers (client-side) --------------------------------------------
 function currentPeriod(): string {
@@ -653,13 +654,11 @@ function TutorProfileInner() {
                           <div className="mt-1 flex items-center gap-2 text-xs text-foreground/45">
                             <span className="w-9 flex-shrink-0">
                               {e.grade && (
-                                <span
+                                <GradeBadge
                                   className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
-                                  style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream) }}
-                                >
-                                  {e.grade}
-                                  {e.lang_stream || ""}
-                                </span>
+                                  grade={e.grade}
+                                  langStream={e.lang_stream}
+                                />
                               )}
                             </span>
                             <span className="flex min-w-0 flex-1 items-center gap-1">
@@ -752,13 +751,11 @@ function TutorProfileInner() {
                                   </span>
                                   <span className="order-2 w-9 flex-shrink-0">
                                     {s.grade && (
-                                      <span
+                                      <GradeBadge
                                         className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-800"
-                                        style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
-                                      >
-                                        {s.grade}
-                                        {s.lang_stream || ""}
-                                      </span>
+                                        grade={s.grade}
+                                        langStream={s.lang_stream}
+                                      />
                                     )}
                                   </span>
                                   <span className="order-3 w-7 flex-shrink-0 text-[10px] font-medium text-foreground/40">

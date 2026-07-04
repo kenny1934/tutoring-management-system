@@ -10,7 +10,6 @@ import { proposalsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { mutate } from "swr";
-import { getGradeColor } from "@/lib/constants";
 import type { MakeupProposalSlot } from "@/types";
 import {
   CalendarClock,
@@ -22,7 +21,7 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface ProposalEmbedProps {
   messageText: string;
@@ -232,7 +231,6 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
 
   const session = proposal.original_session;
   const isProposer = proposal.proposed_by_tutor_id === currentTutorId;
-  const gradeColor = session?.grade ? getGradeColor(session.grade, session.lang_stream) : undefined;
 
   // Get relevant slots
   const relevantSlots = proposal.proposal_type === "specific_slots"
@@ -256,13 +254,12 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
             <span className="font-medium text-sm truncate">
               {session?.student_name || "Unknown Student"}
             </span>
-            {session?.grade && gradeColor && (
-              <span
+            {session?.grade && (
+              <GradeBadge
                 className="px-1 py-0.5 text-[9px] font-medium rounded flex-shrink-0 text-gray-800"
-                style={{ backgroundColor: gradeColor }}
-              >
-                <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-              </span>
+                grade={session.grade}
+                langStream={session.lang_stream}
+              />
             )}
           </div>
           <span

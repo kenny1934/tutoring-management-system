@@ -13,7 +13,7 @@ import { getGradeColor } from "@/lib/constants";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { HelpTopic } from "./types";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Event type colors for exam preview badges
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -144,12 +144,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         {/* Badges - grade with color, school with amber */}
         <div className="flex flex-wrap gap-1.5">
           {s.grade && (
-            <span
-              className="px-1.5 py-0.5 text-[11px] rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
-            >
-              <GradeLabel grade={s.grade} langStream={s.lang_stream} />
-            </span>
+            <GradeBadge className="px-1.5 py-0.5 text-[11px] rounded text-gray-800" grade={s.grade} langStream={s.lang_stream} />
           )}
           {s.school && (
             <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
@@ -213,12 +208,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         {/* Badges */}
         <div className="flex flex-wrap gap-1.5">
           {s.grade && (
-            <span
-              className="px-1.5 py-0.5 text-[11px] rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
-            >
-              <GradeLabel grade={s.grade} langStream={s.lang_stream} />
-            </span>
+            <GradeBadge className="px-1.5 py-0.5 text-[11px] rounded text-gray-800" grade={s.grade} langStream={s.lang_stream} />
           )}
           {s.school && (
             <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
@@ -265,12 +255,7 @@ export function PreviewContent({ data }: { data: PreviewData | null }) {
         {/* Badges */}
         <div className="flex flex-wrap gap-1.5">
           {e.grade && (
-            <span
-              className="px-1.5 py-0.5 text-[11px] rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream) }}
-            >
-              <GradeLabel grade={e.grade} langStream={e.lang_stream} />
-            </span>
+            <GradeBadge className="px-1.5 py-0.5 text-[11px] rounded text-gray-800" grade={e.grade} langStream={e.lang_stream} />
           )}
           {e.school && (
             <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">

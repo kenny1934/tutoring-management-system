@@ -28,11 +28,10 @@ import type { Session, Enrollment, CalendarEvent } from "@/types";
 import { TutorSelector, ALL_TUTORS, type TutorValue } from "@/components/selectors/TutorSelector";
 import { MyStudentsView } from "@/components/students/MyStudentsView";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
-import { getGradeColor } from "@/lib/constants";
 import { formatShortDate } from "@/lib/formatters";
 import { getDaysUntil } from "@/lib/calendar-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -880,12 +879,7 @@ function RichPopoverContent({
             </span>
           )}
           {student.grade && (
-            <span
-              className="text-xs px-2 py-0.5 rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
-            >
-              <GradeLabel grade={student.grade} langStream={student.lang_stream} />
-            </span>
+            <GradeBadge className="text-xs px-2 py-0.5 rounded text-gray-800" grade={student.grade} langStream={student.lang_stream} />
           )}
           {student.academic_stream && (
             <span className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
@@ -1146,12 +1140,7 @@ const StudentCard = memo(function StudentCard({
           </span>
           {/* Grade Badge */}
           {student.grade && (
-            <span
-              className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
-              style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
-            >
-              <GradeLabel grade={student.grade} langStream={student.lang_stream} />
-            </span>
+            <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={student.grade} langStream={student.lang_stream} />
           )}
           {/* School Badge */}
           {student.school && (

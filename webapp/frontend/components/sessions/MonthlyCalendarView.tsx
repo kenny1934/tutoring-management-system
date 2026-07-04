@@ -27,11 +27,10 @@ import {
 import { cn } from "@/lib/utils";
 import { formatCompactDateTimeSlot } from "@/lib/formatters";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
-import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName, getTutorFirstName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import type { MakeupProposal } from "@/types";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Helper to get tutor initials
 const getTutorInitials = (name: string): string => {
@@ -1030,12 +1029,7 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, date, setOpenSessionId,
                   <div className="flex items-center gap-1 text-xs font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
                     <span className="truncate">{ps.student_name || "Unknown"}</span>
                     {ps.grade && (
-                      <span
-                        className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap"
-                        style={{ backgroundColor: getGradeColor(ps.grade, ps.lang_stream) }}
-                      >
-                        <GradeLabel grade={ps.grade} langStream={ps.lang_stream} />
-                      </span>
+                      <GradeBadge className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={ps.grade} langStream={ps.lang_stream} />
                     )}
                     {ps.school && (
                       <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
@@ -1254,12 +1248,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                         {/* Row 3: Grade + School tags */}
                         <div className="flex items-center gap-0.5 flex-wrap">
                           {session.grade && (
-                            <span
-                              className="text-[6px] px-0.5 rounded text-gray-800"
-                              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                            >
-                              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-                            </span>
+                            <GradeBadge className="text-[6px] px-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
                           )}
                           {session.school && (
                             <span className="text-[6px] px-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
@@ -1376,12 +1365,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         )}>
           <span className="truncate">{session.student_name || "Unknown"}</span>
           {session.grade && (
-            <span
-              className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap"
-              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-            >
-              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-            </span>
+            <GradeBadge className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
             <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">

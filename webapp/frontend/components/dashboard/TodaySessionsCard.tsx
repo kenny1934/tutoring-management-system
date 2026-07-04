@@ -19,7 +19,6 @@ import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import type { Session, MakeupProposal } from "@/types";
-import { getGradeColor } from "@/lib/constants";
 import { proposalSlotsToSessions, filterProposedSessions } from "@/lib/proposal-utils";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
@@ -31,7 +30,7 @@ import { MemoListDrawer } from "@/components/sessions/MemoListDrawer";
 import { useAuth } from "@/contexts/AuthContext";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { toDateString } from "@/lib/calendar-utils";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface TodaySessionsCardProps {
   className?: string;
@@ -613,7 +612,6 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
   const { selectedLocation } = useLocation();
   const displayStatus = getDisplayStatus(session);
   const config = getSessionStatusConfig(displayStatus);
-  const gradeColor = getGradeColor(session.grade, session.lang_stream);
   const isUnpaid = session.financial_status !== 'Paid';
   const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
 
@@ -666,14 +664,11 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           )}
 
           {/* Grade badge */}
-          {session.grade && (
-            <span
-              className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
-              style={{ backgroundColor: gradeColor }}
-            >
-              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-            </span>
-          )}
+          <GradeBadge
+            className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
+            grade={session.grade}
+            langStream={session.lang_stream}
+          />
 
           {/* School badge */}
           {session.school && (
@@ -746,7 +741,6 @@ interface ProposedSessionRowProps {
 
 function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedSessionRowProps) {
   const { selectedLocation } = useLocation();
-  const gradeColor = getGradeColor(proposedSession.grade, proposedSession.lang_stream);
 
   return (
     <div
@@ -781,14 +775,11 @@ function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedS
           </span>
 
           {/* Grade badge */}
-          {proposedSession.grade && (
-            <span
-              className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
-              style={{ backgroundColor: gradeColor }}
-            >
-              <GradeLabel grade={proposedSession.grade} langStream={proposedSession.lang_stream} />
-            </span>
-          )}
+          <GradeBadge
+            className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
+            grade={proposedSession.grade}
+            langStream={proposedSession.lang_stream}
+          />
 
           {/* School badge */}
           {proposedSession.school && (

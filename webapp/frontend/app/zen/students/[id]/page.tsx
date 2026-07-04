@@ -22,6 +22,8 @@ import { parseStarRating } from "@/components/ui/star-rating";
 import { getDisplayStatus } from "@/lib/session-status";
 import { getPendingSlotCount } from "@/lib/proposal-utils";
 import type { Enrollment, Session, CalendarEvent, MakeupProposal } from "@/types";
+import { displayGrade, gradeColorKey } from "@/lib/grade-utils";
+import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
 
 type Tab = "info" | "enrollments" | "sessions" | "contacts" | "ratings" | "tests" | "courseware";
 const ALL_TABS: Tab[] = ["info", "enrollments", "sessions", "contacts", "ratings", "tests", "courseware"];
@@ -623,14 +625,15 @@ export default function ZenStudentDetailPage() {
 // ── Info Tab ──
 
 function InfoTab({ student }: { student: NonNullable<ReturnType<typeof useStudent>["data"]> }) {
-  const gradeColor = getGradeColor(student.grade, student.lang_stream);
+  const preGradeWindow = useSummerPreGradeWindow();
+  const gradeColor = getGradeColor(gradeColorKey(student.grade, preGradeWindow), student.lang_stream);
 
   const contactsDisplay = student.contacts?.length
     ? student.contacts.map(c => c.label ? `${c.phone} (${c.label})` : c.phone).join(", ")
     : student.phone || "—";
 
   const fields = [
-    { label: "Grade", value: student.grade ? `${student.grade}${student.lang_stream || ""}` : "—", color: gradeColor },
+    { label: "Grade", value: student.grade ? `${displayGrade(student.grade, preGradeWindow)}${student.lang_stream || ""}` : "—", color: gradeColor },
     { label: "School", value: student.school || "—" },
     { label: "Phone", value: contactsDisplay },
     { label: "Home Location", value: student.home_location || "—" },

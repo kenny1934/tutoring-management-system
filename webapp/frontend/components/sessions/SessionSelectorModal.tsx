@@ -35,14 +35,14 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getGradeColor, DAY_NAMES } from "@/lib/constants";
+import { DAY_NAMES } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { isCountableSession, getDisplayStatus, getSessionStatusConfig } from "@/lib/session-status";
 import type { Session } from "@/types";
 import type { FileSelection } from "@/components/ui/folder-tree-modal";
 import { SessionDetailPopover } from "./SessionDetailPopover";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Session selection with exercise type
 interface SessionSelection {
@@ -1015,12 +1015,7 @@ function SessionDayPicker({
                                   {session.student_name || "Unknown"}
                                 </span>
                                 {session.grade && (
-                                  <span
-                                    className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap"
-                                    style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                                  >
-                                    <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-                                  </span>
+                                  <GradeBadge className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
                                 )}
                                 {session.school && (
                                   <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">

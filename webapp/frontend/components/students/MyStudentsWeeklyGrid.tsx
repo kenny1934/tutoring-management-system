@@ -13,12 +13,12 @@ import {
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
-import { DAY_NAMES, DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
+import { DAY_NAMES, DAY_NAME_TO_INDEX } from "@/lib/constants";
 import type { GroupOption, SortOption, SortDirection } from "./MyStudentsList";
 import { getGroupKey, compareGroupKeys } from "./MyStudentsList";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import { TutorLink } from "@/components/tutors/TutorLink";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface MyStudentsWeeklyGridProps {
   enrollments: Enrollment[];
@@ -518,12 +518,7 @@ export function MyStudentsWeeklyGrid({
                                       )}>
                                         <span className="truncate">{enrollment.student_name || "Unknown"}</span>
                                         {!isMobile && widthPercent >= 50 && enrollment.grade && (
-                                          <span
-                                            className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap flex-shrink-0"
-                                            style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
-                                          >
-                                            <GradeLabel grade={enrollment.grade} langStream={enrollment.lang_stream} />
-                                          </span>
+                                          <GradeBadge className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap flex-shrink-0" grade={enrollment.grade} langStream={enrollment.lang_stream} />
                                         )}
                                         {!isMobile && widthPercent > 50 && enrollment.school && (
                                           <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">

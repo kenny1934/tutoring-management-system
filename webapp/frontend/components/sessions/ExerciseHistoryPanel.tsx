@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, ChevronDown, PenTool, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
 import { useLocation } from "@/contexts/LocationContext";
 import { sessionsAPI } from "@/lib/api";
 import { formatDateCompact } from "@/lib/formatters";
@@ -13,7 +12,7 @@ import { RecapExerciseItem } from "./RecapExerciseItem";
 import type { Session, ExerciseHistorySession } from "@/types";
 import type { PrintStampInfo } from "@/lib/file-system";
 import Link from "next/link";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface ExerciseHistoryPanelProps {
   isOpen: boolean;
@@ -168,12 +167,7 @@ export function ExerciseHistoryPanel({
                   {parentSession.student_name}
                 </Link>
                 {parentSession.grade && (
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 shrink-0"
-                    style={{ backgroundColor: getGradeColor(parentSession.grade, parentSession.lang_stream) }}
-                  >
-                    <GradeLabel grade={parentSession.grade} langStream={parentSession.lang_stream} />
-                  </span>
+                  <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 shrink-0" grade={parentSession.grade} langStream={parentSession.lang_stream} />
                 )}
                 {parentSession.school && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 shrink-0">

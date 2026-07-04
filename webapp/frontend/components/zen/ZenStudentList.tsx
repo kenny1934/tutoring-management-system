@@ -4,6 +4,8 @@ import { useEffect, useCallback, useRef } from "react";
 import type { Student } from "@/types";
 import { getGradeColor } from "@/lib/constants";
 import { GradeLabel } from "@/components/ui/grade-label";
+import { gradeColorKey } from "@/lib/grade-utils";
+import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
 
 interface ZenStudentListProps {
   students: Student[];
@@ -33,6 +35,7 @@ export function ZenStudentList({
   isFocused,
   onFocus,
 }: ZenStudentListProps) {
+  const preGradeWindow = useSummerPreGradeWindow();
   const cursorRowRef = useRef<HTMLDivElement>(null);
   const gPressedRef = useRef(false);
 
@@ -145,7 +148,7 @@ export function ZenStudentList({
     >
       {students.map((student, index) => {
         const isAtCursor = index === cursorIndex;
-        const gradeColor = getGradeColor(student.grade, student.lang_stream);
+        const gradeColor = getGradeColor(gradeColorKey(student.grade, preGradeWindow), student.lang_stream);
 
         return (
           <div

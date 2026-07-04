@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { CheckSquare, Square, MinusSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStudentIdDisplay } from "@/lib/lesson-utils";
-import { getGradeColor } from "@/lib/constants";
 import type { Session } from "@/types";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 /**
  * Student multi-select popover used by lesson-wide bulk assignment
@@ -99,12 +98,7 @@ export function StudentPickerPopover({
               )}
               <span className="truncate">{session.student_name}</span>
               {session.grade && (
-                <span
-                  className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
-                  style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                >
-                  <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-                </span>
+                <GradeBadge className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
               )}
             </button>
           );

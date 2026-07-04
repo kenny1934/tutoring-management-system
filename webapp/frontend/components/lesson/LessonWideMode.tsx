@@ -7,7 +7,6 @@ import {
   AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
@@ -36,7 +35,7 @@ import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
 import type { Session, SessionExercise } from "@/types";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // --- Data types for grouping ---
 
@@ -1017,12 +1016,7 @@ export function LessonWideMode({
               {selectedEntry.studentName}
             </span>
             {selectedEntry.grade && (
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800"
-                style={{ backgroundColor: getGradeColor(selectedEntry.grade, selectedEntry.langStream) }}
-              >
-                <GradeLabel grade={selectedEntry.grade} langStream={selectedEntry.langStream} />
-              </span>
+              <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800" grade={selectedEntry.grade} langStream={selectedEntry.langStream} />
             )}
           </div>
         )}

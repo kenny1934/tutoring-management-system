@@ -8,7 +8,6 @@ import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingU
 import { Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
@@ -36,7 +35,7 @@ import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
 import { SummerMaterialsSection } from "./SummerMaterialsSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeLabel, GradeBadge } from "@/components/ui/grade-label";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -1082,12 +1081,7 @@ export function ExerciseModal({
             {session.student_name}
           </Link>
           {session.grade && (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-            >
-              <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-            </span>
+            <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">

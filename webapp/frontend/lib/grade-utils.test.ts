@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   displayGrade,
+  gradeColorKey,
   applyTargetToPreGrade,
   coursewareGrade,
 } from "./grade-utils";
@@ -44,5 +45,20 @@ describe("coursewareGrade", () => {
   it("promotes the stored grade before Sept 1 and passes through after", () => {
     expect(coursewareGrade("P6", 2026, IN_WINDOW)).toBe("F1");
     expect(coursewareGrade("F1", 2026, AFTER_WINDOW)).toBe("F1");
+  });
+});
+
+describe("gradeColorKey (badge colour follows displayed grade)", () => {
+  it("promotes the colour key alongside the Pre- text inside the window", () => {
+    // Pre-F1 badge takes F1's colour
+    expect(gradeColorKey("P6", WINDOW, IN_WINDOW)).toBe("F1");
+    expect(gradeColorKey("F1", WINDOW, IN_WINDOW)).toBe("F2");
+  });
+
+  it("keeps the raw grade outside the window or when display stays raw", () => {
+    expect(gradeColorKey("P6", WINDOW, BEFORE_WINDOW)).toBe("P6");
+    expect(gradeColorKey("P6", WINDOW, AFTER_WINDOW)).toBe("P6");
+    expect(gradeColorKey("F6", WINDOW, IN_WINDOW)).toBe("F6");
+    expect(gradeColorKey("Graduated", WINDOW, IN_WINDOW)).toBe("Graduated");
   });
 });

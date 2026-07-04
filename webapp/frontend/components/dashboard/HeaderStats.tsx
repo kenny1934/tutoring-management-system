@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { Users, Calendar, DollarSign, Search, X, Loader2, Eye, EyeOff, Check } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
 import { useLocation } from "@/contexts/LocationContext";
 import { useActiveStudents, useCurrentMonthRevenue, useLocationMonthlyRevenue } from "@/lib/hooks";
 import type { DashboardStats } from "@/types";
@@ -19,7 +18,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface HeaderStatsProps {
   stats: DashboardStats;
@@ -194,12 +193,7 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                             {student.student_name}
                           </span>
                           {student.grade && (
-                            <span
-                              className="text-[11px] px-1.5 py-0.5 rounded font-semibold text-gray-800 whitespace-nowrap flex-shrink-0"
-                              style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream ?? undefined) }}
-                            >
-                              <GradeLabel grade={student.grade} langStream={student.lang_stream} />
-                            </span>
+                            <GradeBadge className="text-[11px] px-1.5 py-0.5 rounded font-semibold text-gray-800 whitespace-nowrap flex-shrink-0" grade={student.grade} langStream={student.lang_stream} />
                           )}
                           {student.school && (
                             <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">

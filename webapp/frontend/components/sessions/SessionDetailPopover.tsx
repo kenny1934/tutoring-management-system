@@ -41,14 +41,13 @@ import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { formatShortDate } from "@/lib/formatters";
 import { formatProspectCode } from "@/lib/summer-utils";
-import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Exercise item with copy, open, and print functionality - memoized to prevent re-renders
 const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise: { pdf_name?: string; url?: string; url_title?: string; page_start?: number; page_end?: number; remarks?: string }; stamp?: PrintStampInfo }) {
@@ -790,12 +789,7 @@ export function SessionDetailPopover({
           {session.grade && (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Grade:</span>
-              <span
-                className="text-xs px-1.5 py-0.5 rounded text-gray-800"
-                style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-              >
-                <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-              </span>
+              <GradeBadge className="text-xs px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
             </div>
           )}
 

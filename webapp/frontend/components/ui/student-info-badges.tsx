@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getGradeColor } from "@/lib/constants";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { displayGrade } from "@/lib/grade-utils";
+import { displayGrade, gradeColorKey } from "@/lib/grade-utils";
 import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
 
 interface StudentInfoBadgesProps {
@@ -62,6 +62,10 @@ export function StudentInfoBadges({
   const gradeForDisplay = gradeIsEntering
     ? student.grade
     : displayGrade(student.grade, preGradeWindow);
+  // Badge colour follows the displayed grade: Pre-F1E takes F1E's colour.
+  const gradeForColor = gradeIsEntering
+    ? student.grade
+    : gradeColorKey(student.grade, preGradeWindow);
 
   const nameClass = cn(
     "font-semibold text-gray-900 dark:text-white",
@@ -105,7 +109,7 @@ export function StudentInfoBadges({
             "rounded text-gray-800",
             compact ? "text-[8px] font-bold px-1 py-0" : "text-[10px] px-1.5 py-0.5",
           )}
-          style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
+          style={{ backgroundColor: getGradeColor(gradeForColor, student.lang_stream) }}
         >
           {gradeForDisplay}{student.lang_stream || ''}
         </span>

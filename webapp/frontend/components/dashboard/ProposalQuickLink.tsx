@@ -10,7 +10,6 @@ import { proposalsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { mutate } from "swr";
-import { getGradeColor } from "@/lib/constants";
 import type { MakeupProposal, MakeupProposalSlot } from "@/types";
 import {
   CalendarClock,
@@ -40,7 +39,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface ProposalQuickLinkProps {
   tutorId: number;
@@ -243,8 +242,6 @@ function CompactProposalCard({
       )
     : [];
 
-  // Get grade color for student tag
-  const gradeColor = session?.grade ? getGradeColor(session.grade, session.lang_stream) : undefined;
 
   // Summary for collapsed view
   const slotSummary = proposal.proposal_type === "specific_slots"
@@ -269,13 +266,12 @@ function CompactProposalCard({
             <span className="font-medium text-sm truncate">
               {session?.student_name || "Unknown Student"}
             </span>
-            {session?.grade && gradeColor && (
-              <span
+            {session?.grade && (
+              <GradeBadge
                 className="px-1 py-0.5 text-[9px] font-medium rounded flex-shrink-0 text-gray-800"
-                style={{ backgroundColor: gradeColor }}
-              >
-                <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-              </span>
+                grade={session.grade}
+                langStream={session.lang_stream}
+              />
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">

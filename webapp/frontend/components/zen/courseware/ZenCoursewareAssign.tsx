@@ -17,6 +17,8 @@ import {
 } from "@/components/zen/utils/sessionSorting";
 import type { Session } from "@/types";
 import { GradeLabel } from "@/components/ui/grade-label";
+import { gradeColorKey } from "@/lib/grade-utils";
+import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
 
 interface AssignTarget {
   path: string;
@@ -43,6 +45,7 @@ export function ZenCoursewareAssign({
   onClose,
   onAssigned,
 }: ZenCoursewareAssignProps) {
+  const preGradeWindow = useSummerPreGradeWindow();
   const today = useMemo(() => toDateString(new Date()), []);
   const [weekStart, setWeekStart] = useState(() => getWeekStartStr(today));
   const weekEnd = useMemo(() => getWeekEndStr(weekStart), [weekStart]);
@@ -418,7 +421,7 @@ export function ZenCoursewareAssign({
                 const rowIndex = flatIndex;
                 const isAtCursor = rowIndex === cursor;
                 const statusColor = getStatusColor(session.session_status);
-                const gradeColor = getGradeColor(session.grade, session.lang_stream);
+                const gradeColor = getGradeColor(gradeColorKey(session.grade, preGradeWindow), session.lang_stream);
                 const statusChar = getStatusChar(session.session_status);
 
                 return (

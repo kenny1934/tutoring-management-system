@@ -24,7 +24,6 @@ import {
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
-import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
@@ -32,7 +31,7 @@ import { SummerClassChip } from "@/components/sessions/SummerClassHeader";
 import { flattenSummerClusters } from "@/lib/summer-class-grouping";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import type { MakeupProposal } from "@/types";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface WeeklyGridViewProps {
   sessions: Session[];
@@ -671,10 +670,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                                       )}>
                                         <span className="truncate">{session.student_name || "Unknown"}</span>
                                         {!isMobile && widthPercent >= 50 && session.grade && (
-                                          <span
-                                            className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap"
-                                            style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                                          ><GradeLabel grade={session.grade} langStream={session.lang_stream} /></span>
+                                          <GradeBadge className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap" grade={session.grade} langStream={session.lang_stream} />
                                         )}
                                         {!isMobile && widthPercent > 50 && session.school && (
                                           <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>

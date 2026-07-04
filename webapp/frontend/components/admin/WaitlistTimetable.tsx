@@ -9,7 +9,7 @@ import { ChevronDown, ChevronUp, Users, AlertCircle } from "lucide-react";
 import { BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import type { Enrollment, WaitlistEntry } from "@/types";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface SlotChangeHighlight {
   currentDay?: string | null;
@@ -579,12 +579,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
                   className="flex items-center gap-1.5 py-0.5 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 rounded transition-colors"
                   onClick={(e) => { e.stopPropagation(); onEntryClick?.(w); }}
                 >
-                  <span
-                    className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"
-                    style={{ backgroundColor: getGradeColor(w.grade, w.lang_stream || undefined) }}
-                  >
-                    <GradeLabel grade={w.grade} langStream={w.lang_stream} />
-                  </span>
+                  <GradeBadge className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0" grade={w.grade} langStream={w.lang_stream} />
                   {w.school_student_id && (
                     <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{w.school_student_id}</span>
                   )}
@@ -723,17 +718,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
               className={cn("flex items-center gap-1.5 py-0.5", onEnrollmentClick && "cursor-pointer hover:bg-amber-100/50 dark:hover:bg-amber-900/20 rounded transition-colors")}
               onClick={onEnrollmentClick ? (ev) => { ev.stopPropagation(); onEnrollmentClick(e.id, ev); } : undefined}
             >
-              <span
-                className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"
-                style={{
-                  backgroundColor: getGradeColor(
-                    e.grade,
-                    e.lang_stream || undefined
-                  ),
-                }}
-              >
-                <GradeLabel grade={e.grade} langStream={e.lang_stream} />
-              </span>
+              <GradeBadge className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0" grade={e.grade} langStream={e.lang_stream} />
               {e.school_student_id && (
                 <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{e.school_student_id}</span>
               )}
@@ -763,12 +748,7 @@ function TutorCard({ slot, onEntryClick, onEnrollmentClick, highlight }: {
                   className="flex items-center gap-1.5 py-0.5 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 rounded transition-colors"
                   onClick={(e) => { e.stopPropagation(); onEntryClick?.(w); }}
                 >
-                  <span
-                    className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0"
-                    style={{ backgroundColor: getGradeColor(w.grade, w.lang_stream || undefined) }}
-                  >
-                    <GradeLabel grade={w.grade} langStream={w.lang_stream} />
-                  </span>
+                  <GradeBadge className="px-1 py-px rounded text-[9px] font-medium text-gray-800 flex-shrink-0" grade={w.grade} langStream={w.lang_stream} />
                   {w.school_student_id && (
                     <span className="text-[8px] text-foreground/30 font-mono flex-shrink-0">{w.school_student_id}</span>
                   )}

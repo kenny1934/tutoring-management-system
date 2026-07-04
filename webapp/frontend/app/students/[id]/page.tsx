@@ -25,7 +25,6 @@ import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatError } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
-import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
 import { Autocomplete } from "@/components/ui/autocomplete";
@@ -59,7 +58,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Tab types
 type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "contacts";
@@ -505,12 +504,7 @@ export default function StudentDetailPage() {
 
             {/* Grade Badge */}
             {student.grade && (
-              <span
-                className="text-xs px-2 py-0.5 rounded text-gray-800"
-                style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
-              >
-                <GradeLabel grade={student.grade} langStream={student.lang_stream} />
-              </span>
+              <GradeBadge className="text-xs px-2 py-0.5 rounded text-gray-800" grade={student.grade} langStream={student.lang_stream} />
             )}
 
             {/* School Badge */}

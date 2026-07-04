@@ -9,7 +9,7 @@ import { useActiveTutors, useSessions, useLocations } from "@/lib/hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { mutate } from "swr";
-import { getGradeColor, ALL_TIME_SLOTS } from "@/lib/constants";
+import { ALL_TIME_SLOTS } from "@/lib/constants";
 import { formatProposalDate, formatTimeAgo } from "@/lib/formatters";
 import type { MakeupProposal, MakeupProposalSlot, Session, Tutor } from "@/types";
 import {
@@ -35,7 +35,7 @@ import {
   Pencil,
   Save,
 } from "lucide-react";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 interface ProposalCardFullProps {
   proposal: MakeupProposal;
   currentTutorId: number;
@@ -78,20 +78,16 @@ function SlotStatusBadge({ status, rejectionReason }: { status: string; rejectio
 
 // Student display for slot availability
 function StudentInSlot({ session }: { session: Session }) {
-  const gradeColor = getGradeColor(session.grade, session.lang_stream);
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
       <span className="text-gray-400 font-mono">{session.school_student_id}</span>
       <span className="text-gray-700 dark:text-gray-300">{session.student_name}</span>
-      {session.grade && (
-        <span
-          className="px-1 py-0.5 text-[10px] font-medium rounded text-gray-800"
-          style={{ backgroundColor: gradeColor }}
-        >
-          <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-        </span>
-      )}
+      <GradeBadge
+        className="px-1 py-0.5 text-[10px] font-medium rounded text-gray-800"
+        grade={session.grade}
+        langStream={session.lang_stream}
+      />
     </div>
   );
 }
@@ -689,12 +685,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                         {session.student_name}
                       </span>
                       {session.grade && (
-                        <span
-                          className="px-1 py-0.5 text-[10px] font-medium rounded flex-shrink-0 text-gray-800"
-                          style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                        >
-                          <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-                        </span>
+                        <GradeBadge className="px-1 py-0.5 text-[10px] font-medium rounded flex-shrink-0 text-gray-800" grade={session.grade} langStream={session.lang_stream} />
                       )}
                     </>
                   )}
@@ -778,12 +769,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
                         </span>
                       </Link>
                       {session.grade && (
-                        <span
-                          className="px-1.5 py-0.5 text-[11px] font-medium rounded text-gray-800"
-                          style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                        >
-                          <GradeLabel grade={session.grade} langStream={session.lang_stream} />
-                        </span>
+                        <GradeBadge className="px-1.5 py-0.5 text-[11px] font-medium rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
                       )}
                       {session.school && (
                         <span className="px-1.5 py-0.5 text-[11px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 truncate max-w-[140px]">

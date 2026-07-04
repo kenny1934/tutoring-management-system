@@ -21,6 +21,8 @@ import { isCountableSession } from "@/lib/session-status";
 import { setZenStatus } from "./ZenStatusBar";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { GradeLabel } from "@/components/ui/grade-label";
+import { gradeColorKey } from "@/lib/grade-utils";
+import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
 
 interface ZenSessionListProps {
   sessions: Session[];
@@ -66,6 +68,7 @@ export function ZenSessionList({
   onLessonMode,
   onLessonWideMode,
 }: ZenSessionListProps) {
+  const preGradeWindow = useSummerPreGradeWindow();
   // Track which session has detail view expanded
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
   // Confirm dialog state for bulk marking
@@ -372,7 +375,7 @@ export function ZenSessionList({
             const isAtCursor = flatIndex === cursorIndex;
             const isSelected = selectedIds.has(session.id);
             const statusColor = getStatusColor(session.session_status);
-            const gradeColor = getGradeColor(session.grade, session.lang_stream);
+            const gradeColor = getGradeColor(gradeColorKey(session.grade, preGradeWindow), session.lang_stream);
             const statusChar = getStatusChar(session.session_status);
             const isActionable = canBeMarked(session);
             const isMarking = markingSessionIds?.has(session.id) ?? false;

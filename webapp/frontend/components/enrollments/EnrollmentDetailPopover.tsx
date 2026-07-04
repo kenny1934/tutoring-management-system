@@ -17,7 +17,6 @@ import {
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getIsNewStudentParam } from "@/lib/enrollment-utils";
-import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
@@ -26,7 +25,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Enrollment } from "@/types";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { useAuth } from "@/contexts/AuthContext";
-import { GradeLabel } from "@/components/ui/grade-label";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Day options (short form)
 const DAY_OPTIONS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -351,12 +350,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
           {enrollment.grade && (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Grade:</span>
-              <span
-                className="text-xs px-1.5 py-0.5 rounded text-gray-800"
-                style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
-              >
-                <GradeLabel grade={enrollment.grade} langStream={enrollment.lang_stream} />
-              </span>
+              <GradeBadge className="text-xs px-1.5 py-0.5 rounded text-gray-800" grade={enrollment.grade} langStream={enrollment.lang_stream} />
             </div>
           )}
 
