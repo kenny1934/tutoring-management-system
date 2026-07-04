@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.88](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.87...v2.0.88) (2026-07-05)
+
+
+### Bug Fixes
+
+* **Grades show correctly now the summer course has started**: students are shown at their new level across the app, such as "Pre-F1E" for a student entering F1, on the sessions pages, dashboard cards, popovers, student pages and elsewhere. Previously these still showed the previous year's grade.
+* **Summer pages no longer overshoot the grade**: summer application and arrangement pages show the grade the student is preparing for, such as "F1E", without any "Pre-" prefix. Previously some badges showed one grade too high.
+* **Badge colours follow the shown grade**: a badge reading "Pre-F1E" now uses the same colour as F1E, so grade colours stay consistent wherever the new level appears.
+
 ## [2.0.87](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.86...v2.0.87) (2026-07-02)
 
 
