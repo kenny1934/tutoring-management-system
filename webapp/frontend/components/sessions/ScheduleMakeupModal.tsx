@@ -49,9 +49,37 @@ import {
 } from "lucide-react";
 import type { Session, MakeupSlotSuggestion, Tutor, MakeupProposalSlotCreate } from "@/types";
 import { calculateMakeupScore, DEFAULT_WEIGHTS, SUMMER_WEIGHTS, type ScoringWeights } from "@/lib/makeup-scoring";
+import { sessionSummerYear } from "@/lib/summer-courseware-session";
 import { LessonNumberBadge } from "./LessonNumberBadge";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
 import { GradeLabel, GradeBadge, useGradeColor } from "@/components/ui/grade-label";
+
+// Copy for the red scheduling-limit warnings. The boundary is 31 August of
+// the summer year for summer make-ups, 60 days from the root original
+// session otherwise; both the main component and SuggestionCard read from
+// this single table.
+const makeupLimitCopy = (isSummerMakeup?: boolean) =>
+  isSummerMakeup
+    ? {
+        short: "Past summer deadline",
+        label: "Past summer deadline (31 Aug)",
+        noun: "summer deadline",
+        headline: "This date is past the summer make-up deadline",
+        overrideHeadline: "Past the summer deadline",
+        explanation: (_originalDate?: string | null) =>
+          "Summer make-ups must be scheduled by 31 August.",
+      }
+    : {
+        short: "Past 60-day limit",
+        label: "Past 60-day makeup limit",
+        noun: "60-day limit",
+        headline: "This date exceeds the 60-day makeup limit",
+        overrideHeadline: "Exceeds 60-day limit",
+        explanation: (originalDate?: string | null) =>
+          originalDate
+            ? `Makeups must be scheduled within 60 days of the original session (${originalDate}).`
+            : "Makeups must be scheduled within 60 days of the original session.",
+      };
 
 // Interface for enrollment deadline exceeded error
 interface DeadlineExceededError {
@@ -198,7 +226,7 @@ interface SuggestionCardProps {
   originalStudent: { grade?: string; lang_stream?: string; school?: string };
   isSaving: boolean;
   isPastDeadline?: boolean;
-  is60DayExceeded?: boolean;
+  isPastLimit?: boolean;
   isSuperAdmin?: boolean;
   hasApprovedExtension?: boolean;
   onRequestExtension?: () => void;
@@ -217,7 +245,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
   originalStudent,
   isSaving,
   isPastDeadline,
-  is60DayExceeded,
+  isPastLimit,
   isSuperAdmin,
   hasApprovedExtension,
   onRequestExtension,
@@ -225,9 +253,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
 
-  // Red-warning copy mirrors the parent: 31 August cap for summer, 60 days otherwise
-  const pastLimitShort = isSummerMakeup ? "Past summer deadline" : "Past 60-day limit";
-  const pastLimitLabel = isSummerMakeup ? "Past summer deadline (31 Aug)" : "Past 60-day makeup limit";
+  const limitCopy = makeupLimitCopy(isSummerMakeup);
 
   const majorityCount = breakdown.majority_lesson_count ?? 0;
   const matchingLessonCount = breakdown.matching_lesson_count ?? 0;
@@ -334,11 +360,11 @@ const SuggestionCard = React.memo(function SuggestionCard({
           {/* Book / Add to Proposal Button */}
           {mode === "propose" ? (
             <>
-              {is60DayExceeded && (
+              {isPastLimit && (
                 <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
                   <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                    <span>{isSuperAdmin ? `Override: ${pastLimitShort}` : pastLimitLabel}</span>
+                    <span>{isSuperAdmin ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
                   </div>
                 </div>
               )}
@@ -356,12 +382,12 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onAddToProposal?.();
                 }}
-                disabled={!canAddMore || (is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) || isPastDeadline}
+                disabled={!canAddMore || (isPastLimit && !isSuperAdmin && !hasApprovedExtension) || isPastDeadline}
                 className="w-full h-8 text-xs"
-                variant={canAddMore && !(is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) && !isPastDeadline ? "default" : "outline"}
+                variant={canAddMore && !(isPastLimit && !isSuperAdmin && !hasApprovedExtension) && !isPastDeadline ? "default" : "outline"}
               >
-                {is60DayExceeded && !isSuperAdmin && !hasApprovedExtension ? (
-                  pastLimitShort
+                {isPastLimit && !isSuperAdmin && !hasApprovedExtension ? (
+                  limitCopy.short
                 ) : isPastDeadline ? (
                   "Past deadline"
                 ) : canAddMore ? (
@@ -376,7 +402,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
             </>
           ) : (
             <>
-              {is60DayExceeded && hasApprovedExtension && !isPastDeadline && (
+              {isPastLimit && hasApprovedExtension && !isPastDeadline && (
                 <div className="mb-2 p-2 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/50 border rounded text-xs">
                   <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400">
                     <Check className="h-3 w-3 flex-shrink-0" />
@@ -384,18 +410,16 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   </div>
                 </div>
               )}
-              {is60DayExceeded && !hasApprovedExtension && (
+              {isPastLimit && !hasApprovedExtension && (
                 <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
                   <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                    <span>{isSuperAdmin ? `Override: ${pastLimitShort}` : pastLimitLabel}</span>
+                    <span>{isSuperAdmin ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
                   </div>
                   <div className={`mt-1 ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[10px]`}>
                     {isSuperAdmin
-                      ? `Super Admin can proceed despite the ${isSummerMakeup ? 'summer deadline' : '60-day limit'}.`
-                      : isSummerMakeup
-                        ? 'Summer make-ups must be scheduled by 31 August.'
-                        : 'Makeups must be scheduled within 60 days of the original session.'}
+                      ? `Super Admin can proceed despite the ${limitCopy.noun}.`
+                      : limitCopy.explanation()}
                   </div>
                 </div>
               )}
@@ -424,7 +448,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onBook();
                 }}
-                disabled={isSaving || isPastDeadline || (is60DayExceeded && !isSuperAdmin && !hasApprovedExtension)}
+                disabled={isSaving || isPastDeadline || (isPastLimit && !isSuperAdmin && !hasApprovedExtension)}
                 className="w-full h-8 text-xs"
               >
                 {isSaving ? (
@@ -527,19 +551,18 @@ export function ScheduleMakeupModal({
   // make-ups, otherwise 60 days from the root original session
   const lastAllowedDate = useMemo(() => {
     if (!rootOriginalDate) return null;
-    if (isSummerMakeup) return `${rootOriginalDate.slice(0, 4)}-08-31`;
+    // Anchor the summer year to session_date, matching the backend
+    if (isSummerMakeup) return `${sessionSummerYear(session)}-08-31`;
     const d = new Date(rootOriginalDate + 'T00:00:00');
     d.setDate(d.getDate() + 60);
     return d.toISOString().split('T')[0];
-  }, [rootOriginalDate, isSummerMakeup]);
+  }, [rootOriginalDate, isSummerMakeup, session]);
 
   // Approved extension bypasses the 60-day rule (matches backend logic).
   // It does not waive the summer 31 August cap.
   const hasApprovedExtension = !isSummerMakeup && session.extension_request_status === 'Approved';
 
-  // Red-warning copy: the boundary is 31 August for summer, 60 days otherwise
-  const pastLimitShort = isSummerMakeup ? "Past summer deadline" : "Past 60-day limit";
-  const pastLimitLabel = isSummerMakeup ? "Past summer deadline (31 Aug)" : "Past 60-day makeup limit";
+  const limitCopy = makeupLimitCopy(isSummerMakeup);
 
   // Form selection state
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -623,25 +646,25 @@ export function ScheduleMakeupModal({
     return dayName === currentEnrollment.assigned_day && suggestion.time_slot === currentEnrollment.assigned_time;
   }, [effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
 
-  // 60-day rule check for selected date
-  const is60DayExceeded = useMemo(() => {
+  // Scheduling-limit check for selected date (31 Aug for summer, 60 days otherwise)
+  const isPastLimit = useMemo(() => {
     if (!selectedDate || !lastAllowedDate) return false;
     return selectedDate > lastAllowedDate;
   }, [selectedDate, lastAllowedDate]);
 
-  // Check if a suggestion would violate the 60-day rule
-  const isSuggestion60DayExceeded = useCallback((suggestion: MakeupSlotSuggestion) => {
+  // Check if a suggestion would violate the scheduling limit
+  const isSuggestionPastLimit = useCallback((suggestion: MakeupSlotSuggestion) => {
     if (!lastAllowedDate || hasApprovedExtension) return false;
     return suggestion.session_date > lastAllowedDate;
   }, [lastAllowedDate, hasApprovedExtension]);
 
   // Check if a date/slot would be blocked (for day picker panel)
   const isSlotBlocked = useCallback((date: string, slotTimeSlot: string) => {
-    const exceeds60Day = !!(lastAllowedDate && !hasApprovedExtension && date > lastAllowedDate);
+    const exceedsLimit = !!(lastAllowedDate && !hasApprovedExtension && date > lastAllowedDate);
     const dayName = getDayName(date);
     const pastDeadline = !!(effectiveEndDate && date > effectiveEndDate &&
       dayName === currentEnrollment?.assigned_day && slotTimeSlot === currentEnrollment?.assigned_time);
-    return { exceeds60Day, pastDeadline };
+    return { exceedsLimit, pastDeadline };
   }, [lastAllowedDate, hasApprovedExtension, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
 
   const [showExtensionModal, setShowExtensionModal] = useState(false);
@@ -887,8 +910,8 @@ export function ScheduleMakeupModal({
       const isRegularDay = dayName === currentEnrollment?.assigned_day;
       const isPastDeadline = effectiveEndDate && isRegularDay ? dateString > effectiveEndDate : false;
 
-      // 60-day rule: check if date is more than 60 days from root original session
-      const isPast60Days = lastAllowedDate && !hasApprovedExtension ? dateString > lastAllowedDate : false;
+      // Scheduling limit: is the date past the last allowed make-up date
+      const isPastLimitDay = lastAllowedDate && !hasApprovedExtension ? dateString > lastAllowedDate : false;
 
       return {
         date,
@@ -898,7 +921,7 @@ export function ScheduleMakeupModal({
         isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
         isHoliday: holidayNamesByDate.has(dateString),
         isPastDeadline,
-        isPast60Days,
+        isPastLimitDay,
         isSelected: dateString === selectedDate,
         sessions: displaySessions,
         sessionCount: displaySessions.length,
@@ -1332,7 +1355,7 @@ export function ScheduleMakeupModal({
               )}
             </Button>
           ) : (
-            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
+            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (isPastLimit && !isSuperAdmin && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1711,7 +1734,7 @@ export function ScheduleMakeupModal({
                         originalStudent={{ grade: session.grade, lang_stream: session.lang_stream, school: session.school }}
                         isSaving={isSaving}
                         isPastDeadline={isSuggestionPastDeadline(suggestion)}
-                        is60DayExceeded={isSuggestion60DayExceeded(suggestion)}
+                        isPastLimit={isSuggestionPastLimit(suggestion)}
                         isSuperAdmin={isSuperAdmin}
                         hasApprovedExtension={hasApprovedExtension}
                         onRequestExtension={() => setShowExtensionModal(true)}
@@ -1855,22 +1878,22 @@ export function ScheduleMakeupModal({
                         !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
                         dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10",
                         dayData.isHoliday && !isAdmin && "cursor-not-allowed",
-                        !dayData.isHoliday && dayData.isPast60Days && "bg-red-50 dark:bg-red-900/20",
-                        !dayData.isHoliday && !dayData.isPast60Days && dayData.isPastDeadline && "bg-amber-50 dark:bg-amber-900/20",
+                        !dayData.isHoliday && dayData.isPastLimitDay && "bg-red-50 dark:bg-red-900/20",
+                        !dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && "bg-amber-50 dark:bg-amber-900/20",
                         dayData.isSelected && "ring-2 ring-inset ring-[#a0704b] dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
                         !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
                         !dayData.isSelected && dayData.isHoliday && isAdmin && dayData.isCurrentMonth && "hover:bg-rose-100 dark:hover:bg-rose-900/20",
                         dayData.isToday && "ring-1 ring-inset ring-blue-400"
                       )}
                     >
-                      {/* 60-day exceeded indicator - takes priority over deadline */}
-                      {!dayData.isHoliday && dayData.isPast60Days && dayData.isCurrentMonth && (
-                        <div className="absolute top-0.5 right-0.5" title={pastLimitLabel}>
+                      {/* Scheduling-limit indicator - takes priority over deadline */}
+                      {!dayData.isHoliday && dayData.isPastLimitDay && dayData.isCurrentMonth && (
+                        <div className="absolute top-0.5 right-0.5" title={limitCopy.label}>
                           <AlertTriangle className="h-2.5 w-2.5 text-red-500" />
                         </div>
                       )}
                       {/* Past deadline indicator */}
-                      {!dayData.isHoliday && !dayData.isPast60Days && dayData.isPastDeadline && dayData.isCurrentMonth && (
+                      {!dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && dayData.isCurrentMonth && (
                         <div className="absolute top-0.5 right-0.5" title="Past enrollment deadline">
                           <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
                         </div>
@@ -1880,9 +1903,9 @@ export function ScheduleMakeupModal({
                         "text-[10px] font-semibold",
                         dayData.isToday && "text-blue-500",
                         dayData.isHoliday && "text-rose-500",
-                        !dayData.isHoliday && dayData.isPast60Days && "text-red-600 dark:text-red-400",
-                        !dayData.isHoliday && !dayData.isPast60Days && dayData.isPastDeadline && "text-amber-600 dark:text-amber-400",
-                        !dayData.isToday && !dayData.isHoliday && !dayData.isPast60Days && !dayData.isPastDeadline && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
+                        !dayData.isHoliday && dayData.isPastLimitDay && "text-red-600 dark:text-red-400",
+                        !dayData.isHoliday && !dayData.isPastLimitDay && dayData.isPastDeadline && "text-amber-600 dark:text-amber-400",
+                        !dayData.isToday && !dayData.isHoliday && !dayData.isPastLimitDay && !dayData.isPastDeadline && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
                       )}>
                         {dayData.date.getDate()}
                       </div>
@@ -1944,8 +1967,8 @@ export function ScheduleMakeupModal({
               )}
             </div>
 
-            {/* 60-day makeup limit — approved extension shows green confirmation, super admin orange, others red block */}
-            {is60DayExceeded && hasApprovedExtension && !earlyDeadlineWarning && (
+            {/* Scheduling limit — approved extension shows green confirmation, super admin orange, others red block */}
+            {isPastLimit && hasApprovedExtension && !earlyDeadlineWarning && (
               <div id="makeup-60day-warning" className="p-3 border rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700">
                 <div className="flex items-center gap-2">
                   <Check className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" aria-hidden="true" />
@@ -1955,7 +1978,7 @@ export function ScheduleMakeupModal({
                 </div>
               </div>
             )}
-            {is60DayExceeded && !hasApprovedExtension && (
+            {isPastLimit && !hasApprovedExtension && (
               <div id="makeup-60day-warning" role="alert" className={cn(
                 "p-3 border rounded-lg",
                 isSuperAdmin
@@ -1973,18 +1996,14 @@ export function ScheduleMakeupModal({
                       isSuperAdmin ? "text-orange-800 dark:text-orange-200" : "text-red-800 dark:text-red-200"
                     )}>
                       {isSuperAdmin
-                        ? `Super Admin Override: ${isSummerMakeup ? "Past the summer deadline" : "Exceeds 60-day limit"}`
-                        : isSummerMakeup
-                          ? "This date is past the summer make-up deadline"
-                          : "This date exceeds the 60-day makeup limit"}
+                        ? `Super Admin Override: ${limitCopy.overrideHeadline}`
+                        : limitCopy.headline}
                     </p>
                     <p className={cn(
                       "text-xs mt-0.5",
                       isSuperAdmin ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
                     )}>
-                      {isSummerMakeup
-                        ? "Summer make-ups must be scheduled by 31 August."
-                        : `Makeups must be scheduled within 60 days of the original session (${rootOriginalDate}).`}
+                      {limitCopy.explanation(rootOriginalDate)}
                       {" "}Last allowed date: {lastAllowedDate}
                       {isSuperAdmin && " — You can proceed as Super Admin."}
                     </p>
@@ -2219,12 +2238,12 @@ export function ScheduleMakeupModal({
                     location,
                   });
                 }}
-                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) || earlyDeadlineWarning}
+                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (isPastLimit && !isSuperAdmin && !hasApprovedExtension) || earlyDeadlineWarning}
                 className="w-full"
-                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) && !earlyDeadlineWarning ? "default" : "outline"}
+                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(isPastLimit && !isSuperAdmin && !hasApprovedExtension) && !earlyDeadlineWarning ? "default" : "outline"}
               >
-                {is60DayExceeded && !isSuperAdmin && !hasApprovedExtension ? (
-                  pastLimitShort
+                {isPastLimit && !isSuperAdmin && !hasApprovedExtension ? (
+                  limitCopy.short
                 ) : earlyDeadlineWarning ? (
                   "Past deadline"
                 ) : proposalSlots.length >= 3 ? (
@@ -2321,7 +2340,7 @@ export function ScheduleMakeupModal({
                           const isSelected = selectedDayPickerSlot?.timeSlot === timeSlot && selectedDayPickerSlot?.tutorId === tutorId;
                           const isFull = studentCount >= 8;
                           // Compute block status for this slot
-                          const slotBlockStatus = dayPickerDate ? isSlotBlocked(dayPickerDate, timeSlot) : { exceeds60Day: false, pastDeadline: false };
+                          const slotBlockStatus = dayPickerDate ? isSlotBlocked(dayPickerDate, timeSlot) : { exceedsLimit: false, pastDeadline: false };
 
                           return (
                             <div
@@ -2401,11 +2420,11 @@ export function ScheduleMakeupModal({
                               {isSelected && dayPickerDate && (
                                 <div className="px-2.5 pb-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
                                   {/* Warning banners */}
-                                  {slotBlockStatus.exceeds60Day && (
+                                  {slotBlockStatus.exceedsLimit && (
                                     <div className={`mt-2 mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
                                       <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                                         <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                                        <span>{isSuperAdmin ? `Override: ${pastLimitShort}` : pastLimitLabel}</span>
+                                        <span>{isSuperAdmin ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
                                       </div>
                                     </div>
                                   )}
@@ -2430,12 +2449,12 @@ export function ScheduleMakeupModal({
                                           location,
                                         });
                                       }}
-                                      disabled={proposalSlots.length >= 3 || isFull || (slotBlockStatus.exceeds60Day && !isSuperAdmin) || slotBlockStatus.pastDeadline}
+                                      disabled={proposalSlots.length >= 3 || isFull || (slotBlockStatus.exceedsLimit && !isSuperAdmin) || slotBlockStatus.pastDeadline}
                                       className="w-full mt-2 h-8 text-xs"
-                                      variant={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceeds60Day && !isSuperAdmin) && !slotBlockStatus.pastDeadline ? "default" : "outline"}
+                                      variant={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceedsLimit && !isSuperAdmin) && !slotBlockStatus.pastDeadline ? "default" : "outline"}
                                     >
-                                      {slotBlockStatus.exceeds60Day && !isSuperAdmin ? (
-                                        pastLimitShort
+                                      {slotBlockStatus.exceedsLimit && !isSuperAdmin ? (
+                                        limitCopy.short
                                       ) : slotBlockStatus.pastDeadline ? (
                                         "Past deadline"
                                       ) : proposalSlots.length >= 3 ? (
@@ -2456,7 +2475,7 @@ export function ScheduleMakeupModal({
                                         e.stopPropagation();
                                         setConfirmBooking({ timeSlot, tutorId, tutorName });
                                       }}
-                                      disabled={isSaving || isFull || (slotBlockStatus.exceeds60Day && !isSuperAdmin) || slotBlockStatus.pastDeadline}
+                                      disabled={isSaving || isFull || (slotBlockStatus.exceedsLimit && !isSuperAdmin) || slotBlockStatus.pastDeadline}
                                       className="w-full mt-2 h-8 text-xs"
                                     >
                                       {isSaving ? (
@@ -2464,7 +2483,7 @@ export function ScheduleMakeupModal({
                                       ) : (
                                         <Check className="h-3 w-3 mr-1" />
                                       )}
-                                      {slotBlockStatus.exceeds60Day && !isSuperAdmin ? pastLimitShort : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is Full" : "Book This Slot"}
+                                      {slotBlockStatus.exceedsLimit && !isSuperAdmin ? limitCopy.short : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is Full" : "Book This Slot"}
                                     </Button>
                                   )}
                                 </div>
