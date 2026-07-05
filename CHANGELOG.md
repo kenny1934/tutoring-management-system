@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.89](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.88...v2.0.89) (2026-07-05)
+
+
+### Bug Fixes
+
+* **Summer sessions can be rescheduled without a deadline extension**: moving a summer session or booking a summer make-up no longer asks for an approved deadline extension. Previously, students whose summer class kept the same weekly slot as their regular lessons were blocked, because the check looked at the regular enrolment that had already ended.
+* **Summer scheduling runs to 31 August**: summer sessions and make-ups can be placed on any date up to 31 August. Dates from 1 September onwards are blocked with a clear message, and Super Admins can still override when needed.
+* **Make-up calendar warnings now follow the summer rules**: when scheduling a summer make-up, the calendar no longer shows amber "past enrolment deadline" warnings on the student's regular weekdays. Dates past 31 August are highlighted in red instead, with wording that explains the summer deadline.
+
 ## [2.0.88](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.87...v2.0.88) (2026-07-05)
 
 
