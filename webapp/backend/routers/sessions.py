@@ -1473,7 +1473,8 @@ async def schedule_makeup(
     # Get the original session with row-level lock to prevent race conditions
     # (two concurrent requests could both see rescheduled_to_id=NULL without this)
     original_session = db.query(SessionLog).with_for_update().options(
-        *session_with_relations()
+        *session_with_relations(),
+        joinedload(SessionLog.enrollment),  # summer detection in validate_makeup_constraints
     ).filter(SessionLog.id == session_id).first()
 
     if not original_session:
@@ -1869,7 +1870,8 @@ async def update_session(
     - **notes**: Session notes/comments
     """
     session = db.query(SessionLog).options(
-        *session_with_relations()
+        *session_with_relations(),
+        joinedload(SessionLog.enrollment),  # summer detection on date changes
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -1887,13 +1889,11 @@ async def update_session(
         # not the session's enrollment, to handle cross-enrollment makeups correctly.
         # Only Regular enrollments count - ignore One-Time and Trial
         if session.student_id and request.session_date != session.session_date:
-            # Summer sessions are not bound to the Regular enrollment's
-            # deadline (usually already past by July) nor the 60-day makeup
-            # window. Their single rule: land on or before 31 August.
-            is_summer = _is_summer_session(session)
-            if is_summer:
+            if _is_summer_session(session):
+                # Summer sessions are not bound to the Regular enrollment's
+                # deadline (usually already past by July) nor the 60-day makeup
+                # window. Their single rule: land on or before 31 August.
                 _assert_summer_reschedule_deadline(session, request.session_date)
-                current_enrollment = None
             else:
                 current_enrollment = db.query(Enrollment).filter(
                     Enrollment.student_id == session.student_id,
@@ -1901,77 +1901,76 @@ async def update_session(
                     Enrollment.payment_status != "Cancelled"
                 ).order_by(Enrollment.first_lesson_date.desc()).first()
 
-            if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:
-                # Determine the effective time slot (new one if changing, otherwise current)
-                proposed_time = request.time_slot if request.time_slot else session.time_slot
-                proposed_day = request.session_date.strftime('%a')
-                is_regular_slot = (
-                    proposed_day == current_enrollment.assigned_day and
-                    proposed_time == current_enrollment.assigned_time
-                )
+                if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:
+                    # Determine the effective time slot (new one if changing, otherwise current)
+                    proposed_time = request.time_slot if request.time_slot else session.time_slot
+                    proposed_day = request.session_date.strftime('%a')
+                    is_regular_slot = (
+                        proposed_day == current_enrollment.assigned_day and
+                        proposed_time == current_enrollment.assigned_time
+                    )
 
-                if is_regular_slot and current_enrollment.first_lesson_date and current_enrollment.lessons_paid:
-                    try:
-                        effective_end_result = db.execute(text("""
-                            SELECT calculate_effective_end_date(
-                                :first_lesson_date,
-                                :lessons_paid,
-                                COALESCE(:extension_weeks, 0)
-                            ) as effective_end_date
-                        """), {
-                            "first_lesson_date": current_enrollment.first_lesson_date,
-                            "lessons_paid": current_enrollment.lessons_paid,
-                            "extension_weeks": current_enrollment.deadline_extension_weeks or 0
-                        }).fetchone()
+                    if is_regular_slot and current_enrollment.first_lesson_date and current_enrollment.lessons_paid:
+                        try:
+                            effective_end_result = db.execute(text("""
+                                SELECT calculate_effective_end_date(
+                                    :first_lesson_date,
+                                    :lessons_paid,
+                                    COALESCE(:extension_weeks, 0)
+                                ) as effective_end_date
+                            """), {
+                                "first_lesson_date": current_enrollment.first_lesson_date,
+                                "lessons_paid": current_enrollment.lessons_paid,
+                                "extension_weeks": current_enrollment.deadline_extension_weeks or 0
+                            }).fetchone()
 
-                        if effective_end_result and effective_end_result.effective_end_date:
-                            effective_end_date = effective_end_result.effective_end_date
-                            if request.session_date > effective_end_date:
+                            if effective_end_result and effective_end_result.effective_end_date:
+                                effective_end_date = effective_end_result.effective_end_date
+                                if request.session_date > effective_end_date:
+                                    raise HTTPException(
+                                        status_code=400,
+                                        detail={
+                                            "error": "ENROLLMENT_DEADLINE_EXCEEDED",
+                                            "message": f"Cannot move session to regular slot ({current_enrollment.assigned_day} {current_enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
+                                            "effective_end_date": str(effective_end_date),
+                                            "enrollment_id": current_enrollment.id,
+                                            "session_id": session_id,
+                                            "extension_required": True
+                                        }
+                                    )
+                        except HTTPException:
+                            raise  # Re-raise HTTPExceptions
+                        except SQLAlchemyError as e:
+                            # Log but don't block if SQL function doesn't exist
+                            logger.warning(f"Could not check enrollment deadline: {e}")
+
+                # 60-day makeup restriction (Super Admin can override)
+                # Only applies to makeup sessions (those with make_up_for_id)
+                if session.make_up_for_id:
+                    is_super_admin = current_user.role == "Super Admin"
+                    if not is_super_admin:
+                        root_original = _find_root_original_session(session, db)
+                        days_since_original = (request.session_date - root_original.session_date).days
+
+                        if days_since_original > 60:
+                            # Check if session has an approved extension (bypasses 60-day rule)
+                            has_approved_extension = db.query(ExtensionRequest).filter(
+                                ExtensionRequest.session_id == session.id,
+                                ExtensionRequest.request_status == 'Approved'
+                            ).first() is not None
+
+                            if not has_approved_extension:
                                 raise HTTPException(
                                     status_code=400,
                                     detail={
-                                        "error": "ENROLLMENT_DEADLINE_EXCEEDED",
-                                        "message": f"Cannot move session to regular slot ({current_enrollment.assigned_day} {current_enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
-                                        "effective_end_date": str(effective_end_date),
-                                        "enrollment_id": current_enrollment.id,
-                                        "session_id": session_id,
-                                        "extension_required": True
+                                        "error": "MAKEUP_60_DAY_EXCEEDED",
+                                        "message": f"Makeup must be within 60 days of original session ({root_original.session_date}). This would be {days_since_original} days later.",
+                                        "original_session_id": root_original.id,
+                                        "original_session_date": str(root_original.session_date),
+                                        "days_difference": days_since_original,
+                                        "max_allowed_days": 60
                                     }
                                 )
-                    except HTTPException:
-                        raise  # Re-raise HTTPExceptions
-                    except SQLAlchemyError as e:
-                        # Log but don't block if SQL function doesn't exist
-                        logger.warning(f"Could not check enrollment deadline: {e}")
-
-            # 60-day makeup restriction (Super Admin can override)
-            # Only applies to makeup sessions (those with make_up_for_id).
-            # Summer make-ups answer to the 31 August rule above instead.
-            if session.make_up_for_id and not is_summer:
-                is_super_admin = current_user.role == "Super Admin"
-                if not is_super_admin:
-                    root_original = _find_root_original_session(session, db)
-                    days_since_original = (request.session_date - root_original.session_date).days
-
-                    if days_since_original > 60:
-                        # Check if session has an approved extension (bypasses 60-day rule)
-                        has_approved_extension = db.query(ExtensionRequest).filter(
-                            ExtensionRequest.session_id == session.id,
-                            ExtensionRequest.request_status == 'Approved'
-                        ).first() is not None
-
-                        if not has_approved_extension:
-                            raise HTTPException(
-                                status_code=400,
-                                detail={
-                                    "error": "MAKEUP_60_DAY_EXCEEDED",
-                                    "message": f"Makeup must be within 60 days of original session ({root_original.session_date}). This would be {days_since_original} days later.",
-                                    "original_session_id": root_original.id,
-                                    "original_session_date": str(root_original.session_date),
-                                    "days_difference": days_since_original,
-                                    "max_allowed_days": 60
-                                }
-                            )
 
         session.session_date = request.session_date
 

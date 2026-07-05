@@ -60,8 +60,7 @@ def assert_summer_reschedule_deadline(session: SessionLog, target_date: date):
     anchored to the student's (typically already-ended) Regular enrollment and
     would otherwise block every summer reschedule.
     """
-    anchor = session.session_date or target_date
-    deadline = date(anchor.year, 8, 31)
+    deadline = date(session.session_date.year, 8, 31)
     if target_date > deadline:
         raise HTTPException(
             status_code=400,
@@ -117,89 +116,93 @@ def validate_makeup_constraints(
     land on or before 31 August of the summer year.
     """
     summer = is_summer_session(consume_session)
+
+    # 1. Scheduling window: summer sessions must land on or before 31 August;
+    # everything else gets the 60-day makeup restriction (Super Admin can
+    # override; approved extension bypasses).
     if summer:
         assert_summer_reschedule_deadline(consume_session, target_date)
+    else:
+        root_original = find_root_original_session(consume_session, db)
+        days_since_original = (target_date - root_original.session_date).days
 
-    # 1. 60-day makeup restriction (Super Admin can override; approved extension bypasses)
-    root_original = find_root_original_session(consume_session, db)
-    days_since_original = (target_date - root_original.session_date).days
+        if days_since_original > 60 and not is_super_admin:
+            # Check if session has an approved extension request (bypasses 60-day rule)
+            has_approved_extension = db.query(ExtensionRequest).filter(
+                ExtensionRequest.session_id == consume_session.id,
+                ExtensionRequest.request_status == 'Approved'
+            ).first() is not None
 
-    if days_since_original > 60 and not is_super_admin and not summer:
-        # Check if session has an approved extension request (bypasses 60-day rule)
-        has_approved_extension = db.query(ExtensionRequest).filter(
-            ExtensionRequest.session_id == consume_session.id,
-            ExtensionRequest.request_status == 'Approved'
-        ).first() is not None
-
-        if has_approved_extension:
-            logger.info(f"60-day rule bypassed for session #{consume_session.id} (approved extension exists)")
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "MAKEUP_60_DAY_EXCEEDED",
-                    "message": f"Makeup must be scheduled within 60 days of the original session ({root_original.session_date}). This would be {days_since_original} days later.",
-                    "original_session_id": root_original.id,
-                    "original_session_date": str(root_original.session_date),
-                    "days_difference": days_since_original,
-                    "max_allowed_days": 60
-                }
-            )
+            if has_approved_extension:
+                logger.info(f"60-day rule bypassed for session #{consume_session.id} (approved extension exists)")
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "MAKEUP_60_DAY_EXCEEDED",
+                        "message": f"Makeup must be scheduled within 60 days of the original session ({root_original.session_date}). This would be {days_since_original} days later.",
+                        "original_session_id": root_original.id,
+                        "original_session_date": str(root_original.session_date),
+                        "days_difference": days_since_original,
+                        "max_allowed_days": 60
+                    }
+                )
 
     # 2. Check for holiday (Admin / Super Admin can override)
     assert_not_holiday(db, target_date, is_admin=is_admin)
 
-    # 3. Check enrollment deadline - ONLY for regular slot
+    # 3. Check enrollment deadline - ONLY for regular slot, and never for
+    # summer sessions (their Regular enrollment has usually ended and its
+    # deadline is irrelevant to summer scheduling).
     # Only block scheduling to the student's regular slot (assigned_day + assigned_time)
     # past the enrollment end date. Non-regular slots are allowed past deadline.
     # Check against student's CURRENT enrollment (latest by first_lesson_date).
     # Only Regular enrollments count - ignore One-Time and Trial.
-    # Skipped for summer sessions: their Regular enrollment has usually ended
-    # and its deadline is irrelevant to summer scheduling.
-    current_enrollment = None if summer else db.query(Enrollment).filter(
-        Enrollment.student_id == student_id,
-        Enrollment.enrollment_type == 'Regular',
-        Enrollment.payment_status != "Cancelled"
-    ).order_by(Enrollment.first_lesson_date.desc()).first()
+    if not summer:
+        current_enrollment = db.query(Enrollment).filter(
+            Enrollment.student_id == student_id,
+            Enrollment.enrollment_type == 'Regular',
+            Enrollment.payment_status != "Cancelled"
+        ).order_by(Enrollment.first_lesson_date.desc()).first()
 
-    if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:
-        proposed_day = target_date.strftime('%a')
-        is_regular_slot = (
-            proposed_day == current_enrollment.assigned_day and
-            target_time_slot == current_enrollment.assigned_time
-        )
+        if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:
+            proposed_day = target_date.strftime('%a')
+            is_regular_slot = (
+                proposed_day == current_enrollment.assigned_day and
+                target_time_slot == current_enrollment.assigned_time
+            )
 
-        if is_regular_slot and current_enrollment.first_lesson_date and current_enrollment.lessons_paid:
-            try:
-                effective_end_result = db.execute(text("""
-                    SELECT calculate_effective_end_date(
-                        :first_lesson_date,
-                        :lessons_paid,
-                        COALESCE(:extension_weeks, 0)
-                    ) as effective_end_date
-                """), {
-                    "first_lesson_date": current_enrollment.first_lesson_date,
-                    "lessons_paid": current_enrollment.lessons_paid,
-                    "extension_weeks": current_enrollment.deadline_extension_weeks or 0
-                }).fetchone()
+            if is_regular_slot and current_enrollment.first_lesson_date and current_enrollment.lessons_paid:
+                try:
+                    effective_end_result = db.execute(text("""
+                        SELECT calculate_effective_end_date(
+                            :first_lesson_date,
+                            :lessons_paid,
+                            COALESCE(:extension_weeks, 0)
+                        ) as effective_end_date
+                    """), {
+                        "first_lesson_date": current_enrollment.first_lesson_date,
+                        "lessons_paid": current_enrollment.lessons_paid,
+                        "extension_weeks": current_enrollment.deadline_extension_weeks or 0
+                    }).fetchone()
 
-                if effective_end_result and effective_end_result.effective_end_date:
-                    effective_end_date = effective_end_result.effective_end_date
-                    if target_date > effective_end_date:
-                        raise HTTPException(
-                            status_code=400,
-                            detail={
-                                "error": "ENROLLMENT_DEADLINE_EXCEEDED",
-                                "message": f"Cannot schedule makeup to regular slot ({current_enrollment.assigned_day} {current_enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
-                                "effective_end_date": str(effective_end_date),
-                                "enrollment_id": current_enrollment.id,
-                                "extension_required": True
-                            }
-                        )
-            except HTTPException:
-                raise
-            except SQLAlchemyError as e:
-                logger.warning(f"Could not check enrollment deadline: {e}")
+                    if effective_end_result and effective_end_result.effective_end_date:
+                        effective_end_date = effective_end_result.effective_end_date
+                        if target_date > effective_end_date:
+                            raise HTTPException(
+                                status_code=400,
+                                detail={
+                                    "error": "ENROLLMENT_DEADLINE_EXCEEDED",
+                                    "message": f"Cannot schedule makeup to regular slot ({current_enrollment.assigned_day} {current_enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
+                                    "effective_end_date": str(effective_end_date),
+                                    "enrollment_id": current_enrollment.id,
+                                    "extension_required": True
+                                }
+                            )
+                except HTTPException:
+                    raise
+                except SQLAlchemyError as e:
+                    logger.warning(f"Could not check enrollment deadline: {e}")
 
     # 4. Check for student conflict at the target slot
     # Exclude non-blocking statuses (matches active_student_slot_guard logic in models.py)
