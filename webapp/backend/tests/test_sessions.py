@@ -688,6 +688,12 @@ class TestSummerRescheduleDeadline:
         assert exc_info.value.detail["error"] == "SUMMER_DEADLINE_EXCEEDED"
         assert exc_info.value.detail["summer_deadline"] == "2026-08-31"
 
+    def test_super_admin_overrides_summer_deadline(self, db_session, summer_enrollment, sample_tutor):
+        """Super Admin can move a summer session past 31 August, like the 60-day rule."""
+        session = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 7, 6))
+        # No exception with the override
+        assert_summer_reschedule_deadline(session, date(2026, 9, 1), is_super_admin=True)
+
     def test_makeup_constraints_allow_summer_past_60_days(
         self, db_session, summer_enrollment, sample_enrollment, sample_tutor
     ):

@@ -517,7 +517,10 @@ async def approve_slot(
     if is_summer_session(original_session):
         # Summer sessions swap the enrollment-deadline and 60-day checks for a
         # single rule: the make-up must land on or before 31 August.
-        assert_summer_reschedule_deadline(original_session, slot.proposed_date)
+        assert_summer_reschedule_deadline(
+            original_session, slot.proposed_date,
+            is_super_admin=current_user.role == "Super Admin",
+        )
     else:
         # Validate: enrollment deadline - ONLY for regular slot
         # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)

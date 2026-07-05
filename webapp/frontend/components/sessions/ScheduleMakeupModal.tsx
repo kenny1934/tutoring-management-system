@@ -225,6 +225,10 @@ const SuggestionCard = React.memo(function SuggestionCard({
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
 
+  // Red-warning copy mirrors the parent: 31 August cap for summer, 60 days otherwise
+  const pastLimitShort = isSummerMakeup ? "Past summer deadline" : "Past 60-day limit";
+  const pastLimitLabel = isSummerMakeup ? "Past summer deadline (31 Aug)" : "Past 60-day makeup limit";
+
   const majorityCount = breakdown.majority_lesson_count ?? 0;
   const matchingLessonCount = breakdown.matching_lesson_count ?? 0;
   const isLessonMatch =
@@ -334,7 +338,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                 <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
                   <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                    <span>{isSuperAdmin ? 'Override: Past 60-day limit' : 'Past 60-day makeup limit'}</span>
+                    <span>{isSuperAdmin ? `Override: ${pastLimitShort}` : pastLimitLabel}</span>
                   </div>
                 </div>
               )}
@@ -357,7 +361,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                 variant={canAddMore && !(is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) && !isPastDeadline ? "default" : "outline"}
               >
                 {is60DayExceeded && !isSuperAdmin && !hasApprovedExtension ? (
-                  "Past 60-day limit"
+                  pastLimitShort
                 ) : isPastDeadline ? (
                   "Past deadline"
                 ) : canAddMore ? (
@@ -384,12 +388,14 @@ const SuggestionCard = React.memo(function SuggestionCard({
                 <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
                   <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                    <span>{isSuperAdmin ? 'Override: Past 60-day limit' : 'Past 60-day makeup limit'}</span>
+                    <span>{isSuperAdmin ? `Override: ${pastLimitShort}` : pastLimitLabel}</span>
                   </div>
                   <div className={`mt-1 ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[10px]`}>
                     {isSuperAdmin
-                      ? 'Super Admin can proceed despite 60-day limit.'
-                      : 'Makeups must be scheduled within 60 days of the original session.'}
+                      ? `Super Admin can proceed despite the ${isSummerMakeup ? 'summer deadline' : '60-day limit'}.`
+                      : isSummerMakeup
+                        ? 'Summer make-ups must be scheduled by 31 August.'
+                        : 'Makeups must be scheduled within 60 days of the original session.'}
                   </div>
                 </div>
               )}
@@ -507,25 +513,33 @@ export function ScheduleMakeupModal({
     }, null as typeof regularEnrollments[0] | null);
   }, [studentEnrollments]);
 
-  // Use current enrollment for deadline checks (cross-enrollment aware)
-  const effectiveEndDate = currentEnrollment?.effective_end_date;
+  // Use current enrollment for deadline checks (cross-enrollment aware).
+  // Summer make-ups ignore the Regular enrollment's deadline entirely (it has
+  // usually ended by July); undefined disables every amber "past deadline" path.
+  const effectiveEndDate = isSummerMakeup ? undefined : currentEnrollment?.effective_end_date;
   const today = getToday();
 
-  // 60-day makeup restriction
   // Use root_original_session_date from API (computed on backend by tracing makeup chain)
   // Falls back to session.session_date if not available
   const rootOriginalDate = session.root_original_session_date || session.session_date;
 
-  // Calculate the last allowed date (60 days from original)
-  const lastAllowedDate60Day = useMemo(() => {
+  // Last allowed make-up date: 31 August of the summer year for summer
+  // make-ups, otherwise 60 days from the root original session
+  const lastAllowedDate = useMemo(() => {
     if (!rootOriginalDate) return null;
+    if (isSummerMakeup) return `${rootOriginalDate.slice(0, 4)}-08-31`;
     const d = new Date(rootOriginalDate + 'T00:00:00');
     d.setDate(d.getDate() + 60);
     return d.toISOString().split('T')[0];
-  }, [rootOriginalDate]);
+  }, [rootOriginalDate, isSummerMakeup]);
 
-  // Approved extension bypasses the 60-day rule (matches backend logic)
-  const hasApprovedExtension = session.extension_request_status === 'Approved';
+  // Approved extension bypasses the 60-day rule (matches backend logic).
+  // It does not waive the summer 31 August cap.
+  const hasApprovedExtension = !isSummerMakeup && session.extension_request_status === 'Approved';
+
+  // Red-warning copy: the boundary is 31 August for summer, 60 days otherwise
+  const pastLimitShort = isSummerMakeup ? "Past summer deadline" : "Past 60-day limit";
+  const pastLimitLabel = isSummerMakeup ? "Past summer deadline (31 Aug)" : "Past 60-day makeup limit";
 
   // Form selection state
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -611,24 +625,24 @@ export function ScheduleMakeupModal({
 
   // 60-day rule check for selected date
   const is60DayExceeded = useMemo(() => {
-    if (!selectedDate || !lastAllowedDate60Day) return false;
-    return selectedDate > lastAllowedDate60Day;
-  }, [selectedDate, lastAllowedDate60Day]);
+    if (!selectedDate || !lastAllowedDate) return false;
+    return selectedDate > lastAllowedDate;
+  }, [selectedDate, lastAllowedDate]);
 
   // Check if a suggestion would violate the 60-day rule
   const isSuggestion60DayExceeded = useCallback((suggestion: MakeupSlotSuggestion) => {
-    if (!lastAllowedDate60Day || hasApprovedExtension) return false;
-    return suggestion.session_date > lastAllowedDate60Day;
-  }, [lastAllowedDate60Day, hasApprovedExtension]);
+    if (!lastAllowedDate || hasApprovedExtension) return false;
+    return suggestion.session_date > lastAllowedDate;
+  }, [lastAllowedDate, hasApprovedExtension]);
 
   // Check if a date/slot would be blocked (for day picker panel)
   const isSlotBlocked = useCallback((date: string, slotTimeSlot: string) => {
-    const exceeds60Day = !!(lastAllowedDate60Day && !hasApprovedExtension && date > lastAllowedDate60Day);
+    const exceeds60Day = !!(lastAllowedDate && !hasApprovedExtension && date > lastAllowedDate);
     const dayName = getDayName(date);
     const pastDeadline = !!(effectiveEndDate && date > effectiveEndDate &&
       dayName === currentEnrollment?.assigned_day && slotTimeSlot === currentEnrollment?.assigned_time);
     return { exceeds60Day, pastDeadline };
-  }, [lastAllowedDate60Day, hasApprovedExtension, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
+  }, [lastAllowedDate, hasApprovedExtension, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
 
   const [showExtensionModal, setShowExtensionModal] = useState(false);
 
@@ -874,7 +888,7 @@ export function ScheduleMakeupModal({
       const isPastDeadline = effectiveEndDate && isRegularDay ? dateString > effectiveEndDate : false;
 
       // 60-day rule: check if date is more than 60 days from root original session
-      const isPast60Days = lastAllowedDate60Day && !hasApprovedExtension ? dateString > lastAllowedDate60Day : false;
+      const isPast60Days = lastAllowedDate && !hasApprovedExtension ? dateString > lastAllowedDate : false;
 
       return {
         date,
@@ -896,7 +910,7 @@ export function ScheduleMakeupModal({
         availableSpots,
       };
     });
-  }, [viewDate, sessionsByDate, today, holidayNamesByDate, effectiveEndDate, currentEnrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots, lastAllowedDate60Day]);
+  }, [viewDate, sessionsByDate, today, holidayNamesByDate, effectiveEndDate, currentEnrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots, lastAllowedDate]);
 
   // Get the effective time slot
   const effectiveTimeSlot = useCustomTime
@@ -1851,7 +1865,7 @@ export function ScheduleMakeupModal({
                     >
                       {/* 60-day exceeded indicator - takes priority over deadline */}
                       {!dayData.isHoliday && dayData.isPast60Days && dayData.isCurrentMonth && (
-                        <div className="absolute top-0.5 right-0.5" title="Past 60-day makeup limit">
+                        <div className="absolute top-0.5 right-0.5" title={pastLimitLabel}>
                           <AlertTriangle className="h-2.5 w-2.5 text-red-500" />
                         </div>
                       )}
@@ -1959,15 +1973,19 @@ export function ScheduleMakeupModal({
                       isSuperAdmin ? "text-orange-800 dark:text-orange-200" : "text-red-800 dark:text-red-200"
                     )}>
                       {isSuperAdmin
-                        ? "Super Admin Override: Exceeds 60-day limit"
-                        : "This date exceeds the 60-day makeup limit"}
+                        ? `Super Admin Override: ${isSummerMakeup ? "Past the summer deadline" : "Exceeds 60-day limit"}`
+                        : isSummerMakeup
+                          ? "This date is past the summer make-up deadline"
+                          : "This date exceeds the 60-day makeup limit"}
                     </p>
                     <p className={cn(
                       "text-xs mt-0.5",
                       isSuperAdmin ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
                     )}>
-                      Makeups must be scheduled within 60 days of the original session ({rootOriginalDate}).
-                      Last allowed date: {lastAllowedDate60Day}
+                      {isSummerMakeup
+                        ? "Summer make-ups must be scheduled by 31 August."
+                        : `Makeups must be scheduled within 60 days of the original session (${rootOriginalDate}).`}
+                      {" "}Last allowed date: {lastAllowedDate}
                       {isSuperAdmin && " — You can proceed as Super Admin."}
                     </p>
                   </div>
@@ -2206,7 +2224,7 @@ export function ScheduleMakeupModal({
                 variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) && !earlyDeadlineWarning ? "default" : "outline"}
               >
                 {is60DayExceeded && !isSuperAdmin && !hasApprovedExtension ? (
-                  "Past 60-day limit"
+                  pastLimitShort
                 ) : earlyDeadlineWarning ? (
                   "Past deadline"
                 ) : proposalSlots.length >= 3 ? (
@@ -2387,7 +2405,7 @@ export function ScheduleMakeupModal({
                                     <div className={`mt-2 mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
                                       <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                                         <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                                        <span>{isSuperAdmin ? 'Override: Past 60-day limit' : 'Past 60-day makeup limit'}</span>
+                                        <span>{isSuperAdmin ? `Override: ${pastLimitShort}` : pastLimitLabel}</span>
                                       </div>
                                     </div>
                                   )}
@@ -2417,7 +2435,7 @@ export function ScheduleMakeupModal({
                                       variant={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceeds60Day && !isSuperAdmin) && !slotBlockStatus.pastDeadline ? "default" : "outline"}
                                     >
                                       {slotBlockStatus.exceeds60Day && !isSuperAdmin ? (
-                                        "Past 60-day limit"
+                                        pastLimitShort
                                       ) : slotBlockStatus.pastDeadline ? (
                                         "Past deadline"
                                       ) : proposalSlots.length >= 3 ? (
@@ -2446,7 +2464,7 @@ export function ScheduleMakeupModal({
                                       ) : (
                                         <Check className="h-3 w-3 mr-1" />
                                       )}
-                                      {slotBlockStatus.exceeds60Day && !isSuperAdmin ? "Past 60-day limit" : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is Full" : "Book This Slot"}
+                                      {slotBlockStatus.exceeds60Day && !isSuperAdmin ? pastLimitShort : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is Full" : "Book This Slot"}
                                     </Button>
                                   )}
                                 </div>

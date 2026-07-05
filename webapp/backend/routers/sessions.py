@@ -1893,7 +1893,10 @@ async def update_session(
                 # Summer sessions are not bound to the Regular enrollment's
                 # deadline (usually already past by July) nor the 60-day makeup
                 # window. Their single rule: land on or before 31 August.
-                _assert_summer_reschedule_deadline(session, request.session_date)
+                _assert_summer_reschedule_deadline(
+                    session, request.session_date,
+                    is_super_admin=current_user.role == "Super Admin",
+                )
             else:
                 current_enrollment = db.query(Enrollment).filter(
                     Enrollment.student_id == session.student_id,

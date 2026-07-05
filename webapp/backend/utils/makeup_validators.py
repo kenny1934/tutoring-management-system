@@ -52,14 +52,18 @@ def is_summer_session(session: SessionLog) -> bool:
     return bool(enrollment and enrollment.enrollment_type == 'Summer')
 
 
-def assert_summer_reschedule_deadline(session: SessionLog, target_date: date):
+def assert_summer_reschedule_deadline(session: SessionLog, target_date: date, is_super_admin: bool = False):
     """
     Summer sessions may move freely within the summer but must land on or
     before 31 August of their summer year. This replaces the regular-slot
     enrollment-deadline check and the 60-day makeup window, both of which are
     anchored to the student's (typically already-ended) Regular enrollment and
     would otherwise block every summer reschedule.
+
+    Super Admin can override, mirroring the 60-day rule.
     """
+    if is_super_admin:
+        return
     deadline = date(session.session_date.year, 8, 31)
     if target_date > deadline:
         raise HTTPException(
@@ -121,7 +125,7 @@ def validate_makeup_constraints(
     # everything else gets the 60-day makeup restriction (Super Admin can
     # override; approved extension bypasses).
     if summer:
-        assert_summer_reschedule_deadline(consume_session, target_date)
+        assert_summer_reschedule_deadline(consume_session, target_date, is_super_admin=is_super_admin)
     else:
         root_original = find_root_original_session(consume_session, db)
         days_since_original = (target_date - root_original.session_date).days
