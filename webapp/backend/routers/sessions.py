@@ -24,7 +24,12 @@ from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates, batch_load_summer_slots, borrowed_lesson_number
 from utils.rate_limiter import check_user_rate_limit
-from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
+from utils.makeup_validators import (
+    find_root_original_session as _find_root_original_session,
+    validate_makeup_constraints,
+    is_summer_session as _is_summer_session,
+    assert_summer_reschedule_deadline as _assert_summer_reschedule_deadline,
+)
 from routers.summer_course import _effective_lesson_number
 from collections import Counter
 from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin_write, reject_read_only, ADMIN_WRITE_ROLES
@@ -1882,11 +1887,19 @@ async def update_session(
         # not the session's enrollment, to handle cross-enrollment makeups correctly.
         # Only Regular enrollments count - ignore One-Time and Trial
         if session.student_id and request.session_date != session.session_date:
-            current_enrollment = db.query(Enrollment).filter(
-                Enrollment.student_id == session.student_id,
-                Enrollment.enrollment_type == 'Regular',
-                Enrollment.payment_status != "Cancelled"
-            ).order_by(Enrollment.first_lesson_date.desc()).first()
+            # Summer sessions are not bound to the Regular enrollment's
+            # deadline (usually already past by July) nor the 60-day makeup
+            # window. Their single rule: land on or before 31 August.
+            is_summer = _is_summer_session(session)
+            if is_summer:
+                _assert_summer_reschedule_deadline(session, request.session_date)
+                current_enrollment = None
+            else:
+                current_enrollment = db.query(Enrollment).filter(
+                    Enrollment.student_id == session.student_id,
+                    Enrollment.enrollment_type == 'Regular',
+                    Enrollment.payment_status != "Cancelled"
+                ).order_by(Enrollment.first_lesson_date.desc()).first()
 
             if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:
                 # Determine the effective time slot (new one if changing, otherwise current)
@@ -1932,8 +1945,9 @@ async def update_session(
                         logger.warning(f"Could not check enrollment deadline: {e}")
 
             # 60-day makeup restriction (Super Admin can override)
-            # Only applies to makeup sessions (those with make_up_for_id)
-            if session.make_up_for_id:
+            # Only applies to makeup sessions (those with make_up_for_id).
+            # Summer make-ups answer to the 31 August rule above instead.
+            if session.make_up_for_id and not is_summer:
                 is_super_admin = current_user.role == "Super Admin"
                 if not is_super_admin:
                     root_original = _find_root_original_session(session, db)

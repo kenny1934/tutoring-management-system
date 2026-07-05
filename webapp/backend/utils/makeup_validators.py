@@ -41,6 +41,39 @@ def find_root_original_session(session: SessionLog, db: Session) -> SessionLog:
     return current
 
 
+def is_summer_session(session: SessionLog) -> bool:
+    """
+    True if the session belongs to the summer course: published from a summer
+    placement, or attached to a Summer enrollment.
+    """
+    if session.summer_session_id is not None:
+        return True
+    enrollment = session.enrollment
+    return bool(enrollment and enrollment.enrollment_type == 'Summer')
+
+
+def assert_summer_reschedule_deadline(session: SessionLog, target_date: date):
+    """
+    Summer sessions may move freely within the summer but must land on or
+    before 31 August of their summer year. This replaces the regular-slot
+    enrollment-deadline check and the 60-day makeup window, both of which are
+    anchored to the student's (typically already-ended) Regular enrollment and
+    would otherwise block every summer reschedule.
+    """
+    anchor = session.session_date or target_date
+    deadline = date(anchor.year, 8, 31)
+    if target_date > deadline:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "SUMMER_DEADLINE_EXCEEDED",
+                "message": f"Summer sessions must be scheduled on or before {deadline.strftime('%d %B %Y')}.",
+                "summer_deadline": str(deadline),
+                "session_id": session.id
+            }
+        )
+
+
 def assert_not_holiday(db: Session, target_date: date, is_admin: bool = False):
     """
     Raise HTTPException if target_date is a holiday, unless the caller is an
@@ -79,12 +112,19 @@ def validate_makeup_constraints(
     2. Holiday (Admin / Super Admin can override)
     3. Enrollment deadline for regular slot
     4. Student time conflict
+
+    Summer sessions swap checks 1 and 3 for a single rule: the make-up must
+    land on or before 31 August of the summer year.
     """
+    summer = is_summer_session(consume_session)
+    if summer:
+        assert_summer_reschedule_deadline(consume_session, target_date)
+
     # 1. 60-day makeup restriction (Super Admin can override; approved extension bypasses)
     root_original = find_root_original_session(consume_session, db)
     days_since_original = (target_date - root_original.session_date).days
 
-    if days_since_original > 60 and not is_super_admin:
+    if days_since_original > 60 and not is_super_admin and not summer:
         # Check if session has an approved extension request (bypasses 60-day rule)
         has_approved_extension = db.query(ExtensionRequest).filter(
             ExtensionRequest.session_id == consume_session.id,
@@ -114,7 +154,9 @@ def validate_makeup_constraints(
     # past the enrollment end date. Non-regular slots are allowed past deadline.
     # Check against student's CURRENT enrollment (latest by first_lesson_date).
     # Only Regular enrollments count - ignore One-Time and Trial.
-    current_enrollment = db.query(Enrollment).filter(
+    # Skipped for summer sessions: their Regular enrollment has usually ended
+    # and its deadline is irrelevant to summer scheduling.
+    current_enrollment = None if summer else db.query(Enrollment).filter(
         Enrollment.student_id == student_id,
         Enrollment.enrollment_type == 'Regular',
         Enrollment.payment_status != "Cancelled"

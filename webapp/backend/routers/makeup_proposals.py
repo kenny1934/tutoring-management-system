@@ -16,7 +16,11 @@ from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
     ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
 )
-from utils.makeup_validators import assert_not_holiday
+from utils.makeup_validators import (
+    assert_not_holiday,
+    assert_summer_reschedule_deadline,
+    is_summer_session,
+)
 from auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -510,13 +514,19 @@ async def approve_slot(
     )
     assert_not_holiday(db, slot.proposed_date, is_admin=(is_admin or proposer_is_admin))
 
+    # Summer sessions swap the enrollment-deadline and 60-day checks below for
+    # a single rule: the make-up must land on or before 31 August.
+    proposal_is_summer = is_summer_session(original_session)
+    if proposal_is_summer:
+        assert_summer_reschedule_deadline(original_session, slot.proposed_date)
+
     # Validate: enrollment deadline - ONLY for regular slot
     # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
     # past the enrollment end date. Non-regular slots are allowed past deadline.
     # IMPORTANT: Check against student's CURRENT enrollment (latest by first_lesson_date),
     # not the session's enrollment, to handle cross-enrollment makeups correctly.
     # Only Regular enrollments count - ignore One-Time and Trial
-    current_enrollment = db.query(Enrollment).filter(
+    current_enrollment = None if proposal_is_summer else db.query(Enrollment).filter(
         Enrollment.student_id == original_session.student_id,
         Enrollment.enrollment_type == 'Regular',
         Enrollment.payment_status != "Cancelled"
@@ -565,9 +575,10 @@ async def approve_slot(
                 logger.warning(f"Could not check enrollment deadline: {e}")
 
     # 60-day makeup restriction (Super Admin can override)
-    # Makeup must be scheduled within 60 days of the ROOT original session
+    # Makeup must be scheduled within 60 days of the ROOT original session.
+    # Summer make-ups answer to the 31 August rule above instead.
     is_super_admin = current_user.role == "Super Admin"
-    if not is_super_admin:
+    if not is_super_admin and not proposal_is_summer:
         # Trace back through make_up_for_id chain to find the root original session
         root_original = original_session
         visited = set()
