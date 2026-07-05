@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.90](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.89...v2.0.90) (2026-07-05)
+
+
+### Bug Fixes
+
+* **Extension requests page shows recent requests again**: the Approved, Rejected and All tabs were quietly cutting off the newest entries once a tab held more than 200 requests, so recent requests never appeared. The latest requests are now always included.
+* **Debug panel pages for Extension Requests and Planned Reschedules open again**: both pages failed to load because they tried to sort by a field that does not exist. The panel now falls back to a safe sort order if a page is misconfigured, and the Homework To Check page has been removed since its data is read-only and cannot be edited there.
+
 ## [2.0.89](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.88...v2.0.89) (2026-07-05)
 
 
