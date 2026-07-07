@@ -10,15 +10,16 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 interface CurriculumPdfPreviewProps {
   filePath: string;
   fileLabel: string;
-  onAdd: () => void;
+  /** When set, the header offers "Add to session" (the exercise modal case). */
+  onAdd?: () => void;
   onClose: () => void;
 }
 
 /**
- * Peek at a suggested worksheet without leaving the exercise modal.
+ * Peek at a worksheet without leaving the current surface.
  * Loads bytes through the same chain Lesson Mode uses (connected drive
  * folders first, Shelv as fallback) and renders them in an iframe overlay,
- * portalled above the modal like the other confirm dialogs.
+ * portalled above whatever opened it.
  */
 export function CurriculumPdfPreview({
   filePath,
@@ -77,17 +78,19 @@ export function CurriculumPdfPreview({
           >
             {fileLabel}
           </span>
-          <button
-            type="button"
-            onClick={() => {
-              onAdd();
-              onClose();
-            }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-white bg-teal-600 hover:bg-teal-700 transition-colors shrink-0"
-          >
-            <Plus className="h-3 w-3" />
-            Add to session
-          </button>
+          {onAdd && (
+            <button
+              type="button"
+              onClick={() => {
+                onAdd();
+                onClose();
+              }}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-white bg-teal-600 hover:bg-teal-700 transition-colors shrink-0"
+            >
+              <Plus className="h-3 w-3" />
+              Add to session
+            </button>
+          )}
           <button
             type="button"
             title="Open in a new tab"

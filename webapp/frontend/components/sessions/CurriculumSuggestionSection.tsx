@@ -15,7 +15,7 @@ import {
   Eye,
   X,
 } from "lucide-react";
-import { CurriculumPdfPreview } from "@/components/sessions/CurriculumPdfPreview";
+import { CurriculumPdfPreview } from "@/components/curriculum/CurriculumPdfPreview";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";

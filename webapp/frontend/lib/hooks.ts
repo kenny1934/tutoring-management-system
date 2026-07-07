@@ -565,6 +565,7 @@ export function useCurriculumSearch(
     school?: string;
     grade?: string;
     lang_stream?: string;
+    limit?: number;
   } | null
 ) {
   return useSWR<CurriculumSearchResponse>(

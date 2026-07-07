@@ -1100,6 +1100,7 @@ export const curriculumAPI = {
     grade?: string;
     lang_stream?: string;
     academic_year?: string;
+    limit?: number;
   }) => {
     const params = new URLSearchParams();
     Object.entries(query).forEach(([key, value]) => {

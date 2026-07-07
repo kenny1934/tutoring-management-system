@@ -1,19 +1,22 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Search, X, Loader2, Copy, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/contexts/ToastContext";
+import { Search, X, Loader2 } from "lucide-react";
 import { useCurriculumConcepts, useCurriculumSearch } from "@/lib/hooks";
 import {
-  ROLE_LABELS,
   conceptDisplayName,
   conceptNameForStream,
   matchesConcept,
   sourcesText,
   stripExtension,
 } from "@/lib/curriculum-labels";
-import type { CurriculumConceptVocab, CurriculumSearchConcept } from "@/types";
+import type {
+  CurriculumConceptVocab,
+  CurriculumFile,
+  CurriculumSearchConcept,
+} from "@/types";
+import { CurriculumFileRow } from "./CurriculumFileRow";
+import { CurriculumPdfPreview } from "./CurriculumPdfPreview";
 
 interface Scope {
   school: string;
@@ -41,12 +44,11 @@ function evidenceText(c: CurriculumSearchConcept): string | null {
 }
 
 export function CurriculumSearch({ scope }: CurriculumSearchProps) {
-  const { showToast } = useToast();
   const { data: concepts } = useCurriculumConcepts();
   const [input, setInput] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [active, setActive] = useState<ActiveQuery | null>(null);
-  const [copiedPath, setCopiedPath] = useState<string | null>(null);
+  const [preview, setPreview] = useState<CurriculumFile | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const matches = useMemo(() => {
@@ -90,16 +92,6 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
     setActive(null);
     setDropdownOpen(false);
     inputRef.current?.focus();
-  };
-
-  const copyPath = async (path: string) => {
-    try {
-      await navigator.clipboard.writeText(path);
-      setCopiedPath(path);
-      setTimeout(() => setCopiedPath((p) => (p === path ? null : p)), 2000);
-    } catch {
-      showToast("Could not copy the path.", "error");
-    }
   };
 
   return (
@@ -212,53 +204,11 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                   {concept.files.length > 0 ? (
                     <div className="mt-1 space-y-0.5">
                       {concept.files.map((file) => (
-                        <div
+                        <CurriculumFileRow
                           key={file.file_path}
-                          className="flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10"
-                        >
-                          <span
-                            className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1"
-                            title={file.file_path}
-                          >
-                            {stripExtension(file.file_basename)}
-                          </span>
-                          <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
-                            {file.role ? ROLE_LABELS[file.role] || file.role : "Worksheet"}
-                          </span>
-                          {file.lang && (
-                            <span
-                              className="text-[9px] px-1 py-px rounded bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 shrink-0"
-                              title={file.lang === "e" ? "English version" : "Chinese version"}
-                            >
-                              {file.lang === "e" ? "EN" : "中"}
-                            </span>
-                          )}
-                          {file.assignment_count > 0 && (
-                            <span
-                              className="text-[9px] text-gray-400 shrink-0"
-                              title={`Assigned ${file.assignment_count} times to ${file.unique_student_count} students`}
-                            >
-                              {file.assignment_count}×
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => copyPath(file.file_path)}
-                            title="Copy the file path to paste into an exercise"
-                            className={cn(
-                              "p-0.5 rounded shrink-0 transition-colors",
-                              copiedPath === file.file_path
-                                ? "text-teal-600"
-                                : "text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30"
-                            )}
-                          >
-                            {copiedPath === file.file_path ? (
-                              <Check className="h-3 w-3" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </button>
-                        </div>
+                          file={file}
+                          onPreview={setPreview}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -271,6 +221,14 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
             </div>
           )}
         </div>
+      )}
+
+      {preview && (
+        <CurriculumPdfPreview
+          filePath={preview.file_path}
+          fileLabel={stripExtension(preview.file_basename)}
+          onClose={() => setPreview(null)}
+        />
       )}
     </div>
   );

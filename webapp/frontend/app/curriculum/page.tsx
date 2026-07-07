@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Map as MapIcon, Loader2, ChevronDown, ChevronRight, Target, X } from "lucide-react";
+import { Map as MapIcon, FileText, Loader2, ChevronDown, ChevronRight, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -15,6 +15,7 @@ import {
 } from "@/lib/curriculum-bands";
 import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
+import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
 import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
 
 const selectClass =
@@ -90,6 +91,7 @@ export default function CurriculumPage() {
   const [year, setYear] = useState<string | null>(() => searchParams.get("year"));
   const [gapsExpanded, setGapsExpanded] = useState(false);
   const [expandedLane, setExpandedLane] = useState<number | null>(null);
+  const [topicFiles, setTopicFiles] = useState<{ conceptId: number; name: string } | null>(null);
   // Week the tutor jumped to (highlight column + week card on the Gantt).
   const [focusWeek, setFocusWeek] = useState<number | null>(() => {
     const w = parseInt(searchParams.get("week") || "", 10);
@@ -609,28 +611,53 @@ export default function CurriculumPage() {
                 {/* Lanes */}
                 {lanes.map((lane: ConceptLane) => (
                   <div key={lane.conceptId}>
-                    <button
-                      type="button"
-                      aria-expanded={expandedLane === lane.conceptId}
-                      onClick={() =>
-                        setExpandedLane(
-                          expandedLane === lane.conceptId ? null : lane.conceptId
-                        )
-                      }
-                      className="w-full flex h-7 items-stretch text-left group"
-                    >
+                    {/* Two side-by-side buttons rather than one row-wide button,
+                        so the worksheets shortcut is not a nested button. */}
+                    <div className="w-full flex h-7 items-stretch group">
                       <div
-                        className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] group-hover:bg-teal-50/60 dark:group-hover:bg-teal-900/10 flex items-center px-4"
+                        className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] group-hover:bg-teal-50/60 dark:group-hover:bg-teal-900/10 flex items-center gap-1 pl-4 pr-2"
                         style={{ width: LABEL_W }}
                       >
-                        <span
-                          className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
-                          title={conceptNameForStream(lane, effectiveStream)}
+                        <button
+                          type="button"
+                          aria-expanded={expandedLane === lane.conceptId}
+                          onClick={() =>
+                            setExpandedLane(
+                              expandedLane === lane.conceptId ? null : lane.conceptId
+                            )
+                          }
+                          className="flex-1 min-w-0 h-full flex items-center text-left"
                         >
-                          {conceptNameForStream(lane, effectiveStream)}
-                        </span>
+                          <span
+                            className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
+                            title={conceptNameForStream(lane, effectiveStream)}
+                          >
+                            {conceptNameForStream(lane, effectiveStream)}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Worksheets for ${conceptNameForStream(lane, effectiveStream)}`}
+                          title="See the worksheets for this topic"
+                          onClick={() =>
+                            setTopicFiles({
+                              conceptId: lane.conceptId,
+                              name: conceptNameForStream(lane, effectiveStream),
+                            })
+                          }
+                          className="p-0.5 rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+                        >
+                          <FileText className="h-3 w-3" />
+                        </button>
                       </div>
-                      <div className="relative flex-1 group-hover:bg-teal-50/40 dark:group-hover:bg-teal-900/5">
+                      <div
+                        className="relative flex-1 cursor-pointer group-hover:bg-teal-50/40 dark:group-hover:bg-teal-900/5"
+                        onClick={() =>
+                          setExpandedLane(
+                            expandedLane === lane.conceptId ? null : lane.conceptId
+                          )
+                        }
+                      >
                         {lane.segments.map((seg) => (
                           <div
                             key={`${seg.startWeek}-${seg.primary}`}
@@ -655,7 +682,7 @@ export default function CurriculumPage() {
                           />
                         ))}
                       </div>
-                    </button>
+                    </div>
                     {expandedLane === lane.conceptId && (
                       <div className="flex bg-teal-50/40 dark:bg-teal-900/10">
                         <div
@@ -721,6 +748,20 @@ export default function CurriculumPage() {
                             <span className="text-[9px] text-gray-400 shrink-0">
                               {c.rank === 1 ? "Main topic" : "Also covered"}
                             </span>
+                            <button
+                              type="button"
+                              aria-label={`Worksheets for ${conceptNameForStream(c, effectiveStream)}`}
+                              title="See the worksheets for this topic"
+                              onClick={() =>
+                                setTopicFiles({
+                                  conceptId: c.concept_id,
+                                  name: conceptNameForStream(c, effectiveStream),
+                                })
+                              }
+                              className="p-0.5 rounded shrink-0 text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+                            >
+                              <FileText className="h-3 w-3" />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -866,17 +907,31 @@ export default function CurriculumPage() {
 
                 <div className="py-2 space-y-1">
                   {pacingRows.map((row) => (
-                    <div key={row.conceptId} className="flex items-stretch">
+                    <div key={row.conceptId} className="flex items-stretch group">
                       <div
-                        className="sticky left-0 z-10 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center px-4"
+                        className="sticky left-0 z-10 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center gap-1 pl-4 pr-2"
                         style={{ width: LABEL_W }}
                       >
                         <span
-                          className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
+                          className="flex-1 min-w-0 text-[10px] text-gray-600 dark:text-gray-300 truncate"
                           title={conceptNameForStream(row, pacingLabelStream)}
                         >
                           {conceptNameForStream(row, pacingLabelStream)}
                         </span>
+                        <button
+                          type="button"
+                          aria-label={`Worksheets for ${conceptNameForStream(row, pacingLabelStream)}`}
+                          title="See the worksheets for this topic"
+                          onClick={() =>
+                            setTopicFiles({
+                              conceptId: row.conceptId,
+                              name: conceptNameForStream(row, pacingLabelStream),
+                            })
+                          }
+                          className="p-0.5 rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+                        >
+                          <FileText className="h-3 w-3" />
+                        </button>
                       </div>
                       <div className="flex-1 flex flex-col justify-center gap-0.5 py-0.5">
                         {row.cells.map((cell, idx) => (
@@ -993,6 +1048,23 @@ export default function CurriculumPage() {
               </div>
             )}
           </div>
+        )}
+
+        {topicFiles && (
+          <CurriculumTopicFiles
+            conceptId={topicFiles.conceptId}
+            conceptName={topicFiles.name}
+            scope={
+              primaryCombo
+                ? {
+                    school: primaryCombo.school,
+                    grade: primaryCombo.grade,
+                    lang_stream: primaryCombo.stream,
+                  }
+                : null
+            }
+            onClose={() => setTopicFiles(null)}
+          />
         )}
       </PageTransition>
     </DeskSurface>
