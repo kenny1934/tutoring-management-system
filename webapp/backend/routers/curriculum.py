@@ -251,23 +251,37 @@ def _concept_meta(db, concept_ids):
     }
 
 
+# Extensions the migration-036 popularity view strips when grouping. Keys
+# must strip exactly this set — a blind rsplit('.') would truncate
+# extensionless decimal-coded names ('903.1_Percentage_e' -> '903').
+_KNOWN_EXT_RE = re.compile(r"\.(pdf|docx?|jpg|xlsx|pptx)$", re.IGNORECASE)
+
+
+def _basename_key(name):
+    """Lowercased basename with any known extension stripped — the join key
+    shared by the popularity map, file dedupe, and assignment history."""
+    return _KNOWN_EXT_RE.sub("", name or "").lower()
+
+
 # The popularity view derives its grouping key from every session_exercises
 # row on each query (~650ms server-side), and popularity only breaks ties —
 # staleness is harmless. Cache the whole filename -> counts map in-process.
 _POPULARITY_TTL_SECONDS = 600
-_popularity_cache = {"loaded_at": 0.0, "map": {}}
+_popularity_cache = {"loaded_at": None, "map": {}}
 
 
 def _popularity_map(db):
     """assignment counts from the migration-036 summary view, keyed by
-    extension-stripped basename (the view's grouping key)."""
+    extension-stripped lowercased basename (the view preserves case and
+    groups case-insensitively, so one arbitrary variant comes back)."""
     now = time.monotonic()
-    if now - _popularity_cache["loaded_at"] > _POPULARITY_TTL_SECONDS:
+    loaded_at = _popularity_cache["loaded_at"]
+    if loaded_at is None or now - loaded_at > _POPULARITY_TTL_SECONDS:
         rows = db.execute(text("""
             SELECT filename, assignment_count, unique_student_count, latest_use
             FROM courseware_popularity_summary
         """)).fetchall()
-        _popularity_cache["map"] = {r.filename: r for r in rows}
+        _popularity_cache["map"] = {(r.filename or "").lower(): r for r in rows}
         _popularity_cache["loaded_at"] = now
     return _popularity_cache["map"]
 
@@ -278,11 +292,12 @@ def _dedupe_files(files):
     basename, preferring the variant with a real extension."""
     kept = {}
     for f in files:
-        key = (f["file_basename"] or "").rsplit(".", 1)[0].lower()
+        key = _basename_key(f["file_basename"])
         prev = kept.get(key)
         if prev is None:
             kept[key] = f
-        elif "." not in (prev["file_basename"] or "") and "." in (f["file_basename"] or ""):
+        elif (not _KNOWN_EXT_RE.search(prev["file_basename"] or "")
+              and _KNOWN_EXT_RE.search(f["file_basename"] or "")):
             prev["file_path"] = f["file_path"]
             prev["file_basename"] = f["file_basename"]
     return list(kept.values())
@@ -323,7 +338,7 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
         }
         if role_filter and r.role != role_filter:
             continue
-        pop = popularity.get((r.file_basename or "").rsplit(".", 1)[0])
+        pop = popularity.get(_basename_key(r.file_basename))
         school_code = _reference_school(r.file_path)
         files_by_concept[r.concept_id].append({
             "file_path": r.file_path,
@@ -372,7 +387,7 @@ def _student_assigned_map(db, student_id):
     """), {"sid": student_id}).fetchall()
     out = {}
     for r in rows:
-        key = normalize(r.pdf_name)["basename"].rsplit(".", 1)[0].lower()
+        key = _basename_key(normalize(r.pdf_name)["basename"])
         if not key:
             continue
         count, last_date = out.get(key, (0, None))
@@ -476,7 +491,7 @@ def get_curriculum_suggestions(
             why["years_observed"] = evidence["years_observed"]
         files = files_by_concept.get(concept_id, [])[:MAX_FILES_PER_CONCEPT]
         for f in files:
-            done = assigned.get((f["file_basename"] or "").rsplit(".", 1)[0].lower())
+            done = assigned.get(_basename_key(f["file_basename"]))
             f["student_assigned_count"] = done[0] if done else 0
             f["student_last_assigned"] = _iso(done[1]) if done else None
         suggestions.append({
@@ -699,6 +714,10 @@ def create_observation(
         raise HTTPException(status_code=404, detail="Student not found")
     if not student.school:
         raise HTTPException(status_code=400, detail="Student has no school on record")
+    if not student.grade:
+        # school_topic_observations.grade is NOT NULL — fail with a clear
+        # message instead of an IntegrityError 500.
+        raise HTTPException(status_code=400, detail="Student has no grade on record")
 
     week_row = _week_for_date(db, body.session_date)
     if not week_row:
@@ -724,27 +743,42 @@ def create_observation(
         "is_rev": body.is_revision,
         "ref": source_ref,
     }
-    existing = db.execute(text("""
-        SELECT id FROM school_topic_observations
+    match_where = """
         WHERE school = :school AND grade = :grade
           AND (lang_stream = :stream OR (lang_stream IS NULL AND :stream IS NULL))
           AND academic_year = :year AND week_number = :week
           AND concept_id = :cid AND source = 'tutor_confirm'
           AND is_revision = :is_rev AND source_ref = :ref
-        LIMIT 1
-    """), params).fetchone()
+    """
+    lookup_sql = f"SELECT id FROM school_topic_observations {match_where} LIMIT 1"
+
+    existing = db.execute(text(lookup_sql), params).fetchone()
     if existing:
         return {"id": existing.id, "created": False, "academic_year": year,
                 "week_number": week, "school": student.school}
 
-    result = db.execute(text("""
+    # Guarded insert (the NOT EXISTS re-checked inside the statement): the
+    # table has no unique key backing this idempotency (lang_stream is
+    # nullable), so a plain SELECT-then-INSERT lets two concurrent identical
+    # confirms both insert and double the evidence weight.
+    from_dual = "FROM DUAL " if db.get_bind().dialect.name == "mysql" else ""
+    result = db.execute(text(f"""
         INSERT INTO school_topic_observations
             (school, grade, lang_stream, academic_year, week_number, concept_id,
              source, confidence, is_revision, source_ref)
-        VALUES (:school, :grade, :stream, :year, :week, :cid,
-                'tutor_confirm', :conf, :is_rev, :ref)
+        SELECT :school, :grade, :stream, :year, :week, :cid,
+               'tutor_confirm', :conf, :is_rev, :ref
+        {from_dual}WHERE NOT EXISTS (
+            SELECT 1 FROM school_topic_observations {match_where}
+        )
     """), {**params, "conf": confidence})
     db.commit()
+
+    if result.rowcount == 0:
+        # Lost the race: a concurrent identical confirm inserted first.
+        existing = db.execute(text(lookup_sql), params).fetchone()
+        return {"id": existing.id, "created": False, "academic_year": year,
+                "week_number": week, "school": student.school}
 
     logger.info(
         "curriculum confirm: tutor=%s student=%s concept=%s %s wk%s %s conf=%s",
@@ -810,44 +844,77 @@ def get_timeline(
     if not year:
         year = current_year if current_year in years else (years[0] if years else None)
 
-    weeks = defaultdict(list)
+    # The consensus/pacing views rank and group within each lang_stream
+    # partition (NULL-stream rows form their own partition), so a school with
+    # both tagged and untagged observations would surface the same concept
+    # twice — two rank-1 rows per week, two pacing bands per concept. Merge
+    # partitions per (week, concept) and re-rank by merged weight.
+    weeks = defaultdict(dict)
     concept_ids = set()
     if year:
         for row in db.execute(text(f"""
-            SELECT week_number, concept_id, weight, source_count, sources, rank_in_week
+            SELECT week_number, concept_id, weight, source_count, sources
             FROM school_week_topic_consensus
             WHERE school = :school AND grade = :grade {stream_where}
               AND academic_year = :year AND rank_in_week <= 3
-            ORDER BY week_number, rank_in_week
         """), {**params, "year": year}):
-            concept_ids.add(row.concept_id)
-            weeks[row.week_number].append({
+            entry = weeks[row.week_number].setdefault(row.concept_id, {
                 "concept_id": row.concept_id,
-                "weight": float(row.weight),
-                "source_count": row.source_count,
-                "sources": sorted(s for s in (row.sources or "").split(",") if s),
-                "rank": row.rank_in_week,
+                "weight": 0.0,
+                "source_count": 0,
+                "sources": set(),
             })
+            entry["weight"] += float(row.weight)
+            entry["source_count"] += row.source_count
+            entry["sources"].update(s for s in (row.sources or "").split(",") if s)
+    week_entries = {}
+    for wk, by_concept in weeks.items():
+        entries = sorted(by_concept.values(), key=lambda e: (-e["weight"], e["concept_id"]))[:3]
+        for rank, e in enumerate(entries, start=1):
+            e["rank"] = rank
+            e["sources"] = sorted(e["sources"])
+            concept_ids.add(e["concept_id"])
+        week_entries[wk] = entries
 
-    pacing = []
+    pacing_by_concept = {}
     for row in db.execute(text(f"""
-        SELECT concept_id, years_observed, mean_week, min_week, max_week, week_spread
+        SELECT concept_id, years_observed, mean_week, min_week, max_week,
+               week_spread, total_weight
         FROM school_concept_pacing
         WHERE school = :school AND grade = :grade {stream_where}
-        ORDER BY mean_week
     """), params):
         concept_ids.add(row.concept_id)
-        pacing.append({
-            "concept_id": row.concept_id,
-            "years_observed": row.years_observed,
-            "mean_week": float(row.mean_week),
-            "min_week": row.min_week,
-            "max_week": row.max_week,
-            "week_spread": float(row.week_spread),
-        })
+        w = float(row.total_weight or 0)
+        entry = pacing_by_concept.get(row.concept_id)
+        if entry is None:
+            pacing_by_concept[row.concept_id] = {
+                "concept_id": row.concept_id,
+                "years_observed": row.years_observed,
+                "mean_week": float(row.mean_week),
+                "min_week": row.min_week,
+                "max_week": row.max_week,
+                "week_spread": float(row.week_spread),
+                "_weight": w,
+            }
+            continue
+        total = entry["_weight"] + w
+        if total:
+            entry["mean_week"] = (
+                entry["mean_week"] * entry["_weight"] + float(row.mean_week) * w
+            ) / total
+        entry["min_week"] = min(entry["min_week"], row.min_week)
+        entry["max_week"] = max(entry["max_week"], row.max_week)
+        entry["week_spread"] = max(entry["week_spread"], float(row.week_spread))
+        entry["years_observed"] = max(entry["years_observed"], row.years_observed)
+        entry["_weight"] = total
+    pacing = sorted(pacing_by_concept.values(), key=lambda p: p["mean_week"])
+    for p in pacing:
+        del p["_weight"]
+        # The view emits 1 decimal place; keep merged means on the same contract.
+        p["mean_week"] = round(p["mean_week"], 1)
 
     meta = _concept_meta(db, concept_ids)
-    for entries in weeks.values():
+    for entries in week_entries.values():
         for e in entries:
             e.update(meta.get(e["concept_id"], {}))
     for p in pacing:
@@ -878,7 +945,7 @@ def get_timeline(
         "current_week": current_week if year == current_year else None,
         "weeks": [
             {"week_number": wk, "concepts": entries}
-            for wk, entries in sorted(weeks.items())
+            for wk, entries in sorted(week_entries.items())
         ],
         "week_dates": week_dates,
         "pacing": pacing,

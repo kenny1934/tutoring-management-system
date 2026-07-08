@@ -105,12 +105,13 @@ def _setup(db_session):
         ('704_EX1_e', 40, 20), ('704_EX2_e', 90, 45), ('704_Rev_e', 10, 8),
         ('705_EX1_e', 5, 3)
     """))
-    curriculum._popularity_cache["loaded_at"] = 0.0
+    curriculum._popularity_cache["loaded_at"] = None
     curriculum._popularity_cache["map"] = {}
 
     db_session.add(Student(id=1, student_name="Amy", school="SRL-E", grade="F1", lang_stream="E"))
     db_session.add(Student(id=2, student_name="Ben", school="SRL-E", grade="F4", lang_stream="E"))
     db_session.add(Student(id=3, student_name="Cat", school=None, grade="F1", lang_stream="E"))
+    db_session.add(Student(id=4, student_name="Dan", school="SRL-E", grade=None, lang_stream="E"))
     db_session.commit()
 
     app.dependency_overrides[get_current_user] = lambda: Tutor(
@@ -218,6 +219,35 @@ def test_files_flag_already_assigned(client: TestClient, db_session):
     ex1 = next(f for f in files if f["file_basename"] == "704_EX1_e.pdf")
     assert ex1["student_assigned_count"] == 0
     assert ex1["student_last_assigned"] is None
+
+
+def test_extensionless_decimal_codes_stay_distinct(client: TestClient, db_session):
+    """HK-old decimal sub-codes without an extension keep their tail: 903.1
+    and 903.2 must not collapse into one '903' key, the extensionless copy
+    still dedupes into its .pdf variant, and the popularity join is
+    case-insensitive (the view returns one arbitrary case variant)."""
+    db_session.execute(text(f"""
+        INSERT INTO courseware_concepts
+            (concept_id, file_path, file_basename, role, lang, source, confidence) VALUES
+        (2, '{ALIAS_E}\\903.1_Percentage_e',     '903.1_Percentage_e',     'exercise', 'e', 'code', 1.0),
+        (2, '{ALIAS_E}\\903.1_Percentage_e.pdf', '903.1_Percentage_e.pdf', 'exercise', 'e', 'code', 1.0),
+        (2, '{ALIAS_E}\\903.2_Discount_e',       '903.2_Discount_e',       'exercise', 'e', 'code', 1.0)
+    """))
+    db_session.execute(text("""
+        INSERT INTO courseware_popularity_summary
+            (filename, assignment_count, unique_student_count) VALUES
+        ('903.1_PERCENTAGE_E', 7, 4)
+    """))
+    _consensus_row(db_session, week=11, concept_id=2, weight=3.0)
+    db_session.commit()
+
+    files = _get(client).json()["suggestions"][0]["files"]
+    basenames = [f["file_basename"] for f in files]
+    assert "903.1_Percentage_e.pdf" in basenames   # deduped INTO the .pdf variant
+    assert "903.1_Percentage_e" not in basenames
+    assert "903.2_Discount_e" in basenames         # distinct sub-code survives
+    ex = next(f for f in files if f["file_basename"] == "903.1_Percentage_e.pdf")
+    assert ex["assignment_count"] == 7             # case-insensitive popularity join
 
 
 def test_exam_window_prefers_revision(client: TestClient, db_session):
@@ -467,6 +497,7 @@ def test_confirm_guards(client: TestClient):
     assert _confirm(client, student_id=999).status_code == 404
     assert _confirm(client, concept_id=999).status_code == 404
     assert _confirm(client, student_id=3).status_code == 400          # no school
+    assert _confirm(client, student_id=4).status_code == 400          # no grade
     assert _confirm(client, session_date="2030-01-01").status_code == 400  # no week
 
 
@@ -532,8 +563,8 @@ def test_timeline(client: TestClient, db_session):
     """))
     db_session.commit()
 
-    # rank comes from the seeded rank_in_week (helper always writes 1); the
-    # endpoint passes it through, so both concepts appear under week 10.
+    # rank_in_week only gates the view rows in (<= 3); the endpoint re-ranks
+    # by merged weight, so concept 1 (3.0) leads concept 2 (1.0) either way.
     db_session.execute(text(
         "UPDATE school_week_topic_consensus SET rank_in_week = 2 WHERE concept_id = 2"))
     db_session.commit()
@@ -564,6 +595,44 @@ def test_timeline(client: TestClient, db_session):
         "academic_year": "2024-2025",
     }, cookies=AUTH_COOKIE).json()
     assert past["current_week"] is None
+
+
+def test_timeline_merges_null_stream_partition(client: TestClient, db_session):
+    """The consensus/pacing views rank per lang_stream partition, and
+    NULL-stream rows (e.g. confirms for a student with no stream recorded)
+    form their own partition — the endpoint must merge them so a concept
+    never appears twice in one week or carries two pacing bands."""
+    _consensus_row(db_session, week=10, concept_id=1, weight=3.0)  # stream E
+    _consensus_row(db_session, week=10, concept_id=1, weight=2.0, stream=None,
+                   sources="tutor_confirm")                        # NULL partition
+    _consensus_row(db_session, week=10, concept_id=2, weight=4.0)
+    db_session.execute(text("""
+        INSERT INTO school_concept_pacing
+            (school, grade, lang_stream, concept_id, years_observed, mean_week,
+             min_week, max_week, week_spread, total_weight)
+        VALUES ('SRL-E', 'F1', 'E',  1, 2, 10.0, 9, 11, 1.0, 6.0),
+               ('SRL-E', 'F1', NULL, 1, 1, 12.0, 11, 13, 0.5, 2.0)
+    """))
+    db_session.commit()
+
+    body = client.get("/api/curriculum/timeline", params={
+        "school": "SRL-E", "grade": "F1", "lang_stream": "E",
+        "academic_year": "2025-2026",
+    }, cookies=AUTH_COOKIE).json()
+
+    wk = body["weeks"][0]
+    assert [c["concept_id"] for c in wk["concepts"]] == [1, 2]  # 5.0 beats 4.0
+    merged = wk["concepts"][0]
+    assert merged["weight"] == 5.0
+    assert merged["rank"] == 1
+    assert merged["sources"] == ["assignment", "prep_folder", "tutor_confirm"]
+    assert wk["concepts"][1]["rank"] == 2
+
+    assert len(body["pacing"]) == 1
+    band = body["pacing"][0]
+    assert band["mean_week"] == 10.5                 # (10.0*6 + 12.0*2) / 8
+    assert (band["min_week"], band["max_week"]) == (9, 13)
+    assert band["years_observed"] == 2
 
 
 def test_coverage(client: TestClient, db_session):
