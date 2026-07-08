@@ -1,17 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useSearchParams } from "next/navigation";
 import { Map as MapIcon, FileText, Loader2, ChevronDown, ChevronRight, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCurriculumConcepts, useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
 import {
   computeConceptLanes,
   mergePacingRows,
   parseWeekJumpInput,
   type ConceptLane,
+  type PacingRow,
 } from "@/lib/curriculum-bands";
 import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
@@ -64,24 +67,277 @@ function weekLeft(week: number, maxWeek: number): string {
   return `calc(${LABEL_W} + (100% - ${LABEL_W}) * ${(week - 0.5) / maxWeek})`;
 }
 
+function axisTicks(maxWeek: number): number[] {
+  const ticks: number[] = [];
+  for (let w = 4; w <= maxWeek; w += 4) ticks.push(w);
+  return ticks;
+}
+
+interface PacingComboEntry {
+  combo: Combo;
+  pacing: CurriculumPacingBand[] | null;
+  slot: number;
+}
+
+/** Sticky week-number header shared by the Gantt and pacing charts; the
+ * Gantt passes its clickable week-lookup layer as children. */
+function WeekAxis({
+  maxWeek,
+  currentWeek,
+  children,
+}: {
+  maxWeek: number;
+  currentWeek: number | null | undefined;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="sticky top-0 z-30 flex h-6 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
+      <div
+        className="sticky left-0 z-30 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center px-4"
+        style={{ width: LABEL_W }}
+      >
+        <span className="text-[9px] uppercase tracking-wide text-gray-400">
+          Topic
+        </span>
+      </div>
+      <div className="relative flex-1">
+        {axisTicks(maxWeek).map((w) => (
+          <span
+            key={w}
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] text-gray-400 tabular-nums"
+            style={{ left: `${((w - 0.5) / maxWeek) * 100}%` }}
+          >
+            {w}
+          </span>
+        ))}
+        {currentWeek != null && (
+          <span
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-500 bg-[#fef9f3] dark:bg-[#2d2618] px-0.5"
+            style={{ left: `${((currentWeek - 0.5) / maxWeek) * 100}%` }}
+          >
+            Now
+          </span>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// The two chart bodies are memoized so typing in the week-jump box (state in
+// the page component) does not re-render hundreds of positioned divs.
+
+const GanttLanes = memo(function GanttLanes({
+  lanes,
+  maxWeek,
+  stream,
+  expandedLane,
+  setExpandedLane,
+  onTopicFiles,
+}: {
+  lanes: ConceptLane[];
+  maxWeek: number;
+  stream: string | null;
+  expandedLane: number | null;
+  setExpandedLane: Dispatch<SetStateAction<number | null>>;
+  onTopicFiles: (t: { conceptId: number; name: string }) => void;
+}) {
+  const toggleLane = (conceptId: number) =>
+    setExpandedLane((prev) => (prev === conceptId ? null : conceptId));
+  return (
+    <>
+      {lanes.map((lane: ConceptLane) => (
+        <div key={lane.conceptId}>
+          {/* Two side-by-side buttons rather than one row-wide button,
+              so the worksheets shortcut is not a nested button. */}
+          <div className="w-full flex h-7 items-stretch group">
+            <div
+              className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] group-hover:bg-teal-50/60 dark:group-hover:bg-teal-900/10 flex items-center gap-1 pl-4 pr-2"
+              style={{ width: LABEL_W }}
+            >
+              <button
+                type="button"
+                aria-expanded={expandedLane === lane.conceptId}
+                onClick={() => toggleLane(lane.conceptId)}
+                className="flex-1 min-w-0 h-full flex items-center text-left"
+              >
+                <span
+                  className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
+                  title={conceptNameForStream(lane, stream)}
+                >
+                  {conceptNameForStream(lane, stream)}
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-label={`Worksheets for ${conceptNameForStream(lane, stream)}`}
+                title="See the worksheets for this topic"
+                onClick={() =>
+                  onTopicFiles({
+                    conceptId: lane.conceptId,
+                    name: conceptNameForStream(lane, stream),
+                  })
+                }
+                className="p-0.5 rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+              >
+                <FileText className="h-3 w-3" />
+              </button>
+            </div>
+            <div
+              className="relative flex-1 cursor-pointer group-hover:bg-teal-50/40 dark:group-hover:bg-teal-900/5"
+              onClick={() => toggleLane(lane.conceptId)}
+            >
+              {lane.segments.map((seg) => (
+                <div
+                  key={`${seg.startWeek}-${seg.primary}`}
+                  className={cn(
+                    "absolute top-1/2 -translate-y-1/2 h-3 rounded",
+                    seg.primary
+                      ? "bg-teal-500/90 dark:bg-teal-500/80"
+                      : "bg-teal-200 dark:bg-teal-900/60"
+                  )}
+                  style={{
+                    left: `${((seg.startWeek - 1) / maxWeek) * 100}%`,
+                    width: `${Math.max(
+                      ((seg.endWeek - seg.startWeek + 1) / maxWeek) * 100,
+                      0.8
+                    )}%`,
+                  }}
+                  title={`${
+                    seg.startWeek === seg.endWeek
+                      ? `Week ${seg.startWeek}`
+                      : `Weeks ${seg.startWeek} to ${seg.endWeek}`
+                  }${seg.primary ? " · main topic" : " · also seen"}`}
+                />
+              ))}
+            </div>
+          </div>
+          {expandedLane === lane.conceptId && (
+            <div className="flex bg-teal-50/40 dark:bg-teal-900/10">
+              <div
+                className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
+                style={{ width: LABEL_W }}
+              />
+              <div className="flex-1 flex flex-wrap gap-1 px-1 py-1.5">
+                {lane.weeks.map((w) => (
+                  <span
+                    key={w.week_number}
+                    className={cn(
+                      "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] border",
+                      w.rank === 1
+                        ? "border-teal-300 dark:border-teal-700 bg-white dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
+                        : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-gray-500 dark:text-gray-400"
+                    )}
+                    title={`Weight ${w.weight.toFixed(2)}`}
+                  >
+                    Wk {w.week_number} · {sourcesText(w.sources)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </>
+  );
+});
+
+const PacingChartRows = memo(function PacingChartRows({
+  rows,
+  combos,
+  maxWeek,
+  labelStream,
+  onTopicFiles,
+}: {
+  rows: PacingRow[];
+  combos: PacingComboEntry[];
+  maxWeek: number;
+  labelStream: string | null;
+  onTopicFiles: (t: { conceptId: number; name: string }) => void;
+}) {
+  return (
+    <div className="py-2 space-y-1">
+      {rows.map((row) => (
+        <div key={row.conceptId} className="flex items-stretch group">
+          <div
+            className="sticky left-0 z-10 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center gap-1 pl-4 pr-2"
+            style={{ width: LABEL_W }}
+          >
+            <span
+              className="flex-1 min-w-0 text-[10px] text-gray-600 dark:text-gray-300 truncate"
+              title={conceptNameForStream(row, labelStream)}
+            >
+              {conceptNameForStream(row, labelStream)}
+            </span>
+            <button
+              type="button"
+              aria-label={`Worksheets for ${conceptNameForStream(row, labelStream)}`}
+              title="See the worksheets for this topic"
+              onClick={() =>
+                onTopicFiles({
+                  conceptId: row.conceptId,
+                  name: conceptNameForStream(row, labelStream),
+                })
+              }
+              className="p-0.5 rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+            >
+              <FileText className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="flex-1 flex flex-col justify-center gap-0.5 py-0.5">
+            {row.cells.map((cell, idx) => (
+              <div
+                key={idx}
+                className={cn("relative", combos.length > 1 ? "h-2" : "h-3.5")}
+              >
+                <div className="absolute inset-y-0.5 left-0 right-0 rounded bg-black/[0.05] dark:bg-white/[0.06]" />
+                {cell && (
+                  <>
+                    <div
+                      className={cn(
+                        "absolute inset-y-0.5 rounded",
+                        SLOT_STYLES[combos[idx].slot].band,
+                        cell.fromEquivalent &&
+                          "bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,rgba(255,255,255,0.45)_3px,rgba(255,255,255,0.45)_5px)]"
+                      )}
+                      style={{
+                        left: `${((cell.band.min_week - 1) / maxWeek) * 100}%`,
+                        width: `${Math.max(
+                          ((cell.band.max_week - cell.band.min_week + 1) / maxWeek) * 100,
+                          1.5
+                        )}%`,
+                      }}
+                      title={`${comboLabel(combos[idx].combo)}: weeks ${cell.band.min_week} to ${cell.band.max_week}, usually around week ${cell.band.mean_week} (${cell.band.years_observed} year${cell.band.years_observed === 1 ? "" : "s"} observed)${
+                        cell.fromEquivalent
+                          ? ` · their matching chapter: ${conceptNameForStream(cell.band, combos[idx].combo.stream)}`
+                          : ""
+                      }`}
+                    />
+                    <div
+                      className={cn(
+                        "absolute inset-y-0 w-1 rounded",
+                        SLOT_STYLES[combos[idx].slot].mean
+                      )}
+                      style={{
+                        left: `calc(${((cell.band.mean_week - 0.5) / maxWeek) * 100}% - 2px)`,
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+});
+
 export default function CurriculumPage() {
   const { data: coverage, isLoading: coverageLoading } = useCurriculumCoverage();
 
   // Paper texture is skipped on mobile, same as the other desk pages.
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    let lastIsMobile = window.innerWidth < 768;
-    setIsMobile(lastIsMobile);
-    const checkMobile = () => {
-      const nowMobile = window.innerWidth < 768;
-      if (nowMobile !== lastIsMobile) {
-        lastIsMobile = nowMobile;
-        setIsMobile(nowMobile);
-      }
-    };
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+  const isMobile = useIsMobile();
 
   // Pickers hydrate from the URL so session pages can deep-link a
   // school-grade-week and tutors can share what they're looking at.
@@ -231,27 +487,29 @@ export default function CurriculumPage() {
     return Math.max(44, ...weeks);
   }, [lanes, timeline]);
 
-  const weekDatesByNumber = useMemo(() => {
-    const m = new Map<number, { start_date: string; end_date: string }>();
-    for (const w of timeline?.week_dates || []) m.set(w.week_number, w);
+  // "16–22 Mar" / "30 Mar – 5 Apr" per week, computed once per timeline —
+  // the axis renders two labels per week button, so per-render Date parsing
+  // is real work at 44+ columns.
+  const weekLabelsByNumber = useMemo(() => {
+    const m = new Map<number, string>();
+    const dayMonth = (d: Date) =>
+      d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    for (const w of timeline?.week_dates || []) {
+      const start = new Date(`${w.start_date}T12:00:00`);
+      const end = new Date(`${w.end_date}T12:00:00`);
+      m.set(
+        w.week_number,
+        start.getMonth() === end.getMonth()
+          ? `${start.getDate()}–${dayMonth(end)}`
+          : `${dayMonth(start)} – ${dayMonth(end)}`
+      );
+    }
     return m;
   }, [timeline]);
 
-  // "16–22 Mar" / "30 Mar – 5 Apr" for a week's calendar span.
   const weekDateLabel = useCallback(
-    (week: number): string | null => {
-      const dates = weekDatesByNumber.get(week);
-      if (!dates) return null;
-      const start = new Date(`${dates.start_date}T12:00:00`);
-      const end = new Date(`${dates.end_date}T12:00:00`);
-      const dayMonth = (d: Date) =>
-        d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-      if (start.getMonth() === end.getMonth()) {
-        return `${start.getDate()}–${dayMonth(end)}`;
-      }
-      return `${dayMonth(start)} – ${dayMonth(end)}`;
-    },
-    [weekDatesByNumber]
+    (week: number): string | null => weekLabelsByNumber.get(week) ?? null,
+    [weekLabelsByNumber]
   );
 
   const scrollToWeek = useCallback(
@@ -322,7 +580,7 @@ export default function CurriculumPage() {
   // Pacing rows: union of concepts across the primary and compared schools,
   // ordered by the primary school's pace.
   const pacingCombos = useMemo(() => {
-    const entries: { combo: Combo; pacing: CurriculumPacingBand[] | null; slot: number }[] = [];
+    const entries: PacingComboEntry[] = [];
     if (primaryCombo)
       entries.push({ combo: primaryCombo, pacing: timeline?.pacing ?? null, slot: 0 });
     if (compares[0])
@@ -366,12 +624,6 @@ export default function CurriculumPage() {
     );
     return Math.max(44, ...weeks);
   }, [pacingRows]);
-
-  const axisTicks = (maxWeek: number) => {
-    const ticks: number[] = [];
-    for (let w = 4; w <= maxWeek; w += 4) ticks.push(w);
-    return ticks;
-  };
 
   return (
     <DeskSurface>
@@ -563,152 +815,30 @@ export default function CurriculumPage() {
 
                 {/* Week axis. Sits above the lane label cells (z-20) so topic
                     labels scrolling past can never paint over the header. */}
-                <div className="sticky top-0 z-30 flex h-6 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
-                  <div
-                    className="sticky left-0 z-30 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center px-4"
-                    style={{ width: LABEL_W }}
-                  >
-                    <span className="text-[9px] uppercase tracking-wide text-gray-400">
-                      Topic
-                    </span>
-                  </div>
-                  <div className="relative flex-1">
-                    {axisTicks(ganttMaxWeek).map((w) => (
-                      <span
+                <WeekAxis maxWeek={ganttMaxWeek} currentWeek={timeline.current_week}>
+                  {/* Every axis column is a week-lookup target */}
+                  <div className="absolute inset-0 flex">
+                    {Array.from({ length: ganttMaxWeek }, (_, i) => i + 1).map((w) => (
+                      <button
                         key={w}
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] text-gray-400 tabular-nums"
-                        style={{ left: `${((w - 0.5) / ganttMaxWeek) * 100}%` }}
-                      >
-                        {w}
-                      </span>
+                        type="button"
+                        aria-label={`Week ${w}`}
+                        title={`Week ${w}${weekDateLabel(w) ? ` · ${weekDateLabel(w)}` : ""}`}
+                        onClick={() => jumpToWeek(focusWeek === w ? null : w)}
+                        className="flex-1 h-full hover:bg-teal-400/15 dark:hover:bg-teal-300/10"
+                      />
                     ))}
-                    {timeline.current_week != null && (
-                      <span
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-500 bg-[#fef9f3] dark:bg-[#2d2618] px-0.5"
-                        style={{
-                          left: `${((timeline.current_week - 0.5) / ganttMaxWeek) * 100}%`,
-                        }}
-                      >
-                        Now
-                      </span>
-                    )}
-                    {/* Every axis column is a week-lookup target */}
-                    <div className="absolute inset-0 flex">
-                      {Array.from({ length: ganttMaxWeek }, (_, i) => i + 1).map((w) => (
-                        <button
-                          key={w}
-                          type="button"
-                          aria-label={`Week ${w}`}
-                          title={`Week ${w}${weekDateLabel(w) ? ` · ${weekDateLabel(w)}` : ""}`}
-                          onClick={() => jumpToWeek(focusWeek === w ? null : w)}
-                          className="flex-1 h-full hover:bg-teal-400/15 dark:hover:bg-teal-300/10"
-                        />
-                      ))}
-                    </div>
                   </div>
-                </div>
+                </WeekAxis>
 
-                {/* Lanes */}
-                {lanes.map((lane: ConceptLane) => (
-                  <div key={lane.conceptId}>
-                    {/* Two side-by-side buttons rather than one row-wide button,
-                        so the worksheets shortcut is not a nested button. */}
-                    <div className="w-full flex h-7 items-stretch group">
-                      <div
-                        className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] group-hover:bg-teal-50/60 dark:group-hover:bg-teal-900/10 flex items-center gap-1 pl-4 pr-2"
-                        style={{ width: LABEL_W }}
-                      >
-                        <button
-                          type="button"
-                          aria-expanded={expandedLane === lane.conceptId}
-                          onClick={() =>
-                            setExpandedLane(
-                              expandedLane === lane.conceptId ? null : lane.conceptId
-                            )
-                          }
-                          className="flex-1 min-w-0 h-full flex items-center text-left"
-                        >
-                          <span
-                            className="text-[10px] text-gray-600 dark:text-gray-300 truncate"
-                            title={conceptNameForStream(lane, effectiveStream)}
-                          >
-                            {conceptNameForStream(lane, effectiveStream)}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Worksheets for ${conceptNameForStream(lane, effectiveStream)}`}
-                          title="See the worksheets for this topic"
-                          onClick={() =>
-                            setTopicFiles({
-                              conceptId: lane.conceptId,
-                              name: conceptNameForStream(lane, effectiveStream),
-                            })
-                          }
-                          className="p-0.5 rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
-                        >
-                          <FileText className="h-3 w-3" />
-                        </button>
-                      </div>
-                      <div
-                        className="relative flex-1 cursor-pointer group-hover:bg-teal-50/40 dark:group-hover:bg-teal-900/5"
-                        onClick={() =>
-                          setExpandedLane(
-                            expandedLane === lane.conceptId ? null : lane.conceptId
-                          )
-                        }
-                      >
-                        {lane.segments.map((seg) => (
-                          <div
-                            key={`${seg.startWeek}-${seg.primary}`}
-                            className={cn(
-                              "absolute top-1/2 -translate-y-1/2 h-3 rounded",
-                              seg.primary
-                                ? "bg-teal-500/90 dark:bg-teal-500/80"
-                                : "bg-teal-200 dark:bg-teal-900/60"
-                            )}
-                            style={{
-                              left: `${((seg.startWeek - 1) / ganttMaxWeek) * 100}%`,
-                              width: `${Math.max(
-                                ((seg.endWeek - seg.startWeek + 1) / ganttMaxWeek) * 100,
-                                0.8
-                              )}%`,
-                            }}
-                            title={`${
-                              seg.startWeek === seg.endWeek
-                                ? `Week ${seg.startWeek}`
-                                : `Weeks ${seg.startWeek} to ${seg.endWeek}`
-                            }${seg.primary ? " · main topic" : " · also seen"}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    {expandedLane === lane.conceptId && (
-                      <div className="flex bg-teal-50/40 dark:bg-teal-900/10">
-                        <div
-                          className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
-                          style={{ width: LABEL_W }}
-                        />
-                        <div className="flex-1 flex flex-wrap gap-1 px-1 py-1.5">
-                          {lane.weeks.map((w) => (
-                            <span
-                              key={w.week_number}
-                              className={cn(
-                                "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] border",
-                                w.rank === 1
-                                  ? "border-teal-300 dark:border-teal-700 bg-white dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
-                                  : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-gray-500 dark:text-gray-400"
-                              )}
-                              title={`Weight ${w.weight.toFixed(2)}`}
-                            >
-                              Wk {w.week_number} · {sourcesText(w.sources)}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                <GanttLanes
+                  lanes={lanes}
+                  maxWeek={ganttMaxWeek}
+                  stream={effectiveStream}
+                  expandedLane={expandedLane}
+                  setExpandedLane={setExpandedLane}
+                  onTopicFiles={setTopicFiles}
+                />
                 <div className="h-2" />
               </div>
             </div>
@@ -873,115 +1003,15 @@ export default function CurriculumPage() {
                 )}
 
                 {/* Week axis */}
-                <div className="sticky top-0 z-30 flex h-6 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
-                  <div
-                    className="sticky left-0 z-30 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center px-4"
-                    style={{ width: LABEL_W }}
-                  >
-                    <span className="text-[9px] uppercase tracking-wide text-gray-400">
-                      Topic
-                    </span>
-                  </div>
-                  <div className="relative flex-1">
-                    {axisTicks(pacingMaxWeek).map((w) => (
-                      <span
-                        key={w}
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] text-gray-400 tabular-nums"
-                        style={{ left: `${((w - 0.5) / pacingMaxWeek) * 100}%` }}
-                      >
-                        {w}
-                      </span>
-                    ))}
-                    {timeline?.current_week != null && (
-                      <span
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[9px] font-medium text-rose-500 bg-[#fef9f3] dark:bg-[#2d2618] px-0.5"
-                        style={{
-                          left: `${((timeline.current_week - 0.5) / pacingMaxWeek) * 100}%`,
-                        }}
-                      >
-                        Now
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <WeekAxis maxWeek={pacingMaxWeek} currentWeek={timeline?.current_week} />
 
-                <div className="py-2 space-y-1">
-                  {pacingRows.map((row) => (
-                    <div key={row.conceptId} className="flex items-stretch group">
-                      <div
-                        className="sticky left-0 z-10 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center gap-1 pl-4 pr-2"
-                        style={{ width: LABEL_W }}
-                      >
-                        <span
-                          className="flex-1 min-w-0 text-[10px] text-gray-600 dark:text-gray-300 truncate"
-                          title={conceptNameForStream(row, pacingLabelStream)}
-                        >
-                          {conceptNameForStream(row, pacingLabelStream)}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={`Worksheets for ${conceptNameForStream(row, pacingLabelStream)}`}
-                          title="See the worksheets for this topic"
-                          onClick={() =>
-                            setTopicFiles({
-                              conceptId: row.conceptId,
-                              name: conceptNameForStream(row, pacingLabelStream),
-                            })
-                          }
-                          className="p-0.5 rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
-                        >
-                          <FileText className="h-3 w-3" />
-                        </button>
-                      </div>
-                      <div className="flex-1 flex flex-col justify-center gap-0.5 py-0.5">
-                        {row.cells.map((cell, idx) => (
-                          <div
-                            key={idx}
-                            className={cn(
-                              "relative",
-                              pacingCombos.length > 1 ? "h-2" : "h-3.5"
-                            )}
-                          >
-                            <div className="absolute inset-y-0.5 left-0 right-0 rounded bg-black/[0.05] dark:bg-white/[0.06]" />
-                            {cell && (
-                              <>
-                                <div
-                                  className={cn(
-                                    "absolute inset-y-0.5 rounded",
-                                    SLOT_STYLES[pacingCombos[idx].slot].band,
-                                    cell.fromEquivalent &&
-                                      "bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,rgba(255,255,255,0.45)_3px,rgba(255,255,255,0.45)_5px)]"
-                                  )}
-                                  style={{
-                                    left: `${((cell.band.min_week - 1) / pacingMaxWeek) * 100}%`,
-                                    width: `${Math.max(
-                                      ((cell.band.max_week - cell.band.min_week + 1) / pacingMaxWeek) * 100,
-                                      1.5
-                                    )}%`,
-                                  }}
-                                  title={`${comboLabel(pacingCombos[idx].combo)}: weeks ${cell.band.min_week} to ${cell.band.max_week}, usually around week ${cell.band.mean_week} (${cell.band.years_observed} year${cell.band.years_observed === 1 ? "" : "s"} observed)${
-                                    cell.fromEquivalent
-                                      ? ` · their matching chapter: ${conceptNameForStream(cell.band, pacingCombos[idx].combo.stream)}`
-                                      : ""
-                                  }`}
-                                />
-                                <div
-                                  className={cn(
-                                    "absolute inset-y-0 w-1 rounded",
-                                    SLOT_STYLES[pacingCombos[idx].slot].mean
-                                  )}
-                                  style={{
-                                    left: `calc(${((cell.band.mean_week - 0.5) / pacingMaxWeek) * 100}% - 2px)`,
-                                  }}
-                                />
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <PacingChartRows
+                  rows={pacingRows}
+                  combos={pacingCombos}
+                  maxWeek={pacingMaxWeek}
+                  labelStream={pacingLabelStream}
+                  onTopicFiles={setTopicFiles}
+                />
               </div>
             </div>
           </div>
