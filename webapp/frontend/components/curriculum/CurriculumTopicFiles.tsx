@@ -122,6 +122,12 @@ export function CurriculumTopicFiles({
                         />
                       ))}
                     </div>
+                    {(concept.file_count || 0) > concept.files.length && (
+                      <p className="text-[10px] text-gray-400 mt-1.5">
+                        {(concept.file_count || 0) - concept.files.length} more not
+                        shown. The most used files are listed first.
+                      </p>
+                    )}
                   </div>
                 )
             )}

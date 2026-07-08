@@ -564,6 +564,9 @@ export interface CurriculumFile {
   lang: string | null;
   confidence: number | null;
   map_source: string;
+  // set for school-specific reference scans (中學參考教材 folder)
+  school_code?: string | null;
+  from_school?: boolean;
   assignment_count: number;
   unique_student_count: number;
   latest_use: string | null;
@@ -694,6 +697,8 @@ export interface CurriculumSearchConcept {
     sources: string[];
   } | null;
   files: CurriculumFile[];
+  /** Total mapped files before the per-concept cap. */
+  file_count?: number;
 }
 
 export interface CurriculumSearchResponse {

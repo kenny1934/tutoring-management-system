@@ -67,8 +67,8 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
         }
       : {};
     return active.kind === "concept"
-      ? { concept_id: active.conceptId, ...scoped }
-      : { q: active.q, ...scoped };
+      ? { concept_id: active.conceptId, limit: 30, ...scoped }
+      : { q: active.q, limit: 30, ...scoped };
   }, [active, scope]);
 
   const { data: results, isLoading } = useCurriculumSearch(searchParams);
@@ -214,6 +214,12 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                   ) : (
                     <p className="text-[10px] text-gray-400 mt-0.5">
                       No files mapped to this topic yet.
+                    </p>
+                  )}
+                  {(concept.file_count || 0) > concept.files.length && (
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      {(concept.file_count || 0) - concept.files.length} more not
+                      shown. Narrow with a more specific topic.
                     </p>
                   )}
                 </div>

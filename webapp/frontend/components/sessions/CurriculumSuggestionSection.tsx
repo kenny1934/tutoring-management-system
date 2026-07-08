@@ -370,6 +370,23 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                                 : ""}
                             </span>
                           )}
+                          {file.school_code && (
+                            <span
+                              className={cn(
+                                "text-[9px] px-1 py-px rounded shrink-0",
+                                file.from_school
+                                  ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-medium"
+                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                              )}
+                              title={
+                                file.from_school
+                                  ? "This school's own material"
+                                  : `From ${file.school_code}'s materials`
+                              }
+                            >
+                              {file.school_code}
+                            </span>
+                          )}
                           <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
                             {file.role ? ROLE_LABELS[file.role] || file.role : "Worksheet"}
                           </span>

@@ -33,6 +33,7 @@ Suggestions are suggestive, not prescriptive: every concept carries its
 evidence (sources, weight, weeks) so the tutor can judge.
 """
 import logging
+import re
 import time
 from collections import defaultdict
 from datetime import date as date_type, timedelta
@@ -287,11 +288,23 @@ def _dedupe_files(files):
     return list(kept.values())
 
 
-def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None):
+# School-specific scans live under 中學參考教材\F1..F6\SCHOOL-CODE\...
+_REFERENCE_SCHOOL_RE = re.compile(r"中學參考教材\\F[1-6]\\([^\\]+)\\")
+
+
+def _reference_school(file_path):
+    m = _REFERENCE_SCHOOL_RE.search(file_path or "")
+    return m.group(1) if m else None
+
+
+def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
+                  scope_school=None):
     """(files_by_concept, concept_meta): sorted, deduped, popularity-joined.
 
     concept_meta covers ALL requested ids (concepts with no usable files are
-    still worth showing by name).
+    still worth showing by name). When scope_school is given, that school's
+    own reference scans outrank everything — they are the most relevant
+    material for the school being looked at.
     """
     file_rows = _files_for_concepts(db, concept_ids)
     popularity = _popularity_map(db)
@@ -311,6 +324,7 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None)
         if role_filter and r.role != role_filter:
             continue
         pop = popularity.get((r.file_basename or "").rsplit(".", 1)[0])
+        school_code = _reference_school(r.file_path)
         files_by_concept[r.concept_id].append({
             "file_path": r.file_path,
             "file_basename": r.file_basename,
@@ -318,6 +332,11 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None)
             "lang": r.lang,
             "confidence": float(r.confidence) if r.confidence is not None else None,
             "map_source": r.source,
+            "school_code": school_code,
+            "from_school": bool(
+                scope_school and school_code
+                and school_code.upper() == scope_school.upper()
+            ),
             "assignment_count": pop.assignment_count if pop else 0,
             "unique_student_count": pop.unique_student_count if pop else 0,
             "latest_use": _iso(pop.latest_use) if pop else None,
@@ -325,6 +344,7 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None)
 
     for cid, files in files_by_concept.items():
         files.sort(key=lambda f: (
+            0 if f["from_school"] else 1,
             lang_rank(f["lang"]),
             role_order.get(f["role"], 9),
             -(f["confidence"] or 0),
@@ -438,6 +458,7 @@ def get_curriculum_suggestions(
         db, concept_ids,
         preferred_lang=_preferred_lang(student.lang_stream),
         role_order=ROLE_ORDER_REVISION if revision_mode else ROLE_ORDER_NORMAL,
+        scope_school=student.school,
     )
     assigned = _student_assigned_map(db, student.id)
 
@@ -612,6 +633,7 @@ def search_curriculum(
         preferred_lang=_preferred_lang(lang_stream),
         role_order=ROLE_ORDER_NORMAL,
         role_filter=role,
+        scope_school=school,
     )
 
     concepts = []
@@ -632,6 +654,7 @@ def search_curriculum(
                 "sources": sorted(s for s in ev["sources"] if s),
             } if ev else None,
             "files": files_by_concept.get(cid, [])[:limit],
+            "file_count": len(files_by_concept.get(cid, [])),
         })
 
     return {

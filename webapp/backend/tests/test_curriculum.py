@@ -362,6 +362,44 @@ def test_search_role_filter(client: TestClient):
     assert basenames == ["704_Rev_e.pdf"]
 
 
+REF_ROOT = "Courseware Developer 中學\\中學參考教材\\F1"
+
+
+def _seed_reference_scans(db_session):
+    from sqlalchemy import text
+    db_session.execute(text(f"""
+        INSERT INTO courseware_concepts
+            (concept_id, file_path, file_basename, role, lang, source, confidence) VALUES
+        (1, '{REF_ROOT}\\SRL-E\\Ws_Linear Equations (23.10.01).pdf',
+            'Ws_Linear Equations (23.10.01).pdf', 'exercise', 'e', 'ai', 0.85),
+        (1, '{REF_ROOT}\\PCMS\\Ws_一元一次方程 (24.01.05).pdf',
+            'Ws_一元一次方程 (24.01.05).pdf', 'exercise', 'c', 'ai', 0.85)
+    """))
+    db_session.commit()
+
+
+def test_search_scoped_school_scans_rank_first(client: TestClient, db_session):
+    """A school's own reference scans outrank even full-confidence courseware."""
+    _seed_reference_scans(db_session)
+    body = _search(client, concept_id=1, school="SRL-E", grade="F1").json()
+    files = body["concepts"][0]["files"]
+    assert files[0]["file_basename"] == "Ws_Linear Equations (23.10.01).pdf"
+    assert files[0]["from_school"] is True
+    assert files[0]["school_code"] == "SRL-E"
+    pcms = next(f for f in files if f["school_code"] == "PCMS")
+    assert pcms["from_school"] is False
+    assert body["concepts"][0]["file_count"] == len(files)
+
+
+def test_search_unscoped_keeps_confidence_order(client: TestClient, db_session):
+    """Without a school scope no scan is boosted; code files stay on top."""
+    _seed_reference_scans(db_session)
+    body = _search(client, concept_id=1).json()
+    files = body["concepts"][0]["files"]
+    assert files[0]["file_basename"] == "704_EX2_e.pdf"
+    assert all(f["from_school"] is False for f in files)
+
+
 # ---------------------------------------------------------------------------
 # Flywheel observations
 # ---------------------------------------------------------------------------
