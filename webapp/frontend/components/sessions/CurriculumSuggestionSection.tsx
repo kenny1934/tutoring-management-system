@@ -16,16 +16,19 @@ import {
   X,
 } from "lucide-react";
 import { CurriculumPdfPreview } from "@/components/curriculum/CurriculumPdfPreview";
+import { CurriculumFileBadges } from "@/components/curriculum/CurriculumFileRow";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
-import { curriculumAPI } from "@/lib/api";
+import { ApiError, curriculumAPI } from "@/lib/api";
 import {
-  ROLE_LABELS,
   SOURCE_LABELS,
   conceptNameForStream,
+  isCurriculumEligible,
   matchesConcept,
+  priorAcademicYear,
   stripExtension,
+  weeksSpanText,
 } from "@/lib/curriculum-labels";
 import type {
   Session,
@@ -34,18 +37,12 @@ import type {
   CurriculumFile,
 } from "@/types";
 
-const SUGGESTED_GRADES = ["F1", "F2", "F3"];
-
-function weeksLabel(weeks: number[]): string {
-  if (weeks.length === 0) return "";
-  if (weeks.length === 1) return `week ${weeks[0]}`;
-  return `weeks ${Math.min(...weeks)} to ${Math.max(...weeks)}`;
-}
-
 function evidenceLine(c: CurriculumConceptSuggestion): string {
   const why = c.why;
   if (why.tier === "pacing") {
-    return `Typically around week ${why.mean_week ?? weeksLabel(why.weeks_observed)}`;
+    return `Typically around week ${
+      why.mean_week != null ? Math.round(why.mean_week) : weeksSpanText(why.weeks_observed)
+    }`;
   }
   const sources = why.sources.map((s) => SOURCE_LABELS[s] || s);
   const sourceText =
@@ -53,7 +50,7 @@ function evidenceLine(c: CurriculumConceptSuggestion): string {
       ? `${sources.slice(0, -1).join(", ")} and ${sources[sources.length - 1]}`
       : sources[0] || "past records";
   const prefix = why.tier === "last_year" ? "Last year, seen in" : "Seen in";
-  return `${prefix} ${sourceText} · ${weeksLabel(why.weeks_observed)}`;
+  return `${prefix} ${sourceText} · ${weeksSpanText(why.weeks_observed)}`;
 }
 
 type ConfirmState =
@@ -77,13 +74,7 @@ interface CurriculumSuggestionSectionProps {
 
 export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSuggestionSectionProps) {
   const { showToast } = useToast();
-  // Summer classes follow lesson numbers, not a school timeline.
-  const isSummer = session.summer_slot_id != null || session.lesson_number != null;
-  const eligible =
-    !isSummer &&
-    SUGGESTED_GRADES.includes(session.grade || "") &&
-    !!session.school &&
-    !!session.student_id;
+  const eligible = isCurriculumEligible(session);
 
   const { data, isLoading } = useCurriculumSuggestions(
     eligible ? session.student_id : null,
@@ -105,12 +96,15 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   const correctionMatches = useMemo(() => {
     const needle = correctionQuery.trim();
     if (correction.status !== "picking" || !needle || !vocab) return [];
+    // Suggested topics already have their own confirm buttons; offering them
+    // here again would give one observation two competing Undo spots.
+    const suggested = new Set((data?.suggestions || []).map((s) => s.concept_id));
     // Same-grade concepts first: schools drift, but rarely across two grades.
     return vocab
-      .filter((c) => matchesConcept(c, needle))
+      .filter((c) => !suggested.has(c.id) && matchesConcept(c, needle))
       .sort((a, b) => Number(b.grade === grade) - Number(a.grade === grade))
       .slice(0, 6);
-  }, [correction.status, correctionQuery, vocab, grade]);
+  }, [correction.status, correctionQuery, vocab, grade, data]);
 
   if (!eligible) return null;
 
@@ -158,7 +152,13 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
     try {
       await curriculumAPI.undoConfirm(state.observationId);
       setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: { status: "idle" } }));
-    } catch {
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        // The observation is already gone (idempotent confirms can share one
+        // row that another Undo removed) — this undo has nothing left to do.
+        setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: { status: "idle" } }));
+        return;
+      }
       setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: state }));
       showToast("Could not undo the confirmation. Please try again.", "error");
     }
@@ -188,7 +188,11 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
     try {
       await curriculumAPI.undoConfirm(prev.observationId);
       setCorrection({ status: "closed" });
-    } catch {
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        setCorrection({ status: "closed" });
+        return;
+      }
       setCorrection(prev);
       showToast("Could not undo the confirmation. Please try again.", "error");
     }
@@ -207,6 +211,13 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       : data.tier === "last_year"
         ? `Based on ${data.school}'s pace last year`
         : `Based on ${data.school}'s typical pace`;
+
+  // Last-year-tier evidence means the current year is empty near this week —
+  // point the explorer at the year that actually has the data.
+  const linkYear =
+    data.tier === "last_year" && data.academic_year
+      ? priorAcademicYear(data.academic_year)
+      : data.academic_year;
 
   return (
     <div className="border border-teal-200 dark:border-teal-900 rounded-lg overflow-hidden">
@@ -252,7 +263,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                 <>
                   {" · "}
                   <Link
-                    href={`/curriculum?school=${encodeURIComponent(data.school || "")}&grade=${encodeURIComponent(data.grade || "")}&week=${data.week_number}`}
+                    href={`/curriculum?school=${encodeURIComponent(data.school || "")}&grade=${encodeURIComponent(data.grade || "")}&week=${data.week_number}${linkYear ? `&year=${encodeURIComponent(linkYear)}` : ""}`}
                     className="text-teal-700 dark:text-teal-400 hover:underline"
                   >
                     See the full year →
@@ -370,42 +381,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                                 : ""}
                             </span>
                           )}
-                          {file.school_code && (
-                            <span
-                              className={cn(
-                                "text-[9px] px-1 py-px rounded shrink-0",
-                                file.from_school
-                                  ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-medium"
-                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                              )}
-                              title={
-                                file.from_school
-                                  ? "This school's own material"
-                                  : `From ${file.school_code}'s materials`
-                              }
-                            >
-                              {file.school_code}
-                            </span>
-                          )}
-                          <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
-                            {file.role ? ROLE_LABELS[file.role] || file.role : "Worksheet"}
-                          </span>
-                          {file.lang && (
-                            <span
-                              className="text-[9px] px-1 py-px rounded bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 shrink-0"
-                              title={file.lang === "e" ? "English version" : "Chinese version"}
-                            >
-                              {file.lang === "e" ? "EN" : "中"}
-                            </span>
-                          )}
-                          {file.assignment_count > 0 && (
-                            <span
-                              className="text-[9px] text-gray-400 shrink-0"
-                              title={`Assigned ${file.assignment_count} times to ${file.unique_student_count} students`}
-                            >
-                              {file.assignment_count}×
-                            </span>
-                          )}
+                          <CurriculumFileBadges file={file} />
                         </div>
                       ))}
                     </div>

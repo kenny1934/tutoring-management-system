@@ -9,15 +9,12 @@ import type { Session, CurriculumTimelineConcept } from "@/types";
 import { cn } from "@/lib/utils";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useCurriculumSuggestions, useCurriculumTimeline } from "@/lib/hooks";
-import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
-
-const SUGGESTED_GRADES = ["F1", "F2", "F3"];
-
-function priorYear(year: string): string {
-  const parts = year.split("-");
-  if (parts.length !== 2) return year;
-  return `${parseInt(parts[0]) - 1}-${parseInt(parts[1]) - 1}`;
-}
+import {
+  conceptNameForStream,
+  isCurriculumEligible,
+  priorAcademicYear,
+  sourcesText,
+} from "@/lib/curriculum-labels";
 
 interface WeekData {
   week_number: number;
@@ -116,13 +113,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
   const [isSameWeekExpanded, setIsSameWeekExpanded] = useState(true);
   const [isWeekAfterExpanded, setIsWeekAfterExpanded] = useState(false);
 
-  // Summer classes follow lesson numbers, not a school timeline.
-  const isSummer = session.summer_slot_id != null || session.lesson_number != null;
-  const eligible =
-    !isSummer &&
-    SUGGESTED_GRADES.includes(session.grade || "") &&
-    !!session.school &&
-    !!session.student_id;
+  const eligible = isCurriculumEligible(session);
 
   // The suggestions endpoint resolves the session date to an academic week and
   // tells us whether this year's records exist or last year's are the best
@@ -141,7 +132,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
     (tier === "this_year" || tier === "last_year");
   const timelineYear = hasWeekContext
     ? tier === "last_year"
-      ? priorYear(sugg!.academic_year!)
+      ? priorAcademicYear(sugg!.academic_year!)
       : sugg!.academic_year
     : null;
 
@@ -186,7 +177,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
             {isLastYear ? `Last year · ${timeline.academic_year}` : timeline.academic_year}
           </Badge>
           <Link
-            href={`/curriculum?school=${encodeURIComponent(session.school || "")}&grade=${encodeURIComponent(session.grade || "")}&week=${week}`}
+            href={`/curriculum?school=${encodeURIComponent(session.school || "")}&grade=${encodeURIComponent(session.grade || "")}&week=${week}${timelineYear ? `&year=${encodeURIComponent(timelineYear)}` : ""}`}
             className="text-[11px] text-teal-700 dark:text-teal-400 hover:underline ml-auto"
           >
             See the full year →
