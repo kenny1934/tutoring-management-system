@@ -574,7 +574,7 @@ def search_curriculum(
     week_from: Optional[int] = Query(None, ge=1, le=60),
     week_to: Optional[int] = Query(None, ge=1, le=60),
     role: Optional[str] = Query(None, max_length=20, description="Filter files by role"),
-    limit: int = Query(MAX_FILES_PER_CONCEPT, ge=1, le=50, description="Files per concept"),
+    limit: int = Query(MAX_FILES_PER_CONCEPT, ge=1, le=200, description="Files per concept"),
     _user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

@@ -33,11 +33,12 @@ export function CurriculumTopicFiles({
   onClose,
 }: CurriculumTopicFilesProps) {
   const [preview, setPreview] = useState<CurriculumFile | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const { data, isLoading } = useCurriculumSearch({
     concept_id: conceptId,
     // The chart modal is the "everything we have" view — lift the default cap.
-    limit: 30,
+    limit: showAll ? 200 : 30,
     ...(scope
       ? {
           school: scope.school,
@@ -122,12 +123,21 @@ export function CurriculumTopicFiles({
                         />
                       ))}
                     </div>
-                    {(concept.file_count || 0) > concept.files.length && (
-                      <p className="text-[10px] text-gray-400 mt-1.5">
-                        {(concept.file_count || 0) - concept.files.length} more not
-                        shown. The most used files are listed first.
-                      </p>
-                    )}
+                    {(concept.file_count || 0) > concept.files.length &&
+                      (showAll ? (
+                        <p className="text-[10px] text-gray-400 mt-1.5">
+                          Showing the first {concept.files.length} of{" "}
+                          {concept.file_count} files.
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowAll(true)}
+                          className="mt-1.5 text-[10px] text-teal-700 dark:text-teal-400 hover:underline"
+                        >
+                          Show {(concept.file_count || 0) - concept.files.length} more
+                        </button>
+                      ))}
                   </div>
                 )
             )}

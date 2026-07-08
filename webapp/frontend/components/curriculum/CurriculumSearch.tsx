@@ -17,6 +17,7 @@ import type {
 } from "@/types";
 import { CurriculumFileRow } from "./CurriculumFileRow";
 import { CurriculumPdfPreview } from "./CurriculumPdfPreview";
+import { CurriculumTopicFiles } from "./CurriculumTopicFiles";
 
 interface Scope {
   school: string;
@@ -49,6 +50,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [active, setActive] = useState<ActiveQuery | null>(null);
   const [preview, setPreview] = useState<CurriculumFile | null>(null);
+  const [allFilesFor, setAllFilesFor] = useState<{ id: number; name: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const matches = useMemo(() => {
@@ -217,10 +219,18 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                     </p>
                   )}
                   {(concept.file_count || 0) > concept.files.length && (
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      {(concept.file_count || 0) - concept.files.length} more not
-                      shown. Narrow with a more specific topic.
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAllFilesFor({
+                          id: concept.concept_id,
+                          name: conceptNameForStream(concept, scope?.lang_stream || null),
+                        })
+                      }
+                      className="mt-1 text-[10px] text-teal-700 dark:text-teal-400 hover:underline"
+                    >
+                      See all {concept.file_count} files
+                    </button>
                   )}
                 </div>
               ))}
@@ -234,6 +244,15 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
           filePath={preview.file_path}
           fileLabel={stripExtension(preview.file_basename)}
           onClose={() => setPreview(null)}
+        />
+      )}
+
+      {allFilesFor && (
+        <CurriculumTopicFiles
+          conceptId={allFilesFor.id}
+          conceptName={allFilesFor.name}
+          scope={scope}
+          onClose={() => setAllFilesFor(null)}
         />
       )}
     </div>
