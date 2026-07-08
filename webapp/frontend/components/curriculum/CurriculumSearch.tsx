@@ -6,8 +6,8 @@ import { useCurriculumConcepts, useCurriculumSearch } from "@/lib/hooks";
 import {
   conceptDisplayName,
   conceptNameForStream,
+  evidenceSummary,
   matchesConcept,
-  sourcesText,
   stripExtension,
 } from "@/lib/curriculum-labels";
 import type {
@@ -36,12 +36,7 @@ type ActiveQuery =
 
 function evidenceText(c: CurriculumSearchConcept): string | null {
   if (!c.evidence || c.evidence.weeks_observed.length === 0) return null;
-  const weeks = c.evidence.weeks_observed;
-  const span =
-    weeks.length === 1
-      ? `week ${weeks[0]}`
-      : `weeks ${Math.min(...weeks)} to ${Math.max(...weeks)}`;
-  return `Seen in ${span} · ${sourcesText(c.evidence.sources)}`;
+  return evidenceSummary(c.evidence.weeks_observed, c.evidence.sources);
 }
 
 export function CurriculumSearch({ scope }: CurriculumSearchProps) {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { FileText, Loader2, X } from "lucide-react";
 import { useCurriculumSearch } from "@/lib/hooks";
-import { sourcesText, stripExtension } from "@/lib/curriculum-labels";
+import { evidenceSummary, stripExtension } from "@/lib/curriculum-labels";
 import type { CurriculumFile } from "@/types";
 import { CurriculumFileRow } from "./CurriculumFileRow";
 import { CurriculumPdfPreview } from "./CurriculumPdfPreview";
@@ -106,12 +106,10 @@ export function CurriculumTopicFiles({
                   >
                     {concept.evidence && concept.evidence.weeks_observed.length > 0 && (
                       <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
-                        Seen in{" "}
-                        {concept.evidence.weeks_observed.length === 1
-                          ? `week ${concept.evidence.weeks_observed[0]}`
-                          : `weeks ${Math.min(...concept.evidence.weeks_observed)} to ${Math.max(...concept.evidence.weeks_observed)}`}
-                        {" · "}
-                        {sourcesText(concept.evidence.sources)}
+                        {evidenceSummary(
+                          concept.evidence.weeks_observed,
+                          concept.evidence.sources
+                        )}
                       </p>
                     )}
                     <div className="space-y-0.5">

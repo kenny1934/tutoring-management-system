@@ -12,29 +12,10 @@ interface CurriculumFileRowProps {
   onPreview: (file: CurriculumFile) => void;
 }
 
-/** One worksheet line: name, role/language badges, usage count, preview and copy. */
-export function CurriculumFileRow({ file, onPreview }: CurriculumFileRowProps) {
-  const { showToast } = useToast();
-  const [copied, setCopied] = useState(false);
-
-  const copyPath = async () => {
-    try {
-      await navigator.clipboard.writeText(file.file_path);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      showToast("Could not copy the path.", "error");
-    }
-  };
-
+/** The badge cluster every file row shares: school, role, language, usage. */
+export function CurriculumFileBadges({ file }: { file: CurriculumFile }) {
   return (
-    <div className="flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10">
-      <span
-        className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1"
-        title={file.file_path}
-      >
-        {stripExtension(file.file_basename)}
-      </span>
+    <>
       {file.school_code && (
         <span
           className={cn(
@@ -71,6 +52,34 @@ export function CurriculumFileRow({ file, onPreview }: CurriculumFileRowProps) {
           {file.assignment_count}×
         </span>
       )}
+    </>
+  );
+}
+
+/** One worksheet line: name, role/language badges, usage count, preview and copy. */
+export function CurriculumFileRow({ file, onPreview }: CurriculumFileRowProps) {
+  const { showToast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  const copyPath = async () => {
+    try {
+      await navigator.clipboard.writeText(file.file_path);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast("Could not copy the path.", "error");
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10">
+      <span
+        className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1"
+        title={file.file_path}
+      >
+        {stripExtension(file.file_basename)}
+      </span>
+      <CurriculumFileBadges file={file} />
       <button
         type="button"
         onClick={() => onPreview(file)}
