@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { CurriculumPdfPreview } from "@/components/curriculum/CurriculumPdfPreview";
 import { CurriculumFileBadges } from "@/components/curriculum/CurriculumFileRow";
+import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
@@ -90,8 +91,19 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   const [correctionQuery, setCorrectionQuery] = useState("");
   const [preview, setPreview] = useState<{ path: string; label: string } | null>(null);
 
-  // Vocabulary for the correction picker; only fetched once it's opened.
-  const { data: vocab } = useCurriculumConcepts(correction.status !== "closed");
+  // Worksheet browser for a prerequisite topic (opened from the builds-on
+  // chips; portals above the exercise modal).
+  const [topicFiles, setTopicFiles] = useState<{ conceptId: number; name: string } | null>(null);
+
+  // Vocabulary for the correction picker and the builds-on chips; only
+  // fetched once the section is opened.
+  const { data: vocab } = useCurriculumConcepts(
+    expanded || correction.status !== "closed"
+  );
+  const vocabById = useMemo(
+    () => new Map((vocab || []).map((c) => [c.id, c])),
+    [vocab]
+  );
   const grade = session.grade || "";
   const correctionMatches = useMemo(() => {
     const needle = correctionQuery.trim();
@@ -299,6 +311,36 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                       <div className="text-[10px] text-gray-500 dark:text-gray-400">
                         {evidenceLine(concept)}
                       </div>
+                      {(vocabById.get(concept.concept_id)?.builds_on_ids?.length ??
+                        0) > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                          <span className="text-[10px] text-gray-400 shrink-0">
+                            Builds on
+                          </span>
+                          {vocabById
+                            .get(concept.concept_id)!
+                            .builds_on_ids.slice(0, 3)
+                            .map((id) => {
+                              const prereq = vocabById.get(id);
+                              if (!prereq) return null;
+                              const name = conceptNameForStream(
+                                prereq,
+                                data.lang_stream || session.lang_stream || null
+                              );
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() => setTopicFiles({ conceptId: id, name })}
+                                  title={`Worth checking the student is solid on this first. Tap for its worksheets.`}
+                                  className="text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/30 dark:border-teal-400/30 text-teal-700/90 dark:text-teal-400/90 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors truncate max-w-[10rem]"
+                                >
+                                  {name}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      )}
                     </div>
                     {state.status === "confirmed" ? (
                       <span className="inline-flex items-center gap-1 text-[10px] text-teal-700 dark:text-teal-400 shrink-0">
@@ -492,6 +534,23 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           fileLabel={preview.label}
           onAdd={() => onAdd(preview.path)}
           onClose={() => setPreview(null)}
+        />
+      )}
+
+      {topicFiles && (
+        <CurriculumTopicFiles
+          conceptId={topicFiles.conceptId}
+          conceptName={topicFiles.name}
+          scope={
+            session.school && session.grade
+              ? {
+                  school: session.school,
+                  grade: session.grade,
+                  lang_stream: session.lang_stream || null,
+                }
+              : null
+          }
+          onClose={() => setTopicFiles(null)}
         />
       )}
     </div>

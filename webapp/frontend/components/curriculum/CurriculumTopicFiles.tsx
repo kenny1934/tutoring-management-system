@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { FileText, Loader2, X } from "lucide-react";
-import { useCurriculumSearch } from "@/lib/hooks";
-import { evidenceSummary, stripExtension } from "@/lib/curriculum-labels";
+import { ArrowLeft, FileText, Loader2, X } from "lucide-react";
+import { useCurriculumConcepts, useCurriculumSearch } from "@/lib/hooks";
+import {
+  conceptNameForStream,
+  evidenceSummary,
+  stripExtension,
+} from "@/lib/curriculum-labels";
 import type { CurriculumFile } from "@/types";
 import { CurriculumFileRow } from "./CurriculumFileRow";
 import { CurriculumPdfPreview } from "./CurriculumPdfPreview";
@@ -24,7 +28,9 @@ interface CurriculumTopicFilesProps {
 
 /**
  * The worksheets behind a topic on the charts: every file mapped to the
- * concept, with the same preview/copy actions as the search results.
+ * concept, with the same preview/copy actions as the search results. The
+ * related-topics strip swaps the concept in place (with a back arrow) so a
+ * tutor can walk the prerequisite chain without leaving the modal.
  */
 export function CurriculumTopicFiles({
   conceptId,
@@ -34,9 +40,41 @@ export function CurriculumTopicFiles({
 }: CurriculumTopicFilesProps) {
   const [preview, setPreview] = useState<CurriculumFile | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [current, setCurrent] = useState({ conceptId, name: conceptName });
+  const [trail, setTrail] = useState<{ conceptId: number; name: string }[]>([]);
+
+  const { data: vocab } = useCurriculumConcepts();
+  const vocabById = useMemo(
+    () => new Map((vocab || []).map((c) => [c.id, c])),
+    [vocab]
+  );
+  const currentVocab = vocabById.get(current.conceptId);
+  const relatedChips = (ids: number[] | undefined) =>
+    (ids || [])
+      .map((id) => vocabById.get(id))
+      .filter(Boolean)
+      .map((c) => ({
+        conceptId: c!.id,
+        name: conceptNameForStream(c!, scope?.lang_stream),
+      }));
+  const buildsOn = relatedChips(currentVocab?.builds_on_ids);
+  const leadsTo = relatedChips(currentVocab?.leads_to_ids);
+
+  const goTo = (target: { conceptId: number; name: string }) => {
+    setTrail((prev) => [...prev, current]);
+    setCurrent(target);
+    setShowAll(false);
+  };
+  const goBack = () => {
+    const prev = trail[trail.length - 1];
+    if (!prev) return;
+    setTrail((t) => t.slice(0, -1));
+    setCurrent(prev);
+    setShowAll(false);
+  };
 
   const { data, isLoading } = useCurriculumSearch({
-    concept_id: conceptId,
+    concept_id: current.conceptId,
     // The chart modal is the "everything we have" view — lift the default cap.
     limit: showAll ? 200 : 30,
     ...(scope
@@ -63,6 +101,18 @@ export function CurriculumTopicFiles({
   const concepts = data?.concepts || [];
   const totalFiles = concepts.reduce((n, c) => n + c.files.length, 0);
 
+  const chip = (t: { conceptId: number; name: string }) => (
+    <button
+      key={t.conceptId}
+      type="button"
+      onClick={() => goTo(t)}
+      className="text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors truncate max-w-[11rem]"
+      title={t.name}
+    >
+      {t.name}
+    </button>
+  );
+
   return createPortal(
     <>
       <div
@@ -74,9 +124,19 @@ export function CurriculumTopicFiles({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
+            {trail.length > 0 && (
+              <button
+                type="button"
+                aria-label="Back to the previous topic"
+                onClick={goBack}
+                className="p-0.5 rounded text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 shrink-0"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+              </button>
+            )}
             <FileText className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
             <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
-              {conceptName}
+              {current.name}
             </span>
             {isLoading && (
               <Loader2 className="h-3 w-3 animate-spin text-gray-400 shrink-0" />
@@ -90,6 +150,27 @@ export function CurriculumTopicFiles({
               <X className="h-4 w-4" />
             </button>
           </div>
+
+          {(buildsOn.length > 0 || leadsTo.length > 0) && (
+            <div className="px-4 py-1.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex flex-col gap-1">
+              {buildsOn.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-gray-400 shrink-0">
+                    Builds on
+                  </span>
+                  {buildsOn.map(chip)}
+                </div>
+              )}
+              {leadsTo.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-gray-400 shrink-0">
+                    Leads to
+                  </span>
+                  {leadsTo.map(chip)}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex-1 min-h-0 overflow-y-auto">
             {!isLoading && totalFiles === 0 && (
