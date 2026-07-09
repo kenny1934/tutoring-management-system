@@ -5,12 +5,14 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Check, Clock, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  ATLAS_GRADES,
   collectRelated,
   computeAtlasLayout,
   computeAtlasStatus,
   inferSeries,
   type AtlasConceptInput,
   type AtlasEdgeInput,
+  type AtlasGrade,
   type AtlasLayout,
   type AtlasSeries,
   type AtlasStatus,
@@ -111,7 +113,11 @@ const AtlasNode = memo(function AtlasNode({
       {status === "current" && (
         <span
           aria-hidden="true"
-          className="absolute -inset-1 rounded-lg ring-2 ring-teal-400/60 animate-pulse motion-reduce:animate-none pointer-events-none"
+          className={cn(
+            "absolute -inset-1 rounded-lg ring-2 ring-teal-400/60 animate-pulse motion-reduce:animate-none pointer-events-none",
+            "transition-opacity duration-200",
+            mode === "dimmed" && "opacity-25"
+          )}
         />
       )}
       <button
@@ -241,7 +247,9 @@ export function CurriculumAtlas({
   const twoStageTap = isMobile || coarsePointer;
 
   // Fill the viewport below the card's top edge instead of a fixed cap, so
-  // tall screens see the whole map without an inner scroll.
+  // tall screens see the whole map without an inner scroll. The body observer
+  // re-measures when content above the map reflows (toolbar wrap, legend
+  // appearing); equal values bail out of setState, so no feedback loop.
   const [maxH, setMaxH] = useState<number | null>(null);
   useEffect(() => {
     const compute = () => {
@@ -252,7 +260,13 @@ export function CurriculumAtlas({
     };
     compute();
     window.addEventListener("resize", compute);
-    return () => window.removeEventListener("resize", compute);
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(compute) : null;
+    observer?.observe(document.body);
+    return () => {
+      window.removeEventListener("resize", compute);
+      observer?.disconnect();
+    };
   }, []);
 
   // The school's series is inferred from its timeline but stays togglable;
@@ -282,7 +296,15 @@ export function CurriculumAtlas({
         : new Map<number, AtlasStatus>(),
     [timeline]
   );
-  const overlayActive = statusMap.size > 0 && !!selectedGrade;
+  // The school's observations belong to its own series' concepts, so a
+  // toggled-away map would paint almost nothing — suppress the overlay and
+  // point back instead. Grades past F3 have no column to paint.
+  const offSeries = !!timeline && statusMap.size > 0 && series !== inferredSeries;
+  const overlayActive =
+    statusMap.size > 0 &&
+    !!selectedGrade &&
+    ATLAS_GRADES.includes(selectedGrade as AtlasGrade) &&
+    !offSeries;
 
   // focus = hover/keyboard (transient); selected = tap (sticky, mobile).
   const [focusId, setFocusId] = useState<number | null>(null);
@@ -388,9 +410,13 @@ export function CurriculumAtlas({
             <span className="text-[10px] text-gray-400 hidden lg:inline">
               {timelineLoading
                 ? "Loading this school's progress…"
-                : timeline
-                  ? "No weekly records yet, so the map shows the syllabus without progress"
-                  : "Pick a school above to see its progress on the map"}
+                : offSeries
+                  ? `Switch back to the ${inferredSeries} series to see this school's progress`
+                  : timeline && timeline.current_week == null && timeline.weeks.length > 0
+                    ? "Progress is shown for the current school year only"
+                    : timeline
+                      ? "No weekly records yet, so the map shows the syllabus without progress"
+                      : "Pick a school above to see its progress on the map"}
             </span>
           )}
           <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">

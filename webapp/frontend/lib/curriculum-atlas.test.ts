@@ -268,7 +268,7 @@ describe("computeAtlasStatus", () => {
 });
 
 describe("collectRelated", () => {
-  it("walks ancestors and descendants transitively, edges on chains only", () => {
+  it("walks ancestors and descendants transitively, edges between related nodes only", () => {
     const concepts = [
       concept(1, "F1", "algebra", 1),
       concept(2, "F1", "algebra", 2),
@@ -281,11 +281,14 @@ describe("collectRelated", () => {
       { fromId: 2, toId: 3 },
       { fromId: 3, toId: 4 },
       { fromId: 1, toId: 5 },
+      { fromId: 2, toId: 4 }, // ancestor -> descendant shortcut past 3
     ];
     const layout = computeAtlasLayout(concepts, edges, "HK");
     const related = collectRelated(layout, 3);
     expect(related.nodes).toEqual(new Set([1, 2, 3, 4]));
-    expect(related.edges).toEqual(new Set(["1>2", "2>3", "3>4"]));
+    // The 2>4 shortcut joins both related endpoints, so it lights up too;
+    // the 1>5 side branch stays out because 5 is unrelated.
+    expect(related.edges).toEqual(new Set(["1>2", "2>3", "3>4", "2>4"]));
   });
 });
 

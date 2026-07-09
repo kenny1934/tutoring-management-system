@@ -372,13 +372,13 @@ export function collectRelated(
   const ancestors = walk(id, layout.preds);
   const descendants = walk(id, layout.succs);
   const nodes = new Set<number>([id, ...ancestors, ...descendants]);
+  // Any edge between two related nodes lights up — including an ancestor
+  // feeding a descendant directly, bypassing the hovered node.
   const edges = new Set<string>();
   for (const e of layout.edges) {
-    const towardId =
-      ancestors.has(e.fromId) && (ancestors.has(e.toId) || e.toId === id);
-    const fromId =
-      (e.fromId === id || descendants.has(e.fromId)) && descendants.has(e.toId);
-    if (towardId || fromId) edges.add(`${e.fromId}>${e.toId}`);
+    if (nodes.has(e.fromId) && nodes.has(e.toId)) {
+      edges.add(`${e.fromId}>${e.toId}`);
+    }
   }
   return { nodes, edges };
 }
