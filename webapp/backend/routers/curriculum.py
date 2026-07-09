@@ -391,6 +391,7 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
             "assignment_count": pop.assignment_count if pop else 0,
             "unique_student_count": pop.unique_student_count if pop else 0,
             "school_assignment_count": spop.assignment_count if spop else 0,
+            "school_student_count": spop.unique_student_count if spop else 0,
             "latest_use": _iso(pop.latest_use) if pop else None,
         })
 

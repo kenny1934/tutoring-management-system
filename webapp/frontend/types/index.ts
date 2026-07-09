@@ -569,8 +569,9 @@ export interface CurriculumFile {
   from_school?: boolean;
   assignment_count: number;
   unique_student_count: number;
-  // assignments to the scope school's own students (0 when no school scope)
+  // usage among the scope school's own students (0 when no school scope)
   school_assignment_count?: number;
+  school_student_count?: number;
   latest_use: string | null;
   // this student's own history with the file (suggestions endpoint only)
   student_assigned_count?: number;

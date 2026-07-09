@@ -24,10 +24,16 @@ export function CurriculumFileBadges({
   scopeSchool?: string | null;
 }) {
   const schoolCount = file.school_assignment_count || 0;
+  const schoolStudents = file.school_student_count || 0;
+  const times = (n: number) => (n === 1 ? "time" : "times");
+  const students = (n: number) => (n === 1 ? "student" : "students");
   const usageTitle =
-    `Assigned ${file.assignment_count} times to ${file.unique_student_count} students across all schools` +
+    `Assigned ${file.assignment_count} ${times(file.assignment_count)} to ` +
+    `${file.unique_student_count} ${students(file.unique_student_count)} across all schools` +
     (scopeSchool
-      ? `, ${schoolCount > 0 ? schoolCount : "none"} of those with ${scopeSchool} students`
+      ? schoolCount > 0
+        ? `, including ${schoolCount} ${times(schoolCount)} to ${schoolStudents} ${scopeSchool} ${students(schoolStudents)}`
+        : `, none to ${scopeSchool} students yet`
       : "");
   return (
     <>

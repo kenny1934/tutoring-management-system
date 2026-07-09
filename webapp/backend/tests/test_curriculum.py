@@ -225,7 +225,9 @@ def test_school_usage_outranks_global_popularity(client: TestClient, db_session)
     ex1 = next(f for f in files if f["file_basename"] == "704_EX1_e.pdf")
     ex2 = next(f for f in files if f["file_basename"] == "704_EX2_e.pdf")
     assert ex1["school_assignment_count"] == 3
+    assert ex1["school_student_count"] == 2      # students 1 and 2, distinct
     assert ex2["school_assignment_count"] == 0
+    assert ex2["school_student_count"] == 0
     assert ex2["assignment_count"] == 90
 
 
