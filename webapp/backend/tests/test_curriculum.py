@@ -29,7 +29,7 @@ RAW_TABLES = [
     """CREATE TABLE curriculum_concepts (
         id INTEGER PRIMARY KEY, kind VARCHAR(20), name_en VARCHAR(255),
         name_zh VARCHAR(255), grade VARCHAR(50), parent_id INT,
-        display_order INT)""",
+        display_order INT, strand VARCHAR(30), atlas_grade VARCHAR(50))""",
     """CREATE TABLE concept_code_aliases (
         id INTEGER PRIMARY KEY, concept_id INT, code_space VARCHAR(12),
         code VARCHAR(12))""",
@@ -336,6 +336,46 @@ def test_list_concepts_equivalent_ids_both_directions(client: TestClient, db_ses
     assert by_id[1]["equivalent_ids"] == [3]
     assert by_id[3]["equivalent_ids"] == [1]
     assert by_id[2]["equivalent_ids"] == []
+
+
+def test_list_concepts_prerequisites_are_directional(client: TestClient, db_session):
+    # 3 (Intro to Algebra) is a prerequisite of 1 (Linear Equations); the edge
+    # must appear as builds_on on the dependent and leads_to on the
+    # prerequisite — never mirrored, never leaking into equivalent_ids.
+    db_session.execute(text("""
+        INSERT INTO concept_links (from_concept_id, to_concept_id, kind, source, confidence) VALUES
+        (3, 1, 'prerequisite', 'manual', 1.0),
+        (1, 2, 'prerequisite', 'manual', 0.7),
+        (1, 3, 'equivalent', 'xser', 0.9)
+    """))
+    db_session.commit()
+    body = client.get("/api/curriculum/concepts", cookies=AUTH_COOKIE).json()
+    by_id = {c["id"]: c for c in body}
+    assert by_id[1]["builds_on_ids"] == [3]
+    assert by_id[1]["leads_to_ids"] == [2]
+    assert by_id[3]["builds_on_ids"] == []
+    assert by_id[3]["leads_to_ids"] == [1]
+    assert by_id[2]["builds_on_ids"] == [1]
+    assert by_id[2]["leads_to_ids"] == []
+    # equivalence unaffected by prerequisite rows
+    assert by_id[1]["equivalent_ids"] == [3]
+
+
+def test_list_concepts_carries_atlas_fields(client: TestClient, db_session):
+    db_session.execute(text(
+        "UPDATE curriculum_concepts SET strand = 'algebra', atlas_grade = NULL WHERE id = 1"
+    ))
+    db_session.execute(text("""
+        INSERT INTO curriculum_concepts (id, kind, name_en, grade, display_order, strand, atlas_grade)
+        VALUES (4, 'extension', 'Sequences', NULL, NULL, 'algebra', 'F2')
+    """))
+    db_session.commit()
+    body = client.get("/api/curriculum/concepts", cookies=AUTH_COOKIE).json()
+    by_id = {c["id"]: c for c in body}
+    assert by_id[1]["strand"] == "algebra"
+    assert by_id[1]["display_order"] == 4
+    assert by_id[4]["grade"] is None
+    assert by_id[4]["atlas_grade"] == "F2"
 
 
 # ---------------------------------------------------------------------------

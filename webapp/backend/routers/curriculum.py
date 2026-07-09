@@ -522,7 +522,8 @@ def list_concepts(
 
     equivalent_ids carries cross-series equivalence (concept_links, symmetric,
     stored once per pair) so the pacing comparison can align an MAS school's
-    lanes with an HK school's."""
+    lanes with an HK school's. Prerequisite links are directional: builds_on_ids
+    lists a concept's prerequisites, leads_to_ids what it unlocks."""
     codes = defaultdict(list)
     for row in db.execute(text(
         "SELECT concept_id, code_space, code FROM concept_code_aliases "
@@ -538,6 +539,15 @@ def list_concepts(
         equivalents[row.from_concept_id].append(row.to_concept_id)
         equivalents[row.to_concept_id].append(row.from_concept_id)
 
+    builds_on = defaultdict(list)
+    leads_to = defaultdict(list)
+    for row in db.execute(text(
+        "SELECT from_concept_id, to_concept_id FROM concept_links "
+        "WHERE kind = 'prerequisite' ORDER BY from_concept_id, to_concept_id"
+    )):
+        builds_on[row.to_concept_id].append(row.from_concept_id)
+        leads_to[row.from_concept_id].append(row.to_concept_id)
+
     return [
         {
             "id": row.id,
@@ -546,11 +556,17 @@ def list_concepts(
             "name_zh": row.name_zh,
             "grade": row.grade,
             "parent_id": row.parent_id,
+            "strand": row.strand,
+            "atlas_grade": row.atlas_grade,
+            "display_order": row.display_order,
             "codes": codes.get(row.id, []),
             "equivalent_ids": equivalents.get(row.id, []),
+            "builds_on_ids": builds_on.get(row.id, []),
+            "leads_to_ids": leads_to.get(row.id, []),
         }
         for row in db.execute(text(
-            "SELECT id, kind, name_en, name_zh, grade, parent_id "
+            "SELECT id, kind, name_en, name_zh, grade, parent_id, "
+            "strand, atlas_grade, display_order "
             "FROM curriculum_concepts ORDER BY display_order, id"
         ))
     ]

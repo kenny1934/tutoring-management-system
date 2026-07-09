@@ -681,8 +681,13 @@ export interface CurriculumConceptVocab {
   name_zh: string | null;
   grade: string | null;
   parent_id: number | null;
+  strand: string | null;
+  atlas_grade: string | null;
+  display_order: number | null;
   codes: { code_space: string; code: string }[];
   equivalent_ids: number[];
+  builds_on_ids: number[];
+  leads_to_ids: number[];
 }
 
 export interface CurriculumSearchConcept {
