@@ -90,8 +90,8 @@ const AtlasNode = memo(function AtlasNode({
       )}
       <button
         type="button"
-        title={title}
-        aria-label={`${label}, ${concept.grade}${status && STATUS_LABELS[status] ? `, ${STATUS_LABELS[status]}` : ""}`}
+        title={concept.isExtension ? `${title} (extension topic)` : title}
+        aria-label={`${label}, ${concept.grade}${concept.isExtension ? ", extension topic" : ""}${status && STATUS_LABELS[status] ? `, ${STATUS_LABELS[status]}` : ""}`}
         onMouseEnter={() => onHover(concept.id)}
         onMouseLeave={onLeave}
         onFocus={() => onHover(concept.id)}
@@ -311,32 +311,38 @@ export function CurriculumAtlas({
             </button>
           ))}
         </div>
-        {overlayActive ? (
-          <div className="ml-auto flex items-center gap-2.5 flex-wrap">
-            <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
-              <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-100/70 dark:bg-teal-900/30 border border-teal-600/60" />
-              Covered
+        <div className="ml-auto flex items-center gap-2.5 flex-wrap">
+          {overlayActive ? (
+            <>
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-100/70 dark:bg-teal-900/30 border border-teal-600/60" />
+                Covered
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-600 dark:bg-teal-500 border border-teal-700" />
+                Current
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <span className="inline-block w-3.5 h-2.5 rounded-sm border border-dashed border-amber-500" />
+                Coming up
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <span className="inline-block w-3.5 h-2.5 rounded-sm border border-[#d4a574]/50 dark:border-[#8b6f47]/70" />
+                No data
+              </span>
+            </>
+          ) : (
+            <span className="text-[10px] text-gray-400 hidden lg:inline">
+              {timeline
+                ? "No weekly records yet, so the map shows the syllabus without progress"
+                : "Pick a school above to see its progress on the map"}
             </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
-              <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-600 dark:bg-teal-500 border border-teal-700" />
-              Current
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
-              <span className="inline-block w-3.5 h-2.5 rounded-sm border border-dashed border-amber-500" />
-              Coming up
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
-              <span className="inline-block w-3.5 h-2.5 rounded-sm border border-[#d4a574]/50 dark:border-[#8b6f47]/70" />
-              No data
-            </span>
-          </div>
-        ) : (
-          <span className="ml-auto text-[10px] text-gray-400 hidden lg:inline">
-            {timeline
-              ? "No weekly records yet — the map shows the syllabus without progress"
-              : "Pick a school above to see its progress on the map"}
+          )}
+          <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+            <span className="inline-block w-3.5 h-2.5 rounded-sm border border-dashed border-[#d4a574] dark:border-[#8b6f47]" />
+            Extension
           </span>
-        )}
+        </div>
       </div>
 
       <div className="overflow-auto max-h-[34rem]" ref={scrollRef}>

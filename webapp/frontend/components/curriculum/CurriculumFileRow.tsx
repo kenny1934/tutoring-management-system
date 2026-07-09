@@ -47,7 +47,7 @@ export function CurriculumFileBadges({ file }: { file: CurriculumFile }) {
       {file.assignment_count > 0 && (
         <span
           className="text-[9px] text-gray-400 shrink-0"
-          title={`Assigned ${file.assignment_count} times to ${file.unique_student_count} students`}
+          title={`Assigned ${file.assignment_count} times to ${file.unique_student_count} students across all schools`}
         >
           {file.assignment_count}×
         </span>

@@ -151,6 +151,12 @@ export function CurriculumTopicFiles({
             </button>
           </div>
 
+          <p className="px-4 py-1.5 text-[10px] text-gray-400 dark:text-gray-500 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
+            {scope
+              ? `Showing the whole library for this topic, most relevant to ${scope.school} ${scope.grade} first.`
+              : "Showing the whole library for this topic."}
+          </p>
+
           {(buildsOn.length > 0 || leadsTo.length > 0) && (
             <div className="px-4 py-1.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex flex-col gap-1">
               {buildsOn.length > 0 && (
