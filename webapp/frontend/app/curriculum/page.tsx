@@ -17,6 +17,8 @@ import {
   type PacingRow,
 } from "@/lib/curriculum-bands";
 import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
+import { toAtlasInputs } from "@/lib/curriculum-atlas";
+import { CurriculumAtlas } from "@/components/curriculum/CurriculumAtlas";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
 import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
@@ -345,6 +347,10 @@ export default function CurriculumPage() {
   const [school, setSchool] = useState<string | null>(() => searchParams.get("school"));
   const [grade, setGrade] = useState<string | null>(() => searchParams.get("grade"));
   const [year, setYear] = useState<string | null>(() => searchParams.get("year"));
+  // Timeline charts or the concept-map atlas — same pickers drive both.
+  const [view, setView] = useState<"timeline" | "atlas">(() =>
+    searchParams.get("view") === "atlas" ? "atlas" : "timeline"
+  );
   const [gapsExpanded, setGapsExpanded] = useState(false);
   const [expandedLane, setExpandedLane] = useState<number | null>(null);
   const [topicFiles, setTopicFiles] = useState<{ conceptId: number; name: string } | null>(null);
@@ -541,6 +547,7 @@ export default function CurriculumPage() {
   // so an unconditional call would loop via useSearchParams).
   useEffect(() => {
     const params = new URLSearchParams();
+    if (view === "atlas") params.set("view", "atlas");
     if (school) {
       params.set("school", school);
       if (effectiveGrade) params.set("grade", effectiveGrade);
@@ -552,7 +559,7 @@ export default function CurriculumPage() {
     if (newUrl !== `${window.location.pathname}${window.location.search}`) {
       window.history.replaceState(null, "", newUrl);
     }
-  }, [school, effectiveGrade, displayYear, focusWeek]);
+  }, [view, school, effectiveGrade, displayYear, focusWeek]);
 
   const jumpToWeek = useCallback(
     (week: number | null) => {
@@ -601,6 +608,8 @@ export default function CurriculumPage() {
     return m;
   }, [conceptVocab]);
 
+  const atlasInputs = useMemo(() => toAtlasInputs(conceptVocab || []), [conceptVocab]);
+
   const pacingRows = useMemo(
     () =>
       mergePacingRows(
@@ -643,6 +652,28 @@ export default function CurriculumPage() {
               <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
                 Curriculum
               </h1>
+            </div>
+
+            <div
+              className="flex rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] overflow-hidden"
+              role="group"
+              aria-label="View"
+            >
+              {(["timeline", "atlas"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={cn(
+                    "text-xs px-3 py-1.5 font-medium transition-colors",
+                    view === v
+                      ? "bg-teal-600 dark:bg-teal-500 text-white"
+                      : "text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+                  )}
+                >
+                  {v === "timeline" ? "Timeline" : "Atlas"}
+                </button>
+              ))}
             </div>
 
             <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
@@ -726,7 +757,7 @@ export default function CurriculumPage() {
           }
         />
 
-        {!school && !coverageLoading && (
+        {view === "timeline" && !school && !coverageLoading && (
           <div
             className={cn(
               "text-sm text-gray-600 dark:text-gray-300 bg-[#fef9f3] dark:bg-[#2d2618]",
@@ -745,8 +776,34 @@ export default function CurriculumPage() {
           </div>
         )}
 
+        {/* Concept-map atlas (grade x strand, prerequisite arrows) */}
+        {view === "atlas" && (
+          <div
+            className={cn(
+              "isolate bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
+              !isMobile && "paper-texture"
+            )}
+          >
+            {atlasInputs.concepts.length === 0 ? (
+              <p className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                The concept map is still loading.
+              </p>
+            ) : (
+              <CurriculumAtlas
+                concepts={atlasInputs.concepts}
+                edges={atlasInputs.edges}
+                timeline={school ? (timeline ?? null) : null}
+                stream={school ? effectiveStream : null}
+                selectedGrade={school ? effectiveGrade : null}
+                isMobile={isMobile}
+                onOpenFiles={setTopicFiles}
+              />
+            )}
+          </div>
+        )}
+
         {/* This year's progression (Gantt lanes) */}
-        {school && timeline && lanes.length > 0 && (
+        {view === "timeline" && school && timeline && lanes.length > 0 && (
           <div
             className={cn(
               "isolate bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
@@ -911,7 +968,7 @@ export default function CurriculumPage() {
           </div>
         )}
 
-        {school && timeline && lanes.length === 0 && !timelineLoading && (
+        {view === "timeline" && school && timeline && lanes.length === 0 && !timelineLoading && (
           <div
             className={cn(
               "text-sm text-gray-600 dark:text-gray-300 bg-[#fef9f3] dark:bg-[#2d2618]",
@@ -925,7 +982,7 @@ export default function CurriculumPage() {
         )}
 
         {/* Typical pace, with optional school comparison */}
-        {school && pacingRows.length > 0 && (
+        {view === "timeline" && school && pacingRows.length > 0 && (
           <div
             className={cn(
               "isolate bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
@@ -1018,7 +1075,7 @@ export default function CurriculumPage() {
         )}
 
         {/* Coverage gaps */}
-        {gaps.length > 0 && (
+        {view === "timeline" && gaps.length > 0 && (
           <div
             className={cn(
               "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg overflow-hidden",
