@@ -17,7 +17,11 @@ import {
   type PacingRow,
 } from "@/lib/curriculum-bands";
 import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
-import { toAtlasInputs } from "@/lib/curriculum-atlas";
+import {
+  ATLAS_GRADES,
+  previousAcademicYear,
+  toAtlasInputs,
+} from "@/lib/curriculum-atlas";
 import { CurriculumAtlas } from "@/components/curriculum/CurriculumAtlas";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
@@ -432,6 +436,32 @@ export default function CurriculumPage() {
 
   const displayYear = timeline?.academic_year || year;
 
+  // Cohort history for the atlas: the selected class was the grade below in
+  // the previous year (F3 2025-2026 was F2 2024-2025), so the earlier
+  // columns can show what this cohort actually covered. Only fetched for
+  // the atlas view on a current-year timeline.
+  const atlasGradeIdx = effectiveGrade
+    ? (ATLAS_GRADES as string[]).indexOf(effectiveGrade)
+    : -1;
+  const cohortEligible =
+    view === "atlas" && !!school && timeline?.current_week != null && atlasGradeIdx > 0;
+  const cohortYear1 =
+    cohortEligible && displayYear ? previousAcademicYear(displayYear) : null;
+  const cohortYear2 =
+    cohortYear1 && atlasGradeIdx > 1 ? previousAcademicYear(cohortYear1) : null;
+  const { data: cohortPrev1 } = useCurriculumTimeline(
+    cohortYear1 ? school : null,
+    cohortYear1 ? ATLAS_GRADES[atlasGradeIdx - 1] : null,
+    effectiveStream || null,
+    cohortYear1
+  );
+  const { data: cohortPrev2 } = useCurriculumTimeline(
+    cohortYear2 ? school : null,
+    cohortYear2 ? ATLAS_GRADES[atlasGradeIdx - 2] : null,
+    effectiveStream || null,
+    cohortYear2
+  );
+
   const primaryCombo: Combo | null =
     school && effectiveGrade
       ? { school, grade: effectiveGrade, stream: effectiveStream || null }
@@ -797,6 +827,14 @@ export default function CurriculumPage() {
                 edges={atlasInputs.edges}
                 timeline={school ? (timeline ?? null) : null}
                 timelineLoading={!!school && timelineLoading}
+                cohortTimelines={
+                  cohortEligible
+                    ? [
+                        cohortYear1 ? cohortPrev1 : null,
+                        cohortYear2 ? cohortPrev2 : null,
+                      ]
+                    : undefined
+                }
                 stream={school ? effectiveStream : null}
                 selectedGrade={school ? effectiveGrade : null}
                 isMobile={isMobile}

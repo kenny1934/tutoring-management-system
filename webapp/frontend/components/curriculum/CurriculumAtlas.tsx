@@ -9,6 +9,7 @@ import {
   collectRelated,
   computeAtlasLayout,
   computeAtlasStatus,
+  computeCohortCovered,
   inferSeries,
   type AtlasConceptInput,
   type AtlasEdgeInput,
@@ -61,6 +62,10 @@ interface CurriculumAtlasProps {
   timeline: CurriculumTimelineResponse | null;
   /** True while a school's timeline is being fetched. */
   timelineLoading?: boolean;
+  /** The same cohort's earlier-grade timelines (F2 last year, F1 the year
+   *  before) — paints real coverage on the columns before the selected
+   *  grade instead of assuming them done. */
+  cohortTimelines?: (CurriculumTimelineResponse | null | undefined)[];
   stream: string | null;
   selectedGrade: string | null;
   isMobile: boolean;
@@ -236,6 +241,7 @@ export function CurriculumAtlas({
   edges,
   timeline,
   timelineLoading,
+  cohortTimelines,
   stream,
   selectedGrade,
   isMobile,
@@ -305,6 +311,18 @@ export function CurriculumAtlas({
     !!selectedGrade &&
     ATLAS_GRADES.includes(selectedGrade as AtlasGrade) &&
     !offSeries;
+  const selectedCol = overlayActive
+    ? ATLAS_GRADES.indexOf(selectedGrade as AtlasGrade)
+    : -1;
+  const cohortCovered = useMemo(
+    () =>
+      computeCohortCovered(
+        (cohortTimelines ?? [])
+          .filter((t): t is CurriculumTimelineResponse => !!t)
+          .map((t) => t.weeks)
+      ),
+    [cohortTimelines]
+  );
 
   // focus = hover/keyboard (transient); selected = tap (sticky, mobile).
   const [focusId, setFocusId] = useState<number | null>(null);
@@ -528,10 +546,16 @@ export function CurriculumAtlas({
             />
 
             {layout.nodes.map((n) => {
+              // Selected grade gets the full tier set; earlier grades show
+              // the cohort's own recorded coverage from previous years.
               const status =
                 overlayActive && n.concept.grade === selectedGrade
                   ? statusMap.get(n.concept.id) ?? "no-data"
-                  : undefined;
+                  : overlayActive &&
+                      n.col < selectedCol &&
+                      cohortCovered.has(n.concept.id)
+                    ? "covered"
+                    : undefined;
               const mode: NodeMode =
                 activeId == null
                   ? "normal"

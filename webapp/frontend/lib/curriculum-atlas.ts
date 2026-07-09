@@ -347,6 +347,31 @@ export function computeAtlasStatus(
   return out;
 }
 
+/** "2025-2026" -> "2024-2025"; null when the label is not a year range. */
+export function previousAcademicYear(year: string): string | null {
+  const m = /^(\d{4})-(\d{4})$/.exec(year);
+  if (!m) return null;
+  return `${Number(m[1]) - 1}-${Number(m[2]) - 1}`;
+}
+
+/**
+ * Concept ids a cohort was observed covering in earlier grades: the selected
+ * class's own history (F3 2025-2026 was F2 in 2024-2025). The years are
+ * finished, so any observation counts as covered — recency tiers and pacing
+ * do not apply. Absence means "no record", not "not taught".
+ */
+export function computeCohortCovered(
+  weeksByYear: { week_number: number; concepts: CurriculumTimelineConcept[] }[][]
+): Set<number> {
+  const covered = new Set<number>();
+  for (const weeks of weeksByYear) {
+    for (const w of weeks) {
+      for (const c of w.concepts) covered.add(c.concept_id);
+    }
+  }
+  return covered;
+}
+
 /**
  * The highlight neighbourhood of a node: all its prerequisite ancestors and
  * all its dependents, plus the edges lying on those chains.

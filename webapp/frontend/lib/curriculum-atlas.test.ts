@@ -5,7 +5,9 @@ import {
   collectRelated,
   computeAtlasLayout,
   computeAtlasStatus,
+  computeCohortCovered,
   inferSeries,
+  previousAcademicYear,
   toAtlasInputs,
   type AtlasConceptInput,
   type AtlasEdgeInput,
@@ -264,6 +266,37 @@ describe("computeAtlasStatus", () => {
       [pacingBand(2, 12)]
     );
     expect(status.size).toBe(0);
+  });
+});
+
+describe("previousAcademicYear", () => {
+  it("steps a year range back by one", () => {
+    expect(previousAcademicYear("2025-2026")).toBe("2024-2025");
+    expect(previousAcademicYear("2000-2001")).toBe("1999-2000");
+  });
+
+  it("rejects labels that are not a year range", () => {
+    expect(previousAcademicYear("2025")).toBeNull();
+    expect(previousAcademicYear("")).toBeNull();
+    expect(previousAcademicYear("2025-26")).toBeNull();
+  });
+});
+
+describe("computeCohortCovered", () => {
+  it("unions observed concept ids across years and weeks", () => {
+    const covered = computeCohortCovered([
+      [
+        { week_number: 3, concepts: [{ concept_id: 1 } as never] },
+        { week_number: 9, concepts: [{ concept_id: 2 } as never, { concept_id: 1 } as never] },
+      ],
+      [{ week_number: 20, concepts: [{ concept_id: 7 } as never] }],
+    ]);
+    expect(covered).toEqual(new Set([1, 2, 7]));
+  });
+
+  it("returns an empty set with no history", () => {
+    expect(computeCohortCovered([]).size).toBe(0);
+    expect(computeCohortCovered([[]]).size).toBe(0);
   });
 });
 
