@@ -414,11 +414,13 @@ export default function CurriculumPage() {
       ? dominantStreams.get(`${school}||${effectiveGrade}`) ?? null
       : null;
 
+  // The atlas always tracks the current year (its overlay and cohort
+  // history hang off "now"); year browsing is a timeline-view feature.
   const { data: timeline, isLoading: timelineLoading } = useCurriculumTimeline(
     school,
     effectiveGrade,
     effectiveStream || null,
-    year
+    view === "atlas" ? null : year
   );
   // Comparison timelines (pacing is all-years, so no year param).
   const { data: cmp0 } = useCurriculumTimeline(
@@ -752,7 +754,7 @@ export default function CurriculumPage() {
                 {effectiveStream}
               </span>
             )}
-            {timeline && timeline.years_available.length > 0 && (
+            {view === "timeline" && timeline && timeline.years_available.length > 0 && (
               <select
                 className={selectClass}
                 value={displayYear || ""}

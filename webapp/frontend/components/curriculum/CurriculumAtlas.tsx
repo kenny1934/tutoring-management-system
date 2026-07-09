@@ -25,8 +25,14 @@ import type { CurriculumTimelineResponse } from "@/types";
 
 const GUTTER_W = 28;
 
-const STATUS_LABELS: Record<AtlasStatus, string> = {
+/** AtlasStatus plus the tier the component synthesises for earlier grades:
+ *  topics this cohort covered in a previous year read quieter than this
+ *  year's coverage. */
+type NodeStatus = AtlasStatus | "covered-past";
+
+const STATUS_LABELS: Record<NodeStatus, string> = {
   covered: "covered",
+  "covered-past": "covered in an earlier grade",
   current: "current topic",
   "coming-up": "coming up",
   "no-data": "",
@@ -72,9 +78,11 @@ interface CurriculumAtlasProps {
   onOpenFiles: (t: { conceptId: number; name: string }) => void;
 }
 
-function statusIcon(status: AtlasStatus | undefined) {
+function statusIcon(status: NodeStatus | undefined) {
   if (status === "covered")
     return <Check className="h-3 w-3 shrink-0 text-teal-600 dark:text-teal-400" />;
+  if (status === "covered-past")
+    return <Check className="h-3 w-3 shrink-0 text-teal-600/45 dark:text-teal-400/45" />;
   if (status === "current") return <MapPin className="h-3 w-3 shrink-0 text-white" />;
   if (status === "coming-up")
     return <Clock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />;
@@ -98,7 +106,7 @@ const AtlasNode = memo(function AtlasNode({
   node: PositionedNode;
   label: string;
   title: string;
-  status: AtlasStatus | undefined;
+  status: NodeStatus | undefined;
   mode: NodeMode;
   animDelay: number;
   reduced: boolean;
@@ -147,9 +155,11 @@ const AtlasNode = memo(function AtlasNode({
             ? "bg-teal-600 dark:bg-teal-500 border-teal-700 dark:border-teal-400 text-white font-semibold"
             : status === "covered"
               ? "bg-teal-100/70 dark:bg-teal-900/30 border-teal-600/60 dark:border-teal-500/60 text-gray-800 dark:text-gray-200"
-              : status === "coming-up"
-                ? "bg-[#fef9f3] dark:bg-[#2d2618] border-dashed border-amber-500 dark:border-amber-400 text-gray-700 dark:text-gray-300"
-                : "bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574]/60 dark:border-[#8b6f47] text-gray-700 dark:text-gray-300 hover:border-[#d4a574] dark:hover:border-[#8b6f47]",
+              : status === "covered-past"
+                ? "bg-teal-50/60 dark:bg-teal-900/10 border-teal-600/25 dark:border-teal-500/25 text-gray-600 dark:text-gray-400"
+                : status === "coming-up"
+                  ? "bg-[#fef9f3] dark:bg-[#2d2618] border-dashed border-amber-500 dark:border-amber-400 text-gray-700 dark:text-gray-300"
+                  : "bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574]/60 dark:border-[#8b6f47] text-gray-700 dark:text-gray-300 hover:border-[#d4a574] dark:hover:border-[#8b6f47]",
           mode === "dimmed" && "opacity-25 saturate-50"
         )}
       >
@@ -411,6 +421,12 @@ export function CurriculumAtlas({
                 <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-100/70 dark:bg-teal-900/30 border border-teal-600/60" />
                 Covered
               </span>
+              {cohortCovered.size > 0 && (
+                <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                  <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-50/60 dark:bg-teal-900/10 border border-teal-600/25" />
+                  Covered in earlier years
+                </span>
+              )}
               <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
                 <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-600 dark:bg-teal-500 border border-teal-700" />
                 Current
@@ -548,13 +564,13 @@ export function CurriculumAtlas({
             {layout.nodes.map((n) => {
               // Selected grade gets the full tier set; earlier grades show
               // the cohort's own recorded coverage from previous years.
-              const status =
+              const status: NodeStatus | undefined =
                 overlayActive && n.concept.grade === selectedGrade
                   ? statusMap.get(n.concept.id) ?? "no-data"
                   : overlayActive &&
                       n.col < selectedCol &&
                       cohortCovered.has(n.concept.id)
-                    ? "covered"
+                    ? "covered-past"
                     : undefined;
               const mode: NodeMode =
                 activeId == null
