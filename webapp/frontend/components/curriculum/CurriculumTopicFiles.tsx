@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, FileText, Loader2, X } from "lucide-react";
 import { useCurriculumConcepts, useCurriculumSearch } from "@/lib/hooks";
@@ -42,6 +42,34 @@ export function CurriculumTopicFiles({
   const [showAll, setShowAll] = useState(false);
   const [current, setCurrent] = useState({ conceptId, name: conceptName });
   const [trail, setTrail] = useState<{ conceptId: number; name: string }[]>([]);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Dialog focus management: take focus on open, hand it back on close, and
+  // keep Tab cycling inside the panel instead of escaping into the page.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    return () => opener?.focus?.();
+  }, []);
+  const trapTab = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const root = panelRef.current;
+    if (!root) return;
+    const focusables = root.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === root)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   const { data: vocab } = useCurriculumConcepts();
   const vocabById = useMemo(
@@ -120,7 +148,13 @@ export function CurriculumTopicFiles({
         onClick={onClose}
       >
         <div
-          className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden"
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Worksheets for ${current.name}`}
+          tabIndex={-1}
+          onKeyDown={trapTab}
+          className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden focus:outline-none"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">

@@ -599,7 +599,7 @@ export default function CurriculumPage() {
 
   // Cross-series equivalence: lets an MAS school's chapter share a lane with
   // the matching HK chapter when the comparison mixes series.
-  const { data: conceptVocab } = useCurriculumConcepts();
+  const { data: conceptVocab, error: conceptVocabError } = useCurriculumConcepts();
   const equivalentIds = useMemo(() => {
     const m = new Map<number, number[]>();
     for (const c of conceptVocab || []) {
@@ -663,6 +663,7 @@ export default function CurriculumPage() {
                 <button
                   key={v}
                   type="button"
+                  aria-pressed={view === v}
                   onClick={() => setView(v)}
                   className={cn(
                     "text-xs px-3 py-1.5 font-medium transition-colors",
@@ -786,13 +787,16 @@ export default function CurriculumPage() {
           >
             {atlasInputs.concepts.length === 0 ? (
               <p className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                The concept map is still loading.
+                {conceptVocabError
+                  ? "The concept map could not load. Refresh the page to try again."
+                  : "The concept map is still loading."}
               </p>
             ) : (
               <CurriculumAtlas
                 concepts={atlasInputs.concepts}
                 edges={atlasInputs.edges}
                 timeline={school ? (timeline ?? null) : null}
+                timelineLoading={!!school && timelineLoading}
                 stream={school ? effectiveStream : null}
                 selectedGrade={school ? effectiveGrade : null}
                 isMobile={isMobile}

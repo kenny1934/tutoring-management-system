@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Check, Clock, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import {
   type AtlasLayout,
   type AtlasSeries,
   type AtlasStatus,
+  type AtlasStrand,
   type PositionedNode,
 } from "@/lib/curriculum-atlas";
 import { conceptDisplayName, conceptNameForStream } from "@/lib/curriculum-labels";
@@ -28,11 +29,36 @@ const STATUS_LABELS: Record<AtlasStatus, string> = {
   "no-data": "",
 };
 
+// The gutter's vertical labels must fit the shortest row (58px with one
+// node), so they stay one word; the full strand name lives in the tooltip.
+const STRAND_SHORT: Record<AtlasStrand, string> = {
+  number: "Number",
+  algebra: "Algebra",
+  geometry: "Geometry",
+  data: "Data",
+};
+
+/** Touch tablets are wider than the mobile breakpoint but still have no
+ *  hover, so the two-stage tap keys off the pointer, not the width. */
+function useCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    const update = () => setCoarse(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return coarse;
+}
+
 interface CurriculumAtlasProps {
   concepts: AtlasConceptInput[];
   edges: AtlasEdgeInput[];
   /** Timeline of the selected school-grade; null renders the plain map. */
   timeline: CurriculumTimelineResponse | null;
+  /** True while a school's timeline is being fetched. */
+  timelineLoading?: boolean;
   stream: string | null;
   selectedGrade: string | null;
   isMobile: boolean;
@@ -100,7 +126,11 @@ const AtlasNode = memo(function AtlasNode({
         className={cn(
           "relative w-full h-full flex items-center gap-1.5 px-2 text-left text-[11px] leading-tight rounded-md border-2",
           "transition-[opacity,filter,border-color] duration-200",
+          // keep keyboard focus visible even when the node is dimmed, and
+          // clear of the sticky grade header / strand gutter when tabbing
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500",
+          "focus-visible:opacity-100 focus-visible:saturate-100",
+          "scroll-mt-[34px] scroll-ml-[36px]",
           concept.isExtension ? "border-dashed" : "",
           status === "current"
             ? "bg-teal-600 dark:bg-teal-500 border-teal-700 dark:border-teal-400 text-white font-semibold"
@@ -199,6 +229,7 @@ export function CurriculumAtlas({
   concepts,
   edges,
   timeline,
+  timelineLoading,
   stream,
   selectedGrade,
   isMobile,
@@ -206,6 +237,23 @@ export function CurriculumAtlas({
 }: CurriculumAtlasProps) {
   const reduced = useReducedMotion() ?? false;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const coarsePointer = useCoarsePointer();
+  const twoStageTap = isMobile || coarsePointer;
+
+  // Fill the viewport below the card's top edge instead of a fixed cap, so
+  // tall screens see the whole map without an inner scroll.
+  const [maxH, setMaxH] = useState<number | null>(null);
+  useEffect(() => {
+    const compute = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setMaxH(Math.max(320, window.innerHeight - top - 16));
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
 
   // The school's series is inferred from its timeline but stays togglable;
   // switching school clears the override.
@@ -250,18 +298,22 @@ export function CurriculumAtlas({
     [layout, activeId]
   );
 
-  const activate = (id: number) => {
-    const node = layout.nodesById.get(id);
-    if (!node) return;
-    if (isMobile && selectedId !== id) {
-      setSelectedId(id);
-      return;
-    }
-    onOpenFiles({
-      conceptId: id,
-      name: conceptNameForStream(node.concept, stream),
-    });
-  };
+  const handleLeave = useCallback(() => setFocusId(null), []);
+  const activate = useCallback(
+    (id: number) => {
+      const node = layout.nodesById.get(id);
+      if (!node) return;
+      if (twoStageTap && selectedId !== id) {
+        setSelectedId(id);
+        return;
+      }
+      onOpenFiles({
+        conceptId: id,
+        name: conceptNameForStream(node.concept, stream),
+      });
+    },
+    [layout, twoStageTap, selectedId, stream, onOpenFiles]
+  );
 
   // Land panned to the selected grade's column (or F1 without a school).
   useEffect(() => {
@@ -299,6 +351,7 @@ export function CurriculumAtlas({
             <button
               key={s}
               type="button"
+              aria-pressed={series === s}
               onClick={() => setSeriesOverride(s)}
               className={cn(
                 "text-[10px] font-semibold px-2.5 py-0.5 rounded-full border transition-colors",
@@ -333,9 +386,11 @@ export function CurriculumAtlas({
             </>
           ) : (
             <span className="text-[10px] text-gray-400 hidden lg:inline">
-              {timeline
-                ? "No weekly records yet, so the map shows the syllabus without progress"
-                : "Pick a school above to see its progress on the map"}
+              {timelineLoading
+                ? "Loading this school's progress…"
+                : timeline
+                  ? "No weekly records yet, so the map shows the syllabus without progress"
+                  : "Pick a school above to see its progress on the map"}
             </span>
           )}
           <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
@@ -345,14 +400,25 @@ export function CurriculumAtlas({
         </div>
       </div>
 
-      <div className="overflow-auto max-h-[34rem]" ref={scrollRef}>
+      <div
+        className="overflow-auto"
+        style={{ maxHeight: maxH ?? 544 }}
+        ref={scrollRef}
+        onClick={(e) => {
+          // Tapping empty map space clears the selection (buttons handle
+          // their own clicks).
+          if ((e.target as HTMLElement).closest("button")) return;
+          setSelectedId(null);
+          setFocusId(null);
+        }}
+      >
         {/* Grade header (sticky top, with a sticky corner over the gutter) */}
         <div
-          className="sticky top-0 z-30 flex h-[26px] bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30"
+          className="sticky top-0 z-40 flex h-[26px] bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30"
           style={{ minWidth: innerMinWidth }}
         >
           <div
-            className="sticky left-0 z-30 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
+            className="sticky left-0 z-40 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
             style={{ width: GUTTER_W }}
           />
           <div className="relative" style={{ width: layout.grid.width }}>
@@ -379,9 +445,10 @@ export function CurriculumAtlas({
         </div>
 
         <div className="flex" style={{ minWidth: innerMinWidth }}>
-          {/* Strand gutter — in flow so sticky-left survives 2-D panning */}
+          {/* Strand gutter — in flow so sticky-left survives 2-D panning;
+              z-30 so panned nodes (z-20) pass under it */}
           <div
-            className="sticky left-0 z-20 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
+            className="sticky left-0 z-30 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
             style={{ width: GUTTER_W }}
           >
             {layout.grid.rows.map((r, i) => (
@@ -395,8 +462,9 @@ export function CurriculumAtlas({
                 <span
                   className="text-[9px] uppercase tracking-widest text-gray-400"
                   style={{ writingMode: "vertical-rl" }}
+                  title={r.label}
                 >
-                  {r.label}
+                  {STRAND_SHORT[r.strand]}
                 </span>
               </div>
             ))}
@@ -457,7 +525,7 @@ export function CurriculumAtlas({
                   animDelay={reduced ? 0 : 0.06 * n.col + 0.025 * n.indexInCell}
                   reduced={reduced}
                   onHover={setFocusId}
-                  onLeave={() => setFocusId(null)}
+                  onLeave={handleLeave}
                   onActivate={activate}
                 />
               );
@@ -468,7 +536,7 @@ export function CurriculumAtlas({
 
       {/* Mobile two-stage selection: tap shows the chain + this strip, second
           tap (or the button) opens the worksheets */}
-      {isMobile && selectedNode && (
+      {twoStageTap && selectedNode && (
         <div className="flex items-center gap-2 px-3 py-2 border-t border-[#d4a574]/40 dark:border-[#8b6f47]/60 text-xs">
           <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-200">
             {conceptNameForStream(selectedNode.concept, stream)}
