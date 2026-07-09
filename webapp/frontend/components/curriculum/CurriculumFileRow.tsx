@@ -10,10 +10,25 @@ import type { CurriculumFile } from "@/types";
 interface CurriculumFileRowProps {
   file: CurriculumFile;
   onPreview: (file: CurriculumFile) => void;
+  /** School the list is scoped to; lights up the usage badge for files its
+   *  own students have been assigned. */
+  scopeSchool?: string | null;
 }
 
 /** The badge cluster every file row shares: school, role, language, usage. */
-export function CurriculumFileBadges({ file }: { file: CurriculumFile }) {
+export function CurriculumFileBadges({
+  file,
+  scopeSchool,
+}: {
+  file: CurriculumFile;
+  scopeSchool?: string | null;
+}) {
+  const schoolCount = file.school_assignment_count || 0;
+  const usageTitle =
+    `Assigned ${file.assignment_count} times to ${file.unique_student_count} students across all schools` +
+    (scopeSchool
+      ? `, ${schoolCount > 0 ? schoolCount : "none"} of those with ${scopeSchool} students`
+      : "");
   return (
     <>
       {file.school_code && (
@@ -46,8 +61,13 @@ export function CurriculumFileBadges({ file }: { file: CurriculumFile }) {
       )}
       {file.assignment_count > 0 && (
         <span
-          className="text-[9px] text-gray-400 shrink-0"
-          title={`Assigned ${file.assignment_count} times to ${file.unique_student_count} students across all schools`}
+          className={cn(
+            "text-[9px] shrink-0",
+            schoolCount > 0
+              ? "text-teal-600 dark:text-teal-400 font-medium"
+              : "text-gray-400"
+          )}
+          title={usageTitle}
         >
           {file.assignment_count}×
         </span>
@@ -57,7 +77,11 @@ export function CurriculumFileBadges({ file }: { file: CurriculumFile }) {
 }
 
 /** One worksheet line: name, role/language badges, usage count, preview and copy. */
-export function CurriculumFileRow({ file, onPreview }: CurriculumFileRowProps) {
+export function CurriculumFileRow({
+  file,
+  onPreview,
+  scopeSchool,
+}: CurriculumFileRowProps) {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
 
@@ -79,7 +103,7 @@ export function CurriculumFileRow({ file, onPreview }: CurriculumFileRowProps) {
       >
         {stripExtension(file.file_basename)}
       </span>
-      <CurriculumFileBadges file={file} />
+      <CurriculumFileBadges file={file} scopeSchool={scopeSchool} />
       <button
         type="button"
         onClick={() => onPreview(file)}

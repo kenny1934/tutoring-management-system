@@ -286,6 +286,39 @@ def _popularity_map(db):
     return _popularity_cache["map"]
 
 
+# Per-school counts key on the scope school, so each school's map is cached
+# separately (schools are a bounded set — a few dozen entries at most).
+_school_popularity_cache = {}
+
+
+def _school_popularity_map(db, school):
+    """assignment counts among the given school's students, from the
+    migration-036 detail view (which already derives the same
+    extension-stripped filename the summary view groups by). The grade is
+    deliberately NOT part of the scope: the view carries each student's
+    current grade, so historical assignments drift a grade every September;
+    the school is stable."""
+    key = (school or "").strip().upper()
+    if not key:
+        return {}
+    now = time.monotonic()
+    entry = _school_popularity_cache.get(key)
+    if entry is None or now - entry["loaded_at"] > _POPULARITY_TTL_SECONDS:
+        rows = db.execute(text("""
+            SELECT filename, COUNT(*) AS assignment_count,
+                   COUNT(DISTINCT student_id) AS unique_student_count
+            FROM courseware_usage_detail
+            WHERE UPPER(school) = :school
+            GROUP BY filename
+        """), {"school": key}).fetchall()
+        entry = {
+            "loaded_at": now,
+            "map": {(r.filename or "").lower(): r for r in rows},
+        }
+        _school_popularity_cache[key] = entry
+    return entry["map"]
+
+
 def _dedupe_files(files):
     """The map holds the same file with and without its extension (raw
     AppSheet-era pdf_name often lacked one). Keep one row per stripped
@@ -319,10 +352,12 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
     concept_meta covers ALL requested ids (concepts with no usable files are
     still worth showing by name). When scope_school is given, that school's
     own reference scans outrank everything — they are the most relevant
-    material for the school being looked at.
+    material for the school being looked at — and files its students have
+    actually been assigned rank ahead of merely globally popular ones.
     """
     file_rows = _files_for_concepts(db, concept_ids)
     popularity = _popularity_map(db)
+    school_popularity = _school_popularity_map(db, scope_school)
 
     def lang_rank(lang):
         if preferred_lang is None or lang == preferred_lang:
@@ -339,6 +374,7 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
         if role_filter and r.role != role_filter:
             continue
         pop = popularity.get(_basename_key(r.file_basename))
+        spop = school_popularity.get(_basename_key(r.file_basename))
         school_code = _reference_school(r.file_path)
         files_by_concept[r.concept_id].append({
             "file_path": r.file_path,
@@ -354,6 +390,7 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
             ),
             "assignment_count": pop.assignment_count if pop else 0,
             "unique_student_count": pop.unique_student_count if pop else 0,
+            "school_assignment_count": spop.assignment_count if spop else 0,
             "latest_use": _iso(pop.latest_use) if pop else None,
         })
 
@@ -363,6 +400,7 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
             lang_rank(f["lang"]),
             role_order.get(f["role"], 9),
             -(f["confidence"] or 0),
+            -f["school_assignment_count"],
             -f["assignment_count"],
             f["file_basename"] or "",
         ))

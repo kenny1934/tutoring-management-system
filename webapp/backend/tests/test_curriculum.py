@@ -55,6 +55,10 @@ RAW_TABLES = [
         filename VARCHAR(255), normalized_paths TEXT, used_by TEXT,
         assignment_count INT, unique_student_count INT,
         earliest_use DATE, latest_use DATE)""",
+    """CREATE TABLE courseware_usage_detail (
+        filename VARCHAR(255), original_pdf_name TEXT, exercise_type VARCHAR(50),
+        session_date DATE, student_id INT, school VARCHAR(255),
+        grade VARCHAR(50))""",
     """CREATE TABLE concept_links (
         id INTEGER PRIMARY KEY, from_concept_id INT, to_concept_id INT,
         kind VARCHAR(20), source VARCHAR(20), confidence DECIMAL(3,2),
@@ -107,6 +111,7 @@ def _setup(db_session):
     """))
     curriculum._popularity_cache["loaded_at"] = None
     curriculum._popularity_cache["map"] = {}
+    curriculum._school_popularity_cache.clear()
 
     db_session.add(Student(id=1, student_name="Amy", school="SRL-E", grade="F1", lang_stream="E"))
     db_session.add(Student(id=2, student_name="Ben", school="SRL-E", grade="F4", lang_stream="E"))
@@ -194,6 +199,34 @@ def test_this_year_tier_ranks_files(client: TestClient, db_session):
     assert files[0]["assignment_count"] == 90
     # 'c' file ranks after all 'e' files
     assert basenames.index("704_EX1_c.pdf") > basenames.index("704_Rev_e.pdf")
+
+
+def test_school_usage_outranks_global_popularity(client: TestClient, db_session):
+    """A file this school's students have actually been assigned beats a
+    merely globally popular one; other schools' usage does not count, and
+    the filename join is case-insensitive like the global popularity map."""
+    _consensus_row(db_session, week=11, concept_id=1, weight=3.0)
+    db_session.execute(text("""
+        INSERT INTO courseware_usage_detail
+            (filename, student_id, school, grade) VALUES
+        ('704_EX1_E', 1, 'SRL-E', 'F1'),
+        ('704_EX1_E', 1, 'SRL-E', 'F1'),
+        ('704_EX1_E', 2, 'SRL-E', 'F4'),
+        ('704_EX2_e', 7, 'TIS',   'F1'),
+        ('704_EX2_e', 8, 'TIS',   'F1')
+    """))
+    db_session.commit()
+
+    files = _get(client).json()["suggestions"][0]["files"]
+    basenames = [f["file_basename"] for f in files]
+    # Without school usage EX2 wins on global popularity (90 vs 40); three
+    # SRL-E assignments flip the order. TIS usage stays out of the count.
+    assert basenames.index("704_EX1_e.pdf") < basenames.index("704_EX2_e.pdf")
+    ex1 = next(f for f in files if f["file_basename"] == "704_EX1_e.pdf")
+    ex2 = next(f for f in files if f["file_basename"] == "704_EX2_e.pdf")
+    assert ex1["school_assignment_count"] == 3
+    assert ex2["school_assignment_count"] == 0
+    assert ex2["assignment_count"] == 90
 
 
 def test_files_flag_already_assigned(client: TestClient, db_session):

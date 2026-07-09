@@ -205,6 +205,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
                           key={file.file_path}
                           file={file}
                           onPreview={setPreview}
+                          scopeSchool={scope?.school}
                         />
                       ))}
                     </div>

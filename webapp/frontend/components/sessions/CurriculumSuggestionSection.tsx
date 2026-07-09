@@ -423,7 +423,10 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                                 : ""}
                             </span>
                           )}
-                          <CurriculumFileBadges file={file} />
+                          <CurriculumFileBadges
+                            file={file}
+                            scopeSchool={data.school}
+                          />
                         </div>
                       ))}
                     </div>
