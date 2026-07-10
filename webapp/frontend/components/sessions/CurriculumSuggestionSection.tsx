@@ -288,18 +288,24 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           <div className="flex items-center gap-2 px-3 pt-2">
             <p className="text-[10px] text-gray-500 dark:text-gray-400 flex-1">
               {subtitle}
-              {data.tier === "exam_scope" && data.upcoming_exam?.id != null && (
-                <>
-                  {" · "}
-                  <button
-                    type="button"
-                    onClick={() => setPackOpen(true)}
-                    className="text-teal-700 dark:text-teal-400 hover:underline"
-                  >
-                    Full revision pack →
-                  </button>
-                </>
-              )}
+              {data.tier === "exam_scope" &&
+                data.upcoming_exam?.id != null &&
+                // The section already lists the top topics with the same
+                // ranked files; only offer the pack when the scope holds
+                // more topics than fit here.
+                (data.upcoming_exam.scope_concept_count ?? 0) >
+                  data.suggestions.length && (
+                  <>
+                    {" · "}
+                    <button
+                      type="button"
+                      onClick={() => setPackOpen(true)}
+                      className="text-teal-700 dark:text-teal-400 hover:underline"
+                    >
+                      All {data.upcoming_exam.scope_concept_count} topics →
+                    </button>
+                  </>
+                )}
               {data.week_number != null && (
                 <>
                   {" · "}

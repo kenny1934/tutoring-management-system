@@ -64,7 +64,7 @@ export function CurriculumPdfPreview({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-6 bg-black/50"
+      className="fixed inset-0 z-[10010] flex items-center justify-center p-2 sm:p-6 bg-black/50"
       onClick={onClose}
     >
       <div
