@@ -586,11 +586,15 @@ export interface CurriculumConceptSuggestion {
   concept_grade: string | null;
   why: {
     tier: string;
-    weight: number;
-    sources: string[];
-    weeks_observed: number[];
+    // timeline tiers (this_year / last_year / pacing)
+    weight?: number;
+    sources?: string[];
+    weeks_observed?: number[];
     mean_week?: number;
     years_observed?: number;
+    // exam_scope tier: the line(s) of the test's scope this topic came from
+    confidence?: number;
+    scope_lines?: string[];
   };
   files: CurriculumFile[];
 }
@@ -604,14 +608,64 @@ export interface CurriculumSuggestionsResponse {
   academic_year: string | null;
   week_number: number | null;
   tier: string;
+  // What the timeline alone would say (this_year / last_year / pacing / none);
+  // differs from tier when a parsed exam scope takes over the suggestions.
+  timeline_tier?: string;
   revision_mode: boolean;
   upcoming_exam: {
+    id?: number;
     title: string;
     event_type: string | null;
     start_date: string | null;
+    scope_concept_count?: number;
   } | null;
   suggestions: CurriculumConceptSuggestion[];
   reason: string | null;
+}
+
+export interface CurriculumExamScopeConcept {
+  concept_id: number;
+  name_en: string | null;
+  name_zh: string | null;
+  confidence: number;
+  channel: string;
+  scope_lines: string[];
+}
+
+export interface CurriculumExamEvent {
+  id: number;
+  title: string;
+  event_type: string | null;
+  start_date: string;
+  concepts: CurriculumExamScopeConcept[];
+  unmatched_lines: string[];
+}
+
+export interface CurriculumExamsResponse {
+  school: string;
+  grade: string;
+  events: CurriculumExamEvent[];
+}
+
+export interface CurriculumRevisionPackConcept extends CurriculumExamScopeConcept {
+  kind: string | null;
+  concept_grade: string | null;
+  files: CurriculumFile[];
+  file_count: number;
+}
+
+export interface CurriculumRevisionPackResponse {
+  event: {
+    id: number;
+    title: string;
+    event_type: string | null;
+    start_date: string;
+    school: string;
+    grade: string;
+  };
+  lang_stream: string | null;
+  concepts: CurriculumRevisionPackConcept[];
+  unmatched_lines: string[];
 }
 
 export interface CurriculumObservationResult {

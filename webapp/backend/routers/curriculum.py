@@ -570,6 +570,7 @@ def get_curriculum_suggestions(
         "academic_year": None,
         "week_number": None,
         "tier": "none",
+        "timeline_tier": "none",
         "revision_mode": False,
         "upcoming_exam": None,
         "suggestions": [],
@@ -605,14 +606,18 @@ def get_curriculum_suggestions(
             "scope_concept_count": len(scope),
         }
 
+    # The timeline tier is computed either way: CurriculumTab keys its week
+    # window off it even while the scope drives the suggestions.
+    timeline_tier, scored = _predict_concepts(
+        db, student.school, student.grade, student.lang_stream, year, week
+    )
+    base["timeline_tier"] = timeline_tier
     if scope:
         # The test's own published scope beats any timeline inference.
         tier = "exam_scope"
         top = _ranked_scope(scope)[:MAX_CONCEPTS]
     else:
-        tier, scored = _predict_concepts(
-            db, student.school, student.grade, student.lang_stream, year, week
-        )
+        tier = timeline_tier
         top = sorted(scored.items(),
                      key=lambda kv: (-kv[1]["score"], kv[0]))[:MAX_CONCEPTS]
     base["tier"] = tier

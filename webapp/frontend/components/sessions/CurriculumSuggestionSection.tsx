@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { CurriculumPdfPreview } from "@/components/curriculum/CurriculumPdfPreview";
 import { CurriculumFileBadges } from "@/components/curriculum/CurriculumFileRow";
+import { CurriculumRevisionPack } from "@/components/curriculum/CurriculumRevisionPack";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
@@ -38,20 +39,28 @@ import type {
   CurriculumFile,
 } from "@/types";
 
-function evidenceLine(c: CurriculumConceptSuggestion): string {
+function evidenceLine(
+  c: CurriculumConceptSuggestion,
+  examLabel: string | null
+): string {
   const why = c.why;
+  if (why.tier === "exam_scope") {
+    const line = why.scope_lines?.[0];
+    const label = examLabel || "On the test scope";
+    return line ? `${label} · “${line}”` : label;
+  }
   if (why.tier === "pacing") {
     return `Typically around week ${
-      why.mean_week != null ? Math.round(why.mean_week) : weeksSpanText(why.weeks_observed)
+      why.mean_week != null ? Math.round(why.mean_week) : weeksSpanText(why.weeks_observed || [])
     }`;
   }
-  const sources = why.sources.map((s) => SOURCE_LABELS[s] || s);
+  const sources = (why.sources || []).map((s) => SOURCE_LABELS[s] || s);
   const sourceText =
     sources.length > 1
       ? `${sources.slice(0, -1).join(", ")} and ${sources[sources.length - 1]}`
       : sources[0] || "past records";
   const prefix = why.tier === "last_year" ? "Last year, seen in" : "Seen in";
-  return `${prefix} ${sourceText} · ${weeksSpanText(why.weeks_observed)}`;
+  return `${prefix} ${sourceText} · ${weeksSpanText(why.weeks_observed || [])}`;
 }
 
 type ConfirmState =
@@ -94,6 +103,8 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   // Worksheet browser for a prerequisite topic (opened from the builds-on
   // chips; portals above the exercise modal).
   const [topicFiles, setTopicFiles] = useState<{ conceptId: number; name: string } | null>(null);
+  // The upcoming test's full revision pack (same portal layer).
+  const [packOpen, setPackOpen] = useState(false);
 
   // Vocabulary for the correction picker and the builds-on chips; only
   // fetched once the section is opened.
@@ -217,12 +228,18 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       })
     : null;
 
+  const examLabel = examDate
+    ? `On the scope of the ${data.upcoming_exam?.event_type || "Test"} on ${examDate}`
+    : null;
+
   const subtitle =
-    data.tier === "this_year"
-      ? `What ${data.school} ${data.grade} classes are likely covering now`
-      : data.tier === "last_year"
-        ? `Based on ${data.school}'s pace last year`
-        : `Based on ${data.school}'s typical pace`;
+    data.tier === "exam_scope"
+      ? `What the ${data.upcoming_exam?.event_type || "Test"} on ${examDate} covers`
+      : data.tier === "this_year"
+        ? `What ${data.school} ${data.grade} classes are likely covering now`
+        : data.tier === "last_year"
+          ? `Based on ${data.school}'s pace last year`
+          : `Based on ${data.school}'s typical pace`;
 
   // Last-year-tier evidence means the current year is empty near this week —
   // point the explorer at the year that actually has the data.
@@ -271,6 +288,18 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           <div className="flex items-center gap-2 px-3 pt-2">
             <p className="text-[10px] text-gray-500 dark:text-gray-400 flex-1">
               {subtitle}
+              {data.tier === "exam_scope" && data.upcoming_exam?.id != null && (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={() => setPackOpen(true)}
+                    className="text-teal-700 dark:text-teal-400 hover:underline"
+                  >
+                    Full revision pack →
+                  </button>
+                </>
+              )}
               {data.week_number != null && (
                 <>
                   {" · "}
@@ -309,7 +338,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         {conceptNameForStream(concept, data.lang_stream || session.lang_stream || null)}
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400">
-                        {evidenceLine(concept)}
+                        {evidenceLine(concept, examLabel)}
                       </div>
                       {(vocabById.get(concept.concept_id)?.builds_on_ids?.length ??
                         0) > 0 && (
@@ -554,6 +583,13 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
               : null
           }
           onClose={() => setTopicFiles(null)}
+        />
+      )}
+
+      {packOpen && data.upcoming_exam?.id != null && (
+        <CurriculumRevisionPack
+          eventId={data.upcoming_exam.id}
+          onClose={() => setPackOpen(false)}
         />
       )}
     </div>

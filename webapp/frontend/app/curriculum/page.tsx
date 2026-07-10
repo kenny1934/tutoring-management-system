@@ -23,6 +23,7 @@ import {
   toAtlasInputs,
 } from "@/lib/curriculum-atlas";
 import { CurriculumAtlas } from "@/components/curriculum/CurriculumAtlas";
+import { CurriculumExamStrip } from "@/components/curriculum/CurriculumExamStrip";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
 import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
@@ -789,6 +790,16 @@ export default function CurriculumPage() {
               : null
           }
         />
+
+        {/* Tests and exams with their revision packs */}
+        {school && effectiveGrade && (
+          <CurriculumExamStrip
+            school={school}
+            grade={effectiveGrade}
+            langStream={effectiveStream || null}
+            isMobile={isMobile}
+          />
+        )}
 
         {view === "timeline" && !school && !coverageLoading && (
           <div

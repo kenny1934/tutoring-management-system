@@ -331,6 +331,7 @@ def test_exam_scope_tier_overrides_timeline(client: TestClient, db_session):
 
     body = _get(client).json()
     assert body["tier"] == "exam_scope"
+    assert body["timeline_tier"] == "this_year"   # CurriculumTab's week window
     assert body["revision_mode"] is True
     assert body["upcoming_exam"]["id"] is not None
     assert body["upcoming_exam"]["scope_concept_count"] == 1

@@ -187,6 +187,8 @@ import type {
   WaitlistEntryBulkItem,
   WaitlistEntryUpdate,
   CurriculumSuggestionsResponse,
+  CurriculumExamsResponse,
+  CurriculumRevisionPackResponse,
   CurriculumObservationResult,
   CurriculumTimelineResponse,
   CurriculumCoverageRow,
@@ -1092,6 +1094,20 @@ export const curriculumAPI = {
   getCoverage: () => fetchAPI<CurriculumCoverageRow[]>('/curriculum/coverage'),
 
   getConcepts: () => fetchAPI<CurriculumConceptVocab[]>('/curriculum/concepts'),
+
+  getExams: (school: string, grade: string) => {
+    const params = new URLSearchParams({ school, grade });
+    return fetchAPI<CurriculumExamsResponse>(`/curriculum/exams?${params}`);
+  },
+
+  getRevisionPack: (eventId: number, limit?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', String(limit));
+    const qs = params.toString();
+    return fetchAPI<CurriculumRevisionPackResponse>(
+      `/curriculum/revision-pack/${eventId}${qs ? `?${qs}` : ''}`
+    );
+  },
 
   search: (query: {
     q?: string;

@@ -122,7 +122,10 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
     eligible ? session.student_id : null,
     session.session_date
   );
-  const tier = sugg?.tier;
+  // The week window keys off the timeline's own tier: when a parsed exam
+  // scope takes over the suggestions, tier says exam_scope but the school's
+  // weekly context is still whatever the timeline knows.
+  const tier = sugg?.timeline_tier ?? sugg?.tier;
   const hasWeekContext =
     eligible &&
     !!sugg &&
