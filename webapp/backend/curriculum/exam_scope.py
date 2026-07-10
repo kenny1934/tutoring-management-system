@@ -441,6 +441,10 @@ class ScopeMatcher:
             cleaned = _PERCENT_RE.sub(" ", _PUBLISHER_RE.sub(" ", part))
             if _NOISE_LINE_RE.fullmatch(cleaned):
                 continue
+            # Splitting "x^2+bx+c" on '+' leaves algebraic crumbs like "bx";
+            # no real topic is a couple of ASCII characters.
+            if cleaned.strip().isascii() and len(normalize(cleaned)) <= 2:
+                continue
 
             head, sep, rest = cleaned.partition(":")
             if not sep:
