@@ -339,10 +339,22 @@ def _dedupe_files(files):
 # School-specific scans live under 中學參考教材\F1..F6\SCHOOL-CODE\...
 _REFERENCE_SCHOOL_RE = re.compile(r"中學參考教材\\F[1-6]\\([^\\]+)\\")
 
+# A few folders carry a school's Chinese name where students.school uses a
+# different code (or a longer name). Kenny-confirmed mappings, 2026-07-10.
+_REFERENCE_SCHOOL_ALIASES = {
+    "利瑪竇": "CMR",
+    "東南": "TNS",
+    "嶺南": "嶺南中學",
+    "高美士": "高美士中葡",
+}
+
 
 def _reference_school(file_path):
     m = _REFERENCE_SCHOOL_RE.search(file_path or "")
-    return m.group(1) if m else None
+    if not m:
+        return None
+    code = m.group(1)
+    return _REFERENCE_SCHOOL_ALIASES.get(code, code)
 
 
 def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,

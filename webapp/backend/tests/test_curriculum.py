@@ -231,6 +231,18 @@ def test_school_usage_outranks_global_popularity(client: TestClient, db_session)
     assert ex2["assignment_count"] == 90
 
 
+def test_reference_school_resolves_chinese_named_folders():
+    """Folders named with a school's Chinese name map to the students.school
+    code (Kenny-confirmed); coded folders and non-reference paths unchanged."""
+    base = "Courseware Developer 中學\\Secondary\\中學參考教材"
+    assert curriculum._reference_school(f"{base}\\F1\\利瑪竇\\a.pdf") == "CMR"
+    assert curriculum._reference_school(f"{base}\\F2\\東南\\b.pdf") == "TNS"
+    assert curriculum._reference_school(f"{base}\\F1\\嶺南\\c.pdf") == "嶺南中學"
+    assert curriculum._reference_school(f"{base}\\F2\\高美士\\d.pdf") == "高美士中葡"
+    assert curriculum._reference_school(f"{base}\\F3\\SRL-E\\e.pdf") == "SRL-E"
+    assert curriculum._reference_school("Center\\Courseware (Eng)\\x.pdf") is None
+
+
 def test_files_flag_already_assigned(client: TestClient, db_session):
     _consensus_row(db_session, week=11, concept_id=1, weight=3.0)
     db_session.add(Tutor(id=50, user_email="t@example.com", tutor_name="T",
