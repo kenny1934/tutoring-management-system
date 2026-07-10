@@ -37,7 +37,8 @@ TREE = os.path.join(REPO_ROOT, "private", "curriculum_data", "drive_trees",
                     "tree_v_reference_raw.txt")
 OUT = os.path.join(REPO_ROOT, "private", "curriculum_data",
                    "ai_reference_mappings.json")
-MODEL = "gemini-3.1-flash-lite-preview"
+# -preview suffix retired ~July 2026; the GA name is the accessible one.
+MODEL = "gemini-3.1-flash-lite"
 BATCH = 40
 
 ANS_RE = re.compile(r"(?i)_ans\.pdf$|\\ans\\|answer")
