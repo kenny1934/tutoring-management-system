@@ -47,6 +47,7 @@ export function CurriculumExamStrip({
     new Date(e.start_date).toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
+      year: "numeric",
     });
 
   return (
@@ -81,7 +82,7 @@ export function CurriculumExamStrip({
                   : "border-[#d4a574]/40 dark:border-[#8b6f47]/50 hover:border-teal-500 dark:hover:border-teal-500"
               )}
             >
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 flex-wrap">
                 <span
                   className="text-[11px] font-semibold text-gray-800 dark:text-gray-200"
                   title={event.start_date}
