@@ -63,6 +63,10 @@ RAW_TABLES = [
         id INTEGER PRIMARY KEY, from_concept_id INT, to_concept_id INT,
         kind VARCHAR(20), source VARCHAR(20), confidence DECIMAL(3,2),
         note VARCHAR(255))""",
+    """CREATE TABLE exam_scope_concepts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, calendar_event_id INT,
+        concept_id INT, matched_text VARCHAR(500), confidence DECIMAL(3,2),
+        source VARCHAR(10), created_at TIMESTAMP)""",
 ]
 
 
@@ -112,6 +116,9 @@ def _setup(db_session):
     curriculum._popularity_cache["loaded_at"] = None
     curriculum._popularity_cache["map"] = {}
     curriculum._school_popularity_cache.clear()
+    curriculum._scope_matcher_cache["loaded_at"] = None
+    curriculum._scope_matcher_cache["matcher"] = None
+    curriculum._school_series_cache.clear()
 
     db_session.add(Student(id=1, student_name="Amy", school="SRL-E", grade="F1", lang_stream="E"))
     db_session.add(Student(id=2, student_name="Ben", school="SRL-E", grade="F4", lang_stream="E"))
@@ -309,6 +316,94 @@ def test_exam_window_prefers_revision(client: TestClient, db_session):
     assert body["revision_mode"] is True
     assert body["upcoming_exam"]["title"] == "F1 Math Test"
     assert body["suggestions"][0]["files"][0]["file_basename"] == "704_Rev_e.pdf"
+
+
+def test_exam_scope_tier_overrides_timeline(client: TestClient, db_session):
+    """A test whose description parses to concepts suggests THOSE concepts,
+    not the timeline's guess, with the scope line as the evidence."""
+    _consensus_row(db_session, week=11, concept_id=1, weight=3.0)
+    db_session.add(CalendarEvent(
+        event_id="evt2", title="F1 Math Test", school="SRL-E", grade="F1",
+        event_type="Test", start_date=date(2025, 11, 20),
+        description="Percentage(I)\nMystery topic nobody knows",
+    ))
+    db_session.commit()
+
+    body = _get(client).json()
+    assert body["tier"] == "exam_scope"
+    assert body["revision_mode"] is True
+    assert body["upcoming_exam"]["id"] is not None
+    assert body["upcoming_exam"]["scope_concept_count"] == 1
+    assert [s["concept_id"] for s in body["suggestions"]] == [2]
+    why = body["suggestions"][0]["why"]
+    assert why["tier"] == "exam_scope"
+    assert why["scope_lines"] == ["Percentage(I)"]
+    assert body["suggestions"][0]["files"][0]["file_basename"] == "705_EX1_e.pdf"
+
+
+def test_exams_list_returns_parsed_scopes(client: TestClient, db_session):
+    db_session.add(CalendarEvent(
+        event_id="evt3", title="SRL-E F1 Test", school="SRL-E", grade="F1",
+        event_type="Test", start_date=date(2025, 10, 3),
+        description="Linear Equations in One Unknown\nMystery line",
+    ))
+    db_session.add(CalendarEvent(
+        event_id="evt4", title="SRL-E F1 Exam", school="SRL-E", grade="F1",
+        event_type="Exam", start_date=date(2026, 1, 20),
+    ))
+    db_session.commit()
+
+    body = client.get(
+        "/api/curriculum/exams",
+        params={"school": "SRL-E", "grade": "F1", "from_date": "2025-09-01"},
+        cookies=AUTH_COOKIE,
+    ).json()
+    assert [e["event_type"] for e in body["events"]] == ["Test", "Exam"]
+    test_ev = body["events"][0]
+    assert [c["concept_id"] for c in test_ev["concepts"]] == [1]
+    assert test_ev["concepts"][0]["name_en"] == "Linear Equations in One Unknown"
+    assert test_ev["unmatched_lines"] == ["Mystery line"]
+    # descriptionless events still list — the date alone matters
+    assert body["events"][1]["concepts"] == []
+
+
+def test_revision_pack_files_and_stored_rows(client: TestClient, db_session):
+    db_session.add(CalendarEvent(
+        event_id="evt5", title="SRL-E F1 Test", school="SRL-E", grade="F1",
+        event_type="Test", start_date=date(2025, 11, 21),
+        description="Linear Equations in One Unknown\nMystery line",
+    ))
+    db_session.commit()
+    event_row = db_session.execute(text(
+        "SELECT id FROM calendar_events WHERE event_id = 'evt5'")).fetchone()
+    # a persisted AI row for the line mechanics could not read
+    db_session.execute(text("""
+        INSERT INTO exam_scope_concepts
+            (calendar_event_id, concept_id, matched_text, confidence, source)
+        VALUES (:eid, 2, 'Mystery line', 0.75, 'ai')
+    """), {"eid": event_row.id})
+    db_session.commit()
+
+    body = client.get(
+        f"/api/curriculum/revision-pack/{event_row.id}",
+        cookies=AUTH_COOKIE,
+    ).json()
+    assert body["event"]["school"] == "SRL-E"
+    assert [c["concept_id"] for c in body["concepts"]] == [1, 2]
+    top = body["concepts"][0]
+    # revision-ordered: the Rev file outranks plain exercises for a pack
+    assert top["files"][0]["file_basename"] == "704_Rev_e.pdf"
+    assert top["file_count"] >= 3
+    ai_row = body["concepts"][1]
+    assert ai_row["channel"] == "ai"
+    assert ai_row["confidence"] == 0.75
+    # the AI row consumed the only unreadable line
+    assert body["unmatched_lines"] == []
+
+
+def test_revision_pack_unknown_event_404(client: TestClient):
+    resp = client.get("/api/curriculum/revision-pack/99999", cookies=AUTH_COOKIE)
+    assert resp.status_code == 404
 
 
 def test_last_year_fallback(client: TestClient, db_session):

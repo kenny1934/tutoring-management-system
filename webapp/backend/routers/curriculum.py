@@ -15,6 +15,8 @@ Endpoints:
   DEL  /curriculum/observations  undo a mis-tapped confirmation (own only)
   GET  /curriculum/timeline      one school-grade's weekly consensus timeline
   GET  /curriculum/coverage      observation coverage per combo (gap finding)
+  GET  /curriculum/exams         a school-grade's tests with parsed scopes
+  GET  /curriculum/revision-pack/{id}  one test's scope concepts + files
 
 Concept evidence for suggestions is tried in tiers, strongest first:
   this_year — observations for the current academic year, weeks w-2..w,
@@ -46,6 +48,7 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from constants import hk_now
+from curriculum import exam_scope
 from curriculum.paths import normalize
 from database import get_db
 from models import CalendarEvent, Student, Tutor
@@ -319,6 +322,95 @@ def _school_popularity_map(db, school):
     return entry["map"]
 
 
+# The scope matcher compiles the whole concept vocabulary. Vocabulary edits
+# are rare, so it shares the popularity cache's TTL.
+_scope_matcher_cache = {"loaded_at": None, "matcher": None}
+_school_series_cache = {}
+
+
+def _scope_matcher(db):
+    now = time.monotonic()
+    loaded_at = _scope_matcher_cache["loaded_at"]
+    if loaded_at is None or now - loaded_at > _POPULARITY_TTL_SECONDS:
+        _scope_matcher_cache["matcher"] = exam_scope.load_scope_matcher(db)
+        _scope_matcher_cache["loaded_at"] = now
+    return _scope_matcher_cache["matcher"]
+
+
+def _school_series(db, school):
+    """Cached MAS/HK series call per school (gates the chapter-code channel)."""
+    key = (school or "").strip().upper()
+    if not key:
+        return None
+    now = time.monotonic()
+    entry = _school_series_cache.get(key)
+    if entry is None or now - entry["loaded_at"] > _POPULARITY_TTL_SECONDS:
+        entry = {"loaded_at": now, "series": exam_scope.school_series(db, school)}
+        _school_series_cache[key] = entry
+    return entry["series"]
+
+
+def _stored_scope_rows(db, event_ids):
+    """{event_id: [row dicts]} of persisted AI/manual scope mappings."""
+    if not event_ids:
+        return {}
+    stmt = text("""
+        SELECT calendar_event_id, concept_id, matched_text, confidence, source
+        FROM exam_scope_concepts
+        WHERE calendar_event_id IN :ids
+    """).bindparams(bindparam("ids", expanding=True))
+    out = defaultdict(list)
+    for r in db.execute(stmt, {"ids": list(event_ids)}):
+        out[r.calendar_event_id].append({
+            "concept_id": r.concept_id, "matched_text": r.matched_text,
+            "confidence": r.confidence, "source": r.source,
+        })
+    return out
+
+
+def _event_scope(db, event, stored_rows=None):
+    """(concepts, unmatched_lines) for one calendar event's scope text.
+
+    Mechanical parse on the current description, overlaid with any
+    persisted AI/manual rows (stale ones self-retire inside
+    apply_stored_rows when their source line has left the description)."""
+    matcher = _scope_matcher(db)
+    lines = matcher.parse(
+        event.description,
+        series=_school_series(db, event.school),
+        grade=event.grade,
+    )
+    concepts, unmatched = exam_scope.summarize(lines)
+    if stored_rows is None:
+        stored_rows = _stored_scope_rows(db, [event.id]).get(event.id, [])
+    concepts = exam_scope.apply_stored_rows(
+        concepts, stored_rows, event.description)
+    # A stored row answers the line it came from — stop reporting it as
+    # unreadable. (Stale rows' lines are no longer in the description, so
+    # they cannot appear in unmatched anyway.)
+    covered = {exam_scope.normalize(r["matched_text"] or "") for r in stored_rows}
+    unmatched = [u for u in unmatched if exam_scope.normalize(u) not in covered]
+    return concepts, unmatched
+
+
+def _ranked_scope(concepts):
+    """Scope concepts ordered by confidence, ties broken stably."""
+    return sorted(concepts.items(), key=lambda kv: (-kv[1]["confidence"], kv[0]))
+
+
+def _dominant_stream(db, school, grade):
+    """The stream carrying this school-grade's evidence weight. No school
+    genuinely runs two streams; minority rows are folder-typo noise."""
+    row = db.execute(text("""
+        SELECT lang_stream FROM school_topic_observations
+        WHERE school = :school AND grade = :grade AND lang_stream IS NOT NULL
+        GROUP BY lang_stream
+        ORDER BY SUM(confidence) DESC
+        LIMIT 1
+    """), {"school": school, "grade": grade}).fetchone()
+    return row[0] if row else None
+
+
 def _dedupe_files(files):
     """The map holds the same file with and without its extension (raw
     AppSheet-era pdf_name often lacked one). Keep one row per stripped
@@ -499,26 +591,36 @@ def get_curriculum_suggestions(
     base["academic_year"] = year
     base["week_number"] = week
 
-    tier, scored = _predict_concepts(
-        db, student.school, student.grade, student.lang_stream, year, week
-    )
-    base["tier"] = tier
-    if not scored:
-        base["reason"] = "no_timeline"
-        return base
-
-    top = sorted(scored.items(), key=lambda kv: (-kv[1]["score"], kv[0]))[:MAX_CONCEPTS]
-    concept_ids = [cid for cid, _ in top]
-
     exam = _upcoming_exam(db, student, on_date)
     revision_mode = exam is not None
     base["revision_mode"] = revision_mode
+    scope = {}
     if exam:
+        scope, _ = _event_scope(db, exam)
         base["upcoming_exam"] = {
+            "id": exam.id,
             "title": exam.title,
             "event_type": exam.event_type,
             "start_date": _iso(exam.start_date),
+            "scope_concept_count": len(scope),
         }
+
+    if scope:
+        # The test's own published scope beats any timeline inference.
+        tier = "exam_scope"
+        top = _ranked_scope(scope)[:MAX_CONCEPTS]
+    else:
+        tier, scored = _predict_concepts(
+            db, student.school, student.grade, student.lang_stream, year, week
+        )
+        top = sorted(scored.items(),
+                     key=lambda kv: (-kv[1]["score"], kv[0]))[:MAX_CONCEPTS]
+    base["tier"] = tier
+    if not top:
+        base["reason"] = "no_timeline"
+        return base
+
+    concept_ids = [cid for cid, _ in top]
 
     files_by_concept, concept_meta = _ranked_files(
         db, concept_ids,
@@ -531,15 +633,22 @@ def get_curriculum_suggestions(
     suggestions = []
     for concept_id, evidence in top:
         meta = concept_meta.get(concept_id, {})
-        why = {
-            "tier": tier,
-            "weight": round(evidence["weight"], 2),
-            "sources": sorted(s for s in evidence["sources"] if s),
-            "weeks_observed": sorted(evidence["weeks"]),
-        }
-        if "mean_week" in evidence:
-            why["mean_week"] = evidence["mean_week"]
-            why["years_observed"] = evidence["years_observed"]
+        if tier == "exam_scope":
+            why = {
+                "tier": tier,
+                "confidence": round(float(evidence["confidence"]), 2),
+                "scope_lines": evidence["lines"],
+            }
+        else:
+            why = {
+                "tier": tier,
+                "weight": round(evidence["weight"], 2),
+                "sources": sorted(s for s in evidence["sources"] if s),
+                "weeks_observed": sorted(evidence["weeks"]),
+            }
+            if "mean_week" in evidence:
+                why["mean_week"] = evidence["mean_week"]
+                why["years_observed"] = evidence["years_observed"]
         files = files_by_concept.get(concept_id, [])[:MAX_FILES_PER_CONCEPT]
         for f in files:
             done = assigned.get(_basename_key(f["file_basename"]))
@@ -746,6 +855,125 @@ def search_curriculum(
         "lang_stream": lang_stream,
         "academic_year": resolved_year,
         "concepts": concepts,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Exam scopes and revision packs
+# ---------------------------------------------------------------------------
+
+@router.get("/curriculum/exams")
+def list_school_exams(
+    school: str = Query(..., max_length=255),
+    grade: str = Query(..., max_length=10),
+    from_date: Optional[date_type] = Query(None),
+    to_date: Optional[date_type] = Query(None),
+    _user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """A school-grade's tests/exams with their parsed scope concepts.
+
+    Defaults to the last 12 months plus everything upcoming so the page can
+    show the next test and this year's history in one strip. Events whose
+    description parses to nothing are still listed — the date alone matters.
+    """
+    start = from_date or (hk_now().date() - timedelta(days=365))
+    filters = [
+        CalendarEvent.school == school,
+        CalendarEvent.grade == grade,
+        CalendarEvent.start_date >= start,
+    ]
+    if to_date:
+        filters.append(CalendarEvent.start_date <= to_date)
+    events = (
+        db.query(CalendarEvent)
+        .filter(*filters)
+        .order_by(CalendarEvent.start_date)
+        .all()
+    )
+
+    stored = _stored_scope_rows(db, [e.id for e in events])
+    parsed = []
+    concept_ids = set()
+    for event in events:
+        concepts, unmatched = _event_scope(db, event, stored.get(event.id, []))
+        concept_ids.update(concepts)
+        parsed.append((event, concepts, unmatched))
+    meta = _concept_meta(db, concept_ids)
+
+    out = []
+    for event, concepts, unmatched in parsed:
+        out.append({
+            "id": event.id,
+            "title": event.title,
+            "event_type": event.event_type,
+            "start_date": _iso(event.start_date),
+            "concepts": [{
+                "concept_id": cid,
+                "name_en": meta.get(cid, {}).get("name_en"),
+                "name_zh": meta.get(cid, {}).get("name_zh"),
+                "confidence": round(float(v["confidence"]), 2),
+                "channel": v["channel"],
+                "scope_lines": v["lines"],
+            } for cid, v in _ranked_scope(concepts)],
+            "unmatched_lines": unmatched,
+        })
+    return {"school": school, "grade": grade, "events": out}
+
+
+@router.get("/curriculum/revision-pack/{event_id}")
+def get_revision_pack(
+    event_id: int,
+    limit: int = Query(MAX_FILES_PER_CONCEPT, ge=1, le=200,
+                       description="Files per concept"),
+    _user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Everything for one test: its parsed scope concepts with
+    revision-ordered files (the school's own scans and stream language
+    first), plus any scope lines we could not read — surfaced honestly so
+    the tutor knows the pack may be incomplete."""
+    event = (
+        db.query(CalendarEvent)
+        .filter(CalendarEvent.id == event_id)
+        .first()
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Calendar event not found")
+
+    concepts, unmatched = _event_scope(db, event)
+    ranked = _ranked_scope(concepts)
+    stream = _dominant_stream(db, event.school, event.grade)
+    files_by_concept, meta = _ranked_files(
+        db, [cid for cid, _ in ranked],
+        preferred_lang=_preferred_lang(stream),
+        role_order=ROLE_ORDER_REVISION,
+        scope_school=event.school,
+    )
+
+    return {
+        "event": {
+            "id": event.id,
+            "title": event.title,
+            "event_type": event.event_type,
+            "start_date": _iso(event.start_date),
+            "school": event.school,
+            "grade": event.grade,
+        },
+        "lang_stream": stream,
+        "concepts": [{
+            "concept_id": cid,
+            "name_en": meta.get(cid, {}).get("name_en"),
+            "name_zh": meta.get(cid, {}).get("name_zh"),
+            "kind": meta.get(cid, {}).get("kind"),
+            "concept_grade": meta.get(cid, {}).get("grade"),
+            "confidence": round(float(v["confidence"]), 2),
+            "channel": v["channel"],
+            "scope_lines": v["lines"],
+            "files": files_by_concept.get(cid, [])[:limit],
+            "file_count": len(files_by_concept.get(cid, [])),
+        } for cid, v in ranked],
+        "unmatched_lines": unmatched,
     }
 
 

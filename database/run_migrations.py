@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "127_concept_strands.sql",
+    "128_exam_scope_concepts.sql",
 ]
 
 def main():
