@@ -111,6 +111,25 @@ class TestTextToTipTapNodes:
         assert nodes == [{"type": "paragraph"}]
 
 
+class TestWrapBareLatex:
+    def test_wraps_bare_answer_to_end_of_line(self):
+        from services.question_processing import _wrap_bare_latex
+
+        assert _wrap_bare_latex("Answer: \\frac{3}{2}") == "Answer: $\\frac{3}{2}$"
+
+    def test_wraps_full_expression_not_just_command(self):
+        from services.question_processing import _wrap_bare_latex
+
+        out = _wrap_bare_latex("Answer: \\frac{5000}{x} = \\frac{8000}{x + 600}")
+        assert out == "Answer: $\\frac{5000}{x} = \\frac{8000}{x + 600}$"
+
+    def test_leaves_wrapped_and_plain_lines_alone(self):
+        from services.question_processing import _wrap_bare_latex
+
+        assert _wrap_bare_latex("Answer: $x = -1$") == "Answer: $x = -1$"
+        assert _wrap_bare_latex("Answer: x = -1") == "Answer: x = -1"
+
+
 # ─── apply_solutions_to_content ────────────────────────────────────────
 
 class TestApplySolutions:
