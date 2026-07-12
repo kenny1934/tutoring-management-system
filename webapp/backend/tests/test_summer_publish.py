@@ -487,6 +487,14 @@ class TestPublishMapping:
             SessionLog.summer_session_id == first.id
         ).first()
         assert rescheduled.session_status == "Rescheduled - Pending Make-up"
+        # Rows born Rescheduled get an undo target so the status can be
+        # reverted to Scheduled post-publish; plain rows carry no history.
+        assert rescheduled.previous_session_status == "Scheduled"
+        normal = db_session.query(SessionLog).filter(
+            SessionLog.enrollment_id == rescheduled.enrollment_id,
+            SessionLog.id != rescheduled.id,
+        ).first()
+        assert normal.previous_session_status is None
 
     def test_cancelled_placements_skipped(
         self, db_session, admin, app_full, slot

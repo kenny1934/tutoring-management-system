@@ -3746,6 +3746,10 @@ def _publish_application_inner(
             time_slot=p.slot.time_slot,
             location=normalize_secondary_location(p.slot.location),
             session_status=sess_status,
+            # Rows born Rescheduled need an undo target — without it the
+            # Undo action never unlocks (regular sessions get this snapshot
+            # from the reschedule endpoint; publish-born rows skip it).
+            previous_session_status='Scheduled' if sess_status != 'Scheduled' else None,
             financial_status=fin_status,
             summer_session_id=p.id,
             lesson_number=_effective_lesson_number(p),
