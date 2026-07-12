@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.91](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.90...v2.0.91) (2026-07-12)
+
+
+### New Features
+
+* **Stronger AI maths solving**: step-by-step solutions and variant questions now use an upgraded AI model with much stronger maths reasoning. Occasional blank responses are retried automatically and mathematical notation displays more consistently.
+
+
+### Bug Fixes
+
+* **Worksheet OCR and progress insights work again**: the AI model behind worksheet imports and progress insights was retired by its provider, which stopped both features from working. They now run on its replacement.
+* **Rescheduled summer sessions can be reverted after publish**: a summer session marked Rescheduled - Pending Make-up before publish could not be changed back to Scheduled afterwards. The Undo action only appears when a session has a previous status to return to, and these sessions were created without one. Publishing now records Scheduled as the status to return to, and sessions already published have been repaired.
+
 ## [2.0.90](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.89...v2.0.90) (2026-07-05)
 
 
