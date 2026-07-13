@@ -7,6 +7,7 @@ import { SUMMER_GRADE_BG, SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, COURSE_TYPE_CO
 import { summerAPI } from "@/lib/api";
 import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 import { LessonNumberPromptModal } from "@/components/admin/LessonNumberPromptModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { WorkflowStatusIcon } from "@/components/admin/SummerApplicationCard";
@@ -78,6 +79,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
   onTapPlaceFailed,
 }: SummerLessonCardProps) {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [editingLesson, setEditingLesson] = useState(false);
@@ -238,7 +240,7 @@ export const SummerLessonCard = memo(function SummerLessonCard({
         ...(force ? { force_lesson_duplicate: true } : {}),
       });
     try {
-      const result = await confirmDuplicateOrRetry(trySave);
+      const result = await confirmDuplicateOrRetry(trySave, confirm);
       if (result === DUPLICATE_CANCELLED) {
         setEditingSession(null);
         return;

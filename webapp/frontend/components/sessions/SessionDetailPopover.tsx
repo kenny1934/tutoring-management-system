@@ -26,6 +26,7 @@ import { parseTimeSlot } from "@/lib/calendar-utils";
 import { sessionsAPI, api, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirmOpen } from "@/contexts/ConfirmContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExerciseModal } from "./ExerciseModal";
 import { RateSessionModal } from "./RateSessionModal";
@@ -429,6 +430,7 @@ export function SessionDetailPopover({
   const { user, effectiveRole, impersonatedTutor, isReadOnly } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const saveLessonNumber = useSaveLessonNumber(session?.id);
+  const confirmDialogOpen = useConfirmOpen();
 
   // Modal state for keyboard shortcuts
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
@@ -612,7 +614,7 @@ export function SessionDetailPopover({
   }, [virtualReference, refs]);
 
   // Disable click-outside dismissal when any modal is open
-  const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen;
+  const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen || confirmDialogOpen;
   const dismiss = useDismiss(context, { enabled: !anyModalOpen });
   const { getFloatingProps } = useInteractions([dismiss]);
 
