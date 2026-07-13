@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.92](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.91...v2.0.92) (2026-07-14)
+
+
+### New Features
+
+* **Lesson numbers go up to 10**: the lesson number badge on the session pages now accepts numbers from 1 to 10 instead of 1 to 8. The summer arrangement page is unchanged and continues to follow each course's own lesson count.
+
+
+### Bug Fixes
+
+* **Duplicate lesson number warnings can be answered**: changing a session's lesson number to one the student already holds now opens a confirmation dialog that offers to save anyway or cancel. Previously the warning appeared as an error message that could not be acted on, so the change was blocked even when the duplicate was intentional. Cancelling leaves the lesson number unchanged without repeating the warning.
+
 ## [2.0.91](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.90...v2.0.91) (2026-07-12)
 
 
