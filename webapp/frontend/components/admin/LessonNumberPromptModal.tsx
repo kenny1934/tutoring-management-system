@@ -36,7 +36,7 @@ export function LessonNumberPromptModal({
   description,
   initialValue,
   confirmLabel = "Save",
-  maxLesson = 8,
+  maxLesson = 10,
 }: LessonNumberPromptModalProps) {
   const [value, setValue] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);

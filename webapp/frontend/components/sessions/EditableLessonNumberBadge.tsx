@@ -32,13 +32,14 @@ interface EditableLessonNumberBadgeProps {
   /** Called with the new value, or `null` when admin clears the input. */
   onSave?: (value: number | null) => void | Promise<void>;
   disabled?: boolean;
-  /** Inclusive upper bound for the input. Defaults to 8 (summer's typical
-   * total_lessons); callers with a different ceiling can pass their own. */
+  /** Inclusive upper bound for the input. Defaults to 10; callers with a
+   * different ceiling (e.g. the arrangement page's total_lessons) can pass
+   * their own. */
   maxLesson?: number;
 }
 
 const MIN_LESSON = 1;
-const DEFAULT_MAX_LESSON = 8;
+const DEFAULT_MAX_LESSON = 10;
 
 export function useSaveLessonNumber(sessionId: number | null | undefined) {
   const { showToast } = useToast();
