@@ -267,27 +267,48 @@ def _basename_key(name):
     return _KNOWN_EXT_RE.sub("", name or "").lower()
 
 
-# The popularity view derives its grouping key from every session_exercises
-# row on each query (~650ms server-side), and popularity only breaks ties —
-# staleness is harmless. Cache the whole filename -> counts map in-process.
+# The in-process caches below all share one shape ({key -> entry}) and one
+# TTL; staleness is harmless in every case (popularity only breaks ties, the
+# matcher tracks rare vocabulary edits, a school's series is effectively
+# static).
 _POPULARITY_TTL_SECONDS = 600
-_popularity_cache = {"loaded_at": None, "map": {}}
+
+
+def _ttl_cached(cache, key, loader, max_entries=None):
+    """Value from a TTL'd in-process cache, reloading through loader().
+
+    max_entries guards caches whose key comes from request input: the
+    oldest entries are evicted once the cap is passed.
+    """
+    now = time.monotonic()
+    entry = cache.get(key)
+    if entry is None or now - entry["loaded_at"] > _POPULARITY_TTL_SECONDS:
+        entry = {"loaded_at": now, "value": loader()}
+        cache[key] = entry
+        if max_entries is not None:
+            while len(cache) > max_entries:
+                oldest = min(cache, key=lambda k: cache[k]["loaded_at"])
+                del cache[oldest]
+    return entry["value"]
+
+
+# The popularity view derives its grouping key from every session_exercises
+# row on each query (~650ms server-side) — cache the whole map.
+_popularity_cache = {}
 
 
 def _popularity_map(db):
     """assignment counts from the migration-036 summary view, keyed by
     extension-stripped lowercased basename (the view preserves case and
     groups case-insensitively, so one arbitrary variant comes back)."""
-    now = time.monotonic()
-    loaded_at = _popularity_cache["loaded_at"]
-    if loaded_at is None or now - loaded_at > _POPULARITY_TTL_SECONDS:
+    def load():
         rows = db.execute(text("""
             SELECT filename, assignment_count, unique_student_count, latest_use
             FROM courseware_popularity_summary
         """)).fetchall()
-        _popularity_cache["map"] = {(r.filename or "").lower(): r for r in rows}
-        _popularity_cache["loaded_at"] = now
-    return _popularity_cache["map"]
+        return {(r.filename or "").lower(): r for r in rows}
+
+    return _ttl_cached(_popularity_cache, "all", load)
 
 
 # Per-school counts key on the scope school, so each school's map is cached
@@ -308,9 +329,8 @@ def _school_popularity_map(db, school):
     key = (school or "").strip().upper()
     if not key:
         return {}
-    now = time.monotonic()
-    entry = _school_popularity_cache.get(key)
-    if entry is None or now - entry["loaded_at"] > _POPULARITY_TTL_SECONDS:
+
+    def load():
         rows = db.execute(text("""
             SELECT filename, COUNT(*) AS assignment_count,
                    COUNT(DISTINCT student_id) AS unique_student_count
@@ -318,31 +338,21 @@ def _school_popularity_map(db, school):
             WHERE UPPER(school) = :school
             GROUP BY filename
         """), {"school": key}).fetchall()
-        entry = {
-            "loaded_at": now,
-            "map": {(r.filename or "").lower(): r for r in rows},
-        }
-        _school_popularity_cache[key] = entry
-        while len(_school_popularity_cache) > _SCHOOL_POPULARITY_CACHE_MAX:
-            oldest = min(_school_popularity_cache,
-                         key=lambda k: _school_popularity_cache[k]["loaded_at"])
-            del _school_popularity_cache[oldest]
-    return entry["map"]
+        return {(r.filename or "").lower(): r for r in rows}
+
+    return _ttl_cached(_school_popularity_cache, key, load,
+                       max_entries=_SCHOOL_POPULARITY_CACHE_MAX)
 
 
 # The scope matcher compiles the whole concept vocabulary. Vocabulary edits
 # are rare, so it shares the popularity cache's TTL.
-_scope_matcher_cache = {"loaded_at": None, "matcher": None}
+_scope_matcher_cache = {}
 _school_series_cache = {}
 
 
 def _scope_matcher(db):
-    now = time.monotonic()
-    loaded_at = _scope_matcher_cache["loaded_at"]
-    if loaded_at is None or now - loaded_at > _POPULARITY_TTL_SECONDS:
-        _scope_matcher_cache["matcher"] = exam_scope.load_scope_matcher(db)
-        _scope_matcher_cache["loaded_at"] = now
-    return _scope_matcher_cache["matcher"]
+    return _ttl_cached(_scope_matcher_cache, "matcher",
+                       lambda: exam_scope.load_scope_matcher(db))
 
 
 def _school_series(db, school):
@@ -350,12 +360,8 @@ def _school_series(db, school):
     key = (school or "").strip().upper()
     if not key:
         return None
-    now = time.monotonic()
-    entry = _school_series_cache.get(key)
-    if entry is None or now - entry["loaded_at"] > _POPULARITY_TTL_SECONDS:
-        entry = {"loaded_at": now, "series": exam_scope.school_series(db, school)}
-        _school_series_cache[key] = entry
-    return entry["series"]
+    return _ttl_cached(_school_series_cache, key,
+                       lambda: exam_scope.school_series(db, school))
 
 
 def _stored_scope_rows(db, event_ids):

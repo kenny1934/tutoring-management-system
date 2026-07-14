@@ -113,11 +113,9 @@ def _setup(db_session):
         ('704_EX1_e', 40, 20), ('704_EX2_e', 90, 45), ('704_Rev_e', 10, 8),
         ('705_EX1_e', 5, 3)
     """))
-    curriculum._popularity_cache["loaded_at"] = None
-    curriculum._popularity_cache["map"] = {}
+    curriculum._popularity_cache.clear()
     curriculum._school_popularity_cache.clear()
-    curriculum._scope_matcher_cache["loaded_at"] = None
-    curriculum._scope_matcher_cache["matcher"] = None
+    curriculum._scope_matcher_cache.clear()
     curriculum._school_series_cache.clear()
 
     db_session.add(Student(id=1, student_name="Amy", school="SRL-E", grade="F1", lang_stream="E"))
