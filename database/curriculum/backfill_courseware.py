@@ -14,7 +14,6 @@ Usage (from repo root):
     webapp/backend/venv/bin/python database/curriculum/backfill_courseware.py [--dry-run]
 """
 import argparse
-import json
 import os
 import re
 import sys

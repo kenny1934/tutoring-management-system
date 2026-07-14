@@ -22,4 +22,4 @@ CREATE TABLE IF NOT EXISTS `concept_links` (
     CONSTRAINT `fk_link_to` FOREIGN KEY (`to_concept_id`) REFERENCES `curriculum_concepts`(`id`) ON DELETE CASCADE,
     UNIQUE KEY `uq_link` (`from_concept_id`, `to_concept_id`, `kind`),
     KEY `idx_link_to` (`to_concept_id`, `kind`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -23,6 +23,7 @@ import re
 import sys
 import unicodedata
 from collections import Counter, defaultdict
+from datetime import date
 
 import pymysql
 from dotenv import load_dotenv
@@ -149,18 +150,47 @@ def main():
                 return year, wn
         return None, None
 
+    # students.grade moves every September (promote-grades), but an
+    # observation belongs to the year the session happened: rebuild after a
+    # promotion and today's grade is one too high for last year's sessions.
+    # Shift it back by how many academic years lie between the two.
+    year_starts = {}
+    for year, _wn, start, _end in weeks:
+        if year not in year_starts or start < year_starts[year]:
+            year_starts[year] = start
+    year_order = sorted(year_starts, key=lambda y: year_starts[y])
+    today = date.today()
+    current_ay = None
+    for y in year_order:
+        if year_starts[y] <= today:
+            current_ay = y
+
+    def grade_at(current_grade, session_year):
+        if current_ay is None or session_year == current_ay:
+            return current_grade
+        offset = year_order.index(current_ay) - year_order.index(session_year)
+        m = re.match(r"^F([1-6])$", current_grade or "")
+        if not m:
+            return None
+        n = int(m.group(1)) - offset
+        return "F%d" % n if 1 <= n <= 6 else None
+
     cur.execute(
         "SELECT se.id, se.pdf_name, sl.session_date, s.school, s.grade, s.lang_stream "
         "FROM session_exercises se "
         "JOIN session_log sl ON sl.id = se.session_id "
         "JOIN students s ON s.id = sl.student_id "
-        "WHERE s.grade IN ('F1','F2','F3') AND se.pdf_name IS NOT NULL AND se.pdf_name != '' "
+        "WHERE s.grade REGEXP '^F[1-6]$' AND se.pdf_name IS NOT NULL AND se.pdf_name != '' "
         "AND s.school IS NOT NULL AND s.school != ''"
     )
     for se_id, pdf, sdate, school, grade, stream in cur.fetchall():
         year, week = week_of(sdate)
         if not year:
             stats["assign:no_week"] += 1
+            continue
+        grade = grade_at(grade, year)
+        if grade not in ("F1", "F2", "F3"):
+            stats["assign:grade_out_of_range"] += 1
             continue
         p = parse_pdf_name(pdf)
         code, space = p.get("code"), p.get("code_space")

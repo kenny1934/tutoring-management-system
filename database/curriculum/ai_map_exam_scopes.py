@@ -62,13 +62,18 @@ def load_matcher(cur):
 
 
 def school_series_map(cur):
+    # Deduplicate aliases per (concept, side) first: most HK concepts carry
+    # both an HK_NEW and an HK_OLD row, and a bare join would double their
+    # weight against MAS (same fix as curriculum/exam_scope.school_series).
     cur.execute("""
-        SELECT o.school,
-               CASE WHEN a.code_space = 'MAS' THEN 'MAS' ELSE 'HK' END AS s,
-               SUM(o.confidence)
+        SELECT o.school, a.s, SUM(o.confidence)
         FROM school_topic_observations o
-        JOIN concept_code_aliases a ON a.concept_id = o.concept_id
-        GROUP BY o.school, CASE WHEN a.code_space = 'MAS' THEN 'MAS' ELSE 'HK' END
+        JOIN (
+            SELECT DISTINCT concept_id,
+                   CASE WHEN code_space = 'MAS' THEN 'MAS' ELSE 'HK' END AS s
+            FROM concept_code_aliases
+        ) a ON a.concept_id = o.concept_id
+        GROUP BY o.school, a.s
     """)
     weights = defaultdict(dict)
     for school, series, w in cur.fetchall():
@@ -212,6 +217,14 @@ def main():
     client = gemini_client()
     results = []
     done = 0
+
+    # Checkpoint after every batch: a network error near the end must not
+    # discard the classifications already paid for.
+    def flush(partial):
+        with open(OUT, "w", encoding="utf-8") as fh:
+            json.dump({"model": MODEL, "partial": partial, "lines": results},
+                      fh, ensure_ascii=False, indent=1)
+
     for (school, grade), line_events in groups:
         series = series_of.get(school)
         items = [{"line": line, "event_ids": eids}
@@ -240,11 +253,10 @@ def main():
                     "topics": topics,
                 })
             done += len(chunk)
+            flush(partial=True)
             print(f"  {done}/{total_lines}  ({school} {grade})")
 
-    with open(OUT, "w", encoding="utf-8") as fh:
-        json.dump({"model": MODEL, "lines": results}, fh,
-                  ensure_ascii=False, indent=1)
+    flush(partial=False)
 
     mapped = [r for r in results if r["topics"]]
     confs = Counter()
@@ -264,6 +276,9 @@ def main():
 def write_mode(args):
     """Insert the reviewed mapping file into exam_scope_concepts."""
     data = json.load(open(OUT, encoding="utf-8"))
+    if data.get("partial"):
+        sys.exit("Review file is a partial checkpoint from an interrupted "
+                 "run — re-run the classify step before --write.")
     rows = []
     for r in data["lines"]:
         for t in r["topics"]:

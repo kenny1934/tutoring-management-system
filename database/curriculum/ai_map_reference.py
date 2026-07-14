@@ -215,6 +215,14 @@ def main():
 
     client = gemini_client()
     results = []
+
+    # Checkpoint after every batch: a network error near the end must not
+    # discard the classifications already paid for.
+    def flush(partial):
+        with open(OUT, "w", encoding="utf-8") as fh:
+            json.dump({"model": MODEL, "partial": partial, "grades": grades,
+                       "files": results}, fh, ensure_ascii=False, indent=1)
+
     for start in range(0, len(files), BATCH):
         chunk = files[start:start + BATCH]
         answer = classify_batch(client, vocab_text, chunk)
@@ -231,11 +239,10 @@ def main():
                 if t.get("id") in by_id and float(t.get("conf", 0)) >= 0.5
             ]
             results.append({**f, "topics": topics})
+        flush(partial=True)
         print(f"  {min(start + BATCH, len(files))}/{len(files)}")
 
-    with open(OUT, "w", encoding="utf-8") as fh:
-        json.dump({"model": MODEL, "grades": grades, "files": results}, fh,
-                  ensure_ascii=False, indent=1)
+    flush(partial=False)
 
     mapped = [r for r in results if r["topics"]]
     confs = Counter()
@@ -255,6 +262,9 @@ def main():
 def write_mode(args):
     """Insert the reviewed mapping file into courseware_concepts."""
     data = json.load(open(OUT, encoding="utf-8"))
+    if data.get("partial"):
+        sys.exit("Review file is a partial checkpoint from an interrupted "
+                 "run — re-run the classify step before --write.")
     rows = []
     skipped_ans = 0
     for f in data["files"]:

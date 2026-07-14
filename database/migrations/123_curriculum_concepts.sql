@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `curriculum_concepts` (
     `created_at`    DATETIME DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT `fk_concept_parent` FOREIGN KEY (`parent_id`) REFERENCES `curriculum_concepts`(`id`),
     KEY `idx_concept_kind_grade` (`kind`, `grade`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
 -- 2. Code aliases: per-code-space chapter codes pointing at concepts
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `concept_code_aliases` (
     CONSTRAINT `fk_alias_concept` FOREIGN KEY (`concept_id`) REFERENCES `curriculum_concepts`(`id`) ON DELETE CASCADE,
     UNIQUE KEY `uq_alias` (`code_space`, `code`, `concept_id`),
     KEY `idx_alias_lookup` (`code_space`, `code`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
 -- 3. Courseware -> concept map (the content layer)
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `courseware_concepts` (
     UNIQUE KEY `uq_file_concept` (`match_path`, `concept_id`),
     KEY `idx_cw_basename` (`file_basename`),
     KEY `idx_cw_concept` (`concept_id`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
 -- 4. School topic observations (the timeline layer, per academic year)
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS `school_topic_observations` (
     CONSTRAINT `fk_obs_concept` FOREIGN KEY (`concept_id`) REFERENCES `curriculum_concepts`(`id`) ON DELETE CASCADE,
     KEY `idx_obs_timeline` (`school`, `grade`, `lang_stream`, `academic_year`, `week_number`),
     KEY `idx_obs_concept_year` (`concept_id`, `academic_year`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
 -- 5. Retire the empty AppSheet-era view (0 rows, unreferenced in webapp).
