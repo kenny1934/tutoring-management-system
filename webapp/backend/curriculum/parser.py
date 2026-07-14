@@ -22,7 +22,7 @@ WEEK_RE = re.compile(r"(\d{1,2})周目")
 GRADE_RE = re.compile(r"^(F[1-4])([CE])$", re.I)
 MAS_CHAPTER_FOLDER_RE = re.compile(r"MAS\s?(\d{3})\s+(.+)")
 REV_RE = re.compile(
-    r"(?i)exam|test|quiz|rev(?:ision)?[\b_ .]|mock|paper"
+    r"(?i)exam|test|quiz|(?<![a-z])rev(?:ision)?(?![a-z])|mock|paper"
     r"|考試|考试|測驗|测验|溫習|温习|複習|复习|統測|统测|大測|小測|補測"
 )
 LANG_SUF_RE = re.compile(r"_([ec])(?:[\s(（.]|$)")
@@ -40,7 +40,7 @@ _ROLE_PATTERNS = [
     ("past_paper",    re.compile(r"(?i)past[ _]?paper")),
     ("quiz",          re.compile(r"(?i)quiz|_Q\d+")),
     ("mc",            re.compile(r"(?i)\bMC\b|_MC[_.]|math7-9MC|new_math7-9MC")),
-    ("revision",      re.compile(r"(?i)\brev\b|_R\d+|REV[\\_]|溫習|温习|複習|复习")),
+    ("revision",      re.compile(r"(?i)(?<![a-z])rev(?![a-z])|_R\d+|溫習|温习|複習|复习")),
     ("exercise",      re.compile(r"(?i)_EX\d|math7-9EX|extra")),
 ]
 

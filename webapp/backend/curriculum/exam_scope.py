@@ -230,7 +230,7 @@ _EXT_ALIASES = {
 # Lines that describe the event rather than its topics.
 _NONTOPIC = [
     (re.compile(r'(?i)holiday|假期|christmas|easter|新年|寒假|暑假|春節'), "holiday"),
-    (re.compile(r'(?i)mid[- ]?term|期中|中段考?|ut\d?|統測|统测'), "exam"),
+    (re.compile(r'(?i)mid[- ]?term|期中|中段考?|\but\d?\b|統測|统测'), "exam"),
     (re.compile(r'(?i)final|期末|大考|考試|考试|exam(?!ple)'), "exam"),
     (re.compile(r'(?i)^test\b|測驗|测验|quiz|小測|大測'), "test"),
     (re.compile(r'(?i)revision|複習|复习|溫習|温习|^rev\b|統整'), "revision"),
@@ -439,7 +439,10 @@ class ScopeMatcher:
                     continue
 
             cleaned = _PERCENT_RE.sub(" ", _PUBLISHER_RE.sub(" ", part))
-            if _NOISE_LINE_RE.fullmatch(cleaned):
+            # A line that is nothing but section codes ("22.1至22.3") still
+            # belongs to the code channel; only drop numeric lines the section
+            # pattern cannot read.
+            if _NOISE_LINE_RE.fullmatch(cleaned) and not _SECTION_RE.search(cleaned):
                 continue
             # Splitting "x^2+bx+c" on '+' leaves algebraic crumbs like "bx";
             # no real topic is a couple of ASCII characters.

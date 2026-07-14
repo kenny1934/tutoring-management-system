@@ -138,6 +138,28 @@ def test_noise_lines_and_percent_weights_are_dropped():
     assert lines[0]["concepts"][0]["concept_id"] == 1
 
 
+def test_english_words_containing_ut_are_not_exam_lines():
+    # "ut" (unit test) must not fire inside Computation/Absolute/Substitution,
+    # which would hide the line from the unmatched list and the AI pass.
+    line = _single("Ch1: Basic Computation", grade="F1")
+    assert line["kind"] == "topic"
+    line = _single("UT1", grade="F1")
+    assert line["kind"] == "exam"
+
+
+def test_pure_section_code_lines_reach_the_code_channel():
+    # A comma part that is only section codes ("24.1") is scope, not noise.
+    lines = MATCHER.parse("數學測驗: 21.1, 24.1", series="MAS", grade="F3")
+    assert len(lines) == 2
+    assert lines[1]["concepts"] == [
+        {"concept_id": 7, "confidence": 0.8, "channel": "code"}]
+    # Without a MAS series the codes cannot resolve, but the line must
+    # surface as unmatched for the AI pass instead of vanishing.
+    lines = MATCHER.parse("8.1~8.5", grade="F2")
+    _, unmatched = summarize(lines)
+    assert unmatched == ["8.1~8.5"]
+
+
 def test_summarize_aggregates_and_reports_unmatched():
     lines = MATCHER.parse(
         "第21章一元二次方程\n圓\n神秘課題\n溫習全部", series="MAS", grade="F3")
