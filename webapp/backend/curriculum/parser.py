@@ -19,7 +19,14 @@ DECIMAL_CODE_RE = re.compile(r"\b([789]\d\d)\.\d[A-Z]?_")
 SM_RE = re.compile(r"\bSM_?\d{3}")
 SS_RE = re.compile(r"\bSS\d{2}")
 WEEK_RE = re.compile(r"(\d{1,2})周目")
-GRADE_RE = re.compile(r"^(F[1-4])([CE])$", re.I)
+# stream letter is optional: 2024-25 weekly folders use bare F1/F2 grade dirs
+GRADE_RE = re.compile(r"^(F[1-4])([CE])?$", re.I)
+# exam-prep marker on a weekly school folder: "SHCC-E(Exam)", "PTMS(Test)",
+# "DBYW-E Exam Practice", "LHS (Mock)", 統測/補測 suffixes
+SCHOOL_EXAM_RE = re.compile(
+    r"(?i)[(（\s]\s*(?:alg\s+)?(?:exam|test|mock)"
+    r"|考試|考试|測驗|测验|統測|统测|大測|小測|補測"
+)
 MAS_CHAPTER_FOLDER_RE = re.compile(r"MAS\s?(\d{3})\s+(.+)")
 REV_RE = re.compile(
     r"(?i)exam|test|quiz|(?<![a-z])rev(?:ision)?(?![a-z])|mock|paper"
@@ -106,9 +113,10 @@ def parse_pdf_name(raw: str) -> dict:
                 g = GRADE_RE.match(segs[i + 1].strip())
                 if g:
                     out["wk_grade"] = g.group(1).upper()
-                    out["wk_stream"] = g.group(2).upper()
+                    if g.group(2):
+                        out["wk_stream"] = g.group(2).upper()
                     school = segs[i + 2].strip()
-                    out["wk_school_exam"] = bool(re.search(r"(?i)[(（]\s*exam|考試", school))
+                    out["wk_school_exam"] = bool(SCHOOL_EXAM_RE.search(school))
                     out["wk_school"] = re.sub(r"\s*[(（].*?[)）]\s*$", "", school)
             break
 

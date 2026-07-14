@@ -19,3 +19,27 @@ def test_detect_role_revision_handles_underscore_bounds():
     assert detect_role("file.pdf", r"F3\C_REV") == "revision"
     assert detect_role("file.pdf", r"F3\math7-9Rev") == "revision"
     assert detect_role("701_Review.pdf", "") is None
+
+
+def test_weekly_context_accepts_bare_grade_folders():
+    # 2024-25 folders often use F1/F2 without the stream letter.
+    p = parse_pdf_name(
+        r"V:\Secondary\Finalised\2024-2025\11周目 (11.10-11.16)\F2\PCMS\Rev1.pdf"
+    )
+    assert p["wk_grade"] == "F2"
+    assert "wk_stream" not in p
+    assert p["wk_school"] == "PCMS"
+
+
+def test_school_exam_marker_covers_test_and_mock_suffixes():
+    base = r"V:\Secondary\Finalised\2025-2026\9周目 (10.27-11.02)\F1E"
+
+    def parsed(school):
+        return parse_pdf_name(base + "\\" + school + r"\paper.pdf")
+
+    assert parsed("SHCC-E(Exam)")["wk_school_exam"]
+    assert parsed("PTMS(Test)")["wk_school_exam"]
+    assert parsed("DBYW-E Exam Practice")["wk_school_exam"]
+    assert parsed("LHS (Mock)")["wk_school_exam"]
+    assert parsed("SRL-E（統測）")["wk_school_exam"]
+    assert not parsed("SHCC-E")["wk_school_exam"]
