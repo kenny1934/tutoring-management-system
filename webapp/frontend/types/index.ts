@@ -654,6 +654,30 @@ export interface CurriculumRevisionPackConcept extends CurriculumExamScopeConcep
   file_count: number;
 }
 
+export interface CurriculumPastPaper {
+  id: number;
+  file_path: string;
+  file_basename: string;
+  variant_paths: string[];
+  school: string | null;
+  grade: string | null;
+  academic_year: string;
+  week_number: number;
+  exam_kind: string | null;
+  // which tier indexed the paper's topics: 'event' (its own test's scope),
+  // 'code' (chapter code in the filename), 'ai' (filename classification),
+  // 'proxy' (borrowed from a similar test in another year), 'none'
+  scope_source: string;
+  link_confidence: number | null;
+  same_school: boolean;
+  matched_count: number;
+  matched_concepts: {
+    concept_id: number;
+    name_en: string | null;
+    name_zh: string | null;
+  }[];
+}
+
 export interface CurriculumRevisionPackResponse {
   event: {
     id: number;
@@ -666,6 +690,7 @@ export interface CurriculumRevisionPackResponse {
   lang_stream: string | null;
   concepts: CurriculumRevisionPackConcept[];
   unmatched_lines: string[];
+  past_papers: CurriculumPastPaper[];
 }
 
 export interface CurriculumObservationResult {
