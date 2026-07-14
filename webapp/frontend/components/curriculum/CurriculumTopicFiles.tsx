@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { ArrowLeft, FileText, Loader2, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { useCurriculumConcepts, useCurriculumSearch } from "@/lib/hooks";
 import {
   conceptNameForStream,
@@ -11,6 +10,10 @@ import {
 } from "@/lib/curriculum-labels";
 import type { CurriculumFile } from "@/types";
 import { CurriculumFileRow } from "./CurriculumFileRow";
+import {
+  CurriculumModalShell,
+  CurriculumShowMoreFiles,
+} from "./CurriculumModalShell";
 import { CurriculumPdfPreview } from "./CurriculumPdfPreview";
 
 interface Scope {
@@ -42,34 +45,6 @@ export function CurriculumTopicFiles({
   const [showAll, setShowAll] = useState(false);
   const [current, setCurrent] = useState({ conceptId, name: conceptName });
   const [trail, setTrail] = useState<{ conceptId: number; name: string }[]>([]);
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Dialog focus management: take focus on open, hand it back on close, and
-  // keep Tab cycling inside the panel instead of escaping into the page.
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    return () => opener?.focus?.();
-  }, []);
-  const trapTab = (e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-    const root = panelRef.current;
-    if (!root) return;
-    const focusables = root.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusables.length === 0) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || active === root)) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
 
   const { data: vocab } = useCurriculumConcepts();
   const vocabById = useMemo(
@@ -114,18 +89,6 @@ export function CurriculumTopicFiles({
       : {}),
   });
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // With a preview stacked on top, Escape closes only the preview
-      // (its own handler does that); this panel stays put.
-      if (e.key === "Escape" && !preview) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, preview]);
-
-  if (typeof document === "undefined") return null;
-
   const concepts = data?.concepts || [];
   const totalFiles = concepts.reduce((n, c) => n + c.files.length, 0);
 
@@ -141,23 +104,15 @@ export function CurriculumTopicFiles({
     </button>
   );
 
-  return createPortal(
+  return (
     <>
-      <div
-        className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-6 bg-black/50"
-        onClick={onClose}
-      >
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Worksheets for ${current.name}`}
-          tabIndex={-1}
-          onKeyDown={trapTab}
-          className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden focus:outline-none"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
+      <CurriculumModalShell
+        ariaLabel={`Worksheets for ${current.name}`}
+        closeLabel="Close worksheet list"
+        previewOpen={preview != null}
+        onClose={onClose}
+        header={
+          <>
             {trail.length > 0 && (
               <button
                 type="button"
@@ -175,23 +130,15 @@ export function CurriculumTopicFiles({
             {isLoading && (
               <Loader2 className="h-3 w-3 animate-spin text-gray-400 shrink-0" />
             )}
-            <button
-              type="button"
-              aria-label="Close worksheet list"
-              onClick={onClose}
-              className="ml-auto p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 shrink-0"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <p className="px-4 py-1.5 text-[10px] text-gray-400 dark:text-gray-500 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30">
-            {scope
-              ? `Showing the whole library for this topic, most relevant to ${scope.school} ${scope.grade} first.`
-              : "Showing the whole library for this topic."}
-          </p>
-
-          {(buildsOn.length > 0 || leadsTo.length > 0) && (
+          </>
+        }
+        subtitle={
+          scope
+            ? `Showing the whole library for this topic, most relevant to ${scope.school} ${scope.grade} first.`
+            : "Showing the whole library for this topic."
+        }
+        beforeBody={
+          (buildsOn.length > 0 || leadsTo.length > 0) && (
             <div className="px-4 py-1.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex flex-col gap-1">
               {buildsOn.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -210,60 +157,49 @@ export function CurriculumTopicFiles({
                 </div>
               )}
             </div>
-          )}
-
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {!isLoading && totalFiles === 0 && (
-              <p className="px-4 py-5 text-xs text-gray-500 dark:text-gray-400">
-                No files mapped to this topic yet.
-              </p>
-            )}
-            {concepts.map(
-              (concept) =>
-                concept.files.length > 0 && (
-                  <div
-                    key={concept.concept_id}
-                    className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
-                  >
-                    {concept.evidence && concept.evidence.weeks_observed.length > 0 && (
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
-                        {evidenceSummary(
-                          concept.evidence.weeks_observed,
-                          concept.evidence.sources
-                        )}
-                      </p>
+          )
+        }
+      >
+        {!isLoading && totalFiles === 0 && (
+          <p className="px-4 py-5 text-xs text-gray-500 dark:text-gray-400">
+            No files mapped to this topic yet.
+          </p>
+        )}
+        {concepts.map(
+          (concept) =>
+            concept.files.length > 0 && (
+              <div
+                key={concept.concept_id}
+                className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
+              >
+                {concept.evidence && concept.evidence.weeks_observed.length > 0 && (
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                    {evidenceSummary(
+                      concept.evidence.weeks_observed,
+                      concept.evidence.sources
                     )}
-                    <div className="space-y-0.5">
-                      {concept.files.map((file) => (
-                        <CurriculumFileRow
-                          key={file.file_path}
-                          file={file}
-                          onPreview={setPreview}
-                          scopeSchool={scope?.school}
-                        />
-                      ))}
-                    </div>
-                    {(concept.file_count || 0) > concept.files.length &&
-                      (showAll ? (
-                        <p className="text-[10px] text-gray-400 mt-1.5">
-                          Showing the first {concept.files.length} of{" "}
-                          {concept.file_count} files.
-                        </p>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setShowAll(true)}
-                          className="mt-1.5 text-[10px] text-teal-700 dark:text-teal-400 hover:underline"
-                        >
-                          Show {(concept.file_count || 0) - concept.files.length} more
-                        </button>
-                      ))}
-                  </div>
-                )
-            )}
-          </div>
-        </div>
-      </div>
+                  </p>
+                )}
+                <div className="space-y-0.5">
+                  {concept.files.map((file) => (
+                    <CurriculumFileRow
+                      key={file.file_path}
+                      file={file}
+                      onPreview={setPreview}
+                      scopeSchool={scope?.school}
+                    />
+                  ))}
+                </div>
+                <CurriculumShowMoreFiles
+                  shown={concept.files.length}
+                  total={concept.file_count || 0}
+                  showAll={showAll}
+                  onShowAll={() => setShowAll(true)}
+                />
+              </div>
+            )
+        )}
+      </CurriculumModalShell>
 
       {preview && (
         <CurriculumPdfPreview
@@ -272,7 +208,6 @@ export function CurriculumTopicFiles({
           onClose={() => setPreview(null)}
         />
       )}
-    </>,
-    document.body
+    </>
   );
 }
