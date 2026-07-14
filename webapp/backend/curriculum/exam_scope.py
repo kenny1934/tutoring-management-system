@@ -576,13 +576,19 @@ def school_series(db, school):
     series for ambiguous sheet strings.
     """
     from sqlalchemy import text as sql_text
+    # Deduplicate aliases per (concept, side) first: most HK concepts carry
+    # both an HK_NEW and an HK_OLD row, and a bare join would double their
+    # weight against MAS.
     rows = db.execute(sql_text("""
-        SELECT CASE WHEN a.code_space = 'MAS' THEN 'MAS' ELSE 'HK' END AS s,
-               SUM(o.confidence) AS w
+        SELECT a.s, SUM(o.confidence) AS w
         FROM school_topic_observations o
-        JOIN concept_code_aliases a ON a.concept_id = o.concept_id
+        JOIN (
+            SELECT DISTINCT concept_id,
+                   CASE WHEN code_space = 'MAS' THEN 'MAS' ELSE 'HK' END AS s
+            FROM concept_code_aliases
+        ) a ON a.concept_id = o.concept_id
         WHERE o.school = :school
-        GROUP BY CASE WHEN a.code_space = 'MAS' THEN 'MAS' ELSE 'HK' END
+        GROUP BY a.s
     """), {"school": school}).fetchall()
     if not rows:
         return None

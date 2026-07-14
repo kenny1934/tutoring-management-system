@@ -52,6 +52,7 @@ from curriculum import exam_scope
 from curriculum.paths import normalize
 from database import get_db
 from models import CalendarEvent, Student, Tutor
+from routers.debug_admin import escape_like_pattern
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -290,8 +291,11 @@ def _popularity_map(db):
 
 
 # Per-school counts key on the scope school, so each school's map is cached
-# separately (schools are a bounded set — a few dozen entries at most).
+# separately. The suggestion paths only pass schools that exist in the DB,
+# but /curriculum/search passes the caller's school string verbatim, so the
+# cache is capped rather than trusted to stay a few dozen entries.
 _school_popularity_cache = {}
+_SCHOOL_POPULARITY_CACHE_MAX = 64
 
 
 def _school_popularity_map(db, school):
@@ -319,6 +323,10 @@ def _school_popularity_map(db, school):
             "map": {(r.filename or "").lower(): r for r in rows},
         }
         _school_popularity_cache[key] = entry
+        while len(_school_popularity_cache) > _SCHOOL_POPULARITY_CACHE_MAX:
+            oldest = min(_school_popularity_cache,
+                         key=lambda k: _school_popularity_cache[k]["loaded_at"])
+            del _school_popularity_cache[oldest]
     return entry["map"]
 
 
@@ -753,7 +761,7 @@ def _match_concepts(db, q: str):
         SELECT id FROM curriculum_concepts
         WHERE name_en LIKE :pat OR name_zh LIKE :pat
         ORDER BY display_order, id
-    """), {"pat": f"%{q.strip()}%"}):
+    """), {"pat": f"%{escape_like_pattern(q.strip())}%"}):
         if row.id not in ids:
             ids.append(row.id)
     return ids
@@ -780,7 +788,8 @@ def search_curriculum(
     scope (school+grade, optionally stream/year/week range). With only a
     concept filter: that concept's files. With only a scope: the top
     concepts that school covered in the range, with files. With both: the
-    concept filter ordered/annotated by the school's evidence.
+    concept filter's matches annotated (not reordered) with the school's
+    evidence.
     """
     if not q and not concept_id and not (school and grade):
         raise HTTPException(
