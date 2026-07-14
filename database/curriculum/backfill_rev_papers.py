@@ -336,6 +336,15 @@ def main():
     try:
         cur.execute("SELECT id, match_path FROM exam_rev_papers")
         existing = {mp: pid for pid, mp in cur.fetchall()}
+        # ai rows from ai_map_rev_papers.py survive the rebuild and outrank a
+        # borrowed proxy scope: keep the label a re-run would otherwise demote
+        cur.execute("SELECT DISTINCT paper_id FROM exam_rev_paper_concepts "
+                    "WHERE source = 'ai'")
+        ai_pids = {r[0] for r in cur.fetchall()}
+        for r in rows:
+            if (r["scope_source"] in ("proxy", "none")
+                    and existing.get(r["match_path"]) in ai_pids):
+                r["scope_source"] = "ai"
         seen = set()
         created = updated = 0
         paper_ids = {}
