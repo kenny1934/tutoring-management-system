@@ -20,21 +20,13 @@ import argparse
 import json
 import os
 import re
-import sys
 import unicodedata
 from collections import Counter, defaultdict
 from datetime import date
 
-import pymysql
-from dotenv import load_dotenv
-
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(REPO_ROOT, "webapp", "backend"))
+from _common import PRIV, connect  # noqa: E402  (sets sys.path + .env)
 from curriculum.parser import parse_pdf_name  # noqa: E402
 
-load_dotenv(os.path.join(REPO_ROOT, "webapp", "backend", ".env"))
-
-PRIV = os.path.join(REPO_ROOT, "private", "curriculum_data")
 TREE_V = os.path.join(PRIV, "drive_trees", "tree_v_secondary.txt")
 
 YEAR_CONF = {"2025-2026": 0.90, "2024-2025": 0.80, "2023-2024": 0.70, "2022-2023": 0.60}
@@ -69,14 +61,6 @@ def canon_school(name, stream=None):
             out.append(f"{p}-{stream}")
         # unknown school folders are dropped (counted by caller via empty result)
     return out
-
-
-def connect():
-    return pymysql.connect(
-        host=os.getenv("DB_HOST", "localhost"), port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"), charset="utf8mb4", connect_timeout=10,
-    )
 
 
 def concept_for(alias_map, space, code):

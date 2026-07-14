@@ -18,17 +18,11 @@ Usage (from repo root):
 """
 import argparse
 import os
-import sys
 
-import pymysql
-from dotenv import load_dotenv
-
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(REPO_ROOT, "webapp", "backend"))
+from _common import REPO_ROOT, connect  # noqa: E402  (sets sys.path + .env)
 from curriculum.parser import parse_pdf_name  # noqa: E402
 from curriculum.paths import normalize  # noqa: E402
 
-load_dotenv(os.path.join(REPO_ROOT, "webapp", "backend", ".env"))
 TREE_V = os.path.join(REPO_ROOT, "private", "curriculum_data", "drive_trees", "tree_v_secondary.txt")
 
 SUBTREE = "!Courseware (Eng)"
@@ -75,11 +69,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    conn = pymysql.connect(
-        host=os.getenv("DB_HOST", "localhost"), port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"), charset="utf8mb4", connect_timeout=10,
-    )
+    conn = connect()
     cur = conn.cursor()
 
     def concept_id(ref):

@@ -22,12 +22,8 @@ import argparse
 import json
 import os
 
-import pymysql
-from dotenv import load_dotenv
+from _common import PRIV, connect  # noqa: E402  (sets sys.path + .env)
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-load_dotenv(os.path.join(REPO_ROOT, "webapp", "backend", ".env"))
-PRIV = os.path.join(REPO_ROOT, "private", "curriculum_data")
 SEED_PATH = os.path.join(PRIV, "concept_seed.json")
 HK_TITLES_PATH = os.path.join(PRIV, "hk_zh_titles.json")
 
@@ -73,11 +69,7 @@ def main():
 
     hk_titles = json.load(open(HK_TITLES_PATH, encoding="utf-8"))
 
-    conn = pymysql.connect(
-        host=os.getenv("DB_HOST", "localhost"), port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"), charset="utf8mb4", connect_timeout=10,
-    )
+    conn = connect()
     cur = conn.cursor()
 
     # HK side: official Chinese titles, keyed by HK_NEW code.

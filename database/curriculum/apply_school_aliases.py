@@ -15,11 +15,8 @@ import argparse
 import json
 import os
 
-import pymysql
-from dotenv import load_dotenv
+from _common import REPO_ROOT, connect  # noqa: E402  (sets sys.path + .env)
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-load_dotenv(os.path.join(REPO_ROOT, "webapp", "backend", ".env"))
 ALIASES_PATH = os.path.join(REPO_ROOT, "private", "curriculum_data", "school_aliases.json")
 
 
@@ -31,11 +28,7 @@ def main():
     fix = json.load(open(ALIASES_PATH, encoding="utf-8"))["FIX"]
     renames = {variant: canon for variant, canon in fix.items() if variant != canon}
 
-    conn = pymysql.connect(
-        host=os.getenv("DB_HOST", "localhost"), port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"), charset="utf8mb4", connect_timeout=10,
-    )
+    conn = connect()
     cur = conn.cursor()
 
     total = 0

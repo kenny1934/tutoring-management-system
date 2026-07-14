@@ -19,19 +19,12 @@ import argparse
 import json
 import os
 import re
-import subprocess
 import sys
 import time
 from collections import Counter
 
-import pymysql
-from dotenv import load_dotenv
-
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(REPO_ROOT, "webapp", "backend"))
+from _common import REPO_ROOT, connect, gemini_client, parse_json_array  # noqa: E402  (sets sys.path + .env)
 from curriculum.paths import normalize, to_alias_path  # noqa: E402
-
-load_dotenv(os.path.join(REPO_ROOT, "webapp", "backend", ".env"))
 
 TREE = os.path.join(REPO_ROOT, "private", "curriculum_data", "drive_trees",
                     "tree_v_reference_raw.txt")
@@ -79,14 +72,6 @@ def detect_lang(school, basename):
     return None
 
 
-def connect():
-    return pymysql.connect(
-        host=os.getenv("DB_HOST", "localhost"), port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"), charset="utf8mb4", connect_timeout=10,
-    )
-
-
 def load_vocab(cur, grades):
     """Junior concept vocabulary the model may map to."""
     placeholders = ",".join(["%s"] * len(grades))
@@ -99,22 +84,6 @@ def load_vocab(cur, grades):
         {"id": cid, "kind": kind, "grade": g, "name_en": en, "name_zh": zh}
         for cid, kind, g, en, zh in cur.fetchall()
     ]
-
-
-def gemini_client():
-    from google import genai
-    from google.oauth2.credentials import Credentials
-
-    # Local ADC may be stale; the gcloud user credential is the reliable one here.
-    token = subprocess.check_output(
-        ["gcloud", "auth", "print-access-token"], text=True
-    ).strip()
-    return genai.Client(
-        vertexai=True,
-        project=os.getenv("GOOGLE_CLOUD_PROJECT", "csm-database-project"),
-        location="global",
-        credentials=Credentials(token=token),
-    )
 
 
 def classify_batch(client, vocab_text, files):
@@ -151,21 +120,11 @@ Return JSON only: [{{"i": <file index>, "topics": [{{"id": <topic id>, "conf": <
             ),
         )
         try:
-            return _parse_json_array(resp.text or "")
+            return parse_json_array(resp.text or "")
         except (json.JSONDecodeError, ValueError, TypeError):
             if attempt == 2:
                 raise
             time.sleep(2)
-
-
-def _parse_json_array(text):
-    """The model sometimes appends stray text after the array — take the
-    first complete JSON value instead of requiring a clean document."""
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        value, _ = json.JSONDecoder().raw_decode(text[text.index("["):])
-        return value
 
 
 def main():
