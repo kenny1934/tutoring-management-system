@@ -465,10 +465,15 @@ export default function CurriculumPage() {
     cohortYear2
   );
 
-  const primaryCombo: Combo | null =
-    school && effectiveGrade
-      ? { school, grade: effectiveGrade, stream: effectiveStream || null }
-      : null;
+  // Memoised: pacingCombos/pacingRows and the memoised pacing chart key off
+  // this object's identity, so a fresh literal every render would defeat them.
+  const primaryCombo: Combo | null = useMemo(
+    () =>
+      school && effectiveGrade
+        ? { school, grade: effectiveGrade, stream: effectiveStream || null }
+        : null,
+    [school, effectiveGrade, effectiveStream]
+  );
   const primaryKey = primaryCombo ? comboKey(primaryCombo) : null;
 
   // A comparison that becomes the primary school would show twice in two
@@ -570,11 +575,14 @@ export default function CurriculumPage() {
   useEffect(() => {
     const target = focusWeek ?? timeline?.current_week;
     if (target == null || lanes.length === 0) return;
+    // In atlas view the Gantt is unmounted; bail before burning the one-shot
+    // key so the scroll still happens when the user switches to Timeline.
+    if (view !== "timeline" || !ganttScrollRef.current) return;
     const key = `${school}||${effectiveGrade}||${displayYear}`;
     if (autoScrolledKey.current === key) return;
     autoScrolledKey.current = key;
     scrollToWeek(target, "auto");
-  }, [timeline, lanes, school, effectiveGrade, displayYear, focusWeek, scrollToWeek]);
+  }, [timeline, lanes, school, effectiveGrade, displayYear, focusWeek, scrollToWeek, view]);
 
   // Reflect the current view in the URL (guarded: Next patches replaceState,
   // so an unconditional call would loop via useSearchParams).
@@ -593,6 +601,21 @@ export default function CurriculumPage() {
       window.history.replaceState(null, "", newUrl);
     }
   }, [view, school, effectiveGrade, displayYear, focusWeek]);
+
+  // Everything week-related is scoped to one school-grade, so any school
+  // change (dropdown or gap chip) must reset the whole lot together.
+  const changeSchool = useCallback(
+    (nextSchool: string | null, nextGrade: string | null = null) => {
+      setSchool(nextSchool);
+      setGrade(nextGrade);
+      setYear(null);
+      setExpandedLane(null);
+      setFocusWeek(null);
+      setWeekQuery("");
+      setWeekQueryInvalid(false);
+    },
+    []
+  );
 
   const jumpToWeek = useCallback(
     (week: number | null) => {
@@ -715,15 +738,7 @@ export default function CurriculumPage() {
             <select
               className={selectClass}
               value={school || ""}
-              onChange={(e) => {
-                setSchool(e.target.value || null);
-                setGrade(null);
-                setYear(null);
-                setExpandedLane(null);
-                setFocusWeek(null);
-                setWeekQuery("");
-                setWeekQueryInvalid(false);
-              }}
+              onChange={(e) => changeSchool(e.target.value || null)}
             >
               <option value="">Pick a school…</option>
               {schools.map((s) => (
@@ -1168,10 +1183,7 @@ export default function CurriculumPage() {
                       key={`${g.school}-${g.grade}-${g.lang_stream}`}
                       type="button"
                       onClick={() => {
-                        setSchool(g.school);
-                        setGrade(g.grade);
-                        setYear(null);
-                        setExpandedLane(null);
+                        changeSchool(g.school, g.grade);
                         // The app scrolls inside <main>, not the window.
                         document
                           .getElementById("main-content")

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CalendarClock, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hkTodayIso } from "@/lib/summer-utils";
 import { useCurriculumExams } from "@/lib/hooks";
 import { conceptNameForStream } from "@/lib/curriculum-labels";
 import type { CurriculumExamEvent } from "@/types";
@@ -33,7 +34,9 @@ export function CurriculumExamStrip({
 
   const events = useMemo(() => {
     if (!data?.events?.length) return [];
-    const today = new Date().toISOString().slice(0, 10);
+    // HK calendar date, not UTC: an exam must stop being "Upcoming" at local
+    // midnight, not at 08:00.
+    const today = hkTodayIso();
     const upcoming = data.events.filter((e) => e.start_date >= today);
     const past = data.events.filter((e) => e.start_date < today).reverse();
     return [...upcoming, ...past];
@@ -41,7 +44,7 @@ export function CurriculumExamStrip({
 
   if (events.length === 0) return null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hkTodayIso();
 
   const dateLabel = (e: CurriculumExamEvent) =>
     new Date(e.start_date).toLocaleDateString("en-GB", {

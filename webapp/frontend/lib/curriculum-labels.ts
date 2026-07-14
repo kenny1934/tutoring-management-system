@@ -89,6 +89,18 @@ export function priorAcademicYear(year: string): string {
   return `${parseInt(parts[0]) - 1}-${parseInt(parts[1]) - 1}`;
 }
 
+/** Explorer link pinned to a school-grade week (shared by the session
+ *  surfaces so the year logic cannot drift between them). */
+export function curriculumExplorerHref(
+  school: string | null | undefined,
+  grade: string | null | undefined,
+  week: number,
+  year?: string | null
+): string {
+  const yearPart = year ? `&year=${encodeURIComponent(year)}` : "";
+  return `/curriculum?school=${encodeURIComponent(school || "")}&grade=${encodeURIComponent(grade || "")}&week=${week}${yearPart}`;
+}
+
 export function stripExtension(name: string): string {
   return name.replace(/\.(pdf|docx?|xlsx|pptx|jpg)$/i, "");
 }

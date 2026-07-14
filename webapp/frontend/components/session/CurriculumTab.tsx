@@ -11,6 +11,7 @@ import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useCurriculumSuggestions, useCurriculumTimeline } from "@/lib/hooks";
 import {
   conceptNameForStream,
+  curriculumExplorerHref,
   isCurriculumEligible,
   priorAcademicYear,
   sourcesText,
@@ -146,7 +147,14 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
     timelineYear
   );
 
-  if (!hasWeekContext || !timeline) return null;
+  // SWR keeps the previous student's data while the new keys load (global
+  // keepPreviousData), and this component stays mounted across session-to-
+  // session navigation — render nothing until the echoes match the session.
+  const isStale =
+    (sugg && sugg.student_id !== session.student_id) ||
+    (timeline && session.school && timeline.school !== session.school);
+
+  if (!hasWeekContext || !timeline || isStale) return null;
 
   const week = sugg!.week_number!;
   const findWeek = (w: number): WeekData | null =>
@@ -180,7 +188,7 @@ export function CurriculumTab({ session }: CurriculumTabProps) {
             {isLastYear ? `Last year · ${timeline.academic_year}` : timeline.academic_year}
           </Badge>
           <Link
-            href={`/curriculum?school=${encodeURIComponent(session.school || "")}&grade=${encodeURIComponent(session.grade || "")}&week=${week}${timelineYear ? `&year=${encodeURIComponent(timelineYear)}` : ""}`}
+            href={curriculumExplorerHref(session.school, session.grade, week, timelineYear)}
             className="text-[11px] text-teal-700 dark:text-teal-400 hover:underline ml-auto"
           >
             See the full year →

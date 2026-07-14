@@ -173,19 +173,18 @@ const AtlasNode = memo(function AtlasNode({
 const AtlasEdges = memo(function AtlasEdges({
   layout,
   series,
-  highlightKey,
   relatedEdges,
   hasActive,
   reduced,
 }: {
   layout: AtlasLayout;
   series: AtlasSeries;
-  highlightKey: string;
+  // relatedEdges is rebuilt per active node, so its identity already
+  // invalidates the memo whenever the highlight changes.
   relatedEdges: Set<string> | null;
   hasActive: boolean;
   reduced: boolean;
 }) {
-  void highlightKey; // memo comparison input — the sets are rebuilt per active node
   return (
     <svg
       width={layout.grid.width}
@@ -555,7 +554,6 @@ export function CurriculumAtlas({
             <AtlasEdges
               layout={layout}
               series={series}
-              highlightKey={`${activeId ?? ""}`}
               relatedEdges={related?.edges ?? null}
               hasActive={activeId != null}
               reduced={reduced}

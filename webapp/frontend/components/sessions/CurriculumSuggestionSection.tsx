@@ -26,6 +26,7 @@ import { ApiError, curriculumAPI } from "@/lib/api";
 import {
   SOURCE_LABELS,
   conceptNameForStream,
+  curriculumExplorerHref,
   isCurriculumEligible,
   matchesConcept,
   priorAcademicYear,
@@ -50,9 +51,13 @@ function evidenceLine(
     return line ? `${label} · “${line}”` : label;
   }
   if (why.tier === "pacing") {
-    return `Typically around week ${
-      why.mean_week != null ? Math.round(why.mean_week) : weeksSpanText(why.weeks_observed || [])
-    }`;
+    // weeksSpanText already says "week N" / "weeks A to B" — no literal
+    // "week" prefix here or the fallback reads "week weeks 9 to 14".
+    const span =
+      why.mean_week != null
+        ? `week ${Math.round(why.mean_week)}`
+        : weeksSpanText(why.weeks_observed || []);
+    return span ? `Typically around ${span}` : "Typical pace for this school";
   }
   const sources = (why.sources || []).map((s) => SOURCE_LABELS[s] || s);
   const sourceText =
@@ -221,6 +226,8 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
     }
   };
 
+  const stream = data.lang_stream || session.lang_stream || null;
+
   const examDate = data.upcoming_exam?.start_date
     ? new Date(data.upcoming_exam.start_date).toLocaleDateString("en-GB", {
         day: "numeric",
@@ -242,9 +249,12 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           : `Based on ${data.school}'s typical pace`;
 
   // Last-year-tier evidence means the current year is empty near this week —
-  // point the explorer at the year that actually has the data.
+  // point the explorer at the year that actually has the data. The timeline
+  // tier is what matters here: during an exam window `tier` pivots to
+  // exam_scope while the timeline may still be running on last year.
+  const timelineTier = data.timeline_tier ?? data.tier;
   const linkYear =
-    data.tier === "last_year" && data.academic_year
+    timelineTier === "last_year" && data.academic_year
       ? priorAcademicYear(data.academic_year)
       : data.academic_year;
 
@@ -267,7 +277,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         </span>
         {!expanded && data.suggestions.length > 0 && (
           <span className="text-[10px] text-teal-700 dark:text-teal-400 truncate">
-            {conceptNameForStream(data.suggestions[0], data.lang_stream || session.lang_stream || null)}
+            {conceptNameForStream(data.suggestions[0], stream)}
           </span>
         )}
         {examDate && (
@@ -310,7 +320,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                 <>
                   {" · "}
                   <Link
-                    href={`/curriculum?school=${encodeURIComponent(data.school || "")}&grade=${encodeURIComponent(data.grade || "")}&week=${data.week_number}${linkYear ? `&year=${encodeURIComponent(linkYear)}` : ""}`}
+                    href={curriculumExplorerHref(data.school, data.grade, data.week_number, linkYear)}
                     className="text-teal-700 dark:text-teal-400 hover:underline"
                   >
                     See the full year →
@@ -341,7 +351,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                        {conceptNameForStream(concept, data.lang_stream || session.lang_stream || null)}
+                        {conceptNameForStream(concept, stream)}
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400">
                         {evidenceLine(concept, examLabel)}
@@ -360,7 +370,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                               if (!prereq) return null;
                               const name = conceptNameForStream(
                                 prereq,
-                                data.lang_stream || session.lang_stream || null
+                                stream
                               );
                               return (
                                 <button
@@ -516,7 +526,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                           className="w-full flex items-center gap-1.5 text-left rounded px-1.5 py-1 hover:bg-teal-50 dark:hover:bg-teal-900/20"
                         >
                           <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1">
-                            {conceptNameForStream(c, data.lang_stream || session.lang_stream || null)}
+                            {conceptNameForStream(c, stream)}
                           </span>
                           {c.grade && (
                             <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
@@ -540,7 +550,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                   <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate">
                     {conceptNameForStream(
                       correction.concept,
-                      data.lang_stream || session.lang_stream || null
+                      stream
                     )}
                   </span>
                   {correction.status === "saving" ? (
