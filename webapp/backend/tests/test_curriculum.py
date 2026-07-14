@@ -67,6 +67,16 @@ RAW_TABLES = [
         id INTEGER PRIMARY KEY AUTOINCREMENT, calendar_event_id INT,
         concept_id INT, matched_text VARCHAR(500), confidence DECIMAL(3,2),
         source VARCHAR(10), created_at TIMESTAMP)""",
+    """CREATE TABLE exam_rev_papers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, file_path VARCHAR(500),
+        match_path VARCHAR(500), file_basename VARCHAR(255),
+        variant_paths TEXT, school VARCHAR(100), grade VARCHAR(20),
+        lang_stream VARCHAR(10), academic_year VARCHAR(10), week_number INT,
+        exam_kind VARCHAR(20), calendar_event_id INT,
+        link_confidence DECIMAL(3,2), scope_source VARCHAR(10))""",
+    """CREATE TABLE exam_rev_paper_concepts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, paper_id INT, concept_id INT,
+        confidence DECIMAL(3,2), source VARCHAR(10))""",
 ]
 
 
@@ -403,6 +413,83 @@ def test_revision_pack_files_and_stored_rows(client: TestClient, db_session):
 def test_revision_pack_unknown_event_404(client: TestClient):
     resp = client.get("/api/curriculum/revision-pack/99999", cookies=AUTH_COOKIE)
     assert resp.status_code == 404
+
+
+def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
+    # event in week 12 of 2025-2026 with scope concepts {1, 2}
+    db_session.add(CalendarEvent(
+        event_id="evt6", title="SRL-E F1 Exam", school="SRL-E", grade="F1",
+        event_type="Exam", start_date=date(2025, 11, 21),
+        description="Linear Equations in One Unknown\nPercentage(I)",
+    ))
+    db_session.commit()
+    event_row = db_session.execute(text(
+        "SELECT id FROM calendar_events WHERE event_id = 'evt6'")).fetchone()
+    db_session.execute(text("""
+        INSERT INTO exam_rev_papers
+            (id, file_path, match_path, file_basename, variant_paths, school,
+             grade, academic_year, week_number, exam_kind, scope_source)
+        VALUES
+        (1, 'Center\\A.pdf', 'A', 'A.pdf',
+         '["Center\\\\A_ans.pdf"]', 'PCMS', 'F1', '2024-2025', 12, 'Exam', 'event'),
+        (2, 'Center\\B.pdf', 'B', 'B.pdf', NULL, 'SRL-E', 'F1',
+         '2024-2025', 11, 'Test', 'none'),
+        (3, 'Center\\C.pdf', 'C', 'C.pdf', NULL, 'SRL-E', 'F1',
+         '2024-2025', 12, 'Exam', 'event'),
+        (4, 'Center\\D.pdf', 'D', 'D.pdf', NULL, 'PCMS', 'F1',
+         '2024-2025', 12, 'Exam', 'none'),
+        (5, 'Center\\E.pdf', 'E', 'E.pdf', NULL, 'SRL-E', 'F1',
+         '2024-2025', 4, 'Test', 'none')
+    """))
+    db_session.execute(text("""
+        INSERT INTO exam_rev_paper_concepts (paper_id, concept_id, confidence, source)
+        VALUES (1, 1, 0.8, 'event'), (3, 1, 0.8, 'event'), (3, 2, 0.7, 'event')
+    """))
+    db_session.commit()
+
+    body = client.get(
+        f"/api/curriculum/revision-pack/{event_row.id}",
+        cookies=AUTH_COOKIE,
+    ).json()
+    papers = body["past_papers"]
+    # C: same school + overlap 2. B: same school, no topics, filed one week
+    # off (the same-exam-last-year case). A: other school via overlap only.
+    # D (no overlap, other school) and E (same school, week too far) drop.
+    assert [p["file_basename"] for p in papers] == ["C.pdf", "B.pdf", "A.pdf"]
+    assert [p["same_school"] for p in papers] == [True, True, False]
+    top = papers[0]
+    assert top["matched_count"] == 2
+    assert [c["concept_id"] for c in top["matched_concepts"]] == [1, 2]
+    assert top["matched_concepts"][0]["name_en"] == "Linear Equations in One Unknown"
+    assert papers[2]["variant_paths"] == ["Center\\A_ans.pdf"]
+    assert papers[1]["matched_count"] == 0
+
+
+def test_revision_pack_past_papers_position_only_without_scope(
+        client: TestClient, db_session):
+    # descriptionless event: no scope to overlap, the same school's papers
+    # from the same weeks of earlier years still surface
+    db_session.add(CalendarEvent(
+        event_id="evt7", title="SRL-E F1 Test", school="SRL-E", grade="F1",
+        event_type="Test", start_date=date(2025, 11, 12),
+    ))
+    db_session.commit()
+    event_row = db_session.execute(text(
+        "SELECT id FROM calendar_events WHERE event_id = 'evt7'")).fetchone()
+    db_session.execute(text("""
+        INSERT INTO exam_rev_papers
+            (id, file_path, match_path, file_basename, school, grade,
+             academic_year, week_number, exam_kind, scope_source)
+        VALUES (1, 'Center\\B.pdf', 'B', 'B.pdf', 'SRL-E', 'F1',
+                '2024-2025', 11, 'Test', 'none')
+    """))
+    db_session.commit()
+
+    body = client.get(
+        f"/api/curriculum/revision-pack/{event_row.id}",
+        cookies=AUTH_COOKIE,
+    ).json()
+    assert [p["file_basename"] for p in body["past_papers"]] == ["B.pdf"]
 
 
 def test_last_year_fallback(client: TestClient, db_session):

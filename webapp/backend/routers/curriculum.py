@@ -34,6 +34,7 @@ the frontend's resolveAliasPath()/answer auto-search work unchanged.
 Suggestions are suggestive, not prescriptive: every concept carries its
 evidence (sources, weight, weeks) so the tutor can judge.
 """
+import json
 import logging
 import re
 import time
@@ -61,6 +62,10 @@ SUGGESTED_GRADES = ("F1", "F2", "F3")
 MAX_CONCEPTS = 3
 MAX_SEARCH_CONCEPTS = 10
 MAX_FILES_PER_CONCEPT = 8
+MAX_PAST_PAPERS = 12
+# a same-school paper with no topic index still counts when it was filed
+# within this many weeks of the event's point in the year
+PAST_PAPER_WEEK_WINDOW = 2
 
 # Evidence at the current week counts full; nearby weeks progressively less
 # (a school seen on a topic two weeks ago has likely moved on).
@@ -941,6 +946,90 @@ def list_school_exams(
     return {"school": school, "grade": grade, "events": out}
 
 
+def _past_papers(db, event, scope_ids, meta):
+    """Archived tailor-made papers relevant to this event, ranked.
+
+    Two ways in: topic overlap with the event's parsed scope (any school —
+    the similar-syllabus case), or the same school and grade filed within
+    the same weeks of another year (the same-exam-last-year case, which
+    needs no topic signal at all). Same school first, then overlap, then
+    the most recent year.
+    """
+    scope_set = set(scope_ids)
+    wk = _week_for_date(db, event.start_date) if event.start_date else None
+    event_week = wk.week_number if wk else None
+
+    select = """
+        SELECT p.id, p.file_path, p.file_basename, p.variant_paths,
+               p.school, p.grade, p.academic_year, p.week_number,
+               p.exam_kind, p.scope_source, p.link_confidence,
+               c.concept_id, c.confidence
+        FROM exam_rev_papers p
+        LEFT JOIN exam_rev_paper_concepts c ON c.paper_id = p.id
+    """
+    params = {"school": event.school, "grade": event.grade}
+    if scope_set:
+        stmt = text(select + """
+            WHERE (p.school = :school AND p.grade = :grade)
+               OR c.concept_id IN :ids
+        """).bindparams(bindparam("ids", expanding=True))
+        params["ids"] = list(scope_set)
+    else:
+        stmt = text(select + "WHERE p.school = :school AND p.grade = :grade")
+    try:
+        rows = db.execute(stmt, params).fetchall()
+    except Exception:  # pragma: no cover - table not migrated yet
+        logger.exception("past paper lookup failed")
+        return []
+
+    papers = {}
+    for r in rows:
+        entry = papers.setdefault(r.id, {"row": r, "matched": {}})
+        if r.concept_id is not None and r.concept_id in scope_set:
+            prev = entry["matched"].get(r.concept_id, 0.0)
+            entry["matched"][r.concept_id] = max(prev, float(r.confidence or 0))
+
+    out = []
+    for entry in papers.values():
+        r = entry["row"]
+        same_school = r.school == event.school and r.grade == event.grade
+        week_dist = (abs(r.week_number - event_week)
+                     if event_week is not None else None)
+        if not entry["matched"]:
+            if not (same_school and week_dist is not None
+                    and week_dist <= PAST_PAPER_WEEK_WINDOW):
+                continue
+        matched = sorted(entry["matched"].items(), key=lambda kv: -kv[1])
+        try:
+            year_key = int(str(r.academic_year)[:4])
+        except ValueError:
+            year_key = 0
+        out.append(((not same_school, -sum(entry["matched"].values()),
+                     -year_key, week_dist if week_dist is not None else 99), {
+            "id": r.id,
+            "file_path": r.file_path,
+            "file_basename": r.file_basename,
+            "variant_paths": json.loads(r.variant_paths) if r.variant_paths else [],
+            "school": r.school,
+            "grade": r.grade,
+            "academic_year": r.academic_year,
+            "week_number": r.week_number,
+            "exam_kind": r.exam_kind,
+            "scope_source": r.scope_source,
+            "link_confidence": (round(float(r.link_confidence), 2)
+                                if r.link_confidence is not None else None),
+            "same_school": same_school,
+            "matched_count": len(matched),
+            "matched_concepts": [{
+                "concept_id": cid,
+                "name_en": meta.get(cid, {}).get("name_en"),
+                "name_zh": meta.get(cid, {}).get("name_zh"),
+            } for cid, _conf in matched[:4]],
+        }))
+    out.sort(key=lambda pair: pair[0])
+    return [paper for _rank, paper in out[:MAX_PAST_PAPERS]]
+
+
 @router.get("/curriculum/revision-pack/{event_id}")
 def get_revision_pack(
     event_id: int,
@@ -970,6 +1059,7 @@ def get_revision_pack(
         role_order=ROLE_ORDER_REVISION,
         scope_school=event.school,
     )
+    past_papers = _past_papers(db, event, [cid for cid, _ in ranked], meta)
 
     return {
         "event": {
@@ -994,6 +1084,7 @@ def get_revision_pack(
             "file_count": len(files_by_concept.get(cid, [])),
         } for cid, v in ranked],
         "unmatched_lines": unmatched,
+        "past_papers": past_papers,
     }
 
 
