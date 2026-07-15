@@ -62,7 +62,9 @@ SUGGESTED_GRADES = ("F1", "F2", "F3")
 MAX_CONCEPTS = 3
 MAX_SEARCH_CONCEPTS = 10
 MAX_FILES_PER_CONCEPT = 8
-MAX_PAST_PAPERS = 12
+MAX_PAST_PAPERS = 20
+# the compact block inside the session suggestion section
+MAX_PAST_PAPERS_INLINE = 4
 # a same-school paper with no topic index still counts when it was filed
 # within this many weeks of the event's point in the year
 PAST_PAPER_WEEK_WINDOW = 2
@@ -592,6 +594,7 @@ def get_curriculum_suggestions(
         "timeline_tier": "none",
         "revision_mode": False,
         "upcoming_exam": None,
+        "past_papers": [],
         "suggestions": [],
         "reason": None,
     }
@@ -624,6 +627,9 @@ def get_curriculum_suggestions(
             "start_date": _iso(exam.start_date),
             "scope_concept_count": len(scope),
         }
+        base["past_papers"] = _past_papers(
+            db, exam, list(scope), _concept_meta(db, set(scope)),
+            limit=MAX_PAST_PAPERS_INLINE)
 
     # The timeline tier is computed either way: CurriculumTab keys its week
     # window off it even while the scope drives the suggestions.
@@ -946,14 +952,15 @@ def list_school_exams(
     return {"school": school, "grade": grade, "events": out}
 
 
-def _past_papers(db, event, scope_ids, meta):
+def _past_papers(db, event, scope_ids, meta, limit=MAX_PAST_PAPERS):
     """Archived tailor-made papers relevant to this event, ranked.
 
-    Two ways in: topic overlap with the event's parsed scope (any school —
-    the similar-syllabus case), or the same school and grade filed within
-    the same weeks of another year (the same-exam-last-year case, which
-    needs no topic signal at all). Same school first, then overlap, then
-    the most recent year.
+    Papers linked to the event itself lead (a tutor already built one for
+    this very test). After those, two ways in: topic overlap with the
+    event's parsed scope (any school — the similar-syllabus case), or the
+    same school and grade filed within the same weeks of another year (the
+    same-exam-last-year case, which needs no topic signal at all). Same
+    school first, then overlap, then the most recent year.
     """
     scope_set = set(scope_ids)
     wk = _week_for_date(db, event.start_date) if event.start_date else None
@@ -963,7 +970,7 @@ def _past_papers(db, event, scope_ids, meta):
         SELECT p.id, p.file_path, p.file_basename, p.variant_paths,
                p.school, p.grade, p.academic_year, p.week_number,
                p.exam_kind, p.scope_source, p.link_confidence,
-               c.concept_id, c.confidence
+               p.calendar_event_id, c.concept_id, c.confidence
         FROM exam_rev_papers p
         LEFT JOIN exam_rev_paper_concepts c ON c.paper_id = p.id
     """
@@ -992,10 +999,11 @@ def _past_papers(db, event, scope_ids, meta):
     out = []
     for entry in papers.values():
         r = entry["row"]
+        for_this_event = r.calendar_event_id == event.id
         same_school = r.school == event.school and r.grade == event.grade
         week_dist = (abs(r.week_number - event_week)
                      if event_week is not None else None)
-        if not entry["matched"]:
+        if not entry["matched"] and not for_this_event:
             if not (same_school and week_dist is not None
                     and week_dist <= PAST_PAPER_WEEK_WINDOW):
                 continue
@@ -1004,7 +1012,8 @@ def _past_papers(db, event, scope_ids, meta):
             year_key = int(str(r.academic_year)[:4])
         except ValueError:
             year_key = 0
-        out.append(((not same_school, -sum(entry["matched"].values()),
+        out.append(((not for_this_event, not same_school,
+                     -sum(entry["matched"].values()),
                      -year_key, week_dist if week_dist is not None else 99), {
             "id": r.id,
             "file_path": r.file_path,
@@ -1018,6 +1027,7 @@ def _past_papers(db, event, scope_ids, meta):
             "scope_source": r.scope_source,
             "link_confidence": (round(float(r.link_confidence), 2)
                                 if r.link_confidence is not None else None),
+            "for_this_event": for_this_event,
             "same_school": same_school,
             "matched_count": len(matched),
             "matched_concepts": [{
@@ -1027,7 +1037,7 @@ def _past_papers(db, event, scope_ids, meta):
             } for cid, _conf in matched[:4]],
         }))
     out.sort(key=lambda pair: pair[0])
-    return [paper for _rank, paper in out[:MAX_PAST_PAPERS]]
+    return [paper for _rank, paper in out[:limit]]
 
 
 @router.get("/curriculum/revision-pack/{event_id}")

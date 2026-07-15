@@ -619,6 +619,8 @@ export interface CurriculumSuggestionsResponse {
     start_date: string | null;
     scope_concept_count?: number;
   } | null;
+  // compact tailored-paper list for the upcoming exam (revision mode only)
+  past_papers?: CurriculumPastPaper[];
   suggestions: CurriculumConceptSuggestion[];
   reason: string | null;
 }
@@ -669,6 +671,8 @@ export interface CurriculumPastPaper {
   // 'proxy' (borrowed from a similar test in another year), 'none'
   scope_source: string;
   link_confidence: number | null;
+  // linked to this very event: a tutor already built a paper for this test
+  for_this_event: boolean;
   same_school: boolean;
   matched_count: number;
   matched_concepts: {

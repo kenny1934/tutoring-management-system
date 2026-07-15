@@ -337,6 +337,19 @@ def test_exam_scope_tier_overrides_timeline(client: TestClient, db_session):
     ))
     db_session.commit()
 
+    db_session.execute(text("""
+        INSERT INTO exam_rev_papers
+            (id, file_path, match_path, file_basename, school, grade,
+             academic_year, week_number, exam_kind, scope_source)
+        VALUES (1, 'Center\\P.pdf', 'P', 'P.pdf', 'PCMS', 'F1',
+                '2024-2025', 12, 'Test', 'ai')
+    """))
+    db_session.execute(text("""
+        INSERT INTO exam_rev_paper_concepts (paper_id, concept_id, confidence, source)
+        VALUES (1, 2, 0.8, 'ai')
+    """))
+    db_session.commit()
+
     body = _get(client).json()
     assert body["tier"] == "exam_scope"
     assert body["timeline_tier"] == "this_year"   # CurriculumTab's week window
@@ -347,6 +360,9 @@ def test_exam_scope_tier_overrides_timeline(client: TestClient, db_session):
     why = body["suggestions"][0]["why"]
     assert why["tier"] == "exam_scope"
     assert why["scope_lines"] == ["Percentage(I)"]
+    # the compact tailored-paper block rides along in revision mode
+    assert [p["file_basename"] for p in body["past_papers"]] == ["P.pdf"]
+    assert body["past_papers"][0]["matched_concepts"][0]["name_en"] == "Percentage(I)"
     assert body["suggestions"][0]["files"][0]["file_basename"] == "705_EX1_e.pdf"
 
 
@@ -441,9 +457,18 @@ def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
         (5, 'Center\\E.pdf', 'E', 'E.pdf', NULL, 'SRL-E', 'F1',
          '2024-2025', 4, 'Test', 'none')
     """))
+    # F: already made for this very event — leads even over C's wider overlap
+    db_session.execute(text("""
+        INSERT INTO exam_rev_papers
+            (id, file_path, match_path, file_basename, school, grade,
+             academic_year, week_number, exam_kind, calendar_event_id, scope_source)
+        VALUES (6, 'Center\\F.pdf', 'F', 'F.pdf', 'SRL-E', 'F1',
+                '2025-2026', 12, 'Exam', :eid, 'event')
+    """), {"eid": event_row.id})
     db_session.execute(text("""
         INSERT INTO exam_rev_paper_concepts (paper_id, concept_id, confidence, source)
-        VALUES (1, 1, 0.8, 'event'), (3, 1, 0.8, 'event'), (3, 2, 0.7, 'event')
+        VALUES (1, 1, 0.8, 'event'), (3, 1, 0.8, 'event'), (3, 2, 0.7, 'event'),
+               (6, 1, 0.8, 'event')
     """))
     db_session.commit()
 
@@ -452,17 +477,19 @@ def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
         cookies=AUTH_COOKIE,
     ).json()
     papers = body["past_papers"]
-    # C: same school + overlap 2. B: same school, no topics, filed one week
-    # off (the same-exam-last-year case). A: other school via overlap only.
-    # D (no overlap, other school) and E (same school, week too far) drop.
-    assert [p["file_basename"] for p in papers] == ["C.pdf", "B.pdf", "A.pdf"]
-    assert [p["same_school"] for p in papers] == [True, True, False]
-    top = papers[0]
-    assert top["matched_count"] == 2
-    assert [c["concept_id"] for c in top["matched_concepts"]] == [1, 2]
-    assert top["matched_concepts"][0]["name_en"] == "Linear Equations in One Unknown"
-    assert papers[2]["variant_paths"] == ["Center\\A_ans.pdf"]
-    assert papers[1]["matched_count"] == 0
+    # F: made for this event. C: same school + overlap 2. B: same school,
+    # no topics, filed one week off (the same-exam-last-year case). A: other
+    # school via overlap only. D (no overlap, other school) and E (same
+    # school, week too far) drop.
+    assert [p["file_basename"] for p in papers] == ["F.pdf", "C.pdf", "B.pdf", "A.pdf"]
+    assert [p["for_this_event"] for p in papers] == [True, False, False, False]
+    assert [p["same_school"] for p in papers] == [True, True, True, False]
+    second = papers[1]
+    assert second["matched_count"] == 2
+    assert [c["concept_id"] for c in second["matched_concepts"]] == [1, 2]
+    assert second["matched_concepts"][0]["name_en"] == "Linear Equations in One Unknown"
+    assert papers[3]["variant_paths"] == ["Center\\A_ans.pdf"]
+    assert papers[2]["matched_count"] == 0
 
 
 def test_revision_pack_past_papers_position_only_without_scope(

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Plus,
   Check,
+  History,
   Loader2,
   CalendarClock,
   Undo2,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { CurriculumPdfPreview } from "@/components/curriculum/CurriculumPdfPreview";
 import { CurriculumFileBadges } from "@/components/curriculum/CurriculumFileRow";
+import { CurriculumPastPaperRow } from "@/components/curriculum/CurriculumPastPaperRow";
 import { CurriculumRevisionPack } from "@/components/curriculum/CurriculumRevisionPack";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
 import { cn } from "@/lib/utils";
@@ -344,6 +346,31 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           </div>
 
           <div className="max-h-72 overflow-y-auto px-3 pb-3 pt-2 space-y-3">
+            {(data.past_papers?.length ?? 0) > 0 && (
+              <div className="px-2 py-1.5 rounded-lg bg-teal-50/60 dark:bg-teal-900/15 border border-teal-100 dark:border-teal-900/40">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <History className="h-3 w-3 text-teal-600 dark:text-teal-400 shrink-0" />
+                  <span className="text-[10px] font-medium text-gray-700 dark:text-gray-300">
+                    Tailored revision papers
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  {data.past_papers!.map((paper) => (
+                    <CurriculumPastPaperRow
+                      key={paper.id}
+                      paper={paper}
+                      stream={stream}
+                      onPreview={(t) =>
+                        setPreview({
+                          path: t.file_path,
+                          label: stripExtension(t.file_basename),
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
             {data.suggestions.map((concept) => {
               const state = confirmStates[concept.concept_id] || { status: "idle" };
               return (
