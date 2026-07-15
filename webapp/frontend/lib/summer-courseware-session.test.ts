@@ -7,6 +7,8 @@ import {
   formatLessonBreakdown,
   describeAssignmentGroups,
   describeAssignmentResult,
+  planSpansMultipleLessons,
+  planActionableSessionIds,
 } from "./summer-courseware-session";
 import { groupChapters } from "./summer-courseware-defaults";
 import type { Session, SummerCoursewareFile } from "@/types";
@@ -183,6 +185,34 @@ describe("describeAssignmentGroups", () => {
       "L2 · SM702 指數: 1 student",
       "No materials for L9: Alice Chan",
     ]);
+  });
+});
+
+describe("planSpansMultipleLessons", () => {
+  it("is true when items cover more than one lesson, or lesson skips exist alongside items", () => {
+    const l1 = session({ lang_stream: "E", lesson_number: 1 });
+    const l2 = session({ lang_stream: "C", lesson_number: 2 });
+    const missing = session({ lesson_number: 9 });
+    const plan = (ss: Session[]) => buildPerLessonAssignmentPlan(ss, "CW", chapters, PREFIX);
+
+    expect(planSpansMultipleLessons(plan([l1, l2]))).toBe(true);
+    expect(planSpansMultipleLessons(plan([l1, missing]))).toBe(true);
+    expect(planSpansMultipleLessons(plan([l1]))).toBe(false);
+  });
+});
+
+describe("planActionableSessionIds", () => {
+  it("keeps every session except those who already have the file", () => {
+    const ok = session({ lang_stream: "E", lesson_number: 1 });
+    const already = session({
+      lang_stream: "E",
+      lesson_number: 1,
+      exercises: [{ id: 1, session_id: 1, exercise_type: "CW", pdf_name: `${PREFIX}\\${cwE.rel_path}` }],
+    } as Partial<Session>);
+    const missing = session({ lesson_number: 9 });
+    const plan = buildPerLessonAssignmentPlan([ok, already, missing], "CW", chapters, PREFIX);
+
+    expect(planActionableSessionIds(plan).sort()).toEqual([ok.id, missing.id].sort());
   });
 });
 
