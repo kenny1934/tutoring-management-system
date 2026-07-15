@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.94](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.93...v2.0.94) (2026-07-15)
+
+
+### Bug Fixes
+
+* **Summer deadlines on the overdue payments page**: the Deadline column now shows the payment deadline for the discount tier each summer enrolment is currently on, so it no longer keeps pointing at an earlier deadline that has already passed. When the deadline falls on the same day as the first lesson, the column shows the date once instead of repeating it.
+
 ## [2.0.93](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.92...v2.0.93) (2026-07-15)
 
 
