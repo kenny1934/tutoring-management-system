@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.93](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.92...v2.0.93) (2026-07-15)
+
+
+### New Features
+
+* **Bulk assign follows each student's own lesson**: when a class has students on different lessons, the summer materials panel in lesson mode now assigns each student the materials for their own lesson instead of giving everyone the majority lesson's chapter. A confirmation shows how the class splits by lesson before anything is saved, and students whose lesson has no materials are reported instead of receiving the wrong file. Picking a specific chapter from the list still assigns that chapter to every selected student. The same behaviour applies to the summer section when bulk assigning exercises.
+* **Lesson number badges in lesson mode**: the student list in lesson mode now shows each student's lesson number badge, which can be edited in place just like on the session pages. The Files view and the student picker show the badge as well, and grade badges in the Files view now include the language stream.
+
 ## [2.0.92](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.91...v2.0.92) (2026-07-14)
 
 
