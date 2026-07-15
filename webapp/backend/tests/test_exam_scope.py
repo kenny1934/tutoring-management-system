@@ -220,3 +220,45 @@ def test_manual_rows_override_everything():
         description,
     )
     assert merged[7] == {"confidence": 1.0, "channel": "manual", "lines": ["圓"]}
+
+
+def test_school_textbook_marker_disables_positional_codes():
+    # PCMS-style scope: 校本 declares the school's own book, so "第三章" must
+    # not resolve through the 人教 positional map (703 = 一元一次方程); the
+    # chapter name on the line is the real signal.
+    lines = MATCHER.parse(
+        "校本----幾何(三)\n1. 第三章 三角形 第3.1~3.3節",
+        series="MAS", grade="F1",
+    )
+    assert [l["kind"] for l in lines] == ["material", "topic"]
+    assert lines[0]["concepts"] == []
+    assert lines[1]["concepts"] == [
+        {"concept_id": 4, "confidence": 0.9, "channel": "name"}]
+
+
+def test_mas_textbook_title_reenables_codes():
+    # ASUM-style scope: a 校本 supplementary block is followed by the 人教
+    # compulsory-education textbook, whose chapter numbers are positional.
+    lines = MATCHER.parse(
+        "校本補充教材\n義務教育教科書數學八年級上冊\n11.1至11.2",
+        series="MAS", grade="F2",
+    )
+    assert [l["kind"] for l in lines] == ["material", "material", "topic"]
+    assert lines[2]["concepts"] == [
+        {"concept_id": 4, "confidence": 0.8, "channel": "code"}]
+
+
+def test_chapter_name_survives_structural_noise():
+    # Without the noise stripping, "三角形" (3 chars) failed the fuzzy length
+    # ratio against the full numbered line and the wrong code won.
+    line = _single("1. 第三章 三角形 第3.1~3.3節", series="MAS", grade="F1")
+    assert line["concepts"] == [
+        {"concept_id": 4, "confidence": 0.7, "channel": "name"}]
+
+
+def test_renumbered_edition_chapter_rescued_by_name():
+    # 2024 人教 edition renumbering: "第二章 有理數的運算" is not 整式 (702);
+    # the chapter name outranks the stale positional read.
+    line = _single("第二章 有理數的運算", series="MAS", grade="F1")
+    assert line["concepts"] == [
+        {"concept_id": 1, "confidence": 0.7, "channel": "name"}]

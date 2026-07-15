@@ -252,6 +252,12 @@ _STRAND_WORDS = {
 # switches the chapter-code channel off for the lines it governs.
 _PUBLISHERS = {"人教": "MAS", "文風": "OTHER"}
 _PUBLISHER_RE = re.compile(r"[(（](人教|文風)[)）]")
+# Textbook-title lines govern the numbering of the lines after them, like a
+# standalone publisher marker: 義務教育教科書 is the 人教 series itself, while
+# 校本 is the school's own book, whose chapter numbers mean nothing to the
+# positional map.
+_MAS_BOOK_RE = re.compile(r"義務教育教科書")
+_BOOK_MARKER_RE = re.compile(r"校本|義務教育教科書")
 
 _SPLIT_RE = re.compile(r"[\n/;；+]+|[,，、]\s*(?=[^)）]*(?:[(（]|$))")
 _PERCENT_RE = re.compile(r"\d+(?:\.\d+)?\s*%")
@@ -261,6 +267,14 @@ _CH_CJK_RE = re.compile(r"第\s*([0-9一二三四五六七八九十]{1,3})\s*(?:
 # also stops x.y.z chains ("24.2.2") from re-matching at the ".2.2" tail.
 _SECTION_RE = re.compile(r"(?<![\d.])(\d{1,2})\.\d{1,2}")
 _NOISE_LINE_RE = re.compile(r"^[\s\-–—*·•:：\d%.、,，()（）~至及和與+]*$")
+# Structural tokens on a scope line — list index, chapter marker, section
+# span, page ref — drown a short chapter name in the fuzzy length ratio
+# ("三角形" is 3 chars against "1. 第三章 三角形 第3.1~3.3節"); the name
+# channel matches on the line with them removed.
+_LIST_INDEX_RE = re.compile(r"^\s*\d{1,2}\s*[.)、]\s*")
+_PAGE_REF_RE = re.compile(r"(?i)\bpp?\.?\s*\d+(?:\s*[-~–至]\s*\d+)?")
+_SECTION_SPAN_RE = re.compile(
+    r"第?\s*\d{1,2}\.\d{1,2}(?:\s*[-~–至]\s*(?:\d{1,2}\.)?\d{1,2})?\s*節?")
 
 _GRADE_ORDER = {"F1": 1, "F2": 2, "F3": 3, "F4": 4, "F5": 5, "F6": 6}
 
@@ -380,6 +394,17 @@ class ScopeMatcher:
         (cid, _), _score = cand.most_common(1)[0]
         return cid, (CONF_NAME_FUZZY if fuzzy else CONF_NAME_EXACT)
 
+    def _anchored(self, n, cid):
+        """Does one of cid's terms sit at the head of the text?
+
+        A chapter line leads with its title ("有理數的運算 2.1至2.3"); a
+        match buried mid-text ("配方法解方程式") is a section subtitle
+        echoing another chapter's vocabulary."""
+        for term, hits in self.term_index.items():
+            if any(k[0] == cid for k in hits) and n.startswith(term):
+                return True
+        return False
+
     # -- code channel (MAS positional only; see module docstring) ------------
 
     def _match_codes(self, part, series):
@@ -428,6 +453,11 @@ class ScopeMatcher:
             if not part:
                 continue
 
+            if _BOOK_MARKER_RE.search(part):
+                context_series = "MAS" if _MAS_BOOK_RE.search(part) else "OTHER"
+                lines.append({"text": part, "kind": "material", "concepts": []})
+                continue
+
             marker = _PUBLISHER_RE.search(part)
             line_series = context_series
             if marker:
@@ -468,17 +498,31 @@ class ScopeMatcher:
                     break
 
             code_cids = self._match_codes(cleaned, line_series)
-            name_hit = self._match_name(normalize(cleaned), line_series)
+            # section spans strip before list indices: "2.1 有理數" is a
+            # section number, not the list item "2." plus a stray digit
+            name_text = _SECTION_SPAN_RE.sub(" ", cleaned)
+            name_text = _LIST_INDEX_RE.sub(" ", name_text)
+            name_text = _PAGE_REF_RE.sub(" ", name_text)
+            name_text = _CH_CJK_RE.sub(" ", name_text)
+            name_n = normalize(name_text)
+            name_hit = self._match_name(name_n, line_series)
 
             concepts = []
             if name_hit and code_cids:
-                cid, _ = name_hit
+                cid, conf = name_hit
                 if cid in code_cids:
                     concepts = [{"concept_id": cid, "confidence": CONF_AGREE,
                                  "channel": "code+name"}]
-                else:
+                elif conf >= CONF_NAME_EXACT or self._anchored(name_n, cid):
+                    # An explicit or line-leading name outranks a positional
+                    # code (own-textbook and renumbered-edition chapters).
                     concepts = [{"concept_id": cid, "confidence": CONF_CONFLICT,
                                  "channel": "name"}]
+                else:
+                    # A fuzzy echo buried mid-line loses to the code channel.
+                    concepts = [{"concept_id": c, "confidence": CONF_CODE,
+                                 "channel": "code"}
+                                for c in sorted(code_cids)]
             elif name_hit:
                 cid, conf = name_hit
                 concepts = [{"concept_id": cid, "confidence": conf,
