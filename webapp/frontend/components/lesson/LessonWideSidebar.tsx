@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SummerCoursewareWidePanel } from "./SummerCoursewareWidePanel";
 import { StudentPickerPopover } from "./StudentPickerPopover";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "@/components/sessions/EditableLessonNumberBadge";
+import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import type { Session, SessionExercise } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -471,8 +472,8 @@ function FileGroupItem({
                         className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
                         grade={entry.grade}
                         langStream={entry.langStream}
-                        showStream={false}
                       />
+                      <SessionLessonBadge session={entry.session} size="xs" className="flex-shrink-0" />
                       {pageLabel && (
                         <span className="text-[10px] text-[#b0a090] dark:text-[#706050] flex-shrink-0">
                           {pageLabel}
