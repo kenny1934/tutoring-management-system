@@ -15,6 +15,7 @@ import {
   pickDocDefaults,
   buildFullPath,
   type Chapter,
+  type ChapterDefaults,
   type ParallelPreviewSource,
 } from "./summer-courseware-defaults";
 import {
@@ -130,6 +131,7 @@ export function isPreviewExercise(exercise: { id: number }): boolean {
 
 export interface AssignmentPlanItem {
   session: Session;
+  chapter: Chapter;
   file: SummerCoursewareFile;
   answer?: SummerCoursewareFile;
   fullPath: string;
@@ -143,6 +145,45 @@ export interface AssignmentPlan {
   noFile: Session[];
   /** Sessions skipped: this file is already assigned to them. */
   already: Session[];
+  /** Sessions skipped: no lesson number set (per-lesson plans only). */
+  noLesson: Session[];
+  /** Sessions skipped: no chapter in the index matches their lesson number. */
+  noChapter: Session[];
+}
+
+interface LangDefaults {
+  e: ChapterDefaults;
+  c: ChapterDefaults;
+}
+
+function emptyPlan(): AssignmentPlan {
+  return { items: [], noLang: [], noFile: [], already: [], noLesson: [], noChapter: [] };
+}
+
+function planSession(
+  plan: AssignmentPlan,
+  session: Session,
+  docType: SummerDocType,
+  chapter: Chapter,
+  byLang: LangDefaults,
+  pathPrefix: string | null | undefined
+): void {
+  const lang = normalizeLangStream(session.lang_stream);
+  if (!lang) {
+    plan.noLang.push(session);
+    return;
+  }
+  const { file, answer } = pickDocDefaults(byLang[lang], docType);
+  if (!file) {
+    plan.noFile.push(session);
+    return;
+  }
+  const fullPath = buildFullPath(pathPrefix, file.rel_path);
+  if (session.exercises?.some((e) => e.pdf_name === fullPath)) {
+    plan.already.push(session);
+    return;
+  }
+  plan.items.push({ session, chapter, file, answer, fullPath });
 }
 
 /**
@@ -159,27 +200,117 @@ export function buildAssignmentPlan(
     e: pickDefaults(chapter.files, "e"),
     c: pickDefaults(chapter.files, "c"),
   };
-  const plan: AssignmentPlan = { items: [], noLang: [], noFile: [], already: [] };
-
+  const plan = emptyPlan();
   for (const session of sessions) {
-    const lang = normalizeLangStream(session.lang_stream);
-    if (!lang) {
-      plan.noLang.push(session);
-      continue;
-    }
-    const { file, answer } = pickDocDefaults(byLang[lang], docType);
-    if (!file) {
-      plan.noFile.push(session);
-      continue;
-    }
-    const fullPath = buildFullPath(pathPrefix, file.rel_path);
-    if (session.exercises?.some((e) => e.pdf_name === fullPath)) {
-      plan.already.push(session);
-      continue;
-    }
-    plan.items.push({ session, file, answer, fullPath });
+    planSession(plan, session, docType, chapter, byLang, pathPrefix);
   }
   return plan;
+}
+
+/**
+ * Like buildAssignmentPlan, but resolves the chapter per session from the
+ * student's own lesson_number, so a mixed-lesson slot (some at L2, some at
+ * L6) assigns each student their own lesson's materials in one pass.
+ */
+export function buildPerLessonAssignmentPlan(
+  sessions: Session[],
+  docType: SummerDocType,
+  chapters: Chapter[],
+  pathPrefix: string | null | undefined
+): AssignmentPlan {
+  const plan = emptyPlan();
+  const defaultsByCode = new Map<string, LangDefaults>();
+  for (const session of sessions) {
+    if (session.lesson_number == null) {
+      plan.noLesson.push(session);
+      continue;
+    }
+    const chapter = chapters.find((c) => c.lessonNumber === session.lesson_number);
+    if (!chapter) {
+      plan.noChapter.push(session);
+      continue;
+    }
+    let byLang = defaultsByCode.get(chapter.code);
+    if (!byLang) {
+      byLang = { e: pickDefaults(chapter.files, "e"), c: pickDefaults(chapter.files, "c") };
+      defaultsByCode.set(chapter.code, byLang);
+    }
+    planSession(plan, session, docType, chapter, byLang, pathPrefix);
+  }
+  return plan;
+}
+
+export interface LessonCount {
+  lesson: number;
+  count: number;
+}
+
+/** Distinct lesson numbers among sessions with counts, lowest lesson first. */
+export function lessonBreakdown(sessions: Session[]): LessonCount[] {
+  const counts = new Map<number, number>();
+  for (const s of sessions) {
+    if (s.lesson_number != null) {
+      counts.set(s.lesson_number, (counts.get(s.lesson_number) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts, ([lesson, count]) => ({ lesson, count })).sort(
+    (a, b) => a.lesson - b.lesson
+  );
+}
+
+/** The slot's default lesson: the most common one (lowest wins a tie). */
+export function mostCommonLessonNumber(breakdown: LessonCount[]): number | null {
+  let best: LessonCount | null = null;
+  for (const entry of breakdown) {
+    if (!best || entry.count > best.count) best = entry;
+  }
+  return best?.lesson ?? null;
+}
+
+/** e.g. "L2 ×5 · L6 ×2" */
+export function formatLessonBreakdown(breakdown: LessonCount[]): string {
+  return breakdown.map(({ lesson, count }) => `L${lesson} ×${count}`).join(" · ");
+}
+
+function chapterLabel(chapter: Chapter): string {
+  const lesson = chapter.lessonNumber != null ? `L${chapter.lessonNumber} · ` : "";
+  const topic = chapter.topicZh ? ` ${chapter.topicZh}` : "";
+  return `${lesson}SM${chapter.code}${topic}`;
+}
+
+/**
+ * Confirm-dialog bullet lines for a per-lesson plan: one line per chapter
+ * being assigned, then named lines for lesson-related skips (the tutor can
+ * fix those before confirming; language/file skips surface in the toast).
+ */
+export function describeAssignmentGroups(plan: AssignmentPlan): string[] {
+  const groups = new Map<string, { chapter: Chapter; count: number }>();
+  for (const item of plan.items) {
+    const group = groups.get(item.chapter.code) ?? { chapter: item.chapter, count: 0 };
+    group.count++;
+    groups.set(item.chapter.code, group);
+  }
+  const lines = Array.from(groups.values())
+    .sort((a, b) => (a.chapter.lessonNumber ?? 0) - (b.chapter.lessonNumber ?? 0))
+    .map(
+      ({ chapter, count }) =>
+        `${chapterLabel(chapter)}: ${count} student${count !== 1 ? "s" : ""}`
+    );
+  const missingByLesson = new Map<number, string[]>();
+  for (const s of plan.noChapter) {
+    const names = missingByLesson.get(s.lesson_number!) ?? [];
+    names.push(s.student_name ?? "Unknown");
+    missingByLesson.set(s.lesson_number!, names);
+  }
+  for (const [lesson, names] of Array.from(missingByLesson).sort((a, b) => a[0] - b[0])) {
+    lines.push(`No materials for L${lesson}: ${names.join(", ")}`);
+  }
+  if (plan.noLesson.length) {
+    lines.push(
+      `No lesson number set: ${plan.noLesson.map((s) => s.student_name ?? "Unknown").join(", ")}`
+    );
+  }
+  return lines;
 }
 
 /**
@@ -231,6 +362,8 @@ export function describeAssignmentResult(
   if (plan.already.length) parts.push(`${plan.already.length} already had it`);
   if (plan.noLang.length) parts.push(`${plan.noLang.length} missing language stream`);
   if (plan.noFile.length) parts.push(`${plan.noFile.length} no matching file`);
+  if (plan.noLesson.length) parts.push(`${plan.noLesson.length} no lesson number`);
+  if (plan.noChapter.length) parts.push(`${plan.noChapter.length} no materials for their lesson`);
   if (result.failed) parts.push(`${result.failed} failed`);
   return parts.join(" · ");
 }

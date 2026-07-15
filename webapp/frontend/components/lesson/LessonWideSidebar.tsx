@@ -12,6 +12,7 @@ import { getPageLabel, getStudentIdDisplay, getPrintButtonTitle, type PrintingSt
 import { motion, AnimatePresence } from "framer-motion";
 import { SummerCoursewareWidePanel } from "./SummerCoursewareWidePanel";
 import { StudentPickerPopover } from "./StudentPickerPopover";
+import { EditableLessonNumberBadge, useSaveLessonNumber } from "@/components/sessions/EditableLessonNumberBadge";
 import type { Session, SessionExercise } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -140,6 +141,7 @@ function StudentBlock({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
+  const saveLessonNumber = useSaveLessonNumber(session.id);
 
   const cwEntries = useMemo(
     () => entries.filter(e => e.exercise.exercise_type === "CW" || e.exercise.exercise_type === "Classwork"),
@@ -153,10 +155,21 @@ function StudentBlock({
   return (
     <div>
       <div className="flex items-center group">
-        <button
+        {/* div, not button: the lesson badge nests its own button/input. */}
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setExpanded(e => !e)}
+          onKeyDown={(e) => {
+            // Only toggle for keys on the row itself, not the badge input.
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setExpanded(x => !x);
+            }
+          }}
           className={cn(
-            "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors min-h-[44px] md:min-h-0 min-w-0",
+            "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors min-h-[44px] md:min-h-0 min-w-0 cursor-pointer",
             "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
           )}
         >
@@ -174,11 +187,19 @@ function StudentBlock({
             {session.grade && (
               <GradeBadge className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
             )}
+            <EditableLessonNumberBadge
+              lessonNumber={session.lesson_number}
+              movedLessonNumber={session.moved_lesson_number}
+              size="xs"
+              className="flex-shrink-0"
+              disabled={isReadOnly}
+              onSave={saveLessonNumber}
+            />
           </div>
           <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums flex-shrink-0">
             {entries.length}
           </span>
-        </button>
+        </div>
         {onBulkPrintStudent && (() => {
           const isBulkPrinting = printing?.id === -session.id;
           return (

@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Sun } from "lucide-react";
 import { ConnectDriveButton } from "@/components/summer/ConnectDriveButton";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 import {
   pickDefaults,
   pickDocDefaults,
@@ -16,6 +17,11 @@ import {
   useSummerCoursewareIndex,
   useCoursewareDrive,
   buildAssignmentPlan,
+  buildPerLessonAssignmentPlan,
+  lessonBreakdown,
+  mostCommonLessonNumber,
+  formatLessonBreakdown,
+  describeAssignmentGroups,
   executeAssignmentPlan,
   describeAssignmentResult,
   previewExercise,
@@ -31,6 +37,9 @@ interface PickerTarget {
   docType: SummerDocType;
   type: "CW" | "HW";
 }
+
+/** Select value for the mixed-slot default: resolve per student's lesson. */
+const FOLLOW_OWN_LESSON = "__follow_own_lesson__";
 
 /** Panel body for one grade's sessions (hooks need a fixed grade). */
 function WideGradeSection({
@@ -49,6 +58,7 @@ function WideGradeSection({
   onPreviewEntry: (entry: StudentExerciseEntry) => void;
 }) {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const year = sessionSummerYear(sessions[0]);
   // Sessions are grouped by stored grade, but materials are indexed by the
   // entering grade (F1/F2/F3) — promote the pre-grade for lookup and display.
@@ -58,24 +68,18 @@ function WideGradeSection({
   // Paperless and the Settings folder alias may not exist on this machine).
   const { connected: driveConnected, connect: handleConnect } = useCoursewareDrive(year);
 
-  // Default to the most common lesson number in this slot.
-  const commonLesson = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const s of sessions) {
-      if (s.lesson_number != null) {
-        counts.set(s.lesson_number, (counts.get(s.lesson_number) ?? 0) + 1);
-      }
-    }
-    let best: number | null = null;
-    let bestCount = 0;
-    for (const [lesson, count] of counts) {
-      if (count > bestCount) { best = lesson; bestCount = count; }
-    }
-    return best;
-  }, [sessions]);
+  const breakdown = useMemo(() => lessonBreakdown(sessions), [sessions]);
+  const commonLesson = mostCommonLessonNumber(breakdown);
+  const isMixed = breakdown.length > 1;
 
   const [chapterCode, setChapterCode] = useState<string | null>(null);
+  // Mixed slots default to assigning each student their own lesson's
+  // materials; picking a chapter from the select is the explicit
+  // same-chapter-for-everyone override. Uniform slots behave as before.
+  const followMode = isMixed && chapterCode === null;
   const lessonChapter = chapters.find((c) => c.lessonNumber === commonLesson);
+  // In follow mode this is the majority lesson's chapter, used only for the
+  // material-row previews; assignment resolves per student.
   const chapter: Chapter | undefined =
     (chapterCode ? chapters.find((c) => c.code === chapterCode) : undefined) ?? lessonChapter;
 
@@ -94,12 +98,26 @@ function WideGradeSection({
   const parallelExtra = resolveParallelPreview(cDefaults, eDefaults, "Extra", pathPrefix);
 
   const handleAssign = async (target: PickerTarget, sessionIds: number[]) => {
-    if (!chapter) return;
+    if (!followMode && !chapter) return;
     setPicker(null);
+    const chosen = sessions.filter((s) => sessionIds.includes(s.id));
+    const plan = followMode
+      ? buildPerLessonAssignmentPlan(chosen, target.docType, chapters, pathPrefix)
+      : buildAssignmentPlan(chosen, target.docType, chapter!, pathPrefix);
+    // Only a genuinely mixed pick needs a confirm; a uniform pick (even in
+    // a mixed slot) assigns straight away like before.
+    if (followMode && new Set(chosen.map((s) => s.lesson_number)).size > 1) {
+      const ok = await confirm({
+        title: "Assign by each student's lesson?",
+        message:
+          "Students in this class are on different lessons. Each student will get the materials for their own lesson.",
+        consequences: describeAssignmentGroups(plan),
+        confirmText: "Assign",
+      });
+      if (!ok) return;
+    }
     setAssigning(true);
     try {
-      const chosen = sessions.filter((s) => sessionIds.includes(s.id));
-      const plan = buildAssignmentPlan(chosen, target.docType, chapter, pathPrefix);
       const result = await executeAssignmentPlan(plan, target.type, pathPrefix);
       showToast(
         describeAssignmentResult(plan, result, target.type),
@@ -115,12 +133,17 @@ function WideGradeSection({
 
   const assignButton = (docType: SummerDocType, type: "CW" | "HW", label: string) => {
     const target: PickerTarget = { docType, type };
+    const typeLabel = type === "CW" ? "classwork" : "homework";
     return (
       <button
         key={`${docType}-${type}`}
         onClick={() => setPicker(isPickerFor(target) ? null : target)}
         disabled={assigning}
-        title={`Assign each student their own language version as ${type === "CW" ? "classwork" : "homework"}`}
+        title={
+          followMode
+            ? `Assign each student their own lesson and language version as ${typeLabel}`
+            : `Assign each student their own language version as ${typeLabel}`
+        }
         className={summerAssignButtonClass(type)}
       >
         <SummerAssignIcon type={type} busy={assigning} />
@@ -166,17 +189,22 @@ function WideGradeSection({
 
   // Preselect students who would actually receive the file (skip those
   // who already have it), so the picker reflects the real outcome.
-  const pickerPreselected =
-    picker && chapter
-      ? buildAssignmentPlan(sessions, picker.docType, chapter, pathPrefix)
-      : null;
+  const pickerPreselected = picker
+    ? followMode
+      ? buildPerLessonAssignmentPlan(sessions, picker.docType, chapters, pathPrefix)
+      : chapter
+        ? buildAssignmentPlan(sessions, picker.docType, chapter, pathPrefix)
+        : null
+    : null;
   const preselectedIds = pickerPreselected
     ? [
         ...pickerPreselected.items.map((i) => i.session.id),
-        // Keep no-lang/no-file students ticked so skips surface in the toast
-        // instead of silently dropping them from the action.
+        // Keep skipped students ticked (except already-assigned) so skips
+        // surface in the toast instead of silently dropping from the action.
         ...pickerPreselected.noLang.map((s) => s.id),
         ...pickerPreselected.noFile.map((s) => s.id),
+        ...pickerPreselected.noLesson.map((s) => s.id),
+        ...pickerPreselected.noChapter.map((s) => s.id),
       ]
     : undefined;
 
@@ -199,11 +227,14 @@ function WideGradeSection({
 
       {/* Chapter picker */}
       <select
-        value={chapter?.code ?? ""}
-        onChange={(e) => setChapterCode(e.target.value)}
+        value={followMode ? FOLLOW_OWN_LESSON : chapter?.code ?? ""}
+        onChange={(e) =>
+          setChapterCode(e.target.value === FOLLOW_OWN_LESSON ? null : e.target.value)
+        }
         className="mt-1.5 w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#5a4d3a] bg-white/70 dark:bg-[#1a1a1a]/70 text-xs text-[#6b5a42] dark:text-[#c4a882] [&>option]:bg-white [&>option]:text-[#6b5a42] dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-[#c4a882]"
       >
-        {!chapter && <option value="">Choose chapter…</option>}
+        {isMixed && <option value={FOLLOW_OWN_LESSON}>Each student&apos;s own lesson</option>}
+        {!chapter && !followMode && <option value="">Choose chapter…</option>}
         {chapters.map((c) => (
           <option key={c.code} value={c.code}>
             {c.lessonNumber != null ? `L${c.lessonNumber} · ` : ""}SM{c.code} {c.topicZh}
@@ -213,10 +244,21 @@ function WideGradeSection({
 
       {chapter && (
         <div className="relative mt-1.5 flex flex-col gap-0.5">
-          {chapter.lessonNumber !== commonLesson && (
-            <p className="text-[10px] text-amber-700 dark:text-amber-400">
-              Viewing a different chapter than this slot&apos;s L{commonLesson}.
+          {followMode ? (
+            <p className="text-[10px] text-[#8b7355] dark:text-[#a09080]">
+              Mixed lessons in this slot: {formatLessonBreakdown(breakdown)}. Each student
+              gets their own lesson&apos;s materials.
             </p>
+          ) : isMixed ? (
+            <p className="text-[10px] text-amber-700 dark:text-amber-400">
+              Assigns this chapter to all picked students ({formatLessonBreakdown(breakdown)}).
+            </p>
+          ) : (
+            chapter.lessonNumber !== commonLesson && (
+              <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                Viewing a different chapter than this slot&apos;s L{commonLesson}.
+              </p>
+            )
           )}
 
           {materialRow("Classwork", "CW", assignButton("CW", "CW", "Assign"))}
