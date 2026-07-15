@@ -119,31 +119,57 @@ export function CurriculumModalShell({
   );
 }
 
-/** The "Show N more" / "Showing the first N of M files" pair under a
- *  concept's file list, shared by the modals that lift their cap on demand. */
+/** The server never returns more than this many files per topic. */
+const SERVER_FILE_CAP = 200;
+
+/** The "Show N more" / "Show fewer" pair under one section's list. Each
+ *  click reveals another chunk of that section only; expanded sections can
+ *  be collapsed back to their default size. */
 export function CurriculumShowMoreFiles({
   shown,
   total,
-  showAll,
-  onShowAll,
+  chunk,
+  expanded,
+  loading,
+  onShowMore,
+  onShowFewer,
 }: {
   shown: number;
   total: number;
-  showAll: boolean;
-  onShowAll: () => void;
+  chunk: number;
+  expanded: boolean;
+  loading?: boolean;
+  onShowMore: () => void;
+  onShowFewer: () => void;
 }) {
-  if (total <= shown) return null;
-  return showAll ? (
-    <p className="text-[10px] text-gray-400 mt-1.5">
-      Showing the first {shown} of {total} files.
-    </p>
-  ) : (
-    <button
-      type="button"
-      onClick={onShowAll}
-      className="mt-1.5 text-[10px] text-teal-700 dark:text-teal-400 hover:underline"
-    >
-      Show {total - shown} more
-    </button>
+  const moreAvailable = shown < Math.min(total, SERVER_FILE_CAP);
+  if (!moreAvailable && !expanded) return null;
+  return (
+    <div className="mt-1.5 flex items-center gap-3 text-[10px]">
+      {moreAvailable && (
+        <button
+          type="button"
+          onClick={onShowMore}
+          disabled={loading}
+          className="text-teal-700 dark:text-teal-400 hover:underline disabled:opacity-60 disabled:hover:no-underline"
+        >
+          {loading ? "Loading…" : `Show ${Math.min(chunk, total - shown)} more`}
+        </button>
+      )}
+      {!moreAvailable && total > shown && (
+        <span className="text-gray-400">
+          Showing the first {shown} of {total} files.
+        </span>
+      )}
+      {expanded && (
+        <button
+          type="button"
+          onClick={onShowFewer}
+          className="text-gray-500 dark:text-gray-400 hover:underline"
+        >
+          Show fewer
+        </button>
+      )}
+    </div>
   );
 }

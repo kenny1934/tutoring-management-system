@@ -21,6 +21,9 @@ interface CurriculumRevisionPackProps {
 }
 
 const PAPERS_SHOWN = 8;
+// Mirrors the server's default files-per-topic cap, so the first chunk is
+// exactly what the initial fetch already returned.
+const FILES_SHOWN = 8;
 
 /**
  * One test's revision pack: every topic parsed from the test's scope with
@@ -29,19 +32,22 @@ const PAPERS_SHOWN = 8;
  */
 export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionPackProps) {
   const [preview, setPreview] = useState<CurriculumPreviewTarget | null>(null);
-  const [showAll, setShowAll] = useState(false);
-  const [showAllPapers, setShowAllPapers] = useState(false);
+  // Files shown per topic, keyed by concept id; absent = default chunk.
+  const [fileCounts, setFileCounts] = useState<Record<number, number>>({});
+  const [paperCount, setPaperCount] = useState(PAPERS_SHOWN);
 
+  const anyExpanded = Object.values(fileCounts).some((n) => n > FILES_SHOWN);
   const { data, isLoading } = useCurriculumRevisionPack(
     eventId,
-    // The pack is the "everything for this test" view — lift the cap on demand.
-    showAll ? 200 : undefined
+    // The pack is the "everything for this test" view — lift the cap once
+    // any topic expands, then slice per topic client-side.
+    anyExpanded ? 200 : undefined
   );
 
   const event = data?.event;
   const stream = data?.lang_stream || null;
   const papers = data?.past_papers || [];
-  const shownPapers = showAllPapers ? papers : papers.slice(0, PAPERS_SHOWN);
+  const shownPapers = papers.slice(0, paperCount);
   const papersForThis = shownPapers.filter((p) => p.for_this_event);
   const papersSimilar = shownPapers.filter((p) => !p.for_this_event);
   const dateLabel = event?.start_date
@@ -115,15 +121,14 @@ export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionP
                 />
               ))}
             </div>
-            {papers.length > PAPERS_SHOWN && !showAllPapers && (
-              <button
-                type="button"
-                onClick={() => setShowAllPapers(true)}
-                className="mt-1 text-[10px] text-teal-700 dark:text-teal-300 hover:underline"
-              >
-                Show {papers.length - PAPERS_SHOWN} more
-              </button>
-            )}
+            <CurriculumShowMoreFiles
+              shown={shownPapers.length}
+              total={papers.length}
+              chunk={PAPERS_SHOWN}
+              expanded={paperCount > PAPERS_SHOWN}
+              onShowMore={() => setPaperCount((n) => n + PAPERS_SHOWN)}
+              onShowFewer={() => setPaperCount(PAPERS_SHOWN)}
+            />
           </div>
         )}
 
@@ -132,42 +137,60 @@ export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionP
             No topics recognised for this test.
           </p>
         )}
-        {(data?.concepts || []).map((concept) => (
-          <div
-            key={concept.concept_id}
-            className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
-          >
-            <div className="text-xs font-medium text-gray-800 dark:text-gray-200">
-              {conceptNameForStream(concept, stream)}
+        {(data?.concepts || []).map((concept) => {
+          const count = fileCounts[concept.concept_id] ?? FILES_SHOWN;
+          const files = concept.files.slice(0, count);
+          return (
+            <div
+              key={concept.concept_id}
+              className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
+            >
+              <div className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                {conceptNameForStream(concept, stream)}
+              </div>
+              {concept.scope_lines.length > 0 && (
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                  From the test scope: &ldquo;{concept.scope_lines.slice(0, 2).join(" · ")}&rdquo;
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {files.map((file) => (
+                  <CurriculumFileRow
+                    key={file.file_path}
+                    file={file}
+                    onPreview={setPreview}
+                    scopeSchool={event?.school}
+                  />
+                ))}
+              </div>
+              {concept.files.length === 0 && (
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  No worksheets mapped to this topic yet.
+                </p>
+              )}
+              <CurriculumShowMoreFiles
+                shown={files.length}
+                total={concept.file_count}
+                chunk={FILES_SHOWN}
+                expanded={count > FILES_SHOWN}
+                loading={isLoading && count > concept.files.length}
+                onShowMore={() =>
+                  setFileCounts((c) => ({
+                    ...c,
+                    [concept.concept_id]: count + FILES_SHOWN,
+                  }))
+                }
+                onShowFewer={() =>
+                  setFileCounts((c) => {
+                    const next = { ...c };
+                    delete next[concept.concept_id];
+                    return next;
+                  })
+                }
+              />
             </div>
-            {concept.scope_lines.length > 0 && (
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
-                From the test scope: &ldquo;{concept.scope_lines.slice(0, 2).join(" · ")}&rdquo;
-              </p>
-            )}
-            <div className="space-y-0.5">
-              {concept.files.map((file) => (
-                <CurriculumFileRow
-                  key={file.file_path}
-                  file={file}
-                  onPreview={setPreview}
-                  scopeSchool={event?.school}
-                />
-              ))}
-            </div>
-            {concept.files.length === 0 && (
-              <p className="text-[10px] text-gray-400 mt-0.5">
-                No worksheets mapped to this topic yet.
-              </p>
-            )}
-            <CurriculumShowMoreFiles
-              shown={concept.files.length}
-              total={concept.file_count}
-              showAll={showAll}
-              onShowAll={() => setShowAll(true)}
-            />
-          </div>
-        ))}
+          );
+        })}
 
         {data && data.unmatched_lines.length > 0 && (
           <div className="mx-4 my-3 px-3 py-2 rounded-lg bg-black/[0.04] dark:bg-white/[0.05]">

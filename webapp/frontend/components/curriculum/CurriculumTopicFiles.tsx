@@ -29,6 +29,8 @@ interface CurriculumTopicFilesProps {
   onClose: () => void;
 }
 
+const FILES_SHOWN = 30;
+
 /**
  * The worksheets behind a topic on the charts: every file mapped to the
  * concept, with the same preview/copy actions as the search results. The
@@ -42,7 +44,8 @@ export function CurriculumTopicFiles({
   onClose,
 }: CurriculumTopicFilesProps) {
   const [preview, setPreview] = useState<CurriculumFile | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  // Files shown per concept, keyed by concept id; absent = default chunk.
+  const [fileCounts, setFileCounts] = useState<Record<number, number>>({});
   const [current, setCurrent] = useState({ conceptId, name: conceptName });
   const [trail, setTrail] = useState<{ conceptId: number; name: string }[]>([]);
 
@@ -66,28 +69,33 @@ export function CurriculumTopicFiles({
   const goTo = (target: { conceptId: number; name: string }) => {
     setTrail((prev) => [...prev, current]);
     setCurrent(target);
-    setShowAll(false);
+    setFileCounts({});
   };
   const goBack = () => {
     const prev = trail[trail.length - 1];
     if (!prev) return;
     setTrail((t) => t.slice(0, -1));
     setCurrent(prev);
-    setShowAll(false);
+    setFileCounts({});
   };
 
-  const { data, isLoading } = useCurriculumSearch({
-    concept_id: current.conceptId,
-    // The chart modal is the "everything we have" view — lift the default cap.
-    limit: showAll ? 200 : 30,
-    ...(scope
-      ? {
-          school: scope.school,
-          grade: scope.grade,
-          lang_stream: scope.lang_stream || undefined,
-        }
-      : {}),
-  });
+  const anyExpanded = Object.values(fileCounts).some((n) => n > FILES_SHOWN);
+  const { data, isLoading } = useCurriculumSearch(
+    {
+      concept_id: current.conceptId,
+      // Lift the cap once any section expands, then slice client-side.
+      limit: anyExpanded ? 200 : FILES_SHOWN,
+      ...(scope
+        ? {
+            school: scope.school,
+            grade: scope.grade,
+            lang_stream: scope.lang_stream || undefined,
+          }
+        : {}),
+    },
+    // Keep the capped list on screen while the lifted-cap fetch loads.
+    { keepPreviousData: true }
+  );
 
   const concepts = data?.concepts || [];
   const totalFiles = concepts.reduce((n, c) => n + c.files.length, 0);
@@ -165,40 +173,56 @@ export function CurriculumTopicFiles({
             No files mapped to this topic yet.
           </p>
         )}
-        {concepts.map(
-          (concept) =>
-            concept.files.length > 0 && (
-              <div
-                key={concept.concept_id}
-                className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
-              >
-                {concept.evidence && concept.evidence.weeks_observed.length > 0 && (
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
-                    {evidenceSummary(
-                      concept.evidence.weeks_observed,
-                      concept.evidence.sources
-                    )}
-                  </p>
-                )}
-                <div className="space-y-0.5">
-                  {concept.files.map((file) => (
-                    <CurriculumFileRow
-                      key={file.file_path}
-                      file={file}
-                      onPreview={setPreview}
-                      scopeSchool={scope?.school}
-                    />
-                  ))}
-                </div>
-                <CurriculumShowMoreFiles
-                  shown={concept.files.length}
-                  total={concept.file_count || 0}
-                  showAll={showAll}
-                  onShowAll={() => setShowAll(true)}
-                />
+        {concepts.map((concept) => {
+          if (concept.files.length === 0) return null;
+          const count = fileCounts[concept.concept_id] ?? FILES_SHOWN;
+          const files = concept.files.slice(0, count);
+          return (
+            <div
+              key={concept.concept_id}
+              className="px-4 py-2.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 last:border-b-0"
+            >
+              {concept.evidence && concept.evidence.weeks_observed.length > 0 && (
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                  {evidenceSummary(
+                    concept.evidence.weeks_observed,
+                    concept.evidence.sources
+                  )}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {files.map((file) => (
+                  <CurriculumFileRow
+                    key={file.file_path}
+                    file={file}
+                    onPreview={setPreview}
+                    scopeSchool={scope?.school}
+                  />
+                ))}
               </div>
-            )
-        )}
+              <CurriculumShowMoreFiles
+                shown={files.length}
+                total={concept.file_count || 0}
+                chunk={FILES_SHOWN}
+                expanded={count > FILES_SHOWN}
+                loading={isLoading && count > concept.files.length}
+                onShowMore={() =>
+                  setFileCounts((c) => ({
+                    ...c,
+                    [concept.concept_id]: count + FILES_SHOWN,
+                  }))
+                }
+                onShowFewer={() =>
+                  setFileCounts((c) => {
+                    const next = { ...c };
+                    delete next[concept.concept_id];
+                    return next;
+                  })
+                }
+              />
+            </div>
+          );
+        })}
       </CurriculumModalShell>
 
       {preview && (

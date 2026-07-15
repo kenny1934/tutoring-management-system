@@ -579,7 +579,10 @@ export function useCurriculumRevisionPack(
 ) {
   return useSWR<CurriculumRevisionPackResponse>(
     eventId ? ['curriculum-revision-pack', eventId, limit || 0] : null,
-    () => curriculumAPI.getRevisionPack(eventId!, limit)
+    () => curriculumAPI.getRevisionPack(eventId!, limit),
+    // Lifting the cap changes the key; keep the capped pack on screen
+    // while the full one loads instead of flashing the modal empty.
+    { keepPreviousData: true }
   );
 }
 
@@ -594,11 +597,13 @@ export function useCurriculumSearch(
     grade?: string;
     lang_stream?: string;
     limit?: number;
-  } | null
+  } | null,
+  opts?: { keepPreviousData?: boolean }
 ) {
   return useSWR<CurriculumSearchResponse>(
     query ? ['curriculum-search', JSON.stringify(query)] : null,
-    () => curriculumAPI.search(query!)
+    () => curriculumAPI.search(query!),
+    opts
   );
 }
 
