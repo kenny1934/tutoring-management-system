@@ -118,10 +118,16 @@ def detect_kind(*texts):
     return None
 
 
+DATE_TOKEN_RE = re.compile(r"[(（]\s*\d{2,4}[._-]\d{1,2}[._-]\d{1,2}\s*[)）]")
+
+
 def paper_stem(fn):
+    # filename dates are copy-paste noise: a paper and its answer key often
+    # disagree on the date token, so it can't be part of the variant key
     s = DOC_EXT_RE.sub("", fn)
-    s = re.sub(r"(?i)[_\s(（]*(ans|answers?|答案|改)[)）]*$", "", s).strip("_ ")
-    return s.lower()
+    s = DATE_TOKEN_RE.sub("", s)
+    s = re.sub(r"(?i)[_\s(（]*(ans|answers?|答案|改)[)）]*$", "", s)
+    return re.sub(r"\s+", " ", s).strip("_ ").lower()
 
 
 def scan_tree(stats):
