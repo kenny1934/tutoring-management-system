@@ -457,7 +457,9 @@ def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
         (5, 'Center\\E.pdf', 'E', 'E.pdf', NULL, 'SRL-E', 'F1',
          '2024-2025', 4, 'Test', 'none'),
         (7, 'Center\\G.pdf', 'G', 'G.pdf', NULL, 'SRL-E', 'F1',
-         '2023-2024', 12, 'Exam', 'event')
+         '2023-2024', 12, 'Exam', 'event'),
+        (8, 'Center\\H.pdf', 'H', 'H.pdf', NULL, 'SRL-E', 'F1',
+         '2025-2026', 13, 'Exam', 'none')
     """))
     # F: already made for this very event — leads even over C's wider overlap
     db_session.execute(text("""
@@ -479,21 +481,26 @@ def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
         cookies=AUTH_COOKIE,
     ).json()
     papers = body["past_papers"]
-    # F: made for this event. Then same school newest year first: C beats B
-    # on overlap within 2024-25, and B (no topics, one week off) still beats
-    # G from 2023-24 despite G's full overlap — the latest folders track the
-    # current syllabus. A: other school via overlap only. D (no overlap,
-    # other school) and E (same school, week too far) drop.
+    # F: made for this event. H: same school inside this year's exam window
+    # — the sitting-mate with no topic overlap still outranks everything
+    # from earlier weeks. Then same school newest year first: C beats B on
+    # overlap within 2024-25, and B (no topics, one week off) still beats
+    # G from 2023-24 despite G's full overlap — the latest folders track
+    # the current syllabus. A: other school via overlap only. D (no
+    # overlap, other school) and E (same school, week too far) drop.
     assert [p["file_basename"] for p in papers] == [
-        "F.pdf", "C.pdf", "B.pdf", "G.pdf", "A.pdf"]
-    assert [p["for_this_event"] for p in papers] == [True, False, False, False, False]
-    assert [p["same_school"] for p in papers] == [True, True, True, True, False]
-    second = papers[1]
-    assert second["matched_count"] == 2
-    assert [c["concept_id"] for c in second["matched_concepts"]] == [1, 2]
-    assert second["matched_concepts"][0]["name_en"] == "Linear Equations in One Unknown"
-    assert papers[4]["variant_paths"] == ["Center\\A_ans.pdf"]
-    assert papers[2]["matched_count"] == 0
+        "F.pdf", "H.pdf", "C.pdf", "B.pdf", "G.pdf", "A.pdf"]
+    assert [p["for_this_event"] for p in papers] == [
+        True, False, False, False, False, False]
+    assert [p["same_school"] for p in papers] == [
+        True, True, True, True, True, False]
+    assert papers[1]["matched_count"] == 0
+    third = papers[2]
+    assert third["matched_count"] == 2
+    assert [c["concept_id"] for c in third["matched_concepts"]] == [1, 2]
+    assert third["matched_concepts"][0]["name_en"] == "Linear Equations in One Unknown"
+    assert papers[5]["variant_paths"] == ["Center\\A_ans.pdf"]
+    assert papers[3]["matched_count"] == 0
 
 
 def test_revision_pack_past_papers_position_only_without_scope(

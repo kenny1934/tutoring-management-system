@@ -956,16 +956,21 @@ def _past_papers(db, event, scope_ids, meta, limit=MAX_PAST_PAPERS):
     """Archived tailor-made papers relevant to this event, ranked.
 
     Papers linked to the event itself lead (a tutor already built one for
-    this very test). After those, two ways in: topic overlap with the
-    event's parsed scope (any school — the similar-syllabus case), or the
-    same school and grade filed within the same weeks of another year (the
-    same-exam-last-year case, which needs no topic signal at all). Same
-    school first, then the most recent year — the latest folders track the
-    current syllabus and textbook edition — then overlap within a year.
+    this very test). Right behind them: same-school papers filed within
+    the exam window this year — in an exam season those folders hold the
+    tailor-made set even when their topic index disagrees, since a
+    school's sittings split the topics between events. After those, two
+    ways in: topic overlap with the event's parsed scope (any school — the
+    similar-syllabus case), or the same school and grade filed within the
+    same weeks of another year (the same-exam-last-year case, which needs
+    no topic signal at all). Same school first, then the most recent year
+    — the latest folders track the current syllabus and textbook edition —
+    then overlap within a year.
     """
     scope_set = set(scope_ids)
     wk = _week_for_date(db, event.start_date) if event.start_date else None
     event_week = wk.week_number if wk else None
+    event_ay = wk.academic_year if wk else None
 
     select = """
         SELECT p.id, p.file_path, p.file_basename, p.variant_paths,
@@ -1009,12 +1014,15 @@ def _past_papers(db, event, scope_ids, meta, limit=MAX_PAST_PAPERS):
                     and week_dist <= PAST_PAPER_WEEK_WINDOW):
                 continue
         matched = sorted(entry["matched"].items(), key=lambda kv: -kv[1])
+        in_window = (same_school and r.academic_year == event_ay
+                     and week_dist is not None
+                     and week_dist <= PAST_PAPER_WEEK_WINDOW)
         try:
             year_key = int(str(r.academic_year)[:4])
         except ValueError:
             year_key = 0
-        out.append(((not for_this_event, not same_school, -year_key,
-                     -sum(entry["matched"].values()),
+        out.append(((not for_this_event, not same_school, not in_window,
+                     -year_key, -sum(entry["matched"].values()),
                      week_dist if week_dist is not None else 99), {
             "id": r.id,
             "file_path": r.file_path,

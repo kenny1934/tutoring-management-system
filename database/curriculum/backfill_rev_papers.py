@@ -198,13 +198,14 @@ def load_events(cur):
                 return ay, wn
         return None, None
 
-    cur.execute("SELECT id, school, grade, start_date, event_type FROM calendar_events "
+    cur.execute("SELECT id, school, grade, start_date, event_type, title "
+                "FROM calendar_events "
                 "WHERE school IS NOT NULL AND grade IS NOT NULL")
     ev_by = defaultdict(list)
-    for eid, school, grade, start, etype in cur.fetchall():
+    for eid, school, grade, start, etype, title in cur.fetchall():
         ay, wn = ay_week(start)
         if ay:
-            ev_by[(school, grade, ay)].append((eid, wn, etype))
+            ev_by[(school, grade, ay)].append((eid, wn, etype, title))
 
     cur.execute("SELECT calendar_event_id, concept_id, confidence FROM exam_scope_concepts")
     scope_rows = defaultdict(list)
@@ -213,20 +214,69 @@ def load_events(cur):
     return ev_by, scope_rows
 
 
-def link_event(ev_by, scope_rows, schools, grade, year, week, kind):
+TOKEN_SPLIT_RE = re.compile(r"[^0-9A-Za-z一-鿿]+")
+CJK_RE = re.compile(r"[一-鿿]")
+KIND_WORD_RE = re.compile(
+    r"(?i)exam|test|quiz|mock|考試|考试|測驗|测验|統測|统测|大測|小測|補測|模擬")
+# a bare title at a maths centre means the general maths sitting
+MATH_GENERIC = {"math", "maths", "數學", "数学"}
+
+
+def title_qualifiers(title, school):
+    """Distinguishing title tokens beyond the school/grade/kind boilerplate
+    ("Alg" in "DBYW-E F1 Exam Alg", "代數" in "DBYW-C F2 Exam 代數")."""
+    school_l = (school or "").lower()
+    quals = set()
+    for t in TOKEN_SPLIT_RE.split(camel_split(title or "")):
+        t = t.lower()
+        if len(t) < 2 or not t.isalpha():
+            continue
+        if t in school_l or KIND_WORD_RE.search(t):
+            continue
+        quals.add(t)
+    return quals
+
+
+def _qualifier_hits(q, tokens):
+    for t in tokens:
+        if q == t:
+            return True
+        if CJK_RE.search(q):
+            if q in t or t in q:
+                return True
+        elif min(len(q), len(t)) >= 3 and (q.startswith(t) or t.startswith(q)):
+            return True
+    return False
+
+
+def qualifier_rank(title, school, fname):
+    """0 when the filename engages this sitting's qualifier, else 1. Bare
+    titles get the implicit math-generic qualifier, so "MathExam" prefers
+    a plain "Exam" sitting over "Exam Alg". A filename that engages no
+    candidate leaves every rank at 1 and the week distance decides."""
+    quals = title_qualifiers(title, school) or MATH_GENERIC
+    tokens = {t.lower() for t in TOKEN_SPLIT_RE.split(camel_split(fname or "")) if t}
+    return 0 if any(_qualifier_hits(q, tokens) for q in quals) else 1
+
+
+def link_event(ev_by, scope_rows, schools, grade, year, week, kind, fname):
     """(event_id, link_confidence, school) or (None, None, None)."""
     cands = []
     for sc in schools:
-        for eid, ewk, etype in ev_by.get((sc, grade, year), []):
+        for eid, ewk, etype, title in ev_by.get((sc, grade, year), []):
             if abs(ewk - week) <= LINK_WINDOW:
-                cands.append((eid, ewk, etype, sc))
+                cands.append((eid, ewk, etype, sc, title))
     if not cands:
         return None, None, None
     if len({c[0] for c in cands}) == 1:
         return cands[0][0], LINK_CONF_SINGLE, cands[0][3]
-    # equally plausible candidates: the one with parsed scope is more useful
+    # equally plausible candidates: a sitting whose title qualifier the
+    # filename mentions wins ("AlgExam" -> "Exam Alg"), a bare title beats
+    # a qualified one the filename ignores, then the nearest week, then
+    # the one with parsed scope (more useful)
     def near(c):
-        return (abs(c[1] - week), c[0] not in scope_rows)
+        return (qualifier_rank(c[4], c[3], fname),
+                abs(c[1] - week), c[0] not in scope_rows)
 
     want = KIND_EQUIV.get(kind, kind)
     typed = [c for c in cands if want and c[2] == want]
@@ -244,7 +294,7 @@ def proxy_scope(ev_by, scope_rows, schools, grade, year, week, kind):
         for (s2, g2, ay2), evs in ev_by.items():
             if s2 != sc or g2 != grade or ay2 == year:
                 continue
-            for eid, ewk, etype in evs:
+            for eid, ewk, etype, _title in evs:
                 if eid not in scope_rows or abs(ewk - week) > PROXY_WINDOW:
                     continue
                 # nearest week, then matching event type, then the most
@@ -292,7 +342,8 @@ def main():
         linked_school = None
         if schools and grade:
             event_id, link_conf, linked_school = link_event(
-                ev_by, scope_rows, schools, grade, year, week, kind)
+                ev_by, scope_rows, schools, grade, year, week, kind,
+                primary["fn"])
 
         concepts = []
         if event_id and scope_rows.get(event_id):
