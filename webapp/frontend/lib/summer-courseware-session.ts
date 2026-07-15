@@ -14,10 +14,12 @@ import {
   pickDefaults,
   pickDocDefaults,
   buildFullPath,
+  chapterLabel,
   type Chapter,
   type ChapterDefaults,
   type ParallelPreviewSource,
 } from "./summer-courseware-defaults";
+import { plural } from "./formatters";
 import {
   openCoursewareFile,
   getRootHandle,
@@ -25,6 +27,7 @@ import {
 } from "./summer-courseware-scan";
 import { isFileSystemAccessSupported } from "./file-system";
 import { useToast } from "@/contexts/ToastContext";
+import type { ConfirmOptions } from "@/contexts/ConfirmContext";
 import type { Session, SessionExercise, SummerCoursewareFile, SummerCoursewareIndexResponse } from "@/types";
 
 export type SummerDocType = "CW" | "HW" | "Extra";
@@ -219,13 +222,19 @@ export function buildPerLessonAssignmentPlan(
   pathPrefix: string | null | undefined
 ): AssignmentPlan {
   const plan = emptyPlan();
+  const chapterByLesson = new Map<number, Chapter>();
+  for (const c of chapters) {
+    if (c.lessonNumber != null && !chapterByLesson.has(c.lessonNumber)) {
+      chapterByLesson.set(c.lessonNumber, c);
+    }
+  }
   const defaultsByCode = new Map<string, LangDefaults>();
   for (const session of sessions) {
     if (session.lesson_number == null) {
       plan.noLesson.push(session);
       continue;
     }
-    const chapter = chapters.find((c) => c.lessonNumber === session.lesson_number);
+    const chapter = chapterByLesson.get(session.lesson_number);
     if (!chapter) {
       plan.noChapter.push(session);
       continue;
@@ -272,12 +281,6 @@ export function formatLessonBreakdown(breakdown: LessonCount[]): string {
   return breakdown.map(({ lesson, count }) => `L${lesson} ×${count}`).join(" · ");
 }
 
-function chapterLabel(chapter: Chapter): string {
-  const lesson = chapter.lessonNumber != null ? `L${chapter.lessonNumber} · ` : "";
-  const topic = chapter.topicZh ? ` ${chapter.topicZh}` : "";
-  return `${lesson}SM${chapter.code}${topic}`;
-}
-
 /**
  * Confirm-dialog bullet lines for a per-lesson plan: one line per chapter
  * being assigned, then named lines for lesson-related skips (the tutor can
@@ -292,10 +295,7 @@ export function describeAssignmentGroups(plan: AssignmentPlan): string[] {
   }
   const lines = Array.from(groups.values())
     .sort((a, b) => (a.chapter.lessonNumber ?? 0) - (b.chapter.lessonNumber ?? 0))
-    .map(
-      ({ chapter, count }) =>
-        `${chapterLabel(chapter)}: ${count} student${count !== 1 ? "s" : ""}`
-    );
+    .map(({ chapter, count }) => `${chapterLabel(chapter)}: ${plural(count, "student")}`);
   const missingByLesson = new Map<number, string[]>();
   for (const s of plan.noChapter) {
     const names = missingByLesson.get(s.lesson_number!) ?? [];
@@ -311,6 +311,108 @@ export function describeAssignmentGroups(plan: AssignmentPlan): string[] {
     );
   }
   return lines;
+}
+
+/**
+ * True when a plan touches more than one lesson: multiple chapters among
+ * the items, or lesson-related skips alongside them. This is the gate for
+ * the mixed-assignment confirm dialog.
+ */
+export function planSpansMultipleLessons(plan: AssignmentPlan): boolean {
+  const lessons = new Set<number>();
+  for (const item of plan.items) {
+    if (item.chapter.lessonNumber != null) lessons.add(item.chapter.lessonNumber);
+  }
+  for (const s of plan.noChapter) {
+    if (s.lesson_number != null) lessons.add(s.lesson_number);
+  }
+  return lessons.size + (plan.noLesson.length > 0 ? 1 : 0) > 1;
+}
+
+/**
+ * Shared confirm gate for per-lesson bulk assignment: resolves true
+ * straight away for uniform plans, otherwise shows the split (one line per
+ * chapter plus lesson-related skips) and resolves with the tutor's answer.
+ */
+export function confirmPerLessonAssign(
+  confirm: (options: ConfirmOptions) => Promise<boolean>,
+  plan: AssignmentPlan
+): Promise<boolean> {
+  if (!planSpansMultipleLessons(plan)) return Promise.resolve(true);
+  return confirm({
+    title: "Assign by each student's lesson?",
+    message:
+      "The selected students are on different lessons. Each student will get the materials for their own lesson.",
+    consequences: describeAssignmentGroups(plan),
+    confirmText: "Assign",
+  });
+}
+
+/**
+ * Everyone the plan would act on or skip-report — all sessions except
+ * those who already have the file. Keeps pickers preselecting skipped
+ * students so skips surface in the toast instead of silently dropping.
+ */
+export function planActionableSessionIds(plan: AssignmentPlan): number[] {
+  return [
+    ...plan.items.map((i) => i.session.id),
+    ...plan.noLang.map((s) => s.id),
+    ...plan.noFile.map((s) => s.id),
+    ...plan.noLesson.map((s) => s.id),
+    ...plan.noChapter.map((s) => s.id),
+  ];
+}
+
+export interface ChapterSelectionState {
+  breakdown: LessonCount[];
+  isMixed: boolean;
+  commonLesson: number | null;
+  /** Mixed group with no explicit chapter pick: assign per student's lesson. */
+  followMode: boolean;
+  /** The majority lesson's chapter (the uniform default). */
+  lessonChapter: Chapter | undefined;
+  /** Explicit pick, else the majority chapter; drives previews only in follow mode. */
+  chapter: Chapter | undefined;
+  setChapterCode: (code: string | null) => void;
+}
+
+/**
+ * Chapter-selection state shared by the summer bulk-assign surfaces.
+ * Mixed-lesson groups default to follow mode (each student's own lesson);
+ * an explicit chapter pick overrides with one chapter for everyone.
+ */
+export function useChapterSelection(
+  sessions: Session[],
+  chapters: Chapter[]
+): ChapterSelectionState {
+  const breakdown = useMemo(() => lessonBreakdown(sessions), [sessions]);
+  const commonLesson = mostCommonLessonNumber(breakdown);
+  const isMixed = breakdown.length > 1;
+  const [chapterCode, setChapterCode] = useState<string | null>(null);
+  const followMode = isMixed && chapterCode === null;
+  const lessonChapter = chapters.find((c) => c.lessonNumber === commonLesson);
+  const chapter =
+    (chapterCode ? chapters.find((c) => c.code === chapterCode) : undefined) ?? lessonChapter;
+  return { breakdown, isMixed, commonLesson, followMode, lessonChapter, chapter, setChapterCode };
+}
+
+/**
+ * The plan for the current selection mode: per student's own lesson in
+ * follow mode, one chapter for everyone otherwise (null before a chapter
+ * is chosen).
+ */
+export function buildSelectionPlan(
+  sessions: Session[],
+  docType: SummerDocType,
+  selection: Pick<ChapterSelectionState, "followMode" | "chapter"> & { chapters: Chapter[] },
+  pathPrefix: string | null | undefined
+): AssignmentPlan | null {
+  if (selection.followMode) {
+    return buildPerLessonAssignmentPlan(sessions, docType, selection.chapters, pathPrefix);
+  }
+  return selection.chapter
+    ? buildAssignmentPlan(sessions, docType, selection.chapter, pathPrefix)
+    : null;
 }
 
 /**

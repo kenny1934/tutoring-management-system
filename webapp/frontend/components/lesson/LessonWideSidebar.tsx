@@ -14,7 +14,7 @@ import { SummerCoursewareWidePanel } from "./SummerCoursewareWidePanel";
 import { StudentPickerPopover } from "./StudentPickerPopover";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "@/components/sessions/EditableLessonNumberBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
-import type { Session, SessionExercise } from "@/types";
+import type { Session } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
 
@@ -540,6 +540,10 @@ export function LessonWideSidebar({
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
   const handlePickerClose = useCallback(() => setPickerType(null), []);
 
+  // Group file groups by type for by-file view
+  const cwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "CW"), [fileGroups]);
+  const hwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "HW"), [fileGroups]);
+
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
@@ -548,10 +552,6 @@ export function LessonWideSidebar({
       </div>
     );
   }
-
-  // Group file groups by type for by-file view
-  const cwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "CW"), [fileGroups]);
-  const hwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "HW"), [fileGroups]);
 
   return (
     <div className="flex flex-col h-full">

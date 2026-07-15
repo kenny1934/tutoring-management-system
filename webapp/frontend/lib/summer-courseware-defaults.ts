@@ -71,6 +71,13 @@ export function groupChapters(
   return byGrade;
 }
 
+/** Display label for a chapter, e.g. "L2 · SM702 指數". */
+export function chapterLabel(chapter: Chapter): string {
+  const lesson = chapter.lessonNumber != null ? `L${chapter.lessonNumber} · ` : "";
+  const topic = chapter.topicZh ? ` ${chapter.topicZh}` : "";
+  return `${lesson}SM${chapter.code}${topic}`;
+}
+
 export interface ChapterDefaults {
   cw?: SummerCoursewareFile;
   cwAnswer?: SummerCoursewareFile;

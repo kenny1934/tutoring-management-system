@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Sun, ChevronDown, ChevronRight, FileText, FileCheck, Plus, Loader2, Cable, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
@@ -9,6 +9,7 @@ import {
   normalizeLangStream,
   pickDefaults,
   buildFullPath,
+  chapterLabel,
   type Chapter,
   type ChapterDefaults,
 } from "@/lib/summer-courseware-defaults";
@@ -16,16 +17,15 @@ import {
   sessionSummerYear,
   useSummerCoursewareIndex,
   useCoursewareDrive,
-  buildAssignmentPlan,
-  buildPerLessonAssignmentPlan,
-  lessonBreakdown,
-  mostCommonLessonNumber,
+  useChapterSelection,
+  buildSelectionPlan,
+  confirmPerLessonAssign,
   formatLessonBreakdown,
-  describeAssignmentGroups,
   executeAssignmentPlan,
   describeAssignmentResult,
   type SummerDocType,
 } from "@/lib/summer-courseware-session";
+import { ChapterSelect } from "@/components/summer/ChapterSelect";
 import { coursewareGrade } from "@/lib/grade-utils";
 import type { Session, SummerCoursewareFile } from "@/types";
 
@@ -89,45 +89,6 @@ function SummerSectionShell({
         </div>
       )}
     </div>
-  );
-}
-
-/** Select value for the mixed-slot default: resolve per student's lesson. */
-const FOLLOW_OWN_LESSON = "__follow_own_lesson__";
-
-function ChapterSelect({
-  chapter,
-  chapters,
-  onChange,
-  followMode,
-  onFollowSelect,
-}: {
-  chapter?: Chapter;
-  chapters: Chapter[];
-  onChange: (code: string) => void;
-  /** True while the "each student's own lesson" option is active. */
-  followMode?: boolean;
-  /** Renders the own-lesson option (mixed-lesson bulk assign only). */
-  onFollowSelect?: () => void;
-}) {
-  return (
-    <select
-      value={followMode ? FOLLOW_OWN_LESSON : chapter?.code ?? ""}
-      onChange={(e) =>
-        e.target.value === FOLLOW_OWN_LESSON ? onFollowSelect?.() : onChange(e.target.value)
-      }
-      className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/70 dark:bg-[#1a1a1a]/70 text-xs text-gray-700 dark:text-gray-300 [&>option]:bg-white [&>option]:text-gray-700 dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-gray-300"
-    >
-      {onFollowSelect && (
-        <option value={FOLLOW_OWN_LESSON}>Each student&apos;s own lesson</option>
-      )}
-      {!chapter && !followMode && <option value="">Choose chapter…</option>}
-      {chapters.map((c) => (
-        <option key={c.code} value={c.code}>
-          {c.lessonNumber != null ? `L${c.lessonNumber} · ` : ""}SM{c.code} {c.topicZh}
-        </option>
-      ))}
-    </select>
   );
 }
 
@@ -226,9 +187,7 @@ export function SummerMaterialsSection({
   const typed = rowDefaults(defaults, exerciseType);
   const summary = (
     <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
-      {lessonChapter
-        ? `L${lessonChapter.lessonNumber} · SM${lessonChapter.code} ${lessonChapter.topicZh ?? ""}`
-        : `L${session.lesson_number}`}
+      {lessonChapter ? chapterLabel(lessonChapter) : `L${session.lesson_number}`}
     </span>
   );
 
@@ -280,24 +239,16 @@ export function SummerBulkAssignSection({
   const cwGrade = coursewareGrade(grade, year);
   const { index, chapters } = useSummerCoursewareIndex(year, eligible ? cwGrade : null);
 
-  const breakdown = useMemo(() => lessonBreakdown(sessions), [sessions]);
-  const commonLesson = mostCommonLessonNumber(breakdown);
-  const isMixed = breakdown.length > 1;
-
-  const [chapterCode, setChapterCode] = useState<string | null>(null);
-  // Mixed selections default to each student's own lesson; an explicit
-  // chapter pick overrides that with one chapter for everyone.
-  const followMode = isMixed && chapterCode === null;
+  // In follow mode (mixed selection, no explicit pick) `chapter` is the
+  // majority lesson's chapter and only drives row visibility; assignment
+  // resolves per student.
+  const { breakdown, isMixed, followMode, lessonChapter, chapter, setChapterCode } =
+    useChapterSelection(sessions, chapters);
   const [assigning, setAssigning] = useState<SummerDocType | null>(null);
   const [done, setDone] = useState<Set<SummerDocType>>(new Set());
 
   if (!eligible || !index || chapters.length === 0) return null;
 
-  const lessonChapter = chapters.find((c) => c.lessonNumber === commonLesson);
-  // In follow mode this majority-lesson chapter only drives row visibility;
-  // assignment resolves per student.
-  const chapter: Chapter | undefined =
-    (chapterCode ? chapters.find((c) => c.code === chapterCode) : undefined) ?? lessonChapter;
   const pathPrefix = index.scan?.path_prefix;
 
   const langCounts = sessions.reduce(
@@ -311,22 +262,9 @@ export function SummerBulkAssignSection({
   );
 
   const handleAssign = async (docType: SummerDocType) => {
-    if (!followMode && !chapter) return;
-    const plan = followMode
-      ? buildPerLessonAssignmentPlan(sessions, docType, chapters, pathPrefix)
-      : buildAssignmentPlan(sessions, docType, chapter!, pathPrefix);
-    // Follow mode only activates on mixed selections, so always confirm the
-    // per-lesson split before assigning.
-    if (followMode) {
-      const ok = await confirm({
-        title: "Assign by each student's lesson?",
-        message:
-          "The selected students are on different lessons. Each student will get the materials for their own lesson.",
-        consequences: describeAssignmentGroups(plan),
-        confirmText: "Assign",
-      });
-      if (!ok) return;
-    }
+    const plan = buildSelectionPlan(sessions, docType, { followMode, chapter, chapters }, pathPrefix);
+    if (!plan) return;
+    if (followMode && !(await confirmPerLessonAssign(confirm, plan))) return;
     setAssigning(docType);
     try {
       const result = await executeAssignmentPlan(plan, exerciseType, pathPrefix);
@@ -405,7 +343,7 @@ export function SummerBulkAssignSection({
         chapters={chapters}
         onChange={setChapterCode}
         followMode={followMode}
-        onFollowSelect={isMixed ? () => setChapterCode(null) : undefined}
+        showFollowOption={isMixed}
       />
       {chapter && (
         <>
