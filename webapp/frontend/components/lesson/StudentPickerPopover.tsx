@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { getStudentIdDisplay } from "@/lib/lesson-utils";
 import type { Session } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 
 /**
  * Student multi-select popover used by lesson-wide bulk assignment
@@ -100,6 +101,7 @@ export function StudentPickerPopover({
               {session.grade && (
                 <GradeBadge className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
               )}
+              <SessionLessonBadge session={session} size="xs" className="flex-shrink-0" />
             </button>
           );
         })}
