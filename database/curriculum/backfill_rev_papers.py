@@ -47,7 +47,7 @@ EXAMISH_RE = re.compile(
     r"(?i)mock|(?<![a-z])exam(?![a-z])|(?<![a-z])test(?![a-z])"
     r"|考試|測驗|統測|大測|小測|試卷|模擬"
 )
-ANS_RE = re.compile(r"(?i)_ans|answer|答案|marking")
+ANS_RE = re.compile(r"(?i)_ans|[)）]\s*ans|answer|答案|marking")
 # school-folder suffixes that are not part of the school name
 SCHOOL_STRIP_RE = re.compile(
     r"(?i)\s*[(（].*?[)）]\s*$|_DiskStation.*$|\s+(exam|test)\s*practice.*$|\s+ver[\d.]+$"
@@ -108,10 +108,20 @@ def canon_school(name, stream=None):
     return out
 
 
+# camelCase compounds ("MathExam", "AlgExam") hide keywords from the
+# (?<![a-z]) word boundaries — split them before matching
+CAMEL_SPLIT_RE = re.compile(r"(?<=[a-z])(?=[A-Z])")
+
+
+def camel_split(s):
+    return CAMEL_SPLIT_RE.sub(" ", s)
+
+
 def detect_kind(*texts):
     for text in texts:
         if not text:
             continue
+        text = camel_split(text)
         for kind, pat in KIND_PATTERNS:
             if pat.search(text):
                 return kind
@@ -159,9 +169,9 @@ def scan_tree(stats):
         mid = segs[gi + 2:-1] if school_seg else []
         if school_seg and SCHOOL_EXAM_RE.search(school_seg):
             pat = "P1_exam_school_folder"
-        elif any(REV_SUB_RE.search(s) for s in mid):
+        elif any(REV_SUB_RE.search(camel_split(s)) for s in mid):
             pat = "P2_rev_subfolder"
-        elif EXAMISH_RE.search(fn):
+        elif EXAMISH_RE.search(camel_split(fn)):
             pat = "P3_exam_filename"
         else:
             continue
