@@ -960,7 +960,8 @@ def _past_papers(db, event, scope_ids, meta, limit=MAX_PAST_PAPERS):
     event's parsed scope (any school — the similar-syllabus case), or the
     same school and grade filed within the same weeks of another year (the
     same-exam-last-year case, which needs no topic signal at all). Same
-    school first, then overlap, then the most recent year.
+    school first, then the most recent year — the latest folders track the
+    current syllabus and textbook edition — then overlap within a year.
     """
     scope_set = set(scope_ids)
     wk = _week_for_date(db, event.start_date) if event.start_date else None
@@ -1012,9 +1013,9 @@ def _past_papers(db, event, scope_ids, meta, limit=MAX_PAST_PAPERS):
             year_key = int(str(r.academic_year)[:4])
         except ValueError:
             year_key = 0
-        out.append(((not for_this_event, not same_school,
+        out.append(((not for_this_event, not same_school, -year_key,
                      -sum(entry["matched"].values()),
-                     -year_key, week_dist if week_dist is not None else 99), {
+                     week_dist if week_dist is not None else 99), {
             "id": r.id,
             "file_path": r.file_path,
             "file_basename": r.file_basename,

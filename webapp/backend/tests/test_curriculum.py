@@ -455,7 +455,9 @@ def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
         (4, 'Center\\D.pdf', 'D', 'D.pdf', NULL, 'PCMS', 'F1',
          '2024-2025', 12, 'Exam', 'none'),
         (5, 'Center\\E.pdf', 'E', 'E.pdf', NULL, 'SRL-E', 'F1',
-         '2024-2025', 4, 'Test', 'none')
+         '2024-2025', 4, 'Test', 'none'),
+        (7, 'Center\\G.pdf', 'G', 'G.pdf', NULL, 'SRL-E', 'F1',
+         '2023-2024', 12, 'Exam', 'event')
     """))
     # F: already made for this very event — leads even over C's wider overlap
     db_session.execute(text("""
@@ -468,7 +470,7 @@ def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
     db_session.execute(text("""
         INSERT INTO exam_rev_paper_concepts (paper_id, concept_id, confidence, source)
         VALUES (1, 1, 0.8, 'event'), (3, 1, 0.8, 'event'), (3, 2, 0.7, 'event'),
-               (6, 1, 0.8, 'event')
+               (6, 1, 0.8, 'event'), (7, 1, 0.8, 'event'), (7, 2, 0.7, 'event')
     """))
     db_session.commit()
 
@@ -477,18 +479,20 @@ def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
         cookies=AUTH_COOKIE,
     ).json()
     papers = body["past_papers"]
-    # F: made for this event. C: same school + overlap 2. B: same school,
-    # no topics, filed one week off (the same-exam-last-year case). A: other
-    # school via overlap only. D (no overlap, other school) and E (same
-    # school, week too far) drop.
-    assert [p["file_basename"] for p in papers] == ["F.pdf", "C.pdf", "B.pdf", "A.pdf"]
-    assert [p["for_this_event"] for p in papers] == [True, False, False, False]
-    assert [p["same_school"] for p in papers] == [True, True, True, False]
+    # F: made for this event. Then same school newest year first: C beats B
+    # on overlap within 2024-25, and B (no topics, one week off) still beats
+    # G from 2023-24 despite G's full overlap — the latest folders track the
+    # current syllabus. A: other school via overlap only. D (no overlap,
+    # other school) and E (same school, week too far) drop.
+    assert [p["file_basename"] for p in papers] == [
+        "F.pdf", "C.pdf", "B.pdf", "G.pdf", "A.pdf"]
+    assert [p["for_this_event"] for p in papers] == [True, False, False, False, False]
+    assert [p["same_school"] for p in papers] == [True, True, True, True, False]
     second = papers[1]
     assert second["matched_count"] == 2
     assert [c["concept_id"] for c in second["matched_concepts"]] == [1, 2]
     assert second["matched_concepts"][0]["name_en"] == "Linear Equations in One Unknown"
-    assert papers[3]["variant_paths"] == ["Center\\A_ans.pdf"]
+    assert papers[4]["variant_paths"] == ["Center\\A_ans.pdf"]
     assert papers[2]["matched_count"] == 0
 
 
