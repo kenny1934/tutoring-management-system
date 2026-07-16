@@ -5,6 +5,7 @@ import { Check, Copy, Eye, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { conceptNameForStream, stripExtension } from "@/lib/curriculum-labels";
+import { getTypeColors } from "@/lib/exam-type-colors";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import type { CurriculumPastPaper } from "@/types";
 
@@ -124,11 +125,11 @@ export function CurriculumPastPaperRow({
           <span
             className={cn(
               "text-[9px] px-1 py-px rounded shrink-0",
-              // Same colour convention as the exam strip's cards: exams in
-              // rose, every other kind muted.
-              paper.exam_kind.toLowerCase() === "exam"
-                ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800"
-                : "text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.06]"
+              // Canonical kind colours from the exam revisions page (Test
+              // red, Exam purple, Quiz green; Mock falls to the muted
+              // default, as that page has no Mock type).
+              getTypeColors(paper.exam_kind).bg,
+              getTypeColors(paper.exam_kind).text
             )}
           >
             {paper.exam_kind}

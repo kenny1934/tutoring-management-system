@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { hkTodayIso } from "@/lib/summer-utils";
 import { useCurriculumExams } from "@/lib/hooks";
 import { conceptNameForStream } from "@/lib/curriculum-labels";
+import { getTypeColors } from "@/lib/exam-type-colors";
 import type { CurriculumExamEvent } from "@/types";
 import { CurriculumRevisionPack } from "./CurriculumRevisionPack";
 
@@ -110,9 +111,10 @@ export function CurriculumExamStrip({
                 <span
                   className={cn(
                     "text-[9px] font-semibold uppercase tracking-wide px-1.5 py-px rounded-full",
-                    (event.event_type || "").toLowerCase() === "exam"
-                      ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800"
-                      : "text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.06]"
+                    // Canonical kind colours from the exam revisions page
+                    // (Test red, Exam purple, Quiz green).
+                    getTypeColors(event.event_type).bg,
+                    getTypeColors(event.event_type).text
                   )}
                 >
                   {event.event_type || "Test"}
