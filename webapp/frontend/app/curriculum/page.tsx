@@ -784,7 +784,13 @@ export default function CurriculumPage() {
                   key={v}
                   type="button"
                   aria-pressed={view === v}
-                  onClick={() => setView(v)}
+                  onClick={() => {
+                    setView(v);
+                    // The views differ in height: keeping the old scroll
+                    // position strands the user mid-page and skews the
+                    // atlas's viewport-relative height measurement.
+                    window.scrollTo({ top: 0 });
+                  }}
                   className={cn(
                     "text-xs px-3 py-1.5 font-medium transition-colors",
                     view === v

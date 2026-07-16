@@ -257,7 +257,10 @@ export function CurriculumAtlas({
     const compute = () => {
       const el = scrollRef.current;
       if (!el) return;
-      const top = el.getBoundingClientRect().top;
+      // Clamped: measured while the page is scrolled past the card, the
+      // viewport-relative top goes negative and would balloon the map far
+      // taller than the viewport.
+      const top = Math.max(0, el.getBoundingClientRect().top);
       setMaxH(Math.max(320, window.innerHeight - top - 16));
     };
     compute();
