@@ -69,6 +69,14 @@ export function CurriculumExamStrip({
       year: "numeric",
     });
 
+  // Days until an upcoming test: proximity is what a tutor triages by, and
+  // the date alone makes them count. Both sides are ISO dates parsed at UTC
+  // midnight, so the difference is an exact day count.
+  const countdownLabel = (e: CurriculumExamEvent) => {
+    const days = Math.round((Date.parse(e.start_date) - Date.parse(today)) / 86400000);
+    return days === 0 ? "Today" : days === 1 ? "Tomorrow" : `In ${days} days`;
+  };
+
   return (
     <div
       className={cn(
@@ -76,7 +84,7 @@ export function CurriculumExamStrip({
         !isMobile && "paper-texture"
       )}
     >
-      <div className="flex items-baseline gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60">
+      <div className="flex items-baseline gap-2 px-4 py-2.5 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
         <CalendarClock className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0 self-center" />
         <h2 className="text-xs font-semibold text-gray-800 dark:text-gray-200 shrink-0">
           Tests and exams
@@ -121,7 +129,7 @@ export function CurriculumExamStrip({
                 </span>
                 {upcoming && (
                   <span className="text-[9px] font-semibold text-amber-700 dark:text-amber-400">
-                    Upcoming
+                    {countdownLabel(event)}
                   </span>
                 )}
               </span>

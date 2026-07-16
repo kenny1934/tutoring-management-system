@@ -89,9 +89,11 @@ export function CurriculumPastPaperRow({
             <Plus className="h-3 w-3" />
           </button>
         )}
+        {/* Name click previews, same as every other file row. */}
         <span
-          className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1"
+          className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 cursor-pointer"
           title={paper.file_path}
+          onClick={() => onPreview(paper)}
         >
           {stripExtension(paper.file_basename)}
         </span>

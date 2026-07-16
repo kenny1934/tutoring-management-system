@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useSearchParams } from "next/navigation";
-import { Map as MapIcon, FileText, Loader2, Target, X } from "lucide-react";
+import { Map as MapIcon, FileText, Loader2, TriangleAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { scrollAppToTop } from "@/lib/scroll";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -426,6 +426,9 @@ export default function CurriculumPage() {
   });
   const [weekQuery, setWeekQuery] = useState("");
   const [weekQueryInvalid, setWeekQueryInvalid] = useState(false);
+  // Week the pointer is over on the axis: paints a full-height column so the
+  // click-a-week feature is visible before anyone clicks.
+  const [hoverWeek, setHoverWeek] = useState<number | null>(null);
   const ganttScrollRef = useRef<HTMLDivElement>(null);
   // Each comparison keeps the colour slot it claimed when added, so removing
   // one never repaints the survivors (slot 0 is the primary school).
@@ -676,6 +679,7 @@ export default function CurriculumPage() {
       setYear(null);
       setExpandedLane(null);
       setFocusWeek(null);
+      setHoverWeek(null);
       setWeekQuery("");
       setWeekQueryInvalid(false);
     },
@@ -758,8 +762,9 @@ export default function CurriculumPage() {
   return (
     <DeskSurface>
       <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
-        {/* Toolbar */}
-        <div className="sticky top-0 z-30">
+        {/* Toolbar. Sticky from sm up only: on phones it wraps to two or
+            three rows and would pin that much of the viewport. */}
+        <div className="z-30 sm:sticky sm:top-0">
           <div
             className={cn(
               "flex flex-wrap items-center gap-2 sm:gap-3",
@@ -889,7 +894,7 @@ export default function CurriculumPage() {
         {/* Thin-records warning for the picked school */}
         {view === "timeline" && thinWeeks != null && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-[11px] text-amber-900 dark:text-amber-200">
-            <Target className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <TriangleAlert className="h-3.5 w-3.5 text-amber-600 shrink-0" />
             <span>
               Only {thinWeeks} week{thinWeeks === 1 ? "" : "s"} of records for
               this school year so far. Confirming topics in School Progress
@@ -913,10 +918,27 @@ export default function CurriculumPage() {
             ) : (
               <>
                 <p>
-                  Pick a school above to see its weekly topic timeline, or search a
+                  Pick a school to see its weekly topic timeline, or search a
                   topic directly.
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {/* The same picker as the toolbar, in the reader's line of
+                    sight — "above" pointed at a small control in a busy row. */}
+                <div className="mt-3 flex justify-center">
+                  <select
+                    className={cn(selectClass, "text-sm px-3 py-2")}
+                    value=""
+                    aria-label="Pick a school"
+                    onChange={(e) => e.target.value && changeSchool(e.target.value)}
+                  >
+                    <option value="">Pick a school…</option>
+                    {schools.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                   Built from assignments, prep folders, curriculum sheets and tutor
                   confirmations.
                 </p>
@@ -972,12 +994,21 @@ export default function CurriculumPage() {
           >
             <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                Weekly topics
+              </span>
+              <span className="text-[10px] text-gray-400">
                 {timeline.school} {timeline.grade}
                 {timeline.lang_stream ? ` (${timeline.lang_stream})` : ""} · {displayYear}
               </span>
-              <span className="text-[10px] text-gray-400">
-                Solid = main topic that week · Faint = also seen · Tap a row for detail
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-500/90 dark:bg-teal-500/80" />
+                Main topic
               </span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <span className="inline-block w-3.5 h-2.5 rounded-sm bg-teal-200 dark:bg-teal-900/60" />
+                Also seen
+              </span>
+              <span className="text-[10px] text-gray-400">Click a row for detail</span>
               <div className="ml-auto flex items-center gap-1.5">
                 <input
                   type="text"
@@ -1017,6 +1048,17 @@ export default function CurriculumPage() {
             </div>
             <div className="overflow-auto max-h-[30rem]" ref={ganttScrollRef}>
               <div className="relative" style={{ minWidth: CHART_MIN_W }}>
+                {/* Hovered-week column: previews what clicking the axis
+                    focuses, so the feature is discoverable before the click */}
+                {hoverWeek != null && hoverWeek !== focusWeek && (
+                  <div
+                    className="absolute top-0 bottom-0 bg-teal-400/10 dark:bg-teal-300/[0.06] z-[4] pointer-events-none"
+                    style={{
+                      left: `calc(${LABEL_W} + (100% - ${LABEL_W}) * ${(hoverWeek - 1) / ganttMaxWeek})`,
+                      width: `calc((100% - ${LABEL_W}) / ${ganttMaxWeek})`,
+                    }}
+                  />
+                )}
                 {/* Focused-week column */}
                 {focusWeek != null && (
                   <div
@@ -1047,6 +1089,10 @@ export default function CurriculumPage() {
                         aria-label={`Week ${w}`}
                         title={`Week ${w}${weekDateLabel(w) ? ` · ${weekDateLabel(w)}` : ""}`}
                         onClick={() => jumpToWeek(focusWeek === w ? null : w)}
+                        onMouseEnter={() => setHoverWeek(w)}
+                        onMouseLeave={() => setHoverWeek(null)}
+                        onFocus={() => setHoverWeek(w)}
+                        onBlur={() => setHoverWeek(null)}
                         className="flex-1 h-full hover:bg-teal-400/15 dark:hover:bg-teal-300/10"
                       />
                     ))}
@@ -1176,7 +1222,7 @@ export default function CurriculumPage() {
               !isMobile && "paper-texture"
             )}
           >
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60 bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]">
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
                 Typical pace
               </span>

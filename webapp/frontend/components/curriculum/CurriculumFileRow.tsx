@@ -41,6 +41,23 @@ export function CurriculumFileBadges({
       : "");
   return (
     <>
+      {/* Student-scoped lists (the exercise modal) carry assignment history
+          for the session's student; other lists omit the fields entirely. */}
+      {(file.student_assigned_count ?? 0) > 0 && (
+        <span
+          className="text-[9px] px-1 py-px rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0"
+          title={`Already assigned to this student ${file.student_assigned_count} ${times(file.student_assigned_count ?? 0)}${
+            file.student_last_assigned
+              ? `, last on ${new Date(file.student_last_assigned).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+              : ""
+          }`}
+        >
+          Done
+          {file.student_last_assigned
+            ? ` · ${new Date(file.student_last_assigned).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+            : ""}
+        </span>
+      )}
       {file.school_code && (
         <span
           className={cn(
@@ -122,9 +139,12 @@ export function CurriculumFileRow({
           <Plus className="h-3 w-3" />
         </button>
       )}
+      {/* Name click previews: the row's biggest target does the safe,
+          read-only thing; adding stays on the explicit plus button. */}
       <span
-        className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1"
+        className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 cursor-pointer"
         title={file.file_path}
+        onClick={() => onPreview(file)}
       >
         {stripExtension(file.file_basename)}
       </span>

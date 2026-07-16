@@ -6,18 +6,16 @@ import {
   GraduationCap,
   ChevronDown,
   ChevronRight,
-  Plus,
   Check,
   History,
   Loader2,
   CalendarClock,
   Undo2,
   MessageSquarePlus,
-  Eye,
   X,
 } from "lucide-react";
 import { CurriculumPdfPreview } from "@/components/curriculum/CurriculumPdfPreview";
-import { CurriculumFileBadges } from "@/components/curriculum/CurriculumFileRow";
+import { CurriculumFileRow } from "@/components/curriculum/CurriculumFileRow";
 import { CurriculumPastPaperRow } from "@/components/curriculum/CurriculumPastPaperRow";
 import { CurriculumRevisionPack } from "@/components/curriculum/CurriculumRevisionPack";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
@@ -291,8 +289,10 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
-          "bg-gradient-to-r from-teal-50 to-white dark:from-teal-900/20 dark:to-[#1a1a1a]",
-          "hover:from-teal-100 hover:to-white dark:hover:from-teal-900/30 dark:hover:to-[#1a1a1a]"
+          // Gradient ends on the exercise modal's own panel colours; white or
+          // near-black endpoints leave a visible seam on the desk palette.
+          "bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]",
+          "hover:from-teal-100 hover:to-[#fef9f3] dark:hover:from-teal-900/30 dark:hover:to-[#2d2618]"
         )}
       >
         <GraduationCap className="h-3.5 w-3.5 text-teal-600" />
@@ -326,50 +326,55 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
 
       {expanded && (
         <div className="border-t border-teal-100 dark:border-teal-900/50">
-          <div className="flex items-center gap-2 px-3 pt-2">
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pt-2">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 flex-1 min-w-0">
               {subtitle}
-              {data.tier === "exam_scope" &&
-                data.upcoming_exam?.id != null &&
-                // The section already lists the top topics with the same
-                // ranked files; only offer the pack when the scope holds
-                // more topics than fit here.
-                (data.upcoming_exam.scope_concept_count ?? 0) >
-                  data.suggestions.length && (
-                  <>
-                    {" · "}
-                    <button
-                      type="button"
-                      onClick={() => setPackOpen(true)}
-                      className="text-teal-700 dark:text-teal-400 hover:underline"
-                    >
-                      All {data.upcoming_exam.scope_concept_count} topics →
-                    </button>
-                  </>
-                )}
-              {data.week_number != null && (
-                <>
-                  {" · "}
-                  {/* New tab: an in-place navigation would unmount the
-                      exercise modal and silently drop unsaved exercises. */}
-                  <Link
-                    href={curriculumExplorerHref(data.school, data.grade, data.week_number, linkYear)}
-                    target="_blank"
-                    className="text-teal-700 dark:text-teal-400 hover:underline"
-                  >
-                    See the full year →
-                  </Link>
-                </>
-              )}
             </p>
+            {/* Chips, not inline links: buried in the grey subtitle these
+                were easy to skim past. */}
+            {data.tier === "exam_scope" &&
+              data.upcoming_exam?.id != null &&
+              // The section already lists the top topics with the same
+              // ranked files; only offer the pack when the scope holds
+              // more topics than fit here.
+              (data.upcoming_exam.scope_concept_count ?? 0) >
+                data.suggestions.length && (
+                <button
+                  type="button"
+                  onClick={() => setPackOpen(true)}
+                  className="text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
+                >
+                  All {data.upcoming_exam.scope_concept_count} topics →
+                </button>
+              )}
+            {data.week_number != null && (
+              /* New tab: an in-place navigation would unmount the exercise
+                 modal and silently drop unsaved exercises. */
+              <Link
+                href={curriculumExplorerHref(data.school, data.grade, data.week_number, linkYear)}
+                target="_blank"
+                className="text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
+              >
+                See the full year →
+              </Link>
+            )}
+            {/* Divider: the toggle changes what the confirm buttons record,
+                so it must not read as a third navigation chip. */}
+            <span
+              aria-hidden="true"
+              className="hidden sm:block h-4 w-px bg-gray-200 dark:bg-gray-700"
+            />
             <button
               type="button"
+              aria-pressed={effectiveTestPrep}
               onClick={() => setTestPrep(!effectiveTestPrep)}
               title="When on, topic confirmations are recorded as test revision rather than new teaching"
               className={cn(
                 "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border transition-colors shrink-0",
+                // Solid when on, like the page's other toggles — the old
+                // tinted style read as a passive badge.
                 effectiveTestPrep
-                  ? "text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20"
+                  ? "bg-rose-600 border-rose-600 text-white"
                   : "text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
             >
@@ -377,7 +382,11 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
             </button>
           </div>
 
-          <div className="max-h-72 overflow-y-auto px-3 pb-3 pt-2 space-y-3">
+          {/* No bottom padding here: a sticky child cannot enter its parent's
+              padding, so any pb would hold the correction row above the edge
+              with rows scrolling visibly through the gap. The row carries its
+              own pb instead. */}
+          <div className="max-h-[min(24rem,45vh)] overflow-y-auto px-3 pt-2 space-y-3">
             {(data.past_papers?.length ?? 0) > 0 && (
               <div className="px-2 py-1.5 rounded-lg bg-teal-50/60 dark:bg-teal-900/15 border border-teal-100 dark:border-teal-900/40">
                 <div className="flex items-center gap-1 mb-0.5">
@@ -464,11 +473,18 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         </button>
                       </span>
                     ) : (
+                      /* The label carries the Test prep mode to the point of
+                         action: the toggle can be a scroll away, and nothing
+                         else says how the confirmation will be recorded. */
                       <button
                         type="button"
                         onClick={() => handleConfirm(concept)}
                         disabled={state.status === "saving"}
-                        title="Tell the system the school really is on this topic. This improves future suggestions for everyone."
+                        title={
+                          effectiveTestPrep
+                            ? "Record that the school is revising this topic for the test. Revision does not move the topic timeline."
+                            : "Tell the system the school really is on this topic. This improves future suggestions for everyone."
+                        }
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-teal-700 dark:text-teal-400 border border-teal-300 dark:border-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0 disabled:opacity-50"
                       >
                         {state.status === "saving" ? (
@@ -476,75 +492,30 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         ) : (
                           <Check className="h-3 w-3" />
                         )}
-                        School is on this
+                        {effectiveTestPrep ? "School is revising this" : "School is on this"}
                       </button>
                     )}
                   </div>
 
                   {concept.files.length > 0 && (
                     <div className="mt-1 space-y-0.5">
+                      {/* The shared row: plus adds, the name and eye preview,
+                          badges include the student's Done history. Keeps
+                          this list's behaviour identical to the past-paper
+                          rows above it. */}
                       {concept.files.map((file: CurriculumFile) => (
-                        <div
+                        <CurriculumFileRow
                           key={file.file_path}
-                          className="flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => onAdd(file.file_path)}
-                            title="Add to the session"
-                            className={cn(
-                              hitArea,
-                              "rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
-                            )}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                          {/* Always visible: on touch there is no hover, and
-                              a hidden Eye left no way to check a file before
-                              the filename tap added it. */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPreview({
-                                path: file.file_path,
-                                label: stripExtension(file.file_basename),
-                              })
-                            }
-                            title="Preview"
-                            className={cn(
-                              hitArea,
-                              "rounded text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
-                            )}
-                          >
-                            <Eye className="h-3 w-3" />
-                          </button>
-                          <span
-                            className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 cursor-pointer"
-                            title={file.file_path}
-                            onClick={() => onAdd(file.file_path)}
-                          >
-                            {stripExtension(file.file_basename)}
-                          </span>
-                          {(file.student_assigned_count ?? 0) > 0 && (
-                            <span
-                              className="text-[9px] px-1 py-px rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0"
-                              title={`Already assigned to this student ${file.student_assigned_count} time${file.student_assigned_count === 1 ? "" : "s"}${
-                                file.student_last_assigned
-                                  ? `, last on ${new Date(file.student_last_assigned).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
-                                  : ""
-                              }`}
-                            >
-                              Done
-                              {file.student_last_assigned
-                                ? ` · ${new Date(file.student_last_assigned).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
-                                : ""}
-                            </span>
-                          )}
-                          <CurriculumFileBadges
-                            file={file}
-                            scopeSchool={data.school}
-                          />
-                        </div>
+                          file={file}
+                          onAdd={() => onAdd(file.file_path)}
+                          onPreview={(f) =>
+                            setPreview({
+                              path: f.file_path,
+                              label: stripExtension(f.file_basename),
+                            })
+                          }
+                          scopeSchool={data.school}
+                        />
                       ))}
                     </div>
                   )}
@@ -552,8 +523,12 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
               );
             })}
 
-            {/* Correction: record the topic the school is actually on */}
-            <div className="pt-2 border-t border-teal-100/60 dark:border-teal-900/40">
+            {/* Correction: record the topic the school is actually on.
+                Sticky at the scrollport's bottom edge so the escape hatch is
+                visible without scrolling to the end of the list. Full-bleed
+                (-mx) and the modal panel's own desk colours, so it reads as
+                the card's footer rather than a box floating over the list. */}
+            <div className="sticky bottom-0 -mx-3 px-3 pt-2 pb-3 bg-[#fef9f3] dark:bg-[#2d2618] border-t border-teal-100/60 dark:border-teal-900/40">
               {correction.status === "closed" && (
                 <button
                   type="button"
