@@ -26,6 +26,9 @@ interface CurriculumTopicFilesProps {
   conceptId: number;
   conceptName: string;
   scope: Scope | null;
+  /** When set (the exercise modal case), every row and the preview offer
+   *  "add to the session". */
+  onAdd?: (path: string) => void;
   onClose: () => void;
 }
 
@@ -41,6 +44,7 @@ export function CurriculumTopicFiles({
   conceptId,
   conceptName,
   scope,
+  onAdd,
   onClose,
 }: CurriculumTopicFilesProps) {
   const [preview, setPreview] = useState<CurriculumFile | null>(null);
@@ -204,6 +208,7 @@ export function CurriculumTopicFiles({
                     key={file.file_path}
                     file={file}
                     onPreview={setPreview}
+                    onAdd={onAdd ? () => onAdd(file.file_path) : undefined}
                     scopeSchool={scope?.school}
                   />
                 ))}
@@ -237,6 +242,7 @@ export function CurriculumTopicFiles({
         <CurriculumPdfPreview
           filePath={preview.file_path}
           fileLabel={stripExtension(preview.file_basename)}
+          onAdd={onAdd ? () => onAdd(preview.file_path) : undefined}
           onClose={() => setPreview(null)}
         />
       )}

@@ -638,6 +638,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                 }
               : null
           }
+          onAdd={onAdd}
           onClose={() => setTopicFiles(null)}
         />
       )}
@@ -645,6 +646,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       {packOpen && data.upcoming_exam?.id != null && (
         <CurriculumRevisionPack
           eventId={data.upcoming_exam.id}
+          onAdd={onAdd}
           onClose={() => setPackOpen(false)}
         />
       )}

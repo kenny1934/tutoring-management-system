@@ -17,6 +17,9 @@ import { CurriculumPdfPreview } from "./CurriculumPdfPreview";
 
 interface CurriculumRevisionPackProps {
   eventId: number;
+  /** When set (the exercise modal case), every row and the preview offer
+   *  "add to the session"; papers pass their answer file along too. */
+  onAdd?: (path: string, answerPath?: string) => void;
   onClose: () => void;
 }
 
@@ -30,7 +33,7 @@ const FILES_SHOWN = 8;
  * revision-ordered worksheets, and any scope lines that stayed unmatched so
  * the tutor knows the pack may be incomplete.
  */
-export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionPackProps) {
+export function CurriculumRevisionPack({ eventId, onAdd, onClose }: CurriculumRevisionPackProps) {
   const [preview, setPreview] = useState<CurriculumPreviewTarget | null>(null);
   // Files shown per topic, keyed by concept id; absent = default chunk.
   const [fileCounts, setFileCounts] = useState<Record<number, number>>({});
@@ -101,6 +104,11 @@ export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionP
                       paper={paper}
                       stream={stream}
                       onPreview={setPreview}
+                      onAdd={
+                        onAdd
+                          ? () => onAdd(paper.file_path, paper.answer_path ?? undefined)
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -118,6 +126,11 @@ export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionP
                   paper={paper}
                   stream={stream}
                   onPreview={setPreview}
+                  onAdd={
+                    onAdd
+                      ? () => onAdd(paper.file_path, paper.answer_path ?? undefined)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -164,6 +177,7 @@ export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionP
                     key={file.file_path}
                     file={file}
                     onPreview={setPreview}
+                    onAdd={onAdd ? () => onAdd(file.file_path) : undefined}
                     scopeSchool={event?.school}
                   />
                 ))}
@@ -215,6 +229,11 @@ export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionP
         <CurriculumPdfPreview
           filePath={preview.file_path}
           fileLabel={stripExtension(preview.file_basename)}
+          onAdd={
+            onAdd
+              ? () => onAdd(preview.file_path, preview.answer_path ?? undefined)
+              : undefined
+          }
           onClose={() => setPreview(null)}
         />
       )}

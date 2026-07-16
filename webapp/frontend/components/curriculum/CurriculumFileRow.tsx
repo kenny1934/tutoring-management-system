@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Eye } from "lucide-react";
+import { Check, Copy, Eye, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { ROLE_LABELS, stripExtension } from "@/lib/curriculum-labels";
@@ -10,6 +10,9 @@ import type { CurriculumFile } from "@/types";
 interface CurriculumFileRowProps {
   file: CurriculumFile;
   onPreview: (file: CurriculumFile) => void;
+  /** When set (the exercise modal case), the row leads with an add button —
+   *  same shape as CurriculumPastPaperRow. */
+  onAdd?: () => void;
   /** School the list is scoped to; lights up the usage badge for files its
    *  own students have been assigned. */
   scopeSchool?: string | null;
@@ -86,6 +89,7 @@ export function CurriculumFileBadges({
 export function CurriculumFileRow({
   file,
   onPreview,
+  onAdd,
   scopeSchool,
 }: CurriculumFileRowProps) {
   const { showToast } = useToast();
@@ -103,6 +107,16 @@ export function CurriculumFileRow({
 
   return (
     <div className="flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10">
+      {onAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          title="Add to the session"
+          className="p-0.5 rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      )}
       <span
         className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1"
         title={file.file_path}
