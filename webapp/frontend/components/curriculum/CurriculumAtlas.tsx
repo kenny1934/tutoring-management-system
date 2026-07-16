@@ -462,24 +462,41 @@ export function CurriculumAtlas({
   // appearing); equal values bail out of setState, so no feedback loop.
   const [maxH, setMaxH] = useState<number | null>(null);
   useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // The app scrolls inside LayoutShell's <main>, not the window, so both
+    // the height budget and the card's offset must come from the scrollable
+    // ancestor. (In fullscreen the portal has none; the window fallback runs
+    // but maxH is unused there and recomputed on exit.)
+    let scroller: HTMLElement | null = null;
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowY;
+      if (o === "auto" || o === "scroll") {
+        scroller = p;
+        break;
+      }
+    }
     const compute = () => {
-      const el = scrollRef.current;
-      if (!el) return;
-      // Document offset, not viewport offset: rect.top moves with the scroll
-      // position, and the page's global smooth scrolling means the view
-      // switch's scroll reset is still animating when this runs on mount, so
-      // a viewport-relative reading ballooned the map. rect.top + scrollY is
-      // scroll-invariant and equals the visible budget once the page rests
-      // at the top. (Fullscreen readings land here too, skewed by the kept
-      // page scroll, but maxH is unused there and recomputed on exit.)
-      const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY);
-      setMaxH(Math.max(320, window.innerHeight - top - 16));
+      // Offset within the scrolling content, not the viewport: a viewport-
+      // relative reading raced the view switch's scroll reset when the map
+      // mounted mid-scroll and ballooned it taller than the viewport.
+      const top = Math.max(
+        0,
+        scroller
+          ? el.getBoundingClientRect().top -
+              scroller.getBoundingClientRect().top +
+              scroller.scrollTop
+          : el.getBoundingClientRect().top + window.scrollY
+      );
+      const budget = scroller ? scroller.clientHeight : window.innerHeight;
+      setMaxH(Math.max(320, budget - top - 16));
     };
     compute();
     window.addEventListener("resize", compute);
     const observer =
       typeof ResizeObserver !== "undefined" ? new ResizeObserver(compute) : null;
     observer?.observe(document.body);
+    if (scroller) observer?.observe(scroller);
     return () => {
       window.removeEventListener("resize", compute);
       observer?.disconnect();

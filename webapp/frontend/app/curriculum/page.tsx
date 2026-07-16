@@ -787,9 +787,12 @@ export default function CurriculumPage() {
                   onClick={() => {
                     setView(v);
                     // The views differ in height: keeping the old scroll
-                    // position strands the user mid-page. Instant, not the
-                    // global smooth: a view switch is a content swap, and the
-                    // atlas measures its height as soon as it mounts.
+                    // position strands the user mid-page. The app scrolls
+                    // inside LayoutShell's <main>, not the window, so the
+                    // reset must target it (window kept as a fallback).
+                    document
+                      .getElementById("main-content")
+                      ?.scrollTo({ top: 0, behavior: "instant" });
                     window.scrollTo({ top: 0, behavior: "instant" });
                   }}
                   className={cn(
