@@ -258,26 +258,63 @@ const AtlasEdges = memo(function AtlasEdges({
   );
 });
 
-/** Full-viewport shell for the fullscreen map: same dialog semantics as the
- *  curriculum modals (focus capture and restore, Tab trapping); Escape is
- *  handled by CurriculumAtlas so a stacked worksheet dialog wins the press. */
+/** Fullscreen shell for the map. On desktop it spans only the layout's
+ *  content region so the app sidebar stays visible and usable beside it —
+ *  hence focus capture and restore but no Tab trap and no aria-modal. On
+ *  mobile it takes the whole viewport (the drawer nav would stack under the
+ *  overlay anyway). Escape is handled by CurriculumAtlas so a stacked
+ *  worksheet dialog wins the press. */
 function AtlasFullscreenOverlay({ children }: { children: ReactNode }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const trapTab = useDialogFocus(panelRef);
+  useDialogFocus(panelRef);
+  const [rect, setRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
-  if (typeof document === "undefined") return null;
+  useLayoutEffect(() => {
+    const main = document.getElementById("main-content");
+    const measure = () => {
+      if (main && window.matchMedia("(min-width: 768px)").matches) {
+        const r = main.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      } else {
+        setRect({
+          top: 0,
+          left: 0,
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
+      }
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    // Collapsing or expanding the sidebar resizes main, not the window.
+    const observer =
+      main && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measure)
+        : null;
+    if (main) observer?.observe(main);
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, []);
+
+  if (typeof document === "undefined" || !rect) return null;
 
   return createPortal(
     <div
       ref={panelRef}
       role="dialog"
-      aria-modal="true"
       aria-label="Concept map in fullscreen"
       tabIndex={-1}
-      onKeyDown={trapTab}
       // z-[9990]: above the page, below the curriculum modals (10000) so a
       // topic's worksheet list opened from the map stacks on top.
-      className="fixed inset-0 z-[9990] flex flex-col bg-[#fef9f3] dark:bg-[#2d2618] focus:outline-none"
+      className="fixed z-[9990] flex flex-col bg-[#fef9f3] dark:bg-[#2d2618] focus:outline-none"
+      style={rect}
     >
       {children}
     </div>,
