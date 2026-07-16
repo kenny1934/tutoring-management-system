@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { useCurriculumConcepts, useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
 import {
   computeConceptLanes,
@@ -149,6 +150,7 @@ const GanttLanes = memo(function GanttLanes({
   setExpandedLane: Dispatch<SetStateAction<number | null>>;
   onTopicFiles: (t: { conceptId: number; name: string }) => void;
 }) {
+  const hitArea = iconHitArea(useCoarsePointer());
   const toggleLane = (conceptId: number) =>
     setExpandedLane((prev) => (prev === conceptId ? null : conceptId));
   return (
@@ -185,7 +187,10 @@ const GanttLanes = memo(function GanttLanes({
                     name: conceptNameForStream(lane, stream),
                   })
                 }
-                className="p-0.5 rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+                className={cn(
+                  hitArea,
+                  "rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+                )}
               >
                 <FileText className="h-3 w-3" />
               </button>
@@ -266,6 +271,7 @@ const PacingChartRows = memo(function PacingChartRows({
   labelStream: string | null;
   onTopicFiles: (t: { conceptId: number; name: string }) => void;
 }) {
+  const hitArea = iconHitArea(useCoarsePointer());
   return (
     <div className="py-2 space-y-1">
       {rows.map((row) => (
@@ -290,7 +296,10 @@ const PacingChartRows = memo(function PacingChartRows({
                   name: conceptNameForStream(row, labelStream),
                 })
               }
-              className="p-0.5 rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+              className={cn(
+                hitArea,
+                "rounded shrink-0 text-gray-400 opacity-60 group-hover:opacity-100 hover:text-teal-600 dark:hover:text-teal-400 transition-opacity"
+              )}
             >
               <FileText className="h-3 w-3" />
             </button>
@@ -353,6 +362,7 @@ export default function CurriculumPage() {
 
   // Paper texture is skipped on mobile, same as the other desk pages.
   const isMobile = useIsMobile();
+  const hitArea = iconHitArea(useCoarsePointer());
 
   // Pickers hydrate from the URL so session pages can deep-link a
   // school-grade-week and tutors can share what they're looking at.
@@ -1047,7 +1057,10 @@ export default function CurriculumPage() {
                                   name: conceptNameForStream(c, effectiveStream),
                                 })
                               }
-                              className="p-0.5 rounded shrink-0 text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+                              className={cn(
+                                hitArea,
+                                "rounded shrink-0 text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+                              )}
                             >
                               <FileText className="h-3 w-3" />
                             </button>
@@ -1060,7 +1073,10 @@ export default function CurriculumPage() {
                     type="button"
                     aria-label="Close week detail"
                     onClick={() => setFocusWeek(null)}
-                    className="p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0"
+                    className={cn(
+                      hitArea,
+                      "rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0"
+                    )}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>

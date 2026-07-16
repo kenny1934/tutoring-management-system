@@ -21,6 +21,7 @@ import {
   type PositionedNode,
 } from "@/lib/curriculum-atlas";
 import { conceptDisplayName, conceptNameForStream } from "@/lib/curriculum-labels";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import type { CurriculumTimelineResponse } from "@/types";
 
 const GUTTER_W = 28;
@@ -46,20 +47,6 @@ const STRAND_SHORT: Record<AtlasStrand, string> = {
   geometry: "Geometry",
   data: "Data",
 };
-
-/** Touch tablets are wider than the mobile breakpoint but still have no
- *  hover, so the two-stage tap keys off the pointer, not the width. */
-function useCoarsePointer(): boolean {
-  const [coarse, setCoarse] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(pointer: coarse)");
-    const update = () => setCoarse(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return coarse;
-}
 
 interface CurriculumAtlasProps {
   concepts: AtlasConceptInput[];

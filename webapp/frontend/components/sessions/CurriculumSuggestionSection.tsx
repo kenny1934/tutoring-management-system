@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
 import { ApiError, curriculumAPI } from "@/lib/api";
+import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import {
   SOURCE_LABELS,
   conceptNameForStream,
@@ -93,6 +94,7 @@ interface CurriculumSuggestionSectionProps {
 
 export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSuggestionSectionProps) {
   const { showToast } = useToast();
+  const hitArea = iconHitArea(useCoarsePointer());
   const eligible = isCurriculumEligible(session);
 
   const { data, isLoading } = useCurriculumSuggestions(
@@ -469,10 +471,16 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                             type="button"
                             onClick={() => onAdd(file.file_path)}
                             title="Add to the session"
-                            className="p-0.5 rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+                            className={cn(
+                              hitArea,
+                              "rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+                            )}
                           >
                             <Plus className="h-3 w-3" />
                           </button>
+                          {/* Always visible: on touch there is no hover, and
+                              a hidden Eye left no way to check a file before
+                              the filename tap added it. */}
                           <button
                             type="button"
                             onClick={() =>
@@ -482,7 +490,10 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                               })
                             }
                             title="Preview"
-                            className="p-0.5 rounded text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                            className={cn(
+                              hitArea,
+                              "rounded text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+                            )}
                           >
                             <Eye className="h-3 w-3" />
                           </button>
@@ -551,7 +562,10 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         setCorrection({ status: "closed" });
                         setCorrectionQuery("");
                       }}
-                      className="p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      className={cn(
+                        hitArea,
+                        "rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      )}
                     >
                       <X className="h-3 w-3" />
                     </button>

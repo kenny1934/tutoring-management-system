@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { useCurriculumConcepts, useCurriculumSearch } from "@/lib/hooks";
 import {
   conceptNameForStream,
@@ -47,6 +49,7 @@ export function CurriculumTopicFiles({
   onAdd,
   onClose,
 }: CurriculumTopicFilesProps) {
+  const hitArea = iconHitArea(useCoarsePointer());
   const [preview, setPreview] = useState<CurriculumFile | null>(null);
   // Files shown per concept, keyed by concept id; absent = default chunk.
   const [fileCounts, setFileCounts] = useState<Record<number, number>>({});
@@ -130,7 +133,10 @@ export function CurriculumTopicFiles({
                 type="button"
                 aria-label="Back to the previous topic"
                 onClick={goBack}
-                className="p-0.5 rounded text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 shrink-0"
+                className={cn(
+                  hitArea,
+                  "rounded text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 shrink-0"
+                )}
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
               </button>

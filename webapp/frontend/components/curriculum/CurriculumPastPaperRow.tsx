@@ -5,6 +5,7 @@ import { Check, Copy, Eye, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { conceptNameForStream, stripExtension } from "@/lib/curriculum-labels";
+import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import type { CurriculumPastPaper } from "@/types";
 
 export type CurriculumPreviewTarget = {
@@ -42,6 +43,7 @@ export function CurriculumPastPaperRow({
 }) {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
+  const hitArea = iconHitArea(useCoarsePointer());
 
   const copyPath = async () => {
     try {
@@ -73,7 +75,10 @@ export function CurriculumPastPaperRow({
                 ? "Add to the session with its answer file"
                 : "Add to the session"
             }
-            className="p-0.5 rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+            className={cn(
+              hitArea,
+              "rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+            )}
           >
             <Plus className="h-3 w-3" />
           </button>
@@ -128,7 +133,10 @@ export function CurriculumPastPaperRow({
           type="button"
           onClick={() => onPreview(paper)}
           title="Preview this paper"
-          className="p-0.5 rounded shrink-0 text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
+          className={cn(
+            hitArea,
+            "rounded shrink-0 text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
+          )}
         >
           <Eye className="h-3 w-3" />
         </button>
@@ -137,7 +145,8 @@ export function CurriculumPastPaperRow({
           onClick={copyPath}
           title="Copy the file path to paste into an exercise"
           className={cn(
-            "p-0.5 rounded shrink-0 transition-colors",
+            hitArea,
+            "rounded shrink-0 transition-colors",
             copied
               ? "text-teal-600"
               : "text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30"
