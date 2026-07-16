@@ -45,11 +45,23 @@ export function sourcesText(sources: string[]): string {
   return sources.map((s) => SOURCE_LABELS[s] || s).join(", ");
 }
 
-/** "week 12" / "weeks 9 to 14" — the span wording every evidence line uses. */
+/** The span wording every evidence line uses. A handful of observations are
+ *  listed ("weeks 9 and 14"), sparse spreads name their count ("4 weeks
+ *  between weeks 8 and 20") and only dense runs read as a range ("weeks 8
+ *  to 12") — two data points must not read as six weeks of evidence. */
 export function weeksSpanText(weeks: number[]): string {
-  if (weeks.length === 0) return "";
-  if (weeks.length === 1) return `week ${weeks[0]}`;
-  return `weeks ${Math.min(...weeks)} to ${Math.max(...weeks)}`;
+  const sorted = Array.from(new Set(weeks)).sort((a, b) => a - b);
+  if (sorted.length === 0) return "";
+  if (sorted.length === 1) return `week ${sorted[0]}`;
+  if (sorted.length === 2) return `weeks ${sorted[0]} and ${sorted[1]}`;
+  if (sorted.length === 3)
+    return `weeks ${sorted[0]}, ${sorted[1]} and ${sorted[2]}`;
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  if (sorted.length < (last - first + 1) * 0.6) {
+    return `${sorted.length} weeks between weeks ${first} and ${last}`;
+  }
+  return `weeks ${first} to ${last}`;
 }
 
 /** The standard evidence line under a topic: span first, then sources. */

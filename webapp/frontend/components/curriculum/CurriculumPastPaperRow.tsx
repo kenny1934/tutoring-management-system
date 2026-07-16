@@ -14,6 +14,15 @@ export type CurriculumPreviewTarget = {
   answer_path?: string | null;
 };
 
+/** "(around March 2025)" for a folder week: school years run from September,
+ *  so week 1 starts around 1 Sep of the year opening the academic year. */
+function approxMonthText(academicYear: string, week: number): string {
+  const startYear = parseInt(academicYear.split("-")[0], 10);
+  if (!Number.isFinite(startYear)) return "";
+  const mid = new Date(startYear, 8, 1 + (week - 1) * 7 + 3);
+  return ` (around ${mid.toLocaleDateString("en-GB", { month: "long", year: "numeric" })})`;
+}
+
 /**
  * One archived tailor-made paper: name, provenance (school, year, week —
  * filenames carry no trustworthy date, the folder position does), topics.
@@ -47,6 +56,10 @@ export function CurriculumPastPaperRow({
   const topics = paper.matched_concepts
     .map((c) => conceptNameForStream(c, stream))
     .join(" · ");
+  // Only a test's own recorded scope earns the plain "Covers"; topics read
+  // from the filename or borrowed from a similar test stay hedged.
+  const fromOwnScope =
+    paper.scope_source === "event" || paper.scope_source === "manual";
 
   return (
     <div className="rounded px-1 py-0.5 group hover:bg-teal-50/60 dark:hover:bg-teal-900/10">
@@ -98,7 +111,16 @@ export function CurriculumPastPaperRow({
           )
         )}
         {paper.exam_kind && (
-          <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
+          <span
+            className={cn(
+              "text-[9px] px-1 py-px rounded shrink-0",
+              // Same colour convention as the exam strip's cards: exams in
+              // rose, every other kind muted.
+              paper.exam_kind.toLowerCase() === "exam"
+                ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800"
+                : "text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.06]"
+            )}
+          >
             {paper.exam_kind}
           </span>
         )}
@@ -125,9 +147,22 @@ export function CurriculumPastPaperRow({
         </button>
       </div>
       <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-        {paper.academic_year} · week {paper.week_number}
-        {topics &&
-          ` · ${paper.scope_source === "proxy" ? "Likely covers" : "Covers"}: ${topics}`}
+        <span
+          title={`Week ${paper.week_number} of the ${paper.academic_year} school year${approxMonthText(paper.academic_year, paper.week_number)}.`}
+        >
+          {paper.academic_year} · week {paper.week_number}
+        </span>
+        {topics && (
+          <span
+            title={
+              fromOwnScope
+                ? "Topics from this test's recorded scope."
+                : "Topics estimated from the paper's filename or a similar test."
+            }
+          >
+            {` · ${fromOwnScope ? "Covers" : "Likely covers"}: ${topics}`}
+          </span>
+        )}
       </p>
     </div>
   );

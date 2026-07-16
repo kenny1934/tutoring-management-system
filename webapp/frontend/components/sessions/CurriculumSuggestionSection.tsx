@@ -468,7 +468,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                           <button
                             type="button"
                             onClick={() => onAdd(file.file_path)}
-                            title={`Add to ${stripExtension(file.file_basename)}`}
+                            title="Add to the session"
                             className="p-0.5 rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
                           >
                             <Plus className="h-3 w-3" />

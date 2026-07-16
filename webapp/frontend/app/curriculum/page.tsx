@@ -235,7 +235,11 @@ const GanttLanes = memo(function GanttLanes({
                         ? "border-teal-300 dark:border-teal-700 bg-white dark:bg-teal-900/30 text-teal-800 dark:text-teal-300"
                         : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-gray-500 dark:text-gray-400"
                     )}
-                    title={`Weight ${w.weight.toFixed(2)}`}
+                    title={
+                      w.weight >= 0.7
+                        ? "Strong signal this week"
+                        : "Weaker signal this week"
+                    }
                   >
                     Wk {w.week_number} · {sourcesText(w.sources)}
                   </span>
