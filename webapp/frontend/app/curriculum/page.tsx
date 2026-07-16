@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useSearchParams } from "next/navigation";
-import { Map as MapIcon, FileText, Loader2, ChevronDown, ChevronRight, Target, X } from "lucide-react";
+import { Map as MapIcon, FileText, Loader2, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -26,7 +26,7 @@ import { CurriculumAtlas } from "@/components/curriculum/CurriculumAtlas";
 import { CurriculumExamStrip } from "@/components/curriculum/CurriculumExamStrip";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
-import type { CurriculumCoverageRow, CurriculumPacingBand } from "@/types";
+import type { CurriculumPacingBand } from "@/types";
 
 const selectClass =
   "text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500";
@@ -360,7 +360,6 @@ export default function CurriculumPage() {
   const [view, setView] = useState<"timeline" | "atlas">(() =>
     searchParams.get("view") === "atlas" ? "atlas" : "timeline"
   );
-  const [gapsExpanded, setGapsExpanded] = useState(false);
   const [expandedLane, setExpandedLane] = useState<number | null>(null);
   const [topicFiles, setTopicFiles] = useState<{ conceptId: number; name: string } | null>(null);
   // Week the tutor jumped to (highlight column + week card on the Gantt).
@@ -509,24 +508,25 @@ export default function CurriculumPage() {
     return options.sort((a, b) => comboLabel(a).localeCompare(comboLabel(b)));
   }, [dominantStreams, primaryCombo, compares]);
 
-  // Thin current-year combos are where tutor confirmations help most
-  // (dominant stream only — stray opposite-stream rows are not real gaps).
-  const gaps = useMemo(() => {
-    if (!coverage) return [] as CurriculumCoverageRow[];
+  // Thin current-year records are where tutor confirmations help most.
+  // Warn on the picked school only (Kenny 2026-07-16, replacing the
+  // page-level "schools we know least about" list); dominant stream only —
+  // stray opposite-stream rows are not real gaps.
+  const thinWeeks = useMemo(() => {
+    if (!coverage || !school || !effectiveGrade) return null;
     const latestYear = coverage.reduce(
       (max, r) => (r.academic_year > max ? r.academic_year : max),
       ""
     );
-    return coverage
-      .filter(
-        (r) =>
-          r.academic_year === latestYear &&
-          r.weeks_observed < 8 &&
-          (dominantStreams.get(`${r.school}||${r.grade}`) ?? null) ===
-            (r.lang_stream || null)
-      )
-      .sort((a, b) => a.weeks_observed - b.weeks_observed);
-  }, [coverage, dominantStreams]);
+    const row = coverage.find(
+      (r) =>
+        r.academic_year === latestYear &&
+        r.school === school &&
+        r.grade === effectiveGrade &&
+        (r.lang_stream || null) === (effectiveStream || null)
+    );
+    return row && row.weeks_observed < 8 ? row.weeks_observed : null;
+  }, [coverage, school, effectiveGrade, effectiveStream]);
 
   const lanes = useMemo(
     () => (timeline ? computeConceptLanes(timeline.weeks) : []),
@@ -822,6 +822,18 @@ export default function CurriculumPage() {
             langStream={effectiveStream || null}
             isMobile={isMobile}
           />
+        )}
+
+        {/* Thin-records warning for the picked school */}
+        {view === "timeline" && thinWeeks != null && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-[11px] text-amber-900 dark:text-amber-200">
+            <Target className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <span>
+              Only {thinWeeks} week{thinWeeks === 1 ? "" : "s"} of records for
+              this school year so far. Confirming topics in the exercise window
+              builds this timeline.
+            </span>
+          </div>
         )}
 
         {view === "timeline" && !school && !coverageLoading && (
@@ -1173,66 +1185,6 @@ export default function CurriculumPage() {
                 />
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Coverage gaps */}
-        {view === "timeline" && gaps.length > 0 && (
-          <div
-            className={cn(
-              "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg overflow-hidden",
-              !isMobile && "paper-texture"
-            )}
-          >
-            <button
-              type="button"
-              aria-expanded={gapsExpanded}
-              onClick={() => setGapsExpanded(!gapsExpanded)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-left bg-gradient-to-r from-amber-50 to-[#fef9f3] dark:from-amber-900/20 dark:to-[#2d2618] hover:from-amber-100 dark:hover:from-amber-900/30 transition-colors"
-            >
-              <Target className="h-3.5 w-3.5 text-amber-600" />
-              <span className="text-xs text-gray-600 dark:text-gray-300">
-                Schools we know least about
-              </span>
-              <span className="text-[10px] text-gray-400">
-                {gaps.length} school-grade{gaps.length === 1 ? "" : "s"} with thin records this year
-              </span>
-              {gapsExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400 ml-auto" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-gray-400 ml-auto" />
-              )}
-            </button>
-            {gapsExpanded && (
-              <div className="border-t border-[#d4a574]/40 dark:border-[#8b6f47]/60 p-3">
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
-                  Confirming topics for these students in the exercise window makes
-                  their suggestions accurate faster.
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {gaps.map((g) => (
-                    <button
-                      key={`${g.school}-${g.grade}-${g.lang_stream}`}
-                      type="button"
-                      onClick={() => {
-                        changeSchool(g.school, g.grade);
-                        // The app scrolls inside <main>, not the window.
-                        document
-                          .getElementById("main-content")
-                          ?.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
-                    >
-                      {g.school} {g.grade}
-                      {g.lang_stream ? ` (${g.lang_stream})` : ""}
-                      <span className="text-amber-600/70 dark:text-amber-400/70">
-                        {g.weeks_observed} wk{g.weeks_observed === 1 ? "" : "s"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
