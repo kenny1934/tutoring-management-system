@@ -383,6 +383,31 @@ export default function SummerLandingPage() {
   }
 
   const promo = getActiveSummerPromo(config.pricing_config, LANG);
+
+  // The pricing poster follows the promo state: each early-bird tier has its
+  // own brand poster, and once every tier has passed we show the standard
+  // price list instead of falling back to an expired offer. Dimensions are
+  // per-file because the standard poster has a different aspect ratio.
+  const pricingPoster = promo.ebActive
+    ? promo.isExtension
+      ? {
+          src: "/summer/poster-pricing-616.jpg",
+          width: 2400,
+          height: 3000,
+          period: "適用日期：2026年6月16日至2026年7月15日",
+        }
+      : {
+          src: "/summer/poster-pricing.jpg",
+          width: 1600,
+          height: 2000,
+          period: "適用日期：2026年4月8日至2026年6月15日",
+        }
+    : {
+        src: "/summer/poster-pricing-standard.png",
+        width: 1402,
+        height: 1984,
+        period: "適用日期：2026年7月16日起",
+      };
   const intro = config.course_intro;
   const pillars = intro?.pillars ?? [];
   const philosophy = intro?.philosophy?.zh ?? "";
@@ -795,7 +820,7 @@ export default function SummerLandingPage() {
         <div className="max-w-4xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
-              <Eyebrow zh="收費及優惠" />
+              <Eyebrow zh={promo.ebActive ? "收費及優惠" : "課程費用"} />
             </div>
           </Reveal>
 
@@ -804,14 +829,10 @@ export default function SummerLandingPage() {
               <div className="relative bg-white border border-[#F5C518]/40 p-3">
                 <div className="relative overflow-hidden">
                   <Image
-                    src={
-                      promo.isExtension
-                        ? "/summer/poster-pricing-616.jpg"
-                        : "/summer/poster-pricing.jpg"
-                    }
-                    alt="完整收費及優惠表"
-                    width={1600}
-                    height={2000}
+                    src={pricingPoster.src}
+                    alt={promo.ebActive ? "完整收費及優惠表" : "課程收費表"}
+                    width={pricingPoster.width}
+                    height={pricingPoster.height}
                     sizes="(min-width: 640px) 576px, 100vw"
                     quality={90}
                     className="w-full h-auto block"
@@ -826,15 +847,15 @@ export default function SummerLandingPage() {
                 className="mt-5 text-center text-sm text-[#1A1614]/55 italic"
                 style={{ fontFamily: "var(--font-serif-tc)" }}
               >
-                {promo.isExtension
-                  ? "適用日期：2026年6月16日至2026年7月15日"
-                  : "適用日期：2026年4月8日至2026年6月15日"}
+                {pricingPoster.period}
               </p>
               <p
                 className="mt-3 text-center text-xs text-[#1A1614]/45 leading-relaxed px-4"
                 style={{ fontFamily: "var(--font-serif-tc)" }}
               >
-                * 優惠受條款及細則約束，如有任何爭議，MathConcept 數學思維 擁有最終解釋權。
+                {promo.ebActive
+                  ? "* 優惠受條款及細則約束，如有任何爭議，MathConcept 數學思維 擁有最終解釋權。"
+                  : "* 如有任何爭議，MathConcept 數學思維 擁有最終解釋權。"}
               </p>
             </div>
           </Reveal>
