@@ -144,19 +144,30 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       .slice(0, 6);
   }, [correction.status, correctionQuery, vocab, grade, data]);
 
-  if (!eligible) return null;
-
-  if (isLoading) {
-    return (
-      <div className="border border-teal-200 dark:border-teal-900 rounded-lg overflow-hidden">
-        <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-teal-50 to-white dark:from-teal-900/20 dark:to-[#1a1a1a]">
-          <GraduationCap className="h-3.5 w-3.5 text-teal-600" />
-          <span className="text-xs text-gray-600 dark:text-gray-300">School Progress</span>
-          <Loader2 className="h-3 w-3 animate-spin text-gray-400 ml-auto" />
-        </div>
-      </div>
-    );
+  if (!eligible) {
+    // F1-F3 tutors see this section daily; on an F4-F6 session its silent
+    // absence read as a bug, so name the coverage once instead.
+    const isSummer =
+      session.summer_slot_id != null || session.lesson_number != null;
+    if (
+      !isSummer &&
+      ["F4", "F5", "F6"].includes(session.grade || "") &&
+      session.school &&
+      session.student_id
+    ) {
+      return (
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 px-1">
+          School Progress suggestions cover F1 to F3 for now.
+        </p>
+      );
+    }
+    return null;
   }
+
+  // No loading skeleton: for sessions that end up with no suggestions it
+  // flashed a header that then vanished, and a section that appears when
+  // ready is calmer than one that appears and retracts.
+  if (isLoading) return null;
 
   if (!data || data.reason || data.suggestions.length === 0) return null;
 
