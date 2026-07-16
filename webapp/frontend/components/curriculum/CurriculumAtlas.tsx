@@ -42,6 +42,7 @@ import {
   type PositionedNode,
 } from "@/lib/curriculum-atlas";
 import { conceptDisplayName, conceptNameForStream } from "@/lib/curriculum-labels";
+import { getAppScroller } from "@/lib/scroll";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { useDialogFocus } from "./CurriculumModalShell";
 import type { CurriculumTimelineResponse } from "@/types";
@@ -49,6 +50,8 @@ import type { CurriculumTimelineResponse } from "@/types";
 const GUTTER_W = 28;
 /** Height of the sticky grade header inside the scroll container. */
 const HEADER_H = 26;
+/** Inline height budget until the first measurement lands. */
+const DEFAULT_MAX_H = 544;
 // Low enough that fit-to-view can reach the height of the tallest map even
 // in the shortest inline card (320px budget vs a ~1400px logical grid);
 // labels are illegible down there, but the zoom and minimap take over.
@@ -267,7 +270,13 @@ const AtlasEdges = memo(function AtlasEdges({
  *  mobile it takes the whole viewport (the drawer nav would stack under the
  *  overlay anyway). Escape is handled by CurriculumAtlas so a stacked
  *  worksheet dialog wins the press. */
-function AtlasFullscreenOverlay({ children }: { children: ReactNode }) {
+function AtlasFullscreenOverlay({
+  isMobile,
+  children,
+}: {
+  isMobile: boolean;
+  children: ReactNode;
+}) {
   const panelRef = useRef<HTMLDivElement>(null);
   useDialogFocus(panelRef);
   const [rect, setRect] = useState<{
@@ -278,19 +287,24 @@ function AtlasFullscreenOverlay({ children }: { children: ReactNode }) {
   } | null>(null);
 
   useLayoutEffect(() => {
-    const main = document.getElementById("main-content");
+    const main = getAppScroller();
     const measure = () => {
-      if (main && window.matchMedia("(min-width: 768px)").matches) {
-        const r = main.getBoundingClientRect();
-        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-      } else {
-        setRect({
-          top: 0,
-          left: 0,
-          width: window.innerWidth,
-          height: window.innerHeight,
-        });
-      }
+      const next =
+        main && !isMobile
+          ? (() => {
+              const r = main.getBoundingClientRect();
+              return { top: r.top, left: r.left, width: r.width, height: r.height };
+            })()
+          : { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
+      setRect((prev) =>
+        prev &&
+        prev.top === next.top &&
+        prev.left === next.left &&
+        prev.width === next.width &&
+        prev.height === next.height
+          ? prev
+          : next
+      );
     };
     measure();
     window.addEventListener("resize", measure);
@@ -304,9 +318,9 @@ function AtlasFullscreenOverlay({ children }: { children: ReactNode }) {
       window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
-  }, []);
+  }, [isMobile]);
 
-  if (typeof document === "undefined" || !rect) return null;
+  if (!rect) return null;
 
   return createPortal(
     <div
@@ -358,6 +372,16 @@ const AtlasMinimap = memo(function AtlasMinimap({
     needed: boolean;
   } | null>(null);
   const draggingRef = useRef(false);
+  // The minimap rect cannot change mid-drag; captured once on pointer down
+  // so pointer moves don't force a reflow between the scroll writes.
+  const svgRectRef = useRef<DOMRect | null>(null);
+
+  // The subscription must not churn with zoom (a pinch fires dozens of
+  // events a second, and rebuilding a ResizeObserver each tick is wasted
+  // work), so measure reads the current geometry through a ref.
+  const geomRef = useRef({ zoom, layout });
+  geomRef.current = { zoom, layout };
+  const measureRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -365,6 +389,7 @@ const AtlasMinimap = memo(function AtlasMinimap({
     let raf = 0;
     const measure = () => {
       raf = 0;
+      const { zoom, layout } = geomRef.current;
       const needed =
         GUTTER_W + layout.grid.width * zoom > el.clientWidth + 4 ||
         HEADER_H + layout.grid.height * zoom > el.clientHeight + 4;
@@ -380,6 +405,7 @@ const AtlasMinimap = memo(function AtlasMinimap({
         needed,
       });
     };
+    measureRef.current = measure;
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(measure);
     };
@@ -393,17 +419,41 @@ const AtlasMinimap = memo(function AtlasMinimap({
       observer?.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [scrollRef, layout, zoom, fullscreen]);
+    // fullscreen: the container remounts, so the listeners must reattach.
+  }, [scrollRef, fullscreen]);
+
+  // Geometry changes need a re-measure, not a resubscription.
+  useEffect(() => {
+    measureRef.current?.();
+  }, [zoom, layout]);
 
   const centerOn = (e: React.PointerEvent<SVGSVGElement>) => {
     const el = scrollRef.current;
     if (!el) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect = svgRectRef.current ?? e.currentTarget.getBoundingClientRect();
     const lx = ((e.clientX - rect.left) / rect.width) * layout.grid.width;
     const ly = ((e.clientY - rect.top) / rect.height) * layout.grid.height;
     el.scrollLeft = lx * zoom - (el.clientWidth - GUTTER_W) / 2;
     el.scrollTop = ly * zoom - (el.clientHeight - HEADER_H) / 2;
   };
+
+  // The rect layer only depends on the layout and statuses; zoom ticks move
+  // just the viewport frame.
+  const nodeRects = useMemo(
+    () =>
+      layout.nodes.map((n) => (
+        <rect
+          key={n.concept.id}
+          x={n.x}
+          y={n.y}
+          width={n.w}
+          height={n.h}
+          rx={6}
+          className={minimapFill(nodeStatus(n))}
+        />
+      )),
+    [layout, nodeStatus]
+  );
 
   if (!view || !view.needed) return null;
 
@@ -423,6 +473,7 @@ const AtlasMinimap = memo(function AtlasMinimap({
         className="block cursor-pointer touch-none"
         onPointerDown={(e) => {
           draggingRef.current = true;
+          svgRectRef.current = e.currentTarget.getBoundingClientRect();
           e.currentTarget.setPointerCapture(e.pointerId);
           centerOn(e);
         }}
@@ -432,17 +483,7 @@ const AtlasMinimap = memo(function AtlasMinimap({
         onPointerUp={() => (draggingRef.current = false)}
         onPointerCancel={() => (draggingRef.current = false)}
       >
-        {layout.nodes.map((n) => (
-          <rect
-            key={n.concept.id}
-            x={n.x}
-            y={n.y}
-            width={n.w}
-            height={n.h}
-            rx={6}
-            className={minimapFill(nodeStatus(n))}
-          />
-        ))}
+        {nodeRects}
         <rect
           x={view.x}
           y={view.y}
@@ -480,20 +521,13 @@ export function CurriculumAtlas({
   const [placeholderH, setPlaceholderH] = useState(0);
   // The inline fullscreen button unmounts when the map moves into the portal,
   // so the dialog's usual focus restore lands on a detached node; hand focus
-  // to the fresh toggle button ourselves on the way out.
+  // to the fresh toggle button ourselves on the way out. (No scroll lock is
+  // needed: the shell's body never scrolls, and the portal sits outside the
+  // app scroller so wheel events cannot chain into it.)
   const fullscreenBtnRef = useRef<HTMLButtonElement>(null);
-  const wasFullscreen = useRef(false);
-  useEffect(() => {
-    if (wasFullscreen.current && !fullscreen) fullscreenBtnRef.current?.focus();
-    wasFullscreen.current = fullscreen;
-  }, [fullscreen]);
   useEffect(() => {
     if (!fullscreen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    return () => fullscreenBtnRef.current?.focus();
   }, [fullscreen]);
 
   // Fill the viewport below the card's top edge instead of a fixed cap, so
@@ -502,20 +536,15 @@ export function CurriculumAtlas({
   // appearing); equal values bail out of setState, so no feedback loop.
   const [maxH, setMaxH] = useState<number | null>(null);
   useEffect(() => {
+    // Fullscreen ignores maxH (the overlay flex-sizes the map); the dep
+    // re-runs the real measurement on exit.
+    if (fullscreen) return;
     const el = scrollRef.current;
     if (!el) return;
     // The app scrolls inside LayoutShell's <main>, not the window, so both
-    // the height budget and the card's offset must come from the scrollable
-    // ancestor. (In fullscreen the portal has none; the window fallback runs
-    // but maxH is unused there and recomputed on exit.)
-    let scroller: HTMLElement | null = null;
-    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
-      const o = getComputedStyle(p).overflowY;
-      if (o === "auto" || o === "scroll") {
-        scroller = p;
-        break;
-      }
-    }
+    // the height budget and the card's offset must come from it (window
+    // fallback for safety only).
+    const scroller = getAppScroller();
     const compute = () => {
       // Offset within the scrolling content, not the viewport: a viewport-
       // relative reading raced the view switch's scroll reset when the map
@@ -698,7 +727,7 @@ export function CurriculumAtlas({
     if (!el) return;
     // Inline, the container shrinks to short content, so its own height is
     // not the available space; the viewport-fill budget is.
-    const availH = (fullscreen ? el.clientHeight : (maxH ?? 544)) - HEADER_H;
+    const availH = (fullscreen ? el.clientHeight : (maxH ?? DEFAULT_MAX_H)) - HEADER_H;
     applyZoom(
       Math.min(
         (el.clientWidth - GUTTER_W) / layout.grid.width,
@@ -834,7 +863,7 @@ export function CurriculumAtlas({
   // the map's height (without that, the last word clips at the bottom once
   // its own row shrinks below the word). 9px glyphs advance ~10px each in
   // vertical writing.
-  const gutterLabels = (() => {
+  const gutterLabels = useMemo(() => {
     const rows = layout.grid.rows;
     const wordH = (s: AtlasStrand) => STRAND_SHORT[s].length * 10 + 4;
     let prevEnd = 0;
@@ -856,7 +885,67 @@ export function CurriculumAtlas({
       limit = tops[i] - 6;
     }
     return rows.map((r, i) => ({ strand: r.strand, label: r.label, top: tops[i] }));
-  })();
+  }, [layout, zoom, scaledH]);
+
+  // Everything inside the scaled wrapper is zoom-independent (zoom feeds
+  // only the wrapper's transform and footprint), so wheel ticks skip
+  // re-mapping the hundred-plus nodes and reconcile a handful of elements.
+  const canvasContent = useMemo(
+    () => (
+      <>
+        {layout.grid.rows.map((r, i) => (
+          <div
+            key={r.strand}
+            aria-hidden="true"
+            className={cn(
+              "absolute left-0 right-0 border-b border-[#d4a574]/15 dark:border-[#8b6f47]/25",
+              i % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]"
+            )}
+            style={{
+              top: r.y,
+              height: r.height + (i < layout.grid.rows.length - 1 ? 16 : 0),
+            }}
+          />
+        ))}
+
+        <AtlasEdges
+          layout={layout}
+          series={series}
+          relatedEdges={related?.edges ?? null}
+          hasActive={activeId != null}
+          reduced={reduced}
+        />
+
+        {layout.nodes.map((n) => {
+          const status = nodeStatus(n);
+          const mode: NodeMode =
+            activeId == null
+              ? "normal"
+              : n.concept.id === activeId
+                ? "active"
+                : related?.nodes.has(n.concept.id)
+                  ? "related"
+                  : "dimmed";
+          return (
+            <AtlasNode
+              key={`${series}-${n.concept.id}`}
+              node={n}
+              label={conceptNameForStream(n.concept, stream)}
+              title={conceptDisplayName(n.concept)}
+              status={status}
+              mode={mode}
+              animDelay={reduced ? 0 : 0.06 * n.col + 0.025 * n.indexInCell}
+              reduced={reduced}
+              onHover={setFocusId}
+              onLeave={handleLeave}
+              onActivate={activate}
+            />
+          );
+        })}
+      </>
+    ),
+    [layout, series, related, activeId, reduced, stream, nodeStatus, activate, handleLeave]
+  );
 
   const body = (
     <div
@@ -1010,7 +1099,7 @@ export function CurriculumAtlas({
           fullscreen && "h-full",
           dragging ? "cursor-grabbing select-none" : !coarsePointer && "cursor-grab"
         )}
-        style={fullscreen ? undefined : { maxHeight: maxH ?? 544 }}
+        style={fullscreen ? undefined : { maxHeight: maxH ?? DEFAULT_MAX_H }}
         ref={scrollRef}
         onPointerDown={onPanStart}
         onPointerMove={onPanMove}
@@ -1030,8 +1119,8 @@ export function CurriculumAtlas({
       >
         {/* Grade header (sticky top, with a sticky corner over the gutter) */}
         <div
-          className="sticky top-0 z-40 flex h-[26px] bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30"
-          style={{ minWidth: innerMinWidth }}
+          className="sticky top-0 z-40 flex bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30"
+          style={{ minWidth: innerMinWidth, height: HEADER_H }}
         >
           <div
             className="sticky left-0 z-40 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
@@ -1099,55 +1188,7 @@ export function CurriculumAtlas({
                 transformOrigin: "0 0",
               }}
             >
-            {layout.grid.rows.map((r, i) => (
-              <div
-                key={r.strand}
-                aria-hidden="true"
-                className={cn(
-                  "absolute left-0 right-0 border-b border-[#d4a574]/15 dark:border-[#8b6f47]/25",
-                  i % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]"
-                )}
-                style={{
-                  top: r.y,
-                  height: r.height + (i < layout.grid.rows.length - 1 ? 16 : 0),
-                }}
-              />
-            ))}
-
-            <AtlasEdges
-              layout={layout}
-              series={series}
-              relatedEdges={related?.edges ?? null}
-              hasActive={activeId != null}
-              reduced={reduced}
-            />
-
-            {layout.nodes.map((n) => {
-              const status = nodeStatus(n);
-              const mode: NodeMode =
-                activeId == null
-                  ? "normal"
-                  : n.concept.id === activeId
-                    ? "active"
-                    : related?.nodes.has(n.concept.id)
-                      ? "related"
-                      : "dimmed";
-              return (
-                <AtlasNode
-                  key={`${series}-${n.concept.id}`}
-                  node={n}
-                  label={conceptNameForStream(n.concept, stream)}
-                  title={conceptDisplayName(n.concept)}
-                  status={status}
-                  mode={mode}
-                  animDelay={reduced ? 0 : 0.06 * n.col + 0.025 * n.indexInCell}
-                  reduced={reduced}
-                  onHover={setFocusId}
-                  onLeave={handleLeave}
-                  onActivate={activate}
-                />
-              );
-            })}
+              {canvasContent}
             </div>
           </div>
         </div>
@@ -1206,7 +1247,7 @@ export function CurriculumAtlas({
       {/* Holds the card's footprint so the page behind the overlay keeps its
           layout and scroll position while the map lives in the portal. */}
       <div style={{ height: placeholderH }} aria-hidden="true" />
-      <AtlasFullscreenOverlay>{body}</AtlasFullscreenOverlay>
+      <AtlasFullscreenOverlay isMobile={isMobile}>{body}</AtlasFullscreenOverlay>
     </>
   );
 }

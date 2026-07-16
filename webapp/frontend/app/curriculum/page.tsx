@@ -5,6 +5,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useSearchParams } from "next/navigation";
 import { Map as MapIcon, FileText, Loader2, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { scrollAppToTop } from "@/lib/scroll";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -787,13 +788,8 @@ export default function CurriculumPage() {
                   onClick={() => {
                     setView(v);
                     // The views differ in height: keeping the old scroll
-                    // position strands the user mid-page. The app scrolls
-                    // inside LayoutShell's <main>, not the window, so the
-                    // reset must target it (window kept as a fallback).
-                    document
-                      .getElementById("main-content")
-                      ?.scrollTo({ top: 0, behavior: "instant" });
-                    window.scrollTo({ top: 0, behavior: "instant" });
+                    // position strands the user mid-page.
+                    scrollAppToTop();
                   }}
                   className={cn(
                     "text-xs px-3 py-1.5 font-medium transition-colors",

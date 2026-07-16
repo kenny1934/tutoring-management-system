@@ -256,6 +256,9 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         month: "short",
       })
     : null;
+  // Canonical kind colours from the exam revisions page (Test red, Exam
+  // purple, Quiz green).
+  const kindColors = getTypeColors(data.upcoming_exam?.event_type);
 
   const examLabel = examDate
     ? `On the scope of the ${data.upcoming_exam?.event_type || "Test"} on ${examDate}`
@@ -306,10 +309,8 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           <span
             className={cn(
               "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]",
-              // Canonical kind colours from the exam revisions page (Test
-              // red, Exam purple, Quiz green).
-              getTypeColors(data.upcoming_exam?.event_type).bg,
-              getTypeColors(data.upcoming_exam?.event_type).text
+              kindColors.bg,
+              kindColors.text
             )}
           >
             <CalendarClock className="h-3 w-3" />
