@@ -272,10 +272,15 @@ const PacingChartRows = memo(function PacingChartRows({
   onTopicFiles: (t: { conceptId: number; name: string }) => void;
 }) {
   const hitArea = iconHitArea(useCoarsePointer());
+  // The band tooltips (span, usual week, years observed) are hover-only, so
+  // tapping a row repeats them as plain text — touch devices get nothing
+  // otherwise.
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
   return (
     <div className="py-2 space-y-1">
       {rows.map((row) => (
-        <div key={row.conceptId} className="flex items-stretch group">
+        <div key={row.conceptId}>
+          <div className="flex items-stretch group">
           <div
             className="sticky left-0 z-10 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618] flex items-center gap-1 pl-4 pr-2"
             style={{ width: LABEL_W }}
@@ -304,7 +309,12 @@ const PacingChartRows = memo(function PacingChartRows({
               <FileText className="h-3 w-3" />
             </button>
           </div>
-          <div className="flex-1 flex flex-col justify-center gap-0.5 py-0.5">
+          <div
+            className="flex-1 flex flex-col justify-center gap-0.5 py-0.5 cursor-pointer group-hover:bg-teal-50/40 dark:group-hover:bg-teal-900/5"
+            onClick={() =>
+              setExpandedRow((prev) => (prev === row.conceptId ? null : row.conceptId))
+            }
+          >
             {row.cells.map((cell, idx) => (
               <div
                 key={idx}
@@ -347,6 +357,38 @@ const PacingChartRows = memo(function PacingChartRows({
               </div>
             ))}
           </div>
+          </div>
+          {expandedRow === row.conceptId && (
+            <div className="flex bg-teal-50/40 dark:bg-teal-900/10">
+              <div
+                className="sticky left-0 z-10 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
+                style={{ width: LABEL_W }}
+              />
+              <div className="flex-1 px-1 py-1 space-y-0.5">
+                {row.cells.map(
+                  (cell, idx) =>
+                    cell && (
+                      <p
+                        key={idx}
+                        className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-300"
+                      >
+                        <span
+                          className={cn(
+                            "h-2 w-2 rounded-full shrink-0",
+                            SLOT_STYLES[combos[idx].slot].dot
+                          )}
+                        />
+                        {`${comboLabel(combos[idx].combo)}: weeks ${cell.band.min_week} to ${cell.band.max_week}, usually around week ${cell.band.mean_week} (${cell.band.years_observed} year${cell.band.years_observed === 1 ? "" : "s"} observed)${
+                          cell.fromEquivalent
+                            ? ` · their matching chapter: ${conceptNameForStream(cell.band, combos[idx].combo.stream)}`
+                            : ""
+                        }`}
+                      </p>
+                    )
+                )}
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -927,7 +969,7 @@ export default function CurriculumPage() {
                 {timeline.school} {timeline.grade}
                 {timeline.lang_stream ? ` (${timeline.lang_stream})` : ""} · {displayYear}
               </span>
-              <span className="text-[10px] text-gray-400 hidden lg:inline">
+              <span className="text-[10px] text-gray-400">
                 Solid = main topic that week · Faint = also seen · Tap a row for detail
               </span>
               <div className="ml-auto flex items-center gap-1.5">

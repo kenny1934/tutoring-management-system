@@ -427,7 +427,7 @@ export function CurriculumAtlas({
               </span>
             </>
           ) : (
-            <span className="text-[10px] text-gray-400 hidden lg:inline">
+            <span className="text-[10px] text-gray-400">
               {timelineLoading
                 ? "Loading this school's progress…"
                 : offSeries
