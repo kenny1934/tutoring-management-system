@@ -69,6 +69,7 @@ export function CurriculumTopicFiles({
       .map((c) => ({
         conceptId: c!.id,
         name: conceptNameForStream(c!, scope?.lang_stream),
+        grade: c!.grade || null,
       }));
   const buildsOn = relatedChips(currentVocab?.builds_on_ids);
   const leadsTo = relatedChips(currentVocab?.leads_to_ids);
@@ -107,15 +108,22 @@ export function CurriculumTopicFiles({
   const concepts = data?.concepts || [];
   const totalFiles = concepts.reduce((n, c) => n + c.files.length, 0);
 
-  const chip = (t: { conceptId: number; name: string }) => (
+  const chip = (t: { conceptId: number; name: string; grade: string | null }) => (
     <button
       key={t.conceptId}
       type="button"
       onClick={() => goTo(t)}
-      className="text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors truncate max-w-[11rem]"
+      className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border border-teal-600/40 dark:border-teal-400/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors max-w-[13rem]"
       title={t.name}
     >
-      {t.name}
+      <span className="truncate">{t.name}</span>
+      {/* Grade badge: a prerequisite chain crosses grades, and without it a
+          chip's grade is invisible until after the jump. */}
+      {t.grade && (
+        <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
+          {t.grade}
+        </span>
+      )}
     </button>
   );
 
@@ -156,26 +164,60 @@ export function CurriculumTopicFiles({
             : "Showing the whole library for this topic."
         }
         beforeBody={
-          (buildsOn.length > 0 || leadsTo.length > 0) && (
-            <div className="px-4 py-1.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex flex-col gap-1">
-              {buildsOn.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-gray-400 shrink-0">
-                    Builds on
+          <>
+            {trail.length > 0 && (
+              // The walked path, oldest first; each crumb jumps back to that
+              // point (the header's back arrow only steps one).
+              <div className="px-4 py-1 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex items-center gap-1 flex-wrap">
+                {trail.map((t, i) => (
+                  <span
+                    key={`${t.conceptId}-${i}`}
+                    className="flex items-center gap-1 min-w-0"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrent(t);
+                        setTrail((prev) => prev.slice(0, i));
+                        setFileCounts({});
+                      }}
+                      className="text-[10px] text-teal-700 dark:text-teal-400 hover:underline truncate max-w-[9rem]"
+                      title={t.name}
+                    >
+                      {t.name}
+                    </button>
+                    <span className="text-[10px] text-gray-400">›</span>
                   </span>
-                  {buildsOn.map(chip)}
-                </div>
-              )}
-              {leadsTo.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-gray-400 shrink-0">
-                    Leads to
-                  </span>
-                  {leadsTo.map(chip)}
-                </div>
-              )}
-            </div>
-          )
+                ))}
+                <span
+                  className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[9rem]"
+                  title={current.name}
+                >
+                  {current.name}
+                </span>
+              </div>
+            )}
+            {(buildsOn.length > 0 || leadsTo.length > 0) && (
+              <div className="px-4 py-1.5 border-b border-[#d4a574]/20 dark:border-[#8b6f47]/30 flex flex-col gap-1">
+                {buildsOn.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-gray-400 shrink-0">
+                      Builds on
+                    </span>
+                    {buildsOn.map(chip)}
+                  </div>
+                )}
+                {leadsTo.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-gray-400 shrink-0">
+                      Leads to
+                    </span>
+                    {leadsTo.map(chip)}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         }
       >
         {error && !data && (
