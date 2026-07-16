@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Eye } from "lucide-react";
+import { Check, Copy, Eye, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { conceptNameForStream, stripExtension } from "@/lib/curriculum-labels";
@@ -22,10 +22,14 @@ export function CurriculumPastPaperRow({
   paper,
   stream,
   onPreview,
+  onAdd,
 }: {
   paper: CurriculumPastPaper;
   stream: string | null;
   onPreview: (target: CurriculumPreviewTarget) => void;
+  /** When set (the exercise modal case), the row leads with an add button
+   *  like the worksheet rows beside it. */
+  onAdd?: () => void;
 }) {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -47,6 +51,20 @@ export function CurriculumPastPaperRow({
   return (
     <div className="rounded px-1 py-0.5 group hover:bg-teal-50/60 dark:hover:bg-teal-900/10">
       <div className="flex items-center gap-1.5">
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            title={
+              paper.answer_path
+                ? "Add to the session with its answer file"
+                : "Add to the session"
+            }
+            className="p-0.5 rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        )}
         <span
           className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1"
           title={paper.file_path}

@@ -376,6 +376,9 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                           answerPath: t.answer_path,
                         })
                       }
+                      onAdd={() =>
+                        onAdd(paper.file_path, paper.answer_path ?? undefined)
+                      }
                     />
                   ))}
                 </div>
