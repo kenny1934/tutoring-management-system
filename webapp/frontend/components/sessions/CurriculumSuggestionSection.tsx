@@ -321,8 +321,11 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
               {data.week_number != null && (
                 <>
                   {" · "}
+                  {/* New tab: an in-place navigation would unmount the
+                      exercise modal and silently drop unsaved exercises. */}
                   <Link
                     href={curriculumExplorerHref(data.school, data.grade, data.week_number, linkYear)}
+                    target="_blank"
                     className="text-teal-700 dark:text-teal-400 hover:underline"
                   >
                     See the full year →
