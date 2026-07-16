@@ -58,6 +58,11 @@ export function CurriculumPastPaperRow({
   const topics = paper.matched_concepts
     .map((c) => conceptNameForStream(c, stream))
     .join(" · ");
+  // variant_paths holds the files filed beside the shown one (other
+  // versions, answer keys); versions counts the paper's files minus any
+  // recognised answer key.
+  const versionCount =
+    1 + paper.variant_paths.filter((v) => v !== paper.answer_path).length;
   // Only a test's own recorded scope earns the plain "Covers"; topics read
   // from the filename or borrowed from a similar test stay hedged.
   const fromOwnScope =
@@ -127,6 +132,22 @@ export function CurriculumPastPaperRow({
             )}
           >
             {paper.exam_kind}
+          </span>
+        )}
+        {versionCount > 1 && (
+          <span
+            className="text-[9px] px-1 py-px rounded shrink-0 text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.06]"
+            title={`Filed in ${versionCount} versions. The preview and add use this one.`}
+          >
+            {versionCount} versions
+          </span>
+        )}
+        {paper.answer_path && (
+          <span
+            className="text-[9px] px-1 py-px rounded shrink-0 bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400"
+            title="An answer file is filed with this paper."
+          >
+            Answers
           </span>
         )}
         <button
