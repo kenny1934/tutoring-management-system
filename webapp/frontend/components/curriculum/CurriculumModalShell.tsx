@@ -67,18 +67,22 @@ export function CurriculumModalShell({
     }
   };
 
+  // Capture phase: the exercise modal swallows bubbling Escapes with its own
+  // capture listener, so this one must sit at the same level to be heard (it
+  // defers to us via the data-curriculum-overlay marker below).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !previewOpen) onClose();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose, previewOpen]);
 
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <div
+      data-curriculum-overlay=""
       className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-6 bg-black/50"
       onClick={onClose}
     >

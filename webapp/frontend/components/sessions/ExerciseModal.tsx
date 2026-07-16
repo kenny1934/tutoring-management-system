@@ -557,6 +557,16 @@ export function ExerciseModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // A curriculum overlay (PDF preview, revision pack, topic browser) is
+      // stacked above this modal. Its own capture-phase listener closes it;
+      // swallow Escape here so it cannot also close this modal, and keep the
+      // sessions page shielded as usual.
+      if (e.key === 'Escape' && document.querySelector('[data-curriculum-overlay]')) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       // Handle close confirmation with Escape - MUST be at TOP
       if (showCloseConfirm) {
         if (e.key === 'Escape') {
