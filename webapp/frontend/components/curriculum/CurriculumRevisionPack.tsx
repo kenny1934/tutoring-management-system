@@ -37,7 +37,7 @@ export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionP
   const [paperCount, setPaperCount] = useState(PAPERS_SHOWN);
 
   const anyExpanded = Object.values(fileCounts).some((n) => n > FILES_SHOWN);
-  const { data, isLoading } = useCurriculumRevisionPack(
+  const { data, isLoading, error } = useCurriculumRevisionPack(
     eventId,
     // The pack is the "everything for this test" view — lift the cap once
     // any topic expands, then slice per topic client-side.
@@ -132,6 +132,11 @@ export function CurriculumRevisionPack({ eventId, onClose }: CurriculumRevisionP
           </div>
         )}
 
+        {error && !data && (
+          <p className="px-4 py-5 text-xs text-gray-500 dark:text-gray-400">
+            The revision pack could not load. Refresh the page to try again.
+          </p>
+        )}
         {!isLoading && data && data.concepts.length === 0 && (
           <p className="px-4 py-5 text-xs text-gray-500 dark:text-gray-400">
             No topics recognised for this test.

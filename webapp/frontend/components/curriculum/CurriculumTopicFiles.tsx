@@ -80,7 +80,7 @@ export function CurriculumTopicFiles({
   };
 
   const anyExpanded = Object.values(fileCounts).some((n) => n > FILES_SHOWN);
-  const { data, isLoading } = useCurriculumSearch(
+  const { data, isLoading, error } = useCurriculumSearch(
     {
       concept_id: current.conceptId,
       // Lift the cap once any section expands, then slice client-side.
@@ -168,7 +168,15 @@ export function CurriculumTopicFiles({
           )
         }
       >
-        {!isLoading && totalFiles === 0 && (
+        {error && !data && (
+          <p className="px-4 py-5 text-xs text-gray-500 dark:text-gray-400">
+            The file list could not load. Refresh the page to try again.
+          </p>
+        )}
+        {/* Gate on `data`: after a failed fetch it is undefined, and "no
+            files yet" would be a false claim that the material doesn't
+            exist. */}
+        {!isLoading && !error && data && totalFiles === 0 && (
           <p className="px-4 py-5 text-xs text-gray-500 dark:text-gray-400">
             No files mapped to this topic yet.
           </p>

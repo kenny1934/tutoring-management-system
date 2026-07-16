@@ -125,7 +125,10 @@ export function CurriculumPdfPreview({
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     It isn&apos;t reachable from your connected folders or Shelv on
-                    this device. You can still add it to the session.
+                    this device.
+                    {/* Only promise the add action where it exists (the
+                        exercise modal case). */}
+                    {onAdd ? " You can still add it to the session." : ""}
                   </p>
                 </>
               ) : (

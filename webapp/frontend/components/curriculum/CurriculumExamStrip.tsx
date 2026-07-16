@@ -29,18 +29,33 @@ export function CurriculumExamStrip({
   langStream,
   isMobile,
 }: CurriculumExamStripProps) {
-  const { data } = useCurriculumExams(school, grade);
+  const { data, error } = useCurriculumExams(school, grade);
   const [packEventId, setPackEventId] = useState<number | null>(null);
 
+  // SWR keeps the previous school's response while the new one loads
+  // (global keepPreviousData); nothing on the cards names the school, so a
+  // stale strip reads as the current school's tests. Hide it until the
+  // response echoes the picked scope.
+  const isStale = data != null && (data.school !== school || data.grade !== grade);
+
   const events = useMemo(() => {
-    if (!data?.events?.length) return [];
+    if (isStale || !data?.events?.length) return [];
     // HK calendar date, not UTC: an exam must stop being "Upcoming" at local
     // midnight, not at 08:00.
     const today = hkTodayIso();
     const upcoming = data.events.filter((e) => e.start_date >= today);
     const past = data.events.filter((e) => e.start_date < today).reverse();
     return [...upcoming, ...past];
-  }, [data]);
+  }, [data, isStale]);
+
+  if (error && !data) {
+    return (
+      <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+        The tests for this school could not load. Refresh the page to try
+        again.
+      </p>
+    );
+  }
 
   if (events.length === 0) return null;
 

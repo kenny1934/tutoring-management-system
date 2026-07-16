@@ -341,7 +341,11 @@ const PacingChartRows = memo(function PacingChartRows({
 });
 
 export default function CurriculumPage() {
-  const { data: coverage, isLoading: coverageLoading } = useCurriculumCoverage();
+  const {
+    data: coverage,
+    isLoading: coverageLoading,
+    error: coverageError,
+  } = useCurriculumCoverage();
 
   // Paper texture is skipped on mobile, same as the other desk pages.
   const isMobile = useIsMobile();
@@ -417,7 +421,11 @@ export default function CurriculumPage() {
 
   // The atlas always tracks the current year (its overlay and cohort
   // history hang off "now"); year browsing is a timeline-view feature.
-  const { data: timeline, isLoading: timelineLoading } = useCurriculumTimeline(
+  const {
+    data: timeline,
+    isLoading: timelineLoading,
+    error: timelineError,
+  } = useCurriculumTimeline(
     school,
     effectiveGrade,
     effectiveStream || null,
@@ -824,14 +832,22 @@ export default function CurriculumPage() {
               !isMobile && "paper-texture"
             )}
           >
-            <p>
-              Pick a school above to see its weekly topic timeline, or search a
-              topic directly.
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Built from assignments, prep folders, curriculum sheets and tutor
-              confirmations.
-            </p>
+            {coverageError && !coverage ? (
+              // The school picker is empty in this state — don't tell the
+              // user to pick from it.
+              <p>The school list could not load. Refresh the page to try again.</p>
+            ) : (
+              <>
+                <p>
+                  Pick a school above to see its weekly topic timeline, or search a
+                  topic directly.
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Built from assignments, prep folders, curriculum sheets and tutor
+                  confirmations.
+                </p>
+              </>
+            )}
           </div>
         )}
 
@@ -1035,6 +1051,22 @@ export default function CurriculumPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* A failed fetch must not render as convincing emptiness: every
+            block below gates on `timeline`, so without this card an error
+            would leave just the toolbar with no explanation. */}
+        {view === "timeline" && school && !timeline && !timelineLoading && timelineError && (
+          <div
+            className={cn(
+              "text-sm text-gray-600 dark:text-gray-300 bg-[#fef9f3] dark:bg-[#2d2618]",
+              "border-2 border-dashed border-[#d4a574]/70 dark:border-[#8b6f47] rounded-lg p-6 text-center",
+              !isMobile && "paper-texture"
+            )}
+          >
+            The timeline for this school could not load. Refresh the page to
+            try again.
           </div>
         )}
 

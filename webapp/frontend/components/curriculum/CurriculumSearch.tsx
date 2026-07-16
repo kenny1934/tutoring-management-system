@@ -68,7 +68,7 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
       : { q: active.q, limit: 30, ...scoped };
   }, [active, scope]);
 
-  const { data: results, isLoading } = useCurriculumSearch(searchParams);
+  const { data: results, isLoading, error } = useCurriculumSearch(searchParams);
 
   const pickConcept = (c: CurriculumConceptVocab) => {
     const label = conceptDisplayName(c);
@@ -170,6 +170,11 @@ export function CurriculumSearch({ scope }: CurriculumSearchProps) {
             {isLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-400 ml-auto" />}
           </div>
 
+          {error && !results && !isLoading && (
+            <p className="px-4 py-4 text-xs text-gray-500 dark:text-gray-400">
+              The search results could not load. Refresh the page to try again.
+            </p>
+          )}
           {results && results.concepts.length === 0 && !isLoading && (
             <p className="px-4 py-4 text-xs text-gray-500 dark:text-gray-400">
               No matching topics. Try a chapter code or part of the topic name.
