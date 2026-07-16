@@ -147,6 +147,17 @@ export function CurriculumExamStrip({
                 </span>
               )}
 
+              {event.unmatched_lines.length > 0 && (
+                <span
+                  className="text-[9px] text-gray-400 dark:text-gray-500"
+                  title="Lines from the test scope that could not be matched to topics. Open the revision pack to see them."
+                >
+                  {event.unmatched_lines.length} scope line
+                  {event.unmatched_lines.length === 1 ? "" : "s"} not yet
+                  matched
+                </span>
+              )}
+
               <span className="mt-auto inline-flex items-center text-[10px] font-medium text-teal-700 dark:text-teal-400">
                 Revision pack
                 <ChevronRight className="h-3 w-3" />

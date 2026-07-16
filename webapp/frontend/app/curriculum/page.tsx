@@ -993,6 +993,11 @@ export default function CurriculumPage() {
                   )}
                   title="Type a week number or a date and press Enter"
                 />
+                {weekQueryInvalid && (
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400">
+                    No matching week. Try a number or a date.
+                  </span>
+                )}
                 {timeline.current_week != null && (
                   <button
                     type="button"
