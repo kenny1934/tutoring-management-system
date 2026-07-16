@@ -500,6 +500,10 @@ def test_revision_pack_past_papers_ranking(client: TestClient, db_session):
     assert [c["concept_id"] for c in third["matched_concepts"]] == [1, 2]
     assert third["matched_concepts"][0]["name_en"] == "Linear Equations in One Unknown"
     assert papers[5]["variant_paths"] == ["Center\\A_ans.pdf"]
+    # the ans variant is recognised so the frontend can attach it as the
+    # answer file when the paper is added to a session
+    assert papers[5]["answer_path"] == "Center\\A_ans.pdf"
+    assert papers[0]["answer_path"] is None
     assert papers[3]["matched_count"] == 0
 
 

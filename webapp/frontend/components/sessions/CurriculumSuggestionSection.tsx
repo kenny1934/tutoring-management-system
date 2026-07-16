@@ -86,7 +86,9 @@ type CorrectionState =
 
 interface CurriculumSuggestionSectionProps {
   session: Session;
-  onAdd: (path: string) => void;
+  /** Archived papers carry a recognised answer key when one exists —
+   *  adding one fills the exercise's answer file too. */
+  onAdd: (path: string, answerPath?: string) => void;
 }
 
 export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSuggestionSectionProps) {
@@ -105,7 +107,11 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   const [confirmStates, setConfirmStates] = useState<Record<number, ConfirmState>>({});
   const [correction, setCorrection] = useState<CorrectionState>({ status: "closed" });
   const [correctionQuery, setCorrectionQuery] = useState("");
-  const [preview, setPreview] = useState<{ path: string; label: string } | null>(null);
+  const [preview, setPreview] = useState<{
+    path: string;
+    label: string;
+    answerPath?: string | null;
+  } | null>(null);
 
   // Worksheet browser for a prerequisite topic (opened from the builds-on
   // chips; portals above the exercise modal).
@@ -367,6 +373,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         setPreview({
                           path: t.file_path,
                           label: stripExtension(t.file_basename),
+                          answerPath: t.answer_path,
                         })
                       }
                     />
@@ -610,7 +617,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         <CurriculumPdfPreview
           filePath={preview.path}
           fileLabel={preview.label}
-          onAdd={() => onAdd(preview.path)}
+          onAdd={() => onAdd(preview.path, preview.answerPath ?? undefined)}
           onClose={() => setPreview(null)}
         />
       )}

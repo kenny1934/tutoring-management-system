@@ -1436,8 +1436,11 @@ export function ExerciseModal({
         {!readOnly && (
           <CurriculumSuggestionSection
             session={session}
-            onAdd={(path) => {
-              setExercises((prev) => [...prev, createExercise(exerciseType, path)]);
+            onAdd={(path, answerPath) => {
+              setExercises((prev) => [
+                ...prev,
+                { ...createExercise(exerciseType, path), answer_pdf_name: answerPath ?? "" },
+              ]);
               setIsDirty(true);
             }}
           />

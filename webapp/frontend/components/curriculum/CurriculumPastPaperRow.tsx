@@ -10,6 +10,8 @@ import type { CurriculumPastPaper } from "@/types";
 export type CurriculumPreviewTarget = {
   file_path: string;
   file_basename: string;
+  /** Answer-key variant filed beside the paper, when one was recognised. */
+  answer_path?: string | null;
 };
 
 /**

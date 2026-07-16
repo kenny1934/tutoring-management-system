@@ -661,6 +661,8 @@ export interface CurriculumPastPaper {
   file_path: string;
   file_basename: string;
   variant_paths: string[];
+  // the variant recognised as the answer key, when the paper has one
+  answer_path: string | null;
   school: string | null;
   grade: string | null;
   academic_year: string;

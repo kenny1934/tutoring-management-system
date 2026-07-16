@@ -68,6 +68,9 @@ MAX_PAST_PAPERS_INLINE = 4
 # a same-school paper with no topic index still counts when it was filed
 # within this many weeks of the event's point in the year
 PAST_PAPER_WEEK_WINDOW = 2
+# mirrors ANS_RE in database/curriculum/backfill_rev_papers.py: the variant
+# whose filename reads as an answer key or marking scheme
+ANSWER_HINT_RE = re.compile(r"(?i)_ans|[)）]\s*ans|answer|答案|marking")
 
 # Evidence at the current week counts full; nearby weeks progressively less
 # (a school seen on a topic two weeks ago has likely moved on).
@@ -1021,13 +1024,20 @@ def _past_papers(db, event, scope_ids, meta, limit=MAX_PAST_PAPERS):
             year_key = int(str(r.academic_year)[:4])
         except ValueError:
             year_key = 0
+        variants = json.loads(r.variant_paths) if r.variant_paths else []
         out.append(((not for_this_event, not same_school, not in_window,
                      -year_key, -sum(entry["matched"].values()),
                      week_dist if week_dist is not None else 99), {
             "id": r.id,
             "file_path": r.file_path,
             "file_basename": r.file_basename,
-            "variant_paths": json.loads(r.variant_paths) if r.variant_paths else [],
+            "variant_paths": variants,
+            # match on the basename only: weekly folders sometimes have an
+            # Ans\ subfolder, and a folder name must not mark a question paper
+            "answer_path": next(
+                (v for v in variants
+                 if ANSWER_HINT_RE.search(v.replace("/", "\\").rsplit("\\", 1)[-1])),
+                None),
             "school": r.school,
             "grade": r.grade,
             "academic_year": r.academic_year,
