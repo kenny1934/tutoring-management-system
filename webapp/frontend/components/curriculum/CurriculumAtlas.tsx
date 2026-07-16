@@ -465,10 +465,14 @@ export function CurriculumAtlas({
     const compute = () => {
       const el = scrollRef.current;
       if (!el) return;
-      // Clamped: measured while the page is scrolled past the card, the
-      // viewport-relative top goes negative and would balloon the map far
-      // taller than the viewport.
-      const top = Math.max(0, el.getBoundingClientRect().top);
+      // Document offset, not viewport offset: rect.top moves with the scroll
+      // position, and the page's global smooth scrolling means the view
+      // switch's scroll reset is still animating when this runs on mount, so
+      // a viewport-relative reading ballooned the map. rect.top + scrollY is
+      // scroll-invariant and equals the visible budget once the page rests
+      // at the top. (Fullscreen readings land here too, skewed by the kept
+      // page scroll, but maxH is unused there and recomputed on exit.)
+      const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY);
       setMaxH(Math.max(320, window.innerHeight - top - 16));
     };
     compute();

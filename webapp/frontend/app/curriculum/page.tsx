@@ -787,9 +787,10 @@ export default function CurriculumPage() {
                   onClick={() => {
                     setView(v);
                     // The views differ in height: keeping the old scroll
-                    // position strands the user mid-page and skews the
-                    // atlas's viewport-relative height measurement.
-                    window.scrollTo({ top: 0 });
+                    // position strands the user mid-page. Instant, not the
+                    // global smooth: a view switch is a content swap, and the
+                    // atlas measures its height as soon as it mounts.
+                    window.scrollTo({ top: 0, behavior: "instant" });
                   }}
                   className={cn(
                     "text-xs px-3 py-1.5 font-medium transition-colors",
