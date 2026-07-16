@@ -386,8 +386,8 @@ export default function SummerLandingPage() {
 
   // The pricing poster follows the promo state: each early-bird tier has its
   // own brand poster, and once every tier has passed we show the standard
-  // price list instead of falling back to an expired offer. Dimensions are
-  // per-file because the standard poster has a different aspect ratio.
+  // price list (still with coupon offers) instead of falling back to an
+  // expired early-bird offer.
   const pricingPoster = promo.ebActive
     ? promo.isExtension
       ? {
@@ -403,10 +403,10 @@ export default function SummerLandingPage() {
           period: "適用日期：2026年4月8日至2026年6月15日",
         }
     : {
-        src: "/summer/poster-pricing-standard.png",
-        width: 1402,
-        height: 1984,
-        period: "適用日期：2026年7月16日起",
+        src: "/summer/poster-pricing-standard.jpg",
+        width: 2400,
+        height: 3000,
+        period: "適用日期：2026年7月16日至2026年8月29日",
       };
   const intro = config.course_intro;
   const pillars = intro?.pillars ?? [];
@@ -820,7 +820,7 @@ export default function SummerLandingPage() {
         <div className="max-w-4xl mx-auto px-6">
           <Reveal>
             <div className="text-center text-[#B60D20]">
-              <Eyebrow zh={promo.ebActive ? "收費及優惠" : "課程費用"} />
+              <Eyebrow zh="收費及優惠" />
             </div>
           </Reveal>
 
@@ -830,7 +830,7 @@ export default function SummerLandingPage() {
                 <div className="relative overflow-hidden">
                   <Image
                     src={pricingPoster.src}
-                    alt={promo.ebActive ? "完整收費及優惠表" : "課程收費表"}
+                    alt="完整收費及優惠表"
                     width={pricingPoster.width}
                     height={pricingPoster.height}
                     sizes="(min-width: 640px) 576px, 100vw"
@@ -853,9 +853,7 @@ export default function SummerLandingPage() {
                 className="mt-3 text-center text-xs text-[#1A1614]/45 leading-relaxed px-4"
                 style={{ fontFamily: "var(--font-serif-tc)" }}
               >
-                {promo.ebActive
-                  ? "* 優惠受條款及細則約束，如有任何爭議，MathConcept 數學思維 擁有最終解釋權。"
-                  : "* 如有任何爭議，MathConcept 數學思維 擁有最終解釋權。"}
+                * 優惠受條款及細則約束，如有任何爭議，MathConcept 數學思維 擁有最終解釋權。
               </p>
             </div>
           </Reveal>
