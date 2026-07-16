@@ -22,6 +22,7 @@ import { CurriculumPastPaperRow } from "@/components/curriculum/CurriculumPastPa
 import { CurriculumRevisionPack } from "@/components/curriculum/CurriculumRevisionPack";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
 import { cn } from "@/lib/utils";
+import { getTypeColors } from "@/lib/exam-type-colors";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
 import { ApiError, curriculumAPI } from "@/lib/api";
@@ -302,7 +303,15 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           </span>
         )}
         {examDate && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]",
+              // Canonical kind colours from the exam revisions page (Test
+              // red, Exam purple, Quiz green).
+              getTypeColors(data.upcoming_exam?.event_type).bg,
+              getTypeColors(data.upcoming_exam?.event_type).text
+            )}
+          >
             <CalendarClock className="h-3 w-3" />
             {data.upcoming_exam?.event_type || "Test"} on {examDate}
           </span>

@@ -143,14 +143,6 @@ export function CurriculumPastPaperRow({
             {versionCount} versions
           </span>
         )}
-        {paper.answer_path && (
-          <span
-            className="text-[9px] px-1 py-px rounded shrink-0 bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400"
-            title="An answer file is filed with this paper."
-          >
-            Answers
-          </span>
-        )}
         <button
           type="button"
           onClick={() => onPreview(paper)}

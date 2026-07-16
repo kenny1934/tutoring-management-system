@@ -19,6 +19,7 @@ import {
   MapPin,
   Maximize2,
   Minimize2,
+  Scan,
   X,
   ZoomIn,
   ZoomOut,
@@ -48,8 +49,10 @@ import type { CurriculumTimelineResponse } from "@/types";
 const GUTTER_W = 28;
 /** Height of the sticky grade header inside the scroll container. */
 const HEADER_H = 26;
-// Below 0.5 the 11px node labels are illegible anyway.
-const ZOOM_MIN = 0.5;
+// Low enough that fit-to-view can reach the height of the tallest map even
+// in the shortest inline card (320px budget vs a ~1400px logical grid);
+// labels are illegible down there, but the zoom and minimap take over.
+const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 2;
 
 /** AtlasStatus plus the tier the component synthesises for earlier grades:
@@ -825,6 +828,36 @@ export function CurriculumAtlas({
   const iconBtn =
     "rounded text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors disabled:opacity-40 disabled:hover:text-gray-400 disabled:hover:bg-transparent";
 
+  // Gutter labels always show the whole word: anchored to their row's top,
+  // nudged down past the word above when zoomed-out rows get shorter than
+  // the vertical words, then walked back up so the stack also stays inside
+  // the map's height (without that, the last word clips at the bottom once
+  // its own row shrinks below the word). 9px glyphs advance ~10px each in
+  // vertical writing.
+  const gutterLabels = (() => {
+    const rows = layout.grid.rows;
+    const wordH = (s: AtlasStrand) => STRAND_SHORT[s].length * 10 + 4;
+    let prevEnd = 0;
+    const tops = rows.map((r) => {
+      const h = wordH(r.strand);
+      const rowTop = r.y * zoom;
+      const rowH = r.height * zoom;
+      // Top-aligned while the word fits its row (the normal look); centred
+      // on the row band once it no longer fits, so the word straddles its
+      // own chips instead of sitting above them.
+      const anchor = h <= rowH - 12 ? rowTop + 8 : rowTop + rowH / 2 - h / 2;
+      const top = Math.max(anchor, prevEnd + 6);
+      prevEnd = top + h;
+      return top;
+    });
+    let limit = scaledH - 4;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      tops[i] = Math.max(2, Math.min(tops[i], limit - wordH(rows[i].strand)));
+      limit = tops[i] - 6;
+    }
+    return rows.map((r, i) => ({ strand: r.strand, label: r.label, top: tops[i] }));
+  })();
+
   const body = (
     <div
       ref={rootRef}
@@ -939,11 +972,12 @@ export function CurriculumAtlas({
           </button>
           <button
             type="button"
-            title="Fit the whole map on screen"
+            aria-label="Scale the map so all of it fits in view"
+            title="Scale the map so all of it fits in view"
             onClick={fitZoom}
-            className="px-1 text-[10px] font-medium text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            className={cn(hitArea, iconBtn)}
           >
-            Fit
+            <Scan className="h-3.5 w-3.5" />
           </button>
           <button
             ref={fullscreenBtnRef}
@@ -1032,26 +1066,18 @@ export function CurriculumAtlas({
           {/* Strand gutter — in flow so sticky-left survives 2-D panning;
               z-30 so panned nodes (z-20) pass under it */}
           <div
-            className="sticky left-0 z-30 shrink-0 bg-[#fef9f3] dark:bg-[#2d2618]"
-            style={{ width: GUTTER_W }}
+            className="sticky left-0 z-30 shrink-0 overflow-hidden bg-[#fef9f3] dark:bg-[#2d2618]"
+            style={{ width: GUTTER_W, height: scaledH }}
           >
-            {layout.grid.rows.map((r, i) => (
-              <div
-                key={r.strand}
-                className="flex items-start justify-center pt-2 overflow-hidden"
-                style={{
-                  height:
-                    (r.height + (i < layout.grid.rows.length - 1 ? 16 : 0)) * zoom,
-                }}
+            {gutterLabels.map((g) => (
+              <span
+                key={g.strand}
+                className="absolute left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-widest text-gray-400"
+                style={{ writingMode: "vertical-rl", top: g.top }}
+                title={g.label}
               >
-                <span
-                  className="text-[9px] uppercase tracking-widest text-gray-400"
-                  style={{ writingMode: "vertical-rl" }}
-                  title={r.label}
-                >
-                  {STRAND_SHORT[r.strand]}
-                </span>
-              </div>
+                {STRAND_SHORT[g.strand]}
+              </span>
             ))}
           </div>
 
