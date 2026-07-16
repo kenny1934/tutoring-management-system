@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, Loader2, Plus, X } from "lucide-react";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { openFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { useDialogFocus } from "./CurriculumModalShell";
 
 interface CurriculumPdfPreviewProps {
   filePath: string;
@@ -30,6 +31,8 @@ export function CurriculumPdfPreview({
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState("Opening…");
   const [failed, setFailed] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const trapTab = useDialogFocus(panelRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +75,13 @@ export function CurriculumPdfPreview({
       onClick={onClose}
     >
       <div
-        className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Preview of ${fileLabel}`}
+        tabIndex={-1}
+        onKeyDown={trapTab}
+        className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 px-3 py-2 border-b border-[#d4a574]/40 dark:border-[#8b6f47]/60">

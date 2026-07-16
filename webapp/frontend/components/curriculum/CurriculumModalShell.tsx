@@ -1,8 +1,41 @@
 "use client";
 
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, RefObject, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+
+/**
+ * Dialog focus management shared by the curriculum overlays (modal shell,
+ * PDF preview): take focus on open, hand it back to the opener on close,
+ * and keep Tab cycling inside the panel. Returns the keydown handler to
+ * put on the panel.
+ */
+export function useDialogFocus(panelRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    return () => opener?.focus?.();
+  }, [panelRef]);
+  return (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const root = panelRef.current;
+    if (!root) return;
+    const focusables = root.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === root)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+}
 
 interface CurriculumModalShellProps {
   ariaLabel: string;
@@ -39,33 +72,7 @@ export function CurriculumModalShell({
   children,
 }: CurriculumModalShellProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-
-  // Dialog focus management: take focus on open, hand it back on close, and
-  // keep Tab cycling inside the panel instead of escaping into the page.
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    return () => opener?.focus?.();
-  }, []);
-  const trapTab = (e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-    const root = panelRef.current;
-    if (!root) return;
-    const focusables = root.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusables.length === 0) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || active === root)) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  const trapTab = useDialogFocus(panelRef);
 
   // Capture phase: the exercise modal swallows bubbling Escapes with its own
   // capture listener, so this one must sit at the same level to be heard (it
