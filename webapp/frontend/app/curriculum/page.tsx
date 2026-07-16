@@ -834,8 +834,8 @@ export default function CurriculumPage() {
             <Target className="h-3.5 w-3.5 text-amber-600 shrink-0" />
             <span>
               Only {thinWeeks} week{thinWeeks === 1 ? "" : "s"} of records for
-              this school year so far. Confirming topics in the exercise window
-              builds this timeline.
+              this school year so far. Confirming topics in School Progress
+              while setting a session&apos;s exercises builds this timeline.
             </span>
           </div>
         )}
@@ -1094,8 +1094,8 @@ export default function CurriculumPage() {
               !isMobile && "paper-texture"
             )}
           >
-            No weekly records for this year yet. Confirming topics in the exercise
-            window builds this timeline.
+            No weekly records for this year yet. Confirming topics in School
+            Progress while setting a session&apos;s exercises builds this timeline.
           </div>
         )}
 
