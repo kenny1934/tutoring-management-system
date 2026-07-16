@@ -119,8 +119,8 @@ export function stripExtension(name: string): string {
 
 /**
  * Concept-vocabulary matcher shared by the search autocomplete and the
- * suggestion section's correction picker: bilingual name substring or an
- * exact series code (e.g. 803).
+ * suggestion section's correction picker: bilingual name substring or a
+ * series-code prefix ("80" already lists 801, 802, …).
  */
 export function matchesConcept(
   c: { name_en?: string | null; name_zh?: string | null; codes: { code: string }[] },
@@ -130,6 +130,6 @@ export function matchesConcept(
   return (
     (c.name_en || "").toLowerCase().includes(n) ||
     (c.name_zh || "").includes(needle) ||
-    c.codes.some((code) => code.code.toLowerCase() === n)
+    c.codes.some((code) => code.code.toLowerCase().startsWith(n))
   );
 }
