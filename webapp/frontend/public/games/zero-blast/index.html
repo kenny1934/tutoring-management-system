@@ -283,6 +283,14 @@
       border: 1.5px solid var(--mc-ink); border-radius: var(--mc-r);
       background: var(--mc-paper-raised); padding: 5px 12px;
       animation: mc-pop 0.3s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+      cursor: pointer; user-select: none;
+    }
+    /* armed for removal: one more tap kicks the player */
+    .zb-playerlist span.arm { border-color: var(--mc-red); color: var(--mc-red); }
+    /* quiet count of players with no points this round (no names) */
+    .zb-strugglers {
+      text-align: center; font-family: var(--mc-mono); font-size: 12px;
+      font-weight: 700; color: var(--mc-ink-faint); margin-top: 4px;
     }
     .zb-hostboard { max-width: 340px; margin: 4px auto 0; }
     .zb-hostboard__row {
@@ -453,6 +461,10 @@
         <span data-i18n="btn_solo"></span>
         <svg class="mc-arrow"><use href="#i-arrow"/></svg>
       </button>
+      <button class="mc-btn mc-btn--block" id="btnResume" style="display:none">
+        <span data-i18n="btn_resume"></span>
+        <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+      </button>
     </div>
     <footer class="mc-brand">
       <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
@@ -527,6 +539,7 @@
       <div class="zb-col-r">
         <div class="mc-stars" id="stars" style="margin-top:8px" aria-label="streak"></div>
         <div class="zb-hostboard" id="hostBoard" style="display:none"></div>
+        <div class="zb-strugglers" id="strugglers" style="display:none"></div>
         <div class="zb-mark" id="markZone" aria-live="polite"></div>
         <div class="zb-padwrap" id="padWrap">
           <div class="zb-preview" id="padPreview"></div>
@@ -696,6 +709,10 @@ const STRINGS = {
   tutor_confirm:    { c: "再撳一次確認", e: "Tap again to confirm" },
   tutor_key_title:  { c: "快捷鍵 {k}",  e: "Shortcut {k}" },
   claims_echo_hint: { c: "拆咗都有分，繼續答！", e: "Claimed still pays, keep solving!" },
+  btn_resume:       { c: "繼續上一場",  e: "Resume last game" },
+  kick_confirm:     { c: "撳多次移除",  e: "Tap again to remove" },
+  kicked_status:    { c: "你已被導師移除，可以重新加入。", e: "Removed by the tutor. You can join again." },
+  strugglers_fmt:   { c: "{n} 人本關未計分", e: "{n} not yet scored this round" },
   end_leaderboard:  { c: "排行榜",      e: "Leaderboard" },
   your_score:       { c: "你嘅分數",    e: "Your score" },
   rank_fmt:         { c: "第 {r} 名",   e: "Rank {r}" },
@@ -1024,7 +1041,8 @@ const G = {
   fuseLen: 0, fusePathEl: null, over: false, records: [],
   // host mode: room + per-player books (host is authoritative)
   room: null, watcher: null, started: false, grace: false, revealHold: false,
-  players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {}, echoDone: {},
+  players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {},
+  echoDone: {}, scoredRound: {},
 };
 
 const pad = makePad($("pad"), $("padPreview"), $("padLock"), $("lockCount"), v => submitCode(v, null));
@@ -1037,7 +1055,7 @@ function startRun(mode) {
   GameBridge.emit(SLUG, "start", { mode: mode, players: Object.keys(G.players).length });
   G.levels = ZBLevels.genPlan(PLAN, newRand());
   G.idx = 0; G.score = 0; G.streak = 0; G.starsTotal = 0; G.records = []; G.ended = false;
-  G.scores = {}; G.streaks = {}; G.starsBy = {}; G.claimsBy = {};
+  G.scores = {}; G.streaks = {}; G.starsBy = {}; G.claimsBy = {}; G.scoredRound = {};
   G.started = true;
   $("padWrap").style.display = mode === "host" ? "none" : "";
   $("hostBoard").style.display = mode === "host" ? "" : "none";
@@ -1055,6 +1073,7 @@ $("btnSolo").onclick = () => startRun("solo");
 $("btnRestart").onclick = () => startRun(G.mode);
 $("btnMenu").onclick = () => {
   if (G.room) {
+    clearHostRun(); // the room is closing: nothing left to resume
     if (G.watcher) G.watcher.close();
     G.room.close();
     G.room = null; G.started = false; G.players = {}; G.processedSeq = {};
@@ -1087,14 +1106,17 @@ function refreshDynamicText() {
 }
 refreshDynamicText();
 
-function startLevel() {
+/* resume: a saved host-run snapshot restores mid-round claims and the
+ * remaining fuse after a host refresh (see resumeRun) */
+function startLevel(resume) {
   const level = G.level = G.levels[G.idx];
-  G.claimed = [];
-  G.levelPoints = 0;
+  G.claimed = resume ? (resume.claimed || []) : [];
+  G.levelPoints = resume ? (resume.levelPoints || 0) : 0;
   G.over = false;
   G.grace = false;
   G.revealHold = false;
-  G.echoDone = {};
+  G.echoDone = resume ? (resume.echoDone || {}) : {};
+  G.scoredRound = resume ? (resume.scoredRound || {}) : {};
   $("scene").classList.remove("critical");
   setSkipLabel("tutor_skip");
 
@@ -1106,7 +1128,17 @@ function startLevel() {
   $("sceneStamp").innerHTML = "";
   renderStreak($("stars"), G.streak);
   renderStructure(level);
+  renderStrugglers();
   pad.enable();
+
+  // fuse: burns only after the level card clears (deadline includes it).
+  // A resumed round gets its remaining fuse back, floored at 5s so the
+  // class isn't ambushed the moment the projector returns.
+  G.duration = level.fuseMs;
+  const fuseMs = resume
+    ? Math.min(Math.max((resume.deadlineEpoch || 0) - Date.now(), 5000), level.fuseMs)
+    : level.fuseMs;
+  G.deadline = performance.now() + CARD_MS + fuseMs;
 
   if (G.mode === "host") {
     // publish the round: phones display from state, host stays the judge
@@ -1114,10 +1146,27 @@ function startLevel() {
       phase: "playing",
       level: level,
       levelIdx: G.idx,
-      deadlineEpoch: Date.now() + CARD_MS + level.fuseMs,
-      claims: null,
+      deadlineEpoch: Date.now() + CARD_MS + fuseMs,
+      claims: resume && G.claimed.length
+        ? Object.fromEntries(G.claimed.map(id => [id, G.claimsBy[id] || true]))
+        : null,
       graceUntil: null,
     });
+  }
+
+  // re-ink what was already claimed before the refresh
+  if (resume && G.claimed.length) {
+    G.claimed.forEach(id => {
+      const p = level.pillars.find(p => p.id === id);
+      if (!p) return;
+      if (level.kind === "expanded") {
+        document.querySelector(`[data-plaque="${id}"]`).innerHTML = svgMath(p.hidden);
+      }
+      const c = G.claimsBy[id];
+      blowPillar(id, p.root, c && c.name);
+    });
+    if (G.claimed.length === level.pillars.length) enterGrace();
+    else sagDeck(G.claimed[G.claimed.length - 1]);
   }
 
   // level card flash
@@ -1127,9 +1176,6 @@ function startLevel() {
   card.classList.add("show");
   setTimeout(() => card.classList.remove("show"), 1250);
 
-  // fuse: burns only after the level card clears (deadline includes it)
-  G.duration = level.fuseMs;
-  G.deadline = performance.now() + CARD_MS + level.fuseMs;
   G.fusePathEl = $("fusePath");
   G.fuseLen = G.fusePathEl.getTotalLength();
   G.lastTickSec = null;
@@ -1137,6 +1183,7 @@ function startLevel() {
   setTimeout(() => { if (!G.over && G.level === level) ZBFX.audio.fuseStart(); }, CARD_MS);
   cancelAnimationFrame(G.raf);
   G.raf = requestAnimationFrame(fuseFrame);
+  saveHostRun();
 }
 
 function fuseFrame() {
@@ -1293,6 +1340,7 @@ function hostVerdict(player, v, res) {
     G.scores[player.id] = (G.scores[player.id] || 0) + echoPts;
     G.streaks[player.id] = (G.streaks[player.id] || 0) + 1;
     G.starsBy[player.id] = (G.starsBy[player.id] || 0) + 1;
+    G.scoredRound[player.id] = true;
     G.room.update("state/scores", { [player.id]: G.scores[player.id] });
     G.room.set("verdicts/" + player.id, {
       seq: player.seq, v: v, echo: true, hit: matching, pts: echoPts,
@@ -1300,6 +1348,7 @@ function hostVerdict(player, v, res) {
       streak: G.streaks[player.id], total: G.scores[player.id], level: level.n,
     });
     renderHostBoard();
+    saveHostRun();
     return;
   }
 
@@ -1309,6 +1358,7 @@ function hostVerdict(player, v, res) {
       seq: player.seq, v: v, ok: false, streak: 0,
       total: G.scores[player.id] || 0, level: level.n,
     });
+    saveHostRun();
     return;
   }
 
@@ -1318,6 +1368,7 @@ function hostVerdict(player, v, res) {
   G.scores[player.id] = (G.scores[player.id] || 0) + pts;
   G.streaks[player.id] = (G.streaks[player.id] || 0) + 1;
   G.starsBy[player.id] = (G.starsBy[player.id] || 0) + 1;
+  G.scoredRound[player.id] = true;
 
   if (level.kind === "expanded") {
     res.hit.forEach(id => {
@@ -1340,6 +1391,7 @@ function hostVerdict(player, v, res) {
     streak: G.streaks[player.id], total: G.scores[player.id], level: level.n,
   });
   renderHostBoard();
+  saveHostRun();
   GameBridge.emit(SLUG, "score", { level: level.n, points: pts, player: player.name });
 
   const allDown = G.claimed.length === level.pillars.length;
@@ -1360,6 +1412,7 @@ function enterGrace() {
   $("scene").classList.add("critical");
   ZBFX.shake(6);
   G.room.update("state", { deadlineEpoch: Date.now() + graceMs, graceUntil: Date.now() + graceMs });
+  saveHostRun();
 }
 
 /* live leaderboard under the host scene */
@@ -1375,9 +1428,96 @@ function renderHostBoard() {
       ${multHtml(G.streaks[r.id] || 0)}
       <span class="zb-hostboard__pts">${r.pts}</span>
     </div>`).join("");
+  renderStrugglers();
 }
 function escapeText(s) {
   return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+}
+
+/* who hasn't scored this round — a count only, never names: the tutor
+ * knows where to walk without putting anyone on the projector */
+function renderStrugglers() {
+  const el = $("strugglers");
+  if (G.mode !== "host" || !G.started || G.over) { el.style.display = "none"; return; }
+  const n = Object.keys(G.players).filter(id => !G.scoredRound[id]).length;
+  el.textContent = fmt("strugglers_fmt", { n: n });
+  el.style.display = n > 0 ? "" : "none";
+}
+
+/* ── host refresh recovery ──
+ * The run snapshot lives in sessionStorage keyed by room code, written
+ * on every round boundary and verdict. An accidental F5 then offers
+ * 繼續上一場: reclaim the room, restore the books, re-publish state. */
+function saveHostRun() {
+  if (G.mode !== "host" || !G.room || !G.started || G.ended) return;
+  try {
+    sessionStorage.setItem("zb-run-" + G.room.code, JSON.stringify({
+      code: G.room.code, ts: Date.now(),
+      idx: G.idx, over: G.over, levels: G.levels, records: G.records,
+      scores: G.scores, streaks: G.streaks, starsBy: G.starsBy,
+      claimsBy: G.claimsBy, claimed: G.claimed, echoDone: G.echoDone,
+      scoredRound: G.scoredRound, processedSeq: G.processedSeq,
+      players: G.players, levelPoints: G.levelPoints,
+      deadlineEpoch: Date.now() + Math.max(0, Math.round(G.deadline - performance.now())),
+    }));
+  } catch (_) {}
+}
+function clearHostRun() {
+  if (!G.room) return;
+  try { sessionStorage.removeItem("zb-run-" + G.room.code); } catch (_) {}
+}
+function pendingHostRun() {
+  try {
+    let best = null;
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (!key || key.indexOf("zb-run-") !== 0) continue;
+      const saved = JSON.parse(sessionStorage.getItem(key));
+      if (!saved || !saved.code || !saved.levels || !saved.levels.length) continue;
+      if (Date.now() - (saved.ts || 0) > 6 * 3600 * 1000) continue;
+      if (!best || saved.ts > best.ts) best = saved;
+    }
+    return best;
+  } catch (_) { return null; }
+}
+
+async function resumeRun(saved) {
+  ZBFX.audio.unlock();
+  if (innerWidth >= 1100) document.querySelector(".mc-stage").classList.add("zb-stage--projector");
+  try {
+    G.room = await GameBridge.host({ slug: SLUG, code: saved.code });
+  } catch (err) {
+    // room gone (closed or expired): drop the stale snapshot
+    $("btnResume").style.display = "none";
+    try { sessionStorage.removeItem("zb-run-" + saved.code); } catch (_) {}
+    return;
+  }
+  G.mode = "host";
+  G.levels = saved.levels;
+  // a snapshot taken after the round resolved resumes at the next one
+  G.idx = saved.over ? saved.idx + 1 : saved.idx;
+  G.records = saved.records || [];
+  G.scores = saved.scores || {};
+  G.streaks = saved.streaks || {};
+  G.starsBy = saved.starsBy || {};
+  G.claimsBy = saved.claimsBy || {};
+  G.processedSeq = saved.processedSeq || {};
+  G.players = saved.players || {};
+  G.score = 0; G.streak = 0; G.starsTotal = 0;
+  G.started = true;
+  G.ended = false;
+  $("padWrap").style.display = "none";
+  $("hostBoard").style.display = "";
+  $("tutorBar").style.display = "";
+  // restore what the phones rely on, then rejoin the judging loop
+  G.room.update("players", G.players);
+  G.room.set("state/scores", G.scores);
+  G.watcher = G.room.watch(onHostRoom);
+  GameBridge.emit(SLUG, "start", { mode: "host", resumed: true, players: Object.keys(G.players).length });
+  if (G.idx >= G.levels.length) { endGame(); return; }
+  show("gameScreen");
+  renderHostBoard();
+  startLevel(saved.over ? null : saved);
 }
 
 function collapseAndAdvance() {
@@ -1392,6 +1532,7 @@ function collapseAndAdvance() {
   const elapsed = G.duration - Math.max(0, G.deadline - performance.now());
   G.records.push({ n: G.level.n, stage: G.level.stage, round: G.level.round, cleared: true, ms: elapsed, pts: G.levelPoints });
   if (G.mode === "host") G.room.update("state", { phase: "cooldown", graceUntil: null });
+  saveHostRun();
 
   setTimeout(() => {
     $("deck").classList.remove("sag-l", "sag-r");
@@ -1429,6 +1570,7 @@ function fuseOut() {
     G.streaks = {}; // a survived structure breaks everyone's streak
     G.room.update("state", { phase: "reveal" });
   }
+  saveHostRun();
 
   // the structure survives; reveal the full solution with working
   const level = G.level;
@@ -1477,6 +1619,7 @@ function leaderboardHtml(results, meId) {
 
 function endGame() {
   if (G.mode === "host") {
+    clearHostRun();
     const results = Object.keys(G.players).map(id => ({
       id: id,
       name: (G.players[id] || {}).name || t("player"),
@@ -1539,12 +1682,14 @@ function onHostRoom(room) {
   G.players = room.players || {};
 
   if (!G.started) {
-    const names = Object.values(G.players).map(p => (p && p.name) || t("player"));
-    $("playerList").innerHTML = names.map(n => `<span>${escapeText(n)}</span>`).join("");
-    if (names.length) {
-      $("lobbyStatus").textContent = fmt("lobby_players", { n: names.length });
+    renderLobbyList();
+    const n = Object.keys(G.players).length;
+    if (n) {
+      $("lobbyStatus").textContent = fmt("lobby_players", { n: n });
       $("btnStartMulti").style.display = "";
     }
+  } else {
+    renderStrugglers(); // joins/leaves change the count mid-round
   }
 
   // judge new submissions (one slot per player, seq strictly increasing)
@@ -1561,6 +1706,34 @@ function onHostRoom(room) {
 }
 
 $("btnStartMulti").onclick = () => startRun("host");
+
+/* ── lobby moderation: tap a chip, tap again to remove the player ── */
+let kickArmed = { id: null, at: 0 };
+function renderLobbyList() {
+  $("playerList").innerHTML = Object.keys(G.players).map(id => {
+    const armed = id === kickArmed.id;
+    const label = armed ? t("kick_confirm") : escapeText((G.players[id] || {}).name || t("player"));
+    return `<span data-id="${id}"${armed ? ' class="arm"' : ""}>${label}</span>`;
+  }).join("");
+}
+$("playerList").addEventListener("click", e => {
+  const chip = e.target.closest("span[data-id]");
+  if (!chip || G.started || !G.room) return;
+  const id = chip.getAttribute("data-id");
+  if (kickArmed.id === id && performance.now() - kickArmed.at < 2500) {
+    kickArmed = { id: null, at: 0 };
+    G.room.set("players/" + id, null); // the phone sees itself vanish
+    return; // the deletion snapshot re-renders the list
+  }
+  kickArmed = { id: id, at: performance.now() };
+  renderLobbyList();
+  setTimeout(() => {
+    if (kickArmed.id === id && performance.now() - kickArmed.at >= 2400) {
+      kickArmed = { id: null, at: 0 };
+      renderLobbyList();
+    }
+  }, 2600);
+});
 
 /* ── tutor controls (host only): +15s, skip/next, end ── */
 
@@ -1647,7 +1820,7 @@ document.addEventListener("keydown", e => {
 const C = {
   room: null, watcher: null, id: null, name: null,
   level: null, levelKey: null, phase: null,
-  seq: 0, lastVerdictSeq: 0, booted: false,
+  seq: 0, lastVerdictSeq: 0, booted: false, seenSelf: false,
   timerIv: null, deadlineEpoch: 0, graceUntil: 0, pad: null,
 };
 
@@ -1707,7 +1880,7 @@ async function enterPlay() {
   ctrlStatus(t("ctrl_wait_start"));
   C.pad.disable();
   await C.room.set("players/" + C.id, { name: C.name, joinedAt: Date.now() });
-  C.watcher = C.room.watch(onCtrlRoom);
+  if (!C.watcher) C.watcher = C.room.watch(onCtrlRoom); // rejoin after a kick reuses the stream
   clearInterval(C.timerIv);
   C.timerIv = setInterval(ctrlTick, 100);
 }
@@ -1752,6 +1925,22 @@ function onCtrlRoom(room) {
   C.deadlineEpoch = st.deadlineEpoch || 0;
   C.graceUntil = st.graceUntil || 0;
 
+  // lobby moderation: the host removed me — back to the name form.
+  // seenSelf guards against snapshots that predate our own join write.
+  const players = room.players || {};
+  if (C.id && players[C.id]) {
+    C.seenSelf = true;
+  } else if (C.id && C.seenSelf && st.phase === "lobby") {
+    C.seenSelf = false;
+    C.id = null;
+    try { sessionStorage.removeItem("zb-" + C.room.code); } catch (_) {}
+    $("ctrlPlay").style.display = "none";
+    $("ctrlJoin").style.display = "";
+    $("ctrlName").textContent = "";
+    ctrlStatus(t("kicked_status"), "mc-status--danger");
+    return;
+  }
+
   // new level (includes late join, reload recovery and host restart)
   const lvKey = st.level ? st.level.seq + "|" + st.level.expr : null;
   if (st.level && lvKey !== C.levelKey) {
@@ -1790,7 +1979,7 @@ function onCtrlRoom(room) {
       ctrlStatus(t("reveal_wait"));
     }
   } else if (st.phase === "lobby") {
-    ctrlStatus(t("ctrl_wait_start"));
+    if (C.id) ctrlStatus(t("ctrl_wait_start")); // a kicked phone keeps its notice
   } else if (st.phase === "end") {
     if (phaseChanged) ctrlEnd(st.results || []);
   }
@@ -1862,7 +2051,16 @@ function ctrlEnd(results) {
   ctrlStatus(t("thanks_playing"));
 }
 
-if (GameBridge.roomParam()) initController();
+if (GameBridge.roomParam()) {
+  initController();
+} else {
+  // a host-side run snapshot in this tab offers 繼續上一場
+  const savedRun = pendingHostRun();
+  if (savedRun) {
+    $("btnResume").style.display = "";
+    $("btnResume").onclick = () => resumeRun(savedRun);
+  }
+}
 
 /* language switch must also refresh composed text on static screens */
 document.addEventListener("mc:lang", refreshDynamicText);

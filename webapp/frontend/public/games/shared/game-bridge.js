@@ -218,9 +218,41 @@
   }
 
   /* Host a room. Resolves { code, joinUrl, set, update, watch, close }.
-   * Room lives at game-rooms/<slug>/<code>. */
+   * Room lives at game-rooms/<slug>/<code>. Pass opts.code to reclaim
+   * an existing room after a host refresh: the room data is kept and
+   * only the handle is rebuilt (the host then re-publishes state). */
   function host(opts) {
     var slug = opts.slug;
+    function handle(code) {
+      var path = slug + "/" + code;
+      return {
+        code: code,
+        joinUrl:
+          location.origin +
+          location.pathname +
+          "?room=" +
+          code +
+          (lang ? "&lang=" + lang : ""),
+        set: function (sub, v) {
+          return dbSet(path + "/" + sub, v);
+        },
+        update: function (sub, patch) {
+          return dbUpdate(path + "/" + sub, patch);
+        },
+        watch: function (cb, onStatus) {
+          return dbWatch(path, cb, onStatus);
+        },
+        close: function () {
+          return dbSet(path, null);
+        },
+      };
+    }
+    if (opts.code) {
+      return dbGet(slug + "/" + opts.code).then(function (existing) {
+        if (!existing) throw new Error("room gone");
+        return handle(opts.code);
+      });
+    }
     function tryCreate(attempt) {
       var code = randomCode();
       var path = slug + "/" + code;
@@ -238,28 +270,7 @@
           slug: slug,
           state: opts.initialState || {},
         }).then(function () {
-          var joinUrl =
-            location.origin +
-            location.pathname +
-            "?room=" +
-            code +
-            (lang ? "&lang=" + lang : "");
-          return {
-            code: code,
-            joinUrl: joinUrl,
-            set: function (sub, v) {
-              return dbSet(path + "/" + sub, v);
-            },
-            update: function (sub, patch) {
-              return dbUpdate(path + "/" + sub, patch);
-            },
-            watch: function (cb, onStatus) {
-              return dbWatch(path, cb, onStatus);
-            },
-            close: function () {
-              return dbSet(path, null);
-            },
-          };
+          return handle(code);
         });
       });
     }
