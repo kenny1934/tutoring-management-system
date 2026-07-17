@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.95](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.94...v2.0.95) (2026-07-17)
+
+
+### Bug Fixes
+
+* **Summer fee messages include discount coupons**: when a discount coupon is attached to a summer enrolment, the fee message now deducts it from the total in the same way as a regular enrolment. The fee shown in the application details and on the overdue payments page matches the message, and revenue figures account for the coupon as well.
+* **Mark Sent and Confirm Payment on summer enrolment pages**: the enrolment page of a published summer enrolment now shows the Mark Sent and Confirm Payment buttons under the fee message. These quick actions were previously missing for summer enrolments and payment could only be recorded through the edit form.
+
 ## [2.0.94](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.93...v2.0.94) (2026-07-15)
 
 
