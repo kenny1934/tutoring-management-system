@@ -1,0 +1,18 @@
+{
+  "slug": "zero-explosion",
+  "title": { "c": "歸零爆破", "e": "Zero Blast" },
+  "objective": {
+    "c": "理解零因積性質：(x−a)(x−b)=0 ⟺ x=a 或 x=b",
+    "e": "Understand the zero-product property: (x−a)(x−b)=0 means x=a or x=b"
+  },
+  "topics": [
+    { "scheme": "SM", "code": "901" },
+    { "scheme": "SM", "code": "902" },
+    { "scheme": "MAS", "code": "901" }
+  ],
+  "grade": "F3",
+  "modes": ["multi", "solo"],
+  "players": { "min": 1, "max": 40 },
+  "duration_min": 8,
+  "version": "0.1.0"
+}
