@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots } from "@/lib/hooks";
+import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect } from "@/types";
 import { SessionStatus, ATTENDABLE_STATUSES } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
@@ -24,7 +24,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatError } from "@/lib/utils";
-import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, isSupersededSession } from "@/lib/session-status";
 import { getExerciseDisplayName, getDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge } from "@/components/ui/url-badge";
 import { Autocomplete } from "@/components/ui/autocomplete";
@@ -38,6 +38,7 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
+import { HideSupersededToggle, AllSessionsHiddenNote } from "@/components/sessions/HideSupersededToggle";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { createSessionProposalMap } from "@/lib/proposal-utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -2004,6 +2005,11 @@ function CopyLessonDatesButton({
 type SessionViewMode = 'by-enrollment' | 'by-date';
 type SortOrder = 'asc' | 'desc';
 
+// Rows the declutter toggle hides: cancelled or make-up-booked sessions, plus
+// every session of a cancelled enrollment (the 50%-opacity rows).
+const isHiddenSession = (session: Session) =>
+  isSupersededSession(session) || session.enrollment_payment_status === 'Cancelled';
+
 function SessionsTab({
   sessions,
   enrollments,
@@ -2030,6 +2036,12 @@ function SessionsTab({
   // View mode and sort order state
   const [viewMode, setViewMode] = useState<SessionViewMode>('by-date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [hideSuperseded, setHideSuperseded] = useHideSupersededSessions();
+
+  const visibleSessions = useMemo(() => {
+    if (!hideSuperseded) return sessions;
+    return sessions.filter(s => !isHiddenSession(s));
+  }, [sessions, hideSuperseded]);
 
   // Enrollment popover state
   const [clickedEnrollment, setClickedEnrollment] = useState<Enrollment | null>(null);
@@ -2056,6 +2068,18 @@ function SessionsTab({
     return grouped;
   }, [sessions]);
 
+  // Filtered view of the groups, computed once per toggle/data change rather
+  // than per render; groups the toggle empties are dropped entirely.
+  const visibleSessionsByEnrollment = useMemo(() => {
+    if (!hideSuperseded) return sessionsByEnrollment;
+    const filtered = new Map<number, Session[]>();
+    sessionsByEnrollment.forEach((group, enrollmentId) => {
+      const visible = group.filter(s => !isHiddenSession(s));
+      if (visible.length > 0) filtered.set(enrollmentId, visible);
+    });
+    return filtered;
+  }, [sessionsByEnrollment, hideSuperseded]);
+
   // Create enrollment lookup map
   const enrollmentMap = useMemo(() => {
     return new Map(enrollments.map(e => [e.id, e]));
@@ -2080,13 +2104,13 @@ function SessionsTab({
 
   // Flat sorted sessions for by-date view
   const sortedSessions = useMemo(() => {
-    if (viewMode !== 'by-date') return sessions;
-    return [...sessions].sort((a, b) => {
+    if (viewMode !== 'by-date') return visibleSessions;
+    return [...visibleSessions].sort((a, b) => {
       const dateA = new Date(a.session_date).getTime();
       const dateB = new Date(b.session_date).getTime();
       return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
     });
-  }, [sessions, viewMode, sortOrder]);
+  }, [visibleSessions, viewMode, sortOrder]);
 
   if (loading) {
     return (
@@ -2223,7 +2247,7 @@ function SessionsTab({
   return (
     <div className="space-y-4">
       {/* View Mode Toggle */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
           <button
             onClick={() => setViewMode('by-date')}
@@ -2256,6 +2280,12 @@ function SessionsTab({
             showToast={showToast}
           />
 
+          <HideSupersededToggle
+            active={hideSuperseded}
+            onToggle={() => setHideSuperseded(!hideSuperseded)}
+            hiddenCount={sessions.length - visibleSessions.length}
+          />
+
           {/* Sort Order Toggle (shown in both modes) */}
           <button
             onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -2274,6 +2304,8 @@ function SessionsTab({
           {sortedEnrollmentIds.map((enrollmentId) => {
             const enrollment = enrollmentMap.get(enrollmentId);
             const enrollmentSessions = sessionsByEnrollment.get(enrollmentId) || [];
+            const visibleEnrollmentSessions = visibleSessionsByEnrollment.get(enrollmentId);
+            if (!visibleEnrollmentSessions) return null;
 
             return (
               <div key={enrollmentId} className="space-y-2">
@@ -2329,7 +2361,7 @@ function SessionsTab({
 
                 {/* Session Cards */}
                 <div className="space-y-2 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
-                  {enrollmentSessions.map((session, index) => renderSessionCard(session, index))}
+                  {visibleEnrollmentSessions.map((session, index) => renderSessionCard(session, index))}
                 </div>
               </div>
             );
@@ -2341,6 +2373,8 @@ function SessionsTab({
           {sortedSessions.map((session, index) => renderSessionCard(session, index))}
         </div>
       )}
+
+      {visibleSessions.length === 0 && <AllSessionsHiddenNote />}
 
       {/* Enrollment Detail Popover */}
       {clickedEnrollment && enrollmentClickPosition && (

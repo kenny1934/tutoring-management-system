@@ -5,6 +5,7 @@ import {
   getDisplayStatus,
   getProposalIndicatorConfig,
   isCountableSession,
+  isSupersededSession,
 } from './session-status';
 
 describe('getSessionStatusConfig', () => {
@@ -187,5 +188,30 @@ describe('isCountableSession', () => {
 
   it('returns false for Make-up Booked sessions', () => {
     expect(isCountableSession({ session_status: 'Sick Leave - Make-up Booked' })).toBe(false);
+  });
+});
+
+describe('isSupersededSession', () => {
+  it('returns true for Cancelled sessions', () => {
+    expect(isSupersededSession({ session_status: 'Cancelled' })).toBe(true);
+  });
+
+  it('returns true for Make-up Booked sessions', () => {
+    expect(isSupersededSession({ session_status: 'Rescheduled - Make-up Booked' })).toBe(true);
+    expect(isSupersededSession({ session_status: 'Sick Leave - Make-up Booked' })).toBe(true);
+    expect(isSupersededSession({ session_status: 'Weather Cancelled - Make-up Booked' })).toBe(true);
+  });
+
+  it('returns false for Pending Make-up sessions (lesson number still lives on the row)', () => {
+    expect(isSupersededSession({ session_status: 'Rescheduled - Pending Make-up' })).toBe(false);
+    expect(isSupersededSession({ session_status: 'Sick Leave - Pending Make-up' })).toBe(false);
+  });
+
+  it('returns false for active and completed sessions', () => {
+    expect(isSupersededSession({ session_status: 'Scheduled' })).toBe(false);
+    expect(isSupersededSession({ session_status: 'Attended' })).toBe(false);
+    expect(isSupersededSession({ session_status: 'Make-up Class' })).toBe(false);
+    expect(isSupersededSession({ session_status: 'No Show' })).toBe(false);
+    expect(isSupersededSession({ session_status: 'Trial Class' })).toBe(false);
   });
 });

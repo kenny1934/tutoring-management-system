@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays } from "@/lib/hooks";
+import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions } from "@/lib/hooks";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
 import useSWR from "swr";
@@ -26,10 +26,11 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatError } from "@/lib/utils";
-import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, isSupersededSession } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
+import { HideSupersededToggle, AllSessionsHiddenNote } from "@/components/sessions/HideSupersededToggle";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -506,6 +507,13 @@ export default function EnrollmentDetailPage() {
       new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
     );
   }, [enrollmentSessions]);
+
+  // Declutter toggle: hide cancelled and make-up-booked rows
+  const [hideSuperseded, setHideSuperseded] = useHideSupersededSessions();
+  const visibleSessions = useMemo(() => {
+    if (!hideSuperseded) return sortedSessions;
+    return sortedSessions.filter(s => !isSupersededSession(s));
+  }, [sortedSessions, hideSuperseded]);
 
   // Detect mobile device
   useEffect(() => {
@@ -1656,10 +1664,19 @@ export default function EnrollmentDetailPage() {
               !isMobile && "paper-texture"
             )}
           >
-            <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Session History ({sortedSessions.length})
-            </h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Session History ({visibleSessions.length !== sortedSessions.length
+                  ? `${visibleSessions.length} of ${sortedSessions.length}`
+                  : sortedSessions.length})
+              </h3>
+              <HideSupersededToggle
+                active={hideSuperseded}
+                onToggle={() => setHideSuperseded(!hideSuperseded)}
+                hiddenCount={sortedSessions.length - visibleSessions.length}
+              />
+            </div>
 
             {sessionsLoading ? (
               <div className="space-y-2">
@@ -1679,9 +1696,11 @@ export default function EnrollmentDetailPage() {
                   </div>
                 </StickyNote>
               </div>
+            ) : visibleSessions.length === 0 ? (
+              <AllSessionsHiddenNote />
             ) : (
               <div className="space-y-2">
-                {sortedSessions.map((session, index) => {
+                {visibleSessions.map((session, index) => {
                   const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
                   const StatusIcon = statusConfig.Icon;
                   const sessionDate = new Date(session.session_date + 'T00:00:00');

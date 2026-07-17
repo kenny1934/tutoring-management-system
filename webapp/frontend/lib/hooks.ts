@@ -22,6 +22,43 @@ export function markVersionSeen(): void {
   }
 }
 
+/**
+ * Boolean preference persisted in localStorage ('1'/'0'). Reads after mount
+ * so SSR and the first client render agree.
+ */
+export function usePersistedBoolean(key: string, defaultValue = false): [boolean, (value: boolean) => void] {
+  const [value, setValue] = useState(defaultValue);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored !== null) setValue(stored === '1');
+    } catch {
+      // localStorage unavailable; keep default
+    }
+  }, [key]);
+
+  const update = useCallback((next: boolean) => {
+    setValue(next);
+    try {
+      localStorage.setItem(key, next ? '1' : '0');
+    } catch {
+      // localStorage unavailable; state still works for this page view
+    }
+  }, [key]);
+
+  return [value, update];
+}
+
+/**
+ * Declutter toggle shared by the student and enrollment detail session lists:
+ * hides cancelled and make-up-booked rows. One key so the choice carries
+ * across both pages.
+ */
+export function useHideSupersededSessions(): [boolean, (value: boolean) => void] {
+  return usePersistedBoolean('sessions-hide-superseded');
+}
+
 export function useUnseenUpdates(): boolean {
   const [hasUnseen, setHasUnseen] = useState(false);
 
