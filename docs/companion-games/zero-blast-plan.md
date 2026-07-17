@@ -229,13 +229,31 @@ DEFAULT_PLAN = [            // ≈ 12 buildings, ≈ 20 codes
   echo submissions open then collapses; tutor skip/+15s/end.
 - Projector: 1280 + 1920 screenshots, FX scaling sanity.
 
-## 10. Iteration 3 (planned, from the post-iteration-2 re-audit)
+## 10. Iteration 3 (implemented 2026-07-18, from the post-iteration-2 re-audit)
 
 Fresh two-persona audit (2026-07-17, tutor + student) after the
 iteration-2 build. Kenny accepted all findings. Work is grouped into
-five batches; each batch ships alone and keeps all three Playwright
-suites green. Batches A-C are the pre-pilot set; D-E can land after
-the first real class.
+five batches; each batch shipped alone with all three Playwright
+suites green between batches. Batches A-C are the pre-pilot set; D-E
+also landed since they proved cheap once A-C were in.
+
+**Status: all five batches implemented** (commits: A `fd23a1dd`,
+B `8cf0c695`, C `6c2e8344`, D `e20685f7`, E `23f009db`; game.json
+0.3.0). Deltas from the plan as written:
+
+- Batch C resume floors the restored fuse at 5s (a refresh should not
+  land the class on a nearly burnt fuse) and stores the deadline as an
+  epoch so wall time lost to the refresh is honoured. GameBridge.host
+  gained `opts.code` to reclaim an existing room without resetting it.
+- Batch D shipped the preferred fix (400ms commit window: digit arms,
+  minus flips the staged sign, same digit commits instantly); the
+  gentler-verdict fallback was not needed but stays documented below
+  in case the window feels laggy on real phones in the pilot.
+- Hint and finale multipliers fold into one `levelFactor(level)`
+  (finale x2, hinted x0.5), so a hinted finale building nets x1.
+- Batch E's silhouette jitter is deterministic per building seq (not
+  random) so host and screenshots agree; mirror skips kind 1, whose
+  deck carries text.
 
 ### Batch A - Classroom flow & tutor pacing (do first)
 
