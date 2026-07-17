@@ -5,6 +5,14 @@ const changelogData = [
     "date": "2026-07-17",
     "sections": [
       {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "**Tidier session lists on student and enrolment pages**: the Sessions tab on the student page and the Session History list on the enrolment page have a new Hide Cancelled & Make-up Booked button. It hides cancelled sessions and sessions whose make-up has already been booked, so the planned lesson numbers are easier to read. Sessions still waiting for a make-up stay visible because they still carry their lesson number. On the student page the button also hides sessions of cancelled enrolments. While the button is on it shows how many sessions are hidden, and the setting is remembered across both pages."
+          }
+        ]
+      },
+      {
         "title": "Bug Fixes",
         "items": [
           {

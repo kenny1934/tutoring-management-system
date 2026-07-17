@@ -3,6 +3,11 @@
 ## [2.0.95](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.94...v2.0.95) (2026-07-17)
 
 
+### New Features
+
+* **Tidier session lists on student and enrolment pages**: the Sessions tab on the student page and the Session History list on the enrolment page have a new Hide Cancelled & Make-up Booked button. It hides cancelled sessions and sessions whose make-up has already been booked, so the planned lesson numbers are easier to read. Sessions still waiting for a make-up stay visible because they still carry their lesson number. On the student page the button also hides sessions of cancelled enrolments. While the button is on it shows how many sessions are hidden, and the setting is remembered across both pages.
+
+
 ### Bug Fixes
 
 * **Summer fee messages include discount coupons**: when a discount coupon is attached to a summer enrolment, the fee message now deducts it from the total in the same way as a regular enrolment. The fee shown in the application details and on the overdue payments page matches the message, and revenue figures account for the coupon as well.
