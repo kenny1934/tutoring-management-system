@@ -130,3 +130,93 @@ webapp/frontend/public/games/zero-explosion/
 - Individual race (default, small centre classes) vs team mode — team
   split can come later if lessons want it.
 - Sound default: off on host, on on phones (centres are shared space).
+
+## 9. Iteration 2 (planned, next session)
+
+Post-playtest audit findings: a knowing player clears the game in
+under a minute (9 codes total); multi starves slow students (first
+claim takes everything); the projector view is a 620px phone column;
+the collapse fade reads as CSS, not physics. Kenny's direction:
+increase difficulty AND volume, tunable. Implementation order below;
+each step keeps the test suites green before moving on.
+
+### 9.1 Stages × rounds + difficulty (with 9.2, the core of it)
+
+Replace "6 levels × 1 building" with a config-driven demolition plan
+of stages, each a street of buildings sharing a kind:
+
+```
+DEFAULT_PLAN = [            // ≈ 12 buildings, ≈ 20 codes
+  { kind: 1, rounds: 1, fuse: 20000 },
+  { kind: 2, rounds: 2, fuse: 20000 },
+  { kind: 3, rounds: 2, fuse: 35000 },
+  { kind: 4, rounds: 2, fuse: 35000 },
+  { kind: 5, rounds: 2, fuse: 35000 },
+  { kind: 6, rounds: 3, fuse: 45000 },
+]
+```
+
+- Max fuse budget ≈ 6.75 min; realistic first-timer 5–9 min; expert
+  ≈ 2 min (acceptable: experts are farming the streak multiplier).
+- Later rounds within a stage generate harder numbers (wider root
+  range, mixed signs); `kind 6` hard rounds use larger |c| with
+  same-sign roots (harder factor search). Keep a = 1 — matches the
+  SM901 courseware scope (confirm against the PDFs).
+- **Streak multiplier**: score = base × (1 + 0.1 × min(streak, 10)).
+  Stars finally matter; consistency beats lucky speed.
+- URL config (host-side only; phones inherit via state):
+  `?levels=4,5,6` (kind subset/order), `?rounds=1,2,2,…` or a single
+  global, `?fuse=0.75` (multiplier), `?grace=8`, and
+  `?diff=easy|std|hard` presets bundling the above. `diff=hard` adds
+  a final mixed street (3 buildings, random kinds 3–6). Document the
+  params in game.json `config` for the future lesson-panel UI.
+- Trim transitions slightly (collapse 2.7s → ~2.2s, card 1.6s →
+  1.2s); update `duration`/`duration_min` copy from measured runs
+  (track 4 of the audit folds in here).
+
+### 9.2 Multi inclusion: echo points + grace window
+
+- **Echo points**: after a pillar is claimed, a later correct code
+  for it earns 40% of base (no claim ink, streak continues). Verdict
+  gains type "echo": 「已由 X 拆咗 · +N 分」. Kills claim starvation:
+  every phone solves every equation for credit.
+- **Grace window**: when the last pillar is claimed, the structure
+  goes critical (violent sparking, countdown chip) for
+  min(grace, remaining fuse) seconds before the collapse fires;
+  echo submissions stay open. Solo skips the grace entirely.
+
+### 9.3 Projector layout
+
+- Host mode gets `zb-stage--projector`: stage max-width ~1150px,
+  scene scaled to ~60vh (drop the 300px cap), equation + fuse +
+  leaderboard flanking. Auto when hosting on ≥1100px viewport.
+- FX scale with the scene: particle counts × (sceneWidth/400),
+  bigger shake. Verify at 1280×800 and 1920×1080.
+
+### 9.4 Tutor controls (host only)
+
+- Quiet control strip under the scene: `+15s` (extends deadline +
+  rewrites deadlineEpoch), `跳過` (force reveal → next), `結束`
+  (two-tap confirm → endGame). Keyboard: t / n / e.
+- Pause is deferred (deadline-shifting over RTDB is fiddly; +15s
+  covers the classroom need).
+
+### 9.5 Collapse physics + scene polish
+
+- Break the deck into 3–4 `<g>` chunks with randomised tumble
+  animations (CSS custom props for drift/rotation/delay) replacing
+  the rotate-and-fade; then rubble as now.
+- Sequence the level card BEFORE the blueprint draw-in (they
+  currently overlap).
+- Fail state gets a beat: the surviving building "dusts itself off"
+  (settle bounce + puffs) under the 未拆除 stamp.
+- Dark mode: stronger fuse glow bloom. Idle life: faint smoke wisp
+  at the fuse tip, pulsing hazard dot on the tallest buildings.
+
+### 9.6 Test additions
+
+- Solo: config params respected (plan length, fuse multiplier);
+  streak multiplier arithmetic; duration copy matches measured runs.
+- Multi: echo verdict pays and preserves streak; grace window keeps
+  echo submissions open then collapses; tutor skip/+15s/end.
+- Projector: 1280 + 1920 screenshots, FX scaling sanity.
