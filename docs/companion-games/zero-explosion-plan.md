@@ -131,7 +131,7 @@ webapp/frontend/public/games/zero-explosion/
   split can come later if lessons want it.
 - Sound default: off on host, on on phones (centres are shared space).
 
-## 9. Iteration 2 (planned, next session)
+## 9. Iteration 2 (implemented 2026-07-17)
 
 Post-playtest audit findings: a knowing player clears the game in
 under a minute (9 codes total); multi starves slow students (first
@@ -139,6 +139,14 @@ claim takes everything); the projector view is a 620px phone column;
 the collapse fade reads as CSS, not physics. Kenny's direction:
 increase difficulty AND volume, tunable. Implementation order below;
 each step keeps the test suites green before moving on.
+
+**Status: all of 9.1-9.6 implemented and Playwright-verified.**
+Deltas from the plan as written: grace default is 6 s (`?grace=`
+overrides, 0 disables); echo pays once per player per root and also
+runs through the streak multiplier; the tutor end button uses an
+on-button two-tap confirm; `diff=easy` also stretches fuses by 1.25x.
+Measured bot-expert full run ≈ 2 min of fuse floor; copy now says
+12 buildings, 5-8 min (`duration_min: 7`).
 
 ### 9.1 Stages × rounds + difficulty (with 9.2, the core of it)
 

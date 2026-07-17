@@ -69,6 +69,13 @@
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
+  /* projector scenes are much larger than the 400px design width:
+   * spawn proportionally more particles and shake harder (capped) */
+  function fxScale() {
+    if (!scene) return 1;
+    return Math.max(1, Math.min(scene.clientWidth / vbW, 2.5));
+  }
+
   /* ---------------- particles ---------------- */
 
   function spawn(p) {
@@ -84,7 +91,7 @@
     if (reduced) return;
     opts = opts || {};
     var at = toPx(x, y);
-    var n = opts.count || 26;
+    var n = Math.round((opts.count || 26) * fxScale());
     var color = opts.color || token("--mc-ink");
     for (var i = 0; i < n; i++) {
       var ang = Math.random() * Math.PI * 2;
@@ -111,7 +118,7 @@
     if (reduced) return;
     opts = opts || {};
     var at = toPx(x, y);
-    var n = opts.count || 14;
+    var n = Math.round((opts.count || 14) * fxScale());
     var color = opts.color || token("--mc-ink-faint");
     for (var i = 0; i < n; i++) {
       spawn({
@@ -141,6 +148,21 @@
   function emitSparks() {
     if (!sparkEmitter || reduced) return;
     var at = toPx(sparkEmitter.x, sparkEmitter.y);
+    // idle life: a faint smoke wisp drifts up from the burn point
+    if (Math.random() < 0.035) {
+      spawn({
+        type: "dust",
+        x: at.x + (Math.random() - 0.5) * 3 * at.scale,
+        y: at.y - 2 * at.scale,
+        vx: (Math.random() - 0.5) * 0.25 * at.scale,
+        vy: (-0.35 - Math.random() * 0.3) * at.scale,
+        size: (3 + Math.random() * 3) * at.scale,
+        grow: 1.018,
+        ttl: 1200 + Math.random() * 600,
+        life: 0,
+        color: token("--mc-ink-faint"),
+      });
+    }
     var colors = [token("--mc-red"), token("--mc-gold")];
     for (var i = 0; i < 2; i++) {
       var ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
@@ -222,7 +244,7 @@
 
   function shake(intensity) {
     if (reduced) return;
-    shakeAmp = Math.max(shakeAmp, intensity || 6);
+    shakeAmp = Math.max(shakeAmp, (intensity || 6) * Math.max(1, Math.min(fxScale(), 2)));
     if (!running) {
       running = true;
       requestAnimationFrame(frame);
@@ -392,6 +414,7 @@
   window.ZBFX = {
     reduced: reduced,
     attach: attach,
+    fxScale: fxScale,
     debris: debris,
     dust: dust,
     sparksAt: sparksAt,

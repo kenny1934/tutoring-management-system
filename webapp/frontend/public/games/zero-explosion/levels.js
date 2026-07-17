@@ -5,6 +5,9 @@
  * multi-device mode. Everything here is deterministic given a rand()
  * source, so tests (and a shared class seed) can reproduce levels.
  *
+ * A run is a demolition PLAN: stages (one equation kind each) times
+ * rounds (buildings). Rounds after the first roll harder numbers.
+ *
  * Maths formatting returns language-neutral strings (proper U+2212
  * minus and U+00D7 times); localized phrases are wrapped around them
  * by the caller.
@@ -15,7 +18,16 @@
   var MINUS = "−";
   var TIMES = "×";
 
-  var LEVEL_COUNT = 6;
+  /* ≈12 buildings / ≈20 codes; max fuse ≈ 6.75 min */
+  var DEFAULT_PLAN = [
+    { kind: 1, rounds: 1, fuseMs: 20000 },
+    { kind: 2, rounds: 2, fuseMs: 20000 },
+    { kind: 3, rounds: 2, fuseMs: 35000 },
+    { kind: 4, rounds: 2, fuseMs: 35000 },
+    { kind: 5, rounds: 2, fuseMs: 35000 },
+    { kind: 6, rounds: 3, fuseMs: 45000 },
+  ];
+  var MIX_STAGE = { kind: "mix", rounds: 3, fuseMs: 40000 };
 
   /* mulberry32 — tiny seedable PRNG, good enough for level rolls */
   function rng(seed) {
@@ -74,44 +86,46 @@
 
   /* ---------- generation ---------- */
 
-  /* Level object shape:
-   * { n, kind, fuseMs, expr, pillars: [{id, root, label, hidden?}], konst?, b?, c? }
+  /* Level object shape (fuseMs / stage / round / seq set by genPlan):
+   * { n, kind, expr, pillars: [{id, root, label, hidden?}], konst?, b?, c? }
    * kind: numeric | linear | two | sign | square | expanded
+   *
+   * hard = later rounds in a stage: wider numbers and mixed signs, but
+   * every root stays within −9..9 (one keypad digit) and a stays 1
+   * (the SM901 courseware scope).
    */
-  function gen(n, rand) {
+  function gen(n, rand, hard) {
     switch (n) {
       case 1: {
         // k × ▢ = 0 — any factor being 0 kills a product
-        var k = pick(rand, 2, 9);
+        var k = hard ? pick(rand, 6, 12) : pick(rand, 2, 9);
         return {
           n: 1,
           kind: "numeric",
-          fuseMs: 30000,
           konst: k,
           expr: k + " " + TIMES + " ▢ = 0",
           pillars: [{ id: "p1", root: 0, label: "▢" }],
         };
       }
       case 2: {
-        // (x − a) = 0 — one factor, one code
-        var a = pick(rand, 2, 9);
+        // (x − a) = 0 — one factor, one code; hard may flip the sign
+        var a = pick(rand, 2, 9) * (hard && rand() < 0.5 ? -1 : 1);
         return {
           n: 2,
           kind: "linear",
-          fuseMs: 30000,
           expr: factorText(a) + " = 0",
           pillars: [{ id: "p1", root: a, label: factorText(a) }],
         };
       }
       case 3: {
-        // (x − a)(x − b) = 0, distinct positive roots
-        var r1 = pick(rand, 1, 9);
-        var r2 = pick(rand, 1, 9);
-        while (r2 === r1) r2 = pick(rand, 1, 9);
+        // (x − a)(x − b) = 0, distinct roots; easy positive, hard negative
+        var sgn = hard ? -1 : 1;
+        var r1 = sgn * pick(rand, 1, 9);
+        var r2 = sgn * pick(rand, 1, 9);
+        while (r2 === r1) r2 = sgn * pick(rand, 1, 9);
         return {
           n: 3,
           kind: "two",
-          fuseMs: 45000,
           expr: factorText(r1) + factorText(r2) + " = 0",
           pillars: [
             { id: "p1", root: r1, label: factorText(r1) },
@@ -121,13 +135,13 @@
       }
       case 4: {
         // (x + a)(x − b) = 0 — the sign trap: x = −a, not a
-        var p = pick(rand, 1, 9);
-        var q = pick(rand, 1, 9);
+        var lo = hard ? 4 : 1;
+        var p = pick(rand, lo, 9);
+        var q = pick(rand, lo, 9);
         var roots = rand() < 0.5 ? [-p, q] : [q, -p];
         return {
           n: 4,
           kind: "sign",
-          fuseMs: 45000,
           expr: factorText(roots[0]) + factorText(roots[1]) + " = 0",
           pillars: [
             { id: "p1", root: roots[0], label: factorText(roots[0]) },
@@ -137,11 +151,10 @@
       }
       case 5: {
         // (x − a)² = 0 — double root: ONE code, BOTH pillars
-        var r = pick(rand, 1, 9) * (rand() < 0.35 ? -1 : 1);
+        var r = hard ? -pick(rand, 2, 9) : pick(rand, 1, 9) * (rand() < 0.35 ? -1 : 1);
         return {
           n: 5,
           kind: "square",
-          fuseMs: 45000,
           expr: factorText(r) + "² = 0",
           pillars: [
             { id: "p1", root: r, label: factorText(r) },
@@ -150,17 +163,26 @@
         };
       }
       case 6: {
-        // x² + bx + c = 0 with a nice factorisation — factorise first
-        // roots within ±6 keep b, c inside the times tables students know
-        var s1 = pick(rand, 1, 6) * (rand() < 0.4 ? -1 : 1);
-        var s2 = pick(rand, 1, 6) * (rand() < 0.4 ? -1 : 1);
-        while (s2 === s1) s2 = pick(rand, 1, 6) * (rand() < 0.4 ? -1 : 1);
+        // x² + bx + c = 0 with a nice factorisation — factorise first.
+        // Easy: roots within ±6 keep b, c inside familiar times tables.
+        // Hard: same-sign roots 4..9, so |c| is large and the factor
+        // search is a genuine hunt (c stays positive, sign of b decides).
+        var s1, s2;
+        if (hard) {
+          var sg = rand() < 0.5 ? -1 : 1;
+          s1 = sg * pick(rand, 4, 9);
+          s2 = sg * pick(rand, 4, 9);
+          while (s2 === s1) s2 = sg * pick(rand, 4, 9);
+        } else {
+          s1 = pick(rand, 1, 6) * (rand() < 0.4 ? -1 : 1);
+          s2 = pick(rand, 1, 6) * (rand() < 0.4 ? -1 : 1);
+          while (s2 === s1) s2 = pick(rand, 1, 6) * (rand() < 0.4 ? -1 : 1);
+        }
         var b = -(s1 + s2);
         var c = s1 * s2;
         return {
           n: 6,
           kind: "expanded",
-          fuseMs: 45000,
           b: b,
           c: c,
           expr: quadText(b, c) + " = 0",
@@ -174,10 +196,78 @@
     throw new Error("no such level: " + n);
   }
 
-  function genAll(rand) {
+  /* ---------- plans ---------- */
+
+  /* cfg: { diff: "easy"|"std"|"hard", levels: [kinds], rounds: [ints],
+   *        fuse: multiplier } → [{kind, rounds, fuseMs}]
+   * Preset first, then explicit levels/rounds/fuse override it. */
+  function planFromConfig(cfg) {
+    cfg = cfg || {};
+    var plan = DEFAULT_PLAN.map(function (s) {
+      return { kind: s.kind, rounds: s.rounds, fuseMs: s.fuseMs };
+    });
+    var fuseMult = cfg.fuse > 0 ? cfg.fuse : 1;
+    if (cfg.diff === "easy") {
+      plan.forEach(function (s) { s.rounds = 1; });
+      fuseMult *= 1.25;
+    } else if (cfg.diff === "hard") {
+      plan.push({ kind: MIX_STAGE.kind, rounds: MIX_STAGE.rounds, fuseMs: MIX_STAGE.fuseMs });
+    }
+    if (cfg.levels && cfg.levels.length) {
+      plan = cfg.levels.map(function (k) {
+        var src = plan.filter(function (s) { return s.kind === k; })[0];
+        return src ? { kind: src.kind, rounds: src.rounds, fuseMs: src.fuseMs } : null;
+      }).filter(Boolean);
+    }
+    if (cfg.rounds && cfg.rounds.length) {
+      plan.forEach(function (s, i) {
+        var r = cfg.rounds.length === 1 ? cfg.rounds[0] : cfg.rounds[i];
+        if (r > 0) s.rounds = Math.min(9, Math.round(r));
+      });
+    }
+    plan.forEach(function (s) { s.fuseMs = Math.round(s.fuseMs * fuseMult); });
+    return plan;
+  }
+
+  /* roll every building of a plan; round 2+ (and every mixed-street
+   * building) uses the hard generator */
+  function genPlan(plan, rand) {
+    var total = 0;
+    plan.forEach(function (s) { total += s.rounds; });
     var levels = [];
-    for (var i = 1; i <= LEVEL_COUNT; i++) levels.push(gen(i, rand));
+    var seq = 0;
+    plan.forEach(function (s, si) {
+      for (var r = 1; r <= s.rounds; r++) {
+        var mixed = s.kind === "mix";
+        var kind = mixed ? pick(rand, 3, 6) : s.kind;
+        var hard = mixed || r > 1;
+        var lv = gen(kind, rand, hard);
+        seq += 1;
+        lv.fuseMs = s.fuseMs;
+        lv.stage = si + 1;
+        lv.stageKind = s.kind; // a kind number, or "mix"
+        lv.round = r;
+        lv.roundsInStage = s.rounds;
+        lv.seq = seq;
+        lv.total = total;
+        lv.hard = hard;
+        levels.push(lv);
+      }
+    });
     return levels;
+  }
+
+  /* ---------- scoring ---------- */
+
+  /* One correct submission's points. Base pays speed (up to double),
+   * the streak multiplier pays consistency (up to double again), and
+   * echoFactor scales an after-the-claim echo solve (e.g. 0.4).
+   * streak = the solver's streak BEFORE this answer. */
+  function points(remainFrac, hits, streak, echoFactor) {
+    var f = Math.max(0, Math.min(1, remainFrac || 0));
+    var base = (100 + Math.round(100 * f)) * (hits || 1);
+    var mult = 1 + 0.1 * Math.min(streak || 0, 10);
+    return Math.round(base * mult * (echoFactor == null ? 1 : echoFactor));
   }
 
   /* ---------- judging ---------- */
@@ -310,10 +400,12 @@
   }
 
   var api = {
-    LEVEL_COUNT: LEVEL_COUNT,
+    DEFAULT_PLAN: DEFAULT_PLAN,
     rng: rng,
     gen: gen,
-    genAll: genAll,
+    planFromConfig: planFromConfig,
+    genPlan: genPlan,
+    points: points,
     judge: judge,
     strength: strength,
     workingWrong: workingWrong,
