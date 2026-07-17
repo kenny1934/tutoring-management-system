@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.96](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.95...v2.0.96) (2026-07-17)
+
+
+### Bug Fixes
+
+* **Copy Fee Message works for summer enrolments**: the Copy Fee Message button in the enrolment detail popover, the enrolment detail window and zen mode previously did nothing for published summer enrolments. It now copies the proper summer fee message and includes the discount tier and any attached coupon. Copy failures in the popover also show an error message instead of failing silently.
+
 ## [2.0.95](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.94...v2.0.95) (2026-07-17)
 
 
