@@ -2205,3 +2205,36 @@ class TestApplicationResponseOverlay:
         detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
         assert len(detail.sessions) == 7
         assert all(p.id != ss_first.id for p in detail.sessions)
+
+    def test_coupon_on_enrollment_surfaces_on_application_response(
+        self, db_session, admin, app_full, slot
+    ):
+        """A coupon attached to the published enrollment (discount_id) surfaces
+        as coupon_discount_value so the summer fee message can subtract it."""
+        from models import Discount
+        from routers.summer_course import publish_application, get_application
+
+        lessons = _materialize_lessons(db_session, slot)
+        _place_all(db_session, app_full, slot, lessons)
+        publish_application(app_id=app_full.id, admin=admin, db=db_session)
+
+        # Published but no coupon attached yet — stays None.
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        assert detail.coupon_discount_value is None
+
+        coupon = Discount(
+            discount_name="$100 學費禮劵",
+            discount_type="Coupon",
+            discount_value=100,
+            is_active=True,
+        )
+        db_session.add(coupon)
+        db_session.commit()
+        enrollment = db_session.query(Enrollment).filter(
+            Enrollment.summer_application_id == app_full.id
+        ).first()
+        enrollment.discount_id = coupon.id
+        db_session.commit()
+
+        detail = get_application(app_id=app_full.id, _admin=None, db=db_session)
+        assert detail.coupon_discount_value == 100

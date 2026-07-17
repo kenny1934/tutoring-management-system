@@ -722,6 +722,10 @@ export function SummerApplicationDetailModal({
     return resolveEffectiveDiscount(app, fetchedBuddyMembers, config.pricing_config, app.discount_override_code);
   }, [app, config, fetchedBuddyMembers]);
 
+  // Flat coupon attached to the published enrollment — stacks on top of the
+  // tier fee, so the fee box matches the fee message the admin copies below.
+  const couponValue = app?.coupon_discount_value ?? 0;
+
   // Active group size for the same member list the discount uses, so the tier
   // callout can tell a never-reached group tier apart from a forfeited one.
   const discountGroupSize = useMemo(() => {
@@ -2835,10 +2839,12 @@ export function SummerApplicationDetailModal({
               <div className="min-w-0 flex-1">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Fee</div>
                 <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-                  <span className="text-lg font-semibold text-foreground">${effectiveDiscount.finalFee.toLocaleString()}</span>
-                  {effectiveDiscount.best && (
+                  <span className="text-lg font-semibold text-foreground">${(effectiveDiscount.finalFee - couponValue).toLocaleString()}</span>
+                  {(effectiveDiscount.best || couponValue > 0) && (
                     <span className="text-xs text-muted-foreground">
-                      = ${baseFee.toLocaleString()} − ${effectiveDiscount.amount}
+                      = ${(effectiveDiscount.best ? baseFee : effectiveDiscount.finalFee).toLocaleString()}
+                      {effectiveDiscount.best ? ` − $${effectiveDiscount.amount}` : ""}
+                      {couponValue > 0 ? ` − $${couponValue.toLocaleString()} coupon` : ""}
                     </span>
                   )}
                 </div>
@@ -2848,6 +2854,8 @@ export function SummerApplicationDetailModal({
                     <CopyButton value={effectiveDiscount.best.code} />
                     <span className="text-muted-foreground">· {effectiveDiscount.best.name_en}</span>
                   </div>
+                ) : couponValue > 0 ? (
+                  <div className="mt-1 text-xs text-muted-foreground">No tier discount · coupon applied</div>
                 ) : (
                   <div className="mt-1 text-xs text-muted-foreground">No discount applied · pays full price</div>
                 )}

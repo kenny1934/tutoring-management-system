@@ -187,6 +187,20 @@ def compute_best_discount(
     )
 
 
+def enrollment_coupon_value(enrollment) -> int:
+    """Flat dollar value of the coupon attached to the enrollment, 0 when none.
+
+    Summer prices per-course rather than per the regular $400/lesson model, so
+    the coupon applies as a flat amount — no per-2-lessons scaling and no
+    minimum-lesson floor (the enrollment update endpoint exempts Summer from
+    the floor for the same reason).
+    """
+    coupon = getattr(enrollment, "discount", None)
+    if coupon is None:
+        return 0
+    return int(coupon.discount_value or 0)
+
+
 def effective_final_fee(
     enrollment,
     app: SummerApplication,
@@ -207,20 +221,25 @@ def effective_final_fee(
     - an empty/unknown override code falls back to the auto-computed tier, so a
       stale code never silently zeroes a real discount.
 
+    A coupon attached to the enrollment (``discount_id``) stacks on top of the
+    tier/override fee, the same way a regular enrollment's fee message subtracts
+    its attached discount.
+
     ``result`` is the caller's ``compute_best_discount(app, ...)`` for this app
     (passed in to avoid recomputing it).
     """
+    coupon = enrollment_coupon_value(enrollment)
     if _is_partial(app):
-        return result.final_fee
+        return result.final_fee - coupon
     code = (getattr(enrollment, "discount_override_code", None) or "").strip()
     if not code:
-        return result.final_fee
+        return result.final_fee - coupon
     if code == NONE_CODE:
-        return result.base_fee
+        return result.base_fee - coupon
     entry = next((d for d in parse_discounts(config) if d.code == code), None)
     if entry is None:
-        return result.final_fee
-    return result.base_fee - int(entry.amount)
+        return result.final_fee - coupon
+    return result.base_fee - int(entry.amount) - coupon
 
 
 def compute_payment_deadline(
@@ -438,9 +457,10 @@ def resnap_enrollment_tier(db, app: SummerApplication, today: Optional[date] = N
     enrollment.locked_discount_amount = result.amount
     enrollment.payment_deadline = new_deadline
     # Keep the stored per-session revenue in sync with the new tier. This path
-    # no-ops above when an override is set, so result.final_fee is the active
-    # tier's fee; Summer carries no reg fee, so the tutor revenue total equals it.
-    enrollment.revenue_total = float(result.final_fee)
+    # no-ops above when an override is set, so the effective fee is the active
+    # tier's fee minus any attached coupon; Summer carries no reg fee, so the
+    # tutor revenue total equals it.
+    enrollment.revenue_total = float(effective_final_fee(enrollment, app, config, result))
     # Admin should re-notify the parent with the new amount.
     enrollment.fee_message_sent = False
     return True

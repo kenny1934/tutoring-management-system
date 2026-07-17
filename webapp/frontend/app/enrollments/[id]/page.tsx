@@ -389,6 +389,16 @@ export default function EnrollmentDetailPage() {
     );
   }, [summerApp, summerConfig, summerBuddyMembers, enrollment?.discount_override_code]);
 
+  // Live coupon value for the Summer fee message. Derived from this page's own
+  // enrollment record so a just-saved discount edit shows immediately; when the
+  // name can't be resolved yet (discount list still loading), undefined lets
+  // the formatter fall back to the app response's snapshot.
+  const summerCouponValue = useMemo(() => {
+    if (!enrollment) return undefined;
+    if (!enrollment.discount_name) return 0;
+    return discounts.find((d) => d.discount_name === enrollment.discount_name)?.discount_value;
+  }, [enrollment, discounts]);
+
   // Sync discount selection when entering edit mode
   useEffect(() => {
     if (isEditingPayment && enrollment) {
@@ -594,6 +604,62 @@ export default function EnrollmentDetailPage() {
       </DeskSurface>
     );
   }
+
+  // Admin quick actions shared by the regular fee panel and the Summer
+  // message panel branch, so published Summer enrollments keep the
+  // enrollment-level Mark Sent + Confirm Payment actions. Cancel Enrollment
+  // stays regular-only (the backend blocks cancelling Summer enrollments —
+  // unpublish via the application instead), and Copy lives inside
+  // SummerMessagePanel for Summer.
+  const markSentAction = !isTutor && (enrollment.fee_message_sent ? (
+    <button
+      onClick={handleUnmarkSent}
+      disabled={markingSent || isReadOnly}
+      className={cn(
+        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+        isReadOnly
+          ? "border border-gray-200 text-gray-400 cursor-not-allowed"
+          : "border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+      )}
+      title={isReadOnly ? "Read-only access" : undefined}
+    >
+      {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+      Unmark Sent
+    </button>
+  ) : (
+    <button
+      onClick={handleMarkSent}
+      disabled={markingSent || isReadOnly}
+      className={cn(
+        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+        isReadOnly
+          ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+          : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+      )}
+      title={isReadOnly ? "Read-only access" : undefined}
+    >
+      {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+      Mark Sent
+    </button>
+  ));
+
+  const confirmPaymentAction = !isTutor &&
+    (enrollment.payment_status === "Pending Payment" || enrollment.payment_status === "Overdue") && (
+    <button
+      onClick={() => setConfirmPayment(true)}
+      disabled={markingPaid || isReadOnly}
+      className={cn(
+        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50",
+        isReadOnly
+          ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+          : "bg-green-600 hover:bg-green-700"
+      )}
+      title={isReadOnly ? "Read-only access" : undefined}
+    >
+      {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
+      Confirm Payment
+    </button>
+  );
 
   return (
     <DeskSurface fullHeight>
@@ -1270,16 +1336,29 @@ export default function EnrollmentDetailPage() {
                         className="overflow-hidden"
                       >
                         {summerApp && summerConfig ? (
-                          <div className="pt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                            <SummerMessagePanel
-                              app={summerApp}
-                              config={summerConfig}
-                              discount={summerDiscount ?? undefined}
-                              mode="fee"
-                              onClose={() => setShowFeePanel(false)}
-                              onMarkSent={() => mutate(['summer-app', summerApp.id])}
-                            />
-                          </div>
+                          <>
+                            <div className="pt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                              <SummerMessagePanel
+                                app={summerApp}
+                                config={summerConfig}
+                                discount={summerDiscount ?? undefined}
+                                couponValue={summerCouponValue}
+                                mode="fee"
+                                onClose={() => setShowFeePanel(false)}
+                                onMarkSent={() => mutate(['summer-app', summerApp.id])}
+                              />
+                            </div>
+                            {/* Enrollment-level quick actions (fee_message_sent +
+                                payment). The panel's own Mark Sent works on the
+                                application status and hides once Enrolled, so
+                                published enrollments need these here. */}
+                            {!isTutor && (
+                              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2 mt-3">
+                                {markSentAction}
+                                {confirmPaymentAction}
+                              </div>
+                            )}
+                          </>
                         ) : summerAppId && !summerApp ? (
                           <div className="pt-4 flex items-center justify-center py-8 text-sm text-gray-500">
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -1381,55 +1460,10 @@ export default function EnrollmentDetailPage() {
                             </button>
 
                             {/* Mark Sent / Unmark Sent - Admin only */}
-                            {!isTutor && (enrollment?.fee_message_sent ? (
-                              <button
-                                onClick={handleUnmarkSent}
-                                disabled={markingSent || isReadOnly}
-                                className={cn(
-                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
-                                  isReadOnly
-                                    ? "border border-gray-200 text-gray-400 cursor-not-allowed"
-                                    : "border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                )}
-                                title={isReadOnly ? "Read-only access" : undefined}
-                              >
-                                {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
-                                Unmark Sent
-                              </button>
-                            ) : (
-                              <button
-                                onClick={handleMarkSent}
-                                disabled={markingSent || isReadOnly}
-                                className={cn(
-                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
-                                  isReadOnly
-                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
-                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                                )}
-                                title={isReadOnly ? "Read-only access" : undefined}
-                              >
-                                {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                                Mark Sent
-                              </button>
-                            ))}
+                            {markSentAction}
 
                             {/* Confirm Payment - only show for pending/overdue - Admin only */}
-                            {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && (
-                              <button
-                                onClick={() => setConfirmPayment(true)}
-                                disabled={markingPaid || isReadOnly}
-                                className={cn(
-                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50",
-                                  isReadOnly
-                                    ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-                                    : "bg-green-600 hover:bg-green-700"
-                                )}
-                                title={isReadOnly ? "Read-only access" : undefined}
-                              >
-                                {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
-                                Confirm Payment
-                              </button>
-                            )}
+                            {confirmPaymentAction}
 
                             {/* Cancel Enrollment - only for pending/overdue with no completed sessions - Admin only */}
                             {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (

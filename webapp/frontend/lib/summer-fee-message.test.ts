@@ -392,3 +392,61 @@ describe("formatSummerFeeMessage — partial plan", () => {
     expect(out).toContain("Fee: $350 × 4 = $1,400");
   });
 });
+
+describe("formatSummerFeeMessage — attached coupon", () => {
+  const app = makeApp(
+    [makeSession({ id: 1, lesson_date: "2026-07-06" })],
+    { coupon_discount_value: 100 },
+  );
+
+  it("subtracts the coupon when no tier applies (ZH)", () => {
+    const out = formatSummerFeeMessage(app, makeConfig(), NO_DISCOUNT, "zh");
+    expect(out).toContain("費用： $1,400 (已折扣 $100 學費禮劵，原價為 $1,500)");
+  });
+
+  it("subtracts the coupon when no tier applies (EN)", () => {
+    const out = formatSummerFeeMessage(app, makeConfig(), NO_DISCOUNT, "en");
+    expect(out).toContain("Fee: $1,400 (Discounted $100 tuition coupon, original price $1,500)");
+  });
+
+  it("stacks the coupon on top of a tier discount (ZH)", () => {
+    const out = formatSummerFeeMessage(app, makeConfig(), GROUP_DISCOUNT, "zh");
+    expect(out).toContain(
+      "費用： $1,100 (已折扣 $300 — 三人同行，另折扣 $100 學費禮劵，原價為 $1,500)",
+    );
+  });
+
+  it("stacks the coupon on top of a tier discount (EN)", () => {
+    const out = formatSummerFeeMessage(app, makeConfig(), GROUP_DISCOUNT, "en");
+    expect(out).toContain(
+      "Fee: $1,100 (Discounted $300 — Group of 3+, plus $100 tuition coupon, original price $1,500)",
+    );
+  });
+
+  it("subtracts the coupon inside the partial-plan breakdown", () => {
+    const partial = makeApp(
+      Array.from({ length: 4 }, (_, i) => makeSession({ id: i + 1, lesson_number: i + 1 })),
+      { lessons_paid: 4, total_lessons: 8, coupon_discount_value: 100 },
+    );
+    const discount: DiscountResult = { best: null, amount: 0, finalFee: 1600, nearMiss: null };
+    const zh = formatSummerFeeMessage(partial, makeConfig(), discount, "zh");
+    expect(zh).toContain("費用： $400 × 4 − $100 學費禮劵 = $1,500");
+    const en = formatSummerFeeMessage(partial, makeConfig(), discount, "en");
+    expect(en).toContain("Fee: $400 × 4 − $100 tuition coupon = $1,500");
+  });
+
+  it("an explicit couponValue argument wins over the app snapshot", () => {
+    // Caller with live enrollment data says the coupon was removed.
+    const cleared = formatSummerFeeMessage(app, makeConfig(), NO_DISCOUNT, "zh", 0);
+    expect(cleared).toContain("費用： $1,500");
+    expect(cleared).not.toContain("學費禮劵");
+    // Caller says it changed to $200.
+    const bumped = formatSummerFeeMessage(app, makeConfig(), NO_DISCOUNT, "zh", 200);
+    expect(bumped).toContain("費用： $1,300 (已折扣 $200 學費禮劵，原價為 $1,500)");
+  });
+
+  it("undefined couponValue falls back to the app snapshot", () => {
+    const out = formatSummerFeeMessage(app, makeConfig(), NO_DISCOUNT, "zh", undefined);
+    expect(out).toContain("費用： $1,400");
+  });
+});

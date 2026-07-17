@@ -2450,6 +2450,10 @@ export interface SummerApplication {
    *  summer-side fee/tier displays honour it instead of recomputing. Null when
    *  no override (or not published). */
   discount_override_code?: string | null;
+  /** Flat value of a coupon attached to the published enrollment (its
+   *  discount_id), so the fee message subtracts it like a regular enrollment.
+   *  Null pre-publish or when no coupon is attached. */
+  coupon_discount_value?: number | null;
   /** Stamped when admin marks status Paid; editable for receipt-date fixes.
    *  Drives discount-tier deadline checks. */
   paid_at?: string | null;

@@ -29,6 +29,7 @@ from models import (
     PrimaryProspect,
     Enrollment,
     SessionLog,
+    Discount,
 )
 from schemas import (
     SummerCourseFormConfig,
@@ -1592,6 +1593,7 @@ def _build_application_response(
     slot_counts: Optional[dict[int, int]] = None,
     published_enrollment_ids: Optional[dict[int, int]] = None,
     override_codes: Optional[dict[int, str]] = None,
+    coupon_values: Optional[dict[int, int]] = None,
     live_by_summer_id: Optional[dict[int, SessionLog]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
@@ -1740,6 +1742,11 @@ def _build_application_response(
         data["discount_override_code"] = (
             override_codes.get(app.id) if override_codes else None
         )
+        # A coupon only exists on the published enrollment (its discount_id);
+        # pre-publish apps have nowhere to carry one.
+        data["coupon_discount_value"] = (
+            coupon_values.get(app.id) if coupon_values else None
+        )
 
     return SummerApplicationResponse.model_validate(data)
 
@@ -1762,26 +1769,32 @@ def _get_slot_session_counts(db: Session, slot_ids: list[int]) -> dict[int, int]
 
 def _get_published_enrollment_info(
     db: Session, app_ids: list[int]
-) -> tuple[dict[int, int], dict[int, str]]:
-    """For published apps, return (app_id → Enrollment.id) and (app_id →
-    discount_override_code). The first map drives the Publish/Unpublish button
-    state; the second surfaces an admin tier override on the application response
-    so summer-side fee/tier displays honour the pin instead of recomputing. One
-    query backs both maps (1:1 enrollment per app, no fan-out)."""
+) -> tuple[dict[int, int], dict[int, str], dict[int, int]]:
+    """For published apps, return (app_id → Enrollment.id), (app_id →
+    discount_override_code) and (app_id → attached coupon value). The first map
+    drives the Publish/Unpublish button state; the second surfaces an admin tier
+    override on the application response so summer-side fee/tier displays honour
+    the pin instead of recomputing; the third surfaces a coupon attached to the
+    enrollment (``discount_id``) so the fee message subtracts it like a regular
+    enrollment. One query backs all three maps (1:1 enrollment per app, no
+    fan-out)."""
     if not app_ids:
-        return {}, {}
+        return {}, {}, {}
     rows = (
         db.query(
             Enrollment.summer_application_id,
             Enrollment.id,
             Enrollment.discount_override_code,
+            Discount.discount_value,
         )
+        .outerjoin(Discount, Enrollment.discount_id == Discount.id)
         .filter(Enrollment.summer_application_id.in_(app_ids))
         .all()
     )
-    published_ids = {app_id: eid for app_id, eid, _ in rows}
-    override_codes = {app_id: code for app_id, _, code in rows if code is not None}
-    return published_ids, override_codes
+    published_ids = {app_id: eid for app_id, eid, _, _ in rows}
+    override_codes = {app_id: code for app_id, _, code, _ in rows if code is not None}
+    coupon_values = {app_id: int(value) for app_id, _, _, value in rows if value}
+    return published_ids, override_codes, coupon_values
 
 
 def _build_application_responses(
@@ -1803,7 +1816,7 @@ def _build_application_responses(
         if s.session_status != "Cancelled"
     })
     slot_counts = _get_slot_session_counts(db, slot_ids)
-    published_ids, override_codes = _get_published_enrollment_info(
+    published_ids, override_codes, coupon_values = _get_published_enrollment_info(
         db, [a.id for a in apps]
     )
     # Bulk-fetch live session_log rows so published placements overlay live
@@ -1821,6 +1834,7 @@ def _build_application_responses(
             slot_counts=slot_counts,
             published_enrollment_ids=published_ids,
             override_codes=override_codes,
+            coupon_values=coupon_values,
             live_by_summer_id=live_by_summer_id,
         )
         for a in apps

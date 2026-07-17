@@ -2531,6 +2531,11 @@ class SummerApplicationResponse(BaseModel):
     # Admin tier-override pinned on the published enrollment, surfaced here so
     # summer-side fee/tier displays honour it instead of recomputing the tier.
     discount_override_code: Optional[str] = None
+    # Flat value of a coupon attached to the published enrollment (its
+    # discount_id), surfaced so the summer fee message subtracts it like a
+    # regular enrollment's fee message does. None pre-publish or when no
+    # coupon is attached.
+    coupon_discount_value: Optional[int] = None
     # Stamped when admin marks status as Paid; editable for receipt-date
     # corrections. Drives discount-tier deadline check.
     paid_at: Optional[datetime] = None
