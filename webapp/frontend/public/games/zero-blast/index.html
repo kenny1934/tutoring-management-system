@@ -68,6 +68,8 @@
     .zb-struct .thin { stroke-width: 1.2; }
     .zb-struct .faint { stroke: var(--mc-ink-faint); }
     .zb-struct text { fill: var(--mc-ink); }
+    /* the half-fuse hint: a factor pencilled in faintly, not reveal ink */
+    .zb-struct text.zb-hintghost { fill: var(--mc-ink-faint); opacity: 0; animation: zb-fadein 0.8s ease-out forwards; }
     .zb-struct .plaque { fill: var(--mc-paper-raised); }
     .zb-struct .tag { font-family: var(--mc-mono); font-size: 10px; letter-spacing: 0.12em; fill: var(--mc-ink-faint); }
     .zb-struct .plabel { font-family: var(--mc-mono); font-weight: 700; font-size: 13.5px; text-anchor: middle; }
@@ -217,6 +219,8 @@
       color: var(--mc-ink-faint); margin-bottom: 8px; min-height: 22px;
     }
     .zb-preview .neg { color: var(--mc-red); }
+    /* a staged value awaiting its commit window reads in full ink */
+    .zb-preview.armed { color: var(--mc-ink); }
     .zb-pad { display: grid; grid-template-columns: repeat(3, 1fr) 0.85fr; gap: 9px; }
     .zb-key {
       min-height: 52px; border: 1.5px solid var(--mc-ink); border-radius: var(--mc-r);
@@ -531,9 +535,10 @@
         </div>
         <div class="zb-tutorbar" id="tutorBar" style="display:none">
           <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnPlus15" data-i18n="tutor_plus15"></button>
+          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnHint" data-i18n="tutor_hint" style="display:none"></button>
           <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnSkip" data-i18n="tutor_skip"></button>
           <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnEndGame" data-i18n="tutor_end"></button>
-          <div class="zb-tutorkeys" aria-hidden="true">t / n / e</div>
+          <div class="zb-tutorkeys" id="tutorKeys" aria-hidden="true">t / n / e</div>
         </div>
       </div>
       <div class="zb-col-r">
@@ -703,6 +708,8 @@ const STRINGS = {
   note_claimed_by:  { c: "已由{name}拆咗", e: "Taken by {name}" },
   critical_fmt:     { c: "支柱全部拆晒！{s} 秒後總爆破", e: "All pillars down! Final blast in {s}s" },
   tutor_plus15:     { c: "+15 秒",      e: "+15 s" },
+  tutor_hint:       { c: "提示",        e: "Hint" },
+  hint_note:        { c: "提示已顯示：呢座建築分數減半", e: "Hint shown: this building pays half" },
   tutor_skip:       { c: "跳過",        e: "Skip" },
   tutor_next:       { c: "下一關",      e: "Next" },
   tutor_end:        { c: "結束",        e: "End" },
@@ -961,40 +968,76 @@ function markHtml(kind, lines) {
 }
 
 /* keypad factory: builds handlers around a submit(v) callback.
- * The sign key latches; a digit tap submits sign·digit immediately. */
+ * The sign key latches. A digit tap ARMS the value for ~400ms before
+ * it commits, so a finger slip isn't a maths error: tapping − inside
+ * the window flips the staged sign, tapping the same digit again
+ * commits instantly (fast players lose nothing). */
 function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
   let neg = false;
   let locked = false;
   let lockTimer = null;
+  let armed = null; // { v } — staged value awaiting the commit window
+  let armTimer = null;
+  const ARM_MS = 400;
   const signKey = padEl.querySelector(".zb-key--sign");
 
   function renderPreview() {
-    previewEl.innerHTML = '<i class="zb-var">x</i>&nbsp;=&nbsp;' + (neg ? '<span class="neg">−</span>' : "") + "▢";
+    if (armed) {
+      previewEl.innerHTML = '<i class="zb-var">x</i>&nbsp;=&nbsp;' +
+        (armed.v < 0 ? '<span class="neg">−</span>' : "") + Math.abs(armed.v);
+      previewEl.classList.add("armed");
+    } else {
+      previewEl.innerHTML = '<i class="zb-var">x</i>&nbsp;=&nbsp;' + (neg ? '<span class="neg">−</span>' : "") + "▢";
+      previewEl.classList.remove("armed");
+    }
   }
   renderPreview();
+
+  function disarm() {
+    clearTimeout(armTimer);
+    armed = null;
+  }
+  function commit() {
+    if (!armed) return;
+    const v = armed.v;
+    disarm();
+    renderPreview();
+    submit(v);
+  }
 
   padEl.addEventListener("click", e => {
     const key = e.target.closest(".zb-key");
     if (!key || locked) return;
     ZBFX.audio.unlock();
     if (key === signKey) {
-      neg = !neg;
-      signKey.setAttribute("aria-pressed", neg);
+      if (armed) {
+        // slip forgiveness: flip the staged sign, the window restarts
+        armed.v = -armed.v;
+        clearTimeout(armTimer);
+        armTimer = setTimeout(commit, ARM_MS);
+      } else {
+        neg = !neg;
+        signKey.setAttribute("aria-pressed", neg);
+      }
       ZBFX.audio.click();
       renderPreview();
       return;
     }
     const d = parseInt(key.dataset.d, 10);
+    ZBFX.audio.click();
+    if (armed && Math.abs(armed.v) === d) { commit(); return; } // same digit again: go now
     const v = neg ? -d : d;
     neg = false;
     signKey.setAttribute("aria-pressed", "false");
+    armed = { v: v };
+    clearTimeout(armTimer);
+    armTimer = setTimeout(commit, ARM_MS);
     renderPreview();
-    ZBFX.audio.click();
-    submit(v);
   });
 
   return {
     lock(seconds) {
+      disarm();
       locked = true;
       padEl.querySelectorAll(".zb-key").forEach(k => k.disabled = true);
       lockEl.classList.add("show");
@@ -1014,11 +1057,13 @@ function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
       lockEl.classList.remove("show");
     },
     disable() {
+      disarm();
       locked = true;
       padEl.querySelectorAll(".zb-key").forEach(k => k.disabled = true);
     },
     enable() {
       clearInterval(lockTimer);
+      disarm();
       locked = false;
       neg = false;
       signKey.setAttribute("aria-pressed", "false");
@@ -1038,7 +1083,7 @@ const G = {
   levels: null, idx: 0, level: null, claimed: [],
   score: 0, streak: 0, starsTotal: 0, levelPoints: 0,
   deadline: 0, duration: 0, raf: null, lastTickSec: null,
-  fuseLen: 0, fusePathEl: null, over: false, records: [],
+  fuseLen: 0, fusePathEl: null, over: false, records: [], hinted: false,
   // host mode: room + per-player books (host is authoritative)
   room: null, watcher: null, started: false, grace: false, revealHold: false,
   players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {},
@@ -1101,6 +1146,7 @@ function refreshDynamicText() {
   }
   $("takeawayOr").textContent = t("or");
   $("btnPlus15").title = fmt("tutor_key_title", { k: "t" });
+  $("btnHint").title = fmt("tutor_key_title", { k: "h" });
   $("btnSkip").title = fmt("tutor_key_title", { k: "n" });
   $("btnEndGame").title = fmt("tutor_key_title", { k: "e" });
 }
@@ -1117,8 +1163,13 @@ function startLevel(resume) {
   G.revealHold = false;
   G.echoDone = resume ? (resume.echoDone || {}) : {};
   G.scoredRound = resume ? (resume.scoredRound || {}) : {};
+  G.hinted = resume ? !!resume.hinted : false;
   $("scene").classList.remove("critical");
   setSkipLabel("tutor_skip");
+  const hintable = G.mode === "host" && level.kind === "expanded";
+  $("btnHint").style.display = hintable ? "" : "none";
+  $("btnHint").disabled = G.hinted;
+  $("tutorKeys").textContent = hintable ? "t / h / n / e" : "t / n / e";
 
   refreshDynamicText();
   $("scoreBox").textContent = G.score;
@@ -1159,9 +1210,7 @@ function startLevel(resume) {
     G.claimed.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
       if (!p) return;
-      if (level.kind === "expanded") {
-        document.querySelector(`[data-plaque="${id}"]`).innerHTML = svgMath(p.hidden);
-      }
+      if (level.kind === "expanded") revealPlaque(id, p);
       const c = G.claimsBy[id];
       blowPillar(id, p.root, c && c.name);
     });
@@ -1211,6 +1260,9 @@ function fuseFrame() {
     const sec = Math.ceil(remain / (G.level.finale ? 500 : 1000));
     if (sec !== G.lastTickSec) { G.lastTickSec = sec; ZBFX.audio.tick(); }
   }
+  // solo scaffold: at half fuse the factorise hint pencils itself in
+  if (G.mode === "solo" && G.level.kind === "expanded" && !G.hinted && burned >= 0.5) showHint();
+
   if (remain <= 0) { G.grace ? collapseAndAdvance() : fuseOut(); return; }
   G.raf = requestAnimationFrame(fuseFrame);
 }
@@ -1218,6 +1270,32 @@ function fuseFrame() {
 function pillarX(id) {
   const mark = document.querySelector(`.zb-rootmark[data-for="${id}"]`);
   return parseFloat(mark.getAttribute("x"));
+}
+
+/* L6 plaques: ghost-pencil hint first, full ink on the claim */
+function revealPlaque(id, p, ghost) {
+  const el = document.querySelector(`[data-plaque="${id}"]`);
+  el.classList.toggle("zb-hintghost", !!ghost);
+  el.innerHTML = svgMath(p.hidden);
+}
+
+/* factorise-first scaffold: pencil one hidden factor onto its plaque.
+ * Fair, not punitive: the whole building then pays half. Solo shows it
+ * at half fuse; in class the tutor triggers it (提示 button / key h). */
+function showHint() {
+  if (G.hinted || G.over || !G.level || G.level.kind !== "expanded") return;
+  const p = G.level.pillars.find(p => G.claimed.indexOf(p.id) === -1);
+  if (!p) return;
+  G.hinted = true;
+  revealPlaque(p.id, p, true);
+  $("markZone").innerHTML = markHtml("info", [t("hint_note")]);
+  $("btnHint").disabled = true;
+  saveHostRun();
+}
+
+/* per-level payout scale: the finale street doubles, a hint halves */
+function levelFactor(level) {
+  return (level.finale ? 2 : 1) * (G.hinted ? 0.5 : 1);
 }
 
 function blowPillar(id, root, name) {
@@ -1279,7 +1357,7 @@ function submitCode(v, player) {
   // correct: claim + detonate every matching pillar (both, for L5).
   // Streak multiplier uses the streak BEFORE this answer.
   const remainFrac = (G.deadline - performance.now()) / G.duration;
-  const pts = ZBLevels.points(remainFrac, res.hit.length, G.streak) * (level.finale ? 2 : 1);
+  const pts = Math.round(ZBLevels.points(remainFrac, res.hit.length, G.streak) * levelFactor(level));
   G.levelPoints += pts;
   G.score += pts;
   G.streak += 1;
@@ -1291,7 +1369,7 @@ function submitCode(v, player) {
   if (level.kind === "expanded") {
     res.hit.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
-      document.querySelector(`[data-plaque="${id}"]`).innerHTML = svgMath(p.hidden);
+      revealPlaque(id, p);
     });
   }
 
@@ -1336,7 +1414,7 @@ function hostVerdict(player, v, res) {
     G.echoDone[echoKey] = true;
     const matching = level.pillars.filter(p => p.root === v).length;
     const echoFrac = (G.deadline - performance.now()) / G.duration;
-    const echoPts = ZBLevels.points(echoFrac, matching, G.streaks[player.id] || 0, 0.4) * (level.finale ? 2 : 1);
+    const echoPts = Math.round(ZBLevels.points(echoFrac, matching, G.streaks[player.id] || 0, 0.4) * levelFactor(level));
     G.scores[player.id] = (G.scores[player.id] || 0) + echoPts;
     G.streaks[player.id] = (G.streaks[player.id] || 0) + 1;
     G.starsBy[player.id] = (G.starsBy[player.id] || 0) + 1;
@@ -1363,7 +1441,7 @@ function hostVerdict(player, v, res) {
   }
 
   const remainFrac = (G.deadline - performance.now()) / G.duration;
-  const pts = ZBLevels.points(remainFrac, res.hit.length, G.streaks[player.id] || 0) * (level.finale ? 2 : 1);
+  const pts = Math.round(ZBLevels.points(remainFrac, res.hit.length, G.streaks[player.id] || 0) * levelFactor(level));
   G.levelPoints += pts; // the 拆 stamp caption shows the level's total bounty
   G.scores[player.id] = (G.scores[player.id] || 0) + pts;
   G.streaks[player.id] = (G.streaks[player.id] || 0) + 1;
@@ -1373,7 +1451,7 @@ function hostVerdict(player, v, res) {
   if (level.kind === "expanded") {
     res.hit.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
-      document.querySelector(`[data-plaque="${id}"]`).innerHTML = svgMath(p.hidden);
+      revealPlaque(id, p);
     });
   }
   res.hit.forEach(id => {
@@ -1456,7 +1534,7 @@ function saveHostRun() {
       idx: G.idx, over: G.over, levels: G.levels, records: G.records,
       scores: G.scores, streaks: G.streaks, starsBy: G.starsBy,
       claimsBy: G.claimsBy, claimed: G.claimed, echoDone: G.echoDone,
-      scoredRound: G.scoredRound, processedSeq: G.processedSeq,
+      scoredRound: G.scoredRound, processedSeq: G.processedSeq, hinted: G.hinted,
       players: G.players, levelPoints: G.levelPoints,
       deadlineEpoch: Date.now() + Math.max(0, Math.round(G.deadline - performance.now())),
     }));
@@ -1803,12 +1881,19 @@ function tutorEnd() {
   endGame();
 }
 
+function tutorHint() {
+  if (G.mode !== "host" || !G.started || G.over) return;
+  showHint();
+}
+
 $("btnPlus15").onclick = tutorPlus15;
+$("btnHint").onclick = tutorHint;
 $("btnSkip").onclick = tutorSkip;
 $("btnEndGame").onclick = tutorEnd;
 document.addEventListener("keydown", e => {
   if (G.mode !== "host" || !$("gameScreen").classList.contains("active")) return;
   if (e.key === "t") tutorPlus15();
+  else if (e.key === "h") tutorHint();
   else if (e.key === "n") tutorSkip();
   else if (e.key === "e") tutorEnd();
 });
