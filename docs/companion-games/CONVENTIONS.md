@@ -199,7 +199,7 @@ from these.
 
 ```json
 {
-  "slug": "zero-explosion",
+  "slug": "zero-blast",
   "title": { "c": "零的爆發", "e": "Zero Explosion" },
   "objective": { "c": "理解 (x−a)(x−b)=0 ⟺ x=a 或 x=b", "e": "…" },
   "topics": [ { "scheme": "SM", "code": "901" }, { "scheme": "MAS", "code": "901" } ],

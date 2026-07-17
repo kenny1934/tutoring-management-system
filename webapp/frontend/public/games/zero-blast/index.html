@@ -8,7 +8,7 @@
        Subtopic: zero-product property, (x−a)(x−b)=0 ⟺ x=a or x=b.
        Structures stand on factor pillars; correct codes zero a factor
        and drop its pillar; find the full solution set to demolish.
-       See /docs/companion-games/zero-explosion-plan.md.
+       See /docs/companion-games/zero-blast-plan.md.
        ══════════════════════════════════════════════════════════════ -->
   <title>歸零爆破 Zero Blast</title>
   <link rel="stylesheet" href="../shared/theme.css">
@@ -45,6 +45,15 @@
       font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
     }
     .zb-board .zb-zero { color: var(--mc-red); }
+
+    /* textbook maths: variables set in serif italic (like print),
+       digits and operators stay in the worksheet mono */
+    .zb-var {
+      font-family: Georgia, "Times New Roman", serif;
+      font-style: italic; font-weight: inherit;
+      font-size: 1.06em; line-height: 1; padding-right: 0.02em;
+    }
+    .zb-struct .zb-vari { font-family: Georgia, "Times New Roman", serif; font-style: italic; }
 
     /* ---- the demolition scene ---- */
     .zb-scenewrap { position: relative; }
@@ -559,7 +568,7 @@
     </div>
     <div class="mc-note" style="margin-top:20px">
       <strong data-i18n="takeaway_label"></strong><span>：</span><span data-i18n="takeaway_text"></span>
-      <div class="zb-takeaway-formula">(x−a)(x−b) = <span class="zb-zero">0</span> &nbsp;⟺&nbsp; x = a <span id="takeawayOr"></span> x = b</div>
+      <div class="zb-takeaway-formula">(<i class="zb-var">x</i>−<i class="zb-var">a</i>)(<i class="zb-var">x</i>−<i class="zb-var">b</i>) = <span class="zb-zero">0</span> &nbsp;⟺&nbsp; <i class="zb-var">x</i> = <i class="zb-var">a</i> <span id="takeawayOr"></span> <i class="zb-var">x</i> = <i class="zb-var">b</i></div>
     </div>
     <div style="display:grid;gap:12px;margin-top:20px">
       <button class="mc-btn mc-btn--primary mc-btn--block" id="btnRestart">
@@ -651,7 +660,7 @@ const STRINGS = {
   thanks_playing:   { c: "多謝參與！",   e: "Thanks for playing!" },
 };
 
-const SLUG = "zero-explosion";
+const SLUG = "zero-blast";
 const VB_W = 400, VB_H = 240;
 const CARD_MS = 850; // level card leads, blueprint draw-in + fuse follow
 
@@ -721,7 +730,7 @@ function pillarSvg(cx, p) {
     ${P(`M${l} 158 L${r} 176 M${r} 158 L${l} 176`, "thin")}
     ${P(`M${l} 188 L${r} 206 M${r} 188 L${l} 206`, "thin")}
     ${P(`M${cx - 31} 162 h62 v22 h-62 z`, "plaque-border")}
-    ${T(cx, 178, "plabel", p.label, `data-plaque="${p.id}"`)}
+    ${T(cx, 178, "plabel", svgMath(p.label), `data-plaque="${p.id}"`)}
   </g>
   <text x="${cx}" y="200" class="zb-rootmark" data-for="${p.id}"></text>`;
 }
@@ -836,8 +845,16 @@ function renderStructure(level) {
  * shared UI bits
  * ══════════════════════════════════════════════════════════════════ */
 
+/* set the variable in textbook italic. Only ever applied to strings
+ * from ZBLevels (never to player names, which may contain an x). */
+function mathHtml(s) {
+  return String(s).replace(/x/g, '<i class="zb-var">x</i>');
+}
+function svgMath(s) {
+  return String(s).replace(/x/g, '<tspan class="zb-vari">x</tspan>');
+}
 function exprHtml(expr) {
-  return expr.replace(/= 0$/, '= <span class="zb-zero">0</span>');
+  return mathHtml(expr).replace(/= 0$/, '= <span class="zb-zero">0</span>');
 }
 
 function starSvg() {
@@ -873,7 +890,7 @@ function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
   const signKey = padEl.querySelector(".zb-key--sign");
 
   function renderPreview() {
-    previewEl.innerHTML = "x&nbsp;=&nbsp;" + (neg ? '<span class="neg">−</span>' : "") + "▢";
+    previewEl.innerHTML = '<i class="zb-var">x</i>&nbsp;=&nbsp;' + (neg ? '<span class="neg">−</span>' : "") + "▢";
   }
   renderPreview();
 
@@ -1088,7 +1105,7 @@ function blowPillar(id, root, name) {
   const mark = document.querySelector(`.zb-rootmark[data-for="${id}"]`);
   const x = pillarX(id);
   g.classList.add("blown");
-  mark.textContent = "x = " + ZBLevels.num(root);
+  mark.innerHTML = svgMath("x = " + ZBLevels.num(root));
   mark.classList.add("show");
   if (name) {
     // multi-device: the claimer's name is inked on the rubble
@@ -1121,14 +1138,14 @@ function submitCode(v, player) {
   if (player) { hostVerdict(player, v, res); return; }
 
   if (res.already) {
-    $("markZone").innerHTML = markHtml("info", [t("note_already") + "：x = " + ZBLevels.num(v)]);
+    $("markZone").innerHTML = markHtml("info", [t("note_already") + "：" + mathHtml("x = " + ZBLevels.num(v))]);
     return;
   }
 
   if (!res.correct) {
     G.streak = 0;
     renderStars($("stars"), 0);
-    const lines = ZBLevels.workingWrong(level, v)
+    const lines = ZBLevels.workingWrong(level, v).map(mathHtml)
       .concat([fmt("note_strength", { n: ZBLevels.strength(level, v) })]);
     $("markZone").innerHTML = markHtml("wrong", lines);
     $("exprBoard").classList.add("mc-shake");
@@ -1154,7 +1171,7 @@ function submitCode(v, player) {
   if (level.kind === "expanded") {
     res.hit.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
-      document.querySelector(`[data-plaque="${id}"]`).textContent = p.hidden;
+      document.querySelector(`[data-plaque="${id}"]`).innerHTML = svgMath(p.hidden);
     });
   }
 
@@ -1165,7 +1182,7 @@ function submitCode(v, player) {
   });
   ZBFX.audio.boom(res.hit.length > 1);
 
-  const lines = ZBLevels.workingHit(level, v).concat([
+  const lines = ZBLevels.workingHit(level, v).map(mathHtml).concat([
     (res.hit.length > 1 ? t("note_both_down") + " " : "") + fmt("points_fmt", { n: pts }),
   ]);
   $("markZone").innerHTML = markHtml("correct", lines);
@@ -1232,7 +1249,7 @@ function hostVerdict(player, v, res) {
   if (level.kind === "expanded") {
     res.hit.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
-      document.querySelector(`[data-plaque="${id}"]`).textContent = p.hidden;
+      document.querySelector(`[data-plaque="${id}"]`).innerHTML = svgMath(p.hidden);
     });
   }
   res.hit.forEach(id => {
@@ -1342,8 +1359,9 @@ function fuseOut() {
   // the structure survives; reveal the full solution with working
   const level = G.level;
   const rootsLine = t("note_reveal") + "：" +
-    ZBLevels.roots(level).map(r => "x = " + ZBLevels.num(r)).join(" " + t("or") + " ");
-  const lines = (ZBLevels.factorisation(level) ? [ZBLevels.factorisation(level)] : []).concat([rootsLine]);
+    ZBLevels.roots(level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
+  const fact = ZBLevels.factorisation(level);
+  const lines = (fact ? [mathHtml(fact)] : []).concat([rootsLine]);
   $("markZone").innerHTML = markHtml("wrong", lines);
   $("sceneStamp").innerHTML =
     `<div class="mc-stamp"><svg class="draw" viewBox="0 0 24 24" style="width:22px;height:22px" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg><span>${t("stamp_standing")}</span></div>`;
@@ -1662,9 +1680,9 @@ function onCtrlRoom(room) {
       C.pad.disable();
       renderStars($("ctrlStars"), 0); // a survived structure breaks the streak
       const rootsLine = t("note_reveal") + "：" +
-        ZBLevels.roots(C.level).map(r => "x = " + ZBLevels.num(r)).join(" " + t("or") + " ");
+        ZBLevels.roots(C.level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
       const fact = ZBLevels.factorisation(C.level);
-      $("ctrlMark").innerHTML = markHtml("wrong", (fact ? [fact] : []).concat([rootsLine]));
+      $("ctrlMark").innerHTML = markHtml("wrong", (fact ? [mathHtml(fact)] : []).concat([rootsLine]));
       ctrlStatus(t("reveal_wait"));
     }
   } else if (st.phase === "lobby") {
@@ -1686,7 +1704,7 @@ function applyCtrlVerdict(v) {
   if (v.already) {
     const who = v.claimedBy ? fmt("note_claimed_by", { name: escapeText(v.claimedBy) }) : "";
     $("ctrlMark").innerHTML = markHtml("info",
-      [t("note_already") + "：x = " + ZBLevels.num(v.v) + (who ? "，" + who : "")]);
+      [t("note_already") + "：" + mathHtml("x = " + ZBLevels.num(v.v)) + (who ? "，" + who : "")]);
     return;
   }
   if (v.echo) {
@@ -1694,7 +1712,7 @@ function applyCtrlVerdict(v) {
     $("ctrlScore").textContent = v.total;
     renderStars($("ctrlStars"), v.streak);
     const who = v.claimedBy ? fmt("note_claimed_by", { name: escapeText(v.claimedBy) }) + " · " : "";
-    const lines = ZBLevels.workingHit(C.level, v.v).concat([who + fmt("points_fmt", { n: v.pts })]);
+    const lines = ZBLevels.workingHit(C.level, v.v).map(mathHtml).concat([who + fmt("points_fmt", { n: v.pts })]);
     $("ctrlMark").innerHTML = markHtml("correct", lines);
     ZBFX.audio.boom(false);
     ZBFX.vibrate(50);
@@ -1703,7 +1721,7 @@ function applyCtrlVerdict(v) {
   if (v.ok) {
     $("ctrlScore").textContent = v.total;
     renderStars($("ctrlStars"), v.streak);
-    const lines = ZBLevels.workingHit(C.level, v.v).concat([
+    const lines = ZBLevels.workingHit(C.level, v.v).map(mathHtml).concat([
       (v.hit > 1 ? t("note_both_down") + " " : "") + fmt("points_fmt", { n: v.pts }),
     ]);
     $("ctrlMark").innerHTML = markHtml("correct", lines);
@@ -1711,7 +1729,7 @@ function applyCtrlVerdict(v) {
     ZBFX.vibrate(v.hit > 1 ? [60, 40, 130] : 80);
   } else {
     renderStars($("ctrlStars"), 0);
-    const lines = ZBLevels.workingWrong(C.level, v.v)
+    const lines = ZBLevels.workingWrong(C.level, v.v).map(mathHtml)
       .concat([fmt("note_strength", { n: ZBLevels.strength(C.level, v.v) })]);
     $("ctrlMark").innerHTML = markHtml("wrong", lines);
     $("ctrlExpr").classList.add("mc-shake");

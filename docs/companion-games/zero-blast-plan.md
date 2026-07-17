@@ -1,4 +1,4 @@
-# Pilot: 歸零爆破 Zero Blast (`zero-explosion`)
+# Pilot: 歸零爆破 Zero Blast (`zero-blast`)
 
 Design + build plan for the series pilot. Successor to Steve's
 `Zero_Explosion.html` draft; keeps his core insight (zero as the
@@ -78,7 +78,7 @@ is more distinctive than generic 3D.
   profanity-trimmed by length only — tutors are in the room), then a
   numeric keypad (−9…9 quick-tap grid, no typing) with private
   feedback and personal streak/score.
-- **RTDB shape** (`game-rooms/zero-explosion/<code>/`):
+- **RTDB shape** (`game-rooms/zero-blast/<code>/`):
   - `state`: `{ phase, level, expr, pillars: {p1:{claimedBy?}, …}, deadline, scores }`
   - `players/<id>`: `{ name, joinedAt, lastSeen }`
   - `subs/<id>`: `{ value, ts }` — phone writes, host consumes,
@@ -98,7 +98,7 @@ needed at this complexity — revisit only if L6 layout demands it.
 ## 6. Files
 
 ```
-webapp/frontend/public/games/zero-explosion/
+webapp/frontend/public/games/zero-blast/
   index.html      — all screens + game logic (host, phone, solo)
   levels.js       — level generators + judging (pure functions, testable)
   fx.js           — canvas particles, shake, audio synth
