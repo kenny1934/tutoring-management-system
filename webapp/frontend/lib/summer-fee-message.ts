@@ -284,7 +284,6 @@ export function formatSummerFeeMessage(
   config: SummerCourseConfig,
   discount: DiscountResult,
   lang: SummerMessageLang,
-  couponValue?: number | null,
 ): string {
   const pricing = config.pricing_config;
   const baseFee = pricing?.base_fee ?? 0;
@@ -295,10 +294,9 @@ export function formatSummerFeeMessage(
   const partial = isPartialApp(app);
   const partialRate = pricing?.partial_per_lesson_rate ?? DEFAULT_PARTIAL_PER_LESSON_RATE;
   // A coupon attached to the published enrollment (its discount_id) stacks on
-  // top of the tier fee, mirroring the regular enrollment fee message. Callers
-  // with a fresher source (the enrollment edit page) pass it explicitly;
-  // otherwise the application response's snapshot is used.
-  const coupon = Math.max(0, Math.trunc(couponValue ?? app.coupon_discount_value ?? 0));
+  // top of the tier fee, mirroring the regular enrollment fee message. The
+  // application response snapshots it as coupon_discount_value.
+  const coupon = Math.max(0, Math.trunc(app.coupon_discount_value ?? 0));
   const finalFee = discount.finalFee - coupon;
   // Partial plans never stack with tier-locked discounts, so the tier-lock
   // warning is irrelevant — pass `null` for the discount to suppress it.
@@ -309,25 +307,33 @@ export function formatSummerFeeMessage(
     lang,
   );
 
-  if (lang === "zh") {
-    let feeLine: string;
-    if (partial) {
-      feeLine = coupon > 0
-        ? `費用： $${partialRate.toLocaleString()} × ${app.lessons_paid} − $${coupon.toLocaleString()} 學費禮劵 = $${finalFee.toLocaleString()}`
-        : `費用： $${partialRate.toLocaleString()} × ${app.lessons_paid} = $${finalFee.toLocaleString()}`;
-    } else {
-      feeLine = `費用： $${finalFee.toLocaleString()}`;
-      const parts: string[] = [];
-      if (discount.best) {
-        parts.push(`已折扣 $${discount.amount.toLocaleString()} — ${discount.best.name_zh}`);
-      }
-      if (coupon > 0) {
-        parts.push(`${discount.best ? "另折扣" : "已折扣"} $${coupon.toLocaleString()} 學費禮劵`);
-      }
-      if (parts.length > 0) {
-        feeLine += ` (${parts.join("，")}，原價為 $${baseFee.toLocaleString()})`;
-      }
+  // Fee line, built once — only the string literals differ by language.
+  const zh = lang === "zh";
+  const label = zh ? "費用： " : "Fee: ";
+  const couponName = zh ? "學費禮劵" : "tuition coupon";
+  let feeLine: string;
+  if (partial) {
+    const couponPart = coupon > 0 ? ` − $${coupon.toLocaleString()} ${couponName}` : "";
+    feeLine = `${label}$${partialRate.toLocaleString()} × ${app.lessons_paid}${couponPart} = $${finalFee.toLocaleString()}`;
+  } else {
+    feeLine = `${label}$${finalFee.toLocaleString()}`;
+    const parts: string[] = [];
+    if (discount.best) {
+      const tierName = zh ? discount.best.name_zh : discount.best.name_en;
+      parts.push(`${zh ? "已折扣" : "Discounted"} $${discount.amount.toLocaleString()} — ${tierName}`);
     }
+    if (coupon > 0) {
+      const lead = discount.best ? (zh ? "另折扣" : "plus") : (zh ? "已折扣" : "Discounted");
+      parts.push(`${lead} $${coupon.toLocaleString()} ${couponName}`);
+    }
+    if (parts.length > 0) {
+      feeLine += zh
+        ? ` (${parts.join("，")}，原價為 $${baseFee.toLocaleString()})`
+        : ` (${parts.join(", ")}, original price $${baseFee.toLocaleString()})`;
+    }
+  }
+
+  if (lang === "zh") {
     return `家長您好，以下是 MathConcept中學教室 暑期課程 之【繳費提示訊息】：
 
 ${studentIdentityBlock(app, "zh")}
@@ -345,28 +351,6 @@ ${bankBlock(branch, "zh")}
 MathConcept 中學教室 (${name})`;
   }
 
-  let feeLine: string;
-  if (partial) {
-    feeLine = coupon > 0
-      ? `Fee: $${partialRate.toLocaleString()} × ${app.lessons_paid} − $${coupon.toLocaleString()} tuition coupon = $${finalFee.toLocaleString()}`
-      : `Fee: $${partialRate.toLocaleString()} × ${app.lessons_paid} = $${finalFee.toLocaleString()}`;
-  } else {
-    feeLine = `Fee: $${finalFee.toLocaleString()}`;
-    const parts: string[] = [];
-    if (discount.best) {
-      parts.push(`Discounted $${discount.amount.toLocaleString()} — ${discount.best.name_en}`);
-    }
-    if (coupon > 0) {
-      parts.push(
-        discount.best
-          ? `plus $${coupon.toLocaleString()} tuition coupon`
-          : `Discounted $${coupon.toLocaleString()} tuition coupon`,
-      );
-    }
-    if (parts.length > 0) {
-      feeLine += ` (${parts.join(", ")}, original price $${baseFee.toLocaleString()})`;
-    }
-  }
   return `Dear Parent,
 
 This is a payment reminder for the MathConcept Secondary Academy Summer Course:

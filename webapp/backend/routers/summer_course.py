@@ -10,6 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy.engine import Row
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, contains_eager
 
@@ -1591,9 +1592,7 @@ def _build_application_response(
     linked_students: Optional[dict[int, LinkedSecondaryStudentInfo]] = None,
     linked_prospects: Optional[dict[int, LinkedPrimaryProspectInfo]] = None,
     slot_counts: Optional[dict[int, int]] = None,
-    published_enrollment_ids: Optional[dict[int, int]] = None,
-    override_codes: Optional[dict[int, str]] = None,
-    coupon_values: Optional[dict[int, int]] = None,
+    published_info: Optional[dict[int, Row]] = None,
     live_by_summer_id: Optional[dict[int, SessionLog]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
@@ -1730,22 +1729,20 @@ def _build_application_response(
             claimed_center, app.is_existing_student
         )
 
-    is_published = bool(published_enrollment_ids and app.id in published_enrollment_ids)
-    if published_enrollment_ids:
-        data["published_enrollment_id"] = published_enrollment_ids.get(app.id)
+    published = published_info.get(app.id) if published_info else None
+    if published_info:
+        data["published_enrollment_id"] = published.id if published else None
 
     # Override source of truth: once published, the enrollment owns it (and may
     # be None if it was cleared post-publish); pre-publish, the application's own
     # column wins. `data` already carries the app column from the ORM
     # comprehension, so we only override the value for published apps.
-    if is_published:
-        data["discount_override_code"] = (
-            override_codes.get(app.id) if override_codes else None
-        )
+    if published:
+        data["discount_override_code"] = published.discount_override_code
         # A coupon only exists on the published enrollment (its discount_id);
         # pre-publish apps have nowhere to carry one.
         data["coupon_discount_value"] = (
-            coupon_values.get(app.id) if coupon_values else None
+            int(published.discount_value) if published.discount_value else None
         )
 
     return SummerApplicationResponse.model_validate(data)
@@ -1769,17 +1766,16 @@ def _get_slot_session_counts(db: Session, slot_ids: list[int]) -> dict[int, int]
 
 def _get_published_enrollment_info(
     db: Session, app_ids: list[int]
-) -> tuple[dict[int, int], dict[int, str], dict[int, int]]:
-    """For published apps, return (app_id → Enrollment.id), (app_id →
-    discount_override_code) and (app_id → attached coupon value). The first map
-    drives the Publish/Unpublish button state; the second surfaces an admin tier
-    override on the application response so summer-side fee/tier displays honour
-    the pin instead of recomputing; the third surfaces a coupon attached to the
-    enrollment (``discount_id``) so the fee message subtracts it like a regular
-    enrollment. One query backs all three maps (1:1 enrollment per app, no
-    fan-out)."""
+) -> dict[int, Row]:
+    """For published apps, map app_id → enrollment row carrying ``id``,
+    ``discount_override_code`` and the attached coupon's ``discount_value``.
+    Presence in the map drives the Publish/Unpublish button state; the override
+    code surfaces an admin tier pin on the application response so summer-side
+    fee/tier displays honour it instead of recomputing; the coupon value lets
+    the fee message subtract it like a regular enrollment. One query (1:1
+    enrollment per app, no fan-out)."""
     if not app_ids:
-        return {}, {}, {}
+        return {}
     rows = (
         db.query(
             Enrollment.summer_application_id,
@@ -1791,10 +1787,7 @@ def _get_published_enrollment_info(
         .filter(Enrollment.summer_application_id.in_(app_ids))
         .all()
     )
-    published_ids = {app_id: eid for app_id, eid, _, _ in rows}
-    override_codes = {app_id: code for app_id, _, code, _ in rows if code is not None}
-    coupon_values = {app_id: int(value) for app_id, _, _, value in rows if value}
-    return published_ids, override_codes, coupon_values
+    return {row.summer_application_id: row for row in rows}
 
 
 def _build_application_responses(
@@ -1816,9 +1809,7 @@ def _build_application_responses(
         if s.session_status != "Cancelled"
     })
     slot_counts = _get_slot_session_counts(db, slot_ids)
-    published_ids, override_codes, coupon_values = _get_published_enrollment_info(
-        db, [a.id for a in apps]
-    )
+    published_info = _get_published_enrollment_info(db, [a.id for a in apps])
     # Bulk-fetch live session_log rows so published placements overlay live
     # date/status/tutor onto each row (tutor joinedload'd in the helper).
     live_by_summer_id = _live_sessions_by_summer_id(
@@ -1832,9 +1823,7 @@ def _build_application_responses(
             linked_students,
             linked_prospects,
             slot_counts=slot_counts,
-            published_enrollment_ids=published_ids,
-            override_codes=override_codes,
-            coupon_values=coupon_values,
+            published_info=published_info,
             live_by_summer_id=live_by_summer_id,
         )
         for a in apps

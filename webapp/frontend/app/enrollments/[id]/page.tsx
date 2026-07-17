@@ -174,6 +174,12 @@ export default function EnrollmentDetailPage() {
     try {
       const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, updateData);
       mutate(['enrollment', enrollment.id], { ...enrollment, ...updatedEnrollment }, false);
+      // The summer application response snapshots the enrollment's coupon
+      // (coupon_discount_value), so refresh it after a save that may have
+      // changed the discount — the fee message reads the snapshot.
+      if (enrollment.summer_application_id) {
+        mutate(['summer-app', enrollment.summer_application_id]);
+      }
       setIsEditingSchedule(false);
       setIsEditingPayment(false);
       setEditForm({});
@@ -270,6 +276,11 @@ export default function EnrollmentDetailPage() {
     try {
       const updated = await enrollmentsAPI.update(enrollment.id, { ...deadlineBlock.base, ...extra });
       mutate(['enrollment', enrollment.id], { ...enrollment, ...updated }, false);
+      // Same coupon-snapshot refresh as handleSave — this path re-sends the
+      // blocked payment edit, which may also have changed the discount.
+      if (enrollment.summer_application_id) {
+        mutate(['summer-app', enrollment.summer_application_id]);
+      }
       showToast("Enrollment updated");
       setDeadlineBlock(null);
       setConfirmPayment(false);
@@ -388,16 +399,6 @@ export default function EnrollmentDetailPage() {
       enrollment?.discount_override_code,
     );
   }, [summerApp, summerConfig, summerBuddyMembers, enrollment?.discount_override_code]);
-
-  // Live coupon value for the Summer fee message. Derived from this page's own
-  // enrollment record so a just-saved discount edit shows immediately; when the
-  // name can't be resolved yet (discount list still loading), undefined lets
-  // the formatter fall back to the app response's snapshot.
-  const summerCouponValue = useMemo(() => {
-    if (!enrollment) return undefined;
-    if (!enrollment.discount_name) return 0;
-    return discounts.find((d) => d.discount_name === enrollment.discount_name)?.discount_value;
-  }, [enrollment, discounts]);
 
   // Sync discount selection when entering edit mode
   useEffect(() => {
@@ -1342,7 +1343,6 @@ export default function EnrollmentDetailPage() {
                                 app={summerApp}
                                 config={summerConfig}
                                 discount={summerDiscount ?? undefined}
-                                couponValue={summerCouponValue}
                                 mode="fee"
                                 onClose={() => setShowFeePanel(false)}
                                 onMarkSent={() => mutate(['summer-app', summerApp.id])}

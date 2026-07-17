@@ -20,11 +20,6 @@ interface SummerMessagePanelProps {
   config: SummerCourseConfig;
   // Required for mode="fee". Schedule mode ignores it.
   discount?: DiscountResult;
-  // Flat coupon attached to the published enrollment. Callers with live
-  // enrollment data (the enrollment page) pass it so an in-session discount
-  // edit is reflected immediately; when omitted, the formatter falls back to
-  // app.coupon_discount_value from the application response.
-  couponValue?: number | null;
   mode: SummerMessageMode;
   onClose: () => void;
   // Fires with the new application_status after the backend accepts the
@@ -41,7 +36,6 @@ export function SummerMessagePanel({
   app,
   config,
   discount,
-  couponValue,
   mode,
   onClose,
   onMarkSent,
@@ -55,10 +49,10 @@ export function SummerMessagePanel({
   const generated = useMemo(() => {
     if (mode === "fee") {
       if (!discount) return "";
-      return formatSummerFeeMessage(app, config, discount, lang, couponValue);
+      return formatSummerFeeMessage(app, config, discount, lang);
     }
     return formatSummerSchedule(app, lang);
-  }, [mode, lang, app, config, discount, couponValue]);
+  }, [mode, lang, app, config, discount]);
 
   // Draft is null whenever the user hasn't overridden the generated text,
   // so lang/mode toggles and prop updates show the fresh template without

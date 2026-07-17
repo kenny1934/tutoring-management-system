@@ -228,18 +228,16 @@ def effective_final_fee(
     ``result`` is the caller's ``compute_best_discount(app, ...)`` for this app
     (passed in to avoid recomputing it).
     """
-    coupon = enrollment_coupon_value(enrollment)
-    if _is_partial(app):
-        return result.final_fee - coupon
-    code = (getattr(enrollment, "discount_override_code", None) or "").strip()
-    if not code:
-        return result.final_fee - coupon
-    if code == NONE_CODE:
-        return result.base_fee - coupon
-    entry = next((d for d in parse_discounts(config) if d.code == code), None)
-    if entry is None:
-        return result.final_fee - coupon
-    return result.base_fee - int(entry.amount) - coupon
+    fee = result.final_fee
+    if not _is_partial(app):
+        code = (getattr(enrollment, "discount_override_code", None) or "").strip()
+        if code == NONE_CODE:
+            fee = result.base_fee
+        elif code:
+            entry = next((d for d in parse_discounts(config) if d.code == code), None)
+            if entry is not None:
+                fee = result.base_fee - int(entry.amount)
+    return fee - enrollment_coupon_value(enrollment)
 
 
 def compute_payment_deadline(

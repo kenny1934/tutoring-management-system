@@ -47,7 +47,8 @@ def _verify_session_ownership(session: SessionLog, current_user: Tutor, action: 
 
 
 # Fields a PATCH may carry and still count as a lesson-number-only edit.
-_LESSON_NUMBER_ONLY_FIELDS = {"lesson_number", "clear_lesson_number", "force_lesson_duplicate"}
+_LESSON_NUMBER_FIELDS = frozenset({"lesson_number", "clear_lesson_number"})
+_LESSON_NUMBER_ONLY_FIELDS = _LESSON_NUMBER_FIELDS | {"force_lesson_duplicate"}
 
 
 def _is_lesson_number_only_update(request: SessionUpdate) -> bool:
@@ -57,7 +58,7 @@ def _is_lesson_number_only_update(request: SessionUpdate) -> bool:
     silently ride through the ownership exemption."""
     provided = request.model_fields_set
     return (
-        bool(provided & {"lesson_number", "clear_lesson_number"})
+        bool(provided & _LESSON_NUMBER_FIELDS)
         and provided <= _LESSON_NUMBER_ONLY_FIELDS
     )
 
