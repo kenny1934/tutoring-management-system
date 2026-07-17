@@ -281,6 +281,10 @@
       text-anchor: middle; fill: var(--mc-red); opacity: 0;
     }
     .zb-claimname.show { animation: zb-fadein 0.3s 0.15s ease-out forwards; }
+    .zb-echotally {
+      font-family: var(--mc-mono); font-weight: 700; font-size: 9.5px;
+      text-anchor: middle; fill: var(--mc-red); opacity: 0.8;
+    }
     .zb-playerlist { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
     .zb-playerlist span {
       font-family: var(--mc-mono); font-weight: 700; font-size: 13.5px;
@@ -348,18 +352,27 @@
     }
     .zb-stage--projector .zb-board { font-size: clamp(30px, 3.4vw, 46px); padding: 14px 16px; }
     .zb-stage--projector .zb-topline__level { font-size: 16px; }
-    .zb-stage--projector .zb-timer { font-size: 26px; }
+    .zb-stage--projector .zb-timer { font-size: 30px; }
     .zb-stage--projector .zb-score { font-size: 20px; }
     .zb-stage--projector .zb-hostboard { max-width: none; }
     .zb-stage--projector .zb-hostboard__row { font-size: 18px; padding: 8px 10px; }
     .zb-stage--projector .zb-mark { min-height: 120px; }
-    .zb-stage--projector .mc-qr { transform: scale(1.15); transform-origin: top center; }
+    /* full-hall screens: fill the leaderboard column, less empty cream */
+    @media (min-width: 1700px) {
+      .zb-stage--projector { max-width: 1400px; }
+      .zb-stage--projector .zb-hostboard__row { font-size: 22px; padding: 10px 14px; }
+      .zb-stage--projector .zb-timer { font-size: 34px; }
+    }
 
     /* compact phones: keep the keypad reachable without hunting */
     @media (max-height: 780px) {
       .zb-scene { max-height: 200px; }
       .zb-mark { min-height: 76px; }
       .zb-key { min-height: 48px; }
+    }
+    /* tall phones: let the scene grow into the dead space */
+    @media (min-height: 800px) {
+      .zb-scene { max-height: 340px; }
     }
     /* landscape phones: scene left, controls right */
     @media (orientation: landscape) and (max-height: 520px) {
@@ -706,6 +719,7 @@ const STRINGS = {
   ctrl_wait_next:   { c: "下一座建築準備中⋯", e: "Next structure on the way…" },
   claims_status:    { c: "{k}/{m} 支柱已拆", e: "{k}/{m} pillars down" },
   note_claimed_by:  { c: "已由{name}拆咗", e: "Taken by {name}" },
+  echo_tally:       { c: "回聲 ×{n}",    e: "Echo ×{n}" },
   critical_fmt:     { c: "支柱全部拆晒！{s} 秒後總爆破", e: "All pillars down! Final blast in {s}s" },
   tutor_plus15:     { c: "+15 秒",      e: "+15 s" },
   tutor_hint:       { c: "提示",        e: "Hint" },
@@ -790,15 +804,26 @@ function T(x, y, cls, content, extra) {
   return `<text x="${x}" y="${y}" class="din2 ${cls || ""}" style="--i:${drawIdx++}" ${extra || ""}>${content}</text>`;
 }
 
+/* kind 6's unknown factor: a hand-drawn ?, deliberate rather than an
+ * empty plaque. Removed by revealPlaque when the factor shows. */
+function qmarkSvg(cx, id) {
+  return `<g class="zb-qmark" data-qmark="${id}" transform="rotate(-5 ${cx} 172)">
+    ${P(`M${cx - 4.5} 168.5 Q${cx - 4.5} 163.5 ${cx} 163.5 Q${cx + 5} 163.5 ${cx + 5} 168 Q${cx + 5} 171.5 ${cx + 1} 172.5 L${cx + 0.6} 175.5`)}
+    ${P(`M${cx + 0.5} 179.5 l0.2 0.2`)}
+  </g>`;
+}
+
 function pillarSvg(cx, p) {
   const l = cx - 11, r = cx + 11;
+  const isQ = p.label === "?";
   return `<g class="zb-pillar" data-id="${p.id}">
     ${P(`M${l} ${DECK_Y} V${GROUND}`)}
     ${P(`M${r} ${DECK_Y} V${GROUND}`)}
     ${P(`M${l} 158 L${r} 176 M${r} 158 L${l} 176`, "thin")}
     ${P(`M${l} 188 L${r} 206 M${r} 188 L${l} 206`, "thin")}
     ${P(`M${cx - 31} 162 h62 v22 h-62 z`, "plaque-border")}
-    ${T(cx, 178, "plabel", svgMath(p.label), `data-plaque="${p.id}"`)}
+    ${isQ ? qmarkSvg(cx, p.id) : ""}
+    ${T(cx, 178, "plabel", isQ ? "" : svgMath(p.label), `data-plaque="${p.id}"`)}
   </g>
   <text x="${cx}" y="200" class="zb-rootmark" data-for="${p.id}"></text>`;
 }
@@ -896,15 +921,28 @@ function sceneStatics(level, xs) {
     + `<circle id="fuseSpark" r="3.2" fill="var(--mc-red)"/>`;
 }
 
+/* round 2+ variety: mirror the silhouette (never kind 1, its deck
+ * carries text) and jitter width/height a few percent, deterministic
+ * per building so host and screenshots agree */
+function variantTransform(level) {
+  if (level.round <= 1) return "";
+  const h = (level.seq * 2654435761) >>> 0;
+  const jx = 1 + ((h % 1000) / 1000 - 0.5) * 0.16;          // ±8% width
+  const jy = 1 + (((h >> 10) % 1000) / 1000 - 0.5) * 0.12;  // ±6% height
+  const mirror = level.n !== 1 && level.seq % 2 === 0 ? -1 : 1;
+  return `translate(200 ${DECK_Y}) scale(${(mirror * jx).toFixed(3)} ${jy.toFixed(3)}) translate(-200 -${DECK_Y})`;
+}
+
 function renderStructure(level) {
   drawIdx = 0;
   const xs = level.pillars.length === 1 ? [200] : (level.n === 5 ? [170, 230] : [140, 260]);
   const svg = $("structSvg");
+  const vt = variantTransform(level);
   svg.classList.add("wait"); // draw-in holds until the level card clears
   svg.innerHTML =
     sceneStatics(level, xs)
     + rubbleSvg(xs)
-    + `<g class="zb-deck" id="deck">${chunkDeck(deckParts(level, xs))}</g>`
+    + `<g class="zb-deck" id="deck"><g${vt ? ` transform="${vt}"` : ""}>${chunkDeck(deckParts(level, xs))}</g></g>`
     + level.pillars.map((p, i) => pillarSvg(xs[i], p)).join("");
   return xs;
 }
@@ -1087,7 +1125,7 @@ const G = {
   // host mode: room + per-player books (host is authoritative)
   room: null, watcher: null, started: false, grace: false, revealHold: false,
   players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {},
-  echoDone: {}, scoredRound: {},
+  echoDone: {}, scoredRound: {}, echoTally: {},
 };
 
 const pad = makePad($("pad"), $("padPreview"), $("padLock"), $("lockCount"), v => submitCode(v, null));
@@ -1123,7 +1161,7 @@ $("btnMenu").onclick = () => {
     G.room.close();
     G.room = null; G.started = false; G.players = {}; G.processedSeq = {};
   }
-  document.querySelector(".mc-stage").classList.remove("zb-stage--projector");
+  applyProjector();
   show("introScreen");
 };
 
@@ -1163,6 +1201,7 @@ function startLevel(resume) {
   G.revealHold = false;
   G.echoDone = resume ? (resume.echoDone || {}) : {};
   G.scoredRound = resume ? (resume.scoredRound || {}) : {};
+  G.echoTally = resume ? (resume.echoTally || {}) : {};
   G.hinted = resume ? !!resume.hinted : false;
   $("scene").classList.remove("critical");
   setSkipLabel("tutor_skip");
@@ -1274,6 +1313,8 @@ function pillarX(id) {
 
 /* L6 plaques: ghost-pencil hint first, full ink on the claim */
 function revealPlaque(id, p, ghost) {
+  const q = document.querySelector(`[data-qmark="${id}"]`);
+  if (q) q.remove();
   const el = document.querySelector(`[data-plaque="${id}"]`);
   el.classList.toggle("zb-hintghost", !!ghost);
   el.innerHTML = svgMath(p.hidden);
@@ -1296,6 +1337,25 @@ function showHint() {
 /* per-level payout scale: the finale street doubles, a hint halves */
 function levelFactor(level) {
   return (level.finale ? 2 : 1) * (G.hinted ? 0.5 : 1);
+}
+
+/* 回聲 ×N inked under the claimer's name: inclusion made visible */
+function renderEchoTally(root) {
+  G.echoTally[root] = (G.echoTally[root] || 0) + 1;
+  G.level.pillars.filter(p => p.root === root).forEach(p => {
+    let el = document.querySelector(`.zb-echotally[data-for="${p.id}"]`);
+    if (!el) {
+      const mark = document.querySelector(`.zb-rootmark[data-for="${p.id}"]`);
+      if (!mark) return;
+      el = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      el.setAttribute("x", mark.getAttribute("x"));
+      el.setAttribute("y", 236);
+      el.setAttribute("class", "zb-echotally");
+      el.setAttribute("data-for", p.id);
+      mark.parentNode.appendChild(el);
+    }
+    el.textContent = fmt("echo_tally", { n: G.echoTally[root] });
+  });
 }
 
 function blowPillar(id, root, name) {
@@ -1425,6 +1485,7 @@ function hostVerdict(player, v, res) {
       claimedBy: owner ? owner.name : "",
       streak: G.streaks[player.id], total: G.scores[player.id], level: level.n,
     });
+    renderEchoTally(v);
     renderHostBoard();
     saveHostRun();
     return;
@@ -1535,6 +1596,7 @@ function saveHostRun() {
       scores: G.scores, streaks: G.streaks, starsBy: G.starsBy,
       claimsBy: G.claimsBy, claimed: G.claimed, echoDone: G.echoDone,
       scoredRound: G.scoredRound, processedSeq: G.processedSeq, hinted: G.hinted,
+      echoTally: G.echoTally,
       players: G.players, levelPoints: G.levelPoints,
       deadlineEpoch: Date.now() + Math.max(0, Math.round(G.deadline - performance.now())),
     }));
@@ -1561,7 +1623,6 @@ function pendingHostRun() {
 
 async function resumeRun(saved) {
   ZBFX.audio.unlock();
-  if (innerWidth >= 1100) document.querySelector(".mc-stage").classList.add("zb-stage--projector");
   try {
     G.room = await GameBridge.host({ slug: SLUG, code: saved.code });
   } catch (err) {
@@ -1738,10 +1799,15 @@ function endGame() {
  * multi-device: host side
  * ══════════════════════════════════════════════════════════════════ */
 
+/* wide viewport = projector: bigger stage on every screen, intro too */
+function applyProjector() {
+  document.querySelector(".mc-stage").classList.toggle("zb-stage--projector", innerWidth >= 1100);
+}
+applyProjector();
+addEventListener("resize", applyProjector);
+
 $("btnHost").onclick = async () => {
   ZBFX.audio.unlock();
-  // wide viewport = projector: bigger stage, scene at ~60vh
-  if (innerWidth >= 1100) document.querySelector(".mc-stage").classList.add("zb-stage--projector");
   show("lobbyScreen");
   try {
     G.room = await GameBridge.host({ slug: SLUG, initialState: { phase: "lobby" } });
@@ -1751,7 +1817,7 @@ $("btnHost").onclick = async () => {
     return;
   }
   $("roomCode").textContent = G.room.code;
-  GameBridge.qr($("qrBox"), G.room.joinUrl, 190);
+  GameBridge.qr($("qrBox"), G.room.joinUrl, innerWidth >= 1100 ? 300 : 190);
   G.watcher = G.room.watch(onHostRoom);
 };
 
