@@ -321,6 +321,7 @@ class TestHostingSlotResolution:
         assert row["summer_slot_id"] == hosting_slot.id
         assert row["summer_class_grade"] == "F2"
         assert row["summer_course_type"] == "A"
+        assert row["summer_stray"] is False
 
     def test_origin_without_linkage_resolves_via_its_cell(
         self, client, db_session, tutor, enrollment, config
@@ -346,12 +347,14 @@ class TestHostingSlotResolution:
         assert row["summer_slot_id"] == slot.id
         assert row["summer_class_grade"] == "F3"
         assert row["summer_course_type"] == "B"
+        assert row["summer_stray"] is False
 
     def test_no_hosting_lesson_falls_back_to_home_slot(
         self, client, db_session, tutor, enrollment, config, application
     ):
         """A make-up at a time with no summer class keeps the home class
-        identity (the honest answer for a standalone make-up)."""
+        identity (the honest answer for a standalone make-up), but is
+        marked stray so clients don't render it as a class in that cell."""
         home_slot = _make_slot(db_session, config, tutor,
                                grade="F3", course_type="B")
         ss = _make_summer_session(db_session, application, home_slot,
@@ -366,6 +369,39 @@ class TestHostingSlotResolution:
         row = rows[0]
         assert row["summer_slot_id"] == home_slot.id
         assert row["summer_class_grade"] == "F3"
+        assert row["summer_stray"] is True
+
+    def test_reassigned_tutor_row_is_stray(
+        self, client, db_session, tutor, enrollment, config, application
+    ):
+        """A row whose tutor was changed away from its class's tutor (the
+        class still runs in the same cell under the original tutor) keeps
+        the home class fields but is marked stray — its cell hosts no
+        class of the row's tutor."""
+        other_tutor = Tutor(
+            user_email="tutor2@test.com",
+            tutor_name="Other Tutor",
+            role="Tutor",
+            default_location="MSA",
+            is_active_tutor=True,
+        )
+        db_session.add(other_tutor)
+        db_session.commit()
+
+        home_slot = _make_slot(db_session, config, tutor,
+                               grade=None, course_type=None)
+        # Materialised lesson in the same cell, but under the home tutor.
+        ss = _make_summer_session(db_session, application, home_slot,
+                                  lesson_number=5, lesson_date=date(2026, 7, 7))
+
+        _make_session_log(db_session, enrollment, other_tutor,
+                          summer_session_id=ss.id,
+                          session_date=date(2026, 7, 7))
+
+        rows = _get_sessions(client, tutor)
+        row = rows[0]
+        assert row["summer_slot_id"] == home_slot.id
+        assert row["summer_stray"] is True
 
     def test_regular_enrollment_in_same_cell_gets_no_summer_identity(
         self, client, db_session, tutor, config, student
@@ -404,6 +440,7 @@ class TestHostingSlotResolution:
         row = rows[0]
         assert row["summer_slot_id"] is None
         assert row["summer_class_grade"] is None
+        assert row["summer_stray"] is None
 
 
 # ---------------------------------------------------------------------------
