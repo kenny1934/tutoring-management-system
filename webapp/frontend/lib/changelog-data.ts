@@ -15,6 +15,9 @@ const changelogData = [
           },
           {
             "description": "**Summer sessions with the same tutor and time group under one divider**: on the session pages, a summer make-up and another summer session taught by the same tutor at the same time could appear under two separate class divider lines. One of the dividers could also show the name of a class from a different day or time. Such sessions now sit together under a single Summer class divider. A summer session that was moved to a different tutor also stays in that tutor's group instead of appearing under the class's original tutor."
+          },
+          {
+            "description": "**Tutors can change lesson numbers on other tutors' sessions**: changing or clearing the lesson number of a session that belongs to another tutor now saves instead of failing with a message that only your own sessions can be modified. This lets tutors set the correct lesson number when helping to arrange make-up classes for another tutor's students. Other session details still require the owning tutor or an admin."
           }
         ]
       }
