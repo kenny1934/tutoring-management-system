@@ -7,6 +7,7 @@
 
 * **Summer fee messages include discount coupons**: when a discount coupon is attached to a summer enrolment, the fee message now deducts it from the total in the same way as a regular enrolment. The fee shown in the application details and on the overdue payments page matches the message, and revenue figures account for the coupon as well.
 * **Mark Sent and Confirm Payment on summer enrolment pages**: the enrolment page of a published summer enrolment now shows the Mark Sent and Confirm Payment buttons under the fee message. These quick actions were previously missing for summer enrolments and payment could only be recorded through the edit form.
+* **Summer sessions with the same tutor and time group under one divider**: on the session pages, a summer make-up and another summer session taught by the same tutor at the same time could appear under two separate class divider lines. One of the dividers could also show the name of a class from a different day or time. Such sessions now sit together under a single Summer class divider. A summer session that was moved to a different tutor also stays in that tutor's group instead of appearing under the class's original tutor.
 
 ## [2.0.94](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.93...v2.0.94) (2026-07-15)
 

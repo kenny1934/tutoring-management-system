@@ -12,6 +12,9 @@ const changelogData = [
           },
           {
             "description": "**Mark Sent and Confirm Payment on summer enrolment pages**: the enrolment page of a published summer enrolment now shows the Mark Sent and Confirm Payment buttons under the fee message. These quick actions were previously missing for summer enrolments and payment could only be recorded through the edit form."
+          },
+          {
+            "description": "**Summer sessions with the same tutor and time group under one divider**: on the session pages, a summer make-up and another summer session taught by the same tutor at the same time could appear under two separate class divider lines. One of the dividers could also show the name of a class from a different day or time. Such sessions now sit together under a single Summer class divider. A summer session that was moved to a different tutor also stays in that tutor's group instead of appearing under the class's original tutor."
           }
         ]
       }
