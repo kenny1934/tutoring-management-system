@@ -1152,6 +1152,96 @@ class TestNonOwnerTutorActions:
         assert "Pending Make-up" in resp.json()["session_status"]
 
 
+class TestNonOwnerLessonNumberEdit:
+    """
+    Lesson-number-only PATCHes are exempt from the ownership check so any
+    tutor can fix lesson numbers while helping schedule make-up classes.
+    Every other field on the general PATCH stays owner-or-admin-only.
+    """
+
+    def test_non_owner_can_set_lesson_number(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 4},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.lesson_number == 4
+
+    def test_non_owner_can_clear_lesson_number(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session)
+        session.lesson_number = 4
+        db_session.commit()
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"clear_lesson_number": True},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.lesson_number is None
+
+    def test_non_owner_can_force_past_duplicate_guard(self, client, db_session):
+        """The confirm-retry flow sends force_lesson_duplicate alongside
+        lesson_number; the flag must not void the exemption, and the 409
+        guard itself must still fire for non-owners first."""
+        session, token = _seed_session_with_actor(db_session)
+        # Make the seeded session summer-linked and give the student a
+        # sibling summer session already holding lesson 1.
+        session.summer_session_id = 1
+        session.lesson_number = 2
+        sibling = SessionLog(
+            enrollment_id=session.enrollment_id, student_id=session.student_id,
+            tutor_id=session.tutor_id, session_date=session.session_date + timedelta(days=7),
+            time_slot="15:00-16:00", location="Main Center",
+            session_status="Scheduled", summer_session_id=2, lesson_number=1,
+        )
+        db_session.add(sibling)
+        db_session.commit()
+
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 1},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["error"] == "DUPLICATE_LESSON_NUMBER"
+
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 1, "force_lesson_duplicate": True},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.lesson_number == 1
+
+    def test_non_owner_still_blocked_on_other_fields(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"notes": "not my session"},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+
+    def test_non_owner_blocked_when_lesson_number_mixed_with_other_fields(self, client, db_session):
+        """Bundling another field with lesson_number must not slip past the
+        ownership check."""
+        session, token = _seed_session_with_actor(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 4, "session_status": "Attended"},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+        db_session.refresh(session)
+        assert session.lesson_number is None
+        assert session.session_status == "Scheduled"
+
+
 # ============================================================================
 # Read-Only Role Restriction Tests (Integration)
 # ============================================================================

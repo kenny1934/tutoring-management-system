@@ -46,6 +46,22 @@ def _verify_session_ownership(session: SessionLog, current_user: Tutor, action: 
         raise HTTPException(status_code=403, detail=f"You can only {action} your own sessions")
 
 
+# Fields a PATCH may carry and still count as a lesson-number-only edit.
+_LESSON_NUMBER_ONLY_FIELDS = {"lesson_number", "clear_lesson_number", "force_lesson_duplicate"}
+
+
+def _is_lesson_number_only_update(request: SessionUpdate) -> bool:
+    """True when the PATCH touches nothing beyond lesson_number (set or
+    clear, optionally with the duplicate-override flag). Keyed off
+    model_fields_set so a field added to SessionUpdate later can never
+    silently ride through the ownership exemption."""
+    provided = request.model_fields_set
+    return (
+        bool(provided & {"lesson_number", "clear_lesson_number"})
+        and provided <= _LESSON_NUMBER_ONLY_FIELDS
+    )
+
+
 @router.get("/sessions", response_model=List[SessionResponse])
 async def get_sessions(
     student_id: Optional[int] = Query(None, description="Filter by student ID"),
@@ -1858,7 +1874,10 @@ async def update_session(
 
     Updates any provided fields (non-None values).
     Tracks previous status if session_status changes.
-    Requires authentication. Tutors can only modify their own sessions.
+    Requires authentication. Tutors can only modify their own sessions,
+    except lesson-number-only edits, which any tutor may make (they fix
+    lesson numbers on colleagues' sessions when helping schedule make-up
+    classes — same openness as reschedule/schedule-makeup).
 
     - **session_id**: The session's database ID
     - **session_date**: New session date
@@ -1877,8 +1896,10 @@ async def update_session(
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
-    # Check ownership
-    _verify_session_ownership(session, current_user)
+    # Check ownership. Lesson-number-only edits are exempt so any tutor can
+    # fix lesson numbers while arranging make-ups for colleagues' students.
+    if not _is_lesson_number_only_update(request):
+        _verify_session_ownership(session, current_user)
 
     # Update fields that are provided (not None)
     if request.session_date is not None:
