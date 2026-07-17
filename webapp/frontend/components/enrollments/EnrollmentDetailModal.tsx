@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, Loader2, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getIsNewStudentParam } from "@/lib/enrollment-utils";
+import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
 import Link from "next/link";
 import useSWR from "swr";
@@ -138,7 +139,13 @@ export function EnrollmentDetailModal({
     if (!enrollmentId || !detail) return;
     haptic.trigger("light");
     try {
-      const { message } = await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid, getIsNewStudentParam(detail));
+      // Published Summer enrollments price via the summer config, so the
+      // generic fee-message endpoint rejects them; build the summer message
+      // from the application context instead.
+      const message =
+        detail.enrollment_type === 'Summer' && detail.summer_application_id
+          ? await fetchSummerFeeMessage(detail.summer_application_id)
+          : (await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid, getIsNewStudentParam(detail))).message;
       await navigator.clipboard.writeText(message);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

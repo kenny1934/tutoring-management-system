@@ -15,8 +15,10 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatError } from "@/lib/utils";
 import { getIsNewStudentParam } from "@/lib/enrollment-utils";
+import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
+import { useToast } from "@/contexts/ToastContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
@@ -137,6 +139,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   // Copy fee message states
   const [isCopying, setIsCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const { showToast } = useToast();
 
   // Filter tutors by selected location
   const filteredTutors = useMemo(() => {
@@ -290,12 +293,19 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
     setIsCopying(true);
     setCopySuccess(false);
     try {
-      const response = await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid, getIsNewStudentParam(enrollment));
-      await navigator.clipboard.writeText(response.message);
+      // Published Summer enrollments price via the summer config, so the
+      // generic fee-message endpoint rejects them; build the summer message
+      // from the application context instead.
+      const message =
+        enrollment.enrollment_type === 'Summer' && enrollment.summer_application_id
+          ? await fetchSummerFeeMessage(enrollment.summer_application_id)
+          : (await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid, getIsNewStudentParam(enrollment))).message;
+      await navigator.clipboard.writeText(message);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (error) {
       console.error('Failed to copy fee message:', error);
+      showToast(formatError(error, 'Failed to copy fee message'), 'error');
     } finally {
       setIsCopying(false);
     }

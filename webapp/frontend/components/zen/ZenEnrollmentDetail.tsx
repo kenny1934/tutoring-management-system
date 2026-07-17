@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import type { Enrollment, EnrollmentDetailResponse } from "@/types";
 import { enrollmentsAPI } from "@/lib/api";
+import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { useZenKeyboardFocus, type ZenFocusSection } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "./ZenStatusBar";
 import { ZenSpinner } from "./ZenSpinner";
@@ -126,10 +127,16 @@ export function ZenEnrollmentDetail({
     if (!detail) return;
     setActionInProgress(true);
     try {
-      const result = await enrollmentsAPI.getFeeMessage(
-        enrollmentId, "zh", detail.lessons_paid, detail.is_new_student
-      );
-      await navigator.clipboard.writeText(result.message);
+      // Published Summer enrollments price via the summer config, so the
+      // generic fee-message endpoint rejects them; build the summer message
+      // from the application context instead.
+      const message =
+        detail.enrollment_type === "Summer" && detail.summer_application_id
+          ? await fetchSummerFeeMessage(detail.summer_application_id)
+          : (await enrollmentsAPI.getFeeMessage(
+              enrollmentId, "zh", detail.lessons_paid, detail.is_new_student
+            )).message;
+      await navigator.clipboard.writeText(message);
       setZenStatus("Fee message copied to clipboard", "success");
       setStatusMessage("Fee message copied");
     } catch {
