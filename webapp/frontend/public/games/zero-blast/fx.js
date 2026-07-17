@@ -418,6 +418,9 @@
     debris: debris,
     dust: dust,
     sparksAt: sparksAt,
+    sparking: function () {
+      return !!sparkEmitter;
+    },
     shake: shake,
     audio: audio,
     vibrate: vibrate,

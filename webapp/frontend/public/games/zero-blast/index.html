@@ -194,6 +194,12 @@
       font-weight: 700; font-size: 16px; color: var(--mc-red);
       background: color-mix(in srgb, var(--mc-paper) 85%, transparent); padding: 0 12px; border-radius: 6px;
     }
+    /* finale street: the teacher's pen stamps the stakes on the card */
+    .zb-levelcard__finale {
+      font-family: var(--mc-mono); font-weight: 800; font-size: 13.5px; letter-spacing: 0.06em;
+      color: var(--mc-paper); background: var(--mc-red);
+      padding: 3px 12px; border-radius: 5px; transform: rotate(-2deg); margin-top: 4px;
+    }
     @keyframes zb-card {
       0% { opacity: 0; transform: scale(1.12); }
       14% { opacity: 1; transform: scale(1); }
@@ -290,6 +296,17 @@
     .zb-hostboard__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .zb-hostboard__pts { color: var(--mc-gold); }
     .zb-hostboard__row.me .zb-hostboard__name { color: var(--mc-red); }
+
+    /* streak multiplier chip: the ×1.x everyone is actually earning */
+    .zb-mult {
+      display: inline-block; font-family: var(--mc-mono); font-weight: 800;
+      font-size: 12.5px; line-height: 1.5; color: var(--mc-gold);
+      border: 1.5px solid currentColor; border-radius: 4px; padding: 0 6px;
+      margin-left: 8px; vertical-align: middle;
+    }
+    .zb-mult.pop { animation: zb-multpop 0.45s cubic-bezier(0.2, 1.5, 0.35, 1); }
+    @keyframes zb-multpop { from { transform: scale(1.6); } to { transform: scale(1); } }
+    .zb-hostboard__row .zb-mult { font-size: 11px; margin-left: 0; }
 
     /* dark chalkboard: the burning fuse blooms */
     [data-theme="dark"] .zb-struct #fuseGlow,
@@ -496,6 +513,7 @@
             <div class="zb-levelcard" id="levelCard" aria-hidden="true">
               <div class="zb-levelcard__n" id="levelCardN"></div>
               <div class="zb-levelcard__sub" id="levelCardSub"></div>
+              <div class="zb-levelcard__finale" id="levelCardFin" style="display:none"></div>
             </div>
           </div>
         </div>
@@ -635,6 +653,7 @@ const STRINGS = {
   lv5:              { c: "重根：一碼雙柱", e: "Double root: one code, both pillars" },
   lv6:              { c: "先因式分解",  e: "Factorise first" },
   lv_mix:           { c: "混合街",      e: "Mixed street" },
+  finale_tag:       { c: "最後一條街 · 分數雙倍", e: "Final street · double points" },
   b1:               { c: "水塔",        e: "Water tower" },
   b2:               { c: "小屋",        e: "Shed" },
   b3:               { c: "廠房",        e: "Factory" },
@@ -890,6 +909,24 @@ function renderStars(el, n) {
                         : starSvg() + `<span class="mc-stars__count">×${n}</span>`;
 }
 
+/* the ×1.x chip: same formula as ZBLevels.points' streak multiplier */
+function multHtml(streak) {
+  if (!streak) return "";
+  return `<span class="zb-mult">×${(1 + 0.1 * Math.min(streak, 10)).toFixed(1)}</span>`;
+}
+/* stars + multiplier chip for live streak displays (not end totals);
+ * the chip pops whenever the streak grows */
+function renderStreak(el, n) {
+  const prev = parseInt(el.dataset.streak || "0", 10);
+  renderStars(el, n);
+  el.insertAdjacentHTML("beforeend", multHtml(n));
+  el.dataset.streak = n;
+  if (n > prev) {
+    const m = el.querySelector(".zb-mult");
+    if (m) m.classList.add("pop");
+  }
+}
+
 function markHtml(kind, lines) {
   // kind: correct | wrong | info
   const stampKey = kind === "correct" ? "stamp_correct" : "stamp_wrong";
@@ -1040,6 +1077,8 @@ function refreshDynamicText() {
     $("levelChip").innerHTML = levelChipHtml(G.level);
     $("levelCardN").textContent = fmt("level_chip", { n: G.level.stage });
     $("levelCardSub").textContent = t("target_label") + "：" + t("b" + G.level.n) + " · " + t("lv" + G.level.n);
+    $("levelCardFin").textContent = G.level.finale ? t("finale_tag") : "";
+    $("levelCardFin").style.display = G.level.finale ? "" : "none";
   }
   $("takeawayOr").textContent = t("or");
   $("btnPlus15").title = fmt("tutor_key_title", { k: "t" });
@@ -1065,7 +1104,7 @@ function startLevel() {
   $("markZone").innerHTML = "";
   $("sceneStamp").classList.remove("show");
   $("sceneStamp").innerHTML = "";
-  renderStars($("stars"), G.streak);
+  renderStreak($("stars"), G.streak);
   renderStructure(level);
   pad.enable();
 
@@ -1109,16 +1148,20 @@ function fuseFrame() {
   $("fuseTimerText").textContent = (Math.min(remain, G.duration) / 1000).toFixed(1);
   ZBFX.audio.fuseUrgency(burned);
 
-  // consume the fuse line and ride the spark along it
+  // consume the fuse line and ride the spark along it; the emitter
+  // holds until the fuse actually ignites (after the level card)
+  const ignited = remain <= G.duration;
   const pt = G.fusePathEl.getPointAtLength(G.fuseLen * burned);
   G.fusePathEl.setAttribute("stroke-dasharray", `0 ${G.fuseLen * burned} ${G.fuseLen}`);
   $("fuseSpark").setAttribute("cx", pt.x); $("fuseSpark").setAttribute("cy", pt.y);
   $("fuseGlow").setAttribute("cx", pt.x); $("fuseGlow").setAttribute("cy", pt.y);
-  ZBFX.sparksAt(pt.x, pt.y);
+  ZBFX.sparksAt(ignited ? pt.x : null, pt.y);
 
-  if (remain <= 5200) {
+  // finale street: the countdown starts earlier and ticks twice as fast
+  const warnAt = G.level.finale ? 10200 : 5200;
+  if (remain <= warnAt) {
     $("fuseTimer").classList.add("warn");
-    const sec = Math.ceil(remain / 1000);
+    const sec = Math.ceil(remain / (G.level.finale ? 500 : 1000));
     if (sec !== G.lastTickSec) { G.lastTickSec = sec; ZBFX.audio.tick(); }
   }
   if (remain <= 0) { G.grace ? collapseAndAdvance() : fuseOut(); return; }
@@ -1174,7 +1217,7 @@ function submitCode(v, player) {
 
   if (!res.correct) {
     G.streak = 0;
-    renderStars($("stars"), 0);
+    renderStreak($("stars"), 0);
     const lines = ZBLevels.workingWrong(level, v).map(mathHtml)
       .concat([fmt("note_strength", { n: ZBLevels.strength(level, v) })]);
     $("markZone").innerHTML = markHtml("wrong", lines);
@@ -1189,13 +1232,13 @@ function submitCode(v, player) {
   // correct: claim + detonate every matching pillar (both, for L5).
   // Streak multiplier uses the streak BEFORE this answer.
   const remainFrac = (G.deadline - performance.now()) / G.duration;
-  const pts = ZBLevels.points(remainFrac, res.hit.length, G.streak);
+  const pts = ZBLevels.points(remainFrac, res.hit.length, G.streak) * (level.finale ? 2 : 1);
   G.levelPoints += pts;
   G.score += pts;
   G.streak += 1;
   G.starsTotal += 1;
   $("scoreBox").textContent = G.score;
-  renderStars($("stars"), G.streak);
+  renderStreak($("stars"), G.streak);
 
   // L6: reveal the hidden factor on the plaque just before it blows
   if (level.kind === "expanded") {
@@ -1246,7 +1289,7 @@ function hostVerdict(player, v, res) {
     G.echoDone[echoKey] = true;
     const matching = level.pillars.filter(p => p.root === v).length;
     const echoFrac = (G.deadline - performance.now()) / G.duration;
-    const echoPts = ZBLevels.points(echoFrac, matching, G.streaks[player.id] || 0, 0.4);
+    const echoPts = ZBLevels.points(echoFrac, matching, G.streaks[player.id] || 0, 0.4) * (level.finale ? 2 : 1);
     G.scores[player.id] = (G.scores[player.id] || 0) + echoPts;
     G.streaks[player.id] = (G.streaks[player.id] || 0) + 1;
     G.starsBy[player.id] = (G.starsBy[player.id] || 0) + 1;
@@ -1270,7 +1313,7 @@ function hostVerdict(player, v, res) {
   }
 
   const remainFrac = (G.deadline - performance.now()) / G.duration;
-  const pts = ZBLevels.points(remainFrac, res.hit.length, G.streaks[player.id] || 0);
+  const pts = ZBLevels.points(remainFrac, res.hit.length, G.streaks[player.id] || 0) * (level.finale ? 2 : 1);
   G.levelPoints += pts; // the 拆 stamp caption shows the level's total bounty
   G.scores[player.id] = (G.scores[player.id] || 0) + pts;
   G.streaks[player.id] = (G.streaks[player.id] || 0) + 1;
@@ -1329,6 +1372,7 @@ function renderHostBoard() {
     <div class="zb-hostboard__row">
       <span class="zb-hostboard__rank">${i + 1}</span>
       <span class="zb-hostboard__name">${escapeText(r.name)}</span>
+      ${multHtml(G.streaks[r.id] || 0)}
       <span class="zb-hostboard__pts">${r.pts}</span>
     </div>`).join("");
 }
@@ -1379,7 +1423,7 @@ function fuseOut() {
   pad.disable();
   $("fuseTimerText").textContent = "0.0";
   G.streak = 0;
-  renderStars($("stars"), 0);
+  renderStreak($("stars"), 0);
   G.records.push({ n: G.level.n, stage: G.level.stage, round: G.level.round, cleared: false, ms: G.duration, pts: G.levelPoints });
   if (G.mode === "host") {
     G.streaks = {}; // a survived structure breaks everyone's streak
@@ -1699,7 +1743,7 @@ function onCtrlRoom(room) {
     if (myVerdict && typeof myVerdict.seq === "number") {
       C.lastVerdictSeq = myVerdict.seq;
       if (typeof myVerdict.total === "number") $("ctrlScore").textContent = myVerdict.total;
-      if (typeof myVerdict.streak === "number") renderStars($("ctrlStars"), myVerdict.streak);
+      if (typeof myVerdict.streak === "number") renderStreak($("ctrlStars"), myVerdict.streak);
     }
   }
 
@@ -1738,7 +1782,7 @@ function onCtrlRoom(room) {
   } else if (st.phase === "reveal" && C.level) {
     if (phaseChanged) {
       C.pad.disable();
-      renderStars($("ctrlStars"), 0); // a survived structure breaks the streak
+      renderStreak($("ctrlStars"), 0); // a survived structure breaks the streak
       const rootsLine = t("note_reveal") + "：" +
         ZBLevels.roots(C.level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
       const fact = ZBLevels.factorisation(C.level);
@@ -1770,7 +1814,7 @@ function applyCtrlVerdict(v) {
   if (v.echo) {
     // correct after the claim: full marks feedback, echo points
     $("ctrlScore").textContent = v.total;
-    renderStars($("ctrlStars"), v.streak);
+    renderStreak($("ctrlStars"), v.streak);
     const who = v.claimedBy ? fmt("note_claimed_by", { name: escapeText(v.claimedBy) }) + " · " : "";
     const lines = ZBLevels.workingHit(C.level, v.v).map(mathHtml).concat([who + fmt("points_fmt", { n: v.pts })]);
     $("ctrlMark").innerHTML = markHtml("correct", lines);
@@ -1780,7 +1824,7 @@ function applyCtrlVerdict(v) {
   }
   if (v.ok) {
     $("ctrlScore").textContent = v.total;
-    renderStars($("ctrlStars"), v.streak);
+    renderStreak($("ctrlStars"), v.streak);
     const lines = ZBLevels.workingHit(C.level, v.v).map(mathHtml).concat([
       (v.hit > 1 ? t("note_both_down") + " " : "") + fmt("points_fmt", { n: v.pts }),
     ]);
@@ -1788,7 +1832,7 @@ function applyCtrlVerdict(v) {
     ZBFX.audio.boom(v.hit > 1);
     ZBFX.vibrate(v.hit > 1 ? [60, 40, 130] : 80);
   } else {
-    renderStars($("ctrlStars"), 0);
+    renderStreak($("ctrlStars"), 0);
     const lines = ZBLevels.workingWrong(C.level, v.v).map(mathHtml)
       .concat([fmt("note_strength", { n: ZBLevels.strength(C.level, v.v) })]);
     $("ctrlMark").innerHTML = markHtml("wrong", lines);

@@ -230,7 +230,8 @@
   }
 
   /* roll every building of a plan; round 2+ (and every mixed-street
-   * building) uses the hard generator */
+   * building) uses the hard generator. The last stage is the finale
+   * street: the UI dresses it up and doubles every payout there. */
   function genPlan(plan, rand) {
     var total = 0;
     plan.forEach(function (s) { total += s.rounds; });
@@ -251,6 +252,7 @@
         lv.seq = seq;
         lv.total = total;
         lv.hard = hard;
+        lv.finale = si === plan.length - 1;
         levels.push(lv);
       }
     });
