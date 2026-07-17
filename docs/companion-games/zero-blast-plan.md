@@ -228,3 +228,115 @@ DEFAULT_PLAN = [            // ≈ 12 buildings, ≈ 20 codes
 - Multi: echo verdict pays and preserves streak; grace window keeps
   echo submissions open then collapses; tutor skip/+15s/end.
 - Projector: 1280 + 1920 screenshots, FX scaling sanity.
+
+## 10. Iteration 3 (planned, from the post-iteration-2 re-audit)
+
+Fresh two-persona audit (2026-07-17, tutor + student) after the
+iteration-2 build. Kenny accepted all findings. Work is grouped into
+five batches; each batch ships alone and keeps all three Playwright
+suites green. Batches A-C are the pre-pilot set; D-E can land after
+the first real class.
+
+### Batch A - Classroom flow & tutor pacing (do first)
+
+The game currently owns every teaching beat on a timer; hand the
+tempo to the tutor.
+
+- **Tutor-paced reveal (host mode)**: on fuse-out, the reveal phase
+  WAITS - no 3.4s auto-advance. The tutor bar's 跳過 becomes 下一關
+  while revealing (key n advances). Phones stay on the reveal until
+  the next round arrives. Solo: keep auto-advance but stretch the
+  reveal to ~5.5s (students are told to note the codes; give them
+  time to actually do it).
+- **+15s flash**: pressing +15s stamps a fading 「+15 秒」 over the
+  scene so the class notices the gift.
+- **Shortcut visibility**: title attrs on the three tutor buttons +
+  a faint mono legend "t / n / e" under the bar.
+- **Echo discoverability**: add one how_to_play line (拆咗都仲有分 -
+  solving an already-claimed pillar still scores) and, once claims
+  exist mid-round, append a short hint to the phones' claims status.
+- Tests: multi - reveal waits until n; +15s stamp appears; hint text
+  present after first claim. Solo - reveal duration ~5.5s.
+
+### Batch B - Score theatre & thrill
+
+- **Visible streak multiplier**: show ×1.x beside the stars (solo
+  topline, controller, host board rows); pop/flash when it grows.
+  Value from the same formula as `ZBLevels.points` (min(streak,10)).
+- **Final-street finale**: the last stage of any plan (mix street on
+  diff=hard, stage 6 otherwise) gets boss dressing - a 最後一條街
+  level-card tag, faster tick cadence in the last 10s, and DOUBLE
+  points for everyone (echoes included). Comeback drama + an ending
+  peak for solo. Fold the ×2 into points() call sites via a level
+  flag (`finale: true` set by genPlan on the last stage).
+- **Ignition consistency**: hold the spark emitter until the fuse
+  actually starts burning (CARD_MS delay), so the detonator doesn't
+  spark during the level card.
+- Tests: finale flag on last stage; finale pts ×2; multiplier text
+  rendering; no sparks before ignition (fx state check).
+
+### Batch C - Classroom safety & resilience (pre-pilot required)
+
+- **Host refresh recovery**: persist the host's run state (levels,
+  idx, scores, streaks, claims, processedSeq, deadline remainder) to
+  sessionStorage keyed by room code on every round boundary + claim;
+  on load with a live room in storage, offer 繼續上一場 to resume and
+  re-publish state. An accidental F5 must not strand 30 phones.
+- **Lobby moderation**: tap a player chip in the lobby -> confirm ->
+  kick (deletes players/<id>; the phone shows a "removed" status and
+  returns to the name form). Blocks the rude-nickname-on-projector
+  incident.
+- **Struggling indicator**: small counter under the host board
+  during play - 「N 人本關未計分」 - so the tutor knows where to
+  walk. No names on the projector (private by design).
+- Tests: multi - host reload + resume continues the same round;
+  kick removes chip + phone returns to join; struggling counter
+  matches players with no verdict-ok this round.
+
+### Batch D - Pedagogy scaffold
+
+- **Factorise hint escalation (kind 6)**: at half fuse, one plaque's
+  hidden factor fades in faintly (pencil-grey, not the reveal ink);
+  host mode adds a 提示 tutor button (key h) to trigger it manually
+  instead. Hint halves that building's base points (fair, not
+  punitive).
+- **Keypad slip forgiveness**: today a finger slip (7 before −)
+  reads as a maths error and costs streak + 3s lock, worst on the
+  sign-trap stage. Preferred fix: a ~400ms commit window - a digit
+  tap shows the value armed for 400ms before submitting; tapping −
+  inside the window flips the sign, tapping the same digit again
+  submits instantly. One beat of speed for zero slip cost. Playtest
+  it; if it feels laggy, fall back to a gentler verdict instead:
+  a submission that differs from a root only by sign skips the lock,
+  keeps the streak, and gets a 「符號啱唔啱？」 margin note (once per
+  building).
+- Tests: hint appears at half fuse / on h; hinted building pays
+  half; undo window flips sign; sign-slip fallback if chosen.
+
+### Batch E - Visual polish & projector comfort
+
+- Silhouette variants: repeated rounds mirror the silhouette and
+  jitter width/height ~8% via transform on the deck group, so a
+  street of three 大廈 isn't three clones.
+- "?" plaques on kind 6: larger hand-drawn ? (own SVG path, slight
+  rotation), reads deliberate rather than empty.
+- Echo tally ink: 「回聲 ×N」 in small red under a claimed pillar's
+  claimer name, counting echo solves - makes inclusion visible.
+- Projector comfort: QR at 300px+; apply the projector stage width
+  on the intro screen too (wide viewport, before hosting); timer up
+  a size; balance the 1920 leaderboard column (wider board, larger
+  rows, less empty cream).
+- Phone-solo layout: let the scene grow into the dead space on tall
+  phones (relax the 300px cap when viewport height allows).
+- Tests: screenshot passes at 390/844-landscape/1280/1920; no
+  horizontal scroll; variant transform present on round 2+.
+
+### Pilot watch-list (observe, no code)
+
+- Kind-2 hard rounds introduce negative roots one stage before the
+  sign-trap stage names the idea - listen for confusion.
+- L5 double root is the single biggest scoring event (2 hits x
+  multiplier) and the easiest level for a knowing student - watch
+  whether it distorts leaderboards.
+- Class-size load: 30+ phones on one RTDB room (subs/verdicts
+  churn) - watch latency during the first pilot.
