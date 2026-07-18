@@ -853,6 +853,11 @@ they will say whether it feels premium faster than any audit.
 
 ## 13. Iteration 6: the amplitude audit
 
+**Status (2026-07-18): iteration 6 COMPLETE - R, Q, P, S, T all
+landed** (suites green between batches: solo 133 / multi 104 / audit
+55; game.json 0.7.0). Implementation deltas in 13.1 below the
+batch specs.
+
 **The finding (2026-07-18, Kenny's fresh-eyes playtest):** after five
 iterations the game is high-craft but low-amplitude. Kenny played the
 finished iteration 5 and saw "no difference" - and he is right at the
@@ -994,3 +999,81 @@ real camera move); S sells it in the first 30 seconds; T closes the
 loop on the surface students hold. If one session only: R + Q. The
 honest framing for the pilot: iterations 1-5 built the craft; this
 one turns the volume knob.
+
+### 13.1 Implementation deltas (2026-07-18)
+
+All five batches landed same-day, in order, suites green between
+each. Commits: R `f6ff8f1c`, Q `c9e7cd13`, P `da62e6ae`, S
+`73d296b3`, T `316b2fc0`. Notable deviations and the reasons:
+
+- **R** - the offer chip lives in the SCENE, not literally on the
+  level card: the card clears in 1.25s, too brief for a one-time
+  offer, so the chip stamps in under it and stays until answered.
+  Three resolutions all store the answer: the tap (setOn(true) +
+  unlock on the same gesture), the header toggle, or round 1 ending
+  unanswered (stores "off" - never nags again). The ack fade had to
+  be an ANIMATION, not a transition: the stamp-in keyframe's fill
+  owns opacity, so a transition never fires. Mix: boom_l layered
+  into every collapse ahead of the rumble, ticks jump 0.55 -> 1.0
+  volume in the last 3s (tick(urgent), remain <= 3050), fuse hiss
+  ceiling 0.035+0.085u, patter 0.5 / page 0.65 / chime 0.8 via a new
+  per-play sprite volume (sample(name, vol) / oneShot(..., vol)).
+- **Q** - the whole grammar lives inside the fixed crack->fall gap:
+  hit-stop fires at tl 0.44 (blastHold: zb-hitstop class pauses the
+  scene's CSS animations, ZBFX.hitStop freezes the canvas world and
+  the shake offset; G.hitStopAt for tests), flash + shockwave +
+  scraps + frame punch fire inside the existing fall call. No label
+  moved; the suites' collapse waits pass untouched. The flash is
+  var(--mc-paper) with a chalk-pale dark override. Scraps are a new
+  canvas particle: paper-filled quads with inked edges, readable at
+  classroom distance where 3px shards are not. The last-3s ramp
+  (sky dim + spark 4.6) is a STATE, not a motion - kept under
+  reduced motion, cleared by +15s style deadline relief.
+- **P** - the frame matches the scene box's LIVE aspect instead of a
+  fixed 5:3: no letterbox means canvas FX stay aligned and nothing
+  renders in a margin (the batch-N runner bug class is gone by
+  construction). Frames are bottom-anchored at 240 (rootmark band),
+  h = (GROUND - deck.y) + 26 + 30 - the 26 fits the survey width
+  label - and w = max(h*A, bbw/0.7, bbw+52) clamped to the sheet.
+  renderStructure runs a probe pass (deck alone, measured) before
+  the real pass so the set can be dressed for the frame: detonator
+  and foreman translate to the frame's left edge, the fuse
+  compresses by ratio (or swaps to a short quad run when the road
+  d2 <= 45), the crew slides in from the right edge, the title
+  block pins to the frame corner. Camera beats: 7% settle-in on
+  render, creep to 0.92 across the warn window, 0.96 punch on the
+  shrug (re-hands to the creep), blast arc 0.88 punch/follow/pull
+  back - at rest by ~1.75s, before the 2.2s turn. fx.js converts
+  through the live view (setView/toPx) and scales counts by
+  effective zoom (the suite's dust cap moved 20 -> 32). Scene-first
+  heights: 62vh projector (stage 1250px), 40vh default, 30vh
+  portrait phones - the 0 key stays above the fold with marking up
+  (measured 838/844 worst case). floatPoints maps through CAM.
+- **S** - pure CSS: a 21s loop of three 7s acts (house, water
+  tower, factory). Group keyframes carry opacity + tumble; child
+  paths ride 21s draw keyframes on --dd delays. The fuse burn is a
+  dash consume with the spark on CSS offset-path. Two learned
+  rules: the felled silhouette must LIE THERE (opacity 0.55) under
+  the chop until the wipe, or the stamp floats over empty ground;
+  and the wipe rect parks outside the viewBox, so the hero needed
+  overflow: hidden. Title chops per character (per word in EN),
+  re-split on mc:lang; the swash SMIL begins retimed to 1.05s.
+- **T** - takeover reuses .zb-chai at 36px over a fixed overlay;
+  tremble is a 0.3s class re-trigger on #ctrlPlay; the thud rides
+  the stamp sample at 0.55. Grace numerals reuse .zb-gracenum
+  inside #ctrlPlay (now position: relative). The condemned card is
+  .zb-board.condemned - a ::before tape cross and an ::after chip
+  reading attr(data-condemn), set at runtime for i18n, cleared on
+  the next level key. The personal report needed GAME-LONG
+  counters: echoDone is per-round state (reset every startLevel),
+  so the report reads new G.echoCountBy and G.bestMs (min solve ms;
+  a grace-window echo computes against the rewritten deadline and
+  comes out huge - Math.min discards it). Both are in the host-run
+  snapshot, so a host refresh keeps the report honest.
+
+Watch-list additions: the sound-offer chip overlaps the grace-
+numeral zone if a multi round resolves during round 1 (cosmetic,
+both transient); CSS offset-path support on very old classroom
+Androids (the spark simply never shows - the diorama still reads);
+the phone report shows 0.0s best on sub-100ms mock solves (real
+classes cannot produce this).
