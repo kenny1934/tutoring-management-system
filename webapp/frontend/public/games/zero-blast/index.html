@@ -337,6 +337,35 @@
       60% { transform: translateY(-1.2px); }
       100% { transform: translateY(0); }
     }
+    /* wrong code: the structure takes the blow and shrugs it off —
+       a non-zero factor really is holding it up. On the whole drawing
+       (not #deck: a sagged deck's transform must not be interrupted) */
+    .zb-struct.zb-shrug { animation: zb-shrug 0.38s ease-out; }
+    @keyframes zb-shrug {
+      0% { transform: translateY(0); }
+      30% { transform: translateY(2.5px); }
+      65% { transform: translateY(-0.8px); }
+      100% { transform: translateY(0); }
+    }
+    /* ...and its surveyed strength is pencilled over the scene: the
+       product at the guess, visibly not zero */
+    .zb-strengthflash {
+      position: absolute; left: 50%; top: 17%; z-index: 4;
+      transform: translateX(-50%) rotate(-2deg);
+      font-family: var(--mc-mono); font-weight: 700; font-size: 14px;
+      color: var(--mc-ink-soft);
+      border: 1.5px solid var(--mc-ink-faint); border-radius: 4px;
+      padding: 1px 8px;
+      background: color-mix(in srgb, var(--mc-paper) 80%, transparent);
+      pointer-events: none;
+      animation: zb-strengthflash 1.3s ease-out forwards;
+    }
+    @keyframes zb-strengthflash {
+      0% { opacity: 0; transform: translateX(-50%) rotate(-2deg) translateY(6px); }
+      15% { opacity: 1; transform: translateX(-50%) rotate(-2deg) translateY(0); }
+      70% { opacity: 1; }
+      100% { opacity: 0; }
+    }
     /* idle life: hazard beacon on the building's highest point */
     .zb-hazard { fill: var(--mc-red); opacity: 0; animation: zb-haz 1.6s ease-in-out 1.2s infinite; }
     @keyframes zb-haz { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.2; } }
@@ -734,6 +763,7 @@
       .zb-struct .zb-survey { opacity: 0.6 !important; }
       .zb-deck.fall { opacity: 0; }
       .zb-floatpts { display: none; }
+      .zb-strengthflash { display: none; } /* the margin note carries it */
     }
 
     /* projector (host on a wide screen): the scene is the star.
@@ -1199,6 +1229,7 @@ const STRINGS = {
   stamp_wrong:      { c: "未歸零",      e: "Not zero" },
   stamp_correct:    { c: "歸零",        e: "Zero" },
   note_strength:    { c: "結構仍然穩固：強度 {n}", e: "Still standing: strength {n}" },
+  strength_tag:     { c: "強度 {n}",    e: "Strength {n}" },
   note_pillar_down: { c: "支柱倒下",    e: "Pillar down" },
   note_both_down:   { c: "一個密碼，兩支支柱一齊倒！", e: "One code, both pillars at once!" },
   note_already:     { c: "呢個密碼已經用過", e: "That code is already used" },
@@ -2231,6 +2262,34 @@ function blowPillar(id, root, name) {
   ZBFX.vibrate(80);
 }
 
+/* wrong code: the structure takes the blow and visibly shrugs it off.
+ * Ink chips off the standing pillars, the drawing recoils, and the
+ * surveyed strength — the product evaluated at the guess, visibly not
+ * zero — is pencilled over the scene. Only zero punches through. */
+function shrugOff(v) {
+  const svg = $("structSvg");
+  svg.classList.remove("zb-shrug");
+  void svg.getBoundingClientRect();
+  svg.classList.add("zb-shrug");
+  setTimeout(() => svg.classList.remove("zb-shrug"), 420);
+  G.level.pillars.forEach(p => {
+    if (G.claimed.indexOf(p.id) !== -1) return;
+    const x = pillarX(p.id);
+    ZBFX.debris(x, 168, { count: 5, power: 0.45 });
+    ZBFX.dust(x, GROUND - 6, { count: 2 });
+  });
+  // no tag while the level card still covers the scene (the margin
+  // note carries the number; the card must stay clean)
+  if ($("levelCard").classList.contains("show")) return;
+  const old = document.querySelector(".zb-strengthflash");
+  if (old) old.remove();
+  const tag = document.createElement("div");
+  tag.className = "zb-strengthflash";
+  tag.textContent = fmt("strength_tag", { n: ZBLevels.strength(G.level, v) });
+  $("scene").appendChild(tag);
+  setTimeout(() => tag.remove(), 1350);
+}
+
 /* partial demolition: the deck sags toward the missing support */
 function sagDeck(hitId) {
   const level = G.level;
@@ -2278,6 +2337,7 @@ function submitCode(v, player) {
     $("markZone").innerHTML = markHtml("wrong", lines);
     $("exprBoard").classList.add("mc-shake");
     setTimeout(() => $("exprBoard").classList.remove("mc-shake"), 400);
+    shrugOff(v);
     ZBFX.audio.knock();
     ZBFX.vibrate(180);
     pad.lock(3);
