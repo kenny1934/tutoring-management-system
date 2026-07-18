@@ -110,10 +110,11 @@
     @media (max-width: 700px) {
       .zb-scene { height: clamp(200px, 30vh, 320px); }
     }
-    /* tablets and small laptops: a tablet in landscape is a mini
-       projector - give the scene real height so the tall kinds keep
-       their tops with headroom to spare */
-    @media (min-width: 701px) and (max-width: 1099px) {
+    /* tablets and small laptops: give the scene real height so the
+       tall kinds keep their tops with headroom to spare. Ends at
+       999px because applyProjector() claims >=1000 for every screen
+       (its rule out-specifies this one) - move both edges together */
+    @media (min-width: 701px) and (max-width: 999px) {
       .zb-scene { height: clamp(240px, 48vh, 520px); }
     }
     .zb-scene > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -1012,9 +1013,10 @@
       .zb-strengthflash { display: none; } /* the margin note carries it */
     }
 
-    /* projector (host on a wide screen): the scene is the star.
-     * Applied on .mc-stage when hosting on a >=1000px viewport
-     * (includes 1024-wide iPads - a hosting tablet is a projector). */
+    /* projector (the big stage on a wide screen): the scene is the
+     * star. applyProjector() puts this on .mc-stage for EVERY mode on
+     * a >=1000px viewport - intro, solo and host alike (a 1024-wide
+     * iPad gets it too). The tablet band above ends at 999 for this. */
     .zb-stage--projector { max-width: 1250px; }
     .zb-stage--projector .zb-game-grid {
       display: grid; grid-template-columns: 1.7fr 1fr; gap: 4px 32px; align-items: start;
@@ -1991,12 +1993,15 @@ function variantTransform(level) {
   return `translate(200 ${DECK_Y}) scale(${(mirror * jx).toFixed(3)} ${jy.toFixed(3)}) translate(-200 -${DECK_Y})`;
 }
 
-/* ══ the camera (batch P) ══
+/* ══ the camera (batch P, letterbox fallback batch U) ══
  * Each building gets its own frame: a viewBox window matched to the
- * scene box's LIVE aspect (no letterbox, so canvas FX stay aligned),
- * bottom-anchored so the ground line and rootmark band never leave
- * shot, and sized so the structure commands the frame instead of
- * posing inside a fixed elevation. The camera then moves on the
+ * scene box's LIVE aspect where the 400-unit sheet allows it; when a
+ * wide box would cap the width below the subject's height, the frame
+ * keeps its height and the drawing letterboxes horizontally (meet
+ * centres it, and fx toPx/fxScale convert through the same offsets).
+ * Frames are bottom-anchored so the ground line and rootmark band
+ * never leave shot, and sized so the structure commands the frame
+ * instead of posing inside a fixed elevation. The camera then moves on the
  * existing beats: settle-in at the draw, push-in through the warn
  * window, a recoil punch on a wrong code, the blast arc on the
  * collapse. Reduced motion keeps the framing, skips every move. */
@@ -2612,7 +2617,6 @@ stampTitle();
 function startRun(mode) {
   G.mode = mode;
   ZBFX.audio.unlock();
-  ZBFX.bgm.allow(true); // solo or host: the big stage gets the groove
   GameBridge.emit(SLUG, "start", { mode: mode, players: Object.keys(G.players).length });
   G.levels = ZBLevels.genPlan(PLAN, newRand());
   G.idx = 0; G.score = 0; G.streak = 0; G.starsTotal = 0; G.records = []; G.ended = false;
@@ -3322,7 +3326,6 @@ function pendingHostRun() {
 
 async function resumeRun(saved) {
   ZBFX.audio.unlock();
-  ZBFX.bgm.allow(true); // a resumed host is still the big stage
   try {
     G.room = await GameBridge.host({ slug: SLUG, code: saved.code });
   } catch (err) {
@@ -3492,7 +3495,7 @@ function fuseOut() {
   cancelAnimationFrame(G.raf);
   ZBFX.audio.fuseStop();
   ZBFX.audio.fizzle();
-  ZBFX.bgm.setIntensity("lobby"); // a fizzle deflates: drop to sparse
+  ZBFX.bgm.setIntensity("idle"); // a fizzle deflates: drop to sparse
   ZBFX.sparksAt(null);
   pad.disable();
   $("fuseTimerText").textContent = "0.0";
@@ -3645,7 +3648,6 @@ addEventListener("resize", applyProjector);
 
 $("btnHost").onclick = async () => {
   ZBFX.audio.unlock();
-  ZBFX.bgm.allow(true);
   ZBFX.bgm.setIntensity("lobby"); // the waiting-room groove while phones join
   show("lobbyScreen");
   try {
@@ -3656,7 +3658,9 @@ $("btnHost").onclick = async () => {
     return;
   }
   $("roomCode").textContent = G.room.code;
-  GameBridge.qr($("qrBox"), G.room.joinUrl, innerWidth >= 1000 ? 300 : 190);
+  // the projector class is the one source of truth for "wide stage"
+  GameBridge.qr($("qrBox"), G.room.joinUrl,
+    document.querySelector(".mc-stage").classList.contains("zb-stage--projector") ? 300 : 190);
   G.watcher = G.room.watch(onHostRoom);
 };
 
@@ -3845,6 +3849,7 @@ function ctrlStatus(text, cls) {
 }
 
 async function initController() {
+  ZBFX.bgm.allow(false); // 30 phones x music = chaos: revoke, whatever ran before
   show("controllerScreen");
   // phones default to sound on (the host projector stays quiet)
   try {
@@ -4119,6 +4124,9 @@ function ctrlEnd(results) {
 if (GameBridge.roomParam()) {
   initController();
 } else {
+  // this tab is the big stage (menu -> solo or host): the groove may
+  // play here once a tier is set post-gesture; controllers never allow
+  ZBFX.bgm.allow(true);
   // a host-side run snapshot in this tab offers 繼續上一場
   const savedRun = pendingHostRun();
   if (savedRun) {

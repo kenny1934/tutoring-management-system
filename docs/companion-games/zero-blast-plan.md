@@ -1184,8 +1184,10 @@ resolved in favour:
   (max-width: 700px)`. The landscape-phone rule gained its own
   `.zb-key { min-height: 48px }` because compact used to reach
   844x390 phones and no longer does.
-- Tablet band SHIPPED: `(min-width: 701px) and (max-width: 1099px)`
-  gives the scene `clamp(240px, 48vh, 520px)`.
+- Tablet band SHIPPED: `(min-width: 701px) and (max-width: 999px)`
+  gives the scene `clamp(240px, 48vh, 520px)`. (The band ends where
+  applyProjector begins - a 1000-1099 stretch would be dead CSS,
+  permanently shadowed by the projector class.)
 - Projector breakpoint DROPPED to 1000 (applyProjector + QR size).
   Probed host at 1024x768 with the grid forced: scene 602x476, no
   overflow either axis, fold overflow 11px vs 38px single-column -
@@ -1210,9 +1212,17 @@ resolved in favour:
   is the delta from plan: audio.setOn calls it so the opt-in chip
   or header toggle starts/stops the groove mid-round.
 - Wiring beyond the plan list: btnMenu stops it (back on the
-  silent cover), resumeRun re-allows it (a restored host is still
-  the big stage), and the collapse ALSO drops warn -> base so the
-  tick layer never rides the rubble reveal.
+  silent cover), and the collapse ALSO drops warn -> base so the
+  tick layer never rides the rubble reveal. The big-stage gate
+  lives at the boot fork (`allow(true)` where the page decides
+  menu vs controller) with initController revoking via
+  `allow(false)` - a defensive invariant, not a per-entry chore.
+  A fizzle sets tier "idle" (same pattern as "lobby" today, own
+  name so lobby tuning never leaks into the reveal). All play/halt
+  decisions funnel through one private `update()` (also bound to
+  visibilitychange: a throttled hidden tab goes silent instead of
+  plinking once a second). fxScale now converts through the same
+  meet scale as toPx, so letterboxed frames don't overstate zoom.
 - Ducking: cancel ramps, 40ms down to 8%, hold 150ms, 500ms back.
   `state().ducks` counts for the suites.
 - Tests: state() census asserted across solo (armed-but-silent when

@@ -105,8 +105,9 @@
    * particles and shake harder (capped) */
   function fxScale() {
     if (!scene) return 1;
-    var vw = view ? view.w : vbW;
-    return Math.max(1, Math.min(scene.clientWidth / vw, 2.5));
+    // same meet scale as toPx: on a letterboxed frame (batch U) the
+    // real zoom is the smaller ratio, not the width ratio
+    return Math.max(1, Math.min(toPx(0, 0).scale, 2.5));
   }
 
   /* ---------------- particles ---------------- */
@@ -585,8 +586,9 @@
     var STEP = 60 / BPM / 4; // 16th notes; one bar = 16 steps
     var BUS = 0.14;          // whole groove under the 0.9 one-shot bus
     var bus = null;
+    var gritHP = null;       // one shared highpass: grit fires ~3x/s
     var allowed = false;     // big stage only
-    var tier = null;         // lobby | base | warn | grace | null
+    var tier = null;         // lobby | idle | base | warn | grace | null
     var timer = null;
     var nextT = 0, step = 0, ducks = 0;
 
@@ -596,11 +598,19 @@
         bus = ac.createGain();
         bus.gain.value = BUS;
         bus.connect(master);
+        gritHP = ac.createBiquadFilter();
+        gritHP.type = "highpass";
+        gritHP.frequency.value = 6200;
+        gritHP.connect(bus);
       }
       return true;
     }
     /* voices: dry little strokes, nothing sustained, nothing tonal
-     * enough to fight the maths */
+     * enough to fight the maths. Deliberate forks from the one-shot
+     * helpers (thump/noiseburst): these route to the bgm bus, take
+     * absolute audio time, and split the pitch chirp from the gain
+     * decay - folding them in would put sequencer knobs on helpers
+     * every one-shot shares */
     function wood(t, hi, v) { // claves on the scaffold rail
       var o = ac.createOscillator(), g = ac.createGain();
       o.type = "sine";
@@ -626,13 +636,12 @@
     function grit(t, v) { // a shaker of loose grit brushed off the sheet
       var src = ac.createBufferSource();
       src.buffer = noiseBuf;
-      var f = ac.createBiquadFilter();
-      f.type = "highpass";
-      f.frequency.value = 6200;
       var g = ac.createGain();
       g.gain.setValueAtTime(v, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
-      src.connect(f).connect(g).connect(bus);
+      // gain-before-filter: the filter is LTI, audibly identical to
+      // filtering first, and the shared node skips a per-note build
+      src.connect(g).connect(gritHP);
       src.start(t, Math.random() * 0.4);
       src.stop(t + 0.07);
     }
@@ -648,7 +657,10 @@
     }
     function scheduleStep(s, t) {
       var bar = Math.floor(s / 16), i = s % 16;
-      if (tier === "lobby") { // the crew waiting for the class to join
+      // "idle" is the fizzle cooldown: it shares the lobby pattern
+      // today but owns its own name, so tuning the waiting room never
+      // silently retunes the post-fizzle reveal
+      if (tier === "lobby" || tier === "idle") {
         if (i % 4 === 0) grit(t, 0.5);
         if (i === 8) wood(t, false, 0.35);
         if (i === 14 && bar % 4 === 3) tink(t, 0.12);
@@ -672,7 +684,7 @@
     function pump() {
       var now = ac.currentTime;
       if (nextT < now - 0.25) {
-        step += Math.max(0, Math.round((now - nextT) / STEP));
+        step += Math.round((now - nextT) / STEP);
         nextT = now + 0.02;
       }
       while (nextT < now + 0.12) {
@@ -682,7 +694,7 @@
       }
     }
     function run() {
-      if (timer || !allowed || !enabled || !tier) return;
+      if (timer) return;
       if (!ensureBus()) return;
       bus.gain.cancelScheduledValues(ac.currentTime);
       bus.gain.setValueAtTime(BUS, ac.currentTime);
@@ -697,27 +709,33 @@
         timer = null;
       }
     }
+    /* the one play-policy point: every state change funnels through
+     * here, so "when does the groove sound" has a single answer */
+    function update() {
+      if (allowed && enabled && tier && !document.hidden) run();
+      else halt();
+    }
+    /* a throttled hidden tab can only produce one stray hit a second -
+     * go silent instead, and pick the groove back up on return */
+    document.addEventListener("visibilitychange", update);
     return {
-      /* the big stage opts in once; a controller never calls this */
+      /* the boot fork allows the big stage; initController revokes,
+       * so a controller stays silent whatever ran before it */
       allow: function (on) {
         allowed = !!on;
-        if (allowed) run();
-        else { halt(); tier = null; }
+        if (!allowed) tier = null;
+        update();
       },
       setIntensity: function (t2) {
         tier = t2 || null;
-        if (!tier) halt();
-        else run(); // no-op while already scheduling: the next bar picks the pattern up
+        update(); // no-op while already scheduling: the next bar picks the pattern up
       },
       stop: function () {
-        halt();
         tier = null;
+        update();
       },
       /* sound toggled mid-run: start or stop to match the opt-in */
-      sync: function () {
-        if (enabled) run();
-        else halt();
-      },
+      sync: update,
       /* a building is coming down - get out of its way, then ease back */
       duck: function (ms) {
         if (!timer || !bus) return;
