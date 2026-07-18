@@ -52,6 +52,10 @@
       font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
     }
     .zb-board .zb-zero { color: var(--mc-red); }
+    /* the question inks in only when the fuse lights: reading time is
+       part of the round, not free thinking under the level card (and
+       nobody detonates a building that isn't drawn yet) */
+    .zb-board--wait, .zb-board--wait * { color: transparent !important; }
     /* the zero-product property, marked where it lives: a fallen
      * pillar's factor is struck through in red on the board itself,
      * the claimer's name in tiny ink above it */
@@ -1965,6 +1969,7 @@ const G = {
   fuseLen: 0, fusePathEl: null, over: false, records: [], hinted: false,
   graphOn: true, // the resolve graph sketch; tutors toggle with key g
   beatTl: null,  // the active GSAP set-piece timeline (collapse / condemn)
+  staged: false, // the round opens (board inks in, pad live) at fuse ignite
   // host mode: room + per-player books (host is authoritative)
   room: null, watcher: null, started: false, grace: false, revealHold: false,
   players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {},
@@ -2067,7 +2072,11 @@ function startLevel(resume) {
 
   refreshDynamicText();
   tweenScore($("scoreBox"), G.score); // snaps when unchanged, cancels a stale tween
+  // fresh rounds stay under wraps until the fuse ignites; a resumed
+  // round is already mid-flight
+  G.staged = !!resume;
   $("exprBoard").innerHTML = boardHtml(level);
+  $("exprBoard").classList.toggle("zb-board--wait", !G.staged);
   $("markZone").innerHTML = "";
   $("sceneStamp").classList.remove("show");
   $("sceneStamp").innerHTML = "";
@@ -2076,7 +2085,17 @@ function startLevel(resume) {
   if (level.seq === 1 && !resume && !ZBFX.reduced) ridePencil();
   renderStreet();
   renderStrugglers();
-  pad.enable();
+  if (G.staged) pad.enable();
+  else {
+    pad.disable();
+    // the round opens with the fuse: question and keypad together
+    setTimeout(() => {
+      if (G.level !== level || G.ended) return;
+      G.staged = true;
+      $("exprBoard").classList.remove("zb-board--wait");
+      if (!G.over) pad.enable();
+    }, CARD_MS);
+  }
 
   // fuse: burns only after the level card clears (deadline includes it).
   // A resumed round gets its remaining fuse back, floored at 5s so the
@@ -2323,6 +2342,7 @@ function submitCode(v, player) {
   const res = ZBLevels.judge(level, v, G.claimed);
 
   if (player) { hostVerdict(player, v, res); return; }
+  if (!G.staged) return; // the pad is disabled pre-ignite; belt and braces
 
   if (res.already) {
     $("markZone").innerHTML = markHtml("info", [t("note_already") + "：" + mathHtml("x = " + ZBLevels.num(v))]);
@@ -3056,6 +3076,7 @@ const C = {
   level: null, levelKey: null, phase: null,
   seq: 0, lastVerdictSeq: 0, booted: false, seenSelf: false,
   timerIv: null, deadlineEpoch: 0, graceUntil: 0, pad: null,
+  staged: false, // mirrors the projector: board + pad open at fuse ignite
 };
 
 function padKeysHtml() {
@@ -3112,6 +3133,7 @@ async function enterPlay() {
   $("ctrlPlay").style.display = "";
   $("ctrlName").textContent = C.name;
   ctrlStatus(t("ctrl_wait_start"));
+  C.staged = false; // ctrlTick re-opens the pad if a round is mid-flight
   C.pad.disable();
   await C.room.set("players/" + C.id, { name: C.name, joinedAt: Date.now() });
   if (!C.watcher) C.watcher = C.room.watch(onCtrlRoom); // rejoin after a kick reuses the stream
@@ -3120,13 +3142,21 @@ async function enterPlay() {
 }
 
 function ctrlSubmit(v) {
-  if (C.phase !== "playing") return;
+  if (C.phase !== "playing" || !C.staged) return;
   C.seq += 1;
   C.room.set("subs/" + C.id, { v: v, seq: C.seq, ts: Date.now() });
 }
 
 function ctrlTick() {
   if (C.phase !== "playing" || !C.deadlineEpoch) { $("ctrlTimerText").textContent = "--.-"; $("ctrlTimer").classList.remove("warn"); return; }
+  // the round opens when the shared fuse ignites (deadline minus the
+  // fuse length = the level card lead); latched so later deadline
+  // changes (+15s, grace) never re-cover the board
+  if (!C.staged && C.level && Date.now() >= C.deadlineEpoch - (C.level.fuseMs || 0)) {
+    C.staged = true;
+    $("ctrlExpr").classList.remove("zb-board--wait");
+    C.pad.enable();
+  }
   const remain = Math.max(0, C.deadlineEpoch - Date.now());
   const fuse = (C.level && C.level.fuseMs) || remain;
   $("ctrlTimerText").textContent = (Math.min(remain, fuse) / 1000).toFixed(1);
@@ -3180,8 +3210,10 @@ function onCtrlRoom(room) {
   if (st.level && lvKey !== C.levelKey) {
     C.levelKey = lvKey;
     C.level = st.level;
+    C.staged = false; // ctrlTick opens the round at the shared ignite
     $("ctrlLevelChip").innerHTML = levelChipHtml(st.level);
     $("ctrlExpr").innerHTML = boardHtml(st.level);
+    $("ctrlExpr").classList.add("zb-board--wait");
     $("ctrlMark").innerHTML = "";
   }
 
@@ -3189,8 +3221,8 @@ function onCtrlRoom(room) {
     if (phaseChanged) {
       // covers a host restart after the end screen too
       if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
-      C.pad.enable();
       $("ctrlMark").innerHTML = "";
+      ctrlTick(); // stage now if the ignite is already past (late join)
     }
     // claimed factors are struck through on every phone's board too;
     // a FRESH claim by someone else lands with a quiet ping
