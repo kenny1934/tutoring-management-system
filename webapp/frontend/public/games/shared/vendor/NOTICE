@@ -6,6 +6,9 @@ see docs/companion-games/CONVENTIONS.md "Libraries"):
 - howler.min.js v2.2.4 — audio playback (sample sprite delivery with
   mobile unlock), (c) 2013-2020 James Simpson of GoldFire Studios,
   MIT License. https://howlerjs.com
+- gsap.min.js v3.12.5 (core only) — labelled animation timelines for
+  the set-piece choreography, (c) 2024 GreenSock. GSAP Standard
+  License (free, including commercial use). https://gsap.com
 
 Game audio samples (e.g. zero-blast/audio/zb-sprite.wav) are produced
 in-house by offline Web Audio synthesis — no third-party recordings.

@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="../shared/theme.css">
   <script src="../shared/vendor/qrcode.js"></script>
   <script src="../shared/vendor/howler.min.js"></script>
+  <script src="../shared/vendor/gsap.min.js"></script>
   <script src="../shared/game-bridge.js"></script>
   <script src="levels.js"></script>
   <!-- self-produced sample kit offsets (see scripts/zb-render-audio.mjs) -->
@@ -157,7 +158,9 @@
        on the ground until the pile outline has inked over them. */
     .zb-chunk { transform-box: fill-box; transform-origin: center bottom; }
     .zb-deck.fall { transition: none; }
-    .zb-deck.fall .zb-chunk { animation: zb-chunkfall 0.78s cubic-bezier(0.5, 0, 0.85, 0.4) var(--dd, 0ms) forwards; }
+    /* --falldur: the finale set-piece stretches the tumble into
+       slow-mo alongside the GSAP timeline's timeScale dip */
+    .zb-deck.fall .zb-chunk { animation: zb-chunkfall var(--falldur, 0.78s) cubic-bezier(0.5, 0, 0.85, 0.4) var(--dd, 0ms) forwards; }
     @keyframes zb-chunkfall {
       70% { transform: translate(calc(var(--tx, 0px) * 0.9), 62px) rotate(calc(var(--rot, 8deg) * 0.92)); animation-timing-function: steps(1, end); }
       80% { transform: translate(calc(var(--tx, 0px) * 0.9), 62px) rotate(calc(var(--rot, 8deg) * 0.92)); animation-timing-function: ease-out; }
@@ -1740,16 +1743,14 @@ function renderStreak(el, n) {
 /* the displayed score counts up to the judged total (G.score itself
  * always moves exactly); reduced motion snaps */
 function tweenScore(el, to, ms) {
-  cancelAnimationFrame(el._tw);
+  if (el._tw) el._tw.kill();
   const from = parseInt(String(el.textContent).replace(/[^\d-]/g, ""), 10) || 0;
   if (ZBFX.reduced || to === from) { el.textContent = to; return; }
-  const t0 = performance.now(), dur = ms || 550;
-  const step = now => {
-    const k = Math.min(1, (now - t0) / dur);
-    el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
-    if (k < 1) el._tw = requestAnimationFrame(step);
-  };
-  el._tw = requestAnimationFrame(step);
+  const o = { v: from };
+  el._tw = gsap.to(o, {
+    v: to, duration: (ms || 550) / 1000, ease: "power3.out",
+    onUpdate: () => { el.textContent = Math.round(o.v); },
+  });
 }
 
 /* end report: the stars stamp in one after another */
@@ -1759,12 +1760,15 @@ function staggerStars(el) {
   });
 }
 
-/* report ceremony sound: one chime as the stars start stamping in,
- * the inspector's chop pressed onto the sheet as it lands (1.15s
- * animation delay + slam midpoint) */
+/* report ceremony on its own labelled timeline: one chime as the
+ * stars start stamping in, the inspector's chop pressed onto the
+ * sheet as it lands (the 1.15s CSS stamp delay + slam midpoint) */
 function endCeremonyAudio() {
-  setTimeout(() => ZBFX.audio.chime(), 300);
-  setTimeout(() => ZBFX.audio.stampSoft(), 1250);
+  gsap.timeline()
+    .addLabel("stars", 0.3)
+    .addLabel("chop", 1.25)
+    .call(() => ZBFX.audio.chime(), null, "stars")
+    .call(() => ZBFX.audio.stampSoft(), null, "chop");
 }
 
 /* +N 分 ink numeral floating from the claimed pillar toward the score
@@ -1929,6 +1933,7 @@ const G = {
   deadline: 0, duration: 0, raf: null, lastTickSec: null,
   fuseLen: 0, fusePathEl: null, over: false, records: [], hinted: false,
   graphOn: true, // the resolve graph sketch; tutors toggle with key g
+  beatTl: null,  // the active GSAP set-piece timeline (collapse / condemn)
   // host mode: room + per-player books (host is authoritative)
   room: null, watcher: null, started: false, grace: false, revealHold: false,
   players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {},
@@ -2009,6 +2014,9 @@ refreshDynamicText();
 /* resume: a saved host-run snapshot restores mid-round claims and the
  * remaining fuse after a host refresh (see resumeRun) */
 function startLevel(resume) {
+  // a restart mid-set-piece must not let stale beats fire into the
+  // new round (the old setTimeout chain could double-advance here)
+  if (G.beatTl) { G.beatTl.kill(); G.beatTl = null; }
   const level = G.level = G.levels[G.idx];
   G.claimed = resume ? (resume.claimed || []) : [];
   G.levelPoints = resume ? (resume.levelPoints || 0) : 0;
@@ -2589,14 +2597,28 @@ function collapseAndAdvance() {
   renderStreet();
   saveHostRun();
 
-  // crack pre-beat (~150ms): fault lines flash, one small shake pulse,
-  // THEN the deck breaks along them
-  setTimeout(() => {
+  /* the demolition set piece, one labelled timeline: crack pre-beat,
+   * the deck breaks, the pile inks, the graph sketches, the 拆 chop
+   * slams and packs it down, the page turns. Every beat is retimed by
+   * its label alone. */
+  const level = G.level;
+  const finale = G.idx === G.levels.length - 1;
+  const tl = G.beatTl = gsap.timeline();
+  tl.addLabel("crack", 0.38)
+    .addLabel("fall", 0.53)
+    .addLabel("rubble", 1.02)
+    .addLabel("graph", 1.12)
+    .addLabel("stamp", 1.18)
+    .addLabel("dissolve", 1.35)
+    .addLabel("chop", 1.46)
+    .addLabel("turn", 2.2);
+  // fault lines flash, one small shake pulse, THEN the break
+  tl.call(() => {
     showCracks();
     ZBFX.shake(5);
     ZBFX.audio.crack();
-  }, 380);
-  setTimeout(() => {
+  }, null, "crack");
+  tl.call(() => {
     const cracks = $("cracks");
     if (cracks) cracks.remove();
     $("deck").classList.remove("sag-l", "sag-r");
@@ -2606,44 +2628,59 @@ function collapseAndAdvance() {
     ZBFX.vibrate([60, 40, 130]);
     ZBFX.debris(200, 130, { count: 40, power: 1.5 });
     ZBFX.dust(200, GROUND - 10, { count: 6 });
-  }, 530);
-  setTimeout(() => {
+  }, null, "fall");
+  tl.call(() => {
     $("rubble").classList.add("show");
     ZBFX.dust(200, GROUND - 14, { count: 4 });
-  }, 1020);
-  // the equation's graph sketches itself through the inked codes
-  const level = G.level;
+  }, null, "rubble");
   if (G.graphOn) {
-    setTimeout(() => {
+    tl.call(() => {
       if (G.level === level && $("structSvg")) $("structSvg").insertAdjacentHTML("beforeend", graphSvg(level));
-    }, 1120);
+    }, null, "graph");
   }
-  // the landed debris melts into the inked pile
-  setTimeout(() => {
-    const deck = $("deck");
-    if (deck) deck.classList.add("dissolve");
-  }, 1350);
-  setTimeout(() => {
+  tl.call(() => {
     $("sceneStamp").innerHTML =
       `<div class="zb-chaiflash"></div><div class="zb-chai">拆</div><div class="zb-chai__cap">${t("stamp_demolished")} · ${fmt("points_fmt", { n: G.levelPoints })}</div>`;
     $("sceneStamp").classList.add("show");
-  }, 1180);
+  }, null, "stamp");
+  // the landed debris melts into the inked pile
+  tl.call(() => {
+    const deck = $("deck");
+    if (deck) deck.classList.add("dissolve");
+  }, null, "dissolve");
   // the chop lands (~55% into the slam): the pile packs down under it
-  setTimeout(() => {
+  tl.call(() => {
     const rubble = $("rubble");
     if (rubble) rubble.classList.add("compact");
     ZBFX.dustRing(200, GROUND - 6);
     ZBFX.shake(6);
     ZBFX.audio.stamp();
-  }, 1460);
-  // the street's last building down: ink splatter and gold star rain
-  if (G.idx === G.levels.length - 1) {
-    setTimeout(() => {
+  }, null, "chop");
+  tl.call(nextLevel, null, "turn");
+
+  /* finale set piece: the street's last building falls in slow motion
+   * (timeline timeScale dips with the CSS tumble stretched to match),
+   * the scene takes a scale punch as the chop lands, and the ink
+   * splatter + gold star rain are timed to the chop label. Reduced
+   * motion is the one gate: the set piece is skipped whole. */
+  if (finale) {
+    tl.call(() => {
       ZBFX.splatter(200, 110);
       ZBFX.starRain();
-    }, 1250);
+    }, null, "chop");
+    if (!ZBFX.reduced) {
+      tl.call(() => {
+        $("deck").style.setProperty("--falldur", "1.35s");
+        tl.timeScale(0.5);
+      }, null, "fall");
+      tl.call(() => {
+        gsap.to(tl, { timeScale: 1, duration: 0.4, ease: "power1.in" });
+      }, null, "rubble");
+      tl.call(() => {
+        gsap.fromTo(".zb-scenewrap", { scale: 1 }, { scale: 1.03, duration: 0.09, yoyo: true, repeat: 1, ease: "power2.out", clearProps: "scale" });
+      }, null, "chop");
+    }
   }
-  setTimeout(nextLevel, 2200);
 }
 
 function fuseOut() {
@@ -2671,32 +2708,40 @@ function fuseOut() {
   const fact = ZBLevels.factorisation(level);
   const lines = (fact ? [mathHtml(fact)] : []).concat([rootsLine]);
   $("markZone").innerHTML = markHtml("wrong", lines) + miniGraphHtml(level);
-  // condemned, one stamp language: a rotated chop in the corner and
-  // red tape across the survivor (the working stays in the mark zone)
-  $("sceneStamp").innerHTML = `<div class="zb-condemn">${t("stamp_standing")}</div>`;
-  $("sceneStamp").classList.add("show");
-  ZBFX.audio.stampSoft();
-  const bb = $("deck").getBBox();
-  const tx1 = bb.x + 8, tx2 = bb.x + bb.width - 8;
-  const ty1 = Math.max(bb.y - 2, 8), ty2 = Math.min(bb.y + bb.height, DECK_Y) + 2;
-  $("structSvg").insertAdjacentHTML("beforeend",
-    `<g class="zb-tape"><path pathLength="1" d="M${tx1.toFixed(1)} ${ty1.toFixed(1)} L${tx2.toFixed(1)} ${ty2.toFixed(1)}"/><path pathLength="1" d="M${tx2.toFixed(1)} ${ty1.toFixed(1)} L${tx1.toFixed(1)} ${ty2.toFixed(1)}"/></g>`);
-  // the survivor takes the hit, settles back and dusts itself off
-  setTimeout(() => {
+
+  /* the condemned beat on its own labelled timeline: the chop and
+   * tape land, the survivor takes the hit and settles, and (solo)
+   * the page turns after the reading pause */
+  const tl = G.beatTl = gsap.timeline();
+  tl.addLabel("condemn", 0).addLabel("settle", 0.26);
+  tl.call(() => {
+    // one stamp language: a rotated corner chop and red tape across
+    // the survivor (the working stays in the mark zone)
+    $("sceneStamp").innerHTML = `<div class="zb-condemn">${t("stamp_standing")}</div>`;
+    $("sceneStamp").classList.add("show");
+    ZBFX.audio.stampSoft();
+    const bb = $("deck").getBBox();
+    const tx1 = bb.x + 8, tx2 = bb.x + bb.width - 8;
+    const ty1 = Math.max(bb.y - 2, 8), ty2 = Math.min(bb.y + bb.height, DECK_Y) + 2;
+    $("structSvg").insertAdjacentHTML("beforeend",
+      `<g class="zb-tape"><path pathLength="1" d="M${tx1.toFixed(1)} ${ty1.toFixed(1)} L${tx2.toFixed(1)} ${ty2.toFixed(1)}"/><path pathLength="1" d="M${tx2.toFixed(1)} ${ty1.toFixed(1)} L${tx1.toFixed(1)} ${ty2.toFixed(1)}"/></g>`);
+  }, null, "condemn");
+  tl.call(() => {
     const deck = $("deck");
     if (!deck) return;
     deck.classList.add("settle");
     ZBFX.dust(160, DECK_Y + 4, { count: 2 });
     ZBFX.dust(240, DECK_Y + 4, { count: 2 });
     ZBFX.shake(3);
-  }, 260);
+  }, null, "settle");
   // tutor-paced in class: the reveal waits for 下一關 (key n) so the
   // codes can be talked through; solo gets time to note them down
   if (G.mode === "host") {
     G.revealHold = true;
     setSkipLabel("tutor_next");
   } else {
-    setTimeout(nextLevel, 5500);
+    tl.addLabel("turn", 5.5);
+    tl.call(nextLevel, null, "turn");
   }
 }
 
