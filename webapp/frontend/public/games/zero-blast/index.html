@@ -194,6 +194,110 @@
     .zb-struct .zb-survey path { stroke: var(--mc-ink-faint); }
     @keyframes zb-surveyin { to { opacity: 0.6; } }
     .zb-pencil { pointer-events: none; }
+
+    /* ---- stagecraft: cover, lobby, projector strip, report ---- */
+
+    /* intro hero vignette: the premise in one blueprint sketch */
+    .zb-hero { display: block; width: min(250px, 72%); margin: 0 auto 10px; overflow: visible; }
+    .zb-hero path { stroke: var(--mc-ink); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .zb-hero path.thin { stroke-width: 1.3; }
+    .zb-hero path.red { stroke: var(--mc-red); opacity: 0.85; }
+
+    /* how-to: three sketches, one caption each */
+    .zb-howto__row { display: flex; gap: 12px; justify-content: center; align-items: stretch; }
+    .zb-howto__item {
+      flex: 1; max-width: 116px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      font-size: 12px; font-weight: 600; line-height: 1.4; text-align: center;
+    }
+    .zb-howto__item svg { width: 66px; height: 50px; }
+    .zb-howto .zh-s { stroke: var(--mc-ink); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .zb-howto .zh-s.thin { stroke-width: 1.2; }
+    .zb-howto .zh-red { stroke: var(--mc-red); }
+    .zb-howto .zh-t { font-family: var(--mc-mono); font-weight: 700; font-size: 9.5px; text-anchor: middle; fill: var(--mc-ink); stroke: none; }
+    .zb-howto text.zh-red { fill: var(--mc-red); }
+    .zb-howto__note { margin-top: 9px; font-size: 12px; color: var(--mc-ink-soft); text-align: center; }
+
+    /* lobby attract loop: draw, stand, collapse, redraw (projector) */
+    .zb-attract { display: none; }
+    .zb-stage--projector #lobbySheet { position: relative; }
+    .zb-stage--projector .zb-attract { display: block; position: absolute; right: 28px; bottom: 24px; width: 140px; }
+    .zb-attract path { stroke: var(--mc-ink); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .zb-attract .a-d { stroke-dasharray: 1; animation: zb-attractdraw 7s linear infinite; }
+    .zb-attract .a-fall { transform-box: fill-box; transform-origin: center bottom; animation: zb-attractfall 7s linear infinite; }
+    @keyframes zb-attractdraw {
+      0% { stroke-dashoffset: 1; }
+      18% { stroke-dashoffset: 0; }
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes zb-attractfall {
+      0%, 62% { transform: none; opacity: 1; }
+      70% { transform: translateY(9px) rotate(5deg); opacity: 0.85; }
+      74%, 100% { opacity: 0; }
+    }
+
+    /* demolished-street strip: the class's campaign arc, projector only */
+    .zb-street { display: none; }
+    .zb-stage--projector .zb-street {
+      display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+      margin-top: 16px; padding-top: 10px; border-top: 1px dashed var(--mc-line);
+    }
+    .zb-street__item { position: relative; width: 46px; text-align: center; animation: mc-pop 0.35s cubic-bezier(0.2, 1.5, 0.35, 1) both; }
+    .zb-street__item svg { width: 38px; height: 38px; display: block; margin: 0 auto; }
+    .zb-street__item path { stroke: var(--mc-ink-soft); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .zb-street__item path.no { stroke: var(--mc-red); opacity: 0.75; }
+    .zb-street__chai {
+      position: absolute; top: -3px; right: 1px;
+      width: 17px; height: 17px; border: 1.6px solid var(--mc-red); border-radius: 50%;
+      color: var(--mc-red); font-size: 10px; font-weight: 900; line-height: 15px;
+      background: color-mix(in srgb, var(--mc-paper) 85%, transparent);
+      transform: rotate(-10deg);
+    }
+    .zb-street__n { font-family: var(--mc-mono); font-size: 9px; font-weight: 700; color: var(--mc-ink-faint); letter-spacing: 0.08em; }
+
+    /* leaderboard theatre: medal chips for the top three, FLIP glide */
+    .zb-rank {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 19px; height: 19px; border-radius: 50%;
+      border: 1.8px solid currentColor; font-size: 11px; font-weight: 800;
+    }
+    .zb-rank--1 { color: var(--mc-gold); }
+    .zb-rank--2 { color: #8e959c; }
+    .zb-rank--3 { color: #a87040; }
+    .zb-hostboard__row { background: var(--mc-paper); }
+
+    /* the demolition report is a ceremony: total counts up under a
+       hand-drawn double rule, stars stamp in one by one, rows slide
+       in staggered, checks draw themselves, the inspector signs off */
+    #endSheet { position: relative; }
+    .zb-endunder { display: block; width: 130px; height: 12px; margin: 0 auto; overflow: visible; }
+    .zb-endunder path { stroke: var(--mc-ink); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+    .zb-endunder path:first-child { animation: zb-draw 0.4s 0.85s ease-out forwards; }
+    .zb-endunder path:last-child { stroke-width: 1.4; animation: zb-draw 0.35s 1.05s ease-out forwards; }
+    #endRecord .zb-record__row, #endRecord .zb-hostboard__row {
+      animation: zb-rowin 0.4s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+      animation-delay: calc(var(--ri, 0) * 80ms + 150ms);
+    }
+    @keyframes zb-rowin {
+      from { opacity: 0; transform: translateX(14px); }
+      to { opacity: 1; transform: none; }
+    }
+    .zb-record__mark path.draw {
+      stroke-dasharray: 1; stroke-dashoffset: 1;
+      animation: zb-draw 0.35s calc(var(--ri, 0) * 80ms + 380ms) ease-out forwards;
+    }
+    .zb-endchop {
+      position: absolute; right: 12px; bottom: 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
+      padding: 5px 10px; border: 2.5px solid var(--mc-red); border-radius: 6px;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 12px; letter-spacing: 0.14em;
+      color: var(--mc-red);
+      background: color-mix(in srgb, var(--mc-paper) 82%, transparent);
+      box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mc-red) 28%, transparent);
+      transform: rotate(8deg);
+      animation: mc-stamp-in 0.35s 1.15s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+    }
+    .zb-endchop small { font-size: 9px; letter-spacing: 0.1em; font-weight: 700; }
     /* fail state: the survivor takes the hit, settles, dusts itself off */
     .zb-deck.settle { animation: zb-settle 0.6s ease-out; }
     @keyframes zb-settle {
@@ -592,7 +696,8 @@
     /* reduced motion: theme.css kills all animations, so every draw-on
        stroke must still end visible, and the fallen deck must still clear */
     @media (prefers-reduced-motion: reduce) {
-      .din, .zb-rubble.show path, .zb-struct .zb-tape path { stroke-dashoffset: 0 !important; }
+      .din, .zb-rubble.show path, .zb-struct .zb-tape path,
+      .zb-record__mark path.draw, .zb-endunder path, .zb-attract .a-d { stroke-dashoffset: 0 !important; }
       .din2, .zb-rootmark.show { opacity: 1 !important; }
       .zb-struct .zb-survey { opacity: 0.6 !important; }
       .zb-deck.fall { opacity: 0; }
@@ -737,13 +842,67 @@
       <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
     </header>
     <h1 class="mc-title" data-i18n="title"></h1>
-    <svg class="mc-swash" viewBox="0 0 150 12" aria-hidden="true"><path d="M3 8 Q40 3 75 7 T147 5"/></svg>
+    <!-- the title's underline is drawn by a travelling fuse spark -->
+    <svg class="mc-swash" viewBox="0 0 150 12" aria-hidden="true">
+      <path d="M3 8 Q40 3 75 7 T147 5"/>
+      <circle class="zb-smil" r="2.6" fill="var(--mc-red)" opacity="0">
+        <animate attributeName="opacity" values="0;1" begin="0.3s" dur="0.01s" fill="freeze"/>
+        <animateMotion begin="0.3s" dur="0.55s" fill="freeze" path="M3 8 Q40 3 75 7 T147 5"/>
+        <animate attributeName="opacity" values="1;0" begin="0.88s" dur="0.3s" fill="freeze"/>
+      </circle>
+    </svg>
     <p class="mc-lede" data-i18n="objective"></p>
+    <!-- hero vignette: the whole premise in one blueprint sketch -->
+    <svg class="zb-hero" viewBox="0 0 240 84" aria-hidden="true">
+      <path pathLength="1" class="din" style="--i:1" d="M10 76 H230"/>
+      <path pathLength="1" class="din thin" style="--i:2" d="M98 76 V58 M112 76 V58 M98 62 L112 70 M112 62 L98 70"/>
+      <path pathLength="1" class="din thin" style="--i:3" d="M146 76 V58 M160 76 V58 M146 62 L160 70 M160 62 L146 70"/>
+      <path pathLength="1" class="din" style="--i:4" d="M90 58 h78 M90 54 h78"/>
+      <path pathLength="1" class="din" style="--i:5" d="M102 54 V32 h54 V54 M102 42 h54"/>
+      <path pathLength="1" class="din" style="--i:6" d="M98 32 L129 17 L160 32"/>
+      <path pathLength="1" class="din thin" style="--i:7" d="M22 68 h16 v8 h-16 z M30 68 v-6 M24 62 h12"/>
+      <path pathLength="1" class="din red" style="--i:8" d="M38 74 C 58 82, 76 66, 98 75"/>
+    </svg>
     <div class="mc-meta">
       <span><svg><use href="#i-clock"/></svg><span data-i18n="duration"></span></span>
       <span><svg><use href="#i-players"/></svg><span data-i18n="players"></span></span>
     </div>
-    <div class="mc-note" data-i18n="how_to_play"></div>
+    <!-- how to play: three sketches, one caption each -->
+    <div class="mc-note zb-howto">
+      <div class="zb-howto__row">
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <rect x="14" y="6" width="48" height="16" rx="2" class="zh-s thin"/>
+            <text x="38" y="18" class="zh-t">(x−3)</text>
+            <path d="M31 22 V42 M45 22 V42 M31 27 L45 37 M45 27 L31 37" class="zh-s thin"/>
+            <rect x="26" y="45" width="24" height="12" rx="2" class="zh-s thin"/>
+            <text x="38" y="54" class="zh-t">x = 3</text>
+          </svg>
+          <span data-i18n="howto_1"></span>
+        </div>
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <text x="38" y="16" class="zh-t">(3−3) = 0</text>
+            <path d="M16 12 L60 12" class="zh-s zh-red" style="stroke-width:2"/>
+            <g transform="rotate(14 38 46)">
+              <path d="M31 26 V46 M45 26 V46 M31 31 L45 41 M45 31 L31 41" class="zh-s thin"/>
+            </g>
+            <path d="M56 48 l3 -3 M60 52 l4 -2 M58 42 l4 1" class="zh-s thin"/>
+          </svg>
+          <span data-i18n="howto_2"></span>
+        </div>
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <path d="M10 50 H66 M16 50 L26 40 L34 46 L44 34 L54 44 L60 50" class="zh-s"/>
+            <circle cx="52" cy="18" r="11" class="zh-s zh-red"/>
+            <text x="52" y="23" class="zh-t zh-red" style="font-size:12px">拆</text>
+            <text x="26" y="22" class="zh-t zh-red">x = 3</text>
+          </svg>
+          <span data-i18n="howto_3"></span>
+        </div>
+      </div>
+      <div class="zb-howto__note" data-i18n="howto_note"></div>
+    </div>
     <div style="display:grid;gap:12px">
       <button class="mc-btn mc-btn--primary mc-btn--block" id="btnHost">
         <svg style="width:20px;height:20px"><use href="#i-screen"/></svg>
@@ -777,10 +936,22 @@
     </header>
     <h2 class="mc-title" style="font-size:clamp(26px,6vw,36px)" data-i18n="lobby_title"></h2>
     <p class="mc-lede" data-i18n="lobby_hint"></p>
-    <div class="mc-sheet" style="text-align:center">
+    <div class="mc-sheet" id="lobbySheet" style="text-align:center">
       <div class="mc-board__label" data-i18n="room_code_label"></div>
       <div class="mc-code" id="roomCode">····</div>
       <div class="mc-qr" id="qrBox" style="margin-top:16px"></div>
+      <!-- attract loop: a little building draws, falls and redraws
+           while the class scans in (projector only) -->
+      <svg class="zb-attract" id="attractLoop" viewBox="0 0 130 92" aria-hidden="true">
+        <path class="a-g" d="M8 84 H122"/>
+        <g class="a-fall">
+          <path class="a-d" pathLength="1" d="M34 84 V66 M46 84 V66 M34 70 L46 78 M46 70 L34 78"/>
+          <path class="a-d" pathLength="1" d="M84 84 V66 M96 84 V66 M84 70 L96 78 M96 70 L84 78"/>
+          <path class="a-d" pathLength="1" d="M28 66 h74 M28 62 h74"/>
+          <path class="a-d" pathLength="1" d="M38 62 V34 h54 V62 M38 48 h54"/>
+          <path class="a-d" pathLength="1" d="M34 34 L65 18 L96 34"/>
+        </g>
+      </svg>
     </div>
     <p class="mc-status" id="lobbyStatus" style="margin-top:16px" data-i18n="lobby_waiting"></p>
     <div class="zb-playerlist" id="playerList" style="margin-top:12px"></div>
@@ -865,6 +1036,8 @@
         </div>
       </div>
     </div>
+    <!-- projector campaign arc: every felled building joins the strip -->
+    <div class="zb-street" id="streetStrip" aria-hidden="true"></div>
   </div>
 
   <!-- ══ controller (student phone, multi-device) ══ -->
@@ -918,11 +1091,16 @@
     </header>
     <h1 class="mc-title" style="font-size:clamp(28px,7vw,44px)" data-i18n="end_title"></h1>
     <svg class="mc-swash" viewBox="0 0 150 12" aria-hidden="true"><path d="M3 8 Q40 3 75 7 T147 5"/></svg>
-    <div class="mc-sheet" style="text-align:center">
+    <div class="mc-sheet" id="endSheet" style="text-align:center">
       <div class="mc-board__label" id="endScoreLabel" data-i18n="end_score_label"></div>
       <div class="mc-code" id="endScore" style="letter-spacing:0.04em">0</div>
+      <svg class="zb-endunder" viewBox="0 0 130 12" aria-hidden="true">
+        <path pathLength="1" d="M6 3 Q65 0 124 4"/>
+        <path pathLength="1" d="M10 9 Q65 6 120 8"/>
+      </svg>
       <div class="mc-stars" id="endStars" style="margin-top:6px"></div>
       <div class="zb-record" id="endRecord"></div>
+      <div class="zb-endchop" aria-hidden="true"><span data-i18n="end_chop"></span><small id="endChopDate"></small></div>
     </div>
     <div class="mc-note" style="margin-top:20px">
       <strong data-i18n="takeaway_label"></strong><span>：</span><span data-i18n="takeaway_text"></span>
@@ -949,8 +1127,11 @@ const STRINGS = {
   subtopic:         { c: "零因積性質", e: "Zero-product property" },
   objective:        { c: "每座建築都企喺「因式支柱」上面。|輸入正確嘅拆卸密碼，|令因式歸零，|一座一座拆走佢哋。",
                       e: "Every structure stands on factor pillars. Enter the right detonation codes to zero each factor and bring them all down." },
-  how_to_play:      { c: "玩法：一個因式等於 0，|成個乘積就等於 0。|每座建築要搵齊所有密碼|（即係方程所有嘅解）先會倒塌。|答錯會鎖鍵盤三秒，|諗清楚先好撳！|全班齊玩時，|人哋拆咗嘅支柱|你答啱都仲有分！",
-                      e: "How to play: if one factor is 0, the whole product is 0. A structure only falls when you find every code, that is, every solution of the equation. A wrong code locks your keypad for three seconds, so think before you tap! In class mode, a pillar someone else has taken still pays when you crack its code!" },
+  howto_1:          { c: "支柱就係因式，|入啱佢嘅拆卸密碼", e: "Each pillar is a factor: enter its code" },
+  howto_2:          { c: "因式歸零，|支柱即刻倒下", e: "The factor hits zero, its pillar falls" },
+  howto_3:          { c: "搵齊所有解，|成座建築拆卸", e: "Find every solution to bring it down" },
+  howto_note:       { c: "答錯會鎖鍵盤三秒，|諗清楚先好撳！|全班齊玩時，|人哋拆咗嘅支柱|你答啱都仲有分！",
+                      e: "A wrong code locks your keypad for three seconds, so think before you tap! In class mode, a claimed pillar still pays when you crack its code!" },
   duration:         { c: "12 座建築 · 約 5–8 分鐘", e: "12 buildings · 5–8 min" },
   players:          { c: "1 人或全班",  e: "Solo or whole class" },
   btn_host:         { c: "多裝置開始",  e: "Start · multi-device" },
@@ -994,6 +1175,7 @@ const STRINGS = {
   time_fmt:         { c: "{s} 秒",      e: "{s}s" },
   end_title:        { c: "拆卸報告",    e: "Demolition report" },
   end_score_label:  { c: "總分",        e: "Total score" },
+  end_chop:         { c: "檢定完成",    e: "Inspection complete" },
   takeaway_label:   { c: "今日重點",    e: "Key idea" },
   takeaway_text:    { c: "若果兩個因式相乘等於零，|其中至少一個因式必定等於零。",
                       e: "If a product of factors equals zero, at least one of the factors must be zero." },
@@ -1422,17 +1604,24 @@ function renderStreak(el, n) {
 
 /* the displayed score counts up to the judged total (G.score itself
  * always moves exactly); reduced motion snaps */
-function tweenScore(el, to) {
+function tweenScore(el, to, ms) {
   cancelAnimationFrame(el._tw);
   const from = parseInt(String(el.textContent).replace(/[^\d-]/g, ""), 10) || 0;
   if (ZBFX.reduced || to === from) { el.textContent = to; return; }
-  const t0 = performance.now(), ms = 550;
+  const t0 = performance.now(), dur = ms || 550;
   const step = now => {
-    const k = Math.min(1, (now - t0) / ms);
+    const k = Math.min(1, (now - t0) / dur);
     el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
     if (k < 1) el._tw = requestAnimationFrame(step);
   };
   el._tw = requestAnimationFrame(step);
+}
+
+/* end report: the stars stamp in one after another */
+function staggerStars(el) {
+  [...el.querySelectorAll("svg")].forEach((s, i) => {
+    s.style.animationDelay = (0.25 + i * 0.15) + "s";
+  });
 }
 
 /* +N 分 ink numeral floating from the claimed pillar toward the score
@@ -1606,6 +1795,10 @@ const pad = makePad($("pad"), $("padPreview"), $("padLock"), $("lockCount"), v =
 
 ZBFX.attach($("fxCanvas"), $("scene"), VB_W, VB_H);
 
+$("endChopDate").textContent = RUN_DATE;
+// SMIL animations ignore the CSS reduced-motion kill switch
+if (ZBFX.reduced) document.querySelectorAll(".zb-smil").forEach(e => e.remove());
+
 function startRun(mode) {
   G.mode = mode;
   ZBFX.audio.unlock();
@@ -1698,6 +1891,7 @@ function startLevel(resume) {
   renderStreak($("stars"), G.streak);
   renderStructure(level);
   if (level.seq === 1 && !resume && !ZBFX.reduced) ridePencil();
+  renderStreet();
   renderStrugglers();
   pad.enable();
 
@@ -2081,23 +2275,73 @@ function enterGrace() {
   saveHostRun();
 }
 
-/* live leaderboard under the host scene */
+/* live leaderboard under the host scene: medal chips on the top three,
+ * overtaking rows FLIP-glide to their new rank, scores roll */
 function renderHostBoard() {
+  const board = $("hostBoard");
+  const prevTop = {}, prevPts = {};
+  [...board.children].forEach(r => {
+    if (!r.dataset.id) return;
+    prevTop[r.dataset.id] = r.getBoundingClientRect().top;
+    prevPts[r.dataset.id] = parseInt((r.querySelector(".zb-hostboard__pts") || {}).textContent, 10);
+  });
   const rows = Object.keys(G.players)
     .map(id => ({ id: id, name: (G.players[id] || {}).name || t("player"), pts: G.scores[id] || 0 }))
     .sort((a, b) => b.pts - a.pts)
     .slice(0, 6);
-  $("hostBoard").innerHTML = rows.map((r, i) => `
-    <div class="zb-hostboard__row">
-      <span class="zb-hostboard__rank">${i + 1}</span>
+  board.innerHTML = rows.map((r, i) => `
+    <div class="zb-hostboard__row" data-id="${r.id}">
+      <span class="zb-hostboard__rank${i < 3 ? " zb-rank zb-rank--" + (i + 1) : ""}">${i + 1}</span>
       <span class="zb-hostboard__name">${escapeText(r.name)}</span>
       ${multHtml(G.streaks[r.id] || 0)}
       <span class="zb-hostboard__pts">${r.pts}</span>
     </div>`).join("");
+  [...board.children].forEach(row => {
+    const was = prevTop[row.dataset.id];
+    if (was != null && !ZBFX.reduced) {
+      const dy = was - row.getBoundingClientRect().top;
+      if (Math.abs(dy) > 4) {
+        row.classList.add("zb-flip");
+        row.style.transition = "none";
+        row.style.transform = `translateY(${dy}px)`;
+        requestAnimationFrame(() => {
+          row.style.transition = "transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1)";
+          row.style.transform = "";
+          setTimeout(() => { row.classList.remove("zb-flip"); row.style.transition = ""; }, 420);
+        });
+      }
+    }
+    const ptsEl = row.querySelector(".zb-hostboard__pts");
+    const from = prevPts[row.dataset.id];
+    const to = parseInt(ptsEl.textContent, 10);
+    if (!isNaN(from) && from !== to) { ptsEl.textContent = from; tweenScore(ptsEl, to); }
+  });
   renderStrugglers();
 }
 function escapeText(s) {
   return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+}
+
+/* the projector's campaign arc: every resolved building becomes a tiny
+ * stamped silhouette on the street strip (01 → 12), a mini 拆 for the
+ * cleared ones, a red cross for survivors */
+const MINI_SIL = {
+  1: "M6 34 h28 M12 34 V22 h16 V34 M12 27 h16 M10 22 L20 14 L30 22",
+  2: "M6 34 h28 M11 34 V19 h18 V34 M8 19 L20 10 L32 19",
+  3: "M4 34 h32 M7 34 V13 h26 V34 M7 21 h26",
+  4: "M4 34 h32 M10 34 V26 M30 34 V26 M10 28 Q20 16 30 28",
+  5: "M12 34 h16 M15 34 L17 8 h6 L25 34",
+  6: "M6 34 h28 M10 34 V12 h20 V34 M14 12 V6 h12 V12 M20 6 V2",
+};
+function renderStreet() {
+  const el = $("streetStrip");
+  if (!el) return;
+  el.innerHTML = G.records.map((r, i) => `
+    <span class="zb-street__item">
+      <svg viewBox="0 0 40 40"><path d="${MINI_SIL[r.n]}"/>${r.cleared ? "" : '<path class="no" d="M10 12 L30 32 M30 12 L10 32"/>'}</svg>
+      ${r.cleared ? '<span class="zb-street__chai">拆</span>' : ""}
+      <span class="zb-street__n">${String(i + 1).padStart(2, "0")}</span>
+    </span>`).join("");
 }
 
 /* who hasn't scored this round — a count only, never names: the tutor
@@ -2198,6 +2442,7 @@ function collapseAndAdvance() {
   const elapsed = G.duration - Math.max(0, G.deadline - performance.now());
   G.records.push({ n: G.level.n, stage: G.level.stage, round: G.level.round, cleared: true, ms: elapsed, pts: G.levelPoints });
   if (G.mode === "host") G.room.update("state", { phase: "cooldown", graceUntil: null });
+  renderStreet();
   saveHostRun();
 
   // crack pre-beat (~150ms): fault lines flash, one small shake pulse,
@@ -2240,6 +2485,13 @@ function collapseAndAdvance() {
     ZBFX.shake(6);
     ZBFX.audio.stamp();
   }, 1460);
+  // the street's last building down: ink splatter and gold star rain
+  if (G.idx === G.levels.length - 1) {
+    setTimeout(() => {
+      ZBFX.splatter(200, 110);
+      ZBFX.starRain();
+    }, 1250);
+  }
   setTimeout(nextLevel, 2200);
 }
 
@@ -2258,6 +2510,7 @@ function fuseOut() {
     G.streaks = {}; // a survived structure breaks everyone's streak
     G.room.update("state", { phase: "reveal" });
   }
+  renderStreet();
   saveHostRun();
 
   // the structure survives; reveal the full solution with working
@@ -2314,8 +2567,8 @@ function nextLevel() {
 
 function leaderboardHtml(results, meId) {
   return results.map((r, i) => `
-    <div class="zb-hostboard__row${r.id === meId ? " me" : ""}">
-      <span class="zb-hostboard__rank">${i + 1}</span>
+    <div class="zb-hostboard__row${r.id === meId ? " me" : ""}" style="--ri:${i}">
+      <span class="zb-hostboard__rank${i < 3 ? " zb-rank zb-rank--" + (i + 1) : ""}">${i + 1}</span>
       <span class="zb-hostboard__name">${escapeText(r.name)}</span>
       <span class="zb-hostboard__pts">${r.score}</span>
     </div>`).join("");
@@ -2334,8 +2587,10 @@ function endGame() {
     GameBridge.emit(SLUG, "complete", { mode: "multi", results: results });
     $("endScoreLabel").setAttribute("data-i18n", "end_leaderboard");
     $("endScoreLabel").textContent = t("end_leaderboard");
-    $("endScore").textContent = results.length ? results[0].score : 0;
+    $("endScore").textContent = "0";
+    tweenScore($("endScore"), results.length ? results[0].score : 0, 900);
     renderStars($("endStars"), results.length ? results[0].stars : 0);
+    staggerStars($("endStars"));
     $("endRecord").innerHTML = `<div class="zb-hostboard" style="max-width:none">${leaderboardHtml(results, null)}</div>`;
     refreshDynamicText();
     show("endScreen");
@@ -2344,15 +2599,17 @@ function endGame() {
   GameBridge.emit(SLUG, "complete", { score: G.score, stars: G.starsTotal, records: G.records });
   $("endScoreLabel").setAttribute("data-i18n", "end_score_label");
   $("endScoreLabel").textContent = t("end_score_label");
-  $("endScore").textContent = G.score;
+  $("endScore").textContent = "0";
+  tweenScore($("endScore"), G.score, 900);
   renderStars($("endStars"), G.starsTotal);
-  $("endRecord").innerHTML = G.records.map(r => `
-    <div class="zb-record__row">
+  staggerStars($("endStars"));
+  $("endRecord").innerHTML = G.records.map((r, i) => `
+    <div class="zb-record__row" style="--ri:${i}">
       <span class="zb-record__lv">${r.stage}-${r.round}</span>
       <span class="zb-record__name">${t("b" + r.n)}<small>${t("lv" + r.n)}</small></span>
       <span class="zb-record__mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${
-        r.cleared ? '<path class="ok" d="M4 13l5.5 5.5L20 6.5"/>'
-                  : '<path class="no" d="M6 6l12 12M18 6L6 18"/>'
+        r.cleared ? '<path pathLength="1" class="ok draw" d="M4 13l5.5 5.5L20 6.5"/>'
+                  : '<path pathLength="1" class="no draw" d="M6 6l12 12M18 6L6 18"/>'
       }</svg></span>
       <span class="zb-record__pts">${r.cleared ? fmt("time_fmt", { s: (r.ms / 1000).toFixed(1) }) + " · " : ""}${r.pts}</span>
     </div>`).join("");
@@ -2762,8 +3019,10 @@ function ctrlEnd(results) {
   const rank = results.findIndex(r => r.id === C.id) + 1;
   $("endScoreLabel").setAttribute("data-i18n", "your_score");
   $("endScoreLabel").textContent = t("your_score");
-  $("endScore").textContent = mine ? mine.score : 0;
+  $("endScore").textContent = "0";
+  tweenScore($("endScore"), mine ? mine.score : 0, 900);
   renderStars($("endStars"), mine ? mine.stars : 0);
+  staggerStars($("endStars"));
   $("endRecord").innerHTML =
     (rank ? `<div class="mc-margin-note" style="margin-top:6px">${fmt("rank_fmt", { r: rank })}</div>` : "")
     + `<div class="zb-hostboard" style="max-width:none">${leaderboardHtml(results, C.id)}</div>`;

@@ -185,6 +185,70 @@
     }
   }
 
+  /* finale celebration: ink splatter burst — the house language is
+   * splatter and stars, never confetti */
+  function splatter(x, y) {
+    if (reduced) return;
+    var at = toPx(x, y);
+    var n = Math.round(12 * fxScale());
+    var color = token("--mc-ink");
+    for (var i = 0; i < n; i++) {
+      var ang = Math.random() * Math.PI * 2;
+      var pow = (1.5 + Math.random() * 4) * at.scale;
+      spawn({
+        type: "blot",
+        x: at.x,
+        y: at.y,
+        vx: Math.cos(ang) * pow,
+        vy: Math.sin(ang) * pow - 1.5 * at.scale,
+        size: (1.5 + Math.random() * 4.5) * at.scale,
+        ttl: 700 + Math.random() * 700,
+        life: 0,
+        color: color,
+        g: 0.1 * at.scale,
+      });
+    }
+  }
+
+  /* finale celebration: gold stars raining across the scene */
+  function starRain() {
+    if (reduced || !scene) return;
+    var s = fxScale();
+    var w = scene.clientWidth;
+    var n = Math.round(10 * s);
+    var color = token("--mc-gold");
+    for (var i = 0; i < n; i++) {
+      spawn({
+        type: "star",
+        x: Math.random() * w,
+        y: -10 - Math.random() * 50,
+        vx: (Math.random() - 0.5) * 0.6 * s,
+        vy: (1 + Math.random() * 1.4) * s,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.18,
+        size: (5 + Math.random() * 5) * s,
+        ttl: 1700 + Math.random() * 900,
+        life: 0,
+        color: color,
+      });
+    }
+  }
+
+  function drawStar(x, y, r, rot) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.beginPath();
+    for (var i = 0; i < 10; i++) {
+      var rr = i % 2 === 0 ? r : r * 0.45;
+      var a = (Math.PI / 5) * i - Math.PI / 2;
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
   /* continuous spark shower at the burning fuse tip */
   function sparksAt(x, y) {
     sparkEmitter = x === null ? null : { x: x, y: y };
@@ -273,6 +337,11 @@
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalCompositeOperation = "source-over";
+      } else if (p.type === "star") {
+        ctx.globalAlpha = k;
+        ctx.fillStyle = p.color;
+        p.rot += p.vr * (dt / 16);
+        drawStar(p.x, p.y, p.size, p.rot);
       } else {
         // sparks composite additively on the dark chalkboard: embers
         ctx.globalAlpha = k;
@@ -498,6 +567,8 @@
     debris: debris,
     dust: dust,
     dustRing: dustRing,
+    splatter: splatter,
+    starRain: starRain,
     sparksAt: sparksAt,
     sparking: function () {
       return !!sparkEmitter;
