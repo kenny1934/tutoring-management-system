@@ -19,6 +19,9 @@
   <style>
     /* ---- game-specific styles: theme.css tokens only ---- */
 
+    /* the page-turn slide must never create a horizontal scrollbar */
+    html, body { overflow-x: hidden; }
+
     .zb-topline {
       display: flex; align-items: center; justify-content: space-between;
       gap: 10px; margin-bottom: 10px;
@@ -159,6 +162,38 @@
     }
     /* the landed debris melts into the pile once the outline is inked */
     .zb-deck.dissolve { opacity: 0; transition: opacity 0.45s ease-out; }
+
+    /* bound-book flow: screens and rounds turn like worksheet pages.
+     * The old page lifts away, the new one slides in under its
+     * title-block cover with a page-edge shadow. */
+    .zb-turnin, .zb-page-in { animation: zb-pagein 0.34s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+    .zb-page-out { animation: zb-pageout 0.24s ease-in both; }
+    @keyframes zb-pageout {
+      to { transform: translateX(-5%) rotate(-1.4deg); opacity: 0; }
+    }
+    @keyframes zb-pagein {
+      from { transform: translateX(7%) rotate(1.1deg); opacity: 0; box-shadow: -18px 0 26px rgba(0, 0, 0, 0.16); }
+      to { transform: none; opacity: 1; box-shadow: 0 0 0 rgba(0, 0, 0, 0); }
+    }
+
+    /* scene atmosphere: distant crane and skyline, drifting pencil
+     * clouds, surveyor's dimension notes — all faint pencil, idle life */
+    .zb-struct .zb-atmo path { stroke: var(--mc-ink-faint); }
+    .zb-crane__hook { transform-box: fill-box; transform-origin: center top; animation: zb-cranesway 5s ease-in-out infinite; }
+    @keyframes zb-cranesway {
+      0%, 100% { transform: rotate(1.8deg); }
+      50% { transform: rotate(-1.8deg); }
+    }
+    .zb-cloud--a { animation: zb-clouddrift 46s linear infinite alternate; }
+    .zb-cloud--b { animation: zb-clouddrift 34s linear 2s infinite alternate-reverse; }
+    @keyframes zb-clouddrift {
+      from { transform: translateX(-7px); }
+      to { transform: translateX(13px); }
+    }
+    .zb-struct .zb-survey { opacity: 0; animation: zb-surveyin 0.6s 1.7s ease-out forwards; }
+    .zb-struct .zb-survey path { stroke: var(--mc-ink-faint); }
+    @keyframes zb-surveyin { to { opacity: 0.6; } }
+    .zb-pencil { pointer-events: none; }
     /* fail state: the survivor takes the hit, settles, dusts itself off */
     .zb-deck.settle { animation: zb-settle 0.6s ease-out; }
     @keyframes zb-settle {
@@ -325,26 +360,58 @@
       100% { opacity: 0; transform: translate(calc(-50% + var(--fdx, 0px)), calc(-50% + var(--fdy, -80px))) scale(0.5); }
     }
 
-    /* level intro card, flashed over the scene */
+    /* level intro card: the blueprint TITLE BLOCK of the incoming
+     * worksheet page, stamped in with a little rotation overshoot */
     .zb-levelcard {
       position: absolute; inset: 0; z-index: 4; display: none;
-      flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+      align-items: center; justify-content: center;
       text-align: center; pointer-events: none;
     }
     .zb-levelcard.show { display: flex; animation: zb-card 1.2s ease-in-out both; }
-    .zb-levelcard__n {
-      font-family: var(--mc-display); font-size: 34px; letter-spacing: 0.02em;
-      background: color-mix(in srgb, var(--mc-paper) 85%, transparent); padding: 0 14px; border-radius: 6px;
+    .zb-levelcard__block {
+      position: relative;
+      background: var(--mc-paper-raised);
+      border: 2px solid var(--mc-ink); border-radius: 3px;
+      padding: 9px 24px 8px; min-width: 200px;
+      box-shadow: var(--mc-shadow-sm);
+      display: flex; flex-direction: column; gap: 3px;
+      animation: zb-cardstamp 0.5s cubic-bezier(0.2, 1.4, 0.35, 1) both;
     }
-    .zb-levelcard__sub {
-      font-weight: 700; font-size: 16px; color: var(--mc-red);
-      background: color-mix(in srgb, var(--mc-paper) 85%, transparent); padding: 0 12px; border-radius: 6px;
+    /* finale card: double border, the stakes chopped on the corner */
+    .zb-levelcard__block.finale {
+      box-shadow: 0 0 0 2.5px var(--mc-paper-raised), 0 0 0 4px var(--mc-ink), var(--mc-shadow-sm);
     }
-    /* finale street: the teacher's pen stamps the stakes on the card */
+    @keyframes zb-cardstamp {
+      from { transform: scale(1.3) rotate(2.5deg); opacity: 0; }
+      60% { transform: scale(0.97) rotate(-1.2deg); opacity: 1; }
+      to { transform: scale(1) rotate(-1deg); opacity: 1; }
+    }
+    .zb-levelcard__plan {
+      font-family: var(--mc-mono); font-size: 10px; letter-spacing: 0.18em;
+      color: var(--mc-ink-faint);
+      border-bottom: 1px solid var(--mc-line); padding-bottom: 4px;
+    }
+    .zb-levelcard__n { font-family: var(--mc-display); font-size: 30px; letter-spacing: 0.02em; }
+    .zb-levelcard__sub { font-weight: 700; font-size: 15px; color: var(--mc-red); }
+    .zb-levelcard__meta {
+      font-family: var(--mc-mono); font-size: 9.5px; letter-spacing: 0.1em;
+      color: var(--mc-ink-faint);
+      border-top: 1px solid var(--mc-line); padding-top: 4px; margin-top: 2px;
+    }
     .zb-levelcard__finale {
       font-family: var(--mc-mono); font-weight: 800; font-size: 13.5px; letter-spacing: 0.06em;
       color: var(--mc-paper); background: var(--mc-red);
-      padding: 3px 12px; border-radius: 5px; transform: rotate(-2deg); margin-top: 4px;
+      padding: 3px 12px; border-radius: 5px; transform: rotate(-2deg);
+      margin: 4px auto 0;
+    }
+    .zb-levelcard__chop {
+      position: absolute; top: -14px; right: -16px;
+      width: 44px; height: 44px; border: 2.5px solid var(--mc-red); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mc-body); font-weight: 900; font-size: 15px; color: var(--mc-red);
+      background: color-mix(in srgb, var(--mc-paper) 85%, transparent);
+      transform: rotate(12deg);
+      animation: mc-stamp-in 0.35s 0.3s cubic-bezier(0.2, 1.5, 0.35, 1) both;
     }
     @keyframes zb-card {
       0% { opacity: 0; transform: scale(1.12); }
@@ -352,6 +419,8 @@
       78% { opacity: 1; }
       100% { opacity: 0; }
     }
+    .zb-stage--projector .zb-levelcard__n { font-size: 44px; }
+    .zb-stage--projector .zb-levelcard__sub { font-size: 20px; }
 
     /* ---- marking + keypad ---- */
     .zb-mark { min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px 0; }
@@ -525,6 +594,7 @@
     @media (prefers-reduced-motion: reduce) {
       .din, .zb-rubble.show path, .zb-struct .zb-tape path { stroke-dashoffset: 0 !important; }
       .din2, .zb-rootmark.show { opacity: 1 !important; }
+      .zb-struct .zb-survey { opacity: 0.6 !important; }
       .zb-deck.fall { opacity: 0; }
       .zb-floatpts { display: none; }
     }
@@ -746,9 +816,14 @@
             <canvas id="fxCanvas" aria-hidden="true"></canvas>
             <div class="zb-scenestamp" id="sceneStamp" aria-live="polite"></div>
             <div class="zb-levelcard" id="levelCard" aria-hidden="true">
-              <div class="zb-levelcard__n" id="levelCardN"></div>
-              <div class="zb-levelcard__sub" id="levelCardSub"></div>
-              <div class="zb-levelcard__finale" id="levelCardFin" style="display:none"></div>
+              <div class="zb-levelcard__block" id="levelCardBlock">
+                <div class="zb-levelcard__plan" id="levelCardPlan"></div>
+                <div class="zb-levelcard__n" id="levelCardN"></div>
+                <div class="zb-levelcard__sub" id="levelCardSub"></div>
+                <div class="zb-levelcard__meta" id="levelCardMeta"></div>
+                <div class="zb-levelcard__finale" id="levelCardFin" style="display:none"></div>
+                <div class="zb-levelcard__chop" id="levelCardChop" style="display:none">加倍</div>
+              </div>
             </div>
           </div>
         </div>
@@ -897,6 +972,7 @@ const STRINGS = {
   lv6:              { c: "先因式分解",  e: "Factorise first" },
   lv_mix:           { c: "混合街",      e: "Mixed street" },
   finale_tag:       { c: "最後一條街 · 分數雙倍", e: "Final street · double points" },
+  card_contractor:  { c: "承建商 MathConcept", e: "Contractor MathConcept" },
   b1:               { c: "水塔",        e: "Water tower" },
   b2:               { c: "小屋",        e: "Shed" },
   b3:               { c: "廠房",        e: "Factory" },
@@ -957,6 +1033,7 @@ const STRINGS = {
 const SLUG = "zero-blast";
 const VB_W = 400, VB_H = 240;
 const CARD_MS = 850; // level card leads, blueprint draw-in + fuse follow
+const RUN_DATE = (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`)(new Date());
 
 GameBridge.initTheme();
 GameBridge.initI18n(STRINGS);
@@ -970,8 +1047,14 @@ function fmt(key, vars) {
   return s;
 }
 function show(id) {
-  document.querySelectorAll(".mc-screen").forEach(s => s.classList.remove("active"));
-  $(id).classList.add("active");
+  document.querySelectorAll(".mc-screen").forEach(s => s.classList.remove("active", "zb-turnin"));
+  const el = $(id);
+  el.classList.add("active");
+  // the incoming screen slides in like the next worksheet page
+  if (!ZBFX.reduced) {
+    el.classList.add("zb-turnin");
+    setTimeout(() => el.classList.remove("zb-turnin"), 420);
+  }
 }
 
 /* toggles */
@@ -1150,13 +1233,29 @@ function rubbleSvg(xs) {
   </g>`;
 }
 
+/* far-side idle life: a thin-stroke tower crane, distant silhouettes
+ * on the horizon, two pencil-scribble clouds drifting in the sky band */
+function atmosphereSvg() {
+  return `<g class="zb-atmo">`
+    + P(`M330 ${GROUND} v-24 h14 v24`, "thin faint")
+    + P(`M390 ${GROUND} v-14 h6`, "thin faint")
+    + P(`M372 ${GROUND} V118 M366 ${GROUND} h12`, "thin faint")
+    + P("M352 124 H392 M372 118 V112 M372 112 L354 123 M372 112 L390 123", "thin faint")
+    + P("M386 124 v7 h5 v-7", "thin faint")
+    + `<g class="zb-crane__hook">${P("M357 124 v13", "thin faint")}${P("M357 137 q-2.5 3 0 5 q3 2 3.5 -1", "thin faint")}</g>`
+    + `<g class="zb-cloud zb-cloud--a">${P("M64 46 q7 -9 18 -7 q9 -7 20 -2 q10 -1 8 5 q-5 7 -16 5 q-11 4 -21 1 q-9 -1 -9 -2", "thin faint")}</g>`
+    + `<g class="zb-cloud zb-cloud--b">${P("M316 36 q6 -8 16 -6 q8 -6 17 -1 q8 0 6 5 q-5 5 -13 4 q-10 3 -18 0 q-8 -1 -8 -2", "thin faint")}</g>`
+    + `</g>`;
+}
+
 function sceneStatics(level, xs) {
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
   let hatch = "";
   for (let x = 20; x < 390; x += 24) hatch += `M${x} ${GROUND} l-8 9 `;
   // fuse: detonator bottom-left, hand-drawn line to the structure base
   const fuseD = `M46 202 C 96 226, 132 188, ${cx - 52} 218 S ${cx - 10} 214, ${cx} 209`;
-  return P(`M8 ${GROUND} H392`)
+  return atmosphereSvg()
+    + P(`M8 ${GROUND} H392`)
     + P(hatch, "thin faint")
     + `<path d="M${cx} 20 V${GROUND}" class="thin faint" stroke-dasharray="7 4 2 4"/>`
     + T(16, 26, "tag", "圖則 PLAN " + String(level.seq).padStart(2, "0") + "/" + String(level.total).padStart(2, "0"))
@@ -1191,7 +1290,57 @@ function renderStructure(level) {
     + rubbleSvg(xs)
     + `<g class="zb-deck" id="deck"><g${vt ? ` transform="${vt}"` : ""}>${chunkDeck(deckParts(level, xs))}${lightsSvg(level)}</g></g>`
     + level.pillars.map((p, i) => pillarSvg(xs[i], p)).join("");
+  svg.insertAdjacentHTML("beforeend", surveySvg());
   return xs;
+}
+
+/* surveyor's marginalia: faint dimension lines with arrowheads and
+ * pencil measurements — the demolition plan is a maths document */
+function surveySvg() {
+  const bb = $("deck").getBBox();
+  const x = Math.max(bb.x - 16, 6);
+  const yT = bb.y + 2, yB = DECK_Y;
+  const hM = Math.round((yB - yT) / 4);
+  let out = `<path class="thin" d="M${x.toFixed(0)} ${yT.toFixed(0)} V${yB} M${(x - 3).toFixed(0)} ${yT.toFixed(0)} h6 M${(x - 3).toFixed(0)} ${yB} h6 M${x.toFixed(0)} ${yT.toFixed(0)} l-1.6 4 M${x.toFixed(0)} ${yT.toFixed(0)} l1.6 4 M${x.toFixed(0)} ${yB} l-1.6 -4 M${x.toFixed(0)} ${yB} l1.6 -4"/>`
+    + `<text x="${(x - 4).toFixed(0)}" y="${((yT + yB) / 2).toFixed(0)}" class="tag" text-anchor="middle" transform="rotate(-90 ${(x - 4).toFixed(0)} ${((yT + yB) / 2).toFixed(0)})">${hM} m</text>`;
+  if (bb.y > 40) {
+    // squat buildings also get their span measured above the roof
+    const sL = bb.x + 4, sR = bb.x + bb.width - 4, sY = Math.max(yT - 12, 14);
+    const wM = Math.round((sR - sL) / 4);
+    out += `<path class="thin" d="M${sL.toFixed(0)} ${sY.toFixed(0)} H${sR.toFixed(0)} M${sL.toFixed(0)} ${(sY - 3).toFixed(0)} v6 M${sR.toFixed(0)} ${(sY - 3).toFixed(0)} v6"/>`
+      + `<text x="${((sL + sR) / 2).toFixed(0)}" y="${(sY - 4).toFixed(0)}" class="tag" text-anchor="middle">${wM} m</text>`;
+  }
+  return `<g class="zb-survey">${out}</g>`;
+}
+
+/* building 1 only, once per run: a pencil rides around the structure
+ * as it draws itself in. Pure charm; skipped under reduced motion. */
+function ridePencil() {
+  const bb = $("deck").getBBox();
+  const guide = `M${(bb.x - 12).toFixed(0)} ${DECK_Y}`
+    + ` L${(bb.x - 2).toFixed(0)} ${(bb.y - 4).toFixed(0)}`
+    + ` L${(bb.x + bb.width + 2).toFixed(0)} ${(bb.y + 2).toFixed(0)}`
+    + ` L${(bb.x + bb.width + 8).toFixed(0)} ${(DECK_Y - 16).toFixed(0)}`
+    + ` L${(bb.x + 16).toFixed(0)} ${(DECK_Y + 4).toFixed(0)}`;
+  $("structSvg").insertAdjacentHTML("beforeend",
+    `<g id="pencilRider" class="zb-pencil" opacity="0">
+      <g transform="rotate(-35)">
+        <rect x="-2.2" y="-17" width="4.4" height="12.5" rx="1" fill="var(--mc-gold)" stroke="var(--mc-ink)" stroke-width="0.8"/>
+        <path d="M-2.2 -4.5 L0 1 L2.2 -4.5 Z" fill="var(--mc-ink)"/>
+      </g>
+      <animateMotion id="pencilMotion" begin="indefinite" dur="1.5s" fill="freeze" path="${guide}"/>
+    </g>`);
+  setTimeout(() => {
+    const el = $("pencilRider");
+    if (!el || !G.level || G.level.seq !== 1) return;
+    el.setAttribute("opacity", "1");
+    const m = $("pencilMotion");
+    if (m && m.beginElement) m.beginElement();
+  }, CARD_MS + 60);
+  setTimeout(() => {
+    const el = $("pencilRider");
+    if (el) el.remove();
+  }, CARD_MS + 1900);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1502,10 +1651,15 @@ function refreshDynamicText() {
   // re-render text that fmt() composed, after a language switch
   if ($("gameScreen").classList.contains("active") && G.level) {
     $("levelChip").innerHTML = levelChipHtml(G.level);
+    $("levelCardPlan").textContent =
+      "圖則 PLAN " + String(G.level.seq).padStart(2, "0") + "/" + String(G.level.total).padStart(2, "0");
     $("levelCardN").textContent = fmt("level_chip", { n: G.level.stage });
     $("levelCardSub").textContent = t("target_label") + "：" + t("b" + G.level.n) + " · " + t("lv" + G.level.n);
+    $("levelCardMeta").textContent = t("card_contractor") + " · " + RUN_DATE;
+    $("levelCardBlock").classList.toggle("finale", !!G.level.finale);
     $("levelCardFin").textContent = G.level.finale ? t("finale_tag") : "";
     $("levelCardFin").style.display = G.level.finale ? "" : "none";
+    $("levelCardChop").style.display = G.level.finale ? "" : "none";
   }
   $("takeawayOr").textContent = t("or");
   $("btnPlus15").title = fmt("tutor_key_title", { k: "t" });
@@ -1543,6 +1697,7 @@ function startLevel(resume) {
   $("sceneStamp").innerHTML = "";
   renderStreak($("stars"), G.streak);
   renderStructure(level);
+  if (level.seq === 1 && !resume && !ZBFX.reduced) ridePencil();
   renderStrugglers();
   pad.enable();
 
@@ -2144,7 +2299,17 @@ function nextLevel() {
   if (G.ended) return;
   G.idx += 1;
   if (G.idx >= G.levels.length) { endGame(); return; }
-  startLevel();
+  if (ZBFX.reduced) { startLevel(); return; }
+  // page turn: the finished worksheet lifts away, the next slides in
+  // under its title-block cover
+  const grid = document.querySelector("#gameScreen .zb-game-grid");
+  grid.classList.add("zb-page-out");
+  setTimeout(() => {
+    grid.classList.remove("zb-page-out");
+    grid.classList.add("zb-page-in");
+    startLevel();
+    setTimeout(() => grid.classList.remove("zb-page-in"), 400);
+  }, 240);
 }
 
 function leaderboardHtml(results, meId) {
