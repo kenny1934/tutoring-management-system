@@ -55,15 +55,27 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  /* svg viewBox coords → canvas px (the svg fills the scene width,
-   * preserveAspectRatio keeps it centred vertically) */
+  /* the camera's live frame (batch P): while the viewBox moves, every
+   * spawn position must convert through the CURRENT frame, not the
+   * design frame, or FX drift off the structure under zoom */
+  var view = null; // {x, y, w, h} in viewBox units; null = full design frame
+  function setView(v) {
+    view = v ? { x: v.x, y: v.y, w: v.w, h: v.h } : null;
+  }
+
+  /* svg viewBox coords → canvas px through the live frame
+   * (preserveAspectRatio meet: centred letterbox when aspects differ) */
   function toPx(x, y) {
     var w = scene.clientWidth;
     var h = scene.clientHeight;
-    var scale = Math.min(w / vbW, h / vbH);
-    var ox = (w - vbW * scale) / 2;
-    var oy = (h - vbH * scale) / 2;
-    return { x: ox + x * scale, y: oy + y * scale, scale: scale };
+    var vx = view ? view.x : 0;
+    var vy = view ? view.y : 0;
+    var vw = view ? view.w : vbW;
+    var vh = view ? view.h : vbH;
+    var scale = Math.min(w / vw, h / vh);
+    var ox = (w - vw * scale) / 2;
+    var oy = (h - vh * scale) / 2;
+    return { x: ox + (x - vx) * scale, y: oy + (y - vy) * scale, scale: scale };
   }
 
   function token(name) {
@@ -88,11 +100,13 @@
     return matchMedia("(prefers-color-scheme: dark)").matches;
   }
 
-  /* projector scenes are much larger than the 400px design width:
-   * spawn proportionally more particles and shake harder (capped) */
+  /* projector scenes are much larger than the 400px design width, and
+   * a zoomed-in frame magnifies further: spawn proportionally more
+   * particles and shake harder (capped) */
   function fxScale() {
     if (!scene) return 1;
-    return Math.max(1, Math.min(scene.clientWidth / vbW, 2.5));
+    var vw = view ? view.w : vbW;
+    return Math.max(1, Math.min(scene.clientWidth / vw, 2.5));
   }
 
   /* ---------------- particles ---------------- */
@@ -717,6 +731,9 @@
   window.ZBFX = {
     reduced: reduced,
     attach: attach,
+    setView: setView,
+    /* exposed for the FX-alignment spot test */
+    toPx: toPx,
     fxScale: fxScale,
     debris: debris,
     dust: dust,
