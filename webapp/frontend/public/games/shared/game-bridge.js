@@ -20,6 +20,105 @@
 
   var params = new URLSearchParams(location.search);
 
+  /* ---------------- anonymous auth ----------------
+   * The game-rooms rules require a signed-in user: reads need auth,
+   * writes are scoped to the room's hostUid / each player entry's uid.
+   * REST flow, no SDK: identitytoolkit signUp once per device (the uid
+   * + refresh token persist in localStorage, so the same device keeps
+   * the same identity across tabs and reloads), securetoken refresh
+   * near expiry. The web API key is a public identifier, not a secret
+   * — it ships in every Firebase client bundle. */
+  var API_KEY = "AIzaSyDOAqE0DKY-0eSQAi5uMnlDJ3q1lf_N9_g";
+  var AUTH_STORE = "mc-games-auth";
+  var auth = null; // { uid, idToken, refreshToken, expiresAt }
+  var authPromise = null;
+
+  function loadAuth() {
+    if (auth) return;
+    try {
+      var saved = JSON.parse(localStorage.getItem(AUTH_STORE));
+      if (saved && saved.uid && saved.refreshToken) auth = saved;
+    } catch (_) {}
+  }
+
+  function storeAuth() {
+    try {
+      localStorage.setItem(AUTH_STORE, JSON.stringify(auth));
+    } catch (_) {}
+  }
+
+  function authPost(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      if (!r.ok)
+        return r
+          .json()
+          .catch(function () { return {}; })
+          .then(function (e) {
+            throw new Error(
+              "auth " + r.status + " " + ((e.error && e.error.message) || "")
+            );
+          });
+      return r.json();
+    });
+  }
+
+  function signUp() {
+    return authPost(
+      "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + API_KEY,
+      { returnSecureToken: true }
+    ).then(function (d) {
+      auth = {
+        uid: d.localId,
+        idToken: d.idToken,
+        refreshToken: d.refreshToken,
+        expiresAt: Date.now() + (parseInt(d.expiresIn, 10) - 300) * 1000,
+      };
+      storeAuth();
+      return auth;
+    });
+  }
+
+  function refreshAuth() {
+    return authPost(
+      "https://securetoken.googleapis.com/v1/token?key=" + API_KEY,
+      { grant_type: "refresh_token", refresh_token: auth.refreshToken }
+    ).then(function (d) {
+      auth.uid = d.user_id || auth.uid;
+      auth.idToken = d.id_token;
+      auth.refreshToken = d.refresh_token || auth.refreshToken;
+      auth.expiresAt = Date.now() + (parseInt(d.expires_in, 10) - 300) * 1000;
+      storeAuth();
+      return auth;
+    });
+  }
+
+  /* Resolve a live auth record, minting or refreshing as needed.
+   * force=true discards the cached idToken (after a 401 / revoke). */
+  function ensureAuth(force) {
+    loadAuth();
+    if (!force && auth && auth.idToken && Date.now() < auth.expiresAt)
+      return Promise.resolve(auth);
+    if (!authPromise) {
+      var attempt =
+        auth && auth.refreshToken
+          ? refreshAuth().catch(function () {
+              // refresh token revoked or account deleted: start over
+              auth = null;
+              return signUp();
+            })
+          : signUp();
+      authPromise = attempt.then(
+        function (a) { authPromise = null; return a; },
+        function (err) { authPromise = null; throw err; }
+      );
+    }
+    return authPromise;
+  }
+
   /* ---------------- i18n ---------------- */
   // Lang codes follow the courseware convention: c = 中文, e = English.
   var strings = {};
@@ -117,33 +216,46 @@
   }
 
   /* ---------------- RTDB REST helpers ---------------- */
-  function dbUrl(path) {
-    return DB_URL + "/" + ROOT + "/" + path + ".json";
+  function dbUrl(path, token) {
+    return (
+      DB_URL + "/" + ROOT + "/" + path + ".json" +
+      (token ? "?auth=" + encodeURIComponent(token) : "")
+    );
+  }
+
+  /* Authenticated fetch with one forced-refresh retry: RTDB REST
+   * answers 401 both for an expired token and a rules denial, so a
+   * single retry with a fresh token disambiguates cheaply. */
+  function dbFetch(path, opts, label) {
+    return ensureAuth()
+      .then(function (a) {
+        return fetch(dbUrl(path, a.idToken), opts).then(function (r) {
+          if (r.status !== 401) return r;
+          return ensureAuth(true).then(function (a2) {
+            return fetch(dbUrl(path, a2.idToken), opts);
+          });
+        });
+      })
+      .then(function (r) {
+        if (!r.ok) throw new Error("db " + label + " " + r.status);
+        return r;
+      });
   }
 
   function dbGet(path) {
-    return fetch(dbUrl(path)).then(function (r) {
-      if (!r.ok) throw new Error("db get " + r.status);
+    return dbFetch(path, undefined, "get").then(function (r) {
       return r.json();
     });
   }
 
   function dbSet(path, value) {
-    return fetch(dbUrl(path), {
-      method: "PUT",
-      body: JSON.stringify(value),
-    }).then(function (r) {
-      if (!r.ok) throw new Error("db set " + r.status);
-    });
+    return dbFetch(path, { method: "PUT", body: JSON.stringify(value) }, "set")
+      .then(function () {});
   }
 
   function dbUpdate(path, patch) {
-    return fetch(dbUrl(path), {
-      method: "PATCH",
-      body: JSON.stringify(patch),
-    }).then(function (r) {
-      if (!r.ok) throw new Error("db update " + r.status);
-    });
+    return dbFetch(path, { method: "PATCH", body: JSON.stringify(patch) }, "update")
+      .then(function () {});
   }
 
   /* Watch a path via Server-Sent Events. Calls cb(fullValue) on every
@@ -176,31 +288,52 @@
       return root;
     }
 
+    var forceRefresh = false;
+
+    function retry() {
+      if (closed) return;
+      status("reconnecting");
+      setTimeout(connect, backoff);
+      backoff = Math.min(backoff * 2, 15000);
+    }
+
     function connect() {
       if (closed) return;
-      es = new EventSource(dbUrl(path));
-      es.addEventListener("put", function (e) {
-        var msg = JSON.parse(e.data);
-        value = applyPatch(value, msg.path, msg.data);
-        backoff = 1000;
-        status("online");
-        cb(value);
-      });
-      es.addEventListener("patch", function (e) {
-        var msg = JSON.parse(e.data);
-        var target = msg.path.replace(/^\//, "");
-        Object.keys(msg.data || {}).forEach(function (k) {
-          value = applyPatch(value, "/" + (target ? target + "/" : "") + k, msg.data[k]);
-        });
-        cb(value);
-      });
-      es.onerror = function () {
-        es.close();
+      ensureAuth(forceRefresh).then(function (a) {
+        forceRefresh = false;
         if (closed) return;
-        status("reconnecting");
-        setTimeout(connect, backoff);
-        backoff = Math.min(backoff * 2, 15000);
-      };
+        es = new EventSource(dbUrl(path, a.idToken));
+        es.addEventListener("put", function (e) {
+          var msg = JSON.parse(e.data);
+          value = applyPatch(value, msg.path, msg.data);
+          backoff = 1000;
+          status("online");
+          cb(value);
+        });
+        es.addEventListener("patch", function (e) {
+          var msg = JSON.parse(e.data);
+          var target = msg.path.replace(/^\//, "");
+          Object.keys(msg.data || {}).forEach(function (k) {
+            value = applyPatch(value, "/" + (target ? target + "/" : "") + k, msg.data[k]);
+          });
+          cb(value);
+        });
+        // the stream's token expired (streams outlive the 1h idToken on
+        // a long lobby) or rules revoked the read: fresh token, rejoin
+        es.addEventListener("auth_revoked", function () {
+          forceRefresh = true;
+          es.close();
+          retry();
+        });
+        es.addEventListener("cancel", function () {
+          es.close();
+          retry();
+        });
+        es.onerror = function () {
+          es.close();
+          retry();
+        };
+      }, retry);
     }
     connect();
     return {
@@ -213,8 +346,19 @@
   }
 
   /* ---------------- rooms ---------------- */
+  /* 6 chars, no 0/O/1/I lookalikes: readable off a projector, and a
+   * ~1e9 space so codes can't be enumerated from the open internet
+   * (the old 4-digit space was brute-forceable). 32 divides 2^32, so
+   * the modulo introduces no bias. */
+  var CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   function randomCode() {
-    return String(Math.floor(1000 + Math.random() * 9000));
+    var buf = new Uint32Array(6);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(buf);
+    else
+      for (var i = 0; i < 6; i++) buf[i] = Math.floor(Math.random() * 4294967296);
+    var out = "";
+    for (var j = 0; j < 6; j++) out += CODE_ALPHABET[buf[j] % 32];
+    return out;
   }
 
   /* Host a room. Resolves { code, joinUrl, set, update, watch, close }.
@@ -248,9 +392,15 @@
       };
     }
     if (opts.code) {
-      return dbGet(slug + "/" + opts.code).then(function (existing) {
-        if (!existing) throw new Error("room gone");
-        return handle(opts.code);
+      return ensureAuth().then(function (a) {
+        return dbGet(slug + "/" + opts.code).then(function (existing) {
+          if (!existing) throw new Error("room gone");
+          // rules deny the writes anyway; failing here gives the UI a
+          // clean message instead of a half-reclaimed room
+          if (existing.hostUid && existing.hostUid !== a.uid)
+            throw new Error("not your room");
+          return handle(opts.code);
+        });
       });
     }
     function tryCreate(attempt) {
@@ -265,12 +415,15 @@
           if (attempt >= 8) throw new Error("no free room code");
           return tryCreate(attempt + 1);
         }
-        return dbSet(path, {
-          createdAt: Date.now(),
-          slug: slug,
-          state: opts.initialState || {},
-        }).then(function () {
-          return handle(code);
+        return ensureAuth().then(function (a) {
+          return dbSet(path, {
+            createdAt: Date.now(),
+            slug: slug,
+            hostUid: a.uid, // rules scope state/verdict writes to this uid
+            state: opts.initialState || {},
+          }).then(function () {
+            return handle(code);
+          });
         });
       });
     }
@@ -345,6 +498,13 @@
     toggleTheme: toggleTheme,
     host: host,
     join: join,
+    /* the device's stable anonymous uid, or null before the first
+     * host()/join() ever authenticated on this device. Synchronous on
+     * purpose: games attach it to player records they write. */
+    uid: function () {
+      loadAuth();
+      return (auth && auth.uid) || null;
+    },
     roomParam: function () {
       return params.get("room");
     },

@@ -213,24 +213,28 @@ from these.
 
 ## 8. Infrastructure notes (one-time setup, not per-game)
 
-- **RTDB rules:** `game-rooms` must be added to
+- **RTDB rules:** the `game-rooms` block lives in
   `growing-minds/webapp/database.rules.json` (that repo owns the rules
-  deploy for `csm-database-project`):
+  deploy for `csm-database-project`; deploy with
+  `firebase deploy --only database`). The contract the deployed rules
+  enforce — GameBridge implements the client half:
+  - **Anonymous Auth is required** (enable the provider in the Firebase
+    console once). GameBridge signs up each device once and persists
+    the identity in `localStorage`; every REST/SSE call carries the
+    token, and `GameBridge.uid()` exposes the device uid.
+  - Reads are granted **only at room level** — the `$slug` parent can
+    never be listed, so rooms can't be enumerated. Codes are 6-char
+    crypto-random (no 0/O/1/I).
+  - Room create/state/verdicts/kick are scoped to the `hostUid` written
+    at creation. A room whose `createdAt` is older than 6h can be
+    written over by a fresh host (lazy stale reclaim).
+  - `players/<id>` is pinned to the joining device's uid (create and
+    edit), names are length-capped at 24 server-side; `subs/<id>` is
+    writable only by the uid owning the matching player entry — a
+    classmate can't inflate your seq or forge claims under your name.
 
-  ```json
-  "game-rooms": {
-    "$slug": {
-      "$code": {
-        ".read": true,
-        ".write": "!data.exists() || data.child('createdAt').exists()",
-        ".validate": "newData.child('createdAt').isNumber() || data.exists()"
-      }
-    }
-  }
-  ```
-
-  Rooms are public-by-code and ephemeral by design; nothing sensitive
-  may ever be written there (rule 5 above).
+  Rooms stay ephemeral and public-by-code to anyone signed in who knows
+  the code; nothing sensitive may ever be written there (rule 5 above).
 - **Public access:** the `games.` subdomain is served by the same
   frontend via `middleware.ts` host routing (same pattern as `summer.`),
   outside Cloudflare Access so student phones can reach it.

@@ -2273,17 +2273,19 @@ function svgMath(s) {
   return String(s).replace(/x/g, '<tspan class="zb-vari">x</tspan>');
 }
 function exprHtml(expr) {
-  return mathHtml(expr).replace(/= 0$/, '= <span class="zb-zero">0</span>');
+  return mathHtml(escapeText(expr)).replace(/= 0$/, '= <span class="zb-zero">0</span>');
 }
 
 /* the equation board with each factor as an addressable span keyed by
  * pillar id, so a fallen pillar can be struck through right where the
  * zero-product property lives. Kind 6 shows the expanded form (its
- * plaque reveal carries the factors), so it has no spans. */
+ * plaque reveal carries the factors), so it has no spans.
+ * Level text renders escaped: on a phone the level arrives from room
+ * state, which player names never write but rules alone guarantee. */
 function boardHtml(level) {
   if (level.kind === "expanded") return exprHtml(level.expr);
   const span = (ids, text) =>
-    `<span class="zb-factor" data-fids="${ids.join(" ")}">${mathHtml(text)}</span>`;
+    `<span class="zb-factor" data-fids="${ids.join(" ")}">${mathHtml(escapeText(text))}</span>`;
   const tail = ' = <span class="zb-zero">0</span>';
   const ps = level.pillars;
   switch (level.kind) {
@@ -3664,9 +3666,22 @@ $("btnHost").onclick = async () => {
   G.watcher = G.room.watch(onHostRoom);
 };
 
+/* client-generated player ids: anything else in players/ or subs/ is
+ * junk or an attack (an RTDB key like "__proto__" would resolve
+ * G.processedSeq[pid] to Object.prototype and misfire the dedupe) */
+const PID_RE = /^p[a-z0-9]{6,10}$/;
+
 function onHostRoom(room) {
   if (!room) return;
-  G.players = room.players || {};
+  // rules cap names at 24 chars; the host truncates anyway so one
+  // oversize write can never thrash the projector layout
+  const players = {};
+  Object.keys(room.players || {}).forEach(pid => {
+    if (!PID_RE.test(pid)) return;
+    const pl = room.players[pid] || {};
+    players[pid] = Object.assign({}, pl, { name: String(pl.name || "").slice(0, 24) });
+  });
+  G.players = players;
 
   if (!G.started) {
     renderLobbyList();
@@ -3682,8 +3697,9 @@ function onHostRoom(room) {
   // judge new submissions (one slot per player, seq strictly increasing)
   const subs = room.subs || {};
   Object.keys(subs).forEach(pid => {
+    if (!PID_RE.test(pid)) return;
     const sub = subs[pid];
-    if (!sub || typeof sub.seq !== "number") return;
+    if (!sub || typeof sub.seq !== "number" || typeof sub.v !== "number") return;
     if ((G.processedSeq[pid] || 0) >= sub.seq) return;
     G.processedSeq[pid] = sub.seq;
     if (!G.started || G.over) return; // between rounds: consumed, not judged
@@ -3848,6 +3864,36 @@ function ctrlStatus(text, cls) {
   el.className = "mc-status" + (cls ? " " + cls : "");
 }
 
+/* The phone renders whatever level the room publishes. Rules scope
+ * state writes to the host, but the level is still shape-checked and
+ * its numbers coerced before anything touches the DOM: every numeric
+ * field must be a finite number, ids must be p1/p2, and the free-text
+ * fields (expr, label) only ever render through escapeText. A level
+ * that fails the check is ignored whole. */
+function sanitizeLevel(raw) {
+  if (!raw || typeof raw !== "object" || !Array.isArray(raw.pillars)) return null;
+  if (raw.pillars.length < 1 || raw.pillars.length > 2) return null;
+  const num = v => (typeof v === "number" && isFinite(v) ? v : null);
+  const lv = {
+    n: num(raw.n), kind: String(raw.kind || ""), expr: String(raw.expr || ""),
+    seq: num(raw.seq), total: num(raw.total), stage: num(raw.stage),
+    round: num(raw.round), roundsInStage: num(raw.roundsInStage),
+    stageKind: raw.stageKind === "mix" ? "mix" : num(raw.stageKind),
+    fuseMs: num(raw.fuseMs), finale: !!raw.finale, hard: !!raw.hard,
+    konst: num(raw.konst), b: num(raw.b), c: num(raw.c),
+  };
+  if (lv.n == null || lv.seq == null || lv.fuseMs == null) return null;
+  if (lv.kind === "numeric" && lv.konst == null) return null;
+  if (lv.kind === "expanded" && (lv.b == null || lv.c == null)) return null;
+  lv.pillars = raw.pillars.map(p => p && {
+    id: p.id === "p1" || p.id === "p2" ? p.id : null,
+    root: num(p.root),
+    label: String(p.label || ""),
+  });
+  if (lv.pillars.some(p => !p || !p.id || p.root == null)) return null;
+  return lv;
+}
+
 async function initController() {
   ZBFX.bgm.allow(false); // 30 phones x music = chaos: revoke, whatever ran before
   show("controllerScreen");
@@ -3891,7 +3937,11 @@ async function enterPlay() {
   ctrlStatus(t("ctrl_wait_start"));
   C.staged = false; // ctrlTick re-opens the pad if a round is mid-flight
   C.pad.disable();
-  await C.room.set("players/" + C.id, { name: C.name, joinedAt: Date.now() });
+  // uid lets the rules pin this entry (and subs/<id>) to this device;
+  // null only under the test mock, which never sees real rules
+  await C.room.set("players/" + C.id, {
+    name: C.name, joinedAt: Date.now(), uid: GameBridge.uid() || null,
+  });
   if (!C.watcher) C.watcher = C.room.watch(onCtrlRoom); // rejoin after a kick reuses the stream
   clearInterval(C.timerIv);
   C.timerIv = setInterval(ctrlTick, 100);
@@ -3973,9 +4023,10 @@ function onCtrlRoom(room) {
 
   // new level (includes late join, reload recovery and host restart)
   const lvKey = st.level ? st.level.seq + "|" + st.level.expr : null;
-  if (st.level && lvKey !== C.levelKey) {
+  const nextLevel = st.level && lvKey !== C.levelKey ? sanitizeLevel(st.level) : null;
+  if (nextLevel) {
     C.levelKey = lvKey;
-    C.level = st.level;
+    C.level = nextLevel;
     C.staged = false; // ctrlTick opens the round at the shared ignite
     C.lastGraceSec = null;
     $("ctrlLevelChip").innerHTML = levelChipHtml(st.level);
@@ -4052,6 +4103,9 @@ function onCtrlRoom(room) {
 
 function applyCtrlVerdict(v) {
   if (!C.level) return;
+  // verdicts are host-only by the rules; still never math-render a
+  // non-numeric echo of what "we" submitted
+  if (typeof v.v !== "number" || !isFinite(v.v)) return;
   if (v.already) {
     const who = v.claimedBy ? fmt("note_claimed_by", { name: escapeText(v.claimedBy) }) : "";
     $("ctrlMark").innerHTML = markHtml("info",
