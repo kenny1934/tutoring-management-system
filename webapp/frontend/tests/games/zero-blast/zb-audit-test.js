@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-/* zb-audit-test.js — 歸零爆破 Zero Blast AUDIT suite (70 assertions).
+/* zb-audit-test.js — 歸零爆破 Zero Blast AUDIT suite (71 assertions).
  *
  * Covers: EN/dark bilingual checks, 320px + landscape-phone layout,
- * reduced motion, the fx=lite/full capability gate, sound / sampler /
- * bgm / one-time offer behaviour, the intro attract diorama, and the
- * camera + letterbox contract (6 level kinds x 3 tablet viewports).
+ * reduced motion (incl. the armed-preview drain bar), the fx=lite/full
+ * capability gate, sound / sampler / bgm / one-time offer behaviour,
+ * the intro attract diorama, and the camera + letterbox contract
+ * (6 level kinds x 3 tablet viewports).
  *
  * How to run (from the repo root, against a static server on
  * webapp/frontend/public — any plain file server will do):
@@ -25,6 +26,7 @@ const BASE = process.env.ZB_BASE || "http://localhost:8000/games/zero-blast/";
 const ORIGIN = new URL(BASE).origin;
 
 let failures = 0;
+let armDrainNormal = null; // captured in the EN dark run, checked with its reduced twin
 function check(name, cond, detail) {
   if (cond) {
     console.log(`  ✓ ${name}`);
@@ -82,6 +84,26 @@ const waitPadFree = (page) =>
   );
 
 /* wait for the camera settle tween to land exactly on the rest frame */
+/* single-tap arm: stage a value WITHOUT committing, and read the armed
+ * preview's drain pseudo-element inside the same evaluate (the 750ms
+ * commit window then fires the submit on its own) */
+async function armAndReadDrain(page, v) {
+  return page.evaluate((val) => {
+    const padEl = document.getElementById("pad");
+    const d = Math.abs(val);
+    if (val < 0) padEl.querySelector(".zb-key--sign").click();
+    padEl.querySelector('.zb-key[data-d="' + d + '"]').click();
+    const preview = document.getElementById("padPreview");
+    const cs = getComputedStyle(preview, "::after");
+    return {
+      armed: preview.classList.contains("armed"),
+      content: cs.content,
+      anim: cs.animationName,
+      dur: cs.animationDuration,
+    };
+  }, v);
+}
+
 const waitCamSettled = (page) =>
   poll(
     page,
@@ -193,7 +215,9 @@ async function sectionEnDark(browser) {
   const wrongV = roots
     ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].find((d) => !roots.includes(d) && !roots.includes(-d))
     : 0;
-  if (staged) await tap(page, wrongV);
+  // single tap: the value arms, the drain bar shows, and the 750ms
+  // window commits the wrong code by itself
+  if (staged) armDrainNormal = await armAndReadDrain(page, wrongV);
   const wrongNote = await poll(
     page,
     () => {
@@ -411,8 +435,10 @@ async function sectionReducedGame(browser) {
     });
   });
   const roots = await page.evaluate(() => G.level.pillars.map((p) => p.root));
-  await tap(page, roots[0]);
-  await sleep(150);
+  // first claim via a single tap: captures the armed preview under
+  // reduced motion, then the 750ms window commits the claim itself
+  const armDrainReduced = await armAndReadDrain(page, roots[0]);
+  await poll(page, () => G.claimed.length >= 1, null, 3000);
   await tap(page, roots[1]);
   const chop = await poll(page, () => !!document.querySelector("#sceneStamp .zb-chai"), null, 6000);
   const st = await page.evaluate(() => {
@@ -469,6 +495,21 @@ async function sectionReducedGame(browser) {
     "reduced motion: resolve graph visible",
     !!st.graph && st.graph.opacity === "1" && st.graph.curve === "0px",
     JSON.stringify(st.graph)
+  );
+  // batch-fix verification: the 750ms commit window is drawn as a
+  // drain bar under the armed preview; reduced motion keeps the bar
+  // machinery but never animates it
+  check(
+    "keypad: armed preview drains the 750ms window (static under reduced)",
+    !!armDrainNormal &&
+      armDrainNormal.armed &&
+      armDrainNormal.content !== "none" &&
+      armDrainNormal.anim === "zb-armdrain" &&
+      armDrainNormal.dur === "0.75s" &&
+      !!armDrainReduced &&
+      armDrainReduced.armed &&
+      armDrainReduced.anim === "none",
+    `normal=${JSON.stringify(armDrainNormal)} reduced=${JSON.stringify(armDrainReduced)}`
   );
   await ctx.close();
 }
@@ -702,7 +743,9 @@ async function sectionOffer(browser) {
   });
   check("offer: silent with a stored preference", hidden2, "chip visible with mc-games-sound=off");
 
-  // unanswered offer: round 1 resolving settles the answer to off
+  // unanswered offer: round 1 ending removes the chip but STORES
+  // NOTHING — one distracted round must not mute the teaching PC
+  // forever. The offer returns on the next run.
   await page.evaluate(() => localStorage.removeItem("mc-games-sound"));
   await page.reload();
   await startSolo(page);
@@ -721,16 +764,33 @@ async function sectionOffer(browser) {
   const settled = await poll(
     page,
     () =>
-      localStorage.getItem("mc-games-sound") === "off" &&
       !document.getElementById("soundOffer") &&
-      ZBFX.audio.isOn() === false,
+      localStorage.getItem("mc-games-sound") === null &&
+      ZBFX.audio.isOn() === false &&
+      ZBFX.audio.samplerState() === "idle",
     null,
     6000
   );
+  // a fresh run (new page load, still no stored preference) re-offers
+  await page.reload();
+  await startSolo(page);
+  const reoffered = await poll(
+    page,
+    () => {
+      const el = document.getElementById("soundOffer");
+      return (
+        !!el &&
+        el.style.display !== "none" &&
+        localStorage.getItem("mc-games-sound") === null
+      );
+    },
+    null,
+    4000
+  );
   check(
-    "offer: unanswered offer settles to off after round 1",
-    !!reshown && !!settled,
-    `reshown=${!!reshown} settled=${!!settled}`
+    "offer: unanswered offer stays unstored, re-offered next run",
+    !!reshown && !!settled && !!reoffered,
+    `reshown=${!!reshown} settled=${!!settled} reoffered=${!!reoffered}`
   );
   await ctx.close();
 }

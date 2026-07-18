@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (110 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (124 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -8,16 +8,17 @@
  * full-room snapshots captured at write time, delivered on a FIFO
  * setTimeout(0) queue so nested writes inside a watcher callback can
  * never overtake the snapshot that triggered them). The real
- * game-bridge.js still runs first — i18n / theme / qr / emit stay real.
+ * game-bridge.js still runs first — i18n / theme / qr / emit /
+ * serverNow (offset 0 under the mock) stay real.
  *
- * How to run (against a static server that serves public/):
+ * How to run (against a static server that serves public/, e.g.
+ * `cd webapp/frontend/public && python3 -m http.server 8000`):
  *   cd /home/kenny/projects/tutoring-management-system
  *   NODE_PATH=webapp/frontend/node_modules \
- *   ZB_BASE=http://localhost:8931/games/zero-blast/ \
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
- * ZB_BASE defaults to http://localhost:8000/games/zero-blast/.
- * Exit code 0 + "ALL PASS" when all 110 assertions hold; first failing
+ * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
+ * Exit code 0 + "ALL PASS" when all 124 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -25,6 +26,19 @@
  *   1: 2 × ▢ = 0 (root 0)      2: (x−2) = 0 (root 2)
  *   3: (x−9)(x−7) = 0 (9, 7)   4: (x+5)(x−4) = 0 (−5, 4)
  *   5: (x−3)² = 0 (double 3)   6: x² + 4x − 5 = 0 (−5, 1)
+ *
+ * After the original run the suite exercises the fix batches: 再拆一次
+ * restart (phones must come back to life — the audit's #1 finding),
+ * mid-game kick via host-board rows + duplicate-name dedupe on rejoin,
+ * re-scan identity recovery (localStorage mirror, new tab), and the
+ * "已送出 · 批改中" sent beat ordering before the verdict feedback.
+ *
+ * Shared-context caveat: the live game mirrors the phone identity
+ * `zb-<code>` to localStorage for re-scan recovery. Real phones are
+ * separate devices; here all three pages share ONE localStorage, so
+ * the suite deletes that key on phone B's boots (else B would silently
+ * boot as A) and re-seeds A's identity before the re-scan section
+ * (each join clobbers the single shared slot). Mock-only artifacts.
  */
 
 "use strict";
@@ -99,6 +113,15 @@ const MOCK = `
     var entry = entryFor(slug, code);
     var h = {
       code: code,
+      get: function (sub) { // one-shot read, like the live handle's REST GET
+        var room = readRoom(slug, code);
+        if (!sub) return Promise.resolve(room);
+        var node = room;
+        sub.split("/").filter(Boolean).forEach(function (k) {
+          node = node == null ? null : node[k];
+        });
+        return Promise.resolve(node === undefined ? null : node);
+      },
       set: function (sub, v) {
         writeRoom(slug, code, setPath(readRoom(slug, code), sub, v === undefined ? null : v));
         broadcast(slug, code);
@@ -365,6 +388,14 @@ async function main() {
   );
   check("host sees phone A join", true);
 
+  // LIVE-TREE identity is mirrored to localStorage (`zb-<code>`) for
+  // re-scan recovery. Under the shared-context mock phone B would find
+  // A's identity and silently boot as Ada — real phones are separate
+  // devices, so drop the key on B's boots only (A's reload path reads
+  // its own tab's sessionStorage first and is unaffected).
+  await phoneB.addInitScript((c) => {
+    try { localStorage.removeItem("zb-" + c); } catch (e) {}
+  }, code);
   await phoneB.goto(phoneUrl, { waitUntil: "load" });
   await until(() => phoneB.evaluate(() => !!C.room), { label: "phone B joined room" });
   await phoneB.fill("#nameInput", "Ben");
@@ -1108,14 +1139,18 @@ async function main() {
   check("tutor hint pencils the ghost factor", !!ghost && ghost.includes("(x"), "ghost=" + ghost);
 
   const l6 = await host.evaluate(() => G.level.pillars.map((p) => p.root));
+  // finale doubles ×2, the hint fee is ×0.75 → net ×1.5. Streak before
+  // this claim is 1 (L4 fizzle reset everyone, L5 claim rebuilt one),
+  // so expected = base(f) × 1.1 × 1.5 with f measured just before the
+  // submit — the drift to judge time on a 45s fuse is ~1pt, and net ×1
+  // or ×2 would land ~100pts off either side.
+  const fEst = await host.evaluate(() => (G.deadline - performance.now()) / G.duration);
   const vdHinted = await submitVerdict(phoneA, l6[0]);
-  // finale doubles ×2, hint halves ×0.5 → net ×1: with streak ×1.1 the
-  // claim must land in the plain 100..200 base band (un-hinted finale
-  // would pay 222..440)
+  const expHinted = (100 + Math.round(100 * fEst)) * 1.1 * 1.5;
   check(
-    "hinted finale claim pays half (net x1)",
-    vdHinted.ok === true && vdHinted.pts > 100 && vdHinted.pts <= 220,
-    "pts=" + vdHinted.pts
+    "hinted finale claim pays 75% (net x1.5)",
+    vdHinted.ok === true && Math.abs(vdHinted.pts - expHinted) <= 12,
+    "pts=" + vdHinted.pts + " expected≈" + Math.round(expHinted)
   );
 
   await host.click("#btnEndGame");
@@ -1179,6 +1214,187 @@ async function main() {
   );
   check("phone restart hidden", restartDisplay === "none", "display=" + restartDisplay);
 
+  /* ════════ restart (再拆一次): the audit's #1 classroom breaker ════════ */
+  await host.click("#btnRestart"); // same seed → the same six buildings
+  await until(
+    async () =>
+      (await phoneA.evaluate(() => document.getElementById("controllerScreen").classList.contains("active"))) &&
+      (await phoneB.evaluate(() => document.getElementById("controllerScreen").classList.contains("active"))),
+    { label: "controllers return", timeout: 10000 }
+  );
+  check("restart: phones return to the controller", true);
+
+  // ctrlEnd killed the tick interval; the end→playing transition must
+  // restart it. "Ticking" = the text goes numeric AND then changes
+  // (during the level-card lead-in it clamps to the full fuse, so wait
+  // past the ignite rather than sampling twice blindly).
+  const firstTick = (page) =>
+    until(
+      () => page.evaluate(() => {
+        const t = parseFloat(document.getElementById("ctrlTimerText").textContent);
+        return t > 0 ? t : null;
+      }),
+      { label: "timer numeric", timeout: 10000 }
+    );
+  const tickA0 = await firstTick(phoneA);
+  const tickB0 = await firstTick(phoneB);
+  await until(
+    async () =>
+      (await phoneA.evaluate((v) => parseFloat(document.getElementById("ctrlTimerText").textContent) !== v, tickA0)) &&
+      (await phoneB.evaluate((v) => parseFloat(document.getElementById("ctrlTimerText").textContent) !== v, tickB0)),
+    { label: "timers ticking", timeout: 12000 }
+  );
+  check("restart: phone timer ticks again", true, "A from " + tickA0 + " B from " + tickB0);
+
+  const boardA2 = await phoneA.evaluate(() => ({
+    struck: document.querySelectorAll("#ctrlExpr .zb-factor.struck").length,
+    factors: document.querySelectorAll("#ctrlExpr .zb-factor").length,
+    text: document.getElementById("ctrlExpr").textContent.trim(),
+  }));
+  const boardB2struck = await phoneB.evaluate(
+    () => document.querySelectorAll("#ctrlExpr .zb-factor.struck").length
+  );
+  const hostExpr2 = await host.evaluate(() =>
+    document.getElementById("exprBoard").textContent.trim()
+  );
+  check(
+    "restart: board re-renders unstruck",
+    boardA2.struck === 0 && boardB2struck === 0 && boardA2.factors === 1 && boardA2.text === hostExpr2,
+    JSON.stringify({ boardA2, boardB2struck, hostExpr2 })
+  );
+
+  await until(
+    () => phoneA.evaluate(() => C.staged === true && !document.querySelector("#ctrlPad .zb-key").disabled),
+    { label: "restart stage", timeout: 12000 }
+  );
+  check("restart: pad enables at stage", true);
+
+  const vdRestart = await submitVerdict(phoneA, 0); // run 2 L1: 2 × ▢ = 0
+  check(
+    "restart: submit → verdict works",
+    vdRestart.ok === true && vdRestart.pts > 0,
+    JSON.stringify(vdRestart)
+  );
+  await fastForwardGrace(host);
+
+  /* ════════ mid-game kick: host-board rows arm like lobby chips ════════ */
+  await waitHostLevel(host, 2);
+  const l2root2 = await host.evaluate(() => G.level.pillars[0].root);
+  const bIdMid = await phoneB.evaluate(() => C.id);
+  await host.click(`#hostBoard .zb-hostboard__row[data-id="${bIdMid}"]`);
+  const rowArmed = await host.evaluate((id) => {
+    const row = document.querySelector(`#hostBoard .zb-hostboard__row[data-id="${id}"]`);
+    return row && {
+      arm: row.classList.contains("arm"),
+      name: row.querySelector(".zb-hostboard__name").textContent,
+    };
+  }, bIdMid);
+  check(
+    "mid-game kick: board row arms with confirm text",
+    rowArmed && rowArmed.arm && rowArmed.name.includes("撳多次移除"),
+    JSON.stringify(rowArmed)
+  );
+
+  await host.click(`#hostBoard .zb-hostboard__row[data-id="${bIdMid}"]`); // second tap kicks
+  await until(
+    () => phoneB.evaluate(
+      () =>
+        getComputedStyle(document.getElementById("ctrlJoin")).display !== "none" &&
+        getComputedStyle(document.getElementById("ctrlPlay")).display === "none" &&
+        document.getElementById("ctrlStatus").textContent.includes("你已被導師移除")
+    ),
+    { label: "B kicked mid-game", timeout: 5000 }
+  );
+  check("mid-game kick: phone back at the name form", true);
+
+  await phoneB.fill("#nameInput", "Ada"); // deliberately collides with phone A
+  await phoneB.click("#btnJoin");
+  await until(() => phoneB.evaluate(() => !!C.id), { label: "B rejoined mid-game", timeout: 5000 });
+  const dedupedName = await phoneB.evaluate(() => C.name);
+  check("duplicate name suffixed at join", dedupedName === "Ada 2", "name=" + dedupedName);
+
+  const vdMid = await submitVerdict(phoneB, l2root2);
+  check(
+    "mid-game kick: rejoin works mid-round",
+    vdMid.ok === true && vdMid.pts > 0,
+    JSON.stringify(vdMid)
+  );
+  await fastForwardGrace(host);
+
+  /* ════════ re-scan identity: Wi-Fi drop → new tab, same player ════════ */
+  await waitHostLevel(host, 3);
+  const aScoreRun2 = await host.evaluate((id) => G.scores[id] || 0, aId);
+  await phoneA.close(); // one tab per player: no fight over the sub slot
+  // Seed what phone A's OWN device would hold: the game wrote exactly
+  // this identity at A's join, but the shared-context mock let each
+  // later join clobber the one localStorage slot (mock-only artifact).
+  await host.evaluate((arg) => {
+    localStorage.setItem("zb-" + arg.code, arg.identity);
+  }, { code, identity: JSON.stringify({ id: aId, name: "Ada" }) });
+
+  const phoneA2 = await context.newPage();
+  await phoneA2.setViewportSize({ width: 390, height: 844 });
+  trackErrors(phoneA2, aErrors);
+  await phoneA2.goto(phoneUrl, { waitUntil: "load" });
+  await until(
+    () => phoneA2.evaluate(
+      () =>
+        !!C.room &&
+        getComputedStyle(document.getElementById("ctrlPlay")).display !== "none" &&
+        getComputedStyle(document.getElementById("ctrlJoin")).display === "none"
+    ),
+    { label: "re-scan silent rejoin", timeout: 10000 }
+  );
+  check("re-scan: silent rejoin with no name form", true);
+
+  const rescan = await phoneA2.evaluate(() => ({ id: C.id, name: C.name }));
+  check(
+    "re-scan: same player identity",
+    rescan.id === aId && rescan.name === "Ada",
+    JSON.stringify({ rescan, aId })
+  );
+
+  await until(
+    () => phoneA2.evaluate(
+      (s) => parseInt(document.getElementById("ctrlScore").textContent, 10) === s,
+      aScoreRun2
+    ),
+    { label: "re-scan score", timeout: 5000 }
+  );
+  check("re-scan: score carried over", true, "score=" + aScoreRun2);
+
+  /* ════════ the sent · marking beat before the verdict ════════ */
+  await phoneA2.evaluate(() => {
+    window.__markSeq = [];
+    const el = document.getElementById("ctrlMark");
+    new MutationObserver(() => {
+      window.__markSeq.push({
+        sent: el.textContent.includes("批改中"),
+        correct: !!el.querySelector(".mc-stamp--correct"),
+      });
+    }).observe(el, { childList: true, subtree: true });
+  });
+  const l3r1b = await host.evaluate(() => G.level.pillars[0].root);
+  const vdBeat = await submitVerdict(phoneA2, l3r1b);
+  const markSeq = await phoneA2.evaluate(() => window.__markSeq);
+  const sentIdx = markSeq.findIndex((m) => m.sent);
+  const correctIdx = markSeq.findIndex((m) => m.correct);
+  check(
+    "submit shows the sent · marking beat",
+    vdBeat.ok === true && sentIdx !== -1,
+    JSON.stringify({ sentIdx, head: markSeq.slice(0, 6) })
+  );
+  const finalMark = await phoneA2.evaluate(() => ({
+    correct: !!document.querySelector("#ctrlMark .mc-stamp--correct"),
+    sentGone: !document.getElementById("ctrlMark").textContent.includes("批改中"),
+  }));
+  check(
+    "verdict feedback replaces the sent beat",
+    correctIdx > sentIdx && finalMark.correct && finalMark.sentGone,
+    JSON.stringify({ sentIdx, correctIdx, finalMark })
+  );
+
+  /* ════════ page-error census — the whole run, every section ════════ */
   const hostBad = hostErrors.filter((l) => !benign(l));
   const aBad = aErrors.filter((l) => !benign(l));
   const bBad = bErrors.filter((l) => !benign(l));

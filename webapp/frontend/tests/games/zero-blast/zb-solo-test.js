@@ -1,16 +1,17 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (135 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (143 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
- * the camera, the scoring maths and the report ceremony.
+ * the camera, the scoring maths (incl. the 1.5x double-hit rule), pillar
+ * root-rank ordering, the opt-in kind-6 hint contract and the report
+ * ceremony.
  *
  * How to run (from the repo root, against a server that serves public/):
  *   NODE_PATH=webapp/frontend/node_modules \
- *   ZB_BASE=http://localhost:8931/games/zero-blast/ \
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
- * ZB_BASE defaults to http://localhost:8000/games/zero-blast/.
- * Prints "  ✓ <name>" per assertion (135 of them), unchecked diagnostic
+ * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
+ * Prints "  ✓ <name>" per assertion (143 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -18,9 +19,10 @@
  * - ?seed=7 makes the level roll reproducible (ZBLevels.rng mulberry32).
  * - Point payouts are made exact by pinning G.deadline to a chosen
  *   remaining-fraction immediately before each submission (same-task, so
- *   submitCode computes from the pinned fraction): the classic schedule
- *   196/220/240/187/201/240/257/280/299/320/338/720/760/800/796 ×3 → 9046.
- * - Keypad commits ride the 400ms arm window: double-tap the digit in ONE
+ *   submitCode computes from the pinned fraction): the schedule
+ *   196/220/240/187/201/240/257/280/299/320/338/540/570/800/796 ×3 → 8676
+ *   (the kind-5 double hits pay 1.5x base, not 2x).
+ * - Keypad commits ride the 750ms arm window: double-tap the digit in ONE
  *   evaluate (two .click() in the same task) to commit instantly.
  * - Transient classes (zb-page-in, cracks, hit-stop, chop slam, flash…)
  *   are caught with a persistent in-page MutationObserver latch installed
@@ -104,15 +106,17 @@ function submit(page, v, frac) {
   }, [v, frac]);
 }
 
-/* payout assertion: dynamic name mirrors the classic suite exactly */
+/* payout assertion: dynamic name mirrors the classic suite exactly.
+ * A double hit pays 1.5x base (hit factor 1 + 0.5*(hits-1)), not 2x. */
 function ptsCheck(seq, r, finale) {
   const pts = r.after.score - r.before.score;
   const hits = Math.max(1, r.after.claimed - r.before.claimed);
   const s = r.before.streak;
+  const hf = 1 + 0.5 * (hits - 1);
   const mult = 1 + 0.1 * Math.min(s, 10);
   const lf = finale ? 2 : 1;
-  const lo = Math.round(100 * mult * hits * lf);
-  const hi = Math.round(200 * mult * hits * lf);
+  const lo = Math.round(100 * hf * mult * lf);
+  const hi = Math.round(200 * hf * mult * lf);
   check(
     `#${seq} pts ${pts} in [${lo},${hi}] (streak ${s}${finale ? ", finale x2" : ""})`,
     pts >= lo && pts <= hi && r.after.streak === s + 1,
@@ -217,6 +221,8 @@ function camRecord(page) {
     const bb = deck.getBBox();
     return {
       seq: G.level.seq,
+      n: G.level.n,
+      hintChip: document.getElementById("soloHint").style.display !== "none",
       dress: deck.dataset.dress,
       vb: { x: vb.x, y: vb.y, w: vb.width, h: vb.height },
       rest: G.camRest
@@ -281,6 +287,7 @@ async function main() {
           full: L.points(1, 1, 0), none: L.points(0, 1, 0), half: L.points(0.5, 1, 0),
           s3: L.points(1, 1, 3), s10: L.points(1, 1, 10), s20: L.points(1, 1, 20),
           echo: L.points(1, 1, 0, 0.4), echoS: L.points(0.5, 1, 2, 0.4),
+          dblFull: L.points(1, 2, 0), dblNone: L.points(0, 2, 0), dblStreak: L.points(1, 2, 8),
         },
       };
     });
@@ -299,6 +306,10 @@ async function main() {
       intro.pts.s10 === 400 && intro.pts.s20 === 400, `s10=${intro.pts.s10} s20=${intro.pts.s20}`);
     check("points: echo factor",
       intro.pts.echo === 80 && intro.pts.echoS === 72, `echo=${intro.pts.echo} echoS=${intro.pts.echoS}`);
+    check("points: double hit pays 1.5x",
+      intro.pts.dblFull === 300 && intro.pts.dblNone === 150 && intro.pts.dblStreak === 540 &&
+      intro.pts.dblFull === Math.round(1.5 * intro.pts.full),
+      JSON.stringify({ full: intro.pts.dblFull, none: intro.pts.dblNone, s8: intro.pts.dblStreak }));
 
     /* pure plan checks (computed before the run starts, printed after 9) */
     const pc = await page.evaluate(() => {
@@ -714,6 +725,19 @@ async function main() {
       ptsCheck(seq, ra, false);
       const rb = await submit(page, inf.pillarRoots[1], ladder[seq][1]);
       ptsCheck(seq, rb, false);
+      if (seq === 6) {
+        // root-rank orientation in the real flow: the sign trap's inked
+        // codes must read left-to-right like the graph's x-intercepts
+        const marks = await page.evaluate(() =>
+          [...document.querySelectorAll(".zb-rootmark.show")].map((m) => ({
+            x: parseFloat(m.getAttribute("x")),
+            root: parseFloat(m.textContent.replace("x = ", "").replace("−", "-")),
+          })));
+        check("resolve intercepts read left-to-right",
+          marks.length === 2 &&
+          (marks[0].x < marks[1].x) === (marks[0].root < marks[1].root),
+          JSON.stringify(marks));
+      }
     }
 
     /* ══ building #8 — the double root ══ */
@@ -790,6 +814,24 @@ async function main() {
       plq.text === plq.hidden && !plq.ghost && !plq.qmark, JSON.stringify(plq));
     check("expanded: shows factorisation", plq.mark.includes(plq.fact),
       `mark "${plq.mark}" missing "${plq.fact}"`);
+    // force the half-fuse nudge while the mark zone still holds the
+    // correct working: the nudge must latch but never overwrite it
+    const nudge10 = await page.evaluate(async () => {
+      const G = window.G;
+      const before = document.getElementById("markZone").textContent;
+      G.deadline = performance.now() + 0.4 * G.duration;
+      const t0 = performance.now();
+      await new Promise((res) => {
+        (function loop() {
+          if (G.nudged || performance.now() - t0 > 1800) return res();
+          requestAnimationFrame(loop);
+        })();
+      });
+      return { nudged: G.nudged, before, after: document.getElementById("markZone").textContent };
+    });
+    check("nudge yields to working already on the sheet",
+      nudge10.nudged && nudge10.after === nudge10.before && !nudge10.after.includes("諗下"),
+      JSON.stringify({ nudged: nudge10.nudged, mark: (nudge10.after || "").slice(0, 60) }));
     const r10b = await submit(page, info10.pillarRoots[1], 0.99);
     ptsCheck(10, r10b, true);
 
@@ -811,6 +853,9 @@ async function main() {
     check("every building carries a dressing pick",
       records.length === 12 && records.every((r) => ["0", "1", "2"].includes(r.dress)),
       records.map((r) => r.dress).join(","));
+    check("hint chip only on the factorise buildings",
+      records.every((r) => r.hintChip === (r.n === 6)),
+      records.map((r) => `${r.n}:${r.hintChip ? "on" : "off"}`).join(","));
     const restOk = records.every((r) => r.rest &&
       Math.abs(r.vb.x - r.rest.x) < 0.75 && Math.abs(r.vb.y - r.rest.y) < 0.75 &&
       Math.abs(r.vb.w - r.rest.w) < 0.75 && Math.abs(r.vb.h - r.rest.h) < 0.75);
@@ -995,7 +1040,8 @@ async function main() {
     const cfgC = await pC.evaluate(() => ({
       len: window.G.levels.length,
       mixTail: window.G.levels.slice(-3).every((l) => l.stageKind === "mix"),
-      mixKinds: window.G.levels.slice(-3).every((l) => l.n >= 3 && l.n <= 6 && l.hard),
+      // MIX_KINDS = [3,4,6]: kind 5's one-tap double hit sits the mixed street out
+      mixKinds: window.G.levels.slice(-3).every((l) => [3, 4, 6].includes(l.n) && l.hard),
     }));
     check("diff=hard: 15 buildings + mixed street",
       cfgC.len === 15 && cfgC.mixTail && cfgC.mixKinds, JSON.stringify(cfgC));
@@ -1016,8 +1062,54 @@ async function main() {
       cfgD.len === 6 && cfgD.oneRound && cfgD.longer, JSON.stringify(cfgD));
     await pD.close();
 
-    /* commit window (fresh round, building 1, root 0) */
+    /* graph-orientation probe + commit window (one page) */
     const pE = await gamePage(ctx, "seed=3", errsCfg);
+    // root-rank probe: renderStructure is a top-level classic-script
+    // function (reachable as a bare identifier); the gameScreen is made
+    // renderable for getBBox, probed atomically, then restored — no run
+    // has started yet, so nothing live is disturbed.
+    const probe = await pE.evaluate(() => {
+      const L = window.ZBLevels;
+      const gs = document.getElementById("gameScreen");
+      gs.classList.add("active");
+      const meta = (lv, i) => Object.assign(lv, {
+        seq: i, total: 12, stage: 1, stageKind: lv.n, round: 1,
+        roundsInStage: 1, fuseMs: 1000, finale: false,
+      });
+      const bad = [];
+      let cases = 0;
+      try {
+        for (let seed = 1; seed <= 12; seed++) {
+          const rand = L.rng(seed * 101 + 7);
+          for (const n of [3, 4, 6]) {
+            for (const hard of [false, true]) {
+              const lv = meta(L.gen(n, rand, hard, true), seed);
+              renderStructure(lv);
+              const x = {};
+              document.querySelectorAll(".zb-rootmark").forEach((m) => {
+                x[m.dataset.for] = parseFloat(m.getAttribute("x"));
+              });
+              cases += 1;
+              const [p1, p2] = lv.pillars;
+              if ((p1.root < p2.root) !== (x.p1 < x.p2))
+                bad.push({ seed, n, hard, roots: [p1.root, p2.root], x });
+            }
+          }
+        }
+        // kind 5 keeps its twin stance
+        const lv5 = meta(L.gen(5, L.rng(9), false, true), 1);
+        renderStructure(lv5);
+        const x5 = [...document.querySelectorAll(".zb-rootmark")]
+          .map((m) => parseFloat(m.getAttribute("x"))).sort((a, b) => a - b);
+        return { cases, bad, x5 };
+      } finally {
+        gs.classList.remove("active");
+      }
+    });
+    check("smaller root stands left (kinds 3/4/6, easy+hard)",
+      probe.cases === 72 && probe.bad.length === 0 && probe.x5.join(",") === "170,230",
+      `cases ${probe.cases} bad ${JSON.stringify(probe.bad.slice(0, 3))} x5 ${probe.x5.join(",")}`);
+
     await pE.click("#btnSolo");
     await untilStaged(pE);
     const cw = await pE.evaluate(async () => {
@@ -1026,10 +1118,14 @@ async function main() {
       const sign = document.querySelector("#pad .zb-key--sign");
       const preview = document.getElementById("padPreview");
       key5.click();
-      await new Promise((r) => setTimeout(r, 120));
+      // 500ms in: beyond the old 400ms window, still inside the 750ms one
+      await new Promise((r) => setTimeout(r, 500));
+      const drain = getComputedStyle(preview, "::after");
       const inside = {
         claimed: G.claimed.length,
         mark: document.getElementById("markZone").textContent,
+        drainName: drain.animationName,
+        drainDur: drain.animationDuration,
         previewText: preview.textContent.replace(/\u00a0/g, " "),
         armed: preview.classList.contains("armed"),
       };
@@ -1037,57 +1133,97 @@ async function main() {
       const t0 = performance.now();
       await new Promise((res) => {
         (function loop() {
-          if (document.getElementById("markZone").textContent || performance.now() - t0 > 2500) return res();
+          if (document.getElementById("markZone").textContent || performance.now() - t0 > 2800) return res();
           setTimeout(loop, 40);
         })();
       });
       return { inside, mark: document.getElementById("markZone").textContent };
     });
-    check("commit window: nothing submitted inside 400ms",
-      cw.inside.claimed === 0 && cw.inside.mark === "",
+    check("commit window: nothing submitted inside 750ms",
+      cw.inside.claimed === 0 && cw.inside.mark === "" && cw.inside.armed,
       JSON.stringify({ claimed: cw.inside.claimed, mark: cw.inside.mark }));
     check("commit window: staged value previewed",
       cw.inside.armed && /x\s*=\s*5/.test(cw.inside.previewText),
       JSON.stringify({ armed: cw.inside.armed, preview: cw.inside.previewText }));
+    check("commit window: armed drain runs 750ms",
+      cw.inside.drainName === "zb-armdrain" && cw.inside.drainDur === "0.75s",
+      JSON.stringify({ name: cw.inside.drainName, dur: cw.inside.drainDur }));
     check("commit window: sign flip commits the negative",
       cw.mark.includes("(−5)"), `mark "${cw.mark}"`);
     await pE.close();
 
-    /* the solo half-fuse hint (kind 6 street of one) */
+    /* the opt-in solo hint (kind 6 street of one): chip + nudge contract */
     const pF = await gamePage(ctx, "levels=6&rounds=1&seed=5", errsCfg);
     await pF.click("#btnSolo");
     await untilStaged(pF);
+    // half fuse: the strategy NUDGE appears (mark zone is empty) but the
+    // hint itself stays the student's call — no auto-hint any more
     const hint = await pF.evaluate(async () => {
       const G = window.G;
+      const chip = document.getElementById("soloHint");
+      const chip0 = { visible: chip.style.display !== "none", disabled: chip.disabled };
       G.deadline = performance.now() + 0.499 * G.duration;
       const t0 = performance.now();
       await new Promise((res) => {
         (function loop() {
-          if (G.hinted || performance.now() - t0 > 2000) return res();
+          if (G.nudged || performance.now() - t0 > 2000) return res();
           requestAnimationFrame(loop);
         })();
       });
+      return {
+        chip0,
+        nudged: G.nudged,
+        hintedAfterHalf: G.hinted,
+        chipAfterHalf: { visible: chip.style.display !== "none", disabled: chip.disabled },
+        mark: document.getElementById("markZone").textContent,
+        prod: window.ZBLevels.num(G.level.c),
+        sum: window.ZBLevels.num(-G.level.b),
+      };
+    });
+    check("solo hint chip offered on kind-6 (opt-in, no auto-hint)",
+      hint.chip0.visible && !hint.chip0.disabled &&
+      hint.nudged && !hint.hintedAfterHalf &&
+      hint.chipAfterHalf.visible && !hint.chipAfterHalf.disabled,
+      JSON.stringify({ chip0: hint.chip0, after: hint.chipAfterHalf, hinted: hint.hintedAfterHalf }));
+    check("half-fuse nudge: sum and product pencilled in the mark zone",
+      hint.mark.includes("乘埋係 " + hint.prod) && hint.mark.includes("加埋係 " + hint.sum),
+      `mark "${hint.mark}" prod ${hint.prod} sum ${hint.sum}`);
+    // the student opts in: tap the chip
+    const tapped = await pF.evaluate(() => {
+      const G = window.G;
+      document.getElementById("soloHint").click();
       const ghost = document.querySelector(".zb-hintghost");
       return {
         hinted: G.hinted,
+        chipDisabled: document.getElementById("soloHint").disabled,
         ghost: ghost
           ? { text: ghost.textContent, isPlaque: ghost.hasAttribute("data-plaque") }
           : null,
         factors: G.level.pillars.map((p) => p.hidden),
         mark: document.getElementById("markZone").textContent,
         firstRoot: G.level.pillars[0].root,
+        otherRoot: G.level.pillars[1].root,
       };
     });
-    check("solo hint auto-shows at half fuse", hint.hinted, "G.hinted never latched");
     check("hint ghost pencils a factor onto the plaque",
-      !!hint.ghost && hint.ghost.isPlaque && hint.factors.includes(hint.ghost.text),
-      JSON.stringify(hint.ghost));
-    check("hint note tells the class about half points",
-      hint.mark.includes("分數減半"), `mark "${hint.mark}"`);
-    const rh = await submit(pF, hint.firstRoot, 0.502);
+      tapped.hinted && !!tapped.ghost && tapped.ghost.isPlaque &&
+      tapped.factors.includes(tapped.ghost.text),
+      JSON.stringify(tapped.ghost));
+    check("hint note tells the class about the 75% fee",
+      tapped.mark.includes("打七五折"), `mark "${tapped.mark}"`);
+    // levelFactor = finale x2 · hint x0.75 = x1.5: f pinned at 0.5 → 225
+    const rh = await submit(pF, tapped.firstRoot, 0.502);
     const ph = rh.after.score - rh.before.score;
-    check(`hinted building pays half (net ${ph} in [100,200])`, ph >= 100 && ph <= 200,
-      `net ${ph} (finale x2 · hint x0.5)`);
+    check(`hinted building pays 75% (net ${ph} in [150,300])`, ph >= 150 && ph <= 300,
+      `net ${ph} (finale x2 · hint x0.75)`);
+    await submit(pF, tapped.otherRoot, 0.9); // resolve the building
+    const chipEnd = await pF.evaluate(() => ({
+      display: document.getElementById("soloHint").style.display,
+      over: window.G.over,
+    }));
+    check("hint chip disabled after use, hidden on resolve",
+      tapped.chipDisabled && chipEnd.over && chipEnd.display === "none",
+      JSON.stringify({ disabled: tapped.chipDisabled, end: chipEnd }));
     await pF.close();
 
     /* the fizzle: condemned survivor + the reveal hold */
@@ -1156,8 +1292,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 135) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 135`);
+    if (total !== 143) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 143`);
       process.exit(1);
     }
     if (failures.length) {

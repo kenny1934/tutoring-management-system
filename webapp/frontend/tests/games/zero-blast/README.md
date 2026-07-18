@@ -5,9 +5,9 @@ they need a static server and take ~1–2 min each):
 
 | suite | checks | covers |
 |---|---|---|
-| `zb-solo-test.js` | 135 | solo run end-to-end: plan/points maths, staging, collapse beats, camera, report |
-| `zb-multi-test.js` | 110 | host + 2 phones over a mocked GameBridge: lobby, kick, claims, echo, grace, resume, tutor bar |
-| `zb-audit-test.js` | 70 | EN/dark bilingual pass, small viewports, reduced motion, fx gates, sound sampler, camera letterbox |
+| `zb-solo-test.js` | 143 | solo run end-to-end: plan/points maths (incl. 1.5x double hit), root-rank pillar order, staging, collapse beats, camera, opt-in kind-6 hint + half-fuse nudge, report |
+| `zb-multi-test.js` | 124 | host + 2 phones over a mocked GameBridge: lobby, kick (lobby + mid-game), claims, echo, grace, resume, tutor bar, restart revival, re-scan identity, name dedupe, sent·marking beat |
+| `zb-audit-test.js` | 71 | EN/dark bilingual pass, small viewports, reduced motion, fx gates, sound sampler + offer, camera letterbox |
 
 ## Running
 
@@ -30,8 +30,9 @@ NODE_PATH=webapp/frontend/node_modules node webapp/frontend/tests/games/zero-bla
 - **Deterministic levels** via `?seed=N`; single-stage runs use `?levels=K&rounds=1`
   (note: a single-stage run is treated as the finale street — double payouts).
 - **Keypad submits** double-tap the same digit inside one `page.evaluate` — a digit
-  arms and the same digit commits instantly, beating the 400ms-class commit window.
-  Always wait for `G.staged` / `C.staged` first.
+  arms and the same digit commits instantly, beating the 750ms commit window.
+  Always wait for `G.staged` / `C.staged` first. (A *single* tap arms without
+  committing — the audit suite uses that to probe the armed drain bar.)
 - **Transient classes** (page turns, cracks, hit-stop, takeover, grace numerals) are
   caught with in-page MutationObserver latches armed *before* the trigger; polling
   from the test process loses the race.
