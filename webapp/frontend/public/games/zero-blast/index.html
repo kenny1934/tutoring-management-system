@@ -86,6 +86,25 @@
     .zb-scene > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
     .zb-scene > canvas { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 
+    /* paper craft (data-fx="full" only): every stroke hand-inked via a
+       tiny turbulence displacement; chalk erosion joins in on dark */
+    :root[data-fx="full"] .zb-struct { filter: url(#zb-wobble); }
+    :root[data-fx="full"][data-theme="dark"] .zb-struct { filter: url(#zb-chalkwobble); }
+    @media (prefers-color-scheme: dark) {
+      :root[data-fx="full"]:not([data-theme="light"]) .zb-struct { filter: url(#zb-chalkwobble); }
+    }
+    /* near-invisible paper grain over everything; doubles as chalkboard
+       mottling in dark */
+    :root[data-fx="full"] body::after {
+      content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none;
+      opacity: 0.030;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    :root[data-fx="full"][data-theme="dark"] body::after { opacity: 0.05; }
+    @media (prefers-color-scheme: dark) {
+      :root[data-fx="full"]:not([data-theme="light"]) body::after { opacity: 0.05; }
+    }
+
     .zb-struct path, .zb-struct line { stroke: var(--mc-ink); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .zb-struct .thin { stroke-width: 1.2; }
     .zb-struct .faint { stroke: var(--mc-ink-faint); }
@@ -246,7 +265,11 @@
       color: var(--mc-red); font-weight: 900; font-size: 54px; line-height: 1;
       font-family: var(--mc-body);
       background: color-mix(in srgb, var(--mc-paper) 78%, transparent);
-      box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mc-red) 30%, transparent);
+      /* letterpress: the chop presses INTO the paper, ink bleeds a hair */
+      box-shadow:
+        inset 0 0 0 2px color-mix(in srgb, var(--mc-red) 30%, transparent),
+        inset 0 1.5px 3px color-mix(in srgb, var(--mc-ink) 25%, transparent);
+      text-shadow: 0 0 1px currentColor;
       transform: rotate(-8deg);
       animation: zb-chaislam 0.5s cubic-bezier(0.3, 0, 0.4, 1) both;
     }
@@ -276,7 +299,10 @@
       color: var(--mc-red); border: 2.5px solid var(--mc-red); border-radius: 4px;
       padding: 3px 10px; transform: rotate(6deg);
       background: color-mix(in srgb, var(--mc-paper) 80%, transparent);
-      box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mc-red) 30%, transparent);
+      box-shadow:
+        inset 0 0 0 1.5px color-mix(in srgb, var(--mc-red) 30%, transparent),
+        inset 0 1px 2.5px color-mix(in srgb, var(--mc-ink) 25%, transparent);
+      text-shadow: 0 0 1px currentColor;
       animation: mc-stamp-in 0.35s cubic-bezier(0.2, 1.5, 0.35, 1) both;
     }
     .zb-struct .zb-tape path {
@@ -465,6 +491,34 @@
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) .zb-struct #fuseGlow { opacity: 0.55; r: 9px; filter: blur(3px); }
     }
+    /* dark: a soft warm vignette behind the board, like lamp light */
+    :root[data-theme="dark"] .zb-scene::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 50% 42%, rgba(255, 198, 120, 0.06), transparent 68%);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .zb-scene::before {
+        content: ""; position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(ellipse at 50% 42%, rgba(255, 198, 120, 0.06), transparent 68%);
+      }
+    }
+    /* dark: window lights glow faintly and die as the pillars fall */
+    .zb-lights rect { fill: #ffd98a; opacity: 0; }
+    :root[data-theme="dark"] .zb-lights rect { opacity: 0.3; transition: opacity 0.3s; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .zb-lights rect { opacity: 0.3; transition: opacity 0.3s; }
+    }
+    .zb-lights rect.off { opacity: 0 !important; animation: zb-lightoff 0.45s ease-out; }
+    @keyframes zb-lightoff {
+      0% { opacity: 0.3; }
+      30% { opacity: 0.04; }
+      50% { opacity: 0.26; }
+      100% { opacity: 0; }
+    }
+    .zb-deck.fall .zb-lights { display: none; }
+    /* the consumed fuse leaves charred ash, not blank paper */
+    .zb-struct #fuseAsh { stroke: var(--mc-ink-faint); opacity: 0.65; }
+    .zb-struct .zb-fleck { fill: var(--mc-ink-faint); opacity: 0.8; }
 
     /* reduced motion: theme.css kills all animations, so every draw-on
        stroke must still end visible, and the fallen deck must still clear */
@@ -525,6 +579,21 @@
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
+    <!-- hand-inked wobble: ~1px displacement makes every stroke read
+         hand-drawn. Gated by data-fx="full" (see FX_TIER). -->
+    <filter id="zb-wobble" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <!-- dark chalkboard: the same wobble plus noise-eroded alpha, so
+         strokes get chalk's micro-gaps -->
+    <filter id="zb-chalkwobble" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G" result="wob"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="3" result="grit"/>
+      <feColorMatrix in="grit" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.6 -0.15" result="mask"/>
+      <feComposite in="wob" in2="mask" operator="in"/>
+    </filter>
     <symbol id="i-arrow" viewBox="0 0 24 18">
       <path d="M2 9h15M12 2l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
@@ -922,6 +991,17 @@ const Q = new URLSearchParams(location.search);
 const seedParam = Q.get("seed");
 const newRand = () => seedParam !== null ? ZBLevels.rng(parseInt(seedParam, 10) || 1) : Math.random;
 
+/* capability gate: expensive filters (line wobble, paper grain) only
+ * where the hardware can afford them; ?fx=full|lite overrides. Old
+ * classroom Androids and the 30-phone room never pay for the
+ * projector's looks. */
+const FX_TIER = (() => {
+  const o = Q.get("fx");
+  if (o === "full" || o === "lite") return o;
+  return (navigator.deviceMemory || 4) >= 4 && (devicePixelRatio || 1) <= 3 ? "full" : "lite";
+})();
+document.documentElement.dataset.fx = FX_TIER;
+
 /* demolition plan config — host-side URL params, phones inherit via
  * state. Documented in game.json "config". */
 const numList = s => (s || "").split(",").map(x => parseFloat(x)).filter(x => !isNaN(x));
@@ -1037,6 +1117,29 @@ function chunkDeck(parts) {
   }).join("");
 }
 
+/* dark-mode life: faint window lights inside the buildings that have
+ * windows (kinds 2, 3, 6), dying one by one as the pillars fall */
+const WINDOW_LIGHTS = {
+  2: [[183, 122]],
+  3: [[147, 125], [243, 125], [147, 89], [195, 89], [243, 89]],
+  6: [[152, 127], [248, 127], [152, 105], [200, 105], [248, 105], [152, 83], [200, 83], [248, 83]],
+};
+function lightsSvg(level) {
+  const pts = WINDOW_LIGHTS[level.n];
+  if (!pts) return "";
+  return `<g class="zb-lights" id="lights">${pts.map(p =>
+    `<rect x="${p[0] - 5}" y="${p[1] - 3.5}" width="10" height="7" rx="1"/>`).join("")}</g>`;
+}
+/* a claim darkens a share of the remaining windows, staggered */
+function killLights(fraction) {
+  const on = [...document.querySelectorAll("#lights rect:not(.off)")];
+  const n = Math.ceil(on.length * fraction);
+  for (let i = 0; i < n; i++) {
+    const r = on[i];
+    setTimeout(() => r.classList.add("off"), 130 * i + Math.random() * 160);
+  }
+}
+
 function rubbleSvg(xs) {
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
   const w = Math.max(90, (Math.max(...xs) - Math.min(...xs)) + 110);
@@ -1059,6 +1162,7 @@ function sceneStatics(level, xs) {
     + T(16, 26, "tag", "圖則 PLAN " + String(level.seq).padStart(2, "0") + "/" + String(level.total).padStart(2, "0"))
     + P("M14 32 h64", "thin faint")
     + P("M22 190 h24 v14 h-24 z M34 190 v-9 M26 181 h16")
+    + `<path id="fuseAsh" d="${fuseD}" class="thin" stroke-dasharray="0 1" pathLength="1"/>`
     + `<path id="fusePath" d="${fuseD}" class="thin" style="stroke:var(--mc-red);opacity:0.85"/>`
     + `<circle id="fuseGlow" r="6.5" fill="var(--mc-red)" opacity="0.25"/>`
     + `<circle id="fuseSpark" r="3.2" fill="var(--mc-red)"/>`;
@@ -1085,7 +1189,7 @@ function renderStructure(level) {
   svg.innerHTML =
     sceneStatics(level, xs)
     + rubbleSvg(xs)
-    + `<g class="zb-deck" id="deck"><g${vt ? ` transform="${vt}"` : ""}>${chunkDeck(deckParts(level, xs))}</g></g>`
+    + `<g class="zb-deck" id="deck"><g${vt ? ` transform="${vt}"` : ""}>${chunkDeck(deckParts(level, xs))}${lightsSvg(level)}</g></g>`
     + level.pillars.map((p, i) => pillarSvg(xs[i], p)).join("");
   return xs;
 }
@@ -1488,6 +1592,7 @@ function startLevel(resume) {
   G.fusePathEl = $("fusePath");
   G.fuseLen = G.fusePathEl.getTotalLength();
   G.lastTickSec = null;
+  G.lastFleck = null;
   $("fuseTimer").classList.remove("warn");
   setTimeout(() => { if (!G.over && G.level === level) ZBFX.audio.fuseStart(); }, CARD_MS);
   cancelAnimationFrame(G.raf);
@@ -1505,10 +1610,20 @@ function fuseFrame() {
   ZBFX.audio.fuseUrgency(burned);
 
   // consume the fuse line and ride the spark along it; the emitter
-  // holds until the fuse actually ignites (after the level card)
+  // holds until the fuse actually ignites (after the level card).
+  // The burnt part stays behind as charred ash with scorch flecks.
   const ignited = remain <= G.duration;
   const pt = G.fusePathEl.getPointAtLength(G.fuseLen * burned);
   G.fusePathEl.setAttribute("stroke-dasharray", `0 ${G.fuseLen * burned} ${G.fuseLen}`);
+  $("fuseAsh").setAttribute("stroke-dasharray", `${burned} 1`);
+  if (ignited) {
+    const fleck = Math.floor(burned * 12);
+    if (fleck !== G.lastFleck) {
+      G.lastFleck = fleck;
+      $("structSvg").insertAdjacentHTML("beforeend",
+        `<circle class="zb-fleck" cx="${(pt.x + (Math.random() - 0.5) * 5).toFixed(1)}" cy="${(pt.y + 2 + Math.random() * 3).toFixed(1)}" r="${(0.7 + Math.random() * 0.7).toFixed(2)}"/>`);
+    }
+  }
   $("fuseSpark").setAttribute("cx", pt.x); $("fuseSpark").setAttribute("cy", pt.y);
   $("fuseGlow").setAttribute("cx", pt.x); $("fuseGlow").setAttribute("cy", pt.y);
   ZBFX.sparksAt(ignited ? pt.x : null, pt.y);
@@ -1596,6 +1711,7 @@ function blowPillar(id, root, name) {
   const mark = document.querySelector(`.zb-rootmark[data-for="${id}"]`);
   const x = pillarX(id);
   strikeFactor($("exprBoard"), id, name);
+  killLights(G.claimed.length >= G.level.pillars.length ? 1 : 0.5);
   g.classList.add("blown");
   mark.innerHTML = svgMath("x = " + ZBLevels.num(root));
   mark.classList.add("show");

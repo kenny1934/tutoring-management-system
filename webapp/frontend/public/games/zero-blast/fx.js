@@ -274,11 +274,14 @@
         ctx.fill();
         ctx.globalCompositeOperation = "source-over";
       } else {
+        // sparks composite additively on the dark chalkboard: embers
         ctx.globalAlpha = k;
         ctx.fillStyle = p.color;
+        if (darkNow && p.type === "spark") ctx.globalCompositeOperation = "lighter";
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
       }
       alive.push(p);
     }
