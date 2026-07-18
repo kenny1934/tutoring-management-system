@@ -795,8 +795,19 @@
       color: var(--mc-ink-faint); margin-bottom: 8px; min-height: 22px;
     }
     .zb-preview .neg { color: var(--mc-red); }
-    /* a staged value awaiting its commit window reads in full ink */
+    /* a staged value awaiting its commit window reads in full ink, and
+     * a pencil line under it drains the window away - the wait between
+     * tap and commit is visible, never a stall */
+    .zb-preview { position: relative; }
     .zb-preview.armed { color: var(--mc-ink); }
+    .zb-preview.armed::after {
+      content: ""; position: absolute; left: 50%; bottom: -3px; height: 2px;
+      width: 76px; transform: translateX(-50%); transform-origin: center;
+      background: var(--mc-ink-soft); border-radius: 1px;
+      animation: zb-armdrain 750ms linear forwards;
+    }
+    @keyframes zb-armdrain { from { transform: translateX(-50%) scaleX(1); } to { transform: translateX(-50%) scaleX(0); } }
+    @media (prefers-reduced-motion: reduce) { .zb-preview.armed::after { animation: none; } }
     .zb-pad { display: grid; grid-template-columns: repeat(3, 1fr) 0.85fr; gap: 9px; }
     .zb-key {
       min-height: 52px; border: 1.5px solid var(--mc-ink); border-radius: var(--mc-r);
@@ -929,6 +940,26 @@
       font-variant-numeric: tabular-nums;
     }
     .zb-hostboard__row:last-child { border-bottom: none; }
+    /* mid-game moderation: rows arm like lobby chips (tap, tap again) */
+    #hostBoard .zb-hostboard__row { cursor: pointer; }
+    .zb-hostboard__row.arm .zb-hostboard__name { color: var(--mc-red); }
+    /* the held reveal's one visible cue: 下一關 must not whisper */
+    .zb-pulse { animation: zb-btnpulse 1.1s ease-in-out infinite; }
+    @keyframes zb-btnpulse {
+      0%, 100% { box-shadow: 0 2px 0 var(--mc-ink); }
+      50% { box-shadow: 0 2px 0 var(--mc-ink), 0 0 0 5px color-mix(in srgb, var(--mc-red) 30%, transparent); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .zb-pulse { animation: none; outline: 2px solid var(--mc-red); outline-offset: 2px; }
+    }
+    /* quiet reclaim-by-code row under the cover buttons */
+    .zb-reclaim { display: flex; align-items: center; gap: 8px; }
+    .zb-reclaim__label { font-size: 13px; color: var(--mc-ink-soft); white-space: nowrap; }
+    .zb-reclaim .mc-input {
+      flex: 1; min-width: 0; font-family: var(--mc-mono); text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .zb-reclaim .mc-btn { padding: 8px 14px; }
     .zb-hostboard__rank { color: var(--mc-ink-faint); font-size: 12px; width: 20px; }
     .zb-hostboard__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .zb-hostboard__pts { color: var(--mc-gold); }
@@ -1251,6 +1282,15 @@
         <span data-i18n="btn_resume"></span>
         <svg class="mc-arrow"><use href="#i-arrow"/></svg>
       </button>
+      <!-- lost the resume offer but the room is still alive: take it
+           back by code (same device only - rules pin the host uid) -->
+      <div class="zb-reclaim">
+        <span class="zb-reclaim__label" data-i18n="reclaim_label"></span>
+        <input class="mc-input" id="reclaimCode" maxlength="8" autocomplete="off"
+               spellcheck="false" data-i18n-placeholder="reclaim_placeholder">
+        <button class="mc-btn" id="btnReclaim"><span data-i18n="btn_reclaim"></span></button>
+      </div>
+      <p class="mc-status" id="reclaimStatus" style="margin:0"></p>
     </div>
     <footer class="mc-brand">
       <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
@@ -1561,6 +1601,12 @@ const STRINGS = {
   room_gone:        { c: "搵唔到房間，請確認 QR code 或者房間號碼。", e: "Room not found. Check the QR code or room number." },
   reveal_wait:      { c: "時間到！記低正確密碼先入下一關。", e: "Time's up! Note the correct codes before the next level." },
   thanks_playing:   { c: "多謝參與！",   e: "Thanks for playing!" },
+  note_sent:        { c: "已送出|·|批改中⋯", e: "Sent · marking…" },
+  submit_lost:      { c: "未送出，再撳一次", e: "Not sent. Tap again" },
+  reclaim_label:    { c: "接手房間", e: "Take over a room" },
+  reclaim_placeholder: { c: "房間號碼", e: "Room code" },
+  btn_reclaim:      { c: "接手",     e: "Take over" },
+  reclaim_not_yours: { c: "呢個房唔係喺呢部機開嘅", e: "That room was started on another device" },
 };
 
 const SLUG = "zero-blast";
@@ -2471,23 +2517,29 @@ function markHtml(kind, lines) {
 }
 
 /* keypad factory: builds handlers around a submit(v) callback.
- * The sign key latches. A digit tap ARMS the value for ~400ms before
- * it commits, so a finger slip isn't a maths error: tapping − inside
- * the window flips the staged sign, tapping the same digit again
- * commits instantly (fast players lose nothing). */
+ * The sign key latches. A digit tap ARMS the value before it commits,
+ * so a finger slip isn't a maths error: tapping − inside the window
+ * flips the staged sign, tapping the same digit again commits
+ * instantly (fast players lose nothing). 750ms fits the natural entry
+ * order of a negative answer - "7… then minus" on the sign trap died
+ * inside the old 400ms window - and the armed preview drains the
+ * window visibly so the wait never reads as a stall. */
 function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
   let neg = false;
   let locked = false;
   let lockTimer = null;
   let armed = null; // { v } — staged value awaiting the commit window
   let armTimer = null;
-  const ARM_MS = 400;
+  const ARM_MS = 750;
   const signKey = padEl.querySelector(".zb-key--sign");
 
   function renderPreview() {
     if (armed) {
       previewEl.innerHTML = '<i class="zb-var">x</i>&nbsp;=&nbsp;' +
         (armed.v < 0 ? '<span class="neg">−</span>' : "") + Math.abs(armed.v);
+      // restart the drain with the window (arm, sign flip, re-arm)
+      previewEl.classList.remove("armed");
+      void previewEl.offsetWidth;
       previewEl.classList.add("armed");
     } else {
       previewEl.innerHTML = '<i class="zb-var">x</i>&nbsp;=&nbsp;' + (neg ? '<span class="neg">−</span>' : "") + "▢";
@@ -2713,10 +2765,10 @@ function settleSoundOffer() {
   const chip = $("soundOffer");
   if (!chip || chip.classList.contains("on") || chip.style.display === "none") return;
   chip.remove();
-  // unanswered through round 1: quiet is the answer, never nag again
-  try {
-    if (localStorage.getItem("mc-games-sound") === null) ZBFX.audio.setOn(false);
-  } catch (_) {}
+  // unanswered through round 1: quiet for THIS run (the chip only ever
+  // rides the first level card), but store nothing - one distracted
+  // round must not mute the teaching PC forever. The offer returns
+  // next game until the tutor actually answers it.
 }
 
 /* resume: a saved host-run snapshot restores mid-round claims and the
@@ -2792,7 +2844,7 @@ function startLevel(resume) {
       phase: "playing",
       level: level,
       levelIdx: G.idx,
-      deadlineEpoch: Date.now() + stageMs + fuseMs,
+      deadlineEpoch: GameBridge.serverNow() + stageMs + fuseMs,
       claims: resume && G.claimed.length
         ? Object.fromEntries(G.claimed.map(id => [id, G.claimsBy[id] || true]))
         : null,
@@ -3089,7 +3141,7 @@ function submitCode(v, player) {
     (res.hit.length > 1 ? t("note_both_down") + " " : "") + fmt("points_fmt", { n: pts }),
   ]);
   $("markZone").innerHTML = markHtml("correct", lines);
-  GameBridge.emit(SLUG, "score", { level: level.n, points: pts, score: G.score });
+  GameBridge.emit(SLUG, "score", { level: level.n, lv: level.seq, points: pts, score: G.score });
 
   const allDown = G.claimed.length === level.pillars.length;
   if (allDown) collapseAndAdvance();
@@ -3120,7 +3172,7 @@ function hostVerdict(player, v, res) {
       G.room.set("verdicts/" + player.id, {
         seq: player.seq, v: v, already: true,
         claimedBy: owner ? owner.name : "",
-        total: G.scores[player.id] || 0, level: level.n,
+        total: G.scores[player.id] || 0, level: level.n, lv: level.seq,
       });
       return;
     }
@@ -3140,7 +3192,7 @@ function hostVerdict(player, v, res) {
     G.room.set("verdicts/" + player.id, {
       seq: player.seq, v: v, echo: true, hit: matching, pts: echoPts,
       claimedBy: owner ? owner.name : "",
-      streak: G.streaks[player.id], total: G.scores[player.id], level: level.n,
+      streak: G.streaks[player.id], total: G.scores[player.id], level: level.n, lv: level.seq,
     });
     renderEchoTally(v);
     renderHostBoard();
@@ -3152,7 +3204,7 @@ function hostVerdict(player, v, res) {
     G.streaks[player.id] = 0;
     G.room.set("verdicts/" + player.id, {
       seq: player.seq, v: v, ok: false, streak: 0,
-      total: G.scores[player.id] || 0, level: level.n,
+      total: G.scores[player.id] || 0, level: level.n, lv: level.seq,
     });
     saveHostRun();
     return;
@@ -3186,11 +3238,11 @@ function hostVerdict(player, v, res) {
   G.room.update("state/scores", { [player.id]: G.scores[player.id] });
   G.room.set("verdicts/" + player.id, {
     seq: player.seq, v: v, ok: true, hit: res.hit.length, pts: pts,
-    streak: G.streaks[player.id], total: G.scores[player.id], level: level.n,
+    streak: G.streaks[player.id], total: G.scores[player.id], level: level.n, lv: level.seq,
   });
   renderHostBoard();
   saveHostRun();
-  GameBridge.emit(SLUG, "score", { level: level.n, points: pts, player: player.name });
+  GameBridge.emit(SLUG, "score", { level: level.n, lv: level.seq, points: pts, player: player.name });
 
   const allDown = G.claimed.length === level.pillars.length;
   if (allDown) enterGrace();
@@ -3212,9 +3264,35 @@ function enterGrace() {
   scatterCrew();
   ZBFX.shake(6);
   ZBFX.bgm.setIntensity("grace"); // the count-in roll
-  G.room.update("state", { deadlineEpoch: Date.now() + graceMs, graceUntil: Date.now() + graceMs });
+  const graceEpoch = GameBridge.serverNow() + graceMs;
+  G.room.update("state", { deadlineEpoch: graceEpoch, graceUntil: graceEpoch });
   saveHostRun();
 }
+
+/* ── mid-game moderation ──
+ * A rude name used to be untouchable once the game started (kick was
+ * lobby-only; the tutor's only remedy ended the game for everyone).
+ * Host-board rows arm exactly like lobby chips: tap, confirm text,
+ * tap again to remove. Also clears ghost players from dead phones. */
+let hostKickArmed = { id: null, at: 0 };
+$("hostBoard").addEventListener("click", e => {
+  const row = e.target.closest(".zb-hostboard__row[data-id]");
+  if (!row || G.mode !== "host" || !G.room || !G.started) return;
+  const id = row.dataset.id;
+  if (hostKickArmed.id === id && performance.now() - hostKickArmed.at < 2500) {
+    hostKickArmed = { id: null, at: 0 };
+    G.room.set("players/" + id, null); // the phone sees itself vanish
+    return; // the deletion snapshot re-renders the board
+  }
+  hostKickArmed = { id: id, at: performance.now() };
+  renderHostBoard();
+  setTimeout(() => {
+    if (hostKickArmed.id === id && performance.now() - hostKickArmed.at >= 2400) {
+      hostKickArmed = { id: null, at: 0 };
+      renderHostBoard();
+    }
+  }, 2600);
+});
 
 /* live leaderboard under the host scene: medal chips on the top three,
  * overtaking rows FLIP-glide to their new rank, scores roll */
@@ -3230,13 +3308,16 @@ function renderHostBoard() {
     .map(id => ({ id: id, name: (G.players[id] || {}).name || t("player"), pts: G.scores[id] || 0 }))
     .sort((a, b) => b.pts - a.pts)
     .slice(0, 6);
-  board.innerHTML = rows.map((r, i) => `
-    <div class="zb-hostboard__row" data-id="${r.id}">
+  board.innerHTML = rows.map((r, i) => {
+    const armed = r.id === hostKickArmed.id;
+    return `
+    <div class="zb-hostboard__row${armed ? " arm" : ""}" data-id="${r.id}">
       <span class="zb-hostboard__rank${i < 3 ? " zb-rank zb-rank--" + (i + 1) : ""}">${i + 1}</span>
-      <span class="zb-hostboard__name">${escapeText(r.name)}</span>
+      <span class="zb-hostboard__name">${armed ? t("kick_confirm") : escapeText(r.name)}</span>
       ${multHtml(G.streaks[r.id] || 0)}
       <span class="zb-hostboard__pts">${r.pts}</span>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   [...board.children].forEach(row => {
     const was = prevTop[row.dataset.id];
     if (was != null && !ZBFX.reduced) {
@@ -3296,13 +3377,16 @@ function renderStrugglers() {
 }
 
 /* ── host refresh recovery ──
- * The run snapshot lives in sessionStorage keyed by room code, written
- * on every round boundary and verdict. An accidental F5 then offers
- * 繼續上一場: reclaim the room, restore the books, re-publish state. */
+ * The run snapshot is written on every round boundary and verdict, to
+ * BOTH storages: sessionStorage survives an accidental F5, and the
+ * localStorage mirror survives a closed tab or browser restart - the
+ * class was previously stranded the moment the tab went (the room sat
+ * alive in RTDB with 30 frozen phones and no way back in). An offer to
+ * 繼續上一場 appears on the cover while a snapshot is fresh. */
 function saveHostRun() {
   if (G.mode !== "host" || !G.room || !G.started || G.ended) return;
   try {
-    sessionStorage.setItem("zb-run-" + G.room.code, JSON.stringify({
+    writeHostRun("zb-run-" + G.room.code, JSON.stringify({
       code: G.room.code, ts: Date.now(),
       idx: G.idx, over: G.over, levels: G.levels, records: G.records,
       scores: G.scores, streaks: G.streaks, starsBy: G.starsBy,
@@ -3314,22 +3398,41 @@ function saveHostRun() {
     }));
   } catch (_) {}
 }
+function writeHostRun(key, json) {
+  try { sessionStorage.setItem(key, json); } catch (_) {}
+  try { localStorage.setItem(key, json); } catch (_) {}
+}
+/* a room just created is snapshot-worthy too: a lobby refresh used to
+ * lose the room before the game even started */
+function saveLobbySnapshot() {
+  if (!G.room) return;
+  writeHostRun("zb-run-" + G.room.code,
+    JSON.stringify({ code: G.room.code, ts: Date.now(), lobby: true }));
+}
 function clearHostRun() {
   if (!G.room) return;
   try { sessionStorage.removeItem("zb-run-" + G.room.code); } catch (_) {}
+  try { localStorage.removeItem("zb-run-" + G.room.code); } catch (_) {}
 }
 function pendingHostRun() {
-  try {
+  const scan = store => {
     let best = null;
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
       if (!key || key.indexOf("zb-run-") !== 0) continue;
-      const saved = JSON.parse(sessionStorage.getItem(key));
-      if (!saved || !saved.code || !saved.levels || !saved.levels.length) continue;
+      let saved = null;
+      try { saved = JSON.parse(store.getItem(key)); } catch (_) {}
+      if (!saved || !saved.code) continue;
+      if (!saved.lobby && !(saved.levels && saved.levels.length)) continue;
       if (Date.now() - (saved.ts || 0) > 6 * 3600 * 1000) continue;
       if (!best || saved.ts > best.ts) best = saved;
     }
     return best;
+  };
+  try {
+    const a = scan(sessionStorage), b = scan(localStorage);
+    if (a && b) return a.ts >= b.ts ? a : b;
+    return a || b;
   } catch (_) { return null; }
 }
 
@@ -3341,8 +3444,12 @@ async function resumeRun(saved) {
     // room gone (closed or expired): drop the stale snapshot
     $("btnResume").style.display = "none";
     try { sessionStorage.removeItem("zb-run-" + saved.code); } catch (_) {}
+    try { localStorage.removeItem("zb-run-" + saved.code); } catch (_) {}
     return;
   }
+  // a lobby-only snapshot (refresh before the game started): back to
+  // the lobby with the same room code, phones still joined
+  if (!saved.levels || !saved.levels.length) { enterLobbyWith(G.room); return; }
   G.mode = "host";
   G.levels = saved.levels;
   // a snapshot taken after the round resolved resumes at the next one
@@ -3655,22 +3762,69 @@ function applyProjector() {
 applyProjector();
 addEventListener("resize", applyProjector);
 
-$("btnHost").onclick = async () => {
-  ZBFX.audio.unlock();
+/* stand the lobby up around a room handle - fresh, resumed, or
+ * reclaimed by code. One path, so every entrance gets the QR, the
+ * watcher and a snapshot that survives the tab. */
+function enterLobbyWith(room) {
+  G.room = room;
+  G.mode = "host";
   ZBFX.bgm.setIntensity("lobby"); // the waiting-room groove while phones join
   show("lobbyScreen");
+  $("roomCode").textContent = room.code;
+  // the projector class is the one source of truth for "wide stage"
+  GameBridge.qr($("qrBox"), room.joinUrl,
+    document.querySelector(".mc-stage").classList.contains("zb-stage--projector") ? 300 : 190);
+  if (G.watcher) G.watcher.close();
+  G.watcher = room.watch(onHostRoom);
+  saveLobbySnapshot();
+}
+
+$("btnHost").onclick = async () => {
+  ZBFX.audio.unlock();
+  ZBFX.bgm.setIntensity("lobby");
+  show("lobbyScreen");
+  let room;
   try {
-    G.room = await GameBridge.host({ slug: SLUG, initialState: { phase: "lobby" } });
+    room = await GameBridge.host({ slug: SLUG, initialState: { phase: "lobby" } });
   } catch (err) {
     $("lobbyStatus").textContent = err.message;
     $("lobbyStatus").classList.add("mc-status--danger");
     return;
   }
-  $("roomCode").textContent = G.room.code;
-  // the projector class is the one source of truth for "wide stage"
-  GameBridge.qr($("qrBox"), G.room.joinUrl,
-    document.querySelector(".mc-stage").classList.contains("zb-stage--projector") ? 300 : 190);
-  G.watcher = G.room.watch(onHostRoom);
+  enterLobbyWith(room);
+};
+
+/* ── reclaim by code (same device only) ──
+ * The cover offer handles the common case by itself; the input covers
+ * a lost snapshot while the room is still alive. The rules pin every
+ * room to the uid that created it, so this cannot hijack another
+ * device's class - a different machine gets a clear "not yours". */
+$("btnReclaim").onclick = async () => {
+  const code = $("reclaimCode").value.trim().toUpperCase();
+  if (!code) { $("reclaimCode").focus(); return; }
+  // a full snapshot for this code beats a bare reclaim: scores kept
+  let saved = null;
+  try {
+    saved = JSON.parse(sessionStorage.getItem("zb-run-" + code) ||
+                       localStorage.getItem("zb-run-" + code));
+  } catch (_) {}
+  if (saved && saved.levels && saved.levels.length) { resumeRun(saved); return; }
+  ZBFX.audio.unlock();
+  $("reclaimStatus").textContent = "";
+  $("reclaimStatus").classList.remove("mc-status--danger");
+  let room;
+  try {
+    room = await GameBridge.host({ slug: SLUG, code: code });
+  } catch (err) {
+    $("reclaimStatus").textContent =
+      /not your/.test(err.message) ? t("reclaim_not_yours") : t("room_gone");
+    $("reclaimStatus").classList.add("mc-status--danger");
+    return;
+  }
+  // the stranded phones drop back to "waiting for the tutor" until
+  // the reclaimed room starts its next run
+  room.update("state", { phase: "lobby", level: null, deadlineEpoch: null, graceUntil: null });
+  enterLobbyWith(room);
 };
 
 /* client-generated player ids: anything else in players/ or subs/ is
@@ -3710,6 +3864,9 @@ function onHostRoom(room) {
     if ((G.processedSeq[pid] || 0) >= sub.seq) return;
     G.processedSeq[pid] = sub.seq;
     if (!G.started || G.over) return; // between rounds: consumed, not judged
+    // a sub delayed past startLevel must not be judged against the NEW
+    // equation (surprise bonus or unfair lock): level-bound, dropped
+    if (typeof sub.lv === "number" && G.level && sub.lv !== G.level.seq) return;
     const pl = G.players[pid] || {};
     submitCode(sub.v, { id: pid, name: pl.name || t("player"), seq: sub.seq });
   });
@@ -3747,17 +3904,20 @@ $("playerList").addEventListener("click", e => {
 
 /* ── tutor controls (host only): +15s, skip/next, end ── */
 
-/* the skip button doubles as 下一關 while a reveal holds */
+/* the skip button doubles as 下一關 while a reveal holds; it pulses
+ * then - the projector shows nothing else saying "press Next", and a
+ * first-run tutor read the held reveal as a freeze */
 function setSkipLabel(key) {
   const btn = $("btnSkip");
   btn.setAttribute("data-i18n", key);
   btn.textContent = t(key);
+  btn.classList.toggle("zb-pulse", key === "tutor_next");
 }
 
 function tutorPlus15() {
   if (G.mode !== "host" || !G.started || G.over) return;
   G.deadline += 15000;
-  const epoch = Date.now() + Math.max(0, G.deadline - performance.now());
+  const epoch = GameBridge.serverNow() + Math.max(0, G.deadline - performance.now());
   const upd = { deadlineEpoch: epoch };
   if (G.grace) upd.graceUntil = epoch;
   G.room.update("state", upd);
@@ -3842,6 +4002,7 @@ const C = {
   timerIv: null, deadlineEpoch: 0, graceUntil: 0, pad: null,
   staged: false, // mirrors the projector: board + pad open at fuse ignite
   lastGraceSec: null, // grace 3-2-1 mirrored big on the phone
+  inFlight: false, judgeTimer: null, // one submission at a time, visibly
 };
 
 /* the claimer's phone: the kill is YOURS — a full-card 歸零 takeover
@@ -3920,18 +4081,39 @@ async function initController() {
   $("ctrlPad").innerHTML = padKeysHtml();
   C.pad = makePad($("ctrlPad"), $("ctrlPreview"), $("ctrlLock"), $("ctrlLockCount"), v => ctrlSubmit(v));
 
+  /* identity lives in BOTH storages: sessionStorage wins inside a tab
+   * (a plain reload), and the localStorage copy brings the same player
+   * back when a Wi-Fi drop makes them re-scan the QR - a camera scan
+   * opens a NEW tab, and before this the realistic recovery move wiped
+   * their score and left a ghost on the leaderboard */
   let saved = null;
   try { saved = JSON.parse(sessionStorage.getItem("zb-" + C.room.code)); } catch (_) {}
+  if (!saved) {
+    try { saved = JSON.parse(localStorage.getItem("zb-" + C.room.code)); } catch (_) {}
+  }
   if (saved && saved.id && saved.name) {
     C.id = saved.id; C.name = saved.name;
     enterPlay();
   }
-  $("btnJoin").onclick = () => {
-    const name = $("nameInput").value.trim().slice(0, 12);
-    if (!name) { $("nameInput").focus(); return; }
+  $("btnJoin").onclick = async () => {
+    const base = $("nameInput").value.trim().slice(0, 12);
+    if (!base) { $("nameInput").focus(); return; }
+    // two 阿明s may both join; the second becomes 阿明 2 - twin names
+    // made moderation guesswork (which chip is which?)
+    let name = base;
+    try {
+      if (C.room.get) {
+        const taken = Object.values((await C.room.get("players")) || {})
+          .map(p => (p && p.name) || "");
+        let n = 2;
+        while (taken.indexOf(name) !== -1) name = base.slice(0, 10) + " " + n++;
+      }
+    } catch (_) {}
     C.id = "p" + Math.random().toString(36).slice(2, 8);
     C.name = name;
-    try { sessionStorage.setItem("zb-" + C.room.code, JSON.stringify({ id: C.id, name: C.name })); } catch (_) {}
+    const identity = JSON.stringify({ id: C.id, name: C.name });
+    try { sessionStorage.setItem("zb-" + C.room.code, identity); } catch (_) {}
+    try { localStorage.setItem("zb-" + C.room.code, identity); } catch (_) {}
     enterPlay();
   };
 }
@@ -3954,30 +4136,62 @@ async function enterPlay() {
   C.timerIv = setInterval(ctrlTick, 100);
 }
 
+/* An answer on centre Wi-Fi can vanish at the worst moment. The write
+ * gets a "sent · marking" beat immediately (the pad soft-closes so a
+ * stressed double-tap can't re-lock), one silent retry, and only a
+ * successful write advances seq. If no verdict lands within ~2.5s the
+ * pad re-opens so the student can go again (the host dedupes by seq;
+ * a repeat correct is a harmless echo/already). */
 function ctrlSubmit(v) {
-  if (C.phase !== "playing" || !C.staged) return;
-  C.seq += 1;
-  C.room.set("subs/" + C.id, { v: v, seq: C.seq, ts: Date.now() });
+  if (C.phase !== "playing" || !C.staged || C.inFlight) return;
+  const seq = C.seq + 1;
+  const sub = { v: v, seq: seq, lv: C.level ? C.level.seq : null, ts: Date.now() };
+  C.inFlight = true;
+  C.pad.disable();
+  $("ctrlMark").innerHTML = markHtml("info", [t("note_sent")]);
+  const reopen = () => {
+    C.inFlight = false;
+    clearTimeout(C.judgeTimer);
+    if (C.phase === "playing" && C.staged) C.pad.enable();
+  };
+  const send = () => C.room.set("subs/" + C.id, sub);
+  send()
+    .catch(() => new Promise(res => setTimeout(res, 600)).then(send))
+    .then(() => {
+      C.seq = seq;
+      // verdictless fallback: reopen rather than soft-lock the phone
+      clearTimeout(C.judgeTimer);
+      C.judgeTimer = setTimeout(reopen, 2500);
+    })
+    .catch(() => {
+      // both attempts lost: say so, loudly enough to act on
+      ctrlStatus(t("submit_lost"), "mc-status--danger");
+      $("ctrlMark").innerHTML = markHtml("info", [t("submit_lost")]);
+      reopen();
+    });
 }
 
 function ctrlTick() {
   if (C.phase !== "playing" || !C.deadlineEpoch) { $("ctrlTimerText").textContent = "--.-"; $("ctrlTimer").classList.remove("warn"); return; }
+  // all epoch math runs on the server-anchored clock: a phone minutes
+  // off local time otherwise shows a wrong or frozen fuse
+  const nowMs = GameBridge.serverNow();
   // the round opens when the shared fuse ignites (deadline minus the
   // fuse length = the level card lead); latched so later deadline
   // changes (+15s, grace) never re-cover the board
-  if (!C.staged && C.level && Date.now() >= C.deadlineEpoch - (C.level.fuseMs || 0)) {
+  if (!C.staged && C.level && nowMs >= C.deadlineEpoch - (C.level.fuseMs || 0)) {
     C.staged = true;
     openBoard($("ctrlExpr"));
     C.pad.enable();
   }
-  const remain = Math.max(0, C.deadlineEpoch - Date.now());
+  const remain = Math.max(0, C.deadlineEpoch - nowMs);
   const fuse = (C.level && C.level.fuseMs) || remain;
   $("ctrlTimerText").textContent = (Math.min(remain, fuse) / 1000).toFixed(1);
   $("ctrlTimer").classList.toggle("warn", remain <= 5200);
   // grace window: live final-blast countdown (echo solves stay open),
   // the 3-2-1 mirrored big on the phone like the projector
-  if (C.graceUntil > Date.now()) {
-    const gs = Math.ceil((C.graceUntil - Date.now()) / 1000);
+  if (C.graceUntil > nowMs) {
+    const gs = Math.ceil((C.graceUntil - nowMs) / 1000);
     ctrlStatus(fmt("critical_fmt", { s: gs }), "mc-status--danger");
     if (gs !== C.lastGraceSec && gs >= 1 && gs <= 3) {
       C.lastGraceSec = gs;
@@ -4012,18 +4226,24 @@ function onCtrlRoom(room) {
   C.deadlineEpoch = st.deadlineEpoch || 0;
   C.graceUntil = st.graceUntil || 0;
 
-  // lobby moderation: the host removed me — back to the name form.
-  // seenSelf guards against snapshots that predate our own join write.
+  // host moderation: the host removed me — back to the name form.
+  // Works in ANY phase now (mid-game kicks exist); seenSelf guards
+  // against snapshots that predate our own join write.
   const players = room.players || {};
   if (C.id && players[C.id]) {
     C.seenSelf = true;
-  } else if (C.id && C.seenSelf && st.phase === "lobby") {
+  } else if (C.id && C.seenSelf) {
     C.seenSelf = false;
     C.id = null;
+    C.inFlight = false;
+    clearTimeout(C.judgeTimer);
+    C.pad.disable();
     try { sessionStorage.removeItem("zb-" + C.room.code); } catch (_) {}
+    try { localStorage.removeItem("zb-" + C.room.code); } catch (_) {}
     $("ctrlPlay").style.display = "none";
     $("ctrlJoin").style.display = "";
     $("ctrlName").textContent = "";
+    if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
     ctrlStatus(t("kicked_status"), "mc-status--danger");
     return;
   }
@@ -4036,6 +4256,8 @@ function onCtrlRoom(room) {
     C.level = nextLevel;
     C.staged = false; // ctrlTick opens the round at the shared ignite
     C.lastGraceSec = null;
+    C.inFlight = false; // an unanswered send died with the old level
+    clearTimeout(C.judgeTimer);
     $("ctrlLevelChip").innerHTML = levelChipHtml(st.level);
     $("ctrlExpr").classList.remove("condemned");
     setBoard($("ctrlExpr"), st.level, true);
@@ -4073,7 +4295,7 @@ function onCtrlRoom(room) {
         card.classList.add("zb-ctrltremble");
       }
     }
-    if (C.graceUntil <= Date.now()) {
+    if (C.graceUntil <= GameBridge.serverNow()) {
       const total = C.level.pillars.length;
       const k = st.claims ? Object.keys(st.claims).length : 0;
       // once claims exist, remind the class that echo solves still pay
@@ -4118,6 +4340,14 @@ function applyCtrlVerdict(v) {
   // verdicts are host-only by the rules; still never math-render a
   // non-numeric echo of what "we" submitted
   if (typeof v.v !== "number" || !isFinite(v.v)) return;
+  // a verdict judged against a different level would paint the wrong
+  // worked maths at peak attention: drop it (the reopen timer covers)
+  if (typeof v.lv === "number" && v.lv !== C.level.seq) return;
+  // the marking came back: the sent-beat is over. Wrong answers fall
+  // through to lock(3); anything else reopens the pad for echoes
+  C.inFlight = false;
+  clearTimeout(C.judgeTimer);
+  if ((v.ok || v.echo || v.already) && C.phase === "playing" && C.staged) C.pad.enable();
   if (v.already) {
     const who = v.claimedBy ? fmt("note_claimed_by", { name: escapeText(v.claimedBy) }) : "";
     $("ctrlMark").innerHTML = markHtml("info",

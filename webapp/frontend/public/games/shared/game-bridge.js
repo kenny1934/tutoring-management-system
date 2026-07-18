@@ -345,6 +345,36 @@
     };
   }
 
+  /* ---------------- server clock ----------------
+   * Rooms publish absolute epochs (deadlineEpoch, graceUntil); a phone
+   * minutes off local time would show a wrong or frozen fuse. REST has
+   * no /.info/serverTimeOffset, so the offset is estimated once per
+   * page from the HTTP Date header of a tiny authenticated read
+   * (whole-second resolution — plenty for fuse display; scoring is
+   * host-authoritative and never touches this). */
+  var serverOffset = 0;
+
+  function syncClock() {
+    var t0 = Date.now();
+    return ensureAuth()
+      .then(function (a) {
+        // any $slug/$code read is allowed signed-in and returns null +
+        // headers; "clock/PROBE0" never collides with a real game slug
+        return fetch(dbUrl("clock/PROBE0", a.idToken)).then(function (r) {
+          var dateHdr = r.headers.get("date");
+          if (!dateHdr) return;
+          var mid = t0 + (Date.now() - t0) / 2;
+          var parsed = new Date(dateHdr).getTime();
+          if (!isNaN(parsed)) serverOffset = parsed - mid;
+        });
+      })
+      .catch(function () {});
+  }
+
+  function serverNow() {
+    return Date.now() + serverOffset;
+  }
+
   /* ---------------- rooms ---------------- */
   /* 6 chars, no 0/O/1/I lookalikes: readable off a projector, and a
    * ~1e9 space so codes can't be enumerated from the open internet
@@ -367,6 +397,7 @@
    * only the handle is rebuilt (the host then re-publishes state). */
   function host(opts) {
     var slug = opts.slug;
+    syncClock(); // fire-and-forget: epochs anchor to server time
     function handle(code) {
       var path = slug + "/" + code;
       return {
@@ -377,6 +408,9 @@
           "?room=" +
           code +
           (lang ? "&lang=" + lang : ""),
+        get: function (sub) {
+          return dbGet(path + (sub ? "/" + sub : ""));
+        },
         set: function (sub, v) {
           return dbSet(path + "/" + sub, v);
         },
@@ -436,11 +470,15 @@
     var slug = opts.slug;
     var code = opts.code || params.get("room");
     if (!code) return Promise.reject(new Error("no room code"));
+    syncClock(); // fire-and-forget: fuse math reads server-anchored time
     var path = slug + "/" + code;
     return dbGet(path).then(function (room) {
       if (!room) throw new Error("room not found");
       return {
         code: code,
+        get: function (sub) {
+          return dbGet(path + (sub ? "/" + sub : ""));
+        },
         set: function (sub, v) {
           return dbSet(path + "/" + sub, v);
         },
@@ -505,6 +543,9 @@
       loadAuth();
       return (auth && auth.uid) || null;
     },
+    /* Date.now() corrected onto the server clock (offset 0 until the
+     * first host/join estimated it). Use for all room-epoch math. */
+    serverNow: serverNow,
     roomParam: function () {
       return params.get("room");
     },
