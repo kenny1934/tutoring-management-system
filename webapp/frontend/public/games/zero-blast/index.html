@@ -952,6 +952,14 @@
     @media (prefers-reduced-motion: reduce) {
       .zb-pulse { animation: none; outline: 2px solid var(--mc-red); outline-offset: 2px; }
     }
+    /* solo hint chip: a pencilled marginal offer above the keypad */
+    .zb-solohint {
+      display: block; margin: 0 auto 8px; padding: 5px 14px;
+      font-family: inherit; font-size: 13px; color: var(--mc-ink-soft);
+      background: none; border: 1.5px dashed var(--mc-ink-faint);
+      border-radius: var(--mc-r); cursor: pointer;
+    }
+    .zb-solohint:hover { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
     /* quiet reclaim-by-code row under the cover buttons */
     .zb-reclaim { display: flex; align-items: center; gap: 8px; }
     .zb-reclaim__label { font-size: 13px; color: var(--mc-ink-soft); white-space: nowrap; }
@@ -1391,6 +1399,12 @@
         <div class="zb-strugglers" id="strugglers" style="display:none"></div>
         <div class="zb-mark" id="markZone" aria-live="polite"></div>
         <div class="zb-padwrap" id="padWrap">
+          <!-- solo kind-6 scaffold, now opt-in: the auto-hint silently
+               cancelled the finale's double points on exactly the
+               students who needed thinking time -->
+          <button class="zb-solohint" id="soloHint" style="display:none">
+            <span data-i18n="btn_hint_solo"></span>
+          </button>
           <div class="zb-preview" id="padPreview"></div>
           <div class="zb-pad" id="pad">
             <button class="zb-key" data-d="7">7</button>
@@ -1582,7 +1596,7 @@ const STRINGS = {
   critical_fmt:     { c: "支柱全部拆晒！{s} 秒後總爆破", e: "All pillars down! Final blast in {s}s" },
   tutor_plus15:     { c: "+15 秒",      e: "+15 s" },
   tutor_hint:       { c: "提示",        e: "Hint" },
-  hint_note:        { c: "提示已顯示：呢座建築分數減半", e: "Hint shown: this building pays half" },
+  hint_note:        { c: "提示已顯示：呢座建築分數打七五折", e: "Hint shown: this building pays 75%" },
   tutor_skip:       { c: "跳過",        e: "Skip" },
   tutor_next:       { c: "下一關",      e: "Next" },
   tutor_end:        { c: "結束",        e: "End" },
@@ -1607,6 +1621,8 @@ const STRINGS = {
   reclaim_placeholder: { c: "房間號碼", e: "Room code" },
   btn_reclaim:      { c: "接手",     e: "Take over" },
   reclaim_not_yours: { c: "呢個房唔係喺呢部機開嘅", e: "That room was started on another device" },
+  btn_hint_solo:    { c: "提示（分數 75%）", e: "Hint (pays 75%)" },
+  hint_nudge:       { c: "諗下：邊兩個數|乘埋係 {c}、|加埋係 {b}？", e: "Think: which two numbers multiply to {c} and add to {b}?" },
 };
 
 const SLUG = "zero-blast";
@@ -2803,6 +2819,10 @@ function startLevel(resume) {
   // fresh rounds stay under wraps until the fuse ignites; a resumed
   // round is already mid-flight
   G.staged = !!resume;
+  G.nudged = false;
+  // solo's opt-in scaffold chip, only where a hint exists to give
+  $("soloHint").style.display = G.mode === "solo" && level.kind === "expanded" ? "" : "none";
+  $("soloHint").disabled = G.hinted;
   setBoard($("exprBoard"), level, !G.staged);
   $("markZone").innerHTML = "";
   $("sceneStamp").classList.remove("show");
@@ -2943,8 +2963,16 @@ function fuseFrame() {
       setTimeout(() => numEl.remove(), 950);
     }
   }
-  // solo scaffold: at half fuse the factorise hint pencils itself in
-  if (G.mode === "solo" && G.level.kind === "expanded" && !G.hinted && burned >= 0.5) showHint();
+  // solo scaffold at half fuse: a strategy nudge (sum and product),
+  // never the answer - the hint itself is the student's call now, and
+  // the nudge yields to any working they're still reading
+  if (G.mode === "solo" && G.level.kind === "expanded" && !G.hinted && !G.nudged && burned >= 0.5) {
+    G.nudged = true;
+    if (!$("markZone").innerHTML) {
+      $("markZone").innerHTML = markHtml("info",
+        [fmt("hint_nudge", { c: ZBLevels.num(G.level.c), b: ZBLevels.num(-G.level.b) })]);
+    }
+  }
 
   if (remain <= 0) { G.grace ? collapseAndAdvance() : fuseOut(); return; }
   G.raf = requestAnimationFrame(fuseFrame);
@@ -2975,12 +3003,17 @@ function showHint() {
   revealPlaque(p.id, p, true);
   $("markZone").innerHTML = markHtml("info", [t("hint_note")]);
   $("btnHint").disabled = true;
+  $("soloHint").disabled = true;
   saveHostRun();
 }
+$("soloHint").onclick = () => { if (G.mode === "solo" && G.staged) showHint(); };
 
-/* per-level payout scale: the finale street doubles, a hint halves */
+/* per-level payout scale: the finale street doubles, a hint takes a
+ * quarter off. The old half-fee stacked with the auto-hint to silently
+ * zero the finale's advertised double exactly for the students who
+ * needed thinking time. */
 function levelFactor(level) {
-  return (level.finale ? 2 : 1) * (G.hinted ? 0.5 : 1);
+  return (level.finale ? 2 : 1) * (G.hinted ? 0.75 : 1);
 }
 
 /* 回聲 ×N inked under the claimer's name: inclusion made visible */
@@ -3490,6 +3523,7 @@ function collapseAndAdvance() {
   ZBFX.sparksAt(null);
   pad.disable();
 
+  $("soloHint").style.display = "none";
   const elapsed = G.duration - Math.max(0, G.deadline - performance.now());
   G.records.push({ n: G.level.n, stage: G.level.stage, round: G.level.round, cleared: true, ms: elapsed, pts: G.levelPoints });
   if (G.mode === "host") G.room.update("state", { phase: "cooldown", graceUntil: null });
@@ -3614,6 +3648,7 @@ function fuseOut() {
   ZBFX.bgm.setIntensity("idle"); // a fizzle deflates: drop to sparse
   ZBFX.sparksAt(null);
   pad.disable();
+  $("soloHint").style.display = "none";
   $("fuseTimerText").textContent = "0.0";
   // a tutor skip can land before the round opened: the reveal must
   // never talk through a covered board

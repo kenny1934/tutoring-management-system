@@ -93,8 +93,17 @@
    * hard = later rounds in a stage: wider numbers and mixed signs, but
    * every root stays within −9..9 (one keypad digit) and a stays 1
    * (the SM901 courseware scope).
+   *
+   * negOk gates negative roots on kinds 2/3/5: genPlan only allows
+   * them once a sign-trap stage (kind 4) has come and gone. Before
+   * this, hard rounds ambushed 100% of runs with an unexplained
+   * x = −a one or two buildings before the level that teaches it -
+   * and the old both-negative kind-3 roll made 3-2 a DOUBLE sign
+   * flip, harder than the single-flip trap it precedes. Omitted
+   * (direct gen() calls, mixed streets) it defaults to true.
    */
-  function gen(n, rand, hard) {
+  function gen(n, rand, hard, negOk) {
+    var mayFlip = negOk === undefined || negOk;
     switch (n) {
       case 1: {
         // k × ▢ = 0 — any factor being 0 kills a product
@@ -109,7 +118,7 @@
       }
       case 2: {
         // (x − a) = 0 — one factor, one code; hard may flip the sign
-        var a = pick(rand, 2, 9) * (hard && rand() < 0.5 ? -1 : 1);
+        var a = pick(rand, 2, 9) * (hard && mayFlip && rand() < 0.5 ? -1 : 1);
         return {
           n: 2,
           kind: "linear",
@@ -118,11 +127,14 @@
         };
       }
       case 3: {
-        // (x − a)(x − b) = 0, distinct roots; easy positive, hard negative
-        var sgn = hard ? -1 : 1;
-        var r1 = sgn * pick(rand, 1, 9);
-        var r2 = sgn * pick(rand, 1, 9);
-        while (r2 === r1) r2 = sgn * pick(rand, 1, 9);
+        // (x − a)(x − b) = 0, distinct roots; easy both positive, hard
+        // flips each sign independently (~half carry a negative)
+        var roll = function () {
+          return pick(rand, 1, 9) * (hard && mayFlip && rand() < 0.5 ? -1 : 1);
+        };
+        var r1 = roll();
+        var r2 = roll();
+        while (r2 === r1) r2 = roll();
         return {
           n: 3,
           kind: "two",
@@ -151,7 +163,9 @@
       }
       case 5: {
         // (x − a)² = 0 — double root: ONE code, BOTH pillars
-        var r = hard ? -pick(rand, 2, 9) : pick(rand, 1, 9) * (rand() < 0.35 ? -1 : 1);
+        var r = hard
+          ? (mayFlip ? -1 : 1) * pick(rand, 2, 9)
+          : pick(rand, 1, 9) * (mayFlip && rand() < 0.35 ? -1 : 1);
         return {
           n: 5,
           kind: "square",
@@ -229,20 +243,30 @@
     return plan;
   }
 
+  /* kind 5 sits out the mixed street: its one-tap double-hit was the
+   * finale's biggest payout for the least work (up to 8 normal answers
+   * for a single read-off) */
+  var MIX_KINDS = [3, 4, 6];
+
   /* roll every building of a plan; round 2+ (and every mixed-street
    * building) uses the hard generator. The last stage is the finale
-   * street: the UI dresses it up and doubles every payout there. */
+   * street: the UI dresses it up and doubles every payout there.
+   * Negative roots unlock only after a sign-trap stage (kind 4) has
+   * finished - see gen()'s negOk. */
   function genPlan(plan, rand) {
     var total = 0;
     plan.forEach(function (s) { total += s.rounds; });
     var levels = [];
     var seq = 0;
     plan.forEach(function (s, si) {
+      var taughtSign = plan.slice(0, si).some(function (p) {
+        return p.kind === 4 || p.kind === "mix";
+      });
       for (var r = 1; r <= s.rounds; r++) {
         var mixed = s.kind === "mix";
-        var kind = mixed ? pick(rand, 3, 6) : s.kind;
+        var kind = mixed ? MIX_KINDS[Math.floor(rand() * MIX_KINDS.length)] : s.kind;
         var hard = mixed || r > 1;
-        var lv = gen(kind, rand, hard);
+        var lv = gen(kind, rand, hard, taughtSign || mixed || kind === 4);
         seq += 1;
         lv.fuseMs = s.fuseMs;
         lv.stage = si + 1;
@@ -264,10 +288,13 @@
   /* One correct submission's points. Base pays speed (up to double),
    * the streak multiplier pays consistency (up to double again), and
    * echoFactor scales an after-the-claim echo solve (e.g. 0.4).
-   * streak = the solver's streak BEFORE this answer. */
+   * streak = the solver's streak BEFORE this answer.
+   * A double hit (kind 5's one code, both pillars) pays 1.5x, not 2x:
+   * linear-in-hits made the game's least effortful tap its biggest
+   * payout (finale (x−a)² was worth ~8 normal answers). */
   function points(remainFrac, hits, streak, echoFactor) {
     var f = Math.max(0, Math.min(1, remainFrac || 0));
-    var base = (100 + Math.round(100 * f)) * (hits || 1);
+    var base = (100 + Math.round(100 * f)) * (1 + 0.5 * ((hits || 1) - 1));
     var mult = 1 + 0.1 * Math.min(streak || 0, 10);
     return Math.round(base * mult * (echoFactor == null ? 1 : echoFactor));
   }
