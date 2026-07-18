@@ -152,8 +152,31 @@
     .zb-wash { fill: var(--mc-ink); stroke: none; opacity: 0; animation: zb-washin 0.7s 1.5s ease-out forwards; }
     @keyframes zb-washin { to { opacity: 0.07; } }
     .zb-struct text { fill: var(--mc-ink); }
-    /* the half-fuse hint: a factor pencilled in faintly, not reveal ink */
-    .zb-struct text.zb-hintghost { fill: var(--mc-ink-faint); opacity: 0; animation: zb-fadein 0.8s ease-out forwards; }
+    /* the opt-in hint: a factor pencilled onto the plaque over a
+       highlighter swipe. Own keyframes name (not zb-fadein): the plaque
+       carries .din2, whose draw-in animation has already completed by
+       reveal time, and a same-name shorthand change never restarts —
+       the ghost popped in unfaded and unnoticed (the "no hint" bug).
+       .din2 in the selector: the .din2 rule below wins source order at
+       equal specificity, so the ghost must outrank it. */
+    /* the .wait variant outranks .zb-struct.wait text.din2's delay rule
+       below, which otherwise re-imposes the draw-in stagger (a 2.4s
+       dead wait between tap and fade) */
+    .zb-struct.wait text.din2.zb-hintghost,
+    .zb-struct text.din2.zb-hintghost {
+      fill: var(--mc-ink-soft);
+      animation: zb-hintin 0.8s ease-out forwards; animation-delay: 0s;
+    }
+    @keyframes zb-hintin { from { opacity: 0; } to { opacity: 1; } }
+    .zb-struct .zb-hintwash {
+      fill: var(--mc-gold); opacity: 0;
+      transform-box: fill-box; transform-origin: left center;
+      animation: zb-hintswipe 0.5s ease-out forwards;
+    }
+    @keyframes zb-hintswipe {
+      from { opacity: 0.3; transform: scaleX(0); }
+      to { opacity: 0.3; transform: scaleX(1); }
+    }
     .zb-struct .plaque { fill: var(--mc-paper-raised); }
     .zb-struct .tag { font-family: var(--mc-mono); font-size: 10px; letter-spacing: 0.12em; fill: var(--mc-ink-faint); }
     .zb-struct .plabel { font-family: var(--mc-mono); font-weight: 700; font-size: 13.5px; text-anchor: middle; }
@@ -1038,6 +1061,7 @@
       .zb-record__mark path.draw, .zb-endunder path, .zb-attract .a-d,
       .zb-graph .zb-graph__curve { stroke-dashoffset: 0 !important; }
       .din2, .zb-rootmark.show, .zb-graph { opacity: 1 !important; }
+      .zb-struct .zb-hintwash { opacity: 0.3 !important; }
       .zb-struct .zb-survey { opacity: 0.6 !important; }
       .zb-wash { opacity: 0.07 !important; }
       .zb-crew, .zb-foreman, .zb-endinspector { opacity: 1 !important; }
@@ -1596,7 +1620,7 @@ const STRINGS = {
   critical_fmt:     { c: "支柱全部拆晒！{s} 秒後總爆破", e: "All pillars down! Final blast in {s}s" },
   tutor_plus15:     { c: "+15 秒",      e: "+15 s" },
   tutor_hint:       { c: "提示",        e: "Hint" },
-  hint_note:        { c: "提示已顯示：呢座建築分數打七五折", e: "Hint shown: this building pays 75%" },
+  hint_note:        { c: "提示：圖則寫咗 {f}！|呢座建築分數打七五折", e: "Hint: the plan now shows {f}! This building pays 75%" },
   tutor_skip:       { c: "跳過",        e: "Skip" },
   tutor_next:       { c: "下一關",      e: "Next" },
   tutor_end:        { c: "結束",        e: "End" },
@@ -2820,9 +2844,11 @@ function startLevel(resume) {
   // round is already mid-flight
   G.staged = !!resume;
   G.nudged = false;
-  // solo's opt-in scaffold chip, only where a hint exists to give
+  // solo's opt-in scaffold chip, only where a hint exists to give;
+  // dead until the round opens (a live-looking button that silently
+  // ignored taps read as broken)
   $("soloHint").style.display = G.mode === "solo" && level.kind === "expanded" ? "" : "none";
-  $("soloHint").disabled = G.hinted;
+  $("soloHint").disabled = G.hinted || !G.staged;
   setBoard($("exprBoard"), level, !G.staged);
   $("markZone").innerHTML = "";
   $("sceneStamp").classList.remove("show");
@@ -2846,6 +2872,7 @@ function startLevel(resume) {
       G.staged = true;
       openBoard($("exprBoard"));
       if (!G.over) pad.enable();
+      $("soloHint").disabled = G.hinted;
     }, stageMs);
   }
 
@@ -2983,13 +3010,26 @@ function pillarX(id) {
   return parseFloat(mark.getAttribute("x"));
 }
 
-/* L6 plaques: ghost-pencil hint first, full ink on the claim */
+/* L6 plaques: ghost-pencil hint first, full ink on the claim. The
+ * ghost rides a highlighter swipe: soft pencil alone vanished into the
+ * paper at classroom distance. */
 function revealPlaque(id, p, ghost) {
   const q = document.querySelector(`[data-qmark="${id}"]`);
   if (q) q.remove();
   const el = document.querySelector(`[data-plaque="${id}"]`);
   el.classList.toggle("zb-hintghost", !!ghost);
   el.innerHTML = svgMath(p.hidden);
+  if (ghost && !el.parentNode.querySelector(".zb-hintwash")) {
+    const cx = parseFloat(el.getAttribute("x"));
+    const wash = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    wash.setAttribute("class", "zb-hintwash");
+    wash.setAttribute("x", cx - 29);
+    wash.setAttribute("y", 164);
+    wash.setAttribute("width", 58);
+    wash.setAttribute("height", 18);
+    wash.setAttribute("rx", 2);
+    el.parentNode.insertBefore(wash, el);
+  }
 }
 
 /* factorise-first scaffold: pencil one hidden factor onto its plaque.
@@ -3001,7 +3041,10 @@ function showHint() {
   if (!p) return;
   G.hinted = true;
   revealPlaque(p.id, p, true);
-  $("markZone").innerHTML = markHtml("info", [t("hint_note")]);
+  // the note names the factor too: the plaque swipe alone was missable
+  // from the keypad, and "hint shown" with no maths in it read as no
+  // hint at all
+  $("markZone").innerHTML = markHtml("info", [fmt("hint_note", { f: mathHtml(p.hidden) })]);
   $("btnHint").disabled = true;
   $("soloHint").disabled = true;
   saveHostRun();

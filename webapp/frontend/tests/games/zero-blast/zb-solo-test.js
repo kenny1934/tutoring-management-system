@@ -1,4 +1,4 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (143 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (146 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (143 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (146 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -1211,6 +1211,28 @@ async function main() {
       JSON.stringify(tapped.ghost));
     check("hint note tells the class about the 75% fee",
       tapped.mark.includes("打七五折"), `mark "${tapped.mark}"`);
+    check("hint note names the revealed factor (not just the fee)",
+      !!tapped.ghost && tapped.mark.includes(tapped.ghost.text),
+      `mark "${tapped.mark}" vs factor "${tapped.ghost && tapped.ghost.text}"`);
+    // the ghost must actually be SEEN: it fades in NOW (delay 0 — the
+    // .wait draw-in stagger once deferred it 2.4s) over a highlighter
+    // wash, and settles legible
+    await pF.waitForTimeout(1100);
+    const seen = await pF.evaluate(() => {
+      const ghost = document.querySelector(".zb-hintghost");
+      const wash = document.querySelector(".zb-hintwash");
+      const cs = getComputedStyle(ghost);
+      return {
+        opacity: parseFloat(cs.opacity),
+        delay: cs.animationDelay,
+        washOpacity: wash ? parseFloat(getComputedStyle(wash).opacity) : 0,
+      };
+    });
+    check("hint ghost fades in immediately and settles visible",
+      seen.opacity > 0.9 && seen.delay.split(",")[0].trim() === "0s",
+      JSON.stringify(seen));
+    check("highlighter wash marks the hinted plaque",
+      seen.washOpacity > 0.2, `wash opacity ${seen.washOpacity}`);
     // levelFactor = finale x2 · hint x0.75 = x1.5: f pinned at 0.5 → 225
     const rh = await submit(pF, tapped.firstRoot, 0.502);
     const ph = rh.after.score - rh.before.score;
@@ -1292,8 +1314,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 143) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 143`);
+    if (total !== 146) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 146`);
       process.exit(1);
     }
     if (failures.length) {
