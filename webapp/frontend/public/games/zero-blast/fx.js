@@ -571,6 +571,172 @@
     };
   }
 
+  /* ---------------- bgm: the construction-site groove ----------------
+   *
+   * Sequenced live on the same AudioContext - zero asset bytes against
+   * the sprite budget, and unlike a rendered loop it can react to the
+   * round. Big stage only: the solo sheet and the host projector run
+   * it; the 30 student phones never do (initController never calls
+   * allow). It rides the same sound opt-in as everything else, sits
+   * low under the one-shot bus, and ducks hard when a building drops:
+   * the collapse must own the room. */
+  var bgm = (function () {
+    var BPM = 78;
+    var STEP = 60 / BPM / 4; // 16th notes; one bar = 16 steps
+    var BUS = 0.14;          // whole groove under the 0.9 one-shot bus
+    var bus = null;
+    var allowed = false;     // big stage only
+    var tier = null;         // lobby | base | warn | grace | null
+    var timer = null;
+    var nextT = 0, step = 0, ducks = 0;
+
+    function ensureBus() {
+      if (!ensureCtx()) return false;
+      if (!bus) {
+        bus = ac.createGain();
+        bus.gain.value = BUS;
+        bus.connect(master);
+      }
+      return true;
+    }
+    /* voices: dry little strokes, nothing sustained, nothing tonal
+     * enough to fight the maths */
+    function wood(t, hi, v) { // claves on the scaffold rail
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(hi ? 1680 : 1160, t);
+      o.frequency.exponentialRampToValueAtTime(hi ? 1380 : 920, t + 0.03);
+      g.gain.setValueAtTime(v, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+      o.connect(g).connect(bus);
+      o.start(t);
+      o.stop(t + 0.08);
+    }
+    function tom(t, v) { // the site's low pulse underfoot
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(118, t);
+      o.frequency.exponentialRampToValueAtTime(52, t + 0.16);
+      g.gain.setValueAtTime(v, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      o.connect(g).connect(bus);
+      o.start(t);
+      o.stop(t + 0.25);
+    }
+    function grit(t, v) { // a shaker of loose grit brushed off the sheet
+      var src = ac.createBufferSource();
+      src.buffer = noiseBuf;
+      var f = ac.createBiquadFilter();
+      f.type = "highpass";
+      f.frequency.value = 6200;
+      var g = ac.createGain();
+      g.gain.setValueAtTime(v, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+      src.connect(f).connect(g).connect(bus);
+      src.start(t, Math.random() * 0.4);
+      src.stop(t + 0.07);
+    }
+    function tink(t, v) { // a pipe struck somewhere across the site
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(2794, t);
+      g.gain.setValueAtTime(v, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o.connect(g).connect(bus);
+      o.start(t);
+      o.stop(t + 0.4);
+    }
+    function scheduleStep(s, t) {
+      var bar = Math.floor(s / 16), i = s % 16;
+      if (tier === "lobby") { // the crew waiting for the class to join
+        if (i % 4 === 0) grit(t, 0.5);
+        if (i === 8) wood(t, false, 0.35);
+        if (i === 14 && bar % 4 === 3) tink(t, 0.12);
+        return;
+      }
+      if (tier === "grace") { // every pillar down: a tight count-in roll
+        wood(t, i % 4 === 0, i % 4 === 0 ? 0.5 : 0.28);
+        if (i % 8 === 0) tom(t, 0.55);
+        return;
+      }
+      // base and warn share the work groove
+      if (i === 0 || i === 7 || i === 10) tom(t, i === 0 ? 0.6 : 0.42);
+      if (i === 4 || i === 12) wood(t, false, 0.5);
+      if (i % 2 === 0) grit(t, i % 4 === 2 ? 0.45 : 0.25);
+      if (i === 14 && bar % 2 === 1) tink(t, 0.1);
+      if (tier === "warn" && i % 2 === 1) wood(t, true, 0.3); // tick layer rides the camera creep
+    }
+    /* lookahead scheduler: a coarse JS interval books precise audio
+     * time; if the tab was throttled, skip the missed bar instead of
+     * machine-gunning the backlog */
+    function pump() {
+      var now = ac.currentTime;
+      if (nextT < now - 0.25) {
+        step += Math.max(0, Math.round((now - nextT) / STEP));
+        nextT = now + 0.02;
+      }
+      while (nextT < now + 0.12) {
+        scheduleStep(step, Math.max(nextT, now));
+        step++;
+        nextT += STEP;
+      }
+    }
+    function run() {
+      if (timer || !allowed || !enabled || !tier) return;
+      if (!ensureBus()) return;
+      bus.gain.cancelScheduledValues(ac.currentTime);
+      bus.gain.setValueAtTime(BUS, ac.currentTime);
+      step = 0;
+      nextT = ac.currentTime + 0.05;
+      timer = setInterval(pump, 25);
+      pump();
+    }
+    function halt() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
+    return {
+      /* the big stage opts in once; a controller never calls this */
+      allow: function (on) {
+        allowed = !!on;
+        if (allowed) run();
+        else { halt(); tier = null; }
+      },
+      setIntensity: function (t2) {
+        tier = t2 || null;
+        if (!tier) halt();
+        else run(); // no-op while already scheduling: the next bar picks the pattern up
+      },
+      stop: function () {
+        halt();
+        tier = null;
+      },
+      /* sound toggled mid-run: start or stop to match the opt-in */
+      sync: function () {
+        if (enabled) run();
+        else halt();
+      },
+      /* a building is coming down - get out of its way, then ease back */
+      duck: function (ms) {
+        if (!timer || !bus) return;
+        ducks++;
+        var t = ac.currentTime;
+        var hold = (ms || 150) / 1000;
+        bus.gain.cancelScheduledValues(t);
+        bus.gain.setValueAtTime(bus.gain.value, t);
+        bus.gain.linearRampToValueAtTime(BUS * 0.08, t + 0.04);
+        bus.gain.setValueAtTime(BUS * 0.08, t + 0.04 + hold);
+        bus.gain.linearRampToValueAtTime(BUS, t + 0.04 + hold + 0.5);
+      },
+      /* census for tests */
+      state: function () {
+        return { allowed: allowed, tier: tier, playing: !!timer, ducks: ducks };
+      },
+    };
+  })();
+
   var audio = {
     isOn: function () {
       return enabled;
@@ -582,6 +748,7 @@
       } catch (_) {}
       if (enabled) ensureSampler();
       else audio.fuseStop();
+      bgm.sync(); // the groove follows the opt-in both ways
     },
     toggle: function () {
       audio.setOn(!enabled);
@@ -763,6 +930,7 @@
     },
     shake: shake,
     audio: audio,
+    bgm: bgm,
     vibrate: vibrate,
   };
 })();

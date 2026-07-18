@@ -2612,6 +2612,7 @@ stampTitle();
 function startRun(mode) {
   G.mode = mode;
   ZBFX.audio.unlock();
+  ZBFX.bgm.allow(true); // solo or host: the big stage gets the groove
   GameBridge.emit(SLUG, "start", { mode: mode, players: Object.keys(G.players).length });
   G.levels = ZBLevels.genPlan(PLAN, newRand());
   G.idx = 0; G.score = 0; G.streak = 0; G.starsTotal = 0; G.records = []; G.ended = false;
@@ -2638,6 +2639,7 @@ $("btnMenu").onclick = () => {
     G.room.close();
     G.room = null; G.started = false; G.players = {}; G.processedSeq = {};
   }
+  ZBFX.bgm.stop(); // back on the cover: the diorama plays silent
   applyProjector();
   show("introScreen");
 };
@@ -2724,6 +2726,7 @@ function startLevel(resume) {
   G.lastCall = false;
   G.hitStopAt = null;
   G.camWarned = false;
+  ZBFX.bgm.setIntensity("base"); // fresh round, back to the work groove
   setSkipLabel("tutor_skip");
   const hintable = G.mode === "host" && level.kind === "expanded";
   $("btnHint").style.display = hintable ? "" : "none";
@@ -2859,7 +2862,7 @@ function fuseFrame() {
   if (remain <= warnAt) {
     $("fuseTimer").classList.add("warn");
     scatterCrew();
-    if (!G.camWarned) { G.camWarned = true; camCreep(); }
+    if (!G.camWarned) { G.camWarned = true; camCreep(); ZBFX.bgm.setIntensity("warn"); }
     const sec = Math.ceil(remain / (G.level.finale ? 500 : 1000));
     if (sec !== G.lastTickSec) { G.lastTickSec = sec; ZBFX.audio.tick(remain <= 3050); }
   }
@@ -3195,6 +3198,7 @@ function enterGrace() {
   $("scene").classList.add("critical");
   scatterCrew();
   ZBFX.shake(6);
+  ZBFX.bgm.setIntensity("grace"); // the count-in roll
   G.room.update("state", { deadlineEpoch: Date.now() + graceMs, graceUntil: Date.now() + graceMs });
   saveHostRun();
 }
@@ -3318,6 +3322,7 @@ function pendingHostRun() {
 
 async function resumeRun(saved) {
   ZBFX.audio.unlock();
+  ZBFX.bgm.allow(true); // a resumed host is still the big stage
   try {
     G.room = await GameBridge.host({ slug: SLUG, code: saved.code });
   } catch (err) {
@@ -3406,6 +3411,8 @@ function collapseAndAdvance() {
     $("deck").classList.remove("sag-l", "sag-r");
     $("deck").classList.add("fall");
     ZBFX.audio.collapse();
+    ZBFX.bgm.duck(150); // the blast owns the room
+    ZBFX.bgm.setIntensity("base"); // no warn ticks over the rubble reveal
     ZBFX.shake(16);
     ZBFX.vibrate([60, 40, 130]);
     ZBFX.debris(200, 130, { count: 100, power: 1.5 });
@@ -3485,6 +3492,7 @@ function fuseOut() {
   cancelAnimationFrame(G.raf);
   ZBFX.audio.fuseStop();
   ZBFX.audio.fizzle();
+  ZBFX.bgm.setIntensity("lobby"); // a fizzle deflates: drop to sparse
   ZBFX.sparksAt(null);
   pad.disable();
   $("fuseTimerText").textContent = "0.0";
@@ -3574,6 +3582,7 @@ function leaderboardHtml(results, meId) {
 }
 
 function endGame() {
+  ZBFX.bgm.stop(); // the report's ceremony one-shots own the end screen
   if (G.mode === "host") {
     clearHostRun();
     const results = Object.keys(G.players).map(id => ({
@@ -3636,6 +3645,8 @@ addEventListener("resize", applyProjector);
 
 $("btnHost").onclick = async () => {
   ZBFX.audio.unlock();
+  ZBFX.bgm.allow(true);
+  ZBFX.bgm.setIntensity("lobby"); // the waiting-room groove while phones join
   show("lobbyScreen");
   try {
     G.room = await GameBridge.host({ slug: SLUG, initialState: { phase: "lobby" } });
