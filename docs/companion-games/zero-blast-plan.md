@@ -1306,9 +1306,53 @@ Suites: committed to the repo at webapp/frontend/tests/games/zero-blast/
 recreated to the final green specs and extended with regression
 coverage for the S2/S3/S4/S5 behavior.
 
-Deliberately NOT done (audit mediums that keep their triggers):
-answer key still ships in published state (strip roots/hidden + move
-working into verdicts before scaling past one class); no pause; rem/
-contrast pass; runtime copy on the cover still says 5-8 min while
-game.json now says 15 (align the copy with Steve); protocol/template
-promotion to shared/ before game #2.
+**Deferred-items sweep (implemented 2026-07-19).** Everything the
+first pass deliberately left, plus one field bug Kenny hit:
+
+- *Hint invisibility (field report).* Pressing 提示 showed only the
+  fee note: the ghost factor rendered faint-ink with no fade (the
+  .din2 draw-in rule outranked .zb-hintghost by source order, and
+  .zb-struct.wait's delay rule re-imposed a 2.4s draw-in stagger).
+  Now: own keyframes at delay 0 in soft ink over a gold highlighter
+  swipe on the plaque, the note names the factor, and the solo chip
+  is disabled until the round opens. Suite-guarded by computed-style
+  visibility checks, not just DOM presence.
+- *Answer key stripped from published state.* publicLevel() publishes
+  pillars as id+label only; claims name the claimer, never the root;
+  verdicts carry host-computed working lines (+ strength); fuse-out
+  publishes a level-bound reveal payload that mergeReveal() folds
+  into the phone level for the roots line and minigraph.
+- *Pause.* 暫停/繼續 beside the fuse timer (both modes) + tutor key p;
+  PAUSED veil; host publishes phase "paused" with the frozen
+  remaining, phones freeze and close the pad, judging defers (subs
+  stay unconsumed), resume republishes playing with a fresh
+  deadlineEpoch and keeps the student's private working on screen.
+  Grace and the held reveal are not pausable.
+- *rem + contrast.* html{font-size:100%}; theme.css and all reading
+  text (board, keypad, notes, statuses, buttons, records) in rem so
+  the browser font preference works; scene-internal SVG text stays
+  px by design. Grace 3-2-1 numerals press in full --mc-red (were
+  2.7:1 / 2.3:1, below the 3:1 large-text floor).
+- *Cover copy.* 12 座建築 · 約 15 分鐘, matching game.json's
+  duration_min 15 (final wording still Steve's call).
+- *shared/ promotion.* fx.js split: the house engine (particles,
+  camera mapping, shake, hit-stop, audio context + synth primitives,
+  sampler harness, bgm sequencer + play policy) now lives in
+  shared/fx-core.js (window.MCFXCore); zero-blast/fx.js is the
+  demolition skin (groove voices, one-shots, fuse hiss) exporting the
+  unchanged window.ZBFX surface. The round protocol's mechanical
+  parts (PID hygiene, crypto newPid, the seq-dedupe judging loop
+  with pause deferral + level binding) live in
+  shared/room-protocol.js (window.MCRoom), adopted by zero-blast,
+  and the full protocol contract is documented in CONVENTIONS §6.5.
+  The _template (6 iterations stale) was rebuilt as 配對挑戰 Match Up:
+  a trivial mechanic carrying the whole contract end to end (shared
+  modules, no-answer-key publish, sent-beat subs, kick, resume, pause,
+  serverNow timers, graceful host failure), on the §7 manifest shape.
+
+The three Zero Blast suites stay green throughout: solo 149, multi
+137, audit 74 (was 143 / 124 / 71 before this sweep). Nothing from
+the original 7-perspective audit is now deferred without a trigger;
+the remaining backlog is product/ops, not audit debt: merge PR #82,
+the games. subdomain, confirming the name 歸零爆破 with Steve, and the
+Phase 2 lesson panel + registry.
