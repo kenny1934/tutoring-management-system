@@ -358,3 +358,176 @@ tempo to the tutor.
   whether it distorts leaderboards.
 - Class-size load: 30+ phones on one RTDB room (subs/verdicts
   churn) - watch latency during the first pilot.
+
+## 11. Iteration 4 (planned): the visual and animation audit
+
+Full visual/animation audit (2026-07-18) over fresh screenshots of
+every beat: intro, level card, draw-in, mid-burn, claim, collapse,
+fail, finale card, end report, light and dark, phone and 1280/1920
+projector. Goal: make the game read as high-class craft by deepening
+the marked-exercise-book metaphor, not by adding generic game gloss.
+Five batches, each ships alone with all three suites green.
+
+Guardrails that apply to every batch:
+
+- Red stays the teacher's pen. Celebration ink is star gold and
+  ink black; red only marks, warns and stamps.
+- Everything respects reduced motion (state changes stay visible,
+  animation is optional), matching the existing FX pattern.
+- Tier 0 throughout: CSS, SVG filters and the existing canvas are
+  enough; no libraries.
+- Expensive filters (line wobble, paper grain) sit behind a small
+  capability gate (device memory / DPR check plus a ?fx= override)
+  so old classroom Androids and the 30-phone room never pay for
+  the projector's looks. Phones never render the scene anyway.
+- Effort tags: (S) under an hour-ish of change, (M) a sitting,
+  (L) a batch-dominating piece.
+
+### Batch F - Payoff clarity and score theatre (do first)
+
+The climax moments currently muddy their own ink. Clean them before
+adding anything new.
+
+- **Dust rebuild (S)**: the collapse dust stacks into an opaque
+  grey blob that hides rootmarks and rubble. Fewer, larger puffs
+  drawn as soft radial gradients at ~0.1 alpha, sideways shear as
+  they rise; additive blending in dark mode.
+- **Rootmark placement (S)**: `x = a` ink currently sits on the
+  rubble strokes and reads scratched-out. Move the marks to a clear
+  band just above the ground line, clear of the pile.
+- **Chop slam with consequence (S)**: the 拆 chop floats mid-sky
+  with a detached shadow blob. Slam it onto the rubble (slight
+  overlap), one-frame paper flash behind it, dust ring kicked out
+  along the ground, rubble visibly compacting under it.
+- **Fail state, one stamp language (S)**: 未拆除 over the scene
+  plus 未歸零 in the mark zone says the same thing twice, and the
+  scene stamp boxes the building clumsily. Scene side becomes a
+  "condemned" treatment: rotated chop in the top corner plus a red
+  tape-cross over the structure; the mark zone carries the working
+  and the reveal.
+- **Score odometer + floating ink (S)**: topline score counts up
+  instead of teleporting; a `+380 分` ink numeral floats from the
+  building to the score. Phones get the same count-up on ctrlScore.
+- **Star and multiplier ceremony (S)**: each new star stamps in
+  with the ink-pop rotation; the ×1.x chip flashes gold when it
+  grows.
+- **Lock countdown sweep (S)**: pencil-drawn circular sweep around
+  the 3s relock number.
+- Tests: dust particle alpha/count assertions via ZBFX state or
+  screenshot sampling; rootmark y clear of rubble band; single
+  fail stamp on scene; score element animates to the judged total
+  (final value equality still exact); suites green.
+
+### Batch G - The marked equation and collapse drama
+
+The two biggest wins in one batch: pedagogy made visible on the
+board, and a collapse that reads as structural failure.
+
+- **Factor strike-through (M, flagship)**: when a pillar falls,
+  strike that factor through in red on the equation board itself,
+  with the claimer's name in tiny ink above it (host board and
+  phones; solo strikes without a name). `(x−6)(x−8) = 0` with
+  `(x−6)` struck IS the zero-product property being used. Needs
+  exprHtml to render factors as addressable spans keyed by pillar
+  id; claims state already carries who took what. Never applied to
+  player-name text itself beyond escapeText (names stay untrusted).
+- **Crack-then-fall (M)**: a ~150ms pre-beat before the chunks
+  separate: jagged crack lines flash across the deck, one shake
+  pulse, then the fall; 60-90ms hit-stop when the first chunk
+  lands. Chunks currently pop straight into tumbling and mid-fall
+  reads as confetti.
+- **Progressive rubble (M)**: debris visibly becomes the pile
+  (chunks land and settle, pile outline inks over them) instead of
+  the rubble stroke drawing in on its own.
+- **Grace countdown theatre (S/M)**: big translucent numerals
+  stamped over the scene each second (3 · 2 · 1), hazard beacons
+  blinking double-time, red edge-vignette pulse. The tremble stays.
+- Tests: board contains struck factor + claimer after claim (multi)
+  and struck factor in solo; crack layer appears before .fall;
+  grace numeral element present during graceUntil; suites green.
+
+### Batch H - Paper and ink craft (the material upgrade)
+
+- **Hand-inked wobble (S)**: one feTurbulence + feDisplacementMap
+  filter (~1px) on .zb-struct makes every stroke read hand-drawn.
+  Biggest charm per line of code in the audit. Behind the fx gate.
+- **Paper grain (S)**: near-invisible turbulence tile over the
+  stage (~3% opacity); doubles as chalk-board mottling in dark.
+- **Letterpress stamps (S)**: subtle inset shadow plus slight ink
+  bleed (tiny displacement) on chops and stamp borders.
+- **Burnt fuse residue (S/M)**: the consumed fuse leaves an
+  ash-grey charred dash and tiny scorch flecks instead of
+  vanishing.
+- **Dark chalk set (S each)**: additive ("lighter") compositing
+  for sparks in dark; chalk micro-gap stroke texture; soft warm
+  board vignette.
+- **Window lights die (M)**: dark mode only, building window rects
+  glow faintly and blink out one by one as pillars fall.
+- **Capability gate (S)**: deviceMemory/DPR heuristic plus
+  ?fx=full|lite override; wobble+grain off on weak devices.
+- Tests: fx gate honours ?fx=lite (no filter attributes present);
+  reduced-motion run unchanged; dark screenshots refreshed;
+  suites green.
+
+### Batch I - Bound-book flow and scene atmosphere
+
+- **Page-turn transitions (M)**: screens and level-to-level changes
+  slide like worksheet pages (old page lifts with a shadow, new one
+  slides in); the level card becomes the cover of the incoming
+  page rather than a floating flash.
+- **Level card as blueprint title block (M)**: bordered rect, PLAN
+  number, 承建商 MathConcept line, date; stamped in with rotation
+  overshoot. Finale card gets a double border and a red 加倍 chop
+  on top of the existing tag.
+- **First-building pencil (M)**: building 1 only, a small pencil
+  glyph rides the draw-in stroke tip. Once per run; skipped under
+  reduced motion.
+- **Surveyor's annotations (M)**: faint pencil dimension lines and
+  arrows around the structure (heights, spans), the demolition-plan
+  detail that quietly reinforces "this is a maths document".
+- **Distant skyline and crane (M)**: thin-stroke crane far side,
+  one or two distant outlines; crane hook sways slowly as idle
+  life.
+- **Pencil clouds (S)**: one or two faint cloud scribbles drifting
+  very slowly across the sky band.
+- Tests: transition class fires between screens and rounds; card
+  title block renders PLAN seq; annotations present but faint
+  (class check); no horizontal scroll anywhere; suites green.
+
+### Batch J - Stagecraft: projector, cover and report
+
+- **Demolished-street strip (M)**: a bottom strip on the projector
+  accumulating tiny stamped silhouettes of each felled building
+  (01→12, each with a mini 拆) - campaign arc for the class,
+  fills the 1920 emptiness.
+- **Leaderboard theatre (M)**: gold/silver/bronze ink-circle rank
+  chips for top three, FLIP-animated row reorder, rolling score
+  changes.
+- **Lobby attract loop (M)**: beside the QR, a small building
+  draws itself, collapses and redraws on a loop while waiting.
+- **Finale ink celebration (M)**: last building down triggers an
+  ink-splatter burst plus gold star rain on the projector (no
+  confetti cliches; splatter and stars are the house language).
+- **Intro hero vignette (M)**: a small blueprint illustration
+  (building on pillars, fuse to detonator) between title and lede,
+  drawn in on load with the stroke animation.
+- **Fuse-underline title (S)**: the red swash under the title is
+  drawn by a travelling spark once on load.
+- **How-to as three mini-diagrams (M)**: replace the rules text
+  wall with three inline sketches: pillar+code → factor zeroed →
+  collapse, captions one line each.
+- **End report ceremony (M)**: total counts up, stars stamp in one
+  by one, rows slide in staggered, check marks draw themselves,
+  hand-drawn double underline under the total, rotated 檢定完成
+  chop with the date.
+- Tests: street strip count matches records; leaderboard reorder
+  applies FLIP class; attract loop present in lobby (and absent
+  once started); intro vignette drawn; report count-up settles on
+  the exact score; 1280+1920 screenshots refreshed; suites green.
+
+### Recommended order and the top five
+
+F → G → H → I → J. If time is short before the pilot, the top five
+by felt impact are: dust rebuild (F), crack-then-fall (G), factor
+strike-through (G), page-turn transitions (I), hand-inked wobble
+(H) - F and G alone carry most of the perceived quality jump.
