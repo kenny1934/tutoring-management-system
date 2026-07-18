@@ -1077,3 +1077,94 @@ both transient); CSS offset-path support on very old classroom
 Androids (the spark simply never shows - the diorama still reads);
 the phone report shows 0.0s best on sub-100ms mock solves (real
 classes cannot produce this).
+
+## 14. Iteration 7 (planned): the tablet frame and the soundtrack
+
+Two items from Kenny's tablet playtest of iteration 6 (2026-07-18).
+Diagnosis done, implementation NOT started - next session.
+
+### Batch U - the tablet frame fix (do first, it's a real bug)
+
+**Symptom:** on tablets the building's top is often clipped off.
+
+**Reproduced and measured** (probe: 1024x768 iPad landscape, solo):
+the scene box lands at 584x230 (aspect 2.54) and the camera frame
+caps at the 400-unit sheet, so h = 400/2.54 = 157.5 anchored at the
+bottom - the frame starts at y=82.5. Kind 5's chimney (top y=28)
+loses 54 viewBox units; kind 6's tower (top y=7) loses 75 - HALF the
+building. Kind 1 keeps the roof by 0.1 units but loses all headroom
+(survey label, beacon). Meanwhile the page has a dead band UNDER the
+scene, so the height was stolen for nothing. Two compounding causes:
+
+1. **computeFrame has no fallback when the sheet caps the width.**
+   `if (w > VB_W) { w = VB_W; h = w / A; }` can push h below the
+   subject's needed height; the frame is bottom-anchored (rootmark
+   band), so the top is what clips. Fix: keep the needed height and
+   accept a horizontal letterbox instead -
+   `if (w > VB_W) { w = VB_W; h = Math.max(w / A, neededH); }`.
+   preserveAspectRatio meet centres the drawing; fx.js toPx already
+   computes the ox/oy letterbox offsets, so canvas FX stay aligned
+   (extend the FX-alignment spot test to a letterboxed case). The
+   only cost is paper margins left/right on extreme boxes - correct
+   behaviour, the sheet is only 400 units wide.
+2. **The compact-phone media query catches landscape tablets.**
+   `@media (max-height: 780px)` was written for short PHONES but a
+   768-tall iPad matches it, shrinking the scene to 30vh/230px and
+   creating the extreme aspect in the first place. Fix: guard it
+   with width (e.g. `(max-height: 780px) and (max-width: 700px)`)
+   so tablets keep the default 40vh; consider a dedicated
+   tablet-landscape band (701-1099px wide): scene ~48vh, possibly
+   the landscape-phone side-by-side grid - a tablet in landscape is
+   a mini projector. Also worth evaluating: dropping the projector
+   breakpoint 1100 -> ~1000 so 1024-wide iPads get the full
+   projector grid; check the 62vh scene and 1.7fr/1fr columns at
+   1024x768 before committing to that.
+
+Tests: an audit-suite tablet section sweeping all 6 kinds at
+1024x768, 1138x620 (browser chrome eating height) and 768x1024:
+assert `CAM.y <= deckBBox.y - 8` (top in frame WITH headroom), the
+ground + rootmark band still in shot, fill ratio still >= 0.55 in
+the dominant axis, and the fuse-spark alignment check under a
+letterboxed frame. Keep the existing phone fold checks green (the
+0-key stays above the fold with marking up).
+
+### Batch V - BGM (recommendation: yes, sequenced, big stage only)
+
+**Should the game have BGM? Yes** - the students' benchmark is
+Kahoot, whose lobby groove IS the classroom energy; a silent stage
+reads as unfinished next to it. But a tutoring centre is a shared
+space, so three hard rules: BGM rides the existing sound opt-in
+(the offer chip / header toggle - no separate nag), it sits LOW in
+the mix and ducks hard under the blast, and it NEVER plays on
+student phones (30 phones x music = chaos; phones keep one-shots).
+
+**Technique - a runtime Web Audio step sequencer, zero asset
+bytes.** A rendered music loop was considered and rejected: 16s of
+mono 22k WAV is ~700KB against the 400KB sprite budget (374.7 used),
+and opus/mp3 would need ffmpeg or heavier vendoring. A sequencer
+costs nothing, stays Tier 0 (no new libraries), and - the real win -
+can react to game state, which a file cannot. Musical direction:
+"construction site groove" to match the theme - woodblock/claves
+ticks, a low tom pulse, an occasional metal tink, ~76-84 BPM, sparse
+and dry, master bgm gain ~0.12-0.15 under the 0.9 one-shot bus.
+
+- fx.js gains a `bgm` module: start/stop, setIntensity(tier),
+  duck(ms). Lookahead scheduler (~25ms tick, 0.1s horizon) on the
+  existing AudioContext; all nodes through one bgm gain.
+- Intensity follows the round: lobby/intro sparse shaker only;
+  playing = base groove; warn window adds the tick layer (paired
+  with the camera creep); grace = tight roll; collapse = hard duck
+  (~150ms) then resume next round; fizzle = drop to sparse; end
+  report = silence (the ceremony one-shots own it).
+- Wiring: startRun/startLevel set tier, fuseFrame's warn latch and
+  enterGrace bump it, collapseAndAdvance ducks, endGame stops.
+  Solo + host only - initController never starts it.
+- Tests: bgm scheduling only when sound is on; silent on the
+  controller; tier changes at warn/grace observable via a
+  `bgm.state()` census; duck on collapse; stopped on the end
+  screen; the same-origin/no-fetch sound checks stay green (no new
+  network requests at all).
+
+Order: U then V. U is a correctness fix for hardware the centres
+actually hand out; V is the last amplitude item the audit left on
+the table.
