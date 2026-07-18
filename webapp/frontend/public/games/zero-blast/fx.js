@@ -388,7 +388,15 @@
     }
   }
 
-  /* ---------------- audio (all synthesised) ---------------- */
+  /* ---------------- audio ----------------
+   *
+   * One-shots play from a pre-rendered material sample sprite
+   * (audio/zb-sprite.wav via vendored Howler — reliable mobile
+   * unlock, one cheap fetch for 30 phones). Synthesis remains in two
+   * roles: the looping fuse hiss, which tracks burn urgency
+   * continuously (samples can't), and a full fallback for every
+   * one-shot when the sprite hasn't loaded (first press, fetch
+   * failure, file:// dev). */
 
   var ac = null;
   var master = null;
@@ -398,6 +406,30 @@
   try {
     enabled = localStorage.getItem("mc-games-sound") === "on";
   } catch (_) {}
+
+  /* the sprite loads lazily, only once sound is actually wanted */
+  var sampler = null;
+  var samplerState = "idle"; // idle | loading | ready | failed
+  function ensureSampler() {
+    if (samplerState !== "idle") return;
+    if (!window.Howl || !window.ZB_SPRITE) {
+      samplerState = "failed";
+      return;
+    }
+    samplerState = "loading";
+    sampler = new window.Howl({
+      src: [window.ZB_SPRITE.src],
+      sprite: window.ZB_SPRITE.sprite,
+      volume: 0.9,
+      onload: function () { samplerState = "ready"; },
+      onloaderror: function () { samplerState = "failed"; sampler = null; },
+    });
+  }
+  function sample(name) {
+    if (samplerState !== "ready") return false;
+    sampler.play(name);
+    return true;
+  }
 
   function ensureCtx() {
     if (ac) {
@@ -455,15 +487,24 @@
       try {
         localStorage.setItem("mc-games-sound", enabled ? "on" : "off");
       } catch (_) {}
-      if (!enabled) audio.fuseStop();
+      if (enabled) ensureSampler();
+      else audio.fuseStop();
     },
     toggle: function () {
       audio.setOn(!enabled);
       return enabled;
     },
-    /* call from a user gesture before any playback (autoplay policy) */
+    /* call from a user gesture before any playback (autoplay policy;
+     * Howler unlocks itself on the same gesture) */
     unlock: function () {
-      if (enabled) ensureCtx();
+      if (enabled) {
+        ensureCtx();
+        ensureSampler();
+      }
+    },
+    /* for tests: idle | loading | ready | failed */
+    samplerState: function () {
+      return samplerState;
     },
     fuseStart: function () {
       if (!enabled || !ensureCtx()) return;
@@ -495,13 +536,17 @@
       fuseNodes = null;
     },
     boom: function (big) {
-      if (!enabled || !ensureCtx()) return;
+      if (!enabled) return;
+      if (sample(big ? "boom_l" : "boom_s")) return;
+      if (!ensureCtx()) return;
       var m = big ? 1.4 : 1;
       noiseburst("lowpass", 320, 0.5 * m, 0.4);
       thump(90, 38, 0.55 * m, 0.35);
     },
     collapse: function () {
-      if (!enabled || !ensureCtx()) return;
+      if (!enabled) return;
+      if (sample("rumble")) { sample("debris"); return; }
+      if (!ensureCtx()) return;
       noiseburst("lowpass", 300, 0.55, 0.5);
       thump(85, 35, 0.6, 0.4);
       noiseburst("lowpass", 240, 0.45, 0.5, 0.16);
@@ -509,7 +554,9 @@
       noiseburst("lowpass", 110, 0.4, 1.5, 0.3); // long rumble
     },
     fizzle: function () {
-      if (!enabled || !ensureCtx()) return;
+      if (!enabled) return;
+      if (sample("fizzle")) return;
+      if (!ensureCtx()) return;
       var t = ac.currentTime;
       var src = ac.createBufferSource();
       src.buffer = noiseBuf;
@@ -525,30 +572,72 @@
       src.stop(t + 1);
     },
     tick: function () {
-      if (!enabled || !ensureCtx()) return;
+      if (!enabled) return;
+      if (sample("tick")) return;
+      if (!ensureCtx()) return;
       thump(1250, 1100, 0.1, 0.04);
     },
     /* wrong answer: a dull knock, deliberately nothing like a boom */
     knock: function () {
-      if (!enabled || !ensureCtx()) return;
+      if (!enabled) return;
+      if (sample("knock")) return;
+      if (!ensureCtx()) return;
       thump(150, 70, 0.3, 0.18);
       noiseburst("lowpass", 500, 0.12, 0.12);
     },
     /* the 拆 chop landing on the rubble */
     stamp: function () {
-      if (!enabled || !ensureCtx()) return;
+      if (!enabled) return;
+      if (sample("slam")) return;
+      if (!ensureCtx()) return;
       thump(130, 45, 0.35, 0.22);
       noiseburst("lowpass", 420, 0.1, 0.1);
     },
+    /* a smaller rubber stamp pressed onto the sheet (condemned notice,
+     * the report's 檢定完成 chop) */
+    stampSoft: function () {
+      if (!enabled) return;
+      if (sample("stamp")) return;
+      if (!ensureCtx()) return;
+      thump(170, 60, 0.22, 0.14);
+      noiseburst("lowpass", 600, 0.08, 0.07);
+    },
     /* the crack pre-beat before the deck breaks */
     crack: function () {
-      if (!enabled || !ensureCtx()) return;
+      if (!enabled) return;
+      if (sample("crack")) return;
+      if (!ensureCtx()) return;
       noiseburst("highpass", 1800, 0.12, 0.12);
       thump(300, 180, 0.12, 0.1);
     },
     click: function () {
-      if (!enabled || !ensureCtx()) return;
+      if (!enabled) return;
+      if (sample("key")) return;
+      if (!ensureCtx()) return;
       thump(1900, 1500, 0.045, 0.02);
+    },
+    /* report ceremony: a star stamps in */
+    chime: function () {
+      if (!enabled) return;
+      if (sample("chime")) return;
+      if (!ensureCtx()) return;
+      thump(1320, 1300, 0.08, 0.5);
+      thump(2640, 2600, 0.03, 0.25);
+    },
+    /* the worksheet page turning to the next round */
+    page: function () {
+      if (!enabled) return;
+      if (sample("page")) return;
+      if (!ensureCtx()) return;
+      noiseburst("bandpass", 1400, 0.08, 0.25);
+    },
+    /* on a phone: someone else's claim just landed */
+    ping: function () {
+      if (!enabled) return;
+      if (sample("ping")) return;
+      if (!ensureCtx()) return;
+      thump(880, 870, 0.07, 0.1);
+      thump(880, 870, 0.03, 0.09, 0.16);
     },
   };
 

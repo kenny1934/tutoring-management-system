@@ -13,8 +13,11 @@
   <title>歸零爆破 Zero Blast</title>
   <link rel="stylesheet" href="../shared/theme.css">
   <script src="../shared/vendor/qrcode.js"></script>
+  <script src="../shared/vendor/howler.min.js"></script>
   <script src="../shared/game-bridge.js"></script>
   <script src="levels.js"></script>
+  <!-- self-produced sample kit offsets (see scripts/zb-render-audio.mjs) -->
+  <script src="audio/zb-sprite.js"></script>
   <script src="fx.js"></script>
   <style>
     /* ---- game-specific styles: theme.css tokens only ---- */
@@ -1561,12 +1564,14 @@ function boardHtml(level) {
 
 /* strike a fallen factor through in red; the claimer's name (escaped,
  * never math-formatted) is inked tiny above it. Idempotent: a double
- * root's two pillars share one span. */
+ * root's two pillars share one span. Returns true only on a fresh
+ * strike, so phones can ping when someone else's claim lands. */
 function strikeFactor(boardEl, pillarId, name) {
   const el = boardEl.querySelector(`.zb-factor[data-fids~="${pillarId}"]`);
-  if (!el || el.classList.contains("struck")) return;
+  if (!el || el.classList.contains("struck")) return false;
   el.classList.add("struck");
   if (name) el.insertAdjacentHTML("beforeend", `<span class="zb-factor__by">${escapeText(name)}</span>`);
+  return true;
 }
 
 function starSvg() {
@@ -1622,6 +1627,14 @@ function staggerStars(el) {
   [...el.querySelectorAll("svg")].forEach((s, i) => {
     s.style.animationDelay = (0.25 + i * 0.15) + "s";
   });
+}
+
+/* report ceremony sound: one chime as the stars start stamping in,
+ * the inspector's chop pressed onto the sheet as it lands (1.15s
+ * animation delay + slam midpoint) */
+function endCeremonyAudio() {
+  setTimeout(() => ZBFX.audio.chime(), 300);
+  setTimeout(() => ZBFX.audio.stampSoft(), 1250);
 }
 
 /* +N 分 ink numeral floating from the claimed pillar toward the score
@@ -2524,6 +2537,7 @@ function fuseOut() {
   // red tape across the survivor (the working stays in the mark zone)
   $("sceneStamp").innerHTML = `<div class="zb-condemn">${t("stamp_standing")}</div>`;
   $("sceneStamp").classList.add("show");
+  ZBFX.audio.stampSoft();
   const bb = $("deck").getBBox();
   const tx1 = bb.x + 8, tx2 = bb.x + bb.width - 8;
   const ty1 = Math.max(bb.y - 2, 8), ty2 = Math.min(bb.y + bb.height, DECK_Y) + 2;
@@ -2552,6 +2566,7 @@ function nextLevel() {
   if (G.ended) return;
   G.idx += 1;
   if (G.idx >= G.levels.length) { endGame(); return; }
+  ZBFX.audio.page();
   if (ZBFX.reduced) { startLevel(); return; }
   // page turn: the finished worksheet lifts away, the next slides in
   // under its title-block cover
@@ -2594,6 +2609,7 @@ function endGame() {
     $("endRecord").innerHTML = `<div class="zb-hostboard" style="max-width:none">${leaderboardHtml(results, null)}</div>`;
     refreshDynamicText();
     show("endScreen");
+    endCeremonyAudio();
     return;
   }
   GameBridge.emit(SLUG, "complete", { score: G.score, stars: G.starsTotal, records: G.records });
@@ -2615,6 +2631,7 @@ function endGame() {
     </div>`).join("");
   refreshDynamicText();
   show("endScreen");
+  endCeremonyAudio();
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -2931,12 +2948,15 @@ function onCtrlRoom(room) {
       C.pad.enable();
       $("ctrlMark").innerHTML = "";
     }
-    // claimed factors are struck through on every phone's board too
+    // claimed factors are struck through on every phone's board too;
+    // a FRESH claim by someone else lands with a quiet ping
     if (st.claims) {
+      let othersClaim = false;
       Object.keys(st.claims).forEach(id => {
         const c = st.claims[id];
-        strikeFactor($("ctrlExpr"), id, c && c.name);
+        if (strikeFactor($("ctrlExpr"), id, c && c.name) && c && c.by !== C.id) othersClaim = true;
       });
+      if (othersClaim && !phaseChanged) ZBFX.audio.ping();
     }
     if (C.graceUntil <= Date.now()) {
       const total = C.level.pillars.length;
@@ -3030,6 +3050,7 @@ function ctrlEnd(results) {
   $("btnMenu").style.display = "none";
   refreshDynamicText();
   show("endScreen");
+  endCeremonyAudio();
   ctrlStatus(t("thanks_playing"));
 }
 
