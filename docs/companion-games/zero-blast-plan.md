@@ -610,6 +610,16 @@ order, suites green between batches), then a simplification pass:
   sites (timing-critical, idiomatic GSAP reads clearest) and the
   generator script (its output is frozen).
 
+Post-batch playtest fixes (2026-07-18, Kenny's notes): the how-to
+note now states the fizzle rule (`597c27a8`); a wrong code lands ON
+the structure - recoil, ink chips, surveyed strength pencilled over
+the scene (`8e243e21`, pairs with batch O's reinforcement ink); and
+the round now OPENS at fuse ignite (`044b71b1`) - the question was
+readable under the level card with the pad live, so fast players
+could speed-run buildings that hadn't drawn yet. Board and keypad
+open together when the fuse lights, phones mirroring the projector
+via deadlineEpoch - fuseMs, latched against +15s/grace re-covers.
+
 game.json is 0.5.0. Batches N and O below were re-evaluated against
 what landed and remain the next session's work (see the order note).
 
