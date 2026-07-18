@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (130 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (137 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 130 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 137 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -1149,8 +1149,54 @@ async function main() {
   );
   check("condemned chip clears on the next round", !stillCondemned);
 
-  /* ════════ level 5 (kind 5): quick double-root clear ════════ */
+  /* ════════ level 5 (kind 5): tutor pause, then the double-root clear ════════ */
   await waitHostLevel(host, 5);
+  await until(() => phoneA.evaluate(() => C.staged && C.phase === "playing"), {
+    label: "A staged L5",
+    timeout: 15000,
+  });
+  await host.evaluate(() => document.getElementById("btnPause").click());
+  await until(() => phoneA.evaluate(() => C.phase === "paused"), { label: "phone paused", timeout: 4000 });
+  const pausedWire = await roomData(host);
+  check(
+    "pause publishes the paused phase with the frozen remaining",
+    pausedWire.state.phase === "paused" && typeof pausedWire.state.pauseRemainMs === "number",
+    JSON.stringify({ phase: pausedWire.state.phase, remain: pausedWire.state.pauseRemainMs })
+  );
+  check(
+    "pause veils the projector",
+    await host.evaluate(() => document.getElementById("pauseVeil").style.display !== "none")
+  );
+  const aFrozen1 = await phoneA.evaluate(() => document.getElementById("ctrlTimerText").textContent);
+  await sleep(700);
+  const aPaused = await phoneA.evaluate(() => ({
+    t: document.getElementById("ctrlTimerText").textContent,
+    pad: document.querySelector("#ctrlPad .zb-key").disabled,
+    status: document.getElementById("ctrlStatus").textContent,
+  }));
+  check("pause freezes the phone fuse", aPaused.t === aFrozen1, aFrozen1 + " -> " + aPaused.t);
+  check("pause closes the phone pad", aPaused.pad === true);
+  check("paused status on the phone", aPaused.status.includes("暫停"), aPaused.status);
+
+  await host.evaluate(() => document.getElementById("btnPause").click()); // resume
+  await until(() => phoneA.evaluate(() => C.phase === "playing"), { label: "phone resumed", timeout: 4000 });
+  const aBurning = await until(
+    () => phoneA.evaluate((f) => {
+      const t = document.getElementById("ctrlTimerText").textContent;
+      return parseFloat(t) < parseFloat(f) - 0.15 ? t : null;
+    }, aFrozen1),
+    { label: "phone fuse burning again", timeout: 5000 }
+  );
+  check(
+    "resume: the fuse burns on from where it froze",
+    parseFloat(aBurning) <= parseFloat(aFrozen1),
+    aFrozen1 + " -> " + aBurning
+  );
+  check(
+    "resume reopens the phone pad",
+    !(await phoneA.evaluate(() => document.querySelector("#ctrlPad .zb-key").disabled))
+  );
+
   const l5root = await host.evaluate(() => G.level.pillars[0].root);
   await submitVerdict(phoneA, l5root); // one code, both pillars
   await fastForwardGrace(host);

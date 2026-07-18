@@ -1,4 +1,4 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (146 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (149 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (146 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (149 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -1248,6 +1248,42 @@ async function main() {
       JSON.stringify({ disabled: tapped.chipDisabled, end: chipEnd }));
     await pF.close();
 
+    /* pause: the fuse freezes under a veil and burns on from the same
+     * tenth when resumed */
+    const pP = await gamePage(ctx, "levels=3&rounds=1&seed=7", errsCfg);
+    await pP.click("#btnSolo");
+    await untilStaged(pP);
+    await pP.waitForTimeout(400);
+    const frozenAt = await pP.evaluate(() => {
+      document.getElementById("btnPause").click();
+      return document.getElementById("fuseTimerText").textContent;
+    });
+    await pP.waitForTimeout(1200);
+    const paused = await pP.evaluate(() => ({
+      timer: document.getElementById("fuseTimerText").textContent,
+      veil: document.getElementById("pauseVeil").style.display !== "none",
+      btn: document.getElementById("btnPause").textContent,
+      pad: document.querySelector("#pad .zb-key").disabled,
+    }));
+    check("pause freezes the solo fuse under the veil",
+      paused.timer === frozenAt && paused.veil && paused.pad,
+      JSON.stringify({ frozenAt, paused }));
+    check("pause button reads 繼續 while frozen", paused.btn === "繼續", paused.btn);
+    await pP.evaluate(() => document.getElementById("btnPause").click());
+    await pP.waitForTimeout(800);
+    const resumed = await pP.evaluate(() => ({
+      timer: document.getElementById("fuseTimerText").textContent,
+      veil: document.getElementById("pauseVeil").style.display !== "none",
+      pad: document.querySelector("#pad .zb-key").disabled,
+      paused: window.G.paused,
+    }));
+    check("resume burns on from where it froze",
+      !resumed.paused && !resumed.veil && !resumed.pad &&
+        parseFloat(resumed.timer) < parseFloat(frozenAt) &&
+        parseFloat(resumed.timer) > parseFloat(frozenAt) - 2,
+      JSON.stringify({ frozenAt, resumed }));
+    await pP.close();
+
     /* the fizzle: condemned survivor + the reveal hold */
     const pG = await gamePage(ctx, "seed=3", errsCfg);
     await pG.click("#btnSolo");
@@ -1314,8 +1350,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 146) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 146`);
+    if (total !== 149) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 149`);
       process.exit(1);
     }
     if (failures.length) {

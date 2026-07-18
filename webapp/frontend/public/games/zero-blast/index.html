@@ -983,6 +983,26 @@
       border-radius: var(--mc-r); cursor: pointer;
     }
     .zb-solohint:hover { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
+    /* pause: the site shuts down cleanly and picks up where it stopped */
+    .zb-pausebtn {
+      font-family: inherit; font-size: 13px; font-weight: 700;
+      color: var(--mc-ink-soft); background: none; cursor: pointer;
+      border: 1.5px solid var(--mc-ink-faint); border-radius: var(--mc-r);
+      padding: 3px 12px; margin-left: 10px; vertical-align: middle;
+    }
+    .zb-pausebtn:hover { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
+    .zb-pausebtn:disabled { opacity: 0.4; cursor: default; }
+    .zb-pauseveil {
+      position: absolute; inset: 0; z-index: 6;
+      display: flex; align-items: center; justify-content: center;
+      background: color-mix(in srgb, var(--mc-paper) 62%, transparent);
+    }
+    .zb-pauseveil span {
+      font-weight: 800; font-size: 30px; letter-spacing: 0.3em;
+      padding: 10px 20px 10px calc(20px + 0.3em);
+      color: var(--mc-ink-soft); border: 3px solid var(--mc-ink-soft);
+      border-radius: 8px; transform: rotate(-4deg);
+    }
     /* quiet reclaim-by-code row under the cover buttons */
     .zb-reclaim { display: flex; align-items: center; gap: 8px; }
     .zb-reclaim__label { font-size: 13px; color: var(--mc-ink-soft); white-space: nowrap; }
@@ -1384,6 +1404,8 @@
           <span class="zb-topline__right">
             <span class="zb-score" id="scoreBox"></span>
             <span class="zb-timer" id="fuseTimer"><svg><use href="#i-clock"/></svg><span id="fuseTimerText">--.-</span></span>
+            <!-- next to the thing it stops; solo's only pause control -->
+            <button class="zb-pausebtn" id="btnPause" data-i18n="tutor_pause"></button>
           </span>
         </div>
         <div class="zb-board" id="exprBoard" aria-live="polite"></div>
@@ -1407,6 +1429,9 @@
               <svg aria-hidden="true"><use href="#i-sound"/></svg>
               <span id="soundOfferText"></span>
             </button>
+            <div class="zb-pauseveil" id="pauseVeil" style="display:none" aria-live="polite">
+              <span data-i18n="paused_stamp"></span>
+            </div>
           </div>
         </div>
         <div class="zb-tutorbar" id="tutorBar" style="display:none">
@@ -1620,6 +1645,10 @@ const STRINGS = {
   critical_fmt:     { c: "支柱全部拆晒！{s} 秒後總爆破", e: "All pillars down! Final blast in {s}s" },
   tutor_plus15:     { c: "+15 秒",      e: "+15 s" },
   tutor_hint:       { c: "提示",        e: "Hint" },
+  tutor_pause:      { c: "暫停",        e: "Pause" },
+  tutor_resume:     { c: "繼續",        e: "Resume" },
+  paused_stamp:     { c: "暫停中",      e: "PAUSED" },
+  ctrl_paused:      { c: "暫停中，|等導師繼續", e: "Paused. Waiting for the tutor" },
   hint_note:        { c: "提示：圖則寫咗 {f}！|呢座建築分數打七五折", e: "Hint: the plan now shows {f}! This building pays 75%" },
   tutor_skip:       { c: "跳過",        e: "Skip" },
   tutor_next:       { c: "下一關",      e: "Next" },
@@ -2686,6 +2715,7 @@ const G = {
   score: 0, streak: 0, starsTotal: 0, levelPoints: 0,
   deadline: 0, duration: 0, raf: null, lastTickSec: null,
   fuseLen: 0, fusePathEl: null, over: false, records: [], hinted: false,
+  paused: false, pausedAt: 0, // the frozen fuse (tutor/solo pause)
   graphOn: true, // the resolve graph sketch; tutors toggle with key g
   beatTl: null,  // the active GSAP set-piece timeline (collapse / condemn)
   staged: false, // the round opens (board inks in, pad live) at fuse ignite
@@ -2848,6 +2878,11 @@ function startLevel(resume) {
   G.echoTally = resume ? (resume.echoTally || {}) : {};
   G.hinted = resume ? !!resume.hinted : false;
   $("scene").classList.remove("critical", "lastcall", "zb-hitstop");
+  G.paused = false;
+  G.pausedAt = 0;
+  $("pauseVeil").style.display = "none";
+  $("btnPause").disabled = false;
+  renderPauseBtn();
   G.lastCall = false;
   G.hitStopAt = null;
   G.camWarned = false;
@@ -2891,7 +2926,9 @@ function startLevel(resume) {
       if (G.level !== level || G.ended || G.staged) return;
       G.staged = true;
       openBoard($("exprBoard"));
-      if (!G.over) pad.enable();
+      // a pause during the level card must not open the pad under the
+      // veil; the resume path re-enables once staged
+      if (!G.over && !G.paused) pad.enable();
       $("soloHint").disabled = G.hinted;
     }, stageMs);
   }
@@ -2950,7 +2987,7 @@ function startLevel(resume) {
   G.lastTickSec = null;
   G.lastFleck = null;
   $("fuseTimer").classList.remove("warn");
-  setTimeout(() => { if (!G.over && G.level === level) ZBFX.audio.fuseStart(); }, stageMs);
+  setTimeout(() => { if (!G.over && !G.paused && G.level === level) ZBFX.audio.fuseStart(); }, stageMs);
   cancelAnimationFrame(G.raf);
   G.raf = requestAnimationFrame(fuseFrame);
   saveHostRun();
@@ -3074,7 +3111,7 @@ function showHint() {
   $("soloHint").disabled = true;
   saveHostRun();
 }
-$("soloHint").onclick = () => { if (G.mode === "solo" && G.staged) showHint(); };
+$("soloHint").onclick = () => { if (G.mode === "solo" && G.staged && !G.paused) showHint(); };
 
 /* per-level payout scale: the finale street doubles, a hint takes a
  * quarter off. The old half-fee stacked with the auto-hint to silently
@@ -3184,7 +3221,7 @@ function showCracks() {
 }
 
 function submitCode(v, player) {
-  if (G.over) return;
+  if (G.over || G.paused) return; // nothing scores against a frozen fuse
   const level = G.level;
   const res = ZBLevels.judge(level, v, G.claimed);
 
@@ -3365,6 +3402,7 @@ function enterGrace() {
   G.grace = true;
   G.lastGraceSec = null;
   G.deadline = performance.now() + graceMs;
+  $("btnPause").disabled = true; // seconds from the blast: not pausable
   $("scene").classList.add("critical");
   scatterCrew();
   ZBFX.shake(6);
@@ -3808,6 +3846,9 @@ function leaderboardHtml(results, meId) {
 }
 
 function endGame() {
+  // a tutor may end from inside a pause: the veil must not outlive the run
+  G.paused = false;
+  $("pauseVeil").style.display = "none";
   ZBFX.bgm.stop(); // the report's ceremony one-shots own the end screen
   if (G.mode === "host") {
     clearHostRun();
@@ -3969,6 +4010,9 @@ function onHostRoom(room) {
     const sub = subs[pid];
     if (!sub || typeof sub.seq !== "number" || typeof sub.v !== "number") return;
     if ((G.processedSeq[pid] || 0) >= sub.seq) return;
+    // paused: leave unconsumed - nothing scores against a frozen fuse.
+    // The resume publish triggers a snapshot, which judges it then.
+    if (G.paused) return;
     G.processedSeq[pid] = sub.seq;
     if (!G.started || G.over) return; // between rounds: consumed, not judged
     // a sub delayed past startLevel must not be judged against the NEW
@@ -4022,7 +4066,7 @@ function setSkipLabel(key) {
 }
 
 function tutorPlus15() {
-  if (G.mode !== "host" || !G.started || G.over) return;
+  if (G.mode !== "host" || !G.started || G.over || G.paused) return;
   G.deadline += 15000;
   const epoch = GameBridge.serverNow() + Math.max(0, G.deadline - performance.now());
   const upd = { deadlineEpoch: epoch };
@@ -4037,7 +4081,7 @@ function tutorPlus15() {
 }
 
 function tutorSkip() {
-  if (G.mode !== "host" || !G.started) return;
+  if (G.mode !== "host" || !G.started || G.paused) return;
   if (G.revealHold) {
     // the held fuse-out reveal advances only on the tutor's word
     G.revealHold = false;
@@ -4081,20 +4125,71 @@ function tutorEnd() {
 }
 
 function tutorHint() {
-  if (G.mode !== "host" || !G.started || G.over) return;
+  if (G.mode !== "host" || !G.started || G.over || G.paused) return;
   showHint();
+}
+
+/* an interruption (PA call, fire drill, a question worth stopping for)
+ * used to cost the round or a spam of +15s. Pause freezes the deadline
+ * locally; the host also publishes a "paused" phase (+ the frozen
+ * remaining) so every phone stops with the class, and defers judging
+ * so nothing scores against a frozen fuse. Grace and the held reveal
+ * are not pausable moments (seconds from done / nothing burning). */
+function togglePause() {
+  if (!G.started || G.over || G.ended || !G.level) return;
+  if (!G.paused) {
+    if (G.grace || G.revealHold) return;
+    G.paused = true;
+    G.pausedAt = performance.now();
+    cancelAnimationFrame(G.raf);
+    ZBFX.audio.fuseStop();
+    ZBFX.sparksAt(null);
+    ZBFX.bgm.setIntensity("idle");
+    $("pauseVeil").style.display = "";
+    if (G.mode === "solo") pad.disable();
+    if (G.mode === "host") {
+      G.room.update("state", {
+        phase: "paused",
+        pauseRemainMs: Math.max(0, Math.round(G.deadline - performance.now())),
+      });
+    }
+  } else {
+    G.deadline += performance.now() - G.pausedAt;
+    G.paused = false;
+    $("pauseVeil").style.display = "none";
+    ZBFX.bgm.setIntensity(G.camWarned ? "warn" : "base");
+    const remain = Math.max(0, G.deadline - performance.now());
+    if (remain <= G.duration) ZBFX.audio.fuseStart(); // relight only an ignited fuse
+    if (G.mode === "solo" && G.staged) pad.enable();
+    if (G.mode === "host") {
+      G.room.update("state", {
+        phase: "playing",
+        pauseRemainMs: null,
+        deadlineEpoch: GameBridge.serverNow() + remain,
+      });
+    }
+    G.raf = requestAnimationFrame(fuseFrame);
+  }
+  renderPauseBtn();
+}
+function renderPauseBtn() {
+  const key = G.paused ? "tutor_resume" : "tutor_pause";
+  $("btnPause").setAttribute("data-i18n", key);
+  $("btnPause").textContent = t(key);
 }
 
 $("btnPlus15").onclick = tutorPlus15;
 $("btnHint").onclick = tutorHint;
 $("btnSkip").onclick = tutorSkip;
 $("btnEndGame").onclick = tutorEnd;
+$("btnPause").onclick = togglePause;
 document.addEventListener("keydown", e => {
   if (G.mode !== "host" || !$("gameScreen").classList.contains("active")) return;
   if (e.key === "t") tutorPlus15();
   else if (e.key === "h") tutorHint();
   else if (e.key === "n") tutorSkip();
   else if (e.key === "e") tutorEnd();
+  else if (e.key === "p") togglePause();
   else if (e.key === "g") G.graphOn = !G.graphOn; // resolve graph sketch on/off
 });
 
@@ -4104,7 +4199,7 @@ document.addEventListener("keydown", e => {
 
 const C = {
   room: null, watcher: null, id: null, name: null,
-  level: null, levelKey: null, phase: null,
+  level: null, levelKey: null, phase: null, pauseRemainMs: null,
   seq: 0, lastVerdictSeq: 0, booted: false, seenSelf: false,
   timerIv: null, deadlineEpoch: 0, graceUntil: 0, pad: null,
   staged: false, // mirrors the projector: board + pad open at fuse ignite
@@ -4294,6 +4389,15 @@ function ctrlSubmit(v) {
 }
 
 function ctrlTick() {
+  // paused: hold the fuse where the host froze it (a late joiner paints
+  // the published frozen remaining instead of a blank)
+  if (C.phase === "paused") {
+    if (typeof C.pauseRemainMs === "number" && C.level) {
+      $("ctrlTimerText").textContent =
+        (Math.min(C.pauseRemainMs, C.level.fuseMs || C.pauseRemainMs) / 1000).toFixed(1);
+    }
+    return;
+  }
   if (C.phase !== "playing" || !C.deadlineEpoch) { $("ctrlTimerText").textContent = "--.-"; $("ctrlTimer").classList.remove("warn"); return; }
   // all epoch math runs on the server-anchored clock: a phone minutes
   // off local time otherwise shows a wrong or frozen fuse
@@ -4343,6 +4447,7 @@ function onCtrlRoom(room) {
     }
   }
 
+  const prevPhase = C.phase;
   const phaseChanged = st.phase !== C.phase;
   C.phase = st.phase;
   C.deadlineEpoch = st.deadlineEpoch || 0;
@@ -4395,7 +4500,10 @@ function onCtrlRoom(room) {
       // dead pad - staging and pad.enable live inside ctrlTick
       clearInterval(C.timerIv);
       C.timerIv = setInterval(ctrlTick, 100);
-      $("ctrlMark").innerHTML = "";
+      // resuming from a pause keeps the student's private working on
+      // screen and reopens the pad the pause closed
+      if (prevPhase !== "paused") $("ctrlMark").innerHTML = "";
+      else if (C.staged && !C.inFlight) C.pad.enable();
       ctrlTick(); // stage now if the ignite is already past (late join)
     }
     // claimed factors are struck through on every phone's board too;
@@ -4446,6 +4554,13 @@ function onCtrlRoom(room) {
           + miniGraphHtml(C.level);
       }
       ctrlStatus(t("reveal_wait"));
+    }
+  } else if (st.phase === "paused" && C.level) {
+    if (phaseChanged) {
+      C.pad.disable();
+      C.pauseRemainMs = typeof st.pauseRemainMs === "number" ? st.pauseRemainMs : null;
+      ctrlStatus(t("ctrl_paused"));
+      ctrlTick(); // paint the frozen remaining now, not at the next 100ms beat
     }
   } else if (st.phase === "lobby") {
     if (C.id) ctrlStatus(t("ctrl_wait_start")); // a kicked phone keeps its notice
