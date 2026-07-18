@@ -563,3 +563,109 @@ F → G → H → I → J. If time is short before the pilot, the top five
 by felt impact are: dust rebuild (F), crack-then-fall (G), factor
 strike-through (G), page-turn transitions (I), hand-inked wobble
 (H) - F and G alone carry most of the perceived quality jump.
+
+## 12. Iteration 5 (planned): Tier 1 adoption - the mechanic audit
+
+Audited 2026-07-18 against the CONVENTIONS.md rule: a library is
+vendored when a specific mechanic demands it, named in the PR, never
+for modernity. Verdicts for Zero Blast:
+
+**Adopt (the mechanic exists today):**
+
+- **Howler (Tier 1)** - mechanic: a layered material soundscape
+  (paper, rubber stamp, chalk, brick debris, deep rumble) delivered
+  as an audio sprite to 30 phones and a projector with reliable
+  mobile unlock. Live Web Audio synthesis carried the pilot but
+  cannot express material; sample one-shots are the single biggest
+  remaining craft gap after iteration 4. Howler is the delivery
+  mechanism; the samples are the real work.
+- **GSAP (Tier 1)** - mechanic: label-based overlapping timelines.
+  The collapse/chop/report choreography is now eight magic-number
+  setTimeout chains (380/530/1020/1180/1250/1350/1460/2200) plus CSS
+  keyframes; iteration 4 doubled its complexity and every retiming
+  is manual arithmetic. Timelines also unlock a finale set-piece
+  (slow-mo last collapse) that CSS cannot stage cleanly.
+
+**Defer (no Zero Blast mechanic demands them - named triggers):**
+
+- **KaTeX** - the mono + serif-italic board IS the worksheet
+  identity, and the factor strike-through depends on our own factor
+  spans (KaTeX's generated markup would break the pillar-id keying).
+  Trigger: the first game whose maths needs fractions, surds or
+  indices (SM902 completing-the-square / quadratic-formula game).
+- **JSXGraph** - the parabola reveal below is a static sketch, plain
+  SVG does it. Trigger: a game where students DRAG roots/graphs and
+  the curve updates live.
+- **Phaser/PixiJS** - Zero Blast is turn-based; no continuous
+  real-time sprite mechanic. Re-rendering the FX layer in Pixi would
+  be decoration, which the contract forbids. Trigger: the first
+  continuous-motion game (prefer Phaser per contract).
+
+**Tier 2 (sign-off territory):**
+
+- **three.js/Babylon** - no: the topic is algebra, not 3D-native,
+  and the contract bans 3D as decoration.
+- **Rive** - only if the series adopts a mascot. Zero Blast's
+  inspector voice (檢定完成 chop, tutor beats) is a natural mascot
+  seed, but that is a brand decision for Kenny + Steve, not a batch.
+
+**Beyond libraries** (production tier, unchanged pending list):
+deploy `game-rooms` RTDB rules (Kenny's firebase auth) then a LIVE
+multi-phone rehearsal, `games.` subdomain, Phase 2 lesson panel,
+confirm the name with Steve. Watch: SVG filter cost on the projector
+during tremble (fx gate covers phones already).
+
+### Batch K - the sample soundscape (vendor Howler)
+
+- Produce our own kit, no licensing at all: richer layered synthesis
+  (noise bursts through body resonances, convolution tails) rendered
+  OFFLINE to WAV via OfflineAudioContext in a Playwright script,
+  committed under `zero-blast/audio/`. One-shots: stamp thunk, chop
+  slam, crack, boom small/large, collapse rumble, debris patter,
+  fizzle, tick, key click, knock, star chime, page turn, echo ping.
+- Encoding: no ffmpeg on the box today. Either Kenny apt-installs
+  ffmpeg for an opus/webm sprite (preferred, ~10x smaller), or ship
+  short mono 22.05k WAVs with a hard 400KB total budget.
+- Vendor `shared/vendor/howler.min.js` (MIT, ~40KB) + NOTICE line.
+- `ZBFX.audio` keeps its exact API: one-shots route through a Howler
+  sprite; the looping fuse hiss STAYS live synthesis (it tracks burn
+  urgency continuously - synthesis is the right tool there); full
+  synth fallback kept when the sprite fails to load.
+- Tests: no external requests (route hook asserts same-origin),
+  toggle persists, suites green with sound off (default) unchanged.
+
+### Batch L - GSAP set-piece choreography (vendor GSAP core)
+
+- Vendor `shared/vendor/gsap.min.js` core only (GSAP standard
+  licence, free incl. commercial; note in PR).
+- Port the collapse chain (crack/fall/rubble/stamp/slam), fuse-out
+  condemned beat and end-report ceremony to labelled timelines;
+  ambient loops (beacons, clouds, tremble, attract, page turns) stay
+  CSS. Keep the total collapse beat ~2.2s so multi timings hold.
+- New finale set-piece: last collapse gets a slow-mo overshoot, a
+  scene scale punch and star rain timed to the chop label.
+- Reduced motion: one gate, timelines jump to progress(1).
+- Test churn expected: fixed waits around collapse in all three
+  suites retuned once.
+
+### Batch M - the parabola reveal (Tier 0, deliberately no library)
+
+- The pedagogy bridge to SM902: when a building resolves, a faint
+  pencil parabola y = (x-a)(x-b) sketches itself across the sky
+  band, dipping through the inked rootmarks (x-intercepts ARE the
+  codes). Kind 5 draws the tangent parabola (double root touching
+  the ground once) - the best possible picture of 重根. Kind 1
+  draws the line y = kx through the origin instead.
+- Solo + host scenes; tutor toggle on key g; phones get a thumbnail
+  sketch beside the reveal working.
+- Plain SVG path from the level's roots, no JSXGraph.
+- Tests: parabola present after resolve, single touch point for
+  kind 5, key g toggles, reduced motion static-visible.
+
+### Recommended order
+
+K -> M -> L. Sound is the largest remaining craft gap; the parabola
+is cheap and carries the most classroom value per hour; the GSAP
+port is spectacle + maintainability and can absorb its test churn
+last. If a session is cut short: K alone still moves the game a
+tier.
