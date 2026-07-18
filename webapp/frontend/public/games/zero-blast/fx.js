@@ -620,6 +620,13 @@
       thump(880, 870, 0.07, 0.1);
       thump(880, 870, 0.03, 0.09, 0.16);
     }),
+    /* the work crew bolting: a light scuffle of feet on grit */
+    patter: oneShot("debris", function () {
+      noiseburst("highpass", 900, 0.06, 0.1);
+      thump(210, 130, 0.1, 0.07, 0.04);
+      thump(190, 115, 0.08, 0.07, 0.13);
+      noiseburst("highpass", 800, 0.04, 0.09, 0.18);
+    }),
   };
 
   function vibrate(pattern) {

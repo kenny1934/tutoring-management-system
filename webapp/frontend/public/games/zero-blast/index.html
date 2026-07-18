@@ -213,6 +213,24 @@
     @keyframes zb-surveyin { to { opacity: 0.6; } }
     .zb-pencil { pointer-events: none; }
 
+    /* street life: a tiny ink work crew loiters by the site while the
+       blueprint draws in; when the fuse turns urgent they bolt off the
+       page. The foreman keeps his post at the detonator — his beat is
+       the plunger push on the collapse crack. Ink only, never red. */
+    .zb-crew, .zb-foreman { opacity: 0; animation: zb-fadein 0.5s 1.25s ease-out forwards; }
+    .zb-figure { transform-box: fill-box; transform-origin: center bottom; }
+    .zb-crew path, .zb-foreman path { stroke: var(--mc-ink-soft); stroke-width: 1.7; }
+    .zb-crew circle, .zb-foreman circle { fill: none; stroke: var(--mc-ink-soft); stroke-width: 1.7; }
+    .zb-crew--run .zb-figure { animation: zb-crewrun 0.55s cubic-bezier(0.55, 0, 0.8, 0.6) forwards; }
+    .zb-crew--run .zb-figure--squat { animation-delay: 0.1s; }
+    /* the tail fade matters: the svg canvas is wider than the viewBox,
+       so without it the runners freeze visibly in the margin */
+    @keyframes zb-crewrun {
+      14% { transform: translateX(-5px) rotate(-7deg); }
+      70% { opacity: 1; }
+      to { transform: translateX(150px) rotate(11deg); opacity: 0; }
+    }
+
     /* the pedagogy bridge: when a structure resolves, its equation's
      * graph sketches itself faintly across the sky, dipping through
      * the inked codes — the x-intercepts ARE the solutions. Kind 5's
@@ -341,6 +359,19 @@
       animation: mc-stamp-in 0.35s 1.15s cubic-bezier(0.2, 1.5, 0.35, 1) both;
     }
     .zb-endchop small { font-size: 9px; letter-spacing: 0.1em; font-weight: 700; }
+    /* the report ends the way a real inspection report does: a foot
+       band reserved for the chop and, beside it, the inspector himself,
+       clipboard in hand */
+    #endSheet { padding-bottom: 58px; }
+    .zb-endinspector {
+      position: absolute; right: 108px; bottom: 6px;
+      width: 34px; height: 56px;
+      opacity: 0; animation: zb-fadein 0.4s 1.35s ease-out forwards;
+    }
+    .zb-endinspector path, .zb-endinspector rect, .zb-endinspector circle {
+      stroke: var(--mc-ink-soft); fill: none; stroke-width: 1.7;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
     /* fail state: the survivor takes the hit, settles, dusts itself off */
     .zb-deck.settle { animation: zb-settle 0.6s ease-out; }
     @keyframes zb-settle {
@@ -773,6 +804,9 @@
       .zb-graph .zb-graph__curve { stroke-dashoffset: 0 !important; }
       .din2, .zb-rootmark.show, .zb-graph { opacity: 1 !important; }
       .zb-struct .zb-survey { opacity: 0.6 !important; }
+      .zb-crew, .zb-foreman, .zb-endinspector { opacity: 1 !important; }
+      /* figures stay static: the scatter is an instant exit, no run */
+      .zb-crew--run .zb-figure { animation: none !important; opacity: 0 !important; }
       .zb-deck.fall { opacity: 0; }
       .zb-floatpts { display: none; }
       .zb-strengthflash { display: none; } /* the margin note carries it */
@@ -1174,6 +1208,13 @@
       </svg>
       <div class="mc-stars" id="endStars" style="margin-top:6px"></div>
       <div class="zb-record" id="endRecord"></div>
+      <svg class="zb-endinspector" viewBox="0 0 36 60" aria-hidden="true">
+        <circle cx="18" cy="10" r="4.5"/>
+        <path d="M12.5 8.5 h11 M13.5 8 q4.5 -5.5 9 0"/>
+        <path d="M18 14.5 V36 M18 36 L12 56 M18 36 L23.5 56 M18 19 L24 23.5 M18 22 L13 27"/>
+        <rect x="23" y="21" width="9.5" height="13" rx="1" transform="rotate(-8 23 21)"/>
+        <path d="M25.5 25.5 l5.5 -1 M25 28.5 l5 -0.8 M25.5 31.5 l1.8 1.6 l3 -3.6"/>
+      </svg>
       <div class="zb-endchop" aria-hidden="true"><span data-i18n="end_chop"></span><small id="endChopDate"></small></div>
     </div>
     <div class="mc-note" style="margin-top:20px">
@@ -1518,11 +1559,62 @@ function sceneStatics(level, xs) {
     + `<path d="M${cx} 20 V${GROUND}" class="thin faint" stroke-dasharray="7 4 2 4"/>`
     + T(16, 26, "tag", "圖則 PLAN " + String(level.seq).padStart(2, "0") + "/" + String(level.total).padStart(2, "0"))
     + P("M14 32 h64", "thin faint")
-    + P("M22 190 h24 v14 h-24 z M34 190 v-9 M26 181 h16")
+    + `<path id="detonator" d="${DETONATOR_D.armed}" pathLength="1" class="din" style="--i:${drawIdx++}"/>`
     + `<path id="fuseAsh" d="${fuseD}" class="thin" stroke-dasharray="0 1" pathLength="1"/>`
     + `<path id="fusePath" d="${fuseD}" class="thin" style="stroke:var(--mc-red);opacity:0.85"/>`
     + `<circle id="fuseGlow" r="6.5" fill="var(--mc-red)" opacity="0.25"/>`
     + `<circle id="fuseSpark" r="3.2" fill="var(--mc-red)"/>`;
+}
+
+/* ══ street life: tiny ink people, a few strokes each, never red ══
+ * Two crew figures loiter right of the site while the blueprint draws
+ * in (one pointing at the works, one in the classic site squat); the
+ * foreman keeps his post at the detonator. Positions clear of the
+ * pillars, plaques, rootmarks, the fuse's sag and the crane. */
+const DETONATOR_D = {
+  armed:  "M22 190 h24 v14 h-24 z M34 190 v-9 M26 181 h16",
+  pushed: "M22 190 h24 v14 h-24 z M34 190 v-4 M26 186 h16",
+};
+const FOREMAN_POSES = {
+  stand: `<circle cx="13.5" cy="185" r="2.7"/>
+    <path d="M13.5 188 V199 M13.5 199 L10 210 M13.5 199 L17 210 M13.5 191 L21 185.5 M13.5 191 L10.5 197.5"/>`,
+  push: `<circle cx="18.5" cy="181" r="2.7"/>
+    <path d="M17.8 184 L13.5 194 M13.5 194 L10.5 210 M13.5 194 L16.5 210 M17.8 184.5 L27 186.8 M17.8 184.5 L31 187.3"/>`,
+};
+
+function crewSvg() {
+  return `<g class="zb-crew" id="crew">
+    <g class="zb-figure">
+      <circle cx="306" cy="187" r="2.7"/>
+      <path d="M306 190 V200 M306 200 L302 210 M306 200 L310 210 M306 193 L298 188.5 M306 193 L309.5 198.5"/>
+    </g>
+    <g class="zb-figure zb-figure--squat">
+      <circle cx="318" cy="196" r="2.6"/>
+      <path d="M319 198.5 q3.5 2.5 3.5 7 M316 208.5 h6.5 M322 205.5 L315 203.5 M319.5 200.5 L315.5 204"/>
+    </g>
+  </g>
+  <g class="zb-foreman" id="foreman">${FOREMAN_POSES.stand}</g>`;
+}
+
+/* the fuse has turned urgent (warn window, grace, or the crack
+ * itself): the crew bolts off the page. Latched per building via the
+ * class; the run is CSS, reduced motion swaps it for an instant exit. */
+function scatterCrew() {
+  const crew = $("crew");
+  if (!crew || crew.classList.contains("zb-crew--run")) return;
+  crew.classList.add("zb-crew--run");
+  ZBFX.audio.patter();
+}
+
+/* the foreman's one beat: he leans onto the plunger as the charge
+ * fires — called from the collapse timeline's crack label */
+function foremanPush() {
+  const f = $("foreman");
+  if (!f || f.dataset.pose === "push") return;
+  f.dataset.pose = "push";
+  f.innerHTML = FOREMAN_POSES.push;
+  const det = $("detonator");
+  if (det) det.setAttribute("d", DETONATOR_D.pushed);
 }
 
 /* round 2+ variety: mirror the silhouette (never kind 1, its deck
@@ -1548,7 +1640,7 @@ function renderStructure(level) {
     + rubbleSvg(xs)
     + `<g class="zb-deck" id="deck"><g${vt ? ` transform="${vt}"` : ""}>${chunkDeck(deckParts(level, xs))}${lightsSvg(level)}</g></g>`
     + level.pillars.map((p, i) => pillarSvg(xs[i], p)).join("");
-  svg.insertAdjacentHTML("beforeend", surveySvg());
+  svg.insertAdjacentHTML("beforeend", surveySvg() + crewSvg());
   return xs;
 }
 
@@ -2207,6 +2299,7 @@ function fuseFrame() {
   const warnAt = G.level.finale ? 10200 : 5200;
   if (remain <= warnAt) {
     $("fuseTimer").classList.add("warn");
+    scatterCrew();
     const sec = Math.ceil(remain / (G.level.finale ? 500 : 1000));
     if (sec !== G.lastTickSec) { G.lastTickSec = sec; ZBFX.audio.tick(); }
   }
@@ -2526,6 +2619,7 @@ function enterGrace() {
   G.lastGraceSec = null;
   G.deadline = performance.now() + graceMs;
   $("scene").classList.add("critical");
+  scatterCrew();
   ZBFX.shake(6);
   G.room.update("state", { deadlineEpoch: Date.now() + graceMs, graceUntil: Date.now() + graceMs });
   saveHostRun();
@@ -2716,6 +2810,10 @@ function collapseAndAdvance() {
     .addLabel("dissolve", 1.35)
     .addLabel("chop", 1.46)
     .addLabel("turn", 2.2);
+  // a fast class can beat the warn window: the crew still gets its
+  // head start, and the foreman leans onto the plunger at the crack
+  tl.call(scatterCrew, null, 0);
+  tl.call(foremanPush, null, "crack");
   // fault lines flash, one small shake pulse, THEN the break
   tl.call(() => {
     showCracks();
