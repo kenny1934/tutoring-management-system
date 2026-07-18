@@ -31,13 +31,13 @@
       gap: 10px; margin-bottom: 10px;
       font-family: var(--mc-mono); font-weight: 700;
     }
-    .zb-topline__level { font-size: 13px; letter-spacing: 0.05em; color: var(--mc-ink-soft); }
+    .zb-topline__level { font-size: 0.8125rem; letter-spacing: 0.05em; color: var(--mc-ink-soft); }
     .zb-topline__level strong { color: var(--mc-red); }
     .zb-topline__right { display: flex; align-items: center; gap: 14px; }
-    .zb-score { font-size: 15px; font-variant-numeric: tabular-nums; color: var(--mc-gold); }
+    .zb-score { font-size: 0.9375rem; font-variant-numeric: tabular-nums; color: var(--mc-gold); }
     .zb-timer {
       display: inline-flex; align-items: center; gap: 6px;
-      font-size: 19px; font-variant-numeric: tabular-nums;
+      font-size: 1.1875rem; font-variant-numeric: tabular-nums;
     }
     .zb-timer svg { width: 15px; height: 15px; stroke: currentColor; }
     .zb-timer.warn { color: var(--mc-red); animation: zb-pulse 0.5s ease-in-out infinite; }
@@ -48,7 +48,7 @@
       background: var(--mc-paper-raised); box-shadow: var(--mc-shadow-sm);
       text-align: center; padding: 10px 12px; margin-bottom: 10px;
       font-family: var(--mc-mono); font-weight: 800;
-      font-size: clamp(22px, 5.5vw, 34px); line-height: 1.25;
+      font-size: clamp(1.375rem, 5.5vw, 2.125rem); line-height: 1.25;
       font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
     }
     .zb-board .zb-zero { color: var(--mc-red); }
@@ -380,15 +380,15 @@
     .zb-howto__item {
       flex: 1; max-width: 116px;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
-      font-size: 12px; font-weight: 600; line-height: 1.4; text-align: center;
+      font-size: 0.75rem; font-weight: 600; line-height: 1.4; text-align: center;
     }
     .zb-howto__item svg { width: 66px; height: 50px; }
     .zb-howto .zh-s { stroke: var(--mc-ink); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .zb-howto .zh-s.thin { stroke-width: 1.2; }
     .zb-howto .zh-red { stroke: var(--mc-red); }
-    .zb-howto .zh-t { font-family: var(--mc-mono); font-weight: 700; font-size: 9.5px; text-anchor: middle; fill: var(--mc-ink); stroke: none; }
+    .zb-howto .zh-t { font-family: var(--mc-mono); font-weight: 700; font-size: 0.59375rem; text-anchor: middle; fill: var(--mc-ink); stroke: none; }
     .zb-howto text.zh-red { fill: var(--mc-red); }
-    .zb-howto__note { margin-top: 9px; font-size: 12px; color: var(--mc-ink-soft); text-align: center; }
+    .zb-howto__note { margin-top: 9px; font-size: 0.75rem; color: var(--mc-ink-soft); text-align: center; }
 
     /* lobby attract loop: draw, stand, collapse, redraw (projector) */
     .zb-attract { display: none; }
@@ -431,7 +431,7 @@
     .zb-rank {
       display: inline-flex; align-items: center; justify-content: center;
       width: 19px; height: 19px; border-radius: 50%;
-      border: 1.8px solid currentColor; font-size: 11px; font-weight: 800;
+      border: 1.8px solid currentColor; font-size: 0.6875rem; font-weight: 800;
     }
     .zb-rank--1 { color: var(--mc-gold); }
     .zb-rank--2 { color: #8e959c; }
@@ -462,14 +462,14 @@
       position: absolute; right: 12px; bottom: 10px;
       display: flex; flex-direction: column; align-items: center; gap: 1px;
       padding: 5px 10px; border: 2.5px solid var(--mc-red); border-radius: 6px;
-      font-family: var(--mc-mono); font-weight: 800; font-size: 12px; letter-spacing: 0.14em;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 0.75rem; letter-spacing: 0.14em;
       color: var(--mc-red);
       background: color-mix(in srgb, var(--mc-paper) 82%, transparent);
       box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mc-red) 28%, transparent);
       transform: rotate(8deg);
       animation: mc-stamp-in 0.35s 1.15s cubic-bezier(0.2, 1.5, 0.35, 1) both;
     }
-    .zb-endchop small { font-size: 9px; letter-spacing: 0.1em; font-weight: 700; }
+    .zb-endchop small { font-size: 0.5625rem; letter-spacing: 0.1em; font-weight: 700; }
     /* the report ends the way a real inspection report does: a foot
        band reserved for the chop and, beside it, the inspector himself,
        clipboard in hand */
@@ -526,14 +526,14 @@
     /* quiet tutor strip under the scene (host mode only) */
     .zb-tutorbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 6px 0 2px; }
     .zb-tutorbtn {
-      font-family: var(--mc-mono); font-size: 13px; font-weight: 700;
+      font-family: var(--mc-mono); font-size: 0.8125rem; font-weight: 700;
       padding: 5px 14px; opacity: 0.75;
     }
     .zb-tutorbtn:hover { opacity: 1; }
     .zb-tutorbtn.confirm { border-color: var(--mc-red); color: var(--mc-red); opacity: 1; }
     .zb-tutorkeys {
       width: 100%; text-align: center; margin-top: -4px;
-      font-family: var(--mc-mono); font-size: 10.5px; letter-spacing: 0.22em;
+      font-family: var(--mc-mono); font-size: 0.65625rem; letter-spacing: 0.22em;
       color: var(--mc-ink-faint);
     }
     /* +15s gift, stamped over the scene so the class notices */
@@ -573,7 +573,10 @@
       display: flex; align-items: center; justify-content: center;
       font-family: var(--mc-mono); font-weight: 800;
       font-size: clamp(70px, 18vw, 150px);
-      color: color-mix(in srgb, var(--mc-red) 55%, transparent);
+      /* full red-press: the 55% mix sat at 2.7:1 / 2.3:1 - below 3:1
+         large-text contrast in both themes, on the one element that is
+         the accessible alternative to the vignette */
+      color: var(--mc-red);
       animation: zb-gracenum 0.9s ease-out forwards;
     }
     @keyframes zb-gracenum {
@@ -787,7 +790,7 @@
       position: absolute; left: 50%; bottom: 4.5%; z-index: 5;
       transform: translateX(-50%) rotate(-1.5deg);
       display: flex; align-items: center; gap: 8px;
-      font-family: inherit; font-weight: 800; font-size: 15px;
+      font-family: inherit; font-weight: 800; font-size: 0.9375rem;
       padding: 8px 18px;
       border: 2px solid var(--mc-ink); border-radius: 999px;
       background: var(--mc-paper-raised); color: var(--mc-ink);
@@ -806,7 +809,7 @@
       from { opacity: 0; transform: translateX(-50%) rotate(-1.5deg) scale(1.3); }
     }
     @keyframes zb-offerout { to { opacity: 0; } }
-    .zb-stage--projector .zb-soundoffer { font-size: 19px; padding: 10px 24px; }
+    .zb-stage--projector .zb-soundoffer { font-size: 1.1875rem; padding: 10px 24px; }
 
     /* ---- marking + keypad ---- */
     .zb-mark { min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px 0; }
@@ -814,7 +817,7 @@
 
     .zb-padwrap { position: relative; max-width: 340px; margin: 0 auto; }
     .zb-preview {
-      text-align: center; font-family: var(--mc-mono); font-weight: 700; font-size: 15px;
+      text-align: center; font-family: var(--mc-mono); font-weight: 700; font-size: 0.9375rem;
       color: var(--mc-ink-faint); margin-bottom: 8px; min-height: 22px;
     }
     .zb-preview .neg { color: var(--mc-red); }
@@ -835,7 +838,7 @@
     .zb-key {
       min-height: 52px; border: 1.5px solid var(--mc-ink); border-radius: var(--mc-r);
       background: var(--mc-paper-raised); color: var(--mc-ink);
-      font-family: var(--mc-mono); font-size: 22px; font-weight: 700;
+      font-family: var(--mc-mono); font-size: 1.375rem; font-weight: 700;
       cursor: pointer; box-shadow: 0 2px 0 var(--mc-ink);
       transition: transform 0.1s, box-shadow 0.1s, background 0.15s;
       touch-action: manipulation;
@@ -843,7 +846,7 @@
     .zb-key:active { transform: translateY(2px); box-shadow: 0 0 0 var(--mc-ink); }
     .zb-key:focus-visible { outline: 2.5px solid var(--mc-red); outline-offset: 2px; }
     .zb-key:disabled { opacity: 0.45; cursor: not-allowed; }
-    .zb-key--sign { grid-column: 4; grid-row: 1 / 4; font-size: 30px; }
+    .zb-key--sign { grid-column: 4; grid-row: 1 / 4; font-size: 1.875rem; }
     .zb-key--sign[aria-pressed="true"] {
       background: var(--mc-red-wash); border-color: var(--mc-red); color: var(--mc-red);
       box-shadow: 0 2px 0 var(--mc-red);
@@ -864,28 +867,28 @@
     .zb-lock__ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-88deg); }
     .zb-lock__ring circle { fill: none; stroke: var(--mc-ink-soft); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
     @keyframes zb-locksweep { to { stroke-dashoffset: 1; } }
-    .zb-lock__n { font-family: var(--mc-mono); font-weight: 800; font-size: 28px; color: var(--mc-red); font-variant-numeric: tabular-nums; }
-    .zb-lock__hint { font-size: 14px; font-weight: 700; color: var(--mc-ink-soft); }
+    .zb-lock__n { font-family: var(--mc-mono); font-weight: 800; font-size: 1.75rem; color: var(--mc-red); font-variant-numeric: tabular-nums; }
+    .zb-lock__hint { font-size: 0.875rem; font-weight: 700; color: var(--mc-ink-soft); }
 
     /* ---- end screen record table ---- */
     .zb-record { display: grid; gap: 0; margin: 14px 0 6px; }
     .zb-record__row {
       display: flex; align-items: center; gap: 10px;
       padding: 9px 4px; border-bottom: 1px dashed var(--mc-line);
-      font-size: 15px;
+      font-size: 0.9375rem;
     }
     .zb-record__row:last-child { border-bottom: none; }
-    .zb-record__lv { font-family: var(--mc-mono); font-weight: 700; font-size: 12.5px; color: var(--mc-ink-faint); width: 30px; }
+    .zb-record__lv { font-family: var(--mc-mono); font-weight: 700; font-size: 0.78125rem; color: var(--mc-ink-faint); width: 30px; }
     .zb-record__name { flex: 1; font-weight: 600; text-align: left; line-height: 1.3; }
-    .zb-record__name small { display: block; font-size: 12px; font-weight: 500; color: var(--mc-ink-faint); }
+    .zb-record__name small { display: block; font-size: 0.75rem; font-weight: 500; color: var(--mc-ink-faint); }
     .zb-record__mark { width: 22px; height: 22px; }
     .zb-record__mark svg { width: 100%; height: 100%; }
     .zb-record__mark .ok { stroke: var(--mc-correct); }
     .zb-record__mark .no { stroke: var(--mc-red); }
-    .zb-record__pts { font-family: var(--mc-mono); font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--mc-ink-soft); text-align: right; white-space: nowrap; }
+    .zb-record__pts { font-family: var(--mc-mono); font-weight: 700; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: var(--mc-ink-soft); text-align: right; white-space: nowrap; }
 
     .zb-takeaway-formula {
-      font-family: var(--mc-mono); font-weight: 800; font-size: clamp(16px, 4.5vw, 21px);
+      font-family: var(--mc-mono); font-weight: 800; font-size: clamp(1rem, 4.5vw, 1.3125rem);
       text-align: center; margin: 4px 0 2px; letter-spacing: -0.01em;
     }
     .zb-takeaway-formula .zb-zero { color: var(--mc-red); }
@@ -903,7 +906,7 @@
     }
     .zb-ctrltakeover .zb-chai { width: 112px; height: 112px; font-size: 36px; letter-spacing: 0.04em; }
     .zb-ctrltakeover__cap {
-      font-family: var(--mc-mono); font-weight: 800; font-size: 15px; letter-spacing: 0.08em;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 0.9375rem; letter-spacing: 0.08em;
       color: var(--mc-red); background: color-mix(in srgb, var(--mc-paper) 85%, transparent);
       padding: 2px 12px; border-radius: 4px; transform: rotate(-3deg);
     }
@@ -926,7 +929,7 @@
     }
     .zb-board.condemned::after {
       content: attr(data-condemn); position: absolute; top: -11px; right: -4px;
-      font-family: var(--mc-mono); font-weight: 800; font-size: 12px; letter-spacing: 0.08em;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 0.75rem; letter-spacing: 0.08em;
       color: var(--mc-red); border: 2px solid var(--mc-red); border-radius: 4px;
       padding: 2px 8px; transform: rotate(6deg);
       background: color-mix(in srgb, var(--mc-paper) 85%, transparent);
@@ -942,7 +945,7 @@
     }
     .zb-playerlist { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
     .zb-playerlist span {
-      font-family: var(--mc-mono); font-weight: 700; font-size: 13.5px;
+      font-family: var(--mc-mono); font-weight: 700; font-size: 0.84375rem;
       border: 1.5px solid var(--mc-ink); border-radius: var(--mc-r);
       background: var(--mc-paper-raised); padding: 5px 12px;
       animation: mc-pop 0.3s cubic-bezier(0.2, 1.5, 0.35, 1) both;
@@ -952,13 +955,13 @@
     .zb-playerlist span.arm { border-color: var(--mc-red); color: var(--mc-red); }
     /* quiet count of players with no points this round (no names) */
     .zb-strugglers {
-      text-align: center; font-family: var(--mc-mono); font-size: 12px;
+      text-align: center; font-family: var(--mc-mono); font-size: 0.75rem;
       font-weight: 700; color: var(--mc-ink-faint); margin-top: 4px;
     }
     .zb-hostboard { max-width: 340px; margin: 4px auto 0; }
     .zb-hostboard__row {
       display: flex; align-items: baseline; gap: 10px;
-      font-family: var(--mc-mono); font-size: 14.5px; font-weight: 700;
+      font-family: var(--mc-mono); font-size: 0.90625rem; font-weight: 700;
       padding: 5px 6px; border-bottom: 1px dashed var(--mc-line);
       font-variant-numeric: tabular-nums;
     }
@@ -978,14 +981,14 @@
     /* solo hint chip: a pencilled marginal offer above the keypad */
     .zb-solohint {
       display: block; margin: 0 auto 8px; padding: 5px 14px;
-      font-family: inherit; font-size: 13px; color: var(--mc-ink-soft);
+      font-family: inherit; font-size: 0.8125rem; color: var(--mc-ink-soft);
       background: none; border: 1.5px dashed var(--mc-ink-faint);
       border-radius: var(--mc-r); cursor: pointer;
     }
     .zb-solohint:hover { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
     /* pause: the site shuts down cleanly and picks up where it stopped */
     .zb-pausebtn {
-      font-family: inherit; font-size: 13px; font-weight: 700;
+      font-family: inherit; font-size: 0.8125rem; font-weight: 700;
       color: var(--mc-ink-soft); background: none; cursor: pointer;
       border: 1.5px solid var(--mc-ink-faint); border-radius: var(--mc-r);
       padding: 3px 12px; margin-left: 10px; vertical-align: middle;
@@ -1005,13 +1008,13 @@
     }
     /* quiet reclaim-by-code row under the cover buttons */
     .zb-reclaim { display: flex; align-items: center; gap: 8px; }
-    .zb-reclaim__label { font-size: 13px; color: var(--mc-ink-soft); white-space: nowrap; }
+    .zb-reclaim__label { font-size: 0.8125rem; color: var(--mc-ink-soft); white-space: nowrap; }
     .zb-reclaim .mc-input {
       flex: 1; min-width: 0; font-family: var(--mc-mono); text-transform: uppercase;
       letter-spacing: 0.08em;
     }
     .zb-reclaim .mc-btn { padding: 8px 14px; }
-    .zb-hostboard__rank { color: var(--mc-ink-faint); font-size: 12px; width: 20px; }
+    .zb-hostboard__rank { color: var(--mc-ink-faint); font-size: 0.75rem; width: 20px; }
     .zb-hostboard__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .zb-hostboard__pts { color: var(--mc-gold); }
     .zb-hostboard__row.me .zb-hostboard__name { color: var(--mc-red); }
@@ -1019,7 +1022,7 @@
     /* streak multiplier chip: the ×1.x everyone is actually earning */
     .zb-mult {
       display: inline-block; font-family: var(--mc-mono); font-weight: 800;
-      font-size: 12.5px; line-height: 1.5; color: var(--mc-gold);
+      font-size: 0.78125rem; line-height: 1.5; color: var(--mc-gold);
       border: 1.5px solid currentColor; border-radius: 4px; padding: 0 6px;
       margin-left: 8px; vertical-align: middle;
     }
@@ -1030,7 +1033,7 @@
       55% { background: var(--mc-gold); color: var(--mc-paper); }
       100% { transform: scale(1); }
     }
-    .zb-hostboard__row .zb-mult { font-size: 11px; margin-left: 0; }
+    .zb-hostboard__row .zb-mult { font-size: 0.6875rem; margin-left: 0; }
     /* each NEW star stamps in; earlier stars hold still (renderStreak
      * suppresses their re-mount pop) */
     .mc-stars svg.zb-starnew { animation: zb-starstamp 0.5s cubic-bezier(0.2, 1.5, 0.35, 1) both; }
@@ -1109,12 +1112,12 @@
          camera frames each building for whatever box results */
       width: 100%; height: 62vh; max-height: 580px; margin: 0 auto;
     }
-    .zb-stage--projector .zb-board { font-size: clamp(30px, 3.4vw, 46px); padding: 14px 16px; }
-    .zb-stage--projector .zb-topline__level { font-size: 16px; }
-    .zb-stage--projector .zb-timer { font-size: 30px; }
-    .zb-stage--projector .zb-score { font-size: 20px; }
+    .zb-stage--projector .zb-board { font-size: clamp(1.875rem, 3.4vw, 2.875rem); padding: 14px 16px; }
+    .zb-stage--projector .zb-topline__level { font-size: 1rem; }
+    .zb-stage--projector .zb-timer { font-size: 1.875rem; }
+    .zb-stage--projector .zb-score { font-size: 1.25rem; }
     .zb-stage--projector .zb-hostboard { max-width: none; }
-    .zb-stage--projector .zb-hostboard__row { font-size: 18px; padding: 8px 10px; }
+    .zb-stage--projector .zb-hostboard__row { font-size: 1.125rem; padding: 8px 10px; }
     .zb-stage--projector .zb-mark { min-height: 120px; }
     .zb-stage--projector .zb-floatpts { font-size: 52px; }
     .zb-stage--projector .zb-chai { width: 124px; height: 124px; font-size: 72px; }
@@ -1122,8 +1125,8 @@
     /* full-hall screens: fill the leaderboard column, less empty cream */
     @media (min-width: 1700px) {
       .zb-stage--projector { max-width: 1400px; }
-      .zb-stage--projector .zb-hostboard__row { font-size: 22px; padding: 10px 14px; }
-      .zb-stage--projector .zb-timer { font-size: 34px; }
+      .zb-stage--projector .zb-hostboard__row { font-size: 1.375rem; padding: 10px 14px; }
+      .zb-stage--projector .zb-timer { font-size: 2.125rem; }
     }
 
     /* compact phones: keep the keypad reachable without hunting.

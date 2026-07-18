@@ -105,9 +105,13 @@
 /* ---------- base ---------- */
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+/* rem root: a student's browser font-size preference must actually
+   scale the reading text (board, keypad, notes). Scene-internal SVG
+   text stays px on purpose - it scales with the drawing's viewBox. */
+html { font-size: 100%; }
 body {
   font-family: var(--mc-body);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.65;
   background-color: var(--mc-paper);
   /* graph-paper grid + fractal-noise grain (CSM paper-texture recipe) */
@@ -164,7 +168,7 @@ svg { display: block; }
 }
 .mc-masthead__code {
   font-family: var(--mc-mono);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -175,7 +179,7 @@ svg { display: block; }
 .mc-title {
   font-family: var(--mc-display);
   font-weight: 900;
-  font-size: clamp(34px, 8vw, 52px);
+  font-size: clamp(2.125rem, 8vw, 3.25rem);
   letter-spacing: -0.01em;
   margin: 0 0 6px;
 }
@@ -201,7 +205,7 @@ svg { display: block; }
   display: flex;
   gap: 18px;
   font-family: var(--mc-mono);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--mc-ink-faint);
@@ -254,7 +258,7 @@ svg { display: block; }
   background: var(--mc-paper-raised);
   color: var(--mc-ink);
   font-family: var(--mc-body);
-  font-size: 16.5px;
+  font-size: 1.03125rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 2px 0 var(--mc-ink);
@@ -300,7 +304,7 @@ svg { display: block; }
 }
 .mc-board__label {
   font-family: var(--mc-mono);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -310,7 +314,7 @@ svg { display: block; }
 .mc-board__value {
   font-family: var(--mc-mono);
   font-weight: 800;
-  font-size: clamp(38px, 9vw, 58px);
+  font-size: clamp(2.375rem, 9vw, 3.625rem);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -321,7 +325,7 @@ svg { display: block; }
 .mc-code {
   font-family: var(--mc-mono);
   font-weight: 800;
-  font-size: clamp(44px, 12vw, 72px);
+  font-size: clamp(2.75rem, 12vw, 4.5rem);
   letter-spacing: 0.18em;
   font-variant-numeric: tabular-nums;
 }
@@ -340,7 +344,7 @@ svg { display: block; }
 /* ---------- star shelf (streak reward, gold pen stars) ---------- */
 .mc-stars { display: flex; gap: 6px; justify-content: center; align-items: center; min-height: 24px; flex-wrap: wrap; }
 .mc-stars svg { width: 21px; height: 21px; fill: var(--mc-gold); animation: mc-pop 0.4s cubic-bezier(0.2, 1.6, 0.35, 1) both; }
-.mc-stars .mc-stars__count { font-family: var(--mc-mono); font-weight: 800; font-size: 15px; color: var(--mc-gold); }
+.mc-stars .mc-stars__count { font-family: var(--mc-mono); font-weight: 800; font-size: 0.9375rem; color: var(--mc-gold); }
 @keyframes mc-pop { from { transform: scale(0) rotate(-40deg); } }
 
 /* ---------- marking: stamps + margin notes ---------- */
@@ -356,7 +360,7 @@ svg { display: block; }
   align-items: center;
   gap: 10px;
   font-family: var(--mc-display);
-  font-size: 20px;
+  font-size: 1.25rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--mc-red);
@@ -377,7 +381,7 @@ svg { display: block; }
 /* the worked reason, written like red ink in the margin */
 .mc-margin-note {
   font-family: var(--mc-mono);
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--mc-red);
   text-align: center;
@@ -389,7 +393,7 @@ svg { display: block; }
   width: 100%;
   min-height: 58px;
   font-family: var(--mc-mono);
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 700;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -400,7 +404,7 @@ svg { display: block; }
   box-shadow: inset 0 2px 0 rgba(28, 25, 23, 0.06);
 }
 .mc-input:focus { outline: none; border-color: var(--mc-red); box-shadow: 0 0 0 3px var(--mc-red-wash); }
-.mc-input::placeholder { color: var(--mc-ink-faint); font-size: 17px; font-weight: 500; letter-spacing: 0.02em; }
+.mc-input::placeholder { color: var(--mc-ink-faint); font-size: 1.0625rem; font-weight: 500; letter-spacing: 0.02em; }
 
 /* ---------- status line (replaces alert()) ---------- */
 .mc-status {
@@ -411,7 +415,7 @@ svg { display: block; }
   min-height: 44px;
   padding: 10px 14px;
   border-radius: var(--mc-r);
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--mc-ink-soft);
   background: transparent;
@@ -425,7 +429,7 @@ svg { display: block; }
   position: fixed; top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); z-index: 50;
   display: none;
   align-items: center; gap: 7px;
-  font-family: var(--mc-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+  font-family: var(--mc-mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
   padding: 6px 12px;
   border-radius: var(--mc-r);
   border: 1.5px solid currentColor;
@@ -441,7 +445,7 @@ svg { display: block; }
 .mc-toggles { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); display: flex; gap: 6px; z-index: 50; }
 .mc-toggles .mc-btn--quiet {
   font-family: var(--mc-mono);
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   border: 1px solid var(--mc-line);
@@ -461,8 +465,8 @@ svg { display: block; }
   border-top: 1px solid var(--mc-line);
 }
 .mc-brand img { height: 34px; width: auto; }
-.mc-brand__name { font-size: 13.5px; font-weight: 700; line-height: 1.25; }
-.mc-brand__sub { font-size: 11.5px; color: var(--mc-ink-faint); }
+.mc-brand__name { font-size: 0.84375rem; font-weight: 700; line-height: 1.25; }
+.mc-brand__sub { font-size: 0.71875rem; color: var(--mc-ink-faint); }
 /* theme swap: logo-secondary (black disc) on light, -dark (light disc) on dark */
 .mc-logo--dark { display: none; }
 @media (prefers-color-scheme: dark) {

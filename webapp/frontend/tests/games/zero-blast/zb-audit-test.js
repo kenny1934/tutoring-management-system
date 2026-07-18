@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* zb-audit-test.js — 歸零爆破 Zero Blast AUDIT suite (71 assertions).
+/* zb-audit-test.js — 歸零爆破 Zero Blast AUDIT suite (74 assertions).
  *
  * Covers: EN/dark bilingual checks, 320px + landscape-phone layout,
  * reduced motion (incl. the armed-preview drain bar), the fx=lite/full
@@ -309,6 +309,55 @@ async function section320(browser) {
       padInfo.padH >= 140 &&
       padInfo.padH <= 400,
     JSON.stringify(padInfo)
+  );
+  await ctx.close();
+}
+
+/* ══════════════ 11a–11c · rem root + grace contrast ══════════════ */
+async function sectionA11yText(browser) {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await ctx.newPage();
+  await page.goto(BASE + "?levels=1&rounds=1&seed=7&fx=lite&theme=light");
+  await startSolo(page);
+  await sleep(250);
+  const read = () =>
+    page.evaluate(() => ({
+      key: parseFloat(getComputedStyle(document.querySelector("#pad .zb-key")).fontSize),
+      body: parseFloat(getComputedStyle(document.body).fontSize),
+      plabel: parseFloat(getComputedStyle(document.querySelector(".zb-struct text")).fontSize),
+    }));
+  const base = await read();
+  // a browser font-size preference scales the root; reading text must
+  // follow it, scene-internal SVG text must not (it rides the viewBox)
+  await page.evaluate(() => { document.documentElement.style.fontSize = "125%"; });
+  const big = await read();
+  check(
+    "rem root: reading text follows the browser font preference",
+    big.key / base.key > 1.2 && big.body / base.body > 1.2,
+    JSON.stringify({ base, big })
+  );
+  check(
+    "rem root: scene SVG text stays viewBox-scaled",
+    big.plabel === base.plabel,
+    `${base.plabel} -> ${big.plabel}`
+  );
+  const grace = await page.evaluate(() => {
+    const d = document.createElement("div");
+    d.className = "zb-gracenum";
+    document.getElementById("scene").appendChild(d);
+    const got = getComputedStyle(d).color;
+    const probe = document.createElement("div");
+    probe.style.color = "var(--mc-red)";
+    document.body.appendChild(probe);
+    const want = getComputedStyle(probe).color;
+    d.remove();
+    probe.remove();
+    return { got, want };
+  });
+  check(
+    "grace numerals press in full red (>=3:1 large-text contrast)",
+    grace.got === grace.want,
+    JSON.stringify(grace)
   );
   await ctx.close();
 }
@@ -1120,6 +1169,7 @@ async function sectionCamera(browser) {
   try {
     await sectionEnDark(browser);
     await section320(browser);
+    await sectionA11yText(browser);
     await sectionLandscape(browser);
     await sectionReducedGame(browser);
     await sectionFx(browser);
