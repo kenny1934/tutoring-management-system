@@ -2085,7 +2085,14 @@ function camRelax() {
 }
 
 function renderStructure(level) {
-  const xs = level.pillars.length === 1 ? [200] : (level.n === 5 ? [170, 230] : [140, 260]);
+  // pillar x by ROOT RANK: the smaller root always stands left, so the
+  // resolve graph's x-intercepts read left-to-right like every SM902
+  // sketch (and match the phone thumbnail, which sorts). Only the
+  // drawing is ranked - the equation keeps its own factor order, kind
+  // 4's shuffle IS the sign trap and strikes key by pillar id.
+  const xs = level.pillars.length === 1 ? [200]
+    : level.n === 5 ? [170, 230]
+    : level.pillars[0].root <= level.pillars[1].root ? [140, 260] : [260, 140];
   const svg = $("structSvg");
   const vt = variantTransform(level);
   const deckHtml = () =>
@@ -4039,6 +4046,11 @@ function onCtrlRoom(room) {
     if (phaseChanged) {
       // covers a host restart after the end screen too
       if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
+      // the end screen killed the tick (ctrlEnd): without restarting
+      // it here a 再拆一次 leaves every phone a frozen timer and a
+      // dead pad - staging and pad.enable live inside ctrlTick
+      clearInterval(C.timerIv);
+      C.timerIv = setInterval(ctrlTick, 100);
       $("ctrlMark").innerHTML = "";
       ctrlTick(); // stage now if the ignite is already past (late join)
     }
@@ -4148,6 +4160,9 @@ function applyCtrlVerdict(v) {
 
 function ctrlEnd(results) {
   clearInterval(C.timerIv);
+  // a same-seed restart republishes an identical level key; clearing
+  // it forces the fresh board render (no struck factors carried over)
+  C.levelKey = null;
   const mine = results.find(r => r.id === C.id);
   const rank = results.findIndex(r => r.id === C.id) + 1;
   $("endScoreLabel").setAttribute("data-i18n", "your_score");
