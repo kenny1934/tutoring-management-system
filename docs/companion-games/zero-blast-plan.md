@@ -1078,10 +1078,12 @@ Androids (the spark simply never shows - the diorama still reads);
 the phone report shows 0.0s best on sub-100ms mock solves (real
 classes cannot produce this).
 
-## 14. Iteration 7 (planned): the tablet frame and the soundtrack
+## 14. Iteration 7: the tablet frame and the soundtrack
 
 Two items from Kenny's tablet playtest of iteration 6 (2026-07-18).
-Diagnosis done, implementation NOT started - next session.
+Status: COMPLETE - batch U `412637ae`, batch V `3cfde7bb` (2026-07-18,
+same day). Suites green after each batch: solo 135 / multi 110 /
+audit 70; game.json 0.8.0. Implementation deltas in 14.1.
 
 ### Batch U - the tablet frame fix (do first, it's a real bug)
 
@@ -1168,3 +1170,60 @@ and dry, master bgm gain ~0.12-0.15 under the 0.9 one-shot bus.
 Order: U then V. U is a correctness fix for hardware the centres
 actually hand out; V is the last amplitude item the audit left on
 the table.
+
+### 14.1 Implementation deltas (what actually shipped)
+
+**Batch U (`412637ae`)** - as planned, plus both "evaluate" items
+resolved in favour:
+
+- computeFrame: `if (w > VB_W) { w = VB_W; h = Math.max(w / A,
+  needH); }` - the letterbox fallback, exactly as specced. Probe:
+  all 12 viewport x kind cases now rest at the full 26-unit
+  headroom (was: kind 6 losing 75 units at 1024x768).
+- The compact rule is width-guarded: `(max-height: 780px) and
+  (max-width: 700px)`. The landscape-phone rule gained its own
+  `.zb-key { min-height: 48px }` because compact used to reach
+  844x390 phones and no longer does.
+- Tablet band SHIPPED: `(min-width: 701px) and (max-width: 1099px)`
+  gives the scene `clamp(240px, 48vh, 520px)`.
+- Projector breakpoint DROPPED to 1000 (applyProjector + QR size).
+  Probed host at 1024x768 with the grid forced: scene 602x476, no
+  overflow either axis, fold overflow 11px vs 38px single-column -
+  strictly better. Side effect worth knowing: applyProjector runs
+  for EVERY mode, so solo on a 1024-wide iPad gets the projector
+  grid too (scene left, keypad right, everything above the fold) -
+  probed, kept. Consequence: at 1024x768 the letterbox fallback
+  never engages (friendlier scene aspect); it engages on squat
+  boxes like 1138x620, which is where the audit asserts it.
+- Audit gained section 9: 6 kinds x 3 viewports (1024x768,
+  1138x620, 768x1024) - headroom >= 8, ground band in shot, fill
+  >= 0.55, letterbox engagement + fx spark alignment at 1138x620.
+
+**Batch V (`3cfde7bb`)** - as planned, small deltas:
+
+- fx.js `bgm` module: 78 BPM, 16-step bar, four voices (claves
+  1160/1680 Hz sine chirps, tom 118->52 Hz, highpass-6200 grit off
+  the shared noise buffer, 2794 Hz triangle tink). Bus 0.14 into
+  master. Lookahead: 25ms interval, 120ms horizon, skip-ahead guard
+  for throttled tabs (jump the missed bar, never machine-gun it).
+- API: allow / setIntensity / duck / stop / sync / state. `sync()`
+  is the delta from plan: audio.setOn calls it so the opt-in chip
+  or header toggle starts/stops the groove mid-round.
+- Wiring beyond the plan list: btnMenu stops it (back on the
+  silent cover), resumeRun re-allows it (a restored host is still
+  the big stage), and the collapse ALSO drops warn -> base so the
+  tick layer never rides the rubble reveal.
+- Ducking: cancel ramps, 40ms down to 8%, hold 150ms, 500ms back.
+  `state().ducks` counts for the suites.
+- Tests: state() census asserted across solo (armed-but-silent when
+  sound off, mid-round opt-in/out), multi (lobby/base/grace tiers,
+  duck >= 1, controller silent WITH sound on, end stop) and audit
+  (base/warn/duck/end on a one-round run; same-origin unchanged -
+  the groove adds zero fetches).
+
+Watch-list additions: bgm feel at real classroom volume (the 0.14
+bus is a guess until Kenny hears it on the centre speakers);
+whether the lobby groove should also play on the solo COVER after
+a menu exit (currently silent by design); old-Android setInterval
+throttling under screen-dim (the skip-ahead guard handles it, but
+the groove will thin out).
