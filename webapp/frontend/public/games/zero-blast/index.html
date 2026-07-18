@@ -481,6 +481,38 @@
       100% { opacity: 0; transform: scale(0.92); }
     }
 
+    /* ---- the detonation grammar (batch Q) ---- */
+    /* hit-stop: at the crack the whole scene holds its breath for
+       90ms — every CSS animation inside pauses (fx.js holds the
+       canvas side), then the break releases it */
+    .zb-scene.zb-hitstop *, .zb-scene.zb-hitstop *::before, .zb-scene.zb-hitstop *::after {
+      animation-play-state: paused !important;
+    }
+    /* one-frame paper-white flash at the break: light, never red.
+       On the chalkboard it flashes chalk-pale instead. */
+    .zb-blastflash {
+      position: absolute; inset: 0; z-index: 3; pointer-events: none;
+      background: var(--mc-paper);
+      animation: zb-blastflash 0.3s ease-out both;
+    }
+    @keyframes zb-blastflash { from { opacity: 0.9; } to { opacity: 0; } }
+    :root[data-theme="dark"] .zb-blastflash { background: #f2ecdd; animation-name: zb-blastflash-dark; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .zb-blastflash { background: #f2ecdd; animation-name: zb-blastflash-dark; }
+    }
+    @keyframes zb-blastflash-dark { from { opacity: 0.5; } to { opacity: 0; } }
+    /* ink shockwave ring expanding from the deck base (GSAP-driven) */
+    .zb-shockring { fill: none; stroke: var(--mc-ink); }
+    /* last three seconds: the sky band dips a shade and the spark
+       grows — back-of-the-room tension. A state, not a motion:
+       reduced motion keeps it. */
+    .zb-skydim {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(to bottom, color-mix(in srgb, var(--mc-ink) 13%, transparent), transparent 60%);
+      opacity: 0; transition: opacity 0.7s ease-out;
+    }
+    .zb-scene.lastcall .zb-skydim { opacity: 1; }
+
     .zb-rubble { visibility: hidden; transform-box: fill-box; transform-origin: center bottom; }
     .zb-rubble.show { visibility: visible; }
     .zb-rubble.show path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: zb-draw 0.4s ease-out forwards; }
@@ -524,10 +556,12 @@
       transform: rotate(-8deg);
       animation: zb-chaislam 0.5s cubic-bezier(0.3, 0, 0.4, 1) both;
     }
+    /* batch Q: the chop falls from three times its size — an event,
+       not a footnote — and still packs the pile with the same beat */
     @keyframes zb-chaislam {
-      0% { opacity: 0; transform: rotate(-8deg) scale(2.4) translateY(-40px); }
+      0% { opacity: 0; transform: rotate(-8deg) scale(3.1) translateY(-70px); }
       55% { opacity: 1; transform: rotate(-8deg) scale(0.94) translateY(0); }
-      72% { transform: rotate(-8deg) scale(1.06); }
+      72% { transform: rotate(-8deg) scale(1.08); }
       100% { transform: rotate(-8deg) scale(1); }
     }
     .zb-scenestamp .zb-chai__cap {
@@ -546,9 +580,9 @@
      * lives in the mark zone. */
     .zb-scenestamp .zb-condemn {
       position: absolute; top: 4%; right: 3%;
-      font-family: var(--mc-mono); font-weight: 800; font-size: 15px; letter-spacing: 0.1em;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 16.5px; letter-spacing: 0.1em;
       color: var(--mc-red); border: 2.5px solid var(--mc-red); border-radius: 4px;
-      padding: 3px 10px; transform: rotate(6deg);
+      padding: 4px 12px; transform: rotate(6deg);
       background: color-mix(in srgb, var(--mc-paper) 80%, transparent);
       box-shadow:
         inset 0 0 0 1.5px color-mix(in srgb, var(--mc-red) 30%, transparent),
@@ -562,19 +596,24 @@
     }
     .zb-struct .zb-tape path:last-child { animation-delay: 0.18s; }
 
-    /* +N 分 ink numeral floating from the building to the score */
+    /* +N 分 in display type, bursting beside the building then flying
+       to the score, which bumps on arrival (batch Q) */
     .zb-floatpts {
       position: absolute; top: 52%; z-index: 4;
-      font-family: var(--mc-mono); font-weight: 800; font-size: 20px; color: var(--mc-ink);
-      text-shadow: 0 0 10px var(--mc-paper), 0 0 4px var(--mc-paper);
+      font-family: var(--mc-display); font-weight: 800;
+      font-size: clamp(26px, 4vw, 40px); color: var(--mc-ink);
+      text-shadow: 0 0 12px var(--mc-paper), 0 0 5px var(--mc-paper);
       pointer-events: none; white-space: nowrap;
       animation: zb-floatpts 0.95s cubic-bezier(0.4, 0, 0.7, 0.4) forwards;
     }
     @keyframes zb-floatpts {
-      0% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
-      18% { opacity: 1; transform: translate(-50%, -70%) scale(1); }
-      100% { opacity: 0; transform: translate(calc(-50% + var(--fdx, 0px)), calc(-50% + var(--fdy, -80px))) scale(0.5); }
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+      14% { opacity: 1; transform: translate(-50%, -74%) scale(1); }
+      72% { opacity: 0.95; }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--fdx, 0px)), calc(-50% + var(--fdy, -80px))) scale(0.4); }
     }
+    .zb-scorebump { display: inline-block; animation: zb-scorebump 0.3s cubic-bezier(0.2, 1.5, 0.35, 1); }
+    @keyframes zb-scorebump { 40% { transform: scale(1.22); } }
 
     /* level intro card: the blueprint TITLE BLOCK of the incoming
      * worksheet page, stamped in with a little rotation overshoot */
@@ -869,7 +908,9 @@
     .zb-stage--projector .zb-hostboard { max-width: none; }
     .zb-stage--projector .zb-hostboard__row { font-size: 18px; padding: 8px 10px; }
     .zb-stage--projector .zb-mark { min-height: 120px; }
-    .zb-stage--projector .zb-floatpts { font-size: 30px; }
+    .zb-stage--projector .zb-floatpts { font-size: 52px; }
+    .zb-stage--projector .zb-chai { width: 124px; height: 124px; font-size: 72px; }
+    .zb-stage--projector .zb-scenestamp .zb-chai__cap { font-size: 18px; }
     /* full-hall screens: fill the leaderboard column, less empty cream */
     @media (min-width: 1700px) {
       .zb-stage--projector { max-width: 1400px; }
@@ -1131,6 +1172,7 @@
         <div class="zb-scenewrap">
           <div class="zb-scene" id="scene">
             <svg id="structSvg" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid meet" class="zb-struct" aria-hidden="true"></svg>
+            <div class="zb-skydim" aria-hidden="true"></div>
             <canvas id="fxCanvas" aria-hidden="true"></canvas>
             <div class="zb-scenestamp" id="sceneStamp" aria-live="polite"></div>
             <div class="zb-levelcard" id="levelCard" aria-hidden="true">
@@ -2095,6 +2137,46 @@ function floatPoints(pts, vbX) {
   }
   scene.appendChild(el);
   setTimeout(() => el.remove(), 1000);
+  // the score takes the hit as the numeral arrives
+  setTimeout(() => {
+    target.classList.remove("zb-scorebump");
+    void target.offsetWidth;
+    target.classList.add("zb-scorebump");
+  }, 820);
+}
+
+/* ── the detonation grammar (batch Q) ──
+ * Every collapse is a screen event: 90ms hit-stop at the crack, a
+ * paper-white flash (never red), an ink shockwave ring, torn paper.
+ * Reduced motion skips the grammar whole; the labels never move, so
+ * the multi timing contract (turn at 2.2s) holds. */
+function blastFlash() {
+  const old = document.querySelector(".zb-blastflash");
+  if (old) old.remove();
+  const f = document.createElement("div");
+  f.className = "zb-blastflash";
+  $("scene").appendChild(f);
+  setTimeout(() => f.remove(), 380);
+}
+function blastRing(cx, cy) {
+  const svg = $("structSvg");
+  if (!svg) return;
+  const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  ring.setAttribute("cx", cx);
+  ring.setAttribute("cy", cy);
+  ring.setAttribute("r", 8);
+  ring.setAttribute("class", "zb-shockring");
+  svg.appendChild(ring);
+  gsap.fromTo(ring,
+    { attr: { r: 8, "stroke-width": 3 }, opacity: 0.55 },
+    { attr: { r: 175, "stroke-width": 0.7 }, opacity: 0, duration: 0.55, ease: "power2.out",
+      onComplete: () => ring.remove() });
+}
+function blastHold() {
+  G.hitStopAt = performance.now();
+  $("scene").classList.add("zb-hitstop");
+  ZBFX.hitStop(90);
+  setTimeout(() => $("scene").classList.remove("zb-hitstop"), 92);
 }
 
 function markHtml(kind, lines) {
@@ -2365,7 +2447,9 @@ function startLevel(resume) {
   G.scoredRound = resume ? (resume.scoredRound || {}) : {};
   G.echoTally = resume ? (resume.echoTally || {}) : {};
   G.hinted = resume ? !!resume.hinted : false;
-  $("scene").classList.remove("critical");
+  $("scene").classList.remove("critical", "lastcall", "zb-hitstop");
+  G.lastCall = false;
+  G.hitStopAt = null;
   setSkipLabel("tutor_skip");
   const hintable = G.mode === "host" && level.kind === "expanded";
   $("btnHint").style.display = hintable ? "" : "none";
@@ -2485,6 +2569,16 @@ function fuseFrame() {
   $("fuseSpark").setAttribute("cx", pt.x); $("fuseSpark").setAttribute("cy", pt.y);
   $("fuseGlow").setAttribute("cx", pt.x); $("fuseGlow").setAttribute("cy", pt.y);
   ZBFX.sparksAt(ignited ? pt.x : null, pt.y);
+
+  // last three seconds: the sky darkens a shade and the spark grows —
+  // tension the back row can read (a state change, kept under reduced)
+  const lastCall = ignited && remain > 0 && remain <= 3050;
+  if (lastCall !== G.lastCall) {
+    G.lastCall = lastCall;
+    $("scene").classList.toggle("lastcall", lastCall);
+    $("fuseSpark").setAttribute("r", lastCall ? 4.6 : 3.2);
+    $("fuseGlow").setAttribute("r", lastCall ? 9.5 : 6.5);
+  }
 
   // finale street: the countdown starts earlier and ticks twice as fast
   const warnAt = G.level.finale ? 10200 : 5200;
@@ -2974,7 +3068,7 @@ async function resumeRun(saved) {
 function collapseAndAdvance() {
   G.over = true;
   G.grace = false;
-  $("scene").classList.remove("critical");
+  $("scene").classList.remove("critical", "lastcall");
   settleSoundOffer();
   cancelAnimationFrame(G.raf);
   ZBFX.audio.fuseStop();
@@ -3006,22 +3100,34 @@ function collapseAndAdvance() {
   // head start, and the foreman leans onto the plunger at the crack
   tl.call(scatterCrew, null, 0);
   tl.call(foremanPush, null, "crack");
-  // fault lines flash, one small shake pulse, THEN the break
+  // fault lines flash, one small shake pulse, a 90ms hit-stop, THEN
+  // the break — flash, shockwave, torn paper, a punch on the frame.
+  // All inside the fixed crack→fall gap: no label ever moves.
   tl.call(() => {
     showCracks();
     ZBFX.shake(5);
     ZBFX.audio.crack();
   }, null, "crack");
+  if (!ZBFX.reduced) tl.call(blastHold, null, 0.44);
   tl.call(() => {
     const cracks = $("cracks");
     if (cracks) cracks.remove();
     $("deck").classList.remove("sag-l", "sag-r");
     $("deck").classList.add("fall");
     ZBFX.audio.collapse();
-    ZBFX.shake(15);
+    ZBFX.shake(16);
     ZBFX.vibrate([60, 40, 130]);
-    ZBFX.debris(200, 130, { count: 40, power: 1.5 });
+    ZBFX.debris(200, 130, { count: 100, power: 1.5 });
     ZBFX.dust(200, GROUND - 10, { count: 6 });
+    if (!ZBFX.reduced) {
+      blastFlash();
+      blastRing(200, DECK_Y);
+      ZBFX.scraps(200, 135, { count: 5 + level.n });
+      // the finale's frame punch, promoted to every collapse and
+      // scaled by the building
+      gsap.fromTo(".zb-scenewrap", { scale: 1 },
+        { scale: 1.02 + level.n * 0.004, duration: 0.09, yoyo: true, repeat: 1, ease: "power2.out", clearProps: "scale" });
+    }
   }, null, "fall");
   tl.call(() => {
     $("rubble").classList.add("show");
@@ -3079,6 +3185,8 @@ function collapseAndAdvance() {
 
 function fuseOut() {
   G.over = true;
+  // the fizzle stays deliberately quiet — the sky just clears
+  $("scene").classList.remove("lastcall");
   settleSoundOffer();
   cancelAnimationFrame(G.raf);
   ZBFX.audio.fuseStop();

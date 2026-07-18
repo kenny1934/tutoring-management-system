@@ -27,6 +27,7 @@
   var shakeAmp = 0;
   var running = false;
   var sparkEmitter = null; // {x, y} in viewBox units, or null
+  var freezeUntil = 0; // hit-stop: the world holds its breath
 
   function attach(canvasEl, sceneEl, viewW, viewH) {
     canvas = canvasEl;
@@ -185,6 +186,37 @@
     }
   }
 
+  /* torn-paper chunks: big scraps of the worksheet itself thrown out
+   * of the blast, paper-filled with an inked edge so they read at
+   * classroom distance where the small shards cannot */
+  function scraps(x, y, opts) {
+    if (reduced) return;
+    opts = opts || {};
+    var at = toPx(x, y);
+    var n = Math.round((opts.count || 7) * fxScale());
+    var paper = token("--mc-paper-raised") || token("--mc-paper");
+    var edge = token("--mc-ink");
+    for (var i = 0; i < n; i++) {
+      var ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.4;
+      var pow = (2.5 + Math.random() * 4.5) * at.scale;
+      spawn({
+        type: "scrap",
+        x: at.x + (Math.random() - 0.5) * 34 * at.scale,
+        y: at.y + (Math.random() - 0.5) * 18 * at.scale,
+        vx: Math.cos(ang) * pow,
+        vy: Math.sin(ang) * pow - 1.5 * at.scale,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.32,
+        size: (7 + Math.random() * 9) * at.scale,
+        ttl: 900 + Math.random() * 500,
+        life: 0,
+        color: paper,
+        edge: edge,
+        g: 0.15 * at.scale,
+      });
+    }
+  }
+
   /* finale celebration: ink splatter burst — the house language is
    * splatter and stars, never confetti */
   function splatter(x, y) {
@@ -298,6 +330,13 @@
 
   var last = 0;
   function frame(ts) {
+    // hit-stop: hold the whole canvas world (particles mid-air, the
+    // shake offset frozen) until the freeze releases
+    if (performance.now() < freezeUntil) {
+      last = ts;
+      requestAnimationFrame(frame);
+      return;
+    }
     if (!last) last = ts;
     var dt = Math.min(ts - last, 40);
     last = ts;
@@ -342,6 +381,24 @@
         ctx.fillStyle = p.color;
         p.rot += p.vr * (dt / 16);
         drawStar(p.x, p.y, p.size, p.rot);
+      } else if (p.type === "scrap") {
+        ctx.globalAlpha = k;
+        p.rot += p.vr * (dt / 16);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.strokeStyle = p.edge;
+        ctx.lineWidth = Math.max(1, p.size / 9);
+        ctx.beginPath();
+        ctx.moveTo(-p.size / 2, -p.size / 3);
+        ctx.lineTo(p.size / 2, -p.size / 2.6);
+        ctx.lineTo(p.size / 2.4, p.size / 3);
+        ctx.lineTo(-p.size / 2.2, p.size / 2.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       } else {
         // sparks composite additively on the dark chalkboard: embers
         ctx.globalAlpha = k;
@@ -386,6 +443,14 @@
       running = true;
       requestAnimationFrame(frame);
     }
+  }
+
+  /* the 90ms breath before the break (batch Q). CSS animations are
+   * paused separately via the scene's zb-hitstop class; this holds
+   * the canvas side. */
+  function hitStop(ms) {
+    if (reduced) return;
+    freezeUntil = performance.now() + (ms || 90);
   }
 
   /* ---------------- audio ----------------
@@ -656,6 +721,8 @@
     debris: debris,
     dust: dust,
     dustRing: dustRing,
+    scraps: scraps,
+    hitStop: hitStop,
     splatter: splatter,
     starRain: starRain,
     sparksAt: sparksAt,
