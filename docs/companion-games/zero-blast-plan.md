@@ -619,6 +619,12 @@ readable under the level card with the pad live, so fast players
 could speed-run buildings that hadn't drawn yet. Board and keypad
 open together when the fuse lights, phones mirroring the projector
 via deadlineEpoch - fuseMs, latched against +15s/grace re-covers.
+Refined in `4a8d57ef`: the open beat is tied to the END of each
+building's draw-in (per-level stroke count), the question writes
+itself in left to right, and the deadline shifts with the beat so
+the hold never costs fuse. Rhythm: card, drawing, then question +
+fuse + keypad as one moment. Reduced motion (instant draw) keeps
+the 850ms card-clear open.
 
 game.json is 0.5.0. Batches N and O below were re-evaluated against
 what landed and remain the next session's work (see the order note).
