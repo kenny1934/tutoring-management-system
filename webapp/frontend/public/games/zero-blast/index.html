@@ -850,6 +850,46 @@
     .zb-takeaway-formula .zb-zero { color: var(--mc-red); }
 
     /* ---- multi-device bits ---- */
+    /* batch T: phones feel the blast. The claimer gets a full-card
+       歸零 takeover; everyone else's card thuds and trembles; the
+       grace 3-2-1 mirrors big; a fizzle condemns the phone's card. */
+    #ctrlPlay { position: relative; }
+    .zb-ctrltakeover {
+      position: fixed; inset: 0; z-index: 60; pointer-events: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+      background: color-mix(in srgb, var(--mc-paper) 55%, transparent);
+      animation: zb-ctrltakeover 1.05s ease-out both;
+    }
+    .zb-ctrltakeover .zb-chai { width: 112px; height: 112px; font-size: 36px; letter-spacing: 0.04em; }
+    .zb-ctrltakeover__cap {
+      font-family: var(--mc-mono); font-weight: 800; font-size: 15px; letter-spacing: 0.08em;
+      color: var(--mc-red); background: color-mix(in srgb, var(--mc-paper) 85%, transparent);
+      padding: 2px 12px; border-radius: 4px; transform: rotate(-3deg);
+    }
+    @keyframes zb-ctrltakeover {
+      0%, 60% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .zb-ctrltremble { animation: zb-ctrltremble 0.3s linear; }
+    @keyframes zb-ctrltremble {
+      20% { transform: translate(3px, -2px) rotate(0.3deg); }
+      45% { transform: translate(-3px, 2px) rotate(-0.3deg); }
+      70% { transform: translate(2px, -1px); }
+    }
+    .zb-board.condemned { position: relative; }
+    .zb-board.condemned::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background:
+        linear-gradient(to bottom right, transparent 46%, color-mix(in srgb, var(--mc-red) 26%, transparent) 47%, color-mix(in srgb, var(--mc-red) 26%, transparent) 53%, transparent 54%),
+        linear-gradient(to bottom left, transparent 46%, color-mix(in srgb, var(--mc-red) 26%, transparent) 47%, color-mix(in srgb, var(--mc-red) 26%, transparent) 53%, transparent 54%);
+    }
+    .zb-board.condemned::after {
+      content: attr(data-condemn); position: absolute; top: -11px; right: -4px;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 12px; letter-spacing: 0.08em;
+      color: var(--mc-red); border: 2px solid var(--mc-red); border-radius: 4px;
+      padding: 2px 8px; transform: rotate(6deg);
+      background: color-mix(in srgb, var(--mc-paper) 85%, transparent);
+    }
     .zb-claimname {
       font-family: var(--mc-mono); font-weight: 700; font-size: 11px;
       text-anchor: middle; fill: var(--mc-red); opacity: 0;
@@ -1484,6 +1524,7 @@ const STRINGS = {
   claims_status:    { c: "{k}/{m} 支柱已拆", e: "{k}/{m} pillars down" },
   note_claimed_by:  { c: "已由{name}拆咗", e: "Taken by {name}" },
   echo_tally:       { c: "回聲 ×{n}",    e: "Echo ×{n}" },
+  best_time_label:  { c: "最快",         e: "Fastest" },
   critical_fmt:     { c: "支柱全部拆晒！{s} 秒後總爆破", e: "All pillars down! Final blast in {s}s" },
   tutor_plus15:     { c: "+15 秒",      e: "+15 s" },
   tutor_hint:       { c: "提示",        e: "Hint" },
@@ -2528,7 +2569,7 @@ const G = {
   // host mode: room + per-player books (host is authoritative)
   room: null, watcher: null, started: false, grace: false, revealHold: false,
   players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {},
-  echoDone: {}, scoredRound: {}, echoTally: {},
+  echoDone: {}, scoredRound: {}, echoTally: {}, bestMs: {}, echoCountBy: {},
 };
 
 const pad = makePad($("pad"), $("padPreview"), $("padLock"), $("lockCount"), v => submitCode(v, null));
@@ -2557,7 +2598,7 @@ function startRun(mode) {
   GameBridge.emit(SLUG, "start", { mode: mode, players: Object.keys(G.players).length });
   G.levels = ZBLevels.genPlan(PLAN, newRand());
   G.idx = 0; G.score = 0; G.streak = 0; G.starsTotal = 0; G.records = []; G.ended = false;
-  G.scores = {}; G.streaks = {}; G.starsBy = {}; G.claimsBy = {}; G.scoredRound = {};
+  G.scores = {}; G.streaks = {}; G.starsBy = {}; G.claimsBy = {}; G.scoredRound = {}; G.bestMs = {}; G.echoCountBy = {};
   G.started = true;
   $("padWrap").style.display = mode === "host" ? "none" : "";
   $("hostBoard").style.display = mode === "host" ? "" : "none";
@@ -3022,6 +3063,14 @@ function submitCode(v, player) {
   else sagDeck(res.hit[0]);
 }
 
+/* per-player fastest solve of the game, for the personal end report.
+ * A grace-window echo computes against the rewritten deadline and
+ * comes out huge — Math.min keeps it harmless. */
+function recordSolveMs(pid) {
+  const ms = Math.round(G.duration - Math.max(0, G.deadline - performance.now()));
+  if (ms > 0) G.bestMs[pid] = Math.min(G.bestMs[pid] || Infinity, ms);
+}
+
 /* host mode: judge a phone's submission, write the private verdict,
  * and drive the shared scene. Wrong answers stay off the projector. */
 function hostVerdict(player, v, res) {
@@ -3050,6 +3099,10 @@ function hostVerdict(player, v, res) {
     G.streaks[player.id] = (G.streaks[player.id] || 0) + 1;
     G.starsBy[player.id] = (G.starsBy[player.id] || 0) + 1;
     G.scoredRound[player.id] = true;
+    recordSolveMs(player.id);
+    // game-long echo tally for the personal end report (echoDone
+    // itself is per-round state)
+    G.echoCountBy[player.id] = (G.echoCountBy[player.id] || 0) + 1;
     G.room.update("state/scores", { [player.id]: G.scores[player.id] });
     G.room.set("verdicts/" + player.id, {
       seq: player.seq, v: v, echo: true, hit: matching, pts: echoPts,
@@ -3079,6 +3132,7 @@ function hostVerdict(player, v, res) {
   G.streaks[player.id] = (G.streaks[player.id] || 0) + 1;
   G.starsBy[player.id] = (G.starsBy[player.id] || 0) + 1;
   G.scoredRound[player.id] = true;
+  recordSolveMs(player.id);
 
   if (level.kind === "expanded") {
     res.hit.forEach(id => {
@@ -3220,7 +3274,7 @@ function saveHostRun() {
       scores: G.scores, streaks: G.streaks, starsBy: G.starsBy,
       claimsBy: G.claimsBy, claimed: G.claimed, echoDone: G.echoDone,
       scoredRound: G.scoredRound, processedSeq: G.processedSeq, hinted: G.hinted,
-      echoTally: G.echoTally,
+      echoTally: G.echoTally, bestMs: G.bestMs, echoCountBy: G.echoCountBy,
       players: G.players, levelPoints: G.levelPoints,
       deadlineEpoch: Date.now() + Math.max(0, Math.round(G.deadline - performance.now())),
     }));
@@ -3264,6 +3318,8 @@ async function resumeRun(saved) {
   G.streaks = saved.streaks || {};
   G.starsBy = saved.starsBy || {};
   G.claimsBy = saved.claimsBy || {};
+  G.bestMs = saved.bestMs || {};
+  G.echoCountBy = saved.echoCountBy || {};
   G.processedSeq = saved.processedSeq || {};
   G.players = saved.players || {};
   G.score = 0; G.streak = 0; G.starsTotal = 0;
@@ -3508,6 +3564,9 @@ function endGame() {
       name: (G.players[id] || {}).name || t("player"),
       score: G.scores[id] || 0,
       stars: G.starsBy[id] || 0,
+      // personal mini-report extras (batch T)
+      echoes: G.echoCountBy[id] || 0,
+      best: G.bestMs[id] || 0,
     })).sort((a, b) => b.score - a.score);
     G.room.update("state", { phase: "end", results: results });
     GameBridge.emit(SLUG, "complete", { mode: "multi", results: results });
@@ -3725,7 +3784,21 @@ const C = {
   seq: 0, lastVerdictSeq: 0, booted: false, seenSelf: false,
   timerIv: null, deadlineEpoch: 0, graceUntil: 0, pad: null,
   staged: false, // mirrors the projector: board + pad open at fuse ignite
+  lastGraceSec: null, // grace 3-2-1 mirrored big on the phone
 };
+
+/* the claimer's phone: the kill is YOURS — a full-card 歸零 takeover
+ * with your name on the demolition order (batch T) */
+function ctrlTakeover(pts) {
+  const old = document.querySelector(".zb-ctrltakeover");
+  if (old) old.remove();
+  const el = document.createElement("div");
+  el.className = "zb-ctrltakeover";
+  el.innerHTML = `<div class="zb-chai">${t("stamp_correct")}</div>
+    <div class="zb-ctrltakeover__cap">${escapeText(C.name || "")} · ${fmt("points_fmt", { n: pts })}</div>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
 
 function padKeysHtml() {
   const key = d => `<button class="zb-key" data-d="${d}">${d}</button>`;
@@ -3809,9 +3882,19 @@ function ctrlTick() {
   const fuse = (C.level && C.level.fuseMs) || remain;
   $("ctrlTimerText").textContent = (Math.min(remain, fuse) / 1000).toFixed(1);
   $("ctrlTimer").classList.toggle("warn", remain <= 5200);
-  // grace window: live final-blast countdown (echo solves stay open)
+  // grace window: live final-blast countdown (echo solves stay open),
+  // the 3-2-1 mirrored big on the phone like the projector
   if (C.graceUntil > Date.now()) {
-    ctrlStatus(fmt("critical_fmt", { s: Math.ceil((C.graceUntil - Date.now()) / 1000) }), "mc-status--danger");
+    const gs = Math.ceil((C.graceUntil - Date.now()) / 1000);
+    ctrlStatus(fmt("critical_fmt", { s: gs }), "mc-status--danger");
+    if (gs !== C.lastGraceSec && gs >= 1 && gs <= 3) {
+      C.lastGraceSec = gs;
+      const numEl = document.createElement("div");
+      numEl.className = "zb-gracenum";
+      numEl.textContent = gs;
+      $("ctrlPlay").appendChild(numEl);
+      setTimeout(() => numEl.remove(), 950);
+    }
   }
 }
 
@@ -3859,7 +3942,9 @@ function onCtrlRoom(room) {
     C.levelKey = lvKey;
     C.level = st.level;
     C.staged = false; // ctrlTick opens the round at the shared ignite
+    C.lastGraceSec = null;
     $("ctrlLevelChip").innerHTML = levelChipHtml(st.level);
+    $("ctrlExpr").classList.remove("condemned");
     setBoard($("ctrlExpr"), st.level, true);
     $("ctrlMark").innerHTML = "";
   }
@@ -3879,7 +3964,16 @@ function onCtrlRoom(room) {
         const c = st.claims[id];
         if (strikeFactor($("ctrlExpr"), id, c && c.name) && c && c.by !== C.id) othersClaim = true;
       });
-      if (othersClaim && !phaseChanged) ZBFX.audio.ping();
+      if (othersClaim && !phaseChanged) {
+        // someone else's pillar just fell: the street thuds and the
+        // card in your hands trembles (batch T)
+        ZBFX.audio.thud();
+        ZBFX.vibrate(30);
+        const card = $("ctrlPlay");
+        card.classList.remove("zb-ctrltremble");
+        void card.offsetWidth;
+        card.classList.add("zb-ctrltremble");
+      }
     }
     if (C.graceUntil <= Date.now()) {
       const total = C.level.pillars.length;
@@ -3896,6 +3990,9 @@ function onCtrlRoom(room) {
       C.pad.disable();
       C.staged = true; // a pre-open skip must still show the board
       openBoard($("ctrlExpr"));
+      // the fizzle reaches the phone: its own card is condemned
+      $("ctrlExpr").setAttribute("data-condemn", t("stamp_standing"));
+      $("ctrlExpr").classList.add("condemned");
       renderStreak($("ctrlStars"), 0); // a survived structure breaks the streak
       const rootsLine = t("note_reveal") + "：" +
         ZBLevels.roots(C.level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
@@ -3944,6 +4041,7 @@ function applyCtrlVerdict(v) {
       (v.hit > 1 ? t("note_both_down") + " " : "") + fmt("points_fmt", { n: v.pts }),
     ]);
     $("ctrlMark").innerHTML = markHtml("correct", lines);
+    ctrlTakeover(v.pts);
     ZBFX.audio.boom(v.hit > 1);
     ZBFX.vibrate(v.hit > 1 ? [60, 40, 130] : 80);
   } else {
@@ -3969,8 +4067,16 @@ function ctrlEnd(results) {
   tweenScore($("endScore"), mine ? mine.score : 0, 900);
   renderStars($("endStars"), mine ? mine.stars : 0);
   staggerStars($("endStars"));
+  // personal mini-report: rank, echo tally and fastest solve (batch T)
+  const extras = mine
+    ? [
+        mine.echoes ? fmt("echo_tally", { n: mine.echoes }) : "",
+        mine.best ? t("best_time_label") + " " + fmt("time_fmt", { s: (mine.best / 1000).toFixed(1) }) : "",
+      ].filter(Boolean).join(" · ")
+    : "";
   $("endRecord").innerHTML =
     (rank ? `<div class="mc-margin-note" style="margin-top:6px">${fmt("rank_fmt", { r: rank })}</div>` : "")
+    + (extras ? `<div class="mc-margin-note">${extras}</div>` : "")
     + `<div class="zb-hostboard" style="max-width:none">${leaderboardHtml(results, C.id)}</div>`;
   $("btnRestart").style.display = "none";
   $("btnMenu").style.display = "none";

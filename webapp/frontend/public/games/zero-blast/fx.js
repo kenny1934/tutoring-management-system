@@ -711,6 +711,11 @@
       thump(880, 870, 0.07, 0.1);
       thump(880, 870, 0.03, 0.09, 0.16);
     }),
+    /* another phone's pillar falling: the street thuds underfoot */
+    thud: oneShot("stamp", function () {
+      thump(140, 55, 0.2, 0.16);
+      noiseburst("lowpass", 300, 0.08, 0.12);
+    }, 0.55),
     /* the work crew bolting: a light scuffle of feet on grit */
     patter: oneShot("debris", function () {
       noiseburst("highpass", 900, 0.06, 0.1);

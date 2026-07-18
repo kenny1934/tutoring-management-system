@@ -23,5 +23,5 @@
     "seed": "integer for a reproducible run",
     "lang": "c | e"
   },
-  "version": "0.6.0"
+  "version": "0.7.0"
 }
