@@ -359,7 +359,7 @@ tempo to the tutor.
 - Class-size load: 30+ phones on one RTDB room (subs/verdicts
   churn) - watch latency during the first pilot.
 
-## 11. Iteration 4 (planned): the visual and animation audit
+## 11. Iteration 4 (implemented 2026-07-18): the visual and animation audit
 
 Full visual/animation audit (2026-07-18) over fresh screenshots of
 every beat: intro, level card, draw-in, mid-burn, claim, collapse,
@@ -367,6 +367,38 @@ fail, finale card, end report, light and dark, phone and 1280/1920
 projector. Goal: make the game read as high-class craft by deepening
 the marked-exercise-book metaphor, not by adding generic game gloss.
 Five batches, each ships alone with all three suites green.
+
+**Status: all five batches implemented and merged to the branch on
+2026-07-18** - F `342039c2`, G `e42d1f48`, H `5eb9666c`,
+I `112759aa`, J `08737ab6`; game.json bumped to 0.4.0. Deltas from
+the plan as written:
+
+- Factor strike-through skips kind 6: the board shows the expanded
+  form so there are no factor substrings to span; the plaque reveal
+  carries the factorisation there. All other kinds strike (kind 1
+  strikes the box, kind 5's two pillars share one span).
+- The hit-stop is baked into the chunk keyframes as a steps() hold
+  at the landing frame (70-80% of the fall), per chunk, rather than
+  a global pause; chunks then lie on the ground until the pile
+  outline inks over them and dissolve at ~1.35s.
+- Window lights exist only on the kinds with window rects (2, 3, 6),
+  rendered inside the variant-transform group so mirrored rounds
+  keep their lights in the windows.
+- Capability gate heuristic: deviceMemory >= 4 AND devicePixelRatio
+  <= 3 -> full; ?fx=full|lite overrides; data-fx attribute on the
+  root gates the CSS. Dark combines wobble + chalk-erosion in one
+  filter chain.
+- Screen changes animate the incoming page only; the two-phase
+  lift-then-slide runs on round changes (240ms out, 340ms in, whole
+  game grid). html/body clip horizontal overflow during slides.
+- The pencil rider and the title-swash spark use SMIL animateMotion
+  (begun via beginElement); both removed under reduced motion by JS
+  since CSS animation kills don't reach SMIL.
+- The street strip and attract loop are projector-only via CSS
+  (display gated on .zb-stage--projector), so a wide solo screen
+  gets them too, which reads fine.
+- The 檢定完成 chop overlaps the report's last row bottom-right by
+  design (translucent stamp over the signed report).
 
 Guardrails that apply to every batch:
 
