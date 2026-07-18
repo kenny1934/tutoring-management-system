@@ -566,8 +566,50 @@ strike-through (G), page-turn transitions (I), hand-inked wobble
 
 ## 12. Iteration 5: Tier 1 adoption - the mechanic audit
 
-**Status (2026-07-18): batches K, M and L implemented** (in that
-order, suites green between batches), then a simplification pass:
+**Status (2026-07-18): iteration 5 COMPLETE - K, M, L, then N and O**
+(suites green between batches; game.json 0.6.0). K/M/L below, then a
+simplification pass, then N `540d8e8b` and O `c7b74dc0`:
+
+- **N** `540d8e8b` - street life landed as re-scoped: the crew (a
+  pointing figure and the classic site squat) loiters RIGHT of the
+  building - the fuse owns the left half's ground band, so the
+  planned kerb-side spot would have put feet on the burning line.
+  Scatter fires from three hooks, latched by class: the fuseFrame
+  warn window, enterGrace, and `tl.call(scatterCrew, null, 0)` on
+  the collapse timeline (a fast class can beat the warn window; the
+  crew still gets its head start). The run needs a tail fade: the
+  svg canvas is wider than the viewBox, so runners would freeze
+  visibly in the letterbox margin. Scatter rides a new
+  `audio.patter` one-shot on the `debris` sample. The foreman pushes
+  the plunger via `tl.call(foremanPush, null, "crack")` - pose swap
+  plus the detonator path's d swapping to the pushed T-bar. The
+  inspector stands beside the report chop in a reserved 58px
+  signature foot band (a real inspection report ends with a chop at
+  the foot; it also lifts the chop off the record rows). Reduced
+  motion: figures visible and static, scatter becomes an instant
+  exit, the push stays a plain pose swap.
+- **O** `c7b74dc0` - the depth pass landed as re-scoped: one
+  upper-left light source, the shade side as `.zb-wash` POLYGONS
+  (fills dodge every `path` stroke/draw selector; plain opacity, so
+  fx=lite keeps them; never red - asserted in suite). Washes on
+  right walls, under-parapets, door recesses, pillar flanks, cloud
+  undersides and the rubble shadow. Doors + mullions added to kinds
+  3/6 (kind 2 already had both), dressing alternates per kind picked
+  by `dressVariant` (seq hash >>> 20, mod 3, `data-dress` on #deck
+  for the determinism test): tanks, laundry, 騎樓 arches, signage
+  squiggles (mirror-safe), pennants, suspenders, guy wires, ladder,
+  crates, chimney, antenna. Far street (broken kerb + lamp +
+  bollards) stays below the deck line; the ground kerb gets a
+  heavier `fore` stroke. Pillar reinforcement: `hv` verticals
+  (2.7), collar tie, doubled lower bracing, hatched footings -
+  every added stroke above 162 or below 184, the plaque band stays
+  focal. Two structural notes: dressing lives on the deck, so it
+  tumbles/dissolves with the collapse and can never crowd the
+  resolve graph's sky; and ALL added detail rides existing draw
+  beats via the new `PX(d, cls, i)` helper (explicit --i, no
+  drawIdx bump), so the staged round-open moment did not move.
+
+K/M/L and the simplify pass, for the record:
 
 - **K** `158d69a0` - Howler 2.2.4 vendored (+ NOTICE); 14 material
   one-shots synthesised offline by `scripts/zb-render-audio.mjs`
@@ -626,8 +668,9 @@ the hold never costs fuse. Rhythm: card, drawing, then question +
 fuse + keypad as one moment. Reduced motion (instant draw) keeps
 the 850ms card-clear open.
 
-game.json is 0.5.0. Batches N and O below were re-evaluated against
-what landed and remain the next session's work (see the order note).
+game.json is 0.6.0. Batches N and O below are the plan as
+re-evaluated before implementation; see the status block above for
+what actually landed and the deltas.
 
 Audited 2026-07-18 against the CONVENTIONS.md rule: a library is
 vendored when a specific mechanic demands it, named in the PR, never
@@ -800,11 +843,10 @@ drawing, without ever leaving ink.
 
 ### Recommended order (updated 2026-07-18)
 
-Done: K -> M -> L (plus the simplify pass). Next session: N then O -
-characters before decoration because they carry more perceived
-quality per stroke, and both now build on the landed foundations
-(N hooks the GSAP labels and the sample kit; O decorates around the
-resolve graph's corridor). If that session is cut short: N alone is
-the visible win. Reality check during the SM901 pilot: watch the
-students' first 30 seconds - they will say whether it feels premium
-faster than any audit.
+Done: K -> M -> L (plus the simplify pass) -> N -> O. Iteration 5 is
+complete; the polish backlog is empty. What remains is production
+tier: deploy the game-rooms RTDB rules (Kenny's firebase auth) then
+a LIVE multi-phone rehearsal, the games. subdomain, merging PR #82,
+the name sign-off with Steve, and Phase 2's lesson panel. Reality
+check during the SM901 pilot: watch the students' first 30 seconds -
+they will say whether it feels premium faster than any audit.
