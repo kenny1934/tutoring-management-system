@@ -198,6 +198,31 @@
     @keyframes zb-surveyin { to { opacity: 0.6; } }
     .zb-pencil { pointer-events: none; }
 
+    /* the pedagogy bridge: when a structure resolves, its equation's
+     * graph sketches itself faintly across the sky, dipping through
+     * the inked codes — the x-intercepts ARE the solutions. Kind 5's
+     * double root touches the line once (重根); kind 1 is y = kx
+     * through the origin. Faint pencil, never reveal ink. */
+    .zb-graph { opacity: 0; animation: zb-fadein 0.25s ease-out forwards; }
+    .zb-graph path { stroke: var(--mc-ink-faint); fill: none; }
+    .zb-graph .zb-graph__axis { stroke-width: 1.1; stroke-dasharray: 5 4; opacity: 0.7; }
+    .zb-graph .zb-graph__curve {
+      stroke: var(--mc-ink-soft); stroke-width: 1.8;
+      stroke-dasharray: 1; stroke-dashoffset: 1;
+      animation: zb-draw 0.75s 0.2s ease-in-out forwards;
+    }
+    .zb-graph circle { fill: none; stroke: var(--mc-ink); stroke-width: 1.4; }
+    .zb-graph text { font-family: var(--mc-mono); font-size: 10px; fill: var(--mc-ink-soft); }
+
+    /* thumbnail of the same sketch beside the reveal working (phones
+     * in the reveal phase, solo after a fuse-out) */
+    .zb-minigraph { display: block; width: 120px; height: 56px; margin: 6px auto 0; }
+    .zb-minigraph path { stroke: var(--mc-ink-soft); fill: none; stroke-linecap: round; }
+    .zb-minigraph .axis { stroke-width: 1; stroke-dasharray: 4 3; opacity: 0.6; }
+    .zb-minigraph .curve { stroke-width: 1.6; }
+    .zb-minigraph circle { fill: var(--mc-red); stroke: none; }
+    .zb-minigraph text { font-family: var(--mc-mono); font-size: 9px; font-weight: 700; fill: var(--mc-red); text-anchor: middle; }
+
     /* ---- stagecraft: cover, lobby, projector strip, report ---- */
 
     /* intro hero vignette: the premise in one blueprint sketch */
@@ -700,8 +725,9 @@
        stroke must still end visible, and the fallen deck must still clear */
     @media (prefers-reduced-motion: reduce) {
       .din, .zb-rubble.show path, .zb-struct .zb-tape path,
-      .zb-record__mark path.draw, .zb-endunder path, .zb-attract .a-d { stroke-dashoffset: 0 !important; }
-      .din2, .zb-rootmark.show { opacity: 1 !important; }
+      .zb-record__mark path.draw, .zb-endunder path, .zb-attract .a-d,
+      .zb-graph .zb-graph__curve { stroke-dashoffset: 0 !important; }
+      .din2, .zb-rootmark.show, .zb-graph { opacity: 1 !important; }
       .zb-struct .zb-survey { opacity: 0.6 !important; }
       .zb-deck.fall { opacity: 0; }
       .zb-floatpts { display: none; }
@@ -1155,6 +1181,7 @@ const STRINGS = {
   lv5:              { c: "重根：一碼雙柱", e: "Double root: one code, both pillars" },
   lv6:              { c: "先因式分解",  e: "Factorise first" },
   lv_mix:           { c: "混合街",      e: "Mixed street" },
+  graph_tangent:    { c: "重根",        e: "double root" },
   finale_tag:       { c: "最後一條街 · 分數雙倍", e: "Final street · double points" },
   card_contractor:  { c: "承建商 MathConcept", e: "Contractor MathConcept" },
   b1:               { c: "水塔",        e: "Water tower" },
@@ -1528,6 +1555,109 @@ function ridePencil() {
   }, CARD_MS + 1900);
 }
 
+/* ══ the pedagogy bridge to SM902: the equation becomes its graph ══
+ * When a structure resolves, y = (x−a)(x−b) sketches itself faintly
+ * across the emptied sky, dipping through the inked codes: the
+ * x-intercepts ARE the solutions. Kind 5 draws the tangent parabola
+ * (double root, one touch — 重根), kind 1 the line y = kx through
+ * the origin. Plain SVG on purpose: it is a static sketch, so no
+ * graphing library (CONVENTIONS: the engine follows the mechanic). */
+
+const GRAPH_Y = 171; // the sketch's x-axis runs through the rootmarks
+
+/* exact quadratic Bézier for y = GRAPH_Y − k(x−x1)(x−x2) over [xa,xb]
+ * (a parabola IS a quadratic Bézier; control point from the tangents) */
+function parabolaPath(k, x1, x2, xa, xb) {
+  const f = x => GRAPH_Y - k * (x - x1) * (x - x2);
+  const df = x => -k * (2 * x - x1 - x2);
+  const xm = (xa + xb) / 2;
+  const cy = f(xa) + df(xa) * (xm - xa);
+  return `M${xa.toFixed(1)} ${f(xa).toFixed(1)} Q${xm.toFixed(1)} ${cy.toFixed(1)} ${xb.toFixed(1)} ${f(xb).toFixed(1)}`;
+}
+
+/* the sketch's label: the equation as a function of x */
+function graphLabel(level) {
+  const ps = level.pillars;
+  switch (level.kind) {
+    case "numeric": return "y = " + level.konst + "x";
+    case "linear": return "y = " + ps[0].label;
+    case "square": return "y = " + ps[0].label + "²";
+    case "expanded": return "y = " + level.expr.replace(/\s*=\s*0$/, "");
+    default: return "y = " + ps[0].label + ps[1].label;
+  }
+}
+
+function graphSvg(level) {
+  const xs = level.pillars.map(p => pillarX(p.id));
+  const isLine = level.kind === "numeric" || level.kind === "linear";
+  const isSquare = level.kind === "square";
+  let curve, xa, xb, extra = "";
+  if (isLine) {
+    // y = kx (through the origin mark) or y = x − a: a rising line,
+    // steeper when the constant multiplier is bigger
+    const m = level.kind === "numeric" ? Math.min(0.95, 0.35 + 0.07 * level.konst) : 0.5;
+    const x0 = xs[0];
+    xa = Math.max(20, x0 - 34 / m);
+    xb = Math.min(380, x0 + 82 / m);
+    curve = `M${xa.toFixed(1)} ${(GRAPH_Y + m * (x0 - xa)).toFixed(1)} L${xb.toFixed(1)} ${(GRAPH_Y - m * (xb - x0)).toFixed(1)}`;
+    if (level.kind === "numeric") {
+      // the origin deserves its y-axis so "through the origin" reads
+      extra = `<path class="zb-graph__axis" d="M${x0} 120 V206"/>`;
+    }
+  } else if (isSquare) {
+    // 重根: the tangent parabola touches the line exactly once,
+    // midway between the twin pillars that share the code
+    const cx = (xs[0] + xs[1]) / 2;
+    const k = 80 / (150 * 150);
+    xa = cx - 150; xb = cx + 150;
+    curve = parabolaPath(k, cx, cx, xa, xb);
+    // the tag sits left of the touch point, clear of the 拆 chop's slam
+    extra = `<circle cx="${cx}" cy="${GRAPH_Y}" r="3.5"/>`
+      + `<text x="${cx - 56}" y="${GRAPH_Y - 12}" text-anchor="end">${t("graph_tangent")}</text>`;
+  } else {
+    // two distinct codes: the parabola dips between them (capped so
+    // the vertex clears the rubble) and sweeps up into the sky
+    const [x1, x2] = [Math.min(...xs), Math.max(...xs)];
+    const h = (x2 - x1) / 2;
+    const k = 13 / (h * h);
+    const w = h * Math.sqrt(78 / 13 + 1);
+    xa = Math.max(16, (x1 + x2) / 2 - w);
+    xb = Math.min(384, (x1 + x2) / 2 + w);
+    curve = parabolaPath(k, x1, x2, xa, xb);
+  }
+  return `<g class="zb-graph" id="graph">
+    <path class="zb-graph__axis" d="M${Math.max(14, xa - 10).toFixed(1)} ${GRAPH_Y} H${Math.min(386, xb + 10).toFixed(1)}"/>
+    ${extra}
+    <path class="zb-graph__curve" pathLength="1" d="${curve}"/>
+    <text x="${xb.toFixed(1)}" y="${isLine || isSquare ? "112" : "86"}" text-anchor="end">${svgMath(graphLabel(level))}</text>
+  </g>`;
+}
+
+/* the same sketch as a thumbnail beside the reveal working */
+function miniGraphHtml(level) {
+  const AX = 36, roots = [...new Set(level.pillars.map(p => p.root))].sort((a, b) => a - b);
+  const dot = (x, r) => `<circle cx="${x}" cy="${AX}" r="2.5"/><text x="${x}" y="${AX + 13}">${ZBLevels.num(r)}</text>`;
+  let curve, dots;
+  if (level.kind === "numeric" || level.kind === "linear") {
+    curve = `<path class="curve" d="M24 54 L110 11"/>`; // through (60, 36)
+    dots = dot(60, roots[0]);
+  } else if (level.kind === "square") {
+    const k = 26 / (48 * 48);
+    const f = x => AX - k * (x - 60) * (x - 60);
+    curve = `<path class="curve" d="M12 ${f(12).toFixed(1)} Q60 ${(2 * AX - f(12)).toFixed(1)} 108 ${f(108).toFixed(1)}"/>`;
+    dots = dot(60, roots[0]);
+  } else {
+    const k = 10 / (22 * 22), x1 = 38, x2 = 82;
+    const f = x => AX - k * (x - x1) * (x - x2);
+    const xa = 19, xb = 101, xm = 60;
+    const cy = f(xa) + -k * (2 * xa - x1 - x2) * (xm - xa);
+    curve = `<path class="curve" d="M${xa} ${f(xa).toFixed(1)} Q${xm} ${cy.toFixed(1)} ${xb} ${f(xb).toFixed(1)}"/>`;
+    dots = roots.length === 2 ? dot(x1, roots[0]) + dot(x2, roots[1]) : dot(60, roots[0]);
+  }
+  return `<svg class="zb-minigraph" viewBox="0 0 120 56" aria-hidden="true">
+    <path class="axis" d="M6 ${AX} H114"/>${curve}${dots}</svg>`;
+}
+
 /* ══════════════════════════════════════════════════════════════════
  * shared UI bits
  * ══════════════════════════════════════════════════════════════════ */
@@ -1798,6 +1928,7 @@ const G = {
   score: 0, streak: 0, starsTotal: 0, levelPoints: 0,
   deadline: 0, duration: 0, raf: null, lastTickSec: null,
   fuseLen: 0, fusePathEl: null, over: false, records: [], hinted: false,
+  graphOn: true, // the resolve graph sketch; tutors toggle with key g
   // host mode: room + per-player books (host is authoritative)
   room: null, watcher: null, started: false, grace: false, revealHold: false,
   players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {},
@@ -1893,7 +2024,7 @@ function startLevel(resume) {
   const hintable = G.mode === "host" && level.kind === "expanded";
   $("btnHint").style.display = hintable ? "" : "none";
   $("btnHint").disabled = G.hinted;
-  $("tutorKeys").textContent = hintable ? "t / h / n / e" : "t / n / e";
+  $("tutorKeys").textContent = hintable ? "t / h / n / e / g" : "t / n / e / g";
 
   refreshDynamicText();
   tweenScore($("scoreBox"), G.score); // snaps when unchanged, cancels a stale tween
@@ -2480,6 +2611,13 @@ function collapseAndAdvance() {
     $("rubble").classList.add("show");
     ZBFX.dust(200, GROUND - 14, { count: 4 });
   }, 1020);
+  // the equation's graph sketches itself through the inked codes
+  const level = G.level;
+  if (G.graphOn) {
+    setTimeout(() => {
+      if (G.level === level && $("structSvg")) $("structSvg").insertAdjacentHTML("beforeend", graphSvg(level));
+    }, 1120);
+  }
   // the landed debris melts into the inked pile
   setTimeout(() => {
     const deck = $("deck");
@@ -2532,7 +2670,7 @@ function fuseOut() {
     ZBLevels.roots(level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
   const fact = ZBLevels.factorisation(level);
   const lines = (fact ? [mathHtml(fact)] : []).concat([rootsLine]);
-  $("markZone").innerHTML = markHtml("wrong", lines);
+  $("markZone").innerHTML = markHtml("wrong", lines) + miniGraphHtml(level);
   // condemned, one stamp language: a rotated chop in the corner and
   // red tape across the survivor (the working stays in the mark zone)
   $("sceneStamp").innerHTML = `<div class="zb-condemn">${t("stamp_standing")}</div>`;
@@ -2801,6 +2939,7 @@ document.addEventListener("keydown", e => {
   else if (e.key === "h") tutorHint();
   else if (e.key === "n") tutorSkip();
   else if (e.key === "e") tutorEnd();
+  else if (e.key === "g") G.graphOn = !G.graphOn; // resolve graph sketch on/off
 });
 
 /* ══════════════════════════════════════════════════════════════════
@@ -2975,7 +3114,8 @@ function onCtrlRoom(room) {
       const rootsLine = t("note_reveal") + "：" +
         ZBLevels.roots(C.level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
       const fact = ZBLevels.factorisation(C.level);
-      $("ctrlMark").innerHTML = markHtml("wrong", (fact ? [mathHtml(fact)] : []).concat([rootsLine]));
+      $("ctrlMark").innerHTML = markHtml("wrong", (fact ? [mathHtml(fact)] : []).concat([rootsLine]))
+        + miniGraphHtml(C.level);
       ctrlStatus(t("reveal_wait"));
     }
   } else if (st.phase === "lobby") {
