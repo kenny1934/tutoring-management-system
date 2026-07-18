@@ -52,10 +52,18 @@
       font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
     }
     .zb-board .zb-zero { color: var(--mc-red); }
-    /* the question inks in only when the fuse lights: reading time is
-       part of the round, not free thinking under the level card (and
-       nobody detonates a building that isn't drawn yet) */
-    .zb-board--wait, .zb-board--wait * { color: transparent !important; }
+    /* the question inks in only when the blueprint has finished
+       drawing and the fuse lights: reading time is part of the round,
+       not free thinking under the level card, and nobody detonates a
+       building that isn't standing yet. The reveal writes itself in
+       left to right, like the rest of the worksheet. */
+    .zb-board__ink { display: inline-block; }
+    .zb-board--wait .zb-board__ink { visibility: hidden; }
+    .zb-board--ink .zb-board__ink { animation: zb-boardink 0.5s ease-out both; }
+    @keyframes zb-boardink {
+      from { clip-path: inset(0 100% 0 0); }
+      to { clip-path: inset(0 0 0 0); }
+    }
     /* the zero-product property, marked where it lives: a fallen
      * pillar's factor is struck through in red on the board itself,
      * the claimer's name in tiny ink above it */
@@ -1730,6 +1738,18 @@ function boardHtml(level) {
   }
 }
 
+/* the board is set covered and opened as its own beat: the question
+ * writes itself in once the blueprint stands and the fuse lights */
+function setBoard(el, level, covered) {
+  el.innerHTML = `<span class="zb-board__ink">${boardHtml(level)}</span>`;
+  el.classList.remove("zb-board--ink");
+  el.classList.toggle("zb-board--wait", covered);
+}
+function openBoard(el) {
+  el.classList.remove("zb-board--wait");
+  el.classList.add("zb-board--ink");
+}
+
 /* strike a fallen factor through in red; the claimer's name (escaped,
  * never math-formatted) is inked tiny above it. Idempotent: a double
  * root's two pillars share one span. Returns true only on a fresh
@@ -2075,8 +2095,7 @@ function startLevel(resume) {
   // fresh rounds stay under wraps until the fuse ignites; a resumed
   // round is already mid-flight
   G.staged = !!resume;
-  $("exprBoard").innerHTML = boardHtml(level);
-  $("exprBoard").classList.toggle("zb-board--wait", !G.staged);
+  setBoard($("exprBoard"), level, !G.staged);
   $("markZone").innerHTML = "";
   $("sceneStamp").classList.remove("show");
   $("sceneStamp").innerHTML = "";
@@ -2085,16 +2104,21 @@ function startLevel(resume) {
   if (level.seq === 1 && !resume && !ZBFX.reduced) ridePencil();
   renderStreet();
   renderStrugglers();
+  // the round opens only once the blueprint stands: card, draw-in
+  // (drawIdx strokes at 55ms stagger + the 0.5s stroke), THEN the
+  // question inks in and the fuse lights together. Reduced motion
+  // draws instantly, so it opens at the card clear; a resumed round
+  // is already mid-flight.
+  const stageMs = resume || ZBFX.reduced ? CARD_MS : CARD_MS + (drawIdx - 1) * 55 + 550;
   if (G.staged) pad.enable();
   else {
     pad.disable();
-    // the round opens with the fuse: question and keypad together
     setTimeout(() => {
-      if (G.level !== level || G.ended) return;
+      if (G.level !== level || G.ended || G.staged) return;
       G.staged = true;
-      $("exprBoard").classList.remove("zb-board--wait");
+      openBoard($("exprBoard"));
       if (!G.over) pad.enable();
-    }, CARD_MS);
+    }, stageMs);
   }
 
   // fuse: burns only after the level card clears (deadline includes it).
@@ -2104,7 +2128,7 @@ function startLevel(resume) {
   const fuseMs = resume
     ? Math.min(Math.max((resume.deadlineEpoch || 0) - Date.now(), 5000), level.fuseMs)
     : level.fuseMs;
-  G.deadline = performance.now() + CARD_MS + fuseMs;
+  G.deadline = performance.now() + stageMs + fuseMs;
 
   if (G.mode === "host") {
     // publish the round: phones display from state, host stays the judge
@@ -2112,7 +2136,7 @@ function startLevel(resume) {
       phase: "playing",
       level: level,
       levelIdx: G.idx,
-      deadlineEpoch: Date.now() + CARD_MS + fuseMs,
+      deadlineEpoch: Date.now() + stageMs + fuseMs,
       claims: resume && G.claimed.length
         ? Object.fromEntries(G.claimed.map(id => [id, G.claimsBy[id] || true]))
         : null,
@@ -2145,7 +2169,7 @@ function startLevel(resume) {
   G.lastTickSec = null;
   G.lastFleck = null;
   $("fuseTimer").classList.remove("warn");
-  setTimeout(() => { if (!G.over && G.level === level) ZBFX.audio.fuseStart(); }, CARD_MS);
+  setTimeout(() => { if (!G.over && G.level === level) ZBFX.audio.fuseStart(); }, stageMs);
   cancelAnimationFrame(G.raf);
   G.raf = requestAnimationFrame(fuseFrame);
   saveHostRun();
@@ -2771,6 +2795,10 @@ function fuseOut() {
   ZBFX.sparksAt(null);
   pad.disable();
   $("fuseTimerText").textContent = "0.0";
+  // a tutor skip can land before the round opened: the reveal must
+  // never talk through a covered board
+  G.staged = true;
+  openBoard($("exprBoard"));
   G.streak = 0;
   renderStreak($("stars"), 0);
   G.records.push({ n: G.level.n, stage: G.level.stage, round: G.level.round, cleared: false, ms: G.duration, pts: G.levelPoints });
@@ -3154,7 +3182,7 @@ function ctrlTick() {
   // changes (+15s, grace) never re-cover the board
   if (!C.staged && C.level && Date.now() >= C.deadlineEpoch - (C.level.fuseMs || 0)) {
     C.staged = true;
-    $("ctrlExpr").classList.remove("zb-board--wait");
+    openBoard($("ctrlExpr"));
     C.pad.enable();
   }
   const remain = Math.max(0, C.deadlineEpoch - Date.now());
@@ -3212,8 +3240,7 @@ function onCtrlRoom(room) {
     C.level = st.level;
     C.staged = false; // ctrlTick opens the round at the shared ignite
     $("ctrlLevelChip").innerHTML = levelChipHtml(st.level);
-    $("ctrlExpr").innerHTML = boardHtml(st.level);
-    $("ctrlExpr").classList.add("zb-board--wait");
+    setBoard($("ctrlExpr"), st.level, true);
     $("ctrlMark").innerHTML = "";
   }
 
@@ -3247,6 +3274,8 @@ function onCtrlRoom(room) {
   } else if (st.phase === "reveal" && C.level) {
     if (phaseChanged) {
       C.pad.disable();
+      C.staged = true; // a pre-open skip must still show the board
+      openBoard($("ctrlExpr"));
       renderStreak($("ctrlStars"), 0); // a survived structure breaks the streak
       const rootsLine = t("note_reveal") + "：" +
         ZBLevels.roots(C.level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
