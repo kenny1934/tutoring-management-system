@@ -564,7 +564,54 @@ by felt impact are: dust rebuild (F), crack-then-fall (G), factor
 strike-through (G), page-turn transitions (I), hand-inked wobble
 (H) - F and G alone carry most of the perceived quality jump.
 
-## 12. Iteration 5 (planned): Tier 1 adoption - the mechanic audit
+## 12. Iteration 5: Tier 1 adoption - the mechanic audit
+
+**Status (2026-07-18): batches K, M and L implemented** (in that
+order, suites green between batches), then a simplification pass:
+
+- **K** `158d69a0` - Howler 2.2.4 vendored (+ NOTICE); 14 material
+  one-shots synthesised offline by `scripts/zb-render-audio.mjs`
+  into one mono 22.05k WAV sprite, 374.7 KB (budget 400 KB; no
+  ffmpeg on the box, so no opus - regenerate as opus if that
+  changes). Deltas from plan: the sprite lazy-loads only once sound
+  is enabled; beyond re-routing the existing one-shots, new beats
+  were wired where the samples demanded call sites - `stampSoft`
+  (condemned notice + the report chop), `page` (round turn), `chime`
+  (report stars), `ping` (a phone hears someone else's claim land,
+  keyed off strikeFactor's new fresh-strike return). Fuse hiss stays
+  live synthesis; every one-shot keeps its synth fallback. Audit
+  suite gained a sound section (same-origin only, lazy fetch, toggle
+  persistence).
+- **M** `a3a8c268` - the resolve graph, plain SVG (an exact
+  quadratic Bezier). Deltas: it draws on RESOLVE only; the survived
+  fuse-out gets the thumbnail beside the reveal working instead
+  (phones in the reveal phase AND solo), which is where the codes
+  are actually visible. The 重根 tag sits left of the touch point,
+  clear of the 拆 chop's slam. Key g toggles (host); legend now
+  t / n / e / g.
+- **L** `2a82bb30` - GSAP 3.12.5 core vendored. The collapse chain,
+  condemned beat and report ceremony are labelled timelines (crack /
+  fall / rubble / graph / stamp / dissolve / chop / turn; condemn /
+  settle / turn; stars / chop). Label times match the old
+  setTimeouts exactly, so the expected test churn never happened.
+  Finale set piece: timeScale dips to 0.5 through the fall with the
+  CSS tumble stretched via --falldur, a scene-wrap scale punch and
+  the star rain on the chop label. Delta from plan: reduced motion
+  does NOT jump timelines to progress(1) - that would advance
+  rounds instantly and strand exactly the users who need time to
+  read; instead timelines run real time (CSS snaps states as
+  before) and the one reduced gate skips the finale set-piece
+  tweens. tweenScore now rides gsap.to (same API, exact settle).
+  Killing the live timeline in startLevel fixed a latent
+  restart-mid-collapse double-advance.
+- **simplify** `f55b26e2` - fx.js one-shot prelude factored into
+  oneShot(name, synthFallback); boom/collapse stay explicit (dynamic
+  sample choice). Deliberately not simplified: the timeline call
+  sites (timing-critical, idiomatic GSAP reads clearest) and the
+  generator script (its output is frozen).
+
+game.json is 0.5.0. Batches N and O below were re-evaluated against
+what landed and remain the next session's work (see the order note).
 
 Audited 2026-07-18 against the CONVENTIONS.md rule: a library is
 vendored when a specific mechanic demands it, named in the PR, never
@@ -684,6 +731,15 @@ arrive in the house style: tiny ink people.
 - Tests: crew present during the burn, scatter class fires in the
   warn/grace window, foreman pose swaps on the final claim, reduced
   motion leaves figures visible and static; suites green.
+- *Re-evaluated after K/M/L:* the batch got cheaper and better.
+  The foreman's plunger push is now literally
+  `tl.call(pose, null, "crack")` on the collapse timeline - hook
+  the labels, do not add timers. The crew scatter keys off the
+  existing warn window in fuseFrame (same beat as the tick). No new
+  audio needed: the scatter can ride `debris`, the plunger already
+  has `crack`/`rumble`. Characters live at kerb height, so they
+  never collide with the resolve graph (its dip stays above the
+  rubble line). Scope unchanged.
 
 ### Batch O - the illustrated depth pass (Tier 0)
 
@@ -708,15 +764,22 @@ drawing, without ever leaving ink.
   present and red-free (style assertion), scene text still readable
   (plaque/rootmark overlap check), light + dark screenshots
   refreshed; suites green.
+- *Re-evaluated after K/M/L:* one new constraint - the resolve
+  graph now owns the sky band. Keep the graph corridor readable:
+  silhouette alternates and rooftop clutter must not densify the
+  upper-right corner where the y = ... label lands (beside the
+  crane), and the far-street depth layer stays below the deck line.
+  The wash is plain SVG opacity, so it passes the fx=lite gate
+  untouched. Scope otherwise unchanged; the seq-hash pick mirrors
+  variantTransform as planned.
 
-### Recommended order
+### Recommended order (updated 2026-07-18)
 
-K -> M -> L -> N -> O. Sound is the largest remaining craft gap and
-the loudest "they put effort in" signal; the parabola is cheap and
-carries the most classroom value per hour; the GSAP port absorbs its
-test churn before the art batches build on its timelines; characters
-before decoration because they carry more perceived quality per
-stroke. If a session is cut short: K alone still moves the game a
-tier. Reality check during the SM901 pilot: watch the students'
-first 30 seconds - they will say whether it feels premium faster
-than any audit.
+Done: K -> M -> L (plus the simplify pass). Next session: N then O -
+characters before decoration because they carry more perceived
+quality per stroke, and both now build on the landed foundations
+(N hooks the GSAP labels and the sample kit; O decorates around the
+resolve graph's corridor). If that session is cut short: N alone is
+the visible win. Reality check during the SM901 pilot: watch the
+students' first 30 seconds - they will say whether it feels premium
+faster than any audit.
