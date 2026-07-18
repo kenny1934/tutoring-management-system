@@ -425,9 +425,12 @@
       onloaderror: function () { samplerState = "failed"; sampler = null; },
     });
   }
-  function sample(name) {
+  /* vol (0..1, optional) rides on top of the sprite's base volume so
+   * quiet foley (patter, page turns) sits under the booms in class */
+  function sample(name, vol) {
     if (samplerState !== "ready") return false;
-    sampler.play(name);
+    var id = sampler.play(name);
+    if (vol !== undefined) sampler.volume(vol, id);
     return true;
   }
 
@@ -480,10 +483,10 @@
 
   /* every one-shot shares this prelude: silent when muted, the loaded
    * sample when it is ready, else the passed live-synth fallback */
-  function oneShot(name, synth) {
+  function oneShot(name, synth, vol) {
     return function () {
       if (!enabled) return;
-      if (sample(name)) return;
+      if (sample(name, vol)) return;
       if (!ensureCtx()) return;
       synth();
     };
@@ -533,11 +536,13 @@
       src.start();
       fuseNodes = { src: src, filt: filt, gain: g };
     },
-    /* u in 0..1 — rises as the fuse runs down */
+    /* u in 0..1 — rises as the fuse runs down. The ceiling is set for
+     * a classroom: by the last seconds the hiss reads from the back
+     * row, not just from headphones. */
     fuseUrgency: function (u) {
       if (!fuseNodes) return;
       fuseNodes.filt.frequency.value = 2600 + 2400 * u;
-      fuseNodes.gain.gain.value = 0.035 + 0.05 * u;
+      fuseNodes.gain.gain.value = 0.035 + 0.085 * u;
     },
     fuseStop: function () {
       if (!fuseNodes) return;
@@ -554,9 +559,11 @@
       noiseburst("lowpass", 320, 0.5 * m, 0.4);
       thump(90, 38, 0.55 * m, 0.35);
     },
+    /* the payoff moment: the big boom leads, the rumble and debris
+     * layer under it — a collapse must outrank every claim boom */
     collapse: function () {
       if (!enabled) return;
-      if (sample("rumble")) { sample("debris"); return; }
+      if (sample("rumble")) { sample("boom_l"); sample("debris", 0.6); return; }
       if (!ensureCtx()) return;
       noiseburst("lowpass", 300, 0.55, 0.5);
       thump(85, 35, 0.6, 0.4);
@@ -579,9 +586,14 @@
       src.start(t);
       src.stop(t + 1);
     }),
-    tick: oneShot("tick", function () {
-      thump(1250, 1100, 0.1, 0.04);
-    }),
+    /* fuse countdown tick; urgent = the last three seconds, loud
+     * enough that heads come up before the blast */
+    tick: function (urgent) {
+      if (!enabled) return;
+      if (sample("tick", urgent ? 1 : 0.55)) return;
+      if (!ensureCtx()) return;
+      thump(1250, 1100, urgent ? 0.18 : 0.08, 0.04);
+    },
     /* wrong answer: a dull knock, deliberately nothing like a boom */
     knock: oneShot("knock", function () {
       thump(150, 70, 0.3, 0.18);
@@ -610,11 +622,11 @@
     chime: oneShot("chime", function () {
       thump(1320, 1300, 0.08, 0.5);
       thump(2640, 2600, 0.03, 0.25);
-    }),
+    }, 0.8),
     /* the worksheet page turning to the next round */
     page: oneShot("page", function () {
       noiseburst("bandpass", 1400, 0.08, 0.25);
-    }),
+    }, 0.65),
     /* on a phone: someone else's claim just landed */
     ping: oneShot("ping", function () {
       thump(880, 870, 0.07, 0.1);
@@ -626,7 +638,7 @@
       thump(210, 130, 0.1, 0.07, 0.04);
       thump(190, 115, 0.08, 0.07, 0.13);
       noiseburst("highpass", 800, 0.04, 0.09, 0.18);
-    }),
+    }, 0.5),
   };
 
   function vibrate(pattern) {

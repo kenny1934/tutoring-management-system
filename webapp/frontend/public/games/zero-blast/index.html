@@ -638,6 +638,35 @@
     .zb-stage--projector .zb-levelcard__n { font-size: 44px; }
     .zb-stage--projector .zb-levelcard__sub { font-size: 20px; }
 
+    /* the one-time sound offer: the big stage defaults quiet, so the
+       first level card of a fresh device carries the offer in words.
+       One tap answers it AND is the browser's autoplay unlock; either
+       way the answer is stored and the chip never returns. */
+    .zb-soundoffer {
+      position: absolute; left: 50%; bottom: 4.5%; z-index: 5;
+      transform: translateX(-50%) rotate(-1.5deg);
+      display: flex; align-items: center; gap: 8px;
+      font-family: inherit; font-weight: 800; font-size: 15px;
+      padding: 8px 18px;
+      border: 2px solid var(--mc-ink); border-radius: 999px;
+      background: var(--mc-paper-raised); color: var(--mc-ink);
+      box-shadow: 0 2px 0 var(--mc-ink);
+      cursor: pointer; touch-action: manipulation;
+      animation: zb-offerin 0.4s 0.6s cubic-bezier(0.2, 1.4, 0.35, 1) both;
+    }
+    .zb-soundoffer svg { width: 18px; height: 18px; }
+    .zb-soundoffer:active { transform: translateX(-50%) rotate(-1.5deg) translateY(2px); box-shadow: 0 0 0 var(--mc-ink); }
+    .zb-soundoffer.on {
+      border-color: var(--mc-correct); color: var(--mc-correct);
+      box-shadow: 0 2px 0 var(--mc-correct);
+      animation: zb-offerout 0.35s 0.75s ease-out both;
+    }
+    @keyframes zb-offerin {
+      from { opacity: 0; transform: translateX(-50%) rotate(-1.5deg) scale(1.3); }
+    }
+    @keyframes zb-offerout { to { opacity: 0; } }
+    .zb-stage--projector .zb-soundoffer { font-size: 19px; padding: 10px 24px; }
+
     /* ---- marking + keypad ---- */
     .zb-mark { min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px 0; }
     .zb-mark .mc-margin-note { line-height: 1.5; }
@@ -1114,6 +1143,10 @@
                 <div class="zb-levelcard__chop" id="levelCardChop" style="display:none">加倍</div>
               </div>
             </div>
+            <button class="zb-soundoffer" id="soundOffer" style="display:none">
+              <svg aria-hidden="true"><use href="#i-sound"/></svg>
+              <span id="soundOfferText"></span>
+            </button>
           </div>
         </div>
         <div class="zb-tutorbar" id="tutorBar" style="display:none">
@@ -1334,6 +1367,8 @@ const STRINGS = {
   end_leaderboard:  { c: "排行榜",      e: "Leaderboard" },
   your_score:       { c: "你嘅分數",    e: "Your score" },
   rank_fmt:         { c: "第 {r} 名",   e: "Rank {r}" },
+  sound_offer:      { c: "開聲玩先夠爆！", e: "Play it loud!" },
+  sound_offer_on:   { c: "音效已開",      e: "Sound on" },
   room_gone:        { c: "搵唔到房間，請確認 QR code 或者房間號碼。", e: "Room not found. Check the QR code or room number." },
   reveal_wait:      { c: "時間到！記低正確密碼先入下一關。", e: "Time's up! Note the correct codes before the next level." },
   thanks_playing:   { c: "多謝參與！",   e: "Thanks for playing!" },
@@ -1375,7 +1410,14 @@ function renderSoundIcon() {
   $("soundIconOff").style.display = on ? "none" : "block";
   $("soundToggle").setAttribute("aria-pressed", on);
 }
-$("soundToggle").onclick = () => { ZBFX.audio.toggle(); ZBFX.audio.unlock(); renderSoundIcon(); };
+$("soundToggle").onclick = () => {
+  ZBFX.audio.toggle();
+  ZBFX.audio.unlock();
+  renderSoundIcon();
+  // the header toggle answers the one-time offer too
+  const offer = $("soundOffer");
+  if (offer) offer.remove();
+};
 renderSoundIcon();
 
 /* seedable levels: ?seed=N gives a reproducible run (tests, shared class) */
@@ -2275,6 +2317,38 @@ function refreshDynamicText() {
 }
 refreshDynamicText();
 
+/* ── the one-time sound offer ──
+ * The big stage defaults quiet, which buries the whole soundscape
+ * behind a small icon nobody finds mid-lesson. On a device with no
+ * stored preference the first level card carries the offer once; the
+ * tap doubles as the autoplay unlock. Any resolution (tap, header
+ * toggle, or round 1 ending unanswered) stores the answer for good. */
+function showSoundOffer() {
+  const chip = $("soundOffer");
+  if (!chip) return;
+  try { if (localStorage.getItem("mc-games-sound") !== null) return; } catch (_) { return; }
+  $("soundOfferText").textContent = t("sound_offer");
+  chip.style.display = "";
+  chip.onclick = () => {
+    chip.onclick = null;
+    ZBFX.audio.setOn(true); // stores the preference
+    ZBFX.audio.unlock();    // the same gesture unlocks autoplay
+    renderSoundIcon();
+    $("soundOfferText").textContent = t("sound_offer_on");
+    chip.classList.add("on");
+    setTimeout(() => chip.remove(), 1150);
+  };
+}
+function settleSoundOffer() {
+  const chip = $("soundOffer");
+  if (!chip || chip.classList.contains("on") || chip.style.display === "none") return;
+  chip.remove();
+  // unanswered through round 1: quiet is the answer, never nag again
+  try {
+    if (localStorage.getItem("mc-games-sound") === null) ZBFX.audio.setOn(false);
+  } catch (_) {}
+}
+
 /* resume: a saved host-run snapshot restores mid-round claims and the
  * remaining fuse after a host refresh (see resumeRun) */
 function startLevel(resume) {
@@ -2371,6 +2445,7 @@ function startLevel(resume) {
   void card.offsetWidth; // restart the animation
   card.classList.add("show");
   setTimeout(() => card.classList.remove("show"), 1250);
+  if (level.seq === 1 && !resume) showSoundOffer();
 
   G.fusePathEl = $("fusePath");
   G.fuseLen = G.fusePathEl.getTotalLength();
@@ -2417,7 +2492,7 @@ function fuseFrame() {
     $("fuseTimer").classList.add("warn");
     scatterCrew();
     const sec = Math.ceil(remain / (G.level.finale ? 500 : 1000));
-    if (sec !== G.lastTickSec) { G.lastTickSec = sec; ZBFX.audio.tick(); }
+    if (sec !== G.lastTickSec) { G.lastTickSec = sec; ZBFX.audio.tick(remain <= 3050); }
   }
   // grace theatre: 3 · 2 · 1 stamped over the scene before the blast
   if (G.grace) {
@@ -2900,6 +2975,7 @@ function collapseAndAdvance() {
   G.over = true;
   G.grace = false;
   $("scene").classList.remove("critical");
+  settleSoundOffer();
   cancelAnimationFrame(G.raf);
   ZBFX.audio.fuseStop();
   ZBFX.sparksAt(null);
@@ -3003,6 +3079,7 @@ function collapseAndAdvance() {
 
 function fuseOut() {
   G.over = true;
+  settleSoundOffer();
   cancelAnimationFrame(G.raf);
   ZBFX.audio.fuseStop();
   ZBFX.audio.fizzle();
