@@ -478,6 +478,17 @@
     osc.stop(t + decay + 0.05);
   }
 
+  /* every one-shot shares this prelude: silent when muted, the loaded
+   * sample when it is ready, else the passed live-synth fallback */
+  function oneShot(name, synth) {
+    return function () {
+      if (!enabled) return;
+      if (sample(name)) return;
+      if (!ensureCtx()) return;
+      synth();
+    };
+  }
+
   var audio = {
     isOn: function () {
       return enabled;
@@ -553,10 +564,7 @@
       thump(70, 32, 0.5, 0.45, 0.18);
       noiseburst("lowpass", 110, 0.4, 1.5, 0.3); // long rumble
     },
-    fizzle: function () {
-      if (!enabled) return;
-      if (sample("fizzle")) return;
-      if (!ensureCtx()) return;
+    fizzle: oneShot("fizzle", function () {
       var t = ac.currentTime;
       var src = ac.createBufferSource();
       src.buffer = noiseBuf;
@@ -570,75 +578,48 @@
       src.connect(filt).connect(g).connect(master);
       src.start(t);
       src.stop(t + 1);
-    },
-    tick: function () {
-      if (!enabled) return;
-      if (sample("tick")) return;
-      if (!ensureCtx()) return;
+    }),
+    tick: oneShot("tick", function () {
       thump(1250, 1100, 0.1, 0.04);
-    },
+    }),
     /* wrong answer: a dull knock, deliberately nothing like a boom */
-    knock: function () {
-      if (!enabled) return;
-      if (sample("knock")) return;
-      if (!ensureCtx()) return;
+    knock: oneShot("knock", function () {
       thump(150, 70, 0.3, 0.18);
       noiseburst("lowpass", 500, 0.12, 0.12);
-    },
+    }),
     /* the 拆 chop landing on the rubble */
-    stamp: function () {
-      if (!enabled) return;
-      if (sample("slam")) return;
-      if (!ensureCtx()) return;
+    stamp: oneShot("slam", function () {
       thump(130, 45, 0.35, 0.22);
       noiseburst("lowpass", 420, 0.1, 0.1);
-    },
+    }),
     /* a smaller rubber stamp pressed onto the sheet (condemned notice,
      * the report's 檢定完成 chop) */
-    stampSoft: function () {
-      if (!enabled) return;
-      if (sample("stamp")) return;
-      if (!ensureCtx()) return;
+    stampSoft: oneShot("stamp", function () {
       thump(170, 60, 0.22, 0.14);
       noiseburst("lowpass", 600, 0.08, 0.07);
-    },
+    }),
     /* the crack pre-beat before the deck breaks */
-    crack: function () {
-      if (!enabled) return;
-      if (sample("crack")) return;
-      if (!ensureCtx()) return;
+    crack: oneShot("crack", function () {
       noiseburst("highpass", 1800, 0.12, 0.12);
       thump(300, 180, 0.12, 0.1);
-    },
-    click: function () {
-      if (!enabled) return;
-      if (sample("key")) return;
-      if (!ensureCtx()) return;
+    }),
+    click: oneShot("key", function () {
       thump(1900, 1500, 0.045, 0.02);
-    },
+    }),
     /* report ceremony: a star stamps in */
-    chime: function () {
-      if (!enabled) return;
-      if (sample("chime")) return;
-      if (!ensureCtx()) return;
+    chime: oneShot("chime", function () {
       thump(1320, 1300, 0.08, 0.5);
       thump(2640, 2600, 0.03, 0.25);
-    },
+    }),
     /* the worksheet page turning to the next round */
-    page: function () {
-      if (!enabled) return;
-      if (sample("page")) return;
-      if (!ensureCtx()) return;
+    page: oneShot("page", function () {
       noiseburst("bandpass", 1400, 0.08, 0.25);
-    },
+    }),
     /* on a phone: someone else's claim just landed */
-    ping: function () {
-      if (!enabled) return;
-      if (sample("ping")) return;
-      if (!ensureCtx()) return;
+    ping: oneShot("ping", function () {
       thump(880, 870, 0.07, 0.1);
       thump(880, 870, 0.03, 0.09, 0.16);
-    },
+    }),
   };
 
   function vibrate(pattern) {
