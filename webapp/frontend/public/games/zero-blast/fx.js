@@ -468,6 +468,12 @@
       thump(130, 45, 0.35, 0.22);
       noiseburst("lowpass", 420, 0.1, 0.1);
     },
+    /* the crack pre-beat before the deck breaks */
+    crack: function () {
+      if (!enabled || !ensureCtx()) return;
+      noiseburst("highpass", 1800, 0.12, 0.12);
+      thump(300, 180, 0.12, 0.1);
+    },
     click: function () {
       if (!enabled || !ensureCtx()) return;
       thump(1900, 1500, 0.045, 0.02);

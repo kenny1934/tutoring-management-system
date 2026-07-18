@@ -45,6 +45,28 @@
       font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
     }
     .zb-board .zb-zero { color: var(--mc-red); }
+    /* the zero-product property, marked where it lives: a fallen
+     * pillar's factor is struck through in red on the board itself,
+     * the claimer's name in tiny ink above it */
+    .zb-board .zb-factor { position: relative; display: inline-block; }
+    .zb-board .zb-factor.struck { color: var(--mc-ink-faint); }
+    .zb-board .zb-factor.struck::after {
+      content: ""; position: absolute; left: -3%; top: 52%; width: 106%;
+      border-top: 0.11em solid var(--mc-red); border-radius: 2px;
+      transform: rotate(-5deg); transform-origin: left center;
+      animation: zb-strike 0.28s 0.05s ease-out both;
+    }
+    @keyframes zb-strike { from { width: 0; } to { width: 106%; } }
+    .zb-board .zb-factor__by {
+      position: absolute; left: 50%; top: -0.62em; transform: translateX(-50%) rotate(-3deg);
+      font-family: var(--mc-mono); font-size: 0.34em; font-weight: 700; line-height: 1;
+      color: var(--mc-red); white-space: nowrap;
+      animation: zb-byin 0.3s 0.2s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+    }
+    @keyframes zb-byin {
+      from { opacity: 0; transform: translateX(-50%) rotate(-3deg) scale(0.4); }
+      to { opacity: 1; transform: translateX(-50%) rotate(-3deg) scale(1); }
+    }
 
     /* textbook maths: variables set in serif italic (like print),
        digits and operators stay in the worksheet mono */
@@ -96,16 +118,28 @@
     .zb-deck { transform-box: fill-box; transform-origin: center bottom; transition: transform 0.5s cubic-bezier(0.3, 1.4, 0.4, 1); }
     .zb-deck.sag-l { transform: rotate(-3.5deg) translateY(5px); }
     .zb-deck.sag-r { transform: rotate(3.5deg) translateY(5px); }
+    /* crack pre-beat: fault lines flash across the deck an instant
+       before the chunks separate along them */
+    .zb-struct .zb-cracks path {
+      stroke: var(--mc-ink); stroke-width: 2;
+      stroke-dasharray: 1; stroke-dashoffset: 1; animation: zb-draw 0.12s ease-out forwards;
+    }
+    .zb-struct .zb-cracks path:nth-child(2) { animation-delay: 40ms; }
+    .zb-struct .zb-cracks path:nth-child(3) { animation-delay: 80ms; }
     /* collapse: the deck breaks into chunks, each tumbling on its own
-       randomised drift / spin / delay (set as custom props at render) */
+       randomised drift / spin / delay (set as custom props at render).
+       Chunks LAND (70%), hit-stop a beat (steps hold), settle, and lie
+       on the ground until the pile outline has inked over them. */
     .zb-chunk { transform-box: fill-box; transform-origin: center bottom; }
     .zb-deck.fall { transition: none; }
     .zb-deck.fall .zb-chunk { animation: zb-chunkfall 0.78s cubic-bezier(0.5, 0, 0.85, 0.4) var(--dd, 0ms) forwards; }
     @keyframes zb-chunkfall {
-      30% { opacity: 1; }
-      55% { transform: translate(calc(var(--tx, 0px) * 0.45), 24px) rotate(calc(var(--rot, 8deg) * 0.65)); }
-      to { transform: translate(var(--tx, 0px), 66px) rotate(var(--rot, 8deg)); opacity: 0; }
+      70% { transform: translate(calc(var(--tx, 0px) * 0.9), 62px) rotate(calc(var(--rot, 8deg) * 0.92)); animation-timing-function: steps(1, end); }
+      80% { transform: translate(calc(var(--tx, 0px) * 0.9), 62px) rotate(calc(var(--rot, 8deg) * 0.92)); animation-timing-function: ease-out; }
+      to { transform: translate(var(--tx, 0px), 66px) rotate(var(--rot, 8deg)); }
     }
+    /* the landed debris melts into the pile once the outline is inked */
+    .zb-deck.dissolve { opacity: 0; transition: opacity 0.45s ease-out; }
     /* fail state: the survivor takes the hit, settles, dusts itself off */
     .zb-deck.settle { animation: zb-settle 0.6s ease-out; }
     @keyframes zb-settle {
@@ -147,11 +181,34 @@
       100% { opacity: 0; transform: translateY(-18px) rotate(-3deg); }
     }
 
-    /* grace window: all pillars down, the whole blueprint trembles */
+    /* grace window: all pillars down, the whole blueprint trembles,
+       the beacons blink double-time and a red vignette breathes */
     .zb-scene.critical > .zb-struct { animation: zb-tremble 0.16s linear infinite; }
     @keyframes zb-tremble {
       25% { transform: translate(0.8px, -0.5px) rotate(0.12deg); }
       75% { transform: translate(-0.8px, 0.5px) rotate(-0.12deg); }
+    }
+    .zb-scene.critical .zb-hazard { animation-duration: 0.8s; }
+    .zb-scene.critical::after {
+      content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+      box-shadow: inset 0 0 36px color-mix(in srgb, var(--mc-red) 30%, transparent);
+      animation: zb-vignette 1s ease-in-out infinite;
+    }
+    @keyframes zb-vignette { 50% { opacity: 0.35; } }
+    /* 3 · 2 · 1 stamped over the scene as the final blast closes in */
+    .zb-gracenum {
+      position: absolute; inset: 0; z-index: 4; pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mc-mono); font-weight: 800;
+      font-size: clamp(70px, 18vw, 150px);
+      color: color-mix(in srgb, var(--mc-red) 55%, transparent);
+      animation: zb-gracenum 0.9s ease-out forwards;
+    }
+    @keyframes zb-gracenum {
+      0% { opacity: 0; transform: scale(1.4); }
+      25% { opacity: 1; transform: scale(1); }
+      70% { opacity: 0.9; }
+      100% { opacity: 0; transform: scale(0.92); }
     }
 
     .zb-rubble { visibility: hidden; transform-box: fill-box; transform-origin: center bottom; }
@@ -1049,6 +1106,34 @@ function exprHtml(expr) {
   return mathHtml(expr).replace(/= 0$/, '= <span class="zb-zero">0</span>');
 }
 
+/* the equation board with each factor as an addressable span keyed by
+ * pillar id, so a fallen pillar can be struck through right where the
+ * zero-product property lives. Kind 6 shows the expanded form (its
+ * plaque reveal carries the factors), so it has no spans. */
+function boardHtml(level) {
+  if (level.kind === "expanded") return exprHtml(level.expr);
+  const span = (ids, text) =>
+    `<span class="zb-factor" data-fids="${ids.join(" ")}">${mathHtml(text)}</span>`;
+  const tail = ' = <span class="zb-zero">0</span>';
+  const ps = level.pillars;
+  switch (level.kind) {
+    case "numeric": return level.konst + " × " + span([ps[0].id], ps[0].label) + tail;
+    case "linear": return span([ps[0].id], ps[0].label) + tail;
+    case "square": return span([ps[0].id, ps[1].id], ps[0].label) + "²" + tail;
+    default: return span([ps[0].id], ps[0].label) + span([ps[1].id], ps[1].label) + tail;
+  }
+}
+
+/* strike a fallen factor through in red; the claimer's name (escaped,
+ * never math-formatted) is inked tiny above it. Idempotent: a double
+ * root's two pillars share one span. */
+function strikeFactor(boardEl, pillarId, name) {
+  const el = boardEl.querySelector(`.zb-factor[data-fids~="${pillarId}"]`);
+  if (!el || el.classList.contains("struck")) return;
+  el.classList.add("struck");
+  if (name) el.insertAdjacentHTML("beforeend", `<span class="zb-factor__by">${escapeText(name)}</span>`);
+}
+
 function starSvg() {
   return '<svg viewBox="0 0 20 20"><path d="M10 1.5l2.5 5.4 5.9 0.7-4.4 4 1.2 5.8-5.2-2.9-5.2 2.9 1.2-5.8-4.4-4 5.9-0.7z"/></svg>';
 }
@@ -1348,7 +1433,7 @@ function startLevel(resume) {
 
   refreshDynamicText();
   tweenScore($("scoreBox"), G.score); // snaps when unchanged, cancels a stale tween
-  $("exprBoard").innerHTML = exprHtml(level.expr);
+  $("exprBoard").innerHTML = boardHtml(level);
   $("markZone").innerHTML = "";
   $("sceneStamp").classList.remove("show");
   $("sceneStamp").innerHTML = "";
@@ -1435,6 +1520,18 @@ function fuseFrame() {
     const sec = Math.ceil(remain / (G.level.finale ? 500 : 1000));
     if (sec !== G.lastTickSec) { G.lastTickSec = sec; ZBFX.audio.tick(); }
   }
+  // grace theatre: 3 · 2 · 1 stamped over the scene before the blast
+  if (G.grace) {
+    const gs = Math.ceil(remain / 1000);
+    if (gs !== G.lastGraceSec && gs >= 1 && gs <= 3) {
+      G.lastGraceSec = gs;
+      const numEl = document.createElement("div");
+      numEl.className = "zb-gracenum";
+      numEl.textContent = gs;
+      $("scene").appendChild(numEl);
+      setTimeout(() => numEl.remove(), 950);
+    }
+  }
   // solo scaffold: at half fuse the factorise hint pencils itself in
   if (G.mode === "solo" && G.level.kind === "expanded" && !G.hinted && burned >= 0.5) showHint();
 
@@ -1498,6 +1595,7 @@ function blowPillar(id, root, name) {
   const g = document.querySelector(`.zb-pillar[data-id="${id}"]`);
   const mark = document.querySelector(`.zb-rootmark[data-for="${id}"]`);
   const x = pillarX(id);
+  strikeFactor($("exprBoard"), id, name);
   g.classList.add("blown");
   mark.innerHTML = svgMath("x = " + ZBLevels.num(root));
   mark.classList.add("show");
@@ -1522,6 +1620,25 @@ function sagDeck(hitId) {
   const standing = level.pillars.find(p => G.claimed.indexOf(p.id) === -1);
   if (!standing) return;
   $("deck").classList.add(pillarX(hitId) < pillarX(standing.id) ? "sag-l" : "sag-r");
+}
+
+/* the crack pre-beat: jagged fault lines flash across the deck an
+ * instant before the chunks separate along them */
+function showCracks() {
+  const bb = $("deck").getBBox();
+  const y0 = bb.y + bb.height * 0.35;
+  const mk = (x, y, segs) => {
+    let d = `M${x.toFixed(1)} ${y.toFixed(1)}`;
+    segs.forEach(s => { d += ` l${s[0]} ${s[1]}`; });
+    return d;
+  };
+  const paths = [
+    mk(bb.x + bb.width * 0.2, y0 + 10, [[14, 8], [10, -6], [16, 10], [12, -4], [18, 8]]),
+    mk(bb.x + bb.width * 0.62, bb.y + 8, [[8, 12], [-6, 10], [10, 14], [-4, 12]]),
+    mk(bb.x + bb.width * 0.45, y0 - 8, [[-10, 10], [8, 9], [-12, 12]]),
+  ];
+  $("structSvg").insertAdjacentHTML("beforeend",
+    `<g class="zb-cracks" id="cracks">${paths.map(d => `<path pathLength="1" d="${d}"/>`).join("")}</g>`);
 }
 
 function submitCode(v, player) {
@@ -1685,6 +1802,7 @@ function enterGrace() {
   const graceMs = Math.min(CFG.grace * 1000, remainMs);
   if (graceMs < 400) { collapseAndAdvance(); return; }
   G.grace = true;
+  G.lastGraceSec = null;
   G.deadline = performance.now() + graceMs;
   $("scene").classList.add("critical");
   ZBFX.shake(6);
@@ -1811,7 +1929,16 @@ function collapseAndAdvance() {
   if (G.mode === "host") G.room.update("state", { phase: "cooldown", graceUntil: null });
   saveHostRun();
 
+  // crack pre-beat (~150ms): fault lines flash, one small shake pulse,
+  // THEN the deck breaks along them
   setTimeout(() => {
+    showCracks();
+    ZBFX.shake(5);
+    ZBFX.audio.crack();
+  }, 380);
+  setTimeout(() => {
+    const cracks = $("cracks");
+    if (cracks) cracks.remove();
     $("deck").classList.remove("sag-l", "sag-r");
     $("deck").classList.add("fall");
     ZBFX.audio.collapse();
@@ -1819,11 +1946,16 @@ function collapseAndAdvance() {
     ZBFX.vibrate([60, 40, 130]);
     ZBFX.debris(200, 130, { count: 40, power: 1.5 });
     ZBFX.dust(200, GROUND - 10, { count: 6 });
-  }, 380);
+  }, 530);
   setTimeout(() => {
     $("rubble").classList.add("show");
     ZBFX.dust(200, GROUND - 14, { count: 4 });
   }, 1020);
+  // the landed debris melts into the inked pile
+  setTimeout(() => {
+    const deck = $("deck");
+    if (deck) deck.classList.add("dissolve");
+  }, 1350);
   setTimeout(() => {
     $("sceneStamp").innerHTML =
       `<div class="zb-chaiflash"></div><div class="zb-chai">拆</div><div class="zb-chai__cap">${t("stamp_demolished")} · ${fmt("points_fmt", { n: G.levelPoints })}</div>`;
@@ -2250,7 +2382,7 @@ function onCtrlRoom(room) {
     C.levelKey = lvKey;
     C.level = st.level;
     $("ctrlLevelChip").innerHTML = levelChipHtml(st.level);
-    $("ctrlExpr").innerHTML = exprHtml(st.level.expr);
+    $("ctrlExpr").innerHTML = boardHtml(st.level);
     $("ctrlMark").innerHTML = "";
   }
 
@@ -2260,6 +2392,13 @@ function onCtrlRoom(room) {
       if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
       C.pad.enable();
       $("ctrlMark").innerHTML = "";
+    }
+    // claimed factors are struck through on every phone's board too
+    if (st.claims) {
+      Object.keys(st.claims).forEach(id => {
+        const c = st.claims[id];
+        strikeFactor($("ctrlExpr"), id, c && c.name);
+      });
     }
     if (C.graceUntil <= Date.now()) {
       const total = C.level.pillars.length;
