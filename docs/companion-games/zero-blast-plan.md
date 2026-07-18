@@ -1237,3 +1237,78 @@ whether the lobby groove should also play on the solo COVER after
 a menu exit (currently silent by design); old-Android setInterval
 throttling under screen-dim (the skip-ahead guard handles it, but
 the groove will thin out).
+
+## 15. Pre-pilot hardening (implemented 2026-07-18, from the 7-perspective audit)
+
+The pre-pilot audit (report: docs/companion-games/zero-blast-pre-pilot-audit.html)
+returned 1 blocker + 16 high. Everything the audit gated the pilot on is
+implemented; game.json 0.9.0. The five batches, in fix order:
+
+**S1 - lock the database (the blocker).** Live RTDB had NO game-rooms
+rules (default deny - live multi could never have worked; the drafted
+prose rules would have shipped an open subtree instead). Real rules now
+live in growing-minds `webapp/database.rules.json`: anonymous auth
+required, reads only at room level (slug parent unenumerable), room
+create/state/verdicts scoped to the creating hostUid, stale rooms (>6h)
+reclaimable, players/<id> pinned to the joining device's uid with a
+24-char name validate, subs/<id> writable only by the owning uid (kills
+seq-griefing and claim forging). GameBridge implements the client half
+over REST (per-device identity in localStorage, securetoken refresh,
+401 retry-once, SSE auth_revoked rejoin), writes hostUid at creation,
+checks it on reclaim, and mints 6-char crypto room codes (no 0/O/1/I).
+Defence-in-depth in the game: controller levels are shape-checked and
+coerce numerics on arrival, level text renders escaped (the one
+innerHTML path name-escaping never covered), verdict values must be
+numeric, host filters player ids to the client shape (`__proto__` keys
+corrupted the seq dedupe) and truncates names.
+DEPLOYMENT (manual, before any live multi test):
+  1. Firebase console -> csm-database-project -> Authentication ->
+     Get started -> Sign-in method -> enable **Anonymous**.
+  2. `cd growing-minds/webapp && firebase deploy --only database`
+     (rules committed on growing-minds main).
+
+**S2 - the two confirmed breakers.** Host 再拆一次 no longer bricks
+phones (the end screen killed the tick interval; end->playing restarts
+it, ctrlEnd clears the level key so same-seed restarts re-render).
+Pillar x-positions rank by root - the resolve graph's x-intercepts
+always increase rightward and agree with the phone thumbnail; the
+equation keeps its factor order (kind 4's shuffle stays the trap).
+
+**S3 - phone resilience.** Submits: sent/marking beat, pad soft-closed
+in flight, one silent retry, seq advances only on success, 2.5s
+verdictless reopen; subs and verdicts are level-bound ({lv}) both ways.
+Identity mirrors to localStorage so a QR re-scan resumes the same
+player with their score. Keypad commit window 400->750ms with a
+visible drain (the "7 then minus" order on 正負陷阱 died in 400ms).
+All epoch math runs on GameBridge.serverNow() (HTTP Date estimate;
+REST has no /.info/serverTimeOffset).
+
+**S4 - tutor safety net.** Run snapshots mirror to localStorage + a
+lobby snapshot at creation (closed tab / pre-start refresh no longer
+strands the class); 接手房間 reclaim-by-code on the cover (same device
+only - hostUid rules make cross-device hijack impossible, and that is
+deliberate); mid-game kick via host-board rows (lobby arm pattern),
+phones detect removal in any phase and can rejoin; duplicate names
+suffix at join; the unanswered sound offer stores nothing (re-offered
+next run); 下一關 pulses during a held reveal.
+
+**S5 - difficulty and scoring.** Negative roots unlock only after a
+kind-4 stage has finished (gen() negOk, derived in genPlan): 0 early
+negatives over 500 seeded runs, was 100%. Kind-3 hard flips each sign
+independently (~25/50/25). Double hits pay 1.5x and kind 5 sits out
+the mixed street (the one-tap read-off was the game's biggest payout).
+Solo kind-6 hint is opt-in (提示 chip, pays 75%; tutors' fee softens to
+x0.75 too); half fuse now gives a sum/product nudge that yields to
+working being read.
+
+Suites: committed to the repo at webapp/frontend/tests/games/zero-blast/
+(they lived in a scratchpad through 7 iterations - an audit HIGH),
+recreated to the final green specs and extended with regression
+coverage for the S2/S3/S4/S5 behavior.
+
+Deliberately NOT done (audit mediums that keep their triggers):
+answer key still ships in published state (strip roots/hidden + move
+working into verdicts before scaling past one class); no pause; rem/
+contrast pass; runtime copy on the cover still says 5-8 min while
+game.json now says 15 (align the copy with Steve); protocol/template
+promotion to shared/ before game #2.
