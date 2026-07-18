@@ -127,6 +127,15 @@
     .zb-struct path, .zb-struct line { stroke: var(--mc-ink); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .zb-struct .thin { stroke-width: 1.2; }
     .zb-struct .faint { stroke: var(--mc-ink-faint); }
+    /* the illustrated depth pass: heavier load-bearing verticals,
+       a heavier foreground kerb, and a second ink tone — the shade
+       side of one upper-left light source, as plain low-opacity
+       fills (polygons, so no stroke/draw rule ever catches them;
+       passes the fx=lite gate untouched, never red) */
+    .zb-struct .hv { stroke-width: 2.7; }
+    .zb-struct .fore { stroke-width: 2.6; }
+    .zb-wash { fill: var(--mc-ink); stroke: none; opacity: 0; animation: zb-washin 0.7s 1.5s ease-out forwards; }
+    @keyframes zb-washin { to { opacity: 0.07; } }
     .zb-struct text { fill: var(--mc-ink); }
     /* the half-fuse hint: a factor pencilled in faintly, not reveal ink */
     .zb-struct text.zb-hintghost { fill: var(--mc-ink-faint); opacity: 0; animation: zb-fadein 0.8s ease-out forwards; }
@@ -804,6 +813,7 @@
       .zb-graph .zb-graph__curve { stroke-dashoffset: 0 !important; }
       .din2, .zb-rootmark.show, .zb-graph { opacity: 1 !important; }
       .zb-struct .zb-survey { opacity: 0.6 !important; }
+      .zb-wash { opacity: 0.07 !important; }
       .zb-crew, .zb-foreman, .zb-endinspector { opacity: 1 !important; }
       /* figures stay static: the scatter is an instant exit, no run */
       .zb-crew--run .zb-figure { animation: none !important; opacity: 0 !important; }
@@ -1405,6 +1415,16 @@ let drawIdx = 0;
 function P(d, cls) {
   return `<path d="${d}" pathLength="1" class="din ${cls || ""}" style="--i:${drawIdx++}"/>`;
 }
+/* depth-pass detail stroke: rides an EARLIER stroke's draw beat (an
+ * explicit --i) instead of consuming a new one, so added detail never
+ * pushes the round-open moment later */
+function PX(d, cls, i) {
+  return `<path d="${d}" pathLength="1" class="din ${cls || ""}" style="--i:${i}"/>`;
+}
+/* wash polygon: the second ink tone (see .zb-wash) */
+function W(pts) {
+  return `<polygon class="zb-wash" points="${pts}"/>`;
+}
 function T(x, y, cls, content, extra) {
   return `<text x="${x}" y="${y}" class="din2 ${cls || ""}" style="--i:${drawIdx++}" ${extra || ""}>${content}</text>`;
 }
@@ -1418,14 +1438,27 @@ function qmarkSvg(cx, id) {
   </g>`;
 }
 
+/* reinforcement ink (the depth pass): the pillars must read
+ * formidable — only the correct zero punches through — but in the
+ * blueprint idiom, never bulk: heavier verticals, a collar tie,
+ * doubled lower bracing, hatched concrete footings, and the shade
+ * side washed. The plaque band stays the focal point (every added
+ * stroke sits above 162 or below 184). */
 function pillarSvg(cx, p) {
   const l = cx - 11, r = cx + 11;
   const isQ = p.label === "?";
+  const i0 = drawIdx; // reinforcement rides the main strokes' beats
   return `<g class="zb-pillar" data-id="${p.id}">
-    ${P(`M${l} ${DECK_Y} V${GROUND}`)}
-    ${P(`M${r} ${DECK_Y} V${GROUND}`)}
+    ${W(`${r - 4},152 ${r},152 ${r},160 ${r - 4},160`)}
+    ${W(`${r - 4},186 ${r},186 ${r},203 ${r - 4},203`)}
+    ${P(`M${l} ${DECK_Y} V${GROUND}`, "hv")}
+    ${P(`M${r} ${DECK_Y} V${GROUND}`, "hv")}
     ${P(`M${l} 158 L${r} 176 M${r} 158 L${l} 176`, "thin")}
     ${P(`M${l} 188 L${r} 206 M${r} 188 L${l} 206`, "thin")}
+    ${PX(`M${l} 155 h22`, "thin", i0 + 2)}
+    ${PX(`M${l} 190.5 L${r} 204.5 M${r} 190.5 L${l} 204.5`, "thin", i0 + 3)}
+    ${PX(`M${l - 5} ${GROUND} v-6 h10 v6 M${r - 5} ${GROUND} v-6 h10 v6`, "thin", i0)}
+    ${PX(`M${l - 3} ${GROUND} l4 -6 M${l + 1} ${GROUND} l4 -6 M${r - 3} ${GROUND} l4 -6 M${r + 1} ${GROUND} l4 -6`, "thin faint", i0 + 1)}
     ${P(`M${cx - 31} 162 h62 v22 h-62 z`, "plaque-border")}
     ${isQ ? qmarkSvg(cx, p.id) : ""}
     ${T(cx, 178, "plabel", isQ ? "" : svgMath(p.label), `data-plaque="${p.id}"`)}
@@ -1438,12 +1471,88 @@ function haz(cx, cy) {
   return `<circle class="zb-hazard" cx="${cx}" cy="${cy}" r="2.6"/>`;
 }
 
+/* ══ the illustrated depth pass ══
+ * One light source, upper left: every silhouette carries its shade
+ * side as a wash (right walls, under-parapets, door recesses), plus
+ * doors, window mullions and hash-picked Macau vernacular dressing —
+ * water tanks, laundry lines, 騎樓 arcade arches, signage strokes
+ * (abstract squiggles, mirror-safe, no landmarks). All of it lives
+ * on the deck, so it tumbles and dissolves with the collapse and can
+ * never crowd the resolve graph's sky. Detail strokes ride existing
+ * draw beats (PX), keeping the round-open moment exactly where the
+ * staging beat put it. */
+function dressVariant(level) {
+  return ((level.seq * 2654435761) >>> 20) % 3;
+}
+
+function deckWash(level) {
+  switch (level.n) {
+    case 1: return [W("223,106 228,104 228,142 223,142")];
+    case 2: return [W("228,108 234,106 234,142 228,142"), W("212,120 216,118 216,142 212,142")];
+    case 3: return [W("270,73 276,70 276,142 270,142"), W("124,70 276,70 272,74 128,74"), W("192,128 196,126 196,142 192,142")];
+    case 4: return [W("150,122 156,120 156,142 150,142"), W("270,122 276,120 276,142 270,142")];
+    case 5: return [W("212,46 218,44 218,142 212,142")];
+    case 6: return [W("262,66 268,64 268,142 262,142"), W("238,36 244,34 244,64 238,64"), W("156,64 244,64 240,68 160,68"), W("194,129 198,127 198,142 194,142")];
+  }
+  return [];
+}
+
+function deckDress(level, i0) {
+  const v = dressVariant(level);
+  const parts = [];
+  switch (level.n) {
+    case 1:
+      if (v === 1) parts.push(PX("M212 95.5 v-8 h5 v7.5", "thin", i0 + 2));
+      if (v === 2) parts.push(PX("M174 142 v-8 h8 v8 M176 134 v-6 h7 v6", "thin", i0 + 2));
+      break;
+    case 2:
+      parts.push(PX("M183 116 v12", "thin faint", i0 + 3));
+      if (v === 0) parts.push(PX("M200 78 v-7 M195 72.5 l10 -3.5", "thin", i0 + 2));
+      if (v === 1) parts.push(PX("M190 118 q11 4 22 0 M196 120.6 v4.5 M203 121.2 v5 M210 120.4 v4", "thin faint", i0 + 2));
+      if (v === 2) parts.push(PX("M178 130 h10 v6 h-10 z M206 120 v14 h5 v-14 z M207.5 124 h2 M207.5 128 h2 M207.5 131.5 h2", "thin", i0 + 2));
+      break;
+    case 3:
+      parts.push(PX("M192 142 v-16 h16 v16", "", i0 + 4));
+      parts.push(PX("M147 118 v14 M243 118 v14 M147 82 v14 M195 82 v14 M243 82 v14", "thin faint", i0 + 5));
+      if (v === 0) parts.push(PX("M256 58 v-5 M264 58 v-5 M252 53 h16 v-8 h-16 z", "thin", i0 + 2));
+      if (v === 1) parts.push(PX("M158 101 q20 5 40 3 M166 103.4 v4.5 M178 104.8 v5 M190 104.6 v4.5", "thin faint", i0 + 2));
+      if (v === 2) parts.push(PX("M130 142 q6 -10 12 0 M148 142 q6 -10 12 0 M166 142 q6 -10 12 0 M216 106 v16 h6 v-16 z M217.5 110 h3 M217.5 114.5 h3 M217.5 118.5 h3", "thin", i0 + 2));
+      break;
+    case 4:
+      if (v === 0) parts.push(PX("M170 84 l5 2.5 l-5 2.5 z M230 84 l-5 2.5 l5 2.5 z", "thin", i0 + 2));
+      if (v === 1) parts.push(PX("M155 142 V111.5 M185 142 V104 M215 142 V104 M245 142 V111.5", "thin faint", i0 + 2));
+      if (v === 2) parts.push(PX("M124 131 h32 M244 131 h32", "thin", i0 + 2));
+      break;
+    case 5:
+      if (v === 0) parts.push(PX("M186 142 V60 M184 132 h4.5 M184 120 h4.5 M184 108 h4.5 M184 96 h4.5 M184 84 h4.5 M184 72 h4.5", "thin faint", i0 + 2));
+      if (v === 1) parts.push(PX("M188 52 L166 140 M212 52 L234 140", "thin faint", i0 + 2));
+      if (v === 2) parts.push(PX("M182 62 h-9 M173 62 v-7 M173 55 h9", "thin", i0 + 2));
+      break;
+    case 6:
+      parts.push(PX("M194 142 v-15 h12 v15", "", i0 + 4));
+      parts.push(PX("M152 122 v10 M248 122 v10 M152 100 v10 M200 100 v10 M248 100 v10 M152 78 v10 M200 78 v10 M248 78 v10", "thin faint", i0 + 5));
+      if (v === 0) parts.push(PX("M216 34 v-6 M226 34 v-6 M213 28 h16 v-7 h-16 z", "thin", i0 + 2));
+      if (v === 1) parts.push(PX("M162 92 q19 5 38 3 M170 94.6 v4.5 M181 96 v5 M192 95.7 v4.5", "thin faint", i0 + 2));
+      if (v === 2) parts.push(PX("M140 142 q6 -9 12 0 M158 142 q6 -9 12 0 M226 90 v18 h6 v-18 z M227.5 94.5 h3 M227.5 99.5 h3 M227.5 104.5 h3", "thin", i0 + 2));
+      break;
+  }
+  return parts;
+}
+
 /* per-level building silhouettes, all standing on the pillar deck.
  * Returned as an ordered list of parts (roughly bottom-up) so the
- * collapse can break the deck into separately tumbling chunks. */
+ * collapse can break the deck into separately tumbling chunks. The
+ * depth pass wraps them: washes first (they render behind every
+ * stroke), dressing last (it rides the top chunk). */
 function deckParts(level, xs) {
   const lo = Math.min(...xs) - 42, hi = Math.max(...xs) + 42;
+  const i0 = drawIdx;
   const beam = P(`M${lo} ${DECK_Y} h${hi - lo} M${lo} ${DECK_Y - 8} h${hi - lo}`);
+  const base = basePartsOf(level, xs, beam);
+  return [...deckWash(level), ...base, ...deckDress(level, i0)];
+}
+
+function basePartsOf(level, xs, beam) {
   switch (level.n) {
     case 1: return [beam,
       P("M172 142 h56 v-38 h-56 z"),
@@ -1527,6 +1636,7 @@ function rubbleSvg(xs) {
   const w = Math.max(90, (Math.max(...xs) - Math.min(...xs)) + 110);
   const l = cx - w / 2, r = cx + w / 2;
   return `<g class="zb-rubble" id="rubble">
+    <polygon class="zb-wash" points="${(cx - 8).toFixed(0)},${GROUND - 1} ${(r + 10).toFixed(0)},${GROUND - 1} ${(r - 4).toFixed(0)},${GROUND - 6} ${(cx - 2).toFixed(0)},${GROUND - 8}"/>
     <path pathLength="1" d="M${l} ${GROUND} L${l + w * 0.16} ${GROUND - 16} L${l + w * 0.3} ${GROUND - 8} L${cx} ${GROUND - 26} L${l + w * 0.68} ${GROUND - 10} L${l + w * 0.84} ${GROUND - 18} L${r} ${GROUND}"/>
     <path pathLength="1" class="thin" d="M${cx - 26} ${GROUND - 9} l10 -7 l7 7 M${cx + 12} ${GROUND - 14} l9 -5 M${l + 12} ${GROUND - 5} l8 -5"/>
   </g>`;
@@ -1542,20 +1652,26 @@ function atmosphereSvg() {
     + P("M352 124 H392 M372 118 V112 M372 112 L354 123 M372 112 L390 123", "thin faint")
     + P("M386 124 v7 h5 v-7", "thin faint")
     + `<g class="zb-crane__hook">${P("M357 124 v13", "thin faint")}${P("M357 137 q-2.5 3 0 5 q3 2 3.5 -1", "thin faint")}</g>`
-    + `<g class="zb-cloud zb-cloud--a">${P("M64 46 q7 -9 18 -7 q9 -7 20 -2 q10 -1 8 5 q-5 7 -16 5 q-11 4 -21 1 q-9 -1 -9 -2", "thin faint")}</g>`
-    + `<g class="zb-cloud zb-cloud--b">${P("M316 36 q6 -8 16 -6 q8 -6 17 -1 q8 0 6 5 q-5 5 -13 4 q-10 3 -18 0 q-8 -1 -8 -2", "thin faint")}</g>`
+    + `<g class="zb-cloud zb-cloud--a">${P("M64 46 q7 -9 18 -7 q9 -7 20 -2 q10 -1 8 5 q-5 7 -16 5 q-11 4 -21 1 q-9 -1 -9 -2", "thin faint")}${W("70,49 100,50.5 93,53 74,51.5")}</g>`
+    + `<g class="zb-cloud zb-cloud--b">${P("M316 36 q6 -8 16 -6 q8 -6 17 -1 q8 0 6 5 q-5 5 -13 4 q-10 3 -18 0 q-8 -1 -8 -2", "thin faint")}${W("321,38.5 347,39.5 341,42 325,40.5")}</g>`
     + `</g>`;
 }
 
 function sceneStatics(level, xs) {
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const i0 = drawIdx; // depth details ride the early strokes' beats
   let hatch = "";
   for (let x = 20; x < 390; x += 24) hatch += `M${x} ${GROUND} l-8 9 `;
   // fuse: detonator bottom-left, hand-drawn line to the structure base
   const fuseD = `M46 202 C 96 226, 132 188, ${cx - 52} 218 S ${cx - 10} 214, ${cx} 209`;
   return atmosphereSvg()
-    + P(`M8 ${GROUND} H392`)
+    + P(`M8 ${GROUND} H392`, "fore")
     + P(hatch, "thin faint")
+    // far street: a broken second kerb behind the site, a lamp post
+    // and bollards — the depth layer stays below the deck line
+    + PX("M52 197 H96 M304 197 H346", "thin faint", i0 + 2)
+    + PX("M66 197 V163 M66 163 h7 q4 1 3 5", "thin faint", i0 + 3)
+    + PX("M54 197 v-5 M84 197 v-5 M348 197 v-5", "thin faint", i0 + 4)
     + `<path d="M${cx} 20 V${GROUND}" class="thin faint" stroke-dasharray="7 4 2 4"/>`
     + T(16, 26, "tag", "圖則 PLAN " + String(level.seq).padStart(2, "0") + "/" + String(level.total).padStart(2, "0"))
     + P("M14 32 h64", "thin faint")
@@ -1638,7 +1754,7 @@ function renderStructure(level) {
   svg.innerHTML =
     sceneStatics(level, xs)
     + rubbleSvg(xs)
-    + `<g class="zb-deck" id="deck"><g${vt ? ` transform="${vt}"` : ""}>${chunkDeck(deckParts(level, xs))}${lightsSvg(level)}</g></g>`
+    + `<g class="zb-deck" id="deck" data-dress="${dressVariant(level)}"><g${vt ? ` transform="${vt}"` : ""}>${chunkDeck(deckParts(level, xs))}${lightsSvg(level)}</g></g>`
     + level.pillars.map((p, i) => pillarSvg(xs[i], p)).join("");
   svg.insertAdjacentHTML("beforeend", surveySvg() + crewSvg());
   return xs;
