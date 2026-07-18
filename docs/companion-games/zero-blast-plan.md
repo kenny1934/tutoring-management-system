@@ -662,10 +662,61 @@ during tremble (fx gate covers phones already).
 - Tests: parabola present after resolve, single touch point for
   kind 5, key g toggles, reduced motion static-visible.
 
+### Batch N - street life and characters (Tier 0)
+
+Students rate quality by production values, not realism; characters
+are how Kahoot and Duolingo make flat vector feel authored. Ours
+arrive in the house style: tiny ink people.
+
+- **Work crew**: two or three stick-ink figures loitering near the
+  building while it draws in (leaning on the kerb, pointing at the
+  plan); when the fuse enters the warn window or grace begins they
+  scatter offscreen at a run. Positions clear of pillars, plaques
+  and rootmarks.
+- **Foreman**: stands by the detonator (already drawn at the bottom
+  left); on the final claim he pushes the plunger - one squat pose
+  swap timed with the collapse crack. He IS the series' mascot seed
+  (see the Rive note above).
+- **Inspector**: a small figure beside the report's 檢定完成 chop on
+  the end screen, clipboard in hand.
+- All figures a few strokes each, ink only, never red; reduced
+  motion keeps them static (poses swap, no run animation).
+- Tests: crew present during the burn, scatter class fires in the
+  warn/grace window, foreman pose swaps on the final claim, reduced
+  motion leaves figures visible and static; suites green.
+
+### Batch O - the illustrated depth pass (Tier 0)
+
+The gap between a napkin sketch and a beautiful architectural ink
+drawing, without ever leaving ink.
+
+- **Second ink tone**: a light wash (ink at low opacity, never red)
+  for shading - under eaves, down one side of each pillar, cloud
+  undersides, rubble shadow. One consistent light direction.
+- **Characterful silhouettes**: two or three alternates per kind
+  with Macau vernacular flavour - tong lau shophouses with 騎樓
+  arcades, rooftop water tanks, AC units, signage strokes, laundry
+  lines between floors. Deterministic pick (hash of seq, like the
+  variant transform) so host and screenshots agree. No recognisable
+  landmarks: demolishing those reads wrong.
+- **Depth layering**: a faint far street line behind the building
+  (kerbs, a lamp post), slightly heavier foreground strokes, so the
+  scene stops being a single flat line drawing.
+- **Detail density**: doors, window mullions and rooftop clutter on
+  the existing six kinds, kept clear of plaques and marks.
+- Tests: alternate choice deterministic under ?seed, wash layer
+  present and red-free (style assertion), scene text still readable
+  (plaque/rootmark overlap check), light + dark screenshots
+  refreshed; suites green.
+
 ### Recommended order
 
-K -> M -> L. Sound is the largest remaining craft gap; the parabola
-is cheap and carries the most classroom value per hour; the GSAP
-port is spectacle + maintainability and can absorb its test churn
-last. If a session is cut short: K alone still moves the game a
-tier.
+K -> M -> L -> N -> O. Sound is the largest remaining craft gap and
+the loudest "they put effort in" signal; the parabola is cheap and
+carries the most classroom value per hour; the GSAP port absorbs its
+test churn before the art batches build on its timelines; characters
+before decoration because they carry more perceived quality per
+stroke. If a session is cut short: K alone still moves the game a
+tier. Reality check during the SM901 pilot: watch the students'
+first 30 seconds - they will say whether it feels premium faster
+than any audit.
