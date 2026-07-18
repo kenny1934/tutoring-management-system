@@ -154,17 +154,35 @@
       75% { transform: translate(-0.8px, 0.5px) rotate(-0.12deg); }
     }
 
-    .zb-rubble { visibility: hidden; }
+    .zb-rubble { visibility: hidden; transform-box: fill-box; transform-origin: center bottom; }
     .zb-rubble.show { visibility: visible; }
     .zb-rubble.show path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: zb-draw 0.4s ease-out forwards; }
+    /* the landing chop packs the pile down */
+    .zb-rubble.compact { animation: zb-compact 0.3s ease-out both; }
+    @keyframes zb-compact {
+      40% { transform: scaleY(0.78); }
+      100% { transform: scaleY(0.88); }
+    }
 
-    /* the 拆 demolition stamp, slammed over the rubble */
+    /* the 拆 demolition stamp: slammed onto the rubble, not mid-sky */
     .zb-scenestamp {
       position: absolute; inset: 0; z-index: 3; display: none;
-      align-items: center; justify-content: center; flex-direction: column; gap: 6px;
+      align-items: center; justify-content: flex-end; flex-direction: column; gap: 6px;
+      padding-bottom: 2.5%;
       pointer-events: none;
     }
     .zb-scenestamp.show { display: flex; }
+    /* one-frame paper flash behind the chop at the moment it lands */
+    .zb-chaiflash {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 76%, var(--mc-paper) 0%, transparent 46%);
+      opacity: 0; animation: zb-chaiflash 0.5s ease-out both;
+    }
+    @keyframes zb-chaiflash {
+      0%, 50% { opacity: 0; }
+      58% { opacity: 0.95; }
+      100% { opacity: 0; }
+    }
     .zb-chai {
       width: 92px; height: 92px; border: 4px solid var(--mc-red); border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
@@ -173,12 +191,55 @@
       background: color-mix(in srgb, var(--mc-paper) 78%, transparent);
       box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mc-red) 30%, transparent);
       transform: rotate(-8deg);
-      animation: mc-stamp-in 0.35s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+      animation: zb-chaislam 0.5s cubic-bezier(0.3, 0, 0.4, 1) both;
+    }
+    @keyframes zb-chaislam {
+      0% { opacity: 0; transform: rotate(-8deg) scale(2.4) translateY(-40px); }
+      55% { opacity: 1; transform: rotate(-8deg) scale(0.94) translateY(0); }
+      72% { transform: rotate(-8deg) scale(1.06); }
+      100% { transform: rotate(-8deg) scale(1); }
     }
     .zb-scenestamp .zb-chai__cap {
       font-family: var(--mc-mono); font-weight: 800; font-size: 14px; letter-spacing: 0.12em;
       color: var(--mc-red); background: color-mix(in srgb, var(--mc-paper) 82%, transparent);
       padding: 2px 10px; border-radius: 4px; transform: rotate(-3deg);
+      animation: zb-capin 0.3s 0.3s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+    }
+    @keyframes zb-capin {
+      from { opacity: 0; transform: rotate(-3deg) translateY(6px); }
+      to { opacity: 1; transform: rotate(-3deg); }
+    }
+
+    /* fail state: the building is condemned, not boxed. A rotated chop
+     * in the corner and red tape across the structure; the working
+     * lives in the mark zone. */
+    .zb-scenestamp .zb-condemn {
+      position: absolute; top: 4%; right: 3%;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 15px; letter-spacing: 0.1em;
+      color: var(--mc-red); border: 2.5px solid var(--mc-red); border-radius: 4px;
+      padding: 3px 10px; transform: rotate(6deg);
+      background: color-mix(in srgb, var(--mc-paper) 80%, transparent);
+      box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mc-red) 30%, transparent);
+      animation: mc-stamp-in 0.35s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+    }
+    .zb-struct .zb-tape path {
+      stroke: var(--mc-red); stroke-width: 10; opacity: 0.28; stroke-linecap: butt;
+      stroke-dasharray: 1; stroke-dashoffset: 1; animation: zb-draw 0.4s ease-out forwards;
+    }
+    .zb-struct .zb-tape path:last-child { animation-delay: 0.18s; }
+
+    /* +N 分 ink numeral floating from the building to the score */
+    .zb-floatpts {
+      position: absolute; top: 52%; z-index: 4;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 20px; color: var(--mc-ink);
+      text-shadow: 0 0 10px var(--mc-paper), 0 0 4px var(--mc-paper);
+      pointer-events: none; white-space: nowrap;
+      animation: zb-floatpts 0.95s cubic-bezier(0.4, 0, 0.7, 0.4) forwards;
+    }
+    @keyframes zb-floatpts {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+      18% { opacity: 1; transform: translate(-50%, -70%) scale(1); }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--fdx, 0px)), calc(-50% + var(--fdy, -80px))) scale(0.5); }
     }
 
     /* level intro card, flashed over the scene */
@@ -249,7 +310,12 @@
       backdrop-filter: blur(1.5px);
     }
     .zb-lock.show { display: flex; }
-    .zb-lock__n { font-family: var(--mc-mono); font-weight: 800; font-size: 40px; color: var(--mc-red); font-variant-numeric: tabular-nums; }
+    /* pencil-drawn sweep that unwinds around the relock countdown */
+    .zb-lock__ring { position: relative; width: 66px; height: 66px; display: flex; align-items: center; justify-content: center; }
+    .zb-lock__ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-88deg); }
+    .zb-lock__ring circle { fill: none; stroke: var(--mc-ink-soft); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
+    @keyframes zb-locksweep { to { stroke-dashoffset: 1; } }
+    .zb-lock__n { font-family: var(--mc-mono); font-weight: 800; font-size: 28px; color: var(--mc-red); font-variant-numeric: tabular-nums; }
     .zb-lock__hint { font-size: 14px; font-weight: 700; color: var(--mc-ink-soft); }
 
     /* ---- end screen record table ---- */
@@ -320,9 +386,21 @@
       border: 1.5px solid currentColor; border-radius: 4px; padding: 0 6px;
       margin-left: 8px; vertical-align: middle;
     }
-    .zb-mult.pop { animation: zb-multpop 0.45s cubic-bezier(0.2, 1.5, 0.35, 1); }
-    @keyframes zb-multpop { from { transform: scale(1.6); } to { transform: scale(1); } }
+    .zb-mult.pop { animation: zb-multpop 0.5s cubic-bezier(0.2, 1.5, 0.35, 1); }
+    /* a grown multiplier flashes gold before settling back to outline */
+    @keyframes zb-multpop {
+      0% { transform: scale(1.6); background: var(--mc-gold); color: var(--mc-paper); }
+      55% { background: var(--mc-gold); color: var(--mc-paper); }
+      100% { transform: scale(1); }
+    }
     .zb-hostboard__row .zb-mult { font-size: 11px; margin-left: 0; }
+    /* each NEW star stamps in; earlier stars hold still (renderStreak
+     * suppresses their re-mount pop) */
+    .mc-stars svg.zb-starnew { animation: zb-starstamp 0.5s cubic-bezier(0.2, 1.5, 0.35, 1) both; }
+    @keyframes zb-starstamp {
+      from { transform: scale(2.1) rotate(-30deg); opacity: 0; }
+      to { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
 
     /* dark chalkboard: the burning fuse blooms */
     [data-theme="dark"] .zb-struct #fuseGlow,
@@ -334,9 +412,10 @@
     /* reduced motion: theme.css kills all animations, so every draw-on
        stroke must still end visible, and the fallen deck must still clear */
     @media (prefers-reduced-motion: reduce) {
-      .din, .zb-rubble.show path { stroke-dashoffset: 0 !important; }
+      .din, .zb-rubble.show path, .zb-struct .zb-tape path { stroke-dashoffset: 0 !important; }
       .din2, .zb-rootmark.show { opacity: 1 !important; }
       .zb-deck.fall { opacity: 0; }
+      .zb-floatpts { display: none; }
     }
 
     /* projector (host on a wide screen): the scene is the star.
@@ -357,6 +436,7 @@
     .zb-stage--projector .zb-hostboard { max-width: none; }
     .zb-stage--projector .zb-hostboard__row { font-size: 18px; padding: 8px 10px; }
     .zb-stage--projector .zb-mark { min-height: 120px; }
+    .zb-stage--projector .zb-floatpts { font-size: 30px; }
     /* full-hall screens: fill the leaderboard column, less empty cream */
     @media (min-width: 1700px) {
       .zb-stage--projector { max-width: 1400px; }
@@ -575,7 +655,10 @@
             <button class="zb-key zb-key--zero" data-d="0">0</button>
           </div>
           <div class="zb-lock" id="padLock" aria-live="polite">
-            <div class="zb-lock__n" id="lockCount">3</div>
+            <div class="zb-lock__ring">
+              <svg viewBox="0 0 66 66" aria-hidden="true"><circle cx="33" cy="33" r="28" pathLength="1"/></svg>
+              <div class="zb-lock__n" id="lockCount">3</div>
+            </div>
             <div class="zb-lock__hint" data-i18n="lock_think"></div>
           </div>
         </div>
@@ -615,7 +698,10 @@
         <div class="zb-preview" id="ctrlPreview"></div>
         <div class="zb-pad" id="ctrlPad"></div>
         <div class="zb-lock" id="ctrlLock" aria-live="polite">
-          <div class="zb-lock__n" id="ctrlLockCount">3</div>
+          <div class="zb-lock__ring">
+            <svg viewBox="0 0 66 66" aria-hidden="true"><circle cx="33" cy="33" r="28" pathLength="1"/></svg>
+            <div class="zb-lock__n" id="ctrlLockCount">3</div>
+          </div>
           <div class="zb-lock__hint" data-i18n="lock_think"></div>
         </div>
       </div>
@@ -825,7 +911,7 @@ function pillarSvg(cx, p) {
     ${isQ ? qmarkSvg(cx, p.id) : ""}
     ${T(cx, 178, "plabel", isQ ? "" : svgMath(p.label), `data-plaque="${p.id}"`)}
   </g>
-  <text x="${cx}" y="200" class="zb-rootmark" data-for="${p.id}"></text>`;
+  <text x="${cx}" y="178" class="zb-rootmark" data-for="${p.id}"></text>`;
 }
 
 /* pulsing hazard dot on the building's highest point */
@@ -976,17 +1062,60 @@ function multHtml(streak) {
   if (!streak) return "";
   return `<span class="zb-mult">×${(1 + 0.1 * Math.min(streak, 10)).toFixed(1)}</span>`;
 }
-/* stars + multiplier chip for live streak displays (not end totals);
- * the chip pops whenever the streak grows */
+/* stars + multiplier chip for live streak displays (not end totals).
+ * Only the NEW star stamps in; the rest hold still (renderStars
+ * re-mounts every svg, which would re-pop them all). The grown chip
+ * flashes gold. */
 function renderStreak(el, n) {
   const prev = parseInt(el.dataset.streak || "0", 10);
   renderStars(el, n);
   el.insertAdjacentHTML("beforeend", multHtml(n));
   el.dataset.streak = n;
+  const svgs = el.querySelectorAll("svg");
+  svgs.forEach((s, i) => {
+    if (n > prev && i === svgs.length - 1) s.classList.add("zb-starnew");
+    else s.style.animation = "none";
+  });
   if (n > prev) {
     const m = el.querySelector(".zb-mult");
     if (m) m.classList.add("pop");
   }
+}
+
+/* the displayed score counts up to the judged total (G.score itself
+ * always moves exactly); reduced motion snaps */
+function tweenScore(el, to) {
+  cancelAnimationFrame(el._tw);
+  const from = parseInt(String(el.textContent).replace(/[^\d-]/g, ""), 10) || 0;
+  if (ZBFX.reduced || to === from) { el.textContent = to; return; }
+  const t0 = performance.now(), ms = 550;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / ms);
+    el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) el._tw = requestAnimationFrame(step);
+  };
+  el._tw = requestAnimationFrame(step);
+}
+
+/* +N 分 ink numeral floating from the claimed pillar toward the score
+ * (solo) or the leaderboard (host) */
+function floatPoints(pts, vbX) {
+  if (ZBFX.reduced) return;
+  const scene = $("scene");
+  const el = document.createElement("div");
+  el.className = "zb-floatpts";
+  el.textContent = fmt("points_fmt", { n: pts });
+  el.style.left = (vbX / VB_W * 100).toFixed(1) + "%";
+  const target = G.mode === "solo" ? $("scoreBox") : $("hostBoard");
+  const c = scene.getBoundingClientRect();
+  const s = target.getBoundingClientRect();
+  if (c.width && s.width) {
+    const x0 = c.left + (vbX / VB_W) * c.width, y0 = c.top + 0.52 * c.height;
+    el.style.setProperty("--fdx", (s.left + s.width / 2 - x0).toFixed(0) + "px");
+    el.style.setProperty("--fdy", (s.top - y0).toFixed(0) + "px");
+  }
+  scene.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
 }
 
 function markHtml(kind, lines) {
@@ -1079,6 +1208,13 @@ function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
       locked = true;
       padEl.querySelectorAll(".zb-key").forEach(k => k.disabled = true);
       lockEl.classList.add("show");
+      // the pencil ring unwinds over the whole lock
+      const ring = lockEl.querySelector(".zb-lock__ring circle");
+      if (ring) {
+        ring.style.animation = "none";
+        void ring.getBoundingClientRect();
+        ring.style.animation = `zb-locksweep ${seconds}s linear forwards`;
+      }
       let left = seconds;
       lockCountEl.textContent = left;
       clearInterval(lockTimer);
@@ -1211,7 +1347,7 @@ function startLevel(resume) {
   $("tutorKeys").textContent = hintable ? "t / h / n / e" : "t / n / e";
 
   refreshDynamicText();
-  $("scoreBox").textContent = G.score;
+  tweenScore($("scoreBox"), G.score); // snaps when unchanged, cancels a stale tween
   $("exprBoard").innerHTML = exprHtml(level.expr);
   $("markZone").innerHTML = "";
   $("sceneStamp").classList.remove("show");
@@ -1375,7 +1511,7 @@ function blowPillar(id, root, name) {
     mark.parentNode.appendChild(label);
   }
   ZBFX.debris(x, 180, { count: 24 });
-  ZBFX.dust(x, GROUND - 6, { count: 10 });
+  ZBFX.dust(x, GROUND - 6, { count: 3 });
   ZBFX.shake(8);
   ZBFX.vibrate(80);
 }
@@ -1422,7 +1558,8 @@ function submitCode(v, player) {
   G.score += pts;
   G.streak += 1;
   G.starsTotal += 1;
-  $("scoreBox").textContent = G.score;
+  tweenScore($("scoreBox"), G.score);
+  floatPoints(pts, pillarX(res.hit[0]));
   renderStreak($("stars"), G.streak);
 
   // L6: reveal the hidden factor on the plaque just before it blows
@@ -1521,6 +1658,7 @@ function hostVerdict(player, v, res) {
     G.claimsBy[id] = { by: player.id, name: player.name, root: p.root };
     blowPillar(id, p.root, player.name);
   });
+  floatPoints(pts, pillarX(res.hit[0]));
   ZBFX.audio.boom(res.hit.length > 1);
 
   G.room.update("state/claims", Object.fromEntries(res.hit.map(id => [id, G.claimsBy[id]])));
@@ -1680,17 +1818,25 @@ function collapseAndAdvance() {
     ZBFX.shake(15);
     ZBFX.vibrate([60, 40, 130]);
     ZBFX.debris(200, 130, { count: 40, power: 1.5 });
-    ZBFX.dust(200, GROUND - 10, { count: 22 });
+    ZBFX.dust(200, GROUND - 10, { count: 6 });
   }, 380);
   setTimeout(() => {
     $("rubble").classList.add("show");
-    ZBFX.dust(200, GROUND - 14, { count: 12 });
+    ZBFX.dust(200, GROUND - 14, { count: 4 });
   }, 1020);
   setTimeout(() => {
     $("sceneStamp").innerHTML =
-      `<div class="zb-chai">拆</div><div class="zb-chai__cap">${t("stamp_demolished")} · ${fmt("points_fmt", { n: G.levelPoints })}</div>`;
+      `<div class="zb-chaiflash"></div><div class="zb-chai">拆</div><div class="zb-chai__cap">${t("stamp_demolished")} · ${fmt("points_fmt", { n: G.levelPoints })}</div>`;
     $("sceneStamp").classList.add("show");
   }, 1180);
+  // the chop lands (~55% into the slam): the pile packs down under it
+  setTimeout(() => {
+    const rubble = $("rubble");
+    if (rubble) rubble.classList.add("compact");
+    ZBFX.dustRing(200, GROUND - 6);
+    ZBFX.shake(6);
+    ZBFX.audio.stamp();
+  }, 1460);
   setTimeout(nextLevel, 2200);
 }
 
@@ -1718,16 +1864,22 @@ function fuseOut() {
   const fact = ZBLevels.factorisation(level);
   const lines = (fact ? [mathHtml(fact)] : []).concat([rootsLine]);
   $("markZone").innerHTML = markHtml("wrong", lines);
-  $("sceneStamp").innerHTML =
-    `<div class="mc-stamp"><svg class="draw" viewBox="0 0 24 24" style="width:22px;height:22px" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg><span>${t("stamp_standing")}</span></div>`;
+  // condemned, one stamp language: a rotated chop in the corner and
+  // red tape across the survivor (the working stays in the mark zone)
+  $("sceneStamp").innerHTML = `<div class="zb-condemn">${t("stamp_standing")}</div>`;
   $("sceneStamp").classList.add("show");
+  const bb = $("deck").getBBox();
+  const tx1 = bb.x + 8, tx2 = bb.x + bb.width - 8;
+  const ty1 = Math.max(bb.y - 2, 8), ty2 = Math.min(bb.y + bb.height, DECK_Y) + 2;
+  $("structSvg").insertAdjacentHTML("beforeend",
+    `<g class="zb-tape"><path pathLength="1" d="M${tx1.toFixed(1)} ${ty1.toFixed(1)} L${tx2.toFixed(1)} ${ty2.toFixed(1)}"/><path pathLength="1" d="M${tx2.toFixed(1)} ${ty1.toFixed(1)} L${tx1.toFixed(1)} ${ty2.toFixed(1)}"/></g>`);
   // the survivor takes the hit, settles back and dusts itself off
   setTimeout(() => {
     const deck = $("deck");
     if (!deck) return;
     deck.classList.add("settle");
-    ZBFX.dust(160, DECK_Y + 4, { count: 6 });
-    ZBFX.dust(240, DECK_Y + 4, { count: 6 });
+    ZBFX.dust(160, DECK_Y + 4, { count: 2 });
+    ZBFX.dust(240, DECK_Y + 4, { count: 2 });
     ZBFX.shake(3);
   }, 260);
   // tutor-paced in class: the reveal waits for 下一關 (key n) so the
@@ -2153,7 +2305,7 @@ function applyCtrlVerdict(v) {
   }
   if (v.echo) {
     // correct after the claim: full marks feedback, echo points
-    $("ctrlScore").textContent = v.total;
+    tweenScore($("ctrlScore"), v.total);
     renderStreak($("ctrlStars"), v.streak);
     const who = v.claimedBy ? fmt("note_claimed_by", { name: escapeText(v.claimedBy) }) + " · " : "";
     const lines = ZBLevels.workingHit(C.level, v.v).map(mathHtml).concat([who + fmt("points_fmt", { n: v.pts })]);
@@ -2163,7 +2315,7 @@ function applyCtrlVerdict(v) {
     return;
   }
   if (v.ok) {
-    $("ctrlScore").textContent = v.total;
+    tweenScore($("ctrlScore"), v.total);
     renderStreak($("ctrlStars"), v.streak);
     const lines = ZBLevels.workingHit(C.level, v.v).map(mathHtml).concat([
       (v.hit > 1 ? t("note_both_down") + " " : "") + fmt("points_fmt", { n: v.pts }),

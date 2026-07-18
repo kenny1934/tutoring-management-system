@@ -69,6 +69,24 @@
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
+  /* theme tokens are hex: derive translucent stops for soft gradients */
+  function withAlpha(color, a) {
+    if (color[0] === "#") {
+      var h = color.slice(1);
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      var n = parseInt(h, 16);
+      return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+    }
+    if (color.indexOf("rgb(") === 0) return color.replace("rgb(", "rgba(").replace(")", "," + a + ")");
+    return color;
+  }
+
+  function isDark() {
+    var th = document.documentElement.getAttribute("data-theme");
+    if (th) return th === "dark";
+    return matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+
   /* projector scenes are much larger than the 400px design width:
    * spawn proportionally more particles and shake harder (capped) */
   function fxScale() {
@@ -113,23 +131,54 @@
     }
   }
 
-  /* soft dust puffs rising from rubble */
+  /* collapse dust: a few large, soft puffs that rise and shear
+   * sideways, translucent enough that rootmarks and rubble stay
+   * readable through them (drawn as radial gradients, additive on
+   * the dark chalkboard) */
   function dust(x, y, opts) {
     if (reduced) return;
     opts = opts || {};
     var at = toPx(x, y);
-    var n = Math.round((opts.count || 14) * fxScale());
+    var n = Math.round((opts.count || 4) * fxScale());
     var color = opts.color || token("--mc-ink-faint");
+    var lean = Math.random() < 0.5 ? -1 : 1; // the whole cloud drifts one way
     for (var i = 0; i < n; i++) {
       spawn({
         type: "dust",
-        x: at.x + (Math.random() - 0.5) * 50 * at.scale,
-        y: at.y + (Math.random() - 0.5) * 10 * at.scale,
-        vx: (Math.random() - 0.5) * 0.8 * at.scale,
-        vy: (-0.3 - Math.random() * 0.7) * at.scale,
-        size: (6 + Math.random() * 12) * at.scale,
-        grow: 1.012,
-        ttl: 900 + Math.random() * 900,
+        x: at.x + (Math.random() - 0.5) * 60 * at.scale,
+        y: at.y + (Math.random() - 0.5) * 12 * at.scale,
+        vx: lean * (0.1 + Math.random() * 0.3) * at.scale,
+        vy: (-0.25 - Math.random() * 0.45) * at.scale,
+        sh: lean * (0.008 + Math.random() * 0.014) * at.scale,
+        size: (13 + Math.random() * 14) * at.scale,
+        grow: 1.008,
+        al: opts.al || 0.1,
+        ttl: 1000 + Math.random() * 900,
+        life: 0,
+        color: color,
+      });
+    }
+  }
+
+  /* the 拆 chop's landing: dust kicked out along the ground both ways */
+  function dustRing(x, y) {
+    if (reduced) return;
+    var at = toPx(x, y);
+    var n = Math.round(5 * fxScale());
+    var color = token("--mc-ink-faint");
+    for (var i = 0; i < n; i++) {
+      var dir = i % 2 === 0 ? 1 : -1;
+      spawn({
+        type: "dust",
+        x: at.x + dir * (6 + Math.random() * 12) * at.scale,
+        y: at.y + (Math.random() - 0.5) * 4 * at.scale,
+        vx: dir * (1.1 + Math.random() * 1.4) * at.scale,
+        vy: (-0.05 - Math.random() * 0.2) * at.scale,
+        sh: dir * 0.02 * at.scale,
+        size: (9 + Math.random() * 9) * at.scale,
+        grow: 1.02,
+        al: 0.14,
+        ttl: 480 + Math.random() * 350,
         life: 0,
         color: color,
       });
@@ -158,6 +207,7 @@
         vy: (-0.35 - Math.random() * 0.3) * at.scale,
         size: (3 + Math.random() * 3) * at.scale,
         grow: 1.018,
+        al: 0.22,
         ttl: 1200 + Math.random() * 600,
         life: 0,
         color: token("--mc-ink-faint"),
@@ -191,6 +241,7 @@
     emitSparks();
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    var darkNow = isDark();
     var alive = [];
     for (var i = 0; i < particles.length; i++) {
       var p = particles[i];
@@ -200,17 +251,31 @@
       p.x += p.vx * (dt / 16);
       p.y += p.vy * (dt / 16);
       if (p.g) p.vy += p.g * (dt / 16);
+      if (p.sh) p.vx += p.sh * (dt / 16);
       if (p.grow) p.size *= Math.pow(p.grow, dt / 16);
-      ctx.globalAlpha = p.type === "dust" ? k * 0.28 : k;
-      ctx.fillStyle = p.color;
       if (p.type === "shard") {
+        ctx.globalAlpha = k;
+        ctx.fillStyle = p.color;
         p.rot += p.vr * (dt / 16);
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
         ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
         ctx.restore();
+      } else if (p.type === "dust") {
+        var grad = ctx.createRadialGradient(p.x, p.y, p.size * 0.12, p.x, p.y, p.size);
+        grad.addColorStop(0, withAlpha(p.color, 1));
+        grad.addColorStop(1, withAlpha(p.color, 0));
+        ctx.globalAlpha = k * (p.al || 0.1);
+        if (darkNow) ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
       } else {
+        ctx.globalAlpha = k;
+        ctx.fillStyle = p.color;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
@@ -397,6 +462,12 @@
       thump(150, 70, 0.3, 0.18);
       noiseburst("lowpass", 500, 0.12, 0.12);
     },
+    /* the 拆 chop landing on the rubble */
+    stamp: function () {
+      if (!enabled || !ensureCtx()) return;
+      thump(130, 45, 0.35, 0.22);
+      noiseburst("lowpass", 420, 0.1, 0.1);
+    },
     click: function () {
       if (!enabled || !ensureCtx()) return;
       thump(1900, 1500, 0.045, 0.02);
@@ -417,9 +488,20 @@
     fxScale: fxScale,
     debris: debris,
     dust: dust,
+    dustRing: dustRing,
     sparksAt: sparksAt,
     sparking: function () {
       return !!sparkEmitter;
+    },
+    /* live particle census, for tests: puffs must stay few and faint */
+    stats: function () {
+      var s = { shard: 0, dust: 0, spark: 0, maxDustAlpha: 0 };
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        s[p.type] = (s[p.type] || 0) + 1;
+        if (p.type === "dust") s.maxDustAlpha = Math.max(s.maxDustAlpha, p.al || 0.1);
+      }
+      return s;
     },
     shake: shake,
     audio: audio,
