@@ -760,6 +760,15 @@ drawing, without ever leaving ink.
   scene stops being a single flat line drawing.
 - **Detail density**: doors, window mullions and rooftop clutter on
   the existing six kinds, kept clear of plaques and marks.
+- **Pillar reinforcement ink**: the pillars should read formidable -
+  only the correct zero punches through them - but in the blueprint
+  idiom, never bulk: slightly heavier verticals, denser
+  cross-bracing, concrete footing blocks with section hatching. The
+  plaque band stays the focal point. Pairs with the wrong-code
+  resistance beat that already landed (`8e243e21`): the drawing
+  recoils and shrugs the blow off, ink chips off the standing
+  pillars, and the surveyed strength (the product at the guess,
+  visibly not zero) is pencilled over the scene.
 - Tests: alternate choice deterministic under ?seed, wash layer
   present and red-free (style assertion), scene text still readable
   (plaque/rootmark overlap check), light + dark screenshots
