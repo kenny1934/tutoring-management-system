@@ -110,6 +110,12 @@
     @media (max-width: 700px) {
       .zb-scene { height: clamp(200px, 30vh, 320px); }
     }
+    /* tablets and small laptops: a tablet in landscape is a mini
+       projector - give the scene real height so the tall kinds keep
+       their tops with headroom to spare */
+    @media (min-width: 701px) and (max-width: 1099px) {
+      .zb-scene { height: clamp(240px, 48vh, 520px); }
+    }
     .zb-scene > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
     .zb-scene > canvas { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 
@@ -1007,7 +1013,8 @@
     }
 
     /* projector (host on a wide screen): the scene is the star.
-     * Applied on .mc-stage when hosting on a >=1100px viewport. */
+     * Applied on .mc-stage when hosting on a >=1000px viewport
+     * (includes 1024-wide iPads - a hosting tablet is a projector). */
     .zb-stage--projector { max-width: 1250px; }
     .zb-stage--projector .zb-game-grid {
       display: grid; grid-template-columns: 1.7fr 1fr; gap: 4px 32px; align-items: start;
@@ -1034,8 +1041,10 @@
       .zb-stage--projector .zb-timer { font-size: 34px; }
     }
 
-    /* compact phones: keep the keypad reachable without hunting */
-    @media (max-height: 780px) {
+    /* compact phones: keep the keypad reachable without hunting.
+       Width-guarded: a 768-tall landscape TABLET must not match, or
+       the scene drops to 230px and the frame can't hold a tall kind */
+    @media (max-height: 780px) and (max-width: 700px) {
       .zb-scene { height: clamp(180px, 30vh, 230px); }
       .zb-mark { min-height: 76px; }
       .zb-key { min-height: 48px; }
@@ -1047,6 +1056,9 @@
       .zb-game-grid > .zb-col-r { grid-column: 2; }
       .zb-scene { height: 210px; }
       .zb-mark { min-height: 64px; }
+      /* keys kept at the compact size (the width-guarded compact rule
+         no longer reaches landscape phones) */
+      .zb-key { min-height: 48px; }
     }
   </style>
 </head>
@@ -2002,10 +2014,15 @@ function computeFrame() {
   // hazard beacon and the survey width rule (label tops out ~23 units
   // above the roof), and the band below the ground line where the
   // rootmarks, claim names and echo tallies are inked
-  let h = (GROUND - bb.y) + 26 + (VB_H - GROUND);
-  let w = Math.max(h * A, bb.width / 0.7, bb.width + 52);
-  h = w / A;
-  if (w > VB_W) { w = VB_W; h = w / A; }
+  const needH = (GROUND - bb.y) + 26 + (VB_H - GROUND);
+  let w = Math.max(needH * A, bb.width / 0.7, bb.width + 52);
+  let h = w / A;
+  // the sheet is only 400 units wide: when a wide box asks for more,
+  // cap the width but never surrender the subject's height - keep
+  // needH and let the drawing letterbox horizontally (meet centres
+  // it, fx toPx converts through the same offsets). Without this a
+  // landscape tablet guillotines the tall kinds at the frame top.
+  if (w > VB_W) { w = VB_W; h = Math.max(w / A, needH); }
   const cx = bb.x + bb.width / 2;
   const x = Math.max(0, Math.min(cx - w / 2, VB_W - w));
   return { x: x, y: VB_H - h, w: w, h: h };
@@ -3610,7 +3627,9 @@ function endGame() {
 
 /* wide viewport = projector: bigger stage on every screen, intro too */
 function applyProjector() {
-  document.querySelector(".mc-stage").classList.toggle("zb-stage--projector", innerWidth >= 1100);
+  // >=1000 so a 1024-wide iPad hosting a class gets the projector
+  // grid too: probed at 1024x768, everything fits above the fold
+  document.querySelector(".mc-stage").classList.toggle("zb-stage--projector", innerWidth >= 1000);
 }
 applyProjector();
 addEventListener("resize", applyProjector);
@@ -3626,7 +3645,7 @@ $("btnHost").onclick = async () => {
     return;
   }
   $("roomCode").textContent = G.room.code;
-  GameBridge.qr($("qrBox"), G.room.joinUrl, innerWidth >= 1100 ? 300 : 190);
+  GameBridge.qr($("qrBox"), G.room.joinUrl, innerWidth >= 1000 ? 300 : 190);
   G.watcher = G.room.watch(onHostRoom);
 };
 
