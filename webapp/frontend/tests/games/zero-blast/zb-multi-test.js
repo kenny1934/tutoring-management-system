@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (124 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (130 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 124 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 130 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -561,6 +561,31 @@ async function main() {
   const aScore1 = await host.evaluate((id) => G.scores[id] || 0, aId);
   check("phone A scored", vd1.ok === true && aScore1 > 0, "verdict=" + JSON.stringify(vd1));
 
+  /* the answer key never rides the wire mid-round: published pillars
+   * carry labels only, claims name the claimer, verdicts bring the
+   * host-computed working instead */
+  const wire1 = await roomData(host);
+  check(
+    "published level carries no answer key",
+    wire1.state.level.pillars.every((p) => !("root" in p) && !("hidden" in p)),
+    JSON.stringify(wire1.state.level.pillars)
+  );
+  check(
+    "published claims name the claimer, not the root",
+    Object.values(wire1.state.claims || {}).every((c) => c === true || !("root" in c)),
+    JSON.stringify(wire1.state.claims)
+  );
+  check(
+    "ok verdict ships host-computed working lines",
+    Array.isArray(vd1.working) && vd1.working.length > 0,
+    JSON.stringify(vd1.working)
+  );
+  check(
+    "phone level withholds roots until the reveal",
+    await phoneA.evaluate(() => C.level.pillars.every((p) => p.root == null)),
+    await phoneA.evaluate(() => JSON.stringify(C.level.pillars))
+  );
+
   await sleep(950); // odometer settle
   const aOdo = await phoneA.evaluate(() =>
     parseInt(document.getElementById("ctrlScore").textContent, 10)
@@ -658,6 +683,11 @@ async function main() {
 
   const bMark2 = await phoneB.evaluate(() => document.getElementById("ctrlMark").textContent);
   check("phone B sees private working", bMark2.includes("強度"), bMark2.slice(0, 80));
+  check(
+    "wrong working is the host's line, not phone-derived",
+    Array.isArray(vdB2.working) && vdB2.working.length > 0 && bMark2.includes(vdB2.working[0]),
+    JSON.stringify(vdB2.working) + " vs " + bMark2.slice(0, 80)
+  );
 
   const bStreak2 = await phoneB.evaluate(() => ({
     stars: document.querySelectorAll("#ctrlStars svg").length,
@@ -1086,6 +1116,11 @@ async function main() {
 
   const aMini = await phoneA.evaluate(() => !!document.querySelector("#ctrlMark .zb-minigraph"));
   check("phone reveal carries the graph thumbnail", aMini);
+  check(
+    "reveal payload merges the answer sheet into the phone level",
+    await phoneA.evaluate(() => C.level.pillars.every((p) => typeof p.root === "number")),
+    await phoneA.evaluate(() => JSON.stringify(C.level.pillars))
+  );
 
   const skipLabel = await host.evaluate(() => document.getElementById("btnSkip").textContent.trim());
   check("skip button becomes next during the reveal", skipLabel === "下一關", "label=" + skipLabel);

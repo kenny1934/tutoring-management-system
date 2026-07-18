@@ -2813,6 +2813,26 @@ function settleSoundOffer() {
 
 /* resume: a saved host-run snapshot restores mid-round claims and the
  * remaining fuse after a host refresh (see resumeRun) */
+/* the phone-facing level: board text stays, answers do not. Roots and
+ * kind-6 hidden factors ship only after the round resolves (reveal
+ * payload) or per-player inside a verdict's worked lines. */
+function publicLevel(level) {
+  return Object.assign({}, level, {
+    pillars: level.pillars.map(p => ({ id: p.id, label: p.label })),
+  });
+}
+/* published claims name the claimer, never the claimed root */
+function publicClaim(c) {
+  return c && c.by ? { by: c.by, name: c.name } : true;
+}
+/* the fuse-out answer sheet, published with phase "reveal" */
+function revealPayload(level) {
+  return {
+    lv: level.seq,
+    roots: Object.fromEntries(level.pillars.map(p => [p.id, p.root])),
+  };
+}
+
 function startLevel(resume) {
   // a restart mid-set-piece must not let stale beats fire into the
   // new round (the old setTimeout chain could double-advance here)
@@ -2886,14 +2906,19 @@ function startLevel(resume) {
   G.deadline = performance.now() + stageMs + fuseMs;
 
   if (G.mode === "host") {
-    // publish the round: phones display from state, host stays the judge
+    // publish the round: phones display from state, host stays the judge.
+    // The published level carries NO answer key (pillars[].root, kind-6
+    // hidden) - devtools on any phone read state mid-round. Answers
+    // travel host-computed: working lines in each verdict, roots in the
+    // fuse-out reveal payload.
     G.room.update("state", {
       phase: "playing",
-      level: level,
+      level: publicLevel(level),
+      reveal: null,
       levelIdx: G.idx,
       deadlineEpoch: GameBridge.serverNow() + stageMs + fuseMs,
       claims: resume && G.claimed.length
-        ? Object.fromEntries(G.claimed.map(id => [id, G.claimsBy[id] || true]))
+        ? Object.fromEntries(G.claimed.map(id => [id, publicClaim(G.claimsBy[id])]))
         : null,
       graceUntil: null,
     });
@@ -3268,6 +3293,7 @@ function hostVerdict(player, v, res) {
     G.room.set("verdicts/" + player.id, {
       seq: player.seq, v: v, echo: true, hit: matching, pts: echoPts,
       claimedBy: owner ? owner.name : "",
+      working: ZBLevels.workingHit(level, v),
       streak: G.streaks[player.id], total: G.scores[player.id], level: level.n, lv: level.seq,
     });
     renderEchoTally(v);
@@ -3280,6 +3306,8 @@ function hostVerdict(player, v, res) {
     G.streaks[player.id] = 0;
     G.room.set("verdicts/" + player.id, {
       seq: player.seq, v: v, ok: false, streak: 0,
+      working: ZBLevels.workingWrong(level, v),
+      strength: ZBLevels.strength(level, v),
       total: G.scores[player.id] || 0, level: level.n, lv: level.seq,
     });
     saveHostRun();
@@ -3310,10 +3338,11 @@ function hostVerdict(player, v, res) {
   floatPoints(pts, pillarX(res.hit[0]));
   ZBFX.audio.boom(res.hit.length > 1);
 
-  G.room.update("state/claims", Object.fromEntries(res.hit.map(id => [id, G.claimsBy[id]])));
+  G.room.update("state/claims", Object.fromEntries(res.hit.map(id => [id, publicClaim(G.claimsBy[id])])));
   G.room.update("state/scores", { [player.id]: G.scores[player.id] });
   G.room.set("verdicts/" + player.id, {
     seq: player.seq, v: v, ok: true, hit: res.hit.length, pts: pts,
+    working: ZBLevels.workingHit(level, v),
     streak: G.streaks[player.id], total: G.scores[player.id], level: level.n, lv: level.seq,
   });
   renderHostBoard();
@@ -3702,7 +3731,7 @@ function fuseOut() {
   G.records.push({ n: G.level.n, stage: G.level.stage, round: G.level.round, cleared: false, ms: G.duration, pts: G.levelPoints });
   if (G.mode === "host") {
     G.streaks = {}; // a survived structure breaks everyone's streak
-    G.room.update("state", { phase: "reveal" });
+    G.room.update("state", { phase: "reveal", reveal: revealPayload(G.level) });
   }
   renderStreet();
   saveHostRun();
@@ -4133,11 +4162,26 @@ function sanitizeLevel(raw) {
   if (lv.kind === "expanded" && (lv.b == null || lv.c == null)) return null;
   lv.pillars = raw.pillars.map(p => p && {
     id: p.id === "p1" || p.id === "p2" ? p.id : null,
+    // null on a current host: the answer key is stripped from published
+    // state and only arrives via mergeReveal once the round resolves
     root: num(p.root),
     label: String(p.label || ""),
   });
-  if (lv.pillars.some(p => !p || !p.id || p.root == null)) return null;
+  if (lv.pillars.some(p => !p || !p.id)) return null;
   return lv;
+}
+
+/* the fuse-out answer sheet: roots stay off the wire mid-round, then
+ * land with phase "reveal" for the phone's roots line and minigraph */
+function mergeReveal(rv) {
+  if (!rv || typeof rv !== "object" || !C.level || rv.lv !== C.level.seq) return;
+  C.level.pillars.forEach(p => {
+    const r = rv.roots && rv.roots[p.id];
+    if (typeof r === "number" && isFinite(r)) p.root = r;
+  });
+}
+function levelAnswersKnown() {
+  return C.level && C.level.pillars.every(p => typeof p.root === "number" && isFinite(p.root));
 }
 
 async function initController() {
@@ -4336,9 +4380,9 @@ function onCtrlRoom(room) {
     C.lastGraceSec = null;
     C.inFlight = false; // an unanswered send died with the old level
     clearTimeout(C.judgeTimer);
-    $("ctrlLevelChip").innerHTML = levelChipHtml(st.level);
+    $("ctrlLevelChip").innerHTML = levelChipHtml(nextLevel);
     $("ctrlExpr").classList.remove("condemned");
-    setBoard($("ctrlExpr"), st.level, true);
+    setBoard($("ctrlExpr"), nextLevel, true);
     $("ctrlMark").innerHTML = "";
   }
 
@@ -4392,11 +4436,15 @@ function onCtrlRoom(room) {
       $("ctrlExpr").setAttribute("data-condemn", t("stamp_standing"));
       $("ctrlExpr").classList.add("condemned");
       renderStreak($("ctrlStars"), 0); // a survived structure breaks the streak
-      const rootsLine = t("note_reveal") + "：" +
-        ZBLevels.roots(C.level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
-      const fact = ZBLevels.factorisation(C.level);
-      $("ctrlMark").innerHTML = markHtml("wrong", (fact ? [mathHtml(fact)] : []).concat([rootsLine]))
-        + miniGraphHtml(C.level);
+      // the answer sheet only exists from this phase on
+      mergeReveal(st.reveal);
+      if (levelAnswersKnown()) {
+        const rootsLine = t("note_reveal") + "：" +
+          ZBLevels.roots(C.level).map(r => mathHtml("x = " + ZBLevels.num(r))).join(" " + t("or") + " ");
+        const fact = ZBLevels.factorisation(C.level);
+        $("ctrlMark").innerHTML = markHtml("wrong", (fact ? [mathHtml(fact)] : []).concat([rootsLine]))
+          + miniGraphHtml(C.level);
+      }
       ctrlStatus(t("reveal_wait"));
     }
   } else if (st.phase === "lobby") {
@@ -4432,12 +4480,18 @@ function applyCtrlVerdict(v) {
       [t("note_already") + "：" + mathHtml("x = " + ZBLevels.num(v.v)) + (who ? "，" + who : "")]);
     return;
   }
+  // worked substitutions are host-computed now (the published level has
+  // no roots to compute them from). Escaped before mathHtml: verdicts
+  // are host-only by the rules, but never trust wire strings raw.
+  const hostWorking = Array.isArray(v.working)
+    ? v.working.filter(s => typeof s === "string").map(s => mathHtml(escapeText(s)))
+    : null;
   if (v.echo) {
     // correct after the claim: full marks feedback, echo points
     tweenScore($("ctrlScore"), v.total);
     renderStreak($("ctrlStars"), v.streak);
     const who = v.claimedBy ? fmt("note_claimed_by", { name: escapeText(v.claimedBy) }) + " · " : "";
-    const lines = ZBLevels.workingHit(C.level, v.v).map(mathHtml).concat([who + fmt("points_fmt", { n: v.pts })]);
+    const lines = (hostWorking || []).concat([who + fmt("points_fmt", { n: v.pts })]);
     $("ctrlMark").innerHTML = markHtml("correct", lines);
     ZBFX.audio.boom(false);
     ZBFX.vibrate(50);
@@ -4446,7 +4500,7 @@ function applyCtrlVerdict(v) {
   if (v.ok) {
     tweenScore($("ctrlScore"), v.total);
     renderStreak($("ctrlStars"), v.streak);
-    const lines = ZBLevels.workingHit(C.level, v.v).map(mathHtml).concat([
+    const lines = (hostWorking || []).concat([
       (v.hit > 1 ? t("note_both_down") + " " : "") + fmt("points_fmt", { n: v.pts }),
     ]);
     $("ctrlMark").innerHTML = markHtml("correct", lines);
@@ -4455,8 +4509,8 @@ function applyCtrlVerdict(v) {
     ZBFX.vibrate(v.hit > 1 ? [60, 40, 130] : 80);
   } else {
     renderStreak($("ctrlStars"), 0);
-    const lines = ZBLevels.workingWrong(C.level, v.v).map(mathHtml)
-      .concat([fmt("note_strength", { n: ZBLevels.strength(C.level, v.v) })]);
+    const lines = (hostWorking || []).concat(
+      typeof v.strength === "number" ? [fmt("note_strength", { n: v.strength })] : []);
     $("ctrlMark").innerHTML = markHtml("wrong", lines);
     $("ctrlExpr").classList.add("mc-shake");
     setTimeout(() => $("ctrlExpr").classList.remove("mc-shake"), 400);
