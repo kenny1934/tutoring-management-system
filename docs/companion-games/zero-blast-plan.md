@@ -850,3 +850,147 @@ a LIVE multi-phone rehearsal, the games. subdomain, merging PR #82,
 the name sign-off with Steve, and Phase 2's lesson panel. Reality
 check during the SM901 pilot: watch the students' first 30 seconds -
 they will say whether it feels premium faster than any audit.
+
+## 13. Iteration 6: the amplitude audit
+
+**The finding (2026-07-18, Kenny's fresh-eyes playtest):** after five
+iterations the game is high-craft but low-amplitude. Kenny played the
+finished iteration 5 and saw "no difference" - and he is right at the
+distance that matters. The washes are 7% opacity, the figures are
+12px tall, the dressing is 1.2px strokes: it all reads on a zoomed
+screenshot and disappears at arm's length, let alone from the back
+of a classroom. We have been sharpening detail density when the gap
+to "premium" is now presentation amplitude. Measured evidence:
+
+- **The subject is small.** The scene is a 400x240 viewBox capped at
+  ~300px tall (solo laptop) and the buildings occupy 21%x28% (kind
+  1) to ~34%x58% (kind 6) OF that viewBox. The shed is smaller on
+  screen than one keypad key. The camera never moves. Premium mobile
+  games fill the frame with the subject and move the camera
+  constantly; we compose like a framed elevation drawing - dignified,
+  and distant.
+- **The payoff is quiet.** At the moment of detonation - the entire
+  point of the game - roughly 90% of screen pixels do not change.
+  Chunks drop 66 viewBox px, debris is small ink flecks, the chop is
+  modest, +N 分 floats at 18px. No flash, no shockwave, no hit-stop,
+  no camera reaction (the finale's slow-mo + punch is the ONLY
+  screen-level event, once per game).
+- **The big stage is silent.** Sound defaults OFF for solo and host;
+  the entire batch-K soundscape hides behind a small quiet icon that
+  no tutor will find mid-lesson. Phones default on; the projector -
+  the surface the class shares - stays mute.
+- **Dead screen everywhere.** Laptop 1280x800: the bottom ~40% is
+  empty cream. Phone 390: a ~250px dead band between scene and
+  keypad. The scene never grows into available height.
+- **The intro undersells.** A static 230px doodle and two heavy red
+  slabs. Nothing on the first screen promises a demolition. Kenny's
+  own metric is the first 30 seconds.
+
+None of this needs new libraries: GSAP + Howler (already vendored)
+cover all of it. Constraints unchanged: red stays the teacher's pen
+(the blast flash is paper-white, the shockwave is ink), reduced
+motion gets framing without movement and stamps without flashes,
+fx=lite paths untouched, and the multi timing contract (turn label
+at 2.2s, shared deadlines) must not move.
+
+### Batch R - sound is part of the show (do this first, ~free)
+
+- One-time offer on the big stage: when a solo/host run starts with
+  no stored preference, the first level card carries a single toggle
+  chip - 開聲玩先夠爆！/ "Play it loud" - one tap (the gesture doubles
+  as the autoplay unlock), remembered forever, never nags again.
+- Mix pass at classroom level: boom_l actually landing on multi
+  collapses, ticks louder in the last 3s, fuse hiss ceiling raised a
+  notch, patter/page/chime balanced under the booms.
+- Optional (only if the mix wants it): a whoosh + deep release thud
+  for batch Q's hit-stop; sprite is 374.7KB of the 400KB budget, so
+  trim tails when regenerating or keep them synth.
+- Tests: prompt appears exactly once on fresh storage, never with a
+  stored pref; choice persists; the existing lazy-fetch/same-origin
+  sound section keeps passing.
+
+### Batch Q - the detonation grammar (payoff amplitude)
+
+Every collapse becomes a screen event, scaled by building size:
+
+- 90ms hit-stop at the crack label, then a one-frame paper-white
+  flash (opacity 0.9 -> 0, never red), an ink shockwave ring
+  expanding from the deck base, debris count x2.5 with a few big
+  torn-paper chunks, and a scene punch (the finale's scenewrap scale
+  punch promoted to every collapse; batch P upgrades it to a real
+  camera move).
+- The 拆 chop lands HUGE - scales from ~3x down onto the pile with
+  the existing compact beat - and the points burst in display type
+  (~40px) beside the building, then fly to the header score, which
+  bumps on arrival.
+- Tension ramp: in the last 3 seconds the sky band darkens slightly
+  and the fuse spark grows - back-of-the-room visible.
+- The fizzle stays deliberately quiet (contrast is meaning): a dust
+  sigh, the condemned chop a touch bigger, nothing else.
+- Reduced motion skips hit-stop/flash/shockwave/punch whole; the
+  chop simply appears at rest. fx=lite keeps its existing particle
+  scaling. The turn label stays at 2.2s so multi deadlines and every
+  suite timing hold.
+- Tests: flash mounts once per collapse and unmounts <400ms; ring
+  present; chop scale beat applied; reduced-motion run clean; the
+  three suites' collapse waits unchanged.
+
+### Batch P - the camera (stage presence)
+
+The transformative batch, and the most work:
+
+- Dynamic framing: per-building viewBox targets computed from the
+  deck+pillars bbox so the subject fills ~55-70% of the frame (the
+  shed becomes monumental; kind 6 already nearly fills). Ground
+  line, rootmark band and survey notes stay inside the frame.
+- Camera moves on existing labels via one gsap-tweened viewBox
+  proxy: a slow 1-2%/s push-in through the warn window, a 4% punch
+  on the wrong-code shrug (pairs with the recoil), and the blast arc
+  - punch toward the building, follow the fall down, pull back to
+  rest for the graph + report. Rest frame between rounds.
+- Scene-first layout: the scene grows into viewport height (laptop
+  bottom band, the phone's ~250px dead middle); the keypad stops
+  outweighing the stage.
+- THE engineering cost: canvas FX (sparks/debris/dust) map viewBox
+  coords to canvas pixels assuming the static 400x240 frame. With a
+  live viewBox the mapping must go through the current frame
+  ((x - vb.x) / vb.w * canvas.w). One conversion helper in fx.js,
+  used by sparksAt/debris/dust/splatter; a spot test asserts the
+  fuse spark lands on the fuse tip under a zoomed frame.
+- Reduced motion: framing YES (each building gets its computed
+  frame, set instantly), movement NO (no creep, no punches, no
+  follow). Tests: fill ratio >= threshold per kind, camera at rest
+  before each round opens, FX alignment under zoom, reduced static.
+
+### Batch S - the first 30 seconds (intro spectacle)
+
+- The hero becomes an attract diorama: a mini building draws in, a
+  2-3s fuse burns, it tumbles, 拆 stamp, page wipe, next silhouette -
+  the lobby attract-loop machinery reused, pure CSS/SMIL, reduced
+  motion keeps today's static vignette.
+- 歸零爆破 stamps in character by character (mc-stamp-in staggered),
+  the swash sparking after the last; CTAs slimmed so the diorama
+  owns the screen (多裝置 primary, 單機 quiet).
+- Tests: loop cycles, reduced static, both languages, no layout
+  shift on either CTA.
+
+### Batch T - phones feel the blast (multi juice)
+
+- The claimer's phone: a full-card 歸零 stamp takeover (400ms, name
+  + points) + the existing vibrate; everyone else's phone: soft thud
+  and a 1.5% card tremble on any claim; grace 3-2-1 mirrored big on
+  phones; fizzle = condemned card.
+- The end screen on each phone becomes a personal mini-report: own
+  rank, stars, echo tally, best time.
+- Tests: multi suite asserts takeover on the claimer only, tremble
+  on the other phone, personal report fields per phone.
+
+### Recommended order
+
+R -> Q -> P -> S -> T. R is hours and changes how the room feels; Q
+makes every 35 seconds end in an event; P is the deep fix that makes
+the subject fill the screen (and retro-upgrades Q's punch into a
+real camera move); S sells it in the first 30 seconds; T closes the
+loop on the surface students hold. If one session only: R + Q. The
+honest framing for the pilot: iterations 1-5 built the craft; this
+one turns the volume knob.
