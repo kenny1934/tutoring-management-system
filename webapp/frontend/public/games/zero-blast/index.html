@@ -16,6 +16,8 @@
   <script src="../shared/vendor/howler.min.js"></script>
   <script src="../shared/vendor/gsap.min.js"></script>
   <script src="../shared/game-bridge.js"></script>
+  <script src="../shared/fx-core.js"></script>
+  <script src="../shared/room-protocol.js"></script>
   <script src="levels.js"></script>
   <!-- self-produced sample kit offsets (see scripts/zb-render-audio.mjs) -->
   <script src="audio/zb-sprite.js"></script>
@@ -3978,22 +3980,11 @@ $("btnReclaim").onclick = async () => {
   enterLobbyWith(room);
 };
 
-/* client-generated player ids: anything else in players/ or subs/ is
- * junk or an attack (an RTDB key like "__proto__" would resolve
- * G.processedSeq[pid] to Object.prototype and misfire the dedupe) */
-const PID_RE = /^p[a-z0-9]{6,10}$/;
-
 function onHostRoom(room) {
   if (!room) return;
-  // rules cap names at 24 chars; the host truncates anyway so one
-  // oversize write can never thrash the projector layout
-  const players = {};
-  Object.keys(room.players || {}).forEach(pid => {
-    if (!PID_RE.test(pid)) return;
-    const pl = room.players[pid] || {};
-    players[pid] = Object.assign({}, pl, { name: String(pl.name || "").slice(0, 24) });
-  });
-  G.players = players;
+  // id filtering + 24-char name truncation live in the shared
+  // protocol module (defence in depth alongside the rules)
+  G.players = MCRoom.sanePlayers(room.players);
 
   if (!G.started) {
     renderLobbyList();
@@ -4006,23 +3997,17 @@ function onHostRoom(room) {
     renderStrugglers(); // joins/leaves change the count mid-round
   }
 
-  // judge new submissions (one slot per player, seq strictly increasing)
-  const subs = room.subs || {};
-  Object.keys(subs).forEach(pid => {
-    if (!PID_RE.test(pid)) return;
-    const sub = subs[pid];
-    if (!sub || typeof sub.seq !== "number" || typeof sub.v !== "number") return;
-    if ((G.processedSeq[pid] || 0) >= sub.seq) return;
-    // paused: leave unconsumed - nothing scores against a frozen fuse.
-    // The resume publish triggers a snapshot, which judges it then.
-    if (G.paused) return;
-    G.processedSeq[pid] = sub.seq;
-    if (!G.started || G.over) return; // between rounds: consumed, not judged
-    // a sub delayed past startLevel must not be judged against the NEW
-    // equation (surprise bonus or unfair lock): level-bound, dropped
-    if (typeof sub.lv === "number" && G.level && sub.lv !== G.level.seq) return;
-    const pl = G.players[pid] || {};
-    submitCode(sub.v, { id: pid, name: pl.name || t("player"), seq: sub.seq });
+  // judge new submissions via the shared loop: seq dedupe, pause
+  // deferral (nothing scores against a frozen fuse), level binding (a
+  // delayed answer is never judged against the next equation)
+  MCRoom.drainSubs(room.subs, G.processedSeq, {
+    paused: () => G.paused,
+    idle: () => !G.started || G.over,
+    levelSeq: () => (G.level ? G.level.seq : null),
+    judge: (pid, sub) => {
+      const pl = G.players[pid] || {};
+      submitCode(sub.v, { id: pid, name: pl.name || t("player"), seq: sub.seq });
+    },
   });
 }
 
@@ -4329,7 +4314,7 @@ async function initController() {
         while (taken.indexOf(name) !== -1) name = base.slice(0, 10) + " " + n++;
       }
     } catch (_) {}
-    C.id = "p" + Math.random().toString(36).slice(2, 8);
+    C.id = MCRoom.newPid(); // crypto-random, matches the rules' $pid shape
     C.name = name;
     const identity = JSON.stringify({ id: C.id, name: C.name });
     try { sessionStorage.setItem("zb-" + C.room.code, identity); } catch (_) {}

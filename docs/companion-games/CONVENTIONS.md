@@ -192,6 +192,73 @@ The `emit` events are the future hook for recording completion/score
 against a session; until that lands they are simply ignored when the
 game runs standalone.
 
+### The round protocol (`shared/room-protocol.js`)
+
+The multi-device shape every game shares, proven through the Zero
+Blast pilot. The host is always authoritative; phones render from
+published state and never judge.
+
+Room layout under `game-rooms/<slug>/<code>`:
+
+- **`state`** — host-published; phones render from it. Typical keys:
+  `phase`, `level`, `levelIdx`, `deadlineEpoch`, `claims`, `scores`,
+  `graceUntil`, `pauseRemainMs`, `reveal`, `results`. Phases:
+  `lobby → playing ⇄ paused → reveal | cooldown → … → end`.
+  The published level must carry **no answer key** (strip roots/hidden
+  factors and anything a devtools reader could cheat with); answers
+  ship host-computed inside verdicts, and a `reveal` payload publishes
+  the answer sheet only once the round resolves.
+- **`players/<pid>`** — one entry per phone: `{ name, joinedAt, uid }`.
+  Rules pin it to the device uid; the host still filters ids and
+  truncates names (defence in depth). Kick = the host deletes the
+  entry; phones must detect their own removal in **any** phase and
+  offer rejoin.
+- **`subs/<pid>`** — one slot per player: `{ v, seq, lv, ts }`. `seq`
+  strictly increases per player (dedupe key, also the retry key — only
+  a successful write advances it client-side); `lv` binds the answer
+  to a round so a delayed sub is never judged against the next one.
+- **`verdicts/<pid>`** — host-only, private. Carries the judged result
+  plus everything the phone renders from it (points, streak, totals,
+  host-computed working lines, `lv` binding).
+
+Client conventions that ride the protocol:
+
+- Phones send with a *sent → marking* beat, one silent retry, and a
+  verdictless reopen (~2.5s) so a lost write never soft-locks the pad.
+- All countdown maths runs on `GameBridge.serverNow()`, never
+  `Date.now()`.
+- Pause: host publishes `phase: "paused"` + the frozen remaining;
+  phones freeze the fuse and close the pad; the host defers judging
+  (leaves subs unconsumed) until resume.
+- Identity mirrors to `sessionStorage` + `localStorage` per room code
+  so a reload or a QR re-scan resumes the same player.
+- The host snapshots its run (localStorage) so a closed tab can
+  resume, and writes a lobby snapshot at creation.
+
+Helpers (`window.MCRoom`): `PID_RE`, `newPid()` (crypto-random,
+matches the rules' `$pid` shape), `sanePlayers(raw)` (id filter +
+name truncation), `drainSubs(subs, processedSeq, {paused, idle,
+levelSeq, judge})` (the seq-dedupe judging loop with pause deferral
+and level binding).
+
+### FX (`shared/fx-core.js`)
+
+The house effects engine (`window.MCFXCore`), composed per game in the
+game's own `fx.js` skin — Zero Blast's `fx.js` is the reference:
+
+- `createStage()` — canvas-2D particles in the house language (ink
+  debris, dust, paper scraps, splatter, gold stars — never confetti),
+  screen shake, hit-stop, live camera-frame mapping (`toPx`/`setView`/
+  `fxScale`), `vibrate`.
+- `createAudio({sprite, onChange})` — the `mc-games-sound` opt-in,
+  Web Audio context + synth primitives (`noiseburst`/`thump`), the
+  Howler sample-sprite harness, and the `oneShot` sample-or-synth
+  prelude.
+- `createBgm({audio, bpm, busGain, setup, schedule})` — the lookahead
+  step sequencer with the big-stage play policy (allowed ∧ sound-on ∧
+  tier set ∧ tab visible) and `duck()`. The game supplies voices and
+  the per-step pattern; controllers never call `allow(true)`.
+
 ## 7. Manifest (`game.json`)
 
 Each game folder ships a manifest; the Lesson Mode registry is built
