@@ -1349,9 +1349,8 @@ first pass deliberately left, plus one field bug Kenny hit:
   a trivial mechanic carrying the whole contract end to end (shared
   modules, no-answer-key publish, sent-beat subs, kick, phone-side
   resume, pause, serverNow timers, graceful host failure), on the §7
-  manifest shape. HOST-refresh recovery (the S4 saveHostRun/reclaim
-  hardening) is deliberately left out of the trivial template and
-  flagged there as required per-game work, not modeled inline.
+  manifest shape. (HOST-refresh recovery was added to the template in
+  the §16 follow-up; the original rebuild left it out.)
 
 The three Zero Blast suites stay green throughout: solo 149, multi
 137, audit 74 (was 143 / 124 / 71 before this sweep). Nothing from
@@ -1407,9 +1406,34 @@ findings were fixed:
   by the rem pass (converted, keeping the vw fluidity); and the
   template showed a phone-side "lost the big screen" string on a
   host-start failure (gave it its own host_fail string, dropped the now
-  dead one). Host-refresh recovery is still absent from the trivial
-  template on purpose - now flagged there and in §15 as required
-  per-game work, not a modeled feature.
+  dead one). Host-refresh recovery was flagged as absent-by-design here;
+  Kenny then asked for it, so it is now modeled (§16.1 below).
 
 Suites after the re-audit: solo 149, multi 140 (+3 pause/host-refresh),
 audit 74. The product/ops backlog is unchanged.
+
+### 16.1 Host-refresh recovery added to the template (2026-07-19)
+
+Kenny: "add host-refresh recovery to the template." The reference now
+models the full host-resilience contract, mirroring zero-blast's proven
+pattern: a run snapshot (tpl-run-<code>, session + local) written on
+every round boundary, claim and pause plus a lobby snapshot at room
+creation; a 繼續上一場 offer on the cover when a fresh snapshot for this
+device exists; and resumeRun, which reclaims the SAME code via
+GameBridge.host({code}) and re-publishes state so phones reconnect where
+they left off. Rounds regenerate from their index (genRound is
+deterministic), so only idx + scores + the seq-dedupe book are snapshotted;
+a paused round comes back paused (not live), same as the §16 zero-blast fix.
+
+Building the verification (a mocked-bridge host+phone probe, since the
+env has no Firebase) surfaced a genuine PRE-EXISTING template bug that the
+Firebase-less earlier audit could not reach: the phone never revealed its
+play surface when the tutor started, because joinAsPlayer hid the join
+form up front while onCtrlRoom only showed the play surface if the join
+form was still visible. The template's multi mode was effectively broken
+for phones. Fixed to reveal the play surface unconditionally on the
+playing phase. A committed smoke suite now guards the template's contract
+slice (webapp/frontend/tests/games/_template/tpl-test.js, 14 assertions:
+solo run + resolved guard, phone play reveal, and lobby / mid-game /
+paused host-refresh recovery over the shared GameBridge mock) — the
+template had no test before, which is how the play-reveal bug shipped.
