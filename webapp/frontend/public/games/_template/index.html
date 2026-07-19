@@ -336,7 +336,7 @@ const STRINGS = {
   ctrl_paused:        { c: "暫停中，|等導師繼續。",  e: "Paused. Waiting for the tutor." },
   kicked:             { c: "你已離開房間。",         e: "You have left the room." },
   btn_rejoin:         { c: "重新加入",              e: "Rejoin" },
-  host_gone:          { c: "同大屏幕失去連線。",     e: "Lost connection to the big screen." },
+  host_fail:          { c: "開唔到房間，請再試。",   e: "Could not start the room. Please try again." },
   room_not_found:     { c: "搵唔到房間，可能已完結。", e: "Room not found. It may have ended." },
   player:             { c: "玩家",                  e: "Player" },
 };
@@ -450,7 +450,7 @@ function refreshDynamic() {
 }
 
 function startRun(mode) {
-  G.mode = mode; G.idx = 0; G.score = 0; G.over = false; G.started = true;
+  G.mode = mode; G.idx = 0; G.score = 0; G.over = false; G.resolved = false; G.started = true;
   G.scores = {}; G.processedSeq = {};
   $("scoreBox").textContent = "0";
   fxStage.attach($("fxCanvas"), $("sceneSvg"), 200, 80);
@@ -462,6 +462,7 @@ function startRun(mode) {
 function startRound() {
   G.round = genRound(G.idx);
   G.claimedBy = {};
+  G.resolved = false;
   G.paused = false;
   $("pauseVeil").style.display = "none";
   $("btnPause").disabled = false;
@@ -513,6 +514,14 @@ function celebrate() {
 }
 
 function endRound(claimed) {
+  // ✦ CONTRACT: resolve each round exactly once. Without this guard a
+  // correct tap that lands in the ~1300ms inter-round gap (the phone pad
+  // is still live until the next round publishes) would be judged after
+  // the buzzer and call endRound a second time — skipping a question and
+  // double-firing startRound. G.resolved also gates the judging loop's
+  // idle() below so such a late tap is consumed, not scored.
+  if (G.resolved) return;
+  G.resolved = true;
   cancelAnimationFrame(G.raf);
   if (!claimed) {
     // time ran out with no claim: reveal the answer as a teaching note
@@ -603,7 +612,7 @@ function onHostRoom(room) {
   // level binding (a delayed tap never scores against the next round).
   MCRoom.drainSubs(room.subs, G.processedSeq, {
     paused: () => G.paused,
-    idle: () => !G.started || G.over,
+    idle: () => !G.started || G.over || G.resolved,
     levelSeq: () => (G.round ? G.round.seq : null),
     judge: (pid, sub) => hostJudge(pid, sub),
   });
@@ -699,6 +708,15 @@ function endGame() {
 }
 
 /* --- cover buttons --- */
+/* ✦ CONTRACT (phone resilience is modeled; host resilience is not):
+ * phones recover fully from a reload/screen-lock (onCtrlRoom rebuilds
+ * from state, seenSelf de-dupes). The HOST here does NOT survive its own
+ * refresh — btnRestart reloads to a fresh room and a mid-game F5 strands
+ * connected phones. For a real classroom game, add host-refresh recovery
+ * as zero-blast does (saveHostRun/saveLobbySnapshot → zb-run-<code>,
+ * GameBridge.host({code}) reclaim on the cover, resumeRun re-publish).
+ * It is left out of this trivial template on purpose, to keep the wiring
+ * legible — treat it as required per-game hardening, not optional. */
 $("btnSolo").onclick = () => { GameBridge.emit(SLUG, "start", { mode: "solo" }); startRun("solo"); };
 $("btnRestart").onclick = () => { if (G.mode === "host") location.reload(); else startRun("solo"); };
 
@@ -709,7 +727,7 @@ $("btnHost").onclick = async () => {
   } catch (err) {
     // ✦ CONTRACT: a failed host() shows a status line, never alert()
     $("introStatus").className = "mc-status mc-status--danger";
-    $("introStatus").textContent = t("host_gone");
+    $("introStatus").textContent = t("host_fail");
     return;
   }
   G.mode = "host";
