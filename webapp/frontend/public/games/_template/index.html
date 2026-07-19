@@ -167,6 +167,10 @@
     <!-- Remove buttons for modes the game doesn't support; keep
          game.json "modes" in sync. -->
     <div style="display:grid;gap:12px">
+      <!-- ✦ CONTRACT: shown only when a fresh host snapshot for this
+           device exists (see pendingHostRun) so a refreshed tutor
+           rejoins the same room instead of stranding the class. -->
+      <button class="mc-btn mc-btn--primary mc-btn--block" id="btnResume" style="display:none" data-i18n="resume_last"></button>
       <button class="mc-btn mc-btn--primary mc-btn--block" id="btnHost">
         <svg style="width:20px;height:20px"><use href="#i-screen"/></svg>
         <span data-i18n="btn_host"></span>
@@ -308,6 +312,7 @@ const STRINGS = {
   players:            { c: "1 至 40 人",            e: "1 to 40 players" },
   btn_host:           { c: "多裝置開始",            e: "Start · multi-device" },
   btn_solo:           { c: "單機開始",              e: "Start · one screen" },
+  resume_last:        { c: "繼續上一場",            e: "Resume last game" },
   btn_start:          { c: "開始遊戲",              e: "Start the game" },
   btn_restart:        { c: "再玩一次",              e: "Play again" },
   btn_pause:          { c: "暫停",                  e: "Pause" },
@@ -485,6 +490,7 @@ function startRound() {
   }
   cancelAnimationFrame(G.raf);
   tick();
+  saveHostRun(); // fresh round persisted for host-refresh recovery
 }
 
 function renderOptions() {
@@ -529,6 +535,7 @@ function endRound(claimed) {
       fmt("note_correct", { a: G.round.a, b: G.round.b, answer: G.round.answer }));
   }
   G.idx += 1;
+  saveHostRun(); // resolved round persisted: a host F5 in the gap resumes at the next
   if (G.idx >= ROUNDS) return setTimeout(endGame, 1300);
   setTimeout(startRound, 1300);
 }
@@ -585,6 +592,7 @@ function togglePause() {
       });
     }
   }
+  if (G.mode === "host") saveHostRun(); // snapshot the new pause state at once
   renderPauseBtn();
 }
 function renderPauseBtn() {
@@ -692,6 +700,7 @@ function renderEndPreview() {
 
 function endGame() {
   G.over = true;
+  clearHostRun(); // the run is finished; no resume offer for a done game
   cancelAnimationFrame(G.raf);
   if (G.mode === "host") {
     const results = Object.keys(G.players)
@@ -708,18 +717,26 @@ function endGame() {
 }
 
 /* --- cover buttons --- */
-/* ✦ CONTRACT (phone resilience is modeled; host resilience is not):
- * phones recover fully from a reload/screen-lock (onCtrlRoom rebuilds
- * from state, seenSelf de-dupes). The HOST here does NOT survive its own
- * refresh — btnRestart reloads to a fresh room and a mid-game F5 strands
- * connected phones. For a real classroom game, add host-refresh recovery
- * as zero-blast does (saveHostRun/saveLobbySnapshot → zb-run-<code>,
- * GameBridge.host({code}) reclaim on the cover, resumeRun re-publish).
- * It is left out of this trivial template on purpose, to keep the wiring
- * legible — treat it as required per-game hardening, not optional. */
+/* ✦ CONTRACT (both sides recover): phones rebuild from state on a
+ * reload/screen-lock (onCtrlRoom + seenSelf), and the HOST survives its
+ * own refresh via the snapshot/offer/reclaim block below (saveHostRun ->
+ * tpl-run-<code>, 繼續上一場 on the cover, resumeRun re-publish). In host
+ * mode btnRestart reloads only from the end screen, where clearHostRun
+ * has already dropped the snapshot, so it starts a fresh room. */
 $("btnSolo").onclick = () => { GameBridge.emit(SLUG, "start", { mode: "solo" }); startRun("solo"); };
 $("btnRestart").onclick = () => { if (G.mode === "host") location.reload(); else startRun("solo"); };
 
+function enterLobby() {
+  G.mode = "host";
+  show("lobbyScreen");
+  $("roomCode").textContent = G.room.code;
+  GameBridge.qr($("qrBox"), G.room.joinUrl, 190);
+  if (!G.watcher) G.watcher = G.room.watch(onHostRoom, onConnStatus);
+  // ✦ CONTRACT: snapshot the room the instant it exists, so even a lobby
+  // refresh (before the game starts) rejoins instead of orphaning a room
+  // full of phones.
+  saveLobbySnapshot();
+}
 $("btnHost").onclick = async () => {
   $("introStatus").textContent = "";
   try {
@@ -730,12 +747,116 @@ $("btnHost").onclick = async () => {
     $("introStatus").textContent = t("host_fail");
     return;
   }
-  G.mode = "host";
-  show("lobbyScreen");
-  $("roomCode").textContent = G.room.code;
-  GameBridge.qr($("qrBox"), G.room.joinUrl, 190);
-  G.watcher = G.room.watch(onHostRoom, onConnStatus);
+  enterLobby();
 };
+
+/* ══════════════════════════════════════════════════════════════════
+ * host-refresh recovery
+ * ✦ CONTRACT: the host is authoritative, so its tab dying (an accidental
+ * F5, a crash, a locked iPad) must NOT strand the class. The run state is
+ * snapshotted on every round boundary + claim + pause; the cover offers
+ * 繼續上一場 while a fresh snapshot exists; resumeRun reclaims the SAME
+ * room code (GameBridge.host({code})) and re-publishes state so every
+ * phone reconnects where it left off. Rounds regenerate from their index
+ * (genRound is deterministic), so only the index, the scores and the
+ * seq-dedupe book need to survive.
+ * ══════════════════════════════════════════════════════════════════ */
+const RUN_KEY = (code) => "tpl-run-" + code;
+function writeHostRun(key, json) {
+  // sessionStorage survives an F5; the localStorage mirror survives a
+  // closed tab / browser restart.
+  try { sessionStorage.setItem(key, json); } catch (_) {}
+  try { localStorage.setItem(key, json); } catch (_) {}
+}
+function saveHostRun() {
+  if (G.mode !== "host" || !G.room || !G.started || G.over) return;
+  try {
+    // paused: the deadline is frozen, but performance.now keeps advancing
+    // under the veil, so the remaining is measured from G.pausedAt.
+    const remainMs = G.paused
+      ? Math.max(0, Math.round(G.deadline - G.pausedAt))
+      : Math.max(0, Math.round(G.deadline - performance.now()));
+    writeHostRun(RUN_KEY(G.room.code), JSON.stringify({
+      code: G.room.code, ts: Date.now(),
+      idx: G.idx, resolved: G.resolved,
+      scores: G.scores, processedSeq: G.processedSeq, players: G.players,
+      paused: G.paused, pauseRemainMs: G.paused ? remainMs : null,
+    }));
+  } catch (_) {}
+}
+function saveLobbySnapshot() {
+  if (!G.room) return;
+  writeHostRun(RUN_KEY(G.room.code), JSON.stringify({ code: G.room.code, ts: Date.now(), lobby: true }));
+}
+function clearHostRun() {
+  if (!G.room) return;
+  try { sessionStorage.removeItem(RUN_KEY(G.room.code)); } catch (_) {}
+  try { localStorage.removeItem(RUN_KEY(G.room.code)); } catch (_) {}
+}
+/* the freshest host snapshot left on this device (session wins ties), or null */
+function pendingHostRun() {
+  const scan = (store) => {
+    let best = null;
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
+      if (!key || key.indexOf("tpl-run-") !== 0) continue;
+      let saved = null;
+      try { saved = JSON.parse(store.getItem(key)); } catch (_) {}
+      if (!saved || !saved.code) continue;
+      if (!saved.lobby && typeof saved.idx !== "number") continue;
+      if (Date.now() - (saved.ts || 0) > 6 * 3600 * 1000) continue; // stale
+      if (!best || saved.ts > best.ts) best = saved;
+    }
+    return best;
+  };
+  try {
+    const a = scan(sessionStorage), b = scan(localStorage);
+    if (a && b) return a.ts >= b.ts ? a : b;
+    return a || b;
+  } catch (_) { return null; }
+}
+async function resumeRun(saved) {
+  audioCore.unlock();
+  try {
+    G.room = await GameBridge.host({ slug: SLUG, code: saved.code });
+  } catch (err) {
+    // the room is gone (closed or expired): drop the stale offer
+    $("btnResume").style.display = "none";
+    try { sessionStorage.removeItem(RUN_KEY(saved.code)); } catch (_) {}
+    try { localStorage.removeItem(RUN_KEY(saved.code)); } catch (_) {}
+    return;
+  }
+  // a lobby-only snapshot (refresh before the game began): back to the
+  // lobby with the same code, phones still joined
+  if (typeof saved.idx !== "number") { enterLobby(); return; }
+  G.mode = "host";
+  G.scores = saved.scores || {};
+  G.processedSeq = saved.processedSeq || {};
+  G.players = saved.players || {};
+  G.score = 0; G.started = true; G.over = false;
+  fxStage.attach($("fxCanvas"), $("sceneSvg"), 200, 80);
+  // restore what the phones depend on, then rejoin the judging loop.
+  // update() merges, so a phone that joined during the outage survives.
+  G.room.update("players", G.players);
+  G.room.set("state/scores", G.scores);
+  if (!G.watcher) G.watcher = G.room.watch(onHostRoom, onConnStatus);
+  GameBridge.emit(SLUG, "start", { mode: "multi", resumed: true, players: Object.keys(G.players).length });
+  show("gameScreen");
+  G.idx = saved.idx;
+  if (G.idx >= ROUNDS) { endGame(); return; }
+  startRound(); // republishes the round fresh; phones follow the new deadline
+  // a round paused when the tab went comes back paused, not live
+  if (saved.paused) {
+    G.paused = true;
+    G.pausedAt = performance.now();
+    G.deadline = performance.now() + Math.max(0, saved.pauseRemainMs || 0);
+    cancelAnimationFrame(G.raf);
+    $("pauseVeil").style.display = "";
+    G.room.update("state", { phase: "paused", pauseRemainMs: Math.max(0, saved.pauseRemainMs || 0) });
+    renderPauseBtn();
+    saveHostRun();
+  }
+}
 $("btnStart").onclick = () => {
   GameBridge.emit(SLUG, "start", { mode: "multi", players: Object.keys(G.players).length });
   startRun("host");
@@ -842,7 +963,12 @@ function onCtrlRoom(room) {
   C.pauseRemainMs = st.pauseRemainMs;
 
   if (st.phase === "playing" && C.round) {
-    if ($("ctrlJoin").style.display !== "none") { $("ctrlJoin").style.display = "none"; $("ctrlPlay").style.display = ""; }
+    // reveal the play surface unconditionally: joinAsPlayer already hid
+    // the join form (showing a "waiting" status), so gating this on the
+    // join form being visible would leave the phone stuck on "waiting"
+    // once the tutor starts.
+    $("ctrlJoin").style.display = "none";
+    $("ctrlPlay").style.display = "";
     if (phaseChanged) setCtrlEnabled(true);
   } else if (st.phase === "paused") {
     setCtrlEnabled(false);
@@ -927,7 +1053,18 @@ function applyVerdict(v) {
 }
 
 /* boot as a controller if we arrived through a join link */
-if (GameBridge.roomParam()) initController();
+/* boot as a controller if we arrived through a join link; otherwise, if
+ * this device left a host run mid-game (accidental refresh / crash),
+ * offer to resume it instead of stranding those phones */
+if (GameBridge.roomParam()) {
+  initController();
+} else {
+  const savedRun = pendingHostRun();
+  if (savedRun) {
+    $("btnResume").style.display = "";
+    $("btnResume").onclick = () => resumeRun(savedRun);
+  }
+}
 </script>
 </body>
 </html>
