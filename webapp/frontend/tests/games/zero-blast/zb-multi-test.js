@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (137 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (140 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 137 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 140 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -1177,6 +1177,44 @@ async function main() {
   check("pause freezes the phone fuse", aPaused.t === aFrozen1, aFrozen1 + " -> " + aPaused.t);
   check("pause closes the phone pad", aPaused.pad === true);
   check("paused status on the phone", aPaused.status.includes("暫停"), aPaused.status);
+
+  // an accidental host F5 DURING a pause must resume PAUSED, not live:
+  // the snapshot now persists paused/pauseRemainMs and startLevel
+  // re-enters the paused state on reclaim (regression: the class used to
+  // resume live behind the tutor and the frozen fuse bled away).
+  const remainBeforeF5 = pausedWire.state.pauseRemainMs;
+  await host.reload({ waitUntil: "load" });
+  await until(
+    () => host.evaluate(() => {
+      const b = document.getElementById("btnResume");
+      return getComputedStyle(b).display !== "none" && b.textContent.includes("繼續上一場");
+    }),
+    { label: "resume offer (mid-pause)", timeout: 8000 }
+  );
+  await host.click("#btnResume");
+  await until(
+    () => host.evaluate(() =>
+      document.getElementById("gameScreen").classList.contains("active") && G.started && G.paused),
+    { label: "resumed still paused", timeout: 8000 }
+  );
+  const afterF5 = await roomData(host);
+  check(
+    "host F5 mid-pause resumes PAUSED, not live",
+    afterF5.state.phase === "paused",
+    JSON.stringify({ phase: afterF5.state.phase })
+  );
+  check(
+    "host F5 mid-pause preserves the frozen fuse (no bleed)",
+    Math.abs(afterF5.state.pauseRemainMs - remainBeforeF5) < 1500,
+    JSON.stringify({ before: remainBeforeF5, after: afterF5.state.pauseRemainMs })
+  );
+  await until(() => phoneA.evaluate(() => C.phase === "paused"),
+    { label: "phone re-paused after F5", timeout: 5000 });
+  check(
+    "host F5 mid-pause: phone stays frozen, pad closed",
+    await phoneA.evaluate(() =>
+      C.phase === "paused" && document.querySelector("#ctrlPad .zb-key").disabled === true)
+  );
 
   await host.evaluate(() => document.getElementById("btnPause").click()); // resume
   await until(() => phoneA.evaluate(() => C.phase === "playing"), { label: "phone resumed", timeout: 4000 });

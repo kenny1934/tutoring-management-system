@@ -388,7 +388,7 @@
     .zb-howto .zh-s { stroke: var(--mc-ink); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .zb-howto .zh-s.thin { stroke-width: 1.2; }
     .zb-howto .zh-red { stroke: var(--mc-red); }
-    .zb-howto .zh-t { font-family: var(--mc-mono); font-weight: 700; font-size: 0.59375rem; text-anchor: middle; fill: var(--mc-ink); stroke: none; }
+    .zb-howto .zh-t { font-family: var(--mc-mono); font-weight: 700; font-size: 9.5px; text-anchor: middle; fill: var(--mc-ink); stroke: none; }
     .zb-howto text.zh-red { fill: var(--mc-red); }
     .zb-howto__note { margin-top: 9px; font-size: 0.75rem; color: var(--mc-ink-soft); text-align: center; }
 
@@ -464,14 +464,14 @@
       position: absolute; right: 12px; bottom: 10px;
       display: flex; flex-direction: column; align-items: center; gap: 1px;
       padding: 5px 10px; border: 2.5px solid var(--mc-red); border-radius: 6px;
-      font-family: var(--mc-mono); font-weight: 800; font-size: 0.75rem; letter-spacing: 0.14em;
+      font-family: var(--mc-mono); font-weight: 800; font-size: 12px; letter-spacing: 0.14em;
       color: var(--mc-red);
       background: color-mix(in srgb, var(--mc-paper) 82%, transparent);
       box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mc-red) 28%, transparent);
       transform: rotate(8deg);
       animation: mc-stamp-in 0.35s 1.15s cubic-bezier(0.2, 1.5, 0.35, 1) both;
     }
-    .zb-endchop small { font-size: 0.5625rem; letter-spacing: 0.1em; font-weight: 700; }
+    .zb-endchop small { font-size: 9px; letter-spacing: 0.1em; font-weight: 700; }
     /* the report ends the way a real inspection report does: a foot
        band reserved for the chop and, beside it, the inspector himself,
        clipboard in hand */
@@ -1365,7 +1365,7 @@
       <span class="mc-masthead__code"><strong>SM901</strong> · <span data-i18n="subtopic"></span></span>
       <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
     </header>
-    <h2 class="mc-title" style="font-size:clamp(26px,6vw,36px)" data-i18n="lobby_title"></h2>
+    <h2 class="mc-title" style="font-size:clamp(1.625rem,6vw,2.25rem)" data-i18n="lobby_title"></h2>
     <p class="mc-lede" data-i18n="lobby_hint"></p>
     <div class="mc-sheet" id="lobbySheet" style="text-align:center">
       <div class="mc-board__label" data-i18n="room_code_label"></div>
@@ -1494,10 +1494,10 @@
       <span class="mc-masthead__code" id="ctrlName"></span>
     </header>
     <div id="ctrlJoin">
-      <h2 class="mc-title" style="font-size:clamp(24px,6vw,32px)" data-i18n="name_label"></h2>
+      <h2 class="mc-title" style="font-size:clamp(1.5rem,6vw,2rem)" data-i18n="name_label"></h2>
       <svg class="mc-swash" viewBox="0 0 150 12" aria-hidden="true"><path d="M3 8 Q40 3 75 7 T147 5"/></svg>
       <input class="mc-input" id="nameInput" type="text" maxlength="12" autocomplete="nickname"
-             data-i18n-placeholder="name_placeholder" style="font-size:22px">
+             data-i18n-placeholder="name_placeholder" style="font-size:1.375rem">
       <button class="mc-btn mc-btn--primary mc-btn--block" id="btnJoin" style="margin-top:14px">
         <svg style="width:20px;height:20px"><use href="#i-phone"/></svg>
         <span data-i18n="btn_join"></span>
@@ -1536,7 +1536,7 @@
       <span class="mc-masthead__code"><strong>SM901</strong> · <span data-i18n="subtopic"></span></span>
       <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
     </header>
-    <h1 class="mc-title" style="font-size:clamp(28px,7vw,44px)" data-i18n="end_title"></h1>
+    <h1 class="mc-title" style="font-size:clamp(1.75rem,7vw,2.75rem)" data-i18n="end_title"></h1>
     <svg class="mc-swash" viewBox="0 0 150 12" aria-hidden="true"><path d="M3 8 Q40 3 75 7 T147 5"/></svg>
     <div class="mc-sheet" id="endSheet" style="text-align:center">
       <div class="mc-board__label" id="endScoreLabel" data-i18n="end_score_label"></div>
@@ -2995,6 +2995,27 @@ function startLevel(resume) {
   setTimeout(() => { if (!G.over && !G.paused && G.level === level) ZBFX.audio.fuseStart(); }, stageMs);
   cancelAnimationFrame(G.raf);
   G.raf = requestAnimationFrame(fuseFrame);
+
+  // A round that was paused when the host tab went comes back paused,
+  // not live: an accidental F5 mid-pause otherwise resumes the class
+  // behind the tutor and bleeds the frozen fuse. Re-enter the paused
+  // state and hold at the frozen remaining until 繼續 is pressed.
+  if (resume && resume.paused) {
+    const remainMs = Math.max(0, Math.round(resume.pauseRemainMs || 0));
+    G.paused = true;
+    G.pausedAt = performance.now();
+    G.deadline = performance.now() + remainMs;
+    cancelAnimationFrame(G.raf);
+    ZBFX.audio.fuseStop();
+    ZBFX.sparksAt(null);
+    ZBFX.bgm.setIntensity("idle");
+    $("pauseVeil").style.display = "";
+    if (G.mode === "solo") pad.disable();
+    if (G.mode === "host") {
+      G.room.update("state", { phase: "paused", pauseRemainMs: remainMs });
+    }
+    renderPauseBtn();
+  }
   saveHostRun();
 }
 
@@ -3534,6 +3555,13 @@ function renderStrugglers() {
 function saveHostRun() {
   if (G.mode !== "host" || !G.room || !G.started || G.ended) return;
   try {
+    // While paused the fuse is frozen but performance.now() keeps
+    // advancing under the veil, so the remaining is measured from
+    // G.pausedAt (fixed at the pause), never from now - else an F5
+    // mid-pause would snapshot a shrunken fuse and bleed it on resume.
+    const remainMs = G.paused
+      ? Math.max(0, Math.round(G.deadline - G.pausedAt))
+      : Math.max(0, Math.round(G.deadline - performance.now()));
     writeHostRun("zb-run-" + G.room.code, JSON.stringify({
       code: G.room.code, ts: Date.now(),
       idx: G.idx, over: G.over, levels: G.levels, records: G.records,
@@ -3542,7 +3570,8 @@ function saveHostRun() {
       scoredRound: G.scoredRound, processedSeq: G.processedSeq, hinted: G.hinted,
       echoTally: G.echoTally, bestMs: G.bestMs, echoCountBy: G.echoCountBy,
       players: G.players, levelPoints: G.levelPoints,
-      deadlineEpoch: Date.now() + Math.max(0, Math.round(G.deadline - performance.now())),
+      paused: G.paused, pauseRemainMs: G.paused ? remainMs : null,
+      deadlineEpoch: Date.now() + remainMs,
     }));
   } catch (_) {}
 }
@@ -4158,6 +4187,9 @@ function togglePause() {
     }
     G.raf = requestAnimationFrame(fuseFrame);
   }
+  // snapshot the new pause state immediately: a tab that dies mid-pause
+  // must resume paused (see startLevel), not live behind the tutor.
+  if (G.mode === "host") saveHostRun();
   renderPauseBtn();
 }
 function renderPauseBtn() {
