@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <!-- ══════════════════════════════════════════════════════════════
+       MathConcept Companion Game — TEMPLATE  (配對挑戰 Match Up)
+       Copy this folder to /games/<your-slug>/ and build on it.
+       Read /docs/companion-games/CONVENTIONS.md first — especially
+       §6 (GameBridge API), §6.5 (the round protocol), the fx-core and
+       room-protocol module surfaces, §2 (language) and §3 (identity).
+       Parts marked ✦ CONTRACT must survive into a real game.
+       The mechanic here (multiply two numbers, tap the answer) is
+       DELIBERATELY trivial — it exists only to carry the contract.
+       No emoji as UI; icons are inline SVG. No em dashes in copy.
+       ══════════════════════════════════════════════════════════════ -->
+  <title>配對挑戰 Match Up</title>
+  <link rel="stylesheet" href="../shared/theme.css">
+  <!-- ✦ CONTRACT: shared modules, in this order. game-bridge before
+       the fx/room modules; both before your own script. -->
+  <script src="../shared/vendor/qrcode.js"></script>
+  <script src="../shared/game-bridge.js"></script>
+  <script src="../shared/fx-core.js"></script>
+  <script src="../shared/room-protocol.js"></script>
+  <style>
+    /* Template-local styles. Real games keep their skin here too;
+       reach for theme.css tokens only, never hardcoded colours, and
+       size reading text in rem so a browser font preference works. */
+    .tpl-scene {
+      position: relative; width: min(360px, 88%); margin: 6px auto 2px;
+      aspect-ratio: 5 / 2;
+    }
+    .tpl-scene svg { display: block; width: 100%; height: 100%; }
+    .tpl-scene canvas { position: absolute; inset: 0; pointer-events: none; }
+    .tpl-expr {
+      font-family: var(--mc-mono); font-weight: 800;
+      font-size: clamp(2rem, 8vw, 3rem); text-align: center;
+      letter-spacing: 0.04em;
+    }
+    .tpl-options { display: grid; gap: 12px; margin-top: 16px; }
+    .tpl-opt {
+      font-family: var(--mc-mono); font-weight: 800; font-size: 1.5rem;
+      padding: 16px; border: 2px solid var(--mc-ink);
+      border-radius: var(--mc-r); background: var(--mc-paper-raised);
+      color: var(--mc-ink); cursor: pointer; text-align: center;
+      transition: transform 0.08s;
+    }
+    .tpl-opt:hover:not(:disabled) { transform: translateY(-2px); }
+    .tpl-opt:disabled { opacity: 0.45; cursor: default; }
+    .tpl-opt.claimed { border-color: var(--mc-red); color: var(--mc-red); }
+    .tpl-topline {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 6px;
+    }
+    .tpl-score { font-family: var(--mc-mono); font-weight: 800; font-size: 1.25rem; color: var(--mc-gold); }
+    .tpl-timer {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--mc-mono); font-weight: 700; font-size: 1.2rem;
+    }
+    .tpl-timer svg { width: 18px; height: 18px; }
+    .tpl-timer.warn { color: var(--mc-red); }
+    .tpl-pausebtn {
+      font-family: inherit; font-size: 0.8125rem; font-weight: 700;
+      color: var(--mc-ink-soft); background: none; cursor: pointer;
+      border: 1.5px solid var(--mc-ink-faint); border-radius: var(--mc-r);
+      padding: 3px 12px;
+    }
+    .tpl-pausebtn:disabled { opacity: 0.4; cursor: default; }
+    .tpl-pauseveil {
+      position: absolute; inset: 0; z-index: 4;
+      display: flex; align-items: center; justify-content: center;
+      background: color-mix(in srgb, var(--mc-paper) 62%, transparent);
+    }
+    .tpl-pauseveil span {
+      font-weight: 800; font-size: 1.6rem; letter-spacing: 0.3em;
+      padding: 8px 16px 8px calc(16px + 0.3em);
+      color: var(--mc-ink-soft); border: 3px solid var(--mc-ink-soft);
+      border-radius: 8px; transform: rotate(-4deg);
+    }
+    .tpl-players { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+    .tpl-players span {
+      font-size: 0.875rem; font-weight: 700; padding: 5px 12px;
+      border: 1.5px solid var(--mc-ink-faint); border-radius: var(--mc-r);
+      cursor: pointer;
+    }
+    .tpl-players span.arm { border-color: var(--mc-red); color: var(--mc-red); }
+    .tpl-soundbtn { background: none; border: none; cursor: pointer; color: var(--mc-ink-soft); padding: 4px; }
+    .tpl-soundbtn svg { width: 22px; height: 22px; }
+  </style>
+</head>
+<body>
+
+<!-- Inline SVG icon sprite (stroke icons, 24px grid) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-arrow" viewBox="0 0 24 18">
+      <path d="M2 9h15M12 2l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke-width="2"/>
+      <path d="M12 7v5l3.5 2" fill="none" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-players" viewBox="0 0 24 24">
+      <circle cx="9" cy="8" r="3.5" fill="none" stroke-width="2"/>
+      <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" fill="none" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="17.5" cy="9" r="2.8" fill="none" stroke-width="2"/>
+      <path d="M16 14.3c3.1 0.3 5.5 2.5 5.5 5.7" fill="none" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-screen" viewBox="0 0 24 24">
+      <rect x="2.5" y="4" width="19" height="12.5" rx="1.5" fill="none" stroke-width="2"/>
+      <path d="M9 20.5h6M12 16.5v4" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-tick" viewBox="0 0 24 24">
+      <path d="M4 13l5.5 5.5L20 6.5" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-theme" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke-width="2"/>
+      <path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5z" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="none" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="none" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M16 9l5 6M21 9l-5 6" fill="none" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- pencil maths marginalia on the paper (decorative, behind everything) -->
+<div class="mc-doodles" aria-hidden="true">
+  <svg style="top:64px;right:-24px;width:190px;height:150px;transform:rotate(7deg)" viewBox="0 0 100 80">
+    <path d="M6 62 H94 M50 6 V74"/>
+    <path d="M16 14 Q50 96 84 14"/>
+  </svg>
+  <svg style="bottom:36px;left:-18px;width:210px;height:170px;transform:rotate(-6deg)" viewBox="0 0 110 90">
+    <path d="M6 34 L13 52 L22 10 H48"/>
+    <path d="M62 78 H104 L104 40 Z M96 78 V70 H104"/>
+  </svg>
+</div>
+
+<!-- ✦ CONTRACT: connection pill + theme/lang toggles on every game -->
+<span class="mc-conn" id="connPill" data-conn="online"><span class="mc-conn__dot"></span><span data-i18n="conn_reconnecting"></span></span>
+<div class="mc-toggles">
+  <button class="tpl-soundbtn" id="soundToggle" aria-label="聲音 / Sound"><svg id="soundIcon"><use href="#i-mute"/></svg></button>
+  <button class="mc-btn mc-btn--quiet" id="langToggle" aria-label="切換語言 / Switch language">中 · EN</button>
+  <button class="mc-btn mc-btn--quiet" id="themeToggle" aria-label="切換深淺色 / Toggle theme"><svg><use href="#i-theme"/></svg></button>
+</div>
+
+<div class="mc-stage">
+
+  <!-- ✦ CONTRACT: intro first — objective, how to play, duration, modes -->
+  <div class="mc-screen active" id="introScreen">
+    <header class="mc-masthead">
+      <span class="mc-masthead__code"><strong>SM000</strong> · <span data-i18n="subtopic"></span></span>
+      <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
+    </header>
+    <h1 class="mc-title" data-i18n="title"></h1>
+    <svg class="mc-swash" viewBox="0 0 150 12" aria-hidden="true"><path d="M3 8 Q40 3 75 7 T147 5"/></svg>
+    <p class="mc-lede" data-i18n="objective"></p>
+    <div class="mc-meta">
+      <span><svg><use href="#i-clock"/></svg><span data-i18n="duration"></span></span>
+      <span><svg><use href="#i-players"/></svg><span data-i18n="players"></span></span>
+    </div>
+    <div class="mc-note" data-i18n="how_to_play"></div>
+    <!-- Remove buttons for modes the game doesn't support; keep
+         game.json "modes" in sync. -->
+    <div style="display:grid;gap:12px">
+      <!-- ✦ CONTRACT: shown only when a fresh host snapshot for this
+           device exists (see pendingHostRun) so a refreshed tutor
+           rejoins the same room instead of stranding the class. -->
+      <button class="mc-btn mc-btn--primary mc-btn--block" id="btnResume" style="display:none" data-i18n="resume_last"></button>
+      <button class="mc-btn mc-btn--primary mc-btn--block" id="btnHost">
+        <svg style="width:20px;height:20px"><use href="#i-screen"/></svg>
+        <span data-i18n="btn_host"></span>
+        <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+      </button>
+      <button class="mc-btn mc-btn--block" id="btnSolo">
+        <span data-i18n="btn_solo"></span>
+        <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+      </button>
+    </div>
+    <p class="mc-status" id="introStatus" style="margin-top:12px"></p>
+    <!-- ✦ CONTRACT: brand line on intro (and lobby) screens -->
+    <footer class="mc-brand">
+      <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
+      <img class="mc-logo--dark" src="/logo-secondary-dark.png" alt="MathConcept Secondary Academy">
+      <div>
+        <div class="mc-brand__name">MathConcept Secondary Academy</div>
+        <div class="mc-brand__sub">中學教室 · Companion Games</div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Host lobby: room code + QR + player chips (multi-device) -->
+  <div class="mc-screen" id="lobbyScreen">
+    <header class="mc-masthead">
+      <span class="mc-masthead__code"><strong>SM000</strong> · <span data-i18n="subtopic"></span></span>
+      <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
+    </header>
+    <h2 class="mc-title" style="font-size:clamp(1.6rem,6vw,2.25rem)" data-i18n="lobby_title"></h2>
+    <p class="mc-lede" data-i18n="lobby_hint"></p>
+    <div class="mc-sheet" style="text-align:center">
+      <div class="mc-board__label" data-i18n="room_code_label"></div>
+      <div class="mc-code" id="roomCode">····</div>
+      <div class="mc-qr" id="qrBox" style="margin-top:16px"></div>
+    </div>
+    <div class="tpl-players" id="playerList"></div>
+    <p class="mc-status" id="lobbyStatus" style="margin-top:16px" data-i18n="lobby_waiting"></p>
+    <button class="mc-btn mc-btn--primary mc-btn--block" id="btnStart" style="display:none;margin-top:12px">
+      <span data-i18n="btn_start"></span>
+      <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+    </button>
+    <footer class="mc-brand">
+      <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
+      <img class="mc-logo--dark" src="/logo-secondary-dark.png" alt="MathConcept Secondary Academy">
+      <div>
+        <div class="mc-brand__name">MathConcept Secondary Academy</div>
+        <div class="mc-brand__sub">中學教室 · Companion Games</div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Main game screen (solo + host projector) -->
+  <div class="mc-screen" id="gameScreen">
+    <div class="tpl-topline">
+      <span class="mc-masthead__code" id="roundChip"></span>
+      <span style="display:flex;align-items:center;gap:12px">
+        <span class="tpl-score" id="scoreBox">0</span>
+        <span class="tpl-timer" id="timer"><svg><use href="#i-clock"/></svg><span id="timerText">--</span></span>
+        <!-- ✦ CONTRACT: a pause the tutor (and solo player) can reach -->
+        <button class="tpl-pausebtn" id="btnPause" data-i18n="btn_pause"></button>
+      </span>
+    </div>
+
+    <!-- ✦ CONTRACT: an SVG scene + canvas for MCFXCore.createStage().
+         Effects land in viewBox units and map through the live frame. -->
+    <div class="tpl-scene">
+      <svg id="sceneSvg" viewBox="0 0 200 80" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="4" y="4" width="192" height="72" rx="6" fill="none" stroke="var(--mc-ink-faint)" stroke-width="1.5" stroke-dasharray="4 5"/>
+      </svg>
+      <canvas id="fxCanvas" aria-hidden="true"></canvas>
+      <div class="tpl-pauseveil" id="pauseVeil" style="display:none" aria-live="polite">
+        <span data-i18n="paused_stamp"></span>
+      </div>
+    </div>
+
+    <div class="tpl-expr" id="exprBox">?</div>
+    <div class="mc-stars" id="stars" style="margin-top:10px" aria-label="streak"></div>
+    <!-- three answer buttons; the mechanic's whole surface -->
+    <div class="tpl-options" id="optionRow"></div>
+
+    <!-- ✦ CONTRACT: marking zone — feedback TEACHES on wrong answers
+         (stamp + worked reason as a margin note), never alert() -->
+    <div class="mc-markzone" id="markZone"></div>
+  </div>
+
+  <!-- Controller screen (student phone, opened via QR ?room=XXXX) -->
+  <div class="mc-screen" id="controllerScreen">
+    <header class="mc-masthead">
+      <span class="mc-masthead__code"><strong>SM000</strong> · <span data-i18n="subtopic"></span></span>
+      <span class="mc-masthead__code" id="ctrlName"></span>
+    </header>
+    <!-- join form: a name, then a seat -->
+    <div id="ctrlJoin" class="mc-sheet" style="text-align:center">
+      <div class="mc-board__label" data-i18n="your_name"></div>
+      <input class="mc-input" id="ctrlNameInput" maxlength="24" data-i18n-placeholder="name_placeholder" style="margin-top:10px">
+      <button class="mc-btn mc-btn--primary mc-btn--block" id="btnJoin" style="margin-top:12px">
+        <span data-i18n="btn_join"></span>
+        <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+      </button>
+    </div>
+    <!-- play surface: the same three options, tappable -->
+    <div id="ctrlPlay" style="display:none">
+      <div class="tpl-expr" id="ctrlExpr" style="margin-top:8px">?</div>
+      <div class="tpl-options" id="ctrlOptions"></div>
+      <div class="mc-markzone" id="ctrlMark"></div>
+    </div>
+    <p class="mc-status" id="ctrlStatus" style="margin-top:14px"></p>
+  </div>
+
+  <!-- End screen -->
+  <div class="mc-screen" id="endScreen">
+    <header class="mc-masthead">
+      <span class="mc-masthead__code"><strong>SM000</strong> · <span data-i18n="subtopic"></span></span>
+      <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
+    </header>
+    <h1 class="mc-title" data-i18n="end_title"></h1>
+    <div class="mc-markzone">
+      <div class="mc-stamp mc-stamp--correct"><svg><use href="#i-tick"/></svg><span id="endSummary"></span></div>
+    </div>
+    <div id="endBoard" style="margin-top:12px"></div>
+    <button class="mc-btn mc-btn--block" id="btnRestart" style="margin-top:20px">
+      <span data-i18n="btn_restart"></span>
+      <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+/* ✦ CONTRACT: every visible string lives here, both languages filled.
+ * "|" marks a CJK phrase boundary for wrapping (GameBridge strips it
+ * in the flat form). No em dashes in copy. c = 繁體中文 (default). */
+const STRINGS = {
+  title:              { c: "配對挑戰",              e: "Match Up" },
+  subtopic:           { c: "範本示範",              e: "Template demo" },
+  objective:          { c: "示範用範本：|睇住個算式，|三個答案之中揀啱嗰個。", e: "A demo template: read the expression, tap the correct answer of three." },
+  how_to_play:        { c: "玩法：每題揀啱個乘積。|多人玩時，|邊個手機最快撳啱就攞分。", e: "How to play: tap the correct product. In multi-device play, the first phone to tap it scores." },
+  duration:           { c: "約 3 分鐘",             e: "about 3 min" },
+  players:            { c: "1 至 40 人",            e: "1 to 40 players" },
+  btn_host:           { c: "多裝置開始",            e: "Start · multi-device" },
+  btn_solo:           { c: "單機開始",              e: "Start · one screen" },
+  resume_last:        { c: "繼續上一場",            e: "Resume last game" },
+  btn_start:          { c: "開始遊戲",              e: "Start the game" },
+  btn_restart:        { c: "再玩一次",              e: "Play again" },
+  btn_pause:          { c: "暫停",                  e: "Pause" },
+  btn_resume:         { c: "繼續",                  e: "Resume" },
+  paused_stamp:       { c: "暫停中",                e: "PAUSED" },
+  lobby_title:        { c: "掃碼加入",              e: "Scan to join" },
+  lobby_hint:         { c: "用手機相機掃描下面嘅 QR code，|或者輸入房間號碼。", e: "Scan the QR code with a phone camera, or enter the room code." },
+  room_code_label:    { c: "房間號碼",              e: "Room code" },
+  lobby_waiting:      { c: "等待玩家加入⋯",         e: "Waiting for players…" },
+  lobby_players:      { c: "{n} 人已加入",          e: "{n} joined" },
+  your_name:          { c: "你嘅名",                e: "Your name" },
+  name_placeholder:   { c: "輸入名字",              e: "Enter a name" },
+  btn_join:           { c: "加入",                  e: "Join" },
+  round_chip:         { c: "第 {n} 題",             e: "Q {n}" },
+  conn_reconnecting:  { c: "重新連線中",            e: "Reconnecting" },
+  end_title:          { c: "完成",                  e: "Finished" },
+  end_score:          { c: "得分：{n}",             e: "Score: {n}" },
+  stamp_correct:      { c: "正確",                  e: "Correct" },
+  stamp_wrong:        { c: "再諗諗",                e: "Think again" },
+  note_correct:       { c: "{a} × {b} = {answer}",  e: "{a} × {b} = {answer}" },
+  note_sent:          { c: "已傳送，批改中⋯",       e: "Sent, marking…" },
+  note_claimed:       { c: "俾人搶咗，繼續下一題！", e: "Claimed. On to the next one!" },
+  submit_lost:        { c: "傳送唔到，再撳一次。",   e: "Send failed. Tap again." },
+  ctrl_wait_start:    { c: "等導師開始⋯",           e: "Waiting for the tutor to start…" },
+  ctrl_wait_next:     { c: "下一題準備中⋯",         e: "Next question on the way…" },
+  ctrl_paused:        { c: "暫停中，|等導師繼續。",  e: "Paused. Waiting for the tutor." },
+  kicked:             { c: "你已離開房間。",         e: "You have left the room." },
+  btn_rejoin:         { c: "重新加入",              e: "Rejoin" },
+  host_fail:          { c: "開唔到房間，請再試。",   e: "Could not start the room. Please try again." },
+  room_not_found:     { c: "搵唔到房間，可能已完結。", e: "Room not found. It may have ended." },
+  player:             { c: "玩家",                  e: "Player" },
+};
+
+const SLUG = "_template";        // TODO(game): your folder name
+const ROUNDS = 5;                // TODO(game): your run length
+const ROUND_MS = 20000;          // per-question fuse
+const $ = (id) => document.getElementById(id);
+const t = GameBridge.t;
+function fmt(key, vars) {
+  let s = t(key);
+  Object.keys(vars || {}).forEach((k) => { s = s.replace("{" + k + "}", vars[k]); });
+  return s;
+}
+
+GameBridge.initTheme();
+GameBridge.initI18n(STRINGS);
+GameBridge.emit(SLUG, "ready");
+
+/* ✦ CONTRACT: the house FX engine, composed from the shared core.
+ * A real game skins its own fx.js; the template inlines a minimal
+ * one so the pattern is visible. sprite:()=>null → the sampler fails
+ * and every one-shot falls back to live synthesis. */
+const fxStage = MCFXCore.createStage();
+const audioCore = MCFXCore.createAudio({
+  sprite: () => null,
+  onChange: () => renderSoundIcon(),
+});
+const sfx = {
+  click: audioCore.oneShot("click", () => audioCore.thump(1900, 1500, 0.05, 0.02)),
+  chime: audioCore.oneShot("chime", () => {
+    audioCore.thump(1320, 1300, 0.08, 0.5);
+    audioCore.thump(2640, 2600, 0.03, 0.25);
+  }, 0.8),
+  knock: audioCore.oneShot("knock", () => audioCore.thump(150, 70, 0.28, 0.16)),
+};
+
+function show(id) {
+  document.querySelectorAll(".mc-screen").forEach((s) => s.classList.remove("active"));
+  $(id).classList.add("active");
+}
+function renderSoundIcon() {
+  $("soundIcon").innerHTML = '<use href="#' + (audioCore.isOn() ? "i-sound" : "i-mute") + '"/>';
+}
+renderSoundIcon();
+
+$("langToggle").onclick = () => { GameBridge.setLang(GameBridge.getLang() === "c" ? "e" : "c"); refreshDynamic(); };
+$("themeToggle").onclick = () => GameBridge.toggleTheme();
+$("soundToggle").onclick = () => { audioCore.unlock(); audioCore.toggle(); };
+
+/* star shelf: one gold pen star per point, in a row */
+function renderStars(el, n) {
+  const star = '<svg viewBox="0 0 20 20"><path d="M10 1.5l2.5 5.4 5.9 0.7-4.4 4 1.2 5.8-5.2-2.9-5.2 2.9 1.2-5.8-4.4-4 5.9-0.7z"/></svg>';
+  el.innerHTML = n <= 6 ? star.repeat(n) : star + `<span class="mc-stars__count">×${n}</span>`;
+}
+
+/* marking zone: a stamp (ink draws on) plus a worked-reason margin note */
+function markHtml(kind, note) {
+  const ink = kind === "correct"
+    ? '<path d="M4 13l5.5 5.5L20 6.5"/>'
+    : '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>';
+  const stamp = kind === "info" ? "" : `
+    <div class="mc-stamp ${kind === "correct" ? "mc-stamp--correct" : ""}">
+      <svg class="draw" viewBox="0 0 24 24" style="width:22px;height:22px" fill="none"
+           stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${ink}</svg>
+      <span>${t(kind === "correct" ? "stamp_correct" : "stamp_wrong")}</span>
+    </div>`;
+  return stamp + (note ? `<div class="mc-margin-note ${kind === "correct" ? "mc-margin-note--correct" : ""}">${note}</div>` : "");
+}
+
+/* ✦ CONTRACT: the round is generated deterministically from its index
+ * so a rejoining phone and the host agree WITHOUT the answer ever
+ * being published. Distractors and shuffle are seeded from n too. */
+function genRound(n) {
+  const a = 2 + ((n * 3 + 2) % 8);
+  const b = 2 + ((n * 5 + 4) % 8);
+  const answer = a * b;
+  const opts = [answer];
+  let k = 0;
+  while (opts.length < 3) {
+    const d = answer + [3, -4, 6, -7, 5, 8][k % 6] + k;
+    if (d > 0 && opts.indexOf(d) === -1) opts.push(d);
+    k++;
+  }
+  for (let i = opts.length - 1; i > 0; i--) {
+    const j = (n * 7 + i * 13) % (i + 1);
+    const tmp = opts[i]; opts[i] = opts[j]; opts[j] = tmp;
+  }
+  return { seq: n, a, b, answer, expr: `${a} × ${b}`, options: opts, correctIdx: opts.indexOf(answer) };
+}
+/* ✦ CONTRACT: strip the answer before publishing. The phone gets the
+ * expression and the options, never which one is right. */
+function publicRound(r) {
+  return { seq: r.seq, expr: r.expr, options: r.options.slice() };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ * solo + host shared state and round machine
+ * ══════════════════════════════════════════════════════════════════ */
+const G = {
+  mode: "solo", idx: 0, round: null, room: null, watcher: null,
+  score: 0, deadline: 0, raf: null, over: false, started: false,
+  players: {}, scores: {}, processedSeq: {}, claimedBy: {},
+  paused: false, pausedAt: 0,
+};
+
+function refreshDynamic() {
+  if (G.round && $("gameScreen").classList.contains("active")) {
+    $("roundChip").textContent = fmt("round_chip", { n: G.round.seq + 1 });
+  }
+}
+
+function startRun(mode) {
+  G.mode = mode; G.idx = 0; G.score = 0; G.over = false; G.resolved = false; G.started = true;
+  G.scores = {}; G.processedSeq = {};
+  $("scoreBox").textContent = "0";
+  fxStage.attach($("fxCanvas"), $("sceneSvg"), 200, 80);
+  if (mode === "host") audioCore.unlock();
+  show("gameScreen");
+  startRound();
+}
+
+function startRound() {
+  G.round = genRound(G.idx);
+  G.claimedBy = {};
+  G.resolved = false;
+  G.paused = false;
+  $("pauseVeil").style.display = "none";
+  $("btnPause").disabled = false;
+  renderPauseBtn();
+  $("roundChip").textContent = fmt("round_chip", { n: G.round.seq + 1 });
+  $("exprBox").textContent = G.round.expr;
+  $("markZone").innerHTML = "";
+  renderOptions();
+  G.deadline = performance.now() + ROUND_MS;
+  if (G.mode === "host") {
+    // ✦ CONTRACT: publish the round WITHOUT the answer key; all epoch
+    // math is anchored to server time via serverNow().
+    G.room.update("state", {
+      phase: "playing",
+      level: publicRound(G.round),
+      deadlineEpoch: GameBridge.serverNow() + ROUND_MS,
+      pauseRemainMs: null,
+      claims: null,
+    });
+  }
+  cancelAnimationFrame(G.raf);
+  tick();
+  saveHostRun(); // fresh round persisted for host-refresh recovery
+}
+
+function renderOptions() {
+  $("optionRow").innerHTML = G.round.options
+    .map((o, i) => `<button class="tpl-opt" data-i="${i}">${o}</button>`)
+    .join("");
+  [...$("optionRow").children].forEach((btn) => {
+    btn.onclick = () => { if (!G.paused && G.mode === "solo") soloAnswer(parseInt(btn.dataset.i, 10)); };
+  });
+}
+
+function tick() {
+  if (G.over) return;
+  if (G.paused) { G.raf = requestAnimationFrame(tick); return; }
+  const remain = Math.max(0, G.deadline - performance.now());
+  $("timerText").textContent = Math.ceil(remain / 1000);
+  $("timer").classList.toggle("warn", remain <= 5000);
+  if (remain <= 0) { endRound(false); return; }
+  G.raf = requestAnimationFrame(tick);
+}
+
+/* a correct claim: burst FX at the scene centre, chime, score */
+function celebrate() {
+  fxStage.splatter(100, 40);
+  fxStage.shake(6);
+  sfx.chime();
+}
+
+function endRound(claimed) {
+  // ✦ CONTRACT: resolve each round exactly once. Without this guard a
+  // correct tap that lands in the ~1300ms inter-round gap (the phone pad
+  // is still live until the next round publishes) would be judged after
+  // the buzzer and call endRound a second time — skipping a question and
+  // double-firing startRound. G.resolved also gates the judging loop's
+  // idle() below so such a late tap is consumed, not scored.
+  if (G.resolved) return;
+  G.resolved = true;
+  cancelAnimationFrame(G.raf);
+  if (!claimed) {
+    // time ran out with no claim: reveal the answer as a teaching note
+    $("markZone").innerHTML = markHtml("wrong",
+      fmt("note_correct", { a: G.round.a, b: G.round.b, answer: G.round.answer }));
+  }
+  G.idx += 1;
+  saveHostRun(); // resolved round persisted: a host F5 in the gap resumes at the next
+  if (G.idx >= ROUNDS) return setTimeout(endGame, 1300);
+  setTimeout(startRound, 1300);
+}
+
+/* --- solo answering (no room; judge locally) --- */
+function soloAnswer(idx) {
+  if (G.over || G.paused) return;
+  const correct = idx === G.round.correctIdx;
+  [...$("optionRow").children].forEach((b) => (b.disabled = true));
+  if (correct) {
+    G.score += 1;
+    $("scoreBox").textContent = G.score;
+    renderStars($("stars"), G.score);
+    $("optionRow").children[idx].classList.add("claimed");
+    $("markZone").innerHTML = markHtml("correct",
+      fmt("note_correct", { a: G.round.a, b: G.round.b, answer: G.round.answer }));
+    celebrate();
+    endRound(true);
+  } else {
+    renderStars($("stars"), 0);
+    $("markZone").innerHTML = markHtml("wrong",
+      fmt("note_correct", { a: G.round.a, b: G.round.b, answer: G.round.answer }));
+    sfx.knock();
+    $("exprBox").parentElement && $("exprBox").classList.add("mc-shake");
+    setTimeout(() => $("exprBox").classList.remove("mc-shake"), 400);
+    endRound(false);
+  }
+}
+
+/* ✦ CONTRACT: pause freezes the deadline locally; the host publishes
+ * a "paused" phase (+ frozen remaining) so phones stop with the class,
+ * and defers judging so nothing scores against a frozen clock. */
+function togglePause() {
+  if (!G.started || G.over || !G.round) return;
+  if (!G.paused) {
+    G.paused = true;
+    G.pausedAt = performance.now();
+    $("pauseVeil").style.display = "";
+    if (G.mode === "host") {
+      G.room.update("state", {
+        phase: "paused",
+        pauseRemainMs: Math.max(0, Math.round(G.deadline - performance.now())),
+      });
+    }
+  } else {
+    G.deadline += performance.now() - G.pausedAt;
+    G.paused = false;
+    $("pauseVeil").style.display = "none";
+    if (G.mode === "host") {
+      G.room.update("state", {
+        phase: "playing",
+        pauseRemainMs: null,
+        deadlineEpoch: GameBridge.serverNow() + Math.max(0, G.deadline - performance.now()),
+      });
+    }
+  }
+  if (G.mode === "host") saveHostRun(); // snapshot the new pause state at once
+  renderPauseBtn();
+}
+function renderPauseBtn() {
+  const key = G.paused ? "btn_resume" : "btn_pause";
+  $("btnPause").setAttribute("data-i18n", key);
+  $("btnPause").textContent = t(key);
+}
+$("btnPause").onclick = togglePause;
+
+/* ══════════════════════════════════════════════════════════════════
+ * host: judge phones, drive the shared scene
+ * ══════════════════════════════════════════════════════════════════ */
+function onHostRoom(room) {
+  if (!room) return;
+  // ✦ CONTRACT: id filtering + name truncation come from the shared
+  // protocol module (defence in depth alongside the RTDB rules).
+  G.players = MCRoom.sanePlayers(room.players);
+
+  if (!G.started) {
+    renderLobby();
+    return;
+  }
+
+  // ✦ CONTRACT: the shared judging loop — seq dedupe, pause deferral,
+  // level binding (a delayed tap never scores against the next round).
+  MCRoom.drainSubs(room.subs, G.processedSeq, {
+    paused: () => G.paused,
+    idle: () => !G.started || G.over || G.resolved,
+    levelSeq: () => (G.round ? G.round.seq : null),
+    judge: (pid, sub) => hostJudge(pid, sub),
+  });
+}
+
+function hostJudge(pid, sub) {
+  const round = G.round;
+  const player = G.players[pid] || {};
+  const idx = sub.v;
+  const correct = idx === round.correctIdx;
+  const base = {
+    seq: sub.seq, v: idx, lv: round.seq,
+    working: fmt("note_correct", { a: round.a, b: round.b, answer: round.answer }),
+    total: G.scores[pid] || 0,
+  };
+  if (!correct) {
+    G.room.set("verdicts/" + pid, Object.assign(base, { ok: false }));
+    return;
+  }
+  const already = Object.keys(G.claimedBy).length > 0;
+  if (already) {
+    // someone beat them to it: still teaches, pays nothing
+    G.room.set("verdicts/" + pid, Object.assign(base, { ok: true, claimed: true, pts: 0 }));
+    return;
+  }
+  // first correct claims the round
+  G.claimedBy[pid] = player.name || t("player");
+  G.scores[pid] = (G.scores[pid] || 0) + 1;
+  $("optionRow").children[idx] && $("optionRow").children[idx].classList.add("claimed");
+  celebrate();
+  G.room.update("state/claims", { winner: player.name || t("player") });
+  G.room.set("verdicts/" + pid, Object.assign(base, { ok: true, pts: 1, total: G.scores[pid] }));
+  renderEndPreview();
+  endRound(true);
+}
+
+function renderLobby() {
+  const ids = Object.keys(G.players);
+  $("lobbyStatus").textContent = ids.length
+    ? fmt("lobby_players", { n: ids.length })
+    : t("lobby_waiting");
+  $("btnStart").style.display = ids.length ? "" : "none";
+  // ✦ CONTRACT: tap-tap kick — arm on first tap, remove on the second
+  $("playerList").innerHTML = ids
+    .map((id) => {
+      const armed = id === kickArmed.id;
+      const label = armed ? "✕" : escapeName(G.players[id].name || t("player"));
+      return `<span data-id="${id}"${armed ? ' class="arm"' : ""}>${label}</span>`;
+    })
+    .join("");
+}
+function escapeName(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+let kickArmed = { id: null, at: 0 };
+$("playerList").addEventListener("click", (e) => {
+  const chip = e.target.closest("span[data-id]");
+  if (!chip || G.started || !G.room) return;
+  const id = chip.dataset.id;
+  if (kickArmed.id === id && performance.now() - kickArmed.at < 2500) {
+    kickArmed = { id: null, at: 0 };
+    G.room.set("players/" + id, null); // the phone sees itself vanish
+    return;
+  }
+  kickArmed = { id, at: performance.now() };
+  renderLobby();
+});
+
+function renderEndPreview() {
+  const rows = Object.keys(G.players)
+    .map((id) => ({ name: G.players[id].name || t("player"), pts: G.scores[id] || 0 }))
+    .sort((a, b) => b.pts - a.pts);
+  $("endBoard").innerHTML = rows
+    .map((r) => `<div class="mc-margin-note">${escapeName(r.name)} · ${r.pts}</div>`)
+    .join("");
+}
+
+function endGame() {
+  G.over = true;
+  clearHostRun(); // the run is finished; no resume offer for a done game
+  cancelAnimationFrame(G.raf);
+  if (G.mode === "host") {
+    const results = Object.keys(G.players)
+      .map((id) => ({ id, name: G.players[id].name || t("player"), score: G.scores[id] || 0 }))
+      .sort((a, b) => b.score - a.score);
+    G.room.update("state", { phase: "end", results });
+    renderEndPreview();
+    $("endSummary").textContent = t("end_title");
+  } else {
+    $("endSummary").textContent = fmt("end_score", { n: G.score });
+  }
+  GameBridge.emit(SLUG, "complete", { score: G.score });
+  show("endScreen");
+}
+
+/* --- cover buttons --- */
+/* ✦ CONTRACT (both sides recover): phones rebuild from state on a
+ * reload/screen-lock (onCtrlRoom + seenSelf), and the HOST survives its
+ * own refresh via the snapshot/offer/reclaim block below (saveHostRun ->
+ * tpl-run-<code>, 繼續上一場 on the cover, resumeRun re-publish). In host
+ * mode btnRestart reloads only from the end screen, where clearHostRun
+ * has already dropped the snapshot, so it starts a fresh room. */
+$("btnSolo").onclick = () => { GameBridge.emit(SLUG, "start", { mode: "solo" }); startRun("solo"); };
+$("btnRestart").onclick = () => { if (G.mode === "host") location.reload(); else startRun("solo"); };
+
+function enterLobby() {
+  G.mode = "host";
+  show("lobbyScreen");
+  $("roomCode").textContent = G.room.code;
+  GameBridge.qr($("qrBox"), G.room.joinUrl, 190);
+  if (!G.watcher) G.watcher = G.room.watch(onHostRoom, onConnStatus);
+  // ✦ CONTRACT: snapshot the room the instant it exists, so even a lobby
+  // refresh (before the game starts) rejoins instead of orphaning a room
+  // full of phones.
+  saveLobbySnapshot();
+}
+$("btnHost").onclick = async () => {
+  $("introStatus").textContent = "";
+  try {
+    G.room = await GameBridge.host({ slug: SLUG, initialState: { phase: "lobby" } });
+  } catch (err) {
+    // ✦ CONTRACT: a failed host() shows a status line, never alert()
+    $("introStatus").className = "mc-status mc-status--danger";
+    $("introStatus").textContent = t("host_fail");
+    return;
+  }
+  enterLobby();
+};
+
+/* ══════════════════════════════════════════════════════════════════
+ * host-refresh recovery
+ * ✦ CONTRACT: the host is authoritative, so its tab dying (an accidental
+ * F5, a crash, a locked iPad) must NOT strand the class. The run state is
+ * snapshotted on every round boundary + claim + pause; the cover offers
+ * 繼續上一場 while a fresh snapshot exists; resumeRun reclaims the SAME
+ * room code (GameBridge.host({code})) and re-publishes state so every
+ * phone reconnects where it left off. Rounds regenerate from their index
+ * (genRound is deterministic), so only the index, the scores and the
+ * seq-dedupe book need to survive.
+ * ══════════════════════════════════════════════════════════════════ */
+const RUN_KEY = (code) => "tpl-run-" + code;
+function writeHostRun(key, json) {
+  // sessionStorage survives an F5; the localStorage mirror survives a
+  // closed tab / browser restart.
+  try { sessionStorage.setItem(key, json); } catch (_) {}
+  try { localStorage.setItem(key, json); } catch (_) {}
+}
+function saveHostRun() {
+  if (G.mode !== "host" || !G.room || !G.started || G.over) return;
+  try {
+    // paused: the deadline is frozen, but performance.now keeps advancing
+    // under the veil, so the remaining is measured from G.pausedAt.
+    const remainMs = G.paused
+      ? Math.max(0, Math.round(G.deadline - G.pausedAt))
+      : Math.max(0, Math.round(G.deadline - performance.now()));
+    writeHostRun(RUN_KEY(G.room.code), JSON.stringify({
+      code: G.room.code, ts: Date.now(),
+      idx: G.idx, resolved: G.resolved,
+      scores: G.scores, processedSeq: G.processedSeq, players: G.players,
+      paused: G.paused, pauseRemainMs: G.paused ? remainMs : null,
+    }));
+  } catch (_) {}
+}
+function saveLobbySnapshot() {
+  if (!G.room) return;
+  writeHostRun(RUN_KEY(G.room.code), JSON.stringify({ code: G.room.code, ts: Date.now(), lobby: true }));
+}
+function clearHostRun() {
+  if (!G.room) return;
+  try { sessionStorage.removeItem(RUN_KEY(G.room.code)); } catch (_) {}
+  try { localStorage.removeItem(RUN_KEY(G.room.code)); } catch (_) {}
+}
+/* the freshest host snapshot left on this device (session wins ties), or null */
+function pendingHostRun() {
+  const scan = (store) => {
+    let best = null;
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
+      if (!key || key.indexOf("tpl-run-") !== 0) continue;
+      let saved = null;
+      try { saved = JSON.parse(store.getItem(key)); } catch (_) {}
+      if (!saved || !saved.code) continue;
+      if (!saved.lobby && typeof saved.idx !== "number") continue;
+      if (Date.now() - (saved.ts || 0) > 6 * 3600 * 1000) continue; // stale
+      if (!best || saved.ts > best.ts) best = saved;
+    }
+    return best;
+  };
+  try {
+    const a = scan(sessionStorage), b = scan(localStorage);
+    if (a && b) return a.ts >= b.ts ? a : b;
+    return a || b;
+  } catch (_) { return null; }
+}
+async function resumeRun(saved) {
+  audioCore.unlock();
+  try {
+    G.room = await GameBridge.host({ slug: SLUG, code: saved.code });
+  } catch (err) {
+    // the room is gone (closed or expired): drop the stale offer
+    $("btnResume").style.display = "none";
+    try { sessionStorage.removeItem(RUN_KEY(saved.code)); } catch (_) {}
+    try { localStorage.removeItem(RUN_KEY(saved.code)); } catch (_) {}
+    return;
+  }
+  // a lobby-only snapshot (refresh before the game began): back to the
+  // lobby with the same code, phones still joined
+  if (typeof saved.idx !== "number") { enterLobby(); return; }
+  G.mode = "host";
+  G.scores = saved.scores || {};
+  G.processedSeq = saved.processedSeq || {};
+  G.players = saved.players || {};
+  G.score = 0; G.started = true; G.over = false;
+  fxStage.attach($("fxCanvas"), $("sceneSvg"), 200, 80);
+  // restore what the phones depend on, then rejoin the judging loop.
+  // update() merges, so a phone that joined during the outage survives.
+  G.room.update("players", G.players);
+  G.room.set("state/scores", G.scores);
+  if (!G.watcher) G.watcher = G.room.watch(onHostRoom, onConnStatus);
+  GameBridge.emit(SLUG, "start", { mode: "multi", resumed: true, players: Object.keys(G.players).length });
+  show("gameScreen");
+  G.idx = saved.idx;
+  if (G.idx >= ROUNDS) { endGame(); return; }
+  startRound(); // republishes the round fresh; phones follow the new deadline
+  // a round paused when the tab went comes back paused, not live
+  if (saved.paused) {
+    G.paused = true;
+    G.pausedAt = performance.now();
+    G.deadline = performance.now() + Math.max(0, saved.pauseRemainMs || 0);
+    cancelAnimationFrame(G.raf);
+    $("pauseVeil").style.display = "";
+    G.room.update("state", { phase: "paused", pauseRemainMs: Math.max(0, saved.pauseRemainMs || 0) });
+    renderPauseBtn();
+    saveHostRun();
+  }
+}
+$("btnStart").onclick = () => {
+  GameBridge.emit(SLUG, "start", { mode: "multi", players: Object.keys(G.players).length });
+  startRun("host");
+};
+
+function onConnStatus(ok) {
+  $("connPill").setAttribute("data-conn", ok ? "online" : "offline");
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ * controller: student phone (opened via QR ?room=XXXX)
+ * ══════════════════════════════════════════════════════════════════ */
+const C = {
+  room: null, watcher: null, id: null, name: null,
+  round: null, roundKey: null, phase: null, pauseRemainMs: null,
+  seq: 0, lastVerdictSeq: 0, deadlineEpoch: 0, timerIv: null,
+  inFlight: false, seenSelf: false, judgeTimer: null,
+};
+
+function ctrlStatus(text, cls) {
+  $("ctrlStatus").textContent = text;
+  $("ctrlStatus").className = "mc-status" + (cls ? " " + cls : "");
+}
+
+async function initController() {
+  audioCore.unlock();
+  show("controllerScreen");
+  try {
+    C.room = await GameBridge.join({ slug: SLUG });
+  } catch (err) {
+    $("ctrlJoin").style.display = "none";
+    ctrlStatus(t("room_not_found"), "mc-status--danger");
+    return;
+  }
+  // ✦ CONTRACT: identity mirrors to session + local storage per room
+  // code, so a reload or a QR re-scan resumes the same player.
+  const key = "tpl-" + C.room.code;
+  let saved = null;
+  try { saved = sessionStorage.getItem(key) || localStorage.getItem(key); } catch (_) {}
+  if (saved) {
+    const s = JSON.parse(saved);
+    C.id = s.id; C.name = s.name;
+    $("ctrlNameInput").value = s.name;
+  }
+  ctrlStatus(t("ctrl_wait_start"));
+  $("btnJoin").onclick = joinAsPlayer;
+}
+
+async function joinAsPlayer() {
+  const name = ($("ctrlNameInput").value || "").trim().slice(0, 24) || t("player");
+  C.name = name;
+  C.id = C.id || MCRoom.newPid(); // ✦ CONTRACT: crypto id, rules' $pid shape
+  const key = "tpl-" + C.room.code;
+  const rec = JSON.stringify({ id: C.id, name });
+  try { sessionStorage.setItem(key, rec); localStorage.setItem(key, rec); } catch (_) {}
+  // ✦ CONTRACT: write players/<id> with the device uid so the rules
+  // can pin the seat (null only under a test mock with no real rules).
+  await C.room.set("players/" + C.id, { name, joinedAt: Date.now(), uid: GameBridge.uid() || null });
+  $("ctrlName").textContent = name;
+  $("ctrlJoin").style.display = "none";
+  if (!C.watcher) C.watcher = C.room.watch(onCtrlRoom, onConnStatus);
+  clearInterval(C.timerIv);
+  C.timerIv = setInterval(ctrlTick, 250);
+  ctrlStatus(t("ctrl_wait_start"));
+}
+
+function ctrlTick() {
+  if (C.phase === "paused") return; // frozen; the veil-equivalent is the status
+  if (C.phase !== "playing" || !C.deadlineEpoch) { $("ctrlStatus").dataset.timer = ""; return; }
+  const remain = Math.max(0, C.deadlineEpoch - GameBridge.serverNow());
+  ctrlStatus(Math.ceil(remain / 1000) + "s");
+}
+
+function onCtrlRoom(room) {
+  if (!room) return;
+  const st = room.state || {};
+  const phaseChanged = st.phase !== C.phase;
+  C.phase = st.phase;
+
+  // ✦ CONTRACT: detect our own removal in ANY phase and offer rejoin
+  if (C.id && C.seenSelf && room.players && !room.players[C.id]) {
+    C.seenSelf = false;
+    clearInterval(C.timerIv);
+    $("ctrlPlay").style.display = "none";
+    $("ctrlJoin").style.display = "";
+    $("btnJoin").innerHTML = `<span>${t("btn_rejoin")}</span>`;
+    ctrlStatus(t("kicked"), "mc-status--danger");
+    return;
+  }
+  if (C.id && room.players && room.players[C.id]) C.seenSelf = true;
+
+  // a new round (also covers late join and reload recovery)
+  const lvKey = st.level ? st.level.seq + "|" + st.level.expr : null;
+  if (st.level && lvKey !== C.roundKey) {
+    C.roundKey = lvKey;
+    C.round = st.level;
+    C.inFlight = false;
+    clearTimeout(C.judgeTimer);
+    $("ctrlExpr").textContent = st.level.expr;
+    $("ctrlMark").innerHTML = "";
+    renderCtrlOptions(st.level);
+  }
+  C.deadlineEpoch = st.deadlineEpoch || 0;
+  C.pauseRemainMs = st.pauseRemainMs;
+
+  if (st.phase === "playing" && C.round) {
+    // reveal the play surface unconditionally: joinAsPlayer already hid
+    // the join form (showing a "waiting" status), so gating this on the
+    // join form being visible would leave the phone stuck on "waiting"
+    // once the tutor starts.
+    $("ctrlJoin").style.display = "none";
+    $("ctrlPlay").style.display = "";
+    if (phaseChanged) setCtrlEnabled(true);
+  } else if (st.phase === "paused") {
+    setCtrlEnabled(false);
+    ctrlStatus(t("ctrl_paused"));
+  } else if (st.phase === "lobby") {
+    ctrlStatus(t("ctrl_wait_start"));
+  } else if (st.phase === "end") {
+    if (phaseChanged) {
+      clearInterval(C.timerIv);
+      setCtrlEnabled(false);
+      const mine = (st.results || []).find((r) => r.id === C.id);
+      ctrlStatus(fmt("end_score", { n: mine ? mine.score : 0 }));
+    }
+  }
+
+  // ✦ CONTRACT: private verdict feedback, level-bound so a late verdict
+  // never paints the wrong worked maths.
+  const v = (room.verdicts || {})[C.id];
+  if (v && typeof v.seq === "number" && v.seq > C.lastVerdictSeq) {
+    C.lastVerdictSeq = v.seq;
+    applyVerdict(v);
+  }
+}
+
+function renderCtrlOptions(round) {
+  $("ctrlOptions").innerHTML = round.options
+    .map((o, i) => `<button class="tpl-opt" data-i="${i}">${o}</button>`)
+    .join("");
+  [...$("ctrlOptions").children].forEach((btn) => {
+    btn.onclick = () => ctrlSubmit(parseInt(btn.dataset.i, 10));
+  });
+}
+function setCtrlEnabled(on) {
+  [...$("ctrlOptions").children].forEach((b) => (b.disabled = !on));
+}
+
+/* ✦ CONTRACT: send with a sent→marking beat, one silent retry, and a
+ * verdictless reopen; seq advances only on a successful write. */
+function ctrlSubmit(idx) {
+  if (C.phase !== "playing" || C.inFlight) return;
+  const seq = C.seq + 1;
+  const sub = { v: idx, seq, lv: C.round ? C.round.seq : null, ts: Date.now() };
+  C.inFlight = true;
+  setCtrlEnabled(false);
+  $("ctrlMark").innerHTML = markHtml("info", t("note_sent"));
+  sfx.click();
+  const reopen = () => {
+    C.inFlight = false;
+    clearTimeout(C.judgeTimer);
+    if (C.phase === "playing") setCtrlEnabled(true);
+  };
+  const send = () => C.room.set("subs/" + C.id, sub);
+  send()
+    .catch(() => new Promise((r) => setTimeout(r, 600)).then(send))
+    .then(() => {
+      C.seq = seq;
+      clearTimeout(C.judgeTimer);
+      C.judgeTimer = setTimeout(reopen, 2500);
+    })
+    .catch(() => {
+      ctrlStatus(t("submit_lost"), "mc-status--danger");
+      reopen();
+    });
+}
+
+function applyVerdict(v) {
+  if (!C.round) return;
+  if (typeof v.lv === "number" && v.lv !== C.round.seq) return; // stale
+  C.inFlight = false;
+  clearTimeout(C.judgeTimer);
+  if (v.ok && !v.claimed) {
+    if (typeof v.total === "number") $("ctrlName").textContent = C.name + " · " + v.total;
+    $("ctrlMark").innerHTML = markHtml("correct", v.working);
+    sfx.chime();
+  } else if (v.claimed) {
+    $("ctrlMark").innerHTML = markHtml("info", t("note_claimed"));
+  } else {
+    $("ctrlMark").innerHTML = markHtml("wrong", v.working);
+    sfx.knock();
+    setCtrlEnabled(true);
+  }
+}
+
+/* boot as a controller if we arrived through a join link */
+/* boot as a controller if we arrived through a join link; otherwise, if
+ * this device left a host run mid-game (accidental refresh / crash),
+ * offer to resume it instead of stranding those phones */
+if (GameBridge.roomParam()) {
+  initController();
+} else {
+  const savedRun = pendingHostRun();
+  if (savedRun) {
+    $("btnResume").style.display = "";
+    $("btnResume").onclick = () => resumeRun(savedRun);
+  }
+}
+</script>
+</body>
+</html>

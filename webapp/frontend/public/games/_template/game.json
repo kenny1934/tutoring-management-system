@@ -1,0 +1,19 @@
+{
+  "slug": "_template",
+  "title": { "c": "配對挑戰", "e": "Match Up" },
+  "objective": {
+    "c": "示範用範本：三個答案之中揀啱嗰個乘積",
+    "e": "Template demo: tap the correct product of three options"
+  },
+  "topics": [
+    { "scheme": "SM", "code": "000" }
+  ],
+  "grade": "F1",
+  "modes": ["multi", "solo"],
+  "players": { "min": 1, "max": 40 },
+  "duration_min": 3,
+  "config": {
+    "note": "This is the starter template. Copy the folder to /games/<slug>/, replace the mechanic, and keep the ✦ CONTRACT blocks."
+  },
+  "version": "0.0.0"
+}
