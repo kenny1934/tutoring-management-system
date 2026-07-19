@@ -1347,8 +1347,11 @@ first pass deliberately left, plus one field bug Kenny hit:
   and the full protocol contract is documented in CONVENTIONS §6.5.
   The _template (6 iterations stale) was rebuilt as 配對挑戰 Match Up:
   a trivial mechanic carrying the whole contract end to end (shared
-  modules, no-answer-key publish, sent-beat subs, kick, resume, pause,
-  serverNow timers, graceful host failure), on the §7 manifest shape.
+  modules, no-answer-key publish, sent-beat subs, kick, phone-side
+  resume, pause, serverNow timers, graceful host failure), on the §7
+  manifest shape. HOST-refresh recovery (the S4 saveHostRun/reclaim
+  hardening) is deliberately left out of the trivial template and
+  flagged there as required per-game work, not modeled inline.
 
 The three Zero Blast suites stay green throughout: solo 149, multi
 137, audit 74 (was 143 / 124 / 71 before this sweep). Nothing from
@@ -1356,3 +1359,57 @@ the original 7-perspective audit is now deferred without a trigger;
 the remaining backlog is product/ops, not audit debt: merge PR #82,
 the games. subdomain, confirming the name 歸零爆破 with Steve, and the
 Phase 2 lesson panel + registry.
+
+## 16. Deferred-sweep re-audit (implemented 2026-07-19)
+
+A fresh five-perspective audit over everything the deferred sweep (§15)
+touched, each perspective browser-verified against the running game
+rather than read-only. Three came back clean: the answer-key strip
+(all six kinds + hint + verdict paths, 20 room writes enumerated, no
+root/hidden reaches a phone pre-reveal); the shared-module extraction
+(full ZBFX surface intact, no `this`-binding traps in the fx-core
+factories, MCRoom dedupe/level-binding/pause-deferral preserved, zero
+pageerrors on the happy path); and the grace-numeral contrast + copy
+conventions (>= 3:1 both themes, bilingual, em-dash-free). Five real
+findings were fixed:
+
+- **Pause did not survive a host refresh (medium).** saveHostRun
+  omitted the pause state and togglePause never snapshotted, so an
+  accidental F5 mid-pause resumed the class live and bled the frozen
+  fuse (recomputed from the stale wall-clock deadline, floored at 5s).
+  Fix: the snapshot now carries `paused`/`pauseRemainMs` (remaining
+  measured from G.pausedAt, since performance.now keeps advancing under
+  the veil), togglePause writes it, and startLevel re-enters the paused
+  state on reclaim - held at the frozen remaining until 繼續. Regression
+  covered in the multi suite (host F5 mid-pause: resumes paused, fuse
+  preserved, phone stays frozen).
+- **Template judging loop never idle between rounds (medium).** The
+  rebuilt _template reused zero-blast's `idle: !started || over`
+  predicate but redefined G.over as whole-game-over, so in the ~1300ms
+  inter-round gap a late correct tap (phone pad still live) scored after
+  the buzzer and re-fired endRound - skipping a question and
+  double-publishing the next round. Because authors copy the template,
+  the bug shipped into every future game. Fix: a per-round G.resolved
+  flag, set in endRound (with a re-entry guard) and cleared in
+  startRound, wired into idle() - exactly zero-blast's per-round
+  semantics.
+- **How-to SVG text scaled with the browser font (medium).** `.zh-t`
+  (glyphs inside a fixed viewBox) was converted to rem in §15; it
+  should stay px like every sibling scene-text class, else it grows
+  and clips inside the box at a raised font preference. Reverted to px.
+- **End-report chop scaled with the browser font (medium).**
+  `.zb-endchop` - an aria-hidden decorative stamp - was rem, so at a
+  24px root it grew ~40% and its rotated corner clipped past the sheet.
+  Reverted to px (the same principle as `.zh-t`: decorative ink is
+  fixed, only reading text scales); identical at the default font.
+- **Four reading headings still hardcoded px + a mis-scoped host string
+  (low).** The lobby / name / end titles and the name input were missed
+  by the rem pass (converted, keeping the vw fluidity); and the
+  template showed a phone-side "lost the big screen" string on a
+  host-start failure (gave it its own host_fail string, dropped the now
+  dead one). Host-refresh recovery is still absent from the trivial
+  template on purpose - now flagged there and in §15 as required
+  per-game work, not a modeled feature.
+
+Suites after the re-audit: solo 149, multi 140 (+3 pause/host-refresh),
+audit 74. The product/ops backlog is unchanged.
