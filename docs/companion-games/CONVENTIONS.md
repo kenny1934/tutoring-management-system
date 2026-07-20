@@ -304,11 +304,61 @@ from these.
   the code; nothing sensitive may ever be written there (rule 5 above).
 - **Public access:** the `games.` subdomain is served by the same
   frontend via `middleware.ts` host routing (same pattern as `summer.`),
-  outside Cloudflare Access so student phones can reach it.
+  outside Cloudflare Access so student phones can reach it. The custom
+  domains are NOT Cloud Run domain mappings — a Cloudflare Worker
+  (`cloud-run-proxy`, dashboard-managed) proxies them to the `run.app`
+  origins and stamps `x-forwarded-host` with the real incoming hostname,
+  so the middleware branches correctly for ANY host routed to it.
+  `games.*` serves clean per-game URLs: `/<slug>` → 308 → `/<slug>/` →
+  rewrite to `/games/<slug>/index.html`, with `/shared/*` rewritten
+  under `/games/`. Two hard-won notes if you ever touch that block:
+  build redirect/rewrite targets as PLAIN `URL`s (NextURL re-applies the
+  incoming path's trailing-slash state to any pathname set on it), and
+  Next's own trailing-slash strip runs BEFORE middleware (disabled via
+  `skipTrailingSlashRedirect`; the middleware replicates the strip for
+  every non-games host). `middleware.test.ts` pins all of it.
 - **Stale-room cleanup:** codes are reclaimed lazily by `GameBridge.host`
   after 6h; a periodic cleanup job can come later if the node grows.
 
-## 9. Review checklist (copy into the PR)
+## 9. Adding a new game (start here)
+
+Everything below §8 is slug-generic — a new game needs NO changes to
+middleware, Cloudflare, or the RTDB rules. The work is the game itself:
+
+1. **Pick a slug** the deployed rules accept: lowercase letters, digits
+   and hyphens only, ≤40 chars (`fraction-race`, not `Fraction_Race`).
+   The clean URL `games.<domain>/<slug>` exists the moment the folder
+   does.
+2. **Copy `public/games/_template/` → `public/games/<slug>/`** and work
+   through the `✦ CONTRACT` comments. The template already carries the
+   full hardened contract: shared modules (`game-bridge`, `fx-core`,
+   `room-protocol`), answer-key-free publishing, lobby + QR + tap-kick,
+   phone identity recovery (session + local per room code), sent-beat
+   submissions with seq-on-success, pause, host-refresh recovery
+   (`tpl-run-*` snapshots + resume offer + reclaim), and the
+   join-by-code cover row. Replace the sample mechanic (`genRound`,
+   judging, the play surface); keep the contract plumbing.
+3. **Set `SLUG`, `game.json`, and the STRINGS table** (both `c` and `e`,
+   `|` phrase-wrap markers, no em dashes). Register the topic code.
+4. **Write the test suite before the mechanic gets deep**: copy
+   `tests/games/_template/tpl-test.js` — the mocked GameBridge
+   (localStorage rooms + BroadcastChannel) is slug-agnostic and drives
+   host + phones without Firebase. The template's phone-play-reveal bug
+   shipped precisely because the template had no test; don't repeat it.
+   A Firebase-400 environment exercises NOTHING of the phone path.
+5. **Sound is optional at launch**: render a sprite like
+   `webapp/frontend/scripts/zb-render-audio.mjs` does, or ship silent —
+   `createAudio` degrades gracefully.
+6. **When it's the SECOND live game**, make the one deliberate call the
+   infra left open: the `games.*` root currently 308s to the pilot game
+   (`middleware.ts`, marked comment) — keep a flagship there or swap the
+   redirect for a games index page. Lesson-Mode assignment (the
+   CompanionGamesPanel registry) is additive per game when that phase
+   lands.
+7. **Before the PR**, run the game's suite plus `middleware.test.ts`,
+   and copy the §10 checklist into the PR description.
+
+## 10. Review checklist (copy into the PR)
 
 ```
 - [ ] Objective + topic code declared; one subtopic only
