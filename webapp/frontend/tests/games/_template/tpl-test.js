@@ -7,7 +7,9 @@
  * host + phone paths run WITHOUT Firebase, and covers:
  *   - SOLO: a full 5-round run scores correctly and the per-round
  *     `resolved` guard blocks a double endRound (no after-buzzer re-advance)
- *   - MULTI: a phone reveals the play surface when the tutor starts
+ *   - MULTI: a phone reveals the play surface when the tutor starts, and
+ *     join-by-code on the cover errors inline on a dead code but rides
+ *     the same ?room= path as the QR on a live one
  *   - HOST-REFRESH RECOVERY: a lobby / mid-game / paused host F5 offers to
  *     resume the SAME room, keeps scores + players, re-publishes state, and
  *     the joined phone reconnects instead of being stranded
@@ -212,6 +214,31 @@ const roomState = (p) => p.evaluate(() => {
   await phone.fill("#ctrlNameInput", "Ada");
   await phone.click("#btnJoin");
   await until(() => host.evaluate(() => document.querySelectorAll("#playerList span[data-id]").length > 0), { label: "player chip" });
+
+  // join by code: the cover's no-camera fallback (probe before navigate)
+  const phone2 = await context.newPage();
+  await phone2.setViewportSize({ width: 390, height: 844 });
+  phone2.on("pageerror", (e) => errs.push("phone2: " + e));
+  await phone2.goto(BASE, { waitUntil: "load" });
+  await phone2.fill("#joinCode", "0000"); // no such room in the mock
+  await phone2.click("#btnJoinCode");
+  await until(() => phone2.evaluate(() => {
+    const el = document.getElementById("joinCodeStatus");
+    return el.classList.contains("mc-status--danger") ? el.textContent : null;
+  }), { label: "join-by-code inline error" });
+  const stay = await phone2.evaluate(() => ({
+    stayed: !location.search.includes("room="),
+    retryOpen: !document.getElementById("btnJoinCode").disabled,
+    note: document.getElementById("joinCodeStatus").textContent,
+  }));
+  check("join by code: dead code errors inline and stays on the cover",
+    stay.stayed && stay.retryOpen && stay.note.includes("搵唔到房間"), JSON.stringify(stay));
+  await phone2.fill("#joinCode", code);
+  await phone2.click("#btnJoinCode");
+  await phone2.waitForURL((u) => u.searchParams.get("room") === code, { timeout: 8000 });
+  await until(() => phone2.evaluate(() => document.getElementById("ctrlJoin").offsetParent !== null), { label: "join form via code" });
+  check("join by code: live code rides the QR's ?room= path to the name form", true);
+  await phone2.close(); // never joins as a player: the roster stays at Ada
 
   // C — lobby refresh (before the game starts)
   await host.reload({ waitUntil: "load" });

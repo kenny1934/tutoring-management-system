@@ -1437,3 +1437,47 @@ slice (webapp/frontend/tests/games/_template/tpl-test.js, 14 assertions:
 solo run + resolved guard, phone play reveal, and lobby / mid-game /
 paused host-refresh recovery over the shared GameBridge mock) — the
 template had no test before, which is how the play-reveal bug shipped.
+
+## 17. First live-deploy feedback (implemented 2026-07-20)
+
+Kenny play-tested the deployed build and reported two things.
+
+- **Claimer name clipped on the equation board (fixed).** The
+  left-to-right reveal wipe on .zb-board__ink ends at clip-path
+  inset(0 0 0 0) with `both` fill, so after the wipe the board's ink
+  is PERMANENTLY clipped to the tight equation box - and the claimer's
+  name (.zb-factor__by) is inked above that box, so its top was sliced
+  off. Reduced motion never showed it (theme.css kills the animation,
+  so the clip-path never applies), which is why the a11y passes missed
+  it. Fix: the keyframe's retained clip region now carries clearance on
+  every side the name can reach (top always; left/right for a name
+  wider than an edge bracket), sized for the 12-char name cap. Pure
+  CSS, verified at projector / laptop / phone widths with worst-case
+  CJK and Latin names.
+
+- **Join by code (added, both games).** Joining was QR-only: the lobby
+  copy promised "or enter the room code" but no student surface took
+  one - the only code field was the host's same-device reclaim. A
+  student whose camera will not focus on a glary projector was locked
+  out, and a typo'd ?room= URL stranded the phone on the controller's
+  dead-room notice. The cover now carries a quiet 加入房間 code row
+  (mirrored as a ✦ CONTRACT row in the template): the room is probed
+  via GameBridge.join({slug, code}) BEFORE navigating, so a dead code
+  gets an inline retry on the cover, and a live one rides the exact
+  ?room= path the QR encodes - reload and re-scan identity recovery
+  stay keyed by code as usual. The gate accepts 4-8 uppercase
+  alphanumerics: real codes are 6 chars of the bridge's confusable-free
+  alphabet (the 4-digit shape seen in tests is the mock's). The lobby
+  hint now names the cover as where the code goes, and the cover's
+  empty status slots (join + reclaim / intro) are hidden until they
+  speak - two stacked dashed placeholders read as clutter.
+
+Suites after: solo 149, multi 143 (+3 join-by-code), audit 74,
+template 16 (+2 join-by-code).
+
+Deploy note from the same session: the bare /games/zero-blast/ URL
+404s (Next.js standalone does not auto-serve a directory index; every
+real asset including index.html serves fine). The QR is unaffected
+(joinUrl copies the host's full pathname). A rewrite or the planned
+games. subdomain middleware would give the clean URL; parked as a
+papercut.
