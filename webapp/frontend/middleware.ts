@@ -16,6 +16,17 @@ export function middleware(request: NextRequest) {
   const hostname = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
   const { pathname } = request.nextUrl;
 
+  // skipTrailingSlashRedirect (next.config.ts) hands slash handling to
+  // this file: Next's own strip-redirect ran BEFORE middleware and turned
+  // the games.* /<slug>/ URLs into a redirect loop. Keep the exact old
+  // behavior for every other host by replicating the strip here.
+  if (!hostname.startsWith("games.") && pathname.length > 1 && pathname.endsWith("/")) {
+    return NextResponse.redirect(
+      new URL(pathname.slice(0, -1) + request.nextUrl.search, request.url),
+      308
+    );
+  }
+
   const allowInternals =
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
