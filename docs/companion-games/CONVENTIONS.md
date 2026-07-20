@@ -299,6 +299,18 @@ from these.
     edit), names are length-capped at 24 server-side; `subs/<id>` is
     writable only by the uid owning the matching player entry — a
     classmate can't inflate your seq or forge claims under your name.
+  - **Slugs are allowlisted** on every write grant (`zero-blast`,
+    `_template`, …) and room **shape is clamped**: top-level keys fixed
+    to `hostUid/createdAt/slug/state/players/subs/verdicts`, `state`
+    limited to 4 levels of nesting with string leaves ≤2000 chars,
+    `players`/`subs` nodes typed with unknown keys denied, verdict
+    strings ≤500 (one nesting level for worked-reason line arrays).
+    Anonymous hosting stays open by design (QR-join can't demand
+    logins); the clamp bounds what an authed script can stuff into the
+    database. After ANY rules edit, run the emulator regression suite
+    `webapp/scripts/test-game-rooms-rules.mjs` (growing-minds repo) —
+    its allow cases replay both games' real write sequences, so it
+    catches a clamp that would break live play.
 
   Rooms stay ephemeral and public-by-code to anyone signed in who knows
   the code; nothing sensitive may ever be written there (rule 5 above).
@@ -322,13 +334,20 @@ from these.
 
 ## 9. Adding a new game (start here)
 
-Everything below §8 is slug-generic — a new game needs NO changes to
-middleware, Cloudflare, or the RTDB rules. The work is the game itself:
+Middleware and Cloudflare are slug-generic — a new game touches
+neither. The one infra edit is the RTDB slug allowlist (step 1); the
+rest of the work is the game itself:
 
-1. **Pick a slug** the deployed rules accept: lowercase letters, digits
-   and hyphens only, ≤40 chars (`fraction-race`, not `Fraction_Race`).
-   The clean URL `games.<domain>/<slug>` exists the moment the folder
-   does.
+1. **Pick a slug** (lowercase letters, digits and hyphens only, e.g.
+   `fraction-race`, not `Fraction_Race`) and **add it to the rules slug
+   allowlist** — the deployed rules reject unlisted slugs. In
+   `growing-minds/webapp/database.rules.json`, add the slug to all
+   THREE write grants (room, `players/$pid`, `subs/$pid`); extend the
+   allow cases in `scripts/test-game-rooms-rules.mjs` if the game
+   introduces new write shapes, run that suite against the emulator,
+   then `firebase deploy --only database`. The clean URL
+   `games.<domain>/<slug>` exists the moment the folder does; the
+   game's rooms exist the moment the rules deploy.
 2. **Copy `public/games/_template/` → `public/games/<slug>/`** and work
    through the `✦ CONTRACT` comments. The template already carries the
    full hardened contract: shared modules (`game-bridge`, `fx-core`,
