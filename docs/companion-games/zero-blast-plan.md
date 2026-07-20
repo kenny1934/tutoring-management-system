@@ -1478,6 +1478,30 @@ template 16 (+2 join-by-code).
 Deploy note from the same session: the bare /games/zero-blast/ URL
 404s (Next.js standalone does not auto-serve a directory index; every
 real asset including index.html serves fine). The QR is unaffected
-(joinUrl copies the host's full pathname). A rewrite or the planned
-games. subdomain middleware would give the clean URL; parked as a
-papercut.
+(joinUrl copies the host's full pathname). RESOLVED the same day by
+the games. subdomain (below).
+
+### 17.1 games. subdomain (implemented 2026-07-20)
+
+middleware.ts gained a games.* branch in the summer./prospect./buddy.
+pattern: /zero-blast -> 308 -> /zero-blast/ -> rewrite to
+/games/zero-blast/index.html, generic over the slug (future games work
+with no middleware edit); /shared/* rewrites under /games/ (game pages
+load ../shared/*, which resolves to /shared/* from a /<slug>/ URL);
+legacy /games/* paths on the subdomain redirect to the clean form;
+root fronts the pilot game until a games index page exists. The QR
+gets shorter too: a host on games.*/zero-blast/ publishes joinUrl
+games.*/zero-blast/?room=CODE, and join-by-code navigation rides the
+same clean path (both copy location.pathname).
+
+GOTCHA pinned by a new middleware.test.ts (13 vitest cases, in the CI
+suite): targets must be PLAIN URLs, not nextUrl clones - NextURL
+re-applies the incoming path's trailing-slash state to any pathname
+set on it, which turned the /zero-blast -> /zero-blast/ redirect into
+a self-redirect loop and bolted a slash onto .../index.html. The
+summer. block never hit this because none of its targets are
+slash-sensitive.
+
+Ops (Kenny, after deploy): same two steps as summer. - Cloud Run
+custom-domain mapping for games.mathconceptsecondary.academy + the
+Cloudflare DNS record it prescribes.
