@@ -84,6 +84,15 @@
       cursor: pointer;
     }
     .tpl-players span.arm { border-color: var(--mc-red); color: var(--mc-red); }
+    /* join-by-code row on the cover: the student fallback when the QR
+       won't scan (see the ✦ CONTRACT note at the handler) */
+    .tpl-coderow { display: flex; align-items: center; gap: 8px; }
+    .tpl-coderow__label { font-size: 0.8125rem; color: var(--mc-ink-soft); white-space: nowrap; }
+    .tpl-coderow .mc-input { flex: 1; min-width: 0; font-family: var(--mc-mono); text-transform: uppercase; letter-spacing: 0.08em; }
+    .tpl-coderow .mc-btn { padding: 8px 14px; }
+    /* cover status slots only exist when they speak: empty dashed
+       placeholders stack up as clutter under the buttons */
+    #joinCodeStatus:empty, #introStatus:empty { display: none; }
     .tpl-soundbtn { background: none; border: none; cursor: pointer; color: var(--mc-ink-soft); padding: 4px; }
     .tpl-soundbtn svg { width: 22px; height: 22px; }
   </style>
@@ -180,6 +189,17 @@
         <span data-i18n="btn_solo"></span>
         <svg class="mc-arrow"><use href="#i-arrow"/></svg>
       </button>
+      <!-- ✦ CONTRACT: student fallback when the QR won't scan - type
+           the room code, probe the room, then ride the same ?room=
+           path the QR encodes (multi-device games keep this row) -->
+      <div class="tpl-coderow">
+        <span class="tpl-coderow__label" data-i18n="joincode_label"></span>
+        <input class="mc-input" id="joinCode" maxlength="8" autocomplete="off"
+               autocapitalize="characters" spellcheck="false"
+               data-i18n-placeholder="joincode_placeholder">
+        <button class="mc-btn" id="btnJoinCode"><span data-i18n="btn_joincode"></span></button>
+      </div>
+      <p class="mc-status" id="joinCodeStatus" style="margin:0"></p>
     </div>
     <p class="mc-status" id="introStatus" style="margin-top:12px"></p>
     <!-- ✦ CONTRACT: brand line on intro (and lobby) screens -->
@@ -319,7 +339,7 @@ const STRINGS = {
   btn_resume:         { c: "繼續",                  e: "Resume" },
   paused_stamp:       { c: "暫停中",                e: "PAUSED" },
   lobby_title:        { c: "掃碼加入",              e: "Scan to join" },
-  lobby_hint:         { c: "用手機相機掃描下面嘅 QR code，|或者輸入房間號碼。", e: "Scan the QR code with a phone camera, or enter the room code." },
+  lobby_hint:         { c: "用手機相機掃描下面嘅 QR code，|或者開遊戲封面輸入房間號碼。", e: "Scan the QR code with a phone camera, or open the game cover and enter the room code." },
   room_code_label:    { c: "房間號碼",              e: "Room code" },
   lobby_waiting:      { c: "等待玩家加入⋯",         e: "Waiting for players…" },
   lobby_players:      { c: "{n} 人已加入",          e: "{n} joined" },
@@ -343,6 +363,10 @@ const STRINGS = {
   btn_rejoin:         { c: "重新加入",              e: "Rejoin" },
   host_fail:          { c: "開唔到房間，請再試。",   e: "Could not start the room. Please try again." },
   room_not_found:     { c: "搵唔到房間，可能已完結。", e: "Room not found. It may have ended." },
+  joincode_label:     { c: "加入房間",              e: "Join a room" },
+  joincode_placeholder: { c: "房間號碼",            e: "Room code" },
+  btn_joincode:       { c: "加入",                  e: "Join" },
+  joincode_finding:   { c: "搵緊房間⋯",             e: "Finding the room…" },
   player:             { c: "玩家",                  e: "Player" },
 };
 
@@ -749,6 +773,36 @@ $("btnHost").onclick = async () => {
   }
   enterLobby();
 };
+
+/* ✦ CONTRACT: join by code, the student fallback when the QR won't
+ * scan. Probe the room BEFORE navigating (a typo'd code retries inline
+ * instead of stranding the phone on the dead-room notice), then ride
+ * the exact ?room= path the QR encodes, so reload and re-scan identity
+ * recovery stay keyed by code as usual. */
+$("btnJoinCode").onclick = async () => {
+  // real codes are 6 chars of the bridge's confusable-free alphabet;
+  // the gate stays loose (the probe is the real judge) but refuses
+  // obvious non-codes before a network round-trip
+  const code = $("joinCode").value.trim().toUpperCase();
+  if (!/^[0-9A-Z]{4,8}$/.test(code)) { $("joinCode").focus(); return; }
+  const status = $("joinCodeStatus");
+  $("btnJoinCode").disabled = true;
+  status.classList.remove("mc-status--danger");
+  status.textContent = t("joincode_finding");
+  try {
+    await GameBridge.join({ slug: SLUG, code }); // existence probe only
+  } catch (err) {
+    status.textContent = t("room_not_found");
+    status.classList.add("mc-status--danger");
+    $("btnJoinCode").disabled = false;
+    return;
+  }
+  const lang = GameBridge.getLang();
+  location.href = location.pathname + "?room=" + code + (lang ? "&lang=" + lang : "");
+};
+$("joinCode").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("btnJoinCode").click();
+});
 
 /* ══════════════════════════════════════════════════════════════════
  * host-refresh recovery

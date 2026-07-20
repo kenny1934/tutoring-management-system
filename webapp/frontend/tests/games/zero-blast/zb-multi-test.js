@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (140 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (143 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 140 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 143 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -473,6 +473,51 @@ async function main() {
   check("kick: phone B rejoined", bPlayVis);
   bId = await phoneB.evaluate(() => C.id); // rejoin minted a fresh id
   const aId = await phoneA.evaluate(() => C.id);
+
+  /* ════════ join by code (no-camera fallback on the cover) ════════ */
+  const phoneC = await context.newPage();
+  await phoneC.setViewportSize({ width: 390, height: 844 });
+  const cErrors = [];
+  trackErrors(phoneC, cErrors);
+  // the shared-context mock would hand C phone A's stored identity on
+  // arrival (real devices are separate): drop the key on C's boots
+  await phoneC.addInitScript((c) => {
+    try { localStorage.removeItem("zb-" + c); } catch (e) {}
+  }, code);
+  await phoneC.goto(BASE, { waitUntil: "load" });
+  // a typo'd code: inline retry on the cover, never a navigation into
+  // the controller's dead-room notice
+  await phoneC.fill("#joinCode", "0000");
+  await phoneC.click("#btnJoinCode");
+  await until(
+    () => phoneC.evaluate(() => {
+      const el = document.getElementById("joinCodeStatus");
+      return el.classList.contains("mc-status--danger") ? el.textContent : null;
+    }),
+    { label: "join-by-code inline error" }
+  );
+  const joinStay = await phoneC.evaluate(() => ({
+    stayed: !location.search.includes("room="),
+    retryOpen: !document.getElementById("btnJoinCode").disabled,
+    note: document.getElementById("joinCodeStatus").textContent,
+  }));
+  check(
+    "join by code: bad code shows the room-gone note and stays put",
+    joinStay.stayed && joinStay.retryOpen && joinStay.note.includes("搵唔到房間"),
+    JSON.stringify(joinStay)
+  );
+  // the live code rides the same ?room= path the QR encodes
+  await phoneC.fill("#joinCode", code);
+  await phoneC.click("#btnJoinCode");
+  await phoneC.waitForURL((u) => u.searchParams.get("room") === code, { timeout: 8000 });
+  await until(() => phoneC.evaluate(() => !!C.room), { label: "phone C joined via code" });
+  const cForm = await phoneC.evaluate(
+    () => getComputedStyle(document.getElementById("ctrlJoin")).display !== "none"
+  );
+  check("join by code: lands on the name form via ?room=", cForm);
+  const cBad = cErrors.filter((l) => !benign(l));
+  check("join by code: no phone C errors", cBad.length === 0, JSON.stringify(cBad));
+  await phoneC.close(); // never joins as a player: the roster stays A + B
 
   /* ════════ start → level 1 (kind 1) ════════ */
   await host.click("#btnStartMulti");

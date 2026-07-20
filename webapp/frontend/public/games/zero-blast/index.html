@@ -1012,14 +1012,19 @@
       color: var(--mc-ink-soft); border: 3px solid var(--mc-ink-soft);
       border-radius: 8px; transform: rotate(-4deg);
     }
-    /* quiet reclaim-by-code row under the cover buttons */
-    .zb-reclaim { display: flex; align-items: center; gap: 8px; }
-    .zb-reclaim__label { font-size: 0.8125rem; color: var(--mc-ink-soft); white-space: nowrap; }
-    .zb-reclaim .mc-input {
+    /* quiet code rows under the cover buttons: a student joining by
+       typed code (no camera, glary projector) and the host's
+       reclaim-by-code share one layout */
+    .zb-coderow, .zb-reclaim { display: flex; align-items: center; gap: 8px; }
+    .zb-coderow__label, .zb-reclaim__label { font-size: 0.8125rem; color: var(--mc-ink-soft); white-space: nowrap; }
+    .zb-coderow .mc-input, .zb-reclaim .mc-input {
       flex: 1; min-width: 0; font-family: var(--mc-mono); text-transform: uppercase;
       letter-spacing: 0.08em;
     }
-    .zb-reclaim .mc-btn { padding: 8px 14px; }
+    .zb-coderow .mc-btn, .zb-reclaim .mc-btn { padding: 8px 14px; }
+    /* the status slots under the code rows only exist when they speak:
+       two stacked dashed placeholders read as clutter on the cover */
+    #joinCodeStatus:empty, #reclaimStatus:empty { display: none; }
     .zb-hostboard__rank { color: var(--mc-ink-faint); font-size: 0.75rem; width: 20px; }
     .zb-hostboard__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .zb-hostboard__pts { color: var(--mc-gold); }
@@ -1339,6 +1344,16 @@
         <span data-i18n="btn_solo"></span>
         <svg class="mc-arrow"><use href="#i-arrow"/></svg>
       </button>
+      <!-- student fallback when the QR won't scan: type the room code
+           and ride the same ?room= path the QR encodes -->
+      <div class="zb-coderow">
+        <span class="zb-coderow__label" data-i18n="joincode_label"></span>
+        <input class="mc-input" id="joinCode" maxlength="8" autocomplete="off"
+               autocapitalize="characters" spellcheck="false"
+               data-i18n-placeholder="joincode_placeholder">
+        <button class="mc-btn" id="btnJoinCode"><span data-i18n="btn_joincode"></span></button>
+      </div>
+      <p class="mc-status" id="joinCodeStatus" style="margin:0"></p>
       <button class="mc-btn mc-btn--block" id="btnResume" style="display:none">
         <span data-i18n="btn_resume"></span>
         <svg class="mc-arrow"><use href="#i-arrow"/></svg>
@@ -1597,7 +1612,7 @@ const STRINGS = {
   btn_restart:      { c: "再拆一次",    e: "Demolish again" },
   btn_menu:         { c: "返回封面",    e: "Back to cover" },
   lobby_title:      { c: "掃碼加入",    e: "Scan to join" },
-  lobby_hint:       { c: "用手機相機掃描下面嘅 QR code，|或者輸入房間號碼。", e: "Scan the QR code with a phone camera, or enter the room code." },
+  lobby_hint:       { c: "用手機相機掃描下面嘅 QR code，|或者開遊戲封面輸入房間號碼。", e: "Scan the QR code with a phone camera, or open the game cover and enter the room code." },
   room_code_label:  { c: "房間號碼",    e: "Room code" },
   lobby_waiting:    { c: "等待玩家加入⋯", e: "Waiting for players…" },
   conn_reconnecting:{ c: "重新連線中",  e: "Reconnecting" },
@@ -1682,6 +1697,10 @@ const STRINGS = {
   reclaim_label:    { c: "接手房間", e: "Take over a room" },
   reclaim_placeholder: { c: "房間號碼", e: "Room code" },
   btn_reclaim:      { c: "接手",     e: "Take over" },
+  joincode_label:   { c: "加入房間", e: "Join a room" },
+  joincode_placeholder: { c: "房間號碼", e: "Room code" },
+  btn_joincode:     { c: "加入",     e: "Join" },
+  joincode_finding: { c: "搵緊房間⋯", e: "Finding the room…" },
   reclaim_not_yours: { c: "呢個房唔係喺呢部機開嘅", e: "That room was started on another device" },
   btn_hint_solo:    { c: "提示（分數 75%）", e: "Hint (pays 75%)" },
   hint_nudge:       { c: "諗下：邊兩個數|乘埋係 {c}、|加埋係 {b}？", e: "Think: which two numbers multiply to {c} and add to {b}?" },
@@ -4012,6 +4031,38 @@ $("btnReclaim").onclick = async () => {
   room.update("state", { phase: "lobby", level: null, deadlineEpoch: null, graceUntil: null });
   enterLobbyWith(room);
 };
+
+/* ── join by code (student fallback) ──
+ * The QR is the front door, but a camera that won't focus on a glary
+ * projector shouldn't lock a student out. The room is probed BEFORE
+ * navigating - a typo'd code gets an inline retry here instead of
+ * stranding the phone on the controller's dead-room notice. A live
+ * code then rides the exact ?room= path the QR encodes, so reload and
+ * re-scan identity recovery stay keyed by code as usual. */
+$("btnJoinCode").onclick = async () => {
+  // real codes are 6 chars of the bridge's confusable-free alphabet;
+  // the gate stays loose (the probe is the real judge) but refuses
+  // obvious non-codes before a network round-trip
+  const code = $("joinCode").value.trim().toUpperCase();
+  if (!/^[0-9A-Z]{4,8}$/.test(code)) { $("joinCode").focus(); return; }
+  const status = $("joinCodeStatus");
+  $("btnJoinCode").disabled = true;
+  status.classList.remove("mc-status--danger");
+  status.textContent = t("joincode_finding");
+  try {
+    await GameBridge.join({ slug: SLUG, code: code }); // existence probe only
+  } catch (err) {
+    status.textContent = t("room_gone");
+    status.classList.add("mc-status--danger");
+    $("btnJoinCode").disabled = false;
+    return;
+  }
+  const lang = GameBridge.getLang();
+  location.href = location.pathname + "?room=" + code + (lang ? "&lang=" + lang : "");
+};
+$("joinCode").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("btnJoinCode").click();
+});
 
 function onHostRoom(room) {
   if (!room) return;
