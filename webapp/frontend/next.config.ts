@@ -8,6 +8,12 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone', // Required for Docker deployment
+  // Next's built-in trailing-slash strip runs BEFORE middleware, which
+  // turned the games.* /<slug>/ URLs into a redirect loop (Next strips
+  // the slash, the middleware re-adds it). This hands slash handling to
+  // middleware.ts, which keeps the strip-redirect for every non-games
+  // host and slash semantics for game folders. See middleware.test.ts.
+  skipTrailingSlashRedirect: true,
   eslint: {
     // Allow production builds with ESLint warnings (errors will still fail)
     ignoreDuringBuilds: true,

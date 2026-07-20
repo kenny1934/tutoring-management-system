@@ -124,3 +124,38 @@ describe("other hosts are untouched", () => {
     expect(run("summer.mathconceptsecondary.academy", "/").rewrite).toBe("/summer/landing");
   });
 });
+
+describe("trailing-slash strip replication (skipTrailingSlashRedirect)", () => {
+  // Next's own strip ran BEFORE middleware and looped against the games
+  // slash-adding redirect; the config hands it to us and these pin that
+  // every non-games host keeps the exact old behavior.
+  it("strips a trailing slash on the main host", () => {
+    expect(run("csm.mathconceptsecondary.academy", "/dashboard/")).toEqual({
+      status: 308,
+      rewrite: null,
+      redirect: "/dashboard",
+    });
+  });
+
+  it("keeps the query while stripping", () => {
+    expect(run("csm.mathconceptsecondary.academy", "/dashboard/?tab=2").redirect).toBe(
+      "/dashboard?tab=2"
+    );
+  });
+
+  it("leaves the bare root alone", () => {
+    expect(run("csm.mathconceptsecondary.academy", "/")).toEqual({
+      status: 200,
+      rewrite: null,
+      redirect: null,
+    });
+  });
+
+  it("strips on summer.* too (matches the old Next-level behavior)", () => {
+    expect(run("summer.mathconceptsecondary.academy", "/apply/").redirect).toBe("/apply");
+  });
+
+  it("does NOT strip game folder URLs on games.*", () => {
+    expect(run(GAMES, "/zero-blast/").rewrite).toBe("/games/zero-blast/index.html");
+  });
+});
