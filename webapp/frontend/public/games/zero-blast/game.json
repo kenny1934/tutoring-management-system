@@ -26,5 +26,5 @@
     "inqfuse": "探究模式: seconds per answer window (default 15)",
     "inqhearts": "探究模式: lives per player per stage (default 5)"
   },
-  "version": "0.10.0"
+  "version": "0.11.0"
 }

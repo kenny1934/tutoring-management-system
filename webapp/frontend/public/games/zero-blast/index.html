@@ -1208,6 +1208,11 @@
     .zb-inqrow.boom { border-color: var(--mc-red); }
     .zb-inqrow__mark svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
     .zb-inqrow__loss { font-family: var(--mc-mono); font-weight: 700; font-size: 0.8125rem; }
+    /* the bridge's rows: one substitution line per partner, stacked */
+    .zb-inqrow__col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .zb-inqsub { font-family: var(--mc-mono); font-size: 0.88em; color: var(--mc-ink-soft); }
+    /* the dealt factor is a way in, not the goal: a quiet underline */
+    .zb-inqhint { text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--mc-red); text-decoration-thickness: 2px; }
     .zb-inqfactors { margin-top: 10px; font-family: var(--mc-mono); font-size: 0.9375rem; color: var(--mc-ink-soft); }
     .zb-inqzero-note { margin-top: 6px; font-size: 0.875rem; color: var(--mc-ink-soft); }
     .zb-inqexpand { margin-top: 10px; font-size: 0.9375rem; color: var(--mc-ink-soft); }
@@ -1222,6 +1227,7 @@
     }
     .zb-inqroster__chip { display: inline-flex; align-items: center; gap: 7px; font-size: 0.8125rem; }
     .zb-inqroster__chip.out { opacity: 0.55; }
+    .zb-inqroster__bye { font-size: 0.6875rem; color: var(--mc-ink-faint); border: 1px solid var(--mc-line); border-radius: 4px; padding: 0 4px; }
     .zb-inqtries { gap: 3px; }
     .zb-inqtries .mc-tries__dot { width: 13px; height: 13px; }
     .zb-inqtries .mc-tries__dot svg { width: 100%; height: 100%; display: block; }
@@ -1653,7 +1659,11 @@
     </div>
     <div class="zb-tutorbar" id="inqBar">
       <button class="mc-btn mc-btn--primary zb-inqprimary" id="btnInqPrimary"></button>
+      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqMore" style="display:none" data-i18n="inq_more_round"></button>
       <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqTheorem" style="display:none" data-i18n="inq_theorem_btn"></button>
+      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump1" style="display:none" data-i18n="inq_jump1"></button>
+      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump2" style="display:none" data-i18n="inq_jump2"></button>
+      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump3" style="display:none" data-i18n="inq_jump3"></button>
       <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqSkip" data-i18n="inq_skip"></button>
     </div>
   </div>
@@ -1890,7 +1900,7 @@ const STRINGS = {
   inq_locked:       { c: "N 已鎖定",    e: "N locked" },
   inq_rule1:        { c: "你同一位神秘拍檔|各自出一個 0 至 99 嘅整數，|兩個數相乘要啱好等於目標數字！|估唔中，兩個一齊扣 1 個生命值。", e: "You and a secret partner each pick a whole number from 0 to 99. Multiplied together they must hit the target exactly! Miss, and you both lose a life." },
   inq_rule2:        { c: "目標鎖定咗做 0！|規則不變，|但係兩個都出 0 就會大爆炸，|一齊扣 2 個生命值！", e: "The target is locked at 0! Same rules, but if BOTH of you play 0 it explodes: two lives gone each!" },
-  inq_rule3:        { c: "今次手機顯示嘅唔係數字，|係一個因式。|揀一個 x，|令你嘅因式歸零！", e: "This time your phone shows a factor, not a number. Pick an x that zeroes YOUR factor!" },
+  inq_rule3:        { c: "螢幕上有一條方程。|你同神秘拍檔各自提出一個 x，|有一個人搵啱答案就全組過關！|手機會提示你一個因式做入手位。", e: "One equation on the screen. You and a secret partner each propose an x. If either of you finds a solution the pair passes! Your phone highlights one factor as a way in." },
   inq_submitted_fmt:{ c: "已收到 {k}/{m}", e: "{k}/{m} in" },
   inq_pick_hint:    { c: "出一個 0 至 99 嘅整數", e: "Pick a whole number from 0 to 99" },
   inq_sent_fmt:     { c: "已出 {v}，|截止前可以再改", e: "Sent {v}. You can change it before time runs out" },
@@ -1919,11 +1929,19 @@ const STRINGS = {
   inq_to_stage3:    { c: "概念轉化",    e: "To the bridge" },
   inq_to_main:      { c: "進入主遊戲 · 歸零爆破", e: "On to Zero Blast" },
   inq_skip:         { c: "跳過探究",    e: "Skip inquiry" },
-  inq_your_factor:  { c: "你嘅因式",    e: "Your factor" },
-  inq_factor_goal:  { c: "揀一個 x，|令你嘅因式變成 0", e: "Pick an x that makes your factor 0" },
+  inq_your_factor:  { c: "你嘅提示因式",  e: "Your hint factor" },
+  inq_factor_goal:  { c: "揀一個 x，|令成條方程成立", e: "Pick an x that makes the equation true" },
   inq_either_note:  { c: "其中一個因式歸零，|成條式就歸零！", e: "One factor at zero zeroes the whole thing!" },
+  inq_or_note:      { c: "同一個 x 冇可能令兩個因式|同時歸零，所以話「或」！", e: "No single x can zero both factors at once. That is why it says OR!" },
   inq_expand_fmt:   { c: "考卷上通常係咁樣寫：", e: "On the exam it usually looks like this:" },
   inq_join_next:    { c: "下一回合幫你配對", e: "You'll be paired next round" },
+  inq_bye:          { c: "本回合輪空",  e: "Sitting out this round" },
+  inq_bye_tag:      { c: "輪空",        e: "bye" },
+  inq_bye_note:     { c: "人數係單數，|今回合你做觀察員：|望住投影幕！|下回合再幫你配對。", e: "Odd headcount: you are the observer this round. Watch the big screen! You'll be paired again next round." },
+  inq_jump1:        { c: "跳去探究一",  e: "Jump to Inquiry 1" },
+  inq_jump2:        { c: "跳去探究二",  e: "Jump to Inquiry 2" },
+  inq_jump3:        { c: "跳去概念轉化", e: "Jump to the bridge" },
+  inq_more_round:   { c: "加多一回合",  e: "One more round" },
 };
 
 const SLUG = "zero-blast";
@@ -3876,6 +3894,7 @@ function saveHostRun() {
         stage: G.inq.stage, round: G.inq.round, step: G.inq.step, seq: G.inq.seq,
         n: G.inq.n, roots: G.inq.roots, exprA: G.inq.exprA, exprB: G.inq.exprB,
         hearts: G.inq.hearts, lastReveal: G.inq.lastReveal, theorem: G.inq.theorem,
+        lastBye: G.inq.lastBye, extra: G.inq.extra,
       } : null,
     }));
   } catch (_) {}
@@ -4590,27 +4609,34 @@ document.addEventListener("keydown", e => {
  * ══════════════════════════════════════════════════════════════════ */
 
 function inqRoundsTotal(stage) {
-  return stage === 3 ? INQ_BRIDGE.length : CFG.inqRounds;
+  // extra: rounds the tutor added live (加多一回合) when the class
+  // needed another look, per stage
+  const base = stage === 3 ? INQ_BRIDGE.length : CFG.inqRounds;
+  return base + ((G.inq && G.inq.extra && G.inq.extra[stage]) || 0);
 }
 
 /* secret random pairing, re-drawn EVERY round: partners can't
  * coordinate out loud when nobody knows who their partner is, and
  * 探究二's discovery becomes personal - whoever I'm with, my own 0
- * keeps us safe. Odd headcount folds into one trio (the zero-product
- * property survives: any one zero zeroes the product). */
+ * keeps us safe. Odd headcount: one player sits the round out as the
+ * observer (a trio would break the A×B frame and never boom), and the
+ * bye rotates - never the same player twice in a row. */
 function inqMakePairs() {
   const ids = Object.keys(G.players);
   for (let i = ids.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     const sw = ids[i]; ids[i] = ids[j]; ids[j] = sw;
   }
+  let bye = null;
+  if (ids.length % 2 === 1 && ids.length >= 3) {
+    let k = ids.length - 1;
+    if (ids[k] === G.inq.lastBye) k = Math.floor(Math.random() * (ids.length - 1));
+    bye = ids.splice(k, 1)[0];
+  }
   const pairs = [];
   for (let i = 0; i + 1 < ids.length; i += 2) pairs.push([ids[i], ids[i + 1]]);
-  if (ids.length % 2 === 1) {
-    if (pairs.length) pairs[pairs.length - 1].push(ids[ids.length - 1]);
-    else if (ids.length) pairs.push([ids[0]]); // one player: their number alone is the product
-  }
-  return pairs;
+  if (ids.length === 1) pairs.push([ids[0]]); // one player alone: their number IS the product
+  return { pairs: pairs, bye: bye };
 }
 
 /* every A×B way to hit n within the 0-99 pick range, for the reveal's
@@ -4644,6 +4670,9 @@ function inqStatePayload() {
     exprA: inq.stage === 3 ? inq.exprA : null,
     exprB: inq.stage === 3 ? inq.exprB : null,
     theorem: inq.theorem || null,
+    // the bye is public by design (their pad closes, the roster says
+    // why); it narrows nothing about who is paired with whom
+    bye: inq.bye || null,
   };
 }
 
@@ -4657,6 +4686,7 @@ function startInquiry() {
     roots: null, exprA: null, exprB: null,
     pairs: [], hearts: {}, collect: {}, open: false,
     lastReveal: null, theorem: false,
+    bye: null, lastBye: null, extra: {},
   };
   Object.keys(G.players).forEach(pid => { G.inq.hearts[pid] = CFG.inqHearts; });
   G.room.update("state", {
@@ -4705,10 +4735,12 @@ function inqStartRound() {
   Object.keys(G.players).forEach(pid => {
     if (typeof inq.hearts[pid] !== "number") inq.hearts[pid] = CFG.inqHearts;
   });
-  inq.pairs = inqMakePairs();
-  // which factor each phone holds, derived from the pairing (position
-  // k%2 - the trio's third member doubles up on the left factor);
-  // published for the phones, re-derived from k at the resolve
+  const deal = inqMakePairs();
+  inq.pairs = deal.pairs;
+  inq.bye = deal.bye;
+  if (deal.bye) inq.lastBye = deal.bye;
+  // the dealt hint factor per phone (position k%2), published for the
+  // bridge's underline; judging never needs it - any true root passes
   let cards = null;
   if (inq.stage === 3) {
     inq.roots = INQ_BRIDGE[(inq.round - 1) % INQ_BRIDGE.length];
@@ -4791,9 +4823,10 @@ function inqResolve() {
     const all = vals.every(v => v !== null);
     let ok = false, boom = false;
     if (inq.stage === 3) {
-      // pass when at least one partner zeroes their OWN factor (card
-      // k%2, as dealt) - the 「或」 of the zero-product property, embodied
-      ok = all && pair.some((pid, k) => vals[k] === inq.roots[k % 2]);
+      // x belongs to the EQUATION, not the factor: any partner landing
+      // on either root passes the pair - the 「或」 twice over. The hint
+      // card never constrains correctness.
+      ok = all && pair.some((pid, k) => vals[k] === inq.roots[0] || vals[k] === inq.roots[1]);
     } else {
       const prod = all ? vals.reduce((a, b) => a * b, 1) : null;
       ok = all && prod === inq.n;
@@ -4812,7 +4845,6 @@ function inqResolve() {
       row[INQ_KEYS[k] + "Id"] = pid;
       row[INQ_KEYS[k] + "N"] = (G.players[pid] || {}).name || t("player");
       if (vals[k] !== null) row[INQ_KEYS[k] + "V"] = vals[k];
-      if (inq.stage === 3) row[INQ_KEYS[k] + "C"] = k % 2;
     });
     rows[i] = row;
   });
@@ -4947,52 +4979,43 @@ function renderInqRoster() {
   const ids = Object.keys(G.players);
   ids.sort((a, b) => (inq.hearts[b] || 0) - (inq.hearts[a] || 0));
   // snapshots far outnumber roster changes (every sub write is one):
-  // repaint only when the players or their lives actually moved
-  const key = ids.map(id => id + ":" + inq.hearts[id]).join("|");
+  // repaint only when the players, their lives or the bye moved
+  const key = ids.map(id => id + ":" + inq.hearts[id]).join("|") + "|" + (inq.bye || "");
   if (key === G.inqRosterKey) return;
   G.inqRosterKey = key;
   $("inqRoster").innerHTML = ids.map(id => {
     const h = typeof inq.hearts[id] === "number" ? inq.hearts[id] : CFG.inqHearts;
-    return `<span class="zb-inqroster__chip${h <= 0 ? " out" : ""}">${escapeText((G.players[id] || {}).name || t("player"))} ${inqLivesHtml(h)}</span>`;
+    const bye = id === inq.bye ? ` <span class="zb-inqroster__bye">${t("inq_bye_tag")}</span>` : "";
+    return `<span class="zb-inqroster__chip${h <= 0 ? " out" : ""}">${escapeText((G.players[id] || {}).name || t("player"))}${bye} ${inqLivesHtml(h)}</span>`;
   }).join("");
 }
 
 /* unpack a reveal row's flat wire keys into members - the ONE decoder
- * of the aId/aN/aV/aC shape, shared by the host grid and the phone's
- * result card. root/fv only exist on the bridge (stage 3). */
+ * of the aId/aN/aV shape, shared by the host grid and the phone's
+ * result card. On the bridge (stage 3) each member's x substitutes
+ * into BOTH factors: fvA/fvB, and hit means the x is a true root. */
 function inqRowMembers(row, rv) {
   return INQ_KEYS.filter(k => row[k + "Id"]).map(k => {
     const v = typeof row[k + "V"] === "number" && isFinite(row[k + "V"]) ? row[k + "V"] : null;
-    let root = null, fv = null;
-    if (rv.stage === 3) {
-      root = row[k + "C"] === 1 ? rv.rootB : rv.rootA;
-      if (v !== null && typeof root === "number") fv = v - root;
+    let fvA = null, fvB = null;
+    if (rv.stage === 3 && v !== null &&
+        typeof rv.rootA === "number" && typeof rv.rootB === "number") {
+      fvA = v - rv.rootA;
+      fvB = v - rv.rootB;
     }
-    return { id: row[k + "Id"], name: String(row[k + "N"] || t("player")).slice(0, 24), v: v, root: root, fv: fv };
+    return {
+      id: row[k + "Id"], name: String(row[k + "N"] || t("player")).slice(0, 24),
+      v: v, fvA: fvA, fvB: fvB, hit: fvA === 0 || fvB === 0,
+    };
   });
 }
 
-/* one reveal row: names + played values (zeros ringed in 探究二, factor
- * substitutions on the bridge) + the product + the verdict mark */
+/* one reveal row: names + played values (zeros ringed in 探究二) and
+ * the pair's product; on the bridge, one substitution line per member
+ * showing their x pushed through BOTH factors - the display itself
+ * proves no single x zeroes two brackets at once */
 function inqRowHtml(row, rv) {
-  const factorVals = [];
-  const parts = inqRowMembers(row, rv).map(m => {
-    let valHtml;
-    if (m.v === null) {
-      valHtml = `<span class="zb-inqval miss">${t("inq_no_sub")}</span>`;
-      factorVals.push(null);
-    } else if (rv.stage === 3 && m.fv !== null) {
-      factorVals.push(m.fv);
-      valHtml = `<span class="zb-inqval${m.fv === 0 ? " zero" : ""}">${escapeText(ZBLevels.factorSub(m.root, m.v))}</span>`;
-    } else {
-      factorVals.push(m.v);
-      valHtml = `<span class="zb-inqval${rv.stage === 2 && m.v === 0 ? " zero" : ""}">${ZBLevels.num(m.v)}</span>`;
-    }
-    return `<span class="zb-inqrow__who">${escapeText(m.name)}</span> ${valHtml}`;
-  });
-  const all = factorVals.every(v => v !== null);
-  const prod = all ? factorVals.reduce((a, b) => a * b, 1) : null;
-  const prodHtml = ` <span class="zb-inqrow__x">=</span> <span class="zb-inqval">${all ? ZBLevels.num(prod) : "?"}</span>`;
+  const members = inqRowMembers(row, rv);
   let mark;
   if (row.boom) {
     mark = `<span class="zb-inqrow__mark">${t("inq_boom")}</span><span class="zb-inqrow__loss">−2</span>`;
@@ -5002,6 +5025,26 @@ function inqRowHtml(row, rv) {
     mark = `<span class="zb-inqrow__mark"><svg viewBox="0 0 24 24"><use href="#i-cross"/></svg>${t("inq_fail")}</span><span class="zb-inqrow__loss">−1</span>`;
   }
   const cls = row.boom ? "boom" : row.ok ? "pass" : "fail";
+  if (rv.stage === 3) {
+    const lines = members.map(m => {
+      const who = `<span class="zb-inqrow__who">${escapeText(m.name)}</span>`;
+      if (m.v === null) return `<span>${who} <span class="zb-inqval miss">${t("inq_no_sub")}</span></span>`;
+      const chip = `<span class="zb-inqval${m.hit ? " zero" : ""}">${mathHtml("x = " + ZBLevels.num(m.v))}</span>`;
+      const work = m.fvA === null ? "" :
+        ` <span class="zb-inqsub">(${ZBLevels.num(m.fvA)})(${ZBLevels.num(m.fvB)}) = ${ZBLevels.num(m.fvA * m.fvB)}</span>`;
+      return `<span>${who} ${chip}${work}</span>`;
+    });
+    return `<div class="zb-inqrow ${cls}"><span class="zb-inqrow__col">${lines.join("")}</span>${mark}</div>`;
+  }
+  const parts = members.map(m => {
+    const valHtml = m.v === null
+      ? `<span class="zb-inqval miss">${t("inq_no_sub")}</span>`
+      : `<span class="zb-inqval${rv.stage === 2 && m.v === 0 ? " zero" : ""}">${ZBLevels.num(m.v)}</span>`;
+    return `<span class="zb-inqrow__who">${escapeText(m.name)}</span> ${valHtml}`;
+  });
+  const all = members.every(m => m.v !== null);
+  const prod = all ? members.reduce((a, m) => a * m.v, 1) : null;
+  const prodHtml = ` <span class="zb-inqrow__x">=</span> <span class="zb-inqval">${all ? ZBLevels.num(prod) : "?"}</span>`;
   return `<div class="zb-inqrow ${cls}">${parts.join(' <span class="zb-inqrow__x">×</span> ')}${prodHtml}${mark}</div>`;
 }
 
@@ -5014,7 +5057,8 @@ function renderInqReveal(rv) {
   } else if (rv.stage === 2) {
     extras = `<div class="zb-inqzero-note">${t("inq_zero_note")}</div>`;
   } else if (rv.stage === 3 && rv.expanded) {
-    extras = `<div class="zb-inqexpand">${t("inq_expand_fmt")} <strong>${mathHtml(escapeText(rv.expanded))}</strong></div>`;
+    extras = `<div class="zb-inqzero-note">${t("inq_or_note")}</div>`
+      + `<div class="zb-inqexpand">${t("inq_expand_fmt")} <strong>${mathHtml(escapeText(rv.expanded))}</strong></div>`;
   }
   box.innerHTML = rows + extras;
   box.style.display = "";
@@ -5093,6 +5137,10 @@ function renderInqBar() {
   btn.setAttribute("data-i18n", key);
   btn.textContent = t(key);
   $("btnInqTheorem").style.display = inq.step === "summary" && inq.stage === 2 && !inq.theorem ? "" : "none";
+  // 加多一回合 appears at the decision moments (reveal and recap);
+  // the jump chips cover every stage except the one on stage
+  $("btnInqMore").style.display = inq.step === "reveal" || inq.step === "summary" ? "" : "none";
+  [1, 2, 3].forEach(s => { $("btnInqJump" + s).style.display = s === inq.stage ? "none" : ""; });
 }
 
 /* mid-inquiry host recovery: the F5'd tab reclaims the room and picks
@@ -5111,6 +5159,7 @@ function resumeInquiry(saved) {
     roots: si.roots || null, exprA: si.exprA || null, exprB: si.exprB || null,
     pairs: [], hearts: si.hearts || {}, collect: {}, open: false,
     lastReveal: si.lastReveal || null, theorem: !!si.theorem,
+    bye: null, lastBye: si.lastBye || null, extra: si.extra || {},
   };
   G.room.update("players", G.players);
   G.watcher = G.room.watch(onHostRoom);
@@ -5135,9 +5184,42 @@ function resumeInquiry(saved) {
   saveHostRun();
 }
 
+/* the tutor takes the class straight to a stage's intro (re-teach or
+ * fast-forward): a round in flight is abandoned unjudged, no lives
+ * move. Entering 探究二 refills hearts as usual. */
+function inqJumpStage(stage) {
+  const inq = G.inq;
+  if (!inq || inq.stage === stage) return;
+  ZBFX.audio.unlock();
+  inq.open = false;
+  cancelAnimationFrame(G.inqRaf);
+  clearInterval(G.inqSlotIv);
+  inqEnterStage(stage);
+}
+
+/* the class needs another look: widen the current stage by one round.
+ * At a reveal the primary button flips back to 下一回合; at a recap
+ * the extra round starts straight away. */
+function inqMoreRound() {
+  const inq = G.inq;
+  if (!inq) return;
+  ZBFX.audio.unlock();
+  inq.extra[inq.stage] = (inq.extra[inq.stage] || 0) + 1;
+  if (inq.step === "summary") { inqStartRound(); return; }
+  G.room.update("state/inq", { roundsTotal: inqRoundsTotal(inq.stage) });
+  renderInqStage();
+  renderInqBar();
+  saveHostRun();
+}
+
 $("btnStartInquiry").onclick = startInquiry;
 $("btnInqPrimary").onclick = inqAdvance;
 $("btnInqTheorem").onclick = inqTheoremShow;
+$("btnInqMore").onclick = inqMoreRound;
+[1, 2, 3].forEach(s => {
+  const jumpBtn = $("btnInqJump" + s);
+  jumpBtn.onclick = makeTwoTap(jumpBtn, "inq_jump" + s, () => inqJumpStage(s));
+});
 $("btnInqSkip").onclick = makeTwoTap($("btnInqSkip"), "inq_skip", inqFinish);
 document.addEventListener("keydown", e => {
   if (!G.inq || !$("inquiryScreen").classList.contains("active")) return;
@@ -5384,6 +5466,7 @@ function sanitizeInq(raw) {
     exprA: raw.exprA ? String(raw.exprA).slice(0, 40) : null,
     exprB: raw.exprB ? String(raw.exprB).slice(0, 40) : null,
     theorem: !!raw.theorem,
+    bye: raw.bye ? String(raw.bye).slice(0, 40) : null,
   };
   if (inq.stage == null || inq.stage < 1 || inq.stage > 3) return null;
   return inq;
@@ -5408,20 +5491,35 @@ function renderCtrlInqFace(inq, st) {
   C.inqPad.setPrefix(inq.stage === 3 ? '<i class="zb-var">x</i>&nbsp;=&nbsp;' : "");
   C.lastInqSec = null;
   if (inq.step === "round") {
-    C.inqOpen = true;
-    $("ctrlInqMark").innerHTML = "";
-    if (inq.stage === 3) {
-      const mine = (st.inqCards || {})[C.id];
-      const card = mine === 1 ? inq.exprB : inq.exprA;
-      target.innerHTML = `<span class="zb-inqcardtag">${t("inq_your_factor")}</span>`
-        + (card ? mathHtml(escapeText(card)) + ' = <span class="zb-zero">0</span>' : "");
-      ctrlStatus(t("inq_factor_goal"));
+    if (inq.bye === C.id) {
+      // odd headcount: this phone observes the round - no pad, no risk
+      C.inqOpen = false;
+      C.inqPad.disable();
+      $("ctrlInqPadWrap").style.display = "none";
+      target.innerHTML = `<span class="zb-inqcardtag">${inqStageName(inq.stage)}</span>${t("inq_bye")}`;
+      $("ctrlInqMark").innerHTML = markHtml("info", [escapeText(t("inq_bye_note"))]);
+      ctrlStatus(t("inq_bye"));
     } else {
-      target.innerHTML = `<span class="zb-inqbign${inq.n === 0 ? " zero" : ""}">${typeof inq.n === "number" ? inq.n : "?"}</span>`;
-      ctrlStatus(t("inq_pick_hint"));
+      C.inqOpen = true;
+      $("ctrlInqMark").innerHTML = "";
+      if (inq.stage === 3) {
+        // the WHOLE equation, with the dealt factor underlined as a
+        // way in - x answers the equation, not the bracket
+        const mine = (st.inqCards || {})[C.id];
+        const eA = inq.exprA ? mathHtml(escapeText(inq.exprA)) : "";
+        const eB = inq.exprB ? mathHtml(escapeText(inq.exprB)) : "";
+        target.innerHTML = `<span class="zb-inqcardtag">${t("inq_your_factor")}</span>`
+          + `<span class="${mine === 1 ? "" : "zb-inqhint"}">${eA}</span>`
+          + `<span class="${mine === 1 ? "zb-inqhint" : ""}">${eB}</span>`
+          + ' = <span class="zb-zero">0</span>';
+        ctrlStatus(t("inq_factor_goal"));
+      } else {
+        target.innerHTML = `<span class="zb-inqbign${inq.n === 0 ? " zero" : ""}">${typeof inq.n === "number" ? inq.n : "?"}</span>`;
+        ctrlStatus(t("inq_pick_hint"));
+      }
+      $("ctrlInqPadWrap").style.display = "";
+      C.inqPad.enable();
     }
-    $("ctrlInqPadWrap").style.display = "";
-    C.inqPad.enable();
   } else {
     C.inqOpen = false;
     C.inqPad.disable();
@@ -5474,20 +5572,28 @@ function renderCtrlInqResult(rv, hearts) {
     if (!r || typeof r !== "object") return;
     if (INQ_KEYS.some(k => r[k + "Id"] === C.id)) row = r;
   });
-  if (!row) { ctrlStatus(t("inq_join_next")); return; }
+  if (!row) {
+    // no row holds me: I was the bye (say so) or I joined mid-round
+    ctrlStatus(C.inq && C.inq.bye === C.id ? t("inq_bye") : t("inq_join_next"));
+    return;
+  }
+  const members = inqRowMembers(row, rv);
   const lines = [];
   const vals = [];
-  inqRowMembers(row, rv).forEach(m => {
+  members.forEach(m => {
     const name = escapeText(m.name);
     const isMe = m.id === C.id;
     if (m.v === null) { lines.push(isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name })); return; }
     if (rv.stage === 3) {
-      if (m.fv === null) return; // a malformed card index: skip the line
-      const sub = ZBLevels.factorSub(m.root, m.v) + " = " + ZBLevels.num(m.fv);
+      if (m.fvA === null) return; // malformed roots on the wire: skip the working
+      // the full working, Steve-style: substitute into BOTH factors -
+      // (−2−3)(−2+2) = (−5)(0) = 0. One zero is all it takes.
+      const chain = ZBLevels.factorSub(rv.rootA, m.v) + ZBLevels.factorSub(rv.rootB, m.v)
+        + " = (" + ZBLevels.num(m.fvA) + ")(" + ZBLevels.num(m.fvB) + ")"
+        + " = " + ZBLevels.num(m.fvA * m.fvB);
       const head = isMe ? fmt("inq_you_fmt", { v: "x = " + ZBLevels.num(m.v) })
                         : fmt("inq_partner_fmt", { name: name, v: "x = " + ZBLevels.num(m.v) });
-      lines.push(mathHtml(escapeText(head + "，" + sub)));
-      vals.push(m.fv);
+      lines.push(mathHtml(escapeText(head + "，" + chain)));
     } else {
       lines.push(isMe ? fmt("inq_you_fmt", { v: ZBLevels.num(m.v) })
                       : fmt("inq_partner_fmt", { name: name, v: ZBLevels.num(m.v) }));
@@ -5502,7 +5608,12 @@ function renderCtrlInqResult(rv, hearts) {
     $("ctrlInqMark").innerHTML = markHtml("wrong", lines, "inq_boom");
     ctrlInqBoom();
   } else if (row.ok) {
-    if (rv.stage === 3) lines.push(t("inq_either_note"));
+    if (rv.stage === 3) {
+      // both partners on different roots is THE moment: no single x
+      // zeroes both brackets - the 或 made visible
+      const hitVals = new Set(members.filter(m => m.hit).map(m => m.v));
+      lines.push(hitVals.size >= 2 ? t("inq_or_note") : t("inq_either_note"));
+    }
     $("ctrlInqMark").innerHTML = markHtml("correct", lines, "inq_pass");
     ZBFX.audio.chime();
     ZBFX.vibrate(50);

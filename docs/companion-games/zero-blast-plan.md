@@ -1554,3 +1554,35 @@ marking circles (§3 house idiom), never hearts. Host F5 mid-arc
 resumes via the run snapshot (an open round restarts fresh). Config:
 `?inqrounds` / `?inqfuse` / `?inqhearts` (game.json 0.10.0). Covered
 by the multi suite's final section (42 checks, 185 total).
+
+§18.1 Post-playtest fixes (2026-07-21, Kenny's conceptual review)
+
+Two mechanics contradicted the maths they teach, plus two tutor
+controls requested:
+
+- Rotating bye replaces the trio. A trio broke 探究一's A×B=N frame
+  (three-number products don't match the factor-pairs line) and made
+  探究二 effectively boom-proof (all three on 0 never happens). Odd
+  headcounts now bench one player per round as the observer - their
+  phone explains why (本回合輪空), the roster tags them, no lives
+  move, and the bye never repeats back-to-back (lastBye survives the
+  F5 snapshot). A one-player room keeps the degenerate solo pair for
+  testing.
+- The bridge got one equation, one shared x. The factor-card judging
+  let both partners "zero their own bracket" - visually endorsing
+  (0)(0), which one x can never produce ((x−2)(x+3)=0 has no x that
+  is both 2 and −3). Now both phones show the WHOLE equation with the
+  dealt factor as an underlined hint (你嘅提示因式); any partner
+  landing on either root passes; the reveal substitutes every x into
+  BOTH factors - (3−3)(3+2) = (0)(5) = 0 - so each line shows exactly
+  one zeroed bracket, and the 或-note (同一個 x 冇可能令兩個因式同時
+  歸零) prints on the projector and, when the partners hit different
+  roots, on the phones. Reveal rows carry no card keys anymore.
+- Tutor controls: 加多一回合 (visible at reveal/recap; at a recap the
+  extra round starts immediately, mid-arc extras persist per stage and
+  survive F5) and 跳去探究一/二/概念轉化 chips (two-tap confirm, land
+  on the stage's intro; a round in flight is abandoned unjudged).
+
+state/inq gained two scalars (bye, and roundsTotal now moves) - still
+inside the deployed rules clamp, no rules change. game.json 0.11.0.
+Multi suite: 194 checks.
