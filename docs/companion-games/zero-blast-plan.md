@@ -1629,3 +1629,10 @@ playtest)
 Copy register note (Kenny, twice-corrected): student-facing lines are
 spoken tutor Cantonese - hedge (仲可能會), address the student (考你),
 never documentation-flat. Multi suite: 205 checks.
+
+§18.4 Shortcut chips (2026-07-22): the tutor bar's bare-letter legend
+(t / n / e / g) explained nothing - each button now wears its own
+shortcut as a kbd chip (data-key + CSS ::after, so i18n/confirm label
+swaps can't clobber it), and 探究's primary button shows its n. The g
+graph toggle stays keyboard-only and undocumented on screen (it never
+had a button); p lives on the labelled 暫停 button. Multi suite: 206.

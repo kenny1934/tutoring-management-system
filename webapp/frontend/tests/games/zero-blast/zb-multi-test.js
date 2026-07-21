@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (205 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (206 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 205 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 206 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -1086,8 +1086,17 @@ async function main() {
   });
   check("tutor bar visible on host", tutorVis2);
 
-  const legend4 = await host.evaluate(() => document.getElementById("tutorKeys").textContent.trim());
-  check("tutor key legend under the bar", legend4 === "t / n / e / g", "legend=" + legend4);
+  const chips = await host.evaluate(() => ({
+    legendGone: !document.getElementById("tutorKeys"),
+    plus: getComputedStyle(document.getElementById("btnPlus15"), "::after").content,
+    skip: getComputedStyle(document.getElementById("btnSkip"), "::after").content,
+    end: getComputedStyle(document.getElementById("btnEndGame"), "::after").content,
+  }));
+  check(
+    "tutor buttons wear their own shortcut chips (bare-letter legend gone)",
+    chips.legendGone && chips.plus === '"t"' && chips.skip === '"n"' && chips.end === '"e"',
+    JSON.stringify(chips)
+  );
 
   const titles = await host.evaluate(() => ({
     plus: document.getElementById("btnPlus15").title,
@@ -1302,8 +1311,8 @@ async function main() {
   });
   check("hint button appears on kind-6", hintVis);
 
-  const legend6 = await host.evaluate(() => document.getElementById("tutorKeys").textContent.trim());
-  check("legend gains h on kind-6", legend6 === "t / h / n / e / g", "legend=" + legend6);
+  const hintChip = await host.evaluate(() => getComputedStyle(document.getElementById("btnHint"), "::after").content);
+  check("the hint button wears its h chip on kind-6", hintChip === '"h"', "chip=" + hintChip);
 
   await host.click("#btnHint");
   const ghost = await host.evaluate(() => {
@@ -2106,6 +2115,8 @@ async function main() {
   await inqAdvanceTo("summary");
   const mainLabel = await host.evaluate(() => document.getElementById("btnInqPrimary").textContent);
   check("概念轉化 summary: the primary button hands over to the main game", mainLabel.includes("歸零爆破"), mainLabel);
+  const primaryChip = await host.evaluate(() => getComputedStyle(document.getElementById("btnInqPrimary"), "::after").content);
+  check("探究: the primary button wears its n shortcut chip", primaryChip === '"n"', "chip=" + primaryChip);
   const recap = await host.evaluate(() => ({
     shown: getComputedStyle(document.getElementById("inqRevealBox")).display !== "none",
     lines: document.querySelectorAll("#inqRevealBox .zb-inqexam").length,

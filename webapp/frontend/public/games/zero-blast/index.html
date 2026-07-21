@@ -537,10 +537,14 @@
     }
     .zb-tutorbtn:hover { opacity: 1; }
     .zb-tutorbtn.confirm { border-color: var(--mc-red); color: var(--mc-red); opacity: 1; }
-    .zb-tutorkeys {
-      width: 100%; text-align: center; margin-top: -4px;
-      font-family: var(--mc-mono); font-size: 0.65625rem; letter-spacing: 0.22em;
-      color: var(--mc-ink-faint);
+    /* each tutor button wears its own shortcut as a kbd chip - CSS
+     * content, so label swaps (i18n, confirm) can't clobber it */
+    [data-key]::after {
+      content: attr(data-key);
+      margin-left: 8px; padding: 0 4.5px;
+      border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+      border-radius: 4px;
+      font-family: var(--mc-mono); font-size: 0.625rem; opacity: 0.75;
     }
     /* +15s gift, stamped over the scene so the class notices */
     .zb-plusflash {
@@ -1587,11 +1591,10 @@
           </div>
         </div>
         <div class="zb-tutorbar" id="tutorBar" style="display:none">
-          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnPlus15" data-i18n="tutor_plus15"></button>
-          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnHint" data-i18n="tutor_hint" style="display:none"></button>
-          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnSkip" data-i18n="tutor_skip"></button>
-          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnEndGame" data-i18n="tutor_end"></button>
-          <div class="zb-tutorkeys" id="tutorKeys" aria-hidden="true">t / n / e</div>
+          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnPlus15" data-i18n="tutor_plus15" data-key="t"></button>
+          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnHint" data-i18n="tutor_hint" data-key="h" style="display:none"></button>
+          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnSkip" data-i18n="tutor_skip" data-key="n"></button>
+          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnEndGame" data-i18n="tutor_end" data-key="e"></button>
         </div>
       </div>
       <div class="zb-col-r">
@@ -1664,7 +1667,7 @@
       <div class="zb-inqroster" id="inqRoster"></div>
     </div>
     <div class="zb-tutorbar" id="inqBar">
-      <button class="mc-btn mc-btn--primary zb-inqprimary" id="btnInqPrimary"></button>
+      <button class="mc-btn mc-btn--primary zb-inqprimary" id="btnInqPrimary" data-key="n"></button>
       <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqMore" style="display:none" data-i18n="inq_more_round"></button>
       <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqTheorem" style="display:none" data-i18n="inq_theorem_btn"></button>
       <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump1" style="display:none" data-i18n="inq_jump1"></button>
@@ -3226,7 +3229,6 @@ function startLevel(resume) {
   const hintable = G.mode === "host" && level.kind === "expanded";
   $("btnHint").style.display = hintable ? "" : "none";
   $("btnHint").disabled = G.hinted;
-  $("tutorKeys").textContent = hintable ? "t / h / n / e / g" : "t / n / e / g";
 
   refreshDynamicText();
   tweenScore($("scoreBox"), G.score); // snaps when unchanged, cancels a stale tween
