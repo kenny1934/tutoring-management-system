@@ -1586,3 +1586,25 @@ controls requested:
 state/inq gained two scalars (bye, and roundsTotal now moves) - still
 inside the deployed rules clamp, no rules change. game.json 0.11.0.
 Multi suite: 194 checks.
+
+§18.2 The repeated root as standard content (2026-07-22, Kenny's
+maths-rigour review)
+
+Kenny caught that the 或-note's blanket 「同一個 x 冇可能令兩個因式
+同時歸零」 is false for (x−a)² = 0 - and the main game's stage 5
+serves exactly that counterexample. Two-layer fix, both shipped:
+
+- Every takeaway is now composed from the equation ON SCREEN
+  (inqBridgeNote): distinct roots name THIS pair's factors and zeros
+  ({fa} 同 {fb} 嘅零點唔同…所以係「或」), so no claim overreaches.
+- (x−3)² = 0 is the STANDARD third bridge question (INQ_BRIDGE grew
+  to 3; Kenny promoted it from bonus). The face shows the squared
+  form with no hint deal (identical brackets, nothing to hint; no
+  inqCards published), judging needs x = 3, and the reveal
+  legitimately shows (0)(0) = 0 - the one configuration rounds 1-2
+  prove impossible - with the exception named: 兩個因式一樣，係「重根」：
+  唯一例外. Arc: rule, rule, exception - and it foreshadows the main
+  game's double-root levels minutes later. 加多一回合 now cycles round
+  4 back to equation 1.
+
+Multi suite: 201 checks.

@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (194 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (201 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 194 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 201 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -1958,9 +1958,9 @@ async function main() {
   }));
   check("概念轉化: the exam face x² − x − 6 = 0 shows on the projector", hostReveal3.expand.includes("x² − x − 6"), hostReveal3.expand);
   check(
-    "概念轉化: the grid pushes each x through BOTH factors and states the 或",
+    "概念轉化: the grid pushes each x through BOTH factors, 或-note names THIS pair",
     hostReveal3.row.includes("(−5)(0) = 0") && hostReveal3.row.includes("(6)(11) = 66") &&
-      hostReveal3.orNote.includes("冇可能"),
+      hostReveal3.orNote.includes("零點唔同") && hostReveal3.orNote.includes("(x−3)"),
     JSON.stringify(hostReveal3)
   );
   await until(() => negPhone.evaluate(() => C.lastInqRevealSeq === 1301), { label: "neg phone got reveal" });
@@ -2042,7 +2042,53 @@ async function main() {
   );
   await until(() => pages[paired[0]].evaluate(() => C.lastInqRevealSeq === 1302), { label: "paired phone got reveal" });
   const orNote = await pages[paired[0]].evaluate(() => document.getElementById("ctrlInqMark").textContent);
-  check("探究: two different roots trigger the 或-note on the phone", orNote.includes("冇可能"), orNote);
+  check("探究: two different roots trigger the 或-note on the phone", orNote.includes("零點唔同"), orNote);
+
+  /* ── the repeated root: (x−3)² = 0 is the standard third question ── */
+  await inqAdvanceTo("round");
+  const dealC = await host.evaluate(() => ({ bye: G.inq.bye, seq: G.inq.seq, roots: G.inq.roots }));
+  check("重根 round 3: (x−3)² served", dealC.seq === 1303 && dealC.roots.join() === "3,3", JSON.stringify(dealC));
+  check(
+    "重根: the bye rotates again",
+    !!dealC.bye && dealC.bye !== dealB.bye,
+    JSON.stringify({ prev: dealB.bye, next: dealC.bye })
+  );
+  const s3c = (await roomData(host)).state;
+  check("重根: no hint cards dealt for identical factors", !s3c.inqCards, JSON.stringify(s3c.inqCards || null));
+  const pairedC = [adaId, benId, calId].filter((id) => id !== dealC.bye);
+  await until(() => pages[pairedC[0]].evaluate(() => C.inqOpen), { label: "round 3 open" });
+  const sqFace = await pages[pairedC[0]].evaluate(() => ({
+    text: document.getElementById("ctrlInqTarget").textContent,
+    hint: !!document.querySelector("#ctrlInqTarget .zb-inqhint"),
+  }));
+  check(
+    "重根: the phone shows the squared face with no hint underline",
+    sqFace.text.includes("(x−3)²") && !sqFace.hint,
+    JSON.stringify(sqFace)
+  );
+  await inqSubmit(pages[pairedC[0]], 3);
+  await inqSubmit(pages[pairedC[1]], 7); // wrong - the pair still passes on the 3
+  await inqCollected(2);
+  await inqAdvanceTo("reveal");
+  const rvC = (await roomData(host)).state.inqReveal;
+  check(
+    "重根: x = 3 passes, the wire carries (x−3)² = 0 and x² − 6x + 9 = 0",
+    rvC.pairs["0"].ok === true && rvC.expr === "(x−3)² = 0" && rvC.expanded === "x² − 6x + 9 = 0",
+    JSON.stringify({ expr: rvC.expr, expanded: rvC.expanded, row: rvC.pairs["0"] })
+  );
+  const hostRevealC = await host.evaluate(() => ({
+    row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
+    note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
+  }));
+  check(
+    "重根: the projector shows (0)(0) = 0 and names the exception",
+    hostRevealC.row.includes("(0)(0) = 0") && hostRevealC.row.includes("(4)(4) = 16") &&
+      hostRevealC.note.includes("重根"),
+    JSON.stringify(hostRevealC)
+  );
+  await until(() => pages[pairedC[0]].evaluate(() => C.lastInqRevealSeq === 1303), { label: "round 3 result" });
+  const dblNote = await pages[pairedC[0]].evaluate(() => document.getElementById("ctrlInqMark").textContent);
+  check("重根: the phone working shows (0)(0) = 0 and names the repeated root", dblNote.includes("(0)(0) = 0") && dblNote.includes("重根"), dblNote);
 
   /* ── 320px sanity while the arc is still up ── */
   await phoneB.setViewportSize({ width: 320, height: 640 });
@@ -2057,19 +2103,19 @@ async function main() {
   const mainLabel = await host.evaluate(() => document.getElementById("btnInqPrimary").textContent);
   check("概念轉化 summary: the primary button hands over to the main game", mainLabel.includes("歸零爆破"), mainLabel);
   await host.click("#btnInqMore"); // the class needs another look
-  await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 3), { label: "extra round started" });
+  await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 4), { label: "extra round started" });
   const extraR = (await roomData(host)).state.inq;
   check(
-    "探究: 加多一回合 at the recap starts round 3/3 straight away",
-    extraR.round === 3 && extraR.roundsTotal === 3 && extraR.seq === 1303,
+    "探究: 加多一回合 at the recap starts round 4/4 straight away",
+    extraR.round === 4 && extraR.roundsTotal === 4 && extraR.seq === 1304,
     JSON.stringify(extraR)
   );
   check(
     "探究: the bye rotates - never the same player twice in a row",
-    !!extraR.bye && extraR.bye !== dealB.bye,
-    JSON.stringify({ prev: dealB.bye, next: extraR.bye })
+    !!extraR.bye && extraR.bye !== dealC.bye,
+    JSON.stringify({ prev: dealC.bye, next: extraR.bye })
   );
-  // finish the extra round early: round 3 cycles back to (x−3)(x+2)
+  // finish the extra round early: round 4 cycles back to (x−3)(x+2)
   const paired3 = [adaId, benId, calId].filter((id) => id !== extraR.bye);
   await inqSubmit(pages[paired3[0]], 3);
   await inqSubmit(pages[paired3[1]], 3);

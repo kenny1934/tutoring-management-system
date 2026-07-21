@@ -1932,7 +1932,8 @@ const STRINGS = {
   inq_your_factor:  { c: "你嘅提示因式",  e: "Your hint factor" },
   inq_factor_goal:  { c: "揀一個 x，|令成條方程成立", e: "Pick an x that makes the equation true" },
   inq_either_note:  { c: "其中一個因式歸零，|成條式就歸零！", e: "One factor at zero zeroes the whole thing!" },
-  inq_or_note:      { c: "同一個 x 冇可能令兩個因式|同時歸零，所以話「或」！", e: "No single x can zero both factors at once. That is why it says OR!" },
+  inq_or_note_fmt:  { c: "{fa} 同 {fb} 嘅零點唔同（{ra} 同 {rb}）：|冇一個 x 令兩個同時歸零，|所以係「或」！", e: "{fa} and {fb} have different zeros ({ra} and {rb}): no single x zeroes both at once. That is why it says OR!" },
+  inq_double_note:  { c: "兩個因式一樣，係「重根」：|唯一例外，x = {r} 令兩邊同時歸零！", e: "Identical factors: a repeated root! The one exception: x = {r} zeroes both at once." },
   inq_expand_fmt:   { c: "考卷上通常係咁樣寫：", e: "On the exam it usually looks like this:" },
   inq_join_next:    { c: "下一回合幫你配對", e: "You'll be paired next round" },
   inq_bye:          { c: "本回合輪空",  e: "Sitting out this round" },
@@ -2027,10 +2028,12 @@ const PLAN = ZBLevels.planFromConfig(CFG);
  * then a prime (only 1×37 works: the despair round that makes the
  * discussion). Cycles when inqrounds exceeds it. */
 const INQ_POOL = [12, 36, 24, 60, 37];
-/* 概念轉化 bridge equations as root pairs: (x−3)(x+2)=0, (x−5)(x+4)=0.
- * One equation per round, every pair works the same one; partner A
- * holds the left factor, partner B the right. */
-const INQ_BRIDGE = [[3, -2], [5, -4]];
+/* 概念轉化 bridge equations as root pairs: (x−3)(x+2)=0, (x−5)(x+4)=0,
+ * then (x−3)²=0 - the repeated root, where the one x really does zero
+ * both factors: the exception that makes the 或 rule precise, and a
+ * taste of the main game's double-root stage. One equation per round,
+ * every pair works the same one. */
+const INQ_BRIDGE = [[3, -2], [5, -4], [3, 3]];
 /* the reveal rows' flat member keys: aId/aN/aV(/aC), bId…, cId… (trio).
  * Flat scalars keep every leaf inside the deployed RTDB depth clamp. */
 const INQ_KEYS = ["a", "b", "c"];
@@ -4746,8 +4749,11 @@ function inqStartRound() {
     inq.roots = INQ_BRIDGE[(inq.round - 1) % INQ_BRIDGE.length];
     inq.exprA = ZBLevels.factorText(inq.roots[0]);
     inq.exprB = ZBLevels.factorText(inq.roots[1]);
-    cards = {};
-    inq.pairs.forEach(pair => pair.forEach((pid, k) => { cards[pid] = k % 2; }));
+    if (inq.roots[0] !== inq.roots[1]) {
+      // no deal on the repeated root: identical brackets, nothing to hint
+      cards = {};
+      inq.pairs.forEach(pair => pair.forEach((pid, k) => { cards[pid] = k % 2; }));
+    }
   } else {
     inq.n = inq.stage === 2 ? 0 : INQ_POOL[(inq.round - 1) % INQ_POOL.length];
   }
@@ -4852,7 +4858,7 @@ function inqResolve() {
   if (inq.stage === 3) {
     reveal.rootA = inq.roots[0];
     reveal.rootB = inq.roots[1];
-    reveal.expr = inq.exprA + inq.exprB + " = 0";
+    reveal.expr = (inq.roots[0] === inq.roots[1] ? inq.exprA + "²" : inq.exprA + inq.exprB) + " = 0";
     reveal.expanded = inqExpandedText(inq.roots[0], inq.roots[1]);
   } else {
     reveal.n = inq.n;
@@ -5010,6 +5016,18 @@ function inqRowMembers(row, rv) {
   });
 }
 
+/* the bridge takeaway, composed from the equation ON SCREEN so every
+ * claim is instance-true: distinct roots state THIS pair's 或; a
+ * repeated root names the one exception */
+function inqBridgeNote(rv) {
+  if (typeof rv.rootA !== "number" || typeof rv.rootB !== "number") return "";
+  if (rv.rootA === rv.rootB) return fmt("inq_double_note", { r: ZBLevels.num(rv.rootA) });
+  return fmt("inq_or_note_fmt", {
+    fa: ZBLevels.factorText(rv.rootA), fb: ZBLevels.factorText(rv.rootB),
+    ra: ZBLevels.num(rv.rootA), rb: ZBLevels.num(rv.rootB),
+  });
+}
+
 /* one reveal row: names + played values (zeros ringed in 探究二) and
  * the pair's product; on the bridge, one substitution line per member
  * showing their x pushed through BOTH factors - the display itself
@@ -5057,7 +5075,8 @@ function renderInqReveal(rv) {
   } else if (rv.stage === 2) {
     extras = `<div class="zb-inqzero-note">${t("inq_zero_note")}</div>`;
   } else if (rv.stage === 3 && rv.expanded) {
-    extras = `<div class="zb-inqzero-note">${t("inq_or_note")}</div>`
+    const note = inqBridgeNote(rv);
+    extras = (note ? `<div class="zb-inqzero-note">${mathHtml(escapeText(note))}</div>` : "")
       + `<div class="zb-inqexpand">${t("inq_expand_fmt")} <strong>${mathHtml(escapeText(rv.expanded))}</strong></div>`;
   }
   box.innerHTML = rows + extras;
@@ -5099,7 +5118,8 @@ function renderInqStage() {
       $("inqTargetLabel").textContent = "";
       const ex = $("inqExpr");
       ex.style.display = "";
-      ex.innerHTML = mathHtml(escapeText(inq.exprA + inq.exprB)) + ' = <span class="zb-zero">0</span>';
+      const eqTxt = inq.exprA === inq.exprB ? inq.exprA + "²" : inq.exprA + inq.exprB;
+      ex.innerHTML = mathHtml(escapeText(eqTxt)) + ' = <span class="zb-zero">0</span>';
     } else {
       inqSlotTo(inq.n);
     }
@@ -5504,14 +5524,19 @@ function renderCtrlInqFace(inq, st) {
       $("ctrlInqMark").innerHTML = "";
       if (inq.stage === 3) {
         // the WHOLE equation, with the dealt factor underlined as a
-        // way in - x answers the equation, not the bracket
-        const mine = (st.inqCards || {})[C.id];
-        const eA = inq.exprA ? mathHtml(escapeText(inq.exprA)) : "";
-        const eB = inq.exprB ? mathHtml(escapeText(inq.exprB)) : "";
-        target.innerHTML = `<span class="zb-inqcardtag">${t("inq_your_factor")}</span>`
-          + `<span class="${mine === 1 ? "" : "zb-inqhint"}">${eA}</span>`
-          + `<span class="${mine === 1 ? "zb-inqhint" : ""}">${eB}</span>`
-          + ' = <span class="zb-zero">0</span>';
+        // way in - x answers the equation, not the bracket. A repeated
+        // root shows the squared face, nothing to hint.
+        if (inq.exprA && inq.exprA === inq.exprB) {
+          target.innerHTML = mathHtml(escapeText(inq.exprA + "²")) + ' = <span class="zb-zero">0</span>';
+        } else {
+          const mine = (st.inqCards || {})[C.id];
+          const eA = inq.exprA ? mathHtml(escapeText(inq.exprA)) : "";
+          const eB = inq.exprB ? mathHtml(escapeText(inq.exprB)) : "";
+          target.innerHTML = `<span class="zb-inqcardtag">${t("inq_your_factor")}</span>`
+            + `<span class="${mine === 1 ? "" : "zb-inqhint"}">${eA}</span>`
+            + `<span class="${mine === 1 ? "zb-inqhint" : ""}">${eB}</span>`
+            + ' = <span class="zb-zero">0</span>';
+        }
         ctrlStatus(t("inq_factor_goal"));
       } else {
         target.innerHTML = `<span class="zb-inqbign${inq.n === 0 ? " zero" : ""}">${typeof inq.n === "number" ? inq.n : "?"}</span>`;
@@ -5609,10 +5634,12 @@ function renderCtrlInqResult(rv, hearts) {
     ctrlInqBoom();
   } else if (row.ok) {
     if (rv.stage === 3) {
-      // both partners on different roots is THE moment: no single x
-      // zeroes both brackets - the 或 made visible
+      // the takeaway, instance-true: repeated root → the exception;
+      // both partners on different roots → THIS equation's 或; else
+      // the plain one-zero-suffices line
       const hitVals = new Set(members.filter(m => m.hit).map(m => m.v));
-      lines.push(hitVals.size >= 2 ? t("inq_or_note") : t("inq_either_note"));
+      const note = rv.rootA === rv.rootB || hitVals.size >= 2 ? inqBridgeNote(rv) : "";
+      lines.push(note ? mathHtml(escapeText(note)) : t("inq_either_note"));
     }
     $("ctrlInqMark").innerHTML = markHtml("correct", lines, "inq_pass");
     ZBFX.audio.chime();
