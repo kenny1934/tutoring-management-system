@@ -1159,6 +1159,116 @@
          no longer reaches landscape phones) */
       .zb-key { min-height: 48px; }
     }
+
+    /* ══ 探究模式 · 等式開口中 (SM901 活動二) ══
+       The warm-up stages live on their own sheet: a big slot-drawn
+       target, the pair-reveal grid, and the class roster with lives
+       as marking circles (never heart glyphs - house idiom). */
+    .zb-inqsheet { position: relative; text-align: center; overflow: hidden; }
+    .zb-inqtitle { font-family: var(--mc-display); font-size: clamp(1.375rem, 4.5vw, 2rem); margin: 2px 0 6px; }
+    .zb-inqrule { color: var(--mc-ink-soft); font-size: 0.9375rem; line-height: 1.65; max-width: 560px; margin: 0 auto 8px; }
+    .zb-inqcount { font-family: var(--mc-mono); font-weight: 700; font-size: 0.8125rem; color: var(--mc-ink-soft); }
+    .zb-inqtargetwrap { margin: 6px 0 2px; }
+    .zb-inqn {
+      font-family: var(--mc-mono); font-weight: 800; font-variant-numeric: tabular-nums;
+      font-size: clamp(56px, 12vw, 104px); line-height: 1.08; letter-spacing: 0.04em;
+    }
+    .zb-inqn--zero { color: var(--mc-red); }
+    .zb-inqn--land { animation: zb-inqland 0.35s cubic-bezier(0.2, 1.5, 0.35, 1); }
+    @keyframes zb-inqland { from { transform: scale(1.45); } to { transform: scale(1); } }
+    .zb-inqlockbadge {
+      display: inline-block; font-family: var(--mc-mono); font-weight: 800; font-size: 13px;
+      letter-spacing: 0.12em; color: var(--mc-red);
+      border: 2.5px solid var(--mc-red); border-radius: 5px; padding: 3px 12px;
+      background: color-mix(in srgb, var(--mc-paper) 82%, transparent);
+      transform: rotate(-3deg);
+      animation: mc-stamp-in 0.35s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+    }
+    .zb-inqexpr { justify-content: center; margin: 4px auto 0; max-width: 560px; }
+    /* pair-reveal grid: one hand-ruled row per pair */
+    .zb-inqreveal { display: grid; gap: 8px; margin-top: 12px; justify-items: center; }
+    .zb-inqrow {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 10px;
+      width: 100%; max-width: 640px;
+      border: 1.5px solid var(--mc-line); border-radius: 8px; padding: 7px 12px;
+      background: var(--mc-paper); font-size: 1.0625rem;
+    }
+    .zb-inqrow__who { color: var(--mc-ink-soft); font-size: 0.8125rem; }
+    .zb-inqrow .zb-inqval { font-family: var(--mc-mono); font-weight: 800; font-variant-numeric: tabular-nums; }
+    /* 探究二's induction lives here: every submitted zero is ringed red */
+    .zb-inqrow .zb-inqval.zero {
+      color: var(--mc-red);
+      border: 2px solid var(--mc-red); border-radius: 50%; padding: 0 7px;
+    }
+    .zb-inqrow .zb-inqval.miss { color: var(--mc-ink-faint); font-family: var(--mc-body); font-weight: 400; font-size: 0.8125rem; }
+    .zb-inqrow__mark { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-size: 0.875rem; }
+    .zb-inqrow.pass { border-color: color-mix(in srgb, var(--mc-correct) 55%, var(--mc-line)); }
+    .zb-inqrow.pass .zb-inqrow__mark { color: var(--mc-correct); }
+    .zb-inqrow.fail .zb-inqrow__mark, .zb-inqrow__loss { color: var(--mc-red); }
+    .zb-inqrow.boom { border-color: var(--mc-red); }
+    .zb-inqrow__mark svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .zb-inqrow__loss { font-family: var(--mc-mono); font-weight: 700; font-size: 0.8125rem; }
+    .zb-inqfactors { margin-top: 10px; font-family: var(--mc-mono); font-size: 0.9375rem; color: var(--mc-ink-soft); }
+    .zb-inqzero-note { margin-top: 6px; font-size: 0.875rem; color: var(--mc-ink-soft); }
+    .zb-inqexpand { margin-top: 10px; font-size: 0.9375rem; color: var(--mc-ink-soft); }
+    .zb-inqexpand strong { font-family: var(--mc-mono); font-size: 1.25rem; color: var(--mc-ink); }
+    .zb-inqtheorem { margin: 16px auto 4px; }
+    .zb-inqtheorem__tag { font-family: var(--mc-mono); font-weight: 800; font-size: 12px; letter-spacing: 0.18em; color: var(--mc-red); margin-bottom: 4px; }
+    .zb-inqtheorem__formula { font-family: var(--mc-display); font-size: clamp(24px, 5vw, 42px); animation: mc-stamp-in 0.4s cubic-bezier(0.2, 1.5, 0.35, 1) both; }
+    /* the class roster: lives as struck marking circles */
+    .zb-inqroster {
+      display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center;
+      margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--mc-line);
+    }
+    .zb-inqroster__chip { display: inline-flex; align-items: center; gap: 7px; font-size: 0.8125rem; }
+    .zb-inqroster__chip.out { opacity: 0.55; }
+    .zb-inqtries { gap: 3px; }
+    .zb-inqtries .mc-tries__dot { width: 13px; height: 13px; }
+    .zb-inqtries .mc-tries__dot svg { width: 100%; height: 100%; display: block; }
+    .zb-inqprimary { min-width: 172px; }
+    /* boom set-piece on the sheet: paper flash, ink shockwave, slammed stamp */
+    .zb-inqboomfx { position: absolute; inset: 0; z-index: 5; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+    .zb-inqboomfx::before { content: ""; position: absolute; inset: 0; background: var(--mc-paper); animation: zb-blastflash 0.38s ease-out both; }
+    .zb-inqboomfx__ring {
+      position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+      border: 3px solid var(--mc-ink); border-radius: 50%;
+      animation: zb-inqring 0.6s ease-out both;
+    }
+    @keyframes zb-inqring { to { transform: scale(18); opacity: 0; border-width: 1px; } }
+    .zb-inqboomfx .zb-chai { width: auto; height: auto; border-radius: 14px; padding: 10px 26px; font-size: clamp(34px, 7vw, 54px); }
+    .zb-inqshake { animation: zb-inqshake 0.45s ease-out; }
+    @keyframes zb-inqshake {
+      20% { transform: translate(-5px, 2px) rotate(-0.4deg); }
+      45% { transform: translate(4px, -2px) rotate(0.3deg); }
+      70% { transform: translate(-2px, 1px); }
+    }
+    /* the phone's warm-up face */
+    .zb-inqboard { justify-content: center; }
+    .zb-inqboard .zb-inqbign { font-family: var(--mc-mono); font-weight: 800; font-size: clamp(44px, 18vw, 72px); line-height: 1.1; }
+    .zb-inqboard .zb-inqbign.zero { color: var(--mc-red); }
+    .zb-inqboard .zb-inqcardtag { display: block; width: 100%; font-size: 0.75rem; letter-spacing: 0.08em; color: var(--mc-ink-soft); margin-bottom: 2px; }
+    .zb-inqlives { display: inline-flex; }
+    .zb-inqpad--nosign .zb-key--sign { visibility: hidden; }
+    .zb-inqboomphone {
+      position: fixed; inset: 0; z-index: 30; pointer-events: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      background: color-mix(in srgb, var(--mc-paper) 55%, transparent);
+      animation: zb-offerout 0.4s 1s ease-out both;
+    }
+    /* projector: the target and the grid must read from the back row */
+    .zb-stage--projector .zb-inqrule { font-size: 1.1875rem; max-width: 780px; }
+    .zb-stage--projector .zb-inqn { font-size: clamp(96px, 14vw, 150px); }
+    .zb-stage--projector .zb-inqrow { font-size: 1.375rem; max-width: 760px; }
+    .zb-stage--projector .zb-inqreveal { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+    .zb-stage--projector .zb-inqtheorem__formula { font-size: 56px; }
+    .zb-stage--projector .zb-inqfactors { font-size: 1.25rem; }
+    .zb-stage--projector .zb-inqroster__chip { font-size: 1rem; }
+    .zb-stage--projector .zb-inqtries .mc-tries__dot { width: 16px; height: 16px; }
+    @media (prefers-reduced-motion: reduce) {
+      .zb-inqn--land, .zb-inqboomfx__ring, .zb-inqshake { animation: none !important; }
+      .zb-inqboomfx::before { animation: none; opacity: 0; }
+      .zb-inqboomphone { animation: none; }
+    }
   </style>
 </head>
 <body>
@@ -1409,6 +1519,12 @@
       <span data-i18n="btn_start_multi"></span>
       <svg class="mc-arrow"><use href="#i-arrow"/></svg>
     </button>
+    <!-- SM901 探究活動二: the full-lesson arc runs the 等式開口中
+         warm-up stages first, then hands over to the main game -->
+    <button class="mc-btn mc-btn--block" id="btnStartInquiry" style="margin-top:10px;display:none">
+      <span data-i18n="btn_start_inquiry"></span>
+      <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+    </button>
     <footer class="mc-brand">
       <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
       <img class="mc-logo--dark" src="/logo-secondary-dark.png" alt="MathConcept Secondary Academy">
@@ -1506,6 +1622,42 @@
     <div class="zb-street" id="streetStrip" aria-hidden="true"></div>
   </div>
 
+  <!-- ══ 探究模式 · 等式開口中 (host big stage, SM901 活動二) ══ -->
+  <div class="mc-screen" id="inquiryScreen">
+    <header class="mc-masthead">
+      <span class="mc-masthead__code"><strong>SM901</strong> · <span data-i18n="subtopic"></span></span>
+      <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
+    </header>
+    <div class="zb-topline">
+      <span class="zb-topline__level" id="inqChip"></span>
+      <span class="zb-topline__right">
+        <span class="zb-inqcount" id="inqCount"></span>
+        <span class="zb-timer" id="inqTimer"><svg><use href="#i-clock"/></svg><span id="inqTimerText">--.-</span></span>
+      </span>
+    </div>
+    <div class="mc-sheet zb-inqsheet" id="inqSheet">
+      <h2 class="zb-inqtitle" id="inqTitle"></h2>
+      <p class="zb-inqrule" id="inqRule"></p>
+      <div class="zb-inqtargetwrap" id="inqTargetWrap" style="display:none">
+        <div class="mc-board__label" id="inqTargetLabel"></div>
+        <div class="zb-inqn" id="inqN">–</div>
+        <span class="zb-inqlockbadge" id="inqLockBadge" style="display:none"><span data-i18n="inq_locked"></span></span>
+        <div class="zb-board zb-inqexpr" id="inqExpr" style="display:none"></div>
+      </div>
+      <div class="zb-inqreveal" id="inqRevealBox" style="display:none"></div>
+      <div class="zb-inqtheorem" id="inqTheorem" style="display:none">
+        <div class="zb-inqtheorem__tag" data-i18n="inq_theorem_tag"></div>
+        <div class="zb-inqtheorem__formula">A × B = <span class="zb-zero">0</span>&nbsp;&nbsp;⟹&nbsp;&nbsp;A = <span class="zb-zero">0</span> <span id="inqTheoremOr"></span> B = <span class="zb-zero">0</span></div>
+      </div>
+      <div class="zb-inqroster" id="inqRoster"></div>
+    </div>
+    <div class="zb-tutorbar" id="inqBar">
+      <button class="mc-btn mc-btn--primary zb-inqprimary" id="btnInqPrimary"></button>
+      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqTheorem" style="display:none" data-i18n="inq_theorem_btn"></button>
+      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqSkip" data-i18n="inq_skip"></button>
+    </div>
+  </div>
+
   <!-- ══ controller (student phone, multi-device) ══ -->
   <div class="mc-screen" id="controllerScreen">
     <header class="mc-masthead">
@@ -1541,6 +1693,29 @@
           <div class="zb-lock__ring">
             <svg viewBox="0 0 66 66" aria-hidden="true"><circle cx="33" cy="33" r="28" pathLength="1"/></svg>
             <div class="zb-lock__n" id="ctrlLockCount">3</div>
+          </div>
+          <div class="zb-lock__hint" data-i18n="lock_think"></div>
+        </div>
+      </div>
+    </div>
+    <!-- 探究模式: the phone's warm-up face (target + two-digit pad) -->
+    <div id="ctrlInq" style="display:none">
+      <div class="zb-topline">
+        <span class="zb-topline__level" id="ctrlInqChip"></span>
+        <span class="zb-topline__right">
+          <span class="zb-inqlives" id="ctrlInqLives"></span>
+          <span class="zb-timer" id="ctrlInqTimer"><svg><use href="#i-clock"/></svg><span id="ctrlInqTimerText">--.-</span></span>
+        </span>
+      </div>
+      <div class="zb-board zb-inqboard" id="ctrlInqTarget" aria-live="polite"></div>
+      <div class="zb-mark" id="ctrlInqMark" aria-live="polite"></div>
+      <div class="zb-padwrap" id="ctrlInqPadWrap">
+        <div class="zb-preview" id="ctrlInqPreview"></div>
+        <div class="zb-pad" id="ctrlInqPad"></div>
+        <div class="zb-lock" id="ctrlInqLock" aria-live="polite">
+          <div class="zb-lock__ring">
+            <svg viewBox="0 0 66 66" aria-hidden="true"><circle cx="33" cy="33" r="28" pathLength="1"/></svg>
+            <div class="zb-lock__n" id="ctrlInqLockCount">3</div>
           </div>
           <div class="zb-lock__hint" data-i18n="lock_think"></div>
         </div>
@@ -1704,6 +1879,51 @@ const STRINGS = {
   reclaim_not_yours: { c: "呢個房唔係喺呢部機開嘅", e: "That room was started on another device" },
   btn_hint_solo:    { c: "提示（分數 75%）", e: "Hint (pays 75%)" },
   hint_nudge:       { c: "諗下：邊兩個數|乘埋係 {c}、|加埋係 {b}？", e: "Think: which two numbers multiply to {c} and add to {b}?" },
+  /* ── 探究模式 · 等式開口中 (SM901 遊戲探究活動二) ── */
+  btn_start_inquiry:{ c: "先玩探究 · 等式開口中", e: "Inquiry first · Crack the Equation" },
+  inq_title:        { c: "等式開口中",  e: "Crack the Equation" },
+  inq_stage1:       { c: "探究一",      e: "Inquiry 1" },
+  inq_stage2:       { c: "探究二",      e: "Inquiry 2" },
+  inq_stage3:       { c: "概念轉化",    e: "The bridge" },
+  inq_round_fmt:    { c: "第 {r}/{n} 回合", e: "Round {r}/{n}" },
+  inq_target_label: { c: "目標數字",    e: "Target number" },
+  inq_locked:       { c: "N 已鎖定",    e: "N locked" },
+  inq_rule1:        { c: "你同一位神秘拍檔|各自出一個 0 至 99 嘅整數，|兩個數相乘要啱好等於目標數字！|估唔中，兩個一齊扣 1 個生命值。", e: "You and a secret partner each pick a whole number from 0 to 99. Multiplied together they must hit the target exactly! Miss, and you both lose a life." },
+  inq_rule2:        { c: "目標鎖定咗做 0！|規則不變，|但係兩個都出 0 就會大爆炸，|一齊扣 2 個生命值！", e: "The target is locked at 0! Same rules, but if BOTH of you play 0 it explodes: two lives gone each!" },
+  inq_rule3:        { c: "今次手機顯示嘅唔係數字，|係一個因式。|揀一個 x，|令你嘅因式歸零！", e: "This time your phone shows a factor, not a number. Pick an x that zeroes YOUR factor!" },
+  inq_submitted_fmt:{ c: "已收到 {k}/{m}", e: "{k}/{m} in" },
+  inq_pick_hint:    { c: "出一個 0 至 99 嘅整數", e: "Pick a whole number from 0 to 99" },
+  inq_sent_fmt:     { c: "已出 {v}，|截止前可以再改", e: "Sent {v}. You can change it before time runs out" },
+  inq_wait_result:  { c: "時間到！|等緊配對結果⋯", e: "Time! Waiting for the pair results…" },
+  inq_wait_round:   { c: "等導師開始回合⋯", e: "Waiting for the tutor to start the round…" },
+  inq_pass:         { c: "安全過關",    e: "Safe!" },
+  inq_fail:         { c: "未過關",      e: "Not this time" },
+  inq_boom:         { c: "大爆炸！",    e: "BOOM!" },
+  inq_boom_note:    { c: "全部人都出咗 0，|一齊扣 2 個生命值", e: "You all played 0: two lives gone each" },
+  inq_no_sub:       { c: "未提交",      e: "No answer" },
+  inq_you_fmt:      { c: "你出咗 {v}",  e: "You played {v}" },
+  inq_partner_fmt:  { c: "拍檔 {name} 出咗 {v}", e: "Partner {name} played {v}" },
+  inq_partner_none: { c: "拍檔 {name} 未提交", e: "Partner {name} did not answer" },
+  inq_lose_fmt:     { c: "扣 {n} 個生命值", e: "Lives lost: {n}" },
+  inq_lives_label:  { c: "生命值",      e: "Lives" },
+  inq_factors_fmt:  { c: "{n} 嘅因數組合：", e: "Ways to make {n}:" },
+  inq_zero_note:    { c: "睇真啲：安全過關嘅組合|入面全部都有一個 0", e: "Look closely: every safe pair contains a zero" },
+  inq_theorem_btn:  { c: "顯示歸納",    e: "Show the takeaway" },
+  inq_theorem_tag:  { c: "零乘積性質",  e: "Zero-product property" },
+  inq_start_round:  { c: "開始回合",    e: "Start the round" },
+  inq_next_round:   { c: "下一回合",    e: "Next round" },
+  inq_end_round:    { c: "提早結算",    e: "Call it early" },
+  inq_stage_summary:{ c: "階段總結",    e: "Stage recap" },
+  inq_survivors:    { c: "生還者",      e: "Survivors" },
+  inq_to_stage2:    { c: "鎖定 N = 0",  e: "Lock N at 0" },
+  inq_to_stage3:    { c: "概念轉化",    e: "To the bridge" },
+  inq_to_main:      { c: "進入主遊戲 · 歸零爆破", e: "On to Zero Blast" },
+  inq_skip:         { c: "跳過探究",    e: "Skip inquiry" },
+  inq_your_factor:  { c: "你嘅因式",    e: "Your factor" },
+  inq_factor_goal:  { c: "揀一個 x，|令你嘅因式變成 0", e: "Pick an x that makes your factor 0" },
+  inq_either_note:  { c: "其中一個因式歸零，|成條式就歸零！", e: "One factor at zero zeroes the whole thing!" },
+  inq_expand_fmt:   { c: "考卷上通常係咁樣寫：", e: "On the exam it usually looks like this:" },
+  inq_join_next:    { c: "下一回合幫你配對", e: "You'll be paired next round" },
 };
 
 const SLUG = "zero-blast";
@@ -1777,8 +1997,22 @@ const CFG = {
   rounds: numList(Q.get("rounds")),
   fuse: parseFloat(Q.get("fuse")) || 0,
   grace: Q.get("grace") !== null ? Math.max(0, parseFloat(Q.get("grace")) || 0) : 6,
+  // 探究模式 (SM901 活動二): rounds per stage, answer window, lives
+  inqRounds: Math.max(1, parseInt(Q.get("inqrounds"), 10) || 5),
+  inqFuse: Math.max(1, parseFloat(Q.get("inqfuse")) || 15) * 1000,
+  inqHearts: Math.max(1, parseInt(Q.get("inqhearts"), 10) || 5),
 };
 const PLAN = ZBLevels.planFromConfig(CFG);
+
+/* 探究一's target pool, presented as a random draw but scripted for
+ * difficulty: friendly composites first, then heavy-factor numbers,
+ * then a prime (only 1×37 works: the despair round that makes the
+ * discussion). Cycles when inqrounds exceeds it. */
+const INQ_POOL = [12, 36, 24, 60, 37];
+/* 概念轉化 bridge equations as root pairs: (x−3)(x+2)=0, (x−5)(x+4)=0.
+ * One equation per round, every pair works the same one; partner A
+ * holds the left factor, partner B the right. */
+const INQ_BRIDGE = [[3, -2], [5, -4]];
 
 /* ══════════════════════════════════════════════════════════════════
  * scene rendering — blueprint structures drawn on the graph paper
@@ -2597,9 +2831,10 @@ function blastHold() {
   setTimeout(() => $("scene").classList.remove("zb-hitstop"), 92);
 }
 
-function markHtml(kind, lines) {
-  // kind: correct | wrong | info
-  const stampKey = kind === "correct" ? "stamp_correct" : "stamp_wrong";
+function markHtml(kind, lines, stampOverride) {
+  // kind: correct | wrong | info; stampOverride swaps the stamp text
+  // (探究 rounds mark 安全過關/未過關, not 歸零/未歸零)
+  const stampKey = stampOverride || (kind === "correct" ? "stamp_correct" : "stamp_wrong");
   const ink = kind === "correct"
     ? '<path d="M4 13l5.5 5.5L20 6.5"/>'
     : '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>';
@@ -2621,7 +2856,13 @@ function markHtml(kind, lines) {
  * order of a negative answer - "7… then minus" on the sign trap died
  * inside the old 400ms window - and the armed preview drains the
  * window visibly so the wait never reads as a stall. */
-function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
+function makePad(padEl, previewEl, lockEl, lockCountEl, submit, opts) {
+  opts = opts || {};
+  // 探究 rounds take two-digit answers (0-99): extra taps APPEND while
+  // armed instead of re-arming, and the same-digit shortcut yields to
+  // appending (33 must be enterable). The main game stays single-digit.
+  const maxV = Math.pow(10, opts.digits || 1) - 1;
+  let prefix = opts.prefix !== undefined ? opts.prefix : '<i class="zb-var">x</i>&nbsp;=&nbsp;';
   let neg = false;
   let locked = false;
   let lockTimer = null;
@@ -2632,14 +2873,14 @@ function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
 
   function renderPreview() {
     if (armed) {
-      previewEl.innerHTML = '<i class="zb-var">x</i>&nbsp;=&nbsp;' +
+      previewEl.innerHTML = prefix +
         (armed.v < 0 ? '<span class="neg">−</span>' : "") + Math.abs(armed.v);
       // restart the drain with the window (arm, sign flip, re-arm)
       previewEl.classList.remove("armed");
       void previewEl.offsetWidth;
       previewEl.classList.add("armed");
     } else {
-      previewEl.innerHTML = '<i class="zb-var">x</i>&nbsp;=&nbsp;' + (neg ? '<span class="neg">−</span>' : "") + "▢";
+      previewEl.innerHTML = prefix + (neg ? '<span class="neg">−</span>' : "") + "▢";
       previewEl.classList.remove("armed");
     }
   }
@@ -2677,10 +2918,18 @@ function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
     }
     const d = parseInt(key.dataset.d, 10);
     ZBFX.audio.click();
-    if (armed && Math.abs(armed.v) === d) { commit(); return; } // same digit again: go now
-    const v = neg ? -d : d;
-    neg = false;
-    signKey.setAttribute("aria-pressed", "false");
+    let v;
+    if (armed && maxV > 9) {
+      // multi-digit: the tap appends (36 = tap 3, tap 6); overflow
+      // starts a fresh entry with the new digit
+      const abs = Math.abs(armed.v) * 10 + d;
+      v = abs > maxV ? d : (armed.v < 0 ? -abs : abs);
+    } else {
+      if (armed && Math.abs(armed.v) === d) { commit(); return; } // same digit again: go now
+      v = neg ? -d : d;
+      neg = false;
+      signKey.setAttribute("aria-pressed", "false");
+    }
     armed = { v: v };
     clearTimeout(armTimer);
     armTimer = setTimeout(commit, ARM_MS);
@@ -2730,6 +2979,11 @@ function makePad(padEl, previewEl, lockEl, lockCountEl, submit) {
       padEl.querySelectorAll(".zb-key").forEach(k => k.disabled = false);
       lockEl.classList.remove("show");
     },
+    setPrefix(html) { // 探究 stages relabel the preview (number vs x =)
+      prefix = html;
+      disarm();
+      renderPreview();
+    },
   };
 }
 
@@ -2751,6 +3005,9 @@ const G = {
   room: null, watcher: null, started: false, grace: false, revealHold: false,
   players: {}, scores: {}, streaks: {}, starsBy: {}, claimsBy: {}, processedSeq: {},
   echoDone: {}, scoredRound: {}, echoTally: {}, bestMs: {}, echoCountBy: {},
+  // 探究模式 engine (SM901 活動二): the pre-game inquiry arc
+  inq: null, inqDeadline: 0, inqRaf: null, inqSlotIv: null,
+  lastInqTickSec: null, lastInqGraceSec: null,
 };
 
 const pad = makePad($("pad"), $("padPreview"), $("padLock"), $("lockCount"), v => submitCode(v, null));
@@ -2787,6 +3044,9 @@ function startRun(mode) {
   if (mode === "host") {
     G.room.set("state/scores", null);
     G.room.set("state/results", null);
+    // the inquiry arc is over (or was never run): drop its state keys
+    // so phones shed the warm-up face for good
+    G.room.update("state", { inq: null, inqHearts: null, inqReveal: null, inqCards: null });
     renderHostBoard();
   }
   show("gameScreen");
@@ -2830,6 +3090,10 @@ function refreshDynamicText() {
     $("levelCardChop").style.display = G.level.finale ? "" : "none";
   }
   $("takeawayOr").textContent = t("or");
+  if ($("inquiryScreen").classList.contains("active") && G.inq) {
+    renderInqStage();
+    renderInqBar();
+  }
   $("btnPlus15").title = fmt("tutor_key_title", { k: "t" });
   $("btnHint").title = fmt("tutor_key_title", { k: "h" });
   $("btnSkip").title = fmt("tutor_key_title", { k: "n" });
@@ -3562,7 +3826,7 @@ function renderStreet() {
  * knows where to walk without putting anyone on the projector */
 function renderStrugglers() {
   const el = $("strugglers");
-  if (G.mode !== "host" || !G.started || G.over) { el.style.display = "none"; return; }
+  if (G.mode !== "host" || !G.started || G.over || G.inq) { el.style.display = "none"; return; }
   const n = Object.keys(G.players).filter(id => !G.scoredRound[id]).length;
   el.textContent = fmt("strugglers_fmt", { n: n });
   el.style.display = n > 0 ? "" : "none";
@@ -3595,6 +3859,13 @@ function saveHostRun() {
       players: G.players, levelPoints: G.levelPoints,
       paused: G.paused, pauseRemainMs: G.paused ? remainMs : null,
       deadlineEpoch: Date.now() + remainMs,
+      // mid-inquiry snapshot: enough to re-stand the arc after an F5
+      // (an open round restarts fresh - see resumeInquiry)
+      inq: G.inq ? {
+        stage: G.inq.stage, round: G.inq.round, step: G.inq.step, seq: G.inq.seq,
+        n: G.inq.n, roots: G.inq.roots, exprA: G.inq.exprA, exprB: G.inq.exprB,
+        hearts: G.inq.hearts, lastReveal: G.inq.lastReveal, theorem: G.inq.theorem,
+      } : null,
     }));
   } catch (_) {}
 }
@@ -3623,7 +3894,7 @@ function pendingHostRun() {
       let saved = null;
       try { saved = JSON.parse(store.getItem(key)); } catch (_) {}
       if (!saved || !saved.code) continue;
-      if (!saved.lobby && !(saved.levels && saved.levels.length)) continue;
+      if (!saved.lobby && !saved.inq && !(saved.levels && saved.levels.length)) continue;
       if (Date.now() - (saved.ts || 0) > 6 * 3600 * 1000) continue;
       if (!best || saved.ts > best.ts) best = saved;
     }
@@ -3647,6 +3918,8 @@ async function resumeRun(saved) {
     try { localStorage.removeItem("zb-run-" + saved.code); } catch (_) {}
     return;
   }
+  // a refresh mid-探究: the arc resumes where the class left it
+  if (saved.inq) { resumeInquiry(saved); return; }
   // a lobby-only snapshot (refresh before the game started): back to
   // the lobby with the same room code, phones still joined
   if (!saved.levels || !saved.levels.length) { enterLobbyWith(G.room); return; }
@@ -4013,7 +4286,7 @@ $("btnReclaim").onclick = async () => {
     saved = JSON.parse(sessionStorage.getItem("zb-run-" + code) ||
                        localStorage.getItem("zb-run-" + code));
   } catch (_) {}
-  if (saved && saved.levels && saved.levels.length) { resumeRun(saved); return; }
+  if (saved && (saved.inq || (saved.levels && saved.levels.length))) { resumeRun(saved); return; }
   ZBFX.audio.unlock();
   $("reclaimStatus").textContent = "";
   $("reclaimStatus").classList.remove("mc-status--danger");
@@ -4076,19 +4349,26 @@ function onHostRoom(room) {
     if (n) {
       $("lobbyStatus").textContent = fmt("lobby_players", { n: n });
       $("btnStartMulti").style.display = "";
+      $("btnStartInquiry").style.display = "";
     }
+  } else if (G.inq) {
+    renderInqRoster(); // joins/leaves change the roster mid-arc
+    renderInqCount();
   } else {
     renderStrugglers(); // joins/leaves change the count mid-round
   }
 
   // judge new submissions via the shared loop: seq dedupe, pause
   // deferral (nothing scores against a frozen fuse), level binding (a
-  // delayed answer is never judged against the next equation)
+  // delayed answer is never judged against the next equation). During
+  // the inquiry arc the same channel feeds the pair collector instead:
+  // lv binds to the round's seq, latest value per player wins.
   MCRoom.drainSubs(room.subs, G.processedSeq, {
     paused: () => G.paused,
-    idle: () => !G.started || G.over,
-    levelSeq: () => (G.level ? G.level.seq : null),
+    idle: () => !G.started || (G.inq ? !G.inq.open : G.over),
+    levelSeq: () => (G.inq ? G.inq.seq : (G.level ? G.level.seq : null)),
     judge: (pid, sub) => {
+      if (G.inq) { inqCollect(pid, sub); return; }
       const pl = G.players[pid] || {};
       submitCode(sub.v, { id: pid, name: pl.name || t("player"), seq: sub.seq });
     },
@@ -4269,6 +4549,596 @@ document.addEventListener("keydown", e => {
 });
 
 /* ══════════════════════════════════════════════════════════════════
+ * 探究模式 · 等式開口中 (SM901 遊戲探究活動二) — host engine
+ *
+ * The pre-game inquiry arc: 探究一 (A×B=N) → 探究二 (A×B=0, the boom)
+ * → 概念轉化 (factor cards) → the main game. Host-authoritative like
+ * everything else: phones submit through the same subs/{v,seq,lv,ts}
+ * channel (lv binds to the round's seq), the host correlates SECRET
+ * random pairs each round and judges the product at the deadline.
+ * Pairings live only in G.inq until the reveal — published state
+ * carries nothing that lets a phone identify its partner mid-round.
+ * (Raw subs are room-readable, but a value without a pairing is
+ * useless for coordinating.) All new state lives under state/inq*,
+ * inside the deployed RTDB shape clamp - no rules change.
+ * ══════════════════════════════════════════════════════════════════ */
+
+function inqRoundsTotal(stage) {
+  return stage === 3 ? INQ_BRIDGE.length : CFG.inqRounds;
+}
+
+/* secret random pairing, re-drawn EVERY round: partners can't
+ * coordinate out loud when nobody knows who their partner is, and
+ * 探究二's discovery becomes personal - whoever I'm with, my own 0
+ * keeps us safe. Odd headcount folds into one trio (the zero-product
+ * property survives: any one zero zeroes the product). */
+function inqMakePairs() {
+  const ids = Object.keys(G.players);
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const sw = ids[i]; ids[i] = ids[j]; ids[j] = sw;
+  }
+  const pairs = [];
+  for (let i = 0; i + 1 < ids.length; i += 2) pairs.push([ids[i], ids[i + 1]]);
+  if (ids.length % 2 === 1) {
+    if (pairs.length) pairs[pairs.length - 1].push(ids[ids.length - 1]);
+    else if (ids.length) pairs.push([ids[0]]); // one player: their number alone is the product
+  }
+  return pairs;
+}
+
+/* every A×B way to hit n within the 0-99 pick range, for the reveal's
+ * "look how few combinations exist" line */
+function factorPairsText(n) {
+  const out = [];
+  for (let a = 1; a * a <= n; a++) {
+    if (n % a === 0 && n / a <= 99) out.push(a + "×" + (n / a));
+  }
+  return out.join(" · ");
+}
+
+/* the bridge factor with a value substituted: root 3, v 3 → "(3−3)" */
+function inqFactorSub(root, v) {
+  if (root === 0) return "(" + ZBLevels.num(v) + ")";
+  return root > 0
+    ? "(" + ZBLevels.num(v) + "−" + root + ")"
+    : "(" + ZBLevels.num(v) + "+" + Math.abs(root) + ")";
+}
+
+/* (x−3)(x+2)=0 expanded to the exam's face: x² − x − 6 = 0 */
+function inqExpandedText(r1, r2) {
+  const b = -(r1 + r2), c = r1 * r2;
+  let s = "x²";
+  if (b) s += (b > 0 ? " + " : " − ") + (Math.abs(b) === 1 ? "" : Math.abs(b)) + "x";
+  if (c) s += (c > 0 ? " + " : " − ") + Math.abs(c);
+  return s + " = 0";
+}
+
+function inqStageName(stage) {
+  return t("inq_stage" + stage);
+}
+
+/* the phone-facing inq block. NO pairing data - only the round frame. */
+function inqStatePayload() {
+  const inq = G.inq;
+  return {
+    stage: inq.stage, round: inq.round, roundsTotal: inqRoundsTotal(inq.stage),
+    seq: inq.seq, step: inq.step, locked: inq.stage === 2,
+    heartsMax: CFG.inqHearts, // phones carry no host URL params
+    n: inq.stage === 3 ? null : (typeof inq.n === "number" ? inq.n : null),
+    exprA: inq.stage === 3 ? inq.exprA : null,
+    exprB: inq.stage === 3 ? inq.exprB : null,
+    theorem: inq.theorem || null,
+  };
+}
+
+function startInquiry() {
+  ZBFX.audio.unlock();
+  G.mode = "host";
+  G.started = true;
+  GameBridge.emit(SLUG, "start", { mode: "inquiry", players: Object.keys(G.players).length });
+  G.inq = {
+    stage: 1, round: 0, step: "intro", seq: 0, n: null,
+    roots: null, exprA: null, exprB: null, cards: null,
+    pairs: [], hearts: {}, collect: {}, open: false,
+    lastReveal: null, theorem: false,
+  };
+  Object.keys(G.players).forEach(pid => { G.inq.hearts[pid] = CFG.inqHearts; });
+  G.room.update("state", {
+    phase: "inquiry",
+    level: null, reveal: null, claims: null, results: null,
+    deadlineEpoch: null, graceUntil: null, pauseRemainMs: null,
+    inq: inqStatePayload(), inqHearts: G.inq.hearts, inqReveal: null, inqCards: null,
+  });
+  ZBFX.bgm.setIntensity("idle");
+  show("inquiryScreen");
+  renderInqStage();
+  renderInqBar();
+  saveHostRun();
+}
+
+function inqEnterStage(stage) {
+  const inq = G.inq;
+  inq.stage = stage;
+  inq.round = 0;
+  inq.seq = 1000 + stage * 100;
+  inq.step = "intro";
+  inq.open = false;
+  inq.lastReveal = null;
+  if (stage === 2) {
+    // Steve's spec: fresh 5 hearts per stage (the bridge keeps stage
+    // 2's - low stakes, continuity)
+    Object.keys(inq.hearts).forEach(pid => { inq.hearts[pid] = CFG.inqHearts; });
+  }
+  G.room.update("state", {
+    inq: inqStatePayload(), inqReveal: null, inqCards: null,
+    inqHearts: inq.hearts, deadlineEpoch: null,
+  });
+  renderInqStage();
+  renderInqBar();
+  if (stage === 2) { ZBFX.audio.stamp(); ZBFX.vibrate(60); } // the lock lands
+  saveHostRun();
+}
+
+function inqStartRound() {
+  const inq = G.inq;
+  inq.round += 1;
+  inq.seq = 1000 + inq.stage * 100 + inq.round;
+  inq.step = "round";
+  inq.collect = {};
+  inq.theorem = inq.theorem || false;
+  // everyone present is paired and carries lives (late joiners enter here)
+  Object.keys(G.players).forEach(pid => {
+    if (typeof inq.hearts[pid] !== "number") inq.hearts[pid] = CFG.inqHearts;
+  });
+  inq.pairs = inqMakePairs();
+  if (inq.stage === 3) {
+    inq.roots = INQ_BRIDGE[(inq.round - 1) % INQ_BRIDGE.length];
+    inq.exprA = ZBLevels.factorText(inq.roots[0]);
+    inq.exprB = ZBLevels.factorText(inq.roots[1]);
+    inq.cards = {};
+    inq.pairs.forEach(pair => pair.forEach((pid, k) => { inq.cards[pid] = k % 2; }));
+  } else {
+    inq.n = inq.stage === 2 ? 0 : INQ_POOL[(inq.round - 1) % INQ_POOL.length];
+  }
+  inq.open = true;
+  G.inqDeadline = performance.now() + CFG.inqFuse;
+  G.room.update("state", {
+    inq: inqStatePayload(),
+    inqReveal: null,
+    inqHearts: inq.hearts,
+    inqCards: inq.stage === 3 ? inq.cards : null,
+    deadlineEpoch: GameBridge.serverNow() + CFG.inqFuse,
+  });
+  ZBFX.bgm.setIntensity("base");
+  renderInqStage();
+  renderInqBar();
+  renderInqCount();
+  G.lastInqTickSec = null;
+  G.lastInqGraceSec = null;
+  cancelAnimationFrame(G.inqRaf);
+  G.inqRaf = requestAnimationFrame(inqFrame);
+  saveHostRun();
+}
+
+function inqFrame() {
+  const inq = G.inq;
+  if (!inq || !inq.open) return;
+  const remain = Math.max(0, G.inqDeadline - performance.now());
+  $("inqTimerText").textContent = (remain / 1000).toFixed(1);
+  const warn = remain <= 5200;
+  $("inqTimer").classList.toggle("warn", warn);
+  if (warn) {
+    const sec = Math.ceil(remain / 1000);
+    if (sec !== G.lastInqTickSec) { G.lastInqTickSec = sec; ZBFX.audio.tick(remain <= 3050); }
+  }
+  // the 3·2·1 stamped over the sheet, same grammar as the grace count
+  const gs = Math.ceil(remain / 1000);
+  if (remain <= 3050 && remain > 0 && gs !== G.lastInqGraceSec && gs >= 1 && gs <= 3) {
+    G.lastInqGraceSec = gs;
+    const numEl = document.createElement("div");
+    numEl.className = "zb-gracenum";
+    numEl.textContent = gs;
+    $("inqSheet").appendChild(numEl);
+    setTimeout(() => numEl.remove(), 950);
+  }
+  if (remain <= 0) { inqResolve(); return; }
+  G.inqRaf = requestAnimationFrame(inqFrame);
+}
+
+/* the drain loop hands inquiry subs here: latest value per player wins
+ * (a changed mind before the deadline is the point, not a duplicate) */
+function inqCollect(pid, sub) {
+  const inq = G.inq;
+  if (!inq || !inq.open || !G.players[pid]) return;
+  inq.collect[pid] = sub.v;
+  renderInqCount();
+}
+
+function renderInqCount() {
+  const inq = G.inq;
+  if (!inq || inq.step !== "round") { $("inqCount").textContent = ""; return; }
+  $("inqCount").textContent = fmt("inq_submitted_fmt", {
+    k: Object.keys(inq.collect).length,
+    m: Object.keys(G.players).length,
+  });
+}
+
+function inqResolve() {
+  const inq = G.inq;
+  if (!inq || !inq.open) return;
+  inq.open = false;
+  inq.step = "reveal";
+  cancelAnimationFrame(G.inqRaf);
+  $("inqTimer").classList.remove("warn");
+  $("inqTimerText").textContent = "0.0";
+  const KEYS = ["a", "b", "c"];
+  const rows = {};
+  let anyBoom = false;
+  inq.pairs.forEach((pair, i) => {
+    const vals = pair.map(pid => (typeof inq.collect[pid] === "number" ? inq.collect[pid] : null));
+    const all = vals.every(v => v !== null);
+    let ok = false, boom = false;
+    if (inq.stage === 3) {
+      // pass when at least one partner zeroes their OWN factor - the
+      // 「或」 of the zero-product property, embodied
+      ok = all && pair.some((pid, k) => vals[k] === inq.roots[inq.cards[pid]]);
+    } else {
+      const prod = all ? vals.reduce((a, b) => a * b, 1) : null;
+      ok = all && prod === inq.n;
+      // 探究二's trap: every member playing 0 is the lazy shortcut -
+      // the big blast (never for a lone player, whose only pass IS 0)
+      boom = inq.stage === 2 && all && pair.length >= 2 && vals.every(v => v === 0);
+      if (boom) ok = false;
+    }
+    const loss = ok ? 0 : (boom ? 2 : 1);
+    pair.forEach(pid => {
+      inq.hearts[pid] = Math.max(0, (typeof inq.hearts[pid] === "number" ? inq.hearts[pid] : CFG.inqHearts) - loss);
+    });
+    if (boom) anyBoom = true;
+    const row = { ok: ok, boom: boom };
+    pair.forEach((pid, k) => {
+      row[KEYS[k] + "Id"] = pid;
+      row[KEYS[k] + "N"] = (G.players[pid] || {}).name || t("player");
+      if (vals[k] !== null) row[KEYS[k] + "V"] = vals[k];
+      if (inq.stage === 3) row[KEYS[k] + "C"] = inq.cards[pid];
+    });
+    rows[i] = row;
+  });
+  const reveal = { seq: inq.seq, stage: inq.stage, round: inq.round, pairs: rows };
+  if (inq.stage === 3) {
+    reveal.rootA = inq.roots[0];
+    reveal.rootB = inq.roots[1];
+    reveal.expr = inq.exprA + inq.exprB + " = 0";
+    reveal.expanded = inqExpandedText(inq.roots[0], inq.roots[1]);
+  } else {
+    reveal.n = inq.n;
+    if (inq.stage === 1) reveal.factors = factorPairsText(inq.n);
+  }
+  inq.lastReveal = reveal;
+  G.room.update("state", {
+    inq: inqStatePayload(),
+    inqReveal: reveal,
+    inqHearts: inq.hearts,
+    deadlineEpoch: null,
+  });
+  ZBFX.bgm.setIntensity("idle");
+  renderInqStage();
+  renderInqBar();
+  renderInqCount();
+  if (anyBoom) inqBoomFx();
+  else ZBFX.audio.stampSoft();
+  saveHostRun();
+}
+
+function inqSummary() {
+  const inq = G.inq;
+  inq.step = "summary";
+  G.room.update("state", { inq: inqStatePayload(), inqReveal: null, deadlineEpoch: null });
+  ZBFX.bgm.setIntensity("lobby");
+  renderInqStage();
+  renderInqBar();
+  saveHostRun();
+}
+
+function inqAdvance() {
+  const inq = G.inq;
+  if (!inq) return;
+  ZBFX.audio.unlock();
+  if (inq.step === "round") { inqResolve(); return; }
+  if (inq.step === "intro") { inqStartRound(); return; }
+  if (inq.step === "reveal") {
+    if (inq.round < inqRoundsTotal(inq.stage)) inqStartRound();
+    else inqSummary();
+    return;
+  }
+  // summary → next stage, or hand over to the main game
+  if (inq.stage === 1) inqEnterStage(2);
+  else if (inq.stage === 2) inqEnterStage(3);
+  else inqFinish();
+}
+
+/* the arc ends (or the tutor bails): the main game takes the room.
+ * startRun clears the inq* state keys so phones drop the warm-up face. */
+function inqFinish() {
+  if (!G.inq) return;
+  G.inq = null;
+  cancelAnimationFrame(G.inqRaf);
+  clearInterval(G.inqSlotIv);
+  startRun("host");
+}
+
+function inqTheoremShow() {
+  const inq = G.inq;
+  if (!inq || inq.theorem) return;
+  inq.theorem = true;
+  G.room.update("state/inq", { theorem: true }); // lands on every phone too
+  $("inqTheorem").style.display = "";
+  $("btnInqTheorem").style.display = "none";
+  ZBFX.audio.chime();
+  saveHostRun();
+}
+
+/* the 0×0 spectacle: paper flash, ink shockwave, the slammed stamp -
+ * the demolition grammar without the demolition scene */
+function inqBoomFx() {
+  const sheet = $("inqSheet");
+  const old = sheet.querySelector(".zb-inqboomfx");
+  if (old) old.remove();
+  const fx = document.createElement("div");
+  fx.className = "zb-inqboomfx";
+  fx.innerHTML = '<div class="zb-inqboomfx__ring"></div><div class="zb-chai">' + t("inq_boom") + "</div>";
+  sheet.appendChild(fx);
+  sheet.classList.remove("zb-inqshake");
+  void sheet.offsetWidth;
+  sheet.classList.add("zb-inqshake");
+  ZBFX.audio.collapse();
+  ZBFX.bgm.duck(150);
+  ZBFX.vibrate([60, 40, 160]);
+  setTimeout(() => { fx.remove(); sheet.classList.remove("zb-inqshake"); }, 1400);
+}
+
+/* slot-machine draw for the target: presented as chance, scripted in
+ * INQ_POOL. N = 0 (探究二) skips the roll and lands as a stamp. */
+function inqSlotTo(n) {
+  const el = $("inqN");
+  clearInterval(G.inqSlotIv);
+  el.classList.toggle("zb-inqn--zero", n === 0);
+  if (ZBFX.reduced || n === 0) { el.textContent = String(n); return; }
+  let ticks = 0;
+  G.inqSlotIv = setInterval(() => {
+    ticks += 1;
+    if (ticks >= 11) {
+      clearInterval(G.inqSlotIv);
+      el.textContent = String(n);
+      el.classList.add("zb-inqn--land");
+      setTimeout(() => el.classList.remove("zb-inqn--land"), 420);
+      ZBFX.audio.stampSoft();
+    } else {
+      el.textContent = String(Math.floor(Math.random() * 100));
+    }
+  }, 65);
+}
+
+function inqLivesHtml(h, max) {
+  const m = max || CFG.inqHearts;
+  let dots = "";
+  for (let i = 0; i < m; i++) {
+    dots += `<span class="mc-tries__dot${i >= h ? " used" : ""}"><svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="10"/><g class="cross"><line x1="7" y1="7" x2="19" y2="19"/><line x1="19" y1="7" x2="7" y2="19"/></g></svg></span>`;
+  }
+  return `<span class="mc-tries zb-inqtries" aria-label="${t("inq_lives_label")} ${h}/${m}">${dots}</span>`;
+}
+
+function renderInqRoster() {
+  const inq = G.inq;
+  if (!inq) return;
+  const ids = Object.keys(G.players);
+  ids.sort((a, b) => (inq.hearts[b] || 0) - (inq.hearts[a] || 0));
+  $("inqRoster").innerHTML = ids.map(id => {
+    const h = typeof inq.hearts[id] === "number" ? inq.hearts[id] : CFG.inqHearts;
+    return `<span class="zb-inqroster__chip${h <= 0 ? " out" : ""}">${escapeText((G.players[id] || {}).name || t("player"))} ${inqLivesHtml(h)}</span>`;
+  }).join("");
+}
+
+/* one reveal row: names + played values (zeros ringed in 探究二, factor
+ * substitutions on the bridge) + the product + the verdict mark */
+function inqRowHtml(row, rv) {
+  const KEYS = ["a", "b", "c"];
+  const members = KEYS.filter(k => row[k + "Id"]);
+  const factorVals = [];
+  const parts = members.map(k => {
+    const name = escapeText(row[k + "N"] || t("player"));
+    const v = typeof row[k + "V"] === "number" ? row[k + "V"] : null;
+    let valHtml;
+    if (v === null) {
+      valHtml = `<span class="zb-inqval miss">${t("inq_no_sub")}</span>`;
+      factorVals.push(null);
+    } else if (rv.stage === 3) {
+      const root = row[k + "C"] === 1 ? rv.rootB : rv.rootA;
+      const fv = v - root;
+      factorVals.push(fv);
+      valHtml = `<span class="zb-inqval${fv === 0 ? " zero" : ""}">${escapeText(inqFactorSub(root, v))}</span>`;
+    } else {
+      factorVals.push(v);
+      valHtml = `<span class="zb-inqval${rv.stage === 2 && v === 0 ? " zero" : ""}">${ZBLevels.num(v)}</span>`;
+    }
+    return `<span class="zb-inqrow__who">${name}</span> ${valHtml}`;
+  });
+  const all = factorVals.every(v => v !== null);
+  const prod = all ? factorVals.reduce((a, b) => a * b, 1) : null;
+  const prodHtml = ` <span class="zb-inqrow__x">=</span> <span class="zb-inqval">${all ? ZBLevels.num(prod) : "?"}</span>`;
+  let mark;
+  if (row.boom) {
+    mark = `<span class="zb-inqrow__mark">${t("inq_boom")}</span><span class="zb-inqrow__loss">−2</span>`;
+  } else if (row.ok) {
+    mark = `<span class="zb-inqrow__mark"><svg viewBox="0 0 24 24"><path d="M4 13l5.5 5.5L20 6.5"/></svg>${t("inq_pass")}</span>`;
+  } else {
+    mark = `<span class="zb-inqrow__mark"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>${t("inq_fail")}</span><span class="zb-inqrow__loss">−1</span>`;
+  }
+  const cls = row.boom ? "boom" : row.ok ? "pass" : "fail";
+  return `<div class="zb-inqrow ${cls}">${parts.join(' <span class="zb-inqrow__x">×</span> ')}${prodHtml}${mark}</div>`;
+}
+
+function renderInqReveal(rv) {
+  const box = $("inqRevealBox");
+  const rows = Object.keys(rv.pairs || {}).map(i => inqRowHtml(rv.pairs[i], rv)).join("");
+  let extras = "";
+  if (rv.stage === 1 && rv.factors) {
+    extras = `<div class="zb-inqfactors">${fmt("inq_factors_fmt", { n: rv.n })} ${escapeText(rv.factors)}</div>`;
+  } else if (rv.stage === 2) {
+    extras = `<div class="zb-inqzero-note">${t("inq_zero_note")}</div>`;
+  } else if (rv.stage === 3 && rv.expanded) {
+    extras = `<div class="zb-inqexpand">${t("inq_expand_fmt")} <strong>${mathHtml(escapeText(rv.expanded))}</strong></div>`;
+  }
+  box.innerHTML = rows + extras;
+  box.style.display = "";
+}
+
+/* the sheet's face for the current step (intro / round / reveal / summary) */
+function renderInqStage() {
+  const inq = G.inq;
+  if (!inq) return;
+  const total = inqRoundsTotal(inq.stage);
+  $("inqChip").innerHTML = `<strong>${t("inq_title")}</strong> · ${inqStageName(inq.stage)}`
+    + (inq.round > 0 ? " · " + fmt("inq_round_fmt", { r: inq.round, n: total }) : "");
+  const title = $("inqTitle"), rule = $("inqRule"), wrap = $("inqTargetWrap");
+  $("inqRevealBox").style.display = "none";
+  // the takeaway belongs to 探究二's summary alone (the flag persists)
+  $("inqTheorem").style.display = inq.theorem && inq.stage === 2 && inq.step === "summary" ? "" : "none";
+  $("inqTheoremOr").textContent = t("or");
+  $("inqLockBadge").style.display = inq.stage === 2 ? "" : "none";
+  $("inqExpr").style.display = "none";
+  $("inqN").style.display = "";
+  $("inqTargetLabel").textContent = t("inq_target_label");
+  if (inq.step === "intro") {
+    title.style.display = "";
+    title.textContent = inqStageName(inq.stage) + " · " + t("inq_title");
+    rule.style.display = "";
+    // data-i18n so the phrase-wrap "|" markers become unbreakable spans
+    rule.setAttribute("data-i18n", "inq_rule" + inq.stage);
+    GameBridge.applyI18n($("inqSheet"));
+    // 探究二's intro IS the lock moment: the 0 lands stamped
+    wrap.style.display = inq.stage === 2 ? "" : "none";
+    if (inq.stage === 2) inqSlotTo(0);
+  } else if (inq.step === "round") {
+    title.style.display = "none";
+    rule.style.display = "none";
+    wrap.style.display = "";
+    if (inq.stage === 3) {
+      $("inqN").style.display = "none";
+      $("inqTargetLabel").textContent = "";
+      const ex = $("inqExpr");
+      ex.style.display = "";
+      ex.innerHTML = mathHtml(escapeText(inq.exprA + inq.exprB)) + ' = <span class="zb-zero">0</span>';
+    } else {
+      inqSlotTo(inq.n);
+    }
+  } else if (inq.step === "reveal") {
+    title.style.display = "none";
+    rule.style.display = "none";
+    wrap.style.display = inq.stage === 3 ? "none" : "";
+    if (inq.stage !== 3) { clearInterval(G.inqSlotIv); $("inqN").textContent = String(inq.n); $("inqN").classList.toggle("zb-inqn--zero", inq.n === 0); }
+    if (inq.lastReveal) renderInqReveal(inq.lastReveal);
+  } else { // summary
+    title.style.display = "";
+    title.textContent = inqStageName(inq.stage) + " · " + t("inq_stage_summary");
+    rule.style.display = "";
+    rule.removeAttribute("data-i18n"); // survivors line is composed, not keyed
+    const alive = Object.keys(G.players)
+      .filter(id => (G.inq.hearts[id] || 0) > 0)
+      .map(id => (G.players[id] || {}).name || t("player"));
+    rule.textContent = t("inq_survivors") + "：" + (alive.length ? alive.join("、") : "–");
+    wrap.style.display = "none";
+  }
+  if (inq.step !== "round") { $("inqTimerText").textContent = "--.-"; $("inqTimer").classList.remove("warn"); }
+  renderInqRoster();
+  renderInqCount();
+}
+
+function renderInqBar() {
+  const inq = G.inq;
+  if (!inq) return;
+  const btn = $("btnInqPrimary");
+  let key;
+  if (inq.step === "intro") key = "inq_start_round";
+  else if (inq.step === "round") key = "inq_end_round";
+  else if (inq.step === "reveal") key = inq.round < inqRoundsTotal(inq.stage) ? "inq_next_round" : "inq_stage_summary";
+  else key = inq.stage === 1 ? "inq_to_stage2" : inq.stage === 2 ? "inq_to_stage3" : "inq_to_main";
+  btn.setAttribute("data-i18n", key);
+  btn.textContent = t(key);
+  $("btnInqTheorem").style.display = inq.step === "summary" && inq.stage === 2 && !inq.theorem ? "" : "none";
+}
+
+/* mid-inquiry host recovery: the F5'd tab reclaims the room and picks
+ * the arc back up. A round in flight restarts fresh (new pairing, full
+ * window) - fifteen seconds is not worth resuming mid-burn. */
+function resumeInquiry(saved) {
+  const si = saved.inq;
+  G.mode = "host";
+  G.started = true;
+  G.ended = false;
+  G.players = saved.players || {};
+  G.processedSeq = saved.processedSeq || {};
+  G.inq = {
+    stage: si.stage, round: si.round, step: si.step, seq: si.seq || 0,
+    n: typeof si.n === "number" ? si.n : null,
+    roots: si.roots || null, exprA: si.exprA || null, exprB: si.exprB || null,
+    cards: null, pairs: [], hearts: si.hearts || {}, collect: {}, open: false,
+    lastReveal: si.lastReveal || null, theorem: !!si.theorem,
+  };
+  G.room.update("players", G.players);
+  G.watcher = G.room.watch(onHostRoom);
+  GameBridge.emit(SLUG, "start", { mode: "inquiry", resumed: true, players: Object.keys(G.players).length });
+  show("inquiryScreen");
+  if (si.step === "round") {
+    G.inq.round -= 1; // inqStartRound advances and re-publishes whole
+    G.room.update("state", { phase: "inquiry" });
+    inqStartRound();
+    return;
+  }
+  G.room.update("state", {
+    phase: "inquiry",
+    level: null, reveal: null, claims: null, deadlineEpoch: null, graceUntil: null,
+    inq: inqStatePayload(),
+    inqHearts: G.inq.hearts,
+    inqReveal: si.step === "reveal" ? G.inq.lastReveal : null,
+    inqCards: null,
+  });
+  renderInqStage();
+  renderInqBar();
+  saveHostRun();
+}
+
+$("btnStartInquiry").onclick = startInquiry;
+$("btnInqPrimary").onclick = inqAdvance;
+$("btnInqTheorem").onclick = inqTheoremShow;
+let inqSkipArmed = 0;
+$("btnInqSkip").onclick = () => {
+  const btn = $("btnInqSkip");
+  if (!inqSkipArmed || performance.now() - inqSkipArmed > 2500) {
+    inqSkipArmed = performance.now();
+    btn.classList.add("confirm");
+    btn.textContent = t("tutor_confirm");
+    setTimeout(() => {
+      if (inqSkipArmed && performance.now() - inqSkipArmed >= 2400) {
+        inqSkipArmed = 0;
+        btn.classList.remove("confirm");
+        btn.textContent = t("inq_skip");
+      }
+    }, 2600);
+    return;
+  }
+  inqSkipArmed = 0;
+  btn.classList.remove("confirm");
+  btn.textContent = t("inq_skip");
+  inqFinish();
+};
+document.addEventListener("keydown", e => {
+  if (!G.inq || !$("inquiryScreen").classList.contains("active")) return;
+  if (e.key === "n") inqAdvance();
+});
+
+/* ══════════════════════════════════════════════════════════════════
  * multi-device: controller (student phone)
  * ══════════════════════════════════════════════════════════════════ */
 
@@ -4280,6 +5150,9 @@ const C = {
   staged: false, // mirrors the projector: board + pad open at fuse ignite
   lastGraceSec: null, // grace 3-2-1 mirrored big on the phone
   inFlight: false, judgeTimer: null, // one submission at a time, visibly
+  // 探究模式: the warm-up face (two-digit pad, pair results)
+  inq: null, inqFaceKey: null, inqOpen: false, inqPad: null,
+  lastInqRevealSeq: 0, lastInqSec: null, myHearts: null, inqTheoremShown: false,
 };
 
 /* the claimer's phone: the kill is YOURS — a full-card 歸零 takeover
@@ -4372,6 +5245,11 @@ async function initController() {
 
   $("ctrlPad").innerHTML = padKeysHtml();
   C.pad = makePad($("ctrlPad"), $("ctrlPreview"), $("ctrlLock"), $("ctrlLockCount"), v => ctrlSubmit(v));
+  // the 探究 pad takes two-digit answers (0-99) and a bare-number preview
+  $("ctrlInqPad").innerHTML = padKeysHtml();
+  C.inqPad = makePad($("ctrlInqPad"), $("ctrlInqPreview"), $("ctrlInqLock"), $("ctrlInqLockCount"),
+    v => ctrlInqSubmit(v), { digits: 2, prefix: "" });
+  C.inqPad.disable();
 
   /* identity lives in BOTH storages: sessionStorage wins inside a tab
    * (a plain reload), and the localStorage copy brings the same player
@@ -4418,6 +5296,10 @@ async function enterPlay() {
   ctrlStatus(t("ctrl_wait_start"));
   C.staged = false; // ctrlTick re-opens the pad if a round is mid-flight
   C.pad.disable();
+  // a rejoin mid-探究 must re-render the warm-up face from scratch
+  C.inqFaceKey = null;
+  C.inqOpen = false;
+  C.inqPad.disable();
   // uid lets the rules pin this entry (and subs/<id>) to this device;
   // null only under the test mock, which never sees real rules
   await C.room.set("players/" + C.id, {
@@ -4463,7 +5345,222 @@ function ctrlSubmit(v) {
     });
 }
 
+/* ── 探究模式 on the phone ── */
+
+/* which face the controller wears: the warm-up (inquiry) or the game */
+function ctrlFace(inquiry) {
+  if (!C.id) return; // the join form is up
+  $("ctrlInq").style.display = inquiry ? "" : "none";
+  $("ctrlPlay").style.display = inquiry ? "none" : "";
+}
+
+/* shape-check the published inq block before it touches the DOM,
+ * mirroring sanitizeLevel's paranoia (rules scope writes to the host,
+ * but never trust wire shapes raw) */
+function sanitizeInq(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const num = v => (typeof v === "number" && isFinite(v) ? v : null);
+  const inq = {
+    stage: num(raw.stage),
+    round: num(raw.round) || 0,
+    roundsTotal: num(raw.roundsTotal) || 0,
+    seq: num(raw.seq) || 0,
+    step: ["intro", "round", "reveal", "summary"].indexOf(raw.step) !== -1 ? raw.step : "intro",
+    locked: !!raw.locked,
+    heartsMax: num(raw.heartsMax) || 5,
+    n: num(raw.n),
+    exprA: raw.exprA ? String(raw.exprA).slice(0, 40) : null,
+    exprB: raw.exprB ? String(raw.exprB).slice(0, 40) : null,
+    theorem: !!raw.theorem,
+  };
+  if (inq.stage == null || inq.stage < 1 || inq.stage > 3) return null;
+  return inq;
+}
+
+function renderCtrlInqLives(hearts) {
+  const inq = C.inq;
+  if (!inq) return;
+  const h = hearts && typeof hearts[C.id] === "number" ? hearts[C.id] : inq.heartsMax;
+  C.myHearts = h;
+  $("ctrlInqLives").innerHTML = inqLivesHtml(h, inq.heartsMax);
+}
+
+/* the round face: target (or factor card) + pad, reset per round/step */
+function renderCtrlInqFace(inq, st) {
+  const total = inq.roundsTotal || 1;
+  $("ctrlInqChip").innerHTML = `<strong>${inqStageName(inq.stage)}</strong>`
+    + (inq.round > 0 ? " · " + fmt("inq_round_fmt", { r: inq.round, n: total }) : "");
+  const target = $("ctrlInqTarget");
+  $("ctrlInqPadWrap").classList.toggle("zb-inqpad--nosign", inq.stage !== 3);
+  C.inqPad.setPrefix(inq.stage === 3 ? '<i class="zb-var">x</i>&nbsp;=&nbsp;' : "");
+  C.lastInqSec = null;
+  if (inq.step === "round") {
+    C.inqOpen = true;
+    $("ctrlInqMark").innerHTML = "";
+    if (inq.stage === 3) {
+      const mine = (st.inqCards || {})[C.id];
+      const card = mine === 1 ? inq.exprB : inq.exprA;
+      target.innerHTML = `<span class="zb-inqcardtag">${t("inq_your_factor")}</span>`
+        + (card ? mathHtml(escapeText(card)) + ' = <span class="zb-zero">0</span>' : "");
+      ctrlStatus(t("inq_factor_goal"));
+    } else {
+      target.innerHTML = `<span class="zb-inqbign${inq.n === 0 ? " zero" : ""}">${typeof inq.n === "number" ? inq.n : "?"}</span>`;
+      ctrlStatus(t("inq_pick_hint"));
+    }
+    $("ctrlInqPadWrap").style.display = "";
+    C.inqPad.enable();
+  } else {
+    C.inqOpen = false;
+    C.inqPad.disable();
+    $("ctrlInqPadWrap").style.display = "none";
+    if (inq.step === "intro") {
+      $("ctrlInqMark").innerHTML = markHtml("info", [escapeText(t("inq_rule" + inq.stage))]);
+      // 探究二's intro is the lock moment on the phone too
+      target.innerHTML = inq.stage === 2
+        ? '<span class="zb-inqbign zero">0</span>'
+        : `<span class="zb-inqcardtag">${t("inq_title")}</span>${inqStageName(inq.stage)}`;
+      ctrlStatus(t("inq_wait_round"));
+    } else if (inq.step === "summary") {
+      target.innerHTML = `<span class="zb-inqcardtag">${inqStageName(inq.stage)}</span>${t("inq_stage_summary")}`;
+      if (!inq.theorem) $("ctrlInqMark").innerHTML = "";
+      ctrlStatus(t("inq_wait_round"));
+    }
+    // reveal: the face stays; renderCtrlInqResult paints the outcome
+  }
+}
+
+/* the tutor pressed 顯示歸納: the takeaway lands on every phone */
+function renderCtrlInqTheorem() {
+  $("ctrlInqMark").innerHTML =
+    `<div class="zb-inqtheorem"><div class="zb-inqtheorem__tag">${t("inq_theorem_tag")}</div>`
+    + `<div class="zb-inqtheorem__formula">A × B = <span class="zb-zero">0</span> ⟹ `
+    + `A = <span class="zb-zero">0</span> ${t("or")} B = <span class="zb-zero">0</span></div></div>`;
+  ZBFX.audio.chime();
+  ZBFX.vibrate(40);
+}
+
+function ctrlInqBoom() {
+  const old = document.querySelector(".zb-inqboomphone");
+  if (old) old.remove();
+  const el = document.createElement("div");
+  el.className = "zb-inqboomphone";
+  el.innerHTML = `<div class="zb-chai">${t("inq_boom")}</div>`;
+  document.body.appendChild(el);
+  ZBFX.audio.collapse();
+  ZBFX.vibrate([80, 50, 200]);
+  setTimeout(() => el.remove(), 1500);
+}
+
+/* my pair's outcome, found by pid in the reveal rows */
+function renderCtrlInqResult(rv, hearts) {
+  C.inqOpen = false;
+  C.inqPad.disable();
+  const KEYS = ["a", "b", "c"];
+  let row = null, myK = null;
+  Object.keys(rv.pairs || {}).forEach(i => {
+    const r = rv.pairs[i];
+    if (!r || typeof r !== "object") return;
+    KEYS.forEach(k => { if (r[k + "Id"] === C.id) { row = r; myK = k; } });
+  });
+  if (!row) { ctrlStatus(t("inq_join_next")); return; }
+  const lines = [];
+  const vals = [];
+  KEYS.filter(k => row[k + "Id"]).forEach(k => {
+    const v = typeof row[k + "V"] === "number" && isFinite(row[k + "V"]) ? row[k + "V"] : null;
+    const name = escapeText(String(row[k + "N"] || t("player")).slice(0, 24));
+    const isMe = k === myK;
+    if (rv.stage === 3) {
+      const root = row[k + "C"] === 1 ? rv.rootB : rv.rootA;
+      if (v === null) lines.push(isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name }));
+      else if (typeof root === "number") {
+        const sub = inqFactorSub(root, v) + " = " + ZBLevels.num(v - root);
+        const head = isMe ? fmt("inq_you_fmt", { v: "x = " + ZBLevels.num(v) })
+                          : fmt("inq_partner_fmt", { name: name, v: "x = " + ZBLevels.num(v) });
+        lines.push(mathHtml(escapeText(head + "，" + sub)));
+        vals.push(v - root);
+      }
+    } else {
+      if (v === null) lines.push(isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name }));
+      else {
+        lines.push(isMe ? fmt("inq_you_fmt", { v: ZBLevels.num(v) })
+                        : fmt("inq_partner_fmt", { name: name, v: ZBLevels.num(v) }));
+        vals.push(v);
+      }
+    }
+  });
+  if (rv.stage !== 3 && vals.length > 1 && typeof rv.n === "number") {
+    lines.push(vals.map(v => ZBLevels.num(v)).join(" × ") + " = " + ZBLevels.num(vals.reduce((a, b) => a * b, 1)));
+  }
+  if (row.boom) {
+    lines.push(t("inq_boom_note")); // the note already counts the lives
+    $("ctrlInqMark").innerHTML = markHtml("wrong", lines, "inq_boom");
+    ctrlInqBoom();
+  } else if (row.ok) {
+    if (rv.stage === 3) lines.push(t("inq_either_note"));
+    $("ctrlInqMark").innerHTML = markHtml("correct", lines, "inq_pass");
+    ZBFX.audio.chime();
+    ZBFX.vibrate(50);
+  } else {
+    lines.push(fmt("inq_lose_fmt", { n: 1 }));
+    $("ctrlInqMark").innerHTML = markHtml("wrong", lines, "inq_fail");
+    ZBFX.audio.knock();
+    ZBFX.vibrate(180);
+  }
+  renderCtrlInqLives(hearts);
+  ctrlStatus(t("inq_wait_round"));
+}
+
+/* submit an inquiry answer: latest value wins, changes allowed until
+ * the deadline (no verdict comes back - the reveal carries the result) */
+function ctrlInqSubmit(v) {
+  if (C.phase !== "inquiry" || !C.inq || !C.inqOpen || C.inFlight) return;
+  const seq = C.seq + 1;
+  const sub = { v: v, seq: seq, lv: C.inq.seq, ts: Date.now() };
+  C.inFlight = true;
+  const send = () => C.room.set("subs/" + C.id, sub);
+  send()
+    .catch(() => new Promise(res => setTimeout(res, 600)).then(send))
+    .then(() => {
+      C.seq = seq;
+      C.inFlight = false;
+      $("ctrlInqMark").innerHTML = markHtml("info", [fmt("inq_sent_fmt", { v: ZBLevels.num(v) })]);
+      if (C.inqOpen) C.inqPad.enable();
+    })
+    .catch(() => {
+      C.inFlight = false;
+      ctrlStatus(t("submit_lost"), "mc-status--danger");
+      if (C.inqOpen) C.inqPad.enable();
+    });
+}
+
 function ctrlTick() {
+  // 探究 rounds: a plain server-anchored countdown; the pad closes at
+  // the deadline and the reveal re-opens the next round
+  if (C.phase === "inquiry") {
+    if (!C.inqOpen || !C.deadlineEpoch) {
+      $("ctrlInqTimerText").textContent = "--.-";
+      $("ctrlInqTimer").classList.remove("warn");
+      return;
+    }
+    const remainI = Math.max(0, C.deadlineEpoch - GameBridge.serverNow());
+    $("ctrlInqTimerText").textContent = (remainI / 1000).toFixed(1);
+    $("ctrlInqTimer").classList.toggle("warn", remainI <= 5200);
+    const gsI = Math.ceil(remainI / 1000);
+    if (remainI <= 3050 && remainI > 0 && gsI !== C.lastInqSec && gsI >= 1 && gsI <= 3) {
+      C.lastInqSec = gsI;
+      const numEl = document.createElement("div");
+      numEl.className = "zb-gracenum";
+      numEl.textContent = gsI;
+      $("ctrlInq").appendChild(numEl);
+      setTimeout(() => numEl.remove(), 950);
+    }
+    if (remainI <= 0) {
+      C.inqOpen = false;
+      C.inqPad.disable();
+      ctrlStatus(t("inq_wait_result"));
+    }
+    return;
+  }
   // paused: hold the fuse where the host froze it (a late joiner paints
   // the published frozen remaining instead of a blank)
   if (C.phase === "paused") {
@@ -4543,6 +5640,7 @@ function onCtrlRoom(room) {
     try { sessionStorage.removeItem("zb-" + C.room.code); } catch (_) {}
     try { localStorage.removeItem("zb-" + C.room.code); } catch (_) {}
     $("ctrlPlay").style.display = "none";
+    $("ctrlInq").style.display = "none";
     $("ctrlJoin").style.display = "";
     $("ctrlName").textContent = "";
     if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
@@ -4570,6 +5668,7 @@ function onCtrlRoom(room) {
     if (phaseChanged) {
       // covers a host restart after the end screen too
       if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
+      ctrlFace(false); // the 探究 arc (if any) is over: back to the game face
       // the end screen killed the tick (ctrlEnd): without restarting
       // it here a 再拆一次 leaves every phone a frozen timer and a
       // dead pad - staging and pad.enable live inside ctrlTick
@@ -4637,8 +5736,42 @@ function onCtrlRoom(room) {
       ctrlStatus(t("ctrl_paused"));
       ctrlTick(); // paint the frozen remaining now, not at the next 100ms beat
     }
+  } else if (st.phase === "inquiry") {
+    // 探究模式: the phone wears its warm-up face. The published inq
+    // block carries the round frame only - pairings stay host-side
+    // until the reveal.
+    const inq = sanitizeInq(st.inq);
+    if (inq && C.id) {
+      ctrlFace(true); // idempotent: covers a rejoin after a mid-arc kick
+      if (phaseChanged) {
+        if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
+        clearInterval(C.timerIv);
+        C.timerIv = setInterval(ctrlTick, 100);
+      }
+      if (C.inq && C.inq.stage !== inq.stage) C.inqTheoremShown = false;
+      C.inq = inq;
+      const faceKey = inq.seq + "|" + inq.step + "|" + inq.stage;
+      if (faceKey !== C.inqFaceKey || phaseChanged) {
+        C.inqFaceKey = faceKey;
+        renderCtrlInqFace(inq, st);
+      }
+      renderCtrlInqLives(st.inqHearts);
+      // the takeaway lands when the tutor presses 顯示歸納
+      if (inq.theorem && inq.stage === 2 && inq.step === "summary" && !C.inqTheoremShown) {
+        C.inqTheoremShown = true;
+        renderCtrlInqTheorem();
+      }
+      const rv = st.inqReveal;
+      if (rv && typeof rv === "object" && rv.seq === inq.seq && C.lastInqRevealSeq !== rv.seq) {
+        C.lastInqRevealSeq = rv.seq;
+        renderCtrlInqResult(rv, st.inqHearts || {});
+      }
+    }
   } else if (st.phase === "lobby") {
-    if (C.id) ctrlStatus(t("ctrl_wait_start")); // a kicked phone keeps its notice
+    if (C.id) {
+      ctrlFace(false); // a reclaimed room drops any 探究 face
+      ctrlStatus(t("ctrl_wait_start")); // a kicked phone keeps its notice
+    }
   } else if (st.phase === "end") {
     if (phaseChanged) ctrlEnd(st.results || []);
   }

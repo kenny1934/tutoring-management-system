@@ -1505,3 +1505,52 @@ slash-sensitive.
 Ops (Kenny, after deploy): same two steps as summer. - Cloud Run
 custom-domain mapping for games.mathconceptsecondary.academy + the
 Cloudflare DNS record it prescribes.
+
+## 18. 探究模式 · 等式開口中 (implemented 2026-07-21, from Steve's SM901 2nd draft)
+
+Steve's lesson plan (SM_901 探究式課堂設計教案, 2nd draft 2026-07-21)
+designs 遊戲探究活動二 "等式開口中(電子版)" as a two-stage warm-up
+BEFORE factorisation is taught - which makes the existing game its
+phase 3. This iteration builds his stages into the same room as an
+optional pre-game arc, so one QR scan carries the class through the
+whole lesson: 探究一 → 探究二 → 概念轉化 → 主遊戲.
+
+Mapping to his plan (page 5-6):
+
+- 探究一 (his 第一階段): each round every player secretly picks an
+  integer 0-99; the host multiplies SECRET random pairs against a
+  target N drawn on a slot machine (pool scripted for difficulty:
+  12, 36, 24, 60, then the prime 37 - the despair round). Fail costs
+  both partners 1 life of 5. Deviation from his fixed two sides:
+  pairs re-draw every round and stay hidden until the reveal, because
+  classmates who know their partner can just talk ("你出4我出9") and
+  the 很難達成默契 discovery dies. Lives are per player.
+- 探究二 (his 第二階段): the advance button IS his 「老師透過按鈕把N
+  恆久設定為0」- the slot lands a stamped red 0 with an N-已鎖定
+  badge. 0×0 triggers his 大爆炸 (-2 lives each, never for a lone
+  player). The reveal grid rings every submitted 0 in red: surviving
+  pairs visibly all contain one. The theorem itself stays the
+  teacher's beat - a 顯示歸納 button discloses 零乘積性質 on the
+  projector and every phone only when pressed (his 白板歸納 moment).
+- 概念轉化 (his step 4, made playable): partner A's phone holds
+  (x−3), partner B's (x+2), target 0; each submits the x that zeroes
+  their OWN factor and the pair passes if EITHER is right - the 「或」
+  embodied. The reveal substitutes both factors and shows his exam
+  face: x² − x − 6 = 0, seaming into the main game's kind 6.
+- Reveal grids are the digital value-add his paper version can't do:
+  探究一 lists N's factor pairs next to what the class actually
+  played; his reference questions read straight off the projector.
+
+Build notes: multiplayer-only, entered from a second lobby button
+(先玩探究 · 等式開口中) so plain game starts are untouched; host can
+跳過探究 to the main game at any point (two-tap confirm). All state
+rides the existing contract - subs stay `{v,seq,lv,ts}` with lv bound
+to a 1000+stage*100+round seq, new keys live under `state/inq*`
+inside the deployed RTDB shape clamp (deepest leaf inqReveal/pairs/i/
+field = depth 4), pairings never publish before the reveal, and
+`makePad` grew opts {digits, prefix} for two-digit entry (taps append;
+same-digit shortcut only in single-digit mode). Lives render as
+marking circles (§3 house idiom), never hearts. Host F5 mid-arc
+resumes via the run snapshot (an open round restarts fresh). Config:
+`?inqrounds` / `?inqfuse` / `?inqhearts` (game.json 0.10.0). Covered
+by the multi suite's final section (42 checks, 185 total).
