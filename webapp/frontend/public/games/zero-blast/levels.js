@@ -443,6 +443,8 @@
     factorisation: factorisation,
     num: num,
     factorText: factorText,
+    factorSub: factorSub,
+    quadText: quadText,
   };
 
   if (typeof window !== "undefined") window.ZBLevels = api;

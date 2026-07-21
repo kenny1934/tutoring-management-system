@@ -21,7 +21,10 @@
     "grace": "seconds of all-pillars-down countdown before the collapse in multi (default 6, 0 = off)",
     "diff": "easy | std | hard (easy: 1 round per stage, longer fuses; hard: adds a 3-building mixed street)",
     "seed": "integer for a reproducible run",
-    "lang": "c | e"
+    "lang": "c | e",
+    "inqrounds": "探究模式: rounds per inquiry stage (default 5)",
+    "inqfuse": "探究模式: seconds per answer window (default 15)",
+    "inqhearts": "探究模式: lives per player per stage (default 5)"
   },
-  "version": "0.9.0"
+  "version": "0.11.0"
 }

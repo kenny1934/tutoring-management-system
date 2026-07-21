@@ -5,9 +5,9 @@ they need a static server and take ~1–2 min each):
 
 | suite | checks | covers |
 |---|---|---|
-| `zb-solo-test.js` | 143 | solo run end-to-end: plan/points maths (incl. 1.5x double hit), root-rank pillar order, staging, collapse beats, camera, opt-in kind-6 hint + half-fuse nudge, report |
-| `zb-multi-test.js` | 124 | host + 2 phones over a mocked GameBridge: lobby, kick (lobby + mid-game), claims, echo, grace, resume, tutor bar, restart revival, re-scan identity, name dedupe, sent·marking beat |
-| `zb-audit-test.js` | 71 | EN/dark bilingual pass, small viewports, reduced motion, fx gates, sound sampler + offer, camera letterbox |
+| `zb-solo-test.js` | 149 | solo run end-to-end: plan/points maths (incl. 1.5x double hit), root-rank pillar order, staging, collapse beats, camera, opt-in kind-6 hint + half-fuse nudge, report |
+| `zb-multi-test.js` | 206 | host + 2 phones over a mocked GameBridge: lobby, kick (lobby + mid-game), claims, echo, grace, resume, tutor bar, restart revival, re-scan identity, name dedupe, sent·marking beat; then 探究模式 (等式開口中): the three-stage inquiry arc, secret pairing, the 0×0 boom, the bridge's one-equation-one-x judging (hint factors, the 或-note, the repeated-root round (x−3)² with its exception note), the rotating bye on odd headcounts, tutor controls (加多一回合, stage jump), host F5 recovery mid-arc, handover to the main game |
+| `zb-audit-test.js` | 74 | EN/dark bilingual pass, small viewports, reduced motion, fx gates, sound sampler + offer, camera letterbox |
 
 ## Running
 
@@ -38,7 +38,9 @@ NODE_PATH=webapp/frontend/node_modules node webapp/frontend/tests/games/zero-bla
   from the test process loses the race.
 - **Score odometers** tween ~900ms — settle before reading totals.
 - **Warn/grace windows** are forced with `G.deadline = performance.now() + 5000`
-  rather than waited for.
+  rather than waited for. 探究 rounds force `G.inqDeadline` the same way; the
+  two-digit inquiry pad has **no** same-digit shortcut (taps append), so
+  `inqSubmit` taps the digits once and waits for the sub write instead.
 - The multi suite replaces `GameBridge.host/join` with a localStorage +
   BroadcastChannel mock that mirrors RTDB semantics; snapshots are captured at
   write time and delivered on a FIFO `setTimeout(0)` queue so nested writes never

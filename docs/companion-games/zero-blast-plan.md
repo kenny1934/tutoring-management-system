@@ -1505,3 +1505,134 @@ slash-sensitive.
 Ops (Kenny, after deploy): same two steps as summer. - Cloud Run
 custom-domain mapping for games.mathconceptsecondary.academy + the
 Cloudflare DNS record it prescribes.
+
+## 18. 探究模式 · 等式開口中 (implemented 2026-07-21, from Steve's SM901 2nd draft)
+
+Steve's lesson plan (SM_901 探究式課堂設計教案, 2nd draft 2026-07-21)
+designs 遊戲探究活動二 "等式開口中(電子版)" as a two-stage warm-up
+BEFORE factorisation is taught - which makes the existing game its
+phase 3. This iteration builds his stages into the same room as an
+optional pre-game arc, so one QR scan carries the class through the
+whole lesson: 探究一 → 探究二 → 概念轉化 → 主遊戲.
+
+Mapping to his plan (page 5-6):
+
+- 探究一 (his 第一階段): each round every player secretly picks an
+  integer 0-99; the host multiplies SECRET random pairs against a
+  target N drawn on a slot machine (pool scripted for difficulty:
+  12, 36, 24, 60, then the prime 37 - the despair round). Fail costs
+  both partners 1 life of 5. Deviation from his fixed two sides:
+  pairs re-draw every round and stay hidden until the reveal, because
+  classmates who know their partner can just talk ("你出4我出9") and
+  the 很難達成默契 discovery dies. Lives are per player.
+- 探究二 (his 第二階段): the advance button IS his 「老師透過按鈕把N
+  恆久設定為0」- the slot lands a stamped red 0 with an N-已鎖定
+  badge. 0×0 triggers his 大爆炸 (-2 lives each, never for a lone
+  player). The reveal grid rings every submitted 0 in red: surviving
+  pairs visibly all contain one. The theorem itself stays the
+  teacher's beat - a 顯示歸納 button discloses 零乘積性質 on the
+  projector and every phone only when pressed (his 白板歸納 moment).
+- 概念轉化 (his step 4, made playable): partner A's phone holds
+  (x−3), partner B's (x+2), target 0; each submits the x that zeroes
+  their OWN factor and the pair passes if EITHER is right - the 「或」
+  embodied. The reveal substitutes both factors and shows his exam
+  face: x² − x − 6 = 0, seaming into the main game's kind 6.
+- Reveal grids are the digital value-add his paper version can't do:
+  探究一 lists N's factor pairs next to what the class actually
+  played; his reference questions read straight off the projector.
+
+Build notes: multiplayer-only, entered from a second lobby button
+(先玩探究 · 等式開口中) so plain game starts are untouched; host can
+跳過探究 to the main game at any point (two-tap confirm). All state
+rides the existing contract - subs stay `{v,seq,lv,ts}` with lv bound
+to a 1000+stage*100+round seq, new keys live under `state/inq*`
+inside the deployed RTDB shape clamp (deepest leaf inqReveal/pairs/i/
+field = depth 4), pairings never publish before the reveal, and
+`makePad` grew opts {digits, prefix} for two-digit entry (taps append;
+same-digit shortcut only in single-digit mode). Lives render as
+marking circles (§3 house idiom), never hearts. Host F5 mid-arc
+resumes via the run snapshot (an open round restarts fresh). Config:
+`?inqrounds` / `?inqfuse` / `?inqhearts` (game.json 0.10.0). Covered
+by the multi suite's final section (42 checks, 185 total).
+
+§18.1 Post-playtest fixes (2026-07-21, Kenny's conceptual review)
+
+Two mechanics contradicted the maths they teach, plus two tutor
+controls requested:
+
+- Rotating bye replaces the trio. A trio broke 探究一's A×B=N frame
+  (three-number products don't match the factor-pairs line) and made
+  探究二 effectively boom-proof (all three on 0 never happens). Odd
+  headcounts now bench one player per round as the observer - their
+  phone explains why (本回合輪空), the roster tags them, no lives
+  move, and the bye never repeats back-to-back (lastBye survives the
+  F5 snapshot). A one-player room keeps the degenerate solo pair for
+  testing.
+- The bridge got one equation, one shared x. The factor-card judging
+  let both partners "zero their own bracket" - visually endorsing
+  (0)(0), which one x can never produce ((x−2)(x+3)=0 has no x that
+  is both 2 and −3). Now both phones show the WHOLE equation with the
+  dealt factor as an underlined hint (你嘅提示因式); any partner
+  landing on either root passes; the reveal substitutes every x into
+  BOTH factors - (3−3)(3+2) = (0)(5) = 0 - so each line shows exactly
+  one zeroed bracket, and the 或-note (同一個 x 冇可能令兩個因式同時
+  歸零) prints on the projector and, when the partners hit different
+  roots, on the phones. Reveal rows carry no card keys anymore.
+- Tutor controls: 加多一回合 (visible at reveal/recap; at a recap the
+  extra round starts immediately, mid-arc extras persist per stage and
+  survive F5) and 跳去探究一/二/概念轉化 chips (two-tap confirm, land
+  on the stage's intro; a round in flight is abandoned unjudged).
+
+state/inq gained two scalars (bye, and roundsTotal now moves) - still
+inside the deployed rules clamp, no rules change. game.json 0.11.0.
+Multi suite: 194 checks.
+
+§18.2 The repeated root as standard content (2026-07-22, Kenny's
+maths-rigour review)
+
+Kenny caught that the 或-note's blanket 「同一個 x 冇可能令兩個因式
+同時歸零」 is false for (x−a)² = 0 - and the main game's stage 5
+serves exactly that counterexample. Two-layer fix, both shipped:
+
+- Every takeaway is now composed from the equation ON SCREEN
+  (inqBridgeNote): distinct roots name THIS pair's factors and zeros
+  ({fa} 同 {fb} 嘅零點唔同…所以係「或」), so no claim overreaches.
+- (x−3)² = 0 is the STANDARD third bridge question (INQ_BRIDGE grew
+  to 3; Kenny promoted it from bonus). The face shows the squared
+  form with no hint deal (identical brackets, nothing to hint; no
+  inqCards published), judging needs x = 3, and the reveal
+  legitimately shows (0)(0) = 0 - the one configuration rounds 1-2
+  prove impossible - with the exception named: 兩個因式一樣，係「重根」：
+  唯一例外. Arc: rule, rule, exception - and it foreshadows the main
+  game's double-root levels minutes later. 加多一回合 now cycles round
+  4 back to equation 1.
+
+Multi suite: 201 checks.
+
+§18.3 Recap handover + honest 加多一回合 (2026-07-22, Kenny's second
+playtest)
+
+- The exam face left the reveals: repeating 考卷上通常係咁樣寫 on every
+  bridge reveal was a floating factoid competing with the pass/fail
+  moment. It is now ONE beat at the 概念轉化 recap - the equations
+  just cracked listed factored ⇔ expanded (composed from INQ_BRIDGE,
+  capped to rounds actually played) under Kenny's line 「同一條方程，
+  仲可能會咁樣考你：」, directly above 進入主遊戲. reveal.expanded left
+  the wire (expr stays); reveals keep only the 或/重根 note.
+- 加多一回合 confirms every press and only appears where a stage can
+  actually end (last round's reveal + recap) - mid-stage it changed
+  nothing visible and read as broken (Kenny pressed it 5 times = 5
+  queued rounds). At the last reveal a press flips the primary back to
+  下一回合 and the button flashes ✓ 共 N 回合 (stampSoft, 1.4s) before
+  settling; at the recap the extra round starting is its own feedback.
+
+Copy register note (Kenny, twice-corrected): student-facing lines are
+spoken tutor Cantonese - hedge (仲可能會), address the student (考你),
+never documentation-flat. Multi suite: 205 checks.
+
+§18.4 Shortcut chips (2026-07-22): the tutor bar's bare-letter legend
+(t / n / e / g) explained nothing - each button now wears its own
+shortcut as a kbd chip (data-key + CSS ::after, so i18n/confirm label
+swaps can't clobber it), and 探究's primary button shows its n. The g
+graph toggle stays keyboard-only and undocumented on screen (it never
+had a button); p lives on the labelled 暫停 button. Multi suite: 206.
