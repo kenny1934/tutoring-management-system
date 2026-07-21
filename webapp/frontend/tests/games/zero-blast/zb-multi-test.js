@@ -1922,7 +1922,7 @@ async function main() {
   check("概念轉化: sign key returns for negative roots", signBack);
   // whoever holds (x+2) submits its root through the sign key; the
   // other partner answers wrong — the pair must still pass (「或」)
-  const cards = await host.evaluate(() => G.inq.cards);
+  const cards = s3.inqCards; // the published deal is what the phones consume
   const negPhone = cards[adaId] === 1 ? phoneA2 : phoneB;
   const posPhone = cards[adaId] === 1 ? phoneB : phoneA2;
   const negId = cards[adaId] === 1 ? adaId : benId;
@@ -1971,12 +1971,12 @@ async function main() {
   const trio = await host.evaluate(() => ({ size: G.inq.pairs[0].length, pairs: G.inq.pairs.length, seq: G.inq.seq }));
   check("探究: odd headcount folds into one trio", trio.pairs === 1 && trio.size === 3 && trio.seq === 1302, JSON.stringify(trio));
   // round 2 bridge: (x−5)(x−4)... cards cycle 0/1/0 across the trio
-  const cards2 = await host.evaluate(() => G.inq.cards);
+  const cards2 = (await roomData(host)).state.inqCards; // the published deal
   const exprPairB = await host.evaluate(() => [G.inq.exprA, G.inq.exprB]);
   check("概念轉化 round 2: next equation served", exprPairB.join("") === "(x−5)(x+4)", JSON.stringify(exprPairB));
   const pages = { [adaId]: phoneA2, [benId]: phoneB };
-  pages[await phoneD.evaluate(() => C.id)] = phoneD;
   const calId = await phoneD.evaluate(() => C.id);
+  pages[calId] = phoneD;
   // everyone answers their own card correctly
   for (const id of [adaId, benId, calId]) {
     await inqSubmit(pages[id], cards2[id] === 1 ? -4 : 5);

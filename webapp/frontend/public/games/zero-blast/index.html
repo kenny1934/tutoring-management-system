@@ -2013,6 +2013,9 @@ const INQ_POOL = [12, 36, 24, 60, 37];
  * One equation per round, every pair works the same one; partner A
  * holds the left factor, partner B the right. */
 const INQ_BRIDGE = [[3, -2], [5, -4]];
+/* the reveal rows' flat member keys: aId/aN/aV(/aC), bId…, cId… (trio).
+ * Flat scalars keep every leaf inside the deployed RTDB depth clamp. */
+const INQ_KEYS = ["a", "b", "c"];
 
 /* ══════════════════════════════════════════════════════════════════
  * scene rendering — blueprint structures drawn on the graph paper
@@ -2848,6 +2851,16 @@ function markHtml(kind, lines, stampOverride) {
   return stamp + lines.map(l => `<div class="mc-margin-note ${noteCls}">${l}</div>`).join("");
 }
 
+/* the countdown 3·2·1: one numeral stamped over the given surface,
+ * gone before the next lands (fuse grace, 探究 rounds, phone faces) */
+function spawnGraceNum(parentEl, sec) {
+  const numEl = document.createElement("div");
+  numEl.className = "zb-gracenum";
+  numEl.textContent = sec;
+  parentEl.appendChild(numEl);
+  setTimeout(() => numEl.remove(), 950);
+}
+
 /* keypad factory: builds handlers around a submit(v) callback.
  * The sign key latches. A digit tap ARMS the value before it commits,
  * so a finger slip isn't a maths error: tapping − inside the window
@@ -2862,7 +2875,7 @@ function makePad(padEl, previewEl, lockEl, lockCountEl, submit, opts) {
   // armed instead of re-arming, and the same-digit shortcut yields to
   // appending (33 must be enterable). The main game stays single-digit.
   const maxV = Math.pow(10, opts.digits || 1) - 1;
-  let prefix = opts.prefix !== undefined ? opts.prefix : '<i class="zb-var">x</i>&nbsp;=&nbsp;';
+  let prefix = '<i class="zb-var">x</i>&nbsp;=&nbsp;'; // setPrefix() relabels (探究 bare numbers)
   let neg = false;
   let locked = false;
   let lockTimer = null;
@@ -3007,7 +3020,7 @@ const G = {
   echoDone: {}, scoredRound: {}, echoTally: {}, bestMs: {}, echoCountBy: {},
   // 探究模式 engine (SM901 活動二): the pre-game inquiry arc
   inq: null, inqDeadline: 0, inqRaf: null, inqSlotIv: null,
-  lastInqTickSec: null, lastInqGraceSec: null,
+  lastInqTickSec: null, inqRosterKey: null,
 };
 
 const pad = makePad($("pad"), $("padPreview"), $("padLock"), $("lockCount"), v => submitCode(v, null));
@@ -3042,11 +3055,12 @@ function startRun(mode) {
   $("hostBoard").style.display = mode === "host" ? "" : "none";
   $("tutorBar").style.display = mode === "host" ? "" : "none";
   if (mode === "host") {
-    G.room.set("state/scores", null);
-    G.room.set("state/results", null);
-    // the inquiry arc is over (or was never run): drop its state keys
-    // so phones shed the warm-up face for good
-    G.room.update("state", { inq: null, inqHearts: null, inqReveal: null, inqCards: null });
+    // one write, one snapshot fan-out: scores/results reset plus the
+    // inquiry keys dropped so phones shed the warm-up face for good
+    G.room.update("state", {
+      scores: null, results: null,
+      inq: null, inqHearts: null, inqReveal: null, inqCards: null,
+    });
     renderHostBoard();
   }
   show("gameScreen");
@@ -3091,6 +3105,7 @@ function refreshDynamicText() {
   }
   $("takeawayOr").textContent = t("or");
   if ($("inquiryScreen").classList.contains("active") && G.inq) {
+    G.inqRosterKey = null; // the roster's labels re-render in the new language
     renderInqStage();
     renderInqBar();
   }
@@ -3358,11 +3373,7 @@ function fuseFrame() {
     const gs = Math.ceil(remain / 1000);
     if (gs !== G.lastGraceSec && gs >= 1 && gs <= 3) {
       G.lastGraceSec = gs;
-      const numEl = document.createElement("div");
-      numEl.className = "zb-gracenum";
-      numEl.textContent = gs;
-      $("scene").appendChild(numEl);
-      setTimeout(() => numEl.remove(), 950);
+      spawnGraceNum($("scene"), gs);
     }
   }
   // solo scaffold at half fuse: a strategy nudge (sum and product),
@@ -3885,6 +3896,11 @@ function clearHostRun() {
   try { sessionStorage.removeItem("zb-run-" + G.room.code); } catch (_) {}
   try { localStorage.removeItem("zb-run-" + G.room.code); } catch (_) {}
 }
+/* a snapshot worth resuming: a mid-探究 arc or a started game */
+function snapshotResumable(saved) {
+  return !!(saved.inq || (saved.levels && saved.levels.length));
+}
+
 function pendingHostRun() {
   const scan = store => {
     let best = null;
@@ -3894,7 +3910,7 @@ function pendingHostRun() {
       let saved = null;
       try { saved = JSON.parse(store.getItem(key)); } catch (_) {}
       if (!saved || !saved.code) continue;
-      if (!saved.lobby && !saved.inq && !(saved.levels && saved.levels.length)) continue;
+      if (!saved.lobby && !snapshotResumable(saved)) continue;
       if (Date.now() - (saved.ts || 0) > 6 * 3600 * 1000) continue;
       if (!best || saved.ts > best.ts) best = saved;
     }
@@ -4286,7 +4302,7 @@ $("btnReclaim").onclick = async () => {
     saved = JSON.parse(sessionStorage.getItem("zb-run-" + code) ||
                        localStorage.getItem("zb-run-" + code));
   } catch (_) {}
-  if (saved && (saved.inq || (saved.levels && saved.levels.length))) { resumeRun(saved); return; }
+  if (saved && snapshotResumable(saved)) { resumeRun(saved); return; }
   ZBFX.audio.unlock();
   $("reclaimStatus").textContent = "";
   $("reclaimStatus").classList.remove("mc-status--danger");
@@ -4446,26 +4462,32 @@ function tutorSkip() {
   G.grace ? collapseAndAdvance() : fuseOut();
 }
 
-let endArmed = 0;
-function tutorEnd() {
-  if (G.mode !== "host" || !G.started) return;
-  const btn = $("btnEndGame");
-  if (!endArmed || performance.now() - endArmed > 2500) {
-    endArmed = performance.now();
-    btn.classList.add("confirm");
-    btn.textContent = t("tutor_confirm");
-    setTimeout(() => {
-      if (endArmed && performance.now() - endArmed >= 2400) {
-        endArmed = 0;
-        btn.classList.remove("confirm");
-        btn.textContent = t("tutor_end");
-      }
-    }, 2600);
-    return;
-  }
-  endArmed = 0;
-  btn.classList.remove("confirm");
-  btn.textContent = t("tutor_end");
+/* two-tap confirm for the destructive tutor buttons: the first tap
+ * arms (the label flips to 確定), a second within 2.5s fires, else the
+ * button quietly relabels itself */
+function makeTwoTap(btn, labelKey, onConfirm) {
+  let armedAt = 0;
+  const reset = () => {
+    armedAt = 0;
+    btn.classList.remove("confirm");
+    btn.textContent = t(labelKey);
+  };
+  return () => {
+    if (!armedAt || performance.now() - armedAt > 2500) {
+      armedAt = performance.now();
+      btn.classList.add("confirm");
+      btn.textContent = t("tutor_confirm");
+      setTimeout(() => {
+        if (armedAt && performance.now() - armedAt >= 2400) reset();
+      }, 2600);
+      return;
+    }
+    reset();
+    onConfirm();
+  };
+}
+
+const tutorEndTap = makeTwoTap($("btnEndGame"), "tutor_end", () => {
   G.ended = true; // cancels any pending nextLevel between rounds
   G.over = true;
   G.grace = false;
@@ -4474,6 +4496,10 @@ function tutorEnd() {
   ZBFX.audio.fuseStop();
   ZBFX.sparksAt(null);
   endGame();
+});
+function tutorEnd() {
+  if (G.mode !== "host" || !G.started) return;
+  tutorEndTap();
 }
 
 function tutorHint() {
@@ -4597,21 +4623,10 @@ function factorPairsText(n) {
   return out.join(" · ");
 }
 
-/* the bridge factor with a value substituted: root 3, v 3 → "(3−3)" */
-function inqFactorSub(root, v) {
-  if (root === 0) return "(" + ZBLevels.num(v) + ")";
-  return root > 0
-    ? "(" + ZBLevels.num(v) + "−" + root + ")"
-    : "(" + ZBLevels.num(v) + "+" + Math.abs(root) + ")";
-}
-
-/* (x−3)(x+2)=0 expanded to the exam's face: x² − x − 6 = 0 */
+/* (x−3)(x+2)=0 expanded to the exam's face: x² − x − 6 = 0. The sign
+ * grammar lives in ZBLevels.quadText, shared with the main game. */
 function inqExpandedText(r1, r2) {
-  const b = -(r1 + r2), c = r1 * r2;
-  let s = "x²";
-  if (b) s += (b > 0 ? " + " : " − ") + (Math.abs(b) === 1 ? "" : Math.abs(b)) + "x";
-  if (c) s += (c > 0 ? " + " : " − ") + Math.abs(c);
-  return s + " = 0";
+  return ZBLevels.quadText(-(r1 + r2), r1 * r2) + " = 0";
 }
 
 function inqStageName(stage) {
@@ -4623,7 +4638,7 @@ function inqStatePayload() {
   const inq = G.inq;
   return {
     stage: inq.stage, round: inq.round, roundsTotal: inqRoundsTotal(inq.stage),
-    seq: inq.seq, step: inq.step, locked: inq.stage === 2,
+    seq: inq.seq, step: inq.step,
     heartsMax: CFG.inqHearts, // phones carry no host URL params
     n: inq.stage === 3 ? null : (typeof inq.n === "number" ? inq.n : null),
     exprA: inq.stage === 3 ? inq.exprA : null,
@@ -4639,7 +4654,7 @@ function startInquiry() {
   GameBridge.emit(SLUG, "start", { mode: "inquiry", players: Object.keys(G.players).length });
   G.inq = {
     stage: 1, round: 0, step: "intro", seq: 0, n: null,
-    roots: null, exprA: null, exprB: null, cards: null,
+    roots: null, exprA: null, exprB: null,
     pairs: [], hearts: {}, collect: {}, open: false,
     lastReveal: null, theorem: false,
   };
@@ -4686,18 +4701,21 @@ function inqStartRound() {
   inq.seq = 1000 + inq.stage * 100 + inq.round;
   inq.step = "round";
   inq.collect = {};
-  inq.theorem = inq.theorem || false;
   // everyone present is paired and carries lives (late joiners enter here)
   Object.keys(G.players).forEach(pid => {
     if (typeof inq.hearts[pid] !== "number") inq.hearts[pid] = CFG.inqHearts;
   });
   inq.pairs = inqMakePairs();
+  // which factor each phone holds, derived from the pairing (position
+  // k%2 - the trio's third member doubles up on the left factor);
+  // published for the phones, re-derived from k at the resolve
+  let cards = null;
   if (inq.stage === 3) {
     inq.roots = INQ_BRIDGE[(inq.round - 1) % INQ_BRIDGE.length];
     inq.exprA = ZBLevels.factorText(inq.roots[0]);
     inq.exprB = ZBLevels.factorText(inq.roots[1]);
-    inq.cards = {};
-    inq.pairs.forEach(pair => pair.forEach((pid, k) => { inq.cards[pid] = k % 2; }));
+    cards = {};
+    inq.pairs.forEach(pair => pair.forEach((pid, k) => { cards[pid] = k % 2; }));
   } else {
     inq.n = inq.stage === 2 ? 0 : INQ_POOL[(inq.round - 1) % INQ_POOL.length];
   }
@@ -4707,7 +4725,7 @@ function inqStartRound() {
     inq: inqStatePayload(),
     inqReveal: null,
     inqHearts: inq.hearts,
-    inqCards: inq.stage === 3 ? inq.cards : null,
+    inqCards: cards,
     deadlineEpoch: GameBridge.serverNow() + CFG.inqFuse,
   });
   ZBFX.bgm.setIntensity("base");
@@ -4715,7 +4733,6 @@ function inqStartRound() {
   renderInqBar();
   renderInqCount();
   G.lastInqTickSec = null;
-  G.lastInqGraceSec = null;
   cancelAnimationFrame(G.inqRaf);
   G.inqRaf = requestAnimationFrame(inqFrame);
   saveHostRun();
@@ -4730,17 +4747,12 @@ function inqFrame() {
   $("inqTimer").classList.toggle("warn", warn);
   if (warn) {
     const sec = Math.ceil(remain / 1000);
-    if (sec !== G.lastInqTickSec) { G.lastInqTickSec = sec; ZBFX.audio.tick(remain <= 3050); }
-  }
-  // the 3·2·1 stamped over the sheet, same grammar as the grace count
-  const gs = Math.ceil(remain / 1000);
-  if (remain <= 3050 && remain > 0 && gs !== G.lastInqGraceSec && gs >= 1 && gs <= 3) {
-    G.lastInqGraceSec = gs;
-    const numEl = document.createElement("div");
-    numEl.className = "zb-gracenum";
-    numEl.textContent = gs;
-    $("inqSheet").appendChild(numEl);
-    setTimeout(() => numEl.remove(), 950);
+    if (sec !== G.lastInqTickSec) {
+      G.lastInqTickSec = sec;
+      ZBFX.audio.tick(remain <= 3050);
+      // the last 3·2·1 stamped over the sheet, same grammar as grace
+      if (sec >= 1 && sec <= 3) spawnGraceNum($("inqSheet"), sec);
+    }
   }
   if (remain <= 0) { inqResolve(); return; }
   G.inqRaf = requestAnimationFrame(inqFrame);
@@ -4772,7 +4784,6 @@ function inqResolve() {
   cancelAnimationFrame(G.inqRaf);
   $("inqTimer").classList.remove("warn");
   $("inqTimerText").textContent = "0.0";
-  const KEYS = ["a", "b", "c"];
   const rows = {};
   let anyBoom = false;
   inq.pairs.forEach((pair, i) => {
@@ -4780,9 +4791,9 @@ function inqResolve() {
     const all = vals.every(v => v !== null);
     let ok = false, boom = false;
     if (inq.stage === 3) {
-      // pass when at least one partner zeroes their OWN factor - the
-      // 「或」 of the zero-product property, embodied
-      ok = all && pair.some((pid, k) => vals[k] === inq.roots[inq.cards[pid]]);
+      // pass when at least one partner zeroes their OWN factor (card
+      // k%2, as dealt) - the 「或」 of the zero-product property, embodied
+      ok = all && pair.some((pid, k) => vals[k] === inq.roots[k % 2]);
     } else {
       const prod = all ? vals.reduce((a, b) => a * b, 1) : null;
       ok = all && prod === inq.n;
@@ -4798,10 +4809,10 @@ function inqResolve() {
     if (boom) anyBoom = true;
     const row = { ok: ok, boom: boom };
     pair.forEach((pid, k) => {
-      row[KEYS[k] + "Id"] = pid;
-      row[KEYS[k] + "N"] = (G.players[pid] || {}).name || t("player");
-      if (vals[k] !== null) row[KEYS[k] + "V"] = vals[k];
-      if (inq.stage === 3) row[KEYS[k] + "C"] = inq.cards[pid];
+      row[INQ_KEYS[k] + "Id"] = pid;
+      row[INQ_KEYS[k] + "N"] = (G.players[pid] || {}).name || t("player");
+      if (vals[k] !== null) row[INQ_KEYS[k] + "V"] = vals[k];
+      if (inq.stage === 3) row[INQ_KEYS[k] + "C"] = k % 2;
     });
     rows[i] = row;
   });
@@ -4873,8 +4884,8 @@ function inqTheoremShow() {
   if (!inq || inq.theorem) return;
   inq.theorem = true;
   G.room.update("state/inq", { theorem: true }); // lands on every phone too
-  $("inqTheorem").style.display = "";
-  $("btnInqTheorem").style.display = "none";
+  renderInqStage(); // the renderers own the takeaway's visibility
+  renderInqBar();
   ZBFX.audio.chime();
   saveHostRun();
 }
@@ -4899,12 +4910,13 @@ function inqBoomFx() {
 }
 
 /* slot-machine draw for the target: presented as chance, scripted in
- * INQ_POOL. N = 0 (探究二) skips the roll and lands as a stamp. */
-function inqSlotTo(n) {
+ * INQ_POOL. No roll when instant (a reveal repaint), under reduced
+ * motion, or for N = 0 (探究二) - the 0 lands as a stamp. */
+function inqSlotTo(n, instant) {
   const el = $("inqN");
   clearInterval(G.inqSlotIv);
   el.classList.toggle("zb-inqn--zero", n === 0);
-  if (ZBFX.reduced || n === 0) { el.textContent = String(n); return; }
+  if (instant || ZBFX.reduced || n === 0) { el.textContent = String(n); return; }
   let ticks = 0;
   G.inqSlotIv = setInterval(() => {
     ticks += 1;
@@ -4934,35 +4946,49 @@ function renderInqRoster() {
   if (!inq) return;
   const ids = Object.keys(G.players);
   ids.sort((a, b) => (inq.hearts[b] || 0) - (inq.hearts[a] || 0));
+  // snapshots far outnumber roster changes (every sub write is one):
+  // repaint only when the players or their lives actually moved
+  const key = ids.map(id => id + ":" + inq.hearts[id]).join("|");
+  if (key === G.inqRosterKey) return;
+  G.inqRosterKey = key;
   $("inqRoster").innerHTML = ids.map(id => {
     const h = typeof inq.hearts[id] === "number" ? inq.hearts[id] : CFG.inqHearts;
     return `<span class="zb-inqroster__chip${h <= 0 ? " out" : ""}">${escapeText((G.players[id] || {}).name || t("player"))} ${inqLivesHtml(h)}</span>`;
   }).join("");
 }
 
+/* unpack a reveal row's flat wire keys into members - the ONE decoder
+ * of the aId/aN/aV/aC shape, shared by the host grid and the phone's
+ * result card. root/fv only exist on the bridge (stage 3). */
+function inqRowMembers(row, rv) {
+  return INQ_KEYS.filter(k => row[k + "Id"]).map(k => {
+    const v = typeof row[k + "V"] === "number" && isFinite(row[k + "V"]) ? row[k + "V"] : null;
+    let root = null, fv = null;
+    if (rv.stage === 3) {
+      root = row[k + "C"] === 1 ? rv.rootB : rv.rootA;
+      if (v !== null && typeof root === "number") fv = v - root;
+    }
+    return { id: row[k + "Id"], name: String(row[k + "N"] || t("player")).slice(0, 24), v: v, root: root, fv: fv };
+  });
+}
+
 /* one reveal row: names + played values (zeros ringed in 探究二, factor
  * substitutions on the bridge) + the product + the verdict mark */
 function inqRowHtml(row, rv) {
-  const KEYS = ["a", "b", "c"];
-  const members = KEYS.filter(k => row[k + "Id"]);
   const factorVals = [];
-  const parts = members.map(k => {
-    const name = escapeText(row[k + "N"] || t("player"));
-    const v = typeof row[k + "V"] === "number" ? row[k + "V"] : null;
+  const parts = inqRowMembers(row, rv).map(m => {
     let valHtml;
-    if (v === null) {
+    if (m.v === null) {
       valHtml = `<span class="zb-inqval miss">${t("inq_no_sub")}</span>`;
       factorVals.push(null);
-    } else if (rv.stage === 3) {
-      const root = row[k + "C"] === 1 ? rv.rootB : rv.rootA;
-      const fv = v - root;
-      factorVals.push(fv);
-      valHtml = `<span class="zb-inqval${fv === 0 ? " zero" : ""}">${escapeText(inqFactorSub(root, v))}</span>`;
+    } else if (rv.stage === 3 && m.fv !== null) {
+      factorVals.push(m.fv);
+      valHtml = `<span class="zb-inqval${m.fv === 0 ? " zero" : ""}">${escapeText(ZBLevels.factorSub(m.root, m.v))}</span>`;
     } else {
-      factorVals.push(v);
-      valHtml = `<span class="zb-inqval${rv.stage === 2 && v === 0 ? " zero" : ""}">${ZBLevels.num(v)}</span>`;
+      factorVals.push(m.v);
+      valHtml = `<span class="zb-inqval${rv.stage === 2 && m.v === 0 ? " zero" : ""}">${ZBLevels.num(m.v)}</span>`;
     }
-    return `<span class="zb-inqrow__who">${name}</span> ${valHtml}`;
+    return `<span class="zb-inqrow__who">${escapeText(m.name)}</span> ${valHtml}`;
   });
   const all = factorVals.every(v => v !== null);
   const prod = all ? factorVals.reduce((a, b) => a * b, 1) : null;
@@ -4971,9 +4997,9 @@ function inqRowHtml(row, rv) {
   if (row.boom) {
     mark = `<span class="zb-inqrow__mark">${t("inq_boom")}</span><span class="zb-inqrow__loss">−2</span>`;
   } else if (row.ok) {
-    mark = `<span class="zb-inqrow__mark"><svg viewBox="0 0 24 24"><path d="M4 13l5.5 5.5L20 6.5"/></svg>${t("inq_pass")}</span>`;
+    mark = `<span class="zb-inqrow__mark"><svg viewBox="0 0 24 24"><use href="#i-tick"/></svg>${t("inq_pass")}</span>`;
   } else {
-    mark = `<span class="zb-inqrow__mark"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>${t("inq_fail")}</span><span class="zb-inqrow__loss">−1</span>`;
+    mark = `<span class="zb-inqrow__mark"><svg viewBox="0 0 24 24"><use href="#i-cross"/></svg>${t("inq_fail")}</span><span class="zb-inqrow__loss">−1</span>`;
   }
   const cls = row.boom ? "boom" : row.ok ? "pass" : "fail";
   return `<div class="zb-inqrow ${cls}">${parts.join(' <span class="zb-inqrow__x">×</span> ')}${prodHtml}${mark}</div>`;
@@ -5037,7 +5063,7 @@ function renderInqStage() {
     title.style.display = "none";
     rule.style.display = "none";
     wrap.style.display = inq.stage === 3 ? "none" : "";
-    if (inq.stage !== 3) { clearInterval(G.inqSlotIv); $("inqN").textContent = String(inq.n); $("inqN").classList.toggle("zb-inqn--zero", inq.n === 0); }
+    if (inq.stage !== 3) inqSlotTo(inq.n, true); // a repaint, not a fresh draw
     if (inq.lastReveal) renderInqReveal(inq.lastReveal);
   } else { // summary
     title.style.display = "";
@@ -5083,7 +5109,7 @@ function resumeInquiry(saved) {
     stage: si.stage, round: si.round, step: si.step, seq: si.seq || 0,
     n: typeof si.n === "number" ? si.n : null,
     roots: si.roots || null, exprA: si.exprA || null, exprB: si.exprB || null,
-    cards: null, pairs: [], hearts: si.hearts || {}, collect: {}, open: false,
+    pairs: [], hearts: si.hearts || {}, collect: {}, open: false,
     lastReveal: si.lastReveal || null, theorem: !!si.theorem,
   };
   G.room.update("players", G.players);
@@ -5112,27 +5138,7 @@ function resumeInquiry(saved) {
 $("btnStartInquiry").onclick = startInquiry;
 $("btnInqPrimary").onclick = inqAdvance;
 $("btnInqTheorem").onclick = inqTheoremShow;
-let inqSkipArmed = 0;
-$("btnInqSkip").onclick = () => {
-  const btn = $("btnInqSkip");
-  if (!inqSkipArmed || performance.now() - inqSkipArmed > 2500) {
-    inqSkipArmed = performance.now();
-    btn.classList.add("confirm");
-    btn.textContent = t("tutor_confirm");
-    setTimeout(() => {
-      if (inqSkipArmed && performance.now() - inqSkipArmed >= 2400) {
-        inqSkipArmed = 0;
-        btn.classList.remove("confirm");
-        btn.textContent = t("inq_skip");
-      }
-    }, 2600);
-    return;
-  }
-  inqSkipArmed = 0;
-  btn.classList.remove("confirm");
-  btn.textContent = t("inq_skip");
-  inqFinish();
-};
+$("btnInqSkip").onclick = makeTwoTap($("btnInqSkip"), "inq_skip", inqFinish);
 document.addEventListener("keydown", e => {
   if (!G.inq || !$("inquiryScreen").classList.contains("active")) return;
   if (e.key === "n") inqAdvance();
@@ -5188,17 +5194,17 @@ function ctrlStatus(text, cls) {
  * field must be a finite number, ids must be p1/p2, and the free-text
  * fields (expr, label) only ever render through escapeText. A level
  * that fails the check is ignored whole. */
+const saneNum = v => (typeof v === "number" && isFinite(v) ? v : null); // wire-number paranoia, shared by the sanitizers
 function sanitizeLevel(raw) {
   if (!raw || typeof raw !== "object" || !Array.isArray(raw.pillars)) return null;
   if (raw.pillars.length < 1 || raw.pillars.length > 2) return null;
-  const num = v => (typeof v === "number" && isFinite(v) ? v : null);
   const lv = {
-    n: num(raw.n), kind: String(raw.kind || ""), expr: String(raw.expr || ""),
-    seq: num(raw.seq), total: num(raw.total), stage: num(raw.stage),
-    round: num(raw.round), roundsInStage: num(raw.roundsInStage),
-    stageKind: raw.stageKind === "mix" ? "mix" : num(raw.stageKind),
-    fuseMs: num(raw.fuseMs), finale: !!raw.finale, hard: !!raw.hard,
-    konst: num(raw.konst), b: num(raw.b), c: num(raw.c),
+    n: saneNum(raw.n), kind: String(raw.kind || ""), expr: String(raw.expr || ""),
+    seq: saneNum(raw.seq), total: saneNum(raw.total), stage: saneNum(raw.stage),
+    round: saneNum(raw.round), roundsInStage: saneNum(raw.roundsInStage),
+    stageKind: raw.stageKind === "mix" ? "mix" : saneNum(raw.stageKind),
+    fuseMs: saneNum(raw.fuseMs), finale: !!raw.finale, hard: !!raw.hard,
+    konst: saneNum(raw.konst), b: saneNum(raw.b), c: saneNum(raw.c),
   };
   if (lv.n == null || lv.seq == null || lv.fuseMs == null) return null;
   if (lv.kind === "numeric" && lv.konst == null) return null;
@@ -5207,7 +5213,7 @@ function sanitizeLevel(raw) {
     id: p.id === "p1" || p.id === "p2" ? p.id : null,
     // null on a current host: the answer key is stripped from published
     // state and only arrives via mergeReveal once the round resolves
-    root: num(p.root),
+    root: saneNum(p.root),
     label: String(p.label || ""),
   });
   if (lv.pillars.some(p => !p || !p.id)) return null;
@@ -5248,7 +5254,7 @@ async function initController() {
   // the 探究 pad takes two-digit answers (0-99) and a bare-number preview
   $("ctrlInqPad").innerHTML = padKeysHtml();
   C.inqPad = makePad($("ctrlInqPad"), $("ctrlInqPreview"), $("ctrlInqLock"), $("ctrlInqLockCount"),
-    v => ctrlInqSubmit(v), { digits: 2, prefix: "" });
+    v => ctrlInqSubmit(v), { digits: 2 }); // renderCtrlInqFace sets the prefix per stage
   C.inqPad.disable();
 
   /* identity lives in BOTH storages: sessionStorage wins inside a tab
@@ -5298,6 +5304,7 @@ async function enterPlay() {
   C.pad.disable();
   // a rejoin mid-探究 must re-render the warm-up face from scratch
   C.inqFaceKey = null;
+  C.myHearts = null;
   C.inqOpen = false;
   C.inqPad.disable();
   // uid lets the rules pin this entry (and subs/<id>) to this device;
@@ -5310,17 +5317,27 @@ async function enterPlay() {
   C.timerIv = setInterval(ctrlTick, 100);
 }
 
-/* An answer on centre Wi-Fi can vanish at the worst moment. The write
- * gets a "sent · marking" beat immediately (the pad soft-closes so a
- * stressed double-tap can't re-lock), one silent retry, and only a
- * successful write advances seq. If no verdict lands within ~2.5s the
- * pad re-opens so the student can go again (the host dedupes by seq;
- * a repeat correct is a harmless echo/already). */
+/* An answer on centre Wi-Fi can vanish at the worst moment: every
+ * submission goes out through one write-with-retry core. {v,seq,lv,ts}
+ * is the wire contract; only a successful write advances seq (the host
+ * dedupes by it). Resolves true/false - C.inFlight stays true so the
+ * caller decides when the pad reopens. */
+function sendSub(v, lvSeq) {
+  const seq = C.seq + 1;
+  const sub = { v: v, seq: seq, lv: lvSeq, ts: Date.now() };
+  C.inFlight = true;
+  const send = () => C.room.set("subs/" + C.id, sub);
+  return send()
+    .catch(() => new Promise(res => setTimeout(res, 600)).then(send))
+    .then(() => { C.seq = seq; return true; }, () => false);
+}
+
+/* The write gets a "sent · marking" beat immediately (the pad
+ * soft-closes so a stressed double-tap can't re-lock). If no verdict
+ * lands within ~2.5s the pad re-opens so the student can go again
+ * (a repeat correct is a harmless echo/already). */
 function ctrlSubmit(v) {
   if (C.phase !== "playing" || !C.staged || C.inFlight) return;
-  const seq = C.seq + 1;
-  const sub = { v: v, seq: seq, lv: C.level ? C.level.seq : null, ts: Date.now() };
-  C.inFlight = true;
   C.pad.disable();
   $("ctrlMark").innerHTML = markHtml("info", [t("note_sent")]);
   const reopen = () => {
@@ -5328,21 +5345,18 @@ function ctrlSubmit(v) {
     clearTimeout(C.judgeTimer);
     if (C.phase === "playing" && C.staged) C.pad.enable();
   };
-  const send = () => C.room.set("subs/" + C.id, sub);
-  send()
-    .catch(() => new Promise(res => setTimeout(res, 600)).then(send))
-    .then(() => {
-      C.seq = seq;
+  sendSub(v, C.level ? C.level.seq : null).then(sent => {
+    if (sent) {
       // verdictless fallback: reopen rather than soft-lock the phone
       clearTimeout(C.judgeTimer);
       C.judgeTimer = setTimeout(reopen, 2500);
-    })
-    .catch(() => {
+    } else {
       // both attempts lost: say so, loudly enough to act on
       ctrlStatus(t("submit_lost"), "mc-status--danger");
       $("ctrlMark").innerHTML = markHtml("info", [t("submit_lost")]);
       reopen();
-    });
+    }
+  });
 }
 
 /* ── 探究模式 on the phone ── */
@@ -5359,16 +5373,14 @@ function ctrlFace(inquiry) {
  * but never trust wire shapes raw) */
 function sanitizeInq(raw) {
   if (!raw || typeof raw !== "object") return null;
-  const num = v => (typeof v === "number" && isFinite(v) ? v : null);
   const inq = {
-    stage: num(raw.stage),
-    round: num(raw.round) || 0,
-    roundsTotal: num(raw.roundsTotal) || 0,
-    seq: num(raw.seq) || 0,
+    stage: saneNum(raw.stage),
+    round: saneNum(raw.round) || 0,
+    roundsTotal: saneNum(raw.roundsTotal) || 0,
+    seq: saneNum(raw.seq) || 0,
     step: ["intro", "round", "reveal", "summary"].indexOf(raw.step) !== -1 ? raw.step : "intro",
-    locked: !!raw.locked,
-    heartsMax: num(raw.heartsMax) || 5,
-    n: num(raw.n),
+    heartsMax: saneNum(raw.heartsMax) || 5,
+    n: saneNum(raw.n),
     exprA: raw.exprA ? String(raw.exprA).slice(0, 40) : null,
     exprB: raw.exprB ? String(raw.exprB).slice(0, 40) : null,
     theorem: !!raw.theorem,
@@ -5381,6 +5393,7 @@ function renderCtrlInqLives(hearts) {
   const inq = C.inq;
   if (!inq) return;
   const h = hearts && typeof hearts[C.id] === "number" ? hearts[C.id] : inq.heartsMax;
+  if (h === C.myHearts) return; // snapshots far outnumber heart changes
   C.myHearts = h;
   $("ctrlInqLives").innerHTML = inqLivesHtml(h, inq.heartsMax);
 }
@@ -5455,37 +5468,30 @@ function ctrlInqBoom() {
 function renderCtrlInqResult(rv, hearts) {
   C.inqOpen = false;
   C.inqPad.disable();
-  const KEYS = ["a", "b", "c"];
-  let row = null, myK = null;
+  let row = null;
   Object.keys(rv.pairs || {}).forEach(i => {
     const r = rv.pairs[i];
     if (!r || typeof r !== "object") return;
-    KEYS.forEach(k => { if (r[k + "Id"] === C.id) { row = r; myK = k; } });
+    if (INQ_KEYS.some(k => r[k + "Id"] === C.id)) row = r;
   });
   if (!row) { ctrlStatus(t("inq_join_next")); return; }
   const lines = [];
   const vals = [];
-  KEYS.filter(k => row[k + "Id"]).forEach(k => {
-    const v = typeof row[k + "V"] === "number" && isFinite(row[k + "V"]) ? row[k + "V"] : null;
-    const name = escapeText(String(row[k + "N"] || t("player")).slice(0, 24));
-    const isMe = k === myK;
+  inqRowMembers(row, rv).forEach(m => {
+    const name = escapeText(m.name);
+    const isMe = m.id === C.id;
+    if (m.v === null) { lines.push(isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name })); return; }
     if (rv.stage === 3) {
-      const root = row[k + "C"] === 1 ? rv.rootB : rv.rootA;
-      if (v === null) lines.push(isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name }));
-      else if (typeof root === "number") {
-        const sub = inqFactorSub(root, v) + " = " + ZBLevels.num(v - root);
-        const head = isMe ? fmt("inq_you_fmt", { v: "x = " + ZBLevels.num(v) })
-                          : fmt("inq_partner_fmt", { name: name, v: "x = " + ZBLevels.num(v) });
-        lines.push(mathHtml(escapeText(head + "，" + sub)));
-        vals.push(v - root);
-      }
+      if (m.fv === null) return; // a malformed card index: skip the line
+      const sub = ZBLevels.factorSub(m.root, m.v) + " = " + ZBLevels.num(m.fv);
+      const head = isMe ? fmt("inq_you_fmt", { v: "x = " + ZBLevels.num(m.v) })
+                        : fmt("inq_partner_fmt", { name: name, v: "x = " + ZBLevels.num(m.v) });
+      lines.push(mathHtml(escapeText(head + "，" + sub)));
+      vals.push(m.fv);
     } else {
-      if (v === null) lines.push(isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name }));
-      else {
-        lines.push(isMe ? fmt("inq_you_fmt", { v: ZBLevels.num(v) })
-                        : fmt("inq_partner_fmt", { name: name, v: ZBLevels.num(v) }));
-        vals.push(v);
-      }
+      lines.push(isMe ? fmt("inq_you_fmt", { v: ZBLevels.num(m.v) })
+                      : fmt("inq_partner_fmt", { name: name, v: ZBLevels.num(m.v) }));
+      vals.push(m.v);
     }
   });
   if (rv.stage !== 3 && vals.length > 1 && typeof rv.n === "number") {
@@ -5514,23 +5520,12 @@ function renderCtrlInqResult(rv, hearts) {
  * the deadline (no verdict comes back - the reveal carries the result) */
 function ctrlInqSubmit(v) {
   if (C.phase !== "inquiry" || !C.inq || !C.inqOpen || C.inFlight) return;
-  const seq = C.seq + 1;
-  const sub = { v: v, seq: seq, lv: C.inq.seq, ts: Date.now() };
-  C.inFlight = true;
-  const send = () => C.room.set("subs/" + C.id, sub);
-  send()
-    .catch(() => new Promise(res => setTimeout(res, 600)).then(send))
-    .then(() => {
-      C.seq = seq;
-      C.inFlight = false;
-      $("ctrlInqMark").innerHTML = markHtml("info", [fmt("inq_sent_fmt", { v: ZBLevels.num(v) })]);
-      if (C.inqOpen) C.inqPad.enable();
-    })
-    .catch(() => {
-      C.inFlight = false;
-      ctrlStatus(t("submit_lost"), "mc-status--danger");
-      if (C.inqOpen) C.inqPad.enable();
-    });
+  sendSub(v, C.inq.seq).then(sent => {
+    C.inFlight = false;
+    if (sent) $("ctrlInqMark").innerHTML = markHtml("info", [fmt("inq_sent_fmt", { v: ZBLevels.num(v) })]);
+    else ctrlStatus(t("submit_lost"), "mc-status--danger");
+    if (C.inqOpen) C.inqPad.enable();
+  });
 }
 
 function ctrlTick() {
@@ -5548,11 +5543,7 @@ function ctrlTick() {
     const gsI = Math.ceil(remainI / 1000);
     if (remainI <= 3050 && remainI > 0 && gsI !== C.lastInqSec && gsI >= 1 && gsI <= 3) {
       C.lastInqSec = gsI;
-      const numEl = document.createElement("div");
-      numEl.className = "zb-gracenum";
-      numEl.textContent = gsI;
-      $("ctrlInq").appendChild(numEl);
-      setTimeout(() => numEl.remove(), 950);
+      spawnGraceNum($("ctrlInq"), gsI);
     }
     if (remainI <= 0) {
       C.inqOpen = false;
@@ -5593,11 +5584,7 @@ function ctrlTick() {
     ctrlStatus(fmt("critical_fmt", { s: gs }), "mc-status--danger");
     if (gs !== C.lastGraceSec && gs >= 1 && gs <= 3) {
       C.lastGraceSec = gs;
-      const numEl = document.createElement("div");
-      numEl.className = "zb-gracenum";
-      numEl.textContent = gs;
-      $("ctrlPlay").appendChild(numEl);
-      setTimeout(() => numEl.remove(), 950);
+      spawnGraceNum($("ctrlPlay"), gs);
     }
   }
 }
@@ -5648,6 +5635,11 @@ function onCtrlRoom(room) {
     return;
   }
 
+  // which face the phone wears is a pure function of the phase: decided
+  // once here, never per-branch (a forgotten branch was the bug class)
+  const inqSt = st.phase === "inquiry" ? sanitizeInq(st.inq) : null;
+  ctrlFace(!!inqSt);
+
   // new level (includes late join, reload recovery and host restart)
   const lvKey = st.level ? st.level.seq + "|" + st.level.expr : null;
   const nextLevel = st.level && lvKey !== C.levelKey ? sanitizeLevel(st.level) : null;
@@ -5668,7 +5660,6 @@ function onCtrlRoom(room) {
     if (phaseChanged) {
       // covers a host restart after the end screen too
       if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
-      ctrlFace(false); // the 探究 arc (if any) is over: back to the game face
       // the end screen killed the tick (ctrlEnd): without restarting
       // it here a 再拆一次 leaves every phone a frozen timer and a
       // dead pad - staging and pad.enable live inside ctrlTick
@@ -5737,12 +5728,10 @@ function onCtrlRoom(room) {
       ctrlTick(); // paint the frozen remaining now, not at the next 100ms beat
     }
   } else if (st.phase === "inquiry") {
-    // 探究模式: the phone wears its warm-up face. The published inq
-    // block carries the round frame only - pairings stay host-side
-    // until the reveal.
-    const inq = sanitizeInq(st.inq);
+    // 探究模式: the published inq block carries the round frame only -
+    // pairings stay host-side until the reveal.
+    const inq = inqSt;
     if (inq && C.id) {
-      ctrlFace(true); // idempotent: covers a rejoin after a mid-arc kick
       if (phaseChanged) {
         if (!$("controllerScreen").classList.contains("active")) show("controllerScreen");
         clearInterval(C.timerIv);
@@ -5768,10 +5757,7 @@ function onCtrlRoom(room) {
       }
     }
   } else if (st.phase === "lobby") {
-    if (C.id) {
-      ctrlFace(false); // a reclaimed room drops any 探究 face
-      ctrlStatus(t("ctrl_wait_start")); // a kicked phone keeps its notice
-    }
+    if (C.id) ctrlStatus(t("ctrl_wait_start")); // a kicked phone keeps its notice
   } else if (st.phase === "end") {
     if (phaseChanged) ctrlEnd(st.results || []);
   }
