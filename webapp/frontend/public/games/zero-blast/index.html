@@ -1217,6 +1217,12 @@
     .zb-inqzero-note { margin-top: 6px; font-size: 0.875rem; color: var(--mc-ink-soft); }
     .zb-inqexpand { margin-top: 10px; font-size: 0.9375rem; color: var(--mc-ink-soft); }
     .zb-inqexpand strong { font-family: var(--mc-mono); font-size: 1.25rem; color: var(--mc-ink); }
+    /* the recap's factored ⇔ exam-face lines (the handover beat);
+     * one wrapper so the reveal grid stacks them as a single block */
+    .zb-inqrecap { text-align: center; }
+    .zb-inqexam { margin-top: 8px; font-family: var(--mc-mono); font-size: 1.0625rem; }
+    .zb-inqexam strong { font-size: 1.1875rem; }
+    .zb-inqexam .zb-inqrow__x { margin: 0 10px; color: var(--mc-ink-soft); }
     .zb-inqtheorem { margin: 16px auto 4px; }
     .zb-inqtheorem__tag { font-family: var(--mc-mono); font-weight: 800; font-size: 12px; letter-spacing: 0.18em; color: var(--mc-red); margin-bottom: 4px; }
     .zb-inqtheorem__formula { font-family: var(--mc-display); font-size: clamp(24px, 5vw, 42px); animation: mc-stamp-in 0.4s cubic-bezier(0.2, 1.5, 0.35, 1) both; }
@@ -1934,7 +1940,8 @@ const STRINGS = {
   inq_either_note:  { c: "其中一個因式歸零，|成條式就歸零！", e: "One factor at zero zeroes the whole thing!" },
   inq_or_note_fmt:  { c: "{fa} 同 {fb} 嘅零點唔同（{ra} 同 {rb}）：|冇一個 x 令兩個同時歸零，|所以係「或」！", e: "{fa} and {fb} have different zeros ({ra} and {rb}): no single x zeroes both at once. That is why it says OR!" },
   inq_double_note:  { c: "兩個因式一樣，係「重根」：|唯一例外，x = {r} 令兩邊同時歸零！", e: "Identical factors: a repeated root! The one exception: x = {r} zeroes both at once." },
-  inq_expand_fmt:   { c: "考卷上通常係咁樣寫：", e: "On the exam it usually looks like this:" },
+  inq_exam_head:    { c: "同一條方程，仲可能會咁樣考你：", e: "Same equations, but they might test you like this:" },
+  inq_more_total_fmt:{ c: "共 {n} 回合", e: "{n} rounds total" },
   inq_join_next:    { c: "下一回合幫你配對", e: "You'll be paired next round" },
   inq_bye:          { c: "本回合輪空",  e: "Sitting out this round" },
   inq_bye_tag:      { c: "輪空",        e: "bye" },
@@ -3041,7 +3048,7 @@ const G = {
   echoDone: {}, scoredRound: {}, echoTally: {}, bestMs: {}, echoCountBy: {},
   // 探究模式 engine (SM901 活動二): the pre-game inquiry arc
   inq: null, inqDeadline: 0, inqRaf: null, inqSlotIv: null,
-  lastInqTickSec: null, inqRosterKey: null,
+  lastInqTickSec: null, inqRosterKey: null, inqMoreFlashT: null,
 };
 
 const pad = makePad($("pad"), $("padPreview"), $("padLock"), $("lockCount"), v => submitCode(v, null));
@@ -4658,6 +4665,13 @@ function inqExpandedText(r1, r2) {
   return ZBLevels.quadText(-(r1 + r2), r1 * r2) + " = 0";
 }
 
+/* the factored face of a root pair: [3,−2] → "(x−3)(x+2)", a repeated
+ * root squares up: [3,3] → "(x−3)²" */
+function inqFactoredText(r) {
+  const a = ZBLevels.factorText(r[0]);
+  return r[0] === r[1] ? a + "²" : a + ZBLevels.factorText(r[1]);
+}
+
 function inqStageName(stage) {
   return t("inq_stage" + stage);
 }
@@ -4858,8 +4872,7 @@ function inqResolve() {
   if (inq.stage === 3) {
     reveal.rootA = inq.roots[0];
     reveal.rootB = inq.roots[1];
-    reveal.expr = (inq.roots[0] === inq.roots[1] ? inq.exprA + "²" : inq.exprA + inq.exprB) + " = 0";
-    reveal.expanded = inqExpandedText(inq.roots[0], inq.roots[1]);
+    reveal.expr = inqFactoredText(inq.roots) + " = 0";
   } else {
     reveal.n = inq.n;
     if (inq.stage === 1) reveal.factors = factorPairsText(inq.n);
@@ -5074,10 +5087,10 @@ function renderInqReveal(rv) {
     extras = `<div class="zb-inqfactors">${fmt("inq_factors_fmt", { n: rv.n })} ${escapeText(rv.factors)}</div>`;
   } else if (rv.stage === 2) {
     extras = `<div class="zb-inqzero-note">${t("inq_zero_note")}</div>`;
-  } else if (rv.stage === 3 && rv.expanded) {
+  } else if (rv.stage === 3) {
+    // the exam faces wait for the recap - the reveal is the 或's moment
     const note = inqBridgeNote(rv);
-    extras = (note ? `<div class="zb-inqzero-note">${mathHtml(escapeText(note))}</div>` : "")
-      + `<div class="zb-inqexpand">${t("inq_expand_fmt")} <strong>${mathHtml(escapeText(rv.expanded))}</strong></div>`;
+    if (note) extras = `<div class="zb-inqzero-note">${mathHtml(escapeText(note))}</div>`;
   }
   box.innerHTML = rows + extras;
   box.style.display = "";
@@ -5118,8 +5131,7 @@ function renderInqStage() {
       $("inqTargetLabel").textContent = "";
       const ex = $("inqExpr");
       ex.style.display = "";
-      const eqTxt = inq.exprA === inq.exprB ? inq.exprA + "²" : inq.exprA + inq.exprB;
-      ex.innerHTML = mathHtml(escapeText(eqTxt)) + ' = <span class="zb-zero">0</span>';
+      ex.innerHTML = mathHtml(escapeText(inqFactoredText(inq.roots))) + ' = <span class="zb-zero">0</span>';
     } else {
       inqSlotTo(inq.n);
     }
@@ -5139,6 +5151,18 @@ function renderInqStage() {
       .map(id => (G.players[id] || {}).name || t("player"));
     rule.textContent = t("inq_survivors") + "：" + (alive.length ? alive.join("、") : "–");
     wrap.style.display = "none";
+    if (inq.stage === 3) {
+      // the handover beat: the equations just cracked, wearing the
+      // exam faces the main game is about to serve
+      const played = INQ_BRIDGE.slice(0, Math.min(inq.round, INQ_BRIDGE.length));
+      const box = $("inqRevealBox");
+      box.innerHTML = `<div class="zb-inqrecap"><div class="zb-inqzero-note">${t("inq_exam_head")}</div>`
+        + played.map(r =>
+          `<div class="zb-inqexam">${mathHtml(escapeText(inqFactoredText(r) + " = 0"))}`
+          + ' <span class="zb-inqrow__x">⇔</span> '
+          + `<strong>${mathHtml(escapeText(inqExpandedText(r[0], r[1])))}</strong></div>`).join("") + "</div>";
+      box.style.display = "";
+    }
   }
   if (inq.step !== "round") { $("inqTimerText").textContent = "--.-"; $("inqTimer").classList.remove("warn"); }
   renderInqRoster();
@@ -5157,9 +5181,13 @@ function renderInqBar() {
   btn.setAttribute("data-i18n", key);
   btn.textContent = t(key);
   $("btnInqTheorem").style.display = inq.step === "summary" && inq.stage === 2 && !inq.theorem ? "" : "none";
-  // 加多一回合 appears at the decision moments (reveal and recap);
-  // the jump chips cover every stage except the one on stage
-  $("btnInqMore").style.display = inq.step === "reveal" || inq.step === "summary" ? "" : "none";
+  // 加多一回合 appears only where a stage is about to end (last
+  // round's reveal, and the recap) - mid-stage it changes nothing
+  // visible, which read as a broken button. While the ✓ flash is up
+  // it stays put so the confirmation can be seen.
+  $("btnInqMore").style.display =
+    G.inqMoreFlashT || inq.step === "summary" ||
+    (inq.step === "reveal" && inq.round >= inqRoundsTotal(inq.stage)) ? "" : "none";
   [1, 2, 3].forEach(s => { $("btnInqJump" + s).style.display = s === inq.stage ? "none" : ""; });
 }
 
@@ -5214,19 +5242,32 @@ function inqJumpStage(stage) {
   inq.open = false;
   cancelAnimationFrame(G.inqRaf);
   clearInterval(G.inqSlotIv);
+  clearTimeout(G.inqMoreFlashT);
+  G.inqMoreFlashT = null;
+  $("btnInqMore").textContent = t("inq_more_round");
   inqEnterStage(stage);
 }
 
 /* the class needs another look: widen the current stage by one round.
- * At a reveal the primary button flips back to 下一回合; at a recap
- * the extra round starts straight away. */
+ * At a recap the extra round starts straight away (its own feedback);
+ * at the last reveal the primary button flips back to 下一回合 and the
+ * button confirms in place - a silent press read as a broken button. */
 function inqMoreRound() {
   const inq = G.inq;
   if (!inq) return;
   ZBFX.audio.unlock();
   inq.extra[inq.stage] = (inq.extra[inq.stage] || 0) + 1;
   if (inq.step === "summary") { inqStartRound(); return; }
+  ZBFX.audio.stampSoft();
   G.room.update("state/inq", { roundsTotal: inqRoundsTotal(inq.stage) });
+  const btn = $("btnInqMore");
+  btn.textContent = "✓ " + fmt("inq_more_total_fmt", { n: inqRoundsTotal(inq.stage) });
+  clearTimeout(G.inqMoreFlashT);
+  G.inqMoreFlashT = setTimeout(() => {
+    G.inqMoreFlashT = null;
+    btn.textContent = t("inq_more_round");
+    if (G.inq) renderInqBar(); // the flash held the button up; settle it
+  }, 1400);
   renderInqStage();
   renderInqBar();
   saveHostRun();

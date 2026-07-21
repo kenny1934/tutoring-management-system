@@ -1608,3 +1608,24 @@ serves exactly that counterexample. Two-layer fix, both shipped:
   4 back to equation 1.
 
 Multi suite: 201 checks.
+
+§18.3 Recap handover + honest 加多一回合 (2026-07-22, Kenny's second
+playtest)
+
+- The exam face left the reveals: repeating 考卷上通常係咁樣寫 on every
+  bridge reveal was a floating factoid competing with the pass/fail
+  moment. It is now ONE beat at the 概念轉化 recap - the equations
+  just cracked listed factored ⇔ expanded (composed from INQ_BRIDGE,
+  capped to rounds actually played) under Kenny's line 「同一條方程，
+  仲可能會咁樣考你：」, directly above 進入主遊戲. reveal.expanded left
+  the wire (expr stays); reveals keep only the 或/重根 note.
+- 加多一回合 confirms every press and only appears where a stage can
+  actually end (last round's reveal + recap) - mid-stage it changed
+  nothing visible and read as broken (Kenny pressed it 5 times = 5
+  queued rounds). At the last reveal a press flips the primary back to
+  下一回合 and the button flashes ✓ 共 N 回合 (stampSoft, 1.4s) before
+  settling; at the recap the extra round starting is its own feedback.
+
+Copy register note (Kenny, twice-corrected): student-facing lines are
+spoken tutor Cantonese - hedge (仲可能會), address the student (考你),
+never documentation-flat. Multi suite: 205 checks.

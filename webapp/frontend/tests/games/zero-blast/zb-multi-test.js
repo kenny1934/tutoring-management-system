@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (201 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (205 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 201 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 205 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -1948,21 +1948,21 @@ async function main() {
   check(
     "概念轉化: one true root carries the pair, no card keys on the wire",
     row3.ok === true && rv3.rootA === 3 && rv3.rootB === -2 &&
-      row3.aC === undefined && row3.bC === undefined && rv3.expanded === "x² − x − 6 = 0",
-    JSON.stringify({ row3, rootA: rv3.rootA, rootB: rv3.rootB, expanded: rv3.expanded })
+      row3.aC === undefined && row3.bC === undefined && rv3.expr === "(x−3)(x+2) = 0",
+    JSON.stringify({ row3, rootA: rv3.rootA, rootB: rv3.rootB, expr: rv3.expr })
   );
   const hostReveal3 = await host.evaluate(() => ({
     expand: (document.querySelector("#inqRevealBox .zb-inqexpand") || {}).textContent || "",
     orNote: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
   }));
-  check("概念轉化: the exam face x² − x − 6 = 0 shows on the projector", hostReveal3.expand.includes("x² − x − 6"), hostReveal3.expand);
   check(
     "概念轉化: the grid pushes each x through BOTH factors, 或-note names THIS pair",
     hostReveal3.row.includes("(−5)(0) = 0") && hostReveal3.row.includes("(6)(11) = 66") &&
       hostReveal3.orNote.includes("零點唔同") && hostReveal3.orNote.includes("(x−3)"),
     JSON.stringify(hostReveal3)
   );
+  check("概念轉化: the reveal holds no exam face (that beat waits for the recap)", hostReveal3.expand === "", hostReveal3.expand);
   await until(() => negPhone.evaluate(() => C.lastInqRevealSeq === 1301), { label: "neg phone got reveal" });
   const negWorking = await negPhone.evaluate(() => document.getElementById("ctrlInqMark").textContent);
   check(
@@ -2040,6 +2040,8 @@ async function main() {
     "探究: the bye keeps their lives through the reveal",
     (await roomData(host)).state.inqHearts[dealB.bye] === heartsBefore
   );
+  const moreHidden = await host.evaluate(() => getComputedStyle(document.getElementById("btnInqMore")).display === "none");
+  check("探究: 加多一回合 stays hidden mid-stage (rounds still coming)", moreHidden);
   await until(() => pages[paired[0]].evaluate(() => C.lastInqRevealSeq === 1302), { label: "paired phone got reveal" });
   const orNote = await pages[paired[0]].evaluate(() => document.getElementById("ctrlInqMark").textContent);
   check("探究: two different roots trigger the 或-note on the phone", orNote.includes("零點唔同"), orNote);
@@ -2072,10 +2074,12 @@ async function main() {
   await inqAdvanceTo("reveal");
   const rvC = (await roomData(host)).state.inqReveal;
   check(
-    "重根: x = 3 passes, the wire carries (x−3)² = 0 and x² − 6x + 9 = 0",
-    rvC.pairs["0"].ok === true && rvC.expr === "(x−3)² = 0" && rvC.expanded === "x² − 6x + 9 = 0",
-    JSON.stringify({ expr: rvC.expr, expanded: rvC.expanded, row: rvC.pairs["0"] })
+    "重根: x = 3 passes, the wire carries (x−3)² = 0",
+    rvC.pairs["0"].ok === true && rvC.expr === "(x−3)² = 0",
+    JSON.stringify({ expr: rvC.expr, row: rvC.pairs["0"] })
   );
+  const moreAtLast = await host.evaluate(() => getComputedStyle(document.getElementById("btnInqMore")).display !== "none");
+  check("重根: 加多一回合 surfaces at the last round's reveal", moreAtLast);
   const hostRevealC = await host.evaluate(() => ({
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
     note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
@@ -2102,6 +2106,17 @@ async function main() {
   await inqAdvanceTo("summary");
   const mainLabel = await host.evaluate(() => document.getElementById("btnInqPrimary").textContent);
   check("概念轉化 summary: the primary button hands over to the main game", mainLabel.includes("歸零爆破"), mainLabel);
+  const recap = await host.evaluate(() => ({
+    shown: getComputedStyle(document.getElementById("inqRevealBox")).display !== "none",
+    lines: document.querySelectorAll("#inqRevealBox .zb-inqexam").length,
+    text: document.getElementById("inqRevealBox").textContent,
+  }));
+  check(
+    "概念轉化 recap: the three equations wear their exam faces (the handover beat)",
+    recap.shown && recap.lines === 3 && recap.text.includes("考你") &&
+      recap.text.includes("x² − x − 6 = 0") && recap.text.includes("x² − 6x + 9 = 0"),
+    JSON.stringify(recap)
+  );
   await host.click("#btnInqMore"); // the class needs another look
   await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 4), { label: "extra round started" });
   const extraR = (await roomData(host)).state.inq;
@@ -2121,6 +2136,18 @@ async function main() {
   await inqSubmit(pages[paired3[1]], 3);
   await inqCollected(2);
   await inqAdvanceTo("reveal");
+  // pressing 加多一回合 at the last reveal must confirm in place and
+  // flip the primary back to 下一回合 - the silent press read as broken
+  await host.click("#btnInqMore");
+  const flip = await host.evaluate(() => ({
+    primary: document.getElementById("btnInqPrimary").textContent,
+    flash: document.getElementById("btnInqMore").textContent,
+  }));
+  check(
+    "探究: 加多一回合 at a reveal flips the primary and confirms ✓ 共 5 回合",
+    flip.primary.includes("下一回合") && flip.flash.includes("✓") && flip.flash.includes("5"),
+    JSON.stringify(flip)
+  );
   // jump chips: two taps take the class back to 探究二's lock intro
   await host.click("#btnInqJump2");
   await host.click("#btnInqJump2");
