@@ -1636,3 +1636,19 @@ shortcut as a kbd chip (data-key + CSS ::after, so i18n/confirm label
 swaps can't clobber it), and 探究's primary button shows its n. The g
 graph toggle stays keyboard-only and undocumented on screen (it never
 had a button); p lives on the labelled 暫停 button. Multi suite: 206.
+
+§18.5 The inquiry bar earns its clusters (2026-07-22): one flat
+centred row mixed the every-15-seconds action with once-a-lesson
+navigation, and every label change reshuffled the targets. Two fixes:
+
+- The jump chips rest while a round is live (step === "round") - the
+  countdown is the one moment a mis-click costs the class, and 提早結算
+  brings them straight back. 跳過探究 keeps its seat throughout (it is
+  the established bail-out).
+- The bar splits into two anchored clusters: stage-flow left (primary,
+  加多一回合, 睇定理), navigation right (跳去X, 跳過探究), space-between.
+  The primary's label changes width every step; an anchored right edge
+  means the jump/skip targets never slide under the tutor's mouse, and
+  the gap separates "adjust this stage" from "leave it".
+
+Multi suite: 208 checks.
