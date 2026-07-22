@@ -1857,7 +1857,7 @@ const STRINGS = {
   howto_3:          { c: "搵齊所有解，|成座建築拆卸", e: "Find every solution to bring it down" },
   howto_note:       { c: "答錯會鎖鍵盤三秒，|諗清楚先好撳！|導火線燒完|仲有支柱未歸零，|爆破會失敗，|成座樓企硬！|全班齊玩時，|人哋拆咗嘅支柱|你答啱都仲有分！",
                       e: "A wrong code locks your keypad for three seconds, so think before you tap! If the fuse runs out with a pillar not yet zeroed, the blast fizzles and the building stands. In class mode, a claimed pillar still pays when you crack its code!" },
-  duration:         { c: "12 座建築 · 約 15 分鐘", e: "12 buildings · about 15 min" },
+  duration:         { c: "13 座建築 · 約 15 分鐘", e: "13 buildings · about 15 min" },
   players:          { c: "1 人或全班",  e: "Solo or whole class" },
   btn_host:         { c: "多裝置開始",  e: "Start · multi-device" },
   btn_solo:         { c: "單機開始",    e: "Start · one screen" },
@@ -1876,7 +1876,9 @@ const STRINGS = {
   lv4:              { c: "正負陷阱",    e: "The sign trap" },
   lv5:              { c: "重根：一碼雙柱", e: "Double root: one code, both pillars" },
   lv6:              { c: "先因式分解",  e: "Factorise first" },
+  lv7:              { c: "先化一般式",  e: "General form first" },
   lv_mix:           { c: "混合街",      e: "Mixed street" },
+  offset_trap_fmt:  { c: "右邊係 {k}，唔係 0！|要先搬 {k} 過去，|化做一般式：", e: "The right side is {k}, not 0! Move the {k} over into general form first:" },
   graph_tangent:    { c: "重根",        e: "double root" },
   finale_tag:       { c: "最後一條街 · 分數雙倍", e: "Final street · double points" },
   card_contractor:  { c: "承建商 MathConcept", e: "Contractor MathConcept" },
@@ -2210,7 +2212,8 @@ function deckWash(level) {
     case 3: return [W("270,73 276,70 276,142 270,142"), W("124,70 276,70 272,74 128,74"), W("192,128 196,126 196,142 192,142")];
     case 4: return [W("150,122 156,120 156,142 150,142"), W("270,122 276,120 276,142 270,142")];
     case 5: return [W("212,46 218,44 218,142 212,142")];
-    case 6: return [W("262,66 268,64 268,142 262,142"), W("238,36 244,34 244,64 238,64"), W("156,64 244,64 240,68 160,68"), W("194,129 198,127 198,142 194,142")];
+    case 6:
+    case 7: return [W("262,66 268,64 268,142 262,142"), W("238,36 244,34 244,64 238,64"), W("156,64 244,64 240,68 160,68"), W("194,129 198,127 198,142 194,142")];
   }
   return [];
 }
@@ -2247,6 +2250,7 @@ function deckDress(level, i0) {
       if (v === 2) parts.push(PX("M182 62 h-9 M173 62 v-7 M173 55 h9", "thin", i0 + 2));
       break;
     case 6:
+    case 7:
       parts.push(PX("M194 142 v-15 h12 v15", "", i0 + 4));
       parts.push(PX("M152 122 v10 M248 122 v10 M152 100 v10 M200 100 v10 M248 100 v10 M152 78 v10 M200 78 v10 M248 78 v10", "thin faint", i0 + 5));
       if (v === 0) parts.push(PX("M216 34 v-6 M226 34 v-6 M213 28 h16 v-7 h-16 z", "thin", i0 + 2));
@@ -2298,7 +2302,8 @@ function basePartsOf(level, xs, beam) {
       P("M182 142 L188 44 h24 L218 142"),
       P("M184 118 h32 M186 92 h28 M187 68 h26", "thin"),
       P("M188 44 h24 v-10 h-24 z", "thin") + haz(200, 31)];
-    case 6: return [beam,
+    case 6:
+    case 7: return [beam,
       P("M132 142 V64 h136 V142"),
       P("M144 122 h16 v10 h-16 z M240 122 h16 v10 h-16 z", "thin"),
       P("M144 100 h16 v10 h-16 z M186 100 h28 v10 h-28 z M240 100 h16 v10 h-16 z", "thin"),
@@ -2332,6 +2337,7 @@ const WINDOW_LIGHTS = {
   2: [[183, 122]],
   3: [[147, 125], [243, 125], [147, 89], [195, 89], [243, 89]],
   6: [[152, 127], [248, 127], [152, 105], [200, 105], [248, 105], [152, 83], [200, 83], [248, 83]],
+  7: [[152, 127], [248, 127], [152, 105], [200, 105], [248, 105], [152, 83], [200, 83], [248, 83]],
 };
 function lightsSvg(level) {
   const pts = WINDOW_LIGHTS[level.n];
@@ -2679,6 +2685,9 @@ function graphLabel(level) {
     case "linear": return "y = " + ps[0].label;
     case "square": return "y = " + ps[0].label + "²";
     case "expanded": return "y = " + level.expr.replace(/\s*=\s*0$/, "");
+    // the gate sketches its GENERAL form: the curve that crosses at
+    // the true roots is x² + bx + (c − k)
+    case "offset": return "y = " + ZBLevels.quadText(level.b, level.c - level.k);
     default: return "y = " + ps[0].label + ps[1].label;
   }
 }
@@ -2763,6 +2772,18 @@ function miniGraphHtml(level) {
 function mathHtml(s) {
   return String(s).replace(/x/g, '<i class="zb-var">x</i>');
 }
+
+/* the gate's trap (§19 Batch AA): the guess zeroes the DISPLAYED left
+ * side, but the right side isn't 0 - localized per device, so it lives
+ * here and not in the wire's language-neutral working lines */
+function offsetTrapLines(level, v) {
+  if (!level || level.kind !== "offset" || typeof level.b !== "number") return [];
+  if (v * v + level.b * v + level.c !== 0) return [];
+  return [
+    fmt("offset_trap_fmt", { k: ZBLevels.num(level.k) }),
+    mathHtml(escapeText(ZBLevels.quadText(level.b, level.c - level.k) + " = 0")),
+  ];
+}
 function svgMath(s) {
   return String(s).replace(/x/g, '<tspan class="zb-vari">x</tspan>');
 }
@@ -2777,7 +2798,9 @@ function exprHtml(expr) {
  * Level text renders escaped: on a phone the level arrives from room
  * state, which player names never write but rules alone guarantee. */
 function boardHtml(level) {
-  if (level.kind === "expanded") return exprHtml(level.expr);
+  // kind 7 rides the same spanless path: its "= 2" tail passes through
+  // exprHtml unstyled - the MISSING red 0 is the tell (§19 Batch AA)
+  if (level.kind === "expanded" || level.kind === "offset") return exprHtml(level.expr);
   const span = (ids, text) =>
     `<span class="zb-factor" data-fids="${ids.join(" ")}">${mathHtml(escapeText(text))}</span>`;
   const tail = ' = <span class="zb-zero">0</span>';
@@ -3380,7 +3403,7 @@ function startLevel(resume) {
     G.claimed.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
       if (!p) return;
-      if (level.kind === "expanded") revealPlaque(id, p);
+      if (level.kind === "expanded" || level.kind === "offset") revealPlaque(id, p);
       const c = G.claimsBy[id];
       blowPillar(id, p.root, c && c.name);
     });
@@ -3668,6 +3691,7 @@ function submitCode(v, player) {
     G.streak = 0;
     renderStreak($("stars"), 0);
     const lines = ZBLevels.workingWrong(level, v).map(mathHtml)
+      .concat(offsetTrapLines(level, v))
       .concat([fmt("note_strength", { n: ZBLevels.strength(level, v) })]);
     $("markZone").innerHTML = markHtml("wrong", lines);
     $("exprBoard").classList.add("mc-shake");
@@ -3692,7 +3716,7 @@ function submitCode(v, player) {
   renderStreak($("stars"), G.streak);
 
   // L6: reveal the hidden factor on the plaque just before it blows
-  if (level.kind === "expanded") {
+  if (level.kind === "expanded" || level.kind === "offset") {
     res.hit.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
       revealPlaque(id, p);
@@ -3791,7 +3815,7 @@ function hostVerdict(player, v, res) {
   G.scoredRound[player.id] = true;
   recordSolveMs(player.id);
 
-  if (level.kind === "expanded") {
+  if (level.kind === "expanded" || level.kind === "offset") {
     res.hit.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
       revealPlaque(id, p);
@@ -3928,6 +3952,7 @@ const MINI_SIL = {
   4: "M4 34 h32 M10 34 V26 M30 34 V26 M10 28 Q20 16 30 28",
   5: "M12 34 h16 M15 34 L17 8 h6 L25 34",
   6: "M6 34 h28 M10 34 V12 h20 V34 M14 12 V6 h12 V12 M20 6 V2",
+  7: "M6 34 h28 M10 34 V12 h20 V34 M10 23 h20 M14 12 V6 h12 V12 M20 6 V2 h6",
 };
 function renderStreet() {
   const el = $("streetStrip");
@@ -5537,11 +5562,12 @@ function sanitizeLevel(raw) {
     round: saneNum(raw.round), roundsInStage: saneNum(raw.roundsInStage),
     stageKind: raw.stageKind === "mix" ? "mix" : saneNum(raw.stageKind),
     fuseMs: saneNum(raw.fuseMs), finale: !!raw.finale, hard: !!raw.hard,
-    konst: saneNum(raw.konst), b: saneNum(raw.b), c: saneNum(raw.c),
+    konst: saneNum(raw.konst), b: saneNum(raw.b), c: saneNum(raw.c), k: saneNum(raw.k),
   };
   if (lv.n == null || lv.seq == null || lv.fuseMs == null) return null;
   if (lv.kind === "numeric" && lv.konst == null) return null;
   if (lv.kind === "expanded" && (lv.b == null || lv.c == null)) return null;
+  if (lv.kind === "offset" && (lv.b == null || lv.c == null || lv.k == null)) return null;
   lv.pillars = raw.pillars.map(p => p && {
     id: p.id === "p1" || p.id === "p2" ? p.id : null,
     // null on a current host: the answer key is stripped from published
@@ -6210,7 +6236,7 @@ function applyCtrlVerdict(v) {
     ZBFX.vibrate(v.hit > 1 ? [60, 40, 130] : 80);
   } else {
     renderStreak($("ctrlStars"), 0);
-    const lines = (hostWorking || []).concat(
+    const lines = (hostWorking || []).concat(offsetTrapLines(C.level, v.v)).concat(
       typeof v.strength === "number" ? [fmt("note_strength", { n: v.strength })] : []);
     $("ctrlMark").innerHTML = markHtml("wrong", lines);
     $("ctrlExpr").classList.add("mc-shake");

@@ -1324,7 +1324,7 @@ async function main() {
   await submitVerdict(phoneA, l5root); // one code, both pillars
   await fastForwardGrace(host);
 
-  /* ════════ level 6 (kind 6, finale): hint, end confirm, report ════════ */
+  /* ════════ level 6 (kind 6): hint, then the gate, end confirm, report ════════ */
   await waitHostLevel(host, 6);
   const hintVis = await host.evaluate(() => {
     const el = document.getElementById("btnHint");
@@ -1343,18 +1343,50 @@ async function main() {
   check("tutor hint pencils the ghost factor", !!ghost && ghost.includes("(x"), "ghost=" + ghost);
 
   const l6 = await host.evaluate(() => G.level.pillars.map((p) => p.root));
-  // finale doubles ×2, the hint fee is ×0.75 → net ×1.5. Streak before
-  // this claim is 1 (L4 fizzle reset everyone, L5 claim rebuilt one),
-  // so expected = base(f) × 1.1 × 1.5 with f measured just before the
-  // submit — the drift to judge time on a 45s fuse is ~1pt, and net ×1
-  // or ×2 would land ~100pts off either side.
+  // the hint fee is ×0.75 (kind 6 is no longer the finale - the gate
+  // took the crown, §19 AA). Streak before this claim is 1 (L4 fizzle
+  // reset everyone, L5 claim rebuilt one), so expected = base(f) ×
+  // 1.1 × 0.75 with f measured just before the submit — the drift to
+  // judge time on a 45s fuse is ~1pt, and ×1.5 or ×1 would land far off.
   const fEst = await host.evaluate(() => (G.deadline - performance.now()) / G.duration);
   const vdHinted = await submitVerdict(phoneA, l6[0]);
-  const expHinted = (100 + Math.round(100 * fEst)) * 1.1 * 1.5;
+  const expHinted = (100 + Math.round(100 * fEst)) * 1.1 * 0.75;
   check(
-    "hinted finale claim pays 75% (net x1.5)",
+    "hinted kind-6 claim pays 75% (no finale double here now)",
     vdHinted.ok === true && Math.abs(vdHinted.pts - expHinted) <= 12,
     "pts=" + vdHinted.pts + " expected≈" + Math.round(expHinted)
+  );
+  await submitVerdict(phoneA, l6[1]); // clear the street
+  await fastForwardGrace(host);
+
+  /* ════════ level 7 — the general-form gate (§19 Batch AA) ════════ */
+  await waitHostLevel(host, 7);
+  const gateFace = await host.evaluate(() => ({
+    expr: G.level.expr, finale: !!G.level.finale,
+    hintHid: getComputedStyle(document.getElementById("btnHint")).display === "none",
+  }));
+  check(
+    "the gate is the finale and offers no hint (general form IS the test)",
+    gateFace.expr === "x² + 5x + 6 = 2" && gateFace.finale && gateFace.hintHid,
+    JSON.stringify(gateFace)
+  );
+  const vdTrap = await submitVerdict(phoneA, -2);
+  check("gate trap: −2 zeroes the shown LHS but is rejected", vdTrap.ok === false, JSON.stringify(vdTrap));
+  const trapPhone = await phoneA.evaluate(() => document.getElementById("ctrlMark").textContent);
+  check(
+    "gate trap: the phone nudge names the move to general form",
+    trapPhone.includes("≠ 2") && trapPhone.includes("唔係 0") && trapPhone.includes("x² + 5x + 4 = 0"),
+    trapPhone
+  );
+  // padSubmit waits out the 3s wrong-lock; streak is 0 after the trap,
+  // so a correct claim pays base(f) × 1.0 × 2 - the finale double
+  const fEst7 = await host.evaluate(() => (G.deadline - performance.now()) / G.duration);
+  const vdGate = await submitVerdict(phoneA, -1);
+  const expGate = (100 + Math.round(100 * fEst7)) * 2;
+  check(
+    "the gate pays the finale double",
+    vdGate.ok === true && Math.abs(vdGate.pts - expGate) <= 12,
+    "pts=" + vdGate.pts + " expected≈" + Math.round(expGate)
   );
 
   await host.click("#btnEndGame");
@@ -1379,7 +1411,7 @@ async function main() {
     JSON.stringify(endLapsed)
   );
 
-  await submitVerdict(phoneA, l6[1]); // the last pillar of the street
+  await submitVerdict(phoneA, -4); // the gate's second root: the run's last code
   await fastForwardGrace(host);
   await until(() => host.evaluate(() => document.getElementById("endScreen").classList.contains("active")), {
     label: "host end screen",

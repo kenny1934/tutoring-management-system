@@ -1654,7 +1654,7 @@ navigation, and every label change reshuffled the targets. Two fixes:
 Multi suite: 208 checks.
 
 ## 19. Second demo feedback: the arc is the lesson (2026-07-22;
-Batches W+X+Y+Z implemented, AA pending)
+all five batches implemented)
 
 The full-class demo ran 探究一 → 探究二 → 概念轉化 → 主遊戲 in one
 room and returned nine findings. The through-line: the arc IS the
@@ -1833,3 +1833,25 @@ are the big adders). game.json 0.12.0.
 - The lone-player deal alternates its factor by round; the repeated
   root needs both partners on the root (one 3 no longer carries).
 - Multi suite 208 → 221 checks; solo + audit untouched and green.
+
+### 19.2 Y+Z+AA implementation deltas (2026-07-22)
+
+- Z's how-to move: the card now lives in the LOBBY (the scanning wait
+  is the reading moment - the whole class reads the rules on the
+  projector while phones join), then the same node re-appears under
+  the 概念轉化 recap's exam faces. Solo goes straight in with no
+  how-to beat - the kind-1 building is its own tutorial.
+- AA needed NO rhs renderer refactor: exprHtml only decorates a
+  literal "= 0" tail, so the gate's "= 2" passes through unstyled -
+  the MISSING red 0 is the tell. The kind-7 level carries {b, c, k}
+  and strength() reads |LHS − k|.
+- The gate offers no hint (host button or solo nudge): the
+  multiply-add hint presumes general form, which is the very thing
+  being tested. Tutors pace it with +15s instead.
+- The gate wears the kind-6 building on the scene (same exam face,
+  after all) with a banded mini silhouette on the street strip; the
+  trap nudge (右邊係 {k}，唔係 0) composes per device so each phone
+  reads it in its own language.
+- diff=hard slots the mixed street BEFORE the gate - kind 7 keeps the
+  finale crown (and its double pay) in every preset.
+- Suites: multi 233, solo 157 (up from 149), audit 74 - all green.
