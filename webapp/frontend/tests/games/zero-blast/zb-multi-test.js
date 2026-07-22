@@ -2208,7 +2208,7 @@ async function main() {
   check(
     "x(x−7): the partner's-root verdict credits the maths, shows the own-factor miss, then the KO beat",
     xMark.includes("真係方程嘅解") && xMark.includes("(x)") &&
-      xMark.includes("唔係 0") && xMark.includes("大廈冧咗"),
+      xMark.includes("唔係 0") && xMark.includes("復活返嚟"),
     xMark
   );
 
@@ -2229,7 +2229,7 @@ async function main() {
   check("重建: the bench is published for the phone", stateRb.inq.rebuild === xHolder, JSON.stringify(stateRb.inq.rebuild));
   await until(
     () => pages[xHolder].evaluate(() => C.inq && C.inq.seq === 1304 &&
-      document.getElementById("ctrlInqTarget").textContent.includes("本回合重建中")),
+      document.getElementById("ctrlInqTarget").textContent.includes("本回合等緊復活")),
     { label: "rebuild face shown" }
   );
   const rbFace = await pages[xHolder].evaluate(() => ({
@@ -2238,7 +2238,7 @@ async function main() {
   }));
   check(
     "重建: the benched phone observes - pad closed, the note sells the comeback",
-    rbFace.pad === "none" && rbFace.note.includes("大廈冧咗") && rbFace.note.includes("2 個生命值"),
+    rbFace.pad === "none" && rbFace.note.includes("等緊復活") && rbFace.note.includes("2 個生命值"),
     JSON.stringify(rbFace)
   );
   const s3c = (await roomData(host)).state;

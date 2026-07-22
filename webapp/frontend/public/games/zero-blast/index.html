@@ -2026,10 +2026,10 @@ const STRINGS = {
   inq_jump3:        { c: "跳去概念轉化", e: "Jump to the bridge" },
   inq_more_round:   { c: "加多一回合",  e: "One more round" },
   /* §19 Batch W: the rebuild bench (0 lives = one round out, back at 2) */
-  inq_ko_note:      { c: "生命值歸零！|大廈冧咗，|下一回合重建。", e: "No lives left! Your building is down. You'll rebuild next round." },
-  inq_rebuild:      { c: "本回合重建中", e: "Rebuilding this round" },
-  inq_rebuild_tag:  { c: "重建中",      e: "rebuilding" },
-  inq_rebuild_note: { c: "大廈冧咗！|你今回合重建中，做觀察員：|望住投影幕。|補返 2 個生命值，|下一回合再嚟過。", e: "Your building came down! You're rebuilding this round as the observer: watch the big screen. You're back to 2 lives, in again next round." },
+  inq_ko_note:      { c: "生命值歸零！|下一回合做觀察員，|之後復活返嚟。", e: "No lives left! Next round you observe, then you respawn." },
+  inq_rebuild:      { c: "本回合等緊復活", e: "Waiting to respawn this round" },
+  inq_rebuild_tag:  { c: "復活中",      e: "respawning" },
+  inq_rebuild_note: { c: "你今回合等緊復活，做觀察員：|望住投影幕。|補返 2 個生命值，|下一回合再嚟過。", e: "You're waiting to respawn this round as the observer: watch the big screen. You're back to 2 lives, in again next round." },
   /* §19 Batch X: 分工 judging on the bridge */
   inq_wrong_factor_fmt: { c: "x = {v} 真係方程嘅解！|不過今次你負責嘅因式係 {f}。", e: "x = {v} does solve the equation! But your factor this time is {f}." },
   /* the 分工 reveal reads each member against their OWN bracket - the
@@ -4854,7 +4854,7 @@ function inqStatePayload() {
     // why); it narrows nothing about who is paired with whom
     bye: inq.bye || null,
     // the rebuild bench, same deal: a flat comma-joined pid list so the
-    // benched phones wear the 重建中 face (§19 Batch W)
+    // benched phones wear the 等緊復活 face (§19 Batch W)
     rebuild: inq.rebuild && inq.rebuild.length ? inq.rebuild.join(",") : null,
   };
 }
