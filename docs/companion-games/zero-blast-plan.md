@@ -1654,7 +1654,7 @@ navigation, and every label change reshuffled the targets. Two fixes:
 Multi suite: 208 checks.
 
 ## 19. Second demo feedback: the arc is the lesson (2026-07-22;
-Batches W+X+Y implemented, Z/AA pending)
+Batches W+X+Y+Z implemented, AA pending)
 
 The full-class demo ran 探究一 → 探究二 → 概念轉化 → 主遊戲 in one
 room and returned nine findings. The through-line: the arc IS the

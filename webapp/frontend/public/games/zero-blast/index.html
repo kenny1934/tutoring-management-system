@@ -551,6 +551,27 @@
       border-radius: 4px;
       font-family: var(--mc-mono); font-size: 0.625rem; opacity: 0.75;
     }
+    /* §19 Batch Z: the lobby's lesson track - four equal steps, the
+     * selected one wears the marking pen. No step is the "primary". */
+    .zb-track__steps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin-top: 8px; }
+    .zb-track__step {
+      font-family: var(--mc-body); font-size: 0.9375rem; font-weight: 600;
+      color: var(--mc-ink-soft); background: none; cursor: pointer;
+      border: 1.5px solid var(--mc-line); border-radius: var(--mc-r);
+      padding: 8px 12px;
+    }
+    .zb-track__step:hover { color: var(--mc-ink); }
+    .zb-track__step.selected { color: var(--mc-red); border-color: var(--mc-red); font-weight: 700; background: var(--mc-red-wash); }
+    .zb-track__arrow { width: 16px; height: 12px; color: var(--mc-ink-faint); flex: none; }
+    /* §19 Batch Z: the rejoin QR corner card (tutor-toggled, q) */
+    .zb-qrpop {
+      position: fixed; right: 16px; bottom: 16px; z-index: 60;
+      background: var(--mc-paper-raised); border: 1.5px solid var(--mc-line);
+      border-radius: var(--mc-r); box-shadow: var(--mc-shadow-md);
+      padding: 12px 14px; text-align: center; max-width: 224px;
+    }
+    .zb-qrpop .mc-qr { margin-top: 8px; }
+    .zb-qrpop__note { margin-top: 8px; font-size: 0.75rem; color: var(--mc-ink-soft); }
     /* +15s gift, stamped over the scene so the class notices */
     .zb-plusflash {
       position: absolute; inset: 0; z-index: 4;
@@ -1434,42 +1455,6 @@
       <span><svg><use href="#i-clock"/></svg><span data-i18n="duration"></span></span>
       <span><svg><use href="#i-players"/></svg><span data-i18n="players"></span></span>
     </div>
-    <!-- how to play: three sketches, one caption each -->
-    <div class="mc-note zb-howto">
-      <div class="zb-howto__row">
-        <div class="zb-howto__item">
-          <svg viewBox="0 0 76 58" aria-hidden="true">
-            <rect x="14" y="6" width="48" height="16" rx="2" class="zh-s thin"/>
-            <text x="38" y="18" class="zh-t">(x−3)</text>
-            <path d="M31 22 V42 M45 22 V42 M31 27 L45 37 M45 27 L31 37" class="zh-s thin"/>
-            <rect x="26" y="45" width="24" height="12" rx="2" class="zh-s thin"/>
-            <text x="38" y="54" class="zh-t">x = 3</text>
-          </svg>
-          <span data-i18n="howto_1"></span>
-        </div>
-        <div class="zb-howto__item">
-          <svg viewBox="0 0 76 58" aria-hidden="true">
-            <text x="38" y="16" class="zh-t">(3−3) = 0</text>
-            <path d="M16 12 L60 12" class="zh-s zh-red" style="stroke-width:2"/>
-            <g transform="rotate(14 38 46)">
-              <path d="M31 26 V46 M45 26 V46 M31 31 L45 41 M45 31 L31 41" class="zh-s thin"/>
-            </g>
-            <path d="M56 48 l3 -3 M60 52 l4 -2 M58 42 l4 1" class="zh-s thin"/>
-          </svg>
-          <span data-i18n="howto_2"></span>
-        </div>
-        <div class="zb-howto__item">
-          <svg viewBox="0 0 76 58" aria-hidden="true">
-            <path d="M10 50 H66 M16 50 L26 40 L34 46 L44 34 L54 44 L60 50" class="zh-s"/>
-            <circle cx="52" cy="18" r="11" class="zh-s zh-red"/>
-            <text x="52" y="23" class="zh-t zh-red" style="font-size:12px">拆</text>
-            <text x="26" y="22" class="zh-t zh-red">x = 3</text>
-          </svg>
-          <span data-i18n="howto_3"></span>
-        </div>
-      </div>
-      <div class="zb-howto__note" data-i18n="howto_note"></div>
-    </div>
     <div style="display:grid;gap:12px">
       <button class="mc-btn mc-btn--primary mc-btn--block" id="btnHost">
         <svg style="width:20px;height:20px"><use href="#i-screen"/></svg>
@@ -1539,18 +1524,66 @@
         </g>
       </svg>
     </div>
+    <!-- how to play (§19 Batch Z: moved off the cover) - the scanning
+         wait is the reading moment: the whole class sees the rules on
+         the projector while phones join. Re-shown at the arc's
+         進入主遊戲 recap (renderInqStage moves the node). -->
+    <div class="mc-note zb-howto" id="howtoCard">
+      <div class="zb-howto__row">
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <rect x="14" y="6" width="48" height="16" rx="2" class="zh-s thin"/>
+            <text x="38" y="18" class="zh-t">(x−3)</text>
+            <path d="M31 22 V42 M45 22 V42 M31 27 L45 37 M45 27 L31 37" class="zh-s thin"/>
+            <rect x="26" y="45" width="24" height="12" rx="2" class="zh-s thin"/>
+            <text x="38" y="54" class="zh-t">x = 3</text>
+          </svg>
+          <span data-i18n="howto_1"></span>
+        </div>
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <text x="38" y="16" class="zh-t">(3−3) = 0</text>
+            <path d="M16 12 L60 12" class="zh-s zh-red" style="stroke-width:2"/>
+            <g transform="rotate(14 38 46)">
+              <path d="M31 26 V46 M45 26 V46 M31 31 L45 41 M45 31 L31 41" class="zh-s thin"/>
+            </g>
+            <path d="M56 48 l3 -3 M60 52 l4 -2 M58 42 l4 1" class="zh-s thin"/>
+          </svg>
+          <span data-i18n="howto_2"></span>
+        </div>
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <path d="M10 50 H66 M16 50 L26 40 L34 46 L44 34 L54 44 L60 50" class="zh-s"/>
+            <circle cx="52" cy="18" r="11" class="zh-s zh-red"/>
+            <text x="52" y="23" class="zh-t zh-red" style="font-size:12px">拆</text>
+            <text x="26" y="22" class="zh-t zh-red">x = 3</text>
+          </svg>
+          <span data-i18n="howto_3"></span>
+        </div>
+      </div>
+      <div class="zb-howto__note" data-i18n="howto_note"></div>
+    </div>
     <p class="mc-status" id="lobbyStatus" style="margin-top:16px" data-i18n="lobby_waiting"></p>
     <div class="zb-playerlist" id="playerList" style="margin-top:12px"></div>
-    <button class="mc-btn mc-btn--primary mc-btn--block" id="btnStartMulti" style="margin-top:16px;display:none">
-      <span data-i18n="btn_start_multi"></span>
-      <svg class="mc-arrow"><use href="#i-arrow"/></svg>
-    </button>
-    <!-- SM901 探究活動二: the full-lesson arc runs the 等式開口中
-         warm-up stages first, then hands over to the main game -->
-    <button class="mc-btn mc-btn--block" id="btnStartInquiry" style="margin-top:10px;display:none">
-      <span data-i18n="btn_start_inquiry"></span>
-      <svg class="mc-arrow"><use href="#i-arrow"/></svg>
-    </button>
+    <!-- §19 Batch Z: the lesson track - SM901's arc drawn as four
+         equal steps. The tutor taps the entry point, one start button
+         launches from there; no step overpowers the others. -->
+    <div class="zb-track" id="lessonTrack" style="display:none">
+      <div class="mc-board__label" data-i18n="track_label" style="margin-top:16px"></div>
+      <div class="zb-track__steps" id="trackSteps">
+        <button class="zb-track__step selected" data-start="1"><span data-i18n="inq_stage1"></span></button>
+        <svg class="zb-track__arrow"><use href="#i-arrow"/></svg>
+        <button class="zb-track__step" data-start="2"><span data-i18n="inq_stage2"></span></button>
+        <svg class="zb-track__arrow"><use href="#i-arrow"/></svg>
+        <button class="zb-track__step" data-start="3"><span data-i18n="inq_stage3"></span></button>
+        <svg class="zb-track__arrow"><use href="#i-arrow"/></svg>
+        <button class="zb-track__step" data-start="main"><span data-i18n="track_main"></span></button>
+      </div>
+      <button class="mc-btn mc-btn--primary mc-btn--block" id="btnStartFrom" style="margin-top:12px">
+        <span id="startFromLabel"></span>
+        <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+      </button>
+    </div>
     <footer class="mc-brand">
       <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
       <img class="mc-logo--dark" src="/logo-secondary-dark.png" alt="MathConcept Secondary Academy">
@@ -1605,6 +1638,7 @@
           <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnHint" data-i18n="tutor_hint" data-key="h" style="display:none"></button>
           <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnSkip" data-i18n="tutor_skip" data-key="n"></button>
           <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnEndGame" data-i18n="tutor_end" data-key="e"></button>
+          <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnGameQr" data-i18n="btn_qr" data-key="q"></button>
         </div>
       </div>
       <div class="zb-col-r">
@@ -1685,9 +1719,20 @@
         <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump1" style="display:none" data-i18n="inq_jump1"></button>
         <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump2" style="display:none" data-i18n="inq_jump2"></button>
         <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump3" style="display:none" data-i18n="inq_jump3"></button>
+        <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqQr" data-i18n="btn_qr" data-key="q"></button>
         <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqSkip" data-i18n="inq_skip"></button>
       </span>
     </div>
+  </div>
+
+  <!-- §19 Batch Z: the rejoin QR - a tutor-toggled corner card (q).
+       Phone identity restores from localStorage keyed by room code, so
+       a dropped phone re-scans mid-game and lands back on its own
+       score; this card just re-surfaces the door. -->
+  <div class="zb-qrpop" id="qrPop" style="display:none">
+    <div class="mc-board__label"><span data-i18n="room_code_label"></span> · <strong id="qrPopCode"></strong></div>
+    <div class="mc-qr" id="qrPopBox"></div>
+    <div class="zb-qrpop__note" data-i18n="qr_rejoin_note"></div>
   </div>
 
   <!-- ══ controller (student phone, multi-device) ══ -->
@@ -1865,7 +1910,6 @@ const STRINGS = {
   name_label:       { c: "你叫咩名？",  e: "Your name" },
   name_placeholder: { c: "輸入暱稱",    e: "Nickname" },
   btn_join:         { c: "加入遊戲",    e: "Join game" },
-  btn_start_multi:  { c: "開始遊戲",    e: "Start game" },
   lobby_players:    { c: "已加入 {n} 人", e: "{n} joined" },
   ctrl_wait_start:  { c: "等緊導師開始⋯", e: "Waiting for the tutor to start…" },
   ctrl_wait_next:   { c: "下一座建築準備中⋯", e: "Next structure on the way…" },
@@ -1912,7 +1956,12 @@ const STRINGS = {
   btn_hint_solo:    { c: "提示（分數 75%）", e: "Hint (pays 75%)" },
   hint_nudge:       { c: "諗下：邊兩個數|乘埋係 {c}、|加埋係 {b}？", e: "Think: which two numbers multiply to {c} and add to {b}?" },
   /* ── 探究模式 · 等式開口中 (SM901 遊戲探究活動二) ── */
-  btn_start_inquiry:{ c: "先玩探究 · 等式開口中", e: "Inquiry first · Crack the Equation" },
+  /* §19 Batch Z: the lobby's lesson track + the rejoin QR */
+  track_label:      { c: "課堂流程 · 由邊一步開始？", e: "Lesson track · start from which step?" },
+  track_main:       { c: "主遊戲",      e: "Main game" },
+  track_start_fmt:  { c: "由「{s}」開始", e: "Start from {s}" },
+  btn_qr:           { c: "入場 QR",     e: "Join QR" },
+  qr_rejoin_note:   { c: "跌咗線？再 scan 一次，|入返嚟會攞返自己嘅分數。", e: "Dropped out? Scan again and your seat and score come back." },
   inq_title:        { c: "等式開口中",  e: "Crack the Equation" },
   inq_stage1:       { c: "探究一",      e: "Inquiry 1" },
   inq_stage2:       { c: "探究二",      e: "Inquiry 2" },
@@ -3078,6 +3127,7 @@ const G = {
   echoDone: {}, scoredRound: {}, echoTally: {}, bestMs: {}, echoCountBy: {},
   // 探究模式 engine (SM901 活動二): the pre-game inquiry arc
   inq: null, inqDeadline: 0, inqRaf: null, inqSlotIv: null,
+  trackStart: "1", // §19 Batch Z: the lobby track's selected entry step
   lastInqTickSec: null, inqRosterKey: null, inqMoreFlashT: null,
 };
 
@@ -4422,8 +4472,8 @@ function onHostRoom(room) {
     const n = Object.keys(G.players).length;
     if (n) {
       $("lobbyStatus").textContent = fmt("lobby_players", { n: n });
-      $("btnStartMulti").style.display = "";
-      $("btnStartInquiry").style.display = "";
+      $("lessonTrack").style.display = "";
+      renderTrack();
     }
   } else if (G.inq) {
     renderInqRoster(); // joins/leaves change the roster mid-arc
@@ -4449,7 +4499,23 @@ function onHostRoom(room) {
   });
 }
 
-$("btnStartMulti").onclick = () => startRun("host");
+/* §19 Batch Z: the lesson track. Default 探究一 - SM901's designed
+ * lesson runs the whole arc; 主遊戲 is one equal tap away for a plain
+ * game start. The start button always says where it will land. */
+function renderTrack() {
+  document.querySelectorAll("#trackSteps .zb-track__step").forEach(b => {
+    b.classList.toggle("selected", b.getAttribute("data-start") === G.trackStart);
+  });
+  const name = G.trackStart === "main" ? t("track_main") : t("inq_stage" + G.trackStart);
+  $("startFromLabel").textContent = fmt("track_start_fmt", { s: name });
+}
+document.querySelectorAll("#trackSteps .zb-track__step").forEach(b => {
+  b.onclick = () => { G.trackStart = b.getAttribute("data-start"); renderTrack(); };
+});
+$("btnStartFrom").onclick = () => {
+  if (G.trackStart === "main") startRun("host");
+  else startInquiry(parseInt(G.trackStart, 10));
+};
 
 /* ── lobby moderation: tap a chip, tap again to remove the player ── */
 let kickArmed = { id: null, at: 0 };
@@ -4617,6 +4683,25 @@ function renderPauseBtn() {
   $("btnPause").textContent = t(key);
 }
 
+/* §19 Batch Z: the rejoin QR - a corner card the tutor toggles from
+ * either tutor bar (or q). The QR redraws once per room. */
+function toggleQrPop() {
+  if (G.mode !== "host" || !G.room) return;
+  const pop = $("qrPop");
+  const on = pop.style.display === "none";
+  if (on) {
+    $("qrPopCode").textContent = G.room.code;
+    if (pop.dataset.code !== G.room.code) {
+      pop.dataset.code = G.room.code;
+      $("qrPopBox").innerHTML = "";
+      GameBridge.qr($("qrPopBox"), G.room.joinUrl, 150);
+    }
+  }
+  pop.style.display = on ? "" : "none";
+}
+$("btnGameQr").onclick = toggleQrPop;
+$("btnInqQr").onclick = toggleQrPop;
+
 $("btnPlus15").onclick = tutorPlus15;
 $("btnHint").onclick = tutorHint;
 $("btnSkip").onclick = tutorSkip;
@@ -4629,6 +4714,7 @@ document.addEventListener("keydown", e => {
   else if (e.key === "n") tutorSkip();
   else if (e.key === "e") tutorEnd();
   else if (e.key === "p") togglePause();
+  else if (e.key === "q") toggleQrPop();
   else if (e.key === "g") G.graphOn = !G.graphOn; // resolve graph sketch on/off
 });
 
@@ -4725,7 +4811,7 @@ function inqStatePayload() {
   };
 }
 
-function startInquiry() {
+function startInquiry(fromStage) {
   ZBFX.audio.unlock();
   G.mode = "host";
   G.started = true;
@@ -4751,6 +4837,9 @@ function startInquiry() {
   renderInqStage();
   renderInqBar();
   saveHostRun();
+  // §19 Batch Z: the lobby track can enter the arc mid-way - same
+  // operation as the tutor bar's jump chips, just at the start
+  if (fromStage === 2 || fromStage === 3) inqEnterStage(fromStage);
 }
 
 function inqEnterStage(stage) {
@@ -5171,6 +5260,11 @@ function renderInqReveal(rv) {
   box.style.display = "";
 }
 
+/* the how-to card lives in the lobby but re-appears at the arc's
+ * 進入主遊戲 recap; a captured ref survives the reveal box's innerHTML
+ * rebuilds detaching it (§19 Batch Z) */
+const HOWTO_CARD = $("howtoCard");
+
 /* the sheet's face for the current step (intro / round / reveal / summary) */
 function renderInqStage() {
   const inq = G.inq;
@@ -5240,7 +5334,8 @@ function renderInqStage() {
     }
     if (inq.stage === 3) {
       // the handover beat: the equations just cracked, wearing the
-      // exam faces the main game is about to serve
+      // exam faces the main game is about to serve - then the game's
+      // how-to card (§19 Batch Z), read again right before it matters
       const played = INQ_BRIDGE.slice(0, Math.min(inq.round, INQ_BRIDGE.length));
       const box = $("inqRevealBox");
       box.innerHTML = `<div class="zb-inqrecap"><div class="zb-inqzero-note">${t("inq_exam_head")}</div>`
@@ -5248,6 +5343,7 @@ function renderInqStage() {
           `<div class="zb-inqexam">${mathHtml(escapeText(inqFactoredText(r) + " = 0"))}`
           + ' <span class="zb-inqrow__x">⇔</span> '
           + `<strong>${mathHtml(escapeText(inqExpandedText(r[0], r[1])))}</strong></div>`).join("") + "</div>";
+      box.appendChild(HOWTO_CARD); // the live node moves here from the lobby
       box.style.display = "";
     }
   }
@@ -5368,7 +5464,6 @@ function inqMoreRound() {
   saveHostRun();
 }
 
-$("btnStartInquiry").onclick = startInquiry;
 $("btnInqPrimary").onclick = inqAdvance;
 $("btnInqMore").onclick = inqMoreRound;
 [1, 2, 3].forEach(s => {
@@ -5379,6 +5474,7 @@ $("btnInqSkip").onclick = makeTwoTap($("btnInqSkip"), "inq_skip", inqFinish);
 document.addEventListener("keydown", e => {
   if (!G.inq || !$("inquiryScreen").classList.contains("active")) return;
   if (e.key === "n") inqAdvance();
+  else if (e.key === "q") toggleQrPop();
 });
 
 /* ══════════════════════════════════════════════════════════════════

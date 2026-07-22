@@ -378,9 +378,13 @@ async function main() {
   );
 
   const startDisplay = await host.evaluate(
-    () => getComputedStyle(document.getElementById("btnStartMulti")).display
+    () => getComputedStyle(document.getElementById("lessonTrack")).display
   );
-  check("start hidden with no players", startDisplay === "none", "display=" + startDisplay);
+  check("lesson track hidden with no players", startDisplay === "none", "display=" + startDisplay);
+  const lobbyHowto = await host.evaluate(() =>
+    document.querySelectorAll("#lobbyScreen #howtoCard .zb-howto__item").length
+  );
+  check("§19: the how-to reads on the lobby projector while phones join", lobbyHowto === 3, "items=" + lobbyHowto);
 
   const bgmLobby = await host.evaluate(() => ZBFX.bgm.state());
   check(
@@ -422,11 +426,21 @@ async function main() {
   );
   check("host sees both players", true);
 
-  const startVis = await host.evaluate(() => {
-    const el = document.getElementById("btnStartMulti");
-    return getComputedStyle(el).display !== "none" && el.getBoundingClientRect().width > 0;
+  const trackVis = await host.evaluate(() => {
+    const el = document.getElementById("lessonTrack");
+    const sel = document.querySelector("#trackSteps .zb-track__step.selected");
+    return {
+      shown: getComputedStyle(el).display !== "none" && el.getBoundingClientRect().width > 0,
+      steps: document.querySelectorAll("#trackSteps .zb-track__step").length,
+      selected: sel ? sel.getAttribute("data-start") : null,
+      label: document.getElementById("startFromLabel").textContent,
+    };
   });
-  check("start button visible", startVis);
+  check(
+    "lesson track visible: four equal steps, 探究一 selected by default",
+    trackVis.shown && trackVis.steps === 4 && trackVis.selected === "1" && trackVis.label.includes("探究一"),
+    JSON.stringify(trackVis)
+  );
 
   /* ════════ kick ════════ */
   let bId = await phoneB.evaluate(() => C.id);
@@ -533,7 +547,11 @@ async function main() {
   await phoneC.close(); // never joins as a player: the roster stays A + B
 
   /* ════════ start → level 1 (kind 1) ════════ */
-  await host.click("#btnStartMulti");
+  // §19 Batch Z: the lobby's lesson track - pick 主遊戲, one start button
+  await host.click('#trackSteps .zb-track__step[data-start="main"]');
+  const mainLabel0 = await host.evaluate(() => document.getElementById("startFromLabel").textContent);
+  check("lesson track: selecting 主遊戲 relabels the start button", mainLabel0.includes("主遊戲"), mainLabel0);
+  await host.click("#btnStartFrom");
   await until(
     () => host.evaluate(() => document.getElementById("gameScreen").classList.contains("active") && G.started && !!G.level),
     { label: "game started" }
@@ -1655,16 +1673,16 @@ async function main() {
     () => host.evaluate(() => document.querySelectorAll("#playerList span[data-id]").length === 2),
     { label: "inq lobby sees both" }
   );
-  const inqBtnVis = await host.evaluate(() => {
-    const el = document.getElementById("btnStartInquiry");
-    return getComputedStyle(el).display !== "none" && el.getBoundingClientRect().width > 0;
-  });
-  check("探究: lobby offers the inquiry start", inqBtnVis);
+  const inqTrack = await host.evaluate(() => ({
+    shown: getComputedStyle(document.getElementById("lessonTrack")).display !== "none",
+    selected: (document.querySelector("#trackSteps .zb-track__step.selected") || { getAttribute: () => null }).getAttribute("data-start"),
+  }));
+  check("探究: the lesson track offers the arc, 探究一 selected", inqTrack.shown && inqTrack.selected === "1", JSON.stringify(inqTrack));
   const adaId = await phoneA2.evaluate(() => C.id);
   const benId = await phoneB.evaluate(() => C.id);
 
   /* ── 探究一 intro ── */
-  await host.click("#btnStartInquiry");
+  await host.click("#btnStartFrom"); // default step: the full arc from 探究一
   await until(
     () => host.evaluate(() => document.getElementById("inquiryScreen").classList.contains("active") && G.inq && G.inq.step === "intro"),
     { label: "inquiry screen up" }
@@ -2220,10 +2238,26 @@ async function main() {
     "探究: the jumps return at the reveal, in a nav cluster anchored right",
     barAtReveal.jumps &&
       barAtReveal.flow === "btnInqPrimary,btnInqMore" &&
-      barAtReveal.nav === "btnInqJump1,btnInqJump2,btnInqJump3,btnInqSkip" &&
+      barAtReveal.nav === "btnInqJump1,btnInqJump2,btnInqJump3,btnInqQr,btnInqSkip" &&
       barAtReveal.split === "space-between",
     JSON.stringify(barAtReveal)
   );
+  /* ── §19: the rejoin QR toggles from the inquiry tutor bar ── */
+  await host.click("#btnInqQr");
+  const qrPop = await host.evaluate(() => ({
+    shown: getComputedStyle(document.getElementById("qrPop")).display !== "none",
+    code: document.getElementById("qrPopCode").textContent,
+    drawn: !!document.querySelector("#qrPopBox canvas, #qrPopBox img, #qrPopBox svg"),
+    note: document.querySelector("#qrPop .zb-qrpop__note").textContent,
+  }));
+  check(
+    "QR chip: the corner card shows the room QR + code + rejoin note",
+    qrPop.shown && qrPop.code === code2 && qrPop.drawn && qrPop.note.includes("scan"),
+    JSON.stringify({ shown: qrPop.shown, code: qrPop.code, drawn: qrPop.drawn })
+  );
+  await host.press("body", "q");
+  const qrHid = await host.evaluate(() => getComputedStyle(document.getElementById("qrPop")).display === "none");
+  check("QR chip: q toggles the card away", qrHid);
   const hostRevealC = await host.evaluate(() => ({
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
     note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
@@ -2255,14 +2289,16 @@ async function main() {
     shown: getComputedStyle(document.getElementById("inqRevealBox")).display !== "none",
     lines: document.querySelectorAll("#inqRevealBox .zb-inqexam").length,
     text: document.getElementById("inqRevealBox").textContent,
+    howto: document.querySelectorAll("#inqRevealBox #howtoCard .zb-howto__item").length,
   }));
   check(
     "概念轉化 recap: all four equations wear their exam faces (the handover beat)",
     recap.shown && recap.lines === 4 && recap.text.includes("考你") &&
       recap.text.includes("x² − x − 6 = 0") && recap.text.includes("x² − 7x = 0") &&
       recap.text.includes("x² − 6x + 9 = 0"),
-    JSON.stringify(recap)
+    JSON.stringify({ lines: recap.lines, text: recap.text.slice(0, 120) })
   );
+  check("§19: the game's how-to card re-reads at the 進入主遊戲 recap", recap.howto === 3, "items=" + recap.howto);
   await host.click("#btnInqMore"); // the class needs another look
   await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 5), { label: "extra round started" });
   const extraR = (await roomData(host)).state.inq;
@@ -2363,6 +2399,10 @@ async function main() {
   const l1root = await host.evaluate(() => G.level.pillars[0].root);
   const vdMain = await submitVerdict(phoneA2, l1root);
   check("handover: the main game judges a submission end-to-end", vdMain.ok === true && vdMain.pts > 0, JSON.stringify(vdMain));
+  await host.click("#btnGameQr");
+  const qrMain = await host.evaluate(() => getComputedStyle(document.getElementById("qrPop")).display !== "none");
+  check("QR chip: available on the main-game tutor bar too", qrMain);
+  await host.press("body", "q"); // tidy the card away for the error census
   const dBad = dErrors.filter((l) => !benign(l));
   check("no phone D errors", dBad.length === 0, JSON.stringify(dBad));
 
