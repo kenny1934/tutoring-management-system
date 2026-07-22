@@ -1652,3 +1652,184 @@ navigation, and every label change reshuffled the targets. Two fixes:
   the gap separates "adjust this stage" from "leave it".
 
 Multi suite: 208 checks.
+
+## 19. Second demo feedback: the arc is the lesson (2026-07-22;
+Batches W+X implemented, Y/Z/AA pending)
+
+The full-class demo ran 探究一 → 探究二 → 概念轉化 → 主遊戲 in one
+room and returned nine findings. The through-line: the arc IS the
+lesson now, but the hearts economy, the stage conclusions and the
+lobby still treat it as a bolt-on. Findings 1, 2 and 6 are one
+decision (the hearts economy across the arc) and land as Batches W
+and X; the rest map onto Y, Z and AA.
+
+A finding-1 correction first: main-game score already carries across
+every stage. `G.score`/`G.scores` reset only in startRun() (a
+brand-new game), never between stages. What the demo saw was the
+hearts refill at the 探究一 → 探究二 handover ("fresh 5 hearts per
+stage", inqEnterStage). Batch W removes that refill, which is what
+the finding actually wants. If anyone truly saw main-game POINTS
+reset mid-run that is a separate bug (suspect a host F5) - watch for
+it at the next demo, don't code for it.
+
+### Batch W - one hearts pool + the rebuild bench (findings 1, 2)
+
+- **One pool for the whole arc.** Drop the stage-entry refill in
+  inqEnterStage(); hearts flow 探究一 → 探究二 → 概念轉化 untouched.
+  Default rises 5 → 6 (`?inqhearts` still overrides): stage 1's
+  despair round (the prime 37) and stage 2's booms are designed
+  drains, and Batch X makes the bridge cost hearts for the first
+  time. 生還者 at each recap now means "never knocked out this arc" -
+  worth more, reads the same.
+- **Zero hearts = 重建中, not elimination.** Today 0 hearts is
+  cosmetic (dimmed roster, dropped from 生還者) and the stake is
+  fake. New rule: a player at 0 is benched for the NEXT round as an
+  observer - reuse the rotating-bye plumbing wholesale (roster tag,
+  phone explainer card, no lives move, snapshot survival like
+  lastBye) with its own copy (大廈冧咗，重建中。下一回合返嚟). They
+  return with 2 hearts (1 would re-KO on the next single miss; 2
+  buys a round of slack). No one sits out more than one round, KO
+  benches carry across a stage boundary naturally, and elimination
+  stays off the table - the design is inclusion-first (echo points,
+  rotating bye) and this keeps it that way.
+- **Mass-KO guard.** A stage-2 boom can zero several players at
+  once. If benching every 0-heart player would leave fewer than 2
+  active, skip the bench and rebuild all of them on the spot (2
+  hearts, no round missed) - a pity rule that should almost never
+  fire.
+- Benched players count as absent for pairing; the rotating bye
+  applies to whoever remains.
+
+### Batch X - the bridge becomes a real test (findings 5, 6)
+
+- **INQ_BRIDGE grows to 4**: `[[3,-2],[5,-4],[0,7],[3,3]]` -
+  x(x−7) = 0 slots in third, testing the naked-x factor (students
+  usually don't know x has its zero at 0). factorText(0) already
+  renders "(x)" and factorSub gives the reveal line
+  (0)(0−7) = 0 × (−7) = 0 for free. The repeated root stays LAST:
+  the arc is rule, rule, rule, exception. Stage 3 auto-extends to 4
+  rounds (base = INQ_BRIDGE.length) and 加多一回合 cycles %4 - check
+  the lesson time budget. The x(x−7) reveal note names the trap in
+  its own line (x 自己都係一個因式，零點喺 0), not just the generic
+  或 template.
+- **Own-factor judging** (partially reverses §18.1, deliberately).
+  The underlined hint becomes the assignment: the pair passes only
+  when BOTH partners zero their OWN dealt factor; any miss (wrong x
+  or no submission) costs both partners 1 heart - the same shared
+  fate as stages 1-2. Rationale: today's pair.some() lets one strong
+  partner carry both, and the student dealt "(x)" in the new
+  question 3 never has to confront root 0 at all. §18.1's fear
+  (endorsing (0)(0)) is answered by framing, not rules: the stage
+  intro states the 分工 rule up front (你負責歸零你嗰個因式), the
+  reveal still substitutes each partner's x into BOTH factors
+  showing exactly one zeroed bracket per line, and the 或/重根 notes
+  stay, as does inq_either_note on a pass. A double pass now yields
+  two lines zeroing DIFFERENT brackets - the 或 shown twice,
+  stronger than the current rule ever manages.
+- **The partner's-root verdict.** A partner dealt (x−7) who submits
+  0 has solved the EQUATION but not their factor. A flat "wrong"
+  would be mathematically false, so it gets its own verdict type and
+  phone copy (0 真係方程嘅解，不過你嘅因式係 (x−7)，代 0 入去係
+  −7。你要歸零你嗰份先得) - still a pair fail, but the maths gets
+  credit.
+- **The two card-less cases.** (x−3)² deals no cards (identical
+  brackets): both partners own the same factor, so both must submit
+  3 - a tightening (today one partner's 3 passes both), consistent
+  with 分工. The degenerate solo pair (one-player room) is dealt one
+  underlined factor (alternating per round) and judged on it alone.
+- Copy register per §18.3: spoken tutor Cantonese, hedged, second
+  person.
+
+### Batch Y - every stage lands its conclusion (findings 3, 4)
+
+- **探究一's recap earns its screen.** Today it is only the
+  survivors line - the discovery goes unstated. Add the beat: the
+  five Ns played with each round's 成功配對 count (persist a
+  per-round pass tally in state/inq - one flat scalar per round,
+  inside the shape clamp), closing on the cliffhanger, not the
+  answer: 隨機嘅 N，靠估好難夾中。有冇一個 N，係唔使夾都得？ The
+  primary then walks into 探究二's intro, which pays it off with the
+  locked 0. The theorem stays in stage 2 - stage 1's job is only the
+  itch.
+- **顯示歸納 becomes the default path** (finding 4). On stage 2's
+  summary the theorem button is promoted to THE primary; only after
+  it is pressed does the primary become 下一階段. The tutor still
+  owns the reveal moment (nothing auto-shows) and the jump chips
+  still allow a deliberate skip - but the theorem can no longer be
+  missed by accident. Phone mirroring already exists.
+
+### Batch Z - the lobby track, the handover and the QR chip (findings 7, 8)
+
+- **The lobby presents the lesson track.** Replace the stacked
+  開始遊戲 / 先玩探究 buttons with the arc drawn as four equal
+  steps - 探究一 → 探究二 → 概念轉化 → 主遊戲 - where the tutor taps
+  the entry point and one primary 開始 button launches from there.
+  Default selection 探究一 (the designed lesson); 主遊戲 is one
+  equal tap away, no longer the overpowering primary. Mid-game the
+  跳去 chips already speak the same track language.
+- **Instructions move to their moment.** The cover keeps only
+  title / objective / join / host / solo / resume; its main-game
+  how-to moves to the 進入主遊戲 handover (between the bridge recap
+  and startRun) where it is actually next. Each 探究 stage keeps its
+  own intro. The solo path is unchanged (straight into the main game
+  with its how-to).
+- **QR chip on the tutor bar** (finding 8), both game and inquiry
+  screens: toggles a corner overlay with the room QR + code
+  (GameBridge.qr already renders it), kbd chip `q` per §18.4. Rejoin
+  identity already restores from localStorage keyed by room code
+  (score and hearts survive a re-scan) - discovery was the only gap.
+  The overlay carries one reassurance line (入返嚟會攞返自己嘅分數).
+  Manual toggle only, per the tutor-bar philosophy - nothing
+  auto-shows during a round.
+
+### Batch AA - the general-form gate (finding 9)
+
+- **One scripted finale building: x² + 5x + 6 = 2.** New kind 7
+  ("offset"), appended after the kind-6 street as the true finale
+  (the double points and slow-mo set piece move to it), fuse 60s, in
+  every preset (`?levels` can still omit it). Scripted, not
+  generated: the lesson quotes this exact question, the same way
+  探究一's N pool is scripted. (A generator must make BOTH the
+  displayed LHS and the rearranged form factor over integers -
+  solvable, not worth it for the pilot.)
+- **The trap must pay.** x² + 5x + 6 factors as (x+2)(x+3), so the
+  confident wrong answers are −2/−3 - those exact submissions get a
+  bespoke worked note: (−2)² + 5×(−2) + 6 = 0，唔係 2！右邊唔係 0，
+  要先搬個 2 過去。 Generic wrongs substitute into the LHS and show
+  ≠ 2. strength() for kind 7 is |LHS − RHS|.
+- True roots −1 and −4 (keypad range); pillars hidden as in kind 6.
+  The resolve/fuse-out reveal shows the whole chain:
+  x² + 5x + 6 = 2 → x² + 5x + 4 = 0 → (x+1)(x+4) = 0 - the lesson's
+  general-form introduction, on screen before phones go down.
+- **Renderer refactor**: exprHtml/boardHtml hard-append "= 0" today;
+  levels grow an `rhs` field (default 0) and the board renders it -
+  the only structural change outside levels.js.
+
+### Recommended order
+
+W and X first, together - the economy underpins the bridge's new
+stakes and both rewrite inqResolve(). Y, Z and AA are independent of
+them and of each other. If a demo lands before the iteration is
+done, the two afternoon-sized quick wins are the theorem promotion
+(Y's second bullet) and the QR chip (Z's third). Every mechanics
+change lands with multi-suite coverage (208 checks today; W and X
+are the big adders). game.json 0.12.0.
+
+### 19.1 W+X implementation deltas (2026-07-22)
+
+- KO'd players are credited to 2 hearts AT bench time, so the roster
+  reads 重建中 with the comeback already visible; a reveal showing 0
+  hearts therefore always means the fall just happened, which is what
+  the phone's KO beat keys on.
+- sanitizeInq (the phone's wire whitelist) grew the `rebuild` key - a
+  flat comma-joined pid list, same publicity argument as the bye.
+- Reveal rows regained the aC/bC card keys (dropped in §18.1, flat
+  scalars inside the clamp): both renderers mark each member's OWN
+  factor - the chip rings only on the 分工 zero and the substitution
+  underlines the assigned bracket, so the projector shows WHY a
+  right-looking x still failed the pair.
+- 生還者 now reads an ever-KO'd map (snapshot-persisted): with one
+  pool + the bench, hearts alone no longer say who fell.
+- The lone-player deal alternates its factor by round; the repeated
+  root needs both partners on the root (one 3 no longer carries).
+- Multi suite 208 → 221 checks; solo + audit untouched and green.

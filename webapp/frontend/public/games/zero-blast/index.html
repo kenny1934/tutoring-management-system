@@ -1220,7 +1220,9 @@
     /* the bridge's rows: one substitution line per partner, stacked */
     .zb-inqrow__col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
     .zb-inqsub { font-family: var(--mc-mono); font-size: 0.88em; color: var(--mc-ink-soft); }
-    /* the dealt factor is a way in, not the goal: a quiet underline */
+    /* the dealt factor is the assignment (分工, §19): the underline
+     * marks the bracket this player must zero, on the phone face and
+     * in the reveal's substitution lines alike */
     .zb-inqhint { text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--mc-red); text-decoration-thickness: 2px; }
     .zb-inqfactors { margin-top: 10px; font-family: var(--mc-mono); font-size: 0.9375rem; color: var(--mc-ink-soft); }
     .zb-inqzero-note { margin-top: 6px; font-size: 0.875rem; color: var(--mc-ink-soft); }
@@ -1918,7 +1920,7 @@ const STRINGS = {
   inq_locked:       { c: "N 已鎖定",    e: "N locked" },
   inq_rule1:        { c: "你同一位神秘拍檔|各自出一個 0 至 99 嘅整數，|兩個數相乘要啱好等於目標數字！|估唔中，兩個一齊扣 1 個生命值。", e: "You and a secret partner each pick a whole number from 0 to 99. Multiplied together they must hit the target exactly! Miss, and you both lose a life." },
   inq_rule2:        { c: "目標鎖定咗做 0！|規則不變，|但係兩個都出 0 就會大爆炸，|一齊扣 2 個生命值！", e: "The target is locked at 0! Same rules, but if BOTH of you play 0 it explodes: two lives gone each!" },
-  inq_rule3:        { c: "螢幕上有一條方程。|你同神秘拍檔各自提出一個 x，|有一個人搵啱答案就全組過關！|手機會提示你一個因式做入手位。", e: "One equation on the screen. You and a secret partner each propose an x. If either of you finds a solution the pair passes! Your phone highlights one factor as a way in." },
+  inq_rule3:        { c: "螢幕上有一條方程。|你同神秘拍檔一人負責一個因式|（有底線嗰個）。|各自搵一個 x 令自己嗰個因式歸零：|兩個都啱，全組過關；|有一個唔啱，兩個一齊扣 1 個生命值。", e: "One equation on the screen. You and a secret partner each take one factor (the underlined one). Each of you finds the x that zeroes YOUR factor: both right and the pair passes; one wrong and you both lose a life." },
   inq_submitted_fmt:{ c: "已收到 {k}/{m}", e: "{k}/{m} in" },
   inq_pick_hint:    { c: "出一個 0 至 99 嘅整數", e: "Pick a whole number from 0 to 99" },
   inq_sent_fmt:     { c: "已出 {v}，|截止前可以再改", e: "Sent {v}. You can change it before time runs out" },
@@ -1947,8 +1949,8 @@ const STRINGS = {
   inq_to_stage3:    { c: "概念轉化",    e: "To the bridge" },
   inq_to_main:      { c: "進入主遊戲 · 歸零爆破", e: "On to Zero Blast" },
   inq_skip:         { c: "跳過探究",    e: "Skip inquiry" },
-  inq_your_factor:  { c: "你嘅提示因式",  e: "Your hint factor" },
-  inq_factor_goal:  { c: "揀一個 x，|令成條方程成立", e: "Pick an x that makes the equation true" },
+  inq_your_factor:  { c: "你負責嘅因式",  e: "Your factor to zero" },
+  inq_factor_goal:  { c: "揀一個 x，|令你嗰個因式歸零", e: "Pick the x that zeroes your factor" },
   inq_either_note:  { c: "其中一個因式歸零，|成條式就歸零！", e: "One factor at zero zeroes the whole thing!" },
   inq_or_note_fmt:  { c: "{fa} 同 {fb} 嘅零點唔同（{ra} 同 {rb}）：|冇一個 x 令兩個同時歸零，|所以係「或」！", e: "{fa} and {fb} have different zeros ({ra} and {rb}): no single x zeroes both at once. That is why it says OR!" },
   inq_double_note:  { c: "兩個因式一樣，係「重根」：|唯一例外，x = {r} 令兩邊同時歸零！", e: "Identical factors: a repeated root! The one exception: x = {r} zeroes both at once." },
@@ -1962,6 +1964,14 @@ const STRINGS = {
   inq_jump2:        { c: "跳去探究二",  e: "Jump to Inquiry 2" },
   inq_jump3:        { c: "跳去概念轉化", e: "Jump to the bridge" },
   inq_more_round:   { c: "加多一回合",  e: "One more round" },
+  /* §19 Batch W: the rebuild bench (0 lives = one round out, back at 2) */
+  inq_ko_note:      { c: "生命值歸零！|大廈冧咗，|下一回合重建。", e: "No lives left! Your building is down. You'll rebuild next round." },
+  inq_rebuild:      { c: "本回合重建中", e: "Rebuilding this round" },
+  inq_rebuild_tag:  { c: "重建中",      e: "rebuilding" },
+  inq_rebuild_note: { c: "大廈冧咗！|你今回合重建中，做觀察員：|望住投影幕。|補返 2 個生命值，|下一回合再嚟過。", e: "Your building came down! You're rebuilding this round as the observer: watch the big screen. You're back to 2 lives, in again next round." },
+  /* §19 Batch X: 分工 judging on the bridge */
+  inq_wrong_factor_fmt: { c: "x = {v} 真係方程嘅解！|不過你負責嘅因式係 {f}，|代入去係 {fv}，唔係 0。", e: "x = {v} does solve the equation! But your factor is {f}, and it gives {fv}, not 0." },
+  inq_xfactor_note: { c: "記住：x 自己都係一個因式，|佢嘅零點就喺 x = 0！", e: "Remember: x by itself is a factor too. Its zero is at x = 0!" },
 };
 
 const SLUG = "zero-blast";
@@ -2038,7 +2048,7 @@ const CFG = {
   // 探究模式 (SM901 活動二): rounds per stage, answer window, lives
   inqRounds: Math.max(1, parseInt(Q.get("inqrounds"), 10) || 5),
   inqFuse: Math.max(1, parseFloat(Q.get("inqfuse")) || 15) * 1000,
-  inqHearts: Math.max(1, parseInt(Q.get("inqhearts"), 10) || 5),
+  inqHearts: Math.max(1, parseInt(Q.get("inqhearts"), 10) || 6),
 };
 const PLAN = ZBLevels.planFromConfig(CFG);
 
@@ -2048,11 +2058,13 @@ const PLAN = ZBLevels.planFromConfig(CFG);
  * discussion). Cycles when inqrounds exceeds it. */
 const INQ_POOL = [12, 36, 24, 60, 37];
 /* 概念轉化 bridge equations as root pairs: (x−3)(x+2)=0, (x−5)(x+4)=0,
- * then (x−3)²=0 - the repeated root, where the one x really does zero
- * both factors: the exception that makes the 或 rule precise, and a
- * taste of the main game's double-root stage. One equation per round,
- * every pair works the same one. */
-const INQ_BRIDGE = [[3, -2], [5, -4], [3, 3]];
+ * then x(x−7)=0 - the naked-x factor whose zero at 0 students miss
+ * (§19 Batch X) - then (x−3)²=0, the repeated root, where the one x
+ * really does zero both factors: the exception that makes the 或 rule
+ * precise, and a taste of the main game's double-root stage. One
+ * equation per round, every pair works the same one; the exception
+ * stays LAST (rule, rule, rule, exception). */
+const INQ_BRIDGE = [[3, -2], [5, -4], [0, 7], [3, 3]];
 /* the reveal rows' flat member keys: aId/aN/aV(/aC), bId…, cId… (trio).
  * Flat scalars keep every leaf inside the deployed RTDB depth clamp. */
 const INQ_KEYS = ["a", "b", "c"];
@@ -3915,7 +3927,7 @@ function saveHostRun() {
         stage: G.inq.stage, round: G.inq.round, step: G.inq.step, seq: G.inq.seq,
         n: G.inq.n, roots: G.inq.roots, exprA: G.inq.exprA, exprB: G.inq.exprB,
         hearts: G.inq.hearts, lastReveal: G.inq.lastReveal, theorem: G.inq.theorem,
-        lastBye: G.inq.lastBye, extra: G.inq.extra,
+        lastBye: G.inq.lastBye, extra: G.inq.extra, koed: G.inq.koed,
       } : null,
     }));
   } catch (_) {}
@@ -4642,8 +4654,8 @@ function inqRoundsTotal(stage) {
  * keeps us safe. Odd headcount: one player sits the round out as the
  * observer (a trio would break the A×B frame and never boom), and the
  * bye rotates - never the same player twice in a row. */
-function inqMakePairs() {
-  const ids = Object.keys(G.players);
+function inqMakePairs(eligible) {
+  const ids = eligible.slice();
   for (let i = ids.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     const sw = ids[i]; ids[i] = ids[j]; ids[j] = sw;
@@ -4701,6 +4713,9 @@ function inqStatePayload() {
     // the bye is public by design (their pad closes, the roster says
     // why); it narrows nothing about who is paired with whom
     bye: inq.bye || null,
+    // the rebuild bench, same deal: a flat comma-joined pid list so the
+    // benched phones wear the 重建中 face (§19 Batch W)
+    rebuild: inq.rebuild && inq.rebuild.length ? inq.rebuild.join(",") : null,
   };
 }
 
@@ -4712,9 +4727,10 @@ function startInquiry() {
   G.inq = {
     stage: 1, round: 0, step: "intro", seq: 0, n: null,
     roots: null, exprA: null, exprB: null,
-    pairs: [], hearts: {}, collect: {}, open: false,
+    pairs: [], hearts: {}, collect: {}, open: false, cards: null,
     lastReveal: null, theorem: false,
     bye: null, lastBye: null, extra: {},
+    rebuild: [], koed: {}, // §19: benched-this-round pids + ever-KO'd (生還者)
   };
   Object.keys(G.players).forEach(pid => { G.inq.hearts[pid] = CFG.inqHearts; });
   G.room.update("state", {
@@ -4738,11 +4754,8 @@ function inqEnterStage(stage) {
   inq.step = "intro";
   inq.open = false;
   inq.lastReveal = null;
-  if (stage === 2) {
-    // Steve's spec: fresh 5 hearts per stage (the bridge keeps stage
-    // 2's - low stakes, continuity)
-    Object.keys(inq.hearts).forEach(pid => { inq.hearts[pid] = CFG.inqHearts; });
-  }
+  // §19 Batch W: ONE hearts pool for the whole arc - no stage refill.
+  // The rebuild bench (inqStartRound) is the pressure valve instead.
   G.room.update("state", {
     inq: inqStatePayload(), inqReveal: null, inqCards: null,
     inqHearts: inq.hearts, deadlineEpoch: null,
@@ -4760,28 +4773,40 @@ function inqStartRound() {
   inq.step = "round";
   inq.collect = {};
   // everyone present is paired and carries lives (late joiners enter here)
-  Object.keys(G.players).forEach(pid => {
+  const allIds = Object.keys(G.players);
+  allIds.forEach(pid => {
     if (typeof inq.hearts[pid] !== "number") inq.hearts[pid] = CFG.inqHearts;
   });
-  const deal = inqMakePairs();
+  // §19 Batch W: KO'd buildings rebuild - benched for THIS round as
+  // observers, credited back to 2 hearts, paired again next round.
+  // Pity rule: if benching would leave fewer than 2 active players,
+  // nobody is benched - everyone rebuilds on the spot instead.
+  const ko = allIds.filter(pid => inq.hearts[pid] <= 0);
+  inq.rebuild = allIds.length - ko.length >= 2 ? ko : [];
+  ko.forEach(pid => { inq.hearts[pid] = 2; });
+  const deal = inqMakePairs(allIds.filter(pid => inq.rebuild.indexOf(pid) === -1));
   inq.pairs = deal.pairs;
   inq.bye = deal.bye;
   if (deal.bye) inq.lastBye = deal.bye;
-  // the dealt hint factor per phone (position k%2), published for the
-  // bridge's underline; judging never needs it - any true root passes
+  // the dealt factor per phone (position k%2; a lone player's card
+  // alternates by round), published for the bridge's underline AND
+  // kept host-side: 分工 judging needs each partner's own factor (§19)
   let cards = null;
   if (inq.stage === 3) {
     inq.roots = INQ_BRIDGE[(inq.round - 1) % INQ_BRIDGE.length];
     inq.exprA = ZBLevels.factorText(inq.roots[0]);
     inq.exprB = ZBLevels.factorText(inq.roots[1]);
     if (inq.roots[0] !== inq.roots[1]) {
-      // no deal on the repeated root: identical brackets, nothing to hint
+      // no deal on the repeated root: identical brackets, both own it
       cards = {};
-      inq.pairs.forEach(pair => pair.forEach((pid, k) => { cards[pid] = k % 2; }));
+      inq.pairs.forEach(pair => pair.forEach((pid, k) => {
+        cards[pid] = pair.length === 1 ? (inq.round - 1) % 2 : k % 2;
+      }));
     }
   } else {
     inq.n = inq.stage === 2 ? 0 : INQ_POOL[(inq.round - 1) % INQ_POOL.length];
   }
+  inq.cards = cards;
   inq.open = true;
   G.inqDeadline = performance.now() + CFG.inqFuse;
   G.room.update("state", {
@@ -4854,10 +4879,15 @@ function inqResolve() {
     const all = vals.every(v => v !== null);
     let ok = false, boom = false;
     if (inq.stage === 3) {
-      // x belongs to the EQUATION, not the factor: any partner landing
-      // on either root passes the pair - the 「或」 twice over. The hint
-      // card never constrains correctness.
-      ok = all && pair.some((pid, k) => vals[k] === inq.roots[0] || vals[k] === inq.roots[1]);
+      // 分工 (§19 Batch X): each partner must zero their OWN dealt
+      // factor - one strong partner can no longer carry both. The
+      // maths claim stays honest at the reveal: each x substitutes
+      // into BOTH factors and the 或-note says either zero suffices.
+      // No cards (the repeated root) means both own the same factor.
+      ok = all && pair.every((pid, k) => {
+        const ci = inq.cards ? inq.cards[pid] : null;
+        return vals[k] === inq.roots[typeof ci === "number" ? ci : 0];
+      });
     } else {
       const prod = all ? vals.reduce((a, b) => a * b, 1) : null;
       ok = all && prod === inq.n;
@@ -4869,6 +4899,7 @@ function inqResolve() {
     const loss = ok ? 0 : (boom ? 2 : 1);
     pair.forEach(pid => {
       inq.hearts[pid] = Math.max(0, (typeof inq.hearts[pid] === "number" ? inq.hearts[pid] : CFG.inqHearts) - loss);
+      if (inq.hearts[pid] <= 0) inq.koed[pid] = true; // 生還者 = never KO'd (§19)
     });
     if (boom) anyBoom = true;
     const row = { ok: ok, boom: boom };
@@ -4876,6 +4907,9 @@ function inqResolve() {
       row[INQ_KEYS[k] + "Id"] = pid;
       row[INQ_KEYS[k] + "N"] = (G.players[pid] || {}).name || t("player");
       if (vals[k] !== null) row[INQ_KEYS[k] + "V"] = vals[k];
+      // the assignment rides the reveal (flat scalar, inside the shape
+      // clamp) so both renderers can mark each partner's own factor
+      if (inq.cards && typeof inq.cards[pid] === "number") row[INQ_KEYS[k] + "C"] = inq.cards[pid];
     });
     rows[i] = row;
   });
@@ -5009,33 +5043,40 @@ function renderInqRoster() {
   const ids = Object.keys(G.players);
   ids.sort((a, b) => (inq.hearts[b] || 0) - (inq.hearts[a] || 0));
   // snapshots far outnumber roster changes (every sub write is one):
-  // repaint only when the players, their lives or the bye moved
-  const key = ids.map(id => id + ":" + inq.hearts[id]).join("|") + "|" + (inq.bye || "");
+  // repaint only when the players, their lives, the bye or the bench moved
+  const key = ids.map(id => id + ":" + inq.hearts[id]).join("|") + "|" + (inq.bye || "") + "|" + (inq.rebuild || []).join(",");
   if (key === G.inqRosterKey) return;
   G.inqRosterKey = key;
   $("inqRoster").innerHTML = ids.map(id => {
     const h = typeof inq.hearts[id] === "number" ? inq.hearts[id] : CFG.inqHearts;
-    const bye = id === inq.bye ? ` <span class="zb-inqroster__bye">${t("inq_bye_tag")}</span>` : "";
-    return `<span class="zb-inqroster__chip${h <= 0 ? " out" : ""}">${escapeText((G.players[id] || {}).name || t("player"))}${bye} ${inqLivesHtml(h)}</span>`;
+    const tag = id === inq.bye ? ` <span class="zb-inqroster__bye">${t("inq_bye_tag")}</span>`
+      : (inq.rebuild || []).indexOf(id) !== -1 ? ` <span class="zb-inqroster__bye">${t("inq_rebuild_tag")}</span>` : "";
+    return `<span class="zb-inqroster__chip${h <= 0 ? " out" : ""}">${escapeText((G.players[id] || {}).name || t("player"))}${tag} ${inqLivesHtml(h)}</span>`;
   }).join("");
 }
 
 /* unpack a reveal row's flat wire keys into members - the ONE decoder
- * of the aId/aN/aV shape, shared by the host grid and the phone's
+ * of the aId/aN/aV(/aC) shape, shared by the host grid and the phone's
  * result card. On the bridge (stage 3) each member's x substitutes
- * into BOTH factors: fvA/fvB, and hit means the x is a true root. */
+ * into BOTH factors: fvA/fvB, and hit means the x is a true root.
+ * card is the member's assigned factor (0=A, 1=B; null = repeated
+ * root, both owned), fvMine its substituted value, mineHit the 分工
+ * verdict the pair's pass now rides on (§19 Batch X). */
 function inqRowMembers(row, rv) {
   return INQ_KEYS.filter(k => row[k + "Id"]).map(k => {
     const v = typeof row[k + "V"] === "number" && isFinite(row[k + "V"]) ? row[k + "V"] : null;
-    let fvA = null, fvB = null;
+    const card = typeof row[k + "C"] === "number" ? row[k + "C"] : null;
+    let fvA = null, fvB = null, fvMine = null;
     if (rv.stage === 3 && v !== null &&
         typeof rv.rootA === "number" && typeof rv.rootB === "number") {
       fvA = v - rv.rootA;
       fvB = v - rv.rootB;
+      fvMine = card === 1 ? fvB : fvA; // card null (repeated root): A = B
     }
     return {
       id: row[k + "Id"], name: String(row[k + "N"] || t("player")).slice(0, 24),
       v: v, fvA: fvA, fvB: fvB, hit: fvA === 0 || fvB === 0,
+      card: card, fvMine: fvMine, mineHit: fvMine === 0,
     };
   });
 }
@@ -5046,10 +5087,13 @@ function inqRowMembers(row, rv) {
 function inqBridgeNote(rv) {
   if (typeof rv.rootA !== "number" || typeof rv.rootB !== "number") return "";
   if (rv.rootA === rv.rootB) return fmt("inq_double_note", { r: ZBLevels.num(rv.rootA) });
-  return fmt("inq_or_note_fmt", {
+  const or = fmt("inq_or_note_fmt", {
     fa: ZBLevels.factorText(rv.rootA), fb: ZBLevels.factorText(rv.rootB),
     ra: ZBLevels.num(rv.rootA), rb: ZBLevels.num(rv.rootB),
   });
+  // the naked-x round names its trap outright (§19 Batch X): the zero
+  // students miss is x = 0
+  return rv.rootA === 0 || rv.rootB === 0 ? or + " " + t("inq_xfactor_note") : or;
 }
 
 /* one reveal row: names + played values (zeros ringed in 探究二) and
@@ -5071,9 +5115,13 @@ function inqRowHtml(row, rv) {
     const lines = members.map(m => {
       const who = `<span class="zb-inqrow__who">${escapeText(m.name)}</span>`;
       if (m.v === null) return `<span>${who} <span class="zb-inqval miss">${t("inq_no_sub")}</span></span>`;
-      const chip = `<span class="zb-inqval${m.hit ? " zero" : ""}">${mathHtml("x = " + ZBLevels.num(m.v))}</span>`;
+      // the chip rings green only when the member zeroed their OWN
+      // factor (分工); the substitution underlines that factor so the
+      // projector shows WHY a right-looking x still failed the pair
+      const chip = `<span class="zb-inqval${m.mineHit ? " zero" : ""}">${mathHtml("x = " + ZBLevels.num(m.v))}</span>`;
+      const sub = (val, mine) => (mine ? `(<span class="zb-inqhint">${val}</span>)` : `(${val})`);
       const work = m.fvA === null ? "" :
-        ` <span class="zb-inqsub">(${ZBLevels.num(m.fvA)})(${ZBLevels.num(m.fvB)}) = ${ZBLevels.num(m.fvA * m.fvB)}</span>`;
+        ` <span class="zb-inqsub">${sub(ZBLevels.num(m.fvA), m.card === 0)}${sub(ZBLevels.num(m.fvB), m.card === 1)} = ${ZBLevels.num(m.fvA * m.fvB)}</span>`;
       return `<span>${who} ${chip}${work}</span>`;
     });
     return `<div class="zb-inqrow ${cls}"><span class="zb-inqrow__col">${lines.join("")}</span>${mark}</div>`;
@@ -5157,8 +5205,10 @@ function renderInqStage() {
     title.textContent = inqStageName(inq.stage) + " · " + t("inq_stage_summary");
     rule.style.display = "";
     rule.removeAttribute("data-i18n"); // survivors line is composed, not keyed
+    // one hearts pool + the rebuild bench mean hearts alone no longer
+    // say who fell: 生還者 = never KO'd anywhere in the arc (§19)
     const alive = Object.keys(G.players)
-      .filter(id => (G.inq.hearts[id] || 0) > 0)
+      .filter(id => !G.inq.koed[id])
       .map(id => (G.players[id] || {}).name || t("player"));
     rule.textContent = t("inq_survivors") + "：" + (alive.length ? alive.join("、") : "–");
     wrap.style.display = "none";
@@ -5219,9 +5269,10 @@ function resumeInquiry(saved) {
     stage: si.stage, round: si.round, step: si.step, seq: si.seq || 0,
     n: typeof si.n === "number" ? si.n : null,
     roots: si.roots || null, exprA: si.exprA || null, exprB: si.exprB || null,
-    pairs: [], hearts: si.hearts || {}, collect: {}, open: false,
+    pairs: [], hearts: si.hearts || {}, collect: {}, open: false, cards: null,
     lastReveal: si.lastReveal || null, theorem: !!si.theorem,
     bye: null, lastBye: si.lastBye || null, extra: si.extra || {},
+    rebuild: [], koed: si.koed || {},
   };
   G.room.update("players", G.players);
   G.watcher = G.room.watch(onHostRoom);
@@ -5248,7 +5299,7 @@ function resumeInquiry(saved) {
 
 /* the tutor takes the class straight to a stage's intro (re-teach or
  * fast-forward): a round in flight is abandoned unjudged, no lives
- * move. Entering 探究二 refills hearts as usual. */
+ * move. The one hearts pool travels with the class (§19). */
 function inqJumpStage(stage) {
   const inq = G.inq;
   if (!inq || inq.stage === stage) return;
@@ -5542,6 +5593,9 @@ function sanitizeInq(raw) {
     exprB: raw.exprB ? String(raw.exprB).slice(0, 40) : null,
     theorem: !!raw.theorem,
     bye: raw.bye ? String(raw.bye).slice(0, 40) : null,
+    // the rebuild bench: comma-joined pids (§19 Batch W); generous cap,
+    // a full 40-player room of KO'd ids still fits
+    rebuild: raw.rebuild ? String(raw.rebuild).slice(0, 1200) : null,
   };
   if (inq.stage == null || inq.stage < 1 || inq.stage > 3) return null;
   return inq;
@@ -5566,21 +5620,24 @@ function renderCtrlInqFace(inq, st) {
   C.inqPad.setPrefix(inq.stage === 3 ? '<i class="zb-var">x</i>&nbsp;=&nbsp;' : "");
   C.lastInqSec = null;
   if (inq.step === "round") {
-    if (inq.bye === C.id) {
-      // odd headcount: this phone observes the round - no pad, no risk
+    const rebuilding = typeof inq.rebuild === "string" && inq.rebuild.split(",").indexOf(C.id) !== -1;
+    if (rebuilding || inq.bye === C.id) {
+      // benched: the rotating bye (odd headcount) or the rebuild round
+      // after a KO (§19 Batch W) - either way, observe, no pad, no risk
       C.inqOpen = false;
       C.inqPad.disable();
       $("ctrlInqPadWrap").style.display = "none";
-      target.innerHTML = `<span class="zb-inqcardtag">${inqStageName(inq.stage)}</span>${t("inq_bye")}`;
-      $("ctrlInqMark").innerHTML = markHtml("info", [escapeText(t("inq_bye_note"))]);
-      ctrlStatus(t("inq_bye"));
+      const label = rebuilding ? t("inq_rebuild") : t("inq_bye");
+      target.innerHTML = `<span class="zb-inqcardtag">${inqStageName(inq.stage)}</span>${label}`;
+      $("ctrlInqMark").innerHTML = markHtml("info", [escapeText(t(rebuilding ? "inq_rebuild_note" : "inq_bye_note"))]);
+      ctrlStatus(label);
     } else {
       C.inqOpen = true;
       $("ctrlInqMark").innerHTML = "";
       if (inq.stage === 3) {
-        // the WHOLE equation, with the dealt factor underlined as a
-        // way in - x answers the equation, not the bracket. A repeated
-        // root shows the squared face, nothing to hint.
+        // the WHOLE equation, with the dealt factor underlined as the
+        // assignment - 分工: zero YOUR bracket (§19 Batch X). A
+        // repeated root shows the squared face, nothing to deal.
         if (inq.exprA && inq.exprA === inq.exprB) {
           target.innerHTML = mathHtml(escapeText(inq.exprA + "²")) + ' = <span class="zb-zero">0</span>';
         } else {
@@ -5653,8 +5710,9 @@ function renderCtrlInqResult(rv, hearts) {
     if (INQ_KEYS.some(k => r[k + "Id"] === C.id)) row = r;
   });
   if (!row) {
-    // no row holds me: I was the bye (say so) or I joined mid-round
-    ctrlStatus(C.inq && C.inq.bye === C.id ? t("inq_bye") : t("inq_join_next"));
+    // no row holds me: benched (bye or rebuild) or joined mid-round
+    const benched = C.inq && typeof C.inq.rebuild === "string" && C.inq.rebuild.split(",").indexOf(C.id) !== -1;
+    ctrlStatus(benched ? t("inq_rebuild") : C.inq && C.inq.bye === C.id ? t("inq_bye") : t("inq_join_next"));
     return;
   }
   const members = inqRowMembers(row, rv);
@@ -5683,8 +5741,13 @@ function renderCtrlInqResult(rv, hearts) {
   if (rv.stage !== 3 && vals.length > 1 && typeof rv.n === "number") {
     lines.push(vals.map(v => ZBLevels.num(v)).join(" × ") + " = " + ZBLevels.num(vals.reduce((a, b) => a * b, 1)));
   }
+  // a KO reads as its own beat: the rebuild bench picks them up next
+  // round (§19 Batch W). Hearts at 0 on a reveal always mean the fall
+  // just happened - every round start credits KO'd players back to 2.
+  const koLine = hearts && hearts[C.id] === 0 ? t("inq_ko_note") : null;
   if (row.boom) {
     lines.push(t("inq_boom_note")); // the note already counts the lives
+    if (koLine) lines.push(koLine);
     $("ctrlInqMark").innerHTML = markHtml("wrong", lines, "inq_boom");
     ctrlInqBoom();
   } else if (row.ok) {
@@ -5700,7 +5763,18 @@ function renderCtrlInqResult(rv, hearts) {
     ZBFX.audio.chime();
     ZBFX.vibrate(50);
   } else {
+    // the partner's-root case deserves credit, not a flat wrong: the
+    // x DOES solve the equation - it just wasn't this member's 分工
+    const me = members.filter(m => m.id === C.id)[0];
+    if (rv.stage === 3 && me && me.v !== null && me.hit && !me.mineHit && me.card !== null) {
+      lines.push(mathHtml(escapeText(fmt("inq_wrong_factor_fmt", {
+        v: ZBLevels.num(me.v),
+        f: ZBLevels.factorText(me.card === 1 ? rv.rootB : rv.rootA),
+        fv: ZBLevels.num(me.fvMine),
+      }))));
+    }
     lines.push(fmt("inq_lose_fmt", { n: 1 }));
+    if (koLine) lines.push(koLine);
     $("ctrlInqMark").innerHTML = markHtml("wrong", lines, "inq_fail");
     ZBFX.audio.knock();
     ZBFX.vibrate(180);

@@ -36,12 +36,15 @@
  * The final section runs 探究模式 · 等式開口中 (SM901 活動二) in a
  * fresh room with ?inqrounds=2: the full arc 探究一 (A×B=N, secret
  * pairing, no pairing data on the wire) → 探究二 (N locked at 0, the
- * 0×0 boom fired by the real deadline path) → 概念轉化 (one equation,
- * one shared x: hint factors, negative roots, either-root-passes, the
- * 或-note) → host F5 recovery mid-arc → the rotating bye on an odd
- * headcount (late joiner) → tutor controls (加多一回合, stage jump)
- * → handover into the main game (inq state keys dropped, a live
- * verdict round-trip).
+ * 0×0 boom fired by the real deadline path, no hearts refill at the
+ * handover - §19's one pool) → 概念轉化 (分工 judging: each partner
+ * zeroes their OWN underlined factor, the partner's-root fail with
+ * its credit note, x(x−7)'s naked-x trap, the repeated-root
+ * tightening, the 或-note) → host F5 recovery mid-arc → the rotating
+ * bye on an odd headcount (late joiner) → the rebuild bench (0 hearts
+ * = one round out, back at 2) and its all-KO pity rule → tutor
+ * controls (加多一回合, stage jump) → handover into the main game
+ * (inq state keys dropped, a live verdict round-trip).
  *
  * Shared-context caveat: the live game mirrors the phone identity
  * `zb-<code>` to localStorage for re-scan recovery. Real phones are
@@ -1732,7 +1735,7 @@ async function main() {
   const hearts1 = (await roomData(host)).state.inqHearts;
   check(
     "探究一: no lives lost on a pass",
-    hearts1[adaId] === 5 && hearts1[benId] === 5,
+    hearts1[adaId] === 6 && hearts1[benId] === 6,
     JSON.stringify(hearts1)
   );
   const hostGrid = await host.evaluate(() => ({
@@ -1773,7 +1776,7 @@ async function main() {
   }), [adaId, benId]);
   check(
     "探究: host F5 resumes the arc with lives and the reveal intact",
-    inqResumed.hearts.join() === "5,5" && inqResumed.grid,
+    inqResumed.hearts.join() === "6,6" && inqResumed.grid,
     JSON.stringify(inqResumed)
   );
   await until(() => phoneA2.evaluate(() => C.phase === "inquiry"), { label: "Ada still in the arc" });
@@ -1819,6 +1822,14 @@ async function main() {
     "探究二 intro: the 0 lands stamped with the lock badge",
     lockFace.n === "0" && lockFace.badge && lockFace.zeroInk,
     JSON.stringify(lockFace)
+  );
+  // §19 Batch W: ONE hearts pool for the whole arc - the old per-stage
+  // refill is gone, so the handover moves no hearts
+  const heartsLock = (await roomData(host)).state.inqHearts;
+  check(
+    "探究二: no hearts refill at the stage handover (one pool)",
+    heartsLock[adaId] === 6 && heartsLock[benId] === 6,
+    JSON.stringify(heartsLock)
   );
   await until(
     () => phoneB.evaluate(() => document.getElementById("ctrlInqTarget").textContent.includes("0")),
@@ -1866,8 +1877,8 @@ async function main() {
   const rowB = rvB.pairs["0"];
   const heartsB = (await roomData(host)).state.inqHearts;
   check(
-    "探究二: 0×0 booms, two lives gone each",
-    rowB.boom === true && rowB.ok === false && heartsB[adaId] === 3 && heartsB[benId] === 3,
+    "探究二: 0×0 booms, two lives gone each (6 → 4 on the one pool)",
+    rowB.boom === true && rowB.ok === false && heartsB[adaId] === 4 && heartsB[benId] === 4,
     JSON.stringify({ rowB, heartsB })
   );
   const hostBoom = await host.evaluate(() => window.__boomSeen);
@@ -1917,7 +1928,7 @@ async function main() {
   );
   check("探究二: 顯示歸納 lands on the projector and every phone", theoremState === true);
 
-  /* ── 概念轉化: factor cards, negatives, either-correct ── */
+  /* ── 概念轉化: factor cards, negatives, 分工 judging (§19) ── */
   await inqAdvanceTo("intro");
   await inqAdvanceTo("round");
   const s3 = (await roomData(host)).state;
@@ -1932,52 +1943,56 @@ async function main() {
     () => getComputedStyle(document.querySelector("#ctrlInqPad .zb-key--sign")).visibility !== "hidden"
   );
   check("概念轉化: sign key returns for negative roots", signBack);
-  // x answers the EQUATION, not the bracket: the phone shows the whole
-  // equation with the dealt factor as an underlined hint. Whoever holds
-  // (x+2) plays its root through the sign key; the partner answers
-  // wrong — either root carries the pair (「或」)
+  // 分工: the phone shows the whole equation with the dealt factor
+  // underlined as the ASSIGNMENT - each partner must zero their own
+  // bracket. Whoever holds (x+2) plays −2 through the sign key, the
+  // (x−3) holder plays 3: both own zeros, the pair passes.
   const cards = s3.inqCards; // the published deal is what the phones consume
   const negPhone = cards[adaId] === 1 ? phoneA2 : phoneB;
   const posPhone = cards[adaId] === 1 ? phoneB : phoneA2;
   const eqFace = await negPhone.evaluate(() => ({
     text: document.getElementById("ctrlInqTarget").textContent,
     hint: (document.querySelector("#ctrlInqTarget .zb-inqhint") || {}).textContent || "",
+    label: document.getElementById("ctrlInqTarget").textContent,
   }));
   check(
-    "概念轉化: the phone shows the whole equation, hint factor underlined",
-    eqFace.text.includes("(x−3)(x+2)") && eqFace.hint.includes("(x+2)"),
+    "概念轉化: the phone shows the whole equation, own factor underlined",
+    eqFace.text.includes("(x−3)(x+2)") && eqFace.hint.includes("(x+2)") &&
+      eqFace.label.includes("你負責嘅因式"),
     JSON.stringify(eqFace)
   );
   await inqSubmit(negPhone, -2);
-  await inqSubmit(posPhone, 9);
+  await inqSubmit(posPhone, 3);
   await inqCollected(2);
   await inqAdvanceTo("reveal");
   const rv3 = (await roomData(host)).state.inqReveal;
   const row3 = rv3.pairs["0"];
   check(
-    "概念轉化: one true root carries the pair, no card keys on the wire",
+    "概念轉化: both own zeros pass the pair, assignments ride the wire",
     row3.ok === true && rv3.rootA === 3 && rv3.rootB === -2 &&
-      row3.aC === undefined && row3.bC === undefined && rv3.expr === "(x−3)(x+2) = 0",
+      typeof row3.aC === "number" && typeof row3.bC === "number" && rv3.expr === "(x−3)(x+2) = 0",
     JSON.stringify({ row3, rootA: rv3.rootA, rootB: rv3.rootB, expr: rv3.expr })
   );
   const hostReveal3 = await host.evaluate(() => ({
     expand: (document.querySelector("#inqRevealBox .zb-inqexpand") || {}).textContent || "",
     orNote: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
+    mine: document.querySelectorAll("#inqRevealBox .zb-inqsub .zb-inqhint").length,
   }));
   check(
     "概念轉化: the grid pushes each x through BOTH factors, 或-note names THIS pair",
-    hostReveal3.row.includes("(−5)(0) = 0") && hostReveal3.row.includes("(6)(11) = 66") &&
+    hostReveal3.row.includes("(−5)(0) = 0") && hostReveal3.row.includes("(0)(5) = 0") &&
       hostReveal3.orNote.includes("零點唔同") && hostReveal3.orNote.includes("(x−3)"),
     JSON.stringify(hostReveal3)
   );
+  check("概念轉化: each substitution underlines the member's own factor", hostReveal3.mine === 2, "mine=" + hostReveal3.mine);
   check("概念轉化: the reveal holds no exam face (that beat waits for the recap)", hostReveal3.expand === "", hostReveal3.expand);
   await until(() => negPhone.evaluate(() => C.lastInqRevealSeq === 1301), { label: "neg phone got reveal" });
   const negWorking = await negPhone.evaluate(() => document.getElementById("ctrlInqMark").textContent);
   check(
-    "概念轉化: the phone working substitutes into both factors",
+    "概念轉化: the phone working substitutes into both factors, 或-note lands",
     negWorking.includes("(−2−3)(−2+2)") && negWorking.includes("(−5)(0) = 0") &&
-      negWorking.includes("其中一個因式歸零"),
+      negWorking.includes("零點唔同"),
     negWorking
   );
 
@@ -2030,11 +2045,13 @@ async function main() {
     JSON.stringify(byeFace)
   );
   const heartsBefore = (await roomData(host)).state.inqHearts[dealB.bye];
-  // the paired two take DIFFERENT roots: both right, and neither x
-  // zeroes both brackets - the 或 on display
+  // 分工: each partner plays their OWN factor's root (read from the
+  // published deal) - two different x's, and the reveal shows neither
+  // zeroes both brackets: the 或 on display
   const paired = [adaId, benId, calId].filter((id) => id !== dealB.bye);
-  await inqSubmit(pages[paired[0]], 5);
-  await inqSubmit(pages[paired[1]], -4);
+  const cardsB = stateB.inqCards;
+  await inqSubmit(pages[paired[0]], cardsB[paired[0]] === 0 ? 5 : -4);
+  await inqSubmit(pages[paired[1]], cardsB[paired[1]] === 0 ? 5 : -4);
   await inqCollected(2);
   await inqAdvanceTo("reveal");
   const rvT = (await roomData(host)).state.inqReveal;
@@ -2055,19 +2072,100 @@ async function main() {
   const orNote = await pages[paired[0]].evaluate(() => document.getElementById("ctrlInqMark").textContent);
   check("探究: two different roots trigger the 或-note on the phone", orNote.includes("零點唔同"), orNote);
 
-  /* ── the repeated root: (x−3)² = 0 is the standard third question ── */
+  /* ── round 3: x(x−7) = 0 - the naked-x trap, in person (§19) ── */
   await inqAdvanceTo("round");
-  const dealC = await host.evaluate(() => ({ bye: G.inq.bye, seq: G.inq.seq, roots: G.inq.roots }));
-  check("重根 round 3: (x−3)² served", dealC.seq === 1303 && dealC.roots.join() === "3,3", JSON.stringify(dealC));
+  const dealX = await host.evaluate(() => ({
+    bye: G.inq.bye, seq: G.inq.seq, roots: G.inq.roots, exprA: G.inq.exprA,
+  }));
   check(
-    "重根: the bye rotates again",
-    !!dealC.bye && dealC.bye !== dealB.bye,
-    JSON.stringify({ prev: dealB.bye, next: dealC.bye })
+    "x(x−7) round 3: the naked-x equation served",
+    dealX.seq === 1303 && dealX.roots.join() === "0,7" && dealX.exprA === "(x)",
+    JSON.stringify(dealX)
+  );
+  check(
+    "x(x−7): the bye rotates - never the same player twice in a row",
+    !!dealX.bye && dealX.bye !== dealB.bye,
+    JSON.stringify({ prev: dealB.bye, next: dealX.bye })
+  );
+  const s3x = (await roomData(host)).state;
+  const pairedX = [adaId, benId, calId].filter((id) => id !== dealX.bye);
+  const xHolder = pairedX.filter((id) => s3x.inqCards[id] === 0)[0];
+  const xPartner = pairedX.filter((id) => id !== xHolder)[0];
+  const xFace = await pages[xHolder].evaluate(() => ({
+    text: document.getElementById("ctrlInqTarget").textContent,
+    hint: (document.querySelector("#ctrlInqTarget .zb-inqhint") || {}).textContent || "",
+  }));
+  check(
+    "x(x−7): the phone face wears the naked x underlined",
+    xFace.text.includes("(x)(x−7)") && xFace.hint === "(x)",
+    JSON.stringify(xFace)
+  );
+  // the trap: the (x) holder plays the PARTNER's root 7 - a true root
+  // of the equation, but not their 分工. The pair fails, both lose 1.
+  // The holder is forced to 1 heart first so this fail KOs them: the
+  // rebuild bench is next round's test.
+  await host.evaluate((pid) => { G.inq.hearts[pid] = 1; }, xHolder);
+  await inqSubmit(pages[xHolder], 7);
+  await inqSubmit(pages[xPartner], 7);
+  await inqCollected(2);
+  await inqAdvanceTo("reveal");
+  const rvX = (await roomData(host)).state.inqReveal;
+  const heartsX = (await roomData(host)).state.inqHearts;
+  check(
+    "x(x−7): a partner's root does NOT pass the 分工 - the pair fails",
+    rvX.pairs["0"].ok === false && rvX.expr === "(x)(x−7) = 0" && heartsX[xHolder] === 0,
+    JSON.stringify({ row: rvX.pairs["0"], heartsX })
+  );
+  const hostRevealX = await host.evaluate(() => ({
+    note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
+    row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
+  }));
+  check(
+    "x(x−7): the reveal names the trap - x itself is a factor",
+    hostRevealX.note.includes("x 自己都係一個因式") && hostRevealX.row.includes("(7)(0) = 0"),
+    JSON.stringify(hostRevealX)
+  );
+  await until(() => pages[xHolder].evaluate(() => C.lastInqRevealSeq === 1303), { label: "x holder got reveal" });
+  const xMark = await pages[xHolder].evaluate(() => document.getElementById("ctrlInqMark").textContent);
+  check(
+    "x(x−7): the partner's-root verdict credits the maths, then the KO beat",
+    xMark.includes("真係方程嘅解") && xMark.includes("(x)") && xMark.includes("大廈冧咗"),
+    xMark
+  );
+
+  /* ── round 4: the rebuild bench + the repeated root (x−3)² ── */
+  await inqAdvanceTo("round");
+  const dealC = await host.evaluate(() => ({
+    bye: G.inq.bye, seq: G.inq.seq, roots: G.inq.roots,
+    rebuild: G.inq.rebuild.slice(), pairs: G.inq.pairs.length, size: G.inq.pairs[0].length,
+  }));
+  check("重根 round 4: (x−3)² served", dealC.seq === 1304 && dealC.roots.join() === "3,3", JSON.stringify(dealC));
+  check(
+    "重建: the KO'd player is benched - the other two pair, no bye",
+    dealC.rebuild.join() === xHolder && !dealC.bye && dealC.pairs === 1 && dealC.size === 2,
+    JSON.stringify({ dealC, xHolder })
+  );
+  const stateRb = (await roomData(host)).state;
+  check("重建: the bench credits the fallen back to 2 hearts", stateRb.inqHearts[xHolder] === 2, JSON.stringify(stateRb.inqHearts));
+  check("重建: the bench is published for the phone", stateRb.inq.rebuild === xHolder, JSON.stringify(stateRb.inq.rebuild));
+  await until(
+    () => pages[xHolder].evaluate(() => C.inq && C.inq.seq === 1304 &&
+      document.getElementById("ctrlInqTarget").textContent.includes("本回合重建中")),
+    { label: "rebuild face shown" }
+  );
+  const rbFace = await pages[xHolder].evaluate(() => ({
+    pad: getComputedStyle(document.getElementById("ctrlInqPadWrap")).display,
+    note: document.getElementById("ctrlInqMark").textContent,
+  }));
+  check(
+    "重建: the benched phone observes - pad closed, the note sells the comeback",
+    rbFace.pad === "none" && rbFace.note.includes("大廈冧咗") && rbFace.note.includes("2 個生命值"),
+    JSON.stringify(rbFace)
   );
   const s3c = (await roomData(host)).state;
   check("重根: no hint cards dealt for identical factors", !s3c.inqCards, JSON.stringify(s3c.inqCards || null));
-  const pairedC = [adaId, benId, calId].filter((id) => id !== dealC.bye);
-  await until(() => pages[pairedC[0]].evaluate(() => C.inqOpen), { label: "round 3 open" });
+  const pairedC = [adaId, benId, calId].filter((id) => id !== xHolder);
+  await until(() => pages[pairedC[0]].evaluate(() => C.inqOpen), { label: "round 4 open" });
   const barMidRound = await host.evaluate(() =>
     ["btnInqJump1", "btnInqJump2", "btnInqJump3", "btnInqSkip"].map(
       (id) => getComputedStyle(document.getElementById(id)).display !== "none"
@@ -2088,12 +2186,12 @@ async function main() {
     JSON.stringify(sqFace)
   );
   await inqSubmit(pages[pairedC[0]], 3);
-  await inqSubmit(pages[pairedC[1]], 7); // wrong - the pair still passes on the 3
+  await inqSubmit(pages[pairedC[1]], 3); // identical brackets: BOTH must land the root (§19)
   await inqCollected(2);
   await inqAdvanceTo("reveal");
   const rvC = (await roomData(host)).state.inqReveal;
   check(
-    "重根: x = 3 passes, the wire carries (x−3)² = 0",
+    "重根: both on x = 3 pass, the wire carries (x−3)² = 0",
     rvC.pairs["0"].ok === true && rvC.expr === "(x−3)² = 0",
     JSON.stringify({ expr: rvC.expr, row: rvC.pairs["0"] })
   );
@@ -2121,11 +2219,10 @@ async function main() {
   }));
   check(
     "重根: the projector shows (0)(0) = 0 and names the exception",
-    hostRevealC.row.includes("(0)(0) = 0") && hostRevealC.row.includes("(4)(4) = 16") &&
-      hostRevealC.note.includes("重根"),
+    hostRevealC.row.includes("(0)(0) = 0") && hostRevealC.note.includes("重根"),
     JSON.stringify(hostRevealC)
   );
-  await until(() => pages[pairedC[0]].evaluate(() => C.lastInqRevealSeq === 1303), { label: "round 3 result" });
+  await until(() => pages[pairedC[0]].evaluate(() => C.lastInqRevealSeq === 1304), { label: "round 4 result" });
   const dblNote = await pages[pairedC[0]].evaluate(() => document.getElementById("ctrlInqMark").textContent);
   check("重根: the phone working shows (0)(0) = 0 and names the repeated root", dblNote.includes("(0)(0) = 0") && dblNote.includes("重根"), dblNote);
 
@@ -2149,30 +2246,41 @@ async function main() {
     text: document.getElementById("inqRevealBox").textContent,
   }));
   check(
-    "概念轉化 recap: the three equations wear their exam faces (the handover beat)",
-    recap.shown && recap.lines === 3 && recap.text.includes("考你") &&
-      recap.text.includes("x² − x − 6 = 0") && recap.text.includes("x² − 6x + 9 = 0"),
+    "概念轉化 recap: all four equations wear their exam faces (the handover beat)",
+    recap.shown && recap.lines === 4 && recap.text.includes("考你") &&
+      recap.text.includes("x² − x − 6 = 0") && recap.text.includes("x² − 7x = 0") &&
+      recap.text.includes("x² − 6x + 9 = 0"),
     JSON.stringify(recap)
   );
   await host.click("#btnInqMore"); // the class needs another look
-  await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 4), { label: "extra round started" });
+  await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 5), { label: "extra round started" });
   const extraR = (await roomData(host)).state.inq;
   check(
-    "探究: 加多一回合 at the recap starts round 4/4 straight away",
-    extraR.round === 4 && extraR.roundsTotal === 4 && extraR.seq === 1304,
+    "探究: 加多一回合 at the recap starts round 5/5 straight away",
+    extraR.round === 5 && extraR.roundsTotal === 5 && extraR.seq === 1305,
     JSON.stringify(extraR)
   );
   check(
-    "探究: the bye rotates - never the same player twice in a row",
-    !!extraR.bye && extraR.bye !== dealC.bye,
-    JSON.stringify({ prev: dealC.bye, next: extraR.bye })
+    "探究: the rebuilt player stands again - the bye rotates among three",
+    !!extraR.bye && extraR.bye !== dealX.bye,
+    JSON.stringify({ prev: dealX.bye, next: extraR.bye })
   );
-  // finish the extra round early: round 4 cycles back to (x−3)(x+2)
+  // round 5 cycles back to (x−3)(x+2): the tightening in person - BOTH
+  // partners land true roots, but one plays the other's bracket. Under
+  // 分工 two right answers to the wrong 分工 still fail the pair.
   const paired3 = [adaId, benId, calId].filter((id) => id !== extraR.bye);
-  await inqSubmit(pages[paired3[0]], 3);
-  await inqSubmit(pages[paired3[1]], 3);
+  const cards5 = (await roomData(host)).state.inqCards;
+  const own5 = (id) => (cards5[id] === 0 ? 3 : -2);
+  await inqSubmit(pages[paired3[0]], own5(paired3[0]));
+  await inqSubmit(pages[paired3[1]], own5(paired3[1]) === 3 ? -2 : 3);
   await inqCollected(2);
   await inqAdvanceTo("reveal");
+  const rv5 = (await roomData(host)).state.inqReveal;
+  check(
+    "分工: two true roots still fail when one partner ignores their own factor",
+    rv5.pairs["0"].ok === false && rv5.expr === "(x−3)(x+2) = 0",
+    JSON.stringify(rv5.pairs["0"])
+  );
   // pressing 加多一回合 at the last reveal must confirm in place and
   // flip the primary back to 下一回合 - the silent press read as broken
   await host.click("#btnInqMore");
@@ -2181,10 +2289,29 @@ async function main() {
     flash: document.getElementById("btnInqMore").textContent,
   }));
   check(
-    "探究: 加多一回合 at a reveal flips the primary and confirms ✓ 共 5 回合",
-    flip.primary.includes("下一回合") && flip.flash.includes("✓") && flip.flash.includes("5"),
+    "探究: 加多一回合 at a reveal flips the primary and confirms ✓ 共 6 回合",
+    flip.primary.includes("下一回合") && flip.flash.includes("✓") && flip.flash.includes("6"),
     JSON.stringify(flip)
   );
+
+  /* ── the all-KO pity rule: nobody benched when too few stand ── */
+  await host.evaluate(() => {
+    Object.keys(G.inq.hearts).forEach((pid) => { G.inq.hearts[pid] = 0; });
+  });
+  await inqAdvanceTo("round"); // the queued extra round starts
+  const pity = await host.evaluate(() => ({
+    rebuild: G.inq.rebuild.length, pairs: G.inq.pairs.length,
+    hearts: Object.keys(G.inq.hearts).map((pid) => G.inq.hearts[pid]).join(),
+    bye: !!G.inq.bye, seq: G.inq.seq,
+  }));
+  check(
+    "重建 pity: with everyone at 0 nobody is benched - all rebuild on the spot",
+    pity.rebuild === 0 && pity.hearts === "2,2,2" && pity.pairs === 1 && pity.bye && pity.seq === 1306,
+    JSON.stringify(pity)
+  );
+  // burn the round down unanswered: the pair loses 1, the bye is safe
+  await host.evaluate(() => { G.inqDeadline = performance.now() + 200; });
+  await until(() => host.evaluate(() => G.inq && G.inq.step === "reveal"), { label: "pity round resolved" });
   // jump chips: two taps take the class back to 探究二's lock intro
   await host.click("#btnInqJump2");
   await host.click("#btnInqJump2");
