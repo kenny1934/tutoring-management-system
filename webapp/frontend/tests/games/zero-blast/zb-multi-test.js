@@ -1806,11 +1806,19 @@ async function main() {
   const sum1 = await host.evaluate(() => ({
     label: document.getElementById("btnInqPrimary").textContent,
     rule: document.getElementById("inqRule").textContent,
+    recap: document.getElementById("inqRevealBox").textContent,
+    cliff: !!document.querySelector("#inqRevealBox .zb-inqcliff"),
   }));
   check(
     "探究一 summary: survivors named, the primary button IS the lock",
     sum1.label.includes("鎖定 N = 0") && sum1.rule.includes("Ada") && sum1.rule.includes("Ben"),
-    JSON.stringify(sum1)
+    JSON.stringify({ label: sum1.label, rule: sum1.rule })
+  );
+  check(
+    "探究一 recap: the played Ns land with their pair counts, then the cliffhanger",
+    sum1.recap.includes("N = 12") && sum1.recap.includes("N = 36") &&
+      sum1.recap.includes("1/1") && sum1.cliff && sum1.recap.includes("唔使夾都得"),
+    sum1.recap
   );
   await inqAdvanceTo("intro");
   const lockFace = await host.evaluate(() => ({
@@ -1895,15 +1903,16 @@ async function main() {
     JSON.stringify(benBoom)
   );
 
-  /* ── 探究二 summary: the takeaway is the tutor's beat ── */
+  /* ── 探究二 summary: the takeaway is the tutor's beat, ON the
+   * default path - 顯示歸納 IS the primary until pressed (§19 Y) ── */
   await inqAdvanceTo("summary");
   const preTheorem = await host.evaluate(() => ({
     hidden: getComputedStyle(document.getElementById("inqTheorem")).display === "none",
-    btn: getComputedStyle(document.getElementById("btnInqTheorem")).display !== "none",
+    primary: document.getElementById("btnInqPrimary").textContent,
   }));
   check(
-    "探究二 summary: theorem stays hidden until 顯示歸納",
-    preTheorem.hidden && preTheorem.btn,
+    "探究二 summary: theorem hidden, 顯示歸納 IS the primary",
+    preTheorem.hidden && preTheorem.primary.includes("顯示歸納"),
     JSON.stringify(preTheorem)
   );
   // bilingual spot-check while the summary is up
@@ -1914,11 +1923,11 @@ async function main() {
   }));
   check(
     "探究: host summary reads in English after the toggle",
-    enFace.primary.includes("bridge") && enFace.title.includes("Inquiry 2"),
+    enFace.primary.includes("takeaway") && enFace.title.includes("Inquiry 2"),
     JSON.stringify(enFace)
   );
   await host.evaluate(() => GameBridge.setLang("c"));
-  await host.click("#btnInqTheorem");
+  await host.click("#btnInqPrimary");
   await until(() => host.evaluate(() => getComputedStyle(document.getElementById("inqTheorem")).display !== "none"),
     { label: "theorem shown" });
   const theoremState = (await roomData(host)).state.inq.theorem;
@@ -1926,7 +1935,9 @@ async function main() {
     () => phoneA2.evaluate(() => document.getElementById("ctrlInqMark").textContent.includes("零乘積性質")),
     { label: "theorem landed on Ada's phone" }
   );
-  check("探究二: 顯示歸納 lands on the projector and every phone", theoremState === true);
+  check("探究二: the primary's first press lands the theorem on projector and phones", theoremState === true);
+  const postTheorem = await host.evaluate(() => document.getElementById("btnInqPrimary").textContent);
+  check("探究二: only then does the primary hand over to 概念轉化", postTheorem.includes("概念轉化"), postTheorem);
 
   /* ── 概念轉化: factor cards, negatives, 分工 judging (§19) ── */
   await inqAdvanceTo("intro");
@@ -2208,7 +2219,7 @@ async function main() {
   check(
     "探究: the jumps return at the reveal, in a nav cluster anchored right",
     barAtReveal.jumps &&
-      barAtReveal.flow === "btnInqPrimary,btnInqMore,btnInqTheorem" &&
+      barAtReveal.flow === "btnInqPrimary,btnInqMore" &&
       barAtReveal.nav === "btnInqJump1,btnInqJump2,btnInqJump3,btnInqSkip" &&
       barAtReveal.split === "space-between",
     JSON.stringify(barAtReveal)

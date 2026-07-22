@@ -1232,6 +1232,9 @@
      * one wrapper so the reveal grid stacks them as a single block */
     .zb-inqrecap { text-align: center; }
     .zb-inqexam { margin-top: 8px; font-family: var(--mc-mono); font-size: 1.0625rem; }
+    /* 探究一's closing question (§19 Batch Y): the cliffhanger gets the
+     * marking pen - 探究二's locked 0 is the answer */
+    .zb-inqcliff { margin-top: 12px; font-size: 1.0625rem; font-weight: 700; color: var(--mc-red); }
     .zb-inqexam strong { font-size: 1.1875rem; }
     .zb-inqexam .zb-inqrow__x { margin: 0 10px; color: var(--mc-ink-soft); }
     .zb-inqtheorem { margin: 16px auto 4px; }
@@ -1677,7 +1680,6 @@
       <span class="zb-inqbar__flow">
         <button class="mc-btn mc-btn--primary zb-inqprimary" id="btnInqPrimary" data-key="n"></button>
         <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqMore" style="display:none" data-i18n="inq_more_round"></button>
-        <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqTheorem" style="display:none" data-i18n="inq_theorem_btn"></button>
       </span>
       <span class="zb-inqbar__nav">
         <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump1" style="display:none" data-i18n="inq_jump1"></button>
@@ -1972,6 +1974,10 @@ const STRINGS = {
   /* §19 Batch X: 分工 judging on the bridge */
   inq_wrong_factor_fmt: { c: "x = {v} 真係方程嘅解！|不過你負責嘅因式係 {f}，|代入去係 {fv}，唔係 0。", e: "x = {v} does solve the equation! But your factor is {f}, and it gives {fv}, not 0." },
   inq_xfactor_note: { c: "記住：x 自己都係一個因式，|佢嘅零點就喺 x = 0！", e: "Remember: x by itself is a factor too. Its zero is at x = 0!" },
+  /* §19 Batch Y: 探究一's recap lands the discovery, then the cliffhanger */
+  inq_recap1_head:  { c: "今日試過嘅目標數字：", e: "The targets the class tried:" },
+  inq_recap1_row_fmt: { c: "N = {n}：成功配對 {k}/{m}", e: "N = {n}: {k}/{m} pairs made it" },
+  inq_cliffhanger:  { c: "隨機嘅 N，靠估好難夾中。|有冇一個 N，係唔使夾都得？", e: "A random N is hard to hit blind. Is there an N you cannot miss?" },
 };
 
 const SLUG = "zero-blast";
@@ -3927,7 +3933,7 @@ function saveHostRun() {
         stage: G.inq.stage, round: G.inq.round, step: G.inq.step, seq: G.inq.seq,
         n: G.inq.n, roots: G.inq.roots, exprA: G.inq.exprA, exprB: G.inq.exprB,
         hearts: G.inq.hearts, lastReveal: G.inq.lastReveal, theorem: G.inq.theorem,
-        lastBye: G.inq.lastBye, extra: G.inq.extra, koed: G.inq.koed,
+        lastBye: G.inq.lastBye, extra: G.inq.extra, koed: G.inq.koed, hist: G.inq.hist,
       } : null,
     }));
   } catch (_) {}
@@ -4731,6 +4737,7 @@ function startInquiry() {
     lastReveal: null, theorem: false,
     bye: null, lastBye: null, extra: {},
     rebuild: [], koed: {}, // §19: benched-this-round pids + ever-KO'd (生還者)
+    hist: [], // §19 Batch Y: 探究一's per-round {n, k passes, m pairs}
   };
   Object.keys(G.players).forEach(pid => { G.inq.hearts[pid] = CFG.inqHearts; });
   G.room.update("state", {
@@ -4913,6 +4920,11 @@ function inqResolve() {
     });
     rows[i] = row;
   });
+  if (inq.stage === 1) {
+    // the recap's discovery beat (§19 Batch Y): what each round did
+    const rk = Object.keys(rows);
+    inq.hist.push({ n: inq.n, k: rk.filter(i => rows[i].ok).length, m: rk.length });
+  }
   const reveal = { seq: inq.seq, stage: inq.stage, round: inq.round, pairs: rows };
   if (inq.stage === 3) {
     reveal.rootA = inq.roots[0];
@@ -4959,10 +4971,14 @@ function inqAdvance() {
     else inqSummary();
     return;
   }
-  // summary → next stage, or hand over to the main game
+  // summary → next stage, or hand over to the main game. 探究二's
+  // recap discloses the theorem first: the primary's first press IS
+  // 顯示歸納, the second moves on (§19 Batch Y).
   if (inq.stage === 1) inqEnterStage(2);
-  else if (inq.stage === 2) inqEnterStage(3);
-  else inqFinish();
+  else if (inq.stage === 2) {
+    if (!inq.theorem) inqTheoremShow();
+    else inqEnterStage(3);
+  } else inqFinish();
 }
 
 /* the arc ends (or the tutor bails): the main game takes the room.
@@ -5212,6 +5228,16 @@ function renderInqStage() {
       .map(id => (G.players[id] || {}).name || t("player"));
     rule.textContent = t("inq_survivors") + "：" + (alive.length ? alive.join("、") : "–");
     wrap.style.display = "none";
+    if (inq.stage === 1 && G.inq.hist.length) {
+      // the discovery beat (§19 Batch Y): the Ns the class actually
+      // played, ending on the question 探究二's locked 0 answers
+      const box = $("inqRevealBox");
+      box.innerHTML = `<div class="zb-inqrecap"><div class="zb-inqzero-note">${t("inq_recap1_head")}</div>`
+        + G.inq.hist.map(h =>
+          `<div class="zb-inqexam">${fmt("inq_recap1_row_fmt", { n: h.n, k: h.k, m: h.m })}</div>`).join("")
+        + `<div class="zb-inqcliff">${t("inq_cliffhanger")}</div></div>`;
+      box.style.display = "";
+    }
     if (inq.stage === 3) {
       // the handover beat: the equations just cracked, wearing the
       // exam faces the main game is about to serve
@@ -5238,10 +5264,14 @@ function renderInqBar() {
   if (inq.step === "intro") key = "inq_start_round";
   else if (inq.step === "round") key = "inq_end_round";
   else if (inq.step === "reveal") key = inq.round < inqRoundsTotal(inq.stage) ? "inq_next_round" : "inq_stage_summary";
-  else key = inq.stage === 1 ? "inq_to_stage2" : inq.stage === 2 ? "inq_to_stage3" : "inq_to_main";
+  // 顯示歸納 IS the primary on 探究二's recap until pressed (§19 Batch
+  // Y): the theorem sits on the default path - still the tutor's beat,
+  // no longer missable. Only then does the primary hand over.
+  else key = inq.stage === 1 ? "inq_to_stage2"
+    : inq.stage === 2 ? (inq.theorem ? "inq_to_stage3" : "inq_theorem_btn")
+    : "inq_to_main";
   btn.setAttribute("data-i18n", key);
   btn.textContent = t(key);
-  $("btnInqTheorem").style.display = inq.step === "summary" && inq.stage === 2 && !inq.theorem ? "" : "none";
   // 加多一回合 appears only where a stage is about to end (last
   // round's reveal, and the recap) - mid-stage it changes nothing
   // visible, which read as a broken button. While the ✓ flash is up
@@ -5272,7 +5302,7 @@ function resumeInquiry(saved) {
     pairs: [], hearts: si.hearts || {}, collect: {}, open: false, cards: null,
     lastReveal: si.lastReveal || null, theorem: !!si.theorem,
     bye: null, lastBye: si.lastBye || null, extra: si.extra || {},
-    rebuild: [], koed: si.koed || {},
+    rebuild: [], koed: si.koed || {}, hist: si.hist || [],
   };
   G.room.update("players", G.players);
   G.watcher = G.room.watch(onHostRoom);
@@ -5340,7 +5370,6 @@ function inqMoreRound() {
 
 $("btnStartInquiry").onclick = startInquiry;
 $("btnInqPrimary").onclick = inqAdvance;
-$("btnInqTheorem").onclick = inqTheoremShow;
 $("btnInqMore").onclick = inqMoreRound;
 [1, 2, 3].forEach(s => {
   const jumpBtn = $("btnInqJump" + s);
