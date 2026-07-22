@@ -153,6 +153,15 @@ class Enrollment(Base):
         comment='Source summer application if this is a published Summer enrollment'
     )
 
+    # Unique → one enrollment per regular application (migration 132). Set when
+    # a September-intake regular application is published into this enrollment.
+    regular_application_id = Column(
+        Integer,
+        ForeignKey("regular_applications.id", ondelete="SET NULL"),
+        nullable=True, unique=True,
+        comment='Source regular application if published from one'
+    )
+
     # Summer discount tier snapshot (migration 113). For Summer enrollments the
     # tier is locked at publish time and kept in sync by the nightly sweep.
     payment_deadline = Column(Date, comment='min(discount.before_date, first_lesson_date) for Summer')
@@ -186,6 +195,7 @@ class Enrollment(Base):
     sessions = relationship("SessionLog", back_populates="enrollment")
     renewed_from = relationship("Enrollment", remote_side=[id], foreign_keys=[renewed_from_enrollment_id])
     summer_application = relationship("SummerApplication", foreign_keys=[summer_application_id])
+    regular_application = relationship("RegularApplication", foreign_keys=[regular_application_id])
 
 
 class SessionLog(Base):
@@ -1644,3 +1654,110 @@ class SavedReport(Base):
     created_at = Column(DateTime, default=func.now())
 
     creator = relationship("Tutor")
+
+
+# ============================================
+# Regular Course Application Models
+# ============================================
+# Stripped-down mirror of the summer application system for the September
+# intake: no buddy groups, no discount tiers, no placement subsystem. A
+# published application becomes a native Regular-typed Enrollment.
+
+class RegularCourseConfig(Base):
+    """Admin-defined regular course (September intake) parameters per year."""
+    __tablename__ = "regular_course_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False, unique=True)
+    title = Column(String(500), nullable=False)
+    description = Column(Text)
+    application_open_date = Column(DateTime, nullable=False)
+    application_close_date = Column(DateTime, nullable=False)
+    course_start_date = Column(Date, nullable=False, comment='Earliest first-lesson date; lessons start the first occurrence of the chosen weekday on/after this')
+    locations = Column(JSON, nullable=False, default=list)
+    available_grades = Column(JSON, nullable=False, default=list)
+    time_slots = Column(JSON, nullable=False, default=list)
+    existing_student_options = Column(JSON, default=list)
+    center_options = Column(JSON, default=list)
+    lang_stream_options = Column(JSON, default=list)
+    text_content = Column(JSON, default=dict)
+    course_intro = Column(JSON, nullable=True)
+    banner_image_url = Column(String(500))
+    is_active = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    applications = relationship("RegularApplication", back_populates="config")
+
+
+class RegularApplication(Base):
+    """Public regular course application submitted via form."""
+    __tablename__ = "regular_applications"
+    __table_args__ = (
+        Index('idx_rapp_config', 'config_id'),
+        Index('idx_rapp_status', 'application_status'),
+        Index('idx_rapp_phone', 'contact_phone'),
+        Index('idx_rapp_grade', 'grade'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("regular_course_configs.id"), nullable=False)
+    reference_code = Column(String(20), nullable=False, unique=True)
+    # Student info
+    student_name = Column(String(255), nullable=False)
+    school = Column(String(255))
+    grade = Column(String(50), nullable=False)
+    lang_stream = Column(String(10))
+    is_existing_student = Column(String(100))
+    current_centers = Column(JSON, default=None)
+    # Contact
+    wechat_id = Column(String(100))
+    contact_phone = Column(String(50))
+    # Location & single weekly slot: preference 1 = first choice, 2 = backup
+    preferred_location = Column(String(255))
+    preference_1_day = Column(String(20))
+    preference_1_time = Column(String(50))
+    preference_2_day = Column(String(20))
+    preference_2_time = Column(String(50))
+    # Existing student link
+    existing_student_id = Column(Integer, ForeignKey("students.id"), nullable=True)
+    # Status
+    application_status = Column(
+        Enum('Submitted', 'Under Review', 'Schedule Confirmed', 'Enrolled',
+             'Waitlisted', 'Withdrawn', 'Rejected',
+             name='regular_application_status_enum'),
+        nullable=False, default='Submitted'
+    )
+    admin_notes = Column(Text)
+    # Metadata
+    submitted_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    reviewed_by = Column(String(255))
+    reviewed_at = Column(DateTime)
+    form_language = Column(String(10), default='zh')
+
+    config = relationship("RegularCourseConfig", back_populates="applications")
+    existing_student = relationship("Student")
+
+
+class RegularApplicationEdit(Base):
+    """Audit trail row for a single field change on a regular application.
+
+    Written by both applicant self-service edits (via the status page) and
+    admin edits (via the application detail modal). One row per changed
+    field per save. Mirrors SummerApplicationEdit.
+    """
+    __tablename__ = "regular_application_edits"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
+    application_id = Column(Integer, ForeignKey("regular_applications.id", ondelete="CASCADE"), nullable=False)
+    edited_at = Column(DateTime, server_default=func.now(), nullable=False)
+    field_name = Column(String(64), nullable=False)
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    edited_via = Column(String(16), nullable=False)  # 'applicant' | 'admin'
+    edited_by = Column(String(255), nullable=True)  # admin email; NULL for applicant edits
+
+    __table_args__ = (
+        Index("idx_regular_edit_app_time", "application_id", "edited_at"),
+    )

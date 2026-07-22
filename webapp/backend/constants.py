@@ -187,6 +187,24 @@ class SummerApplicationStatus(str, Enum):
     REJECTED = 'Rejected'
 
 
+class RegularApplicationStatus(str, Enum):
+    """Application statuses for regular course (September intake) applications.
+
+    Leaner than the summer pipeline: no placement subsystem and no Fee Sent /
+    Paid rungs — payment state lives on the published Enrollment. 'Schedule
+    Confirmed' means the weekly slot has been agreed with the parent (the
+    timetable-confirmation moment before publish).
+    """
+    SUBMITTED = 'Submitted'
+    UNDER_REVIEW = 'Under Review'
+    SCHEDULE_CONFIRMED = 'Schedule Confirmed'
+    ENROLLED = 'Enrolled'
+    # Side exits
+    WAITLISTED = 'Waitlisted'
+    WITHDRAWN = 'Withdrawn'
+    REJECTED = 'Rejected'
+
+
 class SummerPlacementStatus(str, Enum):
     """Placement statuses for summer course slot assignments."""
     TENTATIVE = 'Tentative'

@@ -7,7 +7,7 @@ from typing import Any, Literal, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
 
-from constants import SummerApplicationStatus
+from constants import SummerApplicationStatus, RegularApplicationStatus
 
 
 # ============================================
@@ -208,6 +208,7 @@ class EnrollmentResponse(EnrollmentBase):
     fee_message_sent: bool = False
     is_new_student: bool = False
     summer_application_id: Optional[int] = Field(None, description="Source summer application id if this is a published Summer enrollment")
+    regular_application_id: Optional[int] = Field(None, description="Source regular application id if published from the September-intake form")
     summer_unavailability_notes: Optional[str] = Field(None, description="Dates the student can't attend, from the source summer application (for arranging make-ups)")
     payment_deadline: Optional[date] = Field(None, description="Summer: discount deadline or first_lesson_date, whichever is earlier")
     locked_discount_code: Optional[str] = Field(None, max_length=32, description="Summer tier code currently in effect: EB / EB3P / 3P / NONE")
@@ -511,6 +512,7 @@ class EnrollmentDetailResponse(BaseModel):
     is_new_student: bool = False
     enrollment_type: Optional[str] = None
     summer_application_id: Optional[int] = None
+    regular_application_id: Optional[int] = None
     payment_date: Optional[date] = None
     payment_deadline: Optional[date] = None
     locked_discount_code: Optional[str] = None
@@ -3630,6 +3632,318 @@ class RevenueSheetRefreshResponse(BaseModel):
     spreadsheet_id: str
     sheet_name: Optional[str] = None
     modified_time: Optional[str] = None
+
+
+# ============================================
+# Regular Course Application Schemas
+# ============================================
+# Stripped-down mirrors of the summer schemas: no buddy/sibling, no discount
+# tiers, single weekly slot (preference 1 = first choice, 2 = backup).
+
+class RegularCourseFormConfig(BaseModel):
+    """Config data exposed to the public regular application form."""
+    year: int
+    title: str
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
+    banner_image_url: Optional[str] = None
+
+
+class RegularApplicationCreate(BaseModel):
+    """Form submission from public applicant."""
+    student_name: str = Field(..., min_length=1, max_length=255)
+    school: Optional[str] = Field(None, max_length=255)
+    grade: str = Field(..., max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    is_existing_student: Optional[str] = Field(None, max_length=100)
+    current_centers: Optional[List[str]] = None
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    contact_phone: str = Field(..., min_length=1, max_length=50)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+    form_language: Optional[Literal["zh", "en"]] = "zh"
+
+
+class RegularApplicationSubmitResponse(BaseModel):
+    """Response after successful application submission."""
+    reference_code: str
+    message: str
+
+
+class RegularApplicationStatusResponse(BaseModel):
+    """Public status check response."""
+    reference_code: str
+    student_name: str
+    application_status: str
+    submitted_at: Optional[datetime] = None
+    # Editable fields exposed so the status page can render and edit them
+    # without a second admin-style fetch.
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    lang_stream: Optional[str] = None
+    wechat_id: Optional[str] = None
+    preferred_location: Optional[str] = None
+    preference_1_day: Optional[str] = None
+    preference_1_time: Optional[str] = None
+    preference_2_day: Optional[str] = None
+    preference_2_time: Optional[str] = None
+
+
+class RegularApplicationEditRequest(BaseModel):
+    """Partial update of an in-Submitted-state application.
+
+    Used by the public status-page edit flow (auth via ref code + phone).
+    All fields optional; the server enforces the editable whitelist and
+    ignores anything outside it.
+    """
+    grade: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=255)
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+
+
+class RegularApplicationEditEntry(BaseModel):
+    """One audit-trail row for the admin edit history view."""
+    id: int
+    edited_at: datetime
+    field_name: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    edited_via: str  # 'applicant' | 'admin'
+    edited_by: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# -- Admin schemas --
+
+class RegularCourseConfigCreate(BaseModel):
+    """Create a new regular course config."""
+    year: int
+    title: str = Field(..., min_length=1, max_length=500)
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
+    banner_image_url: Optional[str] = None
+    is_active: bool = False
+
+
+class RegularCourseConfigUpdate(BaseModel):
+    """Update an existing regular course config. All fields optional."""
+    title: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = None
+    application_open_date: Optional[datetime] = None
+    application_close_date: Optional[datetime] = None
+    course_start_date: Optional[date] = None
+    locations: Optional[List[Dict[str, Any]]] = None
+    available_grades: Optional[List[Dict[str, Any]]] = None
+    time_slots: Optional[List[str]] = None
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
+    banner_image_url: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class RegularCourseConfigResponse(BaseModel):
+    """Full config response for admin."""
+    id: int
+    year: int
+    title: str
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
+    banner_image_url: Optional[str] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RegularApplicationResponse(BaseModel):
+    """Full application response for admin."""
+    id: int
+    config_id: int
+    reference_code: str
+    student_name: str
+    school: Optional[str] = None
+    grade: str
+    lang_stream: Optional[str] = None
+    is_existing_student: Optional[str] = None
+    current_centers: Optional[List[str]] = None
+    wechat_id: Optional[str] = None
+    contact_phone: Optional[str] = None
+    preferred_location: Optional[str] = None
+    preference_1_day: Optional[str] = None
+    preference_1_time: Optional[str] = None
+    preference_2_day: Optional[str] = None
+    preference_2_time: Optional[str] = None
+    existing_student_id: Optional[int] = None
+    application_status: str
+    admin_notes: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    form_language: Optional[str] = None
+    linked_student: Optional[LinkedSecondaryStudentInfo] = None
+    # Publish bridge: set when application has been published into a native
+    # Regular enrollment. Drives the Publish/Unpublish button state.
+    published_enrollment_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RegularApplicationUpdate(BaseModel):
+    """Admin update for an application."""
+    application_status: Optional[RegularApplicationStatus] = None
+    admin_notes: Optional[str] = None
+    existing_student_id: Optional[int] = None
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    # Detail fields admin can edit (mirrors RegularApplicationEditRequest +
+    # identity fields locked for self-service)
+    student_name: Optional[str] = Field(None, max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=255)
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+
+
+class RegularApplicationStats(BaseModel):
+    """Aggregate stats for admin dashboard."""
+    total: int = 0
+    by_status: Dict[str, int] = {}
+    by_grade: Dict[str, int] = {}
+    by_location: Dict[str, int] = {}
+
+
+class RegularDemandCell(BaseModel):
+    """Demand counts for a single day x time_slot cell."""
+    day: str
+    time_slot: str
+    total_first_pref: int = 0
+    total_second_pref: int = 0
+    by_grade_first: Dict[str, int] = {}
+    by_grade_second: Dict[str, int] = {}
+
+
+class RegularDemandResponse(BaseModel):
+    """Full demand summary for one location."""
+    location: str
+    cells: List[RegularDemandCell]
+
+
+class RegularPublishRequest(BaseModel):
+    """Admin-confirmed schedule for publishing an application as an Enrollment.
+
+    Regular has no placement subsystem, so the admin supplies the final
+    weekly slot here (prefilled from preference 1 in the UI).
+    """
+    confirmed_day: str = Field(..., max_length=20, description="Weekday, full or short form")
+    confirmed_time: str = Field(..., max_length=50)
+    location: str = Field(..., max_length=255, description="Branch display name or MSA/MSB code")
+    tutor_id: int
+    lessons_paid: int = Field(6, ge=1, le=24, description="6 = standard regular enrollment block")
+    first_lesson_date: Optional[date] = Field(
+        None, description="None → first occurrence of confirmed_day on/after course_start_date"
+    )
+    payment_status: Literal['Pending Payment', 'Paid'] = 'Pending Payment'
+
+
+class RegularPublishConflictSession(BaseModel):
+    """Existing session that collides with a proposed lesson at the same datetime."""
+    session_date: date
+    time_slot: Optional[str] = None
+    existing_tutor_name: Optional[str] = None
+    session_status: Optional[str] = None
+    enrollment_id: Optional[int] = None
+
+
+class RegularPublishResponse(BaseModel):
+    """Result of publishing one regular application."""
+    application_id: int
+    enrollment_id: int
+    sessions_created: int
+    first_lesson_date: date
+    skipped_holidays: List[Dict[str, str]] = Field(default_factory=list)
+
+
+class RegularUnpublishResponse(BaseModel):
+    """Result of unpublishing one regular application."""
+    application_id: int
+    enrollment_id: int
+    sessions_deleted: int
+    application_status: str
+
+
+class RegularPublishItem(RegularPublishRequest):
+    """Per-application schedule payload inside a batch publish request."""
+    application_id: int
+
+
+class RegularPublishBatchRequest(BaseModel):
+    """Bulk-publish a set of applications. Each runs independently."""
+    items: List[RegularPublishItem] = Field(..., min_length=1, max_length=100)
+
+
+class RegularPublishResult(BaseModel):
+    """Per-application result inside a batch publish response."""
+    application_id: int
+    success: bool
+    enrollment_id: Optional[int] = None
+    sessions_created: Optional[int] = None
+    error_code: Optional[str] = None
+    error: Optional[str] = None
+
+
+class RegularPublishBatchResponse(BaseModel):
+    """Aggregate response for batch publish — one result per requested app."""
+    results: List[RegularPublishResult]
+    published_count: int
+    failed_count: int
 
 
 # Enable forward references for nested models

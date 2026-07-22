@@ -51,6 +51,7 @@ PUBLIC_PATHS = frozenset({
 # that need auth still enforce it via their own dependencies.
 PUBLIC_PREFIXES = (
     "/api/summer/public/",   # public application + buddy-group forms
+    "/api/regular/public/",  # public regular-course application form
     "/api/report-shares/",   # token-gated parent report links (POST/DELETE self-auth)
     "/api/prospects",        # X-Branch-Pin gated primary-prospect pages
     "/api/buddy-tracker",    # X-Branch-Pin gated buddy tracker

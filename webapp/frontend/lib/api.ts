@@ -140,6 +140,20 @@ import type {
   SummerApplicationStatusResponse,
   SummerApplicationEditRequest,
   SummerApplicationEditEntry,
+  RegularCourseFormConfig,
+  RegularApplicationCreate,
+  RegularApplicationSubmitResponse,
+  RegularApplicationStatusResponse,
+  RegularApplicationEditRequest,
+  RegularApplicationEditEntry,
+  RegularCourseConfig,
+  RegularApplication,
+  RegularApplicationUpdate,
+  RegularApplicationStats,
+  RegularDemandResponse,
+  RegularPublishRequest,
+  RegularPublishResponse,
+  RegularUnpublishResponse,
   SummerSiblingInfo,
   SiblingVerificationStatus,
   SummerCourseConfig,
@@ -2933,6 +2947,131 @@ export const waitlistAPI = {
 };
 
 // Export all APIs as a single object
+export const regularAPI = {
+  // Public endpoints (no auth)
+  getFormConfig: () =>
+    fetchAPI<RegularCourseFormConfig>("/regular/public/config"),
+
+  submitApplication: (data: RegularApplicationCreate) =>
+    fetchAPI<RegularApplicationSubmitResponse>("/regular/public/apply", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  checkStatus: (referenceCode: string, phone: string) =>
+    fetchAPI<RegularApplicationStatusResponse>(
+      `/regular/public/status/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`
+    ),
+
+  editApplication: (
+    referenceCode: string,
+    phone: string,
+    data: RegularApplicationEditRequest
+  ) =>
+    fetchAPI<RegularApplicationStatusResponse>(
+      `/regular/public/application/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`,
+      { method: "PATCH", body: JSON.stringify(data) }
+    ),
+
+  // Admin endpoints
+  getConfigs: () =>
+    fetchAPI<RegularCourseConfig[]>("/regular/configs"),
+
+  createConfig: (data: Partial<RegularCourseConfig>) =>
+    fetchAPI<RegularCourseConfig>("/regular/configs", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getConfig: (id: number) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}`),
+
+  updateConfig: (id: number, data: Partial<RegularCourseConfig>) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteConfig: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/regular/configs/${id}`, { method: "DELETE" }),
+
+  cloneConfig: (id: number, targetYear: number) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}/clone?target_year=${targetYear}`, {
+      method: "POST",
+    }),
+
+  getApplications: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    published?: "published" | "unpublished";
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<RegularApplication[]>(`/regular/applications${qs ? `?${qs}` : ""}`);
+  },
+
+  getApplicationStats: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    published?: "published" | "unpublished";
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<RegularApplicationStats>(`/regular/applications/stats${qs ? `?${qs}` : ""}`);
+  },
+
+  getApplication: (id: number) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${id}`),
+
+  updateApplication: (id: number, data: RegularApplicationUpdate) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getApplicationEdits: (id: number) =>
+    fetchAPI<RegularApplicationEditEntry[]>(`/regular/applications/${id}/edits`),
+
+  suggestStudentLinks: (configId: number, dryRun: boolean) =>
+    fetchAPI<{
+      total_unlinked: number;
+      matches: Array<{ application: Record<string, unknown>; student: Record<string, unknown> }>;
+      skipped: Array<{ application: Record<string, unknown>; reason: string; candidates: Record<string, unknown>[] }>;
+    }>(`/regular/admin/suggest-student-links?config_id=${configId}&dry_run=${dryRun}`),
+
+  getDemand: (configId: number, location: string) =>
+    fetchAPI<RegularDemandResponse>(
+      `/regular/demand?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+
+  publishApplication: (id: number, data: RegularPublishRequest) =>
+    fetchAPI<RegularPublishResponse>(`/regular/applications/${id}/publish`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  unpublishApplication: (id: number) =>
+    fetchAPI<RegularUnpublishResponse>(`/regular/applications/${id}/publish`, {
+      method: "DELETE",
+    }),
+};
+
 export const api = {
   tutors: tutorsAPI,
   students: studentsAPI,
@@ -2958,6 +3097,7 @@ export const api = {
   wecom: wecomAPI,
   memos: memosAPI,
   summer: summerAPI,
+  regular: regularAPI,
   prospects: prospectsAPI,
   buddyTracker: buddyTrackerAPI,
   auth: authAPI,

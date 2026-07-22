@@ -3566,3 +3566,228 @@ export interface WaitlistEntryUpdate {
   student_id?: number | null;
   slot_preferences?: WaitlistSlotPreferenceCreate[];
 }
+
+// ============================================
+// Regular Course (September intake) Types
+// ============================================
+// Stripped-down mirrors of the summer types: no buddy/sibling, no pricing or
+// discount tiers, single weekly slot (preference 1 = first choice, 2 = backup).
+// Mirror webapp/backend/schemas.py's Regular* section.
+
+export type RegularBilingualOption = SummerBilingualOption;
+export type RegularLocation = SummerLocation;
+export type RegularCourseIntro = SummerCourseIntro;
+
+export interface RegularCourseFormConfig {
+  year: number;
+  title: string;
+  description?: string | null;
+  application_open_date: string;
+  application_close_date: string;
+  course_start_date: string;
+  locations: RegularLocation[];
+  available_grades: RegularBilingualOption[];
+  time_slots: string[];
+  existing_student_options?: RegularBilingualOption[] | null;
+  center_options?: RegularBilingualOption[] | null;
+  lang_stream_options?: RegularBilingualOption[] | null;
+  text_content?: Record<string, string> | null;
+  course_intro?: RegularCourseIntro | null;
+  banner_image_url?: string | null;
+}
+
+export interface RegularApplicationCreate {
+  student_name: string;
+  school?: string | null;
+  grade: string;
+  lang_stream?: string | null;
+  is_existing_student?: string | null;
+  current_centers?: string[] | null;
+  wechat_id?: string | null;
+  contact_phone: string;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  form_language?: string;
+}
+
+export interface RegularApplicationSubmitResponse {
+  reference_code: string;
+  message: string;
+}
+
+export interface RegularApplicationStatusResponse {
+  reference_code: string;
+  student_name: string;
+  application_status: string;
+  submitted_at?: string | null;
+  // Editable fields exposed to the status page
+  grade?: string | null;
+  school?: string | null;
+  lang_stream?: string | null;
+  wechat_id?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+}
+
+export interface RegularApplicationEditRequest {
+  grade?: string | null;
+  school?: string | null;
+  lang_stream?: string | null;
+  wechat_id?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+}
+
+export interface RegularApplicationEditEntry {
+  id: number;
+  edited_at: string;
+  field_name: string;
+  old_value?: string | null;
+  new_value?: string | null;
+  edited_via: "applicant" | "admin";
+  edited_by?: string | null;
+}
+
+export interface RegularCourseConfig {
+  id: number;
+  year: number;
+  title: string;
+  description?: string | null;
+  application_open_date: string;
+  application_close_date: string;
+  course_start_date: string;
+  locations: RegularLocation[];
+  available_grades: RegularBilingualOption[];
+  time_slots: string[];
+  existing_student_options?: RegularBilingualOption[] | null;
+  center_options?: RegularBilingualOption[] | null;
+  lang_stream_options?: RegularBilingualOption[] | null;
+  text_content?: Record<string, string> | null;
+  course_intro?: RegularCourseIntro | null;
+  banner_image_url?: string | null;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface RegularApplication {
+  id: number;
+  config_id: number;
+  reference_code: string;
+  student_name: string;
+  school?: string | null;
+  grade: string;
+  lang_stream?: string | null;
+  is_existing_student?: string | null;
+  current_centers?: string[] | null;
+  wechat_id?: string | null;
+  contact_phone?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  existing_student_id?: number | null;
+  application_status: string;
+  admin_notes?: string | null;
+  submitted_at?: string | null;
+  updated_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  form_language?: string | null;
+  linked_student?: LinkedSecondaryStudentInfo | null;
+  /** Set when the application has been published into a native Regular
+   *  enrollment. Drives the Publish/Unpublish button state. */
+  published_enrollment_id?: number | null;
+}
+
+export interface RegularApplicationUpdate {
+  application_status?: string;
+  admin_notes?: string;
+  existing_student_id?: number | null;
+  lang_stream?: string;
+  // Detail-field admin edits (audited)
+  student_name?: string;
+  grade?: string;
+  school?: string;
+  wechat_id?: string;
+  preferred_location?: string;
+  preference_1_day?: string;
+  preference_1_time?: string;
+  preference_2_day?: string;
+  preference_2_time?: string;
+}
+
+export interface RegularApplicationStats {
+  total: number;
+  by_status: Record<string, number>;
+  by_grade: Record<string, number>;
+  by_location: Record<string, number>;
+}
+
+export interface RegularDemandCell {
+  day: string;
+  time_slot: string;
+  total_first_pref: number;
+  total_second_pref: number;
+  by_grade_first: Record<string, number>;
+  by_grade_second: Record<string, number>;
+}
+
+export interface RegularDemandResponse {
+  location: string;
+  cells: RegularDemandCell[];
+}
+
+export interface RegularPublishRequest {
+  /** Weekday, full or short form (backend normalizes to "Tue" etc.). */
+  confirmed_day: string;
+  confirmed_time: string;
+  /** Branch display name or MSA/MSB code (backend normalizes). */
+  location: string;
+  tutor_id: number;
+  /** Defaults to 6, the standard regular enrollment block. */
+  lessons_paid?: number;
+  /** Omit to auto-compute: first occurrence of confirmed_day on/after the
+   *  config's course_start_date. */
+  first_lesson_date?: string | null;
+  payment_status?: "Pending Payment" | "Paid";
+}
+
+export interface RegularPublishResponse {
+  application_id: number;
+  enrollment_id: number;
+  sessions_created: number;
+  first_lesson_date: string;
+  skipped_holidays: Array<{ date: string; name: string }>;
+}
+
+export interface RegularUnpublishResponse {
+  application_id: number;
+  enrollment_id: number;
+  sessions_deleted: number;
+  application_status: string;
+}
+
+export interface RegularPublishErrorDetail {
+  error_code: string;
+  message: string;
+  enrollment_id?: number;
+  current_status?: string;
+  conflicts?: Array<{
+    session_date: string;
+    time_slot?: string | null;
+    existing_tutor_name?: string | null;
+    session_status?: string | null;
+    enrollment_id?: number | null;
+  }>;
+}

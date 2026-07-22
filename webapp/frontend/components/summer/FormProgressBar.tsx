@@ -10,6 +10,8 @@ interface FormProgressBarProps {
   stepStatuses: StepStatus[];
   onLangToggle: () => void;
   onStepClick: (step: number) => void;
+  /** Step labels; defaults to the summer wizard's STEP_LABELS. */
+  labels?: { zh: string; en: string }[];
 }
 
 export function FormProgressBar({
@@ -19,6 +21,7 @@ export function FormProgressBar({
   stepStatuses,
   onLangToggle,
   onStepClick,
+  labels = STEP_LABELS,
 }: FormProgressBarProps) {
   return (
     <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 sm:-mx-8 sm:px-8 border-b border-border-subtle">
@@ -28,7 +31,7 @@ export function FormProgressBar({
             const step = i + 1;
             const isCurrent = step === currentStep;
             const status = stepStatuses[i];
-            const label = STEP_LABELS[i];
+            const label = labels[i];
 
             // Circle style based on status
             let circleClass: string;

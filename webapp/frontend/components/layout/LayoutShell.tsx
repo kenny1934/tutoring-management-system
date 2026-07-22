@@ -26,7 +26,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
     pathname === "/apply" || pathname?.startsWith("/apply/") ||
     pathname === "/status" || pathname?.startsWith("/status/");
 
-  if (isPublicSubdomain || pathname?.startsWith("/zen") || pathname?.startsWith("/summer") || isCleanPublicPath) {
+  if (isPublicSubdomain || pathname?.startsWith("/zen") || pathname?.startsWith("/summer") || pathname?.startsWith("/regular") || isCleanPublicPath) {
     return <>{children}</>;
   }
 
