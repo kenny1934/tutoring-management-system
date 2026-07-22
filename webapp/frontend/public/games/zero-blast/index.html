@@ -531,6 +531,11 @@
     @keyframes zb-haz { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.2; } }
     /* quiet tutor strip under the scene (host mode only) */
     .zb-tutorbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 6px 0 2px; }
+    /* stage-flow anchors left, navigation anchors right - the primary's
+     * label changes width every step, and an anchored edge keeps the
+     * jump/skip targets from sliding under the tutor's mouse */
+    .zb-inqbar { justify-content: space-between; align-items: center; }
+    .zb-inqbar__flow, .zb-inqbar__nav { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     .zb-tutorbtn {
       font-family: var(--mc-mono); font-size: 0.8125rem; font-weight: 700;
       padding: 5px 14px; opacity: 0.75;
@@ -1666,14 +1671,18 @@
       </div>
       <div class="zb-inqroster" id="inqRoster"></div>
     </div>
-    <div class="zb-tutorbar" id="inqBar">
-      <button class="mc-btn mc-btn--primary zb-inqprimary" id="btnInqPrimary" data-key="n"></button>
-      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqMore" style="display:none" data-i18n="inq_more_round"></button>
-      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqTheorem" style="display:none" data-i18n="inq_theorem_btn"></button>
-      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump1" style="display:none" data-i18n="inq_jump1"></button>
-      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump2" style="display:none" data-i18n="inq_jump2"></button>
-      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump3" style="display:none" data-i18n="inq_jump3"></button>
-      <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqSkip" data-i18n="inq_skip"></button>
+    <div class="zb-tutorbar zb-inqbar" id="inqBar">
+      <span class="zb-inqbar__flow">
+        <button class="mc-btn mc-btn--primary zb-inqprimary" id="btnInqPrimary" data-key="n"></button>
+        <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqMore" style="display:none" data-i18n="inq_more_round"></button>
+        <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqTheorem" style="display:none" data-i18n="inq_theorem_btn"></button>
+      </span>
+      <span class="zb-inqbar__nav">
+        <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump1" style="display:none" data-i18n="inq_jump1"></button>
+        <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump2" style="display:none" data-i18n="inq_jump2"></button>
+        <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqJump3" style="display:none" data-i18n="inq_jump3"></button>
+        <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnInqSkip" data-i18n="inq_skip"></button>
+      </span>
     </div>
   </div>
 
@@ -5190,7 +5199,10 @@ function renderInqBar() {
   $("btnInqMore").style.display =
     G.inqMoreFlashT || inq.step === "summary" ||
     (inq.step === "reveal" && inq.round >= inqRoundsTotal(inq.stage)) ? "" : "none";
-  [1, 2, 3].forEach(s => { $("btnInqJump" + s).style.display = s === inq.stage ? "none" : ""; });
+  // the jumps rest while a round is live - the countdown moment is the
+  // one place a mis-click costs the class; 提早結算 brings them back
+  const atRest = inq.step !== "round";
+  [1, 2, 3].forEach(s => { $("btnInqJump" + s).style.display = atRest && s !== inq.stage ? "" : "none"; });
 }
 
 /* mid-inquiry host recovery: the F5'd tab reclaims the room and picks

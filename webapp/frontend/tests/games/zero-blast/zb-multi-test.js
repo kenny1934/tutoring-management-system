@@ -2068,6 +2068,16 @@ async function main() {
   check("重根: no hint cards dealt for identical factors", !s3c.inqCards, JSON.stringify(s3c.inqCards || null));
   const pairedC = [adaId, benId, calId].filter((id) => id !== dealC.bye);
   await until(() => pages[pairedC[0]].evaluate(() => C.inqOpen), { label: "round 3 open" });
+  const barMidRound = await host.evaluate(() =>
+    ["btnInqJump1", "btnInqJump2", "btnInqJump3", "btnInqSkip"].map(
+      (id) => getComputedStyle(document.getElementById(id)).display !== "none"
+    )
+  );
+  check(
+    "探究: mid-round the jumps rest - only 跳過探究 keeps its seat",
+    barMidRound.join() === "false,false,false,true",
+    JSON.stringify(barMidRound)
+  );
   const sqFace = await pages[pairedC[0]].evaluate(() => ({
     text: document.getElementById("ctrlInqTarget").textContent,
     hint: !!document.querySelector("#ctrlInqTarget .zb-inqhint"),
@@ -2089,6 +2099,22 @@ async function main() {
   );
   const moreAtLast = await host.evaluate(() => getComputedStyle(document.getElementById("btnInqMore")).display !== "none");
   check("重根: 加多一回合 surfaces at the last round's reveal", moreAtLast);
+  const barAtReveal = await host.evaluate(() => ({
+    jumps: ["btnInqJump1", "btnInqJump2"].every(
+      (id) => getComputedStyle(document.getElementById(id)).display !== "none"
+    ),
+    flow: [...document.querySelectorAll(".zb-inqbar__flow > button")].map((b) => b.id).join(),
+    nav: [...document.querySelectorAll(".zb-inqbar__nav > button")].map((b) => b.id).join(),
+    split: getComputedStyle(document.getElementById("inqBar")).justifyContent,
+  }));
+  check(
+    "探究: the jumps return at the reveal, in a nav cluster anchored right",
+    barAtReveal.jumps &&
+      barAtReveal.flow === "btnInqPrimary,btnInqMore,btnInqTheorem" &&
+      barAtReveal.nav === "btnInqJump1,btnInqJump2,btnInqJump3,btnInqSkip" &&
+      barAtReveal.split === "space-between",
+    JSON.stringify(barAtReveal)
+  );
   const hostRevealC = await host.evaluate(() => ({
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
     note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
