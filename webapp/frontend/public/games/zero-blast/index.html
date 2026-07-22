@@ -1245,6 +1245,14 @@
      * marks the bracket this player must zero, on the phone face and
      * in the reveal's substitution lines alike */
     .zb-inqhint { text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--mc-red); text-decoration-thickness: 2px; }
+    /* the 分工 verdict glyph: per-member ✓/✗ beside each substitution -
+     * the pair mark says pass/fail, this one says WHOSE bracket did
+     * (or didn't) zero, on the projector grid and the phone card alike */
+    .zb-inqvmark { display: inline-flex; vertical-align: -2px; margin: 0 2px; }
+    .zb-inqvmark svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+    .zb-inqvmark.ok { color: var(--mc-correct); }
+    .zb-inqvmark.bad { color: var(--mc-red); }
+    .zb-stage--projector .zb-inqvmark svg { width: 19px; height: 19px; }
     .zb-inqfactors { margin-top: 10px; font-family: var(--mc-mono); font-size: 0.9375rem; color: var(--mc-ink-soft); }
     .zb-inqzero-note { margin-top: 6px; font-size: 0.875rem; color: var(--mc-ink-soft); }
     .zb-inqexpand { margin-top: 10px; font-size: 0.9375rem; color: var(--mc-ink-soft); }
@@ -2023,7 +2031,12 @@ const STRINGS = {
   inq_rebuild_tag:  { c: "重建中",      e: "rebuilding" },
   inq_rebuild_note: { c: "大廈冧咗！|你今回合重建中，做觀察員：|望住投影幕。|補返 2 個生命值，|下一回合再嚟過。", e: "Your building came down! You're rebuilding this round as the observer: watch the big screen. You're back to 2 lives, in again next round." },
   /* §19 Batch X: 分工 judging on the bridge */
-  inq_wrong_factor_fmt: { c: "x = {v} 真係方程嘅解！|不過你負責嘅因式係 {f}，|代入去係 {fv}，唔係 0。", e: "x = {v} does solve the equation! But your factor is {f}, and it gives {fv}, not 0." },
+  inq_wrong_factor_fmt: { c: "x = {v} 真係方程嘅解！|不過今次你負責嘅因式係 {f}。", e: "x = {v} does solve the equation! But your factor this time is {f}." },
+  /* the 分工 reveal reads each member against their OWN bracket - the
+   * duty phrase leads the substitution (§19 review fix) */
+  inq_duty_you_fmt: { c: "，你負責 {f}：", e: ". Your factor {f}: " },
+  inq_duty_partner_fmt: { c: "，{name} 負責 {f}：", e: ". {name}'s factor {f}: " },
+  inq_not_zero_tail: { c: "，唔係 0", e: ", not 0" },
   inq_xfactor_note: { c: "記住：x 自己都係一個因式，|佢嘅零點就喺 x = 0！", e: "Remember: x by itself is a factor too. Its zero is at x = 0!" },
   /* §19 Batch Y: 探究一's recap lands the discovery, then the cliffhanger */
   inq_recap1_head:  { c: "試過嘅目標數字：", e: "The targets the class tried:" },
@@ -4816,6 +4829,16 @@ function inqStageName(stage) {
   return t("inq_stage" + stage);
 }
 
+/* the bridge's equation face on the host target board: the factored
+ * form with the red = 0, shown through the round AND its reveal */
+function inqShowExpr(roots) {
+  $("inqN").style.display = "none";
+  $("inqTargetLabel").textContent = "";
+  const ex = $("inqExpr");
+  ex.style.display = "";
+  ex.innerHTML = mathHtml(escapeText(inqFactoredText(roots))) + ' = <span class="zb-zero">0</span>';
+}
+
 /* the phone-facing inq block. NO pairing data - only the round frame. */
 function inqStatePayload() {
   const inq = G.inq;
@@ -5211,6 +5234,13 @@ function inqRowMembers(row, rv) {
   });
 }
 
+/* the 分工 verdict glyph (§19 review fix): the pair-level mark alone
+ * let a partner's-root miss read as a pass, so each member's line
+ * carries its own ✓/✗ against THEIR bracket */
+function inqVmarkHtml(ok) {
+  return `<span class="zb-inqvmark ${ok ? "ok" : "bad"}"><svg viewBox="0 0 24 24"><use href="#i-${ok ? "tick" : "cross"}"/></svg></span>`;
+}
+
 /* the bridge takeaway, composed from the equation ON SCREEN so every
  * claim is instance-true: distinct roots state THIS pair's 或; a
  * repeated root names the one exception */
@@ -5244,15 +5274,16 @@ function inqRowHtml(row, rv) {
   if (rv.stage === 3) {
     const lines = members.map(m => {
       const who = `<span class="zb-inqrow__who">${escapeText(m.name)}</span>`;
-      if (m.v === null) return `<span>${who} <span class="zb-inqval miss">${t("inq_no_sub")}</span></span>`;
-      // the chip rings green only when the member zeroed their OWN
-      // factor (分工); the substitution underlines that factor so the
-      // projector shows WHY a right-looking x still failed the pair
+      if (m.v === null) return `<span>${who} <span class="zb-inqval miss">${t("inq_no_sub")}</span>${inqVmarkHtml(false)}</span>`;
+      // the chip rings only when the member zeroed their OWN factor
+      // (分工); the substitution underlines that factor and the line
+      // ends on the member's own ✓/✗, so the projector shows WHY a
+      // right-looking x still failed the pair
       const chip = `<span class="zb-inqval${m.mineHit ? " zero" : ""}">${mathHtml("x = " + ZBLevels.num(m.v))}</span>`;
       const sub = (val, mine) => (mine ? `(<span class="zb-inqhint">${val}</span>)` : `(${val})`);
       const work = m.fvA === null ? "" :
         ` <span class="zb-inqsub">${sub(ZBLevels.num(m.fvA), m.card === 0)}${sub(ZBLevels.num(m.fvB), m.card === 1)} = ${ZBLevels.num(m.fvA * m.fvB)}</span>`;
-      return `<span>${who} ${chip}${work}</span>`;
+      return `<span>${who} ${chip}${work}${inqVmarkHtml(m.mineHit)}</span>`;
     });
     return `<div class="zb-inqrow ${cls}"><span class="zb-inqrow__col">${lines.join("")}</span>${mark}</div>`;
   }
@@ -5321,20 +5352,26 @@ function renderInqStage() {
     rule.style.display = "none";
     wrap.style.display = "";
     if (inq.stage === 3) {
-      $("inqN").style.display = "none";
-      $("inqTargetLabel").textContent = "";
-      const ex = $("inqExpr");
-      ex.style.display = "";
-      ex.innerHTML = mathHtml(escapeText(inqFactoredText(inq.roots))) + ' = <span class="zb-zero">0</span>';
+      inqShowExpr(inq.roots);
     } else {
       inqSlotTo(inq.n);
     }
   } else if (inq.step === "reveal") {
     title.style.display = "none";
     rule.style.display = "none";
-    wrap.style.display = inq.stage === 3 ? "none" : "";
-    if (inq.stage !== 3) inqSlotTo(inq.n, true); // a repaint, not a fresh draw
-    if (inq.lastReveal) renderInqReveal(inq.lastReveal);
+    // the equation stays up over its own reveal (§19 review fix): the
+    // substitution rows need their referent on screen. Composed from
+    // the reveal payload, which alone survives a host F5 here (the
+    // unrevealed roots never ride the published round state).
+    const rv = inq.lastReveal;
+    if (inq.stage === 3 && rv && typeof rv.rootA === "number" && typeof rv.rootB === "number") {
+      wrap.style.display = "";
+      inqShowExpr([rv.rootA, rv.rootB]);
+    } else {
+      wrap.style.display = inq.stage === 3 ? "none" : "";
+      if (inq.stage !== 3) inqSlotTo(inq.n, true); // a repaint, not a fresh draw
+    }
+    if (rv) renderInqReveal(rv);
   } else { // summary
     title.style.display = "";
     title.textContent = inqStageName(inq.stage) + " · " + t("inq_stage_summary");
@@ -5872,17 +5909,25 @@ function renderCtrlInqResult(rv, hearts) {
   members.forEach(m => {
     const name = escapeText(m.name);
     const isMe = m.id === C.id;
-    if (m.v === null) { lines.push(isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name })); return; }
+    if (m.v === null) {
+      const none = isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name });
+      lines.push(rv.stage === 3 ? inqVmarkHtml(false) + none : none);
+      return;
+    }
     if (rv.stage === 3) {
       if (m.fvA === null) return; // malformed roots on the wire: skip the working
-      // the full working, Steve-style: substitute into BOTH factors -
-      // (−2−3)(−2+2) = (−5)(0) = 0. One zero is all it takes.
-      const chain = ZBLevels.factorSub(rv.rootA, m.v) + ZBLevels.factorSub(rv.rootB, m.v)
-        + " = (" + ZBLevels.num(m.fvA) + ")(" + ZBLevels.num(m.fvB) + ")"
-        + " = " + ZBLevels.num(m.fvA * m.fvB);
+      // each member reads against their OWN bracket only (§19 review
+      // fix): the both-factor chain ended every true root in "= 0",
+      // dressing a failed 分工 as a pass. The full chain stays on the
+      // projector; here the line is the personal verdict.
+      const ownRoot = m.card === 1 ? rv.rootB : rv.rootA;
+      const work = ZBLevels.factorSub(ownRoot, m.v) + " = " + ZBLevels.num(m.fvMine)
+        + (m.mineHit ? "" : t("inq_not_zero_tail"));
       const head = isMe ? fmt("inq_you_fmt", { v: "x = " + ZBLevels.num(m.v) })
                         : fmt("inq_partner_fmt", { name: name, v: "x = " + ZBLevels.num(m.v) });
-      lines.push(mathHtml(escapeText(head + "，" + chain)));
+      const duty = fmt(isMe ? "inq_duty_you_fmt" : "inq_duty_partner_fmt",
+        { name: name, f: ZBLevels.factorText(ownRoot) });
+      lines.push(inqVmarkHtml(m.mineHit) + mathHtml(escapeText(head + duty + work)));
     } else {
       lines.push(isMe ? fmt("inq_you_fmt", { v: ZBLevels.num(m.v) })
                       : fmt("inq_partner_fmt", { name: name, v: ZBLevels.num(m.v) }));

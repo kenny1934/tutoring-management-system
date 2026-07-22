@@ -1855,3 +1855,31 @@ are the big adders). game.json 0.12.0.
 - diff=hard slots the mixed street BEFORE the gate - kind 7 keeps the
   finale crown (and its double pay) in every preset.
 - Suites: multi 233, solo 157 (up from 149), audit 74 - all green.
+
+### 19.3 Post-demo review fixes (2026-07-22, same-day eyeball)
+
+Copy: the rejoin QR note opens 斷咗線 (not 跌咗線); the 探究一 recap
+head drops 今日; the cliffhanger now asks 配對, not 夾 (靠估好難配得中
+／有冇一個 N 係容易啲配對).
+
+The 分工 reveal read wrong (Kenny's demo catch): the phone showed every
+member's x pushed through BOTH factors, so a partner's-root miss ended
+in "= 0" and read as a pass - worse, the credit note only rendered for
+yourself, so the innocent partner saw two "= 0" lines, then 配對失敗,
+with no explanation at all. Fixes:
+
+- The phone reads each member against their OWN bracket only
+  (你出咗 x = 7，你負責 (x)：(7) = 7，唔係 0), each line opening on its
+  own ✓/✗ (inqVmarkHtml, shared with the host grid). The both-factor
+  chain stays on the projector, where the 或-note frames it.
+- inq_wrong_factor_fmt trimmed to the credit alone (真係方程嘅解！
+  不過今次你負責嘅因式係 {f}) - the substitution now lives in the
+  member's own line, so the note stopped repeating it.
+- The projector's reveal rows end on the same per-member ✓/✗ - before,
+  a failing member got only the absence of a ring.
+- The host keeps the equation face up THROUGH the stage-3 reveal
+  (before, wrap hid at reveal and the rows floated with no referent).
+  Composed from the reveal payload (rootA/rootB), which alone survives
+  a host F5 here - the unrevealed roots never ride the round state.
+
+Suites re-choreographed and green: multi 233 / solo 157 / audit 74.

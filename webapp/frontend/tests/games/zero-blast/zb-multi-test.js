@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (206 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (233 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 206 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 233 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -1867,7 +1867,7 @@ async function main() {
   check(
     "探究一 recap: the played Ns land with their pair counts, then the cliffhanger",
     sum1.recap.includes("N = 12") && sum1.recap.includes("N = 36") &&
-      sum1.recap.includes("1/1") && sum1.cliff && sum1.recap.includes("唔使夾都得"),
+      sum1.recap.includes("1/1") && sum1.cliff && sum1.recap.includes("容易啲配對"),
     sum1.recap
   );
   await inqAdvanceTo("intro");
@@ -2039,22 +2039,36 @@ async function main() {
     orNote: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
     mine: document.querySelectorAll("#inqRevealBox .zb-inqsub .zb-inqhint").length,
+    ok: document.querySelectorAll("#inqRevealBox .zb-inqvmark.ok").length,
+    bad: document.querySelectorAll("#inqRevealBox .zb-inqvmark.bad").length,
+    expr: getComputedStyle(document.getElementById("inqTargetWrap")).display !== "none"
+      ? document.getElementById("inqExpr").textContent : "",
   }));
   check(
-    "概念轉化: the grid pushes each x through BOTH factors, 或-note names THIS pair",
+    "概念轉化: the grid pushes each x through BOTH factors, 或-note names THIS pair, the equation stays up",
     hostReveal3.row.includes("(−5)(0) = 0") && hostReveal3.row.includes("(0)(5) = 0") &&
-      hostReveal3.orNote.includes("零點唔同") && hostReveal3.orNote.includes("(x−3)"),
+      hostReveal3.orNote.includes("零點唔同") && hostReveal3.orNote.includes("(x−3)") &&
+      hostReveal3.expr.includes("(x−3)(x+2) = 0"),
     JSON.stringify(hostReveal3)
   );
-  check("概念轉化: each substitution underlines the member's own factor", hostReveal3.mine === 2, "mine=" + hostReveal3.mine);
+  check(
+    "概念轉化: each substitution underlines the member's own factor and wears its ✓",
+    hostReveal3.mine === 2 && hostReveal3.ok === 2 && hostReveal3.bad === 0,
+    JSON.stringify({ mine: hostReveal3.mine, ok: hostReveal3.ok, bad: hostReveal3.bad })
+  );
   check("概念轉化: the reveal holds no exam face (that beat waits for the recap)", hostReveal3.expand === "", hostReveal3.expand);
   await until(() => negPhone.evaluate(() => C.lastInqRevealSeq === 1301), { label: "neg phone got reveal" });
-  const negWorking = await negPhone.evaluate(() => document.getElementById("ctrlInqMark").textContent);
+  const negWorking = await negPhone.evaluate(() => ({
+    text: document.getElementById("ctrlInqMark").textContent,
+    ok: document.querySelectorAll("#ctrlInqMark .zb-inqvmark.ok").length,
+    bad: document.querySelectorAll("#ctrlInqMark .zb-inqvmark.bad").length,
+  }));
   check(
-    "概念轉化: the phone working substitutes into both factors, 或-note lands",
-    negWorking.includes("(−2−3)(−2+2)") && negWorking.includes("(−5)(0) = 0") &&
-      negWorking.includes("零點唔同"),
-    negWorking
+    "概念轉化: the phone reads each partner against their OWN factor, 或-note lands",
+    negWorking.text.includes("你負責 (x+2)") && negWorking.text.includes("(−2+2) = 0") &&
+      negWorking.text.includes("(3−3) = 0") && !negWorking.text.includes("(−2−3)(−2+2)") &&
+      negWorking.ok === 2 && negWorking.bad === 0 && negWorking.text.includes("零點唔同"),
+    JSON.stringify(negWorking)
   );
 
   /* ── late joiner → trio round ── */
@@ -2180,17 +2194,21 @@ async function main() {
   const hostRevealX = await host.evaluate(() => ({
     note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
+    ok: document.querySelectorAll("#inqRevealBox .zb-inqvmark.ok").length,
+    bad: document.querySelectorAll("#inqRevealBox .zb-inqvmark.bad").length,
   }));
   check(
-    "x(x−7): the reveal names the trap - x itself is a factor",
-    hostRevealX.note.includes("x 自己都係一個因式") && hostRevealX.row.includes("(7)(0) = 0"),
+    "x(x−7): the reveal names the trap - x itself is a factor - and crosses the failed 分工",
+    hostRevealX.note.includes("x 自己都係一個因式") && hostRevealX.row.includes("(7)(0) = 0") &&
+      hostRevealX.ok === 1 && hostRevealX.bad === 1,
     JSON.stringify(hostRevealX)
   );
   await until(() => pages[xHolder].evaluate(() => C.lastInqRevealSeq === 1303), { label: "x holder got reveal" });
   const xMark = await pages[xHolder].evaluate(() => document.getElementById("ctrlInqMark").textContent);
   check(
-    "x(x−7): the partner's-root verdict credits the maths, then the KO beat",
-    xMark.includes("真係方程嘅解") && xMark.includes("(x)") && xMark.includes("大廈冧咗"),
+    "x(x−7): the partner's-root verdict credits the maths, shows the own-factor miss, then the KO beat",
+    xMark.includes("真係方程嘅解") && xMark.includes("(x)") &&
+      xMark.includes("唔係 0") && xMark.includes("大廈冧咗"),
     xMark
   );
 
@@ -2293,15 +2311,18 @@ async function main() {
   const hostRevealC = await host.evaluate(() => ({
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
     note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
+    expr: getComputedStyle(document.getElementById("inqTargetWrap")).display !== "none"
+      ? document.getElementById("inqExpr").textContent : "",
   }));
   check(
-    "重根: the projector shows (0)(0) = 0 and names the exception",
-    hostRevealC.row.includes("(0)(0) = 0") && hostRevealC.note.includes("重根"),
+    "重根: the projector shows (0)(0) = 0, names the exception, keeps the squared face up",
+    hostRevealC.row.includes("(0)(0) = 0") && hostRevealC.note.includes("重根") &&
+      hostRevealC.expr.includes("(x−3)² = 0"),
     JSON.stringify(hostRevealC)
   );
   await until(() => pages[pairedC[0]].evaluate(() => C.lastInqRevealSeq === 1304), { label: "round 4 result" });
   const dblNote = await pages[pairedC[0]].evaluate(() => document.getElementById("ctrlInqMark").textContent);
-  check("重根: the phone working shows (0)(0) = 0 and names the repeated root", dblNote.includes("(0)(0) = 0") && dblNote.includes("重根"), dblNote);
+  check("重根: the phone reads both against the one bracket and names the repeated root", dblNote.includes("(3−3) = 0") && dblNote.includes("重根") && dblNote.includes("你負責 (x−3)"), dblNote);
 
   /* ── 320px sanity while the arc is still up ── */
   await phoneB.setViewportSize({ width: 320, height: 640 });
