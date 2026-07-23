@@ -13,7 +13,7 @@
   "grade": "F3",
   "modes": ["multi", "solo"],
   "players": { "min": 1, "max": 40 },
-  "duration_min": 12,
+  "duration_min": 15,
   "config": {
     "levels": "comma list of stage kinds 1-6, subset and order kept, e.g. 4,5,6",
     "rounds": "buildings per stage: one number for all stages or a per-stage list (default 1,2,2,2,2,3)",

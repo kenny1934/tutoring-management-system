@@ -1,4 +1,4 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (161 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (162 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (161 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (162 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -318,8 +318,24 @@ async function main() {
     check("§19.5: the cover's controls and logo clear the fold on a laptop",
       intro.fold.cols === 2 && intro.fold.host < intro.fold.vh && intro.fold.brand <= intro.fold.vh,
       JSON.stringify(intro.fold));
-    check("§19.5: the run's own length is the measured 12 minutes, not 15",
-      intro.duration.includes("12"), intro.duration);
+    check("§19.6: the clock is the measured whole-lesson 10 to 15 minutes, arc included",
+      intro.duration.includes("10至15") && intro.duration.includes("全程"), intro.duration);
+    // §19.6: reclaim is a recovery path - it waits behind its own line
+    // rather than sitting on the cover as a fourth control
+    const reclaimBefore = await page.evaluate(() => ({
+      row: getComputedStyle(document.getElementById("reclaimRow")).display,
+      link: getComputedStyle(document.getElementById("btnReclaimShow")).display,
+      join: getComputedStyle(document.getElementById("joinCode")).display,
+    }));
+    await page.click("#btnReclaimShow");
+    const reclaimAfter = await page.evaluate(() => ({
+      row: getComputedStyle(document.getElementById("reclaimRow")).display,
+      link: getComputedStyle(document.getElementById("btnReclaimShow")).display,
+    }));
+    check("§19.6: reclaim hides behind a link, the join field stays out in the open",
+      reclaimBefore.row === "none" && reclaimBefore.link !== "none" && reclaimBefore.join !== "none" &&
+      reclaimAfter.row !== "none" && reclaimAfter.link === "none",
+      JSON.stringify({ before: reclaimBefore, after: reclaimAfter }));
     check("points: base speed",
       intro.pts.full === 200 && intro.pts.none === 100 && intro.pts.half === 150,
       JSON.stringify(intro.pts));
@@ -1416,8 +1432,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 161) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 161`);
+    if (total !== 162) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 162`);
       process.exit(1);
     }
     if (failures.length) {

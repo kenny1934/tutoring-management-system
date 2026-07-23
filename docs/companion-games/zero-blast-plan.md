@@ -1975,3 +1975,28 @@ Suites: multi 237, solo 159, audit 74 - all green.
   the new figure up for free - it reads the same string.
 
 Suites: multi 238, solo 161, audit 74 - all green.
+
+### 19.7 The clock, corrected; the cover's controls, tidied (2026-07-23)
+
+- **§19.5 misread the measurement.** Kenny's 10 to 15 minutes covers
+  the WHOLE lesson, arc included, not the main game alone - so the
+  15-minute figure was not merely stale, it was attached to the wrong
+  thing, and §19.4's "約 20 分鐘" for the arc was pure invention. The
+  cover's clock now reads 13 座建築 · 全程約 10至15 分鐘 and the arc
+  note drops its parenthetical. game.json's duration_min goes back to
+  15 (the hub wants one planning number; the upper bound is the safe
+  one). The briefing screen no longer shares that string - it gets
+  duration_game (13 座建築, no time claim), because a whole-lesson
+  figure is wrong at a point where the arc is already spent, and we
+  have no measured game-only number to put there. No spaces around 至:
+  the meta row is body-sized text.
+- **The cover's controls were a wall.** Four full-width rows - host,
+  solo, join-by-code, reclaim-by-code - two of them labelled inputs,
+  read as a form rather than a choice. The two ways in now lead, then
+  a hairline rule and a quiet 已經開咗房？ label introduce the typed
+  fallbacks: the join field stays out in the open (students use it
+  when a QR will not scan), and reclaim - a recovery path a tutor
+  wants perhaps once a term - waits behind an underlined line that
+  reveals the row and focuses it.
+
+Suites: multi 238, solo 162, audit 74 - all green.
