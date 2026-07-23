@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import {
   StickyNote, Copy, Check, Phone, AlertCircle, AlertTriangle,
-  Clock, CheckCircle, UserCheck, Grid3X3,
+  Clock, CheckCircle, Grid3X3,
   FileInput, Eye, CalendarCheck, GraduationCap, LogOut, XCircle,
   Send, CreditCard, BadgeCheck,
   type LucideIcon,
@@ -14,6 +14,7 @@ import { formatTimeAgo } from "@/lib/formatters";
 import { displayLocation, DAY_ABBREV, REGULAR_EXIT_STATUSES } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
+import { LinkedStudentChip } from "@/components/admin/LinkedStudentChip";
 import { InlineStatusSelect } from "@/components/admin/InlineStatusSelect";
 import type { RegularApplication } from "@/types";
 
@@ -105,6 +106,43 @@ export function RegularStatusBadge({ status }: { status: string }) {
   );
 }
 
+/** The origin badge, in the same slot summer's PrimaryBranchChip occupies:
+ *  the linked student record if there is one, else what the applicant told us.
+ *  Regular has no prospect linkage and no branch verification, so the claim
+ *  stays unqualified until an admin links a record. */
+function RegularOriginChip({ app }: { app: RegularApplication }) {
+  if (app.linked_student) {
+    return <LinkedStudentChip student={app.linked_student} />;
+  }
+
+  const claimsExisting = !!app.is_existing_student && app.is_existing_student !== "None";
+  if (claimsExisting) {
+    const centres = (app.current_centers || []).join(", ");
+    return (
+      <span
+        className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded"
+        title={
+          `Applicant says they attend ${app.is_existing_student}` +
+          (centres ? ` (${centres})` : "") +
+          ". No student record linked yet."
+        }
+        onClick={(e) => e.stopPropagation()}
+      >
+        Claims: existing
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="shrink-0 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
+      title="New student. No prior enrolment."
+      onClick={(e) => e.stopPropagation()}
+    >
+      New
+    </span>
+  );
+}
 
 function PrefChip({ day, time, backup }: { day: string; time: string; backup?: boolean }) {
   return (
@@ -211,17 +249,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
                 lang_stream: app.lang_stream ?? undefined,
                 school: app.school ?? undefined,
               }}
-              trailing={
-                app.linked_student ? (
-                  <span
-                    className="shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
-                    title={`Linked to ${app.linked_student.student_name}${app.linked_student.school_student_id ? ` (${app.linked_student.school_student_id})` : ""}`}
-                  >
-                    <UserCheck className="h-3 w-3" />
-                    {app.linked_student.school_student_id || app.linked_student.student_name}
-                  </span>
-                ) : null
-              }
+              trailing={<RegularOriginChip app={app} />}
             />
           </div>
           {branchCode && (
@@ -317,7 +345,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
           {editedAfterReview && (
             <span
               className="shrink-0 inline-flex items-center gap-0.5 text-red-600 dark:text-red-400 font-medium"
-              title={`Edited ${formatTimeAgo(app.updated_at!)} — after review on ${formatTimeAgo(app.reviewed_at!)}`}
+              title={`Edited ${formatTimeAgo(app.updated_at!)}. Reviewed ${formatTimeAgo(app.reviewed_at!)}.`}
             >
               <AlertTriangle className="h-3 w-3" /> Edited after review
             </span>
