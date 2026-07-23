@@ -3772,9 +3772,31 @@ export interface RegularPublishRequest {
   /** Omit to auto-compute: first occurrence of confirmed_day on/after the
    *  config's course_start_date. */
   first_lesson_date?: string | null;
-  payment_status?: "Pending Payment" | "Paid";
+  /** Omit to derive from the application status (Paid/Enrolled → Paid). */
+  payment_status?: "Pending Payment" | "Paid" | null;
   /** Discount applied to the enrollment (e.g. an auto-suggested coupon). */
   discount_id?: number | null;
+}
+
+/** Ready-to-send parent messages for one application, both languages. */
+export interface RegularApplicationMessages {
+  application_id: number;
+  schedule_zh: string;
+  schedule_en: string;
+  fee_zh: string;
+  fee_en: string;
+  /** "slot" when taken from the assigned slot, "preference" when it fell
+   *  back to the applicant's first choice. */
+  schedule_source: "slot" | "preference";
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  lessons_paid: number;
+  first_lesson_date: string;
+  total_fee: number;
+  discount_value: number;
+  is_new_student: boolean;
+  has_student_link: boolean;
 }
 
 export interface RegularSlotCreate {

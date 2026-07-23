@@ -150,6 +150,7 @@ import type {
   RegularApplication,
   RegularApplicationUpdate,
   RegularApplicationStats,
+  RegularApplicationMessages,
   RegularDemandResponse,
   RegularSlot,
   RegularSlotCreate,
@@ -3052,12 +3053,28 @@ export const regularAPI = {
   getApplicationEdits: (id: number) =>
     fetchAPI<RegularApplicationEditEntry[]>(`/regular/applications/${id}/edits`),
 
+  // Same response shape as the summer endpoint, so both link-suggestion
+  // modals read one set of types.
   suggestStudentLinks: (configId: number, dryRun: boolean) =>
-    fetchAPI<{
-      total_unlinked: number;
-      matches: Array<{ application: Record<string, unknown>; student: Record<string, unknown> }>;
-      skipped: Array<{ application: Record<string, unknown>; reason: string; candidates: Record<string, unknown>[] }>;
-    }>(`/regular/admin/suggest-student-links?config_id=${configId}&dry_run=${dryRun}`),
+    fetchAPI<import("@/types").StudentLinkSuggestResult>(
+      `/regular/admin/suggest-student-links?config_id=${configId}&dry_run=${dryRun}`
+    ),
+
+  /** Parent-facing schedule + fee messages, generated from the schedule and
+   *  fee inputs the publish flow will use. */
+  getApplicationMessages: (
+    id: number,
+    params: { lessons_paid?: number; discount_id?: number | null; first_lesson_date?: string | null } = {}
+  ) => {
+    const qs = new URLSearchParams();
+    if (params.lessons_paid != null) qs.set("lessons_paid", String(params.lessons_paid));
+    if (params.discount_id != null) qs.set("discount_id", String(params.discount_id));
+    if (params.first_lesson_date) qs.set("first_lesson_date", params.first_lesson_date);
+    const q = qs.toString();
+    return fetchAPI<RegularApplicationMessages>(
+      `/regular/applications/${id}/messages${q ? `?${q}` : ""}`
+    );
+  },
 
   getDemand: (configId: number, location: string) =>
     fetchAPI<RegularDemandResponse>(

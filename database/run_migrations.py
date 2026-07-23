@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "135_regular_makeup_note_no_emoji.sql",
+    "136_regular_status_ladder.sql",
 ]
 
 def main():

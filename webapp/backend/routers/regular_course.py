@@ -63,17 +63,21 @@ from schemas import (
     RegularPublishBatchRequest,
     RegularPublishResult,
     RegularPublishBatchResponse,
+    RegularApplicationMessages,
     LinkedSecondaryStudentInfo,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
 from utils.rate_limiter import check_ip_rate_limit
+from utils.regular_messages import format_schedule_message, strip_blank_student_id
 from constants import (
     hk_now,
     RegularApplicationStatus,
+    BASE_FEE_PER_LESSON,
     COMPLETED_STATUSES,
     DAY_FULL_TO_SHORT,
     MIN_LESSONS_FOR_DISCOUNT,
+    REGISTRATION_FEE,
     normalize_secondary_location,
     normalize_day_short,
 )
@@ -1250,10 +1254,12 @@ def suggest_slots(
 # Publish bridge → native Regular enrollment
 # ============================================
 
-# Statuses from which publishing is allowed: the weekly slot must have been
-# agreed with the parent first. Side exits are explicit non-publishes.
+# Statuses from which publishing is allowed: the fee message must have gone out
+# first, same threshold as summer. Side exits are explicit non-publishes.
 PUBLISHABLE_APP_STATUSES = (
-    RegularApplicationStatus.SCHEDULE_CONFIRMED.value,
+    RegularApplicationStatus.FEE_SENT.value,
+    RegularApplicationStatus.PAID.value,
+    RegularApplicationStatus.ENROLLED.value,
 )
 
 
@@ -1313,7 +1319,7 @@ def _publish_application_inner(
         raise _publish_error(
             "status_too_early",
             f"Application status is '{app.application_status}'. "
-            "Publishing requires Schedule Confirmed.",
+            "Publishing requires Fee Sent, Paid, or Enrolled.",
             current_status=app.application_status,
         )
 
@@ -1451,7 +1457,16 @@ def _publish_application_inner(
     ).first()
     is_new_student = prior_non_trial is None
 
-    is_paid = req.payment_status == 'Paid'
+    # Payment state follows the application status when the request stays
+    # silent, mirroring summer: an app already marked Paid publishes as Paid.
+    if req.payment_status is not None:
+        payment_status = req.payment_status
+    else:
+        payment_status = 'Paid' if app.application_status in (
+            RegularApplicationStatus.PAID.value,
+            RegularApplicationStatus.ENROLLED.value,
+        ) else 'Pending Payment'
+    is_paid = payment_status == 'Paid'
     enrollment = Enrollment(
         student_id=app.existing_student_id,
         tutor_id=tutor_id,
@@ -1461,9 +1476,11 @@ def _publish_application_inner(
         lessons_paid=req.lessons_paid,
         first_lesson_date=first_lesson_date,
         payment_date=hk_now().date() if is_paid else None,
-        payment_status=req.payment_status,
+        payment_status=payment_status,
         enrollment_type='Regular',
-        fee_message_sent=False,
+        # Publishing is gated on Fee Sent or later, so the fee message has
+        # already gone out by the time an enrollment exists.
+        fee_message_sent=True,
         is_new_student=is_new_student,
         discount_id=req.discount_id,
         regular_application_id=app.id,
@@ -1523,6 +1540,155 @@ def publish_application(
     result = _publish_application_inner(db, app_id, req, admin.user_email or "admin")
     db.commit()
     return result
+
+
+@router.get(
+    "/regular/applications/{app_id}/messages",
+    response_model=RegularApplicationMessages,
+)
+def get_application_messages(
+    app_id: int,
+    lessons_paid: int = Query(6, ge=1, le=24),
+    discount_id: Optional[int] = Query(None),
+    first_lesson_date: Optional[date_type] = Query(None),
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Parent-facing schedule and fee messages for one application.
+
+    The schedule comes from the assigned arrangement slot, falling back to the
+    applicant's first-choice preference so a message can still be drafted
+    before placement. Lesson dates, discount and registration fee are computed
+    exactly as publishing would, so the quoted total is the total charged.
+    """
+    app = (
+        db.query(RegularApplication)
+        .options(joinedload(RegularApplication.config))
+        .filter(RegularApplication.id == app_id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    slot = (
+        db.query(RegularCourseSlot)
+        .filter(RegularCourseSlot.id == app.assigned_slot_id)
+        .first()
+        if app.assigned_slot_id
+        else None
+    )
+    if slot:
+        source = "slot"
+        raw_day, raw_time, raw_location = slot.slot_day, slot.time_slot, slot.location
+    else:
+        source = "preference"
+        raw_day, raw_time = app.preference_1_day, app.preference_1_time
+        raw_location = app.preferred_location
+
+    if not raw_day or not raw_time or not raw_location:
+        raise _publish_error(
+            "no_schedule",
+            "No schedule to describe. Assign the application to a slot first.",
+        )
+
+    assigned_day = normalize_day_short(raw_day)
+    if assigned_day not in DAY_FULL_TO_SHORT.values():
+        raise _publish_error("invalid_day", f"Unrecognized weekday: {raw_day}")
+    location = normalize_secondary_location(raw_location)
+
+    course_start = app.config.course_start_date if app.config else None
+    lesson_start = first_lesson_date
+    if lesson_start is None:
+        if not course_start:
+            raise _publish_error("no_course_start", "Config has no course start date.")
+        lesson_start = _first_weekday_on_or_after(course_start, assigned_day)
+
+    from routers.enrollments import (
+        compute_discount_value,
+        format_fee_message,
+        generate_session_dates,
+    )
+
+    sessions, _skipped, _end = generate_session_dates(
+        first_lesson_date=lesson_start,
+        assigned_day=assigned_day,
+        lessons_paid=lessons_paid,
+        enrollment_type="Regular",
+        db=db,
+    )
+    session_dates = [s.session_date for s in sessions if not s.is_holiday]
+
+    discount = (
+        db.query(Discount).filter(Discount.id == discount_id).first()
+        if discount_id
+        else None
+    )
+    discount_value = compute_discount_value(discount, lessons_paid)
+
+    # Same new-student rule as publish: nobody with a prior non-Trial
+    # enrollment pays the registration fee again.
+    student = app.existing_student if app.existing_student_id else None
+    if student:
+        prior_non_trial = db.query(Enrollment).filter(
+            Enrollment.student_id == student.id,
+            Enrollment.enrollment_type != 'Trial',
+        ).first()
+        is_new_student = prior_non_trial is None
+    else:
+        is_new_student = True
+
+    student_code = (student.school_student_id or "") if student else ""
+    student_name = student.student_name if student else app.student_name
+
+    def fee(lang: str) -> str:
+        return strip_blank_student_id(format_fee_message(
+            lang=lang,
+            school_student_id=student_code,
+            student_name=student_name,
+            assigned_day=assigned_day,
+            assigned_time=raw_time,
+            location=location,
+            lessons_paid=lessons_paid,
+            session_dates=session_dates,
+            discount_value=discount_value,
+            is_new_student=is_new_student,
+        ))
+
+    def schedule(lang: str) -> str:
+        return format_schedule_message(
+            lang=lang,
+            school_student_id=student_code,
+            student_name=student_name,
+            assigned_day=assigned_day,
+            assigned_time=raw_time,
+            location=location,
+            lessons_paid=lessons_paid,
+            session_dates=session_dates,
+        )
+
+    total_fee = (
+        BASE_FEE_PER_LESSON * lessons_paid
+        - discount_value
+        + (REGISTRATION_FEE if is_new_student else 0)
+    )
+
+    return RegularApplicationMessages(
+        application_id=app.id,
+        schedule_zh=schedule("zh"),
+        schedule_en=schedule("en"),
+        fee_zh=fee("zh"),
+        fee_en=fee("en"),
+        schedule_source=source,
+        assigned_day=assigned_day,
+        assigned_time=raw_time,
+        location=location,
+        lessons_paid=lessons_paid,
+        first_lesson_date=lesson_start,
+        total_fee=total_fee,
+        discount_value=discount_value,
+        is_new_student=is_new_student,
+        has_student_link=student is not None,
+    )
 
 
 @router.post(
@@ -1588,7 +1754,7 @@ def publish_applications_batch(
 
 def _previous_status_before_enrollment(db: Session, app_id: int) -> str:
     """Look up the most recent audit row where status moved into 'Enrolled'
-    and return its old_value. Fall back to 'Schedule Confirmed' if no audit."""
+    and return its old_value. Fall back to 'Fee Sent' if no audit."""
     edit = (
         db.query(RegularApplicationEdit)
         .filter(
@@ -1601,7 +1767,7 @@ def _previous_status_before_enrollment(db: Session, app_id: int) -> str:
     )
     if edit and edit.old_value:
         return edit.old_value
-    return RegularApplicationStatus.SCHEDULE_CONFIRMED.value
+    return RegularApplicationStatus.FEE_SENT.value
 
 
 @router.delete(

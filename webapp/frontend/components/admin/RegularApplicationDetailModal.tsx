@@ -21,10 +21,11 @@ import {
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { RegularMessagePanel, type RegularMessageMode } from "./RegularMessagePanel";
 import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
-  User, Phone, MapPin, Clock, Building2, Search, UserPlus, ArrowRight,
+  User, Phone, MapPin, Clock, Building2, Search, UserPlus, ArrowRight, DollarSign,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { useDebouncedValue } from "@/lib/hooks";
@@ -70,15 +71,20 @@ function toPublishError(e: unknown): RegularPublishErrorDetail {
   };
 }
 
-/** Forward moves offered as one-click pills, per rung of the regular ladder.
- *  Anything else stays behind "All statuses…". */
+/** Forward moves offered as one-click pills, per rung of the ladder. Same map
+ *  as the summer modal's. Anything else stays behind "All statuses…". */
 const REGULAR_NEXT_STATUS_MAP: Record<string, string[]> = {
-  "Submitted":          ["Under Review", "Rejected"],
-  "Under Review":       ["Schedule Confirmed", "Waitlisted", "Rejected"],
-  "Schedule Confirmed": ["Enrolled", "Withdrawn"],
-  "Enrolled":           ["Withdrawn"],
-  "Waitlisted":         ["Under Review", "Withdrawn"],
+  "Submitted":           ["Under Review", "Rejected"],
+  "Under Review":        ["Placement Offered", "Waitlisted", "Rejected"],
+  "Placement Offered":   ["Placement Confirmed", "Withdrawn"],
+  "Placement Confirmed": ["Fee Sent"],
+  "Fee Sent":            ["Paid"],
+  "Paid":                ["Enrolled"],
 };
+
+/** Rungs at or past "the fee message has gone out", which is also exactly
+ *  where publishing becomes allowed. Same threshold as summer. */
+const FEE_SENT_OR_LATER = new Set(["Fee Sent", "Paid", "Enrolled"]);
 
 function FieldValue({
   label,
@@ -262,6 +268,9 @@ export function RegularApplicationDetailModal({
   // Edit history
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  // Parent messages (schedule offer / fee)
+  const [messagePanel, setMessagePanel] = useState<RegularMessageMode | null>(null);
+
   // Publish form
   const [pubLocation, setPubLocation] = useState("MSA");
   const [pubDay, setPubDay] = useState("");
@@ -304,6 +313,7 @@ export function RegularApplicationDetailModal({
     setManualIdInput("");
     setManualIdConfirmed("");
     setHistoryOpen(false);
+    setMessagePanel(null);
     setPubLocation(LOCATION_TO_CODE[app.preferred_location || ""] || "MSA");
     setPubDay(app.preference_1_day || "");
     setPubTime(app.preference_1_time || "");
@@ -313,7 +323,12 @@ export function RegularApplicationDetailModal({
     setOverrideSchedule(false);
     setPubFirstLesson("");
     setPubFirstLessonTouched(false);
-    setPubPayment("Pending Payment");
+    // An application already marked Paid publishes as a paid enrollment.
+    setPubPayment(
+      app.application_status === "Paid" || app.application_status === "Enrolled"
+        ? "Paid"
+        : "Pending Payment"
+    );
     setPublishError(null);
     setPublishResult(null);
     setPendingUnpublish(false);
@@ -574,9 +589,9 @@ export function RegularApplicationDetailModal({
   // itself. The backend re-validates on POST either way.
   const publishBlockers: string[] = [];
   if (!isPublished) {
-    if (app.application_status !== "Schedule Confirmed") {
+    if (!FEE_SENT_OR_LATER.has(app.application_status)) {
       publishBlockers.push(
-        `Status is ${app.application_status}. Set it to Schedule Confirmed once the weekly slot is agreed with the parent.`
+        `Status is ${app.application_status}. Send the fee message from the Parent messages panel, then mark it sent.`
       );
     }
     if (!app.existing_student_id) {
@@ -1272,6 +1287,67 @@ export function RegularApplicationDetailModal({
                         <Loader2 className="h-3 w-3 animate-spin" /> Linking...
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Parent messages: the schedule offer, then the fee message.
+                  Both are generated from the same schedule and fee inputs the
+                  publish panel below uses. */}
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3 space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    Parent messages
+                  </span>
+                  {FEE_SENT_OR_LATER.has(app.application_status) && (
+                    <span className="text-[10px] font-medium text-green-700 dark:text-green-300">
+                      Fee message sent
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {(["schedule", "fee"] as const).map((key) => {
+                    const Icon = key === "schedule" ? Copy : DollarSign;
+                    const label = key === "schedule" ? "Schedule" : "Fee message";
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setMessagePanel((m) => (m === key ? null : key))}
+                        className={cn(
+                          "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
+                          messagePanel === key
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                        )}
+                        title={
+                          key === "schedule"
+                            ? "Copy the class schedule for the parent"
+                            : "Copy the fee message for the parent"
+                        }
+                      >
+                        <Icon className="h-3 w-3" />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {messagePanel ? (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <RegularMessagePanel
+                      app={app}
+                      mode={messagePanel}
+                      lessonsPaid={pubLessons}
+                      discountId={pubDiscountId}
+                      firstLessonDate={pubFirstLesson || null}
+                      readOnly={!canEdit}
+                      onClose={() => setMessagePanel(null)}
+                      onMarked={() => { void onUpdated(); }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-muted-foreground">
+                    Pick Schedule or Fee message to generate copy for the parent.
                   </div>
                 )}
               </div>

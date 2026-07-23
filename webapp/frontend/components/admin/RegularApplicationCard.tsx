@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   StickyNote, Copy, Check, Phone, AlertCircle, Clock, CheckCircle,
   UserCheck, FileInput, Eye, CalendarCheck, GraduationCap, LogOut, XCircle,
+  Send, CreditCard, BadgeCheck,
   type LucideIcon,
 } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -12,31 +13,37 @@ import { formatTimeAgo } from "@/lib/formatters";
 import { displayLocation, DAY_ABBREV, SUMMER_GRADE_BG } from "@/lib/regular-utils";
 import type { RegularApplication } from "@/types";
 
-// Status pill colours, following the summer card's dot/bg/text/borderL scheme
-// but for the leaner regular ladder (plus its three side exits).
+// Status pill colours, matching the summer card's dot/bg/text/borderL scheme
+// rung for rung — the two intakes share one ladder.
 export const REGULAR_STATUS_COLORS: Record<string, { dot: string; bg: string; text: string; borderL: string }> = {
-  "Submitted":          { dot: "bg-gray-400",    bg: "bg-gray-100 dark:bg-gray-800",         text: "text-gray-700 dark:text-gray-300",       borderL: "border-l-gray-400" },
-  "Under Review":       { dot: "bg-blue-500",    bg: "bg-blue-50 dark:bg-blue-900/20",       text: "text-blue-700 dark:text-blue-300",       borderL: "border-l-blue-500" },
-  "Schedule Confirmed": { dot: "bg-purple-500",  bg: "bg-purple-50 dark:bg-purple-900/20",   text: "text-purple-700 dark:text-purple-300",   borderL: "border-l-purple-500" },
-  "Enrolled":           { dot: "bg-green-500",   bg: "bg-green-50 dark:bg-green-900/20",     text: "text-green-700 dark:text-green-300",     borderL: "border-l-green-500" },
-  "Waitlisted":         { dot: "bg-orange-500",  bg: "bg-orange-50 dark:bg-orange-900/20",   text: "text-orange-700 dark:text-orange-300",   borderL: "border-l-orange-500" },
-  "Withdrawn":          { dot: "bg-slate-400",   bg: "bg-slate-50 dark:bg-slate-800/50",     text: "text-slate-600 dark:text-slate-400",     borderL: "border-l-slate-400" },
-  "Rejected":           { dot: "bg-red-500",     bg: "bg-red-50 dark:bg-red-900/20",         text: "text-red-700 dark:text-red-300",         borderL: "border-l-red-500" },
+  "Submitted":           { dot: "bg-gray-400",    bg: "bg-gray-100 dark:bg-gray-800",         text: "text-gray-700 dark:text-gray-300",       borderL: "border-l-gray-400" },
+  "Under Review":        { dot: "bg-blue-500",    bg: "bg-blue-50 dark:bg-blue-900/20",       text: "text-blue-700 dark:text-blue-300",       borderL: "border-l-blue-500" },
+  "Placement Offered":   { dot: "bg-indigo-500",  bg: "bg-indigo-50 dark:bg-indigo-900/20",   text: "text-indigo-700 dark:text-indigo-300",   borderL: "border-l-indigo-500" },
+  "Placement Confirmed": { dot: "bg-purple-500",  bg: "bg-purple-50 dark:bg-purple-900/20",   text: "text-purple-700 dark:text-purple-300",   borderL: "border-l-purple-500" },
+  "Fee Sent":            { dot: "bg-amber-500",   bg: "bg-amber-50 dark:bg-amber-900/20",     text: "text-amber-700 dark:text-amber-300",     borderL: "border-l-amber-500" },
+  "Paid":                { dot: "bg-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20", text: "text-emerald-700 dark:text-emerald-300", borderL: "border-l-emerald-500" },
+  "Enrolled":            { dot: "bg-green-500",   bg: "bg-green-50 dark:bg-green-900/20",     text: "text-green-700 dark:text-green-300",     borderL: "border-l-green-500" },
+  "Waitlisted":          { dot: "bg-orange-500",  bg: "bg-orange-50 dark:bg-orange-900/20",   text: "text-orange-700 dark:text-orange-300",   borderL: "border-l-orange-500" },
+  "Withdrawn":           { dot: "bg-slate-400",   bg: "bg-slate-50 dark:bg-slate-800/50",     text: "text-slate-600 dark:text-slate-400",     borderL: "border-l-slate-400" },
+  "Rejected":            { dot: "bg-red-500",     bg: "bg-red-50 dark:bg-red-900/20",         text: "text-red-700 dark:text-red-300",         borderL: "border-l-red-500" },
 };
 
 export const REGULAR_ALL_STATUSES = [
-  "Submitted", "Under Review", "Schedule Confirmed", "Enrolled",
-  "Waitlisted", "Withdrawn", "Rejected",
+  "Submitted", "Under Review", "Placement Offered", "Placement Confirmed",
+  "Fee Sent", "Paid", "Enrolled", "Waitlisted", "Withdrawn", "Rejected",
 ];
 
 export const REGULAR_STATUS_ICONS: Record<string, LucideIcon> = {
-  "Submitted":          FileInput,
-  "Under Review":       Eye,
-  "Schedule Confirmed": CalendarCheck,
-  "Enrolled":           GraduationCap,
-  "Waitlisted":         Clock,
-  "Withdrawn":          LogOut,
-  "Rejected":           XCircle,
+  "Submitted":           FileInput,
+  "Under Review":        Eye,
+  "Placement Offered":   Send,
+  "Placement Confirmed": CalendarCheck,
+  "Fee Sent":            CreditCard,
+  "Paid":                BadgeCheck,
+  "Enrolled":            GraduationCap,
+  "Waitlisted":          Clock,
+  "Withdrawn":           LogOut,
+  "Rejected":            XCircle,
 };
 
 const REGULAR_EXIT_SET = new Set(["Waitlisted", "Withdrawn", "Rejected"]);
@@ -44,13 +51,16 @@ const REGULAR_EXIT_SET = new Set(["Waitlisted", "Withdrawn", "Rejected"]);
 // Soft row tints for dense lists (slot card student rows), matching the way
 // summer tints a placed session by its status.
 const REGULAR_STATUS_ROW_BG: Record<string, string> = {
-  "Submitted":          "bg-gray-50 dark:bg-gray-800/30",
-  "Under Review":       "bg-blue-50 dark:bg-blue-900/20",
-  "Schedule Confirmed": "bg-purple-50 dark:bg-purple-900/20",
-  "Enrolled":           "bg-green-50 dark:bg-green-900/20",
-  "Waitlisted":         "bg-orange-50/80 dark:bg-orange-900/20",
-  "Withdrawn":          "bg-slate-100/80 dark:bg-slate-800/30",
-  "Rejected":           "bg-red-50/80 dark:bg-red-900/20",
+  "Submitted":           "bg-gray-50 dark:bg-gray-800/30",
+  "Under Review":        "bg-blue-50 dark:bg-blue-900/20",
+  "Placement Offered":   "bg-indigo-50 dark:bg-indigo-900/20",
+  "Placement Confirmed": "bg-purple-50 dark:bg-purple-900/20",
+  "Fee Sent":            "bg-amber-50 dark:bg-amber-900/20",
+  "Paid":                "bg-emerald-50 dark:bg-emerald-900/20",
+  "Enrolled":            "bg-green-50 dark:bg-green-900/20",
+  "Waitlisted":          "bg-orange-50/80 dark:bg-orange-900/20",
+  "Withdrawn":           "bg-slate-100/80 dark:bg-slate-800/30",
+  "Rejected":            "bg-red-50/80 dark:bg-red-900/20",
 };
 
 export function regularStatusRowBg(status: string): string {

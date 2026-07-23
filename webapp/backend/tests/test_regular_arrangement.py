@@ -410,7 +410,7 @@ class TestPublishFromSlot:
         return _make_app(
             db_session, config,
             name="Linked Student",
-            status="Schedule Confirmed",
+            status="Fee Sent",
             student_id=student.id,
             slot_id=slot_id,
         )
@@ -490,7 +490,7 @@ class TestPublishDiscount:
         app = _make_app(
             db_session, config,
             name="Linked Student",
-            status="Schedule Confirmed",
+            status="Fee Sent",
             student_id=student.id,
         )
         req = RegularPublishRequest(
@@ -526,3 +526,133 @@ class TestPublishDiscount:
                 discount_id=coupon_discount.id, lessons_paid=4,
             )
         assert exc.value.detail["error_code"] == "discount_min_lessons"
+
+
+# ---------------------------------------------------------------------------
+# Parent messages (schedule + fee)
+# ---------------------------------------------------------------------------
+
+class TestApplicationMessages:
+    def _messages(self, db_session, app, *, lessons_paid=6, discount_id=None,
+                  first_lesson_date=None):
+        from routers.regular_course import get_application_messages
+        return get_application_messages(
+            app_id=app.id,
+            lessons_paid=lessons_paid,
+            discount_id=discount_id,
+            first_lesson_date=first_lesson_date,
+            _admin=None,
+            db=db_session,
+        )
+
+    def test_schedule_and_fee_from_assigned_slot(self, db_session, config, tutor, student):
+        student.school_student_id = "MSA-1024"
+        db_session.commit()
+        slot = _make_slot(db_session, config, day="Saturday", time="10:00 - 11:30",
+                          tutor_id=tutor.id)
+        app = _make_app(db_session, config, name="Applicant",
+                        student_id=student.id, slot_id=slot.id)
+
+        msgs = self._messages(db_session, app)
+
+        assert msgs.schedule_source == "slot"
+        assert msgs.assigned_day == "Sat"
+        assert msgs.first_lesson_date == date(2026, 9, 5)
+        # Identity + schedule in the schedule message, no money.
+        assert "MSA-1024" in msgs.schedule_zh
+        assert "逢星期六 10:00 - 11:30 (90分鐘)" in msgs.schedule_zh
+        assert "費用" not in msgs.schedule_zh
+        assert "Every Saturday 10:00 - 11:30 (90 minutes)" in msgs.schedule_en
+        # Fee message quotes the real total: 400 x 6 + 100 registration.
+        assert msgs.total_fee == 2500
+        assert "$2,500" in msgs.fee_zh
+        assert "$2,500" in msgs.fee_en
+
+    def test_falls_back_to_first_preference(self, db_session, config, student):
+        app = _make_app(db_session, config, student_id=student.id)
+        msgs = self._messages(db_session, app)
+        assert msgs.schedule_source == "preference"
+        assert msgs.assigned_day == "Tue"
+
+    def test_discount_and_lesson_count_reach_the_fee(self, db_session, config, student):
+        discount = Discount(
+            discount_name="Coupon $300", discount_type="fixed",
+            discount_value=300, is_active=True,
+        )
+        db_session.add(discount)
+        db_session.commit()
+        app = _make_app(db_session, config, student_id=student.id)
+        msgs = self._messages(db_session, app, lessons_paid=6, discount_id=discount.id)
+        assert msgs.discount_value == 300
+        # 400 x 6 - 300 + 100 registration fee
+        assert msgs.total_fee == 2200
+        assert "$2,200" in msgs.fee_zh
+
+    def test_existing_student_pays_no_registration_fee(self, db_session, config, tutor, student):
+        db_session.add(Enrollment(
+            student_id=student.id, tutor_id=tutor.id, assigned_day="Tue",
+            assigned_time="16:45 - 18:15", location="MSA", lessons_paid=6,
+            first_lesson_date=date(2026, 1, 6), payment_status="Paid",
+            enrollment_type="Regular",
+        ))
+        db_session.commit()
+        app = _make_app(db_session, config, student_id=student.id)
+        msgs = self._messages(db_session, app)
+        assert msgs.is_new_student is False
+        assert msgs.total_fee == 2400
+
+    def test_unlinked_application_drops_the_student_id_line(self, db_session, config):
+        app = _make_app(db_session, config, name="No Link")
+        msgs = self._messages(db_session, app)
+        assert msgs.has_student_link is False
+        assert "學生編號" not in msgs.fee_zh
+        assert "Student ID" not in msgs.fee_en
+        assert "No Link" in msgs.schedule_zh
+
+    def test_no_schedule_at_all_blocks(self, db_session, config, student):
+        app = _make_app(db_session, config, student_id=student.id, p1=None)
+        app.preferred_location = None
+        db_session.commit()
+        with pytest.raises(HTTPException) as exc:
+            self._messages(db_session, app)
+        assert exc.value.detail["error_code"] == "no_schedule"
+
+
+class TestPublishPaymentStatus:
+    def _publish(self, db_session, config, admin, tutor, student, status):
+        app = _make_app(db_session, config, name="Payer", status=status,
+                        student_id=student.id)
+        return publish_application(
+            app_id=app.id,
+            req=RegularPublishRequest(
+                confirmed_day="Tuesday", confirmed_time="16:45 - 18:15",
+                location="華士古分校", tutor_id=tutor.id,
+            ),
+            admin=admin, db=db_session,
+        )
+
+    def test_paid_application_publishes_as_paid(self, db_session, config, admin, tutor, student):
+        resp = self._publish(db_session, config, admin, tutor, student, "Paid")
+        enrollment = db_session.get(Enrollment, resp.enrollment_id)
+        assert enrollment.payment_status == "Paid"
+        assert enrollment.payment_date is not None
+
+    def test_fee_sent_application_publishes_as_pending(self, db_session, config, admin, tutor, student):
+        resp = self._publish(db_session, config, admin, tutor, student, "Fee Sent")
+        enrollment = db_session.get(Enrollment, resp.enrollment_id)
+        assert enrollment.payment_status == "Pending Payment"
+        assert enrollment.payment_date is None
+
+    def test_explicit_payment_status_wins(self, db_session, config, admin, tutor, student):
+        app = _make_app(db_session, config, name="Override", status="Fee Sent",
+                        student_id=student.id)
+        resp = publish_application(
+            app_id=app.id,
+            req=RegularPublishRequest(
+                confirmed_day="Tuesday", confirmed_time="16:45 - 18:15",
+                location="華士古分校", tutor_id=tutor.id, payment_status="Paid",
+            ),
+            admin=admin, db=db_session,
+        )
+        enrollment = db_session.get(Enrollment, resp.enrollment_id)
+        assert enrollment.payment_status == "Paid"

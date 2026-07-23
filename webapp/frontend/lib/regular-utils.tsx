@@ -61,11 +61,15 @@ export const REGULAR_STEP_LABELS = [
   { zh: "聯絡及確認", en: "Confirm" },
 ];
 
-/** The four-rung status ladder shown on the public status page. */
+/** The status ladder shown on the public status page. Same rungs as summer's,
+ *  so a parent applying to both intakes reads one progression. */
 export const REGULAR_STATUS_STEPS = [
   "Submitted",
   "Under Review",
-  "Schedule Confirmed",
+  "Placement Offered",
+  "Placement Confirmed",
+  "Fee Sent",
+  "Paid",
   "Enrolled",
 ] as const;
 
@@ -75,7 +79,10 @@ export const REGULAR_EXIT_STATUSES = new Set(["Waitlisted", "Withdrawn", "Reject
 export const REGULAR_STATUS_LABELS: Record<string, { zh: string; en: string }> = {
   "Submitted": { zh: "已提交", en: "Submitted" },
   "Under Review": { zh: "處理中", en: "Under Review" },
-  "Schedule Confirmed": { zh: "時間已確認", en: "Schedule Confirmed" },
+  "Placement Offered": { zh: "已安排時間", en: "Placement Offered" },
+  "Placement Confirmed": { zh: "時間已確認", en: "Placement Confirmed" },
+  "Fee Sent": { zh: "已發送繳費通知", en: "Fee Sent" },
+  "Paid": { zh: "已繳費", en: "Paid" },
   "Enrolled": { zh: "已報名", en: "Enrolled" },
   "Waitlisted": { zh: "候補中", en: "Waitlisted" },
   "Withdrawn": { zh: "已取消", en: "Withdrawn" },

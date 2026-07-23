@@ -1730,7 +1730,8 @@ class RegularApplication(Base):
     assigned_slot_id = Column(Integer, ForeignKey("regular_course_slots.id", ondelete="SET NULL"), nullable=True)
     # Status
     application_status = Column(
-        Enum('Submitted', 'Under Review', 'Schedule Confirmed', 'Enrolled',
+        Enum('Submitted', 'Under Review', 'Placement Offered', 'Placement Confirmed',
+             'Fee Sent', 'Paid', 'Enrolled',
              'Waitlisted', 'Withdrawn', 'Rejected',
              name='regular_application_status_enum'),
         nullable=False, default='Submitted'

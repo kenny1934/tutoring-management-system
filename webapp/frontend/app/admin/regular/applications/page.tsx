@@ -6,7 +6,6 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
-import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
 import { LOCATION_TO_CODE, CODE_TO_LOCATION } from "@/lib/regular-utils";
@@ -14,7 +13,7 @@ import {
   RegularApplicationCard, REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS,
 } from "@/components/admin/RegularApplicationCard";
 import { RegularApplicationDetailModal } from "@/components/admin/RegularApplicationDetailModal";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { RegularLinkSuggestionsModal } from "@/components/admin/RegularLinkSuggestionsModal";
 import {
   ClipboardList, Search, X, Loader2, RefreshCw, ExternalLink, Sparkles,
 } from "lucide-react";
@@ -22,16 +21,9 @@ import type { RegularApplication } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
-type LinkPreview = {
-  total_unlinked: number;
-  matches: Array<{ application: Record<string, unknown>; student: Record<string, unknown> }>;
-  skipped: Array<{ application: Record<string, unknown>; reason: string; candidates: Record<string, unknown>[] }>;
-};
-
 export default function RegularApplicationsPage() {
   usePageTitle("Regular Applications");
   const { canViewAdminPages, isReadOnly } = useAuth();
-  const { showToast } = useToast();
 
   const [configId, setConfigId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -44,9 +36,9 @@ export default function RegularApplicationsPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // Suggest-links flow: dry-run preview first, then confirm to apply.
-  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
-  const [linkBusy, setLinkBusy] = useState(false);
+  // Suggest-links flow: the modal previews every match and lets the admin
+  // resolve the ambiguous ones before applying.
+  const [linkSuggestionsOpen, setLinkSuggestionsOpen] = useState(false);
 
   const { data: configs } = useSWR(
     canViewAdminPages ? "regular-configs" : null,
@@ -153,39 +145,6 @@ export default function RegularApplicationsPage() {
     [activeConfig]
   );
 
-  const openSuggestPreview = async () => {
-    if (!configId || linkBusy) return;
-    setLinkBusy(true);
-    try {
-      const preview = await regularAPI.suggestStudentLinks(configId, true);
-      setLinkPreview(preview);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "Preview failed", "error");
-    } finally {
-      setLinkBusy(false);
-    }
-  };
-
-  const applySuggestedLinks = async () => {
-    if (!configId || linkBusy) return;
-    setLinkBusy(true);
-    try {
-      const result = await regularAPI.suggestStudentLinks(configId, false);
-      showToast(
-        result.matches.length > 0
-          ? `Linked ${result.matches.length} application${result.matches.length === 1 ? "" : "s"} to existing students.`
-          : "No confident matches found.",
-        "success"
-      );
-      setLinkPreview(null);
-      await handleRefresh();
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "Linking failed", "error");
-    } finally {
-      setLinkBusy(false);
-    }
-  };
-
   if (!canViewAdminPages) {
     return (
       <DeskSurface fullHeight>
@@ -236,13 +195,13 @@ export default function RegularApplicationsPage() {
                 </button>
                 {!isReadOnly && (
                   <button
-                    onClick={openSuggestPreview}
-                    disabled={linkBusy || !configId}
+                    onClick={() => setLinkSuggestionsOpen(true)}
+                    disabled={!configId}
                     className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium disabled:opacity-50"
                     title="Preview which unlinked applications can be matched to existing students"
                   >
-                    {linkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    <span className="hidden md:inline">Suggest student links</span>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span className="hidden md:inline">Link suggestions</span>
                   </button>
                 )}
                 {configs && configs.length > 1 && (
@@ -429,24 +388,11 @@ export default function RegularApplicationsPage() {
         totalCount={totalCount}
       />
 
-      <ConfirmDialog
-        isOpen={linkPreview !== null}
-        onConfirm={applySuggestedLinks}
-        onCancel={() => setLinkPreview(null)}
-        title="Link matched students?"
-        message={
-          linkPreview
-            ? `${linkPreview.total_unlinked} unlinked application${linkPreview.total_unlinked === 1 ? "" : "s"} checked. ${linkPreview.matches.length} confident match${linkPreview.matches.length === 1 ? "" : "es"} found, ${linkPreview.skipped.length} skipped as ambiguous.`
-            : ""
-        }
-        consequences={
-          linkPreview && linkPreview.matches.length > 0
-            ? ["Confident matches will be linked to their student records automatically.", "Ambiguous cases stay unlinked for manual review in the detail view."]
-            : ["Nothing will be linked. Ambiguous cases need manual review in the detail view."]
-        }
-        confirmText={linkPreview && linkPreview.matches.length > 0 ? "Link matches" : "OK"}
-        variant="default"
-        loading={linkBusy}
+      <RegularLinkSuggestionsModal
+        isOpen={linkSuggestionsOpen}
+        onClose={() => setLinkSuggestionsOpen(false)}
+        configId={configId}
+        onDone={handleRefresh}
       />
     </DeskSurface>
   );

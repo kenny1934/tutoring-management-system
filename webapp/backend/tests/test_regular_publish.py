@@ -87,7 +87,7 @@ def config(db_session):
 
 @pytest.fixture
 def app_linked(db_session, config, student):
-    """Application linked to a real student, status=Schedule Confirmed."""
+    """Application linked to a real student, status=Fee Sent."""
     a = RegularApplication(
         config_id=config.id,
         reference_code="RC2026-P0001",
@@ -97,7 +97,7 @@ def app_linked(db_session, config, student):
         preferred_location="華士古分校",
         preference_1_day="Tuesday",
         preference_1_time="16:45 - 18:15",
-        application_status="Schedule Confirmed",
+        application_status="Fee Sent",
         existing_student_id=student.id,
     )
     db_session.add(a)
@@ -114,7 +114,7 @@ def app_unlinked(db_session, config):
         student_name="No Link",
         grade="F1",
         contact_phone="22222222",
-        application_status="Schedule Confirmed",
+        application_status="Fee Sent",
     )
     db_session.add(a)
     db_session.commit()
@@ -164,7 +164,8 @@ class TestPublishHappyPath:
         assert enrollment.first_lesson_date == date(2026, 9, 1)
         assert enrollment.payment_status == "Pending Payment"
         assert enrollment.payment_date is None
-        assert enrollment.fee_message_sent is False
+        # Publishing is gated on Fee Sent or later, so the message has gone out.
+        assert enrollment.fee_message_sent is True
         # New student (no prior enrollment) → reg fee applies.
         assert enrollment.is_new_student is True
         # Revenue snapshot: 400 × 6 (reg fee excluded from tutor revenue).
@@ -190,7 +191,7 @@ class TestPublishHappyPath:
             RegularApplicationEdit.application_id == app_linked.id,
             RegularApplicationEdit.field_name == "application_status",
         ).first()
-        assert audit.old_value == "Schedule Confirmed"
+        assert audit.old_value == "Fee Sent"
         assert audit.new_value == "Enrolled"
 
     def test_later_weekday_starts_first_occurrence(self, db_session, admin, tutor, app_linked):
@@ -272,7 +273,7 @@ class TestPublishBlocks:
     def test_already_published(self, db_session, admin, tutor, app_linked):
         _publish(db_session, admin, app_linked, _req(tutor))
         # Re-confirm the schedule so only the bridge check can block.
-        app_linked.application_status = "Schedule Confirmed"
+        app_linked.application_status = "Fee Sent"
         db_session.commit()
         with pytest.raises(HTTPException) as exc:
             _publish(db_session, admin, app_linked, _req(tutor))
@@ -352,7 +353,7 @@ class TestUnpublish:
         _publish(db_session, admin, app_linked, _req(tutor))
         result = unpublish_application(app_id=app_linked.id, admin=admin, db=db_session)
         assert result.sessions_deleted == 6
-        assert result.application_status == "Schedule Confirmed"
+        assert result.application_status == "Fee Sent"
         assert db_session.query(Enrollment).filter(
             Enrollment.regular_application_id == app_linked.id
         ).first() is None

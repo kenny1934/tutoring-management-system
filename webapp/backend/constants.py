@@ -190,14 +190,18 @@ class SummerApplicationStatus(str, Enum):
 class RegularApplicationStatus(str, Enum):
     """Application statuses for regular course (September intake) applications.
 
-    Leaner than the summer pipeline: no placement subsystem and no Fee Sent /
-    Paid rungs — payment state lives on the published Enrollment. 'Schedule
-    Confirmed' means the weekly slot has been agreed with the parent (the
-    timetable-confirmation moment before publish).
+    Same ladder as SummerApplicationStatus, deliberately: admins work both
+    intakes from the same mental model. 'Placement Offered' = the weekly slot
+    has been offered to the parent, 'Placement Confirmed' = they agreed to it.
+    (Regular has a single weekly slot rather than summer's per-lesson
+    placements, but the rungs mean the same thing.)
     """
     SUBMITTED = 'Submitted'
     UNDER_REVIEW = 'Under Review'
-    SCHEDULE_CONFIRMED = 'Schedule Confirmed'
+    PLACEMENT_OFFERED = 'Placement Offered'
+    PLACEMENT_CONFIRMED = 'Placement Confirmed'
+    FEE_SENT = 'Fee Sent'
+    PAID = 'Paid'
     ENROLLED = 'Enrolled'
     # Side exits
     WAITLISTED = 'Waitlisted'

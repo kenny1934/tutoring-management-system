@@ -25,11 +25,16 @@ import type { RegularApplication, RegularSlot, RegularSlotUpdate } from "@/types
 /** Exit statuses stay on the applications page triage surface. */
 const EXCLUDED_STATUSES = new Set(["Withdrawn", "Rejected"]);
 
-// Statuses worth filtering by from the arrangement surface: the two rungs
-// before a slot is agreed, then the two after. Withdrawn and Rejected belong
-// to the applications page triage view.
+/** Publishing is gated on the fee message having gone out, same as summer. */
+const PUBLISHABLE_STATUSES = new Set(["Fee Sent", "Paid", "Enrolled"]);
+
+// Statuses worth filtering by from the arrangement surface: the rungs before
+// a slot is offered, then the ones after. Withdrawn and Rejected belong to the
+// applications page triage view.
 const PRE_ARRANGEMENT_STATUSES = ["Submitted", "Under Review"] as const;
-const POST_ARRANGEMENT_STATUSES = ["Schedule Confirmed", "Enrolled", "Waitlisted"] as const;
+const POST_ARRANGEMENT_STATUSES = [
+  "Placement Offered", "Placement Confirmed", "Fee Sent", "Paid", "Enrolled", "Waitlisted",
+] as const;
 const ARRANGEMENT_STATUSES = [...PRE_ARRANGEMENT_STATUSES, ...POST_ARRANGEMENT_STATUSES];
 
 function StatusFilterChip({
@@ -336,13 +341,13 @@ export default function RegularArrangementPage() {
     setStatusFilter((prev) => (prev === status ? null : status));
   }, []);
 
-  // Publish cohort: assigned, schedule confirmed, not yet published.
+  // Publish cohort: assigned, fee message already sent, not yet published.
   const publishEligible = useMemo(
     () =>
       (applications ?? []).filter(
         (a) =>
           a.assigned_slot_id &&
-          a.application_status === "Schedule Confirmed" &&
+          PUBLISHABLE_STATUSES.has(a.application_status) &&
           !a.published_enrollment_id
       ),
     [applications]
@@ -688,7 +693,7 @@ export default function RegularArrangementPage() {
                   disabled={publishEligible.length === 0 || publishing}
                   title={
                     publishEligible.length === 0
-                      ? "Assign applications and set them to Schedule Confirmed first"
+                      ? "Assign applications and send their fee message first"
                       : `Publish ${publishEligible.length} assigned application${publishEligible.length === 1 ? "" : "s"}`
                   }
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -904,7 +909,7 @@ export default function RegularArrangementPage() {
           onConfirm={handlePublishAssigned}
           onCancel={() => setPublishConfirmOpen(false)}
           title="Publish Assigned Applications"
-          message={`Publish ${publishEligible.length} application${publishEligible.length === 1 ? "" : "s"} at Schedule Confirmed?`}
+          message={`Publish ${publishEligible.length} application${publishEligible.length === 1 ? "" : "s"} whose fee message has been sent?`}
           consequences={[
             "Each application is published as an enrollment using its assigned slot's day, time and tutor.",
             "Failures are reported per application and do not block the rest.",

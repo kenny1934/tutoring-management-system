@@ -3973,7 +3973,10 @@ class RegularPublishRequest(BaseModel):
     first_lesson_date: Optional[date] = Field(
         None, description="None → first occurrence of confirmed_day on/after course_start_date"
     )
-    payment_status: Literal['Pending Payment', 'Paid'] = 'Pending Payment'
+    payment_status: Optional[Literal['Pending Payment', 'Paid']] = Field(
+        None,
+        description="None → derived from the application status (Paid/Enrolled → Paid)",
+    )
     discount_id: Optional[int] = Field(
         None, description="Applied to the enrollment before revenue calc, e.g. a coupon discount"
     )
@@ -4030,6 +4033,31 @@ class RegularPublishBatchResponse(BaseModel):
     results: List[RegularPublishResult]
     published_count: int
     failed_count: int
+
+
+class RegularApplicationMessages(BaseModel):
+    """Ready-to-send parent messages for one application, both languages.
+
+    Generated from the same schedule and fee inputs the publish flow will use,
+    so what the parent is told matches the enrollment that follows.
+    """
+    application_id: int
+    schedule_zh: str
+    schedule_en: str
+    fee_zh: str
+    fee_en: str
+    # 'slot' when the schedule came from the assigned arrangement slot,
+    # 'preference' when it fell back to the applicant's first choice.
+    schedule_source: Literal['slot', 'preference']
+    assigned_day: str
+    assigned_time: str
+    location: str
+    lessons_paid: int
+    first_lesson_date: date
+    total_fee: int
+    discount_value: int
+    is_new_student: bool
+    has_student_link: bool
 
 
 # Enable forward references for nested models
