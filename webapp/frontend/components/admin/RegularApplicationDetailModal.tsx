@@ -16,11 +16,14 @@ import {
 import { firstWeekdayOnOrAfter } from "@/lib/regular-publish-utils";
 import { formatTimeAgo, parseHKTimestamp } from "@/lib/formatters";
 import {
-  REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS, RegularStatusBadge,
+  REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS, REGULAR_STATUS_ICONS, RegularStatusBadge,
 } from "./RegularApplicationCard";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
-  CheckCircle2, AlertTriangle, Trash2, Copy, Check,
+  CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
+  User, Phone, MapPin, Clock, Building2,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import type {
@@ -64,13 +67,71 @@ function toPublishError(e: unknown): RegularPublishErrorDetail {
   };
 }
 
-function FieldRow({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
+/** Forward moves offered as one-click pills, per rung of the regular ladder.
+ *  Anything else stays behind "All statuses…". */
+const REGULAR_NEXT_STATUS_MAP: Record<string, string[]> = {
+  "Submitted":          ["Under Review", "Rejected"],
+  "Under Review":       ["Schedule Confirmed", "Waitlisted", "Rejected"],
+  "Schedule Confirmed": ["Enrolled", "Withdrawn"],
+  "Enrolled":           ["Withdrawn"],
+  "Waitlisted":         ["Under Review", "Withdrawn"],
+};
+
+function FieldValue({
+  label,
+  value,
+  mono,
+  copyable,
+}: {
+  label: React.ReactNode;
+  value?: string | null;
+  mono?: boolean;
+  copyable?: boolean;
+}) {
+  const { copied, copy } = useCopyToClipboard();
+  if (!value) return null;
+
   return (
     <div className="flex items-baseline gap-2 py-0.5">
-      <span className="text-xs text-muted-foreground shrink-0 w-24">{label}</span>
+      <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
       <span className={cn("text-sm text-foreground min-w-0 break-words", mono && "font-mono")}>
-        {value || <span className="text-muted-foreground/60">Not provided</span>}
+        {value}
       </span>
+      {copyable && (
+        <button
+          type="button"
+          onClick={() => copy(value)}
+          className="p-0.5 text-muted-foreground hover:text-foreground"
+          title="Copy to clipboard"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** One icon-led block in the details column. */
+function InfoBlock({
+  icon: Icon,
+  tone,
+  title,
+  children,
+}: {
+  icon: typeof User;
+  tone: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className={cn("p-1.5 rounded-lg shrink-0", tone)}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-gray-500 dark:text-gray-400">{title}</div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -82,6 +143,13 @@ interface RegularApplicationDetailModalProps {
   onUpdated: () => void | Promise<unknown>;
   config: RegularCourseConfig | null;
   readOnly?: boolean;
+  /** Walk the surrounding list without closing the modal. */
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
+  currentIndex?: number;
+  totalCount?: number;
 }
 
 export function RegularApplicationDetailModal({
@@ -91,12 +159,19 @@ export function RegularApplicationDetailModal({
   onUpdated,
   config,
   readOnly = false,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+  currentIndex,
+  totalCount,
 }: RegularApplicationDetailModalProps) {
   const { showToast } = useToast();
   const { copied: refCopied, copy: copyRef } = useCopyToClipboard();
 
   // Status + notes
   const [statusSaving, setStatusSaving] = useState(false);
+  const [showAllStatuses, setShowAllStatuses] = useState(false);
   const [notes, setNotes] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
 
@@ -145,6 +220,7 @@ export function RegularApplicationDetailModal({
   useEffect(() => {
     if (!app || !isOpen) return;
     setNotes(app.admin_notes || "");
+    setShowAllStatuses(false);
     setEditingDetails(false);
     setDSchool(app.school || "");
     setDGrade(app.grade || "");
@@ -435,7 +511,13 @@ export function RegularApplicationDetailModal({
   };
 
   const enrollmentId = app.published_enrollment_id ?? publishResult?.enrollment_id ?? null;
-  const statusColors = REGULAR_STATUS_COLORS[app.application_status];
+
+  // One-click forward moves for the current rung; "All statuses…" swaps in
+  // every other status for the rarer jumps.
+  const nextStatuses = REGULAR_NEXT_STATUS_MAP[app.application_status] ?? [];
+  const statusPills = showAllStatuses
+    ? REGULAR_ALL_STATUSES.filter((s) => s !== app.application_status)
+    : nextStatuses;
 
   const prefText = (day?: string | null, time?: string | null) =>
     day && time ? `${DAY_ABBREV[day] || day} ${time}` : null;
@@ -467,34 +549,86 @@ export function RegularApplicationDetailModal({
             </span>
           </span>
         }
+        footer={
+          (onPrev || onNext) ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onPrev}
+                disabled={!hasPrev}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Previous (←)"
+                aria-label="Previous application"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              {currentIndex != null && totalCount != null && (
+                <span className="text-xs text-muted-foreground tabular-nums px-1">
+                  {currentIndex + 1} / {totalCount}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={onNext}
+                disabled={!hasNext}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Next (→)"
+                aria-label="Next application"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          ) : undefined
+        }
       >
         <div className="space-y-4">
           {/* Status row */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {readOnly ? (
+          <div className="flex items-start gap-3 flex-wrap">
+            <div className="min-w-0 flex-1 flex items-start gap-2 flex-wrap">
               <RegularStatusBadge status={app.application_status} />
-            ) : (
-              <label className="inline-flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Status</span>
-                <select
-                  value={app.application_status}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  disabled={statusSaving || isPublished}
-                  className={cn(
-                    "px-2.5 py-1.5 text-sm rounded-lg border font-medium",
-                    statusColors
-                      ? cn(statusColors.bg, statusColors.text, "border-current/30")
-                      : "border-border bg-card text-foreground"
+              {canEdit && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {nextStatuses.length > 0 && (
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Move to
+                    </span>
                   )}
-                  title={isPublished ? "Unpublish first to change the status" : "Change application status"}
-                >
-                  {REGULAR_ALL_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                {statusSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-              </label>
-            )}
+                  {statusPills.map((s) => {
+                    const colors = REGULAR_STATUS_COLORS[s];
+                    const Icon = REGULAR_STATUS_ICONS[s];
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => handleStatusChange(s)}
+                        disabled={statusSaving}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all disabled:opacity-50",
+                          colors.bg, colors.text, "hover:ring-1 hover:ring-current"
+                        )}
+                        title={`Set status to ${s}`}
+                      >
+                        {Icon && <Icon className="h-3.5 w-3.5" />}
+                        {s}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setShowAllStatuses((v) => !v)}
+                    className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-0.5"
+                  >
+                    {showAllStatuses ? "Less" : "All statuses…"}
+                  </button>
+                  {statusSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                </div>
+              )}
+              {!readOnly && isPublished && (
+                <span className="text-[11px] text-muted-foreground">
+                  Unpublish first to change the status.
+                </span>
+              )}
+            </div>
             <span className="text-[11px] text-muted-foreground ml-auto text-right">
               {app.submitted_at && <span>Submitted {formatTimeAgo(app.submitted_at)}</span>}
               {app.reviewed_by && app.reviewed_at && (
@@ -675,19 +809,100 @@ export function RegularApplicationDetailModal({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3">
-                  <FieldRow label="School" value={app.school} />
-                  <FieldRow label="Grade" value={app.grade} />
-                  <FieldRow label="Stream" value={app.lang_stream} />
-                  <FieldRow label="WeChat" value={app.wechat_id} mono />
-                  <FieldRow label="Phone" value={app.contact_phone} mono />
-                  <FieldRow label="Centres" value={centres} />
-                  <FieldRow
-                    label="Branch"
-                    value={app.preferred_location ? `${app.preferred_location} (${displayLocation(app.preferred_location)})` : null}
-                  />
-                  <FieldRow label="First choice" value={prefText(app.preference_1_day, app.preference_1_time)} mono />
-                  <FieldRow label="Backup" value={prefText(app.preference_2_day, app.preference_2_time)} mono />
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3 space-y-3">
+                  <InfoBlock
+                    icon={User}
+                    tone="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                    title="Student"
+                  >
+                    <div className="mt-0.5">
+                      <StudentInfoBadges
+                        gradeIsEntering
+                        student={{
+                          student_name: app.student_name,
+                          grade: app.grade,
+                          lang_stream: app.lang_stream ?? undefined,
+                          school: app.school ?? undefined,
+                        }}
+                      />
+                    </div>
+                  </InfoBlock>
+
+                  {(app.wechat_id || app.contact_phone) && (
+                    <InfoBlock
+                      icon={Phone}
+                      tone="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                      title="Contact"
+                    >
+                      <FieldValue
+                        label={
+                          <span className="inline-flex items-center gap-1">
+                            <WeChatIcon className="h-3 w-3 text-green-600" />
+                            WeChat
+                          </span>
+                        }
+                        value={app.wechat_id}
+                        mono
+                        copyable
+                      />
+                      <FieldValue label="Phone" value={app.contact_phone} mono copyable />
+                    </InfoBlock>
+                  )}
+
+                  {app.preferred_location && (
+                    <InfoBlock
+                      icon={MapPin}
+                      tone="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"
+                      title="Preferred branch"
+                    >
+                      <div className="text-sm font-medium text-foreground">
+                        {app.preferred_location}{" "}
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {displayLocation(app.preferred_location)}
+                        </span>
+                      </div>
+                    </InfoBlock>
+                  )}
+
+                  <InfoBlock
+                    icon={Clock}
+                    tone="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                    title="Schedule preferences"
+                  >
+                    {prefText(app.preference_1_day, app.preference_1_time) ||
+                    prefText(app.preference_2_day, app.preference_2_time) ? (
+                      <>
+                        {prefText(app.preference_1_day, app.preference_1_time) && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground w-10 shrink-0">1st</span>
+                            <span className="text-sm font-medium text-foreground">
+                              {prefText(app.preference_1_day, app.preference_1_time)}
+                            </span>
+                          </div>
+                        )}
+                        {prefText(app.preference_2_day, app.preference_2_time) && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground w-10 shrink-0">Backup</span>
+                            <span className="text-sm font-medium text-foreground">
+                              {prefText(app.preference_2_day, app.preference_2_time)}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-sm text-muted-foreground/60">No preferences submitted</div>
+                    )}
+                  </InfoBlock>
+
+                  {centres && (
+                    <InfoBlock
+                      icon={Building2}
+                      tone="bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400"
+                      title="Currently attending"
+                    >
+                      <div className="text-sm font-medium text-foreground">{centres}</div>
+                    </InfoBlock>
+                  )}
                 </div>
               )}
 
@@ -727,15 +942,18 @@ export function RegularApplicationDetailModal({
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Student</span>
                 {app.linked_student ? (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-sm">
-                      <UserCheck className="h-3.5 w-3.5" />
-                      <span className="font-medium">{app.linked_student.student_name}</span>
-                      {app.linked_student.school_student_id && (
-                        <span className="font-mono text-xs">{app.linked_student.school_student_id}</span>
-                      )}
-                      {app.linked_student.home_location && (
-                        <span className="text-xs opacity-80">{app.linked_student.home_location}</span>
-                      )}
+                    <span className="inline-flex items-center gap-1.5">
+                      <UserCheck className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      <StudentInfoBadges
+                        showLink
+                        showLocationPrefix
+                        student={{
+                          student_id: app.existing_student_id ?? app.linked_student.id,
+                          student_name: app.linked_student.student_name,
+                          school_student_id: app.linked_student.school_student_id || undefined,
+                          home_location: app.linked_student.home_location || undefined,
+                        }}
+                      />
                     </span>
                     {couponAvailable && (
                       <span

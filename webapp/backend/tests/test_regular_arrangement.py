@@ -212,6 +212,16 @@ class TestSlotsCrud:
         assert slots[0].students[0].student_name == "Zoe"
         assert slots[0].students[0].lang_stream == "EMI"
         assert slots[0].students[0].published is False
+        # No linked student record, so no student code to show in the grid.
+        assert slots[0].students[0].school_student_id is None
+
+    def test_list_carries_linked_student_code(self, db_session, config, admin, student):
+        student.school_student_id = "MSA-1024"
+        db_session.commit()
+        slot = _make_slot(db_session, config)
+        _make_app(db_session, config, name="Zoe", slot_id=slot.id, student_id=student.id)
+        slots = list_slots(config_id=config.id, location=None, _admin=None, db=db_session)
+        assert slots[0].students[0].school_student_id == "MSA-1024"
 
     def test_update_capacity_below_assigned_blocked(self, db_session, config, admin):
         slot = _make_slot(db_session, config, max_students=3)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR, { mutate } from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -104,6 +104,34 @@ export default function RegularApplicationsPage() {
 
   const selectedApp: RegularApplication | null =
     applications?.find((a) => a.id === selectedId) ?? null;
+
+  // Modal prev/next walks the filtered list in display order.
+  const selectedIndex = applications?.findIndex((a) => a.id === selectedId) ?? -1;
+  const totalCount = applications?.length ?? 0;
+  const stepSelection = useCallback((delta: number) => {
+    setSelectedId((current) => {
+      if (!applications) return current;
+      const idx = applications.findIndex((a) => a.id === current);
+      if (idx === -1) return current;
+      const next = applications[idx + delta];
+      return next ? next.id : current;
+    });
+  }, [applications]);
+
+  // Arrow keys mirror the prev/next buttons while the modal is open. Typing in
+  // a field inside the modal must still move the caret, not the selection.
+  useEffect(() => {
+    if (!detailOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      e.preventDefault();
+      stepSelection(e.key === "ArrowLeft" ? -1 : 1);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [detailOpen, stepSelection]);
 
   const hasFilters =
     !!statusFilter || !!gradeFilter || !!locationFilter || !!publishedFilter || !!debouncedSearch;
@@ -393,6 +421,12 @@ export default function RegularApplicationsPage() {
         onUpdated={handleRefresh}
         config={activeConfig}
         readOnly={isReadOnly}
+        onPrev={() => stepSelection(-1)}
+        onNext={() => stepSelection(1)}
+        hasPrev={selectedIndex > 0}
+        hasNext={selectedIndex !== -1 && selectedIndex < totalCount - 1}
+        currentIndex={selectedIndex === -1 ? undefined : selectedIndex}
+        totalCount={totalCount}
       />
 
       <ConfirmDialog

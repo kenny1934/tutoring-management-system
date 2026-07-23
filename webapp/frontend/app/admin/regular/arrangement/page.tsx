@@ -12,8 +12,10 @@ import { cn, formatError } from "@/lib/utils";
 import { regularAPI, tutorsAPI } from "@/lib/api";
 import { RegularArrangementGrid } from "@/components/admin/RegularArrangementGrid";
 import { RegularUnassignedPanel } from "@/components/admin/RegularUnassignedPanel";
+import { RegularApplicationDetailModal } from "@/components/admin/RegularApplicationDetailModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV } from "@/lib/regular-utils";
+import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
 import type { RegularApplication, RegularSlot, RegularSlotUpdate } from "@/types";
 
 /** Exit statuses stay on the applications page triage surface. */
@@ -34,6 +36,11 @@ export default function RegularArrangementPage() {
   // Mobile tap-to-place: a panel tap sets this; slot cards then accept taps
   // that funnel into the same drop handler the drag path uses.
   const [pendingPlacementAppId, setPendingPlacementAppId] = useState<number | null>(null);
+  // Application opened in the detail modal, from a panel card or a slot row.
+  const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
+  // Set by clicking a demand sparkline: narrows the panel to the students
+  // behind that bar.
+  const [demandFilter, setDemandFilter] = useState<RegularDemandBarFilter | null>(null);
   const [dragPrefs, setDragPrefs] = useState<{
     primary: { day: string; time: string }[];
     backup: { day: string; time: string }[];
@@ -160,6 +167,37 @@ export default function RegularArrangementPage() {
       ),
     [applications]
   );
+
+  // Panel cohort while a demand bar is selected: everyone behind that bar,
+  // assigned or not, so the list length matches the number on the bar.
+  const demandFilteredApps = useMemo(() => {
+    if (!demandFilter) return null;
+    return (applications ?? []).filter((a) => {
+      if (EXCLUDED_STATUSES.has(a.application_status)) return false;
+      if (a.grade !== demandFilter.grade) return false;
+      const day = demandFilter.tier === "first" ? a.preference_1_day : a.preference_2_day;
+      const time = demandFilter.tier === "first" ? a.preference_1_time : a.preference_2_time;
+      return day === demandFilter.day && time === demandFilter.timeSlot;
+    });
+  }, [applications, demandFilter]);
+
+  const panelApplications = demandFilteredApps ?? unassignedApps;
+
+  const demandFilterLabel = demandFilter
+    ? `${demandFilter.grade} · ${DAY_ABBREV[demandFilter.day] || demandFilter.day} ${demandFilter.timeSlot} · ${demandFilter.tier === "first" ? "first choice" : "backup"}`
+    : null;
+
+  const handleDemandBarClick = useCallback((filter: RegularDemandBarFilter) => {
+    setDemandFilter((prev) =>
+      prev &&
+      prev.day === filter.day &&
+      prev.timeSlot === filter.timeSlot &&
+      prev.grade === filter.grade &&
+      prev.tier === filter.tier
+        ? null
+        : filter
+    );
+  }, []);
 
   // Publish cohort: assigned, schedule confirmed, not yet published.
   const publishEligible = useMemo(
@@ -445,6 +483,7 @@ export default function RegularArrangementPage() {
   }
 
   const isLoading = !configs || !configId || !location;
+  const selectedApp = applications?.find((a) => a.id === selectedAppId) ?? null;
   const pendingPlacementName =
     pendingPlacementAppId !== null
       ? applications?.find((a) => a.id === pendingPlacementAppId)?.student_name ?? "student"
@@ -545,7 +584,9 @@ export default function RegularArrangementPage() {
                     onDeleteSlot={handleDeleteSlot}
                     onDropStudent={handleDropStudent}
                     onUnassign={handleUnassign}
+                    onClickStudent={setSelectedAppId}
                     onDropFailed={handleDropFailed}
+                    onDemandBarClick={handleDemandBarClick}
                     dragPrefs={dragPrefs}
                     pendingPlacementAppId={pendingPlacementAppId}
                   />
@@ -553,7 +594,7 @@ export default function RegularArrangementPage() {
                 {/* Desktop: always visible */}
                 <div className="hidden md:flex">
                   <RegularUnassignedPanel
-                    applications={unassignedApps}
+                    applications={panelApplications}
                     grades={grades}
                     configId={configId}
                     loading={!applications}
@@ -561,6 +602,9 @@ export default function RegularArrangementPage() {
                     onAssign={handleAssign}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
+                    onClickStudent={setSelectedAppId}
+                    demandFilterLabel={demandFilterLabel}
+                    onClearDemandFilter={() => setDemandFilter(null)}
                   />
                 </div>
               </div>
@@ -621,14 +665,20 @@ export default function RegularArrangementPage() {
                     <RegularUnassignedPanel
                       className="w-full h-full rounded-none border-0 border-l"
                       hideCollapse
-                      applications={unassignedApps}
+                      applications={panelApplications}
                       grades={grades}
                       configId={configId}
                       loading={!applications}
                       readOnly={readOnly}
                       tapMode="select"
+                      demandFilterLabel={demandFilterLabel}
+                      onClearDemandFilter={() => setDemandFilter(null)}
                       onSelectStudent={(id) => {
                         setPendingPlacementAppId(id);
+                        setMobilePanelOpen(false);
+                      }}
+                      onClickStudent={(id) => {
+                        setSelectedAppId(id);
                         setMobilePanelOpen(false);
                       }}
                       onAssign={(appId, slotId) => {
@@ -644,6 +694,16 @@ export default function RegularArrangementPage() {
             </>
           )}
         </div>{/* end paper card */}
+
+        {/* Application detail modal — opened from a panel card or a slot row */}
+        <RegularApplicationDetailModal
+          application={selectedApp}
+          isOpen={selectedAppId !== null && !!selectedApp}
+          onClose={() => setSelectedAppId(null)}
+          onUpdated={refreshAll}
+          config={activeConfig ?? null}
+          readOnly={readOnly}
+        />
 
         {/* Delete slot confirmation */}
         <ConfirmDialog

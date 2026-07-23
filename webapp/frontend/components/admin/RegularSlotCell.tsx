@@ -1,10 +1,19 @@
 "use client";
 
-import { memo, useState, useCallback, useMemo } from "react";
+import { memo, useState, useCallback, useEffect, useMemo } from "react";
 import { Plus } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { SUMMER_GRADE_TEXT } from "@/lib/regular-utils";
 import { RegularSlotCard, type RegularTutorOption } from "./RegularSlotCard";
 import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types";
+
+export interface RegularDemandBarFilter {
+  day: string;
+  timeSlot: string;
+  grade: string;
+  tier: "first" | "second";
+}
 
 interface RegularSlotCellProps {
   day: string;
@@ -19,12 +28,25 @@ interface RegularSlotCellProps {
   onDeleteSlot: (slotId: number) => void;
   onDropStudent: (applicationId: number, slotId: number) => void;
   onUnassign: (applicationId: number, studentName: string) => void;
+  onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   prefHighlight?: boolean;
+  /** Highest per-grade demand across the whole grid, so every cell's bars are
+   * drawn on one comparable scale. */
+  gradeMaxDemand?: number;
+  onDemandBarClick?: (filter: RegularDemandBarFilter) => void;
   /** Mobile tap-to-place: when set, the cell + each inner slot card become
    * tap targets that fire onDropStudent with this appId. */
   pendingPlacementAppId?: number | null;
 }
+
+// Solid fill (first choice) and light fill (backup) per grade
+const GRADE_BAR_FILL: Record<string, { solid: string; light: string }> = {
+  F1: { solid: "bg-blue-400", light: "bg-blue-200 dark:bg-blue-800" },
+  F2: { solid: "bg-purple-400", light: "bg-purple-200 dark:bg-purple-800" },
+  F3: { solid: "bg-orange-400", light: "bg-orange-200 dark:bg-orange-800" },
+};
+const GRADE_BAR_DEFAULT = { solid: "bg-gray-400", light: "bg-gray-200 dark:bg-gray-700" };
 
 function heatColor(count: number): string {
   if (count === 0) return "bg-white dark:bg-[#1a1a1a]";
@@ -55,30 +77,65 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   onDeleteSlot,
   onDropStudent,
   onUnassign,
+  onClickStudent,
   onDropFailed,
   prefHighlight,
+  gradeMaxDemand = 1,
+  onDemandBarClick,
   pendingPlacementAppId,
 }: RegularSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
+  // Slots auto-sort by (grade, tutor, id). While the pointer is inside the
+  // cell, order is frozen so cards don't shuffle under the admin's edits; on
+  // mouse-leave the freeze releases and cards settle into sorted order, with
+  // the last-edited card briefly ringing.
+  const [frozenOrder, setFrozenOrder] = useState<number[] | null>(null);
+  const [lastEditedId, setLastEditedId] = useState<number | null>(null);
+  const [settlingId, setSettlingId] = useState<number | null>(null);
+
   const sortedSlots = useMemo(() => [...slots].sort(compareRegularSlots), [slots]);
+
+  const displaySlots = useMemo(() => {
+    if (!frozenOrder) return sortedSlots;
+    const byId = new Map(slots.map((s) => [s.id, s] as const));
+    const frozenSet = new Set(frozenOrder);
+    const preserved = frozenOrder
+      .map((id) => byId.get(id))
+      .filter((s): s is RegularSlot => !!s);
+    const newlyAdded = slots.filter((s) => !frozenSet.has(s.id));
+    return [...preserved, ...newlyAdded];
+  }, [slots, frozenOrder, sortedSlots]);
+
+  const handleMouseEnter = useCallback(() => {
+    if (frozenOrder !== null) return;
+    setFrozenOrder(sortedSlots.map((s) => s.id));
+    setLastEditedId(null);
+  }, [frozenOrder, sortedSlots]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (frozenOrder !== null && lastEditedId !== null) {
+      const before = displaySlots.findIndex((s) => s.id === lastEditedId);
+      const after = sortedSlots.findIndex((s) => s.id === lastEditedId);
+      if (before !== -1 && after !== -1 && before !== after) {
+        setSettlingId(lastEditedId);
+      }
+    }
+    setFrozenOrder(null);
+    setLastEditedId(null);
+    setDragOver(false);
+  }, [frozenOrder, lastEditedId, displaySlots, sortedSlots]);
+
+  useEffect(() => {
+    if (settlingId === null) return;
+    const t = setTimeout(() => setSettlingId(null), 700);
+    return () => clearTimeout(t);
+  }, [settlingId]);
 
   const first = demandCell?.total_first_pref ?? 0;
   const second = demandCell?.total_second_pref ?? 0;
   const totalAssigned = slots.reduce((sum, s) => sum + s.assigned_count, 0);
   const remainingDemand = Math.max(0, first + second - totalAssigned);
-
-  const demandTooltip = useMemo(() => {
-    if (!demandCell || (first === 0 && second === 0)) return "No preferences for this slot";
-    const parts: string[] = [];
-    if (first > 0) {
-      parts.push(`First choice: ${Object.entries(demandCell.by_grade_first).map(([g, n]) => `${g} x ${n}`).join(", ")}`);
-    }
-    if (second > 0) {
-      parts.push(`Backup: ${Object.entries(demandCell.by_grade_second).map(([g, n]) => `${g} x ${n}`).join(", ")}`);
-    }
-    return parts.join(" | ");
-  }, [demandCell, first, second]);
 
   // Drop target for the whole cell (assigns to first non-full slot)
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -130,7 +187,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   return (
     <div
       className={cn(
-        "min-h-[72px] p-1.5 transition-colors relative",
+        "min-h-[80px] p-1.5 transition-colors relative",
         heatColor(remainingDemand),
         dragOver && "ring-2 ring-inset ring-primary",
         prefHighlight && !dragOver && "ring-2 ring-inset ring-primary/40 bg-primary/5"
@@ -138,34 +195,92 @@ export const RegularSlotCell = memo(function RegularSlotCell({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onClick={tapPlaceActive ? handleTapPlace : undefined}
     >
-      {/* Compact demand badge */}
-      <div className="mb-1 h-[13px]" title={demandTooltip}>
-        {(first > 0 || second > 0) && (
-          <span className="inline-flex items-baseline gap-1 text-[9px] leading-none tabular-nums text-muted-foreground">
-            <span className="font-semibold text-foreground">{first} first choice</span>
-            {second > 0 && <span>/ {second} backup</span>}
-          </span>
-        )}
+      {/* Demand sparklines: always rendered to keep vertical alignment across cells */}
+      <div className="mb-1 space-y-px">
+        {grades.map((grade) => {
+          const gFirst = demandCell?.by_grade_first[grade] ?? 0;
+          const gSecond = demandCell?.by_grade_second[grade] ?? 0;
+          const total = gFirst + gSecond;
+          const colors = GRADE_BAR_FILL[grade] || GRADE_BAR_DEFAULT;
+          const barPct = gradeMaxDemand > 0 && total > 0 ? (total / gradeMaxDemand) * 100 : 0;
+          const firstPct = total > 0 ? (gFirst / total) * 100 : 0;
+          return (
+            <div
+              key={grade}
+              className="flex items-center gap-0.5 h-[7px]"
+              title={total > 0 ? `${grade}: ${gFirst} first choice, ${gSecond} backup` : `${grade}: no demand`}
+            >
+              <span className={cn("text-[8px] font-bold w-[14px] shrink-0 text-center leading-none", total > 0 ? SUMMER_GRADE_TEXT[grade] : "text-muted-foreground/30")}>
+                {grade}
+              </span>
+              <div className="flex-1 h-1.5 flex">
+                {barPct > 0 && (
+                  <>
+                    {gFirst > 0 && (
+                      <div
+                        className={cn(
+                          "h-full rounded-l-sm", gSecond === 0 && "rounded-r-sm", colors.solid,
+                          onDemandBarClick && "cursor-pointer hover:opacity-80"
+                        )}
+                        style={{ width: `${firstPct * barPct / 100}%` }}
+                        onClick={onDemandBarClick ? (e) => { e.stopPropagation(); onDemandBarClick({ day, timeSlot, grade, tier: "first" }); } : undefined}
+                      />
+                    )}
+                    {gSecond > 0 && (
+                      <div
+                        className={cn(
+                          "h-full rounded-r-sm", gFirst === 0 && "rounded-l-sm", colors.light,
+                          onDemandBarClick && "cursor-pointer hover:opacity-80"
+                        )}
+                        style={{ width: `${(100 - firstPct) * barPct / 100}%` }}
+                        onClick={onDemandBarClick ? (e) => { e.stopPropagation(); onDemandBarClick({ day, timeSlot, grade, tier: "second" }); } : undefined}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+              <span className={cn("text-[8px] tabular-nums w-3 shrink-0 text-right leading-none", total > 0 ? "text-muted-foreground" : "text-muted-foreground/30")}>
+                {total || ""}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Slot cards */}
       <div className="space-y-1">
-        {sortedSlots.map((slot) => (
-          <RegularSlotCard
+        {displaySlots.map((slot) => (
+          <motion.div
             key={slot.id}
-            slot={slot}
-            grades={grades}
-            tutors={tutors}
-            readOnly={readOnly}
-            onUpdate={(data) => onUpdateSlot(slot.id, data)}
-            onDelete={() => onDeleteSlot(slot.id)}
-            onDropStudent={(appId) => onDropStudent(appId, slot.id)}
-            onUnassign={onUnassign}
-            pendingPlacementAppId={pendingPlacementAppId}
-            onTapPlaceFailed={onDropFailed}
-          />
+            layout
+            transition={{ type: "spring", stiffness: 400, damping: 34, mass: 0.7 }}
+            className={cn(
+              "rounded-[5px] transition-shadow duration-500 ease-out",
+              settlingId === slot.id &&
+                "ring-2 ring-primary/70 ring-offset-1 ring-offset-transparent shadow-sm"
+            )}
+          >
+            <RegularSlotCard
+              slot={slot}
+              grades={grades}
+              tutors={tutors}
+              readOnly={readOnly}
+              onUpdate={(data) => {
+                setLastEditedId(slot.id);
+                onUpdateSlot(slot.id, data);
+              }}
+              onDelete={() => onDeleteSlot(slot.id)}
+              onDropStudent={(appId) => onDropStudent(appId, slot.id)}
+              onUnassign={onUnassign}
+              onClickStudent={onClickStudent}
+              pendingPlacementAppId={pendingPlacementAppId}
+              onTapPlaceFailed={onDropFailed}
+            />
+          </motion.div>
         ))}
       </div>
 

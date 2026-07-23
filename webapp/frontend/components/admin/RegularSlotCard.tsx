@@ -1,9 +1,13 @@
 "use client";
 
-import { memo, useState, useCallback, useRef } from "react";
-import { Trash2, X, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { memo, useState, useCallback, useMemo, useRef } from "react";
+import { Trash2, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER } from "@/lib/regular-utils";
+import {
+  SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, getMismatchedSessionGrades,
+} from "@/lib/regular-utils";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { RegularWorkflowStatusIcon, regularStatusRowBg } from "./RegularApplicationCard";
 import type { RegularSlot, RegularSlotUpdate } from "@/types";
 
 export interface RegularTutorOption {
@@ -20,6 +24,8 @@ interface RegularSlotCardProps {
   onDelete: () => void;
   onDropStudent: (applicationId: number) => void;
   onUnassign: (applicationId: number, studentName: string) => void;
+  /** Opens the application detail modal from an assigned student row. */
+  onClickStudent?: (applicationId: number) => void;
   /** Mobile tap-to-place: when set, a tap anywhere on the card body funnels
    * into onDropStudent with this appId (or onTapPlaceFailed when full). */
   pendingPlacementAppId?: number | null;
@@ -41,6 +47,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
   onDelete,
   onDropStudent,
   onUnassign,
+  onClickStudent,
   pendingPlacementAppId,
   onTapPlaceFailed,
 }: RegularSlotCardProps) {
@@ -50,6 +57,13 @@ export const RegularSlotCard = memo(function RegularSlotCard({
   const maxRef = useRef<HTMLInputElement>(null);
   const isFull = slot.assigned_count >= slot.max_students;
   const fillPct = slot.max_students > 0 ? slot.assigned_count / slot.max_students : 0;
+  // The grid groups by slot.grade, so surface any assigned student whose own
+  // grade diverges from it rather than letting the row hide in a collapsed card.
+  const mismatchedGrades = useMemo(
+    () => getMismatchedSessionGrades(slot.grade, slot.students),
+    [slot.grade, slot.students],
+  );
+  const hasGradeMismatch = mismatchedGrades.length > 0;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (readOnly) return;
@@ -151,6 +165,15 @@ export const RegularSlotCard = memo(function RegularSlotCard({
           </select>
         )}
 
+        {hasGradeMismatch && (
+          <span
+            title={`Contains ${mismatchedGrades.join(", ")} student${mismatchedGrades.length > 1 ? "s" : ""} in a ${slot.grade} slot`}
+            className="shrink-0 flex items-center"
+          >
+            <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Mixed grades" />
+          </span>
+        )}
+
         <div className="flex-1" />
 
         <div className="flex items-center shrink-0">
@@ -243,42 +266,57 @@ export const RegularSlotCard = memo(function RegularSlotCard({
               {readOnly ? "No students assigned." : "No students assigned yet. Drag here to assign."}
             </div>
           )}
-          {slot.students.map((s) => (
-            <div
-              key={s.application_id}
-              className="flex items-center gap-1 rounded px-1 py-0.5 min-w-0 bg-[#fef9f3]/70 dark:bg-[#2d2618]/50"
-            >
-              <span className="min-w-0 flex-1 truncate font-semibold text-[10px] text-gray-900 dark:text-white" title={s.school || undefined}>
-                {s.student_name}
-              </span>
-              <span className={cn("shrink-0 text-[9px] font-bold", SUMMER_GRADE_TEXT[s.grade] || "text-foreground")}>
-                {s.grade}
-              </span>
-              {s.lang_stream && (
-                <span className="shrink-0 text-[9px] px-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
-                  {s.lang_stream}
-                </span>
-              )}
-              {s.published ? (
-                <span className="shrink-0 flex items-center" title="Published as an enrollment">
-                  <CheckCircle2 className="h-2.5 w-2.5 text-green-600 dark:text-green-400" />
-                </span>
-              ) : (
-                <span className="shrink-0 text-[8px] text-muted-foreground" title="Application status">
-                  {s.application_status}
-                </span>
-              )}
-              {!readOnly && !s.published && (
-                <button
-                  onClick={() => onUnassign(s.application_id, s.student_name)}
-                  className="p-0 text-muted-foreground hover:text-red-500"
-                  title="Unassign"
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </div>
-          ))}
+          {slot.students.map((s) => {
+            const gradeMismatch = !!slot.grade && !!s.grade && s.grade !== slot.grade;
+            return (
+              <div
+                key={s.application_id}
+                className={cn(
+                  "flex items-center gap-1 rounded px-1 py-0.5 min-w-0",
+                  regularStatusRowBg(s.application_status),
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <StudentInfoBadges
+                    compact
+                    gradeIsEntering
+                    student={{
+                      student_name: s.student_name,
+                      school_student_id: s.school_student_id ?? undefined,
+                      grade: s.grade,
+                      lang_stream: s.lang_stream ?? undefined,
+                    }}
+                    nameTitle={s.school || "View application details"}
+                    onNameClick={onClickStudent ? () => onClickStudent(s.application_id) : undefined}
+                  />
+                </div>
+                {gradeMismatch && (
+                  <span
+                    title={`${s.grade} student in a ${slot.grade} slot`}
+                    className="shrink-0 flex items-center"
+                  >
+                    <AlertTriangle className="h-2.5 w-2.5 text-amber-500" aria-label="Grade mismatch" />
+                  </span>
+                )}
+                {s.published ? (
+                  <span className="shrink-0 flex items-center" title="Published as an enrollment">
+                    <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                  </span>
+                ) : (
+                  <RegularWorkflowStatusIcon status={s.application_status} />
+                )}
+                {!readOnly && !s.published && (
+                  <button
+                    onClick={() => onUnassign(s.application_id, s.student_name)}
+                    className="p-0 text-muted-foreground hover:text-red-500"
+                    title="Unassign"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

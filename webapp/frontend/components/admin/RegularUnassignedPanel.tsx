@@ -2,9 +2,13 @@
 
 import { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
-import { Search, Users, PanelRightClose, PanelRightOpen, Loader2, X } from "lucide-react";
+import {
+  Search, Users, PanelRightClose, PanelRightOpen, Loader2, X, Info, CheckCircle2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BORDER, DAY_ABBREV } from "@/lib/regular-utils";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { REGULAR_STATUS_COLORS } from "./RegularApplicationCard";
 import { regularAPI } from "@/lib/api";
 import type { RegularApplication, RegularSuggestion } from "@/types";
 
@@ -23,6 +27,13 @@ interface RegularUnassignedPanelProps {
    * the student for tap-to-place (mobile drawer). */
   tapMode?: "drag" | "select";
   onSelectStudent?: (applicationId: number) => void;
+  /** Opens the application detail modal. In drag mode a card click fires this
+   * when the pointer barely moved, so dragging still wins over clicking. */
+  onClickStudent?: (applicationId: number) => void;
+  /** Describes the demand-bar filter the grid applied to `applications`, so
+   * the panel can say why the list is narrowed and offer a way out. */
+  demandFilterLabel?: string | null;
+  onClearDemandFilter?: () => void;
 }
 
 /** Reason tokens from the suggest endpoint mapped to admin-facing labels. */
@@ -126,6 +137,9 @@ export function RegularUnassignedPanel({
   hideCollapse,
   tapMode = "drag",
   onSelectStudent,
+  onClickStudent,
+  demandFilterLabel,
+  onClearDemandFilter,
 }: RegularUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
@@ -185,7 +199,11 @@ export function RegularUnassignedPanel({
         <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium truncate">Unassigned</span>
+            {/* A demand-bar filter shows everyone behind that bar, placed or
+                not, so the heading stops claiming they are all unassigned. */}
+            <span className="text-sm font-medium truncate">
+              {demandFilterLabel ? "Demand" : "Unassigned"}
+            </span>
             <span className="text-xs text-muted-foreground ml-auto">
               {filtered.length}
               {filtered.length !== applications.length && ` / ${applications.length}`}
@@ -241,6 +259,23 @@ export function RegularUnassignedPanel({
               </button>
             ))}
           </div>
+
+          {/* Demand-bar filter, set by clicking a sparkline in the grid */}
+          {demandFilterLabel && (
+            <div className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-1">
+              <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-primary">
+                {demandFilterLabel}
+              </span>
+              <button
+                onClick={() => onClearDemandFilter?.()}
+                className="shrink-0 p-0.5 text-primary/70 hover:text-primary"
+                title="Clear demand filter"
+                aria-label="Clear demand filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Application list */}
@@ -253,12 +288,18 @@ export function RegularUnassignedPanel({
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-4 text-center text-xs text-muted-foreground">
-              {applications.length === 0 ? "All applications assigned." : "No matches."}
+              {applications.length > 0
+                ? "No matches."
+                : demandFilterLabel
+                  ? "No applications behind this bar."
+                  : "All applications assigned."}
             </div>
           ) : (
             <div className="p-1.5 space-y-1">
               {filtered.map((app) => {
                 const suggestOpen = suggestForId === app.id;
+                const statusColors =
+                  REGULAR_STATUS_COLORS[app.application_status] || REGULAR_STATUS_COLORS["Submitted"];
                 return (
                   <div
                     key={app.id}
@@ -274,37 +315,77 @@ export function RegularUnassignedPanel({
                     }}
                     onDragEnd={readOnly ? undefined : () => onDragEnd?.()}
                     onClick={(e) => {
-                      if (readOnly || tapMode !== "select") return;
+                      // A drag ends in a click too, so only treat it as a click
+                      // when the pointer barely moved between down and up.
                       const start = pointerStartRef.current;
                       pointerStartRef.current = null;
+                      if (readOnly) {
+                        onClickStudent?.(app.id);
+                        return;
+                      }
                       if (!start) return;
                       const dx = e.clientX - start.x;
                       const dy = e.clientY - start.y;
                       if (dx * dx + dy * dy > 16) return;
-                      onSelectStudent?.(app.id);
+                      if (tapMode === "select") {
+                        onSelectStudent?.(app.id);
+                      } else {
+                        onClickStudent?.(app.id);
+                      }
                     }}
                     className={cn(
                       "rounded border border-l-[3px] border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white dark:bg-[#1a1a1a] px-2 py-1.5 hover:bg-[#fef9f3]/80 dark:hover:bg-[#2d2618]/50 transition-colors",
                       tapMode === "select"
                         ? "cursor-pointer"
-                        : readOnly ? "cursor-default" : "cursor-grab active:cursor-grabbing",
+                        : readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
                       SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
                     )}
                   >
-                    {/* Row 1: identity */}
+                    {/* Row 1: identity — same renderer as every other student surface */}
                     <div className="flex items-center gap-1 min-w-0">
-                      <span className="min-w-0 flex-1 truncate font-semibold text-[10px] text-gray-900 dark:text-white">
-                        {app.student_name}
-                      </span>
-                      <span className="shrink-0 text-[9px] font-bold px-1 rounded bg-gray-100 dark:bg-gray-800 text-foreground">
-                        {app.grade}
-                      </span>
-                      {app.lang_stream && (
-                        <span className="shrink-0 text-[9px] px-1 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
-                          {app.lang_stream}
+                      <div className="min-w-0 flex-1">
+                        <StudentInfoBadges
+                          gradeIsEntering
+                          student={{
+                            student_name: app.student_name,
+                            school_student_id: app.linked_student?.school_student_id || undefined,
+                            grade: app.grade,
+                            lang_stream: app.lang_stream ?? undefined,
+                          }}
+                        />
+                      </div>
+                      {/* In tap-to-place mode, the card surface tap selects for
+                          placement, so the detail modal needs its own affordance. */}
+                      {tapMode === "select" && onClickStudent && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClickStudent(app.id);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="shrink-0 p-0.5 -m-0.5 text-muted-foreground/70 hover:text-foreground"
+                          title="View application details"
+                          aria-label="View application details"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {/* Already in a slot — only reachable through the demand
+                          filter, where the list is not the unassigned cohort. */}
+                      {app.assigned_slot_id != null && (
+                        <span className="shrink-0 flex items-center" title="Already assigned to a slot">
+                          <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
                         </span>
                       )}
+                      {/* Status dot — compact version of the full status badge */}
+                      <span
+                        className={cn("shrink-0 w-2 h-2 rounded-full", statusColors.dot)}
+                        title={app.application_status}
+                      />
                     </div>
+                    {/* School stays on its own line: the suggest ranking scores
+                        schoolmates, so it earns the room a chip would not. */}
                     {app.school && (
                       <div className="mt-0.5 text-[9px] text-muted-foreground truncate" title={app.school}>
                         {app.school}

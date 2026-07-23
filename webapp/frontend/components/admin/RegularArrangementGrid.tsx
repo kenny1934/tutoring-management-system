@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { RegularSlotCell } from "./RegularSlotCell";
+import { RegularSlotCell, type RegularDemandBarFilter } from "./RegularSlotCell";
 import type { RegularTutorOption } from "./RegularSlotCard";
 import { DAY_ABBREV } from "@/lib/regular-utils";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,9 @@ interface RegularArrangementGridProps {
   onDeleteSlot: (slotId: number) => void;
   onDropStudent: (applicationId: number, slotId: number) => void;
   onUnassign: (applicationId: number, studentName: string) => void;
+  onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
+  onDemandBarClick?: (filter: RegularDemandBarFilter) => void;
   dragPrefs?: DragPrefs | null;
   pendingPlacementAppId?: number | null;
 }
@@ -50,7 +52,9 @@ export function RegularArrangementGrid({
   onDeleteSlot,
   onDropStudent,
   onUnassign,
+  onClickStudent,
   onDropFailed,
+  onDemandBarClick,
   dragPrefs,
   pendingPlacementAppId,
 }: RegularArrangementGridProps) {
@@ -61,6 +65,18 @@ export function RegularArrangementGrid({
       map.set(`${cell.day}|${cell.time_slot}`, cell);
     }
     return map;
+  }, [demand]);
+
+  // Global per-grade max demand across all cells — used so bars are comparable
+  const gradeMaxDemand = useMemo(() => {
+    let max = 0;
+    for (const cell of demand) {
+      for (const g of new Set([...Object.keys(cell.by_grade_first), ...Object.keys(cell.by_grade_second)])) {
+        const total = (cell.by_grade_first[g] ?? 0) + (cell.by_grade_second[g] ?? 0);
+        if (total > max) max = total;
+      }
+    }
+    return max;
   }, [demand]);
 
   // Index slots by (day, timeSlot)
@@ -190,7 +206,7 @@ export function RegularArrangementGrid({
                   return (
                     <div
                       key={key}
-                      className="bg-white dark:bg-[#1a1a1a] min-h-[72px] p-1.5"
+                      className="bg-white dark:bg-[#1a1a1a] min-h-[80px] p-1.5"
                       aria-hidden
                     >
                       <div className="h-full w-full rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
@@ -215,8 +231,11 @@ export function RegularArrangementGrid({
                     onDeleteSlot={onDeleteSlot}
                     onDropStudent={onDropStudent}
                     onUnassign={onUnassign}
+                    onClickStudent={onClickStudent}
                     onDropFailed={onDropFailed}
                     prefHighlight={isPrefMatch}
+                    gradeMaxDemand={gradeMaxDemand}
+                    onDemandBarClick={onDemandBarClick}
                     pendingPlacementAppId={pendingPlacementAppId}
                   />
                 );

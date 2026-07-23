@@ -41,6 +41,41 @@ export const REGULAR_STATUS_ICONS: Record<string, LucideIcon> = {
 
 const REGULAR_EXIT_SET = new Set(["Waitlisted", "Withdrawn", "Rejected"]);
 
+// Soft row tints for dense lists (slot card student rows), matching the way
+// summer tints a placed session by its status.
+const REGULAR_STATUS_ROW_BG: Record<string, string> = {
+  "Submitted":          "bg-gray-50 dark:bg-gray-800/30",
+  "Under Review":       "bg-blue-50 dark:bg-blue-900/20",
+  "Schedule Confirmed": "bg-purple-50 dark:bg-purple-900/20",
+  "Enrolled":           "bg-green-50 dark:bg-green-900/20",
+  "Waitlisted":         "bg-orange-50/80 dark:bg-orange-900/20",
+  "Withdrawn":          "bg-slate-100/80 dark:bg-slate-800/30",
+  "Rejected":           "bg-red-50/80 dark:bg-red-900/20",
+};
+
+export function regularStatusRowBg(status: string): string {
+  return REGULAR_STATUS_ROW_BG[status] ?? "bg-gray-50 dark:bg-gray-800/30";
+}
+
+/** Bare status icon for dense rows, where a full badge would not fit. */
+export function RegularWorkflowStatusIcon({
+  status,
+  className,
+}: {
+  status?: string | null;
+  className?: string;
+}) {
+  if (!status) return null;
+  const colors = REGULAR_STATUS_COLORS[status];
+  const Icon = REGULAR_STATUS_ICONS[status];
+  if (!Icon) return null;
+  return (
+    <span title={status} className="inline-flex shrink-0">
+      <Icon className={cn("h-3 w-3", colors?.text, className)} />
+    </span>
+  );
+}
+
 // Subtle background tint per applying branch, matching the summer card.
 const BRANCH_TINT: Record<string, string> = {
   MSA: "bg-blue-50/40 dark:bg-blue-950/20",

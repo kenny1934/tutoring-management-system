@@ -937,6 +937,14 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
         .all()
     )
     published = _get_published_enrollment_ids(db, [a.id for a in assigned])
+    student_ids = {a.existing_student_id for a in assigned if a.existing_student_id}
+    student_codes: dict[int, str] = {}
+    if student_ids:
+        student_codes = dict(
+            db.query(Student.id, Student.school_student_id)
+            .filter(Student.id.in_(student_ids))
+            .all()
+        )
     by_slot: dict[int, list[RegularSlotStudentInfo]] = {}
     for a in assigned:
         by_slot.setdefault(a.assigned_slot_id, []).append(RegularSlotStudentInfo(
@@ -947,6 +955,7 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             school=a.school,
             application_status=a.application_status,
             published=a.id in published,
+            school_student_id=student_codes.get(a.existing_student_id),
         ))
     tutor_ids = {s.tutor_id for s in slots if s.tutor_id}
     tutor_names: dict[int, str] = {}

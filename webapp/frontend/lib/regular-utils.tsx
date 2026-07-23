@@ -46,6 +46,8 @@ export {
   SUMMER_GRADE_BG,
   SUMMER_GRADE_BORDER,
   SUMMER_GRADE_TEXT,
+  // Arrangement helpers that carry no summer-specific semantics
+  getMismatchedSessionGrades,
 } from "@/lib/summer-utils";
 
 import { type Lang as RegularLang, t as rt } from "@/lib/summer-utils";

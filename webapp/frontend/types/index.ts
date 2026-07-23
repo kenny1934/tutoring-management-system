@@ -3804,6 +3804,8 @@ export interface RegularSlotStudentInfo {
   school?: string | null;
   application_status: string;
   published: boolean;
+  /** From the linked student record, when the application has one. */
+  school_student_id?: string | null;
 }
 
 export interface RegularSlot {

@@ -3911,6 +3911,9 @@ class RegularSlotStudentInfo(BaseModel):
     school: Optional[str] = None
     application_status: str
     published: bool = False
+    # From the linked student record, when the application has one — the grid
+    # shows it alongside the name like every other student surface.
+    school_student_id: Optional[str] = None
 
 
 class RegularSlotResponse(BaseModel):
