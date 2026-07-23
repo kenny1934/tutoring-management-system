@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* zb-audit-test.js — 歸零爆破 Zero Blast AUDIT suite (74 assertions).
+/* zb-audit-test.js — 歸零爆破 Zero Blast AUDIT suite (76 assertions).
  *
  * Covers: EN/dark bilingual checks, 320px + landscape-phone layout,
  * reduced motion (incl. the armed-preview drain bar), the fx=lite/full
@@ -283,16 +283,23 @@ async function section320(browser) {
   const padInfo = await page.evaluate(() => {
     const keys = [...document.querySelectorAll("#pad .zb-key")];
     const pad = document.getElementById("pad").getBoundingClientRect();
-    const digitHs = keys
-      .filter((k) => !k.classList.contains("zb-key--sign"))
-      .map((k) => k.getBoundingClientRect().height);
-    const sign = document.querySelector("#pad .zb-key--sign").getBoundingClientRect().height;
+    const digits = keys.filter((k) => !k.classList.contains("zb-key--sign"));
+    const digitHs = digits.map((k) => k.getBoundingClientRect().height);
+    const sign = document.querySelector("#pad .zb-key--sign").getBoundingClientRect();
+    // the digit block's own centre, which is what a student reads as
+    // "the keypad": the sign key used to hang off a fourth column and
+    // shove every digit left of the screen's centre
+    const numerals = keys.filter((k) => /^[0-9]$/.test(k.textContent.trim()));
+    const l = Math.min(...numerals.map((k) => k.getBoundingClientRect().left));
+    const r = Math.max(...numerals.map((k) => k.getBoundingClientRect().right));
     return {
       keys: keys.length,
       visible: keys.every((k) => k.offsetParent !== null),
       minH: Math.min(...digitHs),
       maxH: Math.max(...digitHs),
-      signH: sign, // spans grid rows 1-3: ~3 key rows tall by design
+      signH: sign.height, // one row now: it shares the bottom row with 0
+      cols: getComputedStyle(document.getElementById("pad")).gridTemplateColumns.split(" ").length,
+      offCentre: Math.abs((l + r) / 2 - innerWidth / 2),
       padW: pad.width,
       padH: pad.height,
     };
@@ -303,12 +310,33 @@ async function section320(browser) {
       padInfo.visible &&
       padInfo.minH >= 44 &&
       padInfo.maxH <= 90 &&
-      padInfo.signH >= padInfo.minH * 2.5 &&
-      padInfo.signH <= padInfo.maxH * 3.5 &&
+      padInfo.signH >= padInfo.minH &&
+      padInfo.signH <= padInfo.maxH &&
       padInfo.padW <= 320 &&
       padInfo.padH >= 140 &&
       padInfo.padH <= 400,
     JSON.stringify(padInfo)
+  );
+  check(
+    "320px: three columns, digits centred on the screen",
+    padInfo.cols === 3 && padInfo.offCentre <= 1,
+    JSON.stringify({ cols: padInfo.cols, offCentre: padInfo.offCentre })
+  );
+  // the two icons that ride a plain button carry their own stroke: no
+  // context rule supplies one, so a bare symbol drew nothing at all
+  const btnIcons = await page.evaluate(() =>
+    ["i-screen", "i-phone"].map((id) => {
+      const sym = document.getElementById(id);
+      return {
+        id,
+        strokes: [...sym.children].every((el) => el.getAttribute("stroke") === "currentColor"),
+      };
+    })
+  );
+  check(
+    "button icons carry a stroke (they drew nothing without one)",
+    btnIcons.every((i) => i.strokes),
+    JSON.stringify(btnIcons)
   );
   await ctx.close();
 }

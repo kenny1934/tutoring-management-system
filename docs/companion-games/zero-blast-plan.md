@@ -2016,3 +2016,62 @@ Suites: multi 238, solo 162, audit 74 - all green.
   read a room code from seizing a live classroom.
 
 Suites: multi 238, solo 163, audit 74 - all green.
+
+### 19.9 The phone's own audit (2026-07-23)
+
+Kenny's demo notes were the keypad looking uncentred and the hint
+button reading oddly. Both reproduce, and measuring the three phone
+faces (join/controller, 探究 arc, solo on a handset) at 390x844 and
+360x640 turned up the rest.
+
+- **The keypad was 39px left of centre, everywhere.** The pad was a
+  four-column grid - three digit columns plus a full-height 負號
+  column - inside a 340px box that was itself centred. The block was
+  centred; the digits, which are what a student reads as "the
+  keypad", were not. 探究一/二 were worse: the sign key was held with
+  `visibility: hidden`, so it kept its column and left a dead gutter.
+  The sign key now rides the bottom row beside 0 on a three-column
+  grid: digits dead centre, keys 81px -> 107px, and in the sign-less
+  stages the key leaves the grid entirely (`display: none`) while 0
+  takes the whole row.
+- **The keypad floated mid-sheet and small phones lost the
+  instruction line.** On a 390-tall-844 controller the pad's bottom
+  edge sat 240px above the screen's, out of easy thumb reach; on a
+  640-tall phone `#ctrlStatus` - which carries 出一個 0至99 嘅整數,
+  the pillar count and the grace warning - fell entirely below the
+  fold. The controller is now one full-height flex column on portrait
+  phones with the pad pinned by the spacer above it, so a verdict
+  filling the marking band never shifts keys under a thumb, and the
+  empty marking band collapses instead of holding its 96px reserve.
+  A 640-tall tier trims the stage's bottom padding, the scene, the
+  key height and the status line. Remaining: a two-line verdict card
+  on a 640-tall phone still pushes the status line a few pixels past
+  the fold - the keypad and the verdict both stay on screen.
+- **The solo hint sat inside the keypad block**, a dashed low-contrast
+  pill directly above the `x = ▢` preview, which read as part of the
+  answer field - and it pushed the 0 row below the fold on a phone.
+  It moves to the margin above the marking band, right-aligned, with
+  the same solid hairline as 暫停. (It is solo-only; the multiplayer
+  controller has no hint, so what Kenny saw was solo on a handset.)
+- **Two icons drew nothing.** `i-phone` on the student's 加入遊戲 and
+  `i-screen` on the cover's 多裝置開始 set `fill: none` with no stroke
+  colour, and unlike `.mc-meta svg` / `.zb-timer svg` no context rule
+  supplied one - both buttons reserved 20px of blank. The symbols now
+  carry `stroke="currentColor"` themselves.
+- **探究 result cards opened with the wrong line.** Order followed the
+  pair's card order, so a phone could lead with the partner's verdict;
+  and the shared 未提交 string is name-prefixed on the projector, so
+  alone on a phone it read as a subjectless fragment. The student's
+  own line now leads, and their own miss reads 你未提交.
+- **The briefing ready face said itself twice** (board and status both
+  主遊戲準備開始) while still showing the arc's spent lives row and a
+  dead `--.-` clock. Status cleared, both dropped. An empty status is
+  now hidden outright rather than left as a dashed box that reads as a
+  field to fill in.
+- **The cover's kicker broke mid-word on a phone** (分 / 鐘, 全 / 班):
+  `.mc-meta` is `nowrap` by default, so two spans fought over 354px.
+  It wraps below 700px.
+- 0 至 99 -> 0至99 in the two 探究 strings: body-sized text takes no
+  spaces around 至.
+
+Suites: multi 242, solo 167, audit 76 - all green.

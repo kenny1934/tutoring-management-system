@@ -115,6 +115,9 @@
        keypad must stay above the fold, marking included */
     @media (max-width: 700px) {
       .zb-scene { height: clamp(200px, 30vh, 320px); }
+      /* the kicker is one nowrap row by default: on a phone that broke
+         both halves mid-word (分 / 鐘) rather than stacking them */
+      .mc-meta { flex-wrap: wrap; gap: 6px 18px; }
     }
     /* tablets and small laptops: give the scene real height so the
        tall kinds keep their tops with headroom to spare. Ends at
@@ -908,7 +911,10 @@
     }
     @keyframes zb-armdrain { from { transform: translateX(-50%) scaleX(1); } to { transform: translateX(-50%) scaleX(0); } }
     @media (prefers-reduced-motion: reduce) { .zb-preview.armed::after { animation: none; } }
-    .zb-pad { display: grid; grid-template-columns: repeat(3, 1fr) 0.85fr; gap: 9px; }
+    /* three columns, and the sign key rides the bottom row beside 0:
+       the old fourth column sat the digits 39px left of the screen's
+       centre on a phone, reading as a keypad shoved sideways */
+    .zb-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
     .zb-key {
       min-height: 52px; border: 1.5px solid var(--mc-ink); border-radius: var(--mc-r);
       background: var(--mc-paper-raised); color: var(--mc-ink);
@@ -920,12 +926,12 @@
     .zb-key:active { transform: translateY(2px); box-shadow: 0 0 0 var(--mc-ink); }
     .zb-key:focus-visible { outline: 2.5px solid var(--mc-red); outline-offset: 2px; }
     .zb-key:disabled { opacity: 0.45; cursor: not-allowed; }
-    .zb-key--sign { grid-column: 4; grid-row: 1 / 4; font-size: 1.875rem; }
+    .zb-key--sign { grid-column: 3; grid-row: 4; font-size: 1.875rem; }
     .zb-key--sign[aria-pressed="true"] {
       background: var(--mc-red-wash); border-color: var(--mc-red); color: var(--mc-red);
       box-shadow: 0 2px 0 var(--mc-red);
     }
-    .zb-key--zero { grid-column: 1 / 4; }
+    .zb-key--zero { grid-column: 1 / 3; }
 
     /* 3-second relock after a wrong code: think, don't spam */
     .zb-lock {
@@ -1052,14 +1058,19 @@
     @media (prefers-reduced-motion: reduce) {
       .zb-pulse { animation: none; outline: 2px solid var(--mc-red); outline-offset: 2px; }
     }
-    /* solo hint chip: a pencilled marginal offer above the keypad */
+    /* solo hint: a quiet button in the margin above the marking band,
+       cut from the same cloth as 暫停. The old dashed pill sat inside
+       the keypad block, directly over the answer preview, where it
+       read as an empty field rather than an offer. */
     .zb-solohint {
-      display: block; margin: 0 auto 8px; padding: 5px 14px;
-      font-family: inherit; font-size: 0.8125rem; color: var(--mc-ink-soft);
-      background: none; border: 1.5px dashed var(--mc-ink-faint);
+      display: block; margin: 0 0 6px auto; padding: 4px 12px;
+      font-family: inherit; font-size: 0.8125rem; font-weight: 700;
+      color: var(--mc-ink-soft); background: none;
+      border: 1.5px solid var(--mc-ink-faint);
       border-radius: var(--mc-r); cursor: pointer;
     }
     .zb-solohint:hover { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
+    .zb-solohint:disabled { opacity: 0.45; cursor: not-allowed; }
     /* pause: the site shuts down cleanly and picks up where it stopped */
     .zb-pausebtn {
       font-family: inherit; font-size: 0.8125rem; font-weight: 700;
@@ -1216,6 +1227,17 @@
       .zb-mark { min-height: 76px; }
       .zb-key { min-height: 48px; }
     }
+    /* 640-tall phones: every band gives a little so the keypad's bottom
+       row and the progress line clear the fold. Without this the 0 key
+       sat below it in solo and the line under the pad fell off. */
+    @media (max-height: 700px) and (max-width: 700px) and (orientation: portrait) {
+      .mc-stage { padding-bottom: 16px; }
+      .zb-scene { height: clamp(160px, 26vh, 200px); }
+      .zb-key { min-height: 44px; }
+      .zb-pad { gap: 7px; }
+      .zb-mark { min-height: 64px; }
+      .mc-status { min-height: 36px; padding: 7px 12px; }
+    }
     /* landscape phones: scene left, controls right */
     @media (orientation: landscape) and (max-height: 520px) {
       .zb-game-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 18px; align-items: start; }
@@ -1226,6 +1248,26 @@
       /* keys kept at the compact size (the width-guarded compact rule
          no longer reaches landscape phones) */
       .zb-key { min-height: 48px; }
+    }
+
+    /* portrait phones: the controller is one full-height column, so the
+       keypad rides the thumb zone instead of floating mid-sheet and the
+       instruction line stays on screen (it fell clean off a 640-tall
+       phone). The pad is pinned by the spacer above it, so a verdict
+       filling the marking band never shifts the keys under a thumb. */
+    @media (max-width: 700px) and (orientation: portrait) {
+      #controllerScreen.active {
+        display: flex; flex-direction: column;
+        min-height: calc(100vh - 104px - env(safe-area-inset-top));
+        min-height: calc(100dvh - 104px - env(safe-area-inset-top));
+      }
+      #ctrlPlay, #ctrlInq { display: flex; flex-direction: column; flex: 1 1 auto; }
+      /* width:100% because the wrap centres itself with auto side
+         margins, and an auto margin beats a flex item's stretch */
+      #ctrlPlay > .zb-padwrap, #ctrlInq > .zb-padwrap { margin-top: auto; width: 100%; }
+      /* no verdict yet: the reserve would only pad the gap the spacer
+         already holds */
+      .zb-mark:empty { min-height: 0; padding: 0; }
     }
 
     /* ══ 探究模式 · 等式開口中 (SM901 活動二) ══
@@ -1341,7 +1383,11 @@
     .zb-inqboard .zb-inqbign.zero { color: var(--mc-red); }
     .zb-inqboard .zb-inqcardtag { display: block; width: 100%; font-size: 0.75rem; letter-spacing: 0.08em; color: var(--mc-ink-soft); margin-bottom: 2px; }
     .zb-inqlives { display: inline-flex; }
-    .zb-inqpad--nosign .zb-key--sign { visibility: hidden; }
+    /* 探究一/二 take plain 0-99: the sign key leaves the grid entirely
+       (hiding it kept its column and left a dead gutter) and 0 takes
+       the whole bottom row */
+    .zb-inqpad--nosign .zb-key--sign { display: none; }
+    .zb-inqpad--nosign .zb-key--zero { grid-column: 1 / -1; }
     .zb-inqboomphone {
       position: fixed; inset: 0; z-index: 30; pointer-events: none;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
@@ -1396,13 +1442,16 @@
       <circle cx="17.5" cy="9" r="2.8" fill="none" stroke-width="2"/>
       <path d="M16 14.3c3.1 0.3 5.5 2.5 5.5 5.7" fill="none" stroke-width="2" stroke-linecap="round"/>
     </symbol>
+    <!-- these two are the only icons used on a plain button, where no
+         context rule supplies a stroke: without it they drew nothing
+         and left a 20px hole beside 多裝置開始 / 加入遊戲 -->
     <symbol id="i-screen" viewBox="0 0 24 24">
-      <rect x="2.5" y="4" width="19" height="12.5" rx="1.5" fill="none" stroke-width="2"/>
-      <path d="M9 20.5h6M12 16.5v4" stroke-width="2" stroke-linecap="round"/>
+      <rect x="2.5" y="4" width="19" height="12.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M9 20.5h6M12 16.5v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </symbol>
     <symbol id="i-phone" viewBox="0 0 24 24">
-      <rect x="7" y="2.5" width="10" height="19" rx="2" fill="none" stroke-width="2"/>
-      <path d="M11 18.5h2" stroke-width="2" stroke-linecap="round"/>
+      <rect x="7" y="2.5" width="10" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M11 18.5h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </symbol>
     <symbol id="i-tick" viewBox="0 0 24 24">
       <path d="M4 13l5.5 5.5L20 6.5" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1805,14 +1854,17 @@
         <div class="mc-stars" id="stars" style="margin-top:8px" aria-label="streak"></div>
         <div class="zb-hostboard" id="hostBoard" style="display:none"></div>
         <div class="zb-strugglers" id="strugglers" style="display:none"></div>
+        <!-- solo kind-6 scaffold, now opt-in: the auto-hint silently
+             cancelled the finale's double points on exactly the
+             students who needed thinking time. It sits above the
+             marking band rather than inside the keypad block, where a
+             dashed pill above the answer preview read as part of the
+             answer field and pushed 0 below a phone's fold. -->
+        <button class="zb-solohint" id="soloHint" style="display:none">
+          <span data-i18n="btn_hint_solo"></span>
+        </button>
         <div class="zb-mark" id="markZone" aria-live="polite"></div>
         <div class="zb-padwrap" id="padWrap">
-          <!-- solo kind-6 scaffold, now opt-in: the auto-hint silently
-               cancelled the finale's double points on exactly the
-               students who needed thinking time -->
-          <button class="zb-solohint" id="soloHint" style="display:none">
-            <span data-i18n="btn_hint_solo"></span>
-          </button>
           <div class="zb-preview" id="padPreview"></div>
           <div class="zb-pad" id="pad">
             <button class="zb-key" data-d="7">7</button>
@@ -2155,11 +2207,11 @@ const STRINGS = {
   inq_round_fmt:    { c: "第 {r}/{n} 回合", e: "Round {r}/{n}" },
   inq_target_label: { c: "目標數字",    e: "Target number" },
   inq_locked:       { c: "N 已鎖定",    e: "N locked" },
-  inq_rule1:        { c: "你同一位神秘拍檔|各自出一個 0 至 99 嘅整數，|兩個數相乘要啱好等於目標數字！|估唔中，兩個一齊扣 1 個生命值。", e: "You and a secret partner each pick a whole number from 0 to 99. Multiplied together they must hit the target exactly! Miss, and you both lose a life." },
+  inq_rule1:        { c: "你同一位神秘拍檔|各自出一個 0至99 嘅整數，|兩個數相乘要啱好等於目標數字！|估唔中，兩個一齊扣 1 個生命值。", e: "You and a secret partner each pick a whole number from 0 to 99. Multiplied together they must hit the target exactly! Miss, and you both lose a life." },
   inq_rule2:        { c: "目標鎖定咗做 0！|規則不變，|但係兩個都出 0 就會大爆炸，|一齊扣 2 個生命值！", e: "The target is locked at 0! Same rules, but if BOTH of you play 0 it explodes: two lives gone each!" },
   inq_rule3:        { c: "螢幕上有一條方程。|你同神秘拍檔一人負責一個因式|（有底線嗰個）。|各自搵一個 x 令自己嗰個因式歸零：|兩個都啱，全組過關；|有一個唔啱，兩個一齊扣 1 個生命值。", e: "One equation on the screen. You and a secret partner each take one factor (the underlined one). Each of you finds the x that zeroes YOUR factor: both right and the pair passes; one wrong and you both lose a life." },
   inq_submitted_fmt:{ c: "已收到 {k}/{m}", e: "{k}/{m} in" },
-  inq_pick_hint:    { c: "出一個 0 至 99 嘅整數", e: "Pick a whole number from 0 to 99" },
+  inq_pick_hint:    { c: "出一個 0至99 嘅整數", e: "Pick a whole number from 0 to 99" },
   inq_sent_fmt:     { c: "已出 {v}，|截止前可以再改", e: "Sent {v}. You can change it before time runs out" },
   inq_wait_result:  { c: "時間到！|等緊配對結果⋯", e: "Time! Waiting for the pair results…" },
   inq_wait_round:   { c: "等導師開始回合⋯", e: "Waiting for the tutor to start the round…" },
@@ -2168,6 +2220,8 @@ const STRINGS = {
   inq_boom:         { c: "大爆炸！",    e: "BOOM!" },
   inq_boom_note:    { c: "全部人都出咗 0，|一齊扣 2 個生命值", e: "You all played 0: two lives gone each" },
   inq_no_sub:       { c: "未提交",      e: "No answer" },
+  // the projector prefixes a name; the phone's own line needs a subject
+  inq_no_sub_you:   { c: "你未提交",    e: "You did not answer" },
   inq_you_fmt:      { c: "你出咗 {v}",  e: "You played {v}" },
   inq_partner_fmt:  { c: "拍檔 {name} 出咗 {v}", e: "Partner {name} played {v}" },
   inq_partner_none: { c: "拍檔 {name} 未提交", e: "Partner {name} did not answer" },
@@ -5791,6 +5845,8 @@ function ctrlStatus(text, cls) {
   const el = $("ctrlStatus");
   el.textContent = text;
   el.className = "mc-status" + (cls ? " " + cls : "");
+  // an empty status is a dashed box that reads as a field to fill in
+  el.style.display = text ? "" : "none";
 }
 
 /* The phone renders whatever level the room publishes. Rules scope
@@ -6019,6 +6075,9 @@ function renderCtrlInqFace(inq, st) {
   $("ctrlInqPadWrap").classList.toggle("zb-inqpad--nosign", inq.stage !== 3);
   C.inqPad.setPrefix(inq.stage === 3 ? '<i class="zb-var">x</i>&nbsp;=&nbsp;' : "");
   C.lastInqSec = null;
+  // the arc's lives and clock belong to the arc's rounds
+  $("ctrlInqLives").style.display = inq.brief ? "none" : "";
+  $("ctrlInqTimer").style.display = inq.brief ? "none" : "";
   if (inq.brief) {
     // §19.4: the tutor is briefing the main game on the projector.
     // The phone says so, so the run starting is never a surprise.
@@ -6028,7 +6087,7 @@ function renderCtrlInqFace(inq, st) {
     $("ctrlInqChip").innerHTML = `<strong>${t("track_main")}</strong>`;
     target.innerHTML = `<span class="zb-inqcardtag">${t("brief_title")}</span>${t("brief_ready")}`;
     $("ctrlInqMark").innerHTML = markHtml("info", [escapeText(t("brief_ready_note"))]);
-    ctrlStatus(t("brief_ready"));
+    ctrlStatus(""); // the board already says it; a second copy is noise
     return;
   }
   if (inq.step === "round") {
@@ -6127,14 +6186,17 @@ function renderCtrlInqResult(rv, hearts) {
     ctrlStatus(benched ? t("inq_rebuild") : C.inq && C.inq.bye === C.id ? t("inq_bye") : t("inq_join_next"));
     return;
   }
-  const members = inqRowMembers(row, rv);
+  // the student's own line always leads: the pair's card order used to
+  // decide it, so a phone could open with the partner's verdict
+  const members = inqRowMembers(row, rv).slice()
+    .sort((a, b) => (b.id === C.id) - (a.id === C.id));
   const lines = [];
   const vals = [];
   members.forEach(m => {
     const name = escapeText(m.name);
     const isMe = m.id === C.id;
     if (m.v === null) {
-      const none = isMe ? t("inq_no_sub") : fmt("inq_partner_none", { name: name });
+      const none = isMe ? t("inq_no_sub_you") : fmt("inq_partner_none", { name: name });
       lines.push(rv.stage === 3 ? inqVmarkHtml(false) + none : none);
       return;
     }

@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (238 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (242 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 238 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 242 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -667,6 +667,33 @@ async function main() {
   );
   await host.setViewportSize({ width: 1280, height: 800 });
   await sleep(250);
+
+  /* the phone's play face is one full-height column: keys centred and
+   * down in the thumb zone, the progress line under them on screen.
+   * It used to float mid-sheet with the line below a 640-tall fold. */
+  const padPlace = await phoneA.evaluate(() => {
+    const keys = [...document.querySelectorAll("#ctrlPad .zb-key")]
+      .filter((k) => /^[0-9]$/.test(k.textContent.trim()));
+    const l = Math.min(...keys.map((k) => k.getBoundingClientRect().left));
+    const r = Math.max(...keys.map((k) => k.getBoundingClientRect().right));
+    const pad = document.getElementById("ctrlPad").getBoundingClientRect();
+    const status = document.getElementById("ctrlStatus").getBoundingClientRect();
+    return {
+      offCentre: +Math.abs((l + r) / 2 - innerWidth / 2).toFixed(1),
+      padBottom: Math.round(pad.bottom),
+      statusBottom: Math.round(status.bottom),
+      vh: innerHeight,
+      docH: document.documentElement.scrollHeight,
+    };
+  });
+  check(
+    "phone: keypad centred, in the thumb zone, progress line above the fold",
+    padPlace.offCentre <= 1 &&
+      padPlace.padBottom > padPlace.vh * 0.7 &&
+      padPlace.statusBottom <= padPlace.vh &&
+      padPlace.docH <= padPlace.vh + 1,
+    JSON.stringify(padPlace)
+  );
 
   /* ── level 1 scoring: A cracks the zero ── */
   const l1 = await host.evaluate(() => ({ n: G.level.n, roots: G.level.pillars.map((p) => p.root) }));
@@ -1794,10 +1821,26 @@ async function main() {
     !("pairs" in r1State.inq) && !r1State.inqCards && JSON.stringify(r1State.inq).indexOf(adaId) === -1,
     JSON.stringify(r1State.inq)
   );
-  const signHidden = await phoneA2.evaluate(
-    () => getComputedStyle(document.querySelector("#ctrlInqPad .zb-key--sign")).visibility === "hidden"
+  // the sign key leaves the GRID here, it doesn't just go invisible:
+  // held in place it kept a column and left the digits off-centre
+  const signOut = await phoneA2.evaluate(() => {
+    const sign = document.querySelector("#ctrlInqPad .zb-key--sign");
+    const keys = [...document.querySelectorAll("#ctrlInqPad .zb-key")]
+      .filter((k) => /^[0-9]$/.test(k.textContent.trim()));
+    const l = Math.min(...keys.map((k) => k.getBoundingClientRect().left));
+    const r = Math.max(...keys.map((k) => k.getBoundingClientRect().right));
+    return {
+      gone: getComputedStyle(sign).display === "none",
+      offCentre: Math.abs((l + r) / 2 - innerWidth / 2),
+      zeroSpansRow: document.querySelector("#ctrlInqPad .zb-key--zero").getBoundingClientRect().width
+        > document.querySelector('#ctrlInqPad .zb-key[data-d="7"]').getBoundingClientRect().width * 2.5,
+    };
+  });
+  check(
+    "探究一: sign key out of the grid, digits centred on the phone",
+    signOut.gone && signOut.offCentre <= 1 && signOut.zeroSpansRow,
+    JSON.stringify(signOut)
   );
-  check("探究一: sign key hidden on the phone pad", signHidden);
   const targetShown = await phoneA2.evaluate(() => document.getElementById("ctrlInqTarget").textContent.trim());
   check("探究一: phone shows the target 12", targetShown.includes("12"), targetShown);
   await inqSubmit(phoneA2, 3);
@@ -1844,6 +1887,13 @@ async function main() {
     "探究一: Ada's phone stamps 安全過關 and names her partner",
     adaMark.correct && adaMark.text.includes("安全過關") && adaMark.text.includes("Ben"),
     JSON.stringify(adaMark)
+  );
+  // your own line leads the card: the pair's card order used to decide
+  // it, so a phone could open with the partner's verdict instead
+  check(
+    "探究一: the student's own line leads the result card",
+    adaMark.text.indexOf("你出咗") >= 0 && adaMark.text.indexOf("你出咗") < adaMark.text.indexOf("Ben"),
+    adaMark.text
   );
 
   /* ── host F5 mid-arc: the inquiry snapshot resumes ── */
@@ -2038,10 +2088,27 @@ async function main() {
       JSON.stringify(s3.inq).indexOf("root") === -1 && !s3.inqReveal,
     JSON.stringify({ inq: s3.inq, cards: s3.inqCards })
   );
-  const signBack = await phoneA2.evaluate(
-    () => getComputedStyle(document.querySelector("#ctrlInqPad .zb-key--sign")).visibility !== "hidden"
+  // back in the bottom row beside 0, one key row tall, digits still centred
+  const signBack = await phoneA2.evaluate(() => {
+    const sign = document.querySelector("#ctrlInqPad .zb-key--sign").getBoundingClientRect();
+    const seven = document.querySelector('#ctrlInqPad .zb-key[data-d="7"]').getBoundingClientRect();
+    const zero = document.querySelector("#ctrlInqPad .zb-key--zero").getBoundingClientRect();
+    const keys = [...document.querySelectorAll("#ctrlInqPad .zb-key")]
+      .filter((k) => /^[0-9]$/.test(k.textContent.trim()));
+    const l = Math.min(...keys.map((k) => k.getBoundingClientRect().left));
+    const r = Math.max(...keys.map((k) => k.getBoundingClientRect().right));
+    return {
+      shown: sign.width > 0 && sign.height > 0,
+      oneRow: Math.abs(sign.height - seven.height) <= 1,
+      bottomRow: Math.abs(sign.top - zero.top) <= 1 && sign.left > zero.left,
+      offCentre: Math.abs((l + r) / 2 - innerWidth / 2),
+    };
+  });
+  check(
+    "概念轉化: sign key returns to the bottom row beside 0",
+    signBack.shown && signBack.oneRow && signBack.bottomRow && signBack.offCentre <= 1,
+    JSON.stringify(signBack)
   );
-  check("概念轉化: sign key returns for negative roots", signBack);
   // 分工: the phone shows the whole equation with the dealt factor
   // underlined as the ASSIGNMENT - each partner must zero their own
   // bracket. Whoever holds (x+2) plays −2 through the sign key, the
@@ -2463,6 +2530,24 @@ async function main() {
   await until(() => phoneA2.evaluate(() => C.inq && C.inq.stage === 2 && C.inq.step === "intro"), { label: "phones follow the jump" });
   check("探究: the phones follow the jump", true);
 
+  /* your own missed answer needs a subject: the shared 未提交 string is
+   * name-prefixed on the projector, so alone on a phone it read as a
+   * subjectless fragment under the partner's line. Rendered straight
+   * from a synthetic reveal - the arc's own rounds all get answers,
+   * and the ready face replaces this card a moment later anyway. */
+  const ownMiss = await phoneA2.evaluate((ids) => {
+    renderCtrlInqResult({
+      seq: 9999, stage: 1, n: 12,
+      pairs: { 0: { aId: ids[0], aN: "Ada", aV: null, bId: ids[1], bN: "Ben", bV: 4, ok: false } },
+    }, {});
+    return document.getElementById("ctrlInqMark").textContent;
+  }, [adaId, benId]);
+  check(
+    "探究: a missed answer of your own reads 你未提交, above the partner's line",
+    ownMiss.includes("你未提交") && ownMiss.indexOf("你未提交") < ownMiss.indexOf("Ben"),
+    ownMiss
+  );
+
   /* ── handover: 跳過探究 (two-tap) → the briefing screen (§19.4) ── */
   await host.click("#btnInqSkip");
   await host.click("#btnInqSkip");
@@ -2491,10 +2576,20 @@ async function main() {
   const readyFace = await phoneA2.evaluate(() => ({
     pad: getComputedStyle(document.getElementById("ctrlInqPadWrap")).display,
     note: document.getElementById("ctrlInqMark").textContent,
+    // the board already carries the headline: a status echoing it word
+    // for word was noise, and the arc's clock and lives are spent
+    status: getComputedStyle(document.getElementById("ctrlStatus")).display,
+    clock: getComputedStyle(document.getElementById("ctrlInqTimer")).display,
+    lives: getComputedStyle(document.getElementById("ctrlInqLives")).display,
   }));
   check(
     "§19.4: the phone waits on a ready face, pad closed, pointing at the projector",
     readyFace.pad === "none" && readyFace.note.includes("望住投影幕"),
+    JSON.stringify(readyFace)
+  );
+  check(
+    "§19.4: the ready face drops the echoed status, the spent clock and lives",
+    readyFace.status === "none" && readyFace.clock === "none" && readyFace.lives === "none",
     JSON.stringify(readyFace)
   );
   // a host F5 mid-briefing must never strand the phones on the ready
