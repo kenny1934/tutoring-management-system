@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (237 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (238 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 237 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 238 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -463,13 +463,21 @@ async function main() {
       start: bot("#btnStartFrom"),
       howto: bot("#arcHowtoCard"),
       brand: bot("#lobbyScreen .mc-brand"),
-      cols: getComputedStyle(document.querySelector(".zb-lobbygrid")).gridTemplateColumns.split(" ").length,
+      cols: getComputedStyle(document.querySelector("#lobbyScreen .zb-splitgrid")).gridTemplateColumns.split(" ").length,
+      // §19.5: the masthead spans, so the two panels start on one line
+      sheetTop: Math.round(document.getElementById("lobbySheet").getBoundingClientRect().top),
+      sideTop: Math.round(document.getElementById("arcHowtoCard").getBoundingClientRect().top),
     };
   });
   check(
     "§19.4: the lobby's how-to, start button and logo all clear the fold on a laptop",
     fold.cols === 2 && fold.howto < fold.vh && fold.start < fold.vh && fold.brand <= fold.vh,
     JSON.stringify(fold)
+  );
+  check(
+    "§19.5: the two panels start on the same line (the right card had nothing to align to)",
+    fold.sheetTop === fold.sideTop,
+    JSON.stringify({ sheet: fold.sheetTop, side: fold.sideTop })
   );
 
   /* ════════ kick ════════ */

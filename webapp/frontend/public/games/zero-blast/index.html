@@ -551,16 +551,24 @@
       border-radius: 4px;
       font-family: var(--mc-mono); font-size: 0.625rem; opacity: 0.75;
     }
-    /* §19.4: the lobby's two columns on a wide stage - the join sheet
-     * on the left, the lesson panel (how-to, roster, track + start) on
-     * the right. Narrow stages keep the single stacked column. */
-    .zb-stage--projector .zb-lobbygrid {
+    /* §19.4/§19.5: the wide-stage split, shared by the cover and the
+     * lobby. The masthead block spans both columns, so the two panels
+     * below start on the SAME line (the right card used to float with
+     * nothing to align to). Narrow stages keep one stacked column, in
+     * DOM order. */
+    .zb-stage--projector .zb-splitgrid {
       display: grid;
       grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+      grid-template-areas: "head head" "main side";
       gap: 0 30px;
       align-items: start;
     }
-    .zb-stage--projector .zb-lobbygrid__side { padding-top: 42px; }
+    .zb-stage--projector .zb-splitgrid__head { grid-area: head; }
+    .zb-stage--projector .zb-splitgrid__main { grid-area: main; }
+    .zb-stage--projector .zb-splitgrid__side { grid-area: side; }
+    /* the lobby's right panel leads with a card, the left with a sheet:
+       both carry their own top border, so they line up as drawn */
+    .zb-stage--projector #lobbyScreen .zb-splitgrid__side > :first-child { margin-top: 0; }
     /* §19 Batch Z: the lobby's lesson track - four equal steps, the
      * selected one wears the marking pen. No step is the "primary". */
     .zb-track__steps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin-top: 8px; }
@@ -1433,6 +1441,11 @@
       <span class="mc-masthead__code"><strong>SM901</strong> · <span data-i18n="subtopic"></span></span>
       <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
     </header>
+    <!-- §19.5: same split as the lobby - the masthead block spans, then
+         the lesson panel and the entry controls sit side by side, so the
+         logo stops falling off a 768-tall laptop. -->
+    <div class="zb-splitgrid">
+    <div class="zb-splitgrid__head">
     <h1 class="mc-title" data-i18n="title"></h1>
     <!-- the title's underline is drawn by a travelling fuse spark,
          timed to fire after the last title character stamps in -->
@@ -1445,6 +1458,8 @@
       </circle>
     </svg>
     <p class="mc-lede" data-i18n="objective"></p>
+    </div>
+    <div class="zb-splitgrid__main">
     <!-- §19.4: the cover used to advertise the main game alone, so a
          tutor could not tell that SM901's night opens on the inquiry
          arc. The same four steps the lobby offers, read-only here. -->
@@ -1494,6 +1509,8 @@
       <span><svg><use href="#i-clock"/></svg><span data-i18n="duration"></span></span>
       <span><svg><use href="#i-players"/></svg><span data-i18n="players"></span></span>
     </div>
+    </div>
+    <div class="zb-splitgrid__side">
     <div style="display:grid;gap:12px">
       <button class="mc-btn mc-btn--primary mc-btn--block" id="btnHost">
         <svg style="width:20px;height:20px"><use href="#i-screen"/></svg>
@@ -1528,6 +1545,8 @@
       </div>
       <p class="mc-status" id="reclaimStatus" style="margin:0"></p>
     </div>
+    </div>
+    </div>
     <footer class="mc-brand">
       <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
       <img class="mc-logo--dark" src="/logo-secondary-dark.png" alt="MathConcept Secondary Academy">
@@ -1547,10 +1566,12 @@
     <!-- §19.4: two columns on a projector/laptop. Stacked, the join
          sheet alone filled the fold and pushed the how-to, the lesson
          track (with the START button) and the logo below it. -->
-    <div class="zb-lobbygrid">
-    <div class="zb-lobbygrid__main">
+    <div class="zb-splitgrid">
+    <div class="zb-splitgrid__head">
     <h2 class="mc-title" style="font-size:clamp(1.625rem,6vw,2.25rem)" data-i18n="lobby_title"></h2>
     <p class="mc-lede" data-i18n="lobby_hint"></p>
+    </div>
+    <div class="zb-splitgrid__main">
     <div class="mc-sheet" id="lobbySheet" style="text-align:center">
       <div class="mc-board__label" data-i18n="room_code_label"></div>
       <div class="mc-code" id="roomCode">····</div>
@@ -1569,7 +1590,7 @@
       </svg>
     </div>
     </div>
-    <div class="zb-lobbygrid__side">
+    <div class="zb-splitgrid__side">
     <!-- how to play (§19 Batch Z: moved off the cover) - the scanning
          wait is the reading moment: the whole class sees the rules on
          the projector while phones join. Re-shown at the arc's
@@ -1974,7 +1995,7 @@ const STRINGS = {
   howto_3:          { c: "搵齊所有解，|成座建築拆卸", e: "Find every solution to bring it down" },
   howto_note:       { c: "答錯會鎖鍵盤三秒，|諗清楚先好撳！|導火線燒完|仲有支柱未歸零，|爆破會失敗，|成座樓企硬！|全班齊玩時，|人哋拆咗嘅支柱|你答啱都仲有分！",
                       e: "A wrong code locks your keypad for three seconds, so think before you tap! If the fuse runs out with a pillar not yet zeroed, the blast fizzles and the building stands. In class mode, a claimed pillar still pays when you crack its code!" },
-  duration:         { c: "13 座建築 · 約 15 分鐘", e: "13 buildings · about 15 min" },
+  duration:         { c: "13 座建築 · 約 12 分鐘", e: "13 buildings · about 12 min" },
   players:          { c: "1 人或全班",  e: "Solo or whole class" },
   btn_host:         { c: "多裝置開始",  e: "Start · multi-device" },
   btn_solo:         { c: "單機開始",    e: "Start · one screen" },

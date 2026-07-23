@@ -1954,3 +1954,24 @@ four steps and its note, the multi suite asserts two columns with the
 how-to, start button and logo all above the fold.
 
 Suites: multi 237, solo 159, audit 74 - all green.
+
+### 19.6 Split layout on both bookends, and an honest clock (2026-07-23)
+
+- **The cover now splits too.** Its logo sat at y=797 on a 768-tall
+  laptop, i.e. permanently below the fold. The masthead block (title,
+  swash, objective) spans, then the lesson panel (flow strip, hero,
+  meta) and the entry controls (host, solo, join-by-code, reclaim) sit
+  side by side. Logo bottom 626 of 768, with the host button at 320.
+  One shared .zb-splitgrid now drives both the cover and the lobby.
+- **The lobby's halves line up.** §19.4 left the right-hand card
+  floating at y=123 against a sheet that started at y=199, because the
+  title and lede lived in the left column. They moved into a spanning
+  head row, so both panels now start on the same line (199/199).
+- **The clock was wrong.** Kenny played a full multi-device run: 10 to
+  15 minutes, not the advertised 15. duration is now 13 座建築 · 約 12
+  分鐘 in both languages, and game.json's duration_min follows (15 ->
+  12) so the games hub agrees. The arc's own ~20 minutes is untouched
+  (stated separately in the cover note), and the briefing screen picks
+  the new figure up for free - it reads the same string.
+
+Suites: multi 238, solo 161, audit 74 - all green.

@@ -1,4 +1,4 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (159 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (161 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (159 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (161 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -286,6 +286,15 @@ async function main() {
         arcHowto: [...document.querySelectorAll("#arcHowtoCard .zb-howto__item")].map((i) => !!i.querySelector("svg")),
         arcStrip: [...document.querySelectorAll(".zb-covertrack .zb-track__step")].map((s) => s.textContent).join("|"),
         arcNote: (document.querySelector(".zb-covertrack__note") || {}).textContent || "",
+        // §19.5: the cover splits on a wide stage - controls right, so
+        // the host button and the logo both clear a laptop fold
+        fold: {
+          vh: innerHeight,
+          host: Math.round(q("#btnHost").getBoundingClientRect().bottom),
+          brand: Math.round(q("#introScreen .mc-brand").getBoundingClientRect().bottom),
+          cols: getComputedStyle(q("#introScreen .zb-splitgrid")).gridTemplateColumns.split(" ").length,
+        },
+        duration: (q("#introScreen .mc-meta") || {}).textContent || "",
         pts: {
           full: L.points(1, 1, 0), none: L.points(0, 1, 0), half: L.points(0.5, 1, 0),
           s3: L.points(1, 1, 3), s10: L.points(1, 1, 10), s20: L.points(1, 1, 20),
@@ -306,6 +315,11 @@ async function main() {
     check("§19.4: the cover names the whole lesson, not the main game alone",
       intro.arcStrip === "探究一|探究二|概念轉化|主遊戲" && intro.arcNote.includes("等式開口中"),
       JSON.stringify({ strip: intro.arcStrip, note: intro.arcNote.slice(0, 40) }));
+    check("§19.5: the cover's controls and logo clear the fold on a laptop",
+      intro.fold.cols === 2 && intro.fold.host < intro.fold.vh && intro.fold.brand <= intro.fold.vh,
+      JSON.stringify(intro.fold));
+    check("§19.5: the run's own length is the measured 12 minutes, not 15",
+      intro.duration.includes("12"), intro.duration);
     check("points: base speed",
       intro.pts.full === 200 && intro.pts.none === 100 && intro.pts.half === 150,
       JSON.stringify(intro.pts));
@@ -1402,8 +1416,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 159) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 159`);
+    if (total !== 161) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 161`);
       process.exit(1);
     }
     if (failures.length) {
