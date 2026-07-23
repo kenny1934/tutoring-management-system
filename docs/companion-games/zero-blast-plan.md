@@ -2092,7 +2092,10 @@ JS style write, which also covers the cover's two code-row slots; the
 column's height comes from the stage itself rather than a hand-copied
 `104px` that this very batch had already invalidated; `--zb-pad-w`
 names the keypad column width the pad, the host board and the hint all
-line up on; the sign key moved to the end of the markup so reading
+line up on; the column's min-height declares `100vh` before `100dvh`,
+because a browser that drops the rule outright would collapse the
+marking band with nothing pinning the pad - the exact jump it exists
+to stop; the sign key moved to the end of the markup so reading
 order matches render order and its grid coordinates could go; and the
 solo suite measures the handset case by resizing the page it already
 has, which is ~5s of wall clock and one browser context cheaper.

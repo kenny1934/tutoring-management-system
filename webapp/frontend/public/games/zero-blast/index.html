@@ -1236,7 +1236,11 @@
        shifts the keys under a thumb, which is what lets the empty band
        collapse rather than hold its reserve. */
     @media (max-width: 700px) and (orientation: portrait) {
-      .mc-stage:has(> .zb-fill.active) { display: flex; flex-direction: column; min-height: 100dvh; }
+      /* vh first so the anchoring works everywhere, dvh over it where
+         the dynamic toolbar is understood: if the whole rule can be
+         dropped, the band below collapses with nothing pinning the pad
+         - the very jump this exists to stop */
+      .mc-stage { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
       .zb-fill.active, .zb-fillpane { display: flex; flex-direction: column; flex: 1 1 auto; }
       .zb-fillpane > .zb-padwrap, .zb-fillpane > .zb-padblock { margin-top: auto; }
       /* the marking band reserves height so the pad doesn't jump as a
