@@ -2099,3 +2099,33 @@ to stop; the sign key moved to the end of the markup so reading
 order matches render order and its grid coordinates could go; and the
 solo suite measures the handset case by resizing the page it already
 has, which is ~5s of wall clock and one browser context cheaper.
+
+### 19.10 The lobby's two-instruction flash (2026-07-23)
+
+Kenny, on the deployed build: the multiplayer lobby shows two
+instruction cards for a moment before settling on one.
+
+開始主持 puts the lobby on the projector and only THEN awaits
+`GameBridge.host()` - anonymous auth plus the room write, a real
+network hop. `renderTrack()` is what decides which how-to card the
+lobby wears, and it ran inside `enterLobbyWith()`, i.e. after that
+await landed. Neither card was hidden as authored, so for the whole
+length of the round-trip the class read the demolition rules stacked
+on top of the arc rules, and then watched one vanish.
+
+Two changes, either of which would have been enough, both worth
+having: `#howtoCard` is hidden in the markup, matching the track's
+default entry step (探究一), so the authored state is already the
+resolved one; and `renderTrack()` now also runs immediately after
+`show("lobbyScreen")`, before the await, so the face is right for
+whatever `G.trackStart` holds rather than for one hard-coded default.
+`#roomCode` already carried a ···· placeholder for exactly this
+window - the how-to cards simply never got the same treatment.
+
+Why no suite caught it: the multi suite's GameBridge mock resolves
+`host()` in a microtask, so the window this bug lives in was zero
+frames wide. The new assertion stubs a deliberately slow `host()` and
+reads the lobby 400ms in, which is the only way the gap is observable
+from a test.
+
+Suites: multi 243, solo 166, audit 76 - all green.
