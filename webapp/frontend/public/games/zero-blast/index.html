@@ -25,6 +25,10 @@
   <style>
     /* ---- game-specific styles: theme.css tokens only ---- */
 
+    /* the width of the keypad column: the pad, the host board and the
+       hint that lines up with the pad's right edge all read it */
+    :root { --zb-pad-w: 340px; }
+
     /* the page-turn slide must never create a horizontal scrollbar */
     html, body { overflow-x: hidden; }
 
@@ -115,10 +119,11 @@
        keypad must stay above the fold, marking included */
     @media (max-width: 700px) {
       .zb-scene { height: clamp(200px, 30vh, 320px); }
-      /* the kicker is one nowrap row by default: on a phone that broke
-         both halves mid-word (分 / 鐘) rather than stacking them */
-      .mc-meta { flex-wrap: wrap; gap: 6px 18px; }
     }
+    /* the kicker is one nowrap row by default, so on a phone it broke
+       both halves mid-word (分 / 鐘) instead of stacking them. Wrapping
+       needs no width guard: a row that fits never wraps. */
+    .mc-meta { flex-wrap: wrap; row-gap: 6px; }
     /* tablets and small laptops: give the scene real height so the
        tall kinds keep their tops with headroom to spare. Ends at
        999px because applyProjector() claims >=1000 for every screen
@@ -892,7 +897,10 @@
     .zb-mark { min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px 0; }
     .zb-mark .mc-margin-note { line-height: 1.5; }
 
-    .zb-padwrap { position: relative; max-width: 340px; margin: 0 auto; }
+    /* a definite cross size, not max-width + auto margins: it centres
+       the same in block flow and inside a .zb-fillpane column, where an
+       auto side margin would otherwise beat the flex item's stretch */
+    .zb-padwrap { position: relative; width: min(var(--zb-pad-w), 100%); margin-inline: auto; }
     .zb-preview {
       text-align: center; font-family: var(--mc-mono); font-weight: 700; font-size: 0.9375rem;
       color: var(--mc-ink-faint); margin-bottom: 8px; min-height: 22px;
@@ -926,7 +934,7 @@
     .zb-key:active { transform: translateY(2px); box-shadow: 0 0 0 var(--mc-ink); }
     .zb-key:focus-visible { outline: 2.5px solid var(--mc-red); outline-offset: 2px; }
     .zb-key:disabled { opacity: 0.45; cursor: not-allowed; }
-    .zb-key--sign { grid-column: 3; grid-row: 4; font-size: 1.875rem; }
+    .zb-key--sign { font-size: 1.875rem; }
     .zb-key--sign[aria-pressed="true"] {
       background: var(--mc-red-wash); border-color: var(--mc-red); color: var(--mc-red);
       box-shadow: 0 2px 0 var(--mc-red);
@@ -1038,7 +1046,7 @@
       text-align: center; font-family: var(--mc-mono); font-size: 0.75rem;
       font-weight: 700; color: var(--mc-ink-faint); margin-top: 4px;
     }
-    .zb-hostboard { max-width: 340px; margin: 4px auto 0; }
+    .zb-hostboard { width: min(var(--zb-pad-w), 100%); margin: 4px auto 0; }
     .zb-hostboard__row {
       display: flex; align-items: baseline; gap: 10px;
       font-family: var(--mc-mono); font-size: 0.90625rem; font-weight: 700;
@@ -1058,28 +1066,26 @@
     @media (prefers-reduced-motion: reduce) {
       .zb-pulse { animation: none; outline: 2px solid var(--mc-red); outline-offset: 2px; }
     }
-    /* solo hint: a quiet button in the margin above the marking band,
-       cut from the same cloth as 暫停. The old dashed pill sat inside
-       the keypad block, directly over the answer preview, where it
-       read as an empty field rather than an offer. */
-    .zb-solohint {
-      display: block; margin: 0 0 6px auto; padding: 4px 12px;
-      font-family: inherit; font-size: 0.8125rem; font-weight: 700;
-      color: var(--mc-ink-soft); background: none;
-      border: 1.5px solid var(--mc-ink-faint);
-      border-radius: var(--mc-r); cursor: pointer;
-    }
-    .zb-solohint:hover { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
-    .zb-solohint:disabled { opacity: 0.45; cursor: not-allowed; }
-    /* pause: the site shuts down cleanly and picks up where it stopped */
-    .zb-pausebtn {
+    /* the quiet marginal button: a pencilled offer beside the action,
+       never competing with it. Worn by 暫停 (pause: the site shuts down
+       cleanly and picks up where it stopped) and by the solo hint,
+       which sits above the marking band - the old dashed pill sat
+       inside the keypad block, over the answer preview, where it read
+       as an empty field rather than an offer. */
+    .zb-solohint, .zb-pausebtn {
       font-family: inherit; font-size: 0.8125rem; font-weight: 700;
       color: var(--mc-ink-soft); background: none; cursor: pointer;
       border: 1.5px solid var(--mc-ink-faint); border-radius: var(--mc-r);
-      padding: 3px 12px; margin-left: 10px; vertical-align: middle;
     }
-    .zb-pausebtn:hover { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
-    .zb-pausebtn:disabled { opacity: 0.4; cursor: default; }
+    .zb-solohint:hover, .zb-pausebtn:hover { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
+    .zb-solohint:disabled, .zb-pausebtn:disabled { opacity: 0.45; cursor: not-allowed; }
+    /* right margin = the keypad's own inset, so the offer lines up
+       with the pad's right edge instead of the column's */
+    .zb-solohint {
+      display: block; padding: 4px 12px;
+      margin: 0 calc(50% - min(var(--zb-pad-w) / 2, 50%)) 6px auto;
+    }
+    .zb-pausebtn { padding: 3px 12px; margin-left: 10px; vertical-align: middle; }
     .zb-pauseveil {
       position: absolute; inset: 0; z-index: 6;
       display: flex; align-items: center; justify-content: center;
@@ -1101,9 +1107,10 @@
       letter-spacing: 0.08em;
     }
     .zb-coderow .mc-btn, .zb-reclaim .mc-btn { padding: 8px 14px; }
-    /* the status slots under the code rows only exist when they speak:
-       two stacked dashed placeholders read as clutter on the cover */
-    #joinCodeStatus:empty, #reclaimStatus:empty { display: none; }
+    /* a status slot only exists when it speaks: a silent one is a dashed
+       box that reads as a field waiting to be filled in (two of them
+       stacked under the cover's code rows, one under the phone's pad) */
+    .mc-status:empty { display: none; }
     .zb-hostboard__rank { color: var(--mc-ink-faint); font-size: 0.75rem; width: 20px; }
     .zb-hostboard__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .zb-hostboard__pts { color: var(--mc-gold); }
@@ -1206,7 +1213,7 @@
     .zb-stage--projector .zb-topline__level { font-size: 1rem; }
     .zb-stage--projector .zb-timer { font-size: 1.875rem; }
     .zb-stage--projector .zb-score { font-size: 1.25rem; }
-    .zb-stage--projector .zb-hostboard { max-width: none; }
+    .zb-stage--projector .zb-hostboard { width: auto; }
     .zb-stage--projector .zb-hostboard__row { font-size: 1.125rem; padding: 8px 10px; }
     .zb-stage--projector .zb-mark { min-height: 120px; }
     .zb-stage--projector .zb-floatpts { font-size: 52px; }
@@ -1219,6 +1226,24 @@
       .zb-stage--projector .zb-timer { font-size: 2.125rem; }
     }
 
+    /* ── phone tiers, broadest first ── */
+
+    /* portrait phones: a screen that owns a keypad becomes ONE
+       full-height column (.zb-fill), so the pad rides the thumb zone
+       instead of floating mid-sheet and the line under it stays on
+       screen - it fell clean off a 640-tall phone. The spacer above
+       the pad pins it, so a verdict filling the marking band never
+       shifts the keys under a thumb, which is what lets the empty band
+       collapse rather than hold its reserve. */
+    @media (max-width: 700px) and (orientation: portrait) {
+      .mc-stage:has(> .zb-fill.active) { display: flex; flex-direction: column; min-height: 100dvh; }
+      .zb-fill.active, .zb-fillpane { display: flex; flex-direction: column; flex: 1 1 auto; }
+      .zb-fillpane > .zb-padwrap, .zb-fillpane > .zb-padblock { margin-top: auto; }
+      /* the marking band reserves height so the pad doesn't jump as a
+         verdict lands; here the spacer already holds that gap, so the
+         band sizes to its ink and the pad keeps the room */
+      .zb-fillpane .zb-mark { min-height: 0; }
+    }
     /* compact phones: keep the keypad reachable without hunting.
        Width-guarded: a 768-tall landscape TABLET must not match, or
        the scene drops to 230px and the frame can't hold a tall kind */
@@ -1248,26 +1273,6 @@
       /* keys kept at the compact size (the width-guarded compact rule
          no longer reaches landscape phones) */
       .zb-key { min-height: 48px; }
-    }
-
-    /* portrait phones: the controller is one full-height column, so the
-       keypad rides the thumb zone instead of floating mid-sheet and the
-       instruction line stays on screen (it fell clean off a 640-tall
-       phone). The pad is pinned by the spacer above it, so a verdict
-       filling the marking band never shifts the keys under a thumb. */
-    @media (max-width: 700px) and (orientation: portrait) {
-      #controllerScreen.active {
-        display: flex; flex-direction: column;
-        min-height: calc(100vh - 104px - env(safe-area-inset-top));
-        min-height: calc(100dvh - 104px - env(safe-area-inset-top));
-      }
-      #ctrlPlay, #ctrlInq { display: flex; flex-direction: column; flex: 1 1 auto; }
-      /* width:100% because the wrap centres itself with auto side
-         margins, and an auto margin beats a flex item's stretch */
-      #ctrlPlay > .zb-padwrap, #ctrlInq > .zb-padwrap { margin-top: auto; width: 100%; }
-      /* no verdict yet: the reserve would only pad the gap the spacer
-         already holds */
-      .zb-mark:empty { min-height: 0; padding: 0; }
     }
 
     /* ══ 探究模式 · 等式開口中 (SM901 活動二) ══
@@ -1442,9 +1447,10 @@
       <circle cx="17.5" cy="9" r="2.8" fill="none" stroke-width="2"/>
       <path d="M16 14.3c3.1 0.3 5.5 2.5 5.5 5.7" fill="none" stroke-width="2" stroke-linecap="round"/>
     </symbol>
-    <!-- these two are the only icons used on a plain button, where no
-         context rule supplies a stroke: without it they drew nothing
-         and left a 20px hole beside 多裝置開始 / 加入遊戲 -->
+    <!-- symbols worn on a plain button carry their own stroke: every
+         other icon gets one from its context (.mc-meta svg, .zb-timer
+         svg, .mc-toggles svg…), and a button has no such rule, so these
+         drew nothing at all and left a hole where the glyph belongs -->
     <symbol id="i-screen" viewBox="0 0 24 24">
       <rect x="2.5" y="4" width="19" height="12.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
       <path d="M9 20.5h6M12 16.5v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -1463,9 +1469,10 @@
       <circle cx="12" cy="12" r="8.5" fill="none" stroke-width="2"/>
       <path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5z" fill="currentColor" stroke="none"/>
     </symbol>
+    <!-- also worn bare, on the one-time sound offer over the scene -->
     <symbol id="i-sound" viewBox="0 0 24 24">
-      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="none" stroke-width="2" stroke-linejoin="round"/>
-      <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke-width="2" stroke-linecap="round"/>
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </symbol>
     <symbol id="i-sound-off" viewBox="0 0 24 24">
       <path d="M4 9v6h4l5 4V5L8 9H4z" fill="none" stroke-width="2" stroke-linejoin="round"/>
@@ -1804,8 +1811,8 @@
   </div>
 
   <!-- ══ game (solo + host) ══ -->
-  <div class="mc-screen" id="gameScreen">
-    <div class="zb-game-grid">
+  <div class="mc-screen zb-fill" id="gameScreen">
+    <div class="zb-game-grid zb-fillpane">
       <div class="zb-col-l">
         <div class="zb-topline">
           <span class="zb-topline__level" id="levelChip"></span>
@@ -1850,27 +1857,30 @@
           <button class="mc-btn mc-btn--quiet zb-tutorbtn" id="btnGameQr" data-i18n="btn_qr" data-key="q"></button>
         </div>
       </div>
-      <div class="zb-col-r">
+      <div class="zb-col-r zb-fillpane">
         <div class="mc-stars" id="stars" style="margin-top:8px" aria-label="streak"></div>
         <div class="zb-hostboard" id="hostBoard" style="display:none"></div>
         <div class="zb-strugglers" id="strugglers" style="display:none"></div>
-        <!-- solo kind-6 scaffold, now opt-in: the auto-hint silently
-             cancelled the finale's double points on exactly the
-             students who needed thinking time. It sits above the
-             marking band rather than inside the keypad block, where a
-             dashed pill above the answer preview read as part of the
-             answer field and pushed 0 below a phone's fold. -->
+        <div class="zb-mark" id="markZone" aria-live="polite"></div>
+        <!-- the keypad and the offer that belongs to it travel together:
+             solo's kind-6 scaffold is opt-in (the old auto-hint silently
+             cancelled the finale's double points on exactly the students
+             who needed thinking time) and sits in the margin beside the
+             pad, not inside it, where a centred dashed pill above the
+             answer preview read as part of the answer field and pushed
+             0 below a phone's fold. -->
+        <div class="zb-padblock">
         <button class="zb-solohint" id="soloHint" style="display:none">
           <span data-i18n="btn_hint_solo"></span>
         </button>
-        <div class="zb-mark" id="markZone" aria-live="polite"></div>
         <div class="zb-padwrap" id="padWrap">
           <div class="zb-preview" id="padPreview"></div>
+          <!-- source order IS the reading order: the sign key sits last
+               because it renders last, bottom-right beside 0 -->
           <div class="zb-pad" id="pad">
             <button class="zb-key" data-d="7">7</button>
             <button class="zb-key" data-d="8">8</button>
             <button class="zb-key" data-d="9">9</button>
-            <button class="zb-key zb-key--sign" id="keySign" aria-pressed="false" aria-label="負號 / negative sign">−</button>
             <button class="zb-key" data-d="4">4</button>
             <button class="zb-key" data-d="5">5</button>
             <button class="zb-key" data-d="6">6</button>
@@ -1878,6 +1888,7 @@
             <button class="zb-key" data-d="2">2</button>
             <button class="zb-key" data-d="3">3</button>
             <button class="zb-key zb-key--zero" data-d="0">0</button>
+            <button class="zb-key zb-key--sign" id="keySign" aria-pressed="false" aria-label="負號 / negative sign">−</button>
           </div>
           <div class="zb-lock" id="padLock" aria-live="polite">
             <div class="zb-lock__ring">
@@ -1886,6 +1897,7 @@
             </div>
             <div class="zb-lock__hint" data-i18n="lock_think"></div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -1948,7 +1960,7 @@
   </div>
 
   <!-- ══ controller (student phone, multi-device) ══ -->
-  <div class="mc-screen" id="controllerScreen">
+  <div class="mc-screen zb-fill" id="controllerScreen">
     <header class="mc-masthead">
       <span class="mc-masthead__code"><strong>SM901</strong> · <span data-i18n="subtopic"></span></span>
       <span class="mc-masthead__code" id="ctrlName"></span>
@@ -1964,7 +1976,7 @@
         <svg class="mc-arrow"><use href="#i-arrow"/></svg>
       </button>
     </div>
-    <div id="ctrlPlay" style="display:none">
+    <div class="zb-fillpane" id="ctrlPlay" style="display:none">
       <div class="zb-topline">
         <span class="zb-topline__level" id="ctrlLevelChip"></span>
         <span class="zb-topline__right">
@@ -1988,7 +2000,7 @@
       </div>
     </div>
     <!-- 探究模式: the phone's warm-up face (target + two-digit pad) -->
-    <div id="ctrlInq" style="display:none">
+    <div class="zb-fillpane" id="ctrlInq" style="display:none">
       <div class="zb-topline">
         <span class="zb-topline__level" id="ctrlInqChip"></span>
         <span class="zb-topline__right">
@@ -5835,18 +5847,15 @@ function ctrlTakeover(pts) {
 
 function padKeysHtml() {
   const key = d => `<button class="zb-key" data-d="${d}">${d}</button>`;
-  return [7, 8, 9].map(key).join("")
-    + '<button class="zb-key zb-key--sign" aria-pressed="false" aria-label="負號 / negative sign">−</button>'
-    + [4, 5, 6, 1, 2, 3].map(key).join("")
-    + '<button class="zb-key zb-key--zero" data-d="0">0</button>';
+  return [7, 8, 9, 4, 5, 6, 1, 2, 3].map(key).join("")
+    + '<button class="zb-key zb-key--zero" data-d="0">0</button>'
+    + '<button class="zb-key zb-key--sign" aria-pressed="false" aria-label="負號 / negative sign">−</button>';
 }
 
 function ctrlStatus(text, cls) {
   const el = $("ctrlStatus");
-  el.textContent = text;
+  el.textContent = text; // .mc-status:empty hides a silent slot
   el.className = "mc-status" + (cls ? " " + cls : "");
-  // an empty status is a dashed box that reads as a field to fill in
-  el.style.display = text ? "" : "none";
 }
 
 /* The phone renders whatever level the room publishes. Rules scope
@@ -6188,7 +6197,7 @@ function renderCtrlInqResult(rv, hearts) {
   }
   // the student's own line always leads: the pair's card order used to
   // decide it, so a phone could open with the partner's verdict
-  const members = inqRowMembers(row, rv).slice()
+  const members = inqRowMembers(row, rv)
     .sort((a, b) => (b.id === C.id) - (a.id === C.id));
   const lines = [];
   const vals = [];

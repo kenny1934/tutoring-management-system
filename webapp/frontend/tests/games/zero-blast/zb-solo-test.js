@@ -1,4 +1,4 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (167 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (166 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (167 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (166 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -1238,8 +1238,22 @@ async function main() {
       cw.mark.includes("(−5)"), `mark "${cw.mark}"`);
     await pE.close();
 
-    /* the opt-in solo hint (kind 6 street of one): chip + nudge contract */
+    /* the opt-in solo hint (kind 6 street of one): chip + nudge contract.
+       Run at handset size — a student practising on a phone is where the
+       hint's placement and the keypad's fold actually bite, and it costs
+       a resize rather than a second browser context. */
     const pF = await gamePage(ctx, "levels=6&rounds=1&seed=5", errsCfg);
+    await pF.setViewportSize({ width: 390, height: 844 });
+    const coverMeta = await pF.evaluate(() => {
+      const spans = [...document.querySelectorAll("#introScreen .mc-meta > span")];
+      const line = parseFloat(getComputedStyle(spans[0]).lineHeight) || 20;
+      return {
+        n: spans.length,
+        oneLineEach: spans.every((s) => s.getBoundingClientRect().height <= line * 1.5),
+      };
+    });
+    check("phone cover: the kicker stacks whole instead of breaking mid-word",
+      coverMeta.n === 2 && coverMeta.oneLineEach, JSON.stringify(coverMeta));
     await pF.click("#btnSolo");
     await untilStaged(pF);
     // half fuse: the strategy NUDGE appears (mark zone is empty) but the
@@ -1271,28 +1285,51 @@ async function main() {
       hint.nudged && !hint.hintedAfterHalf &&
       hint.chipAfterHalf.visible && !hint.chipAfterHalf.disabled,
       JSON.stringify({ chip0: hint.chip0, after: hint.chipAfterHalf, hinted: hint.hintedAfterHalf }));
-    // it belongs in the margin above the marking band: inside the keypad
-    // block, a dashed pill over the answer preview read as a field to
-    // fill in, and it pushed the 0 row below a phone's fold
+    // it belongs in the margin beside the keypad, not inside it: a
+    // centred dashed pill over the answer preview read as a field to
+    // fill in, and it pushed the 0 row below a phone's fold. It wears
+    // the same quiet skin as 暫停, which is the design rule — so read
+    // that button rather than pinning a CSS literal here.
     const chipPlace = await pF.evaluate(() => {
       const chip = document.getElementById("soloHint");
       const r = chip.getBoundingClientRect();
-      const mark = document.getElementById("markZone").getBoundingClientRect();
-      const cs = getComputedStyle(chip);
+      const pad = document.getElementById("padWrap").getBoundingClientRect();
+      const skin = (el) => {
+        const cs = getComputedStyle(el);
+        return [cs.border, cs.color, cs.fontSize, cs.fontWeight, cs.backgroundColor].join("|");
+      };
       return {
         outsidePad: !document.getElementById("padWrap").contains(chip),
-        aboveMark: r.bottom <= mark.top + 1,
-        border: cs.borderTopStyle,
-        rightAligned: Math.abs(r.right - mark.right) <= 2,
+        besidePad: r.bottom <= pad.top + 1 && pad.top - r.bottom < 40,
+        chipBottom: Math.round(r.bottom),
+        vh: innerHeight,
+        sameSkinAsPause: skin(chip) === skin(document.getElementById("btnPause")),
+        rightAligned: Math.abs(r.right - pad.right) <= 2,
       };
     });
-    check("solo hint sits in the margin above the marking band, not in the keypad",
-      chipPlace.outsidePad && chipPlace.aboveMark &&
-      chipPlace.border === "solid" && chipPlace.rightAligned,
+    check("solo hint sits in the margin beside the keypad, wearing 暫停's skin",
+      chipPlace.outsidePad && chipPlace.besidePad && chipPlace.rightAligned &&
+      chipPlace.sameSkinAsPause && chipPlace.chipBottom <= chipPlace.vh,
       JSON.stringify(chipPlace));
     check("half-fuse nudge: sum and product pencilled in the mark zone",
       hint.mark.includes("乘埋係 " + hint.prod) && hint.mark.includes("加埋係 " + hint.sum),
       `mark "${hint.mark}" prod ${hint.prod} sum ${hint.sum}`);
+    // the whole keypad has to be reachable with the hint on offer: the
+    // 0 row used to sit below the fold on a handset
+    const phoneFold = await pF.evaluate(() => {
+      const digits = [...document.querySelectorAll("#pad .zb-key[data-d]")]
+        .map((k) => k.getBoundingClientRect());
+      const l = Math.min(...digits.map((r) => r.left));
+      const r = Math.max(...digits.map((r) => r.right));
+      return {
+        zeroBottom: Math.round(document.querySelector("#pad .zb-key--zero").getBoundingClientRect().bottom),
+        vh: innerHeight,
+        offCentre: +Math.abs((l + r) / 2 - innerWidth / 2).toFixed(1),
+      };
+    });
+    check("phone solo: the 0 row clears the fold and the keys sit centred",
+      phoneFold.zeroBottom <= phoneFold.vh && phoneFold.offCentre <= 1,
+      JSON.stringify(phoneFold));
     // the student opts in: tap the chip
     const tapped = await pF.evaluate(() => {
       const G = window.G;
@@ -1441,46 +1478,6 @@ async function main() {
     await pG.close();
 
     check("no page errors (config pages)", errsCfg.length === 0, errsCfg.join(" | "));
-
-    /* ══ solo on a phone ══
-       a student practising on a handset: the whole keypad, 0 row
-       included, has to clear the fold, and the cover's kicker must
-       stack instead of breaking both halves mid-word */
-    const phoneCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
-    const errsPhone = [];
-    const pPhone = await gamePage(phoneCtx, "levels=6&rounds=1&seed=5", errsPhone);
-    const coverMeta = await pPhone.evaluate(() => {
-      const spans = [...document.querySelectorAll("#introScreen .mc-meta > span")];
-      const line = parseFloat(getComputedStyle(spans[0]).lineHeight) || 20;
-      return {
-        n: spans.length,
-        wrapped: getComputedStyle(document.querySelector("#introScreen .mc-meta")).flexWrap,
-        oneLineEach: spans.every((s) => s.getBoundingClientRect().height <= line * 1.5),
-      };
-    });
-    check("phone cover: the kicker stacks whole instead of breaking mid-word",
-      coverMeta.n === 2 && coverMeta.wrapped === "wrap" && coverMeta.oneLineEach,
-      JSON.stringify(coverMeta));
-    await pPhone.click("#btnSolo");
-    await untilStaged(pPhone);
-    const phoneFold = await pPhone.evaluate(() => {
-      const keys = [...document.querySelectorAll("#pad .zb-key")];
-      const zero = document.querySelector("#pad .zb-key--zero").getBoundingClientRect();
-      const numerals = keys.filter((k) => /^[0-9]$/.test(k.textContent.trim()));
-      const l = Math.min(...numerals.map((k) => k.getBoundingClientRect().left));
-      const r = Math.max(...numerals.map((k) => k.getBoundingClientRect().right));
-      return {
-        hint: document.getElementById("soloHint").style.display !== "none",
-        zeroBottom: Math.round(zero.bottom),
-        vh: innerHeight,
-        offCentre: +Math.abs((l + r) / 2 - innerWidth / 2).toFixed(1),
-      };
-    });
-    check("phone solo: the 0 row and the offered hint both clear the fold, keys centred",
-      phoneFold.hint && phoneFold.zeroBottom <= phoneFold.vh && phoneFold.offCentre <= 1,
-      JSON.stringify(phoneFold));
-    check("no page errors (phone)", errsPhone.length === 0, errsPhone.join(" | "));
-    await phoneCtx.close();
   } finally {
     await browser.close();
   }
@@ -1495,8 +1492,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 167) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 167`);
+    if (total !== 166) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 166`);
       process.exit(1);
     }
     if (failures.length) {

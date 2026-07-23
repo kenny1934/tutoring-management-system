@@ -2039,25 +2039,33 @@ faces (join/controller, 探究 arc, solo on a handset) at 390x844 and
   edge sat 240px above the screen's, out of easy thumb reach; on a
   640-tall phone `#ctrlStatus` - which carries 出一個 0至99 嘅整數,
   the pillar count and the grace warning - fell entirely below the
-  fold. The controller is now one full-height flex column on portrait
-  phones with the pad pinned by the spacer above it, so a verdict
-  filling the marking band never shifts keys under a thumb, and the
-  empty marking band collapses instead of holding its 96px reserve.
-  A 640-tall tier trims the stage's bottom padding, the scene, the
-  key height and the status line. Remaining: a two-line verdict card
-  on a 640-tall phone still pushes the status line a few pixels past
-  the fold - the keypad and the verdict both stay on screen.
+  fold. A screen that owns a keypad is now one full-height column on
+  portrait phones (`.zb-fill` / `.zb-fillpane`, worn by both the
+  controller and the solo game screen) with the pad pinned by the
+  spacer above it, so a verdict filling the marking band never shifts
+  keys under a thumb. That is also what lets the band size to its ink
+  there instead of holding a 96px reserve whose whole job was
+  preventing that jump - on a 390x844 handset it was holding 96px for
+  23px of nudge while the 0 key hung past the fold. A 640-tall tier
+  trims the stage's bottom padding, the scene, the key height and the
+  status line. Remaining: a two-line verdict card on a 640-tall phone
+  still pushes the status line a few pixels past the fold - the
+  keypad and the verdict both stay on screen.
 - **The solo hint sat inside the keypad block**, a dashed low-contrast
   pill directly above the `x = ▢` preview, which read as part of the
   answer field - and it pushed the 0 row below the fold on a phone.
-  It moves to the margin above the marking band, right-aligned, with
-  the same solid hairline as 暫停. (It is solo-only; the multiplayer
-  controller has no hint, so what Kenny saw was solo on a handset.)
-- **Two icons drew nothing.** `i-phone` on the student's 加入遊戲 and
-  `i-screen` on the cover's 多裝置開始 set `fill: none` with no stroke
-  colour, and unlike `.mc-meta svg` / `.zb-timer svg` no context rule
-  supplied one - both buttons reserved 20px of blank. The symbols now
-  carry `stroke="currentColor"` themselves.
+  It moves out to the margin, right-aligned to the pad's own edge and
+  travelling with it (`.zb-padblock`) so it stays beside the keys at
+  every width, and it now wears 暫停's skin rather than restating it.
+  (It is solo-only; the multiplayer controller has no hint, so what
+  Kenny saw was solo on a handset.)
+- **Three icons drew nothing.** `i-phone` on the student's 加入遊戲,
+  `i-screen` on the cover's 多裝置開始 and `i-sound` on the one-time
+  sound offer set `fill: none` with no stroke colour, and unlike
+  `.mc-meta svg` / `.zb-timer svg` no context rule supplies one to a
+  bare button - each reserved a hole where the glyph belongs. Those
+  symbols now carry `stroke="currentColor"` themselves; the audit
+  suite fails on any bare-button symbol that doesn't.
 - **探究 result cards opened with the wrong line.** Order followed the
   pair's card order, so a phone could lead with the partner's verdict;
   and the shared 未提交 string is name-prefixed on the projector, so
@@ -2074,4 +2082,17 @@ faces (join/controller, 探究 arc, solo on a handset) at 390x844 and
 - 0 至 99 -> 0至99 in the two 探究 strings: body-sized text takes no
   spaces around 至.
 
-Suites: multi 242, solo 167, audit 76 - all green.
+Suites: multi 242, solo 166, audit 76 - all green.
+
+A cleanup pass followed (reuse / simplification / efficiency /
+altitude). What it changed, beyond the wording above: the quiet-button
+skin is declared once for 暫停 and the hint rather than copied; the
+empty-status hide goes back to CSS (`.mc-status:empty`) instead of a
+JS style write, which also covers the cover's two code-row slots; the
+column's height comes from the stage itself rather than a hand-copied
+`104px` that this very batch had already invalidated; `--zb-pad-w`
+names the keypad column width the pad, the host board and the hint all
+line up on; the sign key moved to the end of the markup so reading
+order matches render order and its grid coordinates could go; and the
+solo suite measures the handset case by resizing the page it already
+has, which is ~5s of wall clock and one browser context cheaper.

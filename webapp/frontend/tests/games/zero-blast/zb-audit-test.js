@@ -283,20 +283,19 @@ async function section320(browser) {
   const padInfo = await page.evaluate(() => {
     const keys = [...document.querySelectorAll("#pad .zb-key")];
     const pad = document.getElementById("pad").getBoundingClientRect();
-    const digits = keys.filter((k) => !k.classList.contains("zb-key--sign"));
-    const digitHs = digits.map((k) => k.getBoundingClientRect().height);
+    // the digit block's own box, which is what a student reads as "the
+    // keypad": the sign key used to hang off a fourth column and shove
+    // every digit left of the screen's centre
+    const digits = [...document.querySelectorAll("#pad .zb-key[data-d]")]
+      .map((k) => k.getBoundingClientRect());
     const sign = document.querySelector("#pad .zb-key--sign").getBoundingClientRect();
-    // the digit block's own centre, which is what a student reads as
-    // "the keypad": the sign key used to hang off a fourth column and
-    // shove every digit left of the screen's centre
-    const numerals = keys.filter((k) => /^[0-9]$/.test(k.textContent.trim()));
-    const l = Math.min(...numerals.map((k) => k.getBoundingClientRect().left));
-    const r = Math.max(...numerals.map((k) => k.getBoundingClientRect().right));
+    const l = Math.min(...digits.map((r) => r.left));
+    const r = Math.max(...digits.map((r) => r.right));
     return {
       keys: keys.length,
       visible: keys.every((k) => k.offsetParent !== null),
-      minH: Math.min(...digitHs),
-      maxH: Math.max(...digitHs),
+      minH: Math.min(...digits.map((d) => d.height)),
+      maxH: Math.max(...digits.map((d) => d.height)),
       signH: sign.height, // one row now: it shares the bottom row with 0
       cols: getComputedStyle(document.getElementById("pad")).gridTemplateColumns.split(" ").length,
       offCentre: Math.abs((l + r) / 2 - innerWidth / 2),
@@ -320,23 +319,21 @@ async function section320(browser) {
   check(
     "320px: three columns, digits centred on the screen",
     padInfo.cols === 3 && padInfo.offCentre <= 1,
-    JSON.stringify({ cols: padInfo.cols, offCentre: padInfo.offCentre })
+    JSON.stringify(padInfo)
   );
-  // the two icons that ride a plain button carry their own stroke: no
-  // context rule supplies one, so a bare symbol drew nothing at all
-  const btnIcons = await page.evaluate(() =>
-    ["i-screen", "i-phone"].map((id) => {
-      const sym = document.getElementById(id);
-      return {
-        id,
-        strokes: [...sym.children].every((el) => el.getAttribute("stroke") === "currentColor"),
-      };
-    })
+  // icons worn on a bare button get no stroke from any context rule, so
+  // without one of their own they draw nothing: 多裝置開始, 加入遊戲 and
+  // the sound offer all shipped a blank glyph
+  const bareIcons = await page.evaluate(() =>
+    ["i-screen", "i-phone", "i-sound"].filter((id) =>
+      [...document.getElementById(id).children]
+        .some((el) => !el.getAttribute("stroke"))
+    )
   );
   check(
-    "button icons carry a stroke (they drew nothing without one)",
-    btnIcons.every((i) => i.strokes),
-    JSON.stringify(btnIcons)
+    "icons worn on a bare button carry their own stroke",
+    bareIcons.length === 0,
+    "strokeless: " + JSON.stringify(bareIcons)
   );
   await ctx.close();
 }

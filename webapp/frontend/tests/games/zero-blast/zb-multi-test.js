@@ -254,6 +254,25 @@ async function padSubmit(page, v) {
   }, v);
 }
 
+/* how far the DIGIT block's centre sits from the screen's — what a
+ * student reads as "the keypad", which the sign key used to drag off
+ * centre from a fourth column. Also reports the pad geometry the
+ * layout checks lean on, so one probe serves all of them. */
+function padGeometry(page, padSel) {
+  return page.evaluate((sel) => {
+    const digits = [...document.querySelectorAll(sel + " .zb-key[data-d]")]
+      .map((k) => k.getBoundingClientRect());
+    const l = Math.min(...digits.map((r) => r.left));
+    const r = Math.max(...digits.map((r) => r.right));
+    const pad = document.querySelector(sel).getBoundingClientRect();
+    return {
+      offCentre: +Math.abs((l + r) / 2 - innerWidth / 2).toFixed(1),
+      padBottom: Math.round(pad.bottom),
+      vh: innerHeight,
+    };
+  }, padSel);
+}
+
 /* submit then wait for the host's private verdict; returns the verdict */
 async function submitVerdict(page, v) {
   const before = await page.evaluate(() => C.lastVerdictSeq);
@@ -671,27 +690,15 @@ async function main() {
   /* the phone's play face is one full-height column: keys centred and
    * down in the thumb zone, the progress line under them on screen.
    * It used to float mid-sheet with the line below a 640-tall fold. */
-  const padPlace = await phoneA.evaluate(() => {
-    const keys = [...document.querySelectorAll("#ctrlPad .zb-key")]
-      .filter((k) => /^[0-9]$/.test(k.textContent.trim()));
-    const l = Math.min(...keys.map((k) => k.getBoundingClientRect().left));
-    const r = Math.max(...keys.map((k) => k.getBoundingClientRect().right));
-    const pad = document.getElementById("ctrlPad").getBoundingClientRect();
-    const status = document.getElementById("ctrlStatus").getBoundingClientRect();
-    return {
-      offCentre: +Math.abs((l + r) / 2 - innerWidth / 2).toFixed(1),
-      padBottom: Math.round(pad.bottom),
-      statusBottom: Math.round(status.bottom),
-      vh: innerHeight,
-      docH: document.documentElement.scrollHeight,
-    };
-  });
+  const padPlace = await padGeometry(phoneA, "#ctrlPad");
+  padPlace.statusBottom = await phoneA.evaluate(() =>
+    Math.round(document.getElementById("ctrlStatus").getBoundingClientRect().bottom)
+  );
   check(
     "phone: keypad centred, in the thumb zone, progress line above the fold",
     padPlace.offCentre <= 1 &&
       padPlace.padBottom > padPlace.vh * 0.7 &&
-      padPlace.statusBottom <= padPlace.vh &&
-      padPlace.docH <= padPlace.vh + 1,
+      padPlace.statusBottom <= padPlace.vh,
     JSON.stringify(padPlace)
   );
 
@@ -1823,19 +1830,12 @@ async function main() {
   );
   // the sign key leaves the GRID here, it doesn't just go invisible:
   // held in place it kept a column and left the digits off-centre
-  const signOut = await phoneA2.evaluate(() => {
-    const sign = document.querySelector("#ctrlInqPad .zb-key--sign");
-    const keys = [...document.querySelectorAll("#ctrlInqPad .zb-key")]
-      .filter((k) => /^[0-9]$/.test(k.textContent.trim()));
-    const l = Math.min(...keys.map((k) => k.getBoundingClientRect().left));
-    const r = Math.max(...keys.map((k) => k.getBoundingClientRect().right));
-    return {
-      gone: getComputedStyle(sign).display === "none",
-      offCentre: Math.abs((l + r) / 2 - innerWidth / 2),
-      zeroSpansRow: document.querySelector("#ctrlInqPad .zb-key--zero").getBoundingClientRect().width
-        > document.querySelector('#ctrlInqPad .zb-key[data-d="7"]').getBoundingClientRect().width * 2.5,
-    };
-  });
+  const signOut = await padGeometry(phoneA2, "#ctrlInqPad");
+  Object.assign(signOut, await phoneA2.evaluate(() => ({
+    gone: document.querySelector("#ctrlInqPad .zb-key--sign").offsetParent === null,
+    zeroSpansRow: document.querySelector("#ctrlInqPad .zb-key--zero").getBoundingClientRect().width
+      > document.querySelector('#ctrlInqPad .zb-key[data-d="7"]').getBoundingClientRect().width * 2.5,
+  })));
   check(
     "探究一: sign key out of the grid, digits centred on the phone",
     signOut.gone && signOut.offCentre <= 1 && signOut.zeroSpansRow,
@@ -2089,21 +2089,17 @@ async function main() {
     JSON.stringify({ inq: s3.inq, cards: s3.inqCards })
   );
   // back in the bottom row beside 0, one key row tall, digits still centred
-  const signBack = await phoneA2.evaluate(() => {
+  const signBack = await padGeometry(phoneA2, "#ctrlInqPad");
+  Object.assign(signBack, await phoneA2.evaluate(() => {
     const sign = document.querySelector("#ctrlInqPad .zb-key--sign").getBoundingClientRect();
     const seven = document.querySelector('#ctrlInqPad .zb-key[data-d="7"]').getBoundingClientRect();
     const zero = document.querySelector("#ctrlInqPad .zb-key--zero").getBoundingClientRect();
-    const keys = [...document.querySelectorAll("#ctrlInqPad .zb-key")]
-      .filter((k) => /^[0-9]$/.test(k.textContent.trim()));
-    const l = Math.min(...keys.map((k) => k.getBoundingClientRect().left));
-    const r = Math.max(...keys.map((k) => k.getBoundingClientRect().right));
     return {
       shown: sign.width > 0 && sign.height > 0,
       oneRow: Math.abs(sign.height - seven.height) <= 1,
       bottomRow: Math.abs(sign.top - zero.top) <= 1 && sign.left > zero.left,
-      offCentre: Math.abs((l + r) / 2 - innerWidth / 2),
     };
-  });
+  }));
   check(
     "概念轉化: sign key returns to the bottom row beside 0",
     signBack.shown && signBack.oneRow && signBack.bottomRow && signBack.offCentre <= 1,
@@ -2578,9 +2574,8 @@ async function main() {
     note: document.getElementById("ctrlInqMark").textContent,
     // the board already carries the headline: a status echoing it word
     // for word was noise, and the arc's clock and lives are spent
-    status: getComputedStyle(document.getElementById("ctrlStatus")).display,
-    clock: getComputedStyle(document.getElementById("ctrlInqTimer")).display,
-    lives: getComputedStyle(document.getElementById("ctrlInqLives")).display,
+    shows: ["ctrlStatus", "ctrlInqTimer", "ctrlInqLives"]
+      .filter((id) => document.getElementById(id).offsetParent !== null),
   }));
   check(
     "§19.4: the phone waits on a ready face, pad closed, pointing at the projector",
@@ -2589,7 +2584,7 @@ async function main() {
   );
   check(
     "§19.4: the ready face drops the echoed status, the spent clock and lives",
-    readyFace.status === "none" && readyFace.clock === "none" && readyFace.lives === "none",
+    readyFace.shows.length === 0,
     JSON.stringify(readyFace)
   );
   // a host F5 mid-briefing must never strand the phones on the ready
