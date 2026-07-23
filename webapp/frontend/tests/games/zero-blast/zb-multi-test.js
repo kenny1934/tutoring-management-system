@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (242 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (243 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 242 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 243 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -334,6 +334,34 @@ async function main() {
     const body = await resp.text();
     await route.fulfill({ status: 200, contentType: "application/javascript", body: body + "\n" + MOCK });
   });
+
+  /* ════════ the lobby before the room exists ════════
+   * 開始主持 puts the lobby on the projector and THEN awaits the room,
+   * which is a real network hop against Firebase. The mock resolves in
+   * a microtask, so only a deliberately slow host() exposes what the
+   * class actually reads during that wait: it must already be the
+   * resolved face, not both how-to cards collapsing to one when
+   * renderTrack finally runs. */
+  const preRoom = await context.newPage();
+  await preRoom.goto(HOST_URL, { waitUntil: "load" });
+  await preRoom.evaluate(() => {
+    const real = GameBridge.host;
+    GameBridge.host = (...a) => new Promise((r) => setTimeout(() => r(real(...a)), 5000));
+  });
+  await preRoom.click("#btnHost");
+  await sleep(400);
+  const preRoomFace = await preRoom.evaluate(() => ({
+    howtos: ["howtoCard", "arcHowtoCard"].filter(
+      (id) => document.getElementById(id).offsetParent !== null
+    ),
+    code: document.getElementById("roomCode").textContent.trim(),
+  }));
+  check(
+    "lobby paints ONE how-to while the room is still being created",
+    preRoomFace.howtos.length === 1 && preRoomFace.howtos[0] === "arcHowtoCard",
+    JSON.stringify(preRoomFace)
+  );
+  await preRoom.close();
 
   const hostErrors = [];
   const aErrors = [];

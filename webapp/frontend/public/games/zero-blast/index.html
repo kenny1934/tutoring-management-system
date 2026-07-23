@@ -1676,8 +1676,11 @@
     <!-- how to play (§19 Batch Z: moved off the cover) - the scanning
          wait is the reading moment: the whole class sees the rules on
          the projector while phones join. Re-shown at the arc's
-         進入主遊戲 recap (renderInqStage moves the node). -->
-    <div class="mc-note zb-howto" id="howtoCard">
+         進入主遊戲 recap (renderInqStage moves the node).
+         Hidden as authored, matching the track's default entry step:
+         the lobby is painted before the room exists, so a card that
+         defaults to visible is on screen for the whole of that wait. -->
+    <div class="mc-note zb-howto" id="howtoCard" style="display:none">
       <div class="zb-howto__row">
         <div class="zb-howto__item">
           <svg viewBox="0 0 76 58" aria-hidden="true">
@@ -4670,6 +4673,11 @@ $("btnHost").onclick = async () => {
   ZBFX.audio.unlock();
   ZBFX.bgm.setIntensity("lobby");
   show("lobbyScreen");
+  // the room is a network hop away and the lobby is already on the
+  // projector: resolve the face BEFORE that wait, or the class reads
+  // two how-to cards until it lands (roomCode has its ···· for this
+  // same reason). enterLobbyWith calls it again once the room is up.
+  renderTrack();
   let room;
   try {
     room = await GameBridge.host({ slug: SLUG, initialState: { phase: "lobby" } });
