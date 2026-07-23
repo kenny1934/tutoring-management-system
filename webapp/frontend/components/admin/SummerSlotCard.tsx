@@ -9,6 +9,11 @@ import { WorkflowStatusIcon } from "@/components/admin/SummerApplicationCard";
 import type { AvailableTutor } from "@/types";
 import type { SummerSlot, SummerSlotUpdate } from "@/types";
 
+/** Prompt shown in place of a tutor list when nobody is rostered for a
+ *  cell. Staffing runs off the duty roster, so an empty cell means the
+ *  roster hasn't been filled in rather than that no tutor could take it. */
+const NO_DUTY_HINT = "No tutors on duty here. Set the roster with Tutor Duties in the header.";
+
 interface SummerSlotCardProps {
   slot: SummerSlot;
   grades: string[];
@@ -72,6 +77,12 @@ export const SummerSlotCard = memo(function SummerSlotCard({
     [slot.grade, slot.sessions],
   );
   const hasGradeMismatch = mismatchedGrades.length > 0;
+
+  // Only rostered tutors can staff a slot.
+  const onDutyTutors = useMemo(
+    () => (availableTutors ?? []).filter((t) => t.onDuty),
+    [availableTutors],
+  );
 
   // Search-jump highlight. Deps exclude slot.sessions on purpose: SWR
   // revalidates every 30s and returns a fresh array — including it would
@@ -292,6 +303,13 @@ export const SummerSlotCard = memo(function SummerSlotCard({
           <span className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground dark:text-gray-300 text-center truncate">
             {availableTutors?.find((t) => t.id === slot.tutor_id)?.name || "— tutor —"}
           </span>
+        ) : onDutyTutors.length === 0 ? (
+          <span
+            className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-center truncate"
+            title={NO_DUTY_HINT}
+          >
+            {availableTutors?.find((t) => t.id === slot.tutor_id)?.name || "Set duties first"}
+          </span>
         ) : (
           <select
             value={slot.tutor_id ?? ""}
@@ -303,7 +321,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
             title="Assign tutor"
           >
             <option value="">— tutor —</option>
-            {availableTutors?.filter((t) => t.onDuty).map((t) => (
+            {onDutyTutors.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>

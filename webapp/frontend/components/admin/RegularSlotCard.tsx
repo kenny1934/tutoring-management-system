@@ -13,18 +13,14 @@ import type { RegularSlot, RegularSlotUpdate } from "@/types";
 export interface RegularTutorOption {
   id: number;
   name: string;
-  /** Rostered for this cell's day and time. Absent when no roster is loaded. */
+  /** Rostered for this cell's day and time. */
   onDuty?: boolean;
 }
 
-/** Who to offer for a slot: the tutors rostered for that cell, or everyone
- *  active when the cell has no roster yet. Summer always narrows to on-duty,
- *  but regular's roster starts empty, and an empty picker would leave slots
- *  unstaffable until someone fills the duty grid in. */
-export function staffableTutors(tutors: RegularTutorOption[]): RegularTutorOption[] {
-  const onDuty = tutors.filter((t) => t.onDuty);
-  return onDuty.length > 0 ? onDuty : tutors;
-}
+/** Prompt shown in place of a tutor list when nobody is rostered for a cell.
+ *  Staffing runs off the duty roster, so an empty cell means the roster
+ *  hasn't been filled in rather than that no tutor could take the class. */
+const NO_DUTY_HINT = "No tutors on duty here. Set the roster with Tutor Duties in the header.";
 
 interface RegularSlotCardProps {
   slot: RegularSlot;
@@ -86,6 +82,9 @@ export const RegularSlotCard = memo(function RegularSlotCard({
     [slot.grade, slot.students],
   );
   const hasGradeMismatch = mismatchedGrades.length > 0;
+
+  // Only rostered tutors can staff a slot, same rule as summer.
+  const onDutyTutors = useMemo(() => tutors.filter((t) => t.onDuty), [tutors]);
 
   // Search-jump highlight. Deps exclude slot.students on purpose: SWR
   // revalidates every 30s and returns a fresh array, which would re-fire the
@@ -246,6 +245,13 @@ export const RegularSlotCard = memo(function RegularSlotCard({
           <span className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-[#fef9f3] dark:bg-[#2d2618] text-muted-foreground dark:text-gray-300 text-center truncate">
             {slot.tutor_name || "No tutor"}
           </span>
+        ) : onDutyTutors.length === 0 ? (
+          <span
+            className="flex-1 min-w-0 text-[9px] px-0.5 py-0 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-center truncate"
+            title={NO_DUTY_HINT}
+          >
+            {slot.tutor_name || "Set duties first"}
+          </span>
         ) : (
           <select
             value={slot.tutor_id ?? ""}
@@ -257,7 +263,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
             title="Assign tutor"
           >
             <option value="">No tutor</option>
-            {staffableTutors(tutors).map((t) => (
+            {onDutyTutors.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>

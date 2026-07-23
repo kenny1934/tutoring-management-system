@@ -195,14 +195,15 @@ export default function RegularArrangementPage() {
     canView ? "regular-arrangement-tutors" : null,
     () => tutorsAPI.getAll()
   );
-  const tutorOptions = useMemo(
-    () =>
-      (tutors || [])
-        .filter((t) => t.is_active_tutor !== false)
-        .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name))
-        .map((t) => ({ id: t.id, name: t.tutor_name })),
-    [tutors]
-  );
+  // Scoped to the selected branch: a tutor based at the other centre should
+  // not be offered for a slot here, and the duty roster is per branch too.
+  const tutorOptions = useMemo(() => {
+    const branch = LOCATION_TO_CODE[location] || location;
+    return (tutors || [])
+      .filter((t) => t.is_active_tutor !== false && t.default_location === branch)
+      .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name))
+      .map((t) => ({ id: t.id, name: t.tutor_name }));
+  }, [tutors, location]);
 
   const { data: tutorDuties, mutate: mutateDuties } = useSWR(
     canView && configId && location ? ["tutor-duties", "regular", configId, location] : null,
