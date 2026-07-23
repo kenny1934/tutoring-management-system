@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useState } from "react";
 import {
-  StickyNote, Copy, Check, Phone, AlertCircle, AlertTriangle, ChevronDown,
+  StickyNote, Copy, Check, Phone, AlertCircle, AlertTriangle,
   Clock, CheckCircle, UserCheck, Grid3X3,
   FileInput, Eye, CalendarCheck, GraduationCap, LogOut, XCircle,
   Send, CreditCard, BadgeCheck,
@@ -12,10 +11,10 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { displayLocation, DAY_ABBREV } from "@/lib/regular-utils";
+import { displayLocation, DAY_ABBREV, REGULAR_EXIT_STATUSES } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
-import { usePortalPopover } from "@/hooks/usePortalPopover";
+import { InlineStatusSelect } from "@/components/admin/InlineStatusSelect";
 import type { RegularApplication } from "@/types";
 
 // Status pill colours, matching the summer card's dot/bg/text/borderL scheme
@@ -50,8 +49,6 @@ export const REGULAR_STATUS_ICONS: Record<string, LucideIcon> = {
   "Withdrawn":           LogOut,
   "Rejected":            XCircle,
 };
-
-const REGULAR_EXIT_SET = new Set(["Waitlisted", "Withdrawn", "Rejected"]);
 
 // Soft row tints for dense lists (slot card student rows), matching the way
 // summer tints a placed session by its status.
@@ -108,78 +105,6 @@ export function RegularStatusBadge({ status }: { status: string }) {
   );
 }
 
-/** Status badge that doubles as a picker, so a rung can be moved without
- *  opening the application. Mirrors the summer card's control. */
-function InlineStatusSelect({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const close = useCallback(() => setOpen(false), []);
-  const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        title="Click to change status"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity cursor-pointer"
-      >
-        <RegularStatusBadge status={value} />
-        <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
-      </button>
-      {open && pos && typeof document !== "undefined" && createPortal(
-        <div
-          ref={menuRef}
-          role="listbox"
-          aria-label="Application status"
-          className="fixed z-50 min-w-[180px] bg-card border border-border rounded-lg shadow-lg p-1"
-          style={{ top: pos.top, right: pos.right }}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
-          }}
-        >
-          {REGULAR_ALL_STATUSES.map((opt) => {
-            const colors = REGULAR_STATUS_COLORS[opt];
-            const Icon = REGULAR_STATUS_ICONS[opt];
-            const isSelected = opt === value;
-            return (
-              <button
-                key={opt}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpen(false);
-                  if (opt !== value) onChange(opt);
-                }}
-                className={cn(
-                  "flex items-center gap-1.5 w-full text-left text-xs px-2 py-1 rounded transition-all",
-                  colors.bg, colors.text,
-                  isSelected ? "ring-1 ring-current font-semibold" : "hover:ring-1 hover:ring-current/60",
-                  "mb-0.5 last:mb-0"
-                )}
-              >
-                {Icon && <Icon className="h-3 w-3" />}
-                {opt}
-              </button>
-            );
-          })}
-        </div>,
-        document.body
-      )}
-    </>
-  );
-}
 
 function PrefChip({ day, time, backup }: { day: string; time: string; backup?: boolean }) {
   return (
@@ -230,7 +155,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
   const branchCode = app.preferred_location ? displayLocation(app.preferred_location) : "";
   const branchTint = BRANCH_TINT[branchCode] || "bg-white dark:bg-gray-900";
   const statusBorderL = REGULAR_STATUS_COLORS[app.application_status]?.borderL || "border-l-gray-300";
-  const isExited = REGULAR_EXIT_SET.has(app.application_status);
+  const isExited = REGULAR_EXIT_STATUSES.has(app.application_status);
   const hasPref1 = !!(app.preference_1_day && app.preference_1_time);
   const hasPref2 = !!(app.preference_2_day && app.preference_2_time);
   const slot = app.assigned_slot;
@@ -312,6 +237,10 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
               <InlineStatusSelect
                 value={app.application_status}
                 onChange={(next) => onStatusChange(app.id, next)}
+                statuses={REGULAR_ALL_STATUSES}
+                colors={REGULAR_STATUS_COLORS}
+                icons={REGULAR_STATUS_ICONS}
+                badge={<RegularStatusBadge status={app.application_status} />}
               />
             ) : (
               <RegularStatusBadge status={app.application_status} />

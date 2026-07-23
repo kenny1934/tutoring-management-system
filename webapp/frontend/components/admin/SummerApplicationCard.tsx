@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
-import { createPortal } from "react-dom";
+import React, { useState } from "react";
 import {
-  Users, StickyNote, Copy, Check, Phone, Grid3X3, AlertCircle,
-  AlertTriangle, ChevronDown,
+  StickyNote, Copy, Check, Phone, Grid3X3, AlertCircle,
+  AlertTriangle,
   FileInput, Eye, Send, CheckCircle, CreditCard, BadgeCheck,
   GraduationCap, Clock, LogOut, XCircle,
   type LucideIcon,
@@ -16,7 +15,7 @@ import { formatPreferences, displayLocation, formatCompactDate, sortSessionsByDa
 import { classifyPrefs } from "@/lib/summer-preferences";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
-import { usePortalPopover } from "@/hooks/usePortalPopover";
+import { InlineStatusSelect } from "@/components/admin/InlineStatusSelect";
 import { PrimaryBranchChip } from "@/components/admin/PrimaryBranchChip";
 import { SummerBuddyMeter } from "@/components/admin/SummerBuddyMeter";
 import type { SummerApplication } from "@/types";
@@ -92,77 +91,6 @@ function StatusBadgeContent({ status }: { status: string }) {
 
 export function StatusBadge({ status }: { status: string }) {
   return <StatusBadgeContent status={status} />;
-}
-
-function InlineStatusSelect({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const close = useCallback(() => setOpen(false), []);
-  const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        title="Click to change status"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity cursor-pointer"
-      >
-        <StatusBadgeContent status={value} />
-        <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
-      </button>
-      {open && pos && typeof document !== "undefined" && createPortal(
-        <div
-          ref={menuRef}
-          role="listbox"
-          aria-label="Application status"
-          className="fixed z-50 min-w-[180px] bg-card border border-border rounded-lg shadow-lg p-1"
-          style={{ top: pos.top, right: pos.right }}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
-          }}
-        >
-          {ALL_STATUSES.map((opt) => {
-            const colors = STATUS_COLORS[opt];
-            const Icon = STATUS_ICONS[opt];
-            const isSelected = opt === value;
-            return (
-              <button
-                key={opt}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpen(false);
-                  if (opt !== value) onChange(opt);
-                }}
-                className={cn(
-                  "flex items-center gap-1.5 w-full text-left text-xs px-2 py-1 rounded transition-all",
-                  colors.bg, colors.text,
-                  isSelected ? "ring-1 ring-current font-semibold" : "hover:ring-1 hover:ring-current/60",
-                  "mb-0.5 last:mb-0"
-                )}
-              >
-                {Icon && <Icon className="h-3 w-3" />}
-                {opt}
-              </button>
-            );
-          })}
-        </div>,
-        document.body
-      )}
-    </>
-  );
 }
 
 interface SummerApplicationCardProps {
@@ -307,6 +235,10 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
               <InlineStatusSelect
                 value={app.application_status}
                 onChange={(next) => onStatusChange(app.id, next)}
+                statuses={ALL_STATUSES}
+                colors={STATUS_COLORS}
+                icons={STATUS_ICONS}
+                badge={<StatusBadgeContent status={app.application_status} />}
               />
             ) : (
               <StatusBadgeContent status={app.application_status} />

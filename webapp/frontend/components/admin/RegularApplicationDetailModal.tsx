@@ -442,7 +442,7 @@ export function RegularApplicationDetailModal({
   const assignedSlot = app?.assigned_slot ?? null;
 
   // Publish from the assigned slot unless the admin overrides the schedule.
-  const usingSlot = !!app?.assigned_slot_id && !overrideSchedule;
+  const usingSlot = !!assignedSlot && !overrideSchedule;
 
   // Publish form derived values
   const pubLocationName = CODE_TO_LOCATION[pubLocation] || pubLocation;

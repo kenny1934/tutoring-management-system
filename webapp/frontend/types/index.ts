@@ -3724,8 +3724,9 @@ export interface RegularApplication {
   assigned_slot?: RegularAssignedSlot | null;
 }
 
-/** The weekly slot an application has been placed in. Regular's counterpart
- *  to a summer application's `sessions` array. */
+/** A weekly slot's own fields, with no assignment state. Inlined on the
+ *  application (regular's counterpart to a summer application's `sessions`
+ *  array) and the base of `RegularSlot`, so the two cannot drift. */
 export interface RegularAssignedSlot {
   id: number;
   slot_day: string;
@@ -3846,18 +3847,25 @@ export interface RegularSlotStudentInfo {
   school_student_id?: string | null;
 }
 
-export interface RegularSlot {
-  id: number;
+export interface RegularSlot extends RegularAssignedSlot {
   config_id: number;
-  slot_day: string;
-  time_slot: string;
-  location: string;
-  grade?: string | null;
-  tutor_id?: number | null;
-  tutor_name?: string | null;
-  max_students: number;
   assigned_count: number;
   students: RegularSlotStudentInfo[];
+}
+
+export interface RegularPublishResult {
+  application_id: number;
+  success: boolean;
+  enrollment_id?: number | null;
+  sessions_created?: number | null;
+  error_code?: string | null;
+  error?: string | null;
+}
+
+export interface RegularPublishBatchResponse {
+  results: RegularPublishResult[];
+  published_count: number;
+  failed_count: number;
 }
 
 export interface RegularSuggestion {

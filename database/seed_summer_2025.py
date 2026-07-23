@@ -90,10 +90,13 @@ CONFIG_2025 = {
         {"name": "MathConcept中學教室", "name_en": "MathConcept Secondary Academy"},
         {"name": "以上皆非", "name_en": "None"},
     ]),
+    # Values must stay C / E / Int: the grade badge colour is keyed on
+    # grade + stream (F1C, F1E), so any other code renders uncoloured. The
+    # live configs were migrated off the older CMI / EMI / IS in 137.
     "lang_stream_options": json.dumps([
-        {"name": "中文部", "name_en": "Chinese-medium", "value": "CMI"},
-        {"name": "英文部", "name_en": "English-medium", "value": "EMI"},
-        {"name": "國際學校", "name_en": "International School", "value": "IS"},
+        {"name": "中文部", "name_en": "Chinese Section", "value": "C"},
+        {"name": "英文部", "name_en": "English Section", "value": "E"},
+        {"name": "國際學校", "name_en": "International", "value": "Int"},
     ]),
     "center_options": json.dumps([
         {"name": "高士德分校", "name_en": "Costa Center"},

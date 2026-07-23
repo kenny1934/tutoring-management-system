@@ -309,6 +309,16 @@ def _get_published_enrollment_ids(db: Session, app_ids: list[int]) -> dict[int, 
     return {app_id: enr_id for app_id, enr_id in rows}
 
 
+def _get_tutor_names_bulk(db: Session, slots: list[RegularCourseSlot]) -> dict[int, str]:
+    """Map tutor id → name for the tutors staffing these slots, in one query."""
+    tutor_ids = {s.tutor_id for s in slots if s.tutor_id}
+    if not tutor_ids:
+        return {}
+    return dict(
+        db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_(tutor_ids)).all()
+    )
+
+
 def _get_assigned_slots_bulk(
     db: Session, slot_ids: list[int]
 ) -> dict[int, RegularAssignedSlotInfo]:
@@ -317,15 +327,12 @@ def _get_assigned_slots_bulk(
     wanted = {sid for sid in slot_ids if sid}
     if not wanted:
         return {}
-    slots = (
-        db.query(RegularCourseSlot).filter(RegularCourseSlot.id.in_(wanted)).all()
+    rows = (
+        db.query(RegularCourseSlot, Tutor.tutor_name)
+        .outerjoin(Tutor, Tutor.id == RegularCourseSlot.tutor_id)
+        .filter(RegularCourseSlot.id.in_(wanted))
+        .all()
     )
-    tutor_ids = {s.tutor_id for s in slots if s.tutor_id}
-    tutor_names: dict[int, str] = {}
-    if tutor_ids:
-        tutor_names = dict(
-            db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_(tutor_ids)).all()
-        )
     return {
         s.id: RegularAssignedSlotInfo(
             id=s.id,
@@ -334,10 +341,10 @@ def _get_assigned_slots_bulk(
             location=s.location,
             grade=s.grade,
             tutor_id=s.tutor_id,
-            tutor_name=tutor_names.get(s.tutor_id) if s.tutor_id else None,
+            tutor_name=tutor_name,
             max_students=s.max_students,
         )
-        for s in slots
+        for s, tutor_name in rows
     }
 
 
@@ -998,12 +1005,7 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             published=a.id in published,
             school_student_id=student_codes.get(a.existing_student_id),
         ))
-    tutor_ids = {s.tutor_id for s in slots if s.tutor_id}
-    tutor_names: dict[int, str] = {}
-    if tutor_ids:
-        tutor_names = dict(
-            db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_(tutor_ids)).all()
-        )
+    tutor_names = _get_tutor_names_bulk(db, slots)
     return [
         RegularSlotResponse(
             id=s.id,
@@ -1216,12 +1218,7 @@ def suggest_slots(
         ):
             members.setdefault(member.assigned_slot_id, []).append(member)
 
-    tutor_ids = {s.tutor_id for s in slots if s.tutor_id}
-    tutor_names: dict[int, str] = {}
-    if tutor_ids:
-        tutor_names = dict(
-            db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_(tutor_ids)).all()
-        )
+    tutor_names = _get_tutor_names_bulk(db, slots)
 
     app_school = _norm_school(app.school)
     suggestions: list[RegularSuggestion] = []

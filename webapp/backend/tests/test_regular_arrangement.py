@@ -322,6 +322,33 @@ class TestAssign:
         assert count == 0
 
 
+    def test_capacity_guard(self, db_session, config, admin):
+        slot = _make_slot(db_session, config, max_students=1)
+        _make_app(db_session, config, name="First", slot_id=slot.id)
+        late = _make_app(db_session, config, name="Late")
+        with pytest.raises(HTTPException) as exc:
+            _assign(db_session, admin, late, slot.id)
+        assert exc.value.detail["error_code"] == "slot_full"
+
+    def test_config_mismatch_rejected(self, db_session, config, admin):
+        other = RegularCourseConfig(
+            year=2027,
+            title="Regular Sep 2027",
+            application_open_date=datetime(2027, 8, 3),
+            application_close_date=datetime(2027, 9, 30),
+            course_start_date=date(2027, 9, 1),
+            locations=[], available_grades=[], time_slots=[],
+            is_active=False,
+        )
+        db_session.add(other)
+        db_session.commit()
+        foreign_slot = _make_slot(db_session, other)
+        app = _make_app(db_session, config)
+        with pytest.raises(HTTPException) as exc:
+            _assign(db_session, admin, app, foreign_slot.id)
+        assert exc.value.detail["error_code"] == "slot_config_mismatch"
+
+
 class TestAssignedSlotOnApplication:
     """The application list carries its slot inline, so the card and the detail
     modal can show the placement without fetching every slot in the config."""
@@ -378,32 +405,6 @@ class TestAssignedSlotOnApplication:
 
         resp = _assign(db_session, admin, app, None)
         assert resp.assigned_slot is None
-
-    def test_capacity_guard(self, db_session, config, admin):
-        slot = _make_slot(db_session, config, max_students=1)
-        _make_app(db_session, config, name="First", slot_id=slot.id)
-        late = _make_app(db_session, config, name="Late")
-        with pytest.raises(HTTPException) as exc:
-            _assign(db_session, admin, late, slot.id)
-        assert exc.value.detail["error_code"] == "slot_full"
-
-    def test_config_mismatch_rejected(self, db_session, config, admin):
-        other = RegularCourseConfig(
-            year=2027,
-            title="Regular Sep 2027",
-            application_open_date=datetime(2027, 8, 3),
-            application_close_date=datetime(2027, 9, 30),
-            course_start_date=date(2027, 9, 1),
-            locations=[], available_grades=[], time_slots=[],
-            is_active=False,
-        )
-        db_session.add(other)
-        db_session.commit()
-        foreign_slot = _make_slot(db_session, other)
-        app = _make_app(db_session, config)
-        with pytest.raises(HTTPException) as exc:
-            _assign(db_session, admin, app, foreign_slot.id)
-        assert exc.value.detail["error_code"] == "slot_config_mismatch"
 
 
 # ---------------------------------------------------------------------------

@@ -43,7 +43,6 @@ export {
   InfoRow,
   RequiredMark,
   // Grade chip colours (admin surfaces)
-  SUMMER_GRADE_BG,
   SUMMER_GRADE_BORDER,
   SUMMER_GRADE_TEXT,
   // Arrangement helpers that carry no summer-specific semantics

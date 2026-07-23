@@ -158,6 +158,7 @@ import type {
   RegularSuggestResponse,
   RegularPublishRequest,
   RegularPublishResponse,
+  RegularPublishBatchResponse,
   RegularUnpublishResponse,
   SummerSiblingInfo,
   SiblingVerificationStatus,
@@ -3127,18 +3128,7 @@ export const regularAPI = {
   publishApplicationsBatch: (
     items: Array<{ application_id: number } & RegularPublishRequest>
   ) =>
-    fetchAPI<{
-      results: Array<{
-        application_id: number;
-        success: boolean;
-        enrollment_id?: number | null;
-        sessions_created?: number | null;
-        error_code?: string | null;
-        error?: string | null;
-      }>;
-      published_count: number;
-      failed_count: number;
-    }>("/regular/applications/publish-batch", {
+    fetchAPI<RegularPublishBatchResponse>("/regular/applications/publish-batch", {
       method: "POST",
       body: JSON.stringify({ items }),
     }),

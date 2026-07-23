@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useSWR, { mutate } from "swr";
-import { motion, AnimatePresence } from "framer-motion";
+import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,42 +9,32 @@ import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
-import { LOCATION_TO_CODE, CODE_TO_LOCATION } from "@/lib/regular-utils";
+import {
+  LOCATION_TO_CODE, CODE_TO_LOCATION, REGULAR_STATUS_STEPS, REGULAR_EXIT_STATUSES,
+} from "@/lib/regular-utils";
 import {
   RegularApplicationCard, REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS,
 } from "@/components/admin/RegularApplicationCard";
 import { RegularApplicationDetailModal } from "@/components/admin/RegularApplicationDetailModal";
 import { RegularLinkSuggestionsModal } from "@/components/admin/RegularLinkSuggestionsModal";
 import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
+import { BatchActionBar } from "@/components/admin/BatchActionBar";
+import { BatchPublishResultsModal } from "@/components/admin/BatchPublishResultsModal";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { TimeAgo } from "@/components/ui/time-ago";
 import {
   ClipboardList, Search, X, Loader2, RefreshCw, ExternalLink, Sparkles,
-  ChevronDown, Check, CheckSquare, SlidersHorizontal, Send, AlertTriangle,
-  CheckCircle2,
+  ChevronDown, Check, CheckSquare, SlidersHorizontal,
 } from "lucide-react";
-import type { RegularApplication } from "@/types";
+import type { RegularApplication, RegularPublishResult } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
 /** The ladder, split the way the status menu groups it: the rungs an
- *  application climbs, then the ways it leaves. Same split as summer's. */
-const PIPELINE_STATUSES = [
-  "Submitted", "Under Review", "Placement Offered", "Placement Confirmed",
-  "Fee Sent", "Paid", "Enrolled",
-];
-const EXIT_STATUSES_LIST = REGULAR_ALL_STATUSES.filter(
-  (s) => !PIPELINE_STATUSES.includes(s)
-);
-
-type BatchPublishResult = {
-  application_id: number;
-  success: boolean;
-  enrollment_id?: number | null;
-  sessions_created?: number | null;
-  error_code?: string | null;
-  error?: string | null;
-};
+ *  application climbs, then the ways it leaves. Both come from the shared
+ *  ladder so a new rung reaches the menu without a second edit. */
+const PIPELINE_STATUSES: readonly string[] = REGULAR_STATUS_STEPS;
+const EXIT_STATUSES_LIST = REGULAR_ALL_STATUSES.filter((s) => REGULAR_EXIT_STATUSES.has(s));
 
 export default function RegularApplicationsPage() {
   usePageTitle("Regular Applications");
@@ -75,7 +64,7 @@ export default function RegularApplicationsPage() {
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
   const [batchPublishing, setBatchPublishing] = useState(false);
-  const [batchPublishResults, setBatchPublishResults] = useState<BatchPublishResult[] | null>(null);
+  const [batchPublishResults, setBatchPublishResults] = useState<RegularPublishResult[] | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   // Data freshness
@@ -104,7 +93,7 @@ export default function RegularApplicationsPage() {
   const statsKey = configId
     ? ["regular-app-stats", configId, gradeFilter, locationFilter, debouncedSearch, publishedFilter]
     : null;
-  const { data: stats } = useSWR(statsKey, () =>
+  const { data: stats, mutate: mutateStats } = useSWR(statsKey, () =>
     regularAPI.getApplicationStats({
       config_id: configId!,
       grade: gradeFilter || undefined,
@@ -117,7 +106,7 @@ export default function RegularApplicationsPage() {
   const appsKey = configId
     ? ["regular-apps", configId, statusFilter, gradeFilter, locationFilter, debouncedSearch, publishedFilter]
     : null;
-  const { data: applications, isLoading, isValidating } = useSWR(
+  const { data: applications, isLoading, isValidating, mutate: mutateApps } = useSWR(
     appsKey,
     () =>
       regularAPI.getApplications({
@@ -131,16 +120,21 @@ export default function RegularApplicationsPage() {
     { onSuccess: () => setLastUpdated(Date.now()) }
   );
 
-  const handleRefresh = useCallback(() => {
-    const pending: Promise<unknown>[] = [];
-    if (appsKey) pending.push(mutate(appsKey));
-    if (statsKey) pending.push(mutate(statsKey));
-    return Promise.all(pending);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configId, statusFilter, gradeFilter, locationFilter, debouncedSearch, publishedFilter]);
+  // SWR's bound mutate always targets the current key and is referentially
+  // stable, so this callback never goes stale and never re-renders the list.
+  const handleRefresh = useCallback(
+    () => Promise.all([mutateApps(), mutateStats()]),
+    [mutateApps, mutateStats]
+  );
 
   const selectedApp: RegularApplication | null =
     applications?.find((a) => a.id === selectedId) ?? null;
+
+  // Stable, so the memoised cards don't all re-render on every keystroke.
+  const openDetail = useCallback((picked: RegularApplication) => {
+    setSelectedId(picked.id);
+    setDetailOpen(true);
+  }, []);
 
   // Modal prev/next walks the filtered list in display order.
   const selectedIndex = applications?.findIndex((a) => a.id === selectedId) ?? -1;
@@ -155,34 +149,25 @@ export default function RegularApplicationsPage() {
     });
   }, [applications]);
 
-  // Arrow keys mirror the prev/next buttons while the modal is open. Typing in
-  // a field inside the modal must still move the caret, not the selection.
+  // Keyboard shortcuts: arrows walk the list while the modal is open, "/"
+  // jumps to search while it is closed. Typing in a field must still move the
+  // caret, so anything originating in an input is left alone.
   useEffect(() => {
-    if (!detailOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
-      e.preventDefault();
-      stepSelection(e.key === "ArrowLeft" ? -1 : 1);
+      if (detailOpen) {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        stepSelection(e.key === "ArrowLeft" ? -1 : 1);
+      } else if (e.key === "/") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [detailOpen, stepSelection]);
-
-  // "/" jumps to the search box, as on the summer list.
-  useEffect(() => {
-    if (detailOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "/") return;
-      const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
-      e.preventDefault();
-      searchRef.current?.focus();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [detailOpen]);
 
   const hasFilters =
     !!statusFilter || !!gradeFilter || !!locationFilter || !!publishedFilter || !!debouncedSearch;
@@ -373,54 +358,51 @@ export default function RegularApplicationsPage() {
                     ))}
                   </select>
                 )}
-                {configs && configs.length > 1 && (() => {
-                  const currentConfig = configs.find((c) => c.id === configId);
-                  return (
-                    <DropdownMenu
-                      align="right"
-                      trigger={({ triggerProps }) => (
+                {configs && configs.length > 1 && (
+                  <DropdownMenu
+                    align="right"
+                    trigger={({ triggerProps }) => (
+                      <button
+                        type="button"
+                        {...triggerProps}
+                        className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-border rounded-lg bg-card text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        title={activeConfig?.is_active ? "Active season" : "Past season"}
+                      >
+                        <span>{activeConfig?.year}</span>
+                        {activeConfig?.is_active && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        )}
+                        <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                      </button>
+                    )}
+                  >
+                    {(close) => configs.map((c) => {
+                      const active = c.id === configId;
+                      return (
                         <button
+                          key={c.id}
                           type="button"
-                          {...triggerProps}
-                          className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border border-border rounded-lg bg-card text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                          title={currentConfig?.is_active ? "Active season" : "Past season"}
+                          role="menuitemradio"
+                          aria-checked={active}
+                          onClick={() => {
+                            setConfigId(c.id);
+                            setCheckedIds(new Set());
+                            close();
+                          }}
+                          className={cn(menuItemClass, active && "bg-primary/5")}
                         >
-                          <span>{currentConfig?.year}</span>
-                          {currentConfig?.is_active && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className="flex-1 text-foreground">{c.year}</span>
+                          {c.is_active && (
+                            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                              Active
+                            </span>
                           )}
-                          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                          {active && <Check className="h-3 w-3 text-primary" />}
                         </button>
-                      )}
-                    >
-                      {(close) => configs.map((c) => {
-                        const active = c.id === configId;
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            role="menuitemradio"
-                            aria-checked={active}
-                            onClick={() => {
-                              setConfigId(c.id);
-                              setCheckedIds(new Set());
-                              close();
-                            }}
-                            className={cn(menuItemClass, active && "bg-primary/5")}
-                          >
-                            <span className="flex-1 text-foreground">{c.year}</span>
-                            {c.is_active && (
-                              <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
-                                Active
-                              </span>
-                            )}
-                            {active && <Check className="h-3 w-3 text-primary" />}
-                          </button>
-                        );
-                      })}
-                    </DropdownMenu>
-                  );
-                })()}
+                      );
+                    })}
+                  </DropdownMenu>
+                )}
               </div>
             </div>
           </div>
@@ -605,7 +587,7 @@ export default function RegularApplicationsPage() {
               {!isReadOnly && (
                 <button
                   onClick={() => {
-                    if (batchMode || checkedIds.size > 0) {
+                    if (showCheckboxes) {
                       setBatchMode(false);
                       setCheckedIds(new Set());
                     } else {
@@ -655,10 +637,7 @@ export default function RegularApplicationsPage() {
                     application={a}
                     index={i}
                     isFocused={detailOpen && a.id === selectedId}
-                    onSelect={(picked) => {
-                      setSelectedId(picked.id);
-                      setDetailOpen(true);
-                    }}
+                    onSelect={openDetail}
                     isChecked={checkedIds.has(a.id)}
                     onToggleCheck={isReadOnly ? undefined : toggleCheck}
                     showCheckbox={showCheckboxes}
@@ -671,151 +650,28 @@ export default function RegularApplicationsPage() {
         </div>
       </PageTransition>
 
-      {/* Batch action bar */}
-      <AnimatePresence>
-        {checkedIds.size > 0 && !isReadOnly && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50"
-          >
-            <AnimatePresence>
-              {showBatchConfirm && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  className="mb-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 text-center"
-                >
-                  <p className="text-sm text-foreground mb-2">
-                    Update <span className="font-semibold">{checkedIds.size}</span> application{checkedIds.size !== 1 ? "s" : ""} to <span className="font-semibold">{batchStatus}</span>?
-                  </p>
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => setShowBatchConfirm(false)}
-                      className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => { setShowBatchConfirm(false); handleBatchUpdate(); }}
-                      disabled={batchUpdating}
-                      className="px-3 py-1 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-                    >
-                      {batchUpdating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      Confirm
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
-              <span className="text-sm font-medium text-foreground">
-                {checkedIds.size} selected
-              </span>
-              <select
-                value={batchStatus}
-                onChange={(e) => setBatchStatus(e.target.value)}
-                className={selectClass}
-              >
-                {REGULAR_ALL_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-              <button
-                onClick={() => setShowBatchConfirm(true)}
-                disabled={batchUpdating}
-                className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-              >
-                {batchUpdating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Update
-              </button>
-              <span className="w-px h-5 bg-gray-200 dark:bg-gray-700" />
-              <button
-                onClick={handleBatchPublish}
-                disabled={batchPublishing || batchUpdating}
-                title="Publish selected applications to enrollments, each from its assigned slot. Every application runs independently, so failures don't block successes."
-                className="px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                {batchPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                Publish Selected
-              </button>
-              <button
-                onClick={() => { setCheckedIds(new Set()); setShowBatchConfirm(false); }}
-                className="p-1.5 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Batch publish results — one row per application, so a failure names
-          itself instead of hiding inside a count. */}
-      {batchPublishResults && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setBatchPublishResults(null)}
-        >
-          <div
-            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-foreground">Publish results</h3>
-              <button
-                onClick={() => setBatchPublishResults(null)}
-                className="p-1 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 text-sm">
-              {batchPublishResults.map((r) => {
-                const app = applications?.find((a) => a.id === r.application_id);
-                const label = app ? `${app.student_name} (${app.reference_code})` : `App #${r.application_id}`;
-                return (
-                  <div
-                    key={r.application_id}
-                    className={cn(
-                      "flex items-start gap-2 px-3 py-2 rounded-lg border",
-                      r.success
-                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                        : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800",
-                    )}
-                  >
-                    {r.success
-                      ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                      : <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-foreground truncate">{label}</div>
-                      {r.success ? (
-                        <div className="text-xs text-muted-foreground">
-                          Created enrollment #{r.enrollment_id} with {r.sessions_created} session(s).
-                        </div>
-                      ) : (
-                        <div className="text-xs text-muted-foreground">
-                          <span className="font-mono">{r.error_code}</span> — {r.error}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-              <button
-                onClick={() => setBatchPublishResults(null)}
-                className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {!isReadOnly && (
+        <BatchActionBar
+          count={checkedIds.size}
+          statuses={REGULAR_ALL_STATUSES}
+          status={batchStatus}
+          onStatusChange={setBatchStatus}
+          confirmOpen={showBatchConfirm}
+          onConfirmOpenChange={setShowBatchConfirm}
+          onUpdate={handleBatchUpdate}
+          updating={batchUpdating}
+          onPublish={handleBatchPublish}
+          publishing={batchPublishing}
+          publishTitle="Publish selected applications to enrollments, each from its assigned slot. Every application runs independently, so failures don't block successes."
+          onClear={() => { setCheckedIds(new Set()); setShowBatchConfirm(false); }}
+        />
       )}
+
+      <BatchPublishResultsModal
+        results={batchPublishResults}
+        applications={applications}
+        onClose={() => setBatchPublishResults(null)}
+      />
 
       <RegularApplicationDetailModal
         application={selectedApp}

@@ -3804,9 +3804,13 @@ class RegularCourseConfigResponse(BaseModel):
 
 
 class RegularAssignedSlotInfo(BaseModel):
-    """The weekly slot an application sits in, denormalised onto the
-    application so lists and the detail modal can show the placement without
-    a second round trip. Summer's equivalent is the `sessions` array."""
+    """A weekly slot's own fields, with no assignment state.
+
+    Denormalised onto the application response so lists and the detail modal
+    can show the placement without a second round trip (summer's equivalent is
+    the `sessions` array), and the base of `RegularSlotResponse` so the two
+    cannot drift.
+    """
     id: int
     slot_day: str
     time_slot: str
@@ -3931,17 +3935,9 @@ class RegularSlotStudentInfo(BaseModel):
     school_student_id: Optional[str] = None
 
 
-class RegularSlotResponse(BaseModel):
+class RegularSlotResponse(RegularAssignedSlotInfo):
     """Slot with assignment state for the arrangement grid."""
-    id: int
     config_id: int
-    slot_day: str
-    time_slot: str
-    location: str
-    grade: Optional[str] = None
-    tutor_id: Optional[int] = None
-    tutor_name: Optional[str] = None
-    max_students: int
     assigned_count: int = 0
     students: List[RegularSlotStudentInfo] = Field(default_factory=list)
 
