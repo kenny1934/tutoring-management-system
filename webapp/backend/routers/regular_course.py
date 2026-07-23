@@ -18,7 +18,7 @@ from datetime import date as date_type, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -348,6 +348,59 @@ def _get_assigned_slots_bulk(
     }
 
 
+def _is_new_student(
+    db: Session, student_id: Optional[int], *, exclude_application_id: Optional[int] = None
+) -> bool:
+    """Whether the one-off registration fee still applies to this student.
+
+    New means no prior non-Trial enrollment. The enrollment this application
+    itself published is ignored, so the answer — and the fee quoted to the
+    parent — reads the same before and after publishing. An application with
+    no student linked yet counts as new, which is what publishing would find.
+    """
+    if not student_id:
+        return True
+    query = db.query(Enrollment.id).filter(
+        Enrollment.student_id == student_id,
+        Enrollment.enrollment_type != 'Trial',
+    )
+    if exclude_application_id is not None:
+        query = query.filter(
+            or_(
+                Enrollment.regular_application_id.is_(None),
+                Enrollment.regular_application_id != exclude_application_id,
+            )
+        )
+    return query.first() is None
+
+
+def _new_student_flags_bulk(
+    db: Session, apps: list[RegularApplication]
+) -> dict[int, bool]:
+    """`_is_new_student` for a whole page of applications, in one query."""
+    student_ids = {a.existing_student_id for a in apps if a.existing_student_id}
+    if not student_ids:
+        return {a.id: True for a in apps}
+    rows = (
+        db.query(Enrollment.student_id, Enrollment.regular_application_id)
+        .filter(
+            Enrollment.student_id.in_(student_ids),
+            Enrollment.enrollment_type != 'Trial',
+        )
+        .all()
+    )
+    by_student: dict[int, set] = {}
+    for student_id, from_app_id in rows:
+        by_student.setdefault(student_id, set()).add(from_app_id)
+    return {
+        a.id: not any(
+            from_app_id != a.id
+            for from_app_id in by_student.get(a.existing_student_id, ())
+        )
+        for a in apps
+    }
+
+
 def _build_application_responses(
     db: Session, apps: list[RegularApplication]
 ) -> list[RegularApplicationResponse]:
@@ -357,6 +410,7 @@ def _build_application_responses(
     )
     published = _get_published_enrollment_ids(db, [a.id for a in apps])
     slots = _get_assigned_slots_bulk(db, [a.assigned_slot_id for a in apps])
+    new_student = _new_student_flags_bulk(db, apps)
     responses = []
     for app in apps:
         data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
@@ -367,6 +421,7 @@ def _build_application_responses(
         data["assigned_slot"] = (
             slots.get(app.assigned_slot_id) if app.assigned_slot_id else None
         )
+        data["is_new_student"] = new_student[app.id]
         responses.append(RegularApplicationResponse.model_validate(data))
     return responses
 
@@ -1482,14 +1537,11 @@ def _publish_application_inner(
             ],
         )
 
-    # Auto-detect is_new_student like the native create flow: new = no prior
-    # non-Trial enrollment. Regular (unlike Summer) must carry the $100 reg
-    # fee for genuinely new students.
-    prior_non_trial = db.query(Enrollment).filter(
-        Enrollment.student_id == app.existing_student_id,
-        Enrollment.enrollment_type != 'Trial',
-    ).first()
-    is_new_student = prior_non_trial is None
+    # Regular (unlike Summer) must carry the $100 registration fee for
+    # genuinely new students. Same rule the fee message quoted.
+    is_new_student = _is_new_student(
+        db, app.existing_student_id, exclude_application_id=app.id
+    )
 
     # Payment state follows the application status when the request stays
     # silent, mirroring summer: an app already marked Paid publishes as Paid.
@@ -1662,14 +1714,9 @@ def get_application_messages(
     # Same new-student rule as publish: nobody with a prior non-Trial
     # enrollment pays the registration fee again.
     student = app.existing_student if app.existing_student_id else None
-    if student:
-        prior_non_trial = db.query(Enrollment).filter(
-            Enrollment.student_id == student.id,
-            Enrollment.enrollment_type != 'Trial',
-        ).first()
-        is_new_student = prior_non_trial is None
-    else:
-        is_new_student = True
+    is_new_student = _is_new_student(
+        db, app.existing_student_id, exclude_application_id=app.id
+    )
 
     student_code = (student.school_student_id or "") if student else ""
     student_name = student.student_name if student else app.student_name

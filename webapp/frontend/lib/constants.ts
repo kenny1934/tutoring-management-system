@@ -52,6 +52,11 @@ export const DEFAULT_GRADE_COLOR = "#e5e7eb";
 // enrollments of at least this many lessons. Mirrors the backend constant.
 export const MIN_LESSONS_FOR_DISCOUNT = 6;
 
+// One-off fee charged on a student's first non-Trial enrollment. Mirrors the
+// backend constant; whether it applies to a given student is the backend's
+// call, surfaced as is_new_student.
+export const REGISTRATION_FEE = 100;
+
 // Promo discount type whose value scales per 2 lessons (e.g. $100 off every
 // 2 extra lessons) and which is exempt from MIN_LESSONS_FOR_DISCOUNT.
 // Mirrors the backend constant. Stored on Discount.discount_type.

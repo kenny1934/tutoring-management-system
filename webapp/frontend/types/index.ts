@@ -3722,6 +3722,9 @@ export interface RegularApplication {
   /** The assigned slot itself, inlined by the API so the card and the detail
    *  modal can show the placement without loading every slot in the config. */
   assigned_slot?: RegularAssignedSlot | null;
+  /** Whether the one-off registration fee still applies, decided by the same
+   *  rule the fee message and publishing use. */
+  is_new_student?: boolean;
 }
 
 /** A weekly slot's own fields, with no assignment state. Inlined on the

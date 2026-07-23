@@ -407,6 +407,102 @@ class TestAssignedSlotOnApplication:
         assert resp.assigned_slot is None
 
 
+class TestNewStudentOnApplication:
+    """The response carries the registration-fee verdict so the admin fee
+    preview quotes the same total the fee message and publishing do."""
+
+    def _list(self, db_session, config):
+        return list_applications(
+            config_id=config.id,
+            application_status=None,
+            grade=None,
+            location=None,
+            search=None,
+            published=None,
+            _admin=None,
+            db=db_session,
+        )
+
+    def test_unlinked_application_counts_as_new(self, db_session, config):
+        _make_app(db_session, config)
+        [resp] = self._list(db_session, config)
+        assert resp.is_new_student is True
+
+    def test_linked_student_with_no_history_is_new(self, db_session, config, student):
+        _make_app(db_session, config, student_id=student.id)
+        [resp] = self._list(db_session, config)
+        assert resp.is_new_student is True
+
+    def test_prior_enrollment_clears_the_fee(self, db_session, config, tutor, student):
+        db_session.add(Enrollment(
+            student_id=student.id, tutor_id=tutor.id, assigned_day="Tue",
+            assigned_time="16:45 - 18:15", location="MSA", lessons_paid=6,
+            first_lesson_date=date(2026, 1, 6), payment_status="Paid",
+            enrollment_type="Regular",
+        ))
+        db_session.commit()
+        _make_app(db_session, config, student_id=student.id)
+        [resp] = self._list(db_session, config)
+        assert resp.is_new_student is False
+
+    def test_trial_enrollment_still_counts_as_new(self, db_session, config, tutor, student):
+        db_session.add(Enrollment(
+            student_id=student.id, tutor_id=tutor.id, assigned_day="Tue",
+            assigned_time="16:45 - 18:15", location="MSA", lessons_paid=1,
+            first_lesson_date=date(2026, 1, 6), payment_status="Paid",
+            enrollment_type="Trial",
+        ))
+        db_session.commit()
+        _make_app(db_session, config, student_id=student.id)
+        [resp] = self._list(db_session, config)
+        assert resp.is_new_student is True
+
+    def test_publishing_does_not_flip_its_own_verdict(
+        self, db_session, config, admin, tutor, student
+    ):
+        """The enrollment publishing creates must not make the applicant look
+        like a returning student, or the fee message would quote $100 less
+        than the parent was already told."""
+        app = _make_app(db_session, config, status="Fee Sent", student_id=student.id)
+        publish_application(
+            app_id=app.id,
+            req=RegularPublishRequest(
+                confirmed_day="Tuesday", confirmed_time="16:45 - 18:15",
+                location="華士古分校", tutor_id=tutor.id,
+            ),
+            admin=admin, db=db_session,
+        )
+
+        [resp] = self._list(db_session, config)
+        assert resp.is_new_student is True
+
+        from routers.regular_course import get_application_messages
+        msgs = get_application_messages(
+            app_id=app.id, lessons_paid=6, discount_id=None,
+            first_lesson_date=None, _admin=None, db=db_session,
+        )
+        assert msgs.is_new_student is True
+        assert msgs.total_fee == 2500
+
+    def test_a_second_application_sees_the_first_enrollment(
+        self, db_session, config, admin, tutor, student
+    ):
+        first = _make_app(db_session, config, status="Fee Sent", student_id=student.id)
+        publish_application(
+            app_id=first.id,
+            req=RegularPublishRequest(
+                confirmed_day="Tuesday", confirmed_time="16:45 - 18:15",
+                location="華士古分校", tutor_id=tutor.id,
+            ),
+            admin=admin, db=db_session,
+        )
+        second = _make_app(db_session, config, name="Second Round", student_id=student.id)
+
+        by_id = {r.id: r for r in self._list(db_session, config)}
+        assert by_id[first.id].is_new_student is True
+        assert by_id[second.id].is_new_student is False
+
+
 # ---------------------------------------------------------------------------
 # Suggestions
 # ---------------------------------------------------------------------------

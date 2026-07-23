@@ -3853,6 +3853,9 @@ class RegularApplicationResponse(BaseModel):
     # Publish bridge: set when application has been published into a native
     # Regular enrollment. Drives the Publish/Unpublish button state.
     published_enrollment_id: Optional[int] = None
+    # Whether the one-off registration fee still applies, decided by the same
+    # rule publishing uses. Lets the admin fee preview quote the real total.
+    is_new_student: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 

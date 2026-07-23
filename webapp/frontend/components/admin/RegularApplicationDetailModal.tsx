@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { regularAPI, tutorsAPI, studentsAPI, discountsAPI, ApiError } from "@/lib/api";
-import { MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
+import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, minLessonsForDiscount } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import {
@@ -22,6 +22,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { RegularMessagePanel, type RegularMessageMode } from "./RegularMessagePanel";
+import { ChecklistRow } from "./ChecklistRow";
 import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
@@ -86,6 +87,16 @@ const REGULAR_NEXT_STATUS_MAP: Record<string, string[]> = {
 /** Rungs at or past "the fee message has gone out", which is also exactly
  *  where publishing becomes allowed. Same threshold as summer. */
 const FEE_SENT_OR_LATER = new Set(["Fee Sent", "Paid", "Enrolled"]);
+
+/** Picks the first incomplete step in the workflow checklist. Returns null
+ *  when every step is done. Regular has no language-stream step: the form
+ *  collects the stream up front, so summer's step 1 has no counterpart. */
+function firstUndoneStep(a: RegularApplication): number | null {
+  if (!a.existing_student_id) return 0;
+  if (!FEE_SENT_OR_LATER.has(a.application_status)) return 1;
+  if (!a.published_enrollment_id) return 2;
+  return null;
+}
 
 function FieldValue({
   label,
@@ -271,6 +282,7 @@ export function RegularApplicationDetailModal({
 
   // Parent messages (schedule offer / fee)
   const [messagePanel, setMessagePanel] = useState<RegularMessageMode | null>(null);
+  const [openStepIdx, setOpenStepIdx] = useState<number | null>(null);
 
   // Publish form
   const [pubLocation, setPubLocation] = useState("MSA");
@@ -315,6 +327,7 @@ export function RegularApplicationDetailModal({
     setManualIdConfirmed("");
     setHistoryOpen(false);
     setMessagePanel(null);
+    setOpenStepIdx(app.published_enrollment_id ? null : firstUndoneStep(app));
     setPubLocation(LOCATION_TO_CODE[app.preferred_location || ""] || "MSA");
     setPubDay(app.preference_1_day || "");
     setPubTime(app.preference_1_time || "");
@@ -583,20 +596,24 @@ export function RegularApplicationDetailModal({
   if (!isPublished) {
     if (!FEE_SENT_OR_LATER.has(app.application_status)) {
       publishBlockers.push(
-        `Status is ${app.application_status}. Send the fee message from the Parent messages panel, then mark it sent.`
+        `Status is ${app.application_status}. Send the fee message in step 2, then mark it sent.`
       );
     }
     if (!app.existing_student_id) {
-      publishBlockers.push("No student record is linked. Link one in the Student panel first.");
+      publishBlockers.push("No student record is linked. Link one in step 1 first.");
     }
   }
   const publishFormIncomplete = !usingSlot && (!pubDay || !pubTime || !pubTutorId);
 
-  // Client-side fee preview: base fee minus the selected discount. The
-  // backend recomputes the real total on publish.
+  // Client-side fee preview, mirroring what publishing will charge: base fee,
+  // less the selected discount, plus the registration fee when the API says
+  // this student still owes it. The backend recomputes the real total on
+  // publish — this only has to agree with the fee message the parent got.
   const selectedDiscount = discounts.find((d) => d.id === pubDiscountId);
   const discountValue = selectedDiscount?.discount_value ? Number(selectedDiscount.discount_value) : 0;
   const baseFee = 400 * pubLessons;
+  const registrationFee = app.is_new_student ? REGISTRATION_FEE : 0;
+  const feeTotal = baseFee - discountValue + registrationFee;
 
   // Turning the override on seeds the manual fields from the assigned slot.
   const handleOverrideToggle = (checked: boolean) => {
@@ -1109,11 +1126,35 @@ export function RegularApplicationDetailModal({
               </div>
             </div>
 
-            {/* RIGHT: student link + publish */}
-            <div className="space-y-3">
-              {/* Student link panel */}
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3 space-y-2">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Student</span>
+            {/* RIGHT: the admin workflow, one checklist step at a time —
+                same shape as summer, minus its language-stream step. */}
+            <div className="space-y-2">
+              {isPublished && (
+                <div className="rounded-md border border-green-200 dark:border-green-900/60 bg-green-50/70 dark:bg-green-900/20 px-2.5 py-2 text-[11px] leading-snug text-green-900 dark:text-green-200">
+                  This application is published. The status, the placement and
+                  the linked student are locked. Unpublish in step 3 to make
+                  changes, or edit the enrollment directly for tutor-facing
+                  updates.
+                </div>
+              )}
+              <ChecklistRow
+                index={0}
+                title="Link student"
+                done={!!app.existing_student_id}
+                open={openStepIdx === 0}
+                onToggle={() => setOpenStepIdx((i) => (i === 0 ? null : 0))}
+                disabled={!canEdit}
+                summary={app.linked_student ? (
+                  <span className="text-[10px] font-mono text-green-700 dark:text-green-300 font-medium">
+                    {app.linked_student.home_location && app.linked_student.school_student_id
+                      ? `${app.linked_student.home_location}-${app.linked_student.school_student_id}`
+                      : app.linked_student.student_name}
+                  </span>
+                ) : (
+                  <span className="text-[10px] italic">Not linked</span>
+                )}
+              >
+                <div className="space-y-2">
                 {app.linked_student ? (
                   <div className="space-y-1">
                     <div className="flex items-start gap-2 flex-wrap">
@@ -1308,22 +1349,27 @@ export function RegularApplicationDetailModal({
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* Parent messages: the schedule offer, then the fee message.
-                  Both are generated from the same schedule and fee inputs the
-                  publish panel below uses. */}
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3 space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Parent messages
-                  </span>
-                  {FEE_SENT_OR_LATER.has(app.application_status) && (
-                    <span className="text-[10px] font-medium text-green-700 dark:text-green-300">
-                      Fee message sent
-                    </span>
-                  )}
                 </div>
+              </ChecklistRow>
+
+              {/* The schedule offer, then the fee message. Both are generated
+                  from the same schedule and fee inputs the publish step uses. */}
+              <ChecklistRow
+                index={1}
+                title="Fee message"
+                done={FEE_SENT_OR_LATER.has(app.application_status)}
+                open={openStepIdx === 1}
+                onToggle={() => setOpenStepIdx((i) => (i === 1 ? null : 1))}
+                disabled={!canEdit}
+                summary={FEE_SENT_OR_LATER.has(app.application_status) ? (
+                  <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">
+                    {app.application_status}
+                  </span>
+                ) : (
+                  <span className="text-[10px] italic">Not sent</span>
+                )}
+              >
+                <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                   {(["schedule", "fee"] as const).map((key) => {
                     const Icon = key === "schedule" ? Copy : DollarSign;
@@ -1341,8 +1387,8 @@ export function RegularApplicationDetailModal({
                         )}
                         title={
                           key === "schedule"
-                            ? "Copy the class schedule for the parent"
-                            : "Copy the fee message for the parent"
+                            ? "Copy class schedule for parent"
+                            : "Copy fee message for parent"
                         }
                       >
                         <Icon className="h-3 w-3" />
@@ -1366,14 +1412,34 @@ export function RegularApplicationDetailModal({
                   </div>
                 ) : (
                   <div className="text-[11px] text-muted-foreground">
-                    Pick Schedule or Fee message to generate copy for the parent.
+                    Pick Schedule or Fee message above to generate copy for the parent.
                   </div>
                 )}
-              </div>
+                </div>
+              </ChecklistRow>
 
-              {/* Publish panel */}
+              {/* Publish stays reachable once published so admins can unpublish. */}
+              <ChecklistRow
+                index={2}
+                title="Publish"
+                done={!!enrollmentId}
+                open={openStepIdx === 2}
+                onToggle={() => setOpenStepIdx((i) => (i === 2 ? null : 2))}
+                summary={enrollmentId ? (
+                  <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">
+                    Enrollment #{enrollmentId}
+                  </span>
+                ) : publishBlockers.length > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <AlertTriangle className="h-3 w-3" />
+                    Blocked
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-primary font-medium">Ready</span>
+                )}
+              >
               {enrollmentId ? (
-                <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-3 space-y-2">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2 text-green-800 dark:text-green-300 font-medium text-sm">
                     <CheckCircle2 className="h-4 w-4" />
                     Published to enrollments
@@ -1412,10 +1478,7 @@ export function RegularApplicationDetailModal({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3 space-y-2">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Publish to enrollment
-                  </span>
+                <div className="space-y-2">
                   {publishBlockers.length > 0 && (
                     <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-2 space-y-1">
                       {publishBlockers.map((b) => (
@@ -1554,12 +1617,16 @@ export function RegularApplicationDetailModal({
                   <div>
                     <div className="text-xs text-foreground">
                       Fee: ${baseFee.toLocaleString()}
-                      {discountValue > 0 && (
-                        <> − ${discountValue.toLocaleString()} = ${(baseFee - discountValue).toLocaleString()}</>
+                      {discountValue > 0 && <> − ${discountValue.toLocaleString()}</>}
+                      {registrationFee > 0 && <> + ${registrationFee.toLocaleString()}</>}
+                      {(discountValue > 0 || registrationFee > 0) && (
+                        <> = ${feeTotal.toLocaleString()}</>
                       )}
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      New students pay a one-off $100 registration fee on top.
+                      {registrationFee > 0
+                        ? "Includes the one-off $100 registration fee for a new student."
+                        : "No registration fee. This student has enrolled with us before."}
                     </p>
                   </div>
 
@@ -1609,6 +1676,7 @@ export function RegularApplicationDetailModal({
                   )}
                 </div>
               )}
+              </ChecklistRow>
             </div>
           </div>
         </div>
