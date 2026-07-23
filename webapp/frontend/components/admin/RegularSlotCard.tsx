@@ -13,6 +13,17 @@ import type { RegularSlot, RegularSlotUpdate } from "@/types";
 export interface RegularTutorOption {
   id: number;
   name: string;
+  /** Rostered for this cell's day and time. Absent when no roster is loaded. */
+  onDuty?: boolean;
+}
+
+/** Who to offer for a slot: the tutors rostered for that cell, or everyone
+ *  active when the cell has no roster yet. Summer always narrows to on-duty,
+ *  but regular's roster starts empty, and an empty picker would leave slots
+ *  unstaffable until someone fills the duty grid in. */
+export function staffableTutors(tutors: RegularTutorOption[]): RegularTutorOption[] {
+  const onDuty = tutors.filter((t) => t.onDuty);
+  return onDuty.length > 0 ? onDuty : tutors;
 }
 
 interface RegularSlotCardProps {
@@ -246,7 +257,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
             title="Assign tutor"
           >
             <option value="">No tutor</option>
-            {tutors.map((t) => (
+            {staffableTutors(tutors).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>

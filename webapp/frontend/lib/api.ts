@@ -182,9 +182,9 @@ import type {
   SummerDemandResponse,
   SummerSuggestRequest,
   SummerSuggestResponse,
-  SummerTutorDuty,
-  SummerTutorDutyItem,
-  SummerActiveTutor,
+  TutorDuty,
+  TutorDutyItem,
+  ActiveTutorOption,
   SummerLesson,
   SummerLessonUpdate,
   SummerLessonCalendarResponse,
@@ -2662,17 +2662,17 @@ export const summerAPI = {
   // ---- Tutor Duty endpoints ----
 
   getActiveTutors: () =>
-    fetchAPI<SummerActiveTutor[]>("/summer/tutors/active"),
+    fetchAPI<ActiveTutorOption[]>("/summer/tutors/active"),
 
   getTutorDuties: (configId: number, location: string) =>
-    fetchAPI<SummerTutorDuty[]>(
+    fetchAPI<TutorDuty[]>(
       `/summer/tutor-duties?config_id=${configId}&location=${encodeURIComponent(location)}`
     ),
 
   bulkSetTutorDuties: (data: {
     config_id: number;
     location: string;
-    duties: SummerTutorDutyItem[];
+    duties: TutorDutyItem[];
   }) =>
     fetchAPI<{ success: boolean; count: number }>("/summer/tutor-duties/bulk-set", {
       method: "POST",
@@ -3131,6 +3131,34 @@ export const regularAPI = {
     fetchAPI<RegularPublishBatchResponse>("/regular/applications/publish-batch", {
       method: "POST",
       body: JSON.stringify({ items }),
+    }),
+
+  // ---- Tutor Duty endpoints ----
+
+  // Off the general tutors endpoint rather than an intake-specific one: the
+  // roster is the same list of people whichever intake is being staffed.
+  getActiveTutors: async (): Promise<ActiveTutorOption[]> =>
+    (await tutorsAPI.getAll())
+      .filter((t) => t.is_active_tutor !== false)
+      .map((t) => ({
+        id: t.id,
+        tutor_name: t.tutor_name,
+        default_location: t.default_location ?? null,
+      })),
+
+  getTutorDuties: (configId: number, location: string) =>
+    fetchAPI<TutorDuty[]>(
+      `/regular/tutor-duties?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+
+  bulkSetTutorDuties: (data: {
+    config_id: number;
+    location: string;
+    duties: TutorDutyItem[];
+  }) =>
+    fetchAPI<{ success: boolean; count: number }>("/regular/tutor-duties/bulk-set", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 };
 

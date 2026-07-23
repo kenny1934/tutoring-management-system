@@ -1777,6 +1777,30 @@ class RegularCourseSlot(Base):
     assigned_applications = relationship("RegularApplication", back_populates="assigned_slot")
 
 
+class RegularTutorDuty(Base):
+    """Which tutors are on duty for a day+time_slot+location in a regular cycle.
+
+    Mirrors SummerTutorDuty. Kept as its own table so each intake keeps a real
+    foreign key onto its own config table.
+    """
+    __tablename__ = "regular_tutor_duties"
+    __table_args__ = (
+        UniqueConstraint('config_id', 'tutor_id', 'location', 'duty_day', 'time_slot', name='uq_rduty'),
+        Index('idx_rduty_lookup', 'config_id', 'location', 'duty_day', 'time_slot'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("regular_course_configs.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="CASCADE"), nullable=False)
+    location = Column(String(255), nullable=False)
+    duty_day = Column(String(20), nullable=False)
+    time_slot = Column(String(50), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    config = relationship("RegularCourseConfig")
+    tutor = relationship("Tutor")
+
+
 class RegularApplicationEdit(Base):
     """Audit trail row for a single field change on a regular application.
 

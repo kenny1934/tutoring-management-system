@@ -78,8 +78,8 @@ from schemas import (
     SummerSuggestResponse,
     SummerSuggestionItem,
     SummerLessonAssignment,
-    SummerTutorDutyBulkSet,
-    SummerTutorDutyResponse,
+    TutorDutyBulkSet,
+    TutorDutyResponse,
     SummerApplicationSessionInfo,
     LinkedSecondaryStudentInfo,
     LinkedPrimaryProspectInfo,
@@ -107,6 +107,7 @@ from services.summer_marketing_snapshot import (
     snapshot_to_row,
 )
 from utils.rate_limiter import check_ip_rate_limit
+from utils.tutor_duties import list_duties, replace_duties
 from constants import (
     hk_now,
     SummerApplicationStatus,
@@ -4974,7 +4975,7 @@ def get_active_tutors(
     return [{"id": t.id, "tutor_name": t.tutor_name, "default_location": t.default_location} for t in tutors]
 
 
-@router.get("/summer/tutor-duties", response_model=list[SummerTutorDutyResponse])
+@router.get("/summer/tutor-duties", response_model=list[TutorDutyResponse])
 def get_tutor_duties(
     config_id: int,
     location: str,
@@ -4982,54 +4983,17 @@ def get_tutor_duties(
     db: Session = Depends(get_db),
 ):
     """Get all tutor duties for a config+location."""
-    duties = (
-        db.query(SummerTutorDuty)
-        .options(joinedload(SummerTutorDuty.tutor))
-        .filter(
-            SummerTutorDuty.config_id == config_id,
-            SummerTutorDuty.location == location,
-        )
-        .all()
-    )
-    return [
-        SummerTutorDutyResponse(
-            id=d.id,
-            config_id=d.config_id,
-            tutor_id=d.tutor_id,
-            tutor_name=d.tutor.tutor_name if d.tutor else "",
-            location=d.location,
-            duty_day=d.duty_day,
-            time_slot=d.time_slot,
-        )
-        for d in duties
-    ]
+    return list_duties(db, SummerTutorDuty, config_id, location)
 
 
 @router.post("/summer/tutor-duties/bulk-set")
 def bulk_set_tutor_duties(
-    data: SummerTutorDutyBulkSet,
+    data: TutorDutyBulkSet,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
     """Replace all tutor duties for a config+location with the given set."""
-    # Delete existing
-    db.query(SummerTutorDuty).filter(
-        SummerTutorDuty.config_id == data.config_id,
-        SummerTutorDuty.location == data.location,
-    ).delete()
-
-    # Insert new
-    for item in data.duties:
-        db.add(SummerTutorDuty(
-            config_id=data.config_id,
-            tutor_id=item.tutor_id,
-            location=data.location,
-            duty_day=item.duty_day,
-            time_slot=item.time_slot,
-        ))
-
-    db.commit()
-    return {"success": True, "count": len(data.duties)}
+    return replace_duties(db, SummerTutorDuty, data)
 
 
 # ─── Lesson Helpers ──────────────────────────────────────────────────────────

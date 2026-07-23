@@ -19,9 +19,9 @@ import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel"
 import type { DemandBarFilter } from "@/components/admin/SummerSlotCell";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
-import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
+import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyModal";
 import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
-import { SummerTutorWorkloadPanel } from "@/components/admin/SummerTutorWorkloadPanel";
+import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
 import { StudentJumpSearch, type StudentJumpSearchEntry } from "@/components/ui/student-jump-search";
@@ -46,6 +46,16 @@ const ARRANGEMENT_STATUSES = [
   ...PRE_ARRANGEMENT_STATUSES,
   ...POST_ARRANGEMENT_STATUSES,
 ];
+
+/** Summer's side of the shared tutor-duty modal. */
+const SUMMER_DUTY_API: TutorDutyApi = {
+  getActiveTutors: summerAPI.getActiveTutors,
+  getDuties: summerAPI.getTutorDuties,
+  bulkSetDuties: summerAPI.bulkSetTutorDuties,
+};
+
+/** A summer slot's students are its booked sessions. */
+const summerStudentsIn = (slot: SummerSlot) => slot.session_count ?? 0;
 
 function StatusFilterChip({
   status,
@@ -348,7 +358,7 @@ export default function SummerArrangementPage() {
     data: tutorDuties,
     mutate: mutateDuties,
   } = useSWR(
-    configId && location ? ["summer-duties", configId, location] : null,
+    configId && location ? ["tutor-duties", "summer", configId, location] : null,
     () => summerAPI.getTutorDuties(configId!, location)
   );
 
@@ -1126,9 +1136,10 @@ export default function SummerArrangementPage() {
             )}
           </div>
 
-          <SummerTutorWorkloadPanel
+          <TutorWorkloadPanel
             slots={regularSlots}
             open={workloadOpen && activeTab === "slots"}
+            studentsIn={summerStudentsIn}
           />
         </div>
 
@@ -1363,7 +1374,7 @@ export default function SummerArrangementPage() {
 
         {/* Tutor duty modal */}
         {dutyModalOpen && configId && (
-          <SummerTutorDutyModal
+          <TutorDutyModal
             isOpen={dutyModalOpen}
             onClose={() => setDutyModalOpen(false)}
             configId={configId}
@@ -1371,6 +1382,8 @@ export default function SummerArrangementPage() {
             days={openDays}
             timeSlots={timeSlots}
             onSaved={() => mutateDuties()}
+            api={SUMMER_DUTY_API}
+            intakeKey="summer"
           />
         )}
 

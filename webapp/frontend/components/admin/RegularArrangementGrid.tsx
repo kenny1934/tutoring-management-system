@@ -23,6 +23,9 @@ interface RegularArrangementGridProps {
   slots: RegularSlot[];
   grades: string[];
   tutors: RegularTutorOption[];
+  /** Per-cell tutor lists carrying duty state, keyed "day|timeSlot". Cells
+   *  with no entry fall back to the flat `tutors` list. */
+  tutorsByCell?: Map<string, RegularTutorOption[]>;
   /** True on initial load while slots/demand are still fetching. */
   loading?: boolean;
   readOnly?: boolean;
@@ -53,6 +56,7 @@ export function RegularArrangementGrid({
   slots,
   grades,
   tutors,
+  tutorsByCell,
   loading = false,
   readOnly = false,
   onCreateSlot,
@@ -242,7 +246,7 @@ export function RegularArrangementGrid({
                     demandCell={demandMap.get(key)}
                     slots={slotsMap.get(key) ?? EMPTY_SLOTS}
                     grades={grades}
-                    tutors={tutors}
+                    tutors={tutorsByCell?.get(key) ?? tutors}
                     readOnly={readOnly}
                     onCreateSlot={onCreateSlot}
                     onUpdateSlot={onUpdateSlot}

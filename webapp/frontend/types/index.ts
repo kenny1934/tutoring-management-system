@@ -2866,9 +2866,9 @@ export interface SummerSuggestResponse {
   unplaceable: Array<{ application_id: number; student_name: string; reason: string }>;
 }
 
-// ---- Summer Tutor Duty Types ----
+// ---- Tutor Duty Types (shared by both intakes) ----
 
-export interface SummerTutorDuty {
+export interface TutorDuty {
   id: number;
   config_id: number;
   tutor_id: number;
@@ -2878,13 +2878,13 @@ export interface SummerTutorDuty {
   time_slot: string;
 }
 
-export interface SummerTutorDutyItem {
+export interface TutorDutyItem {
   tutor_id: number;
   duty_day: string;
   time_slot: string;
 }
 
-export interface SummerActiveTutor {
+export interface ActiveTutorOption {
   id: number;
   tutor_name: string;
   default_location: string | null;

@@ -2951,23 +2951,23 @@ class SummerSuggestResponse(BaseModel):
     unplaceable: List[Dict[str, Any]] = []
 
 
-# ---- Summer Tutor Duty Schemas ----
+# ---- Tutor Duty Schemas (shared by both intakes) ----
 
-class SummerTutorDutyItem(BaseModel):
+class TutorDutyItem(BaseModel):
     """Single duty assignment for bulk-set."""
     tutor_id: int
     duty_day: str = Field(..., max_length=20)
     time_slot: str = Field(..., max_length=50)
 
 
-class SummerTutorDutyBulkSet(BaseModel):
+class TutorDutyBulkSet(BaseModel):
     """Bulk-set tutor duties for a config+location (replaces all existing)."""
     config_id: int
     location: str = Field(..., max_length=255)
-    duties: List[SummerTutorDutyItem]
+    duties: List[TutorDutyItem]
 
 
-class SummerTutorDutyResponse(BaseModel):
+class TutorDutyResponse(BaseModel):
     """Tutor duty with joined tutor name."""
     id: int
     config_id: int

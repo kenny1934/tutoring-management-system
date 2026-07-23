@@ -7,7 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useVisibilityAwareInterval } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { Grid3X3, RefreshCw, Users, UploadCloud, X } from "lucide-react";
+import { BarChart3, Grid3X3, RefreshCw, Users, Users2, UploadCloud, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import { regularAPI, tutorsAPI } from "@/lib/api";
 import { RegularArrangementGrid } from "@/components/admin/RegularArrangementGrid";
@@ -18,6 +18,9 @@ import {
 } from "@/components/admin/RegularApplicationCard";
 import { StudentJumpSearch, type StudentJumpSearchEntry } from "@/components/ui/student-jump-search";
 import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
+import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyModal";
+import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
+import type { RegularTutorOption } from "@/components/admin/RegularSlotCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV } from "@/lib/regular-utils";
 import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
@@ -37,6 +40,16 @@ const POST_ARRANGEMENT_STATUSES = [
   "Placement Offered", "Placement Confirmed", "Fee Sent", "Paid", "Enrolled", "Waitlisted",
 ] as const;
 const ARRANGEMENT_STATUSES = [...PRE_ARRANGEMENT_STATUSES, ...POST_ARRANGEMENT_STATUSES];
+
+/** Regular's side of the shared tutor-duty modal. */
+const REGULAR_DUTY_API: TutorDutyApi = {
+  getActiveTutors: regularAPI.getActiveTutors,
+  getDuties: regularAPI.getTutorDuties,
+  bulkSetDuties: regularAPI.bulkSetTutorDuties,
+};
+
+/** A regular slot's students are the applications placed in it. */
+const regularStudentsIn = (slot: RegularSlot) => slot.assigned_count ?? 0;
 
 function StatusFilterChip({
   status,
@@ -96,6 +109,8 @@ export default function RegularArrangementPage() {
   // Set by a header status chip: narrows the panel to that rung of the ladder.
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(null);
+  const [dutyModalOpen, setDutyModalOpen] = useState(false);
+  const [workloadOpen, setWorkloadOpen] = useState(false);
   // Search jump target. `seq` bumps on every pick so re-selecting the same
   // student rings the card again.
   const [slotTarget, setSlotTarget] = useState<{
@@ -189,6 +204,11 @@ export default function RegularArrangementPage() {
     [tutors]
   );
 
+  const { data: tutorDuties, mutate: mutateDuties } = useSWR(
+    canView && configId && location ? ["tutor-duties", "regular", configId, location] : null,
+    () => regularAPI.getTutorDuties(configId!, location)
+  );
+
   const isValidating = slotsValidating || demandValidating || appsValidating;
 
   // Day columns: the branch's open days plus any day carrying an existing
@@ -212,6 +232,29 @@ export default function RegularArrangementPage() {
     }
     return [...set].sort();
   }, [selectedLocation, slots, activeConfig]);
+
+  // Per-cell tutor lists carrying duty state. Precomputed once so every cell
+  // keeps a stable array identity rather than a fresh one per render.
+  const tutorsByCell = useMemo(() => {
+    const onDutyAt = new Map<string, Set<number>>();
+    for (const d of tutorDuties ?? []) {
+      const key = `${d.duty_day}|${d.time_slot}`;
+      if (!onDutyAt.has(key)) onDutyAt.set(key, new Set());
+      onDutyAt.get(key)!.add(d.tutor_id);
+    }
+    const byCell = new Map<string, RegularTutorOption[]>();
+    for (const day of days) {
+      for (const ts of timeSlots) {
+        const key = `${day}|${ts}`;
+        const onDuty = onDutyAt.get(key);
+        byCell.set(
+          key,
+          tutorOptions.map((t) => ({ ...t, onDuty: onDuty?.has(t.id) ?? false }))
+        );
+      }
+    }
+    return byCell;
+  }, [tutorDuties, tutorOptions, days, timeSlots]);
 
   const grades = useMemo(
     // Seeded grade options always carry a value (F1..F4); name is a fallback.
@@ -743,17 +786,42 @@ export default function RegularArrangementPage() {
               <div className="flex-1" />
               {!readOnly && (
                 <button
+                  onClick={() => setDutyModalOpen(true)}
+                  disabled={!location}
+                  title="Tutor Duties"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Users2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Tutor Duties</span>
+                </button>
+              )}
+              <button
+                onClick={() => setWorkloadOpen((v) => !v)}
+                title={workloadOpen ? "Hide workload summary" : "Show workload summary"}
+                aria-pressed={workloadOpen}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors",
+                  workloadOpen
+                    ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                    : "border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800",
+                )}
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Workload</span>
+              </button>
+              {!readOnly && (
+                <button
                   onClick={() => setPublishConfirmOpen(true)}
                   disabled={publishEligible.length === 0 || publishing}
                   title={
                     publishEligible.length === 0
-                      ? "Assign applications and send their fee message first"
-                      : `Publish ${publishEligible.length} assigned application${publishEligible.length === 1 ? "" : "s"}`
+                      ? "Nothing is ready. An application has to be placed in a slot and have its fee message sent before it can be published."
+                      : `Publish ${publishEligible.length} placed application${publishEligible.length === 1 ? "" : "s"} whose fee message has been sent. Anything still earlier on the ladder is left alone.`
                   }
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <UploadCloud className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Publish assigned</span>
+                  <span className="hidden sm:inline">Publish ready</span>
                   <span className="sm:hidden">Publish</span>
                   {publishEligible.length > 0 && (
                     <span className="tabular-nums">({publishEligible.length})</span>
@@ -761,6 +829,12 @@ export default function RegularArrangementPage() {
                 </button>
               )}
             </div>
+
+            <TutorWorkloadPanel
+              slots={slots ?? []}
+              open={workloadOpen}
+              studentsIn={regularStudentsIn}
+            />
           </div>
 
           {/* Main content: grid + unassigned panel */}
@@ -779,6 +853,7 @@ export default function RegularArrangementPage() {
                     slots={slots ?? []}
                     grades={grades}
                     tutors={tutorOptions}
+                    tutorsByCell={tutorsByCell}
                     loading={slots === undefined || demand === undefined}
                     readOnly={readOnly}
                     onCreateSlot={handleCreateSlot}
@@ -902,6 +977,21 @@ export default function RegularArrangementPage() {
           )}
         </div>{/* end paper card */}
 
+        {/* Tutor duty modal */}
+        {dutyModalOpen && configId && (
+          <TutorDutyModal
+            isOpen={dutyModalOpen}
+            onClose={() => setDutyModalOpen(false)}
+            configId={configId}
+            location={location}
+            days={days}
+            timeSlots={timeSlots}
+            onSaved={() => mutateDuties()}
+            api={REGULAR_DUTY_API}
+            intakeKey="regular"
+          />
+        )}
+
         {/* Application detail modal — opened from a panel card or a slot row */}
         <RegularApplicationDetailModal
           application={selectedApp}
@@ -930,15 +1020,16 @@ export default function RegularArrangementPage() {
           confirmText="Delete"
         />
 
-        {/* Publish assigned confirmation */}
+        {/* Publish-ready confirmation */}
         <ConfirmDialog
           isOpen={publishConfirmOpen}
           onConfirm={handlePublishAssigned}
           onCancel={() => setPublishConfirmOpen(false)}
-          title="Publish Assigned Applications"
-          message={`Publish ${publishEligible.length} application${publishEligible.length === 1 ? "" : "s"} whose fee message has been sent?`}
+          title="Publish Ready Applications"
+          message={`Publish ${publishEligible.length} application${publishEligible.length === 1 ? "" : "s"} that are placed in a slot and have had their fee message sent?`}
           consequences={[
             "Each application is published as an enrollment using its assigned slot's day, time and tutor.",
+            "Placed applications that have not reached Fee Sent are left as they are.",
             "Failures are reported per application and do not block the rest.",
           ]}
           confirmText="Publish"

@@ -15,10 +15,13 @@ from models import (
     RegularApplication,
     RegularApplicationEdit,
     RegularCourseSlot,
+    RegularTutorDuty,
     Enrollment,
 )
 from schemas import (
     RegularPublishRequest,
+    TutorDutyBulkSet,
+    TutorDutyItem,
     RegularSlotCreate,
     RegularSlotUpdate,
     RegularSlotAssignRequest,
@@ -32,6 +35,8 @@ from routers.regular_course import (
     list_applications,
     suggest_slots,
     publish_application,
+    get_tutor_duties,
+    bulk_set_tutor_duties,
 )
 
 
@@ -812,3 +817,96 @@ class TestPublishPaymentStatus:
         )
         enrollment = db_session.get(Enrollment, resp.enrollment_id)
         assert enrollment.payment_status == "Paid"
+
+
+# ---------------------------------------------------------------------------
+# Tutor duties (shared roster helpers, exercised through the regular endpoints)
+# ---------------------------------------------------------------------------
+
+class TestTutorDuties:
+    def _get(self, db_session, config, location="華士古分校"):
+        return get_tutor_duties(
+            config_id=config.id, location=location, _admin=None, db=db_session,
+        )
+
+    def _set(self, db_session, admin, config, duties, location="華士古分校"):
+        return bulk_set_tutor_duties(
+            data=TutorDutyBulkSet(
+                config_id=config.id, location=location, duties=duties,
+            ),
+            admin=admin, db=db_session,
+        )
+
+    def test_empty_roster_reads_as_no_duties(self, db_session, config):
+        assert self._get(db_session, config) == []
+
+    def test_set_then_read_back_with_tutor_name(self, db_session, config, admin, tutor):
+        result = self._set(db_session, admin, config, [
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Tuesday", time_slot="16:45 - 18:15"),
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Saturday", time_slot="10:00 - 11:30"),
+        ])
+        assert result == {"success": True, "count": 2}
+
+        duties = self._get(db_session, config)
+        assert {(d.duty_day, d.time_slot) for d in duties} == {
+            ("Tuesday", "16:45 - 18:15"),
+            ("Saturday", "10:00 - 11:30"),
+        }
+        assert all(d.tutor_name == "Teaching Tutor" for d in duties)
+
+    def test_save_replaces_the_whole_roster(self, db_session, config, admin, tutor):
+        self._set(db_session, admin, config, [
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Tuesday", time_slot="16:45 - 18:15"),
+        ])
+        self._set(db_session, admin, config, [
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Saturday", time_slot="10:00 - 11:30"),
+        ])
+        duties = self._get(db_session, config)
+        assert [(d.duty_day, d.time_slot) for d in duties] == [("Saturday", "10:00 - 11:30")]
+
+    def test_clearing_every_tick_empties_the_roster(self, db_session, config, admin, tutor):
+        self._set(db_session, admin, config, [
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Tuesday", time_slot="16:45 - 18:15"),
+        ])
+        assert self._set(db_session, admin, config, []) == {"success": True, "count": 0}
+        assert self._get(db_session, config) == []
+
+    def test_branches_keep_separate_rosters(self, db_session, config, admin, tutor):
+        self._set(db_session, admin, config, [
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Tuesday", time_slot="16:45 - 18:15"),
+        ], location="華士古分校")
+        self._set(db_session, admin, config, [
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Saturday", time_slot="10:00 - 11:30"),
+        ], location="二龍喉分校")
+
+        assert len(self._get(db_session, config, "華士古分校")) == 1
+        assert len(self._get(db_session, config, "二龍喉分校")) == 1
+        # Saving one branch must not wipe the other.
+        assert self._get(db_session, config, "華士古分校")[0].duty_day == "Tuesday"
+
+    def test_duties_belong_to_their_own_config(self, db_session, config, admin, tutor):
+        other = RegularCourseConfig(
+            year=2027, title="Regular Sep 2027",
+            application_open_date=datetime(2027, 8, 3),
+            application_close_date=datetime(2027, 9, 30),
+            course_start_date=date(2027, 9, 7),
+            locations=[{"name": "華士古分校", "open_days": ["Tuesday"]}],
+            is_active=False,
+        )
+        db_session.add(other)
+        db_session.commit()
+
+        self._set(db_session, admin, config, [
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Tuesday", time_slot="16:45 - 18:15"),
+        ])
+        assert len(self._get(db_session, config)) == 1
+        assert self._get(db_session, other) == []
+
+    def test_rows_land_in_the_regular_table(self, db_session, config, admin, tutor):
+        self._set(db_session, admin, config, [
+            TutorDutyItem(tutor_id=tutor.id, duty_day="Tuesday", time_slot="16:45 - 18:15"),
+        ])
+        rows = db_session.query(RegularTutorDuty).all()
+        assert len(rows) == 1
+        assert rows[0].config_id == config.id
+        assert rows[0].location == "華士古分校"

@@ -28,6 +28,7 @@ from models import (
     RegularApplication,
     RegularApplicationEdit,
     RegularCourseSlot,
+    RegularTutorDuty,
     Discount,
     Enrollment,
     SessionLog,
@@ -65,11 +66,14 @@ from schemas import (
     RegularPublishResult,
     RegularPublishBatchResponse,
     RegularApplicationMessages,
+    TutorDutyBulkSet,
+    TutorDutyResponse,
     LinkedSecondaryStudentInfo,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
 from utils.rate_limiter import check_ip_rate_limit
+from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
 from constants import (
     hk_now,
@@ -1077,6 +1081,27 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
         )
         for s in slots
     ]
+
+
+@router.get("/regular/tutor-duties", response_model=list[TutorDutyResponse])
+def get_tutor_duties(
+    config_id: int,
+    location: str,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Get all tutor duties for a config+location."""
+    return list_duties(db, RegularTutorDuty, config_id, location)
+
+
+@router.post("/regular/tutor-duties/bulk-set")
+def bulk_set_tutor_duties(
+    data: TutorDutyBulkSet,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Replace all tutor duties for a config+location with the given set."""
+    return replace_duties(db, RegularTutorDuty, data)
 
 
 @router.get("/regular/slots", response_model=list[RegularSlotResponse])
