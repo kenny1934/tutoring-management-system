@@ -1,4 +1,4 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (149 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (166 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (149 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (166 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -282,7 +282,19 @@ async function main() {
         dioBuildings: document.querySelectorAll(".zb-hero .zb-dio__b").length,
         fuseline: !!q(".zb-hero .zb-dio__fuseline"),
         stampText: (q(".zb-hero .zb-dio__stamp text") || {}).textContent || "",
-        howto: [...document.querySelectorAll(".zb-howto__item")].map((i) => !!i.querySelector("svg")),
+        howto: [...document.querySelectorAll("#howtoCard .zb-howto__item")].map((i) => !!i.querySelector("svg")),
+        arcHowto: [...document.querySelectorAll("#arcHowtoCard .zb-howto__item")].map((i) => !!i.querySelector("svg")),
+        arcStrip: [...document.querySelectorAll(".zb-covertrack .zb-track__step")].map((s) => s.textContent).join("|"),
+        arcNote: (document.querySelector(".zb-covertrack__note") || {}).textContent || "",
+        // §19.5: the cover splits on a wide stage - controls right, so
+        // the host button and the logo both clear a laptop fold
+        fold: {
+          vh: innerHeight,
+          host: Math.round(q("#btnHost").getBoundingClientRect().bottom),
+          brand: Math.round(q("#introScreen .mc-brand").getBoundingClientRect().bottom),
+          cols: getComputedStyle(q("#introScreen .zb-splitgrid")).gridTemplateColumns.split(" ").length,
+        },
+        duration: (q("#introScreen .mc-meta") || {}).textContent || "",
         pts: {
           full: L.points(1, 1, 0), none: L.points(0, 1, 0), half: L.points(0.5, 1, 0),
           s3: L.points(1, 1, 3), s10: L.points(1, 1, 10), s20: L.points(1, 1, 20),
@@ -298,6 +310,36 @@ async function main() {
       JSON.stringify({ dio: intro.dioBuildings, fuse: intro.fuseline, stamp: intro.stampText }));
     check("how-to is three mini-diagrams",
       intro.howto.length === 3 && intro.howto.every(Boolean), `items ${intro.howto.length}`);
+    check("§19.4: the arc has a how-to of its own, also three diagrams",
+      intro.arcHowto.length === 3 && intro.arcHowto.every(Boolean), `items ${intro.arcHowto.length}`);
+    check("§19.4: the cover names the whole lesson, not the main game alone",
+      intro.arcStrip === "探究一|探究二|概念轉化|主遊戲" && intro.arcNote.includes("等式開口中"),
+      JSON.stringify({ strip: intro.arcStrip, note: intro.arcNote.slice(0, 40) }));
+    check("§19.5: the cover's controls and logo clear the fold on a laptop",
+      intro.fold.cols === 2 && intro.fold.host < intro.fold.vh && intro.fold.brand <= intro.fold.vh,
+      JSON.stringify(intro.fold));
+    check("§19.6: the clock is the measured whole-lesson 10 to 15 minutes, arc included",
+      intro.duration.includes("10至15") && intro.duration.includes("全程"), intro.duration);
+    // §19.6: reclaim is a recovery path - it waits behind its own line
+    // rather than sitting on the cover as a fourth control
+    const reclaimBefore = await page.evaluate(() => ({
+      row: getComputedStyle(document.getElementById("reclaimRow")).display,
+      link: getComputedStyle(document.getElementById("btnReclaimShow")).display,
+      join: getComputedStyle(document.getElementById("joinCode")).display,
+    }));
+    await page.click("#btnReclaimShow");
+    const reclaimAfter = await page.evaluate(() => ({
+      row: getComputedStyle(document.getElementById("reclaimRow")).display,
+      link: getComputedStyle(document.getElementById("btnReclaimShow")).display,
+      hint: document.getElementById("reclaimHint").textContent,
+    }));
+    check("§19.6: reclaim hides behind a link, the join field stays out in the open",
+      reclaimBefore.row === "none" && reclaimBefore.link !== "none" && reclaimBefore.join !== "none" &&
+      reclaimAfter.row !== "none" && reclaimAfter.link === "none",
+      JSON.stringify({ before: reclaimBefore, after: reclaimAfter }));
+    check("§19.7: revealing reclaim explains what it is for and why the same device",
+      reclaimAfter.hint.includes("同一部機") && reclaimAfter.hint.includes("建立"),
+      reclaimAfter.hint);
     check("points: base speed",
       intro.pts.full === 200 && intro.pts.none === 100 && intro.pts.half === 150,
       JSON.stringify(intro.pts));
@@ -350,14 +392,14 @@ async function main() {
       () => window.__turnSeen || document.getElementById("gameScreen").classList.contains("zb-turnin"));
     check("page turn-in on screen change", turnSeen, "zb-turnin never latched on #gameScreen");
 
-    check("std plan: 12 buildings", pc.count === 12, `count ${pc.count}`);
-    check("std plan: kind order",
-      JSON.stringify(pc.stageKinds) === "[1,2,3,4,5,6]" &&
-      JSON.stringify(pc.kinds) === "[1,2,2,3,3,4,4,5,5,6,6,6]",
+    check("std plan: 13 buildings", pc.count === 13, `count ${pc.count}`);
+    check("std plan: kind order (the gate closes the run)",
+      JSON.stringify(pc.stageKinds) === "[1,2,3,4,5,6,7]" &&
+      JSON.stringify(pc.kinds) === "[1,2,2,3,3,4,4,5,5,6,6,6,7]",
       JSON.stringify(pc.kinds));
     check("std plan: round 2+ is hard", pc.hardOk, "hard flag mismatch");
-    check("std plan: ~20 codes", pc.codes >= 18 && pc.codes <= 22, `codes ${pc.codes}`);
-    check("std plan: fuse budget 6.75 min", pc.fuseTotal === 405000, `total ${pc.fuseTotal}ms`);
+    check("std plan: ~22 codes", pc.codes >= 20 && pc.codes <= 24, `codes ${pc.codes}`);
+    check("std plan: fuse budget 7.75 min", pc.fuseTotal === 465000, `total ${pc.fuseTotal}ms`);
     check("all roots fit the keypad", pc.keypadOk, "root outside -9..9 across 60 seeds");
     check("finale flag on the last street only", pc.finaleOk, "finale flag mismatch");
 
@@ -389,7 +431,7 @@ async function main() {
       JSON.stringify({ wait: card.boardWait, vis: card.inkVis, staged: card.staged }));
     check("pad shut during the level card", card.padDisabled, "keys enabled under the card");
     check("level card is a blueprint title block",
-      card.cardShown && /PLAN 01\/12/.test(card.plan) && card.n.includes("第 1 關") &&
+      card.cardShown && /PLAN 01\/13/.test(card.plan) && card.n.includes("第 1 關") &&
       card.sub.includes("拆卸目標") && card.meta.includes("MathConcept"),
       JSON.stringify({ plan: card.plan, n: card.n, meta: card.meta }));
 
@@ -778,24 +820,18 @@ async function main() {
     const r9 = await submit(page, info9.pillarRoots[0], 1.05);
     ptsCheck(9, r9, false);
 
-    /* ══ buildings #10-#12 — the finale street ══ */
+    /* ══ buildings #10-#12 — the kind-6 street (no longer the finale:
+     * the gate took the crown, §19 Batch AA) ══ */
     await untilSeq(page, 10);
-    const fin = await page.evaluate(() => ({
-      finaleClass: document.getElementById("levelCardBlock").classList.contains("finale"),
-      chopShown: document.getElementById("levelCardChop").style.display !== "none",
-      chopText: document.getElementById("levelCardChop").textContent.trim(),
-      finShown: document.getElementById("levelCardFin").style.display !== "none",
-      finText: document.getElementById("levelCardFin").textContent,
-    }));
-    check("finale card gets the double border and 加倍 chop",
-      fin.finaleClass && fin.chopShown && fin.chopText === "加倍" && fin.finShown,
-      JSON.stringify(fin));
+    const notFin = await page.evaluate(() =>
+      document.getElementById("levelCardBlock").classList.contains("finale"));
+    check("kind-6 street no longer wears the finale card", !notFin, "finale class on #10");
     const info10 = await levelInfo(page);
     diag(diagLine(info10));
     await untilStaged(page);
     records.push(await camRecord(page));
     const r10a = await submit(page, info10.pillarRoots[0], 1.05);
-    ptsCheck(10, r10a, true);
+    ptsCheck(10, r10a, false);
     const plq = await page.evaluate(() => {
       const G = window.G;
       const id = G.claimed[G.claimed.length - 1];
@@ -833,7 +869,7 @@ async function main() {
       nudge10.nudged && nudge10.after === nudge10.before && !nudge10.after.includes("諗下"),
       JSON.stringify({ nudged: nudge10.nudged, mark: (nudge10.after || "").slice(0, 60) }));
     const r10b = await submit(page, info10.pillarRoots[1], 0.99);
-    ptsCheck(10, r10b, true);
+    ptsCheck(10, r10b, false);
 
     for (const seq of [11, 12]) {
       await untilSeq(page, seq);
@@ -842,16 +878,64 @@ async function main() {
       await untilStaged(page);
       records.push(await camRecord(page));
       const ra = await submit(page, inf.pillarRoots[0], 1.05);
-      ptsCheck(seq, ra, true);
+      ptsCheck(seq, ra, false);
       const rb = await submit(page, inf.pillarRoots[1], 0.99);
-      ptsCheck(seq, rb, true);
+      ptsCheck(seq, rb, false);
     }
 
+    /* ══ building #13 — the general-form gate, the true finale ══ */
+    await untilSeq(page, 13);
+    const fin = await page.evaluate(() => ({
+      finaleClass: document.getElementById("levelCardBlock").classList.contains("finale"),
+      chopShown: document.getElementById("levelCardChop").style.display !== "none",
+      chopText: document.getElementById("levelCardChop").textContent.trim(),
+      finShown: document.getElementById("levelCardFin").style.display !== "none",
+    }));
+    check("finale card (double border + 加倍 chop) moved to the gate",
+      fin.finaleClass && fin.chopShown && fin.chopText === "加倍" && fin.finShown,
+      JSON.stringify(fin));
+    const info13 = await levelInfo(page);
+    diag(diagLine(info13));
+    check("the gate is scripted: x² + 5x + 6 = 2, roots −1 and −4",
+      info13.n === 7 && info13.expr === "x² + 5x + 6 = 2" &&
+      info13.roots.join(",") === "-4,-1",
+      JSON.stringify({ expr: info13.expr, roots: info13.roots }));
+    await untilStaged(page);
+    records.push(await camRecord(page));
+    const gateBoard = await page.evaluate(() =>
+      document.getElementById("exprBoard").innerHTML);
+    check("the gate's board carries no red 0 (the tell)",
+      gateBoard.includes("= 2") && !gateBoard.includes("zb-zero"), gateBoard.slice(0, 120));
+    // the trap in person: −2 zeroes the DISPLAYED left side, but the
+    // right side is 2 - the bespoke nudge toward general form
+    const trap = await submit(page, -2, 0.9);
+    check("gate trap: −2 scores nothing", trap.after.score === trap.before.score,
+      JSON.stringify(trap.after));
+    const trapMark = await page.evaluate(() => document.getElementById("markZone").textContent);
+    check("gate trap: the nudge names the move to general form",
+      trapMark.includes("≠ 2") && trapMark.includes("唔係 0") && trapMark.includes("x² + 5x + 4 = 0"),
+      trapMark);
+    // the wrong answer locked the pad for 3s: wait it out
+    await page.waitForFunction(
+      () => ![...document.querySelectorAll("#pad .zb-key")].every((k) => k.disabled),
+      null, { timeout: 6000 });
+    const r13a = await submit(page, -1, 0.85);
+    ptsCheck(13, r13a, true);
+    const gatePlq = await page.evaluate(() => ({
+      mark: document.getElementById("markZone").textContent,
+      fact: window.ZBLevels.factorisation(window.G.level),
+    }));
+    check("gate: the working shows the whole move-over chain",
+      gatePlq.fact === "x² + 5x + 4 = (x+1)(x+4)" && gatePlq.mark.includes("x² + 5x + 4 = 0"),
+      JSON.stringify(gatePlq));
+    const r13b = await submit(page, -4, 0.8);
+    ptsCheck(13, r13b, true);
+
     /* ══ the camera + dressing over the whole run ══ */
-    check("dressing varies across the 12 buildings",
+    check("dressing varies across the 13 buildings",
       new Set(records.map((r) => r.dress)).size >= 2, records.map((r) => r.dress).join(","));
     check("every building carries a dressing pick",
-      records.length === 12 && records.every((r) => ["0", "1", "2"].includes(r.dress)),
+      records.length === 13 && records.every((r) => ["0", "1", "2"].includes(r.dress)),
       records.map((r) => r.dress).join(","));
     check("hint chip only on the factorise buildings",
       records.every((r) => r.hintChip === (r.n === 6)),
@@ -867,7 +951,7 @@ async function main() {
     const tighter = records.filter((r) => r.rest.w < 399.5 && r.rest.h < 239.5).length;
     check("the camera frames tighter than the full sheet",
       tighter >= 8 && records.every((r) => Math.abs(r.rest.w - 400) > 0.5 || Math.abs(r.rest.h - 240) > 0.5),
-      `tighter ${tighter}/12 frames ${records.map((r) => `${r.rest.w.toFixed(0)}x${r.rest.h.toFixed(0)}`).join(" ")}`);
+      `tighter ${tighter}/13 frames ${records.map((r) => `${r.rest.w.toFixed(0)}x${r.rest.h.toFixed(0)}`).join(" ")}`);
 
     /* ══ the demolition report ══ */
     await page.waitForFunction(
@@ -898,12 +982,12 @@ async function main() {
       end.chopText.includes("檢定完成") && /^\d{4}-\d{2}-\d{2}$/.test(end.chopDate),
       JSON.stringify({ chop: end.chopText, date: end.chopDate }));
     check("report rows staggered + checks draw themselves",
-      end.rows.length === 12 && end.rows.every((r, i) => r.ri === String(i) && r.draw),
+      end.rows.length === 13 && end.rows.every((r, i) => r.ri === String(i) && r.draw),
       JSON.stringify(end.rows.slice(0, 3)));
     check("inspector beside the chop, clipboard in hand",
       end.inspector && end.clipboard, JSON.stringify({ insp: end.inspector, clip: end.clipboard }));
     check("end score > 0", end.score > 0, `score ${end.score}`);
-    check("record rows = 12", end.recs.length === 12 && end.rows.length === 12,
+    check("record rows = 13", end.recs.length === 13 && end.rows.length === 13,
       `records ${end.recs.length} rows ${end.rows.length}`);
     check("all buildings cleared ticks",
       end.recs.every((r) => r.cleared) && end.rows.every((r) => r.ok && !r.no),
@@ -1025,7 +1109,7 @@ async function main() {
     await pB.click("#btnSolo");
     await pB.waitForFunction(() => !!(window.G && window.G.levels), null, { timeout: 10000 });
     const cfgB = await pB.evaluate(() => {
-      const def = { 1: 20000, 2: 20000, 3: 35000, 4: 35000, 5: 35000, 6: 45000 };
+      const def = { 1: 20000, 2: 20000, 3: 35000, 4: 35000, 5: 35000, 6: 45000, 7: 60000 };
       return {
         ok: window.G.levels.every((l) => l.fuseMs === Math.round(def[l.stageKind] * 0.5)),
         fuses: window.G.levels.map((l) => l.fuseMs),
@@ -1039,27 +1123,29 @@ async function main() {
     await pC.waitForFunction(() => !!(window.G && window.G.levels), null, { timeout: 10000 });
     const cfgC = await pC.evaluate(() => ({
       len: window.G.levels.length,
-      mixTail: window.G.levels.slice(-3).every((l) => l.stageKind === "mix"),
+      mixTail: window.G.levels.slice(-4, -1).every((l) => l.stageKind === "mix"),
       // MIX_KINDS = [3,4,6]: kind 5's one-tap double hit sits the mixed street out
-      mixKinds: window.G.levels.slice(-3).every((l) => [3, 4, 6].includes(l.n) && l.hard),
+      mixKinds: window.G.levels.slice(-4, -1).every((l) => [3, 4, 6].includes(l.n) && l.hard),
+      gateLast: window.G.levels[window.G.levels.length - 1].n === 7 &&
+        window.G.levels[window.G.levels.length - 1].finale,
     }));
-    check("diff=hard: 15 buildings + mixed street",
-      cfgC.len === 15 && cfgC.mixTail && cfgC.mixKinds, JSON.stringify(cfgC));
+    check("diff=hard: 16 buildings, mixed street BEFORE the gate finale",
+      cfgC.len === 16 && cfgC.mixTail && cfgC.mixKinds && cfgC.gateLast, JSON.stringify(cfgC));
     await pC.close();
 
     const pD = await gamePage(ctx, "diff=easy&seed=3", errsCfg);
     await pD.click("#btnSolo");
     await pD.waitForFunction(() => !!(window.G && window.G.levels), null, { timeout: 10000 });
     const cfgD = await pD.evaluate(() => {
-      const def = { 1: 20000, 2: 20000, 3: 35000, 4: 35000, 5: 35000, 6: 45000 };
+      const def = { 1: 20000, 2: 20000, 3: 35000, 4: 35000, 5: 35000, 6: 45000, 7: 60000 };
       return {
         len: window.G.levels.length,
         oneRound: window.G.levels.every((l) => l.round === 1),
         longer: window.G.levels.every((l) => l.fuseMs === Math.round(def[l.stageKind] * 1.25)),
       };
     });
-    check("diff=easy: 6 buildings, longer fuses",
-      cfgD.len === 6 && cfgD.oneRound && cfgD.longer, JSON.stringify(cfgD));
+    check("diff=easy: 7 buildings, longer fuses",
+      cfgD.len === 7 && cfgD.oneRound && cfgD.longer, JSON.stringify(cfgD));
     await pD.close();
 
     /* graph-orientation probe + commit window (one page) */
@@ -1152,8 +1238,22 @@ async function main() {
       cw.mark.includes("(−5)"), `mark "${cw.mark}"`);
     await pE.close();
 
-    /* the opt-in solo hint (kind 6 street of one): chip + nudge contract */
+    /* the opt-in solo hint (kind 6 street of one): chip + nudge contract.
+       Run at handset size — a student practising on a phone is where the
+       hint's placement and the keypad's fold actually bite, and it costs
+       a resize rather than a second browser context. */
     const pF = await gamePage(ctx, "levels=6&rounds=1&seed=5", errsCfg);
+    await pF.setViewportSize({ width: 390, height: 844 });
+    const coverMeta = await pF.evaluate(() => {
+      const spans = [...document.querySelectorAll("#introScreen .mc-meta > span")];
+      const line = parseFloat(getComputedStyle(spans[0]).lineHeight) || 20;
+      return {
+        n: spans.length,
+        oneLineEach: spans.every((s) => s.getBoundingClientRect().height <= line * 1.5),
+      };
+    });
+    check("phone cover: the kicker stacks whole instead of breaking mid-word",
+      coverMeta.n === 2 && coverMeta.oneLineEach, JSON.stringify(coverMeta));
     await pF.click("#btnSolo");
     await untilStaged(pF);
     // half fuse: the strategy NUDGE appears (mark zone is empty) but the
@@ -1185,9 +1285,51 @@ async function main() {
       hint.nudged && !hint.hintedAfterHalf &&
       hint.chipAfterHalf.visible && !hint.chipAfterHalf.disabled,
       JSON.stringify({ chip0: hint.chip0, after: hint.chipAfterHalf, hinted: hint.hintedAfterHalf }));
+    // it belongs in the margin beside the keypad, not inside it: a
+    // centred dashed pill over the answer preview read as a field to
+    // fill in, and it pushed the 0 row below a phone's fold. It wears
+    // the same quiet skin as 暫停, which is the design rule — so read
+    // that button rather than pinning a CSS literal here.
+    const chipPlace = await pF.evaluate(() => {
+      const chip = document.getElementById("soloHint");
+      const r = chip.getBoundingClientRect();
+      const pad = document.getElementById("padWrap").getBoundingClientRect();
+      const skin = (el) => {
+        const cs = getComputedStyle(el);
+        return [cs.border, cs.color, cs.fontSize, cs.fontWeight, cs.backgroundColor].join("|");
+      };
+      return {
+        outsidePad: !document.getElementById("padWrap").contains(chip),
+        besidePad: r.bottom <= pad.top + 1 && pad.top - r.bottom < 40,
+        chipBottom: Math.round(r.bottom),
+        vh: innerHeight,
+        sameSkinAsPause: skin(chip) === skin(document.getElementById("btnPause")),
+        rightAligned: Math.abs(r.right - pad.right) <= 2,
+      };
+    });
+    check("solo hint sits in the margin beside the keypad, wearing 暫停's skin",
+      chipPlace.outsidePad && chipPlace.besidePad && chipPlace.rightAligned &&
+      chipPlace.sameSkinAsPause && chipPlace.chipBottom <= chipPlace.vh,
+      JSON.stringify(chipPlace));
     check("half-fuse nudge: sum and product pencilled in the mark zone",
       hint.mark.includes("乘埋係 " + hint.prod) && hint.mark.includes("加埋係 " + hint.sum),
       `mark "${hint.mark}" prod ${hint.prod} sum ${hint.sum}`);
+    // the whole keypad has to be reachable with the hint on offer: the
+    // 0 row used to sit below the fold on a handset
+    const phoneFold = await pF.evaluate(() => {
+      const digits = [...document.querySelectorAll("#pad .zb-key[data-d]")]
+        .map((k) => k.getBoundingClientRect());
+      const l = Math.min(...digits.map((r) => r.left));
+      const r = Math.max(...digits.map((r) => r.right));
+      return {
+        zeroBottom: Math.round(document.querySelector("#pad .zb-key--zero").getBoundingClientRect().bottom),
+        vh: innerHeight,
+        offCentre: +Math.abs((l + r) / 2 - innerWidth / 2).toFixed(1),
+      };
+    });
+    check("phone solo: the 0 row clears the fold and the keys sit centred",
+      phoneFold.zeroBottom <= phoneFold.vh && phoneFold.offCentre <= 1,
+      JSON.stringify(phoneFold));
     // the student opts in: tap the chip
     const tapped = await pF.evaluate(() => {
       const G = window.G;
@@ -1350,8 +1492,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 149) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 149`);
+    if (total !== 166) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 166`);
       process.exit(1);
     }
     if (failures.length) {

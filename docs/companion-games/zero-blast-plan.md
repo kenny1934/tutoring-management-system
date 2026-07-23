@@ -1652,3 +1652,450 @@ navigation, and every label change reshuffled the targets. Two fixes:
   the gap separates "adjust this stage" from "leave it".
 
 Multi suite: 208 checks.
+
+## 19. Second demo feedback: the arc is the lesson (2026-07-22;
+all five batches implemented)
+
+The full-class demo ran 探究一 → 探究二 → 概念轉化 → 主遊戲 in one
+room and returned nine findings. The through-line: the arc IS the
+lesson now, but the hearts economy, the stage conclusions and the
+lobby still treat it as a bolt-on. Findings 1, 2 and 6 are one
+decision (the hearts economy across the arc) and land as Batches W
+and X; the rest map onto Y, Z and AA.
+
+A finding-1 correction first: main-game score already carries across
+every stage. `G.score`/`G.scores` reset only in startRun() (a
+brand-new game), never between stages. What the demo saw was the
+hearts refill at the 探究一 → 探究二 handover ("fresh 5 hearts per
+stage", inqEnterStage). Batch W removes that refill, which is what
+the finding actually wants. If anyone truly saw main-game POINTS
+reset mid-run that is a separate bug (suspect a host F5) - watch for
+it at the next demo, don't code for it.
+
+### Batch W - one hearts pool + the rebuild bench (findings 1, 2)
+
+- **One pool for the whole arc.** Drop the stage-entry refill in
+  inqEnterStage(); hearts flow 探究一 → 探究二 → 概念轉化 untouched.
+  Default rises 5 → 6 (`?inqhearts` still overrides): stage 1's
+  despair round (the prime 37) and stage 2's booms are designed
+  drains, and Batch X makes the bridge cost hearts for the first
+  time. 生還者 at each recap now means "never knocked out this arc" -
+  worth more, reads the same.
+- **Zero hearts = 重建中, not elimination.** Today 0 hearts is
+  cosmetic (dimmed roster, dropped from 生還者) and the stake is
+  fake. New rule: a player at 0 is benched for the NEXT round as an
+  observer - reuse the rotating-bye plumbing wholesale (roster tag,
+  phone explainer card, no lives move, snapshot survival like
+  lastBye) with its own copy (大廈冧咗，重建中。下一回合返嚟). They
+  return with 2 hearts (1 would re-KO on the next single miss; 2
+  buys a round of slack). No one sits out more than one round, KO
+  benches carry across a stage boundary naturally, and elimination
+  stays off the table - the design is inclusion-first (echo points,
+  rotating bye) and this keeps it that way.
+- **Mass-KO guard.** A stage-2 boom can zero several players at
+  once. If benching every 0-heart player would leave fewer than 2
+  active, skip the bench and rebuild all of them on the spot (2
+  hearts, no round missed) - a pity rule that should almost never
+  fire.
+- Benched players count as absent for pairing; the rotating bye
+  applies to whoever remains.
+
+### Batch X - the bridge becomes a real test (findings 5, 6)
+
+- **INQ_BRIDGE grows to 4**: `[[3,-2],[5,-4],[0,7],[3,3]]` -
+  x(x−7) = 0 slots in third, testing the naked-x factor (students
+  usually don't know x has its zero at 0). factorText(0) already
+  renders "(x)" and factorSub gives the reveal line
+  (0)(0−7) = 0 × (−7) = 0 for free. The repeated root stays LAST:
+  the arc is rule, rule, rule, exception. Stage 3 auto-extends to 4
+  rounds (base = INQ_BRIDGE.length) and 加多一回合 cycles %4 - check
+  the lesson time budget. The x(x−7) reveal note names the trap in
+  its own line (x 自己都係一個因式，零點喺 0), not just the generic
+  或 template.
+- **Own-factor judging** (partially reverses §18.1, deliberately).
+  The underlined hint becomes the assignment: the pair passes only
+  when BOTH partners zero their OWN dealt factor; any miss (wrong x
+  or no submission) costs both partners 1 heart - the same shared
+  fate as stages 1-2. Rationale: today's pair.some() lets one strong
+  partner carry both, and the student dealt "(x)" in the new
+  question 3 never has to confront root 0 at all. §18.1's fear
+  (endorsing (0)(0)) is answered by framing, not rules: the stage
+  intro states the 分工 rule up front (你負責歸零你嗰個因式), the
+  reveal still substitutes each partner's x into BOTH factors
+  showing exactly one zeroed bracket per line, and the 或/重根 notes
+  stay, as does inq_either_note on a pass. A double pass now yields
+  two lines zeroing DIFFERENT brackets - the 或 shown twice,
+  stronger than the current rule ever manages.
+- **The partner's-root verdict.** A partner dealt (x−7) who submits
+  0 has solved the EQUATION but not their factor. A flat "wrong"
+  would be mathematically false, so it gets its own verdict type and
+  phone copy (0 真係方程嘅解，不過你嘅因式係 (x−7)，代 0 入去係
+  −7。你要歸零你嗰份先得) - still a pair fail, but the maths gets
+  credit.
+- **The two card-less cases.** (x−3)² deals no cards (identical
+  brackets): both partners own the same factor, so both must submit
+  3 - a tightening (today one partner's 3 passes both), consistent
+  with 分工. The degenerate solo pair (one-player room) is dealt one
+  underlined factor (alternating per round) and judged on it alone.
+- Copy register per §18.3: spoken tutor Cantonese, hedged, second
+  person.
+
+### Batch Y - every stage lands its conclusion (findings 3, 4)
+
+- **探究一's recap earns its screen.** Today it is only the
+  survivors line - the discovery goes unstated. Add the beat: the
+  five Ns played with each round's 成功配對 count (persist a
+  per-round pass tally in state/inq - one flat scalar per round,
+  inside the shape clamp), closing on the cliffhanger, not the
+  answer: 隨機嘅 N，靠估好難夾中。有冇一個 N，係唔使夾都得？ The
+  primary then walks into 探究二's intro, which pays it off with the
+  locked 0. The theorem stays in stage 2 - stage 1's job is only the
+  itch.
+- **顯示歸納 becomes the default path** (finding 4). On stage 2's
+  summary the theorem button is promoted to THE primary; only after
+  it is pressed does the primary become 下一階段. The tutor still
+  owns the reveal moment (nothing auto-shows) and the jump chips
+  still allow a deliberate skip - but the theorem can no longer be
+  missed by accident. Phone mirroring already exists.
+
+### Batch Z - the lobby track, the handover and the QR chip (findings 7, 8)
+
+- **The lobby presents the lesson track.** Replace the stacked
+  開始遊戲 / 先玩探究 buttons with the arc drawn as four equal
+  steps - 探究一 → 探究二 → 概念轉化 → 主遊戲 - where the tutor taps
+  the entry point and one primary 開始 button launches from there.
+  Default selection 探究一 (the designed lesson); 主遊戲 is one
+  equal tap away, no longer the overpowering primary. Mid-game the
+  跳去 chips already speak the same track language.
+- **Instructions move to their moment.** The cover keeps only
+  title / objective / join / host / solo / resume; its main-game
+  how-to moves to the 進入主遊戲 handover (between the bridge recap
+  and startRun) where it is actually next. Each 探究 stage keeps its
+  own intro. The solo path is unchanged (straight into the main game
+  with its how-to).
+- **QR chip on the tutor bar** (finding 8), both game and inquiry
+  screens: toggles a corner overlay with the room QR + code
+  (GameBridge.qr already renders it), kbd chip `q` per §18.4. Rejoin
+  identity already restores from localStorage keyed by room code
+  (score and hearts survive a re-scan) - discovery was the only gap.
+  The overlay carries one reassurance line (入返嚟會攞返自己嘅分數).
+  Manual toggle only, per the tutor-bar philosophy - nothing
+  auto-shows during a round.
+
+### Batch AA - the general-form gate (finding 9)
+
+- **One scripted finale building: x² + 5x + 6 = 2.** New kind 7
+  ("offset"), appended after the kind-6 street as the true finale
+  (the double points and slow-mo set piece move to it), fuse 60s, in
+  every preset (`?levels` can still omit it). Scripted, not
+  generated: the lesson quotes this exact question, the same way
+  探究一's N pool is scripted. (A generator must make BOTH the
+  displayed LHS and the rearranged form factor over integers -
+  solvable, not worth it for the pilot.)
+- **The trap must pay.** x² + 5x + 6 factors as (x+2)(x+3), so the
+  confident wrong answers are −2/−3 - those exact submissions get a
+  bespoke worked note: (−2)² + 5×(−2) + 6 = 0，唔係 2！右邊唔係 0，
+  要先搬個 2 過去。 Generic wrongs substitute into the LHS and show
+  ≠ 2. strength() for kind 7 is |LHS − RHS|.
+- True roots −1 and −4 (keypad range); pillars hidden as in kind 6.
+  The resolve/fuse-out reveal shows the whole chain:
+  x² + 5x + 6 = 2 → x² + 5x + 4 = 0 → (x+1)(x+4) = 0 - the lesson's
+  general-form introduction, on screen before phones go down.
+- **Renderer refactor**: exprHtml/boardHtml hard-append "= 0" today;
+  levels grow an `rhs` field (default 0) and the board renders it -
+  the only structural change outside levels.js.
+
+### Recommended order
+
+W and X first, together - the economy underpins the bridge's new
+stakes and both rewrite inqResolve(). Y, Z and AA are independent of
+them and of each other. If a demo lands before the iteration is
+done, the two afternoon-sized quick wins are the theorem promotion
+(Y's second bullet) and the QR chip (Z's third). Every mechanics
+change lands with multi-suite coverage (208 checks today; W and X
+are the big adders). game.json 0.12.0.
+
+### 19.1 W+X implementation deltas (2026-07-22)
+
+- KO'd players are credited to 2 hearts AT bench time, so the roster
+  reads 重建中 with the comeback already visible; a reveal showing 0
+  hearts therefore always means the fall just happened, which is what
+  the phone's KO beat keys on.
+- sanitizeInq (the phone's wire whitelist) grew the `rebuild` key - a
+  flat comma-joined pid list, same publicity argument as the bye.
+- Reveal rows regained the aC/bC card keys (dropped in §18.1, flat
+  scalars inside the clamp): both renderers mark each member's OWN
+  factor - the chip rings only on the 分工 zero and the substitution
+  underlines the assigned bracket, so the projector shows WHY a
+  right-looking x still failed the pair.
+- 生還者 now reads an ever-KO'd map (snapshot-persisted): with one
+  pool + the bench, hearts alone no longer say who fell.
+- The lone-player deal alternates its factor by round; the repeated
+  root needs both partners on the root (one 3 no longer carries).
+- Multi suite 208 → 221 checks; solo + audit untouched and green.
+
+### 19.2 Y+Z+AA implementation deltas (2026-07-22)
+
+- Z's how-to move: the card now lives in the LOBBY (the scanning wait
+  is the reading moment - the whole class reads the rules on the
+  projector while phones join), then the same node re-appears under
+  the 概念轉化 recap's exam faces. Solo goes straight in with no
+  how-to beat - the kind-1 building is its own tutorial.
+- AA needed NO rhs renderer refactor: exprHtml only decorates a
+  literal "= 0" tail, so the gate's "= 2" passes through unstyled -
+  the MISSING red 0 is the tell. The kind-7 level carries {b, c, k}
+  and strength() reads |LHS − k|.
+- The gate offers no hint (host button or solo nudge): the
+  multiply-add hint presumes general form, which is the very thing
+  being tested. Tutors pace it with +15s instead.
+- The gate wears the kind-6 building on the scene (same exam face,
+  after all) with a banded mini silhouette on the street strip; the
+  trap nudge (右邊係 {k}，唔係 0) composes per device so each phone
+  reads it in its own language.
+- diff=hard slots the mixed street BEFORE the gate - kind 7 keeps the
+  finale crown (and its double pay) in every preset.
+- Suites: multi 233, solo 157 (up from 149), audit 74 - all green.
+
+### 19.3 Post-demo review fixes (2026-07-22, same-day eyeball)
+
+Copy: the rejoin QR note opens 斷咗線 (not 跌咗線); the 探究一 recap
+head drops 今日; the cliffhanger now asks 配對, not 夾 (靠估好難配得中
+／有冇一個 N 係容易啲配對).
+
+The 分工 reveal read wrong (Kenny's demo catch): the phone showed every
+member's x pushed through BOTH factors, so a partner's-root miss ended
+in "= 0" and read as a pass - worse, the credit note only rendered for
+yourself, so the innocent partner saw two "= 0" lines, then 配對失敗,
+with no explanation at all. Fixes:
+
+- The phone reads each member against their OWN bracket only
+  (你出咗 x = 7，你負責 (x)：(7) = 7，唔係 0), each line opening on its
+  own ✓/✗ (inqVmarkHtml, shared with the host grid). The both-factor
+  chain stays on the projector, where the 或-note frames it.
+- inq_wrong_factor_fmt trimmed to the credit alone (真係方程嘅解！
+  不過今次你負責嘅因式係 {f}) - the substitution now lives in the
+  member's own line, so the note stopped repeating it.
+- The projector's reveal rows end on the same per-member ✓/✗ - before,
+  a failing member got only the absence of a ring.
+- The host keeps the equation face up THROUGH the stage-3 reveal
+  (before, wrap hid at reveal and the rows floated with no referent).
+  Composed from the reveal payload (rootA/rootB), which alone survives
+  a host F5 here - the unrevealed roots never ride the round state.
+
+Suites re-choreographed and green: multi 233 / solo 157 / audit 74.
+
+### 19.4 The arc's framing on the bookend screens (2026-07-23)
+
+Kenny's demo read: the lobby still did not acknowledge the games that
+come before the main one, and the handover into 歸零爆破 was so quiet
+that a big game seemed to start out of nowhere. Both are the same gap
+seen from either end - the ARC had no identity on the two screens that
+bookend it, only the main game did. The lobby's biggest block was the
+demolition how-to (支柱, 導火線, 拆卸) over an attract loop of a
+collapsing building, so the night opened on a promise the next forty
+minutes did not keep.
+
+- **The lobby's how-to follows the track.** A second card,
+  #arcHowtoCard, carries the arc's own three rules (secret pairing /
+  the product must equal the target / a miss costs a life), closing on
+  the line that names what comes after: 三個階段完咗之後，就會開始主遊戲
+  「歸零爆破」。 renderTrack() shows it whenever the entry step is an
+  inquiry stage and holds the demolition card back for a 主遊戲 start.
+  The lives icon is marking circles, never hearts, per §12.
+- **The handover pages through a briefing screen** (#briefScreen),
+  Kenny's design: one press leaves the arc, the class reads the main
+  game's rules on the projector, a second press starts the run. The
+  game's how-to card (the same live node) moves here from the lobby,
+  under a bridging lede - 頭先探究嘅零因式性質，而家用嚟拆大廈 - with
+  the run's own meta (13 座建築 · 約 15 分鐘, the joined count) and an
+  n-keyed start button. The 概念轉化 recap keeps only the exam faces:
+  that beat belongs to the arc.
+- **The phones say it too.** state/inq.brief rides the existing
+  sanitizer whitelist; a phone wearing it closes its pad and reads
+  主遊戲準備開始 · 望住投影幕，導師講緊主遊戲點玩, so the run starting
+  is announced on the device, not sprung on it. inqStatePayload()
+  publishes brief:null, so any arc publish clears the flag and a host
+  F5 mid-briefing can never strand a phone on the ready face.
+- 跳過探究 lands on the briefing too: bailing out of the arc still
+  needs the game's rules read.
+
+No cutscene: an earlier draft proposed an auto-running curtain-up
+(skyline, plaque, shared 3·2·1). Kenny's version keeps the tutor in
+control of both beats, which suits a classroom better.
+
+Suites: multi 236, solo 158, audit 74 - all green.
+
+### 19.5 The bookend screens, second pass (2026-07-23)
+
+Two follow-ups from Kenny after §19.4 landed:
+
+- **The cover still advertised the main game alone.** A tutor opening
+  the game could not tell that SM901's night runs an arc first. The
+  cover now carries a read-only copy of the same four steps (探究一 →
+  探究二 → 概念轉化 → 主遊戲) under the objective, with a note that
+  names the arc, its rough length and the fact that hosting lets you
+  pick the entry step. The meta row's 約 15 分鐘 stays the MAIN GAME's
+  own figure (the briefing screen reuses that string), so the arc's
+  ~20 minutes is stated in the note instead of muddled into it.
+- **The lobby buried its own controls.** Measured at 1366x768: the
+  join sheet ran 199..705, which pushed the how-to half off the fold,
+  the lesson track to y=1016 and its START button to y=1094 - the
+  tutor had to scroll to find the primary action, and the logo sat at
+  y=1231. The lobby is now a two-column grid on the projector class
+  (.zb-lobbygrid): join sheet left, lesson panel right (how-to,
+  roster, track, start). The projector QR drops 300 -> 270 to buy the
+  last 30px. Everything now clears the fold: start button bottom 564,
+  logo bottom 760 of 768. Narrow stages are untouched - the grid only
+  applies under .zb-stage--projector, so phones keep the stacked
+  order.
+
+Both are locked by tests: the solo suite asserts the cover strip's
+four steps and its note, the multi suite asserts two columns with the
+how-to, start button and logo all above the fold.
+
+Suites: multi 237, solo 159, audit 74 - all green.
+
+### 19.6 Split layout on both bookends, and an honest clock (2026-07-23)
+
+- **The cover now splits too.** Its logo sat at y=797 on a 768-tall
+  laptop, i.e. permanently below the fold. The masthead block (title,
+  swash, objective) spans, then the lesson panel (flow strip, hero,
+  meta) and the entry controls (host, solo, join-by-code, reclaim) sit
+  side by side. Logo bottom 626 of 768, with the host button at 320.
+  One shared .zb-splitgrid now drives both the cover and the lobby.
+- **The lobby's halves line up.** §19.4 left the right-hand card
+  floating at y=123 against a sheet that started at y=199, because the
+  title and lede lived in the left column. They moved into a spanning
+  head row, so both panels now start on the same line (199/199).
+- **The clock was wrong.** Kenny played a full multi-device run: 10 to
+  15 minutes, not the advertised 15. duration is now 13 座建築 · 約 12
+  分鐘 in both languages, and game.json's duration_min follows (15 ->
+  12) so the games hub agrees. The arc's own ~20 minutes is untouched
+  (stated separately in the cover note), and the briefing screen picks
+  the new figure up for free - it reads the same string.
+
+Suites: multi 238, solo 161, audit 74 - all green.
+
+### 19.7 The clock, corrected; the cover's controls, tidied (2026-07-23)
+
+- **§19.5 misread the measurement.** Kenny's 10 to 15 minutes covers
+  the WHOLE lesson, arc included, not the main game alone - so the
+  15-minute figure was not merely stale, it was attached to the wrong
+  thing, and §19.4's "約 20 分鐘" for the arc was pure invention. The
+  cover's clock now reads 13 座建築 · 全程約 10至15 分鐘 and the arc
+  note drops its parenthetical. game.json's duration_min goes back to
+  15 (the hub wants one planning number; the upper bound is the safe
+  one). The briefing screen no longer shares that string - it gets
+  duration_game (13 座建築, no time claim), because a whole-lesson
+  figure is wrong at a point where the arc is already spent, and we
+  have no measured game-only number to put there. No spaces around 至:
+  the meta row is body-sized text.
+- **The cover's controls were a wall.** Four full-width rows - host,
+  solo, join-by-code, reclaim-by-code - two of them labelled inputs,
+  read as a form rather than a choice. The two ways in now lead, then
+  a hairline rule and a quiet 已經開咗房？ label introduce the typed
+  fallbacks: the join field stays out in the open (students use it
+  when a QR will not scan), and reclaim - a recovery path a tutor
+  wants perhaps once a term - waits behind an underlined line that
+  reveals the row and focuses it.
+
+Suites: multi 238, solo 162, audit 74 - all green.
+
+### 19.8 Cover copy: no 開房, and reclaim explains itself (2026-07-23)
+
+- 已經開咗房？ read as an innuendo in Cantonese (開房 = get a hotel
+  room). The section label is now 已經有房間號碼？, and the reclaim
+  link says 接手之前建立嘅房間 rather than repeating 開.
+- Nothing on screen said what reclaim was FOR or why it insists on the
+  same machine, so revealing the row now shows a hint: Refresh 或者閂咗
+  個分頁之後用。房間只認得建立佢嗰部裝置，所以要喺同一部機接手。
+  That constraint is a rules property, not a UI whim: host() stamps
+  hostUid with the device's anonymous auth uid, the RTDB rules scope
+  state writes to it, and the bridge refuses a reclaim whose hostUid
+  does not match (reclaim_not_yours). It is what stops anyone who can
+  read a room code from seizing a live classroom.
+
+Suites: multi 238, solo 163, audit 74 - all green.
+
+### 19.9 The phone's own audit (2026-07-23)
+
+Kenny's demo notes were the keypad looking uncentred and the hint
+button reading oddly. Both reproduce, and measuring the three phone
+faces (join/controller, 探究 arc, solo on a handset) at 390x844 and
+360x640 turned up the rest.
+
+- **The keypad was 39px left of centre, everywhere.** The pad was a
+  four-column grid - three digit columns plus a full-height 負號
+  column - inside a 340px box that was itself centred. The block was
+  centred; the digits, which are what a student reads as "the
+  keypad", were not. 探究一/二 were worse: the sign key was held with
+  `visibility: hidden`, so it kept its column and left a dead gutter.
+  The sign key now rides the bottom row beside 0 on a three-column
+  grid: digits dead centre, keys 81px -> 107px, and in the sign-less
+  stages the key leaves the grid entirely (`display: none`) while 0
+  takes the whole row.
+- **The keypad floated mid-sheet and small phones lost the
+  instruction line.** On a 390-tall-844 controller the pad's bottom
+  edge sat 240px above the screen's, out of easy thumb reach; on a
+  640-tall phone `#ctrlStatus` - which carries 出一個 0至99 嘅整數,
+  the pillar count and the grace warning - fell entirely below the
+  fold. A screen that owns a keypad is now one full-height column on
+  portrait phones (`.zb-fill` / `.zb-fillpane`, worn by both the
+  controller and the solo game screen) with the pad pinned by the
+  spacer above it, so a verdict filling the marking band never shifts
+  keys under a thumb. That is also what lets the band size to its ink
+  there instead of holding a 96px reserve whose whole job was
+  preventing that jump - on a 390x844 handset it was holding 96px for
+  23px of nudge while the 0 key hung past the fold. A 640-tall tier
+  trims the stage's bottom padding, the scene, the key height and the
+  status line. Remaining: a two-line verdict card on a 640-tall phone
+  still pushes the status line a few pixels past the fold - the
+  keypad and the verdict both stay on screen.
+- **The solo hint sat inside the keypad block**, a dashed low-contrast
+  pill directly above the `x = ▢` preview, which read as part of the
+  answer field - and it pushed the 0 row below the fold on a phone.
+  It moves out to the margin, right-aligned to the pad's own edge and
+  travelling with it (`.zb-padblock`) so it stays beside the keys at
+  every width, and it now wears 暫停's skin rather than restating it.
+  (It is solo-only; the multiplayer controller has no hint, so what
+  Kenny saw was solo on a handset.)
+- **Three icons drew nothing.** `i-phone` on the student's 加入遊戲,
+  `i-screen` on the cover's 多裝置開始 and `i-sound` on the one-time
+  sound offer set `fill: none` with no stroke colour, and unlike
+  `.mc-meta svg` / `.zb-timer svg` no context rule supplies one to a
+  bare button - each reserved a hole where the glyph belongs. Those
+  symbols now carry `stroke="currentColor"` themselves; the audit
+  suite fails on any bare-button symbol that doesn't.
+- **探究 result cards opened with the wrong line.** Order followed the
+  pair's card order, so a phone could lead with the partner's verdict;
+  and the shared 未提交 string is name-prefixed on the projector, so
+  alone on a phone it read as a subjectless fragment. The student's
+  own line now leads, and their own miss reads 你未提交.
+- **The briefing ready face said itself twice** (board and status both
+  主遊戲準備開始) while still showing the arc's spent lives row and a
+  dead `--.-` clock. Status cleared, both dropped. An empty status is
+  now hidden outright rather than left as a dashed box that reads as a
+  field to fill in.
+- **The cover's kicker broke mid-word on a phone** (分 / 鐘, 全 / 班):
+  `.mc-meta` is `nowrap` by default, so two spans fought over 354px.
+  It wraps below 700px.
+- 0 至 99 -> 0至99 in the two 探究 strings: body-sized text takes no
+  spaces around 至.
+
+Suites: multi 242, solo 166, audit 76 - all green.
+
+A cleanup pass followed (reuse / simplification / efficiency /
+altitude). What it changed, beyond the wording above: the quiet-button
+skin is declared once for 暫停 and the hint rather than copied; the
+empty-status hide goes back to CSS (`.mc-status:empty`) instead of a
+JS style write, which also covers the cover's two code-row slots; the
+column's height comes from the stage itself rather than a hand-copied
+`104px` that this very batch had already invalidated; `--zb-pad-w`
+names the keypad column width the pad, the host board and the hint all
+line up on; the column's min-height declares `100vh` before `100dvh`,
+because a browser that drops the rule outright would collapse the
+marking band with nothing pinning the pad - the exact jump it exists
+to stop; the sign key moved to the end of the markup so reading
+order matches render order and its grid coordinates could go; and the
+solo suite measures the handset case by resizing the page it already
+has, which is ~5s of wall clock and one browser context cheaper.

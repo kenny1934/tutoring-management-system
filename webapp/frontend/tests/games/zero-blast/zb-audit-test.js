@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* zb-audit-test.js — 歸零爆破 Zero Blast AUDIT suite (74 assertions).
+/* zb-audit-test.js — 歸零爆破 Zero Blast AUDIT suite (76 assertions).
  *
  * Covers: EN/dark bilingual checks, 320px + landscape-phone layout,
  * reduced motion (incl. the armed-preview drain bar), the fx=lite/full
@@ -283,16 +283,22 @@ async function section320(browser) {
   const padInfo = await page.evaluate(() => {
     const keys = [...document.querySelectorAll("#pad .zb-key")];
     const pad = document.getElementById("pad").getBoundingClientRect();
-    const digitHs = keys
-      .filter((k) => !k.classList.contains("zb-key--sign"))
-      .map((k) => k.getBoundingClientRect().height);
-    const sign = document.querySelector("#pad .zb-key--sign").getBoundingClientRect().height;
+    // the digit block's own box, which is what a student reads as "the
+    // keypad": the sign key used to hang off a fourth column and shove
+    // every digit left of the screen's centre
+    const digits = [...document.querySelectorAll("#pad .zb-key[data-d]")]
+      .map((k) => k.getBoundingClientRect());
+    const sign = document.querySelector("#pad .zb-key--sign").getBoundingClientRect();
+    const l = Math.min(...digits.map((r) => r.left));
+    const r = Math.max(...digits.map((r) => r.right));
     return {
       keys: keys.length,
       visible: keys.every((k) => k.offsetParent !== null),
-      minH: Math.min(...digitHs),
-      maxH: Math.max(...digitHs),
-      signH: sign, // spans grid rows 1-3: ~3 key rows tall by design
+      minH: Math.min(...digits.map((d) => d.height)),
+      maxH: Math.max(...digits.map((d) => d.height)),
+      signH: sign.height, // one row now: it shares the bottom row with 0
+      cols: getComputedStyle(document.getElementById("pad")).gridTemplateColumns.split(" ").length,
+      offCentre: Math.abs((l + r) / 2 - innerWidth / 2),
       padW: pad.width,
       padH: pad.height,
     };
@@ -303,12 +309,31 @@ async function section320(browser) {
       padInfo.visible &&
       padInfo.minH >= 44 &&
       padInfo.maxH <= 90 &&
-      padInfo.signH >= padInfo.minH * 2.5 &&
-      padInfo.signH <= padInfo.maxH * 3.5 &&
+      padInfo.signH >= padInfo.minH &&
+      padInfo.signH <= padInfo.maxH &&
       padInfo.padW <= 320 &&
       padInfo.padH >= 140 &&
       padInfo.padH <= 400,
     JSON.stringify(padInfo)
+  );
+  check(
+    "320px: three columns, digits centred on the screen",
+    padInfo.cols === 3 && padInfo.offCentre <= 1,
+    JSON.stringify(padInfo)
+  );
+  // icons worn on a bare button get no stroke from any context rule, so
+  // without one of their own they draw nothing: 多裝置開始, 加入遊戲 and
+  // the sound offer all shipped a blank glyph
+  const bareIcons = await page.evaluate(() =>
+    ["i-screen", "i-phone", "i-sound"].filter((id) =>
+      [...document.getElementById(id).children]
+        .some((el) => !el.getAttribute("stroke"))
+    )
+  );
+  check(
+    "icons worn on a bare button carry their own stroke",
+    bareIcons.length === 0,
+    "strokeless: " + JSON.stringify(bareIcons)
   );
   await ctx.close();
 }

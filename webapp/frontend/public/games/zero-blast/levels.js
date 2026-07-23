@@ -18,7 +18,9 @@
   var MINUS = "−";
   var TIMES = "×";
 
-  /* ≈12 buildings / ≈20 codes; max fuse ≈ 6.75 min */
+  /* ≈13 buildings / ≈22 codes; max fuse ≈ 7.75 min. Kind 7 is the
+   * general-form gate (§19 Batch AA): one scripted building, the true
+   * finale - the lesson's bridge into 一般式. */
   var DEFAULT_PLAN = [
     { kind: 1, rounds: 1, fuseMs: 20000 },
     { kind: 2, rounds: 2, fuseMs: 20000 },
@@ -26,6 +28,7 @@
     { kind: 4, rounds: 2, fuseMs: 35000 },
     { kind: 5, rounds: 2, fuseMs: 35000 },
     { kind: 6, rounds: 3, fuseMs: 45000 },
+    { kind: 7, rounds: 1, fuseMs: 60000 },
   ];
   var MIX_STAGE = { kind: "mix", rounds: 3, fuseMs: 40000 };
 
@@ -176,6 +179,26 @@
           ],
         };
       }
+      case 7: {
+        // x² + bx + c = k - NOT in general form (§19 Batch AA): move
+        // the k over FIRST, then factorise. Scripted, not rolled: the
+        // SM901 lesson quotes this exact question as its bridge into
+        // 一般式. The displayed LHS factors cleanly as (x+2)(x+3), so
+        // the confident wrong answers −2/−3 exist (the UI catches them
+        // with a bespoke nudge); the true roots come from x²+5x+4=0.
+        return {
+          n: 7,
+          kind: "offset",
+          b: 5,
+          c: 6,
+          k: 2,
+          expr: quadText(5, 6) + " = 2",
+          pillars: [
+            { id: "p1", root: -1, label: "?", hidden: factorText(-1) },
+            { id: "p2", root: -4, label: "?", hidden: factorText(-4) },
+          ],
+        };
+      }
       case 6: {
         // x² + bx + c = 0 with a nice factorisation — factorise first.
         // Easy: roots within ±6 keep b, c inside familiar times tables.
@@ -225,7 +248,11 @@
       plan.forEach(function (s) { s.rounds = 1; });
       fuseMult *= 1.25;
     } else if (cfg.diff === "hard") {
-      plan.push({ kind: MIX_STAGE.kind, rounds: MIX_STAGE.rounds, fuseMs: MIX_STAGE.fuseMs });
+      // the mixed street slots in BEFORE the gate: kind 7 stays the
+      // finale (it is the lesson's closing beat, and the only stage
+      // that pays double)
+      var gateAt = plan.length && plan[plan.length - 1].kind === 7 ? plan.length - 1 : plan.length;
+      plan.splice(gateAt, 0, { kind: MIX_STAGE.kind, rounds: MIX_STAGE.rounds, fuseMs: MIX_STAGE.fuseMs });
     }
     if (cfg.levels && cfg.levels.length) {
       plan = cfg.levels.map(function (k) {
@@ -326,9 +353,11 @@
     };
   }
 
-  /* |product| at x = v — the "strength" the structure holds with */
+  /* |product| at x = v — the "strength" the structure holds with.
+   * The gate measures |LHS − RHS|: only the general form's zero counts. */
   function strength(level, v) {
     if (level.kind === "numeric") return Math.abs(level.konst * v);
+    if (level.kind === "offset") return Math.abs(v * v + level.b * v + level.c - level.k);
     if (level.kind === "expanded") return Math.abs(v * v + level.b * v + level.c);
     return Math.abs(
       level.pillars.reduce(function (acc, p) {
@@ -368,6 +397,17 @@
           terms.push((level.c > 0 ? "+ " : MINUS + " ") + Math.abs(level.c));
         return [terms.join(" ") + " = " + num(val)];
       }
+      case "offset": {
+        // the substitution names both sides: the trap answer lands the
+        // LHS on 0 and the "≠ k" IS the lesson (the UI adds the nudge)
+        var valO = v * v + level.b * v + level.c;
+        var termsO = [numSub(v) + "²"];
+        if (level.b !== 0)
+          termsO.push((level.b > 0 ? "+ " : MINUS + " ") + Math.abs(level.b) + TIMES + numSub(v));
+        if (level.c !== 0)
+          termsO.push((level.c > 0 ? "+ " : MINUS + " ") + Math.abs(level.c));
+        return [termsO.join(" ") + " = " + num(valO) + " ≠ " + num(level.k)];
+      }
     }
     return [];
   }
@@ -402,6 +442,19 @@
             " = 0",
         ];
       }
+      case "offset": {
+        // the whole chain: move k over, factorise, substitute - the
+        // general-form move made visible (§19 Batch AA)
+        var f1o = level.pillars[0].root;
+        var f2o = level.pillars[1].root;
+        return [
+          quadText(level.b, level.c) + " = " + num(level.k) + "  ⟹  " + quadText(level.b, level.c - level.k) + " = 0",
+          quadText(level.b, level.c - level.k) + " = " + factorText(f1o) + factorText(f2o),
+          factorSub(f1o, v) + factorSub(f2o, v) +
+            " = " + numSub(v - f1o) + " " + TIMES + " " + numSub(v - f2o) +
+            " = 0",
+        ];
+      }
     }
     return [];
   }
@@ -417,11 +470,13 @@
     });
   }
 
-  /* L6 only: the factorised identity, shown when the level resolves */
+  /* L6/L7: the factorised identity, shown when the level resolves.
+   * The gate factorises its GENERAL form - the moved-over c − k. */
   function factorisation(level) {
-    if (level.kind !== "expanded") return null;
+    if (level.kind !== "expanded" && level.kind !== "offset") return null;
+    var cc = level.kind === "offset" ? level.c - level.k : level.c;
     return (
-      quadText(level.b, level.c) +
+      quadText(level.b, cc) +
       " = " +
       factorText(level.pillars[0].root) +
       factorText(level.pillars[1].root)
