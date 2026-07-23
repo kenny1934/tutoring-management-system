@@ -17,6 +17,7 @@ import {
   REGULAR_STATUS_COLORS, REGULAR_STATUS_ICONS,
 } from "@/components/admin/RegularApplicationCard";
 import { StudentJumpSearch, type StudentJumpSearchEntry } from "@/components/ui/student-jump-search";
+import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV } from "@/lib/regular-utils";
 import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
@@ -94,6 +95,7 @@ export default function RegularArrangementPage() {
   const [demandFilter, setDemandFilter] = useState<RegularDemandBarFilter | null>(null);
   // Set by a header status chip: narrows the panel to that rung of the ladder.
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(null);
   // Search jump target. `seq` bumps on every pick so re-selecting the same
   // student rings the card again.
   const [slotTarget, setSlotTarget] = useState<{
@@ -242,13 +244,19 @@ export default function RegularArrangementPage() {
     });
   }, [applications, demandFilter]);
 
-  // Panel cohort while a status chip is active: that rung, assigned or not.
+  // Panel cohort while a status chip or the publish filter is active: those
+  // applications, assigned or not.
   const statusFilteredApps = useMemo(() => {
-    if (!statusFilter) return null;
-    return (applications ?? []).filter((a) => a.application_status === statusFilter);
-  }, [applications, statusFilter]);
+    if (!statusFilter && !publishedFilter) return null;
+    return (applications ?? []).filter((a) => {
+      if (statusFilter && a.application_status !== statusFilter) return false;
+      if (publishedFilter === "published" && !a.published_enrollment_id) return false;
+      if (publishedFilter === "unpublished" && a.published_enrollment_id) return false;
+      return true;
+    });
+  }, [applications, statusFilter, publishedFilter]);
 
-  // Precedence: demand bar > status chip > the default unassigned list.
+  // Precedence: demand bar > status/publish filters > the default unassigned list.
   const panelApplications = demandFilteredApps ?? statusFilteredApps ?? unassignedApps;
 
   // Header counts, straight off the loaded list so they always agree with it.
@@ -340,6 +348,21 @@ export default function RegularArrangementPage() {
     setDemandFilter(null);
     setStatusFilter((prev) => (prev === status ? null : status));
   }, []);
+
+  // The demand bar outranks both filters in the panel cohort, so picking
+  // either one has to drop it or the choice would look ignored.
+  const handleStatusFilterChange = useCallback((next: string | null) => {
+    setDemandFilter(null);
+    setStatusFilter(next);
+  }, []);
+
+  const handlePublishedFilterChange = useCallback(
+    (next: "published" | "unpublished" | null) => {
+      setDemandFilter(null);
+      setPublishedFilter(next);
+    },
+    []
+  );
 
   // Publish cohort: assigned, fee message already sent, not yet published.
   const publishEligible = useMemo(
@@ -637,12 +660,15 @@ export default function RegularArrangementPage() {
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* Row 1: Title + search + location + refresh. On mobile the search
+                wraps to its own full-width row via order-last + w-full; on sm+
+                it sits inline between the title and the location select. */}
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                 <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1.5">
+                <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
                   <span>Arrangement</span>
                   {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
                 </h1>
@@ -654,30 +680,20 @@ export default function RegularArrangementPage() {
                 entries={searchEntries}
                 onSelect={handleSearchSelect}
                 placeholder="Find student..."
-                className="order-last w-full sm:order-none sm:w-52 md:w-64 sm:shrink-0"
+                className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
               />
-              <div className="flex items-center gap-1.5 shrink-0">
-                {locations.map((l) => {
-                  const code = LOCATION_TO_CODE[l.name] || l.name;
-                  const active = location === l.name;
-                  return (
-                    <button
-                      key={l.name}
-                      type="button"
-                      onClick={() => { setLocation(l.name); setPendingPlacementAppId(null); }}
-                      className={cn(
-                        "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border transition-colors",
-                        active
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card text-foreground border-border hover:bg-muted"
-                      )}
-                      title={l.name}
-                    >
-                      {code} <span className="hidden sm:inline font-normal">{l.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <select
+                value={location}
+                onChange={(e) => { setLocation(e.target.value); setPendingPlacementAppId(null); }}
+                className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
+                aria-label="Branch"
+              >
+                {locations.map((l) => (
+                  <option key={l.name} value={l.name}>
+                    {LOCATION_TO_CODE[l.name] || l.name}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={refreshAll}
                 disabled={isValidating}
@@ -687,28 +703,9 @@ export default function RegularArrangementPage() {
               >
                 <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
               </button>
-              {!readOnly && (
-                <button
-                  onClick={() => setPublishConfirmOpen(true)}
-                  disabled={publishEligible.length === 0 || publishing}
-                  title={
-                    publishEligible.length === 0
-                      ? "Assign applications and send their fee message first"
-                      : `Publish ${publishEligible.length} assigned application${publishEligible.length === 1 ? "" : "s"}`
-                  }
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <UploadCloud className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Publish assigned</span>
-                  <span className="sm:hidden">Publish</span>
-                  {publishEligible.length > 0 && (
-                    <span className="tabular-nums">({publishEligible.length})</span>
-                  )}
-                </button>
-              )}
             </div>
 
-            {/* Row 2: where the cohort stands, and chips to scope the panel */}
+            {/* Row 2: Stats + actions */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <span>{unassignedApps.length} unassigned</span>
@@ -733,6 +730,36 @@ export default function RegularArrangementPage() {
                   </Fragment>
                 ))}
               </div>
+
+              <span className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+              <PublishFilterDropdown
+                publishedFilter={publishedFilter}
+                onChangePublished={handlePublishedFilterChange}
+                statusFilter={statusFilter}
+                onChangeStatus={handleStatusFilterChange}
+              />
+
+              <div className="flex-1" />
+              {!readOnly && (
+                <button
+                  onClick={() => setPublishConfirmOpen(true)}
+                  disabled={publishEligible.length === 0 || publishing}
+                  title={
+                    publishEligible.length === 0
+                      ? "Assign applications and send their fee message first"
+                      : `Publish ${publishEligible.length} assigned application${publishEligible.length === 1 ? "" : "s"}`
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <UploadCloud className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Publish assigned</span>
+                  <span className="sm:hidden">Publish</span>
+                  {publishEligible.length > 0 && (
+                    <span className="tabular-nums">({publishEligible.length})</span>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
