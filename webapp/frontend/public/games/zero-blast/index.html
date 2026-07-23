@@ -594,6 +594,7 @@
       text-decoration: underline; text-underline-offset: 3px;
     }
     .zb-linkbtn:hover { color: var(--mc-ink); }
+    .zb-coverctrl__hint { margin: -2px 0 0; font-size: 0.75rem; line-height: 1.6; color: var(--mc-ink-faint); }
     /* §19.4: the cover's read-only copy of the same four steps */
     .zb-covertrack { margin: 14px 0 4px; }
     .zb-track__steps--static { margin-top: 0; }
@@ -1556,6 +1557,7 @@
         <!-- lost the resume offer but the room is still alive: take it
              back by code (same device only - rules pin the host uid) -->
         <button class="zb-linkbtn" id="btnReclaimShow" data-i18n="reclaim_show"></button>
+        <p class="zb-coverctrl__hint" id="reclaimHint" style="display:none" data-i18n="reclaim_hint"></p>
         <div class="zb-reclaim" id="reclaimRow" style="display:none">
           <span class="zb-reclaim__label" data-i18n="reclaim_label"></span>
           <input class="mc-input" id="reclaimCode" maxlength="8" autocomplete="off"
@@ -2123,8 +2125,12 @@ const STRINGS = {
   /* §19 Batch Z: the lobby's lesson track + the rejoin QR */
   track_label:      { c: "課堂流程 · 由邊一步開始？", e: "Lesson track · start from which step?" },
   cover_arc_note:   { c: "SM901 由「等式開口中」三個探究階段開始，|再進入主遊戲。|主持遊戲時可以揀由邊一步開始。", e: "SM901 opens with the three inquiry stages of Crack the Equation, then moves into the main game. When you host, you choose which step to start from." },
-  cover_code_label: { c: "已經開咗房？",  e: "Room already open?" },
-  reclaim_show:     { c: "接手之前喺呢部機開嘅房間", e: "Take over a room started on this device" },
+  cover_code_label: { c: "已經有房間號碼？",  e: "Have a room code?" },
+  reclaim_show:     { c: "接手之前建立嘅房間", e: "Take back a room you started" },
+  /* the same-device rule is not arbitrary: the room records the uid of
+   * the device that created it and the database rules only let that uid
+   * write, so nobody else can seize a running classroom */
+  reclaim_hint:     { c: "Refresh 或者閂咗個分頁之後用。|房間只認得建立佢嗰部裝置，|所以要喺同一部機接手。", e: "For when the tutor's tab was refreshed or closed. A room only recognises the device that created it, so take it back on that same machine." },
   track_main:       { c: "主遊戲",      e: "Main game" },
   track_start_fmt:  { c: "由「{s}」開始", e: "Start from {s}" },
   /* §19.4: the lobby's how-to follows the track - the arc's three
@@ -4612,6 +4618,7 @@ $("btnHost").onclick = async () => {
  * device's class - a different machine gets a clear "not yours". */
 $("btnReclaimShow").onclick = () => {
   $("btnReclaimShow").style.display = "none";
+  $("reclaimHint").style.display = "";
   $("reclaimRow").style.display = "";
   $("reclaimCode").focus();
 };

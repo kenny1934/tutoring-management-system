@@ -1,4 +1,4 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (162 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (163 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (162 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (163 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -331,11 +331,15 @@ async function main() {
     const reclaimAfter = await page.evaluate(() => ({
       row: getComputedStyle(document.getElementById("reclaimRow")).display,
       link: getComputedStyle(document.getElementById("btnReclaimShow")).display,
+      hint: document.getElementById("reclaimHint").textContent,
     }));
     check("§19.6: reclaim hides behind a link, the join field stays out in the open",
       reclaimBefore.row === "none" && reclaimBefore.link !== "none" && reclaimBefore.join !== "none" &&
       reclaimAfter.row !== "none" && reclaimAfter.link === "none",
       JSON.stringify({ before: reclaimBefore, after: reclaimAfter }));
+    check("§19.7: revealing reclaim explains what it is for and why the same device",
+      reclaimAfter.hint.includes("同一部機") && reclaimAfter.hint.includes("建立"),
+      reclaimAfter.hint);
     check("points: base speed",
       intro.pts.full === 200 && intro.pts.none === 100 && intro.pts.half === 150,
       JSON.stringify(intro.pts));
@@ -1432,8 +1436,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 162) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 162`);
+    if (total !== 163) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 163`);
       process.exit(1);
     }
     if (failures.length) {

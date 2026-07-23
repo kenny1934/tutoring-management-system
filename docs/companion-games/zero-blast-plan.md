@@ -2000,3 +2000,19 @@ Suites: multi 238, solo 161, audit 74 - all green.
   reveals the row and focuses it.
 
 Suites: multi 238, solo 162, audit 74 - all green.
+
+### 19.8 Cover copy: no 開房, and reclaim explains itself (2026-07-23)
+
+- 已經開咗房？ read as an innuendo in Cantonese (開房 = get a hotel
+  room). The section label is now 已經有房間號碼？, and the reclaim
+  link says 接手之前建立嘅房間 rather than repeating 開.
+- Nothing on screen said what reclaim was FOR or why it insists on the
+  same machine, so revealing the row now shows a hint: Refresh 或者閂咗
+  個分頁之後用。房間只認得建立佢嗰部裝置，所以要喺同一部機接手。
+  That constraint is a rules property, not a UI whim: host() stamps
+  hostUid with the device's anonymous auth uid, the RTDB rules scope
+  state writes to it, and the bridge refuses a reclaim whose hostUid
+  does not match (reclaim_not_yours). It is what stops anyone who can
+  read a room code from seizing a live classroom.
+
+Suites: multi 238, solo 163, audit 74 - all green.
