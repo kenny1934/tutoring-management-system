@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { regularAPI, tutorsAPI, studentsAPI, discountsAPI, ApiError } from "@/lib/api";
-import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, minLessonsForDiscount } from "@/lib/constants";
+import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, getGradeColor, minLessonsForDiscount } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import {
@@ -797,31 +797,33 @@ export function RegularApplicationDetailModal({
       >
         <div className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
-            {/* LEFT: details + notes + history */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Details</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setHistoryOpen((v) => !v)}
-                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                  >
-                    <History className="h-3 w-3" />
-                    {historyOpen ? "Hide history" : "History"}
-                  </button>
-                  {canEdit && (
+            {/* LEFT: what the applicant submitted, plus its edit history */}
+            <div className="space-y-4">
+              {!readOnly && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Details</span>
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setEditingDetails((v) => !v)}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80"
+                      onClick={() => setHistoryOpen((v) => !v)}
+                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
                     >
-                      <Pencil className="h-3 w-3" />
-                      {editingDetails ? "Cancel" : "Edit details"}
+                      <History className="h-3 w-3" />
+                      {historyOpen ? "Hide history" : "History"}
                     </button>
-                  )}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingDetails((v) => !v)}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        {editingDetails ? "Cancel" : "Edit details"}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {historyOpen && (
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-2 max-h-60 overflow-y-auto">
@@ -957,22 +959,28 @@ export function RegularApplicationDetailModal({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3 space-y-3">
+                <>
                   <InfoBlock
                     icon={User}
                     tone="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                     title="Student"
                   >
-                    <div className="mt-0.5">
-                      <StudentInfoBadges
-                        gradeIsEntering
-                        student={{
-                          student_name: app.student_name,
-                          grade: app.grade,
-                          lang_stream: app.lang_stream ?? undefined,
-                          school: app.school ?? undefined,
-                        }}
-                      />
+                    <div className="font-medium text-sm text-foreground">{app.student_name}</div>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {app.grade && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
+                          style={{ backgroundColor: getGradeColor(app.grade, app.lang_stream || undefined) }}
+                        >
+                          {app.grade}{app.lang_stream || ""}
+                        </span>
+                      )}
+                      {app.school && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                          {app.school}
+                        </span>
+                      )}
+                      <RegularOriginChip app={app} />
                     </div>
                   </InfoBlock>
 
@@ -990,10 +998,9 @@ export function RegularApplicationDetailModal({
                           </span>
                         }
                         value={app.wechat_id}
-                        mono
                         copyable
                       />
-                      <FieldValue label="Phone" value={app.contact_phone} mono copyable />
+                      <FieldValue label="Phone" value={app.contact_phone} copyable />
                     </InfoBlock>
                   )}
 
@@ -1001,13 +1008,10 @@ export function RegularApplicationDetailModal({
                     <InfoBlock
                       icon={MapPin}
                       tone="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"
-                      title="Preferred branch"
+                      title="Location"
                     >
-                      <div className="text-sm font-medium text-foreground">
-                        {app.preferred_location}{" "}
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {displayLocation(app.preferred_location)}
-                        </span>
+                      <div className="text-sm font-medium font-mono text-foreground">
+                        {displayLocation(app.preferred_location)}
                       </div>
                     </InfoBlock>
                   )}
@@ -1015,14 +1019,14 @@ export function RegularApplicationDetailModal({
                   <InfoBlock
                     icon={Clock}
                     tone="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-                    title="Schedule preferences"
+                    title="Schedule Preferences"
                   >
                     {prefText(app.preference_1_day, app.preference_1_time) ||
                     prefText(app.preference_2_day, app.preference_2_time) ? (
                       <>
                         {prefText(app.preference_1_day, app.preference_1_time) && (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground w-10 shrink-0">1st</span>
+                            <span className="text-[10px] text-muted-foreground w-6 shrink-0">1st</span>
                             <span className="text-sm font-medium text-foreground">
                               {prefText(app.preference_1_day, app.preference_1_time)}
                             </span>
@@ -1030,7 +1034,7 @@ export function RegularApplicationDetailModal({
                         )}
                         {prefText(app.preference_2_day, app.preference_2_time) && (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground w-10 shrink-0">Backup</span>
+                            <span className="text-[10px] text-muted-foreground w-6 shrink-0">2nd</span>
                             <span className="text-sm font-medium text-foreground">
                               {prefText(app.preference_2_day, app.preference_2_time)}
                             </span>
@@ -1041,66 +1045,55 @@ export function RegularApplicationDetailModal({
                       <div className="text-sm text-muted-foreground/60">No preferences submitted</div>
                     )}
                   </InfoBlock>
-
-                  <InfoBlock
-                    icon={Grid3X3}
-                    tone="bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400"
-                    title="Assigned class"
-                  >
-                    {assignedSlot ? (
-                      <div className="space-y-0.5">
-                        <div className="text-sm font-medium text-foreground">
-                          {DAY_ABBREV[assignedSlot.slot_day] || assignedSlot.slot_day}{" "}
-                          {assignedSlot.time_slot}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {assignedSlot.location}
-                          {" · "}
-                          {assignedSlot.tutor_name || (
-                            <span className="text-amber-600 dark:text-amber-400">No tutor set</span>
-                          )}
-                          {assignedSlot.grade ? ` · ${assignedSlot.grade} class` : ""}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground/60">
-                        Not assigned yet. Place this student on the Arrangement page.
-                      </div>
-                    )}
-                  </InfoBlock>
-
-                  <InfoBlock
-                    icon={FileText}
-                    tone="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                    title="Application"
-                  >
-                    <FieldValue label="Reference" value={app.reference_code} mono copyable />
-                    <FieldValue
-                      label="Language"
-                      value={app.form_language === "en" ? "English" : "中文"}
-                    />
-                    <FieldValue label="Submitted" value={submittedDate} />
-                    {reviewedDate && (
-                      <FieldValue label="Reviewed" value={`${app.reviewed_by} · ${reviewedDate}`} />
-                    )}
-                  </InfoBlock>
-                </div>
+                </>
               )}
 
-              {/* Admin notes */}
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Admin notes
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  disabled={readOnly}
-                  className={cn(inputClass, "mt-1 resize-none")}
-                  placeholder="Internal notes..."
+              {/* Placement and the application meta sit outside the edit
+                  toggle, as in summer: neither is editable here, and the
+                  placement is the thing an admin checks while correcting the
+                  preferences above it. */}
+              <InfoBlock
+                icon={Grid3X3}
+                tone="bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400"
+                title="Placement"
+              >
+                {assignedSlot ? (
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium text-foreground">
+                      {DAY_ABBREV[assignedSlot.slot_day] || assignedSlot.slot_day}{" "}
+                      {assignedSlot.time_slot}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {displayLocation(assignedSlot.location)}
+                      {" · "}
+                      {assignedSlot.tutor_name || (
+                        <span className="text-amber-600 dark:text-amber-400">No tutor set</span>
+                      )}
+                      {assignedSlot.grade ? ` · ${assignedSlot.grade} class` : ""}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground/60">
+                    Not assigned yet. Place this student on the Arrangement page.
+                  </div>
+                )}
+              </InfoBlock>
+
+              <InfoBlock
+                icon={FileText}
+                tone="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                title="Application"
+              >
+                <FieldValue label="Reference" value={app.reference_code} mono copyable />
+                <FieldValue
+                  label="Language"
+                  value={app.form_language === "en" ? "English" : "中文"}
                 />
-              </div>
+                <FieldValue label="Submitted" value={submittedDate} />
+                {reviewedDate && (
+                  <FieldValue label="Reviewed" value={`${app.reviewed_by} · ${reviewedDate}`} />
+                )}
+              </InfoBlock>
             </div>
 
             {/* RIGHT: the admin workflow — the status ladder, then the steps
@@ -1718,6 +1711,21 @@ export function RegularApplicationDetailModal({
               )}
               </ChecklistRow>
               </div>
+
+              {!readOnly && (
+                <div>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</span>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={notes ? 2 : 1}
+                    onFocus={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 2; }}
+                    onBlur={(e) => { if (!notes) (e.target as HTMLTextAreaElement).rows = 1; }}
+                    className={cn(inputClass, "mt-1 resize-none")}
+                    placeholder="Internal notes..."
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
