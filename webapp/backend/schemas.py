@@ -3803,6 +3803,20 @@ class RegularCourseConfigResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RegularAssignedSlotInfo(BaseModel):
+    """The weekly slot an application sits in, denormalised onto the
+    application so lists and the detail modal can show the placement without
+    a second round trip. Summer's equivalent is the `sessions` array."""
+    id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    tutor_id: Optional[int] = None
+    tutor_name: Optional[str] = None
+    max_students: int
+
+
 class RegularApplicationResponse(BaseModel):
     """Full application response for admin."""
     id: int
@@ -3823,6 +3837,7 @@ class RegularApplicationResponse(BaseModel):
     preference_2_time: Optional[str] = None
     existing_student_id: Optional[int] = None
     assigned_slot_id: Optional[int] = None
+    assigned_slot: Optional[RegularAssignedSlotInfo] = None
     application_status: str
     admin_notes: Optional[str] = None
     submitted_at: Optional[datetime] = None

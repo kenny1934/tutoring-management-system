@@ -25,7 +25,8 @@ import { RegularMessagePanel, type RegularMessageMode } from "./RegularMessagePa
 import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
-  User, Phone, MapPin, Clock, Building2, Search, UserPlus, ArrowRight, DollarSign,
+  User, Phone, MapPin, Clock, Building2, Grid3X3, Search, UserPlus, ArrowRight,
+  DollarSign,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { useDebouncedValue } from "@/lib/hooks";
@@ -436,18 +437,9 @@ export function RegularApplicationDetailModal({
     () => discountsAPI.getAll()
   );
 
-  // Resolve the assigned arrangement slot (lazily, only when one is set) so
-  // the publish panel can show the one-click schedule summary.
-  const { data: configSlots } = useSWR(
-    isOpen && app?.assigned_slot_id && config && !isPublished
-      ? ["regular-slots-for-publish", config.id]
-      : null,
-    () => regularAPI.getSlots(config!.id)
-  );
-  const assignedSlot = useMemo(
-    () => configSlots?.find((s) => s.id === app?.assigned_slot_id) ?? null,
-    [configSlots, app?.assigned_slot_id]
-  );
+  // The arrangement slot rides along on the application, so the placement is
+  // known without loading every slot in the config.
+  const assignedSlot = app?.assigned_slot ?? null;
 
   // Publish from the assigned slot unless the admin overrides the schedule.
   const usingSlot = !!app?.assigned_slot_id && !overrideSchedule;
@@ -1049,10 +1041,37 @@ export function RegularApplicationDetailModal({
                     )}
                   </InfoBlock>
 
+                  <InfoBlock
+                    icon={Grid3X3}
+                    tone="bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400"
+                    title="Assigned class"
+                  >
+                    {assignedSlot ? (
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-medium text-foreground">
+                          {DAY_ABBREV[assignedSlot.slot_day] || assignedSlot.slot_day}{" "}
+                          {assignedSlot.time_slot}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {assignedSlot.location}
+                          {" · "}
+                          {assignedSlot.tutor_name || (
+                            <span className="text-amber-600 dark:text-amber-400">No tutor set</span>
+                          )}
+                          {assignedSlot.grade ? ` · ${assignedSlot.grade} class` : ""}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground/60">
+                        Not assigned yet. Place this student on the Arrangement page.
+                      </div>
+                    )}
+                  </InfoBlock>
+
                   {centres && (
                     <InfoBlock
                       icon={Building2}
-                      tone="bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400"
+                      tone="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
                       title="Currently attending"
                     >
                       <div className="text-sm font-medium text-foreground">{centres}</div>
@@ -1407,20 +1426,12 @@ export function RegularApplicationDetailModal({
                       ))}
                     </div>
                   )}
-                  {app.assigned_slot_id != null && (
+                  {assignedSlot && (
                     <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-2 space-y-1">
                       <div className="text-[11px] text-blue-800 dark:text-blue-300">
-                        {assignedSlot ? (
-                          <>
-                            From assigned slot: {assignedSlot.slot_day} {assignedSlot.time_slot}
-                            {" · "}{assignedSlot.location}
-                            {" · "}{assignedSlot.tutor_name || "No tutor set"}
-                          </>
-                        ) : configSlots ? (
-                          "Assigned slot details are unavailable."
-                        ) : (
-                          "Loading assigned slot..."
-                        )}
+                        From assigned slot: {assignedSlot.slot_day} {assignedSlot.time_slot}
+                        {" · "}{assignedSlot.location}
+                        {" · "}{assignedSlot.tutor_name || "No tutor set"}
                       </div>
                       {!readOnly && (
                         <label className="inline-flex items-center gap-1.5 text-[11px] text-blue-800/80 dark:text-blue-300/80 cursor-pointer select-none">

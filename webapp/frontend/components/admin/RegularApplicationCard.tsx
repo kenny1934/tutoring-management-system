@@ -1,16 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  StickyNote, Copy, Check, Phone, AlertCircle, Clock, CheckCircle,
-  UserCheck, FileInput, Eye, CalendarCheck, GraduationCap, LogOut, XCircle,
+  StickyNote, Copy, Check, Phone, AlertCircle, AlertTriangle, ChevronDown,
+  Clock, CheckCircle, UserCheck, Grid3X3,
+  FileInput, Eye, CalendarCheck, GraduationCap, LogOut, XCircle,
   Send, CreditCard, BadgeCheck,
   type LucideIcon,
 } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { displayLocation, DAY_ABBREV, SUMMER_GRADE_BG } from "@/lib/regular-utils";
+import { displayLocation, DAY_ABBREV } from "@/lib/regular-utils";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
+import { usePortalPopover } from "@/hooks/usePortalPopover";
 import type { RegularApplication } from "@/types";
 
 // Status pill colours, matching the summer card's dot/bg/text/borderL scheme
@@ -92,11 +97,6 @@ const BRANCH_TINT: Record<string, string> = {
   MSB: "bg-purple-50/40 dark:bg-purple-950/20",
 };
 
-const BRANCH_BADGE: Record<string, string> = {
-  MSA: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  MSB: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-};
-
 export function RegularStatusBadge({ status }: { status: string }) {
   const colors = REGULAR_STATUS_COLORS[status] || REGULAR_STATUS_COLORS["Submitted"];
   const Icon = REGULAR_STATUS_ICONS[status];
@@ -105,6 +105,79 @@ export function RegularStatusBadge({ status }: { status: string }) {
       {Icon ? <Icon className="h-3 w-3" /> : <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />}
       {status}
     </span>
+  );
+}
+
+/** Status badge that doubles as a picker, so a rung can be moved without
+ *  opening the application. Mirrors the summer card's control. */
+function InlineStatusSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        title="Click to change status"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity cursor-pointer"
+      >
+        <RegularStatusBadge status={value} />
+        <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
+      </button>
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          role="listbox"
+          aria-label="Application status"
+          className="fixed z-50 min-w-[180px] bg-card border border-border rounded-lg shadow-lg p-1"
+          style={{ top: pos.top, right: pos.right }}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
+          }}
+        >
+          {REGULAR_ALL_STATUSES.map((opt) => {
+            const colors = REGULAR_STATUS_COLORS[opt];
+            const Icon = REGULAR_STATUS_ICONS[opt];
+            const isSelected = opt === value;
+            return (
+              <button
+                key={opt}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  if (opt !== value) onChange(opt);
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 w-full text-left text-xs px-2 py-1 rounded transition-all",
+                  colors.bg, colors.text,
+                  isSelected ? "ring-1 ring-current font-semibold" : "hover:ring-1 hover:ring-current/60",
+                  "mb-0.5 last:mb-0"
+                )}
+              >
+                {Icon && <Icon className="h-3 w-3" />}
+                {opt}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
@@ -128,6 +201,10 @@ interface RegularApplicationCardProps {
   index: number;
   isFocused?: boolean;
   onSelect: (app: RegularApplication) => void;
+  isChecked?: boolean;
+  onToggleCheck?: (id: number) => void;
+  showCheckbox?: boolean;
+  onStatusChange?: (id: number, status: string) => void;
 }
 
 export const RegularApplicationCard = React.memo(function RegularApplicationCard({
@@ -135,6 +212,10 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
   index,
   isFocused = false,
   onSelect,
+  isChecked = false,
+  onToggleCheck,
+  showCheckbox = false,
+  onStatusChange,
 }: RegularApplicationCardProps) {
   const [refCopied, setRefCopied] = useState(false);
 
@@ -152,8 +233,13 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
   const isExited = REGULAR_EXIT_SET.has(app.application_status);
   const hasPref1 = !!(app.preference_1_day && app.preference_1_time);
   const hasPref2 = !!(app.preference_2_day && app.preference_2_time);
-  const gradeChip = SUMMER_GRADE_BG[app.grade] || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+  const slot = app.assigned_slot;
   const langChip = app.form_language === "zh" ? "中" : app.form_language === "en" ? "EN" : null;
+
+  const editedAfterReview =
+    !!app.reviewed_at && !!app.updated_at &&
+    app.application_status !== "Submitted" &&
+    new Date(app.updated_at).getTime() > new Date(app.reviewed_at).getTime();
 
   return (
     <div
@@ -164,53 +250,72 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
         statusBorderL,
         branchTint,
         "hover:bg-muted/40",
-        isExited && "opacity-60 hover:opacity-100",
+        isExited && !isChecked && "opacity-60 hover:opacity-100",
         isFocused && "ring-2 ring-primary/50",
-        "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm"
+        isChecked
+          ? "border-primary !border-l-primary ring-1 ring-primary/30 bg-primary/[0.05]"
+          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm"
       )}
     >
       <div className="px-3 py-2.5 space-y-1.5">
         {/* Row 1: identity */}
         <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
-            <span className="font-medium text-sm text-foreground truncate max-w-[220px]">
-              {app.student_name}
-            </span>
-            {app.grade && (
-              <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold", gradeChip)}>
-                {app.grade}
-              </span>
-            )}
-            {app.lang_stream && (
-              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-muted-foreground">
-                {app.lang_stream}
-              </span>
-            )}
-            {app.school && (
-              <span className="hidden sm:inline text-[11px] text-muted-foreground truncate max-w-[180px]">
-                {app.school}
-              </span>
-            )}
-            {app.linked_student && (
-              <span
-                className="shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
-                title={`Linked to ${app.linked_student.student_name}${app.linked_student.school_student_id ? ` (${app.linked_student.school_student_id})` : ""}`}
-              >
-                <UserCheck className="h-3 w-3" />
-                {app.linked_student.school_student_id || app.linked_student.student_name}
-              </span>
-            )}
+          {onToggleCheck && (
+            <div
+              className={cn(
+                "shrink-0 transition-opacity -ml-0.5",
+                showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={(e) => { e.stopPropagation(); onToggleCheck(app.id); }}
+                aria-label={`Select ${app.student_name}`}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+              />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <StudentInfoBadges
+              gradeIsEntering
+              student={{
+                student_name: app.student_name,
+                grade: app.grade,
+                lang_stream: app.lang_stream ?? undefined,
+                school: app.school ?? undefined,
+              }}
+              trailing={
+                app.linked_student ? (
+                  <span
+                    className="shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
+                    title={`Linked to ${app.linked_student.student_name}${app.linked_student.school_student_id ? ` (${app.linked_student.school_student_id})` : ""}`}
+                  >
+                    <UserCheck className="h-3 w-3" />
+                    {app.linked_student.school_student_id || app.linked_student.student_name}
+                  </span>
+                ) : null
+              }
+            />
           </div>
           {branchCode && (
             <span className={cn(
               "shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold",
-              BRANCH_BADGE[branchCode] || "bg-gray-100 text-gray-700"
+              BRANCH_COLORS[branchCode]?.badge || "bg-gray-100 text-gray-700"
             )}>
               {branchCode}
             </span>
           )}
           <div className="ml-auto shrink-0 flex items-center gap-1.5">
-            <RegularStatusBadge status={app.application_status} />
+            {onStatusChange ? (
+              <InlineStatusSelect
+                value={app.application_status}
+                onChange={(next) => onStatusChange(app.id, next)}
+              />
+            ) : (
+              <RegularStatusBadge status={app.application_status} />
+            )}
             {app.published_enrollment_id && (
               <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
@@ -243,18 +348,49 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
           )}
         </div>
 
+        {/* Row 2b: the assigned class, once the arrangement page has placed
+            this student. Regular's counterpart to summer's placement strip. */}
+        {slot && (
+          <div className="flex items-center gap-1.5 text-xs flex-wrap">
+            <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
+            <span className="shrink-0 font-mono text-[11px] px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/20 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+              {DAY_ABBREV[slot.slot_day] || slot.slot_day} {slot.time_slot}
+            </span>
+            <span className="shrink-0 text-[11px] text-muted-foreground">
+              {displayLocation(slot.location) || slot.location}
+            </span>
+            {slot.tutor_name ? (
+              <span className="shrink-0 text-[11px] text-muted-foreground truncate max-w-[140px]">
+                {slot.tutor_name}
+              </span>
+            ) : (
+              <span className="shrink-0 inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" /> No tutor set
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Row 3: meta footer */}
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           {app.contact_phone && (
             <span className="shrink-0 hidden sm:inline-flex items-center gap-1">
               <Phone className="h-3 w-3 text-blue-600" />
-              {app.contact_phone}
+              <CopyableCell text={app.contact_phone} />
             </span>
           )}
           {app.wechat_id && (
-            <span className="shrink-0 hidden md:inline-flex items-center gap-1" title={`WeChat: ${app.wechat_id}`}>
+            <span className="shrink-0 hidden md:inline-flex items-center gap-1">
               <WeChatIcon className="h-3 w-3 text-green-600" />
-              {app.wechat_id}
+              <CopyableCell text={app.wechat_id} title={`WeChat: ${app.wechat_id}`} />
+            </span>
+          )}
+          {editedAfterReview && (
+            <span
+              className="shrink-0 inline-flex items-center gap-0.5 text-red-600 dark:text-red-400 font-medium"
+              title={`Edited ${formatTimeAgo(app.updated_at!)} — after review on ${formatTimeAgo(app.reviewed_at!)}`}
+            >
+              <AlertTriangle className="h-3 w-3" /> Edited after review
             </span>
           )}
           {app.admin_notes && (
@@ -285,7 +421,13 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
                 {refCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
               </button>
             </span>
-            {app.submitted_at && <span>{formatTimeAgo(app.submitted_at)}</span>}
+            {app.application_status !== "Submitted" && app.reviewed_at ? (
+              <span title={app.submitted_at ? `Submitted ${formatTimeAgo(app.submitted_at)}` : undefined}>
+                Reviewed {formatTimeAgo(app.reviewed_at)}
+              </span>
+            ) : app.submitted_at ? (
+              <span>{formatTimeAgo(app.submitted_at)}</span>
+            ) : null}
           </span>
         </div>
       </div>

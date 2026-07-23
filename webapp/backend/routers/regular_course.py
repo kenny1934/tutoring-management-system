@@ -44,6 +44,7 @@ from schemas import (
     RegularCourseConfigCreate,
     RegularCourseConfigUpdate,
     RegularCourseConfigResponse,
+    RegularAssignedSlotInfo,
     RegularApplicationResponse,
     RegularApplicationUpdate,
     RegularApplicationStats,
@@ -308,6 +309,38 @@ def _get_published_enrollment_ids(db: Session, app_ids: list[int]) -> dict[int, 
     return {app_id: enr_id for app_id, enr_id in rows}
 
 
+def _get_assigned_slots_bulk(
+    db: Session, slot_ids: list[int]
+) -> dict[int, RegularAssignedSlotInfo]:
+    """Bulk-fetch the weekly slots applications are assigned to, tutor name
+    included, so the admin list can show the placement without extra calls."""
+    wanted = {sid for sid in slot_ids if sid}
+    if not wanted:
+        return {}
+    slots = (
+        db.query(RegularCourseSlot).filter(RegularCourseSlot.id.in_(wanted)).all()
+    )
+    tutor_ids = {s.tutor_id for s in slots if s.tutor_id}
+    tutor_names: dict[int, str] = {}
+    if tutor_ids:
+        tutor_names = dict(
+            db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_(tutor_ids)).all()
+        )
+    return {
+        s.id: RegularAssignedSlotInfo(
+            id=s.id,
+            slot_day=s.slot_day,
+            time_slot=s.time_slot,
+            location=s.location,
+            grade=s.grade,
+            tutor_id=s.tutor_id,
+            tutor_name=tutor_names.get(s.tutor_id) if s.tutor_id else None,
+            max_students=s.max_students,
+        )
+        for s in slots
+    }
+
+
 def _build_application_responses(
     db: Session, apps: list[RegularApplication]
 ) -> list[RegularApplicationResponse]:
@@ -316,6 +349,7 @@ def _build_application_responses(
         db, [a.existing_student_id for a in apps if a.existing_student_id]
     )
     published = _get_published_enrollment_ids(db, [a.id for a in apps])
+    slots = _get_assigned_slots_bulk(db, [a.assigned_slot_id for a in apps])
     responses = []
     for app in apps:
         data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
@@ -323,6 +357,9 @@ def _build_application_responses(
             linked_students.get(app.existing_student_id) if app.existing_student_id else None
         )
         data["published_enrollment_id"] = published.get(app.id)
+        data["assigned_slot"] = (
+            slots.get(app.assigned_slot_id) if app.assigned_slot_id else None
+        )
         responses.append(RegularApplicationResponse.model_validate(data))
     return responses
 

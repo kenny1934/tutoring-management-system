@@ -29,6 +29,7 @@ from routers.regular_course import (
     update_slot,
     delete_slot,
     assign_application_slot,
+    list_applications,
     suggest_slots,
     publish_application,
 )
@@ -206,11 +207,11 @@ class TestSlotsCrud:
 
     def test_list_includes_assigned_students(self, db_session, config, admin):
         slot = _make_slot(db_session, config)
-        _make_app(db_session, config, name="Zoe", slot_id=slot.id, stream="EMI", school="Pui Ching")
+        _make_app(db_session, config, name="Zoe", slot_id=slot.id, stream="E", school="Pui Ching")
         slots = list_slots(config_id=config.id, location=None, _admin=None, db=db_session)
         assert slots[0].assigned_count == 1
         assert slots[0].students[0].student_name == "Zoe"
-        assert slots[0].students[0].lang_stream == "EMI"
+        assert slots[0].students[0].lang_stream == "E"
         assert slots[0].students[0].published is False
         # No linked student record, so no student code to show in the grid.
         assert slots[0].students[0].school_student_id is None
@@ -320,6 +321,64 @@ class TestAssign:
         count = db_session.query(RegularApplicationEdit).count()
         assert count == 0
 
+
+class TestAssignedSlotOnApplication:
+    """The application list carries its slot inline, so the card and the detail
+    modal can show the placement without fetching every slot in the config."""
+
+    def _list(self, db_session, config):
+        return list_applications(
+            config_id=config.id,
+            application_status=None,
+            grade=None,
+            location=None,
+            search=None,
+            published=None,
+            _admin=None,
+            db=db_session,
+        )
+
+    def test_assigned_slot_is_inlined_with_tutor_name(self, db_session, config, tutor, admin):
+        slot = _make_slot(db_session, config, day="Saturday", time="10:00 - 11:30",
+                          grade="F1", tutor_id=tutor.id)
+        app = _make_app(db_session, config, slot_id=slot.id)
+
+        [resp] = self._list(db_session, config)
+        assert resp.id == app.id
+        assert resp.assigned_slot is not None
+        assert resp.assigned_slot.id == slot.id
+        assert resp.assigned_slot.slot_day == "Saturday"
+        assert resp.assigned_slot.time_slot == "10:00 - 11:30"
+        assert resp.assigned_slot.location == "華士古分校"
+        assert resp.assigned_slot.grade == "F1"
+        assert resp.assigned_slot.tutor_name == "Teaching Tutor"
+        assert resp.assigned_slot.max_students == 6
+
+    def test_unassigned_application_has_no_slot(self, db_session, config):
+        _make_app(db_session, config)
+        [resp] = self._list(db_session, config)
+        assert resp.assigned_slot_id is None
+        assert resp.assigned_slot is None
+
+    def test_slot_without_tutor_reports_no_name(self, db_session, config):
+        slot = _make_slot(db_session, config)
+        _make_app(db_session, config, slot_id=slot.id)
+        [resp] = self._list(db_session, config)
+        assert resp.assigned_slot is not None
+        assert resp.assigned_slot.tutor_id is None
+        assert resp.assigned_slot.tutor_name is None
+
+    def test_assign_response_carries_the_new_slot(self, db_session, config, tutor, admin):
+        slot = _make_slot(db_session, config, tutor_id=tutor.id)
+        app = _make_app(db_session, config)
+
+        resp = _assign(db_session, admin, app, slot.id)
+        assert resp.assigned_slot is not None
+        assert resp.assigned_slot.tutor_name == "Teaching Tutor"
+
+        resp = _assign(db_session, admin, app, None)
+        assert resp.assigned_slot is None
+
     def test_capacity_guard(self, db_session, config, admin):
         slot = _make_slot(db_session, config, max_students=1)
         _make_app(db_session, config, name="First", slot_id=slot.id)
@@ -385,8 +444,8 @@ class TestSuggest:
         plain = _make_slot(db_session, config, day="Saturday", time="10:00 - 11:30", grade="F1")
         social = _make_slot(db_session, config, day="Saturday", time="11:45 - 13:15", grade="F1")
         _make_app(db_session, config, name="Peer", slot_id=social.id,
-                  stream="EMI", school="Pui Ching")
-        app = _make_app(db_session, config, stream="EMI", school="  pui ching ",
+                  stream="E", school="Pui Ching")
+        app = _make_app(db_session, config, stream="E", school="  pui ching ",
                         p1=None, p2=None)
         resp = _suggest(db_session, config, app)
         assert resp.suggestions[0].slot_id == social.id

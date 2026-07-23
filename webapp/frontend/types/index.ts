@@ -3719,6 +3719,22 @@ export interface RegularApplication {
   published_enrollment_id?: number | null;
   /** Arrangement slot this application is assigned to, if any. */
   assigned_slot_id?: number | null;
+  /** The assigned slot itself, inlined by the API so the card and the detail
+   *  modal can show the placement without loading every slot in the config. */
+  assigned_slot?: RegularAssignedSlot | null;
+}
+
+/** The weekly slot an application has been placed in. Regular's counterpart
+ *  to a summer application's `sessions` array. */
+export interface RegularAssignedSlot {
+  id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  tutor_id?: number | null;
+  tutor_name?: string | null;
+  max_students: number;
 }
 
 export interface RegularApplicationUpdate {
