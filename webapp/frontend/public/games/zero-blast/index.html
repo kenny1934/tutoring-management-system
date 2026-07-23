@@ -551,6 +551,16 @@
       border-radius: 4px;
       font-family: var(--mc-mono); font-size: 0.625rem; opacity: 0.75;
     }
+    /* §19.4: the lobby's two columns on a wide stage - the join sheet
+     * on the left, the lesson panel (how-to, roster, track + start) on
+     * the right. Narrow stages keep the single stacked column. */
+    .zb-stage--projector .zb-lobbygrid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+      gap: 0 30px;
+      align-items: start;
+    }
+    .zb-stage--projector .zb-lobbygrid__side { padding-top: 42px; }
     /* §19 Batch Z: the lobby's lesson track - four equal steps, the
      * selected one wears the marking pen. No step is the "primary". */
     .zb-track__steps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin-top: 8px; }
@@ -563,6 +573,12 @@
     .zb-track__step:hover { color: var(--mc-ink); }
     .zb-track__step.selected { color: var(--mc-red); border-color: var(--mc-red); font-weight: 700; background: var(--mc-red-wash); }
     .zb-track__arrow { width: 16px; height: 12px; color: var(--mc-ink-faint); flex: none; }
+    /* §19.4: the cover's read-only copy of the same four steps */
+    .zb-covertrack { margin: 14px 0 4px; }
+    .zb-track__steps--static { margin-top: 0; }
+    .zb-track__steps--static .zb-track__step { cursor: default; font-size: 0.8125rem; padding: 5px 10px; }
+    .zb-track__step--game { color: var(--mc-ink); border-color: var(--mc-ink-soft); }
+    .zb-covertrack__note { margin: 8px 0 0; font-size: 0.8125rem; line-height: 1.6; color: var(--mc-ink-soft); text-align: center; }
     /* §19 Batch Z: the rejoin QR corner card (tutor-toggled, q) */
     .zb-qrpop {
       position: fixed; right: 16px; bottom: 16px; z-index: 60;
@@ -1429,6 +1445,21 @@
       </circle>
     </svg>
     <p class="mc-lede" data-i18n="objective"></p>
+    <!-- §19.4: the cover used to advertise the main game alone, so a
+         tutor could not tell that SM901's night opens on the inquiry
+         arc. The same four steps the lobby offers, read-only here. -->
+    <div class="zb-covertrack">
+      <div class="zb-track__steps zb-track__steps--static">
+        <span class="zb-track__step" data-i18n="inq_stage1"></span>
+        <svg class="zb-track__arrow"><use href="#i-arrow"/></svg>
+        <span class="zb-track__step" data-i18n="inq_stage2"></span>
+        <svg class="zb-track__arrow"><use href="#i-arrow"/></svg>
+        <span class="zb-track__step" data-i18n="inq_stage3"></span>
+        <svg class="zb-track__arrow"><use href="#i-arrow"/></svg>
+        <span class="zb-track__step zb-track__step--game" data-i18n="track_main"></span>
+      </div>
+      <p class="zb-covertrack__note" data-i18n="cover_arc_note"></p>
+    </div>
     <!-- attract diorama: draw, burn, tumble, 拆, wipe, next -->
     <svg class="zb-hero" viewBox="0 0 240 96" aria-hidden="true">
       <path d="M10 88 H230"/>
@@ -1513,6 +1544,11 @@
       <span class="mc-masthead__code"><strong>SM901</strong> · <span data-i18n="subtopic"></span></span>
       <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
     </header>
+    <!-- §19.4: two columns on a projector/laptop. Stacked, the join
+         sheet alone filled the fold and pushed the how-to, the lesson
+         track (with the START button) and the logo below it. -->
+    <div class="zb-lobbygrid">
+    <div class="zb-lobbygrid__main">
     <h2 class="mc-title" style="font-size:clamp(1.625rem,6vw,2.25rem)" data-i18n="lobby_title"></h2>
     <p class="mc-lede" data-i18n="lobby_hint"></p>
     <div class="mc-sheet" id="lobbySheet" style="text-align:center">
@@ -1532,6 +1568,8 @@
         </g>
       </svg>
     </div>
+    </div>
+    <div class="zb-lobbygrid__side">
     <!-- how to play (§19 Batch Z: moved off the cover) - the scanning
          wait is the reading moment: the whole class sees the rules on
          the projector while phones join. Re-shown at the arc's
@@ -1628,6 +1666,8 @@
         <span id="startFromLabel"></span>
         <svg class="mc-arrow"><use href="#i-arrow"/></svg>
       </button>
+    </div>
+    </div>
     </div>
     <footer class="mc-brand">
       <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
@@ -2037,6 +2077,7 @@ const STRINGS = {
   /* ── 探究模式 · 等式開口中 (SM901 遊戲探究活動二) ── */
   /* §19 Batch Z: the lobby's lesson track + the rejoin QR */
   track_label:      { c: "課堂流程 · 由邊一步開始？", e: "Lesson track · start from which step?" },
+  cover_arc_note:   { c: "SM901 由「等式開口中」三個探究階段開始（約 20 分鐘），|再進入主遊戲。|主持遊戲時可以揀由邊一步開始。", e: "SM901 opens with the three inquiry stages of Crack the Equation (about 20 minutes), then moves into the main game. When you host, you choose which step to start from." },
   track_main:       { c: "主遊戲",      e: "Main game" },
   track_start_fmt:  { c: "由「{s}」開始", e: "Start from {s}" },
   /* §19.4: the lobby's how-to follows the track - the arc's three
@@ -4496,7 +4537,7 @@ function enterLobbyWith(room) {
   $("roomCode").textContent = room.code;
   // the projector class is the one source of truth for "wide stage"
   GameBridge.qr($("qrBox"), room.joinUrl,
-    document.querySelector(".mc-stage").classList.contains("zb-stage--projector") ? 300 : 190);
+    document.querySelector(".mc-stage").classList.contains("zb-stage--projector") ? 270 : 190);
   if (G.watcher) G.watcher.close();
   G.watcher = room.watch(onHostRoom);
   saveLobbySnapshot();

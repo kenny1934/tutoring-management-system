@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (236 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (237 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 236 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 237 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -357,7 +357,9 @@ async function main() {
   check("host QR rendered", true);
 
   const qrW = await host.evaluate(() => document.querySelector("#qrBox svg").style.width);
-  check("QR at projector size", qrW === "300px", "svg width=" + qrW);
+  // §19.4: 270 on a projector, not 300 - the two-column lobby keeps the
+  // logo and the start button above the fold on a 768-tall laptop
+  check("QR at projector size", qrW === "270px", "svg width=" + qrW);
 
   const attract = await host.evaluate(() => {
     const el = document.getElementById("attractLoop");
@@ -451,6 +453,23 @@ async function main() {
     "lesson track visible: four equal steps, 探究一 selected by default",
     trackVis.shown && trackVis.steps === 4 && trackVis.selected === "1" && trackVis.label.includes("探究一"),
     JSON.stringify(trackVis)
+  );
+  // §19.4: stacked, the join sheet alone filled a 768-tall laptop and
+  // the tutor had to scroll to find the START button. Two columns now.
+  const fold = await host.evaluate(() => {
+    const bot = (s) => Math.round(document.querySelector(s).getBoundingClientRect().bottom);
+    return {
+      vh: innerHeight,
+      start: bot("#btnStartFrom"),
+      howto: bot("#arcHowtoCard"),
+      brand: bot("#lobbyScreen .mc-brand"),
+      cols: getComputedStyle(document.querySelector(".zb-lobbygrid")).gridTemplateColumns.split(" ").length,
+    };
+  });
+  check(
+    "§19.4: the lobby's how-to, start button and logo all clear the fold on a laptop",
+    fold.cols === 2 && fold.howto < fold.vh && fold.start < fold.vh && fold.brand <= fold.vh,
+    JSON.stringify(fold)
   );
 
   /* ════════ kick ════════ */

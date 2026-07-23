@@ -1924,3 +1924,33 @@ No cutscene: an earlier draft proposed an auto-running curtain-up
 control of both beats, which suits a classroom better.
 
 Suites: multi 236, solo 158, audit 74 - all green.
+
+### 19.5 The bookend screens, second pass (2026-07-23)
+
+Two follow-ups from Kenny after §19.4 landed:
+
+- **The cover still advertised the main game alone.** A tutor opening
+  the game could not tell that SM901's night runs an arc first. The
+  cover now carries a read-only copy of the same four steps (探究一 →
+  探究二 → 概念轉化 → 主遊戲) under the objective, with a note that
+  names the arc, its rough length and the fact that hosting lets you
+  pick the entry step. The meta row's 約 15 分鐘 stays the MAIN GAME's
+  own figure (the briefing screen reuses that string), so the arc's
+  ~20 minutes is stated in the note instead of muddled into it.
+- **The lobby buried its own controls.** Measured at 1366x768: the
+  join sheet ran 199..705, which pushed the how-to half off the fold,
+  the lesson track to y=1016 and its START button to y=1094 - the
+  tutor had to scroll to find the primary action, and the logo sat at
+  y=1231. The lobby is now a two-column grid on the projector class
+  (.zb-lobbygrid): join sheet left, lesson panel right (how-to,
+  roster, track, start). The projector QR drops 300 -> 270 to buy the
+  last 30px. Everything now clears the fold: start button bottom 564,
+  logo bottom 760 of 768. Narrow stages are untouched - the grid only
+  applies under .zb-stage--projector, so phones keep the stacked
+  order.
+
+Both are locked by tests: the solo suite asserts the cover strip's
+four steps and its note, the multi suite asserts two columns with the
+how-to, start button and logo all above the fold.
+
+Suites: multi 237, solo 159, audit 74 - all green.
