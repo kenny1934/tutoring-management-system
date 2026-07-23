@@ -14,9 +14,10 @@ import {
   getRegularTimeSlots,
 } from "@/lib/regular-utils";
 import { firstWeekdayOnOrAfter } from "@/lib/regular-publish-utils";
-import { formatTimeAgo, parseHKTimestamp } from "@/lib/formatters";
+import { parseHKTimestamp } from "@/lib/formatters";
 import {
   REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS, REGULAR_STATUS_ICONS, RegularStatusBadge,
+  RegularOriginChip,
 } from "./RegularApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -26,7 +27,7 @@ import { ChecklistRow } from "./ChecklistRow";
 import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
-  User, Phone, MapPin, Clock, Grid3X3, Search, UserPlus, ArrowRight,
+  User, Phone, MapPin, Clock, Grid3X3, Search, UserPlus, ArrowRight, FileText,
   DollarSign,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
@@ -246,17 +247,21 @@ export function RegularApplicationDetailModal({
   totalCount,
 }: RegularApplicationDetailModalProps) {
   const { showToast } = useToast();
-  const { copied: refCopied, copy: copyRef } = useCopyToClipboard();
 
-  // Status + notes
-  const [statusSaving, setStatusSaving] = useState(false);
+  // Pending edits. Everything the admin changes here is held locally and
+  // written by Save Changes, as in summer, so a half-finished edit can be
+  // abandoned and the audit trail gets one row per save rather than per click.
+  const [status, setStatus] = useState("");
   const [showAllStatuses, setShowAllStatuses] = useState(false);
   const [notes, setNotes] = useState("");
-  const [notesSaving, setNotesSaving] = useState(false);
+  const [saving, setSaving] = useState(false);
+  /** Set to the action to run once the admin agrees to discard their edits. */
+  const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
+  /** Status the admin picked that needs the lock-out warning acknowledged. */
+  const [pendingStatusConfirm, setPendingStatusConfirm] = useState<string | null>(null);
 
   // Audited detail edits
   const [editingDetails, setEditingDetails] = useState(false);
-  const [detailsSaving, setDetailsSaving] = useState(false);
   const [dSchool, setDSchool] = useState("");
   const [dGrade, setDGrade] = useState("");
   const [dLang, setDLang] = useState("");
@@ -275,7 +280,7 @@ export function RegularApplicationDetailModal({
   const [manualIdInput, setManualIdInput] = useState("");
   const [manualIdConfirmed, setManualIdConfirmed] = useState("");
   const [createStudentOpen, setCreateStudentOpen] = useState(false);
-  const [linkSaving, setLinkSaving] = useState(false);
+  const [studentId, setStudentId] = useState("");
 
   // Edit history
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -308,8 +313,12 @@ export function RegularApplicationDetailModal({
   // Reset all local state when the modal opens or moves to another application.
   useEffect(() => {
     if (!app || !isOpen) return;
+    setStatus(app.application_status);
+    setStudentId(app.existing_student_id?.toString() || "");
     setNotes(app.admin_notes || "");
     setShowAllStatuses(false);
+    setPendingDiscard(null);
+    setPendingStatusConfirm(null);
     setEditingDetails(false);
     setDSchool(app.school || "");
     setDGrade(app.grade || "");
@@ -378,7 +387,10 @@ export function RegularApplicationDetailModal({
   // The applicant's branch in system terms, used to rank duplicate matches.
   const systemLocation = app ? LOCATION_TO_CODE[app.preferred_location || ""] || "" : "";
   const claimsExisting = !!app?.is_existing_student && app.is_existing_student !== "None";
-  const unlinked = !!app && !app.existing_student_id;
+  // The student the panel is showing: the pending pick, which starts as
+  // whatever is stored. Publishing still reads the saved link off `app`.
+  const pickedStudentId = studentId ? parseInt(studentId, 10) : null;
+  const unlinked = !!app && !pickedStudentId;
 
   // Name + phone at the applicant's branch, the strongest signal available.
   const { data: duplicateMatches } = useSWR(
@@ -412,8 +424,8 @@ export function RegularApplicationDetailModal({
   // Full record for the linked student: the application only carries a name
   // and code, and the panel wants grade, school and enrollment count.
   const { data: linkedStudent } = useSWR(
-    isOpen && app?.existing_student_id ? ["student-detail", app.existing_student_id] : null,
-    () => studentsAPI.getById(app!.existing_student_id!)
+    isOpen && pickedStudentId ? ["student-detail", pickedStudentId] : null,
+    () => studentsAPI.getById(pickedStudentId!)
   );
 
   // Duplicates first (they carry a match reason), then name matches that the
@@ -443,7 +455,13 @@ export function RegularApplicationDetailModal({
     isOpen && app?.existing_student_id ? ["student-coupon", app.existing_student_id] : null,
     () => studentsAPI.getCoupon(app!.existing_student_id!)
   );
-  const couponAvailable = coupon && (coupon.available ?? 0) > 0 ? coupon : null;
+  // Keyed on the saved link, not the pending pick, because the publish
+  // discount below spends it and publishing uses whatever is stored. The chip
+  // is therefore only shown while the panel is displaying that same student.
+  const couponAvailable =
+    coupon && (coupon.available ?? 0) > 0 && pickedStudentId === app?.existing_student_id
+      ? coupon
+      : null;
 
   const { data: discounts = [] } = useSWR(
     isOpen && app && !isPublished ? "discounts" : null,
@@ -519,30 +537,6 @@ export function RegularApplicationDetailModal({
 
   if (!app) return null;
 
-  const patchApplication = async (
-    update: RegularApplicationUpdate,
-    successMessage: string,
-    setBusy: (b: boolean) => void
-  ): Promise<boolean> => {
-    setBusy(true);
-    try {
-      await regularAPI.updateApplication(app.id, update);
-      showToast(successMessage, "success");
-      await onUpdated();
-      return true;
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "Update failed", "error");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleStatusChange = (next: string) => {
-    if (next === app.application_status) return;
-    void patchApplication({ application_status: next }, `Status set to ${next}`, setStatusSaving);
-  };
-
   const detailChanged =
     dSchool !== (app.school || "") ||
     dGrade !== (app.grade || "") ||
@@ -554,8 +548,20 @@ export function RegularApplicationDetailModal({
     dP2Day !== (app.preference_2_day || "") ||
     dP2Time !== (app.preference_2_time || "");
 
-  const handleSaveDetails = async () => {
+  const hasChanges =
+    status !== app.application_status ||
+    notes !== (app.admin_notes || "") ||
+    studentId !== (app.existing_student_id?.toString() || "") ||
+    detailChanged;
+
+  const buildUpdate = (): RegularApplicationUpdate => {
     const update: RegularApplicationUpdate = {};
+    if (status !== app.application_status) update.application_status = status;
+    if (notes !== (app.admin_notes || "")) update.admin_notes = notes;
+    const newStudentId = studentId ? parseInt(studentId, 10) : null;
+    if (newStudentId !== (app.existing_student_id ?? null)) {
+      update.existing_student_id = newStudentId;
+    }
     if (dSchool !== (app.school || "")) update.school = dSchool;
     if (dGrade !== (app.grade || "")) update.grade = dGrade;
     if (dLang !== (app.lang_stream || "")) update.lang_stream = dLang;
@@ -565,30 +571,59 @@ export function RegularApplicationDetailModal({
     if (dP1Time !== (app.preference_1_time || "")) update.preference_1_time = dP1Time;
     if (dP2Day !== (app.preference_2_day || "")) update.preference_2_day = dP2Day;
     if (dP2Time !== (app.preference_2_time || "")) update.preference_2_time = dP2Time;
-    const ok = await patchApplication(update, "Details updated", setDetailsSaving);
-    if (ok) setEditingDetails(false);
+    return update;
   };
 
-  const handleSaveNotes = () =>
-    patchApplication({ admin_notes: notes }, "Notes saved", setNotesSaving);
-
-  const handleLinkStudent = async (studentId: number, name?: string) => {
-    const ok = await patchApplication(
-      { existing_student_id: studentId },
-      name ? `Linked to ${name}` : "Student linked",
-      setLinkSaving
-    );
-    if (ok) {
-      setStudentSearch("");
-      setSearchFocused(false);
-      setShowManualId(false);
-      setManualIdInput("");
-      setManualIdConfirmed("");
+  const doSave = async () => {
+    setSaving(true);
+    try {
+      await regularAPI.updateApplication(app.id, buildUpdate());
+      showToast("Changes saved", "success");
+      setEditingDetails(false);
+      await onUpdated();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Update failed", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleUnlinkStudent = () =>
-    patchApplication({ existing_student_id: null }, "Student link cleared", setLinkSaving);
+  const handleSave = async () => {
+    if (!hasChanges || saving || readOnly) return;
+    // Moving off Submitted closes the applicant's own edit form, so make the
+    // admin acknowledge that before it happens.
+    if (app.application_status === "Submitted" && status !== "Submitted") {
+      setPendingStatusConfirm(status);
+      return;
+    }
+    await doSave();
+  };
+
+  // Wraps anything that would leave the modal so unsaved edits prompt first.
+  // The action is stored behind an extra closure because React reads a bare
+  // function passed to a setter as an updater.
+  const guardNav = (action: () => void) => {
+    if (!hasChanges || readOnly) { action(); return; }
+    setPendingDiscard(() => action);
+  };
+
+  const handleLinkStudent = (id: number) => {
+    setStudentId(id.toString());
+    setStudentSearch("");
+    setSearchFocused(false);
+    setShowManualId(false);
+    setManualIdInput("");
+    setManualIdConfirmed("");
+  };
+
+  const handleUnlinkStudent = () => {
+    setStudentId("");
+    setStudentSearch("");
+    setSearchFocused(false);
+    setShowManualId(false);
+    setManualIdInput("");
+    setManualIdConfirmed("");
+  };
 
   // Publish gating: mirror the backend's hard blocks so the button can explain
   // itself. The backend re-validates on POST either way.
@@ -686,72 +721,81 @@ export function RegularApplicationDetailModal({
   const prefText = (day?: string | null, time?: string | null) =>
     day && time ? `${DAY_ABBREV[day] || day} ${time}` : null;
 
+  const submittedDate = app.submitted_at
+    ? parseHKTimestamp(app.submitted_at).toLocaleString()
+    : "—";
+  const reviewedDate = app.reviewed_at
+    ? parseHKTimestamp(app.reviewed_at).toLocaleString()
+    : null;
+
   return (
     <>
       <Modal
         isOpen={isOpen}
-        onClose={onClose}
+        onClose={() => guardNav(onClose)}
         size="xl"
         title={
-          <span className="inline-flex items-center gap-2 min-w-0">
+          <span className="inline-flex items-center gap-3 min-w-0">
             <span className="truncate">{app.student_name}</span>
-            <span className="inline-flex items-center gap-1 font-mono text-sm font-normal text-muted-foreground">
-              {app.reference_code}
-              <button
-                type="button"
-                onClick={() => copyRef(app.reference_code)}
-                className="p-0.5 hover:text-foreground"
-                title="Copy reference code"
-              >
-                {refCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-              </button>
-            </span>
             <RegularStatusBadge status={app.application_status} />
+            <RegularOriginChip app={app} />
           </span>
         }
         footer={
-          (onPrev || onNext) ? (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={onPrev}
-                disabled={!hasPrev}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Previous (←)"
-                aria-label="Previous application"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {currentIndex != null && totalCount != null && (
-                <span className="text-xs text-muted-foreground tabular-nums px-1">
-                  {currentIndex + 1} / {totalCount}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={onNext}
-                disabled={!hasNext}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Next (→)"
-                aria-label="Next application"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          ) : undefined
+          <div className="flex items-center">
+            {(onPrev || onNext) && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onPrev && guardNav(onPrev)}
+                  disabled={!hasPrev}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Previous (←)"
+                  aria-label="Previous application"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {currentIndex != null && totalCount != null && (
+                  <span className="text-xs text-muted-foreground tabular-nums px-1">
+                    {currentIndex + 1} / {totalCount}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onNext && guardNav(onNext)}
+                  disabled={!hasNext}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Next (→)"
+                  aria-label="Next application"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {!readOnly && (
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => guardNav(onClose)}
+                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!hasChanges || saving}
+                  className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Save Changes
+                </button>
+              </div>
+            )}
+          </div>
         }
       >
         <div className="space-y-4">
-          {/* When the application was submitted, and who last looked at it. */}
-          <div className="text-[11px] text-muted-foreground text-right">
-            {app.submitted_at && <span>Submitted {formatTimeAgo(app.submitted_at)}</span>}
-            {app.reviewed_by && app.reviewed_at && (
-              <span className="block">
-                Reviewed by {app.reviewed_by} {formatTimeAgo(app.reviewed_at)}
-              </span>
-            )}
-          </div>
-
           <div className="grid md:grid-cols-2 gap-4">
             {/* LEFT: details + notes + history */}
             <div className="space-y-3">
@@ -910,15 +954,6 @@ export function RegularApplicationDetailModal({
                     >
                       Cancel
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveDetails}
-                      disabled={!detailChanged || detailsSaving}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                    >
-                      {detailsSaving && <Loader2 className="h-3 w-3 animate-spin" />}
-                      Save details
-                    </button>
                   </div>
                 </div>
               ) : (
@@ -1034,6 +1069,21 @@ export function RegularApplicationDetailModal({
                     )}
                   </InfoBlock>
 
+                  <InfoBlock
+                    icon={FileText}
+                    tone="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                    title="Application"
+                  >
+                    <FieldValue label="Reference" value={app.reference_code} mono copyable />
+                    <FieldValue
+                      label="Language"
+                      value={app.form_language === "en" ? "English" : "中文"}
+                    />
+                    <FieldValue label="Submitted" value={submittedDate} />
+                    {reviewedDate && (
+                      <FieldValue label="Reviewed" value={`${app.reviewed_by} · ${reviewedDate}`} />
+                    )}
+                  </InfoBlock>
                 </div>
               )}
 
@@ -1050,19 +1100,6 @@ export function RegularApplicationDetailModal({
                   className={cn(inputClass, "mt-1 resize-none")}
                   placeholder="Internal notes..."
                 />
-                {!readOnly && notes !== (app.admin_notes || "") && (
-                  <div className="flex justify-end mt-1">
-                    <button
-                      type="button"
-                      onClick={handleSaveNotes}
-                      disabled={notesSaving}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                    >
-                      {notesSaving && <Loader2 className="h-3 w-3 animate-spin" />}
-                      Save notes
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1085,13 +1122,15 @@ export function RegularApplicationDetailModal({
                         <button
                           key={s}
                           type="button"
-                          onClick={() => handleStatusChange(s)}
-                          disabled={statusSaving}
+                          onClick={() => setStatus(s)}
                           className={cn(
-                            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all disabled:opacity-50",
-                            colors.bg, colors.text, "hover:ring-1 hover:ring-current"
+                            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                            colors.bg, colors.text,
+                            status === s
+                              ? "ring-2 ring-offset-1 ring-current"
+                              : "hover:ring-1 hover:ring-current"
                           )}
-                          title={`Set status to ${s}`}
+                          title={`Move to ${s}`}
                         >
                           {Icon && <Icon className="h-3.5 w-3.5" />}
                           {s}
@@ -1105,7 +1144,6 @@ export function RegularApplicationDetailModal({
                     >
                       {showAllStatuses ? "Less" : "All statuses…"}
                     </button>
-                    {statusSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                   </div>
                 </div>
               )}
@@ -1126,31 +1164,33 @@ export function RegularApplicationDetailModal({
               <ChecklistRow
                 index={0}
                 title="Link student"
-                done={!!app.existing_student_id}
+                done={!!pickedStudentId}
                 open={openStepIdx === 0}
                 onToggle={() => setOpenStepIdx((i) => (i === 0 ? null : 0))}
                 disabled={!canEdit}
-                summary={app.linked_student ? (
+                summary={pickedStudentId && linkedStudent ? (
                   <span className="inline-flex items-center gap-1 text-foreground">
                     <UserCheck className="h-3 w-3 text-green-500 shrink-0" />
                     <StudentInfoBadges
                       compact
                       showLink
                       student={{
-                        student_id: app.existing_student_id ?? app.linked_student.id,
-                        student_name: app.linked_student.student_name,
-                        school_student_id: app.linked_student.school_student_id || undefined,
-                        grade: linkedStudent?.grade || undefined,
-                        lang_stream: linkedStudent?.lang_stream || undefined,
+                        student_id: linkedStudent.id,
+                        student_name: linkedStudent.student_name,
+                        school_student_id: linkedStudent.school_student_id || undefined,
+                        grade: linkedStudent.grade || undefined,
+                        lang_stream: linkedStudent.lang_stream || undefined,
                       }}
                     />
                   </span>
+                ) : pickedStudentId ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
                   <span className="text-[10px] italic">Not linked</span>
                 )}
               >
                 <div className="space-y-2">
-                {app.linked_student ? (
+                {pickedStudentId && linkedStudent ? (
                   <div className="space-y-1">
                     <div className="flex items-start gap-2 flex-wrap">
                       <span className="inline-flex items-center gap-1.5">
@@ -1159,13 +1199,13 @@ export function RegularApplicationDetailModal({
                           showLink
                           showLocationPrefix
                           student={{
-                            student_id: app.existing_student_id ?? app.linked_student.id,
-                            student_name: app.linked_student.student_name,
-                            school_student_id: app.linked_student.school_student_id || undefined,
-                            grade: linkedStudent?.grade || undefined,
-                            lang_stream: linkedStudent?.lang_stream || undefined,
-                            school: linkedStudent?.school || undefined,
-                            home_location: app.linked_student.home_location || undefined,
+                            student_id: linkedStudent.id,
+                            student_name: linkedStudent.student_name,
+                            school_student_id: linkedStudent.school_student_id || undefined,
+                            grade: linkedStudent.grade || undefined,
+                            lang_stream: linkedStudent.lang_stream || undefined,
+                            school: linkedStudent.school || undefined,
+                            home_location: linkedStudent.home_location || undefined,
                           }}
                         />
                       </span>
@@ -1181,22 +1221,26 @@ export function RegularApplicationDetailModal({
                         <button
                           type="button"
                           onClick={handleUnlinkStudent}
-                          disabled={linkSaving}
                           className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-600 disabled:opacity-50"
                           title="Clear the student link"
                         >
-                          {linkSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
+                          <Unlink className="h-3 w-3" />
                           Unlink
                         </button>
                       )}
                     </div>
-                    {app.linked_student.home_location &&
+                    {linkedStudent.home_location &&
                       systemLocation &&
-                      app.linked_student.home_location !== systemLocation && (
+                      linkedStudent.home_location !== systemLocation && (
                         <div className="ml-5 text-[10px] text-amber-600 dark:text-amber-400">
-                          Home branch ({app.linked_student.home_location}) differs from the branch applied for ({systemLocation}).
+                          Home branch ({linkedStudent.home_location}) differs from the branch applied for ({systemLocation}).
                         </div>
                       )}
+                  </div>
+                ) : pickedStudentId ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Loading linked student...</span>
                   </div>
                 ) : !canEdit ? (
                   <div className="text-sm text-muted-foreground">Not linked to a student record.</div>
@@ -1226,7 +1270,7 @@ export function RegularApplicationDetailModal({
                               key={student.id}
                               student={student}
                               reason={reason}
-                              onClick={() => handleLinkStudent(student.id, student.student_name)}
+                              onClick={() => handleLinkStudent(student.id)}
                             />
                           ))}
                         </div>
@@ -1259,7 +1303,7 @@ export function RegularApplicationDetailModal({
                           <StudentSuggestionRow
                             key={s.id}
                             student={s}
-                            onClick={() => handleLinkStudent(s.id, s.student_name)}
+                            onClick={() => handleLinkStudent(s.id)}
                           />
                         ))}
                       </div>
@@ -1306,7 +1350,7 @@ export function RegularApplicationDetailModal({
                               <StudentSuggestionRow
                                 key={s.id}
                                 student={s}
-                                onClick={() => handleLinkStudent(s.id, s.student_name)}
+                                onClick={() => handleLinkStudent(s.id)}
                               />
                             ))}
                           </div>
@@ -1337,11 +1381,6 @@ export function RegularApplicationDetailModal({
                         </button>
                       </div>
                     )}
-                    {linkSaving && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Linking...
-                      </div>
-                    )}
                   </div>
                 )}
                 </div>
@@ -1352,13 +1391,13 @@ export function RegularApplicationDetailModal({
               <ChecklistRow
                 index={1}
                 title="Fee message"
-                done={FEE_SENT_OR_LATER.has(app.application_status)}
+                done={FEE_SENT_OR_LATER.has(status)}
                 open={openStepIdx === 1}
                 onToggle={() => setOpenStepIdx((i) => (i === 1 ? null : 1))}
                 disabled={!canEdit}
-                summary={FEE_SENT_OR_LATER.has(app.application_status) ? (
+                summary={FEE_SENT_OR_LATER.has(status) ? (
                   <span className="text-[10px] text-green-700 dark:text-green-300 font-medium">
-                    {app.application_status}
+                    {status}
                   </span>
                 ) : (
                   <span className="text-[10px] italic">Not sent</span>
@@ -1402,7 +1441,13 @@ export function RegularApplicationDetailModal({
                       firstLessonDate={pubFirstLesson || null}
                       readOnly={!canEdit}
                       onClose={() => setMessagePanel(null)}
-                      onMarked={() => { void onUpdated(); }}
+                      onMarked={(newStatus) => {
+                        // The panel writes the status itself, so pull it into
+                        // the pending state too. Otherwise Save Changes would
+                        // see a stale local value and undo the mark.
+                        setStatus(newStatus);
+                        void onUpdated();
+                      }}
                     />
                   </div>
                 ) : (
@@ -1685,7 +1730,7 @@ export function RegularApplicationDetailModal({
         onClose={() => setCreateStudentOpen(false)}
         onSuccess={(student) => {
           setCreateStudentOpen(false);
-          void handleLinkStudent(student.id, student.student_name);
+          handleLinkStudent(student.id);
         }}
         initialData={{
           student_name: app.student_name,
@@ -1714,6 +1759,38 @@ export function RegularApplicationDetailModal({
         confirmText="Unpublish"
         variant="danger"
         loading={unpublishing}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingStatusConfirm !== null}
+        onCancel={() => setPendingStatusConfirm(null)}
+        onConfirm={async () => {
+          setPendingStatusConfirm(null);
+          await doSave();
+        }}
+        title={`Move to ${pendingStatusConfirm ?? ""}?`}
+        message="Moving this application out of Submitted will lock the applicant out of self-service edits on the status page."
+        consequences={[
+          "The applicant will need to contact you for any further changes to time slots, school, or other details.",
+          "You can still edit all fields as an admin from this modal.",
+        ]}
+        confirmText={`Move to ${pendingStatusConfirm ?? ""}`}
+        variant="warning"
+        loading={saving}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDiscard !== null}
+        onCancel={() => setPendingDiscard(null)}
+        onConfirm={() => {
+          const action = pendingDiscard;
+          setPendingDiscard(null);
+          action?.();
+        }}
+        title="Discard unsaved changes?"
+        message="You have unsaved edits to this application. Leaving now will lose them."
+        confirmText="Discard"
+        variant="danger"
       />
     </>
   );

@@ -110,7 +110,9 @@ export function RegularStatusBadge({ status }: { status: string }) {
  *  the linked student record if there is one, else what the applicant told us.
  *  Regular has no prospect linkage and no branch verification, so the claim
  *  stays unqualified until an admin links a record. */
-function RegularOriginChip({ app }: { app: RegularApplication }) {
+/** Where this applicant came from: the linked student record, an
+ *  unverified claim of one, or a genuinely new student. */
+export function RegularOriginChip({ app }: { app: RegularApplication }) {
   if (app.linked_student) {
     return <LinkedStudentChip student={app.linked_student} />;
   }
