@@ -303,9 +303,9 @@ export function ContactConfirmStep({
           <span className="text-sm font-medium text-foreground leading-relaxed">
             {t(
               config.text_content?.makeup_note_zh ||
-                "📅 為能令課堂安排更完整，如學生於學費期內有事宜不能出席課堂，請提早通知導師，讓導師為您提早安排補堂。",
+                "為能令課堂安排更完整，如學生於學費期內有事宜不能出席課堂，請提早通知導師，讓導師為您提早安排補堂。",
               config.text_content?.makeup_note_en ||
-                "📅 To keep class arrangements complete, if the student cannot attend a lesson within the paid period, please notify the tutor in advance so a make-up lesson can be arranged early.",
+                "To keep class arrangements complete, if the student cannot attend a lesson within the paid period, please notify the tutor in advance so a make-up lesson can be arranged early.",
               lang
             )}
           </span>

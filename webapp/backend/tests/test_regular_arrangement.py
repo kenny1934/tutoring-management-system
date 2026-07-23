@@ -269,6 +269,17 @@ class TestAssign:
         assert audit[0].old_value is None
         assert audit[0].new_value == str(slot.id)
         assert audit[0].edited_via == "admin"
+        assert audit[0].edited_at is not None
+
+    def test_audit_edited_at_has_a_python_side_default(self):
+        """The live audit tables were created with no DEFAULT on edited_at, so an
+        insert that omits it is rejected under strict mode. SQLite builds the table
+        from the model (server_default included) and would hide that, so assert the
+        client-side default the real database depends on."""
+        from models import SummerApplicationEdit
+
+        for model in (RegularApplicationEdit, SummerApplicationEdit):
+            assert model.__table__.c.edited_at.default is not None
 
     def test_unassign_and_reassign(self, db_session, config, admin):
         slot_a = _make_slot(db_session, config)

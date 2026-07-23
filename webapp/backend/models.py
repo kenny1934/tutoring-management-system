@@ -6,6 +6,7 @@ from sqlalchemy import Column, Integer, BigInteger, String, Date, DateTime, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
+from constants import hk_now
 
 
 class Tutor(Base):
@@ -1247,7 +1248,9 @@ class SummerApplicationEdit(Base):
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
     application_id = Column(Integer, ForeignKey("summer_applications.id", ondelete="CASCADE"), nullable=False)
-    edited_at = Column(DateTime, server_default=func.now(), nullable=False)
+    # Python-side default as well as the server one: the live table was created
+    # without a DEFAULT, so an insert that omits this column fails under strict mode.
+    edited_at = Column(DateTime, default=hk_now, server_default=func.now(), nullable=False)
     field_name = Column(String(64), nullable=False)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
@@ -1784,7 +1787,8 @@ class RegularApplicationEdit(Base):
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
     application_id = Column(Integer, ForeignKey("regular_applications.id", ondelete="CASCADE"), nullable=False)
-    edited_at = Column(DateTime, server_default=func.now(), nullable=False)
+    # See SummerApplicationEdit.edited_at — same missing DB default.
+    edited_at = Column(DateTime, default=hk_now, server_default=func.now(), nullable=False)
     field_name = Column(String(64), nullable=False)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)

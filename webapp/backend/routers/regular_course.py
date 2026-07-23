@@ -1111,6 +1111,7 @@ def assign_application_slot(
         app.assigned_slot_id = req.slot_id
         db.add(RegularApplicationEdit(
             application_id=app.id,
+            edited_at=hk_now(),
             field_name="assigned_slot_id",
             old_value=str(old_slot_id) if old_slot_id is not None else None,
             new_value=str(req.slot_id) if req.slot_id is not None else None,

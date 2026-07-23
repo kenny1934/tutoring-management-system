@@ -105,8 +105,8 @@ CONFIG_2026 = {
         "contact_by_date": "2026-08-17",
         "success_message_zh": "我們會在微信給您發放上課的訊息。",
         "success_message_en": "We will send you the class information via WeChat.",
-        "makeup_note_zh": "📅 為能令課堂安排更完整，如學生於學費期內有事宜不能出席課堂，請提早通知導師，讓導師為您提早安排補堂。",
-        "makeup_note_en": "📅 To keep class arrangements complete, if the student cannot attend a lesson within the paid period, please notify the tutor in advance so a make-up lesson can be arranged early.",
+        "makeup_note_zh": "為能令課堂安排更完整，如學生於學費期內有事宜不能出席課堂，請提早通知導師，讓導師為您提早安排補堂。",
+        "makeup_note_en": "To keep class arrangements complete, if the student cannot attend a lesson within the paid period, please notify the tutor in advance so a make-up lesson can be arranged early.",
     }),
     "pricing_config": json.dumps({
         "base_fee": 2400,

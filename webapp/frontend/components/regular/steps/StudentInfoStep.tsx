@@ -40,6 +40,19 @@ export function StudentInfoStep({
 }: StudentInfoStepProps) {
   const hasLangStream = !!(config.lang_stream_options && config.lang_stream_options.length > 0);
 
+  // Facts strip: two columns until there is room to sit on one row. The fee cell
+  // makes it four, and four cells only stop crowding around lg, so the one-row
+  // breakpoint moves with the cell count. Values wrap rather than truncate, so a
+  // long start note stays readable in either language. Class strings are written
+  // out in full — Tailwind only sees literals in the source.
+  const hasPricing = !!config.pricing_config;
+  const factsGridClass = hasPricing
+    ? "grid grid-cols-2 gap-x-5 gap-y-3 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border"
+    : "grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 sm:gap-y-0 sm:divide-x sm:divide-border";
+  const factCellClass = hasPricing
+    ? "flex items-start gap-2.5 lg:px-4 lg:first:pl-0 lg:last:pr-0"
+    : "flex items-start gap-2.5 sm:px-4 sm:first:pl-0 sm:last:pr-0";
+
   const intro = config.course_intro;
   const introHeadline = intro?.headline;
   const introPillars = intro?.pillars ?? [];
@@ -119,18 +132,14 @@ export function StudentInfoStep({
           above stays the focal point. Regular has no end date, so this is
           grades, start, schedule, plus a fee cell when pricing is configured. */}
       <div className="rounded-xl bg-card border border-border px-4 py-3 sm:px-5 sm:py-3.5">
-        <div
-          className={`grid grid-cols-2 gap-3 sm:gap-0 sm:divide-x sm:divide-border ${
-            config.pricing_config ? "sm:grid-cols-4" : "sm:grid-cols-3"
-          }`}
-        >
-          <div className="flex items-center gap-2.5 sm:px-4 first:sm:pl-0 last:sm:pr-0">
-            <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+        <div className={factsGridClass}>
+          <div className={factCellClass}>
+            <GraduationCap className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground leading-tight">
                 {t("對象", "Grades", lang)}
               </div>
-              <div className="text-xs font-semibold text-foreground leading-tight mt-0.5 truncate">
+              <div className="text-xs font-semibold text-foreground leading-snug mt-0.5 break-words">
                 {t(
                   config.text_content?.target_grades_zh || "中一至中三",
                   config.text_content?.target_grades_en || "F1 to F3",
@@ -139,13 +148,13 @@ export function StudentInfoStep({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 sm:px-4 first:sm:pl-0 last:sm:pr-0">
-            <Calendar className="h-4 w-4 shrink-0 text-primary" />
+          <div className={factCellClass}>
+            <Calendar className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground leading-tight">
                 {t("開課", "Start", lang)}
               </div>
-              <div className="text-xs font-semibold text-foreground leading-tight mt-0.5 truncate">
+              <div className="text-xs font-semibold text-foreground leading-snug mt-0.5 break-words">
                 {t(
                   config.text_content?.start_note_zh || "9月1日當週開課",
                   config.text_content?.start_note_en || "Classes begin the week of 1 September",
@@ -154,13 +163,13 @@ export function StudentInfoStep({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 sm:px-4 first:sm:pl-0 last:sm:pr-0">
-            <Clock className="h-4 w-4 shrink-0 text-primary" />
+          <div className={factCellClass}>
+            <Clock className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground leading-tight">
                 {t("課堂", "Schedule", lang)}
               </div>
-              <div className="text-xs font-semibold text-foreground leading-tight mt-0.5 truncate">
+              <div className="text-xs font-semibold text-foreground leading-snug mt-0.5 break-words">
                 {t(
                   config.text_content?.schedule_format_zh || "每星期一堂 · 90分鐘",
                   config.text_content?.schedule_format_en || "Weekly · 90 min",
@@ -170,13 +179,13 @@ export function StudentInfoStep({
             </div>
           </div>
           {config.pricing_config && (
-            <div className="flex items-center gap-2.5 sm:px-4 first:sm:pl-0 last:sm:pr-0">
-              <DollarSign className="h-4 w-4 shrink-0 text-primary" />
+            <div className={factCellClass}>
+              <DollarSign className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground leading-tight">
                   {t("學費", "Fee", lang)}
                 </div>
-                <div className="text-xs font-semibold text-foreground leading-tight mt-0.5 truncate">
+                <div className="text-xs font-semibold text-foreground leading-snug mt-0.5 break-words">
                   {t(
                     `$${config.pricing_config.base_fee.toLocaleString("en-US")} / ${config.pricing_config.lessons_per_block}堂`,
                     `$${config.pricing_config.base_fee.toLocaleString("en-US")} / ${config.pricing_config.lessons_per_block} lessons`,
