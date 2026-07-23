@@ -1682,12 +1682,14 @@ class RegularCourseConfig(Base):
     lang_stream_options = Column(JSON, default=list)
     text_content = Column(JSON, default=dict)
     course_intro = Column(JSON, nullable=True)
+    pricing_config = Column(JSON, nullable=True, comment='{base_fee, lessons_per_block, registration_fee}')
     banner_image_url = Column(String(500))
     is_active = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     applications = relationship("RegularApplication", back_populates="config")
+    slots = relationship("RegularCourseSlot", back_populates="config")
 
 
 class RegularApplication(Base):
@@ -1721,6 +1723,8 @@ class RegularApplication(Base):
     preference_2_time = Column(String(50))
     # Existing student link
     existing_student_id = Column(Integer, ForeignKey("students.id"), nullable=True)
+    # Arrangement: assigned weekly slot (drives one-click publish)
+    assigned_slot_id = Column(Integer, ForeignKey("regular_course_slots.id", ondelete="SET NULL"), nullable=True)
     # Status
     application_status = Column(
         Enum('Submitted', 'Under Review', 'Schedule Confirmed', 'Enrolled',
@@ -1738,6 +1742,35 @@ class RegularApplication(Base):
 
     config = relationship("RegularCourseConfig", back_populates="applications")
     existing_student = relationship("Student")
+    assigned_slot = relationship("RegularCourseSlot", back_populates="assigned_applications")
+
+
+class RegularCourseSlot(Base):
+    """Weekly slot for regular course arrangement.
+
+    Stripped-down mirror of SummerCourseSlot: no course_type, no lesson
+    materialization, no ad-hoc make-up slots. Applications are assigned via
+    RegularApplication.assigned_slot_id; publishing derives the confirmed
+    day/time/location/tutor from the assigned slot when the request omits them.
+    """
+    __tablename__ = "regular_course_slots"
+    __table_args__ = (
+        Index('idx_rslot_config', 'config_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("regular_course_configs.id", ondelete="CASCADE"), nullable=False)
+    slot_day = Column(String(20), nullable=False)  # full day name, e.g. Saturday
+    time_slot = Column(String(50), nullable=False)  # display band, e.g. 10:00 - 11:30
+    location = Column(String(255), nullable=False)  # branch display name
+    grade = Column(String(50), nullable=True)  # optional target grade label
+    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="SET NULL"), nullable=True)
+    max_students = Column(Integer, nullable=False, default=6)
+    created_at = Column(DateTime, server_default=func.now())
+
+    config = relationship("RegularCourseConfig", back_populates="slots")
+    tutor = relationship("Tutor")
+    assigned_applications = relationship("RegularApplication", back_populates="assigned_slot")
 
 
 class RegularApplicationEdit(Base):

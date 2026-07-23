@@ -5,7 +5,8 @@ import useSWR from "swr";
 import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { regularAPI, tutorsAPI, ApiError } from "@/lib/api";
+import { regularAPI, tutorsAPI, studentsAPI, discountsAPI, ApiError } from "@/lib/api";
+import { MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import {
@@ -46,6 +47,10 @@ const PUBLISH_ERROR_TITLES: Record<string, string> = {
   datetime_collision: "Schedule clash",
   not_published: "Not published",
   sessions_attended: "Sessions already attended",
+  no_schedule: "No schedule set",
+  slot_no_tutor: "Slot has no tutor",
+  invalid_discount: "Discount not found",
+  discount_min_lessons: "Discount needs more lessons",
 };
 
 /** Extract the structured publish error detail from a thrown ApiError. */
@@ -121,6 +126,8 @@ export function RegularApplicationDetailModal({
   const [pubTime, setPubTime] = useState("");
   const [pubTutorId, setPubTutorId] = useState("");
   const [pubLessons, setPubLessons] = useState(6);
+  const [pubDiscountId, setPubDiscountId] = useState<number | null>(null);
+  const [overrideSchedule, setOverrideSchedule] = useState(false);
   const [pubFirstLesson, setPubFirstLesson] = useState("");
   const [pubFirstLessonTouched, setPubFirstLessonTouched] = useState(false);
   const [pubPayment, setPubPayment] = useState<"Pending Payment" | "Paid">("Pending Payment");
@@ -155,6 +162,8 @@ export function RegularApplicationDetailModal({
     setPubTime(app.preference_1_time || "");
     setPubTutorId("");
     setPubLessons(6);
+    setPubDiscountId(null);
+    setOverrideSchedule(false);
     setPubFirstLesson("");
     setPubFirstLessonTouched(false);
     setPubPayment("Pending Payment");
@@ -188,6 +197,35 @@ export function RegularApplicationDetailModal({
     [tutors]
   );
 
+  // Coupon availability for the linked student. Failures stay silent: SWR
+  // simply leaves `coupon` undefined and no chip is shown.
+  const { data: coupon } = useSWR(
+    isOpen && app?.existing_student_id ? ["student-coupon", app.existing_student_id] : null,
+    () => studentsAPI.getCoupon(app!.existing_student_id!)
+  );
+  const couponAvailable = coupon && (coupon.available ?? 0) > 0 ? coupon : null;
+
+  const { data: discounts = [] } = useSWR(
+    isOpen && app && !isPublished ? "discounts" : null,
+    () => discountsAPI.getAll()
+  );
+
+  // Resolve the assigned arrangement slot (lazily, only when one is set) so
+  // the publish panel can show the one-click schedule summary.
+  const { data: configSlots } = useSWR(
+    isOpen && app?.assigned_slot_id && config && !isPublished
+      ? ["regular-slots-for-publish", config.id]
+      : null,
+    () => regularAPI.getSlots(config!.id)
+  );
+  const assignedSlot = useMemo(
+    () => configSlots?.find((s) => s.id === app?.assigned_slot_id) ?? null,
+    [configSlots, app?.assigned_slot_id]
+  );
+
+  // Publish from the assigned slot unless the admin overrides the schedule.
+  const usingSlot = !!app?.assigned_slot_id && !overrideSchedule;
+
   // Publish form derived values
   const pubLocationName = CODE_TO_LOCATION[pubLocation] || pubLocation;
   const pubLocObj = config?.locations.find((l) => l.name === pubLocationName);
@@ -213,13 +251,36 @@ export function RegularApplicationDetailModal({
     }
   }, [pubSlots, pubTime]);
 
-  // Auto-compute the first lesson date from the chosen day, mirroring the
-  // backend default, until the admin edits the field by hand.
+  // Auto-compute the first lesson date from the effective day (the assigned
+  // slot's day, or the chosen day when overriding), mirroring the backend
+  // default, until the admin edits the field by hand.
+  const pubEffectiveDay = usingSlot ? assignedSlot?.slot_day || "" : pubDay;
   useEffect(() => {
-    if (pubFirstLessonTouched || !pubDay || !courseStart) return;
-    const computed = firstWeekdayOnOrAfter(courseStart, pubDay);
+    if (pubFirstLessonTouched || !pubEffectiveDay || !courseStart) return;
+    const computed = firstWeekdayOnOrAfter(courseStart, pubEffectiveDay);
     if (computed) setPubFirstLesson(computed);
-  }, [pubDay, courseStart, pubFirstLessonTouched]);
+  }, [pubEffectiveDay, courseStart, pubFirstLessonTouched]);
+
+  // Auto-suggest a coupon discount: when the linked student has coupons
+  // available, preselect the active discount matching the coupon value.
+  // Mirrors CreateEnrollmentModal's coupon auto-select (regular publish has
+  // no staff-referral flow).
+  useEffect(() => {
+    if (!isOpen || isPublished || discounts.length === 0) return;
+    if (pubLessons < MIN_LESSONS_FOR_DISCOUNT) return;
+    if (!coupon?.has_coupon || !coupon.value || !(coupon.available ?? 0)) return;
+    const matching = discounts.find(
+      (d) => d.discount_value && Math.abs(Number(d.discount_value) - Number(coupon.value)) < 0.01
+    );
+    if (matching) setPubDiscountId(matching.id);
+  }, [isOpen, isPublished, discounts, coupon, pubLessons]);
+
+  // Clear the selected discount if the lesson count drops below its minimum.
+  useEffect(() => {
+    if (pubDiscountId === null) return;
+    const selected = discounts.find((d) => d.id === pubDiscountId);
+    if (pubLessons < minLessonsForDiscount(selected)) setPubDiscountId(null);
+  }, [pubLessons, pubDiscountId, discounts]);
 
   // Detail-edit derived values (edit mode uses its own location/day state)
   const editLocObj = config?.locations.find((l) => l.name === dLocation);
@@ -306,7 +367,24 @@ export function RegularApplicationDetailModal({
       publishBlockers.push("No student record is linked. Link one in the Student panel first.");
     }
   }
-  const publishFormIncomplete = !pubDay || !pubTime || !pubTutorId;
+  const publishFormIncomplete = !usingSlot && (!pubDay || !pubTime || !pubTutorId);
+
+  // Client-side fee preview: base fee minus the selected discount. The
+  // backend recomputes the real total on publish.
+  const selectedDiscount = discounts.find((d) => d.id === pubDiscountId);
+  const discountValue = selectedDiscount?.discount_value ? Number(selectedDiscount.discount_value) : 0;
+  const baseFee = 400 * pubLessons;
+
+  // Turning the override on seeds the manual fields from the assigned slot.
+  const handleOverrideToggle = (checked: boolean) => {
+    setOverrideSchedule(checked);
+    if (checked && assignedSlot) {
+      setPubLocation(LOCATION_TO_CODE[assignedSlot.location] || assignedSlot.location);
+      setPubDay(assignedSlot.slot_day);
+      setPubTime(assignedSlot.time_slot);
+      setPubTutorId(assignedSlot.tutor_id != null ? String(assignedSlot.tutor_id) : "");
+    }
+  };
 
   const handlePublish = async () => {
     if (publishing || publishBlockers.length > 0 || publishFormIncomplete) return;
@@ -314,13 +392,20 @@ export function RegularApplicationDetailModal({
     setPublishError(null);
     try {
       const result = await regularAPI.publishApplication(app.id, {
-        confirmed_day: pubDay,
-        confirmed_time: pubTime,
-        location: pubLocation,
-        tutor_id: parseInt(pubTutorId, 10),
+        // With an assigned slot and no override, omit the schedule fields so
+        // the backend resolves them from the slot.
+        ...(usingSlot
+          ? {}
+          : {
+              confirmed_day: pubDay,
+              confirmed_time: pubTime,
+              location: pubLocation,
+              tutor_id: parseInt(pubTutorId, 10),
+            }),
         lessons_paid: pubLessons,
         first_lesson_date: pubFirstLesson || undefined,
         payment_status: pubPayment,
+        discount_id: pubDiscountId,
       });
       setPublishResult(result);
       showToast("Published to enrollments", "success");
@@ -652,6 +737,14 @@ export function RegularApplicationDetailModal({
                         <span className="text-xs opacity-80">{app.linked_student.home_location}</span>
                       )}
                     </span>
+                    {couponAvailable && (
+                      <span
+                        className="inline-flex items-center px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs"
+                        title="Coupons available for this student"
+                      >
+                        🎟 {couponAvailable.available} coupon{(couponAvailable.available ?? 0) > 1 ? "s" : ""} (${couponAvailable.value})
+                      </span>
+                    )}
                     {canEdit && (
                       <button
                         type="button"
@@ -753,7 +846,36 @@ export function RegularApplicationDetailModal({
                       ))}
                     </div>
                   )}
+                  {app.assigned_slot_id != null && (
+                    <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-2 space-y-1">
+                      <div className="text-[11px] text-blue-800 dark:text-blue-300">
+                        {assignedSlot ? (
+                          <>
+                            From assigned slot: {assignedSlot.slot_day} {assignedSlot.time_slot}
+                            {" · "}{assignedSlot.location}
+                            {" · "}{assignedSlot.tutor_name || "No tutor set"}
+                          </>
+                        ) : configSlots ? (
+                          "Assigned slot details are unavailable."
+                        ) : (
+                          "Loading assigned slot..."
+                        )}
+                      </div>
+                      {!readOnly && (
+                        <label className="inline-flex items-center gap-1.5 text-[11px] text-blue-800/80 dark:text-blue-300/80 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={overrideSchedule}
+                            onChange={(e) => handleOverrideToggle(e.target.checked)}
+                            className="h-3 w-3"
+                          />
+                          Override schedule
+                        </label>
+                      )}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
+                    {!usingSlot && (<>
                     <div className="col-span-2">
                       <label className={smallLabelClass}>Branch</label>
                       <div className="flex gap-1.5">
@@ -804,6 +926,7 @@ export function RegularApplicationDetailModal({
                         ))}
                       </select>
                     </div>
+                    </>)}
                     <div>
                       <label className={smallLabelClass}>Lessons paid</label>
                       <input
@@ -828,6 +951,22 @@ export function RegularApplicationDetailModal({
                       />
                     </div>
                     <div className="col-span-2">
+                      <label className={smallLabelClass}>Discount</label>
+                      <select
+                        value={pubDiscountId ?? ""}
+                        onChange={(e) => setPubDiscountId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                        className={inputClass}
+                      >
+                        <option value="">None</option>
+                        {discounts.map((d) => (
+                          <option key={d.id} value={d.id} disabled={pubLessons < minLessonsForDiscount(d)}>
+                            {d.discount_name}
+                            {d.discount_value ? ` (−$${Number(d.discount_value).toLocaleString()})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
                       <label className={smallLabelClass}>Payment</label>
                       <select
                         value={pubPayment}
@@ -838,6 +977,18 @@ export function RegularApplicationDetailModal({
                         <option value="Paid">Paid</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-foreground">
+                      Fee: ${baseFee.toLocaleString()}
+                      {discountValue > 0 && (
+                        <> − ${discountValue.toLocaleString()} = ${(baseFee - discountValue).toLocaleString()}</>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      New students pay a one-off $100 registration fee on top.
+                    </p>
                   </div>
 
                   {publishError && (

@@ -10,6 +10,7 @@ import type {
   SummerCourseIntroText,
   RegularLocation,
   RegularBilingualOption,
+  RegularPricingConfig,
 } from "@/types";
 import {
   ChevronDown,
@@ -80,6 +81,7 @@ const TEXT_CONTENT_GROUPS = [
     step: 4,
     keys: [
       { key: "disclaimer", label: "Disclaimer", help: "Scheduling note shown before the confirmation checkbox" },
+      { key: "makeup_note", label: "Make-up lesson note (checkbox text)", help: "Required checkbox shown above the consent checkbox" },
       { key: "success_message", label: "Success Message", help: "Thank you message after submission" },
     ],
   },
@@ -116,6 +118,24 @@ export function RegularConfigEditor({
   const [langStreamOptions, setLangStreamOptions] = useState<WithId<RegularBilingualOption>[]>([]);
   const [textContent, setTextContent] = useState<Record<string, string>>({});
   const [courseIntro, setCourseIntro] = useState<RegularCourseIntro | null>(null);
+  // Pricing inputs stay as strings so blank is representable
+  const [pricingBaseFee, setPricingBaseFee] = useState("");
+  const [pricingLessons, setPricingLessons] = useState("");
+  const [pricingRegFee, setPricingRegFee] = useState("");
+
+  // Assemble pricing_config only when the section is validly filled; a fully
+  // blank (or still-invalid) section previews and saves as null.
+  const assembledPricing = useMemo<RegularPricingConfig | null>(() => {
+    const baseFeeNum = parseFloat(pricingBaseFee);
+    const lessonsNum = parseInt(pricingLessons, 10);
+    if (!(baseFeeNum > 0) || !(lessonsNum > 0)) return null;
+    const regFeeNum = parseFloat(pricingRegFee);
+    return {
+      base_fee: baseFeeNum,
+      lessons_per_block: lessonsNum,
+      registration_fee: regFeeNum > 0 ? regFeeNum : null,
+    };
+  }, [pricingBaseFee, pricingLessons, pricingRegFee]);
 
   // Drop the intro to null when every field is empty, so save payload / dirty
   // tracking stay clean. Memoized so the `assembledConfig` memo stabilizes.
@@ -196,12 +216,14 @@ export function RegularConfigEditor({
       lang_stream_options: langStreamOptions.length > 0 ? langStreamOptions : null,
       text_content: Object.keys(textContent).length > 0 ? textContent : null,
       course_intro: normalizedCourseIntro,
+      pricing_config: assembledPricing,
       banner_image_url: bannerImageUrl || null,
     }),
     [
       year, title, description, appOpenDate, appCloseDate, courseStartDate,
       locations, grades, existingStudentOptions, centerOptions,
-      langStreamOptions, textContent, normalizedCourseIntro, bannerImageUrl,
+      langStreamOptions, textContent, normalizedCourseIntro, assembledPricing,
+      bannerImageUrl,
     ]
   );
 
@@ -246,6 +268,10 @@ export function RegularConfigEditor({
                 setLangStreamOptions(stampIds(parsed.lang_stream_options || [], "ls"));
                 setTextContent(parsed.text_content || {});
                 setCourseIntro(parsed.course_intro || null);
+                const pc = parsed.pricing_config;
+                setPricingBaseFee(pc ? String(pc.base_fee) : "");
+                setPricingLessons(pc ? String(pc.lessons_per_block) : "");
+                setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
               },
             });
           } else {
@@ -296,6 +322,10 @@ export function RegularConfigEditor({
         setLangStreamOptions(stampIds(config.lang_stream_options || [], "ls"));
         setTextContent(config.text_content || {});
         setCourseIntro(config.course_intro || null);
+        const pc = config.pricing_config;
+        setPricingBaseFee(pc ? String(pc.base_fee) : "");
+        setPricingLessons(pc ? String(pc.lessons_per_block) : "");
+        setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
       } catch {
         showToast("Failed to load config", "error");
         onCancel();
@@ -363,6 +393,18 @@ export function RegularConfigEditor({
       sectionsWithErrors.add("dates");
     }
 
+    // Pricing: all blank hides the fee lines; anything typed must be valid
+    const pricingTouched = !!(pricingBaseFee.trim() || pricingLessons.trim() || pricingRegFee.trim());
+    if (pricingTouched) {
+      if (!(parseFloat(pricingBaseFee) > 0) || !(parseInt(pricingLessons, 10) > 0)) {
+        errors.pricing = "Base fee and lessons per block must both be filled and greater than 0";
+        sectionsWithErrors.add("pricing");
+      } else if (pricingRegFee.trim() && !(parseFloat(pricingRegFee) > 0)) {
+        errors.pricing = "Registration fee must be greater than 0 or left blank";
+        sectionsWithErrors.add("pricing");
+      }
+    }
+
     // Locations
     const expandLocs = new Set<string>();
     locations.forEach((loc, i) => {
@@ -426,6 +468,7 @@ export function RegularConfigEditor({
       lang_stream_options: langStreamOptions.length > 0 ? langStreamOptions : null,
       text_content: Object.keys(textContent).length > 0 ? textContent : null,
       course_intro: normalizedCourseIntro,
+      pricing_config: assembledPricing,
     };
 
     try {
@@ -700,6 +743,55 @@ export function RegularConfigEditor({
           </div>
         </div>
         <ValidationHint message={validationErrors.dates ?? null} />
+      </Section>
+
+      {/* Section: Pricing → Step 1 fee cell + Step 4 fee line */}
+      <Section title="Pricing" subtitle="Step 1" status={{ filled: assembledPricing !== null }} forceOpen={errorSections.has("pricing")} onOpen={() => setPreviewStep(1)}>
+        <p className="text-[10px] text-muted-foreground mb-2">Shown as the fee cell on Step 1 and the fee line in the Step 4 summary. Leave all fields blank to hide both.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="pricingBaseFee">Base fee ($)</Label>
+            <input
+              id="pricingBaseFee"
+              type="number"
+              min={1}
+              value={pricingBaseFee}
+              onChange={(e) => setPricingBaseFee(e.target.value)}
+              data-field="pricing"
+              className={`${inputClass} ${validationErrors.pricing ? "border-red-300 dark:border-red-700" : ""}`}
+              disabled={isReadOnly}
+              placeholder="2400"
+            />
+          </div>
+          <div>
+            <Label htmlFor="pricingLessons">Lessons per block</Label>
+            <input
+              id="pricingLessons"
+              type="number"
+              min={1}
+              value={pricingLessons}
+              onChange={(e) => setPricingLessons(e.target.value)}
+              className={`${inputClass} ${validationErrors.pricing ? "border-red-300 dark:border-red-700" : ""}`}
+              disabled={isReadOnly}
+              placeholder="6"
+            />
+          </div>
+          <div>
+            <Label htmlFor="pricingRegFee">Registration fee ($)</Label>
+            <input
+              id="pricingRegFee"
+              type="number"
+              min={1}
+              value={pricingRegFee}
+              onChange={(e) => setPricingRegFee(e.target.value)}
+              className={`${inputClass} ${validationErrors.pricing ? "border-red-300 dark:border-red-700" : ""}`}
+              disabled={isReadOnly}
+              placeholder="100"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Optional one-off fee for new students.</p>
+          </div>
+        </div>
+        <ValidationHint message={validationErrors.pricing ?? null} />
       </Section>
 
       {/* Section 3: Grades → Step 1 */}

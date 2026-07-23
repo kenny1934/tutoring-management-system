@@ -151,6 +151,10 @@ import type {
   RegularApplicationUpdate,
   RegularApplicationStats,
   RegularDemandResponse,
+  RegularSlot,
+  RegularSlotCreate,
+  RegularSlotUpdate,
+  RegularSuggestResponse,
   RegularPublishRequest,
   RegularPublishResponse,
   RegularUnpublishResponse,
@@ -3060,6 +3064,38 @@ export const regularAPI = {
       `/regular/demand?config_id=${configId}&location=${encodeURIComponent(location)}`
     ),
 
+  // Arrangement: weekly slots + assignment + suggestions
+  getSlots: (configId: number, location?: string) =>
+    fetchAPI<RegularSlot[]>(
+      `/regular/slots?config_id=${configId}${location ? `&location=${encodeURIComponent(location)}` : ""}`
+    ),
+
+  createSlot: (data: RegularSlotCreate) =>
+    fetchAPI<RegularSlot>("/regular/slots", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateSlot: (id: number, data: RegularSlotUpdate) =>
+    fetchAPI<RegularSlot>(`/regular/slots/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteSlot: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/regular/slots/${id}`, { method: "DELETE" }),
+
+  assignSlot: (applicationId: number, slotId: number | null) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${applicationId}/slot`, {
+      method: "PATCH",
+      body: JSON.stringify({ slot_id: slotId }),
+    }),
+
+  getSuggestions: (configId: number, applicationId: number) =>
+    fetchAPI<RegularSuggestResponse>(
+      `/regular/suggest?config_id=${configId}&application_id=${applicationId}`
+    ),
+
   publishApplication: (id: number, data: RegularPublishRequest) =>
     fetchAPI<RegularPublishResponse>(`/regular/applications/${id}/publish`, {
       method: "POST",
@@ -3069,6 +3105,25 @@ export const regularAPI = {
   unpublishApplication: (id: number) =>
     fetchAPI<RegularUnpublishResponse>(`/regular/applications/${id}/publish`, {
       method: "DELETE",
+    }),
+
+  publishApplicationsBatch: (
+    items: Array<{ application_id: number } & RegularPublishRequest>
+  ) =>
+    fetchAPI<{
+      results: Array<{
+        application_id: number;
+        success: boolean;
+        enrollment_id?: number | null;
+        sessions_created?: number | null;
+        error_code?: string | null;
+        error?: string | null;
+      }>;
+      published_count: number;
+      failed_count: number;
+    }>("/regular/applications/publish-batch", {
+      method: "POST",
+      body: JSON.stringify({ items }),
     }),
 };
 

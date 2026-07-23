@@ -3578,6 +3578,13 @@ export type RegularBilingualOption = SummerBilingualOption;
 export type RegularLocation = SummerLocation;
 export type RegularCourseIntro = SummerCourseIntro;
 
+export interface RegularPricingConfig {
+  base_fee: number;
+  lessons_per_block: number;
+  /** One-off registration fee charged to new students only. */
+  registration_fee?: number | null;
+}
+
 export interface RegularCourseFormConfig {
   year: number;
   title: string;
@@ -3593,6 +3600,7 @@ export interface RegularCourseFormConfig {
   lang_stream_options?: RegularBilingualOption[] | null;
   text_content?: Record<string, string> | null;
   course_intro?: RegularCourseIntro | null;
+  pricing_config?: RegularPricingConfig | null;
   banner_image_url?: string | null;
 }
 
@@ -3673,6 +3681,7 @@ export interface RegularCourseConfig {
   lang_stream_options?: RegularBilingualOption[] | null;
   text_content?: Record<string, string> | null;
   course_intro?: RegularCourseIntro | null;
+  pricing_config?: RegularPricingConfig | null;
   banner_image_url?: string | null;
   is_active: boolean;
   created_at?: string | null;
@@ -3708,6 +3717,8 @@ export interface RegularApplication {
   /** Set when the application has been published into a native Regular
    *  enrollment. Drives the Publish/Unpublish button state. */
   published_enrollment_id?: number | null;
+  /** Arrangement slot this application is assigned to, if any. */
+  assigned_slot_id?: number | null;
 }
 
 export interface RegularApplicationUpdate {
@@ -3749,18 +3760,84 @@ export interface RegularDemandResponse {
 }
 
 export interface RegularPublishRequest {
-  /** Weekday, full or short form (backend normalizes to "Tue" etc.). */
-  confirmed_day: string;
-  confirmed_time: string;
+  /** Weekday, full or short form (backend normalizes to "Tue" etc.).
+   *  Omit schedule fields to resolve them from the assigned slot. */
+  confirmed_day?: string | null;
+  confirmed_time?: string | null;
   /** Branch display name or MSA/MSB code (backend normalizes). */
-  location: string;
-  tutor_id: number;
+  location?: string | null;
+  tutor_id?: number | null;
   /** Defaults to 6, the standard regular enrollment block. */
   lessons_paid?: number;
   /** Omit to auto-compute: first occurrence of confirmed_day on/after the
    *  config's course_start_date. */
   first_lesson_date?: string | null;
   payment_status?: "Pending Payment" | "Paid";
+  /** Discount applied to the enrollment (e.g. an auto-suggested coupon). */
+  discount_id?: number | null;
+}
+
+export interface RegularSlotCreate {
+  config_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  tutor_id?: number | null;
+  max_students?: number;
+}
+
+export interface RegularSlotUpdate {
+  slot_day?: string;
+  time_slot?: string;
+  location?: string;
+  grade?: string | null;
+  tutor_id?: number | null;
+  max_students?: number;
+}
+
+export interface RegularSlotStudentInfo {
+  application_id: number;
+  student_name: string;
+  grade: string;
+  lang_stream?: string | null;
+  school?: string | null;
+  application_status: string;
+  published: boolean;
+}
+
+export interface RegularSlot {
+  id: number;
+  config_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  tutor_id?: number | null;
+  tutor_name?: string | null;
+  max_students: number;
+  assigned_count: number;
+  students: RegularSlotStudentInfo[];
+}
+
+export interface RegularSuggestion {
+  slot_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  tutor_name?: string | null;
+  assigned_count: number;
+  max_students: number;
+  score: number;
+  /** Machine reasons: pref_1_match | pref_2_match | same_grade |
+   *  stream_match | schoolmates:{n} */
+  reasons: string[];
+}
+
+export interface RegularSuggestResponse {
+  application_id: number;
+  suggestions: RegularSuggestion[];
 }
 
 export interface RegularPublishResponse {

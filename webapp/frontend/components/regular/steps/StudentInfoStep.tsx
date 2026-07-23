@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { GraduationCap, Calendar, Clock, PenLine, Info } from "lucide-react";
+import { GraduationCap, Calendar, Clock, DollarSign, PenLine, Info } from "lucide-react";
 import type { RegularCourseFormConfig } from "@/types";
 import {
   type Lang,
@@ -116,10 +116,14 @@ export function StudentInfoStep({
       )}
 
       {/* Course Facts — compact horizontal strip so the marketing content
-          above stays the focal point. Regular has no end date and no fee
-          display, so this is a 3-cell strip: grades, start, schedule. */}
+          above stays the focal point. Regular has no end date, so this is
+          grades, start, schedule, plus a fee cell when pricing is configured. */}
       <div className="rounded-xl bg-card border border-border px-4 py-3 sm:px-5 sm:py-3.5">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-0 sm:divide-x sm:divide-border">
+        <div
+          className={`grid grid-cols-2 gap-3 sm:gap-0 sm:divide-x sm:divide-border ${
+            config.pricing_config ? "sm:grid-cols-4" : "sm:grid-cols-3"
+          }`}
+        >
           <div className="flex items-center gap-2.5 sm:px-4 first:sm:pl-0 last:sm:pr-0">
             <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
             <div className="min-w-0">
@@ -165,6 +169,23 @@ export function StudentInfoStep({
               </div>
             </div>
           </div>
+          {config.pricing_config && (
+            <div className="flex items-center gap-2.5 sm:px-4 first:sm:pl-0 last:sm:pr-0">
+              <DollarSign className="h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground leading-tight">
+                  {t("學費", "Fee", lang)}
+                </div>
+                <div className="text-xs font-semibold text-foreground leading-tight mt-0.5 truncate">
+                  {t(
+                    `$${config.pricing_config.base_fee.toLocaleString("en-US")} / ${config.pricing_config.lessons_per_block}堂`,
+                    `$${config.pricing_config.base_fee.toLocaleString("en-US")} / ${config.pricing_config.lessons_per_block} lessons`,
+                    lang
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

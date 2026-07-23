@@ -53,6 +53,7 @@ export default function RegularApplyPage() {
 
   // UI / interactive state that isn't persisted to draft stays local.
   const [confirmed, setConfirmed] = useState(false);
+  const [makeupConfirmed, setMakeupConfirmed] = useState(false);
   const [refCopied, setRefCopied] = useState(false);
   const refCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (refCopyTimer.current) clearTimeout(refCopyTimer.current); }, []);
@@ -265,7 +266,7 @@ export default function RegularApplyPage() {
   // Submit form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirmed || submitting) return;
+    if (!confirmed || !makeupConfirmed || submitting) return;
 
     // Validate ALL steps before submitting — the contact fields live on the
     // final step, so the loop must include TOTAL_STEPS itself.
@@ -512,6 +513,8 @@ export default function RegularApplyPage() {
             pref1Time={pref1Time}
             pref2Day={pref2Day}
             pref2Time={pref2Time}
+            makeupConfirmed={makeupConfirmed}
+            setMakeupConfirmed={setMakeupConfirmed}
             confirmed={confirmed}
             setConfirmed={setConfirmed}
           />
@@ -599,7 +602,7 @@ export default function RegularApplyPage() {
         currentStep={currentStep}
         totalSteps={TOTAL_STEPS}
         submitting={submitting}
-        confirmed={confirmed}
+        confirmed={confirmed && makeupConfirmed}
         lang={lang}
         onNext={handleNext}
         onPrev={handlePrev}

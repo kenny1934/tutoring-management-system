@@ -3656,6 +3656,7 @@ class RegularCourseFormConfig(BaseModel):
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     course_intro: Optional[Dict[str, Any]] = None
+    pricing_config: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
 
 
@@ -3751,6 +3752,7 @@ class RegularCourseConfigCreate(BaseModel):
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     course_intro: Optional[Dict[str, Any]] = None
+    pricing_config: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
     is_active: bool = False
 
@@ -3770,6 +3772,7 @@ class RegularCourseConfigUpdate(BaseModel):
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     course_intro: Optional[Dict[str, Any]] = None
+    pricing_config: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -3791,6 +3794,7 @@ class RegularCourseConfigResponse(BaseModel):
     lang_stream_options: Optional[List[Dict[str, Any]]] = None
     text_content: Optional[Dict[str, str]] = None
     course_intro: Optional[Dict[str, Any]] = None
+    pricing_config: Optional[Dict[str, Any]] = None
     banner_image_url: Optional[str] = None
     is_active: bool
     created_at: Optional[datetime] = None
@@ -3818,6 +3822,7 @@ class RegularApplicationResponse(BaseModel):
     preference_2_day: Optional[str] = None
     preference_2_time: Optional[str] = None
     existing_student_id: Optional[int] = None
+    assigned_slot_id: Optional[int] = None
     application_status: str
     admin_notes: Optional[str] = None
     submitted_at: Optional[datetime] = None
@@ -3876,21 +3881,99 @@ class RegularDemandResponse(BaseModel):
     cells: List[RegularDemandCell]
 
 
+class RegularSlotCreate(BaseModel):
+    """Create a weekly arrangement slot."""
+    config_id: int
+    slot_day: str = Field(..., max_length=20)
+    time_slot: str = Field(..., max_length=50)
+    location: str = Field(..., max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
+    tutor_id: Optional[int] = None
+    max_students: int = Field(6, ge=1, le=20)
+
+
+class RegularSlotUpdate(BaseModel):
+    """Update a slot. All fields optional; tutor/grade clear via explicit null."""
+    slot_day: Optional[str] = Field(None, max_length=20)
+    time_slot: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
+    tutor_id: Optional[int] = None
+    max_students: Optional[int] = Field(None, ge=1, le=20)
+
+
+class RegularSlotStudentInfo(BaseModel):
+    """One assigned application inside a slot response."""
+    application_id: int
+    student_name: str
+    grade: str
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    application_status: str
+    published: bool = False
+
+
+class RegularSlotResponse(BaseModel):
+    """Slot with assignment state for the arrangement grid."""
+    id: int
+    config_id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    tutor_id: Optional[int] = None
+    tutor_name: Optional[str] = None
+    max_students: int
+    assigned_count: int = 0
+    students: List[RegularSlotStudentInfo] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RegularSlotAssignRequest(BaseModel):
+    """Assign (or unassign with null) an application to a slot."""
+    slot_id: Optional[int] = None
+
+
+class RegularSuggestion(BaseModel):
+    """One ranked slot suggestion for an unassigned application."""
+    slot_id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    tutor_name: Optional[str] = None
+    assigned_count: int
+    max_students: int
+    score: int
+    reasons: List[str] = Field(default_factory=list)
+
+
+class RegularSuggestResponse(BaseModel):
+    """Ranked slot suggestions for one application (capacity-strict)."""
+    application_id: int
+    suggestions: List[RegularSuggestion]
+
+
 class RegularPublishRequest(BaseModel):
     """Admin-confirmed schedule for publishing an application as an Enrollment.
 
-    Regular has no placement subsystem, so the admin supplies the final
-    weekly slot here (prefilled from preference 1 in the UI).
+    Schedule fields are optional: when omitted they resolve from the
+    application's assigned arrangement slot (error no_schedule if neither
+    supplies a value, slot_no_tutor if the slot lacks a tutor).
     """
-    confirmed_day: str = Field(..., max_length=20, description="Weekday, full or short form")
-    confirmed_time: str = Field(..., max_length=50)
-    location: str = Field(..., max_length=255, description="Branch display name or MSA/MSB code")
-    tutor_id: int
+    confirmed_day: Optional[str] = Field(None, max_length=20, description="Weekday, full or short form")
+    confirmed_time: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=255, description="Branch display name or MSA/MSB code")
+    tutor_id: Optional[int] = None
     lessons_paid: int = Field(6, ge=1, le=24, description="6 = standard regular enrollment block")
     first_lesson_date: Optional[date] = Field(
         None, description="None → first occurrence of confirmed_day on/after course_start_date"
     )
     payment_status: Literal['Pending Payment', 'Paid'] = 'Pending Payment'
+    discount_id: Optional[int] = Field(
+        None, description="Applied to the enrollment before revenue calc, e.g. a coupon discount"
+    )
 
 
 class RegularPublishConflictSession(BaseModel):

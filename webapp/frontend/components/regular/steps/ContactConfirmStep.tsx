@@ -53,6 +53,8 @@ interface ContactConfirmStepProps {
   pref1Time: string;
   pref2Day: string;
   pref2Time: string;
+  makeupConfirmed: boolean;
+  setMakeupConfirmed: (v: boolean) => void;
   confirmed: boolean;
   setConfirmed: (v: boolean) => void;
 }
@@ -75,6 +77,8 @@ export function ContactConfirmStep({
   pref1Time,
   pref2Day,
   pref2Time,
+  makeupConfirmed,
+  setMakeupConfirmed,
   confirmed,
   setConfirmed,
 }: ContactConfirmStepProps) {
@@ -252,7 +256,26 @@ export function ContactConfirmStep({
             label={t("後備時段", "Backup slot", lang)}
             value={slotValue(pref2Day, pref2Time)}
           />
+          {config.pricing_config && (
+            <SummaryRow
+              label={t("學費", "Fee", lang)}
+              value={t(
+                `$${config.pricing_config.base_fee.toLocaleString("en-US")}（${config.pricing_config.lessons_per_block}堂）`,
+                `$${config.pricing_config.base_fee.toLocaleString("en-US")} (${config.pricing_config.lessons_per_block} lessons)`,
+                lang
+              )}
+            />
+          )}
         </div>
+        {config.pricing_config?.registration_fee ? (
+          <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+            {t(
+              `新生另收一次性報名費 $${config.pricing_config.registration_fee.toLocaleString("en-US")}。`,
+              `New students pay a one-off $${config.pricing_config.registration_fee.toLocaleString("en-US")} registration fee.`,
+              lang
+            )}
+          </p>
+        ) : null}
       </div>
 
       {/* Disclaimer + confirmation */}
@@ -263,6 +286,30 @@ export function ContactConfirmStep({
             {t(disclaimerZh, disclaimerEn, lang)}
           </p>
         </div>
+        <label
+          className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all duration-200 ${
+            makeupConfirmed
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={makeupConfirmed}
+            onChange={(e) => setMakeupConfirmed(e.target.checked)}
+            className="mt-0.5 rounded border-border accent-primary"
+            required
+          />
+          <span className="text-sm font-medium text-foreground leading-relaxed">
+            {t(
+              config.text_content?.makeup_note_zh ||
+                "📅 為能令課堂安排更完整，如學生於學費期內有事宜不能出席課堂，請提早通知導師，讓導師為您提早安排補堂。",
+              config.text_content?.makeup_note_en ||
+                "📅 To keep class arrangements complete, if the student cannot attend a lesson within the paid period, please notify the tutor in advance so a make-up lesson can be arranged early.",
+              lang
+            )}
+          </span>
+        </label>
         <label
           className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all duration-200 ${
             confirmed

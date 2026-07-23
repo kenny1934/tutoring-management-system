@@ -135,6 +135,8 @@ function PreviewStepBody({
           pref1Time={form.pref1Time}
           pref2Day={form.pref2Day}
           pref2Time={form.pref2Time}
+          makeupConfirmed={false}
+          setMakeupConfirmed={noop}
           confirmed={false}
           setConfirmed={noop}
         />

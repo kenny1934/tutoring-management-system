@@ -48,6 +48,7 @@ def cfg(db_session):
         available_grades=[{"value": "F1"}, {"value": "F2"}],
         time_slots=["16:45 - 18:15", "10:00 - 11:30"],
         text_content={"contact_by_date": "2026-08-17"},
+        pricing_config={"base_fee": 2400, "lessons_per_block": 6, "registration_fee": 100},
         is_active=True,
     )
     db_session.add(config)
@@ -119,8 +120,9 @@ class TestPublicConfig:
         assert data["title"] == "Regular Sep 2026"
         assert data["course_start_date"] == "2026-09-01"
         assert data["text_content"]["contact_by_date"] == "2026-08-17"
-        # No pricing surface at all on the regular config
-        assert "pricing_config" not in data
+        assert data["pricing_config"] == {
+            "base_fee": 2400, "lessons_per_block": 6, "registration_fee": 100,
+        }
 
 
 # ---- Apply ----

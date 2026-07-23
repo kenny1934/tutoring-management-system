@@ -27,6 +27,8 @@ from models import (
     RegularCourseConfig,
     RegularApplication,
     RegularApplicationEdit,
+    RegularCourseSlot,
+    Discount,
     Enrollment,
     SessionLog,
     Student,
@@ -47,6 +49,13 @@ from schemas import (
     RegularApplicationStats,
     RegularDemandCell,
     RegularDemandResponse,
+    RegularSlotCreate,
+    RegularSlotUpdate,
+    RegularSlotStudentInfo,
+    RegularSlotResponse,
+    RegularSlotAssignRequest,
+    RegularSuggestion,
+    RegularSuggestResponse,
     RegularPublishRequest,
     RegularPublishConflictSession,
     RegularPublishResponse,
@@ -64,6 +73,7 @@ from constants import (
     RegularApplicationStatus,
     COMPLETED_STATUSES,
     DAY_FULL_TO_SHORT,
+    MIN_LESSONS_FOR_DISCOUNT,
     normalize_secondary_location,
     normalize_day_short,
 )
@@ -339,6 +349,7 @@ def get_public_config(request: Request, db: Session = Depends(get_db)):
         lang_stream_options=config.lang_stream_options,
         text_content=config.text_content,
         course_intro=config.course_intro,
+        pricing_config=config.pricing_config,
         banner_image_url=config.banner_image_url,
     )
 
@@ -594,6 +605,7 @@ def clone_config(
         lang_stream_options=source.lang_stream_options,
         text_content=source.text_content,
         course_intro=source.course_intro,
+        pricing_config=source.pricing_config,
         banner_image_url=source.banner_image_url,
         is_active=False,
     )
@@ -910,6 +922,321 @@ def get_demand(
 
 
 # ============================================
+# Arrangement: weekly slots + assignment
+# ============================================
+
+def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[RegularSlotResponse]:
+    """Build slot responses with batched assignment + publish lookups."""
+    if not slots:
+        return []
+    slot_ids = [s.id for s in slots]
+    assigned = (
+        db.query(RegularApplication)
+        .filter(RegularApplication.assigned_slot_id.in_(slot_ids))
+        .order_by(RegularApplication.student_name)
+        .all()
+    )
+    published = _get_published_enrollment_ids(db, [a.id for a in assigned])
+    by_slot: dict[int, list[RegularSlotStudentInfo]] = {}
+    for a in assigned:
+        by_slot.setdefault(a.assigned_slot_id, []).append(RegularSlotStudentInfo(
+            application_id=a.id,
+            student_name=a.student_name,
+            grade=a.grade,
+            lang_stream=a.lang_stream,
+            school=a.school,
+            application_status=a.application_status,
+            published=a.id in published,
+        ))
+    tutor_ids = {s.tutor_id for s in slots if s.tutor_id}
+    tutor_names: dict[int, str] = {}
+    if tutor_ids:
+        tutor_names = dict(
+            db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_(tutor_ids)).all()
+        )
+    return [
+        RegularSlotResponse(
+            id=s.id,
+            config_id=s.config_id,
+            slot_day=s.slot_day,
+            time_slot=s.time_slot,
+            location=s.location,
+            grade=s.grade,
+            tutor_id=s.tutor_id,
+            tutor_name=tutor_names.get(s.tutor_id) if s.tutor_id else None,
+            max_students=s.max_students,
+            assigned_count=len(by_slot.get(s.id, [])),
+            students=by_slot.get(s.id, []),
+        )
+        for s in slots
+    ]
+
+
+@router.get("/regular/slots", response_model=list[RegularSlotResponse])
+def list_slots(
+    config_id: int,
+    location: Optional[str] = None,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """List arrangement slots for a config, with assigned students."""
+    query = db.query(RegularCourseSlot).filter(RegularCourseSlot.config_id == config_id)
+    if location:
+        query = query.filter(RegularCourseSlot.location == location)
+    slots = query.order_by(RegularCourseSlot.id).all()
+    return _slot_responses(db, slots)
+
+
+@router.post("/regular/slots", response_model=RegularSlotResponse, status_code=201)
+def create_slot(
+    data: RegularSlotCreate,
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Create a weekly arrangement slot."""
+    config = db.query(RegularCourseConfig).filter(RegularCourseConfig.id == data.config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+    if data.tutor_id is not None:
+        tutor = db.query(Tutor).filter(Tutor.id == data.tutor_id).first()
+        if not tutor:
+            raise HTTPException(status_code=404, detail=f"Tutor with ID {data.tutor_id} not found")
+    slot = RegularCourseSlot(**data.model_dump())
+    db.add(slot)
+    db.commit()
+    db.refresh(slot)
+    return _slot_responses(db, [slot])[0]
+
+
+@router.patch("/regular/slots/{slot_id}", response_model=RegularSlotResponse)
+def update_slot(
+    slot_id: int,
+    data: RegularSlotUpdate,
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Update a slot. Capacity cannot drop below the assigned count."""
+    slot = db.query(RegularCourseSlot).filter(RegularCourseSlot.id == slot_id).first()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    updates = data.model_dump(exclude_unset=True)
+    if updates.get("tutor_id") is not None:
+        tutor = db.query(Tutor).filter(Tutor.id == updates["tutor_id"]).first()
+        if not tutor:
+            raise HTTPException(status_code=404, detail=f"Tutor with ID {updates['tutor_id']} not found")
+    if "max_students" in updates:
+        assigned_count = (
+            db.query(func.count(RegularApplication.id))
+            .filter(RegularApplication.assigned_slot_id == slot_id)
+            .scalar()
+        )
+        if updates["max_students"] < assigned_count:
+            raise _publish_error(
+                "capacity_below_assigned",
+                f"Slot has {assigned_count} assigned student(s). "
+                "Unassign some before lowering capacity.",
+            )
+    for field, value in updates.items():
+        setattr(slot, field, value)
+    db.commit()
+    db.refresh(slot)
+    return _slot_responses(db, [slot])[0]
+
+
+@router.delete("/regular/slots/{slot_id}")
+def delete_slot(
+    slot_id: int,
+    _admin: None = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Delete a slot. Blocked while any application is assigned to it."""
+    slot = db.query(RegularCourseSlot).filter(RegularCourseSlot.id == slot_id).first()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    assigned_count = (
+        db.query(func.count(RegularApplication.id))
+        .filter(RegularApplication.assigned_slot_id == slot_id)
+        .scalar()
+    )
+    if assigned_count:
+        raise _publish_error(
+            "slot_has_assignments",
+            f"Slot has {assigned_count} assigned student(s). Unassign them first.",
+        )
+    db.delete(slot)
+    db.commit()
+    return {"success": True}
+
+
+@router.patch("/regular/applications/{app_id}/slot", response_model=RegularApplicationResponse)
+def assign_application_slot(
+    app_id: int,
+    req: RegularSlotAssignRequest,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Assign an application to a slot (slot_id null unassigns). Capacity is
+    enforced here; assignment never changes the application status."""
+    app = db.query(RegularApplication).filter(RegularApplication.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    old_slot_id = app.assigned_slot_id
+    if req.slot_id is not None:
+        slot = db.query(RegularCourseSlot).filter(RegularCourseSlot.id == req.slot_id).first()
+        if not slot:
+            raise HTTPException(status_code=404, detail="Slot not found")
+        if slot.config_id != app.config_id:
+            raise _publish_error(
+                "slot_config_mismatch",
+                "Slot belongs to a different intake config.",
+            )
+        if req.slot_id != old_slot_id:
+            assigned_count = (
+                db.query(func.count(RegularApplication.id))
+                .filter(
+                    RegularApplication.assigned_slot_id == req.slot_id,
+                    RegularApplication.id != app.id,
+                )
+                .scalar()
+            )
+            if assigned_count >= slot.max_students:
+                raise _publish_error(
+                    "slot_full",
+                    f"Slot is full ({assigned_count}/{slot.max_students}).",
+                )
+
+    if req.slot_id != old_slot_id:
+        app.assigned_slot_id = req.slot_id
+        db.add(RegularApplicationEdit(
+            application_id=app.id,
+            field_name="assigned_slot_id",
+            old_value=str(old_slot_id) if old_slot_id is not None else None,
+            new_value=str(req.slot_id) if req.slot_id is not None else None,
+            edited_via="admin",
+            edited_by=admin.user_email or "admin",
+        ))
+        db.commit()
+        db.refresh(app)
+    return _build_application_responses(db, [app])[0]
+
+
+def _norm_school(school: Optional[str]) -> Optional[str]:
+    s = (school or "").strip().lower()
+    return s or None
+
+
+@router.get("/regular/suggest", response_model=RegularSuggestResponse)
+def suggest_slots(
+    config_id: int,
+    application_id: int,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Capacity-strict slot suggestions for one application.
+
+    Ranking: preference-1 match > preference-2 match > explicit same-grade,
+    with bonuses from the slot's already-assigned members (majority lang
+    stream match, schoolmates). Grade-compatible = slot grade equals the
+    applicant's or is unset. Full slots are excluded."""
+    app = (
+        db.query(RegularApplication)
+        .filter(
+            RegularApplication.id == application_id,
+            RegularApplication.config_id == config_id,
+        )
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    query = db.query(RegularCourseSlot).filter(RegularCourseSlot.config_id == config_id)
+    if app.preferred_location:
+        query = query.filter(RegularCourseSlot.location == app.preferred_location)
+    slots = query.all()
+    slot_infos = {s.id: s for s in slots}
+    members: dict[int, list[RegularApplication]] = {}
+    if slot_infos:
+        for member in (
+            db.query(RegularApplication)
+            .filter(RegularApplication.assigned_slot_id.in_(slot_infos.keys()))
+            .all()
+        ):
+            members.setdefault(member.assigned_slot_id, []).append(member)
+
+    tutor_ids = {s.tutor_id for s in slots if s.tutor_id}
+    tutor_names: dict[int, str] = {}
+    if tutor_ids:
+        tutor_names = dict(
+            db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_(tutor_ids)).all()
+        )
+
+    app_school = _norm_school(app.school)
+    suggestions: list[RegularSuggestion] = []
+    for slot in slots:
+        if slot.id == app.assigned_slot_id:
+            continue
+        assigned = members.get(slot.id, [])
+        if len(assigned) >= slot.max_students:
+            continue  # capacity-strict
+        if slot.grade and slot.grade != app.grade:
+            continue  # grade-incompatible
+
+        score = 0
+        reasons: list[str] = []
+        if (
+            app.preference_1_day and app.preference_1_time
+            and slot.slot_day == app.preference_1_day
+            and slot.time_slot == app.preference_1_time
+        ):
+            score += 300
+            reasons.append("pref_1_match")
+        elif (
+            app.preference_2_day and app.preference_2_time
+            and slot.slot_day == app.preference_2_day
+            and slot.time_slot == app.preference_2_time
+        ):
+            score += 200
+            reasons.append("pref_2_match")
+        if slot.grade == app.grade:
+            score += 100
+            reasons.append("same_grade")
+        else:
+            score += 40  # grade-unset slot: compatible but weaker signal
+        if app.lang_stream and assigned:
+            stream_matches = sum(1 for m in assigned if m.lang_stream == app.lang_stream)
+            if stream_matches * 2 >= len(assigned):
+                score += 30
+                reasons.append("stream_match")
+        if app_school:
+            schoolmates = sum(1 for m in assigned if _norm_school(m.school) == app_school)
+            if schoolmates:
+                score += 15 * schoolmates
+                reasons.append(f"schoolmates:{schoolmates}")
+
+        suggestions.append(RegularSuggestion(
+            slot_id=slot.id,
+            slot_day=slot.slot_day,
+            time_slot=slot.time_slot,
+            location=slot.location,
+            grade=slot.grade,
+            tutor_name=tutor_names.get(slot.tutor_id) if slot.tutor_id else None,
+            assigned_count=len(assigned),
+            max_students=slot.max_students,
+            score=score,
+            reasons=reasons,
+        ))
+
+    # Prefer filling existing groups on ties.
+    suggestions.sort(key=lambda s: (-s.score, -s.assigned_count, s.slot_id))
+    return RegularSuggestResponse(
+        application_id=app.id,
+        suggestions=suggestions[:5],
+    )
+
+
+# ============================================
 # Publish bridge → native Regular enrollment
 # ============================================
 
@@ -980,14 +1307,65 @@ def _publish_application_inner(
             current_status=app.application_status,
         )
 
-    # Block: tutor must exist.
-    tutor = db.query(Tutor).filter(Tutor.id == req.tutor_id).first()
-    if not tutor:
-        raise _publish_error("invalid_tutor", f"Tutor with ID {req.tutor_id} not found")
+    # Resolve the schedule: explicit request fields win, otherwise fall back
+    # to the assigned arrangement slot (one-click publish path).
+    slot = (
+        db.query(RegularCourseSlot)
+        .filter(RegularCourseSlot.id == app.assigned_slot_id)
+        .first()
+        if app.assigned_slot_id
+        else None
+    )
+    confirmed_day = req.confirmed_day or (slot.slot_day if slot else None)
+    confirmed_time = req.confirmed_time or (slot.time_slot if slot else None)
+    location = req.location or (slot.location if slot else None)
+    tutor_id = req.tutor_id if req.tutor_id is not None else (slot.tutor_id if slot else None)
 
-    assigned_day = normalize_day_short(req.confirmed_day)
+    if not confirmed_day or not confirmed_time or not location:
+        raise _publish_error(
+            "no_schedule",
+            "No confirmed schedule. Supply day/time/location or assign the "
+            "application to a slot first.",
+        )
+    if tutor_id is None:
+        if slot:
+            raise _publish_error(
+                "slot_no_tutor",
+                "The assigned slot has no tutor. Set a tutor on the slot or "
+                "supply one in the publish request.",
+            )
+        raise _publish_error(
+            "no_schedule",
+            "No tutor supplied. Supply tutor_id or assign the application "
+            "to a slot with a tutor.",
+        )
+
+    # Block: tutor must exist.
+    tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
+    if not tutor:
+        raise _publish_error("invalid_tutor", f"Tutor with ID {tutor_id} not found")
+
+    # Validate discount (e.g. an auto-suggested coupon) like create_enrollment.
+    # Coupon inventory is NOT decremented here — that happens at mark-paid.
+    discount = None
+    if req.discount_id:
+        from routers.enrollments import discount_requires_min_lessons
+
+        discount = db.query(Discount).filter(Discount.id == req.discount_id).first()
+        if not discount:
+            raise _publish_error(
+                "invalid_discount", f"Discount with ID {req.discount_id} not found"
+            )
+        if discount_requires_min_lessons(discount) and req.lessons_paid < MIN_LESSONS_FOR_DISCOUNT:
+            raise _publish_error(
+                "discount_min_lessons",
+                f"Discounts are not available for enrollments of fewer than "
+                f"{MIN_LESSONS_FOR_DISCOUNT} lessons.",
+            )
+
+    assigned_day = normalize_day_short(confirmed_day)
     if assigned_day not in DAY_FULL_TO_SHORT.values():
-        raise _publish_error("invalid_day", f"Unrecognized weekday: {req.confirmed_day}")
+        raise _publish_error("invalid_day", f"Unrecognized weekday: {confirmed_day}")
 
     course_start = app.config.course_start_date if app.config else None
     if req.first_lesson_date is not None:
@@ -1035,7 +1413,7 @@ def _publish_application_inner(
         db=db,
         student_id=app.existing_student_id,
         session_dates=non_holiday_dates,
-        time_slot=req.confirmed_time,
+        time_slot=confirmed_time,
     )
     if conflicts:
         raise _publish_error(
@@ -1066,10 +1444,10 @@ def _publish_application_inner(
     is_paid = req.payment_status == 'Paid'
     enrollment = Enrollment(
         student_id=app.existing_student_id,
-        tutor_id=req.tutor_id,
+        tutor_id=tutor_id,
         assigned_day=assigned_day,
-        assigned_time=req.confirmed_time,
-        location=normalize_secondary_location(req.location),
+        assigned_time=confirmed_time,
+        location=normalize_secondary_location(location),
         lessons_paid=req.lessons_paid,
         first_lesson_date=first_lesson_date,
         payment_date=hk_now().date() if is_paid else None,
@@ -1077,6 +1455,7 @@ def _publish_application_inner(
         enrollment_type='Regular',
         fee_message_sent=False,
         is_new_student=is_new_student,
+        discount_id=req.discount_id,
         regular_application_id=app.id,
         last_modified_by=admin_email,
     )
@@ -1094,10 +1473,10 @@ def _publish_application_inner(
         db.add(SessionLog(
             enrollment_id=enrollment.id,
             student_id=app.existing_student_id,
-            tutor_id=req.tutor_id,
+            tutor_id=tutor_id,
             session_date=preview.session_date,
-            time_slot=req.confirmed_time,
-            location=normalize_secondary_location(req.location),
+            time_slot=confirmed_time,
+            location=normalize_secondary_location(location),
             session_status='Scheduled',
             financial_status=fin_status,
             last_modified_by=admin_email,
