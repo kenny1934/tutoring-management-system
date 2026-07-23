@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -13,6 +13,10 @@ import { regularAPI, tutorsAPI } from "@/lib/api";
 import { RegularArrangementGrid } from "@/components/admin/RegularArrangementGrid";
 import { RegularUnassignedPanel } from "@/components/admin/RegularUnassignedPanel";
 import { RegularApplicationDetailModal } from "@/components/admin/RegularApplicationDetailModal";
+import {
+  REGULAR_STATUS_COLORS, REGULAR_STATUS_ICONS,
+} from "@/components/admin/RegularApplicationCard";
+import { StudentJumpSearch, type StudentJumpSearchEntry } from "@/components/ui/student-jump-search";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV } from "@/lib/regular-utils";
 import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
@@ -20,6 +24,48 @@ import type { RegularApplication, RegularSlot, RegularSlotUpdate } from "@/types
 
 /** Exit statuses stay on the applications page triage surface. */
 const EXCLUDED_STATUSES = new Set(["Withdrawn", "Rejected"]);
+
+// Statuses worth filtering by from the arrangement surface: the two rungs
+// before a slot is agreed, then the two after. Withdrawn and Rejected belong
+// to the applications page triage view.
+const PRE_ARRANGEMENT_STATUSES = ["Submitted", "Under Review"] as const;
+const POST_ARRANGEMENT_STATUSES = ["Schedule Confirmed", "Enrolled", "Waitlisted"] as const;
+const ARRANGEMENT_STATUSES = [...PRE_ARRANGEMENT_STATUSES, ...POST_ARRANGEMENT_STATUSES];
+
+function StatusFilterChip({
+  status,
+  count,
+  active,
+  onToggle,
+}: {
+  status: string;
+  count: number;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  const colors = REGULAR_STATUS_COLORS[status];
+  const Icon = REGULAR_STATUS_ICONS[status];
+  const isZero = count === 0;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      title={active ? `Clear ${status} filter` : `${status} — click to filter`}
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all",
+        active
+          ? cn(colors.bg, colors.text, "ring-1 ring-current/30")
+          : "bg-gray-50 dark:bg-gray-800 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700",
+        isZero && !active && "opacity-60"
+      )}
+    >
+      {Icon && <Icon className={cn("h-3 w-3 shrink-0", !active && colors.text)} />}
+      {active && <span>{status}</span>}
+      <span className="tabular-nums">{count}</span>
+    </button>
+  );
+}
 
 export default function RegularArrangementPage() {
   usePageTitle("Regular Arrangement");
@@ -41,6 +87,16 @@ export default function RegularArrangementPage() {
   // Set by clicking a demand sparkline: narrows the panel to the students
   // behind that bar.
   const [demandFilter, setDemandFilter] = useState<RegularDemandBarFilter | null>(null);
+  // Set by a header status chip: narrows the panel to that rung of the ladder.
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  // Search jump target. `seq` bumps on every pick so re-selecting the same
+  // student rings the card again.
+  const [slotTarget, setSlotTarget] = useState<{
+    applicationId: number;
+    scrollSlotId: number | null;
+    day?: string | null;
+    seq: number;
+  } | null>(null);
   const [dragPrefs, setDragPrefs] = useState<{
     primary: { day: string; time: string }[];
     backup: { day: string; time: string }[];
@@ -181,13 +237,89 @@ export default function RegularArrangementPage() {
     });
   }, [applications, demandFilter]);
 
-  const panelApplications = demandFilteredApps ?? unassignedApps;
+  // Panel cohort while a status chip is active: that rung, assigned or not.
+  const statusFilteredApps = useMemo(() => {
+    if (!statusFilter) return null;
+    return (applications ?? []).filter((a) => a.application_status === statusFilter);
+  }, [applications, statusFilter]);
+
+  // Precedence: demand bar > status chip > the default unassigned list.
+  const panelApplications = demandFilteredApps ?? statusFilteredApps ?? unassignedApps;
+
+  // Header counts, straight off the loaded list so they always agree with it.
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const a of applications ?? []) {
+      counts[a.application_status] = (counts[a.application_status] ?? 0) + 1;
+    }
+    return counts;
+  }, [applications]);
+
+  const assignedCount = useMemo(
+    () => (applications ?? []).filter((a) => a.assigned_slot_id).length,
+    [applications]
+  );
+  const publishedCount = useMemo(
+    () => (applications ?? []).filter((a) => a.published_enrollment_id).length,
+    [applications]
+  );
 
   const demandFilterLabel = demandFilter
     ? `${demandFilter.grade} · ${DAY_ABBREV[demandFilter.day] || demandFilter.day} ${demandFilter.timeSlot} · ${demandFilter.tier === "first" ? "first choice" : "backup"}`
     : null;
 
+  // Search index over every application at this branch. Haystack folds the
+  // phone digits, reference code and linked student code so an admin can paste
+  // any of those out of a parent message and land on the student.
+  const searchEntries = useMemo<StudentJumpSearchEntry[]>(() => {
+    const digits = (s?: string | null) => (s ? s.replace(/\D+/g, "") : "");
+    return (applications ?? [])
+      .filter((a) => !EXCLUDED_STATUSES.has(a.application_status))
+      .map((a) => {
+        const studentId = a.linked_student?.school_student_id ?? null;
+        return {
+          applicationId: a.id,
+          name: a.student_name,
+          grade: a.grade,
+          langStream: a.lang_stream ?? null,
+          studentId,
+          placed: a.assigned_slot_id != null,
+          haystack: [
+            a.student_name.toLowerCase(),
+            digits(a.contact_phone),
+            a.reference_code?.toLowerCase() ?? "",
+            studentId?.toLowerCase() ?? "",
+          ].join(" "),
+        };
+      });
+  }, [applications]);
+
+  const handleSearchSelect = useCallback((entry: StudentJumpSearchEntry) => {
+    // Unassigned students have no card to ring, so open their application
+    // instead — that is where the next decision gets made anyway.
+    if (!entry.placed) {
+      setSelectedAppId(entry.applicationId);
+      return;
+    }
+    const slot = (slots ?? []).find((s) =>
+      s.students.some((st) => st.application_id === entry.applicationId)
+    );
+    if (!slot) {
+      setSelectedAppId(entry.applicationId);
+      return;
+    }
+    setSlotTarget((prev) => ({
+      applicationId: entry.applicationId,
+      scrollSlotId: slot.id,
+      day: slot.slot_day,
+      seq: (prev?.seq ?? 0) + 1,
+    }));
+  }, [slots]);
+
+  // The two panel filters are alternatives, never a conjunction: picking one
+  // drops the other so the heading always names what is on screen.
   const handleDemandBarClick = useCallback((filter: RegularDemandBarFilter) => {
+    setStatusFilter(null);
     setDemandFilter((prev) =>
       prev &&
       prev.day === filter.day &&
@@ -197,6 +329,11 @@ export default function RegularArrangementPage() {
         ? null
         : filter
     );
+  }, []);
+
+  const handleStatusChipToggle = useCallback((status: string) => {
+    setDemandFilter(null);
+    setStatusFilter((prev) => (prev === status ? null : status));
   }, []);
 
   // Publish cohort: assigned, schedule confirmed, not yet published.
@@ -494,7 +631,7 @@ export default function RegularArrangementPage() {
       <PageTransition className="flex flex-col h-full p-2 sm:p-6">
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                 <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -508,6 +645,12 @@ export default function RegularArrangementPage() {
                   Create weekly slots and assign applications. Publish once schedules are confirmed.
                 </p>
               </div>
+              <StudentJumpSearch
+                entries={searchEntries}
+                onSelect={handleSearchSelect}
+                placeholder="Find student..."
+                className="order-last w-full sm:order-none sm:w-52 md:w-64 sm:shrink-0"
+              />
               <div className="flex items-center gap-1.5 shrink-0">
                 {locations.map((l) => {
                   const code = LOCATION_TO_CODE[l.name] || l.name;
@@ -559,6 +702,33 @@ export default function RegularArrangementPage() {
                 </button>
               )}
             </div>
+
+            {/* Row 2: where the cohort stands, and chips to scope the panel */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>{unassignedApps.length} unassigned</span>
+                <span>{assignedCount} assigned</span>
+                <span className="text-green-600 dark:text-green-400">{publishedCount} published</span>
+              </div>
+
+              <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+              <div className="flex items-center gap-1 flex-wrap" role="group" aria-label="Filter by application status">
+                {ARRANGEMENT_STATUSES.map((status, i) => (
+                  <Fragment key={status}>
+                    {i === PRE_ARRANGEMENT_STATUSES.length && (
+                      <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
+                    )}
+                    <StatusFilterChip
+                      status={status}
+                      count={statusCounts[status] ?? 0}
+                      active={statusFilter === status}
+                      onToggle={() => handleStatusChipToggle(status)}
+                    />
+                  </Fragment>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Main content: grid + unassigned panel */}
@@ -587,6 +757,7 @@ export default function RegularArrangementPage() {
                     onClickStudent={setSelectedAppId}
                     onDropFailed={handleDropFailed}
                     onDemandBarClick={handleDemandBarClick}
+                    slotHighlightTarget={slotTarget}
                     dragPrefs={dragPrefs}
                     pendingPlacementAppId={pendingPlacementAppId}
                   />
@@ -605,6 +776,8 @@ export default function RegularArrangementPage() {
                     onClickStudent={setSelectedAppId}
                     demandFilterLabel={demandFilterLabel}
                     onClearDemandFilter={() => setDemandFilter(null)}
+                    statusFilter={statusFilter}
+                    onClearStatusFilter={() => setStatusFilter(null)}
                   />
                 </div>
               </div>
@@ -673,6 +846,8 @@ export default function RegularArrangementPage() {
                       tapMode="select"
                       demandFilterLabel={demandFilterLabel}
                       onClearDemandFilter={() => setDemandFilter(null)}
+                      statusFilter={statusFilter}
+                      onClearStatusFilter={() => setStatusFilter(null)}
                       onSelectStudent={(id) => {
                         setPendingPlacementAppId(id);
                         setMobilePanelOpen(false);

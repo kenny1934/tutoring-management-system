@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback, useMemo, useRef } from "react";
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Trash2, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -30,6 +30,15 @@ interface RegularSlotCardProps {
    * into onDropStudent with this appId (or onTapPlaceFailed when full). */
   pendingPlacementAppId?: number | null;
   onTapPlaceFailed?: (reason: string) => void;
+  /** Briefly ring + auto-expand the card when one of its students matches the
+   * given application. The matching row rings too. Only the card whose id
+   * equals `scrollSlotId` scrolls into view. `seq` re-fires the effect when
+   * the same student is picked again. */
+  highlightTarget?: {
+    applicationId: number;
+    scrollSlotId: number | null;
+    seq: number;
+  } | null;
 }
 
 function fillBarColor(pct: number): string {
@@ -50,11 +59,13 @@ export const RegularSlotCard = memo(function RegularSlotCard({
   onClickStudent,
   pendingPlacementAppId,
   onTapPlaceFailed,
+  highlightTarget,
 }: RegularSlotCardProps) {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [editingMax, setEditingMax] = useState(false);
   const maxRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const isFull = slot.assigned_count >= slot.max_students;
   const fillPct = slot.max_students > 0 ? slot.assigned_count / slot.max_students : 0;
   // The grid groups by slot.grade, so surface any assigned student whose own
@@ -64,6 +75,25 @@ export const RegularSlotCard = memo(function RegularSlotCard({
     [slot.grade, slot.students],
   );
   const hasGradeMismatch = mismatchedGrades.length > 0;
+
+  // Search-jump highlight. Deps exclude slot.students on purpose: SWR
+  // revalidates every 30s and returns a fresh array, which would re-fire the
+  // highlight on each refresh while the same target stands.
+  const [highlightedAppId, setHighlightedAppId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!highlightTarget) return;
+    const hasMatch = slot.students.some((s) => s.application_id === highlightTarget.applicationId);
+    if (!hasMatch) return;
+    setHighlightedAppId(highlightTarget.applicationId);
+    setExpanded(true);
+    if (highlightTarget.scrollSlotId === slot.id) {
+      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    const clearTimer = setTimeout(() => setHighlightedAppId(null), 2000);
+    return () => clearTimeout(clearTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightTarget?.seq, highlightTarget?.applicationId]);
+  const isHighlighted = highlightedAppId != null;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (readOnly) return;
@@ -121,6 +151,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
 
   return (
     <div
+      ref={rootRef}
       className={cn(
         "rounded border border-l-[3px] text-[11px] transition-all overflow-hidden",
         dragOver
@@ -128,6 +159,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
           : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
         !dragOver && (SUMMER_GRADE_BORDER[slot.grade ?? ""] || "border-l-gray-300"),
         isFull && "opacity-80",
+        isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg",
         tapPlaceActive && !isFull && "ring-2 ring-primary/60 ring-offset-1 cursor-pointer",
         tapPlaceActive && isFull && "ring-2 ring-red-300/60 ring-offset-1 cursor-not-allowed"
       )}
@@ -274,6 +306,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
                 className={cn(
                   "flex items-center gap-1 rounded px-1 py-0.5 min-w-0",
                   regularStatusRowBg(s.application_status),
+                  highlightedAppId === s.application_id && "ring-2 ring-primary/60 ring-offset-1",
                 )}
               >
                 <div className="flex-1 min-w-0">

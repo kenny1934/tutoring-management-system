@@ -24,7 +24,7 @@ import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown"
 import { SummerTutorWorkloadPanel } from "@/components/admin/SummerTutorWorkloadPanel";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
-import { SummerStudentSearch, type SummerStudentSearchEntry } from "@/components/admin/SummerStudentSearch";
+import { StudentJumpSearch, type StudentJumpSearchEntry } from "@/components/ui/student-jump-search";
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
@@ -879,7 +879,7 @@ export default function SummerArrangementPage() {
   // date + session id — so selecting them routes straight to the calendar with
   // a ring highlight. Haystack folds phone digits + school/primary student id
   // so admins can paste any of those from a parent message and find the row.
-  const searchEntries = useMemo<SummerStudentSearchEntry[]>(() => {
+  const searchEntries = useMemo<StudentJumpSearchEntry[]>(() => {
     const digits = (s?: string | null) => (s ? s.replace(/\D+/g, "") : "");
     const makeEntry = (source: {
       application_id: number;
@@ -889,7 +889,7 @@ export default function SummerArrangementPage() {
       contact_phone?: string | null;
       linked_student?: { school_student_id?: string | null } | null;
       linked_prospect?: { primary_student_id?: string | null } | null;
-    }, firstLesson: SummerStudentSearchEntry["firstLesson"]): SummerStudentSearchEntry => {
+    }, firstLesson: StudentJumpSearchEntry["firstLesson"]): StudentJumpSearchEntry => {
       const studentId = getLinkedStudentId(source);
       return {
         applicationId: source.application_id,
@@ -903,7 +903,7 @@ export default function SummerArrangementPage() {
       };
     };
 
-    const out: SummerStudentSearchEntry[] = [];
+    const out: StudentJumpSearchEntry[] = [];
     const seen = new Set<number>();
     for (const s of studentLessonsData?.students ?? []) {
       const first = s.lessons
@@ -922,7 +922,7 @@ export default function SummerArrangementPage() {
     return out;
   }, [studentLessonsData, unassigned]);
 
-  const handleSearchSelect = useCallback((entry: SummerStudentSearchEntry) => {
+  const handleSearchSelect = useCallback((entry: StudentJumpSearchEntry) => {
     // Students tab already shows every row (placed + unplaced), so when the
     // user searches from that context, stay put and just ring the match
     // instead of yanking them to Slot Setup / Calendar.
@@ -1013,7 +1013,7 @@ export default function SummerArrangementPage() {
               </h1>
               <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
             </div>
-            <SummerStudentSearch
+            <StudentJumpSearch
               entries={searchEntries}
               onSelect={handleSearchSelect}
               className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"

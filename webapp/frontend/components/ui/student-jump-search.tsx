@@ -6,7 +6,13 @@ import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { useClickOutside } from "@/lib/hooks";
 
-export interface SummerStudentSearchEntry {
+/**
+ * Type-ahead that finds a student across an arrangement surface and hands the
+ * match back for the caller to jump to. Shared by the summer and regular
+ * arrangement pages — it knows nothing about either season beyond the entry
+ * shape below.
+ */
+export interface StudentJumpSearchEntry {
   applicationId: number;
   name: string;
   grade: string;
@@ -14,7 +20,9 @@ export interface SummerStudentSearchEntry {
   /** Displayed as a small mono badge (e.g. school_student_id or
    *  primary_student_id) when available. Already folded into `haystack`. */
   studentId?: string | null;
+  /** Drives the placed/unplaced label and sorts the actionable rows first. */
   placed: boolean;
+  /** Caller-specific jump target, carried through untouched. */
   firstLesson?: {
     lessonDate: string;
     sessionId: number | null;
@@ -26,21 +34,21 @@ export interface SummerStudentSearchEntry {
   haystack: string;
 }
 
-interface SummerStudentSearchProps {
-  entries: SummerStudentSearchEntry[];
-  onSelect: (entry: SummerStudentSearchEntry) => void;
+interface StudentJumpSearchProps {
+  entries: StudentJumpSearchEntry[];
+  onSelect: (entry: StudentJumpSearchEntry) => void;
   placeholder?: string;
   className?: string;
 }
 
 const MAX_RESULTS = 10;
 
-export function SummerStudentSearch({
+export function StudentJumpSearch({
   entries,
   onSelect,
   placeholder = "Find student...",
   className,
-}: SummerStudentSearchProps) {
+}: StudentJumpSearchProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -55,7 +63,7 @@ export function SummerStudentSearch({
     const digitsOnly = raw.replace(/\D+/g, "");
     const isPhoneish = digitsOnly.length >= 3 && digitsOnly.length / raw.length >= 0.6;
     const q = isPhoneish ? digitsOnly : raw;
-    const matches: SummerStudentSearchEntry[] = [];
+    const matches: StudentJumpSearchEntry[] = [];
     for (const e of entries) {
       if (e.haystack.includes(q)) {
         matches.push(e);
@@ -78,7 +86,7 @@ export function SummerStudentSearch({
   useClickOutside(rootRef, handleClose, open);
 
   const handleSelect = useCallback(
-    (entry: SummerStudentSearchEntry) => {
+    (entry: StudentJumpSearchEntry) => {
       onSelect(entry);
       setQuery("");
       setOpen(false);

@@ -35,6 +35,11 @@ interface RegularSlotCellProps {
    * drawn on one comparable scale. */
   gradeMaxDemand?: number;
   onDemandBarClick?: (filter: RegularDemandBarFilter) => void;
+  slotHighlightTarget?: {
+    applicationId: number;
+    scrollSlotId: number | null;
+    seq: number;
+  } | null;
   /** Mobile tap-to-place: when set, the cell + each inner slot card become
    * tap targets that fire onDropStudent with this appId. */
   pendingPlacementAppId?: number | null;
@@ -82,6 +87,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   prefHighlight,
   gradeMaxDemand = 1,
   onDemandBarClick,
+  slotHighlightTarget,
   pendingPlacementAppId,
 }: RegularSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
@@ -277,6 +283,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
               onDropStudent={(appId) => onDropStudent(appId, slot.id)}
               onUnassign={onUnassign}
               onClickStudent={onClickStudent}
+              highlightTarget={slotHighlightTarget}
               pendingPlacementAppId={pendingPlacementAppId}
               onTapPlaceFailed={onDropFailed}
             />

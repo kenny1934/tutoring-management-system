@@ -34,6 +34,14 @@ interface RegularArrangementGridProps {
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   onDemandBarClick?: (filter: RegularDemandBarFilter) => void;
+  /** Search jump: rings every card holding this application, scrolls the one
+   * matching `scrollSlotId`, and un-hides `day` if the column is filtered out. */
+  slotHighlightTarget?: {
+    applicationId: number;
+    scrollSlotId: number | null;
+    day?: string | null;
+    seq: number;
+  } | null;
   dragPrefs?: DragPrefs | null;
   pendingPlacementAppId?: number | null;
 }
@@ -55,6 +63,7 @@ export function RegularArrangementGrid({
   onClickStudent,
   onDropFailed,
   onDemandBarClick,
+  slotHighlightTarget,
   dragPrefs,
   pendingPlacementAppId,
 }: RegularArrangementGridProps) {
@@ -101,6 +110,15 @@ export function RegularArrangementGrid({
   useEffect(() => {
     setVisibleDays(new Set(openDaysKey ? openDaysKey.split("|") : []));
   }, [openDaysKey]);
+
+  // A jump into a day the user has filtered out would land on nothing, so the
+  // column comes back first.
+  const jumpDay = slotHighlightTarget?.day ?? null;
+  const jumpSeq = slotHighlightTarget?.seq;
+  useEffect(() => {
+    if (!jumpDay) return;
+    setVisibleDays((prev) => (prev.has(jumpDay) ? prev : new Set(prev).add(jumpDay)));
+  }, [jumpDay, jumpSeq]);
 
   const toggleDay = useCallback((day: string) => {
     setVisibleDays((prev) => {
@@ -236,6 +254,7 @@ export function RegularArrangementGrid({
                     prefHighlight={isPrefMatch}
                     gradeMaxDemand={gradeMaxDemand}
                     onDemandBarClick={onDemandBarClick}
+                    slotHighlightTarget={slotHighlightTarget}
                     pendingPlacementAppId={pendingPlacementAppId}
                   />
                 );

@@ -20,12 +20,15 @@ import {
 } from "./RegularApplicationCard";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
+import { AddStudentModal } from "@/components/students/AddStudentModal";
 import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
-  User, Phone, MapPin, Clock, Building2,
+  User, Phone, MapPin, Clock, Building2, Search, UserPlus, ArrowRight,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
+import { useDebouncedValue } from "@/lib/hooks";
+import { applyTargetToPreGrade } from "@/lib/grade-utils";
 import type {
   RegularApplication,
   RegularApplicationUpdate,
@@ -111,6 +114,64 @@ function FieldValue({
   );
 }
 
+type SuggestionStudent = {
+  id: number;
+  student_name: string;
+  school_student_id?: string | null;
+  grade?: string | null;
+  home_location?: string | null;
+  lang_stream?: string | null;
+  school?: string | null;
+};
+
+/** One clickable candidate in the link-student picker. */
+function StudentSuggestionRow({
+  student,
+  reason,
+  onClick,
+}: {
+  student: SuggestionStudent;
+  reason?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group/row w-full flex items-center gap-2 px-2.5 py-2 text-left text-sm cursor-pointer transition-colors hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-inset"
+    >
+      <div className="min-w-0 flex-1 space-y-1">
+        <StudentInfoBadges
+          showLocationPrefix
+          student={{
+            student_id: student.id,
+            student_name: student.student_name,
+            school_student_id: student.school_student_id || undefined,
+            grade: student.grade || undefined,
+            lang_stream: student.lang_stream || undefined,
+            school: student.school || undefined,
+            home_location: student.home_location || undefined,
+          }}
+        />
+        {reason && (
+          <span
+            className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+            title="Why this student was suggested"
+          >
+            {reason}
+          </span>
+        )}
+      </div>
+      <span
+        className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-primary opacity-0 group-hover/row:opacity-100 transition-opacity"
+        aria-hidden
+      >
+        Link <ArrowRight className="h-3 w-3" />
+      </span>
+    </button>
+  );
+}
+
 /** One icon-led block in the details column. */
 function InfoBlock({
   icon: Icon,
@@ -189,7 +250,13 @@ export function RegularApplicationDetailModal({
   const [dP2Time, setDP2Time] = useState("");
 
   // Student link
-  const [studentIdInput, setStudentIdInput] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+  const debouncedStudentSearch = useDebouncedValue(studentSearch, 300);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [showManualId, setShowManualId] = useState(false);
+  const [manualIdInput, setManualIdInput] = useState("");
+  const [manualIdConfirmed, setManualIdConfirmed] = useState("");
+  const [createStudentOpen, setCreateStudentOpen] = useState(false);
   const [linkSaving, setLinkSaving] = useState(false);
 
   // Edit history
@@ -231,7 +298,11 @@ export function RegularApplicationDetailModal({
     setDP1Time(app.preference_1_time || "");
     setDP2Day(app.preference_2_day || "");
     setDP2Time(app.preference_2_time || "");
-    setStudentIdInput("");
+    setStudentSearch("");
+    setSearchFocused(false);
+    setShowManualId(false);
+    setManualIdInput("");
+    setManualIdConfirmed("");
     setHistoryOpen(false);
     setPubLocation(LOCATION_TO_CODE[app.preferred_location || ""] || "MSA");
     setPubDay(app.preference_1_day || "");
@@ -272,6 +343,70 @@ export function RegularApplicationDetailModal({
         .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name)),
     [tutors]
   );
+
+  // --- Student linking ---
+
+  // The applicant's branch in system terms, used to rank duplicate matches.
+  const systemLocation = app ? LOCATION_TO_CODE[app.preferred_location || ""] || "" : "";
+  const claimsExisting = !!app?.is_existing_student && app.is_existing_student !== "None";
+  const unlinked = !!app && !app.existing_student_id;
+
+  // Name + phone at the applicant's branch, the strongest signal available.
+  const { data: duplicateMatches } = useSWR(
+    isOpen && app && unlinked && systemLocation
+      ? ["student-dupes", app.student_name, systemLocation, app.contact_phone]
+      : null,
+    () => studentsAPI.checkDuplicates(app!.student_name, systemLocation, app!.contact_phone || undefined)
+  );
+
+  // Broader name sweep across every branch, for transfers and typos.
+  const { data: nameMatches } = useSWR(
+    isOpen && app && unlinked ? ["student-name-search", app.student_name] : null,
+    () => studentsAPI.getAll({ search: app!.student_name, limit: 8 })
+  );
+
+  const { data: searchResults } = useSWR(
+    isOpen && unlinked && debouncedStudentSearch.trim().length >= 2
+      ? ["student-manual-search", debouncedStudentSearch]
+      : null,
+    () => studentsAPI.getAll({ search: debouncedStudentSearch.trim(), limit: 8 })
+  );
+
+  // Confirm-then-search, so a half-typed student code does not spam the API.
+  const { data: manualIdResults } = useSWR(
+    isOpen && unlinked && manualIdConfirmed.length >= 1
+      ? ["student-manual-id", manualIdConfirmed]
+      : null,
+    () => studentsAPI.getAll({ search: manualIdConfirmed, limit: 5 })
+  );
+
+  // Full record for the linked student: the application only carries a name
+  // and code, and the panel wants grade, school and enrollment count.
+  const { data: linkedStudent } = useSWR(
+    isOpen && app?.existing_student_id ? ["student-detail", app.existing_student_id] : null,
+    () => studentsAPI.getById(app!.existing_student_id!)
+  );
+
+  // Duplicates first (they carry a match reason), then name matches that the
+  // duplicate check did not already surface.
+  const autoSuggestions = useMemo(() => {
+    if (!unlinked) return [];
+    const results: { student: SuggestionStudent; reason: string }[] = [];
+    const seen = new Set<number>();
+    for (const d of duplicateMatches?.duplicates ?? []) {
+      seen.add(d.id);
+      results.push({ student: d, reason: d.match_reason });
+    }
+    for (const s of nameMatches ?? []) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      const reasons: string[] = [];
+      if (app?.contact_phone && s.phone === app.contact_phone) reasons.push("phone match");
+      if (s.home_location === systemLocation) reasons.push("same branch");
+      results.push({ student: s, reason: reasons.join(", ") || "name match" });
+    }
+    return results;
+  }, [unlinked, duplicateMatches, nameMatches, app?.contact_phone, systemLocation]);
 
   // Coupon availability for the linked student. Failures stay silent: SWR
   // simply leaves `coupon` undefined and no chip is shown.
@@ -417,14 +552,19 @@ export function RegularApplicationDetailModal({
   const handleSaveNotes = () =>
     patchApplication({ admin_notes: notes }, "Notes saved", setNotesSaving);
 
-  const handleLinkStudent = async () => {
-    const id = parseInt(studentIdInput, 10);
-    if (!Number.isFinite(id) || id <= 0) {
-      showToast("Enter a valid student ID number", "error");
-      return;
+  const handleLinkStudent = async (studentId: number, name?: string) => {
+    const ok = await patchApplication(
+      { existing_student_id: studentId },
+      name ? `Linked to ${name}` : "Student linked",
+      setLinkSaving
+    );
+    if (ok) {
+      setStudentSearch("");
+      setSearchFocused(false);
+      setShowManualId(false);
+      setManualIdInput("");
+      setManualIdConfirmed("");
     }
-    const ok = await patchApplication({ existing_student_id: id }, "Student linked", setLinkSaving);
-    if (ok) setStudentIdInput("");
   };
 
   const handleUnlinkStudent = () =>
@@ -941,69 +1081,196 @@ export function RegularApplicationDetailModal({
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-3 space-y-2">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Student</span>
                 {app.linked_student ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5">
-                      <UserCheck className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                      <StudentInfoBadges
-                        showLink
-                        showLocationPrefix
-                        student={{
-                          student_id: app.existing_student_id ?? app.linked_student.id,
-                          student_name: app.linked_student.student_name,
-                          school_student_id: app.linked_student.school_student_id || undefined,
-                          home_location: app.linked_student.home_location || undefined,
-                        }}
-                      />
-                    </span>
-                    {couponAvailable && (
-                      <span
-                        className="inline-flex items-center px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs"
-                        title="Coupons available for this student"
-                      >
-                        🎟 {couponAvailable.available} coupon{(couponAvailable.available ?? 0) > 1 ? "s" : ""} (${couponAvailable.value})
+                  <div className="space-y-1">
+                    <div className="flex items-start gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5">
+                        <UserCheck className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                        <StudentInfoBadges
+                          showLink
+                          showLocationPrefix
+                          student={{
+                            student_id: app.existing_student_id ?? app.linked_student.id,
+                            student_name: app.linked_student.student_name,
+                            school_student_id: app.linked_student.school_student_id || undefined,
+                            grade: linkedStudent?.grade || undefined,
+                            lang_stream: linkedStudent?.lang_stream || undefined,
+                            school: linkedStudent?.school || undefined,
+                            home_location: app.linked_student.home_location || undefined,
+                          }}
+                        />
                       </span>
-                    )}
-                    {canEdit && (
-                      <button
-                        type="button"
-                        onClick={handleUnlinkStudent}
-                        disabled={linkSaving}
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-600 disabled:opacity-50"
-                        title="Clear the student link"
-                      >
-                        {linkSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
-                        Unlink
-                      </button>
-                    )}
+                      {couponAvailable && (
+                        <span
+                          className="inline-flex items-center px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs"
+                          title="Coupons available for this student"
+                        >
+                          🎟 {couponAvailable.available} coupon{(couponAvailable.available ?? 0) > 1 ? "s" : ""} (${couponAvailable.value})
+                        </span>
+                      )}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={handleUnlinkStudent}
+                          disabled={linkSaving}
+                          className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                          title="Clear the student link"
+                        >
+                          {linkSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
+                          Unlink
+                        </button>
+                      )}
+                    </div>
+                    {app.linked_student.home_location &&
+                      systemLocation &&
+                      app.linked_student.home_location !== systemLocation && (
+                        <div className="ml-5 text-[10px] text-amber-600 dark:text-amber-400">
+                          Home branch ({app.linked_student.home_location}) differs from the branch applied for ({systemLocation}).
+                        </div>
+                      )}
                   </div>
+                ) : !canEdit ? (
+                  <div className="text-sm text-muted-foreground">Not linked to a student record.</div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">Not linked to a student record.</div>
-                    {canEdit && (
-                      <>
+                    {claimsExisting && (
+                      <div className="text-xs text-muted-foreground">
+                        Applicant says: {app.is_existing_student}
+                        {app.current_centers && app.current_centers.length > 0 && (
+                          <> · {app.current_centers.join(", ")}</>
+                        )}
+                      </div>
+                    )}
+
+                    {autoSuggestions.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1 px-0.5">
+                          <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                            Suggested matches
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">({autoSuggestions.length})</span>
+                          <span className="ml-auto text-[10px] text-muted-foreground italic">Click a row to link</span>
+                        </div>
+                        <div className="border border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04] rounded-lg divide-y divide-primary/10 overflow-hidden">
+                          {autoSuggestions.map(({ student, reason }) => (
+                            <StudentSuggestionRow
+                              key={student.id}
+                              student={student}
+                              reason={reason}
+                              onClick={() => handleLinkStudent(student.id, student.student_name)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      {autoSuggestions.length > 0 && (
+                        <div className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1 px-0.5">
+                          Or search manually
+                        </div>
+                      )}
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={studentSearch}
+                          onChange={(e) => setStudentSearch(e.target.value)}
+                          onFocus={() => setSearchFocused(true)}
+                          onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                          className={cn(inputClass, "pl-8")}
+                          placeholder="Search by name, student ID or phone..."
+                        />
+                      </div>
+                    </div>
+
+                    {searchFocused && searchResults && searchResults.length > 0 && (
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
+                        {searchResults.map((s) => (
+                          <StudentSuggestionRow
+                            key={s.id}
+                            student={s}
+                            onClick={() => handleLinkStudent(s.id, s.student_name)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {searchFocused && searchResults && searchResults.length === 0 &&
+                      debouncedStudentSearch.trim().length >= 2 && (
+                        <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                          No students found matching &ldquo;{debouncedStudentSearch.trim()}&rdquo;
+                        </div>
+                      )}
+
+                    {showManualId ? (
+                      <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <input
-                            type="number"
-                            min={1}
-                            value={studentIdInput}
-                            onChange={(e) => setStudentIdInput(e.target.value)}
-                            placeholder="Student ID, e.g. 1024"
-                            className={cn(inputClass, "flex-1")}
+                            type="text"
+                            value={manualIdInput}
+                            onChange={(e) => setManualIdInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && manualIdInput) setManualIdConfirmed(manualIdInput.trim());
+                            }}
+                            className={cn(inputClass, "max-w-[160px]")}
+                            placeholder="School student ID"
                           />
                           <button
                             type="button"
-                            onClick={handleLinkStudent}
-                            disabled={linkSaving || !studentIdInput}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            onClick={() => manualIdInput && setManualIdConfirmed(manualIdInput.trim())}
+                            disabled={!manualIdInput}
+                            className="px-2.5 py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
                           >
-                            {linkSaving && <Loader2 className="h-3 w-3 animate-spin" />}
-                            Link
+                            Search
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setShowManualId(false); setManualIdInput(""); setManualIdConfirmed(""); }}
+                            className="text-[10px] text-muted-foreground hover:text-foreground"
+                          >
+                            cancel
                           </button>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          Tip: the Suggest links button on the applications list can match existing students automatically.
-                        </p>
-                      </>
+                        {manualIdResults && manualIdResults.length > 0 && (
+                          <div className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
+                            {manualIdResults.map((s) => (
+                              <StudentSuggestionRow
+                                key={s.id}
+                                student={s}
+                                onClick={() => handleLinkStudent(s.id, s.student_name)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        {manualIdResults && manualIdResults.length === 0 && (
+                          <div className="text-xs text-muted-foreground text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                            No student found with ID &ldquo;{manualIdConfirmed}&rdquo;
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setShowManualId(true)}
+                          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <Search className="h-3 w-3" />
+                          Can&apos;t find? Search by student ID
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCreateStudentOpen(true)}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 px-3 py-1.5 rounded-md transition-colors shadow-sm"
+                        >
+                          <UserPlus className="h-3.5 w-3.5" />
+                          Create new student
+                        </button>
+                      </div>
+                    )}
+                    {linkSaving && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Linking...
+                      </div>
                     )}
                   </div>
                 )}
@@ -1259,6 +1526,28 @@ export function RegularApplicationDetailModal({
           </div>
         </div>
       </Modal>
+
+      {/* Create-and-link, for applicants with no student record yet. The form
+          is seeded from the application so the admin only confirms. */}
+      <AddStudentModal
+        isOpen={createStudentOpen}
+        onClose={() => setCreateStudentOpen(false)}
+        onSuccess={(student) => {
+          setCreateStudentOpen(false);
+          void handleLinkStudent(student.id, student.student_name);
+        }}
+        initialData={{
+          student_name: app.student_name,
+          school: app.school ?? undefined,
+          // app.grade is the grade the student will be in from September. Until
+          // the Sept 1 promotion of the config year fires, the record should
+          // hold the grade below, which that promotion then lifts.
+          grade: applyTargetToPreGrade(app.grade, config?.year),
+          lang_stream: app.lang_stream ?? undefined,
+          phone: app.contact_phone ?? undefined,
+          home_location: systemLocation || undefined,
+        }}
+      />
 
       <ConfirmDialog
         isOpen={pendingUnpublish}

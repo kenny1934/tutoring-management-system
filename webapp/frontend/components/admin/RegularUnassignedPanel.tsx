@@ -4,11 +4,14 @@ import { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
 import {
   Search, Users, PanelRightClose, PanelRightOpen, Loader2, X, Info, CheckCircle2,
+  ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BORDER, DAY_ABBREV } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
-import { REGULAR_STATUS_COLORS } from "./RegularApplicationCard";
+import {
+  REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS, REGULAR_STATUS_ICONS,
+} from "./RegularApplicationCard";
 import { regularAPI } from "@/lib/api";
 import type { RegularApplication, RegularSuggestion } from "@/types";
 
@@ -34,7 +37,20 @@ interface RegularUnassignedPanelProps {
    * the panel can say why the list is narrowed and offer a way out. */
   demandFilterLabel?: string | null;
   onClearDemandFilter?: () => void;
+  /** Set when a header status chip scoped `applications` to one status; the
+   * heading and its icon follow the chip. */
+  statusFilter?: string | null;
+  onClearStatusFilter?: () => void;
 }
+
+type SortMode = "grade" | "pref" | "status" | "name";
+
+const SORT_CYCLE: SortMode[] = ["grade", "pref", "status", "name"];
+const SORT_LABELS: Record<SortMode, string> = {
+  grade: "grade", pref: "preference", status: "status", name: "name",
+};
+// Ladder position, so "sort by status" reads as progress through the workflow.
+const STATUS_ORDER = new Map(REGULAR_ALL_STATUSES.map((s, i) => [s, i] as const));
 
 /** Reason tokens from the suggest endpoint mapped to admin-facing labels. */
 function reasonLabel(reason: string): string {
@@ -140,10 +156,13 @@ export function RegularUnassignedPanel({
   onClickStudent,
   demandFilterLabel,
   onClearDemandFilter,
+  statusFilter,
+  onClearStatusFilter,
 }: RegularUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [sort, setSort] = useState<SortMode>("grade");
   const [suggestForId, setSuggestForId] = useState<number | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -161,11 +180,34 @@ export function RegularUnassignedPanel({
           a.school?.toLowerCase().includes(q)
       );
     }
+    const byName = (a: RegularApplication, b: RegularApplication) =>
+      a.student_name.localeCompare(b.student_name);
     return [...result].sort((a, b) => {
-      const cmp = a.grade.localeCompare(b.grade);
-      return cmp !== 0 ? cmp : a.student_name.localeCompare(b.student_name);
+      if (sort === "pref") {
+        // Applications with no first choice float up: they need a decision.
+        const aPref = a.preference_1_day ? 0 : 1;
+        const bPref = b.preference_1_day ? 0 : 1;
+        if (aPref !== bPref) return aPref - bPref;
+        const cmp = a.grade.localeCompare(b.grade);
+        return cmp !== 0 ? cmp : byName(a, b);
+      }
+      if (sort === "status") {
+        const diff =
+          (STATUS_ORDER.get(a.application_status) ?? 99) -
+          (STATUS_ORDER.get(b.application_status) ?? 99);
+        return diff !== 0 ? diff : byName(a, b);
+      }
+      if (sort === "grade") {
+        const cmp = a.grade.localeCompare(b.grade);
+        return cmp !== 0 ? cmp : byName(a, b);
+      }
+      return byName(a, b);
     });
-  }, [applications, gradeFilter, search]);
+  }, [applications, gradeFilter, search, sort]);
+
+  const nextSort = SORT_CYCLE[(SORT_CYCLE.indexOf(sort) + 1) % SORT_CYCLE.length];
+  const StatusHeaderIcon = statusFilter ? REGULAR_STATUS_ICONS[statusFilter] : null;
+  const statusHeaderColors = statusFilter ? REGULAR_STATUS_COLORS[statusFilter] : null;
 
   return (
     <div className={cn(
@@ -198,16 +240,30 @@ export function RegularUnassignedPanel({
         {/* Header */}
         <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            {/* A demand-bar filter shows everyone behind that bar, placed or
-                not, so the heading stops claiming they are all unassigned. */}
+            {StatusHeaderIcon && statusHeaderColors ? (
+              <StatusHeaderIcon className={cn("h-4 w-4", statusHeaderColors.text)} />
+            ) : (
+              <Users className="h-4 w-4 text-muted-foreground" />
+            )}
+            {/* A demand-bar or status filter shows everyone it matches, placed
+                or not, so the heading stops claiming they are all unassigned. */}
             <span className="text-sm font-medium truncate">
-              {demandFilterLabel ? "Demand" : "Unassigned"}
+              {demandFilterLabel ? "Demand" : statusFilter ?? "Unassigned"}
             </span>
             <span className="text-xs text-muted-foreground ml-auto">
               {filtered.length}
               {filtered.length !== applications.length && ` / ${applications.length}`}
             </span>
+            {statusFilter && onClearStatusFilter && (
+              <button
+                onClick={onClearStatusFilter}
+                className="p-0.5 text-muted-foreground hover:text-foreground"
+                title={`Clear the ${statusFilter} filter`}
+                aria-label="Clear status filter"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
             {!hideCollapse && (
               <button
                 onClick={() => setCollapsed(true)}
@@ -258,6 +314,14 @@ export function RegularUnassignedPanel({
                 {g}
               </button>
             ))}
+            <button
+              onClick={() => setSort(nextSort)}
+              className="ml-auto p-0.5 text-muted-foreground hover:text-foreground"
+              title={`Sorted by ${SORT_LABELS[sort]} — click to sort by ${SORT_LABELS[nextSort]}`}
+              aria-label={`Sort by ${SORT_LABELS[nextSort]}`}
+            >
+              <ArrowUpDown className="h-3 w-3" />
+            </button>
           </div>
 
           {/* Demand-bar filter, set by clicking a sparkline in the grid */}
@@ -292,7 +356,9 @@ export function RegularUnassignedPanel({
                 ? "No matches."
                 : demandFilterLabel
                   ? "No applications behind this bar."
-                  : "All applications assigned."}
+                  : statusFilter
+                    ? `No applications at ${statusFilter}.`
+                    : "All applications assigned."}
             </div>
           ) : (
             <div className="p-1.5 space-y-1">
