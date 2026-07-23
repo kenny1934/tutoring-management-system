@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.0.97](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.96...v2.0.97) (2026-07-23)
+
+
+### New Features
+
+* companion games platform + Zero Blast pilot (SM901/902) ([a4b5322](https://github.com/kenny1934/tutoring-management-system/commit/a4b53221685f80e2fbd7799306c71e5f6274dbba))
+* **frontend:** games subdomain with clean per-game URLs ([#84](https://github.com/kenny1934/tutoring-management-system/issues/84)) ([07ba597](https://github.com/kenny1934/tutoring-management-system/commit/07ba5977244fb838d9edca2b858db74bfa7df4d4))
+* **games:** Zero Blast §19 - the 探究 arc, the lesson bookends, the general-form gate and a phone pass ([#90](https://github.com/kenny1934/tutoring-management-system/issues/90)) ([3b1fd5d](https://github.com/kenny1934/tutoring-management-system/commit/3b1fd5d4b6e0f8bfa79709a4337bab40344292c2))
+* **games:** 探究模式 · 等式開口中 — SM901 inquiry warm-up arc in Zero Blast ([#88](https://github.com/kenny1934/tutoring-management-system/issues/88)) ([a68a86c](https://github.com/kenny1934/tutoring-management-system/commit/a68a86c6c3e337371506b19fd32478fb0a4f7640))
+
+
+### Bug Fixes
+
+* **frontend:** games subdomain trailing-slash redirect loop ([#85](https://github.com/kenny1934/tutoring-management-system/issues/85)) ([cc9440e](https://github.com/kenny1934/tutoring-management-system/commit/cc9440ed40a4e7b76eb084b22cfe1dae3c41dc09))
+* **games:** lobby showed both how-to cards until the room existed ([#91](https://github.com/kenny1934/tutoring-management-system/issues/91)) ([9513bf6](https://github.com/kenny1934/tutoring-management-system/commit/9513bf6e3f2680a5c6e48e45b89fe1dece7a5a92))
+* **games:** 探究 tutor bar clusters - jumps rest mid-round, nav anchored right ([#89](https://github.com/kenny1934/tutoring-management-system/issues/89)) ([31fbc4a](https://github.com/kenny1934/tutoring-management-system/commit/31fbc4a56e8162dfccb213c3ee5892310cb06bb5))
+
 ## [2.0.96](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.95...v2.0.96) (2026-07-17)
 
 
