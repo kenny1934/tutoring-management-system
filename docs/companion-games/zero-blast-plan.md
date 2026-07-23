@@ -1883,3 +1883,44 @@ with no explanation at all. Fixes:
   a host F5 here - the unrevealed roots never ride the round state.
 
 Suites re-choreographed and green: multi 233 / solo 157 / audit 74.
+
+### 19.4 The arc's framing on the bookend screens (2026-07-23)
+
+Kenny's demo read: the lobby still did not acknowledge the games that
+come before the main one, and the handover into 歸零爆破 was so quiet
+that a big game seemed to start out of nowhere. Both are the same gap
+seen from either end - the ARC had no identity on the two screens that
+bookend it, only the main game did. The lobby's biggest block was the
+demolition how-to (支柱, 導火線, 拆卸) over an attract loop of a
+collapsing building, so the night opened on a promise the next forty
+minutes did not keep.
+
+- **The lobby's how-to follows the track.** A second card,
+  #arcHowtoCard, carries the arc's own three rules (secret pairing /
+  the product must equal the target / a miss costs a life), closing on
+  the line that names what comes after: 三個階段完咗之後，就會開始主遊戲
+  「歸零爆破」。 renderTrack() shows it whenever the entry step is an
+  inquiry stage and holds the demolition card back for a 主遊戲 start.
+  The lives icon is marking circles, never hearts, per §12.
+- **The handover pages through a briefing screen** (#briefScreen),
+  Kenny's design: one press leaves the arc, the class reads the main
+  game's rules on the projector, a second press starts the run. The
+  game's how-to card (the same live node) moves here from the lobby,
+  under a bridging lede - 頭先探究嘅零因式性質，而家用嚟拆大廈 - with
+  the run's own meta (13 座建築 · 約 15 分鐘, the joined count) and an
+  n-keyed start button. The 概念轉化 recap keeps only the exam faces:
+  that beat belongs to the arc.
+- **The phones say it too.** state/inq.brief rides the existing
+  sanitizer whitelist; a phone wearing it closes its pad and reads
+  主遊戲準備開始 · 望住投影幕，導師講緊主遊戲點玩, so the run starting
+  is announced on the device, not sprung on it. inqStatePayload()
+  publishes brief:null, so any arc publish clears the flag and a host
+  F5 mid-briefing can never strand a phone on the ready face.
+- 跳過探究 lands on the briefing too: bailing out of the arc still
+  needs the game's rules read.
+
+No cutscene: an earlier draft proposed an auto-running curtain-up
+(skyline, plaque, shared 3·2·1). Kenny's version keeps the tutor in
+control of both beats, which suits a classroom better.
+
+Suites: multi 236, solo 158, audit 74 - all green.

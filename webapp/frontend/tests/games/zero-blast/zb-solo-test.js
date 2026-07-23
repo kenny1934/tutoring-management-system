@@ -1,4 +1,4 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (157 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (158 assertions)
  *
  * Drives a full seeded solo run (12 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (157 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (158 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -282,7 +282,8 @@ async function main() {
         dioBuildings: document.querySelectorAll(".zb-hero .zb-dio__b").length,
         fuseline: !!q(".zb-hero .zb-dio__fuseline"),
         stampText: (q(".zb-hero .zb-dio__stamp text") || {}).textContent || "",
-        howto: [...document.querySelectorAll(".zb-howto__item")].map((i) => !!i.querySelector("svg")),
+        howto: [...document.querySelectorAll("#howtoCard .zb-howto__item")].map((i) => !!i.querySelector("svg")),
+        arcHowto: [...document.querySelectorAll("#arcHowtoCard .zb-howto__item")].map((i) => !!i.querySelector("svg")),
         pts: {
           full: L.points(1, 1, 0), none: L.points(0, 1, 0), half: L.points(0.5, 1, 0),
           s3: L.points(1, 1, 3), s10: L.points(1, 1, 10), s20: L.points(1, 1, 20),
@@ -298,6 +299,8 @@ async function main() {
       JSON.stringify({ dio: intro.dioBuildings, fuse: intro.fuseline, stamp: intro.stampText }));
     check("how-to is three mini-diagrams",
       intro.howto.length === 3 && intro.howto.every(Boolean), `items ${intro.howto.length}`);
+    check("§19.4: the arc has a how-to of its own, also three diagrams",
+      intro.arcHowto.length === 3 && intro.arcHowto.every(Boolean), `items ${intro.arcHowto.length}`);
     check("points: base speed",
       intro.pts.full === 200 && intro.pts.none === 100 && intro.pts.half === 150,
       JSON.stringify(intro.pts));
@@ -1394,8 +1397,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 157) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 157`);
+    if (total !== 158) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 158`);
       process.exit(1);
     }
     if (failures.length) {

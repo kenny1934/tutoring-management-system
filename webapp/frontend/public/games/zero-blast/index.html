@@ -1571,6 +1571,43 @@
       </div>
       <div class="zb-howto__note" data-i18n="howto_note"></div>
     </div>
+    <!-- §19.4: the arc's own how-to. The lobby used to promise a
+         demolition game and then open on a pairing round; the card
+         shown follows the track's entry step (renderTrack). -->
+    <div class="mc-note zb-howto" id="arcHowtoCard">
+      <div class="zb-howto__row">
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <rect x="5" y="21" width="24" height="18" rx="2" class="zh-s thin"/>
+            <text x="17" y="34" class="zh-t">你</text>
+            <rect x="47" y="21" width="24" height="18" rx="2" class="zh-s thin"/>
+            <text x="59" y="34" class="zh-t zh-red">?</text>
+            <path d="M31 30 h14" class="zh-s thin" stroke-dasharray="3 3"/>
+          </svg>
+          <span data-i18n="arc_howto_1"></span>
+        </div>
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <text x="38" y="17" class="zh-t">3 × 4</text>
+            <path d="M32 24 L38 31 L44 24" class="zh-s thin"/>
+            <rect x="23" y="36" width="30" height="17" rx="2" class="zh-s zh-red"/>
+            <text x="38" y="48" class="zh-t zh-red">12</text>
+          </svg>
+          <span data-i18n="arc_howto_2"></span>
+        </div>
+        <div class="zb-howto__item">
+          <svg viewBox="0 0 76 58" aria-hidden="true">
+            <circle cx="15" cy="29" r="6" class="zh-s thin"/>
+            <circle cx="31" cy="29" r="6" class="zh-s thin"/>
+            <circle cx="47" cy="29" r="6" class="zh-s thin"/>
+            <circle cx="63" cy="29" r="6" class="zh-s thin zh-red"/>
+            <path d="M59 25 L67 33 M67 25 L59 33" class="zh-s thin zh-red"/>
+          </svg>
+          <span data-i18n="arc_howto_3"></span>
+        </div>
+      </div>
+      <div class="zb-howto__note" data-i18n="arc_howto_note"></div>
+    </div>
     <p class="mc-status" id="lobbyStatus" style="margin-top:16px" data-i18n="lobby_waiting"></p>
     <div class="zb-playerlist" id="playerList" style="margin-top:12px"></div>
     <!-- §19 Batch Z: the lesson track - SM901's arc drawn as four
@@ -1592,6 +1629,38 @@
         <svg class="mc-arrow"><use href="#i-arrow"/></svg>
       </button>
     </div>
+    <footer class="mc-brand">
+      <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
+      <img class="mc-logo--dark" src="/logo-secondary-dark.png" alt="MathConcept Secondary Academy">
+      <div>
+        <div class="mc-brand__name">MathConcept Secondary Academy</div>
+        <div class="mc-brand__sub">中學教室 · Companion Games</div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ══ main-game briefing (§19.4) ══
+       The arc used to hand straight over to level 1 and the class had
+       a big game start on them with no introduction. The tutor now
+       pages here first: the game's own rules on the projector, one
+       more press to start. -->
+  <div class="mc-screen" id="briefScreen">
+    <header class="mc-masthead">
+      <span class="mc-masthead__code"><strong>SM901</strong> · <span data-i18n="subtopic"></span></span>
+      <svg class="mc-arrow" style="width:26px;height:20px;color:var(--mc-red)"><use href="#i-arrow"/></svg>
+    </header>
+    <h2 class="mc-title" style="font-size:clamp(1.625rem,6vw,2.25rem)" data-i18n="brief_title"></h2>
+    <p class="mc-lede" data-i18n="brief_lede"></p>
+    <!-- the lobby's how-to card moves in here (live node) -->
+    <div id="briefHowto"></div>
+    <div class="mc-meta">
+      <span><svg><use href="#i-clock"/></svg><span data-i18n="duration"></span></span>
+      <span><svg><use href="#i-players"/></svg><span id="briefPlayers"></span></span>
+    </div>
+    <button class="mc-btn mc-btn--primary mc-btn--block" id="btnBriefStart" style="margin-top:16px" data-key="n">
+      <span data-i18n="brief_start"></span>
+      <svg class="mc-arrow"><use href="#i-arrow"/></svg>
+    </button>
     <footer class="mc-brand">
       <img class="mc-logo--light" src="/logo-secondary.png" alt="MathConcept Secondary Academy">
       <img class="mc-logo--dark" src="/logo-secondary-dark.png" alt="MathConcept Secondary Academy">
@@ -1970,6 +2039,19 @@ const STRINGS = {
   track_label:      { c: "課堂流程 · 由邊一步開始？", e: "Lesson track · start from which step?" },
   track_main:       { c: "主遊戲",      e: "Main game" },
   track_start_fmt:  { c: "由「{s}」開始", e: "Start from {s}" },
+  /* §19.4: the lobby's how-to follows the track - the arc's three
+   * rules while the class scans in for 等式開口中, the demolition
+   * rules when the tutor starts straight at the main game */
+  arc_howto_1:      { c: "每回合秘密配對，|你唔知邊個係拍檔", e: "Secret pairing each round: you never know your partner" },
+  arc_howto_2:      { c: "兩個人嘅數乘埋，|要等於目標數字", e: "Your two numbers must multiply to the target" },
+  arc_howto_3:      { c: "配對唔中會扣生命值，|睇下邊個撐到最後", e: "A miss costs a life. See who lasts to the end" },
+  arc_howto_note:   { c: "三個階段完咗之後，|就會開始主遊戲「歸零爆破」。", e: "After the three stages, the main game Zero Blast begins." },
+  /* §19.4: the briefing screen between the arc and the main game */
+  brief_title:      { c: "主遊戲 · 歸零爆破", e: "Main game · Zero Blast" },
+  brief_lede:       { c: "頭先探究嘅零因式性質，|而家用嚟拆大廈。", e: "The zero product property you just explored now brings buildings down." },
+  brief_start:      { c: "開始遊戲",    e: "Start the game" },
+  brief_ready:      { c: "主遊戲準備開始", e: "Main game starting soon" },
+  brief_ready_note: { c: "望住投影幕，|導師講緊主遊戲點玩。|一陣個鍵盤會開返。", e: "Watch the big screen: your tutor is going through the rules. Your keypad opens again shortly." },
   btn_qr:           { c: "入場 QR",     e: "Join QR" },
   qr_rejoin_note:   { c: "斷咗線？再 scan 一次，|入返嚟會攞返自己嘅分數。", e: "Dropped out? Scan again and your seat and score come back." },
   inq_title:        { c: "等式開口中",  e: "Crack the Equation" },
@@ -4410,6 +4492,7 @@ function enterLobbyWith(room) {
   G.mode = "host";
   ZBFX.bgm.setIntensity("lobby"); // the waiting-room groove while phones join
   show("lobbyScreen");
+  renderTrack(); // the default entry step decides which how-to reads
   $("roomCode").textContent = room.code;
   // the projector class is the one source of truth for "wide stage"
   GameBridge.qr($("qrBox"), room.joinUrl,
@@ -4546,6 +4629,11 @@ function renderTrack() {
   });
   const name = G.trackStart === "main" ? t("track_main") : t("inq_stage" + G.trackStart);
   $("startFromLabel").textContent = fmt("track_start_fmt", { s: name });
+  // the how-to follows the entry step: the arc's rules for the arc,
+  // the demolition rules only when the main game is the entry (§19.4)
+  const arc = G.trackStart !== "main";
+  $("arcHowtoCard").style.display = arc ? "" : "none";
+  $("howtoCard").style.display = arc ? "none" : "";
 }
 document.querySelectorAll("#trackSteps .zb-track__step").forEach(b => {
   b.onclick = () => { G.trackStart = b.getAttribute("data-start"); renderTrack(); };
@@ -4856,6 +4944,9 @@ function inqStatePayload() {
     // the rebuild bench, same deal: a flat comma-joined pid list so the
     // benched phones wear the 等緊復活 face (§19 Batch W)
     rebuild: inq.rebuild && inq.rebuild.length ? inq.rebuild.join(",") : null,
+    // any arc publish means the arc is live: a briefing flag left over
+    // from a host refresh mid-handover can never strand a phone (§19.4)
+    brief: null,
   };
 }
 
@@ -5118,15 +5209,39 @@ function inqAdvance() {
   } else inqFinish();
 }
 
-/* the arc ends (or the tutor bails): the main game takes the room.
- * startRun clears the inq* state keys so phones drop the warm-up face. */
+/* the arc ends (or the tutor bails): the main game takes the room -
+ * through the briefing screen, never straight into level 1 (§19.4).
+ * The tutor paces it: one press to leave the arc, one to start. */
 function inqFinish() {
   if (!G.inq) return;
   G.inq = null;
   cancelAnimationFrame(G.inqRaf);
   clearInterval(G.inqSlotIv);
-  startRun("host");
+  showBrief();
 }
+
+/* the briefing: the game's own how-to card on the projector while the
+ * phones wear a ready face, so the run starting is never a surprise.
+ * The arc's published state stays up (phones read inq.brief off it);
+ * startRun is the one that clears it. */
+function showBrief() {
+  $("briefHowto").appendChild($("howtoCard")); // the live node, from the lobby
+  $("howtoCard").style.display = "";
+  $("briefPlayers").textContent = fmt("lobby_players", { n: Object.keys(G.players).length });
+  if (G.room) {
+    // step closes any round the tutor bailed out of; the fuse goes with it
+    G.room.update("state/inq", { brief: true, step: "summary" });
+    G.room.update("state", { deadlineEpoch: null });
+  }
+  ZBFX.bgm.setIntensity("lobby");
+  show("briefScreen");
+}
+$("btnBriefStart").onclick = () => startRun("host");
+document.addEventListener("keydown", e => {
+  if (!$("briefScreen").classList.contains("active")) return;
+  if (e.key === "n") startRun("host");
+  else if (e.key === "q") toggleQrPop();
+});
 
 function inqTheoremShow() {
   const inq = G.inq;
@@ -5316,11 +5431,6 @@ function renderInqReveal(rv) {
   box.style.display = "";
 }
 
-/* the how-to card lives in the lobby but re-appears at the arc's
- * 進入主遊戲 recap; a captured ref survives the reveal box's innerHTML
- * rebuilds detaching it (§19 Batch Z) */
-const HOWTO_CARD = $("howtoCard");
-
 /* the sheet's face for the current step (intro / round / reveal / summary) */
 function renderInqStage() {
   const inq = G.inq;
@@ -5396,8 +5506,9 @@ function renderInqStage() {
     }
     if (inq.stage === 3) {
       // the handover beat: the equations just cracked, wearing the
-      // exam faces the main game is about to serve - then the game's
-      // how-to card (§19 Batch Z), read again right before it matters
+      // exam faces the main game is about to serve. The game's own
+      // how-to waits for the briefing screen (§19.4) - this recap
+      // belongs to the arc.
       const played = INQ_BRIDGE.slice(0, Math.min(inq.round, INQ_BRIDGE.length));
       const box = $("inqRevealBox");
       box.innerHTML = `<div class="zb-inqrecap"><div class="zb-inqzero-note">${t("inq_exam_head")}</div>`
@@ -5405,7 +5516,6 @@ function renderInqStage() {
           `<div class="zb-inqexam">${mathHtml(escapeText(inqFactoredText(r) + " = 0"))}`
           + ' <span class="zb-inqrow__x">⇔</span> '
           + `<strong>${mathHtml(escapeText(inqExpandedText(r[0], r[1])))}</strong></div>`).join("") + "</div>";
-      box.appendChild(HOWTO_CARD); // the live node moves here from the lobby
       box.style.display = "";
     }
   }
@@ -5784,6 +5894,8 @@ function sanitizeInq(raw) {
     // the rebuild bench: comma-joined pids (§19 Batch W); generous cap,
     // a full 40-player room of KO'd ids still fits
     rebuild: raw.rebuild ? String(raw.rebuild).slice(0, 1200) : null,
+    // §19.4: the arc is over and the tutor is briefing the main game
+    brief: !!raw.brief,
   };
   if (inq.stage == null || inq.stage < 1 || inq.stage > 3) return null;
   return inq;
@@ -5807,6 +5919,18 @@ function renderCtrlInqFace(inq, st) {
   $("ctrlInqPadWrap").classList.toggle("zb-inqpad--nosign", inq.stage !== 3);
   C.inqPad.setPrefix(inq.stage === 3 ? '<i class="zb-var">x</i>&nbsp;=&nbsp;' : "");
   C.lastInqSec = null;
+  if (inq.brief) {
+    // §19.4: the tutor is briefing the main game on the projector.
+    // The phone says so, so the run starting is never a surprise.
+    C.inqOpen = false;
+    C.inqPad.disable();
+    $("ctrlInqPadWrap").style.display = "none";
+    $("ctrlInqChip").innerHTML = `<strong>${t("track_main")}</strong>`;
+    target.innerHTML = `<span class="zb-inqcardtag">${t("brief_title")}</span>${t("brief_ready")}`;
+    $("ctrlInqMark").innerHTML = markHtml("info", [escapeText(t("brief_ready_note"))]);
+    ctrlStatus(t("brief_ready"));
+    return;
+  }
   if (inq.step === "round") {
     const rebuilding = typeof inq.rebuild === "string" && inq.rebuild.split(",").indexOf(C.id) !== -1;
     if (rebuilding || inq.bye === C.id) {
@@ -6202,14 +6326,14 @@ function onCtrlRoom(room) {
       }
       if (C.inq && C.inq.stage !== inq.stage) C.inqTheoremShown = false;
       C.inq = inq;
-      const faceKey = inq.seq + "|" + inq.step + "|" + inq.stage;
+      const faceKey = inq.seq + "|" + inq.step + "|" + inq.stage + (inq.brief ? "|b" : "");
       if (faceKey !== C.inqFaceKey || phaseChanged) {
         C.inqFaceKey = faceKey;
         renderCtrlInqFace(inq, st);
       }
       renderCtrlInqLives(st.inqHearts);
       // the takeaway lands when the tutor presses 顯示歸納
-      if (inq.theorem && inq.stage === 2 && inq.step === "summary" && !C.inqTheoremShown) {
+      if (inq.theorem && inq.stage === 2 && inq.step === "summary" && !inq.brief && !C.inqTheoremShown) {
         C.inqTheoremShown = true;
         renderCtrlInqTheorem();
       }

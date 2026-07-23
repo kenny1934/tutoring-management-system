@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (233 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (236 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,7 +18,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 233 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 236 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
@@ -381,10 +381,21 @@ async function main() {
     () => getComputedStyle(document.getElementById("lessonTrack")).display
   );
   check("lesson track hidden with no players", startDisplay === "none", "display=" + startDisplay);
-  const lobbyHowto = await host.evaluate(() =>
-    document.querySelectorAll("#lobbyScreen #howtoCard .zb-howto__item").length
+  // §19.4: the lobby's how-to follows the track's entry step - the arc
+  // opens the night, so the arc's rules are the ones on the projector
+  const lobbyHowto = await host.evaluate(() => ({
+    game: document.querySelectorAll("#lobbyScreen #howtoCard .zb-howto__item").length,
+    arc: document.querySelectorAll("#lobbyScreen #arcHowtoCard .zb-howto__item").length,
+    gameShown: getComputedStyle(document.getElementById("howtoCard")).display !== "none",
+    arcShown: getComputedStyle(document.getElementById("arcHowtoCard")).display !== "none",
+    arcText: document.getElementById("arcHowtoCard").textContent,
+  }));
+  check(
+    "§19.4: the lobby reads the ARC's how-to (the arc opens the night), game rules held back",
+    lobbyHowto.game === 3 && lobbyHowto.arc === 3 && lobbyHowto.arcShown && !lobbyHowto.gameShown &&
+      lobbyHowto.arcText.includes("秘密配對") && lobbyHowto.arcText.includes("歸零爆破"),
+    JSON.stringify(lobbyHowto)
   );
-  check("§19: the how-to reads on the lobby projector while phones join", lobbyHowto === 3, "items=" + lobbyHowto);
 
   const bgmLobby = await host.evaluate(() => ZBFX.bgm.state());
   check(
@@ -2351,7 +2362,7 @@ async function main() {
       recap.text.includes("x² − 6x + 9 = 0"),
     JSON.stringify({ lines: recap.lines, text: recap.text.slice(0, 120) })
   );
-  check("§19: the game's how-to card re-reads at the 進入主遊戲 recap", recap.howto === 3, "items=" + recap.howto);
+  check("§19.4: the recap belongs to the arc - the game's how-to waits for the briefing", recap.howto === 0, "items=" + recap.howto);
   await host.click("#btnInqMore"); // the class needs another look
   await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 5), { label: "extra round started" });
   const extraR = (await roomData(host)).state.inq;
@@ -2425,9 +2436,50 @@ async function main() {
   await until(() => phoneA2.evaluate(() => C.inq && C.inq.stage === 2 && C.inq.step === "intro"), { label: "phones follow the jump" });
   check("探究: the phones follow the jump", true);
 
-  /* ── handover: 跳過探究 (two-tap) ── */
+  /* ── handover: 跳過探究 (two-tap) → the briefing screen (§19.4) ── */
   await host.click("#btnInqSkip");
   await host.click("#btnInqSkip");
+  await until(
+    () => host.evaluate(() => document.getElementById("briefScreen").classList.contains("active") && !G.inq && !G.level),
+    { label: "briefing screen took the room" }
+  );
+  const brief = await host.evaluate(() => ({
+    howto: document.querySelectorAll("#briefHowto #howtoCard .zb-howto__item").length,
+    lede: document.querySelector("#briefScreen .mc-lede").textContent,
+    players: document.getElementById("briefPlayers").textContent,
+    joined: Object.keys(G.players).length,
+    chip: getComputedStyle(document.getElementById("btnBriefStart"), "::after").content,
+  }));
+  check(
+    "§19.4: the briefing reads the game's rules, bridges from the arc, counts the room",
+    brief.howto === 3 && brief.lede.includes("零因式性質") &&
+      brief.players.includes(String(brief.joined)) && brief.chip === '"n"',
+    JSON.stringify(brief)
+  );
+  // the phones say so too, so the run starting is never a surprise
+  await until(
+    () => phoneA2.evaluate(() => document.getElementById("ctrlInqTarget").textContent.includes("主遊戲準備開始")),
+    { label: "phones wear the ready face" }
+  );
+  const readyFace = await phoneA2.evaluate(() => ({
+    pad: getComputedStyle(document.getElementById("ctrlInqPadWrap")).display,
+    note: document.getElementById("ctrlInqMark").textContent,
+  }));
+  check(
+    "§19.4: the phone waits on a ready face, pad closed, pointing at the projector",
+    readyFace.pad === "none" && readyFace.note.includes("望住投影幕"),
+    JSON.stringify(readyFace)
+  );
+  // a host F5 mid-briefing must never strand the phones on the ready
+  // face: every arc publish clears the flag (§19.4)
+  const briefCleared = await host.evaluate(() => {
+    G.inq = { stage: 1, round: 1, seq: 1101, step: "round", n: 12, theorem: false, extra: 0 };
+    const p = inqStatePayload();
+    G.inq = null;
+    return p.brief;
+  });
+  check("§19.4: an arc publish clears the briefing flag (host F5 safety)", briefCleared === null, "brief=" + briefCleared);
+  await host.click("#btnBriefStart");
   await until(
     () => host.evaluate(() => document.getElementById("gameScreen").classList.contains("active") && G.started && !!G.level && !G.inq),
     { label: "main game took the room" }
