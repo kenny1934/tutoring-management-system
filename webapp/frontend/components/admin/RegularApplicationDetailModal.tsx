@@ -26,7 +26,7 @@ import { ChecklistRow } from "./ChecklistRow";
 import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
-  User, Phone, MapPin, Clock, Building2, Grid3X3, Search, UserPlus, ArrowRight,
+  User, Phone, MapPin, Clock, Grid3X3, Search, UserPlus, ArrowRight,
   DollarSign,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
@@ -686,11 +686,6 @@ export function RegularApplicationDetailModal({
   const prefText = (day?: string | null, time?: string | null) =>
     day && time ? `${DAY_ABBREV[day] || day} ${time}` : null;
 
-  const centres = [
-    app.is_existing_student && app.is_existing_student !== "None" ? app.is_existing_student : null,
-    ...(app.current_centers || []),
-  ].filter(Boolean).join(" / ");
-
   return (
     <>
       <Modal
@@ -711,6 +706,7 @@ export function RegularApplicationDetailModal({
                 {refCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
               </button>
             </span>
+            <RegularStatusBadge status={app.application_status} />
           </span>
         }
         footer={
@@ -746,61 +742,14 @@ export function RegularApplicationDetailModal({
         }
       >
         <div className="space-y-4">
-          {/* Status row */}
-          <div className="flex items-start gap-3 flex-wrap">
-            <div className="min-w-0 flex-1 flex items-start gap-2 flex-wrap">
-              <RegularStatusBadge status={app.application_status} />
-              {canEdit && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {nextStatuses.length > 0 && (
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                      Move to
-                    </span>
-                  )}
-                  {statusPills.map((s) => {
-                    const colors = REGULAR_STATUS_COLORS[s];
-                    const Icon = REGULAR_STATUS_ICONS[s];
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => handleStatusChange(s)}
-                        disabled={statusSaving}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all disabled:opacity-50",
-                          colors.bg, colors.text, "hover:ring-1 hover:ring-current"
-                        )}
-                        title={`Set status to ${s}`}
-                      >
-                        {Icon && <Icon className="h-3.5 w-3.5" />}
-                        {s}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => setShowAllStatuses((v) => !v)}
-                    className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-0.5"
-                  >
-                    {showAllStatuses ? "Less" : "All statuses…"}
-                  </button>
-                  {statusSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                </div>
-              )}
-              {!readOnly && isPublished && (
-                <span className="text-[11px] text-muted-foreground">
-                  Unpublish first to change the status.
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] text-muted-foreground ml-auto text-right">
-              {app.submitted_at && <span>Submitted {formatTimeAgo(app.submitted_at)}</span>}
-              {app.reviewed_by && app.reviewed_at && (
-                <span className="block">
-                  Reviewed by {app.reviewed_by} {formatTimeAgo(app.reviewed_at)}
-                </span>
-              )}
-            </span>
+          {/* When the application was submitted, and who last looked at it. */}
+          <div className="text-[11px] text-muted-foreground text-right">
+            {app.submitted_at && <span>Submitted {formatTimeAgo(app.submitted_at)}</span>}
+            {app.reviewed_by && app.reviewed_at && (
+              <span className="block">
+                Reviewed by {app.reviewed_by} {formatTimeAgo(app.reviewed_at)}
+              </span>
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -1085,15 +1034,6 @@ export function RegularApplicationDetailModal({
                     )}
                   </InfoBlock>
 
-                  {centres && (
-                    <InfoBlock
-                      icon={Building2}
-                      tone="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
-                      title="Currently attending"
-                    >
-                      <div className="text-sm font-medium text-foreground">{centres}</div>
-                    </InfoBlock>
-                  )}
                 </div>
               )}
 
@@ -1126,9 +1066,54 @@ export function RegularApplicationDetailModal({
               </div>
             </div>
 
-            {/* RIGHT: the admin workflow, one checklist step at a time —
-                same shape as summer, minus its language-stream step. */}
-            <div className="space-y-2">
+            {/* RIGHT: the admin workflow — the status ladder, then the steps
+                one at a time. Same shape as summer, minus its language-stream
+                step. */}
+            <div className="space-y-3 md:border md:border-gray-200 md:dark:border-gray-700 md:bg-gray-100/60 md:dark:bg-gray-800/50 md:rounded-xl md:p-4">
+              {canEdit && (
+                <div>
+                  {nextStatuses.length > 0 && (
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Move to
+                    </span>
+                  )}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    {statusPills.map((s) => {
+                      const colors = REGULAR_STATUS_COLORS[s];
+                      const Icon = REGULAR_STATUS_ICONS[s];
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => handleStatusChange(s)}
+                          disabled={statusSaving}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all disabled:opacity-50",
+                            colors.bg, colors.text, "hover:ring-1 hover:ring-current"
+                          )}
+                          title={`Set status to ${s}`}
+                        >
+                          {Icon && <Icon className="h-3.5 w-3.5" />}
+                          {s}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setShowAllStatuses((v) => !v)}
+                      className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+                    >
+                      {showAllStatuses ? "Less" : "All statuses…"}
+                    </button>
+                    {statusSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                  </div>
+                </div>
+              )}
+              {!readOnly && isPublished && (
+                <div className="text-[11px] text-muted-foreground">
+                  Unpublish first to change the status.
+                </div>
+              )}
               {isPublished && (
                 <div className="rounded-md border border-green-200 dark:border-green-900/60 bg-green-50/70 dark:bg-green-900/20 px-2.5 py-2 text-[11px] leading-snug text-green-900 dark:text-green-200">
                   This application is published. The status, the placement and
@@ -1137,6 +1122,7 @@ export function RegularApplicationDetailModal({
                   updates.
                 </div>
               )}
+              <div className="space-y-2">
               <ChecklistRow
                 index={0}
                 title="Link student"
@@ -1145,10 +1131,19 @@ export function RegularApplicationDetailModal({
                 onToggle={() => setOpenStepIdx((i) => (i === 0 ? null : 0))}
                 disabled={!canEdit}
                 summary={app.linked_student ? (
-                  <span className="text-[10px] font-mono text-green-700 dark:text-green-300 font-medium">
-                    {app.linked_student.home_location && app.linked_student.school_student_id
-                      ? `${app.linked_student.home_location}-${app.linked_student.school_student_id}`
-                      : app.linked_student.student_name}
+                  <span className="inline-flex items-center gap-1 text-foreground">
+                    <UserCheck className="h-3 w-3 text-green-500 shrink-0" />
+                    <StudentInfoBadges
+                      compact
+                      showLink
+                      student={{
+                        student_id: app.existing_student_id ?? app.linked_student.id,
+                        student_name: app.linked_student.student_name,
+                        school_student_id: app.linked_student.school_student_id || undefined,
+                        grade: linkedStudent?.grade || undefined,
+                        lang_stream: linkedStudent?.lang_stream || undefined,
+                      }}
+                    />
                   </span>
                 ) : (
                   <span className="text-[10px] italic">Not linked</span>
@@ -1677,6 +1672,7 @@ export function RegularApplicationDetailModal({
                 </div>
               )}
               </ChecklistRow>
+              </div>
             </div>
           </div>
         </div>
