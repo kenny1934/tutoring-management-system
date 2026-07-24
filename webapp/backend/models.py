@@ -1772,7 +1772,7 @@ class RegularCourseSlot(Base):
     grade = Column(String(50), nullable=True)  # optional target grade label
     lang_stream = Column(String(20), nullable=True)  # optional stream (C/E); unset = any
     tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="SET NULL"), nullable=True)
-    max_students = Column(Integer, nullable=False, default=6)
+    max_students = Column(Integer, nullable=False, default=8)
     created_at = Column(DateTime, server_default=func.now())
 
     config = relationship("RegularCourseConfig", back_populates="slots")

@@ -456,7 +456,7 @@ export default function RegularArrangementPage() {
       lang_stream: null,
       tutor_id: null,
       tutor_name: null,
-      max_students: 6,
+      max_students: 8,
       assigned_count: 0,
       students: [],
     };

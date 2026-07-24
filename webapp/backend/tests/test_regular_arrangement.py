@@ -184,7 +184,7 @@ class TestSlotsCrud:
             _admin=None,
             db=db_session,
         )
-        assert created.max_students == 6
+        assert created.max_students == 8  # default slot capacity
         assert created.tutor_name == "Teaching Tutor"
         assert created.assigned_count == 0
 

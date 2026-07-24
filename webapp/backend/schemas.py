@@ -4043,7 +4043,7 @@ class RegularSlotCreate(BaseModel):
     grade: Optional[str] = Field(None, max_length=50)
     lang_stream: Optional[str] = Field(None, max_length=20)
     tutor_id: Optional[int] = None
-    max_students: int = Field(6, ge=1, le=20)
+    max_students: int = Field(8, ge=1, le=20)
 
 
 class RegularSlotUpdate(BaseModel):
