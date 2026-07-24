@@ -72,7 +72,7 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                   <tr key={r.intention}>
                     <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
                     <td className={tdNum}>{r.prospects}</td>
-                    <td className={cn(tdNum, "text-blue-600")}>{r.applied_regular}</td>
+                    <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
                     <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.enrolled_regular, r.prospects)}</td>
                   </tr>
@@ -133,7 +133,7 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
                 <tr key={r.school}>
                   <td className="px-3 py-2 text-foreground max-w-[280px] truncate" title={r.school}>{r.school}</td>
                   <td className={tdNum}>{r.prospects}</td>
-                  <td className={cn(tdNum, "text-blue-600")}>{r.applied_regular}</td>
+                  <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
                   <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
                 </tr>
               ))}
@@ -167,7 +167,7 @@ function TutorTable({ data }: { data: RegularConversionResponse }) {
                   <td className="px-3 py-2 font-semibold text-foreground">{r.branch}</td>
                   <td className={cn("px-3 py-2", r.tutor_name === "Unattributed" ? "text-muted-foreground italic" : "text-foreground")}>{r.tutor_name}</td>
                   <td className={tdNum}>{r.prospects}</td>
-                  <td className={cn(tdNum, "text-blue-600")}>{r.applied_regular}</td>
+                  <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
                   <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
                 </tr>
               ))}
@@ -247,7 +247,7 @@ function LostTable({ data }: { data: RegularConversionResponse }) {
                 <tr key={r.prospect_id} className="hover:bg-primary/[0.04]">
                   <td className="px-3 py-2 font-medium">
                     <Link
-                      href={`/admin/prospects?focus=${r.prospect_id}`}
+                      href={`/admin/prospects?focus=${r.prospect_id}&year=${data.year}`}
                       className="text-primary hover:underline"
                       title="Open this prospect"
                     >

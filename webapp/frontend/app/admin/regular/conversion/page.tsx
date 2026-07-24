@@ -16,15 +16,33 @@ import type { RegularConversionBranchRow } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
-/** Columns of the per-branch funnel, in flow order. */
+/** Columns of the per-branch funnel, in flow order. Colours ramp along each
+ *  path (summer: teal -> emerald; regular: sky -> indigo -> purple) so no two
+ *  stages read as the same tone. */
 const COLUMNS: { key: keyof RegularConversionBranchRow; label: string; title: string; tone: string }[] = [
   { key: "prospects", label: "Prospects", title: "P6 prospects submitted for this year", tone: "text-foreground" },
-  { key: "wants_summer_yes", label: "Wants summer", title: "Prospects who said Yes to summer", tone: "text-green-600" },
-  { key: "wants_regular_yes", label: "Wants regular", title: "Prospects who said Yes to regular", tone: "text-blue-600" },
+  { key: "wants_summer_yes", label: "Wants summer", title: "Prospects who said Yes to summer", tone: "text-teal-600" },
+  { key: "wants_regular_yes", label: "Wants regular", title: "Prospects who said Yes to regular", tone: "text-sky-600" },
   { key: "attended_summer", label: "Did summer", title: "Prospects whose summer application published an enrollment", tone: "text-emerald-600" },
-  { key: "applied_regular", label: "Applied regular", title: "Prospects linked to a regular application", tone: "text-blue-600" },
+  { key: "applied_regular", label: "Applied regular", title: "Prospects linked to a regular application", tone: "text-indigo-600" },
   { key: "enrolled_regular", label: "Enrolled regular", title: "Prospects whose regular application published an enrollment", tone: "text-purple-600" },
 ];
+
+/** Whole-number percent, guarding a zero denominator. */
+function pct(n: number, d: number): string {
+  return d > 0 ? `${Math.round((n / d) * 100)}%` : "-";
+}
+
+/** A headline metric card in the summary strip above the funnel. */
+function KpiCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
+  return (
+    <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={cn("text-xl font-semibold tabular-nums leading-tight mt-0.5", tone ?? "text-foreground")}>{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">{sub}</div>}
+    </div>
+  );
+}
 
 export default function RegularConversionPage() {
   usePageTitle("Regular Conversion");
@@ -127,9 +145,31 @@ export default function RegularConversionPage() {
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 space-y-6">
+              {/* Headline conversion metrics */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <KpiCard label="Prospects" value={String(data.totals.prospects)} sub="P6 prospects this year" />
+                <KpiCard
+                  label="Applied regular"
+                  value={String(data.totals.applied_regular)}
+                  sub={`${pct(data.totals.applied_regular, data.totals.prospects)} of prospects`}
+                  tone="text-indigo-600"
+                />
+                <KpiCard
+                  label="Enrolled regular"
+                  value={String(data.totals.enrolled_regular)}
+                  sub={`${pct(data.totals.enrolled_regular, data.totals.prospects)} of prospects`}
+                  tone="text-purple-600"
+                />
+                <KpiCard
+                  label="Apply to enrol"
+                  value={pct(data.totals.enrolled_regular, data.totals.applied_regular)}
+                  sub="of applicants enrolled"
+                />
+              </div>
+
               {/* Per-branch funnel */}
               <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-x-auto">
-                <table className="w-full text-xs min-w-[720px]">
+                <table className="w-full text-xs min-w-[860px]">
                   <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520]">
                     <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
                       <th className="px-3 py-2 text-left font-medium text-foreground">Branch</th>
@@ -138,6 +178,12 @@ export default function RegularConversionPage() {
                           {c.label}
                         </th>
                       ))}
+                      <th className="px-3 py-2 text-right font-medium text-foreground cursor-help border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40" title="Applied as a share of prospects">
+                        Apply %
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-foreground cursor-help" title="Enrolled as a share of prospects">
+                        Enrol %
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
@@ -147,11 +193,17 @@ export default function RegularConversionPage() {
                         {COLUMNS.map((c) => (
                           <td key={c.key} className={cn("px-3 py-2 text-right", c.tone)}>{row[c.key]}</td>
                         ))}
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+                          {pct(row.applied_regular, row.prospects)}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                          {pct(row.enrolled_regular, row.prospects)}
+                        </td>
                       </tr>
                     ))}
                     {data.branches.length === 0 && (
                       <tr>
-                        <td colSpan={COLUMNS.length + 1} className="px-3 py-6 text-center text-muted-foreground italic">
+                        <td colSpan={COLUMNS.length + 3} className="px-3 py-6 text-center text-muted-foreground italic">
                           No prospects recorded for {year}.
                         </td>
                       </tr>
@@ -164,6 +216,12 @@ export default function RegularConversionPage() {
                         {COLUMNS.map((c) => (
                           <td key={c.key} className={cn("px-3 py-2 text-right", c.tone)}>{data.totals[c.key]}</td>
                         ))}
+                        <td className="px-3 py-2 text-right tabular-nums border-l border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+                          {pct(data.totals.applied_regular, data.totals.prospects)}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {pct(data.totals.enrolled_regular, data.totals.prospects)}
+                        </td>
                       </tr>
                     </tfoot>
                   )}

@@ -1551,6 +1551,10 @@ def get_conversion(
     reg_intent: dict[str, RegularConversionIntentionRow] = {}
     sum_intent: dict[str, RegularConversionIntentionRow] = {}
     school_rows: dict[str, RegularConversionSchoolRow] = {}
+    # School is free-text: group case- and spacing-insensitively so variants of
+    # one school don't split into separate rows, and remember how often each
+    # original spelling appeared so the row can show the most common one.
+    school_display: dict[str, dict[str, int]] = {}
     movement: dict[tuple[str, str], RegularConversionMovementRow] = {}
     lost: list[RegularConversionLostRow] = []
 
@@ -1611,12 +1615,17 @@ def get_conversion(
         _bump_intent(reg_intent, _intent(p.wants_regular), ai, ei, si)
         _bump_intent(sum_intent, _intent(p.wants_summer), ai, ei, si)
 
-        # Axis 3: feeder school.
-        school = (p.school or "").strip() or "Unknown"
-        srow = school_rows.setdefault(school, RegularConversionSchoolRow(school=school))
+        # Axis 3: feeder school, grouped on a normalised key (whitespace runs
+        # collapsed, lower-cased); the display spelling is resolved after the loop.
+        raw_school = (p.school or "").strip()
+        display = raw_school or "Unknown"
+        skey = " ".join(raw_school.split()).lower() or "unknown"
+        srow = school_rows.setdefault(skey, RegularConversionSchoolRow(school=display))
         srow.prospects += 1
         srow.applied_regular += ai
         srow.enrolled_regular += ei
+        counts = school_display.setdefault(skey, {})
+        counts[display] = counts.get(display, 0) + 1
 
         # Axis 4: wanted branch vs where they enrolled (enrolled prospects only).
         if enrolled:
@@ -1668,6 +1677,11 @@ def get_conversion(
     )
     by_regular_intention = sorted(reg_intent.values(), key=lambda r: intent_order.get(r.intention, 9))
     by_summer_intention = sorted(sum_intent.values(), key=lambda r: intent_order.get(r.intention, 9))
+    for skey, srow in school_rows.items():
+        # Most common original spelling wins; ties break alphabetically.
+        srow.school = sorted(
+            school_display[skey].items(), key=lambda kv: (-kv[1], kv[0])
+        )[0][0]
     by_school = sorted(
         school_rows.values(),
         key=lambda r: (r.school == "Unknown", -r.prospects, r.school),

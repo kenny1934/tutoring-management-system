@@ -420,6 +420,19 @@ class TestConversionAxes:
         # Unknown always sorts last regardless of count.
         assert resp.by_school[-1].school == "Unknown"
 
+    def test_by_school_groups_casing_variants(self, db_session, reg_cfg, tutor):
+        # Same school, spellings differing by case + spacing collapse to one row;
+        # the most common original spelling is shown.
+        _prospect(db_session, branch="MAC", phone_1="85236360001", school="St Paul")
+        _prospect(db_session, branch="MAC", phone_1="85236360002", school="St Paul")
+        _prospect(db_session, branch="MAC", phone_1="85236360003", school="st paul")
+        _prospect(db_session, branch="MAC", phone_1="85236360004", school="St  Paul")
+
+        resp = get_conversion(year=2026, _admin=None, db=db_session)
+        paul = [r for r in resp.by_school if r.prospects == 4]
+        assert len(paul) == 1
+        assert paul[0].school == "St Paul"  # the spelling seen most often
+
     def test_branch_movement_flags_crossing(self, db_session, reg_cfg, tutor):
         # Wanted MSA, enrolled at MSB (二龍喉分校 -> MSB): a crossing.
         self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="二龍喉分校",
