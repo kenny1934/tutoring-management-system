@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { RegularConversionResponse } from "@/types";
+import { IntentionBadge, OutreachBadge } from "@/components/summer/prospect-badges";
+import type { ProspectOutreachStatus, RegularConversionResponse } from "@/types";
 
 // Shared table styling, matching the funnel table already on the page.
 const wrap = "border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden";
 const scroll = "overflow-x-auto";
 const thead = "bg-[#f0e6d8]/50 dark:bg-[#2a2520]";
+const theadRow = "border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30";
 const th = "px-3 py-2 text-left font-medium text-foreground";
 const thNum = "px-3 py-2 text-right font-medium text-foreground";
 const tdNum = "px-3 py-2 text-right tabular-nums";
@@ -19,20 +21,27 @@ function pct(n: number, d: number): string {
   return d > 0 ? `${Math.round((n / d) * 100)}%` : "-";
 }
 
+function EmptyRow({ span, children }: { span: number; children: React.ReactNode }) {
+  return (
+    <tr>
+      <td colSpan={span} className="px-3 py-4 text-center text-muted-foreground italic">{children}</td>
+    </tr>
+  );
+}
+
 function Section({
   title,
   subtitle,
   children,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle: string;
   children: React.ReactNode;
 }) {
   return (
     <section>
       <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-      {subtitle && <p className="text-xs text-muted-foreground mt-0.5 mb-2">{subtitle}</p>}
-      {!subtitle && <div className="mb-2" />}
+      <p className="text-xs text-muted-foreground mt-0.5 mb-2">{subtitle}</p>
       {children}
     </section>
   );
@@ -50,7 +59,7 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
           <div className={scroll}>
             <table className="w-full text-xs min-w-[360px]">
               <thead className={thead}>
-                <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+                <tr className={theadRow}>
                   <th className={th}>Wants regular</th>
                   <th className={thNum}>Prospects</th>
                   <th className={thNum}>Applied</th>
@@ -68,9 +77,7 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.enrolled_regular, r.prospects)}</td>
                   </tr>
                 ))}
-                {data.by_regular_intention.length === 0 && (
-                  <tr><td colSpan={5} className="px-3 py-4 text-center text-muted-foreground italic">No prospects.</td></tr>
-                )}
+                {data.by_regular_intention.length === 0 && <EmptyRow span={5}>No prospects.</EmptyRow>}
               </tbody>
             </table>
           </div>
@@ -81,7 +88,7 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
           <div className={scroll}>
             <table className="w-full text-xs min-w-[360px]">
               <thead className={thead}>
-                <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+                <tr className={theadRow}>
                   <th className={th}>Wants summer</th>
                   <th className={thNum}>Prospects</th>
                   <th className={thNum}>Did summer</th>
@@ -97,9 +104,7 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.attended_summer, r.prospects)}</td>
                   </tr>
                 ))}
-                {data.by_summer_intention.length === 0 && (
-                  <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground italic">No prospects.</td></tr>
-                )}
+                {data.by_summer_intention.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
               </tbody>
             </table>
           </div>
@@ -116,7 +121,7 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
         <div className={cn(scroll, "max-h-72 overflow-y-auto")}>
           <table className="w-full text-xs min-w-[420px]">
             <thead className={cn(thead, "sticky top-0")}>
-              <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+              <tr className={theadRow}>
                 <th className={th}>School</th>
                 <th className={thNum}>Prospects</th>
                 <th className={thNum}>Applied</th>
@@ -132,9 +137,7 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
                   <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
                 </tr>
               ))}
-              {data.by_school.length === 0 && (
-                <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground italic">No prospects.</td></tr>
-              )}
+              {data.by_school.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
             </tbody>
           </table>
         </div>
@@ -150,7 +153,7 @@ function TutorTable({ data }: { data: RegularConversionResponse }) {
         <div className={cn(scroll, "max-h-72 overflow-y-auto")}>
           <table className="w-full text-xs min-w-[460px]">
             <thead className={cn(thead, "sticky top-0")}>
-              <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+              <tr className={theadRow}>
                 <th className={th}>Branch</th>
                 <th className={th}>Tutor</th>
                 <th className={thNum}>Prospects</th>
@@ -168,9 +171,7 @@ function TutorTable({ data }: { data: RegularConversionResponse }) {
                   <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
                 </tr>
               ))}
-              {data.by_tutor.length === 0 && (
-                <tr><td colSpan={5} className="px-3 py-4 text-center text-muted-foreground italic">No prospects.</td></tr>
-              )}
+              {data.by_tutor.length === 0 && <EmptyRow span={5}>No prospects.</EmptyRow>}
             </tbody>
           </table>
         </div>
@@ -192,7 +193,7 @@ function MovementTable({ data }: { data: RegularConversionResponse }) {
         <div className={scroll}>
           <table className="w-full text-xs min-w-[360px]">
             <thead className={thead}>
-              <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+              <tr className={theadRow}>
                 <th className={th}>Wanted</th>
                 <th className="px-1 py-2" aria-hidden />
                 <th className={th}>Enrolled at</th>
@@ -211,9 +212,7 @@ function MovementTable({ data }: { data: RegularConversionResponse }) {
                   </tr>
                 );
               })}
-              {data.branch_movement.length === 0 && (
-                <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground italic">No enrolled prospects yet.</td></tr>
-              )}
+              {data.branch_movement.length === 0 && <EmptyRow span={4}>No enrolled prospects yet.</EmptyRow>}
             </tbody>
           </table>
         </div>
@@ -233,7 +232,7 @@ function LostTable({ data }: { data: RegularConversionResponse }) {
         <div className={cn(scroll, "max-h-80 overflow-y-auto")}>
           <table className="w-full text-xs min-w-[640px]">
             <thead className={cn(thead, "sticky top-0")}>
-              <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+              <tr className={theadRow}>
                 <th className={th}>Name</th>
                 <th className={th}>Branch</th>
                 <th className={th}>Grade</th>
@@ -258,18 +257,24 @@ function LostTable({ data }: { data: RegularConversionResponse }) {
                   <td className="px-3 py-2 text-foreground">{r.source_branch}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.grade || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate" title={r.school || undefined}>{r.school || "-"}</td>
-                  <td className="px-3 py-2 text-foreground">{r.wants_regular || "-"}</td>
+                  <td className="px-3 py-2">
+                    {r.wants_regular
+                      ? <IntentionBadge value={r.wants_regular} />
+                      : <span className="text-muted-foreground/50">-</span>}
+                  </td>
                   <td className="px-3 py-2">
                     {r.attended_summer
                       ? <Check className="h-3.5 w-3.5 text-emerald-600" aria-label="Did summer" />
                       : <span className="text-muted-foreground/50">-</span>}
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.outreach_status || "-"}</td>
+                  <td className="px-3 py-2">
+                    {r.outreach_status
+                      ? <OutreachBadge status={r.outreach_status as ProspectOutreachStatus} />
+                      : <span className="text-muted-foreground/50">-</span>}
+                  </td>
                 </tr>
               ))}
-              {rows.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-4 text-center text-muted-foreground italic">Every prospect has a regular application.</td></tr>
-              )}
+              {rows.length === 0 && <EmptyRow span={7}>Every prospect has a regular application.</EmptyRow>}
             </tbody>
           </table>
         </div>

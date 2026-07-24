@@ -146,6 +146,34 @@ function SuggestionList({
   );
 }
 
+/** A pill toggle in the panel's grade/stream filter row. */
+function FilterChip({
+  label,
+  active,
+  onClick,
+  title,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function RegularUnassignedPanel({
   applications,
   grades,
@@ -306,30 +334,14 @@ export function RegularUnassignedPanel({
 
           {/* Grade filter chips */}
           <div className="flex items-center gap-1 flex-wrap">
-            <button
-              onClick={() => setGradeFilter(null)}
-              className={cn(
-                "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
-                gradeFilter === null
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
-              )}
-            >
-              All
-            </button>
+            <FilterChip label="All" active={gradeFilter === null} onClick={() => setGradeFilter(null)} />
             {grades.map((g) => (
-              <button
+              <FilterChip
                 key={g}
+                label={g}
+                active={gradeFilter === g}
                 onClick={() => setGradeFilter(gradeFilter === g ? null : g)}
-                className={cn(
-                  "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
-                  gradeFilter === g
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
-                )}
-              >
-                {g}
-              </button>
+              />
             ))}
             {/* Stream chips — orthogonal to grade, so an admin can narrow to
                 e.g. every F-grade Chinese applicant at once. */}
@@ -340,19 +352,13 @@ export function RegularUnassignedPanel({
               />
             )}
             {streams.map((s) => (
-              <button
+              <FilterChip
                 key={s}
+                label={s}
+                active={streamFilter === s}
                 onClick={() => setStreamFilter(streamFilter === s ? null : s)}
-                className={cn(
-                  "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
-                  streamFilter === s
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
-                )}
                 title={s === "C" ? "Chinese stream" : s === "E" ? "English stream" : s}
-              >
-                {s}
-              </button>
+              />
             ))}
             <button
               onClick={() => setSort(nextSort)}

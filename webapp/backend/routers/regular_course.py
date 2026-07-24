@@ -15,7 +15,7 @@ keep them in sync when the summer versions change.
 import logging
 import secrets
 from datetime import date as date_type, timedelta
-from typing import Optional
+from typing import Optional, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_, select
@@ -82,6 +82,7 @@ from schemas import (
     RegularConversionSchoolRow,
     RegularConversionMovementRow,
     RegularConversionLostRow,
+    ProspectIntention,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
@@ -1553,8 +1554,19 @@ def get_conversion(
     movement: dict[tuple[str, str], RegularConversionMovementRow] = {}
     lost: list[RegularConversionLostRow] = []
 
+    # Membership drives the intention bucketing off the shared schema Literal, so
+    # a new intention value can't silently fall into "Unknown".
+    valid_intentions = frozenset(get_args(ProspectIntention))
+
     def _intent(value: Optional[str]) -> str:
-        return value if value in ("Yes", "No", "Considering") else "Unknown"
+        return value if value in valid_intentions else "Unknown"
+
+    def _bump_intent(store: dict, value: str, ai: int, ei: int, si: int) -> None:
+        r = store.setdefault(value, RegularConversionIntentionRow(intention=value))
+        r.prospects += 1
+        r.applied_regular += ai
+        r.enrolled_regular += ei
+        r.attended_summer += si
 
     for p in prospects:
         row = rows.setdefault(p.source_branch, RegularConversionBranchRow(branch=p.source_branch))
@@ -1572,6 +1584,8 @@ def get_conversion(
 
         applied = p.regular_application_id is not None
         enrolled = applied and p.regular_application_id in enrolled_regular_ids
+        # 0/1 forms reused across every axis below.
+        ai, ei, si = int(applied), int(enrolled), int(attended)
         if applied:
             row.applied_regular += 1
             gs = grade_stream_by_app.get(p.regular_application_id)
@@ -1588,31 +1602,21 @@ def get_conversion(
             tkey, RegularConversionTutorRow(branch=tkey[0], tutor_name=tkey[1])
         )
         trow.prospects += 1
-        trow.applied_regular += int(applied)
-        trow.enrolled_regular += int(enrolled)
+        trow.applied_regular += ai
+        trow.enrolled_regular += ei
 
         # Axis 2: stated intention vs outcome — one row keyed on the regular
         # intention, another on the summer intention; each carries every count
         # so the frontend reads only the columns its table shows.
-        rkey = _intent(p.wants_regular)
-        rirow = reg_intent.setdefault(rkey, RegularConversionIntentionRow(intention=rkey))
-        rirow.prospects += 1
-        rirow.applied_regular += int(applied)
-        rirow.enrolled_regular += int(enrolled)
-        rirow.attended_summer += int(attended)
-        skey = _intent(p.wants_summer)
-        sirow = sum_intent.setdefault(skey, RegularConversionIntentionRow(intention=skey))
-        sirow.prospects += 1
-        sirow.applied_regular += int(applied)
-        sirow.enrolled_regular += int(enrolled)
-        sirow.attended_summer += int(attended)
+        _bump_intent(reg_intent, _intent(p.wants_regular), ai, ei, si)
+        _bump_intent(sum_intent, _intent(p.wants_summer), ai, ei, si)
 
         # Axis 3: feeder school.
         school = (p.school or "").strip() or "Unknown"
         srow = school_rows.setdefault(school, RegularConversionSchoolRow(school=school))
         srow.prospects += 1
-        srow.applied_regular += int(applied)
-        srow.enrolled_regular += int(enrolled)
+        srow.applied_regular += ai
+        srow.enrolled_regular += ei
 
         # Axis 4: wanted branch vs where they enrolled (enrolled prospects only).
         if enrolled:
