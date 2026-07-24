@@ -3776,12 +3776,58 @@ export interface RegularConversionBranchRow {
   enrolled_regular: number;
 }
 
+export interface RegularConversionTutorRow {
+  branch: string;
+  tutor_name: string;
+  prospects: number;
+  applied_regular: number;
+  enrolled_regular: number;
+}
+
+export interface RegularConversionIntentionRow {
+  intention: string;
+  prospects: number;
+  applied_regular: number;
+  enrolled_regular: number;
+  attended_summer: number;
+}
+
+export interface RegularConversionSchoolRow {
+  school: string;
+  prospects: number;
+  applied_regular: number;
+  enrolled_regular: number;
+}
+
+export interface RegularConversionMovementRow {
+  wanted_branch: string;
+  enrolled_branch: string;
+  count: number;
+}
+
+export interface RegularConversionLostRow {
+  prospect_id: number;
+  student_name: string;
+  source_branch: string;
+  grade: string | null;
+  school: string | null;
+  wants_regular: string | null;
+  outreach_status: string | null;
+  attended_summer: boolean;
+}
+
 export interface RegularConversionResponse {
   year: number;
   branches: RegularConversionBranchRow[];
   totals: RegularConversionBranchRow;
   by_grade_stream_applied: Record<string, number>;
   by_grade_stream_enrolled: Record<string, number>;
+  by_tutor: RegularConversionTutorRow[];
+  by_regular_intention: RegularConversionIntentionRow[];
+  by_summer_intention: RegularConversionIntentionRow[];
+  by_school: RegularConversionSchoolRow[];
+  branch_movement: RegularConversionMovementRow[];
+  lost_prospects: RegularConversionLostRow[];
 }
 
 /** A weekly slot's own fields, with no assignment state. Inlined on the

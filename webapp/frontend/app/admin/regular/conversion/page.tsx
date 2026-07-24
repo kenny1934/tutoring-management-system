@@ -11,6 +11,7 @@ import { regularAPI } from "@/lib/api";
 import { getGradeColor, splitGradeStream } from "@/lib/regular-utils";
 import { TrendingUp, Loader2, ChevronDown } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { RegularConversionSections } from "@/components/admin/RegularConversionSections";
 import type { RegularConversionBranchRow } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
@@ -203,6 +204,8 @@ export default function RegularConversionPage() {
                   </div>
                 )}
               </div>
+
+              <RegularConversionSections data={data} />
             </div>
           )}
         </div>

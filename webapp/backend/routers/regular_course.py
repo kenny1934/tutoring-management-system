@@ -77,6 +77,11 @@ from schemas import (
     RegularProspectSuggestResponse,
     RegularConversionResponse,
     RegularConversionBranchRow,
+    RegularConversionTutorRow,
+    RegularConversionIntentionRow,
+    RegularConversionSchoolRow,
+    RegularConversionMovementRow,
+    RegularConversionLostRow,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
@@ -1515,12 +1520,19 @@ def get_conversion(
     regular_app_ids = {p.regular_application_id for p in prospects if p.regular_application_id}
     enrolled_regular_ids: set[int] = set()
     grade_stream_by_app: dict[int, str] = {}
+    # Landed branch for enrolled prospects reads the enrollment's own location
+    # (set from the slot at publish), normalised to the MSA/MSB code space that
+    # the prospect's preferred_branches also use, so axis 4 compares like-for-like.
+    landed_branch_by_app: dict[int, str] = {}
     if regular_app_ids:
-        enrolled_regular_ids = {
-            rid for (rid,) in db.query(Enrollment.regular_application_id)
+        for rid, loc in (
+            db.query(Enrollment.regular_application_id, Enrollment.location)
             .filter(Enrollment.regular_application_id.in_(regular_app_ids))
-            if rid is not None
-        }
+        ):
+            if rid is None:
+                continue
+            enrolled_regular_ids.add(rid)
+            landed_branch_by_app[rid] = normalize_secondary_location(loc) or "Unknown"
         reg_apps = (
             db.query(RegularApplication)
             .options(joinedload(RegularApplication.existing_student))
@@ -1533,6 +1545,17 @@ def get_conversion(
     rows: dict[str, RegularConversionBranchRow] = {}
     by_gs_applied: dict[str, int] = {}
     by_gs_enrolled: dict[str, int] = {}
+    # Extra axes, accumulated in the same single pass over prospects.
+    tutor_rows: dict[tuple[str, str], RegularConversionTutorRow] = {}
+    reg_intent: dict[str, RegularConversionIntentionRow] = {}
+    sum_intent: dict[str, RegularConversionIntentionRow] = {}
+    school_rows: dict[str, RegularConversionSchoolRow] = {}
+    movement: dict[tuple[str, str], RegularConversionMovementRow] = {}
+    lost: list[RegularConversionLostRow] = []
+
+    def _intent(value: Optional[str]) -> str:
+        return value if value in ("Yes", "No", "Considering") else "Unknown"
+
     for p in prospects:
         row = rows.setdefault(p.source_branch, RegularConversionBranchRow(branch=p.source_branch))
         row.prospects += 1
@@ -1546,15 +1569,79 @@ def get_conversion(
         )
         if attended:
             row.attended_summer += 1
-        if p.regular_application_id is not None:
+
+        applied = p.regular_application_id is not None
+        enrolled = applied and p.regular_application_id in enrolled_regular_ids
+        if applied:
             row.applied_regular += 1
             gs = grade_stream_by_app.get(p.regular_application_id)
             if gs:
                 by_gs_applied[gs] = by_gs_applied.get(gs, 0) + 1
-            if p.regular_application_id in enrolled_regular_ids:
+            if enrolled:
                 row.enrolled_regular += 1
                 if gs:
                     by_gs_enrolled[gs] = by_gs_enrolled.get(gs, 0) + 1
+
+        # Axis 1: submitting tutor within the source branch.
+        tkey = (p.source_branch, (p.tutor_name or "").strip() or "Unattributed")
+        trow = tutor_rows.setdefault(
+            tkey, RegularConversionTutorRow(branch=tkey[0], tutor_name=tkey[1])
+        )
+        trow.prospects += 1
+        trow.applied_regular += int(applied)
+        trow.enrolled_regular += int(enrolled)
+
+        # Axis 2: stated intention vs outcome — one row keyed on the regular
+        # intention, another on the summer intention; each carries every count
+        # so the frontend reads only the columns its table shows.
+        rkey = _intent(p.wants_regular)
+        rirow = reg_intent.setdefault(rkey, RegularConversionIntentionRow(intention=rkey))
+        rirow.prospects += 1
+        rirow.applied_regular += int(applied)
+        rirow.enrolled_regular += int(enrolled)
+        rirow.attended_summer += int(attended)
+        skey = _intent(p.wants_summer)
+        sirow = sum_intent.setdefault(skey, RegularConversionIntentionRow(intention=skey))
+        sirow.prospects += 1
+        sirow.applied_regular += int(applied)
+        sirow.enrolled_regular += int(enrolled)
+        sirow.attended_summer += int(attended)
+
+        # Axis 3: feeder school.
+        school = (p.school or "").strip() or "Unknown"
+        srow = school_rows.setdefault(school, RegularConversionSchoolRow(school=school))
+        srow.prospects += 1
+        srow.applied_regular += int(applied)
+        srow.enrolled_regular += int(enrolled)
+
+        # Axis 4: wanted branch vs where they enrolled (enrolled prospects only).
+        if enrolled:
+            enrolled_branch = landed_branch_by_app.get(p.regular_application_id, "Unknown")
+            prefs = [b for b in (p.preferred_branches or []) if b]
+            if not prefs:
+                wanted = "None"
+            elif enrolled_branch in prefs:
+                wanted = enrolled_branch  # landed in a branch they named
+            else:
+                wanted = " / ".join(prefs)  # crossed away from every named branch
+            mkey = (wanted, enrolled_branch)
+            mrow = movement.setdefault(
+                mkey, RegularConversionMovementRow(wanted_branch=wanted, enrolled_branch=enrolled_branch)
+            )
+            mrow.count += 1
+
+        # Lost list: a prospect with no regular application yet.
+        if not applied:
+            lost.append(RegularConversionLostRow(
+                prospect_id=p.id,
+                student_name=p.student_name,
+                source_branch=p.source_branch,
+                grade=p.grade,
+                school=p.school,
+                wants_regular=p.wants_regular,
+                outreach_status=p.outreach_status,
+                attended_summer=attended,
+            ))
 
     branches = [rows[b] for b in sorted(rows)]
     totals = RegularConversionBranchRow(
@@ -1566,12 +1653,39 @@ def get_conversion(
         applied_regular=sum(r.applied_regular for r in branches),
         enrolled_regular=sum(r.enrolled_regular for r in branches),
     )
+
+    # Deterministic ordering for every axis. Intention tables follow the ladder
+    # Yes -> Considering -> No -> Unknown; tutors group under their branch with
+    # Unattributed last; schools lead with the biggest feeders.
+    intent_order = {"Yes": 0, "Considering": 1, "No": 2, "Unknown": 3}
+    by_tutor = sorted(
+        tutor_rows.values(),
+        key=lambda r: (r.branch, r.tutor_name == "Unattributed", r.tutor_name),
+    )
+    by_regular_intention = sorted(reg_intent.values(), key=lambda r: intent_order.get(r.intention, 9))
+    by_summer_intention = sorted(sum_intent.values(), key=lambda r: intent_order.get(r.intention, 9))
+    by_school = sorted(
+        school_rows.values(),
+        key=lambda r: (r.school == "Unknown", -r.prospects, r.school),
+    )
+    branch_movement = sorted(movement.values(), key=lambda r: (r.wanted_branch, r.enrolled_branch))
+    lost_prospects = sorted(
+        lost,
+        key=lambda r: (r.wants_regular != "Yes", r.source_branch, r.student_name),
+    )
+
     return RegularConversionResponse(
         year=year,
         branches=branches,
         totals=totals,
         by_grade_stream_applied=by_gs_applied,
         by_grade_stream_enrolled=by_gs_enrolled,
+        by_tutor=by_tutor,
+        by_regular_intention=by_regular_intention,
+        by_summer_intention=by_summer_intention,
+        by_school=by_school,
+        branch_movement=branch_movement,
+        lost_prospects=lost_prospects,
     )
 
 

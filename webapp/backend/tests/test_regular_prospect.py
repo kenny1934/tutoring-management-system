@@ -142,7 +142,8 @@ def _sum_app(db_session, sum_cfg, *, name="Chan Tai Man", phone="85212340000",
 
 def _prospect(db_session, *, name="Chan Tai Man", branch="MAC", phone_1="85212340000",
               summer_app_id=None, regular_app_id=None, wants_summer="Considering",
-              wants_regular="Considering", year=2026):
+              wants_regular="Considering", year=2026, tutor_name=None, school=None,
+              grade=None, preferred_branches=None, outreach_status="Not Started"):
     p = PrimaryProspect(
         year=year,
         source_branch=branch,
@@ -152,6 +153,11 @@ def _prospect(db_session, *, name="Chan Tai Man", branch="MAC", phone_1="8521234
         regular_application_id=regular_app_id,
         wants_summer=wants_summer,
         wants_regular=wants_regular,
+        tutor_name=tutor_name,
+        school=school,
+        grade=grade,
+        preferred_branches=preferred_branches or [],
+        outreach_status=outreach_status,
     )
     db_session.add(p)
     db_session.commit()
@@ -159,13 +165,14 @@ def _prospect(db_session, *, name="Chan Tai Man", branch="MAC", phone_1="8521234
 
 
 def _enrollment(db_session, tutor, *, student_id, summer_app_id=None, regular_app_id=None,
-                etype="Summer"):
+                etype="Summer", location=None):
     e = Enrollment(
         student_id=student_id,
         tutor_id=tutor.id,
         enrollment_type=etype,
         summer_application_id=summer_app_id,
         regular_application_id=regular_app_id,
+        location=location,
     )
     db_session.add(e)
     db_session.commit()
@@ -356,6 +363,96 @@ class TestConversion:
         mac = next(r for r in rows if r.branch == "MAC")
         assert mac.applied_regular == 1
         assert mac.enrolled_regular == 1
+
+
+class TestConversionAxes:
+    """The deeper conversion axes: submitting tutor, stated intention, feeder
+    school, wanted-vs-enrolled branch, and the lost-prospects list."""
+
+    def _enrolled(self, db_session, reg_cfg, tutor, *, branch, location, preferred, phone,
+                  wants_regular="Yes", grade="F1", school=None, tutor_name=None):
+        student = _student(db_session)
+        ra = _reg_app(db_session, reg_cfg, student_id=student.id, status="Enrolled", phone=phone)
+        _enrollment(db_session, tutor, student_id=student.id, regular_app_id=ra.id,
+                    etype="Regular", location=location)
+        return _prospect(db_session, branch=branch, regular_app_id=ra.id, phone_1=phone,
+                         preferred_branches=preferred, wants_regular=wants_regular,
+                         grade=grade, school=school, tutor_name=tutor_name)
+
+    def test_by_tutor_groups_within_branch(self, db_session, reg_cfg, tutor):
+        # Ada brought in a prospect who enrolled; an unattributed prospect never applied.
+        self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="華士古分校",
+                       preferred=["MSA"], phone="85211110000", tutor_name="Ada")
+        _prospect(db_session, branch="MAC", phone_1="85211110001", tutor_name=None)
+
+        resp = get_conversion(year=2026, _admin=None, db=db_session)
+        ada = next(r for r in resp.by_tutor if r.tutor_name == "Ada")
+        assert (ada.branch, ada.prospects, ada.applied_regular, ada.enrolled_regular) == ("MAC", 1, 1, 1)
+        unattr = next(r for r in resp.by_tutor if r.tutor_name == "Unattributed")
+        assert unattr.prospects == 1 and unattr.applied_regular == 0
+        # Unattributed sorts last within its branch.
+        assert resp.by_tutor[-1].tutor_name == "Unattributed"
+
+    def test_regular_intention_vs_outcome(self, db_session, reg_cfg, tutor):
+        self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="華士古分校",
+                       preferred=["MSA"], phone="85222220000", wants_regular="Yes")
+        _prospect(db_session, branch="MAC", phone_1="85222220001", wants_regular="No")
+
+        resp = get_conversion(year=2026, _admin=None, db=db_session)
+        yes = next(r for r in resp.by_regular_intention if r.intention == "Yes")
+        assert yes.prospects == 1 and yes.applied_regular == 1 and yes.enrolled_regular == 1
+        no = next(r for r in resp.by_regular_intention if r.intention == "No")
+        assert no.prospects == 1 and no.applied_regular == 0
+        # Ladder order: Yes before No.
+        order = [r.intention for r in resp.by_regular_intention]
+        assert order.index("Yes") < order.index("No")
+
+    def test_by_school_and_unknown_bucket(self, db_session, reg_cfg, tutor):
+        self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="華士古分校",
+                       preferred=["MSA"], phone="85233330000", school="St Paul")
+        _prospect(db_session, branch="MAC", phone_1="85233330001", school=None)
+
+        resp = get_conversion(year=2026, _admin=None, db=db_session)
+        stp = next(r for r in resp.by_school if r.school == "St Paul")
+        assert stp.prospects == 1 and stp.enrolled_regular == 1
+        unknown = next(r for r in resp.by_school if r.school == "Unknown")
+        assert unknown.prospects == 1
+        # Unknown always sorts last regardless of count.
+        assert resp.by_school[-1].school == "Unknown"
+
+    def test_branch_movement_flags_crossing(self, db_session, reg_cfg, tutor):
+        # Wanted MSA, enrolled at MSB (二龍喉分校 -> MSB): a crossing.
+        self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="二龍喉分校",
+                       preferred=["MSA"], phone="85244440000")
+        # Wanted MSA, enrolled at MSA: matched.
+        self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="華士古分校",
+                       preferred=["MSA"], phone="85244440001")
+
+        resp = get_conversion(year=2026, _admin=None, db=db_session)
+        crossed = next(r for r in resp.branch_movement
+                       if r.wanted_branch == "MSA" and r.enrolled_branch == "MSB")
+        assert crossed.count == 1
+        matched = next(r for r in resp.branch_movement
+                       if r.wanted_branch == "MSA" and r.enrolled_branch == "MSA")
+        assert matched.count == 1
+
+    def test_lost_prospects_excludes_applicants_yes_first(self, db_session, reg_cfg, tutor):
+        # One who applied (not lost); two who did not, one keen, one not.
+        self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="華士古分校",
+                       preferred=["MSA"], phone="85255550000")
+        _prospect(db_session, name="Keen Chan", branch="MAC", phone_1="85255550001",
+                  wants_regular="Yes")
+        _prospect(db_session, name="Cold Wong", branch="MTA", phone_1="85255550002",
+                  wants_regular="No")
+
+        resp = get_conversion(year=2026, _admin=None, db=db_session)
+        names = [r.student_name for r in resp.lost_prospects]
+        assert "Keen Chan" in names and "Cold Wong" in names
+        # The enrolled applicant is not on the chase list.
+        assert all(r.wants_regular is not None for r in resp.lost_prospects)
+        assert len(resp.lost_prospects) == 2
+        # wants_regular == Yes sorts ahead of the rest.
+        assert resp.lost_prospects[0].student_name == "Keen Chan"
 
 
 class TestReverseSuggestions:

@@ -3416,17 +3416,75 @@ class RegularConversionBranchRow(BaseModel):
     enrolled_regular: int = 0
 
 
+class RegularConversionTutorRow(BaseModel):
+    """One submitting-tutor slice within a source branch: which P6 tutors bring
+    in prospects that go on to apply and enrol for regular."""
+    branch: str
+    tutor_name: str
+    prospects: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
+
+
+class RegularConversionIntentionRow(BaseModel):
+    """One stated-intention bucket (Yes / Considering / No / Unknown) against
+    what actually happened. Populated for both the regular-intention and the
+    summer-intention tables; each table reads the columns it cares about."""
+    intention: str
+    prospects: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
+    attended_summer: int = 0
+
+
+class RegularConversionSchoolRow(BaseModel):
+    """One feeder school's slice of the funnel."""
+    school: str
+    prospects: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
+
+
+class RegularConversionMovementRow(BaseModel):
+    """For enrolled prospects: the branch(es) they said they wanted vs the
+    branch they actually enrolled at, so crossings are visible."""
+    wanted_branch: str
+    enrolled_branch: str
+    count: int = 0
+
+
+class RegularConversionLostRow(BaseModel):
+    """A prospect with no regular application yet — the still-to-chase list."""
+    prospect_id: int
+    student_name: str
+    source_branch: str
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    wants_regular: Optional[str] = None
+    outreach_status: Optional[str] = None
+    attended_summer: bool = False
+
+
 class RegularConversionResponse(BaseModel):
     """Prospect -> summer -> regular conversion funnel for one year.
 
     Rows are per source branch; `totals` is the same shape summed across
     branches; `by_grade_stream` counts regular applicants by grade + effective
-    stream (F1C, F1E, ...) to feed 'how many F1C vs F1E classes to open'."""
+    stream (F1C, F1E, ...) to feed 'how many F1C vs F1E classes to open'. The
+    remaining axes slice the same funnel by submitting tutor, stated intention,
+    feeder school, and wanted-vs-enrolled branch; `lost_prospects` lists the
+    prospects with no regular application yet."""
     year: int
     branches: List[RegularConversionBranchRow]
     totals: RegularConversionBranchRow
     by_grade_stream_applied: Dict[str, int] = {}
     by_grade_stream_enrolled: Dict[str, int] = {}
+    by_tutor: List[RegularConversionTutorRow] = []
+    by_regular_intention: List[RegularConversionIntentionRow] = []
+    by_summer_intention: List[RegularConversionIntentionRow] = []
+    by_school: List[RegularConversionSchoolRow] = []
+    branch_movement: List[RegularConversionMovementRow] = []
+    lost_prospects: List[RegularConversionLostRow] = []
 class SavedReportDetailResponse(BaseModel):
     id: int
     student_id: int
