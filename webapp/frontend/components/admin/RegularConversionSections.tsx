@@ -33,13 +33,15 @@ function Section({
   title,
   subtitle,
   children,
+  id,
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  id?: string;
 }) {
   return (
-    <section>
+    <section id={id} className="scroll-mt-4">
       <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       <p className="text-xs text-muted-foreground mt-0.5 mb-2">{subtitle}</p>
       {children}
@@ -64,7 +66,8 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                   <th className={thNum}>Prospects</th>
                   <th className={thNum}>Applied</th>
                   <th className={thNum}>Enrolled</th>
-                  <th className={thNum} title="Enrolled as a share of prospects at this intention">Rate</th>
+                  <th className={thNum} title="Applied as a share of prospects at this intention">Apply %</th>
+                  <th className={thNum} title="Enrolled as a share of prospects at this intention">Enrol %</th>
                 </tr>
               </thead>
               <tbody className={rowDivide}>
@@ -74,10 +77,11 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                     <td className={tdNum}>{r.prospects}</td>
                     <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
                     <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
+                    <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.applied_regular, r.prospects)}</td>
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.enrolled_regular, r.prospects)}</td>
                   </tr>
                 ))}
-                {data.by_regular_intention.length === 0 && <EmptyRow span={5}>No prospects.</EmptyRow>}
+                {data.by_regular_intention.length === 0 && <EmptyRow span={6}>No prospects.</EmptyRow>}
               </tbody>
             </table>
           </div>
@@ -184,11 +188,29 @@ function MovementTable({ data }: { data: RegularConversionResponse }) {
   // A crossing is a concrete named branch that differs from where they enrolled.
   const isCrossing = (wanted: string, enrolled: string) =>
     wanted !== "None" && wanted !== enrolled && enrolled !== "Unknown";
+  // Summary over prospects who named a branch (exclude the "None" bucket).
+  const named = data.branch_movement.filter((r) => r.wanted_branch !== "None");
+  const namedTotal = named.reduce((s, r) => s + r.count, 0);
+  const crossed = named
+    .filter((r) => isCrossing(r.wanted_branch, r.enrolled_branch))
+    .reduce((s, r) => s + r.count, 0);
+  const matched = namedTotal - crossed;
   return (
     <Section
       title="Branch preference vs where they enrolled"
       subtitle="Enrolled prospects by the branch they named against the branch they actually joined. Highlighted rows crossed to a branch they did not name."
     >
+      {namedTotal > 0 && (
+        <p className="text-xs text-muted-foreground mb-2">
+          <span className="font-semibold text-foreground">{matched}</span> of {namedTotal} landed at a branch they named
+          {crossed > 0 && (
+            <>
+              {" · "}
+              <span className="font-semibold text-amber-700 dark:text-amber-400">{crossed}</span> crossed elsewhere
+            </>
+          )}
+        </p>
+      )}
       <div className={wrap}>
         <div className={scroll}>
           <table className="w-full text-xs min-w-[360px]">
@@ -225,6 +247,7 @@ function LostTable({ data }: { data: RegularConversionResponse }) {
   const rows = data.lost_prospects;
   return (
     <Section
+      id="conversion-still-to-chase"
       title={`Still to chase (${rows.length})`}
       subtitle="Prospects with no regular application yet. Open one to record outreach."
     >

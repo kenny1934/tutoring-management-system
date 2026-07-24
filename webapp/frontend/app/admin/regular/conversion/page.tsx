@@ -9,7 +9,7 @@ import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
 import { getGradeColor, splitGradeStream } from "@/lib/regular-utils";
-import { TrendingUp, Loader2, ChevronDown } from "lucide-react";
+import { TrendingUp, Loader2, ChevronDown, AlertTriangle } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { RegularConversionSections } from "@/components/admin/RegularConversionSections";
 import type { RegularConversionBranchRow } from "@/types";
@@ -40,6 +40,48 @@ function KpiCard({ label, value, sub, tone }: { label: string; value: string; su
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className={cn("text-xl font-semibold tabular-nums leading-tight mt-0.5", tone ?? "text-foreground")}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+// Default slot capacity, used only for the rough "classes to open" hint.
+const CLASS_CAPACITY = 8;
+
+/** Horizontal funnel of the three strictly-nested stages (prospects contains
+ *  applied contains enrolled), so the bars always narrow. Width encodes the
+ *  count as a share of prospects; every row is labelled so colour is never the
+ *  only cue. Intention ("wants regular") is left to the tables below because it
+ *  is soft and can exceed the applied count. */
+function FunnelChart({ totals }: { totals: RegularConversionBranchRow }) {
+  const base = totals.prospects || 1;
+  const stages = [
+    { label: "Prospects", value: totals.prospects, fill: "bg-slate-400 dark:bg-slate-500" },
+    { label: "Applied", value: totals.applied_regular, fill: "bg-indigo-500" },
+    { label: "Enrolled", value: totals.enrolled_regular, fill: "bg-purple-500" },
+  ];
+  return (
+    <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg p-4">
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold text-foreground">Regular funnel</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">Share of this year&apos;s prospects who applied and enrolled.</p>
+      </div>
+      <div className="space-y-2.5">
+        {stages.map((s) => {
+          const width = Math.round((s.value / base) * 100);
+          return (
+            <div key={s.label} className="flex items-center gap-3">
+              <div className="w-20 shrink-0 text-xs font-medium text-foreground">{s.label}</div>
+              <div className="flex-1 h-6 rounded bg-[#f0e6d8]/40 dark:bg-[#2a2520] overflow-hidden">
+                <div className={cn("h-full rounded", s.fill)} style={{ width: `${width}%` }} title={`${s.value} (${width}%)`} />
+              </div>
+              <div className="w-24 shrink-0 text-right text-xs tabular-nums">
+                <span className="font-semibold text-foreground">{s.value}</span>
+                <span className="text-muted-foreground"> · {width}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -79,6 +121,19 @@ export default function RegularConversionPage() {
     ]);
     return Array.from(keys).sort();
   }, [data]);
+
+  // Rough classes to open: each grade-stream rounds up independently, since a
+  // class never mixes grades or streams.
+  const totalClasses = useMemo(
+    () =>
+      data
+        ? gradeStreams.reduce(
+            (sum, gs) => sum + Math.ceil((data.by_grade_stream_applied[gs] ?? 0) / CLASS_CAPACITY),
+            0
+          )
+        : 0,
+    [data, gradeStreams]
+  );
 
   if (!canViewAdminPages) {
     return (
@@ -167,6 +222,29 @@ export default function RegularConversionPage() {
                 />
               </div>
 
+              {/* Still-to-chase callout: jumps to the list at the bottom */}
+              {data.lost_prospects.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    document
+                      .getElementById("conversion-still-to-chase")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }
+                  className="w-full flex items-center gap-2 rounded-lg border border-amber-300/70 dark:border-amber-700/50 bg-amber-50/70 dark:bg-amber-900/15 px-3 py-2 text-left text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/25 transition-colors"
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span className="font-medium">
+                    {data.lost_prospects.length} prospect{data.lost_prospects.length === 1 ? "" : "s"} still to chase
+                  </span>
+                  <span className="text-amber-700/80 dark:text-amber-400/80">no regular application yet</span>
+                  <span className="ml-auto underline">Jump to list</span>
+                </button>
+              )}
+
+              {/* Overall funnel */}
+              {data.totals.prospects > 0 && <FunnelChart totals={data.totals} />}
+
               {/* Per-branch funnel */}
               <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-x-auto">
                 <table className="w-full text-xs min-w-[860px]">
@@ -230,7 +308,14 @@ export default function RegularConversionPage() {
 
               {/* Grade-stream breakdown of regular applicants */}
               <div>
-                <h2 className="text-sm font-semibold text-foreground mb-2">Regular applicants by grade and stream</h2>
+                <div className="flex items-baseline justify-between gap-2 mb-2">
+                  <h2 className="text-sm font-semibold text-foreground">Regular applicants by grade and stream</h2>
+                  {gradeStreams.length > 0 && (
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      ~{totalClasses} class{totalClasses === 1 ? "" : "es"} at {CLASS_CAPACITY}/class
+                    </span>
+                  )}
+                </div>
                 {gradeStreams.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">No regular applications linked to prospects yet.</p>
                 ) : (
@@ -256,6 +341,11 @@ export default function RegularConversionPage() {
                           <div className="text-[11px] text-muted-foreground tabular-nums">
                             <span className="font-medium text-purple-600">{enrolled}</span> enrolled
                           </div>
+                          {applied > 0 && (
+                            <div className="text-[11px] text-muted-foreground/80 tabular-nums mt-0.5">
+                              ~{Math.ceil(applied / CLASS_CAPACITY)} class{Math.ceil(applied / CLASS_CAPACITY) === 1 ? "" : "es"}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
