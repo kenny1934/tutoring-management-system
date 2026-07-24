@@ -1505,6 +1505,7 @@ class PrimaryProspect(Base):
 
     # Linking
     summer_application_id = Column(Integer, ForeignKey("summer_applications.id"), nullable=True)
+    regular_application_id = Column(Integer, ForeignKey("regular_applications.id", ondelete="SET NULL"), nullable=True)
 
     # Audit
     submitted_at = Column(DateTime, server_default=func.now())
@@ -1512,6 +1513,7 @@ class PrimaryProspect(Base):
     edit_history = Column(JSON, default=list)
 
     summer_application = relationship("SummerApplication")
+    regular_application = relationship("RegularApplication")
 class ReportShare(Base):
     """Shareable parent report snapshots with token-based access."""
     __tablename__ = "report_shares"
@@ -1768,6 +1770,7 @@ class RegularCourseSlot(Base):
     time_slot = Column(String(50), nullable=False)  # display band, e.g. 10:00 - 11:30
     location = Column(String(255), nullable=False)  # branch display name
     grade = Column(String(50), nullable=True)  # optional target grade label
+    lang_stream = Column(String(20), nullable=True)  # optional stream (C/E); unset = any
     tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="SET NULL"), nullable=True)
     max_students = Column(Integer, nullable=False, default=6)
     created_at = Column(DateTime, server_default=func.now())

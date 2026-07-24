@@ -2466,6 +2466,9 @@ export interface LinkedSecondaryStudentInfo {
   school_student_id?: string | null;
   home_location?: string | null;
   has_current_year_regular_enrollment?: boolean | null;
+  /** The student record's language stream (C/E) — the system of record for
+   *  placement, so regular surfaces can resolve effective stream client-side. */
+  lang_stream?: string | null;
 }
 
 export interface LinkedPrimaryProspectInfo {
@@ -2949,11 +2952,14 @@ export interface PrimaryProspect {
   contact_notes: string | null;
   status: ProspectStatus;
   summer_application_id: number | null;
+  regular_application_id: number | null;
   submitted_at: string | null;
   updated_at: string | null;
   edit_history: Array<{ timestamp: string; field: string; old_value: string | null; new_value: string | null }>;
   matched_application_ref: string | null;
   matched_application_status: string | null;
+  matched_regular_ref: string | null;
+  matched_regular_status: string | null;
 }
 
 export interface PrimaryProspectBulkItem {
@@ -2990,6 +2996,8 @@ export interface PrimaryProspectStats {
   wants_regular_yes: number;
   wants_regular_considering: number;
   matched_to_application: number;
+  applied_regular: number;
+  enrolled_regular: number;
   outreach_not_started: number;
   outreach_wechat_added: number;
   outreach_wechat_not_found: number;
@@ -3725,6 +3733,55 @@ export interface RegularApplication {
   /** Whether the one-off registration fee still applies, decided by the same
    *  rule the fee message and publishing use. */
   is_new_student?: boolean;
+  /** P6 prospect journey, when a prospect links to this application. Null when
+   *  the applicant was never a tracked prospect. */
+  prospect_journey?: RegularProspectJourney | null;
+}
+
+/** P6 prospect journey attached to a linked regular application. */
+export interface RegularProspectJourney {
+  prospect_id: number;
+  source_branch?: string | null;
+  /** True when the prospect's summer application published an enrollment and
+   *  was not withdrawn. Splits the "MAC -> regular" and "MAC -> summer ->
+   *  regular" chip copy. */
+  attended_summer: boolean;
+}
+
+/** One ranked prospect candidate for a regular application (reverse match). */
+export interface RegularProspectSuggestion {
+  prospect_id: number;
+  student_name: string;
+  source_branch: string;
+  grade?: string | null;
+  phone_1?: string | null;
+  match_type: "student" | "phone" | "name" | "phone+name";
+  similarity?: number | null;
+  already_linked: boolean;
+}
+
+export interface RegularProspectSuggestResponse {
+  application_id: number;
+  suggestions: RegularProspectSuggestion[];
+}
+
+/** One branch's slice of the prospect -> regular conversion funnel. */
+export interface RegularConversionBranchRow {
+  branch: string;
+  prospects: number;
+  wants_summer_yes: number;
+  wants_regular_yes: number;
+  attended_summer: number;
+  applied_regular: number;
+  enrolled_regular: number;
+}
+
+export interface RegularConversionResponse {
+  year: number;
+  branches: RegularConversionBranchRow[];
+  totals: RegularConversionBranchRow;
+  by_grade_stream_applied: Record<string, number>;
+  by_grade_stream_enrolled: Record<string, number>;
 }
 
 /** A weekly slot's own fields, with no assignment state. Inlined on the
@@ -3736,6 +3793,8 @@ export interface RegularAssignedSlot {
   time_slot: string;
   location: string;
   grade?: string | null;
+  /** Language stream (C/E); unset = any. Pairs with grade to render F1C. */
+  lang_stream?: string | null;
   tutor_id?: number | null;
   tutor_name?: string | null;
   max_students: number;
@@ -3770,8 +3829,10 @@ export interface RegularDemandCell {
   time_slot: string;
   total_first_pref: number;
   total_second_pref: number;
-  by_grade_first: Record<string, number>;
-  by_grade_second: Record<string, number>;
+  /** Keyed by grade + effective stream (F1C, F1E, ...); bare grade (F1) when
+   *  no stream resolves. Separates the Chinese and English streams in the grid. */
+  by_grade_stream_first: Record<string, number>;
+  by_grade_stream_second: Record<string, number>;
 }
 
 export interface RegularDemandResponse {
@@ -3825,6 +3886,7 @@ export interface RegularSlotCreate {
   time_slot: string;
   location: string;
   grade?: string | null;
+  lang_stream?: string | null;
   tutor_id?: number | null;
   max_students?: number;
 }
@@ -3834,6 +3896,7 @@ export interface RegularSlotUpdate {
   time_slot?: string;
   location?: string;
   grade?: string | null;
+  lang_stream?: string | null;
   tutor_id?: number | null;
   max_students?: number;
 }
@@ -3877,6 +3940,7 @@ export interface RegularSuggestion {
   time_slot: string;
   location: string;
   grade?: string | null;
+  lang_stream?: string | null;
   tutor_name?: string | null;
   assigned_count: number;
   max_students: number;

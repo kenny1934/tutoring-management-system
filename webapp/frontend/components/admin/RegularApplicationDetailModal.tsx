@@ -11,7 +11,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, displayLocation, DAY_ABBREV,
-  getRegularTimeSlots,
+  getRegularTimeSlots, effectiveStream,
 } from "@/lib/regular-utils";
 import { firstWeekdayOnOrAfter } from "@/lib/regular-publish-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
@@ -24,11 +24,13 @@ import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { RegularMessagePanel, type RegularMessageMode } from "./RegularMessagePanel";
 import { ChecklistRow } from "./ChecklistRow";
+import { ProspectJourneyChip } from "./ProspectJourneyChip";
+import { RegularProspectSuggestionsModal } from "./RegularProspectSuggestionsModal";
 import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
   User, Phone, MapPin, Clock, Grid3X3, Search, UserPlus, ArrowRight, FileText,
-  DollarSign,
+  DollarSign, Link2,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { useDebouncedValue } from "@/lib/hooks";
@@ -288,6 +290,9 @@ export function RegularApplicationDetailModal({
   // Parent messages (schedule offer / fee)
   const [messagePanel, setMessagePanel] = useState<RegularMessageMode | null>(null);
   const [openStepIdx, setOpenStepIdx] = useState<number | null>(null);
+  // Prospect journey linking (Feature 2), a direct action outside Save Changes.
+  const [prospectModalOpen, setProspectModalOpen] = useState(false);
+  const [prospectBusy, setProspectBusy] = useState(false);
 
   // Publish form
   const [pubLocation, setPubLocation] = useState("MSA");
@@ -623,6 +628,21 @@ export function RegularApplicationDetailModal({
     setShowManualId(false);
     setManualIdInput("");
     setManualIdConfirmed("");
+  };
+
+  // Prospect linking writes the prospect row immediately (like the summer side),
+  // so it is a direct API action rather than part of Save Changes.
+  const handleUnlinkProspect = async () => {
+    setProspectBusy(true);
+    try {
+      await regularAPI.linkProspect(app.id, null);
+      showToast("Prospect unlinked", "success");
+      onUpdated();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Unlink failed", "error");
+    } finally {
+      setProspectBusy(false);
+    }
   };
 
   // Publish gating: mirror the backend's hard blocks so the button can explain
@@ -970,9 +990,9 @@ export function RegularApplicationDetailModal({
                       {app.grade && (
                         <span
                           className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
-                          style={{ backgroundColor: getGradeColor(app.grade, app.lang_stream || undefined) }}
+                          style={{ backgroundColor: getGradeColor(app.grade, effectiveStream(app) || undefined) }}
                         >
-                          {app.grade}{app.lang_stream || ""}
+                          {app.grade}{effectiveStream(app) || ""}
                         </span>
                       )}
                       {app.school && (
@@ -1379,6 +1399,48 @@ export function RegularApplicationDetailModal({
                 </div>
               </ChecklistRow>
 
+              {/* P6 prospect journey link (Feature 2). Not a numbered step — a
+                  compact panel beside the student link, since it edits the
+                  prospect row directly rather than the application. */}
+              {(canEdit || app.prospect_journey) && (
+                <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-3 py-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-semibold text-foreground">P6 prospect</span>
+                    {app.prospect_journey ? (
+                      <ProspectJourneyChip journey={app.prospect_journey} />
+                    ) : (
+                      <span className="text-[10px] italic text-muted-foreground">Not a tracked prospect</span>
+                    )}
+                    {canEdit && (
+                      <div className="ml-auto flex items-center gap-2">
+                        {app.prospect_journey ? (
+                          <button
+                            type="button"
+                            onClick={handleUnlinkProspect}
+                            disabled={prospectBusy}
+                            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                            title="Clear the prospect link"
+                          >
+                            <Unlink className="h-3 w-3" />
+                            Unlink
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setProspectModalOpen(true)}
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            title="Find and link a P6 prospect"
+                          >
+                            <Link2 className="h-3 w-3" />
+                            Find prospect
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* The schedule offer, then the fee message. Both are generated
                   from the same schedule and fee inputs the publish step uses. */}
               <ChecklistRow
@@ -1751,6 +1813,13 @@ export function RegularApplicationDetailModal({
           phone: app.contact_phone ?? undefined,
           home_location: systemLocation || undefined,
         }}
+      />
+
+      <RegularProspectSuggestionsModal
+        isOpen={prospectModalOpen}
+        onClose={() => setProspectModalOpen(false)}
+        applicationId={app.id}
+        onLinked={onUpdated}
       />
 
       <ConfirmDialog

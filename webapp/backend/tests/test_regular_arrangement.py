@@ -34,6 +34,7 @@ from routers.regular_course import (
     assign_application_slot,
     list_applications,
     suggest_slots,
+    get_demand,
     publish_application,
     get_tutor_duties,
     bulk_set_tutor_duties,
@@ -101,13 +102,15 @@ def config(db_session):
 
 
 def _make_slot(db_session, config, *, day="Tuesday", time="16:45 - 18:15",
-               location="華士古分校", grade=None, tutor_id=None, max_students=6):
+               location="華士古分校", grade=None, stream=None, tutor_id=None,
+               max_students=6):
     slot = RegularCourseSlot(
         config_id=config.id,
         slot_day=day,
         time_slot=time,
         location=location,
         grade=grade,
+        lang_stream=stream,
         tutor_id=tutor_id,
         max_students=max_students,
     )
@@ -560,6 +563,80 @@ class TestSuggest:
         app = _make_app(db_session, config, slot_id=slot.id)
         resp = _suggest(db_session, config, app)
         assert all(s.slot_id != slot.id for s in resp.suggestions)
+
+
+# ---------------------------------------------------------------------------
+# Language-stream placement (Feature 1)
+# ---------------------------------------------------------------------------
+
+class TestStreamPlacement:
+    def test_stream_incompatible_slot_excluded(self, db_session, config):
+        c_slot = _make_slot(db_session, config, grade="F1", stream="C")
+        e_slot = _make_slot(db_session, config, day="Saturday",
+                            time="10:00 - 11:30", grade="F1", stream="E")
+        app = _make_app(db_session, config, grade="F1", stream="E", p1=None, p2=None)
+        ids = {s.slot_id for s in _suggest(db_session, config, app).suggestions}
+        assert c_slot.id not in ids  # hard filter drops the wrong stream
+        assert e_slot.id in ids
+
+    def test_unset_stream_slot_is_never_filtered_out(self, db_session, config):
+        any_slot = _make_slot(db_session, config, grade="F1")  # stream unset = any
+        app = _make_app(db_session, config, grade="F1", stream="C", p1=None, p2=None)
+        ids = {s.slot_id for s in _suggest(db_session, config, app).suggestions}
+        assert any_slot.id in ids
+
+    def test_int_applicant_matches_an_e_slot(self, db_session, config):
+        e_slot = _make_slot(db_session, config, grade="F1", stream="E")
+        c_slot = _make_slot(db_session, config, day="Saturday",
+                            time="10:00 - 11:30", grade="F1", stream="C")
+        app = _make_app(db_session, config, grade="F1", stream="Int", p1=None, p2=None)
+        resp = _suggest(db_session, config, app)
+        ids = {s.slot_id for s in resp.suggestions}
+        assert e_slot.id in ids  # Int folds into E
+        assert c_slot.id not in ids
+        e_sug = next(s for s in resp.suggestions if s.slot_id == e_slot.id)
+        assert "stream_match" in e_sug.reasons  # and earns the exact-match bonus
+
+    def test_linked_student_record_wins_over_submitted_stream(self, db_session, config, student):
+        # Submitted E, but the linked student record says C — the record wins.
+        student.lang_stream = "C"
+        db_session.commit()
+        c_slot = _make_slot(db_session, config, grade="F1", stream="C")
+        e_slot = _make_slot(db_session, config, day="Saturday",
+                            time="10:00 - 11:30", grade="F1", stream="E")
+        app = _make_app(db_session, config, grade="F1", stream="E",
+                        student_id=student.id, p1=None, p2=None)
+        ids = {s.slot_id for s in _suggest(db_session, config, app).suggestions}
+        assert c_slot.id in ids
+        assert e_slot.id not in ids
+
+    def test_exact_slot_stream_match_earns_the_bonus(self, db_session, config):
+        e_slot = _make_slot(db_session, config, grade="F1", stream="E")
+        app = _make_app(db_session, config, grade="F1", stream="E", p1=None, p2=None)
+        resp = _suggest(db_session, config, app)
+        sug = next(s for s in resp.suggestions if s.slot_id == e_slot.id)
+        assert "stream_match" in sug.reasons
+
+    def test_assignment_to_mismatched_stream_succeeds(self, db_session, config, admin):
+        # Decision 3: manual assignment warns, never blocks.
+        e_slot = _make_slot(db_session, config, grade="F1", stream="E")
+        app = _make_app(db_session, config, grade="F1", stream="C")
+        resp = _assign(db_session, admin, app, e_slot.id)
+        assert resp.assigned_slot_id == e_slot.id
+
+    def test_demand_buckets_by_grade_stream(self, db_session, config):
+        _make_app(db_session, config, grade="F1", stream="C",
+                  p1=("Tuesday", "16:45 - 18:15"), p2=None)
+        _make_app(db_session, config, grade="F1", stream="E",
+                  p1=("Tuesday", "16:45 - 18:15"), p2=None)
+        _make_app(db_session, config, grade="F1", stream="Int",
+                  p1=("Tuesday", "16:45 - 18:15"), p2=None)  # folds into F1E
+        resp = get_demand(config_id=config.id, location="華士古分校",
+                          _admin=None, db=db_session)
+        cell = next(c for c in resp.cells
+                    if c.day == "Tuesday" and c.time_slot == "16:45 - 18:15")
+        assert cell.by_grade_stream_first.get("F1C") == 1
+        assert cell.by_grade_stream_first.get("F1E") == 2  # C-stream apart from E
 
 
 # ---------------------------------------------------------------------------

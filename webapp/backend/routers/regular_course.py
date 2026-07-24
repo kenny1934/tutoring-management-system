@@ -31,6 +31,8 @@ from models import (
     RegularTutorDuty,
     Discount,
     Enrollment,
+    PrimaryProspect,
+    SummerApplication,
     SessionLog,
     Student,
     Tutor,
@@ -56,6 +58,7 @@ from schemas import (
     RegularSlotStudentInfo,
     RegularSlotResponse,
     RegularSlotAssignRequest,
+    RegularProspectLinkRequest,
     RegularSuggestion,
     RegularSuggestResponse,
     RegularPublishRequest,
@@ -69,9 +72,16 @@ from schemas import (
     TutorDutyBulkSet,
     TutorDutyResponse,
     LinkedSecondaryStudentInfo,
+    RegularProspectJourney,
+    RegularProspectSuggestion,
+    RegularProspectSuggestResponse,
+    RegularConversionResponse,
+    RegularConversionBranchRow,
 )
 from auth.dependencies import require_admin_view, require_admin_write
 from routers.students import find_duplicate_students
+from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
+from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
@@ -283,6 +293,21 @@ def _application_search_clause(search: str):
     )
 
 
+def effective_stream(app: RegularApplication) -> Optional[str]:
+    """The language stream that governs placement for an application.
+
+    The linked student record wins when present — it is the system of record and
+    only ever holds C or E. Otherwise the submitted application value, with the
+    International stream folded into E for matching and colour (a class is never
+    International; a student sits in C or E). Returns None when nothing is set.
+    """
+    student = app.existing_student if app.existing_student_id else None
+    if student is not None and getattr(student, "lang_stream", None):
+        return student.lang_stream
+    raw = (app.lang_stream or "").strip()
+    return "E" if raw == "Int" else (raw or None)
+
+
 def _get_linked_students_bulk(
     db: Session, student_ids: list[int]
 ) -> dict[int, LinkedSecondaryStudentInfo]:
@@ -296,6 +321,7 @@ def _get_linked_students_bulk(
             student_name=s.student_name,
             school_student_id=s.school_student_id,
             home_location=s.home_location,
+            lang_stream=s.lang_stream,
         )
         for s in rows
     }
@@ -344,6 +370,7 @@ def _get_assigned_slots_bulk(
             time_slot=s.time_slot,
             location=s.location,
             grade=s.grade,
+            lang_stream=s.lang_stream,
             tutor_id=s.tutor_id,
             tutor_name=tutor_name,
             max_students=s.max_students,
@@ -405,6 +432,49 @@ def _new_student_flags_bulk(
     }
 
 
+def _prospect_journeys_bulk(
+    db: Session, apps: list[RegularApplication]
+) -> dict[int, RegularProspectJourney]:
+    """Journey block for each application a P6 prospect links to, in two queries.
+
+    attended_summer is true when the prospect's summer application published an
+    enrollment (row existence is the signal — unpublish deletes it) and that
+    application was not withdrawn."""
+    app_ids = [a.id for a in apps]
+    if not app_ids:
+        return {}
+    prospects = (
+        db.query(PrimaryProspect)
+        .options(joinedload(PrimaryProspect.summer_application))
+        .filter(PrimaryProspect.regular_application_id.in_(app_ids))
+        .all()
+    )
+    if not prospects:
+        return {}
+    summer_app_ids = {p.summer_application_id for p in prospects if p.summer_application_id}
+    enrolled_summer_ids: set[int] = set()
+    if summer_app_ids:
+        enrolled_summer_ids = {
+            sid for (sid,) in db.query(Enrollment.summer_application_id)
+            .filter(Enrollment.summer_application_id.in_(summer_app_ids))
+            if sid is not None
+        }
+    result: dict[int, RegularProspectJourney] = {}
+    for p in prospects:
+        sa = p.summer_application
+        attended = (
+            p.summer_application_id in enrolled_summer_ids
+            and sa is not None
+            and sa.application_status != "Withdrawn"
+        )
+        result[p.regular_application_id] = RegularProspectJourney(
+            prospect_id=p.id,
+            source_branch=p.source_branch,
+            attended_summer=bool(attended),
+        )
+    return result
+
+
 def _build_application_responses(
     db: Session, apps: list[RegularApplication]
 ) -> list[RegularApplicationResponse]:
@@ -415,6 +485,7 @@ def _build_application_responses(
     published = _get_published_enrollment_ids(db, [a.id for a in apps])
     slots = _get_assigned_slots_bulk(db, [a.assigned_slot_id for a in apps])
     new_student = _new_student_flags_bulk(db, apps)
+    journeys = _prospect_journeys_bulk(db, apps)
     responses = []
     for app in apps:
         data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
@@ -426,6 +497,7 @@ def _build_application_responses(
             slots.get(app.assigned_slot_id) if app.assigned_slot_id else None
         )
         data["is_new_student"] = new_student[app.id]
+        data["prospect_journey"] = journeys.get(app.id)
         responses.append(RegularApplicationResponse.model_validate(data))
     return responses
 
@@ -992,9 +1064,15 @@ def get_demand(
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """Demand summary: preference counts by day x time_slot x grade."""
+    """Demand summary: preference counts by day x time_slot x grade-stream.
+
+    Buckets are keyed by grade + effective stream (F1C, F1E, ...) so the grid can
+    tell a Chinese-stream class apart from an English one at a glance. The stream
+    is resolved the same way placement resolves it, so demand and suggestions
+    agree; an application with no resolvable stream keys on the bare grade."""
     apps = (
         db.query(RegularApplication)
+        .options(joinedload(RegularApplication.existing_student))
         .filter(
             RegularApplication.config_id == config_id,
             RegularApplication.preferred_location == location,
@@ -1005,13 +1083,14 @@ def get_demand(
 
     cells: dict[tuple[str, str], dict] = {}
     for app in apps:
+        key_gs = f"{app.grade or ''}{effective_stream(app) or ''}"
         primary_slots, backup_slots = _classify_prefs(app)
         for key in primary_slots:
             cell = cells.setdefault(key, {"first": {}, "second": {}})
-            cell["first"][app.grade] = cell["first"].get(app.grade, 0) + 1
+            cell["first"][key_gs] = cell["first"].get(key_gs, 0) + 1
         for key in backup_slots:
             cell = cells.setdefault(key, {"first": {}, "second": {}})
-            cell["second"][app.grade] = cell["second"].get(app.grade, 0) + 1
+            cell["second"][key_gs] = cell["second"].get(key_gs, 0) + 1
 
     demand_cells = [
         RegularDemandCell(
@@ -1019,8 +1098,8 @@ def get_demand(
             time_slot=time,
             total_first_pref=sum(data["first"].values()),
             total_second_pref=sum(data["second"].values()),
-            by_grade_first=data["first"],
-            by_grade_second=data["second"],
+            by_grade_stream_first=data["first"],
+            by_grade_stream_second=data["second"],
         )
         for (day, time), data in sorted(cells.items())
     ]
@@ -1073,6 +1152,7 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             time_slot=s.time_slot,
             location=s.location,
             grade=s.grade,
+            lang_stream=s.lang_stream,
             tutor_id=s.tutor_id,
             tutor_name=tutor_names.get(s.tutor_id) if s.tutor_id else None,
             max_students=s.max_students,
@@ -1255,6 +1335,246 @@ def assign_application_slot(
     return _build_application_responses(db, [app])[0]
 
 
+# ============================================
+# Prospect journey: link editing + reverse suggestions
+# ============================================
+
+@router.patch("/regular/applications/{app_id}/prospect", response_model=RegularApplicationResponse)
+def link_application_prospect(
+    app_id: int,
+    req: RegularProspectLinkRequest,
+    admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Link a P6 prospect to this application (prospect_id null unlinks).
+
+    The link lives on the prospect row, mirroring the summer link; an
+    application holds at most one prospect, so any prospect already pointing
+    here is cleared before the new one is set."""
+    app = db.query(RegularApplication).filter(RegularApplication.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    admin_label = admin.user_email or "admin"
+    current = (
+        db.query(PrimaryProspect)
+        .filter(PrimaryProspect.regular_application_id == app_id)
+        .first()
+    )
+    old_prospect_id = current.id if current else None
+
+    if req.prospect_id is not None:
+        if req.prospect_id == old_prospect_id:
+            return _build_application_responses(db, [app])[0]  # no-op
+        prospect = db.query(PrimaryProspect).filter(PrimaryProspect.id == req.prospect_id).first()
+        if not prospect:
+            raise HTTPException(status_code=404, detail="Prospect not found")
+        if current is not None and current.id != prospect.id:
+            current.regular_application_id = None
+            current.updated_at = hk_now()
+        prospect.regular_application_id = app_id
+        prospect.updated_at = hk_now()
+        new_prospect_id = prospect.id
+    else:
+        if current is None:
+            return _build_application_responses(db, [app])[0]  # already unlinked
+        current.regular_application_id = None
+        current.updated_at = hk_now()
+        new_prospect_id = None
+
+    db.add(RegularApplicationEdit(
+        application_id=app.id,
+        edited_at=hk_now(),
+        field_name="prospect_link",
+        old_value=str(old_prospect_id) if old_prospect_id is not None else None,
+        new_value=str(new_prospect_id) if new_prospect_id is not None else None,
+        edited_via="admin",
+        edited_by=admin_label,
+    ))
+    db.commit()
+    db.refresh(app)
+    return _build_application_responses(db, [app])[0]
+
+
+@router.get(
+    "/regular/applications/{app_id}/prospect-suggestions",
+    response_model=RegularProspectSuggestResponse,
+)
+def suggest_prospects_for_application(
+    app_id: int,
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Ranked P6 prospect candidates for one regular application.
+
+    The summer matcher's cascade, run in reverse: a prospect whose summer
+    application resolves to this application's linked student (exact), then a
+    phone match, then name similarity."""
+    app = db.query(RegularApplication).filter(RegularApplication.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    cfg_year = (
+        db.query(RegularCourseConfig.year)
+        .filter(RegularCourseConfig.id == app.config_id)
+        .scalar()
+    )
+    q = db.query(PrimaryProspect)
+    if cfg_year is not None:
+        q = q.filter(PrimaryProspect.year == cfg_year)
+    prospects = q.all()
+
+    app_phones = {normalize_phone(app.contact_phone)} - {""}
+
+    # Exact via shared student: prospect -> summer_application -> existing_student_id.
+    sid_by_prospect: dict[int, Optional[int]] = {}
+    if app.existing_student_id:
+        summer_app_ids = {p.summer_application_id for p in prospects if p.summer_application_id}
+        if summer_app_ids:
+            sid_by_summer = dict(
+                db.query(SummerApplication.id, SummerApplication.existing_student_id)
+                .filter(SummerApplication.id.in_(summer_app_ids))
+                .all()
+            )
+            for p in prospects:
+                sid_by_prospect[p.id] = sid_by_summer.get(p.summer_application_id)
+
+    suggestions: list[RegularProspectSuggestion] = []
+    for p in prospects:
+        signals: set[str] = set()
+        similarity = 0
+        if app.existing_student_id and sid_by_prospect.get(p.id) == app.existing_student_id:
+            signals.add("student")
+        p_phones = {normalize_phone(p.phone_1), normalize_phone(p.phone_2)} - {""}
+        if app_phones and (app_phones & p_phones):
+            signals.add("phone")
+        if app.student_name and p.student_name:
+            score = name_similarity(p.student_name, app.student_name)
+            if score >= NAME_CANDIDATE_THRESHOLD:
+                signals.add("name")
+                similarity = score
+        if not signals:
+            continue
+        if "student" in signals:
+            match_type = "student"
+        elif signals >= {"phone", "name"}:
+            match_type = "phone+name"
+        elif "phone" in signals:
+            match_type = "phone"
+        else:
+            match_type = "name"
+        suggestions.append(RegularProspectSuggestion(
+            prospect_id=p.id,
+            student_name=p.student_name,
+            source_branch=p.source_branch,
+            grade=p.grade,
+            phone_1=p.phone_1,
+            match_type=match_type,
+            similarity=similarity if "name" in signals else None,
+            already_linked=(
+                p.regular_application_id is not None and p.regular_application_id != app_id
+            ),
+        ))
+
+    rank = {"student": 0, "phone+name": 1, "phone": 2, "name": 3}
+    suggestions.sort(key=lambda s: (rank.get(s.match_type, 9), -(s.similarity or 0)))
+    return RegularProspectSuggestResponse(application_id=app_id, suggestions=suggestions[:8])
+
+
+@router.get("/regular/conversion", response_model=RegularConversionResponse)
+def get_conversion(
+    year: int = Query(...),
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Prospect -> summer -> regular conversion funnel for one year.
+
+    Sliced per source branch, with a grade-stream breakdown of regular
+    applicants to feed 'how many F1C vs F1E classes to open'. attended_summer
+    and enrolled_regular read enrollment-row existence, the same signal the
+    journey chip uses, so the two reconcile."""
+    prospects = db.query(PrimaryProspect).filter(PrimaryProspect.year == year).all()
+
+    summer_app_ids = {p.summer_application_id for p in prospects if p.summer_application_id}
+    enrolled_summer_ids: set[int] = set()
+    withdrawn_summer_ids: set[int] = set()
+    if summer_app_ids:
+        enrolled_summer_ids = {
+            sid for (sid,) in db.query(Enrollment.summer_application_id)
+            .filter(Enrollment.summer_application_id.in_(summer_app_ids))
+            if sid is not None
+        }
+        withdrawn_summer_ids = {
+            aid for (aid,) in db.query(SummerApplication.id)
+            .filter(
+                SummerApplication.id.in_(summer_app_ids),
+                SummerApplication.application_status == "Withdrawn",
+            )
+        }
+
+    regular_app_ids = {p.regular_application_id for p in prospects if p.regular_application_id}
+    enrolled_regular_ids: set[int] = set()
+    grade_stream_by_app: dict[int, str] = {}
+    if regular_app_ids:
+        enrolled_regular_ids = {
+            rid for (rid,) in db.query(Enrollment.regular_application_id)
+            .filter(Enrollment.regular_application_id.in_(regular_app_ids))
+            if rid is not None
+        }
+        reg_apps = (
+            db.query(RegularApplication)
+            .options(joinedload(RegularApplication.existing_student))
+            .filter(RegularApplication.id.in_(regular_app_ids))
+            .all()
+        )
+        for a in reg_apps:
+            grade_stream_by_app[a.id] = f"{a.grade or ''}{effective_stream(a) or ''}"
+
+    rows: dict[str, RegularConversionBranchRow] = {}
+    by_gs_applied: dict[str, int] = {}
+    by_gs_enrolled: dict[str, int] = {}
+    for p in prospects:
+        row = rows.setdefault(p.source_branch, RegularConversionBranchRow(branch=p.source_branch))
+        row.prospects += 1
+        if p.wants_summer == "Yes":
+            row.wants_summer_yes += 1
+        if p.wants_regular == "Yes":
+            row.wants_regular_yes += 1
+        attended = (
+            p.summer_application_id in enrolled_summer_ids
+            and p.summer_application_id not in withdrawn_summer_ids
+        )
+        if attended:
+            row.attended_summer += 1
+        if p.regular_application_id is not None:
+            row.applied_regular += 1
+            gs = grade_stream_by_app.get(p.regular_application_id)
+            if gs:
+                by_gs_applied[gs] = by_gs_applied.get(gs, 0) + 1
+            if p.regular_application_id in enrolled_regular_ids:
+                row.enrolled_regular += 1
+                if gs:
+                    by_gs_enrolled[gs] = by_gs_enrolled.get(gs, 0) + 1
+
+    branches = [rows[b] for b in sorted(rows)]
+    totals = RegularConversionBranchRow(
+        branch="All",
+        prospects=sum(r.prospects for r in branches),
+        wants_summer_yes=sum(r.wants_summer_yes for r in branches),
+        wants_regular_yes=sum(r.wants_regular_yes for r in branches),
+        attended_summer=sum(r.attended_summer for r in branches),
+        applied_regular=sum(r.applied_regular for r in branches),
+        enrolled_regular=sum(r.enrolled_regular for r in branches),
+    )
+    return RegularConversionResponse(
+        year=year,
+        branches=branches,
+        totals=totals,
+        by_grade_stream_applied=by_gs_applied,
+        by_grade_stream_enrolled=by_gs_enrolled,
+    )
+
+
 def _norm_school(school: Optional[str]) -> Optional[str]:
     s = (school or "").strip().lower()
     return s or None
@@ -1293,6 +1613,7 @@ def suggest_slots(
     if slot_infos:
         for member in (
             db.query(RegularApplication)
+            .options(joinedload(RegularApplication.existing_student))
             .filter(RegularApplication.assigned_slot_id.in_(slot_infos.keys()))
             .all()
         ):
@@ -1301,6 +1622,7 @@ def suggest_slots(
     tutor_names = _get_tutor_names_bulk(db, slots)
 
     app_school = _norm_school(app.school)
+    app_stream = effective_stream(app)
     suggestions: list[RegularSuggestion] = []
     for slot in slots:
         if slot.id == app.assigned_slot_id:
@@ -1310,6 +1632,8 @@ def suggest_slots(
             continue  # capacity-strict
         if slot.grade and slot.grade != app.grade:
             continue  # grade-incompatible
+        if slot.lang_stream and app_stream and slot.lang_stream != app_stream:
+            continue  # stream-incompatible (hard filter)
 
         score = 0
         reasons: list[str] = []
@@ -1332,8 +1656,14 @@ def suggest_slots(
             reasons.append("same_grade")
         else:
             score += 40  # grade-unset slot: compatible but weaker signal
-        if app.lang_stream and assigned:
-            stream_matches = sum(1 for m in assigned if m.lang_stream == app.lang_stream)
+        if slot.lang_stream and app_stream and slot.lang_stream == app_stream:
+            # The slot itself declares the stream — an exact match is the signal.
+            score += 30
+            reasons.append("stream_match")
+        elif not slot.lang_stream and app_stream and assigned:
+            # Unset-stream slot gives no signal of its own, so fall back to the
+            # already-assigned members' majority stream.
+            stream_matches = sum(1 for m in assigned if effective_stream(m) == app_stream)
             if stream_matches * 2 >= len(assigned):
                 score += 30
                 reasons.append("stream_match")
@@ -1349,6 +1679,7 @@ def suggest_slots(
             time_slot=slot.time_slot,
             location=slot.location,
             grade=slot.grade,
+            lang_stream=slot.lang_stream,
             tutor_name=tutor_names.get(slot.tutor_id) if slot.tutor_id else None,
             assigned_count=len(assigned),
             max_students=slot.max_students,

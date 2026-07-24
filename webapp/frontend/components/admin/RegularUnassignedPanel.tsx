@@ -7,7 +7,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BORDER, DAY_ABBREV } from "@/lib/regular-utils";
+import { SUMMER_GRADE_BORDER, DAY_ABBREV, effectiveStream } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import {
   REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS, REGULAR_STATUS_ICONS,
@@ -114,7 +114,9 @@ function SuggestionList({
             <span className="font-semibold font-mono">
               {DAY_ABBREV[s.slot_day] || s.slot_day} {s.time_slot}
             </span>
-            {s.grade && <span className="text-muted-foreground">{s.grade}</span>}
+            {(s.grade || s.lang_stream) && (
+              <span className="text-muted-foreground">{s.grade ?? ""}{s.lang_stream ?? ""}</span>
+            )}
             <span className="text-muted-foreground truncate">
               {s.tutor_name || "No tutor"}
             </span>
@@ -416,7 +418,8 @@ export function RegularUnassignedPanel({
                             student_name: app.student_name,
                             school_student_id: app.linked_student?.school_student_id || undefined,
                             grade: app.grade,
-                            lang_stream: app.lang_stream ?? undefined,
+                            // Effective stream so Int colours as English, never grey.
+                            lang_stream: effectiveStream(app) ?? undefined,
                           }}
                         />
                       </div>

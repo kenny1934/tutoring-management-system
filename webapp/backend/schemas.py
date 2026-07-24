@@ -2461,6 +2461,9 @@ class LinkedSecondaryStudentInfo(BaseModel):
     student_name: str
     school_student_id: Optional[str] = None
     home_location: Optional[str] = None
+    # The student record's language stream (C/E), the system of record for
+    # placement — lets the regular surfaces resolve effective stream client-side.
+    lang_stream: Optional[str] = None
     # True if the student has any non-Summer enrollment whose first_lesson_date
     # falls within the summer config's academic-year window. Drives receipt-code
     # suggestion (RT(a) only fires when this is False). None = not computed.
@@ -3130,6 +3133,7 @@ class PrimaryProspectAdminUpdate(BaseModel):
     contact_notes: Optional[str] = None
     status: Optional[str] = Field(None, max_length=20)
     summer_application_id: Optional[int] = None
+    regular_application_id: Optional[int] = None
 
 
 class PrimaryProspectResponse(BaseModel):
@@ -3158,12 +3162,16 @@ class PrimaryProspectResponse(BaseModel):
     contact_notes: Optional[str] = None
     status: str = 'New'
     summer_application_id: Optional[int] = None
+    regular_application_id: Optional[int] = None
     submitted_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     edit_history: Optional[List[Dict[str, Any]]] = None
     # Joined from summer_application when matched
     matched_application_ref: Optional[str] = None
     matched_application_status: Optional[str] = None
+    # Joined from regular_application when matched
+    matched_regular_ref: Optional[str] = None
+    matched_regular_status: Optional[str] = None
 # Student Progress Schemas
 # ============================================
 
@@ -3362,6 +3370,9 @@ class PrimaryProspectStats(BaseModel):
     wants_regular_yes: int = 0
     wants_regular_considering: int = 0
     matched_to_application: int = 0
+    # Regular-intake outcomes for the dashboard funnel.
+    applied_regular: int = 0
+    enrolled_regular: int = 0
     outreach_not_started: int = 0
     outreach_wechat_added: int = 0
     outreach_wechat_not_found: int = 0
@@ -3374,6 +3385,48 @@ class PrimaryProspectMatchResult(BaseModel):
     """Result of matching a prospect to summer applications."""
     prospect_id: int
     matches: List[Dict[str, Any]]  # [{application_id, reference_code, student_name, contact_phone, match_type}]
+
+
+class RegularProspectSuggestion(BaseModel):
+    """One ranked prospect candidate for a regular application (reverse match)."""
+    prospect_id: int
+    student_name: str
+    source_branch: str
+    grade: Optional[str] = None
+    phone_1: Optional[str] = None
+    match_type: str  # student | phone | name | phone+name
+    similarity: Optional[int] = None
+    already_linked: bool = False  # already tied to a different regular application
+
+
+class RegularProspectSuggestResponse(BaseModel):
+    """Ranked prospect candidates for one regular application."""
+    application_id: int
+    suggestions: List[RegularProspectSuggestion]
+
+
+class RegularConversionBranchRow(BaseModel):
+    """One branch's slice of the prospect -> regular funnel."""
+    branch: str
+    prospects: int = 0
+    wants_summer_yes: int = 0
+    wants_regular_yes: int = 0
+    attended_summer: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
+
+
+class RegularConversionResponse(BaseModel):
+    """Prospect -> summer -> regular conversion funnel for one year.
+
+    Rows are per source branch; `totals` is the same shape summed across
+    branches; `by_grade_stream` counts regular applicants by grade + effective
+    stream (F1C, F1E, ...) to feed 'how many F1C vs F1E classes to open'."""
+    year: int
+    branches: List[RegularConversionBranchRow]
+    totals: RegularConversionBranchRow
+    by_grade_stream_applied: Dict[str, int] = {}
+    by_grade_stream_enrolled: Dict[str, int] = {}
 class SavedReportDetailResponse(BaseModel):
     id: int
     student_id: int
@@ -3816,9 +3869,22 @@ class RegularAssignedSlotInfo(BaseModel):
     time_slot: str
     location: str
     grade: Optional[str] = None
+    lang_stream: Optional[str] = None
     tutor_id: Optional[int] = None
     tutor_name: Optional[str] = None
     max_students: int
+
+
+class RegularProspectJourney(BaseModel):
+    """P6 prospect journey attached to a linked regular application.
+
+    Batched onto the application response (like is_new_student) to feed the
+    journey chip and the applications-page filter. attended_summer is true when
+    a summer enrollment row exists and the summer application was not withdrawn.
+    """
+    prospect_id: int
+    source_branch: Optional[str] = None
+    attended_summer: bool = False
 
 
 class RegularApplicationResponse(BaseModel):
@@ -3856,6 +3922,9 @@ class RegularApplicationResponse(BaseModel):
     # Whether the one-off registration fee still applies, decided by the same
     # rule publishing uses. Lets the admin fee preview quote the real total.
     is_new_student: bool = True
+    # P6 prospect journey, when a prospect row links to this application. Batched
+    # like is_new_student; null when the applicant was never a tracked prospect.
+    prospect_journey: Optional[RegularProspectJourney] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -3888,13 +3957,17 @@ class RegularApplicationStats(BaseModel):
 
 
 class RegularDemandCell(BaseModel):
-    """Demand counts for a single day x time_slot cell."""
+    """Demand counts for a single day x time_slot cell.
+
+    Keyed by grade + effective stream (F1C, F1E, ...) so the grid separates the
+    Chinese and English streams; an application with no resolvable stream keys on
+    the bare grade (F1)."""
     day: str
     time_slot: str
     total_first_pref: int = 0
     total_second_pref: int = 0
-    by_grade_first: Dict[str, int] = {}
-    by_grade_second: Dict[str, int] = {}
+    by_grade_stream_first: Dict[str, int] = {}
+    by_grade_stream_second: Dict[str, int] = {}
 
 
 class RegularDemandResponse(BaseModel):
@@ -3910,16 +3983,18 @@ class RegularSlotCreate(BaseModel):
     time_slot: str = Field(..., max_length=50)
     location: str = Field(..., max_length=255)
     grade: Optional[str] = Field(None, max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=20)
     tutor_id: Optional[int] = None
     max_students: int = Field(6, ge=1, le=20)
 
 
 class RegularSlotUpdate(BaseModel):
-    """Update a slot. All fields optional; tutor/grade clear via explicit null."""
+    """Update a slot. All fields optional; tutor/grade/stream clear via explicit null."""
     slot_day: Optional[str] = Field(None, max_length=20)
     time_slot: Optional[str] = Field(None, max_length=50)
     location: Optional[str] = Field(None, max_length=255)
     grade: Optional[str] = Field(None, max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=20)
     tutor_id: Optional[int] = None
     max_students: Optional[int] = Field(None, ge=1, le=20)
 
@@ -3952,6 +4027,11 @@ class RegularSlotAssignRequest(BaseModel):
     slot_id: Optional[int] = None
 
 
+class RegularProspectLinkRequest(BaseModel):
+    """Link (or unlink with null) a P6 prospect to a regular application."""
+    prospect_id: Optional[int] = None
+
+
 class RegularSuggestion(BaseModel):
     """One ranked slot suggestion for an unassigned application."""
     slot_id: int
@@ -3959,6 +4039,7 @@ class RegularSuggestion(BaseModel):
     time_slot: str
     location: str
     grade: Optional[str] = None
+    lang_stream: Optional[str] = None
     tutor_name: Optional[str] = None
     assigned_count: int
     max_students: int

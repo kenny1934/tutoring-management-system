@@ -22,6 +22,8 @@ interface RegularArrangementGridProps {
   demand: RegularDemandCell[];
   slots: RegularSlot[];
   grades: string[];
+  /** Selectable slot streams (C/E), threaded to each slot card. */
+  streams: string[];
   tutors: RegularTutorOption[];
   /** Per-cell tutor lists carrying duty state, keyed "day|timeSlot". Cells
    *  with no entry fall back to the flat `tutors` list. */
@@ -55,6 +57,7 @@ export function RegularArrangementGrid({
   demand,
   slots,
   grades,
+  streams,
   tutors,
   tutorsByCell,
   loading = false,
@@ -80,12 +83,28 @@ export function RegularArrangementGrid({
     return map;
   }, [demand]);
 
-  // Global per-grade max demand across all cells — used so bars are comparable
+  // Grade-streams (F1C, F1E, ...) with demand anywhere in the grid, sorted so
+  // every cell renders the same rows in the same order for vertical alignment.
+  // Collapses to the handful actually running rather than a fixed eight.
+  const activeGradeStreams = useMemo(() => {
+    const keys = new Set<string>();
+    for (const cell of demand) {
+      for (const k of Object.keys(cell.by_grade_stream_first)) {
+        if ((cell.by_grade_stream_first[k] ?? 0) > 0) keys.add(k);
+      }
+      for (const k of Object.keys(cell.by_grade_stream_second)) {
+        if ((cell.by_grade_stream_second[k] ?? 0) > 0) keys.add(k);
+      }
+    }
+    return Array.from(keys).sort();
+  }, [demand]);
+
+  // Global per-grade-stream max demand across all cells — used so bars are comparable
   const gradeMaxDemand = useMemo(() => {
     let max = 0;
     for (const cell of demand) {
-      for (const g of new Set([...Object.keys(cell.by_grade_first), ...Object.keys(cell.by_grade_second)])) {
-        const total = (cell.by_grade_first[g] ?? 0) + (cell.by_grade_second[g] ?? 0);
+      for (const g of new Set([...Object.keys(cell.by_grade_stream_first), ...Object.keys(cell.by_grade_stream_second)])) {
+        const total = (cell.by_grade_stream_first[g] ?? 0) + (cell.by_grade_stream_second[g] ?? 0);
         if (total > max) max = total;
       }
     }
@@ -246,6 +265,8 @@ export function RegularArrangementGrid({
                     demandCell={demandMap.get(key)}
                     slots={slotsMap.get(key) ?? EMPTY_SLOTS}
                     grades={grades}
+                    streams={streams}
+                    gradeStreams={activeGradeStreams}
                     tutors={tutorsByCell?.get(key) ?? tutors}
                     readOnly={readOnly}
                     onCreateSlot={onCreateSlot}

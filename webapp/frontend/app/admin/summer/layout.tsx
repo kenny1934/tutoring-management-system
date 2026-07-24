@@ -8,7 +8,7 @@ const tabs = [
   { name: "Applications", href: "/admin/summer/applications" },
   { name: "Arrangement", href: "/admin/summer/arrangement" },
   { name: "Courseware", href: "/admin/summer/courseware" },
-  { name: "Prospects", href: "/admin/summer/prospects" },
+  { name: "Prospects", href: "/admin/prospects" },
   { name: "Config", href: "/admin/summer/config" },
 ];
 

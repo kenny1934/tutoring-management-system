@@ -11,11 +11,12 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { displayLocation, DAY_ABBREV, REGULAR_EXIT_STATUSES } from "@/lib/regular-utils";
+import { displayLocation, DAY_ABBREV, REGULAR_EXIT_STATUSES, effectiveStream } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { LinkedStudentChip } from "@/components/admin/LinkedStudentChip";
 import { InlineStatusSelect } from "@/components/admin/InlineStatusSelect";
+import { ProspectJourneyChip } from "@/components/admin/ProspectJourneyChip";
 import type { RegularApplication } from "@/types";
 
 // Status pill colours, matching the summer card's dot/bg/text/borderL scheme
@@ -248,10 +249,16 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
               student={{
                 student_name: app.student_name,
                 grade: app.grade,
-                lang_stream: app.lang_stream ?? undefined,
+                // Effective stream so Int colours as English, never grey.
+                lang_stream: effectiveStream(app) ?? undefined,
                 school: app.school ?? undefined,
               }}
-              trailing={<RegularOriginChip app={app} />}
+              trailing={
+                <>
+                  <RegularOriginChip app={app} />
+                  <ProspectJourneyChip journey={app.prospect_journey} />
+                </>
+              }
             />
           </div>
           {branchCode && (

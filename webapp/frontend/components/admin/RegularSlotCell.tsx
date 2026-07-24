@@ -4,7 +4,7 @@ import { memo, useState, useCallback, useEffect, useMemo } from "react";
 import { Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_TEXT } from "@/lib/regular-utils";
+import { SUMMER_GRADE_TEXT, splitGradeStream } from "@/lib/regular-utils";
 import { RegularSlotCard, type RegularTutorOption } from "./RegularSlotCard";
 import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types";
 
@@ -12,6 +12,8 @@ export interface RegularDemandBarFilter {
   day: string;
   timeSlot: string;
   grade: string;
+  /** Effective stream (C/E) behind the clicked bar; null for a bare-grade bar. */
+  langStream: string | null;
   tier: "first" | "second";
 }
 
@@ -21,6 +23,11 @@ interface RegularSlotCellProps {
   demandCell?: RegularDemandCell;
   slots: RegularSlot[];
   grades: string[];
+  /** Selectable slot streams (C/E), passed through to each slot card. */
+  streams: string[];
+  /** Active grade-stream keys (F1C, F1E, ...) with demand somewhere in the grid.
+   *  Rendered as demand rows in every cell for cross-cell vertical alignment. */
+  gradeStreams: string[];
   tutors: RegularTutorOption[];
   readOnly?: boolean;
   onCreateSlot: (day: string, timeSlot: string) => void;
@@ -45,11 +52,23 @@ interface RegularSlotCellProps {
   pendingPlacementAppId?: number | null;
 }
 
-// Solid fill (first choice) and light fill (backup) per grade
+// Solid fill (first choice) and light fill (backup) per grade-stream. Colour
+// alone separates the Chinese and English streams (F1C green, F1E blue, ...),
+// echoing the grade-badge palette, so no extra legend is needed. Bare-grade
+// keys (stream unset) fall back to the plain per-grade hues.
 const GRADE_BAR_FILL: Record<string, { solid: string; light: string }> = {
+  F1C: { solid: "bg-emerald-400", light: "bg-emerald-200 dark:bg-emerald-800" },
+  F1E: { solid: "bg-blue-400", light: "bg-blue-200 dark:bg-blue-800" },
+  F2C: { solid: "bg-yellow-400", light: "bg-yellow-200 dark:bg-yellow-800" },
+  F2E: { solid: "bg-rose-400", light: "bg-rose-200 dark:bg-rose-800" },
+  F3C: { solid: "bg-pink-400", light: "bg-pink-200 dark:bg-pink-800" },
+  F3E: { solid: "bg-orange-400", light: "bg-orange-200 dark:bg-orange-800" },
+  F4C: { solid: "bg-lime-500", light: "bg-lime-200 dark:bg-lime-800" },
+  F4E: { solid: "bg-violet-400", light: "bg-violet-200 dark:bg-violet-800" },
   F1: { solid: "bg-blue-400", light: "bg-blue-200 dark:bg-blue-800" },
   F2: { solid: "bg-purple-400", light: "bg-purple-200 dark:bg-purple-800" },
   F3: { solid: "bg-orange-400", light: "bg-orange-200 dark:bg-orange-800" },
+  F4: { solid: "bg-emerald-400", light: "bg-emerald-200 dark:bg-emerald-800" },
 };
 const GRADE_BAR_DEFAULT = { solid: "bg-gray-400", light: "bg-gray-200 dark:bg-gray-700" };
 
@@ -75,6 +94,8 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   demandCell,
   slots,
   grades,
+  streams,
+  gradeStreams,
   tutors,
   readOnly = false,
   onCreateSlot,
@@ -207,21 +228,22 @@ export const RegularSlotCell = memo(function RegularSlotCell({
     >
       {/* Demand sparklines: always rendered to keep vertical alignment across cells */}
       <div className="mb-1 space-y-px">
-        {grades.map((grade) => {
-          const gFirst = demandCell?.by_grade_first[grade] ?? 0;
-          const gSecond = demandCell?.by_grade_second[grade] ?? 0;
+        {gradeStreams.map((gs) => {
+          const gFirst = demandCell?.by_grade_stream_first[gs] ?? 0;
+          const gSecond = demandCell?.by_grade_stream_second[gs] ?? 0;
           const total = gFirst + gSecond;
-          const colors = GRADE_BAR_FILL[grade] || GRADE_BAR_DEFAULT;
+          const { grade, stream } = splitGradeStream(gs);
+          const colors = GRADE_BAR_FILL[gs] || GRADE_BAR_FILL[grade] || GRADE_BAR_DEFAULT;
           const barPct = gradeMaxDemand > 0 && total > 0 ? (total / gradeMaxDemand) * 100 : 0;
           const firstPct = total > 0 ? (gFirst / total) * 100 : 0;
           return (
             <div
-              key={grade}
+              key={gs}
               className="flex items-center gap-0.5 h-[7px]"
-              title={total > 0 ? `${grade}: ${gFirst} first choice, ${gSecond} backup` : `${grade}: no demand`}
+              title={total > 0 ? `${gs}: ${gFirst} first choice, ${gSecond} backup` : `${gs}: no demand`}
             >
-              <span className={cn("text-[8px] font-bold w-[14px] shrink-0 text-center leading-none", total > 0 ? SUMMER_GRADE_TEXT[grade] : "text-muted-foreground/30")}>
-                {grade}
+              <span className={cn("text-[8px] font-bold w-[18px] shrink-0 text-center leading-none", total > 0 ? SUMMER_GRADE_TEXT[grade] : "text-muted-foreground/30")}>
+                {gs}
               </span>
               <div className="flex-1 h-1.5 flex">
                 {barPct > 0 && (
@@ -233,7 +255,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
                           onDemandBarClick && "cursor-pointer hover:opacity-80"
                         )}
                         style={{ width: `${firstPct * barPct / 100}%` }}
-                        onClick={onDemandBarClick ? (e) => { e.stopPropagation(); onDemandBarClick({ day, timeSlot, grade, tier: "first" }); } : undefined}
+                        onClick={onDemandBarClick ? (e) => { e.stopPropagation(); onDemandBarClick({ day, timeSlot, grade, langStream: stream, tier: "first" }); } : undefined}
                       />
                     )}
                     {gSecond > 0 && (
@@ -243,7 +265,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
                           onDemandBarClick && "cursor-pointer hover:opacity-80"
                         )}
                         style={{ width: `${(100 - firstPct) * barPct / 100}%` }}
-                        onClick={onDemandBarClick ? (e) => { e.stopPropagation(); onDemandBarClick({ day, timeSlot, grade, tier: "second" }); } : undefined}
+                        onClick={onDemandBarClick ? (e) => { e.stopPropagation(); onDemandBarClick({ day, timeSlot, grade, langStream: stream, tier: "second" }); } : undefined}
                       />
                     )}
                   </>
@@ -273,6 +295,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
             <RegularSlotCard
               slot={slot}
               grades={grades}
+              streams={streams}
               tutors={tutors}
               readOnly={readOnly}
               onUpdate={(data) => {

@@ -2805,7 +2805,7 @@ export const prospectsAPI = {
   adminGet: (id: number) =>
     fetchAPI<PrimaryProspect>(`/prospects/admin/${id}`),
 
-  adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null }) =>
+  adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null; regular_application_id?: number | null }) =>
     fetchAPI<PrimaryProspect>(`/prospects/${id}/admin`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -2844,6 +2844,15 @@ export const prospectsAPI = {
   autoMatch: (year: number, options: { dryRun?: boolean } = {}) =>
     fetchAPI<import("@/types").AutoMatchResult>(
       `/prospects/admin/auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
+      { method: "POST" },
+    ),
+
+  findRegularMatches: (id: number) =>
+    fetchAPI<PrimaryProspectMatchResult>(`/prospects/admin/regular-match/${id}`),
+
+  regularAutoMatch: (year: number, options: { dryRun?: boolean } = {}) =>
+    fetchAPI<import("@/types").AutoMatchResult>(
+      `/prospects/admin/regular-auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
       { method: "POST" },
     ),
 };
@@ -3112,6 +3121,23 @@ export const regularAPI = {
   getSuggestions: (configId: number, applicationId: number) =>
     fetchAPI<RegularSuggestResponse>(
       `/regular/suggest?config_id=${configId}&application_id=${applicationId}`
+    ),
+
+  // ---- Prospect journey ----
+  linkProspect: (applicationId: number, prospectId: number | null) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${applicationId}/prospect`, {
+      method: "PATCH",
+      body: JSON.stringify({ prospect_id: prospectId }),
+    }),
+
+  getProspectSuggestions: (applicationId: number) =>
+    fetchAPI<import("@/types").RegularProspectSuggestResponse>(
+      `/regular/applications/${applicationId}/prospect-suggestions`
+    ),
+
+  getConversion: (year: number) =>
+    fetchAPI<import("@/types").RegularConversionResponse>(
+      `/regular/conversion?year=${year}`
     ),
 
   publishApplication: (id: number, data: RegularPublishRequest) =>

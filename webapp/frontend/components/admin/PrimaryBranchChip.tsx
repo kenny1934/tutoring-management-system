@@ -64,7 +64,7 @@ function ProspectChip({
   }
   return (
     <Link
-      href={`/admin/summer/prospects?focus=${prospect.id}`}
+      href={`/admin/prospects?focus=${prospect.id}`}
       onClick={(e) => e.stopPropagation()}
       className={chipClass}
       title={title}

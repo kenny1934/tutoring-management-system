@@ -14,7 +14,14 @@ from sqlalchemy.orm import Session, joinedload
 
 from constants import hk_now
 from database import get_db
-from models import PrimaryProspect, SummerApplication, SummerCourseConfig
+from models import (
+    PrimaryProspect,
+    SummerApplication,
+    SummerCourseConfig,
+    RegularApplication,
+    RegularCourseConfig,
+    Enrollment,
+)
 from schemas import (
     PrimaryProspectBulkCreate,
     PrimaryProspectUpdate,
@@ -85,15 +92,21 @@ def _prospect_to_response(p: PrimaryProspect) -> dict:
         "contact_notes": p.contact_notes,
         "status": p.status,
         "summer_application_id": p.summer_application_id,
+        "regular_application_id": p.regular_application_id,
         "submitted_at": p.submitted_at,
         "updated_at": p.updated_at,
         "edit_history": p.edit_history or [],
         "matched_application_ref": None,
         "matched_application_status": None,
+        "matched_regular_ref": None,
+        "matched_regular_status": None,
     }
     if p.summer_application:
         data["matched_application_ref"] = p.summer_application.reference_code
         data["matched_application_status"] = p.summer_application.application_status
+    if p.regular_application:
+        data["matched_regular_ref"] = p.regular_application.reference_code
+        data["matched_regular_status"] = p.regular_application.application_status
     return data
 
 
@@ -369,6 +382,16 @@ def admin_update_prospect(
         else:
             update_data["summer_application_id"] = None
 
+    # Same link/unlink handling for the regular application (Feature 2).
+    if "regular_application_id" in update_data:
+        reg_id = update_data["regular_application_id"]
+        if reg_id and reg_id > 0:
+            reg_app = db.query(RegularApplication).filter(RegularApplication.id == reg_id).first()
+            if not reg_app:
+                raise HTTPException(404, "Regular application not found")
+        else:
+            update_data["regular_application_id"] = None
+
     for field, value in update_data.items():
         setattr(prospect, field, value)
 
@@ -435,6 +458,7 @@ def admin_prospect_stats(
             func.sum(case((subq.c.wants_regular == 'Yes', 1), else_=0)).label("wants_regular_yes"),
             func.sum(case((subq.c.wants_regular == 'Considering', 1), else_=0)).label("wants_regular_considering"),
             func.sum(case((subq.c.summer_application_id.isnot(None), 1), else_=0)).label("matched_to_application"),
+            func.sum(case((subq.c.regular_application_id.isnot(None), 1), else_=0)).label("applied_regular"),
             func.sum(case((subq.c.outreach_status == 'Not Started', 1), else_=0)).label("outreach_not_started"),
             func.sum(case((subq.c.outreach_status == 'WeChat - Added', 1), else_=0)).label("outreach_wechat_added"),
             func.sum(case((subq.c.outreach_status == 'WeChat - Not Found', 1), else_=0)).label("outreach_wechat_not_found"),
@@ -442,6 +466,16 @@ def admin_prospect_stats(
             func.sum(case((subq.c.outreach_status == 'Called', 1), else_=0)).label("outreach_called"),
             func.sum(case((subq.c.outreach_status == 'No Response', 1), else_=0)).label("outreach_no_response"),
         )
+        .group_by(subq.c.source_branch)
+        .all()
+    )
+
+    # enrolled_regular needs enrollment-row existence, so it can't ride the
+    # case-sum above. Count, per branch, the filtered prospects whose regular
+    # application published an enrollment.
+    enrolled_by_branch = dict(
+        db.query(subq.c.source_branch, func.count())
+        .join(Enrollment, Enrollment.regular_application_id == subq.c.regular_application_id)
         .group_by(subq.c.source_branch)
         .all()
     )
@@ -455,6 +489,8 @@ def admin_prospect_stats(
             wants_regular_yes=r.wants_regular_yes or 0,
             wants_regular_considering=r.wants_regular_considering or 0,
             matched_to_application=r.matched_to_application or 0,
+            applied_regular=r.applied_regular or 0,
+            enrolled_regular=enrolled_by_branch.get(r.source_branch, 0),
             outreach_not_started=r.outreach_not_started or 0,
             outreach_wechat_added=r.outreach_wechat_added or 0,
             outreach_wechat_not_found=r.outreach_wechat_not_found or 0,
@@ -464,6 +500,261 @@ def admin_prospect_stats(
         )
         for r in rows
     ]
+
+
+def _regular_year_apps(db: Session, year: int, taken_ids: set[int]) -> list[RegularApplication]:
+    """Live regular applications for a year, minus those a prospect already
+    claims. Unlike summer, apps WITH a linked student stay in the pool — the
+    shared-student path is exactly how the summer cohort is matched."""
+    apps = (
+        db.query(RegularApplication)
+        .join(RegularCourseConfig, RegularApplication.config_id == RegularCourseConfig.id)
+        .filter(
+            RegularCourseConfig.year == year,
+            RegularApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+        )
+        .all()
+    )
+    return [a for a in apps if a.id not in taken_ids]
+
+
+def _inherited_student_ids(db: Session, prospects: list[PrimaryProspect]) -> dict[int, int]:
+    """prospect_id -> the student its summer application resolves to, when any.
+    This is the exact, no-guess path that carries the summer cohort."""
+    summer_ids = {p.summer_application_id for p in prospects if p.summer_application_id}
+    if not summer_ids:
+        return {}
+    sid_by_summer = dict(
+        db.query(SummerApplication.id, SummerApplication.existing_student_id)
+        .filter(SummerApplication.id.in_(summer_ids))
+        .all()
+    )
+    out: dict[int, int] = {}
+    for p in prospects:
+        sid = sid_by_summer.get(p.summer_application_id)
+        if sid is not None:
+            out[p.id] = sid
+    return out
+
+
+@router.get("/admin/regular-match/{prospect_id}")
+def admin_find_regular_matches(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+    _admin: None = Depends(require_admin_view),
+):
+    """Regular applications that might belong to this prospect.
+
+    Three signals, strongest first: the prospect's summer application resolves
+    to the same student as the regular application (exact), phone match, and
+    name similarity. Merged so an app matching several appears once."""
+    prospect = db.query(PrimaryProspect).filter(PrimaryProspect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(404, "Prospect not found")
+
+    prospect_phones = {
+        n for n in (normalize_phone(prospect.phone_1), normalize_phone(prospect.phone_2)) if n
+    }
+    taken_ids = {
+        rid for (rid,) in db.query(PrimaryProspect.regular_application_id)
+        .filter(PrimaryProspect.regular_application_id.isnot(None))
+        if rid is not None
+    }
+    inherited_student_id = _inherited_student_ids(db, [prospect]).get(prospect.id)
+    year_apps = _regular_year_apps(db, prospect.year, taken_ids)
+
+    candidates: dict[int, tuple[RegularApplication, set[str], int]] = {}
+
+    if inherited_student_id is not None:
+        for app in year_apps:
+            if app.existing_student_id == inherited_student_id:
+                candidates[app.id] = (app, {"student"}, 0)
+
+    for app in year_apps:
+        if prospect_phones and normalize_phone(app.contact_phone) in prospect_phones:
+            existing = candidates.get(app.id)
+            candidates[app.id] = (app, (existing[1] if existing else set()) | {"phone"},
+                                  existing[2] if existing else 0)
+
+    if prospect.student_name:
+        for app in year_apps:
+            if not app.student_name:
+                continue
+            score = name_similarity(prospect.student_name, app.student_name)
+            if score >= NAME_CANDIDATE_THRESHOLD:
+                existing = candidates.get(app.id)
+                candidates[app.id] = (app, (existing[1] if existing else set()) | {"name"}, score)
+
+    def match_type(signals: set[str]) -> str:
+        if "student" in signals:
+            return "student"
+        if signals >= {"phone", "name"}:
+            return "phone+name"
+        if "phone" in signals:
+            return "phone"
+        return "name"
+
+    matches = []
+    for app, signals, similarity in candidates.values():
+        matches.append({
+            "application_id": app.id,
+            "reference_code": app.reference_code,
+            "student_name": app.student_name,
+            "contact_phone": app.contact_phone,
+            "application_status": app.application_status,
+            "match_type": match_type(signals),
+            "similarity": similarity if "name" in signals else None,
+        })
+
+    rank = {"student": 0, "phone+name": 1, "phone": 2, "name": 3}
+    matches.sort(key=lambda m: (rank.get(m["match_type"], 9), -(m.get("similarity") or 0)))
+    return PrimaryProspectMatchResult(prospect_id=prospect_id, matches=matches)
+
+
+@router.post("/admin/regular-auto-match")
+def admin_regular_auto_match(
+    year: int = Query(...),
+    dry_run: bool = Query(False, description="When true, compute matches and skips without writing."),
+    db: Session = Depends(get_db),
+    _admin: None = Depends(require_admin_write),
+):
+    """Batch-link unlinked prospects to regular applications.
+
+    Two automatic passes: the exact shared-student path (carries the summer
+    cohort with no guessing), then unambiguous 1:1 phone matches. Ambiguities
+    and name-only candidates are surfaced for manual review, never auto-linked."""
+    unlinked = (
+        db.query(PrimaryProspect)
+        .filter(
+            PrimaryProspect.year == year,
+            PrimaryProspect.regular_application_id.is_(None),
+        )
+        .all()
+    )
+    empty = {"total_unlinked": len(unlinked), "matches": [], "skipped": []}
+    if not unlinked:
+        return empty
+
+    taken_ids = {
+        rid for (rid,) in db.query(PrimaryProspect.regular_application_id)
+        .filter(PrimaryProspect.regular_application_id.isnot(None))
+        if rid is not None
+    }
+    year_apps = _regular_year_apps(db, year, taken_ids)
+    inherited = _inherited_student_ids(db, unlinked)
+
+    def p_summary(p: PrimaryProspect) -> dict:
+        return {
+            "id": p.id, "student_name": p.student_name, "phone_1": p.phone_1,
+            "phone_2": p.phone_2, "source_branch": p.source_branch, "grade": p.grade,
+        }
+
+    def a_summary(a: RegularApplication) -> dict:
+        return {
+            "id": a.id, "student_name": a.student_name, "reference_code": a.reference_code,
+            "contact_phone": a.contact_phone, "preferred_location": a.preferred_location,
+            "grade": a.grade,
+        }
+
+    matches: list[dict] = []
+    skipped: list[dict] = []
+    handled: set[int] = set()
+    claimed_app_ids: set[int] = set()
+
+    def do_link(prospect: PrimaryProspect, app: RegularApplication) -> None:
+        handled.add(prospect.id)
+        claimed_app_ids.add(app.id)
+        matches.append({"prospect": p_summary(prospect), "application": a_summary(app)})
+        if not dry_run:
+            prospect.regular_application_id = app.id
+            if prospect.status == "New":
+                prospect.status = "Applied"
+            prospect.updated_at = hk_now()
+
+    # Pass 0: exact via shared student. One regular app per student, so this is
+    # unambiguous when it fires.
+    apps_by_student: dict[int, list[RegularApplication]] = {}
+    for app in year_apps:
+        if app.existing_student_id is not None:
+            apps_by_student.setdefault(app.existing_student_id, []).append(app)
+    for p in unlinked:
+        sid = inherited.get(p.id)
+        if sid is None:
+            continue
+        student_apps = [a for a in apps_by_student.get(sid, []) if a.id not in claimed_app_ids]
+        if len(student_apps) == 1:
+            do_link(p, student_apps[0])
+
+    # Pass 1: unambiguous 1:1 phone matches among what Pass 0 left.
+    remaining = [p for p in unlinked if p.id not in handled]
+    phone_to_prospects: dict[str, list[PrimaryProspect]] = {}
+    for p in remaining:
+        for phone in (p.phone_1, p.phone_2):
+            n = normalize_phone(phone)
+            if n:
+                phone_to_prospects.setdefault(n, []).append(p)
+    apps_by_phone: dict[str, list[RegularApplication]] = {}
+    for app in year_apps:
+        if app.id in claimed_app_ids:
+            continue
+        n = normalize_phone(app.contact_phone)
+        if n and n in phone_to_prospects:
+            apps_by_phone.setdefault(n, []).append(app)
+
+    for phone, phone_apps in apps_by_phone.items():
+        prospects_at_phone = [p for p in phone_to_prospects.get(phone, []) if p.id not in handled]
+        if len(phone_apps) == 1 and len(prospects_at_phone) == 1:
+            do_link(prospects_at_phone[0], phone_apps[0])
+
+    # Ambiguous phone buckets → skip for review.
+    for phone, phone_apps in apps_by_phone.items():
+        ambiguous = [p for p in phone_to_prospects.get(phone, []) if p.id not in handled]
+        if not ambiguous:
+            continue
+        if len(phone_apps) > 1:
+            for p in ambiguous:
+                handled.add(p.id)
+                skipped.append({
+                    "prospect": p_summary(p), "reason": "multiple_apps_share_phone",
+                    "conflicting_apps": [a_summary(a) for a in phone_apps],
+                    "conflicting_prospects": [],
+                })
+        else:
+            single_app = phone_apps[0]
+            for p in ambiguous:
+                handled.add(p.id)
+                skipped.append({
+                    "prospect": p_summary(p), "reason": "multiple_prospects_share_phone",
+                    "conflicting_apps": [a_summary(single_app)],
+                    "conflicting_prospects": [
+                        p_summary(q) for q in phone_to_prospects.get(phone, []) if q.id != p.id
+                    ],
+                })
+
+    # Pass 3: name-similarity suggestions for whatever no phone pass resolved.
+    name_remaining = [p for p in unlinked if p.id not in handled and p.student_name]
+    if name_remaining:
+        candidate_apps = [a for a in year_apps if a.id not in claimed_app_ids and a.student_name]
+        for p in name_remaining:
+            scored = []
+            for app in candidate_apps:
+                score = name_similarity(p.student_name, app.student_name)
+                if score >= NAME_CANDIDATE_THRESHOLD:
+                    scored.append((score, app))
+            if not scored:
+                continue
+            scored.sort(key=lambda sa: sa[0], reverse=True)
+            skipped.append({
+                "prospect": p_summary(p), "reason": "name_similarity",
+                "conflicting_apps": [
+                    {**a_summary(app), "similarity": score} for score, app in scored[:5]
+                ],
+                "conflicting_prospects": [],
+            })
+
+    if not dry_run:
+        db.commit()
+    return {"total_unlinked": len(unlinked), "matches": matches, "skipped": skipped}
 
 
 # Registered after /admin/stats (and any other literal /admin/<word> routes)

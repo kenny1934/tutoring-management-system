@@ -428,7 +428,7 @@ class TestDemand:
         mon = cells[("Monday", "16:45 - 18:15")]
         assert mon.total_first_pref == 2
         assert mon.total_second_pref == 1
-        assert mon.by_grade_first == {"F1": 1, "F2": 1}
+        assert mon.by_grade_stream_first == {"F1": 1, "F2": 1}
         sat = cells[("Saturday", "10:00 - 11:30")]
         assert sat.total_first_pref == 1
         assert sat.total_second_pref == 1

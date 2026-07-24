@@ -5,6 +5,7 @@ import { Trash2, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle } from "
 import { cn } from "@/lib/utils";
 import {
   SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, getMismatchedSessionGrades,
+  getMismatchedStreams, foldStream,
 } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { RegularWorkflowStatusIcon, regularStatusRowBg } from "./RegularApplicationCard";
@@ -25,6 +26,8 @@ const NO_DUTY_HINT = "No tutors on duty here. Set the roster with Tutor Duties i
 interface RegularSlotCardProps {
   slot: RegularSlot;
   grades: string[];
+  /** Selectable slot streams (C/E). Int is never a slot stream — it folds to E. */
+  streams: string[];
   tutors: RegularTutorOption[];
   readOnly?: boolean;
   onUpdate: (data: RegularSlotUpdate) => void;
@@ -57,6 +60,7 @@ function fillBarColor(pct: number): string {
 export const RegularSlotCard = memo(function RegularSlotCard({
   slot,
   grades,
+  streams,
   tutors,
   readOnly = false,
   onUpdate,
@@ -75,13 +79,27 @@ export const RegularSlotCard = memo(function RegularSlotCard({
   const rootRef = useRef<HTMLDivElement>(null);
   const isFull = slot.assigned_count >= slot.max_students;
   const fillPct = slot.max_students > 0 ? slot.assigned_count / slot.max_students : 0;
-  // The grid groups by slot.grade, so surface any assigned student whose own
-  // grade diverges from it rather than letting the row hide in a collapsed card.
+  // The grid groups by slot.grade + stream, so surface any assigned student
+  // whose own grade or stream diverges from it rather than letting the row hide
+  // in a collapsed card.
   const mismatchedGrades = useMemo(
     () => getMismatchedSessionGrades(slot.grade, slot.students),
     [slot.grade, slot.students],
   );
+  const mismatchedStreams = useMemo(
+    () => getMismatchedStreams(slot.lang_stream, slot.students),
+    [slot.lang_stream, slot.students],
+  );
   const hasGradeMismatch = mismatchedGrades.length > 0;
+  const hasStreamMismatch = mismatchedStreams.length > 0;
+  const mismatchTitle = [
+    hasGradeMismatch
+      ? `Contains ${mismatchedGrades.join(", ")} student${mismatchedGrades.length > 1 ? "s" : ""} in a ${slot.grade} slot`
+      : null,
+    hasStreamMismatch
+      ? `Contains ${mismatchedStreams.join(", ")}-stream student${mismatchedStreams.length > 1 ? "s" : ""} in a ${foldStream(slot.lang_stream)} slot`
+      : null,
+  ].filter(Boolean).join(". ");
 
   // Only rostered tutors can staff a slot, same rule as summer.
   const onDutyTutors = useMemo(() => tutors.filter((t) => t.onDuty), [tutors]);
@@ -178,7 +196,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
       onDrop={handleDrop}
       onClick={tapPlaceActive ? handleTapPlace : undefined}
     >
-      {/* Row 1: grade + actions */}
+      {/* Row 1: grade + stream + actions */}
       <div className="flex items-center gap-0.5 px-1 py-0.5 min-w-0">
         {readOnly ? (
           <span
@@ -186,33 +204,49 @@ export const RegularSlotCard = memo(function RegularSlotCard({
               "text-[10px] font-bold px-1 py-0 rounded bg-[#fef9f3] dark:bg-[#2d2618]",
               slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
             )}
-            title="Grade"
+            title="Grade and stream"
           >
-            {slot.grade || "Any"}
+            {slot.grade || slot.lang_stream ? `${slot.grade ?? ""}${slot.lang_stream ?? ""}` : "Any"}
           </span>
         ) : (
-          <select
-            value={slot.grade || ""}
-            onChange={(e) => onUpdate({ grade: e.target.value || null })}
-            className={cn(
-              "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-[#fef9f3] dark:bg-[#2d2618] appearance-none",
-              slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
-            )}
-            title="Grade"
-          >
-            <option value="">Any</option>
-            {grades.map((g) => (
-              <option key={g} value={g} className={SUMMER_GRADE_TEXT[g] || ""}>{g}</option>
-            ))}
-          </select>
+          <>
+            <select
+              value={slot.grade || ""}
+              onChange={(e) => onUpdate({ grade: e.target.value || null })}
+              className={cn(
+                "text-[10px] font-bold px-1 py-0 rounded border-0 cursor-pointer bg-[#fef9f3] dark:bg-[#2d2618] appearance-none",
+                slot.grade ? SUMMER_GRADE_TEXT[slot.grade] || "text-foreground" : "text-muted-foreground"
+              )}
+              title="Grade"
+            >
+              <option value="">Any</option>
+              {grades.map((g) => (
+                <option key={g} value={g} className={SUMMER_GRADE_TEXT[g] || ""}>{g}</option>
+              ))}
+            </select>
+            <select
+              value={slot.lang_stream || ""}
+              onChange={(e) => onUpdate({ lang_stream: e.target.value || null })}
+              className={cn(
+                "text-[10px] font-bold px-0.5 py-0 rounded border-0 cursor-pointer bg-[#fef9f3] dark:bg-[#2d2618] appearance-none",
+                slot.lang_stream ? "text-foreground" : "text-muted-foreground"
+              )}
+              title="Stream"
+            >
+              <option value="">Any</option>
+              {streams.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </>
         )}
 
-        {hasGradeMismatch && (
+        {(hasGradeMismatch || hasStreamMismatch) && (
           <span
-            title={`Contains ${mismatchedGrades.join(", ")} student${mismatchedGrades.length > 1 ? "s" : ""} in a ${slot.grade} slot`}
+            title={mismatchTitle}
             className="shrink-0 flex items-center"
           >
-            <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Mixed grades" />
+            <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Mixed grade or stream" />
           </span>
         )}
 
@@ -317,6 +351,13 @@ export const RegularSlotCard = memo(function RegularSlotCard({
           )}
           {slot.students.map((s) => {
             const gradeMismatch = !!slot.grade && !!s.grade && s.grade !== slot.grade;
+            const slotStream = foldStream(slot.lang_stream);
+            const studentStream = foldStream(s.lang_stream);
+            const streamMismatch = !!slotStream && !!studentStream && studentStream !== slotStream;
+            const rowMismatchTitle = [
+              gradeMismatch ? `${s.grade} student in a ${slot.grade} slot` : null,
+              streamMismatch ? `${studentStream}-stream student in a ${slotStream} slot` : null,
+            ].filter(Boolean).join(". ");
             return (
               <div
                 key={s.application_id}
@@ -334,18 +375,19 @@ export const RegularSlotCard = memo(function RegularSlotCard({
                       student_name: s.student_name,
                       school_student_id: s.school_student_id ?? undefined,
                       grade: s.grade,
-                      lang_stream: s.lang_stream ?? undefined,
+                      // Fold Int into E so the badge colours as English, never grey.
+                      lang_stream: studentStream ?? undefined,
                     }}
                     nameTitle={s.school || "View application details"}
                     onNameClick={onClickStudent ? () => onClickStudent(s.application_id) : undefined}
                   />
                 </div>
-                {gradeMismatch && (
+                {(gradeMismatch || streamMismatch) && (
                   <span
-                    title={`${s.grade} student in a ${slot.grade} slot`}
+                    title={rowMismatchTitle}
                     className="shrink-0 flex items-center"
                   >
-                    <AlertTriangle className="h-2.5 w-2.5 text-amber-500" aria-label="Grade mismatch" />
+                    <AlertTriangle className="h-2.5 w-2.5 text-amber-500" aria-label="Grade or stream mismatch" />
                   </span>
                 )}
                 {s.published ? (

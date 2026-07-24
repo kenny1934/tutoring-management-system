@@ -44,6 +44,8 @@ export default function RegularApplicationsPage() {
   const [configId, setConfigId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  // Client-side journey filter: the prospect block rides on each application.
+  const [prospectFilter, setProspectFilter] = useState<"skipped" | "did" | "none" | null>(null);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,6 +129,18 @@ export default function RegularApplicationsPage() {
     [mutateApps, mutateStats]
   );
 
+  // Journey filter is applied client-side, so it refines the fetched list.
+  const displayedApps = useMemo(() => {
+    if (!applications) return applications;
+    if (!prospectFilter) return applications;
+    return applications.filter((a) => {
+      const j = a.prospect_journey;
+      if (prospectFilter === "none") return !j;
+      if (prospectFilter === "skipped") return !!j && !j.attended_summer;
+      return !!j && j.attended_summer; // "did"
+    });
+  }, [applications, prospectFilter]);
+
   const selectedApp: RegularApplication | null =
     applications?.find((a) => a.id === selectedId) ?? null;
 
@@ -170,11 +184,12 @@ export default function RegularApplicationsPage() {
   }, [detailOpen, stepSelection]);
 
   const hasFilters =
-    !!statusFilter || !!gradeFilter || !!locationFilter || !!publishedFilter || !!debouncedSearch;
+    !!statusFilter || !!gradeFilter || !!locationFilter || !!publishedFilter || !!debouncedSearch || !!prospectFilter;
 
   const clearFilters = () => {
     setStatusFilter(null);
     setGradeFilter(null);
+    setProspectFilter(null);
     setLocationFilter(null);
     setPublishedFilter(null);
     setSearchQuery("");
@@ -188,7 +203,7 @@ export default function RegularApplicationsPage() {
     () => (activeConfig?.locations || []).map((l) => LOCATION_TO_CODE[l.name] || l.name),
     [activeConfig]
   );
-  const moreFilterCount = gradeFilter ? 1 : 0;
+  const moreFilterCount = (gradeFilter ? 1 : 0) + (prospectFilter ? 1 : 0);
 
   // --- Batch selection ---
 
@@ -508,7 +523,7 @@ export default function RegularApplicationsPage() {
                     title="Clear all filters"
                   >
                     <span>
-                      <span className="font-semibold text-foreground tabular-nums">{applications.length}</span>
+                      <span className="font-semibold text-foreground tabular-nums">{displayedApps?.length ?? applications.length}</span>
                       <span className="mx-1">of</span>
                       <span className="tabular-nums">{stats.total}</span>
                     </span>
@@ -572,9 +587,22 @@ export default function RegularApplicationsPage() {
                         ))}
                       </select>
                     </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Prospect journey</label>
+                      <select
+                        value={prospectFilter || ""}
+                        onChange={(e) => setProspectFilter((e.target.value || null) as typeof prospectFilter)}
+                        className={cn(selectClass, "w-full")}
+                      >
+                        <option value="">Any</option>
+                        <option value="skipped">Prospect, skipped summer</option>
+                        <option value="did">Prospect, did summer</option>
+                        <option value="none">Not a prospect</option>
+                      </select>
+                    </div>
                     {moreFilterCount > 0 && (
                       <button
-                        onClick={() => setGradeFilter(null)}
+                        onClick={() => { setGradeFilter(null); setProspectFilter(null); }}
                         className="text-xs text-muted-foreground hover:text-foreground"
                       >
                         Clear these filters
@@ -625,13 +653,13 @@ export default function RegularApplicationsPage() {
               <div className="flex items-center justify-center h-32 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
-            ) : !applications || applications.length === 0 ? (
+            ) : !displayedApps || displayedApps.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
                 {hasFilters ? "No applications match the current filters." : "No applications yet."}
               </div>
             ) : (
               <div className="space-y-2 pb-4">
-                {applications.map((a, i) => (
+                {displayedApps.map((a, i) => (
                   <RegularApplicationCard
                     key={a.id}
                     application={a}

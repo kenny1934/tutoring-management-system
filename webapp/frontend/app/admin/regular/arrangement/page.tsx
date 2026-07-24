@@ -22,7 +22,7 @@ import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyM
 import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
 import type { RegularTutorOption } from "@/components/admin/RegularSlotCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV } from "@/lib/regular-utils";
+import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV, effectiveStream } from "@/lib/regular-utils";
 import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
 import type { RegularApplication, RegularSlot, RegularSlotUpdate } from "@/types";
 
@@ -263,6 +263,16 @@ export default function RegularArrangementPage() {
     [activeConfig]
   );
 
+  // Selectable slot streams: the config's stream options minus Int — a slot is
+  // never International (Int folds to E), so only C and E can be declared on one.
+  const streams = useMemo(
+    () =>
+      (activeConfig?.lang_stream_options ?? [])
+        .map((o) => o.value ?? o.name)
+        .filter((v) => v && v !== "Int"),
+    [activeConfig]
+  );
+
   // Panel cohort: unassigned, workable, not yet published.
   const unassignedApps = useMemo(
     () =>
@@ -282,6 +292,9 @@ export default function RegularArrangementPage() {
     return (applications ?? []).filter((a) => {
       if (EXCLUDED_STATUSES.has(a.application_status)) return false;
       if (a.grade !== demandFilter.grade) return false;
+      // A stream-specific bar filters to that stream; a bare-grade bar (no
+      // stream) matches every stream, mirroring how the bucket was keyed.
+      if (demandFilter.langStream && effectiveStream(a) !== demandFilter.langStream) return false;
       const day = demandFilter.tier === "first" ? a.preference_1_day : a.preference_2_day;
       const time = demandFilter.tier === "first" ? a.preference_1_time : a.preference_2_time;
       return day === demandFilter.day && time === demandFilter.timeSlot;
@@ -322,7 +335,7 @@ export default function RegularArrangementPage() {
   );
 
   const demandFilterLabel = demandFilter
-    ? `${demandFilter.grade} · ${DAY_ABBREV[demandFilter.day] || demandFilter.day} ${demandFilter.timeSlot} · ${demandFilter.tier === "first" ? "first choice" : "backup"}`
+    ? `${demandFilter.grade}${demandFilter.langStream ?? ""} · ${DAY_ABBREV[demandFilter.day] || demandFilter.day} ${demandFilter.timeSlot} · ${demandFilter.tier === "first" ? "first choice" : "backup"}`
     : null;
 
   // Search index over every application at this branch. Haystack folds the
@@ -382,6 +395,7 @@ export default function RegularArrangementPage() {
       prev.day === filter.day &&
       prev.timeSlot === filter.timeSlot &&
       prev.grade === filter.grade &&
+      prev.langStream === filter.langStream &&
       prev.tier === filter.tier
         ? null
         : filter
@@ -439,6 +453,7 @@ export default function RegularArrangementPage() {
       time_slot: timeSlot,
       location,
       grade: null,
+      lang_stream: null,
       tutor_id: null,
       tutor_name: null,
       max_students: 6,
@@ -853,6 +868,7 @@ export default function RegularArrangementPage() {
                     demand={demand?.cells ?? []}
                     slots={slots ?? []}
                     grades={grades}
+                    streams={streams}
                     tutors={tutorOptions}
                     tutorsByCell={tutorsByCell}
                     loading={slots === undefined || demand === undefined}

@@ -50,7 +50,74 @@ export {
 } from "@/lib/summer-utils";
 
 import { type Lang as RegularLang, t as rt } from "@/lib/summer-utils";
+import { getGradeColor } from "@/lib/constants";
 import type { RegularCourseFormConfig } from "@/types";
+
+// Grade badge colours are keyed on grade + stream (F1C, F2E, ...); regular
+// surfaces feed effectiveStream into this so Int applicants colour as English.
+export { getGradeColor };
+
+/** Fold a raw stream value to the one that governs placement and colour: the
+ *  International stream sits with English (a class, and a placed student, is
+ *  only ever Chinese or English). Returns null when nothing is set. */
+export function foldStream(raw: string | null | undefined): string | null {
+  const v = (raw ?? "").trim();
+  return v === "Int" ? "E" : (v || null);
+}
+
+/** The stream that governs an application's placement and badge colour. The
+ *  linked student record wins when present (it is the system of record and only
+ *  ever holds C or E); otherwise the submitted value with Int folded into E. */
+export function effectiveStream(app: {
+  lang_stream?: string | null;
+  linked_student?: { lang_stream?: string | null } | null;
+}): string | null {
+  const recordStream = app.linked_student?.lang_stream;
+  if (recordStream) return recordStream;
+  return foldStream(app.lang_stream);
+}
+
+/** Distinct effective streams among `students` that clash with a slot's own
+ *  stream. Empty when the slot has no stream (any) or nothing clashes. Mirrors
+ *  getMismatchedSessionGrades for the slot-card mixed-stream warning. */
+export function getMismatchedStreams(
+  slotStream: string | null | undefined,
+  students: { lang_stream?: string | null }[],
+): string[] {
+  const slot = foldStream(slotStream);
+  if (!slot) return [];
+  return Array.from(
+    new Set(
+      students
+        .map((s) => foldStream(s.lang_stream))
+        .filter((s): s is string => !!s && s !== slot),
+    ),
+  );
+}
+
+/** Whether one application's effective stream clashes with a slot's stream. An
+ *  unset slot stream (any) or unset application stream never clashes. */
+export function slotStreamMismatch(
+  slot: { lang_stream?: string | null },
+  app: {
+    lang_stream?: string | null;
+    linked_student?: { lang_stream?: string | null } | null;
+  },
+): boolean {
+  const slotStream = foldStream(slot.lang_stream);
+  const appStream = effectiveStream(app);
+  return !!slotStream && !!appStream && slotStream !== appStream;
+}
+
+/** Split a demand bucket key ("F1C") into grade + stream. Streams are single
+ *  letters (C/E); a bare grade key ("F1") yields a null stream. */
+export function splitGradeStream(key: string): { grade: string; stream: string | null } {
+  const last = key.slice(-1);
+  if ((last === "C" || last === "E") && key.length > 2) {
+    return { grade: key.slice(0, -1), stream: last };
+  }
+  return { grade: key, stream: null };
+}
 
 /** Step labels for the 4-step regular wizard (contact merged into confirm). */
 export const REGULAR_STEP_LABELS = [
