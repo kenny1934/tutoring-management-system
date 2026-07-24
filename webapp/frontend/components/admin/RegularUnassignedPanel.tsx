@@ -18,6 +18,10 @@ import type { RegularApplication, RegularSuggestion } from "@/types";
 interface RegularUnassignedPanelProps {
   applications: RegularApplication[];
   grades: string[];
+  /** Selectable language streams (C/E) for the panel's stream filter. Empty
+   *  hides the stream chips — a branch with no declared streams filters on
+   *  grade alone. */
+  streams?: string[];
   configId: number | null;
   loading?: boolean;
   readOnly?: boolean;
@@ -145,6 +149,7 @@ function SuggestionList({
 export function RegularUnassignedPanel({
   applications,
   grades,
+  streams = [],
   configId,
   loading,
   readOnly = false,
@@ -163,6 +168,7 @@ export function RegularUnassignedPanel({
 }: RegularUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  const [streamFilter, setStreamFilter] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [sort, setSort] = useState<SortMode>("grade");
   const [suggestForId, setSuggestForId] = useState<number | null>(null);
@@ -172,6 +178,11 @@ export function RegularUnassignedPanel({
     let result = applications;
     if (gradeFilter) {
       result = result.filter((a) => a.grade === gradeFilter);
+    }
+    if (streamFilter) {
+      // Effective stream so an Int applicant filters under English, matching
+      // the badge colour and how the grid buckets demand.
+      result = result.filter((a) => effectiveStream(a) === streamFilter);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -201,11 +212,15 @@ export function RegularUnassignedPanel({
       }
       if (sort === "grade") {
         const cmp = a.grade.localeCompare(b.grade);
-        return cmp !== 0 ? cmp : byName(a, b);
+        if (cmp !== 0) return cmp;
+        // Within a grade, group by stream (F1C before F1E) so the list reads
+        // the same way the grid's grade-stream demand bars are ordered.
+        const sc = (effectiveStream(a) ?? "").localeCompare(effectiveStream(b) ?? "");
+        return sc !== 0 ? sc : byName(a, b);
       }
       return byName(a, b);
     });
-  }, [applications, gradeFilter, search, sort]);
+  }, [applications, gradeFilter, streamFilter, search, sort]);
 
   const nextSort = SORT_CYCLE[(SORT_CYCLE.indexOf(sort) + 1) % SORT_CYCLE.length];
   const StatusHeaderIcon = statusFilter ? REGULAR_STATUS_ICONS[statusFilter] : null;
@@ -314,6 +329,29 @@ export function RegularUnassignedPanel({
                 )}
               >
                 {g}
+              </button>
+            ))}
+            {/* Stream chips — orthogonal to grade, so an admin can narrow to
+                e.g. every F-grade Chinese applicant at once. */}
+            {streams.length > 0 && (
+              <span
+                className="mx-0.5 h-3 w-px bg-[#e8d4b8] dark:bg-[#6b5a4a]"
+                aria-hidden
+              />
+            )}
+            {streams.map((s) => (
+              <button
+                key={s}
+                onClick={() => setStreamFilter(streamFilter === s ? null : s)}
+                className={cn(
+                  "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+                  streamFilter === s
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+                )}
+                title={s === "C" ? "Chinese stream" : s === "E" ? "English stream" : s}
+              >
+                {s}
               </button>
             ))}
             <button

@@ -891,6 +891,7 @@ export default function RegularArrangementPage() {
                   <RegularUnassignedPanel
                     applications={panelApplications}
                     grades={grades}
+                    streams={streams}
                     configId={configId}
                     loading={!applications}
                     readOnly={readOnly}
@@ -964,6 +965,7 @@ export default function RegularArrangementPage() {
                       hideCollapse
                       applications={panelApplications}
                       grades={grades}
+                      streams={streams}
                       configId={configId}
                       loading={!applications}
                       readOnly={readOnly}
