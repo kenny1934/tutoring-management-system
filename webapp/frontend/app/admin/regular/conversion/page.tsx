@@ -9,10 +9,10 @@ import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
 import { getGradeColor, splitGradeStream } from "@/lib/regular-utils";
-import { TrendingUp, Loader2, ChevronDown, AlertTriangle } from "lucide-react";
+import { TrendingUp, Loader2, ChevronDown, AlertTriangle, Download } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { RegularConversionSections } from "@/components/admin/RegularConversionSections";
-import type { RegularConversionBranchRow } from "@/types";
+import type { RegularConversionBranchRow, RegularConversionResponse } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
@@ -31,6 +31,56 @@ const COLUMNS: { key: keyof RegularConversionBranchRow; label: string; title: st
 /** Whole-number percent, guarding a zero denominator. */
 function pct(n: number, d: number): string {
   return d > 0 ? `${Math.round((n / d) * 100)}%` : "-";
+}
+
+/** Quote a CSV cell only when it contains a comma, quote, or newline. */
+function csvCell(v: string | number | null | undefined): string {
+  const s = String(v ?? "");
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** Flatten the whole report into one CSV with a titled block per axis. */
+function buildConversionCsv(data: RegularConversionResponse): string {
+  const rows: (string | number | null | undefined)[][] = [];
+  const branchLine = (r: RegularConversionBranchRow) => [
+    r.branch, r.prospects, r.wants_summer_yes, r.wants_regular_yes,
+    r.attended_summer, r.applied_regular, r.enrolled_regular,
+    pct(r.applied_regular, r.prospects), pct(r.enrolled_regular, r.prospects),
+  ];
+
+  rows.push(["Funnel by branch"]);
+  rows.push(["Branch", "Prospects", "Wants summer", "Wants regular", "Did summer", "Applied", "Enrolled", "Apply %", "Enrol %"]);
+  data.branches.forEach((r) => rows.push(branchLine(r)));
+  rows.push(branchLine(data.totals));
+  rows.push([]);
+
+  rows.push(["Regular intention", "Prospects", "Applied", "Enrolled", "Apply %", "Enrol %"]);
+  data.by_regular_intention.forEach((r) =>
+    rows.push([r.intention, r.prospects, r.applied_regular, r.enrolled_regular, pct(r.applied_regular, r.prospects), pct(r.enrolled_regular, r.prospects)]));
+  rows.push([]);
+
+  rows.push(["Summer intention", "Prospects", "Did summer", "Rate"]);
+  data.by_summer_intention.forEach((r) =>
+    rows.push([r.intention, r.prospects, r.attended_summer, pct(r.attended_summer, r.prospects)]));
+  rows.push([]);
+
+  rows.push(["Feeder school", "Prospects", "Applied", "Enrolled"]);
+  data.by_school.forEach((r) => rows.push([r.school, r.prospects, r.applied_regular, r.enrolled_regular]));
+  rows.push([]);
+
+  rows.push(["Branch", "Tutor", "Prospects", "Applied", "Enrolled"]);
+  data.by_tutor.forEach((r) => rows.push([r.branch, r.tutor_name, r.prospects, r.applied_regular, r.enrolled_regular]));
+  rows.push([]);
+
+  rows.push(["Wanted branch", "Enrolled branch", "Students"]);
+  data.branch_movement.forEach((r) => rows.push([r.wanted_branch, r.enrolled_branch, r.count]));
+  rows.push([]);
+
+  rows.push(["Still to chase — name", "Branch", "Grade", "School", "Wants regular", "Did summer", "Outreach"]);
+  data.lost_prospects.forEach((r) =>
+    rows.push([r.student_name, r.source_branch, r.grade, r.school, r.wants_regular, r.attended_summer ? "Yes" : "", r.outreach_status]));
+
+  return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
 }
 
 /** A headline metric card in the summary strip above the funnel. */
@@ -60,7 +110,7 @@ function FunnelChart({ totals }: { totals: RegularConversionBranchRow }) {
     { label: "Enrolled", value: totals.enrolled_regular, fill: "bg-purple-500" },
   ];
   return (
-    <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg p-4">
+    <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold text-foreground">Regular funnel</h2>
         <p className="text-xs text-muted-foreground mt-0.5">Share of this year&apos;s prospects who applied and enrolled.</p>
@@ -90,6 +140,10 @@ export default function RegularConversionPage() {
   usePageTitle("Regular Conversion");
   const { canViewAdminPages } = useAuth();
   const [year, setYear] = useState<number | null>(null);
+  const [branch, setBranch] = useState<string | null>(null);
+  // Branch options come from the unfiltered ("All") view and persist while a
+  // single branch is selected, so the dropdown never collapses to one option.
+  const [branchOptions, setBranchOptions] = useState<string[]>([]);
 
   const { data: configs } = useSWR(
     canViewAdminPages ? "regular-configs" : null,
@@ -109,9 +163,28 @@ export default function RegularConversionPage() {
   );
 
   const { data, isLoading } = useSWR(
-    year != null ? ["regular-conversion", year] : null,
-    () => regularAPI.getConversion(year!)
+    year != null ? ["regular-conversion", year, branch] : null,
+    () => regularAPI.getConversion(year!, branch)
   );
+
+  // Remember the full branch list from the unfiltered view.
+  useEffect(() => {
+    if (data && branch === null) setBranchOptions(data.branches.map((b) => b.branch));
+  }, [data, branch]);
+
+  const handleExport = () => {
+    if (!data) return;
+    const BOM = String.fromCharCode(0xfeff); // so Excel reads the UTF-8 file
+    const csv = BOM + buildConversionCsv(data);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `conversion-${year}${branch ? `-${branch}` : ""}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const gradeStreams = useMemo(() => {
     if (!data) return [];
@@ -161,7 +234,46 @@ export default function RegularConversionPage() {
                   How P6 prospects flow through summer into the regular intake.
                 </p>
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 flex items-center gap-2">
+                {branchOptions.length > 1 && (
+                  <DropdownMenu
+                    align="right"
+                    trigger={({ triggerProps }) => (
+                      <button type="button" {...triggerProps} className={cn(selectClass, "inline-flex items-center gap-1.5")}>
+                        <span className="font-medium">{branch ?? "All branches"}</span>
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  >
+                    {(close) => (
+                      <div className="py-1">
+                        <button
+                          type="button"
+                          onClick={() => { setBranch(null); close(); }}
+                          className={cn(
+                            "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
+                            branch === null && "font-semibold text-primary"
+                          )}
+                        >
+                          All branches
+                        </button>
+                        {branchOptions.map((b) => (
+                          <button
+                            key={b}
+                            type="button"
+                            onClick={() => { setBranch(b); close(); }}
+                            className={cn(
+                              "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
+                              b === branch && "font-semibold text-primary"
+                            )}
+                          >
+                            {b}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </DropdownMenu>
+                )}
                 <DropdownMenu
                   align="right"
                   trigger={({ triggerProps }) => (
@@ -171,13 +283,13 @@ export default function RegularConversionPage() {
                     </button>
                   )}
                 >
-                  {() => (
+                  {(close) => (
                     <div className="py-1">
                       {years.map((y) => (
                         <button
                           key={y}
                           type="button"
-                          onClick={() => setYear(y)}
+                          onClick={() => { setYear(y); setBranch(null); close(); }}
                           className={cn(
                             "w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10",
                             y === year && "font-semibold text-primary"
@@ -189,6 +301,16 @@ export default function RegularConversionPage() {
                     </div>
                   )}
                 </DropdownMenu>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={!data || data.totals.prospects === 0}
+                  className={cn(selectClass, "inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed")}
+                  title="Download this report as CSV"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Export</span>
+                </button>
               </div>
             </div>
           </div>
@@ -245,8 +367,10 @@ export default function RegularConversionPage() {
               {/* Overall funnel */}
               {data.totals.prospects > 0 && <FunnelChart totals={data.totals} />}
 
-              {/* Per-branch funnel */}
-              <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-x-auto">
+              {/* Per-branch funnel — hidden when scoped to one branch, since the
+                  cards and chart above already show that branch's numbers */}
+              {branch === null && (
+              <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl overflow-x-auto">
                 <table className="w-full text-xs min-w-[860px]">
                   <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520]">
                     <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
@@ -305,9 +429,10 @@ export default function RegularConversionPage() {
                   )}
                 </table>
               </div>
+              )}
 
               {/* Grade-stream breakdown of regular applicants */}
-              <div>
+              <div className="rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
                   <h2 className="text-sm font-semibold text-foreground">Regular applicants by grade and stream</h2>
                   {gradeStreams.length > 0 && (

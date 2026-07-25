@@ -1,7 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, ArrowUpDown, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IntentionBadge, OutreachBadge } from "@/components/summer/prospect-badges";
 import type { ProspectOutreachStatus, RegularConversionResponse } from "@/types";
@@ -29,6 +30,72 @@ function EmptyRow({ span, children }: { span: number; children: React.ReactNode 
   );
 }
 
+type SortDir = "asc" | "desc";
+
+/** Client-side column sort that keeps the server's curated order until the user
+ *  clicks a header, then toggles asc/desc on repeat clicks of the same column. */
+function useSortable<T>(rows: T[]) {
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [dir, setDir] = useState<SortDir>("desc");
+  const sorted = useMemo(() => {
+    if (!sortKey) return rows;
+    const get = (o: T) => (o as Record<string, unknown>)[sortKey];
+    return [...rows].sort((a, b) => {
+      const av = get(a);
+      const bv = get(b);
+      let c: number;
+      if (typeof av === "number" && typeof bv === "number") c = av - bv;
+      else if (typeof av === "boolean" && typeof bv === "boolean") c = (av ? 1 : 0) - (bv ? 1 : 0);
+      else c = String(av ?? "").localeCompare(String(bv ?? ""));
+      return dir === "asc" ? c : -c;
+    });
+  }, [rows, sortKey, dir]);
+  const onSort = (k: string) => {
+    if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setDir("desc");
+    }
+  };
+  return { sorted, sortKey, dir, onSort };
+}
+
+/** A clickable, sort-aware table header cell. */
+function SortHeader({
+  label,
+  colKey,
+  sortKey,
+  dir,
+  onSort,
+  className,
+}: {
+  label: string;
+  colKey: string;
+  sortKey: string | null;
+  dir: SortDir;
+  onSort: (k: string) => void;
+  className: string;
+}) {
+  const active = sortKey === colKey;
+  return (
+    <th
+      className={cn(className, "cursor-pointer select-none")}
+      onClick={() => onSort(colKey)}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      title="Sort by this column"
+    >
+      <span className="inline-flex items-center gap-0.5">
+        {label}
+        {active ? (
+          dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />
+        )}
+      </span>
+    </th>
+  );
+}
+
 function Section({
   title,
   subtitle,
@@ -41,7 +108,10 @@ function Section({
   id?: string;
 }) {
   return (
-    <section id={id} className="scroll-mt-4">
+    <section
+      id={id}
+      className="scroll-mt-4 rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4"
+    >
       <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       <p className="text-xs text-muted-foreground mt-0.5 mb-2">{subtitle}</p>
       {children}
@@ -119,6 +189,8 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
 }
 
 function SchoolTable({ data }: { data: RegularConversionResponse }) {
+  const { sorted, sortKey, dir, onSort } = useSortable(data.by_school);
+  const hp = { sortKey, dir, onSort };
   return (
     <Section title="Feeder schools" subtitle="Which schools the prospects come from, and how far each school converts.">
       <div className={wrap}>
@@ -126,14 +198,14 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
           <table className="w-full text-xs min-w-[420px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>
-                <th className={th}>School</th>
-                <th className={thNum}>Prospects</th>
-                <th className={thNum}>Applied</th>
-                <th className={thNum}>Enrolled</th>
+                <SortHeader label="School" colKey="school" className={th} {...hp} />
+                <SortHeader label="Prospects" colKey="prospects" className={thNum} {...hp} />
+                <SortHeader label="Applied" colKey="applied_regular" className={thNum} {...hp} />
+                <SortHeader label="Enrolled" colKey="enrolled_regular" className={thNum} {...hp} />
               </tr>
             </thead>
             <tbody className={rowDivide}>
-              {data.by_school.map((r) => (
+              {sorted.map((r) => (
                 <tr key={r.school}>
                   <td className="px-3 py-2 text-foreground max-w-[280px] truncate" title={r.school}>{r.school}</td>
                   <td className={tdNum}>{r.prospects}</td>
@@ -141,7 +213,7 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
                   <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
                 </tr>
               ))}
-              {data.by_school.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
+              {sorted.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
             </tbody>
           </table>
         </div>
@@ -151,6 +223,8 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
 }
 
 function TutorTable({ data }: { data: RegularConversionResponse }) {
+  const { sorted, sortKey, dir, onSort } = useSortable(data.by_tutor);
+  const hp = { sortKey, dir, onSort };
   return (
     <Section title="By submitting tutor" subtitle="Which P6 tutors bring in prospects that go on to apply and enrol.">
       <div className={wrap}>
@@ -158,15 +232,15 @@ function TutorTable({ data }: { data: RegularConversionResponse }) {
           <table className="w-full text-xs min-w-[460px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>
-                <th className={th}>Branch</th>
-                <th className={th}>Tutor</th>
-                <th className={thNum}>Prospects</th>
-                <th className={thNum}>Applied</th>
-                <th className={thNum}>Enrolled</th>
+                <SortHeader label="Branch" colKey="branch" className={th} {...hp} />
+                <SortHeader label="Tutor" colKey="tutor_name" className={th} {...hp} />
+                <SortHeader label="Prospects" colKey="prospects" className={thNum} {...hp} />
+                <SortHeader label="Applied" colKey="applied_regular" className={thNum} {...hp} />
+                <SortHeader label="Enrolled" colKey="enrolled_regular" className={thNum} {...hp} />
               </tr>
             </thead>
             <tbody className={rowDivide}>
-              {data.by_tutor.map((r, i) => (
+              {sorted.map((r, i) => (
                 <tr key={`${r.branch}-${r.tutor_name}-${i}`}>
                   <td className="px-3 py-2 font-semibold text-foreground">{r.branch}</td>
                   <td className={cn("px-3 py-2", r.tutor_name === "Unattributed" ? "text-muted-foreground italic" : "text-foreground")}>{r.tutor_name}</td>
@@ -175,7 +249,7 @@ function TutorTable({ data }: { data: RegularConversionResponse }) {
                   <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
                 </tr>
               ))}
-              {data.by_tutor.length === 0 && <EmptyRow span={5}>No prospects.</EmptyRow>}
+              {sorted.length === 0 && <EmptyRow span={5}>No prospects.</EmptyRow>}
             </tbody>
           </table>
         </div>
@@ -244,11 +318,12 @@ function MovementTable({ data }: { data: RegularConversionResponse }) {
 }
 
 function LostTable({ data }: { data: RegularConversionResponse }) {
-  const rows = data.lost_prospects;
+  const { sorted, sortKey, dir, onSort } = useSortable(data.lost_prospects);
+  const hp = { sortKey, dir, onSort };
   return (
     <Section
       id="conversion-still-to-chase"
-      title={`Still to chase (${rows.length})`}
+      title={`Still to chase (${data.lost_prospects.length})`}
       subtitle="Prospects with no regular application yet. Open one to record outreach."
     >
       <div className={wrap}>
@@ -256,17 +331,17 @@ function LostTable({ data }: { data: RegularConversionResponse }) {
           <table className="w-full text-xs min-w-[640px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>
-                <th className={th}>Name</th>
-                <th className={th}>Branch</th>
-                <th className={th}>Grade</th>
-                <th className={th}>School</th>
-                <th className={th}>Wants regular</th>
-                <th className={th}>Did summer</th>
-                <th className={th}>Outreach</th>
+                <SortHeader label="Name" colKey="student_name" className={th} {...hp} />
+                <SortHeader label="Branch" colKey="source_branch" className={th} {...hp} />
+                <SortHeader label="Grade" colKey="grade" className={th} {...hp} />
+                <SortHeader label="School" colKey="school" className={th} {...hp} />
+                <SortHeader label="Wants regular" colKey="wants_regular" className={th} {...hp} />
+                <SortHeader label="Did summer" colKey="attended_summer" className={th} {...hp} />
+                <SortHeader label="Outreach" colKey="outreach_status" className={th} {...hp} />
               </tr>
             </thead>
             <tbody className={rowDivide}>
-              {rows.map((r) => (
+              {sorted.map((r) => (
                 <tr key={r.prospect_id} className="hover:bg-primary/[0.04]">
                   <td className="px-3 py-2 font-medium">
                     <Link
@@ -297,7 +372,7 @@ function LostTable({ data }: { data: RegularConversionResponse }) {
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && <EmptyRow span={7}>Every prospect has a regular application.</EmptyRow>}
+              {sorted.length === 0 && <EmptyRow span={7}>Every prospect has a regular application.</EmptyRow>}
             </tbody>
           </table>
         </div>

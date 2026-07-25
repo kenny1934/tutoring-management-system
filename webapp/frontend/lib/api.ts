@@ -3135,9 +3135,9 @@ export const regularAPI = {
       `/regular/applications/${applicationId}/prospect-suggestions`
     ),
 
-  getConversion: (year: number) =>
+  getConversion: (year: number, branch?: string | null) =>
     fetchAPI<import("@/types").RegularConversionResponse>(
-      `/regular/conversion?year=${year}`
+      `/regular/conversion?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
     ),
 
   publishApplication: (id: number, data: RegularPublishRequest) =>

@@ -1490,6 +1490,7 @@ def suggest_prospects_for_application(
 @router.get("/regular/conversion", response_model=RegularConversionResponse)
 def get_conversion(
     year: int = Query(...),
+    branch: Optional[str] = None,  # limit to one source (primary) branch code
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
@@ -1498,8 +1499,13 @@ def get_conversion(
     Sliced per source branch, with a grade-stream breakdown of regular
     applicants to feed 'how many F1C vs F1E classes to open'. attended_summer
     and enrolled_regular read enrollment-row existence, the same signal the
-    journey chip uses, so the two reconcile."""
-    prospects = db.query(PrimaryProspect).filter(PrimaryProspect.year == year).all()
+    journey chip uses, so the two reconcile. Passing `branch` scopes the whole
+    report to one source branch — every axis derives from the prospect set, so
+    filtering once here is enough."""
+    q = db.query(PrimaryProspect).filter(PrimaryProspect.year == year)
+    if branch:
+        q = q.filter(PrimaryProspect.source_branch == branch)
+    prospects = q.all()
 
     summer_app_ids = {p.summer_application_id for p in prospects if p.summer_application_id}
     enrolled_summer_ids: set[int] = set()

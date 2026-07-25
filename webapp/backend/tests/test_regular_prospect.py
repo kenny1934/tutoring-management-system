@@ -433,6 +433,21 @@ class TestConversionAxes:
         assert len(paul) == 1
         assert paul[0].school == "St Paul"  # the spelling seen most often
 
+    def test_branch_filter_scopes_whole_report(self, db_session, reg_cfg, tutor):
+        # Two source branches; filtering to one scopes every axis, not just the funnel.
+        _prospect(db_session, name="Mac Kid", branch="MAC", phone_1="85237370001", school="Alpha")
+        _prospect(db_session, name="Mcp Kid", branch="MCP", phone_1="85237370002", school="Beta")
+
+        all_resp = get_conversion(year=2026, branch=None, _admin=None, db=db_session)
+        assert {r.branch for r in all_resp.branches} == {"MAC", "MCP"}
+        assert all_resp.totals.prospects == 2
+
+        mac = get_conversion(year=2026, branch="MAC", _admin=None, db=db_session)
+        assert [r.branch for r in mac.branches] == ["MAC"]
+        assert mac.totals.prospects == 1
+        assert {r.school for r in mac.by_school} == {"Alpha"}
+        assert {r.branch for r in mac.by_tutor} == {"MAC"}
+
     def test_branch_movement_flags_crossing(self, db_session, reg_cfg, tutor):
         # Wanted MSA, enrolled at MSB (二龍喉分校 -> MSB): a crossing.
         self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="二龍喉分校",
