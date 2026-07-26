@@ -10,7 +10,14 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from constants import hk_now
 from database import get_db
-from models import TerminationRecord, Student, Tutor, Enrollment
+from models import TerminationRecord, Student, Tutor, Enrollment, SummerCourseConfig
+from quarters import (
+    QuarterWindow,
+    attribute_quarter,
+    build_quarter_window,
+    get_quarter_dates,
+    get_quarter_for_date,
+)
 import calendar
 from schemas import (
     TerminatedStudentResponse,
@@ -22,88 +29,41 @@ from schemas import (
     QuarterOption,
     QuarterTrendPoint,
     TerminationReviewCount,
-    StatDetailStudent
+    StatDetailStudent,
+    SummerPauseScope
 )
 from auth.dependencies import require_admin_write, get_current_user, get_effective_role, reject_guest, reject_read_only
 
 router = APIRouter()
 
-# Custom Quarter definitions (start_month, start_day, end_month, end_day)
-# Q4 crosses the year boundary: Oct 22 - Jan 21 of next year
-QUARTERS = {
-    1: (1, 22, 4, 21),   # Jan 22 - Apr 21
-    2: (4, 22, 7, 21),   # Apr 22 - Jul 21
-    3: (7, 22, 10, 21),  # Jul 22 - Oct 21
-    4: (10, 22, 1, 21),  # Oct 22 - Jan 21 (next year)
-}
 
-OPENING_PERIOD_DAYS = 7  # Jan 22-28, Apr 22-28, Jul 22-28, Oct 22-28
+def get_summer_pauses(db: Session) -> dict:
+    """Every configured summer course period, keyed by year.
 
-
-def get_quarter_dates(year: int, quarter: int):
+    Read for every year, active or not, so each quarter is scoped by the course
+    its own year ran, and years with no course keep the plain calendar quarter.
+    One query: the table holds a handful of rows, one per year.
     """
-    Get key dates for a quarter.
-
-    Args:
-        year: The reporting year for the quarter
-        quarter: Quarter number (1-4)
-
-    Returns:
-        tuple: (opening_start, opening_end, closing_end)
-
-    Note: For Q4, the year parameter is the start year.
-          Q4 2025 runs from Oct 22, 2025 to Jan 21, 2026.
-    """
-    start_month, start_day, end_month, end_day = QUARTERS[quarter]
-
-    # Opening period start and end
-    opening_start = date(year, start_month, start_day)
-    opening_end = date(year, start_month, start_day + OPENING_PERIOD_DAYS - 1)
-
-    # Closing end date
-    if quarter == 4:
-        # Q4 ends in January of the NEXT year
-        closing_end = date(year + 1, end_month, end_day)
-    else:
-        closing_end = date(year, end_month, end_day)
-
-    return opening_start, opening_end, closing_end
+    rows = db.query(
+        SummerCourseConfig.year,
+        SummerCourseConfig.course_start_date,
+        SummerCourseConfig.course_end_date,
+    ).all()
+    return {
+        year: (course_start, course_end)
+        for year, course_start, course_end in rows
+        if course_start and course_end
+    }
 
 
-def get_quarter_for_date(d: date) -> tuple:
-    """
-    Get the custom quarter and reporting year for a given date.
+def get_summer_pause(db: Session, year: int) -> Optional[tuple]:
+    """The summer course period for one year, or None if no course is configured."""
+    return get_summer_pauses(db).get(year)
 
-    Args:
-        d: The date to classify
 
-    Returns:
-        tuple: (quarter_number, reporting_year)
-
-    Examples:
-        - Jan 15, 2026 -> (4, 2025)  # Part of Q4 2025
-        - Jan 25, 2026 -> (1, 2026)  # Part of Q1 2026
-        - Oct 25, 2025 -> (4, 2025)  # Part of Q4 2025
-    """
-    month = d.month
-    day = d.day
-    year = d.year
-
-    # Oct 22 or later -> Q4 of current year
-    if (month == 10 and day >= 22) or month > 10:
-        return 4, year
-    # Jul 22 to Oct 21 -> Q3
-    elif (month == 7 and day >= 22) or (month > 7 and month < 10) or (month == 10 and day < 22):
-        return 3, year
-    # Apr 22 to Jul 21 -> Q2
-    elif (month == 4 and day >= 22) or (month > 4 and month < 7) or (month == 7 and day < 22):
-        return 2, year
-    # Jan 22 to Apr 21 -> Q1
-    elif (month == 1 and day >= 22) or (month > 1 and month < 4) or (month == 4 and day < 22):
-        return 1, year
-    # Jan 1-21 -> Q4 of PREVIOUS year
-    else:
-        return 4, year - 1
+def get_quarter_window(db: Session, year: int, quarter: int) -> QuarterWindow:
+    """build_quarter_window() for the summer course configured that year."""
+    return build_quarter_window(year, quarter, get_summer_pause(db, year))
 
 
 @router.get("/terminations/quarters", response_model=List[QuarterOption])
@@ -138,11 +98,13 @@ async def get_available_quarters(
     result = db.execute(query, {"location": location})
     rows = result.fetchall()
 
-    # Collect distinct quarters from enrollment end dates
+    # Collect distinct quarters from enrollment end dates, with ends around the
+    # summer pause attributed to the quarter that resumes after it
+    pauses = get_summer_pauses(db)
     seen_quarters: set = set()
     for row in rows:
         if row.eff_end_date:
-            q, y = get_quarter_for_date(row.eff_end_date)
+            q, y = attribute_quarter(row.eff_end_date, pauses.get(row.eff_end_date.year))
             seen_quarters.add((q, y))
 
     # Filter out current and future quarters (not yet ready for review)
@@ -176,7 +138,7 @@ async def get_terminated_students(
     Enrollments starting >30 days after quarter end are ignored (comebacks).
     """
 
-    opening_start, _, closing_end = get_quarter_dates(year, quarter)
+    window = get_quarter_window(db, year, quarter)
 
     query = text("""
         WITH quarter_enrollments AS (
@@ -202,8 +164,8 @@ async def get_terminated_students(
                    qe.assigned_time, qe.assigned_day
             FROM quarter_enrollments qe
             WHERE qe.rn = 1
-            AND qe.eff_end_date >= :opening_start
-            AND qe.eff_end_date <= :closing_end
+            AND qe.eff_end_date >= :judged_from
+            AND qe.eff_end_date <= :churn_cutoff
         )
         SELECT
             te.student_id,
@@ -230,10 +192,9 @@ async def get_terminated_students(
     """)
 
     result = db.execute(query, {
+        **window.params(),
         "quarter": quarter,
         "year": year,
-        "opening_start": opening_start,
-        "closing_end": closing_end,
         "location": location,
         "tutor_id": tutor_id
     })
@@ -279,7 +240,7 @@ async def update_termination_record(
 
     # Get tutor_id from latest enrollment within the quarter window
     # (scoped to quarter_end + 30 days to ignore comeback enrollments)
-    _, _, closing_end = get_quarter_dates(data.year, data.quarter)
+    closing_end = get_quarter_window(db, data.year, data.quarter).closing_end
     latest_enrollment = db.execute(text("""
         SELECT tutor_id FROM enrollments
         WHERE student_id = :student_id
@@ -368,8 +329,7 @@ async def get_termination_stats(
     - Closing: Students with enrollments having effective_end_date > quarter end
     - Term Rate: Terminated / Opening (0 if opening is 0)
     """
-    opening_start, opening_end, closing_end = get_quarter_dates(year, quarter)
-    prev_closing_end = opening_start - timedelta(days=1)
+    window = get_quarter_window(db, year, quarter)
 
     # Query for Opening count per tutor
     # Count distinct students active during opening week (new + continuing),
@@ -391,7 +351,7 @@ async def get_termination_stats(
             e.first_lesson_date,
             e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) >= :opening_start
+        ) >= :judged_from
         AND (
             e.first_lesson_date <= :opening_end
             OR e.student_id IN (
@@ -414,9 +374,7 @@ async def get_termination_stats(
     """)
 
     opening_result = db.execute(opening_query, {
-        "opening_start": opening_start,
-        "opening_end": opening_end,
-        "prev_closing_end": prev_closing_end,
+        **window.params(),
         "location": location,
         "tutor_id": tutor_id
     })
@@ -443,7 +401,7 @@ async def get_termination_stats(
             e.first_lesson_date,
             e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) > :closing_end
+        ) > :churn_cutoff
         AND e.student_id IN (
             SELECT DISTINCT e2.student_id
             FROM enrollments e2
@@ -455,7 +413,7 @@ async def get_termination_stats(
                 e2.first_lesson_date,
                 e2.lessons_paid,
                 COALESCE(e2.deadline_extension_weeks, 0)
-            ) >= :opening_start
+            ) >= :judged_from
         )
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
@@ -463,8 +421,7 @@ async def get_termination_stats(
     """)
 
     closing_result = db.execute(closing_query, {
-        "opening_start": opening_start,
-        "closing_end": closing_end,
+        **window.params(),
         "location": location,
         "tutor_id": tutor_id
     })
@@ -495,8 +452,8 @@ async def get_termination_stats(
             SELECT qe.student_id, qe.tutor_id
             FROM quarter_enrollments qe
             WHERE qe.rn = 1
-            AND qe.eff_end_date >= :opening_start
-            AND qe.eff_end_date <= :closing_end
+            AND qe.eff_end_date >= :judged_from
+            AND qe.eff_end_date <= :churn_cutoff
         )
         SELECT
             te.tutor_id,
@@ -514,10 +471,9 @@ async def get_termination_stats(
     """)
 
     terminated_result = db.execute(terminated_query, {
+        **window.params(),
         "quarter": quarter,
         "year": year,
-        "opening_start": opening_start,
-        "closing_end": closing_end,
         "location": location,
         "tutor_id": tutor_id
     })
@@ -565,7 +521,7 @@ async def get_termination_stats(
         AND calculate_effective_end_date(
             e.first_lesson_date, e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) >= :opening_start
+        ) >= :judged_from
         AND (
             e.first_lesson_date <= :opening_end
             OR e.student_id IN (
@@ -585,9 +541,7 @@ async def get_termination_stats(
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
     """)
     total_opening = db.execute(location_opening_query, {
-        "opening_start": opening_start, "opening_end": opening_end,
-        "prev_closing_end": prev_closing_end,
-        "location": location, "tutor_id": tutor_id
+        **window.params(), "location": location, "tutor_id": tutor_id
     }).scalar()
 
     location_closing_query = text("""
@@ -601,7 +555,7 @@ async def get_termination_stats(
         AND calculate_effective_end_date(
             e.first_lesson_date, e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) > :closing_end
+        ) > :churn_cutoff
         AND e.student_id IN (
             SELECT DISTINCT e2.student_id
             FROM enrollments e2
@@ -612,14 +566,13 @@ async def get_termination_stats(
             AND calculate_effective_end_date(
                 e2.first_lesson_date, e2.lessons_paid,
                 COALESCE(e2.deadline_extension_weeks, 0)
-            ) >= :opening_start
+            ) >= :judged_from
         )
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
     """)
     total_closing = db.execute(location_closing_query, {
-        "opening_start": opening_start, "closing_end": closing_end,
-        "location": location, "tutor_id": tutor_id
+        **window.params(), "location": location, "tutor_id": tutor_id
     }).scalar()
 
     location_terminated_query = text("""
@@ -643,8 +596,8 @@ async def get_termination_stats(
             SELECT qe.student_id
             FROM quarter_enrollments qe
             WHERE qe.rn = 1
-            AND qe.eff_end_date >= :opening_start
-            AND qe.eff_end_date <= :closing_end
+            AND qe.eff_end_date >= :judged_from
+            AND qe.eff_end_date <= :churn_cutoff
         )
         SELECT COUNT(DISTINCT te.student_id) as cnt
         FROM termed te
@@ -656,8 +609,7 @@ async def get_termination_stats(
         AND (:tutor_id IS NULL OR tr.tutor_id = :tutor_id)
     """)
     total_terminated = db.execute(location_terminated_query, {
-        "quarter": quarter, "year": year,
-        "opening_start": opening_start, "closing_end": closing_end,
+        **window.params(), "quarter": quarter, "year": year,
         "location": location, "tutor_id": tutor_id
     }).scalar()
 
@@ -671,9 +623,20 @@ async def get_termination_stats(
         term_rate=location_term_rate
     )
 
+    summer_scope = None
+    if window.summer:
+        summer_scope = SummerPauseScope(
+            pause_start=window.summer[0],
+            pause_end=window.summer[1],
+            measured_from=window.opening_start,
+            measured_to=window.closing_end,
+            handover_from=window.handover_from,
+        )
+
     return TerminationStatsResponse(
         tutor_stats=tutor_stats,
-        location_stats=location_stats
+        location_stats=location_stats,
+        summer_scope=summer_scope
     )
 
 
@@ -682,14 +645,21 @@ def _compute_location_stats(
     quarter: int,
     year: int,
     location: Optional[str],
-    tutor_id: Optional[int]
+    tutor_id: Optional[int],
+    pauses: Optional[dict] = None
 ) -> dict:
     """
     Compute location-wide opening, terminated, closing stats for a single quarter.
     Returns dict with keys: opening, terminated, closing, term_rate, reason_breakdown.
+
+    Callers looping over several quarters should read the summer pauses once with
+    get_summer_pauses() and pass the map, rather than making this look them up
+    once per quarter.
     """
-    opening_start, opening_end, closing_end = get_quarter_dates(year, quarter)
-    prev_closing_end = opening_start - timedelta(days=1)
+    window = (
+        build_quarter_window(year, quarter, pauses.get(year)) if pauses is not None
+        else get_quarter_window(db, year, quarter)
+    )
 
     # Opening count
     opening_query = text("""
@@ -703,7 +673,7 @@ def _compute_location_stats(
         AND calculate_effective_end_date(
             e.first_lesson_date, e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) >= :opening_start
+        ) >= :judged_from
         AND (
             e.first_lesson_date <= :opening_end
             OR e.student_id IN (
@@ -723,9 +693,7 @@ def _compute_location_stats(
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
     """)
     total_opening = db.execute(opening_query, {
-        "opening_start": opening_start, "opening_end": opening_end,
-        "prev_closing_end": prev_closing_end,
-        "location": location, "tutor_id": tutor_id
+        **window.params(), "location": location, "tutor_id": tutor_id
     }).scalar() or 0
 
     # Closing count
@@ -740,7 +708,7 @@ def _compute_location_stats(
         AND calculate_effective_end_date(
             e.first_lesson_date, e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) > :closing_end
+        ) > :churn_cutoff
         AND e.student_id IN (
             SELECT DISTINCT e2.student_id
             FROM enrollments e2
@@ -751,14 +719,13 @@ def _compute_location_stats(
             AND calculate_effective_end_date(
                 e2.first_lesson_date, e2.lessons_paid,
                 COALESCE(e2.deadline_extension_weeks, 0)
-            ) >= :opening_start
+            ) >= :judged_from
         )
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
     """)
     total_closing = db.execute(closing_query, {
-        "opening_start": opening_start, "closing_end": closing_end,
-        "location": location, "tutor_id": tutor_id
+        **window.params(), "location": location, "tutor_id": tutor_id
     }).scalar() or 0
 
     # Terminated count
@@ -783,8 +750,8 @@ def _compute_location_stats(
             SELECT qe.student_id
             FROM quarter_enrollments qe
             WHERE qe.rn = 1
-            AND qe.eff_end_date >= :opening_start
-            AND qe.eff_end_date <= :closing_end
+            AND qe.eff_end_date >= :judged_from
+            AND qe.eff_end_date <= :churn_cutoff
         )
         SELECT COUNT(DISTINCT te.student_id) as cnt
         FROM termed te
@@ -796,8 +763,7 @@ def _compute_location_stats(
         AND (:tutor_id IS NULL OR tr.tutor_id = :tutor_id)
     """)
     total_terminated = db.execute(terminated_query, {
-        "quarter": quarter, "year": year,
-        "opening_start": opening_start, "closing_end": closing_end,
+        **window.params(), "quarter": quarter, "year": year,
         "location": location, "tutor_id": tutor_id
     }).scalar() or 0
 
@@ -825,8 +791,8 @@ def _compute_location_stats(
             SELECT qe.student_id
             FROM quarter_enrollments qe
             WHERE qe.rn = 1
-            AND qe.eff_end_date >= :opening_start
-            AND qe.eff_end_date <= :closing_end
+            AND qe.eff_end_date >= :judged_from
+            AND qe.eff_end_date <= :churn_cutoff
         )
         SELECT COALESCE(tr.reason_category, 'Uncategorized') as category, COUNT(*) as cnt
         FROM termed te
@@ -839,8 +805,7 @@ def _compute_location_stats(
         GROUP BY tr.reason_category
     """)
     reason_rows = db.execute(reason_query, {
-        "quarter": quarter, "year": year,
-        "opening_start": opening_start, "closing_end": closing_end,
+        **window.params(), "quarter": quarter, "year": year,
         "location": location, "tutor_id": tutor_id
     }).fetchall()
     reason_breakdown = {row.category: row.cnt for row in reason_rows}
@@ -869,6 +834,8 @@ async def get_review_needed_count(
     """
     today = hk_now().date()
     current_q, current_y = get_quarter_for_date(today)
+    # Review timing follows the plain calendar quarter, so reviews stay on their
+    # usual dates even in the quarter the summer pause shifts the figures for
     opening_start, _, _ = get_quarter_dates(current_y, current_q)
 
     # Review period: quarter start date to end of that starting month
@@ -884,7 +851,7 @@ async def get_review_needed_count(
     else:
         prev_q, prev_y = current_q - 1, current_y
 
-    prev_opening_start, _, prev_closing_end = get_quarter_dates(prev_y, prev_q)
+    prev_window = get_quarter_window(db, prev_y, prev_q)
 
     # Count terminated students from previous quarter missing both reason and category
     query = text("""
@@ -910,8 +877,8 @@ async def get_review_needed_count(
                    qe.eff_end_date as termination_date
             FROM quarter_enrollments qe
             WHERE qe.rn = 1
-            AND qe.eff_end_date >= :opening_start
-            AND qe.eff_end_date <= :closing_end
+            AND qe.eff_end_date >= :judged_from
+            AND qe.eff_end_date <= :churn_cutoff
         )
         SELECT COUNT(*) as cnt
         FROM termed te
@@ -925,10 +892,9 @@ async def get_review_needed_count(
     """)
 
     result = db.execute(query, {
+        **prev_window.params(),
         "quarter": prev_q,
         "year": prev_y,
-        "opening_start": prev_opening_start,
-        "closing_end": prev_closing_end,
         "location": location,
         "tutor_id": tutor_id,
     })
@@ -963,8 +929,9 @@ async def get_termination_trends(
                 if not (q.quarter == current_q and q.year == current_y)][:8]
 
     trend_points = []
+    pauses = get_summer_pauses(db)
     for q in reversed(quarters):  # Oldest first
-        stats = _compute_location_stats(db, q.quarter, q.year, location, tutor_id)
+        stats = _compute_location_stats(db, q.quarter, q.year, location, tutor_id, pauses)
         trend_points.append(QuarterTrendPoint(
             quarter=q.quarter,
             year=q.year,
@@ -997,8 +964,7 @@ async def get_stat_details(
     if stat_type not in ("opening", "terminated", "closing"):
         raise HTTPException(status_code=400, detail="stat_type must be opening, terminated, or closing")
 
-    opening_start, opening_end, closing_end = get_quarter_dates(year, quarter)
-    prev_closing_end = opening_start - timedelta(days=1)
+    window = get_quarter_window(db, year, quarter)
 
     # Common SELECT fields for all stat types
     select_fields = """
@@ -1033,7 +999,7 @@ async def get_stat_details(
                 AND calculate_effective_end_date(
                     e.first_lesson_date, e.lessons_paid,
                     COALESCE(e.deadline_extension_weeks, 0)
-                ) >= :opening_start
+                ) >= :judged_from
                 AND (
                     e.first_lesson_date <= :opening_end
                     OR e.student_id IN (
@@ -1056,9 +1022,7 @@ async def get_stat_details(
             ORDER BY tutor_name, student_name
         """)
         params = {
-            "opening_start": opening_start,
-            "opening_end": opening_end,
-            "prev_closing_end": prev_closing_end,
+            **window.params(),
             "location": location,
             "tutor_id": tutor_id
         }
@@ -1081,7 +1045,7 @@ async def get_stat_details(
                 AND calculate_effective_end_date(
                     e.first_lesson_date, e.lessons_paid,
                     COALESCE(e.deadline_extension_weeks, 0)
-                ) > :closing_end
+                ) > :churn_cutoff
                 AND e.student_id IN (
                     SELECT DISTINCT e2.student_id
                     FROM enrollments e2
@@ -1092,7 +1056,7 @@ async def get_stat_details(
                     AND calculate_effective_end_date(
                         e2.first_lesson_date, e2.lessons_paid,
                         COALESCE(e2.deadline_extension_weeks, 0)
-                    ) >= :opening_start
+                    ) >= :judged_from
                 )
                 AND (:location IS NULL OR e.location = :location)
                 AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
@@ -1101,8 +1065,7 @@ async def get_stat_details(
             ORDER BY tutor_name, student_name
         """)
         params = {
-            "opening_start": opening_start,
-            "closing_end": closing_end,
+            **window.params(),
             "location": location,
             "tutor_id": tutor_id
         }
@@ -1130,8 +1093,8 @@ async def get_stat_details(
                        qe.assigned_day, qe.assigned_time
                 FROM quarter_enrollments qe
                 WHERE qe.rn = 1
-                AND qe.eff_end_date >= :opening_start
-                AND qe.eff_end_date <= :closing_end
+                AND qe.eff_end_date >= :judged_from
+                AND qe.eff_end_date <= :churn_cutoff
             )
             SELECT
                 te.enrollment_id,
@@ -1156,10 +1119,9 @@ async def get_stat_details(
             ORDER BY t.tutor_name, s.student_name
         """)
         params = {
+            **window.params(),
             "quarter": quarter,
             "year": year,
-            "opening_start": opening_start,
-            "closing_end": closing_end,
             "location": location,
             "tutor_id": tutor_id
         }
