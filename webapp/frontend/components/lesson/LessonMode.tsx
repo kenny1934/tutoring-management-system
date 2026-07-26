@@ -7,7 +7,6 @@ import {
   AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
@@ -35,6 +34,7 @@ import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
 import type { Session, SessionExercise } from "@/types";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface LessonModeProps {
   session: Session;
@@ -893,12 +893,7 @@ export function LessonMode({
           </span>
           <LessonNumberBadge lessonNumber={session.lesson_number} size="sm" />
           {session.grade && (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800"
-              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-            >
-              {session.grade}{session.lang_stream || ""}
-            </span>
+            <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
         </div>
 

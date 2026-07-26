@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
-import { getGradeColor } from "@/lib/constants";
 import { ratingToEmoji } from "@/lib/formatters";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface RateSessionModalProps {
   session: Session;
@@ -201,12 +201,7 @@ export function RateSessionModal({
             {session.student_name}
           </span>
           {session.grade && (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
-              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-            >
-              {session.grade}{session.lang_stream}
-            </span>
+            <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
           )}
           {session.school && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">

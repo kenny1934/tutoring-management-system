@@ -976,7 +976,8 @@ async def enroll_student(
 
     # Get the session to consume
     consume_session = db.query(SessionLog).options(
-        *session_with_relations()
+        *session_with_relations(),
+        joinedload(SessionLog.enrollment),  # summer detection in validate_makeup_constraints
     ).filter(SessionLog.id == request.consume_session_id).first()
 
     if not consume_session:

@@ -2,20 +2,26 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Sun } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ConnectDriveButton } from "@/components/summer/ConnectDriveButton";
+import { ChapterSelect } from "@/components/summer/ChapterSelect";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 import {
   pickDefaults,
   pickDocDefaults,
   resolveParallelPreview,
-  type Chapter,
   type ParallelPreviewSource,
 } from "@/lib/summer-courseware-defaults";
 import {
   sessionSummerYear,
   useSummerCoursewareIndex,
   useCoursewareDrive,
-  buildAssignmentPlan,
+  useChapterSelection,
+  buildSelectionPlan,
+  confirmPerLessonAssign,
+  planActionableSessionIds,
+  formatLessonBreakdown,
   executeAssignmentPlan,
   describeAssignmentResult,
   previewExercise,
@@ -49,6 +55,7 @@ function WideGradeSection({
   onPreviewEntry: (entry: StudentExerciseEntry) => void;
 }) {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const year = sessionSummerYear(sessions[0]);
   // Sessions are grouped by stored grade, but materials are indexed by the
   // entering grade (F1/F2/F3) — promote the pre-grade for lookup and display.
@@ -58,26 +65,11 @@ function WideGradeSection({
   // Paperless and the Settings folder alias may not exist on this machine).
   const { connected: driveConnected, connect: handleConnect } = useCoursewareDrive(year);
 
-  // Default to the most common lesson number in this slot.
-  const commonLesson = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const s of sessions) {
-      if (s.lesson_number != null) {
-        counts.set(s.lesson_number, (counts.get(s.lesson_number) ?? 0) + 1);
-      }
-    }
-    let best: number | null = null;
-    let bestCount = 0;
-    for (const [lesson, count] of counts) {
-      if (count > bestCount) { best = lesson; bestCount = count; }
-    }
-    return best;
-  }, [sessions]);
-
-  const [chapterCode, setChapterCode] = useState<string | null>(null);
-  const lessonChapter = chapters.find((c) => c.lessonNumber === commonLesson);
-  const chapter: Chapter | undefined =
-    (chapterCode ? chapters.find((c) => c.code === chapterCode) : undefined) ?? lessonChapter;
+  // In follow mode (mixed slot, no explicit pick) `chapter` is the majority
+  // lesson's chapter, used only for the material-row previews; assignment
+  // resolves per student.
+  const { breakdown, isMixed, commonLesson, followMode, chapter, setChapterCode } =
+    useChapterSelection(sessions, chapters);
 
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [assigning, setAssigning] = useState(false);
@@ -94,12 +86,15 @@ function WideGradeSection({
   const parallelExtra = resolveParallelPreview(cDefaults, eDefaults, "Extra", pathPrefix);
 
   const handleAssign = async (target: PickerTarget, sessionIds: number[]) => {
-    if (!chapter) return;
     setPicker(null);
+    const chosen = sessions.filter((s) => sessionIds.includes(s.id));
+    const plan = buildSelectionPlan(chosen, target.docType, { followMode, chapter, chapters }, pathPrefix);
+    if (!plan) return;
+    // Only a genuinely mixed pick needs a confirm; a uniform pick (even in
+    // a mixed slot) assigns straight away like before.
+    if (followMode && !(await confirmPerLessonAssign(confirm, plan))) return;
     setAssigning(true);
     try {
-      const chosen = sessions.filter((s) => sessionIds.includes(s.id));
-      const plan = buildAssignmentPlan(chosen, target.docType, chapter, pathPrefix);
       const result = await executeAssignmentPlan(plan, target.type, pathPrefix);
       showToast(
         describeAssignmentResult(plan, result, target.type),
@@ -115,12 +110,17 @@ function WideGradeSection({
 
   const assignButton = (docType: SummerDocType, type: "CW" | "HW", label: string) => {
     const target: PickerTarget = { docType, type };
+    const typeLabel = type === "CW" ? "classwork" : "homework";
     return (
       <button
         key={`${docType}-${type}`}
         onClick={() => setPicker(isPickerFor(target) ? null : target)}
         disabled={assigning}
-        title={`Assign each student their own language version as ${type === "CW" ? "classwork" : "homework"}`}
+        title={
+          followMode
+            ? `Assign each student their own lesson and language version as ${typeLabel}`
+            : `Assign each student their own language version as ${typeLabel}`
+        }
         className={summerAssignButtonClass(type)}
       >
         <SummerAssignIcon type={type} busy={assigning} />
@@ -166,19 +166,31 @@ function WideGradeSection({
 
   // Preselect students who would actually receive the file (skip those
   // who already have it), so the picker reflects the real outcome.
-  const pickerPreselected =
-    picker && chapter
-      ? buildAssignmentPlan(sessions, picker.docType, chapter, pathPrefix)
-      : null;
+  const pickerPreselected = picker
+    ? buildSelectionPlan(sessions, picker.docType, { followMode, chapter, chapters }, pathPrefix)
+    : null;
   const preselectedIds = pickerPreselected
-    ? [
-        ...pickerPreselected.items.map((i) => i.session.id),
-        // Keep no-lang/no-file students ticked so skips surface in the toast
-        // instead of silently dropping them from the action.
-        ...pickerPreselected.noLang.map((s) => s.id),
-        ...pickerPreselected.noFile.map((s) => s.id),
-      ]
+    ? planActionableSessionIds(pickerPreselected)
     : undefined;
+
+  const lessonNote = (() => {
+    if (followMode) {
+      return {
+        warn: false,
+        text: `Mixed lessons in this slot: ${formatLessonBreakdown(breakdown)}. Each student gets their own lesson's materials.`,
+      };
+    }
+    if (isMixed) {
+      return {
+        warn: true,
+        text: `Assigns this chapter to all picked students (${formatLessonBreakdown(breakdown)}).`,
+      };
+    }
+    if (chapter && chapter.lessonNumber !== commonLesson) {
+      return { warn: true, text: `Viewing a different chapter than this slot's L${commonLesson}.` };
+    }
+    return null;
+  })();
 
   return (
     <div className="mx-1 mb-2 rounded-lg border border-[#e8d4b8] dark:border-[#5a4d3a] bg-[#fdf6ec]/60 dark:bg-[#2a2318]/60 px-2.5 py-2">
@@ -198,24 +210,28 @@ function WideGradeSection({
       </div>
 
       {/* Chapter picker */}
-      <select
-        value={chapter?.code ?? ""}
-        onChange={(e) => setChapterCode(e.target.value)}
-        className="mt-1.5 w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#5a4d3a] bg-white/70 dark:bg-[#1a1a1a]/70 text-xs text-[#6b5a42] dark:text-[#c4a882] [&>option]:bg-white [&>option]:text-[#6b5a42] dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-[#c4a882]"
-      >
-        {!chapter && <option value="">Choose chapter…</option>}
-        {chapters.map((c) => (
-          <option key={c.code} value={c.code}>
-            {c.lessonNumber != null ? `L${c.lessonNumber} · ` : ""}SM{c.code} {c.topicZh}
-          </option>
-        ))}
-      </select>
+      <ChapterSelect
+        chapter={chapter}
+        chapters={chapters}
+        onChange={setChapterCode}
+        followMode={followMode}
+        showFollowOption={isMixed}
+        variant="amber"
+        className="mt-1.5"
+      />
 
       {chapter && (
         <div className="relative mt-1.5 flex flex-col gap-0.5">
-          {chapter.lessonNumber !== commonLesson && (
-            <p className="text-[10px] text-amber-700 dark:text-amber-400">
-              Viewing a different chapter than this slot&apos;s L{commonLesson}.
+          {lessonNote && (
+            <p
+              className={cn(
+                "text-[10px]",
+                lessonNote.warn
+                  ? "text-amber-700 dark:text-amber-400"
+                  : "text-[#8b7355] dark:text-[#a09080]"
+              )}
+            >
+              {lessonNote.text}
             </p>
           )}
 
@@ -269,15 +285,23 @@ export function SummerCoursewareWidePanel({
   /** Show a material in the lesson PDF pane (parallel versions). */
   onPreviewEntry: (entry: StudentExerciseEntry) => void;
 }) {
-  const summerSessions = useMemo(
-    () => sessions.filter((s) => s.lesson_number != null && s.grade),
-    [sessions]
-  );
+  // Partition once so each section's `sessions` prop is referentially
+  // stable across renders (the sections memoise on it).
+  const sessionsByGrade = useMemo(() => {
+    const byGrade = new Map<string, Session[]>();
+    for (const s of sessions) {
+      if (s.lesson_number == null || !s.grade) continue;
+      const group = byGrade.get(s.grade) ?? [];
+      group.push(s);
+      byGrade.set(s.grade, group);
+    }
+    return byGrade;
+  }, [sessions]);
   const grades = useMemo(
-    () => Array.from(new Set(summerSessions.map((s) => s.grade!))).sort(),
-    [summerSessions]
+    () => Array.from(sessionsByGrade.keys()).sort(),
+    [sessionsByGrade]
   );
-  if (summerSessions.length === 0) return null;
+  if (grades.length === 0) return null;
 
   return (
     <>
@@ -285,7 +309,7 @@ export function SummerCoursewareWidePanel({
         <WideGradeSection
           key={grade}
           grade={grade}
-          sessions={summerSessions.filter((s) => s.grade === grade)}
+          sessions={sessionsByGrade.get(grade)!}
           showGrade={grades.length > 1}
           selectedLocation={selectedLocation}
           isReadOnly={isReadOnly}

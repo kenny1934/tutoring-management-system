@@ -5,8 +5,9 @@ import { mutate as globalMutate } from "swr";
 import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { extractDuplicatePrompt } from "@/lib/lesson-duplicate";
+import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 import { LessonNumberBadge } from "./LessonNumberBadge";
 
 // Summer students-table + calendar both derive effective lesson_number from
@@ -31,16 +32,18 @@ interface EditableLessonNumberBadgeProps {
   /** Called with the new value, or `null` when admin clears the input. */
   onSave?: (value: number | null) => void | Promise<void>;
   disabled?: boolean;
-  /** Inclusive upper bound for the input. Defaults to 8 (summer's typical
-   * total_lessons); callers with a different ceiling can pass their own. */
+  /** Inclusive upper bound for the input. Defaults to 10; callers with a
+   * different ceiling (e.g. the arrangement page's total_lessons) can pass
+   * their own. */
   maxLesson?: number;
 }
 
 const MIN_LESSON = 1;
-const DEFAULT_MAX_LESSON = 8;
+const DEFAULT_MAX_LESSON = 10;
 
 export function useSaveLessonNumber(sessionId: number | null | undefined) {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   return useCallback(
     async (value: number | null) => {
       if (!sessionId) return;
@@ -52,7 +55,9 @@ export function useSaveLessonNumber(sessionId: number | null | undefined) {
           ...(force ? { force_lesson_duplicate: true } : {}),
         });
       try {
-        const updated = await trySave(false);
+        const updated = await confirmDuplicateOrRetry(trySave, confirm);
+        // Cancelled duplicates revert silently — the admin already answered.
+        if (updated === DUPLICATE_CANCELLED) return;
         updateSessionInCache(updated);
         revalidateSummerCaches();
         showToast(
@@ -60,32 +65,13 @@ export function useSaveLessonNumber(sessionId: number | null | undefined) {
           "success",
         );
       } catch (err) {
-        const dupPrompt = extractDuplicatePrompt(err);
-        if (dupPrompt && typeof window !== "undefined" && window.confirm(dupPrompt)) {
-          try {
-            const updated = await trySave(true);
-            updateSessionInCache(updated);
-            revalidateSummerCaches();
-            showToast(
-              value === null ? "Lesson number cleared" : `Lesson number set to L${value}`,
-              "success",
-            );
-            return;
-          } catch (retryErr) {
-            showToast(
-              retryErr instanceof Error ? retryErr.message : "Failed to update lesson number",
-              "error",
-            );
-            return;
-          }
-        }
         showToast(
           err instanceof Error ? err.message : "Failed to update lesson number",
           "error",
         );
       }
     },
-    [sessionId, showToast],
+    [sessionId, showToast, confirm],
   );
 }
 

@@ -25,8 +25,18 @@ const summer = (
   ...overrides,
 })
 
+const stray = (id: number, slotId: number, tutor: string): Row => ({
+  id,
+  summer_slot_id: slotId,
+  summer_class_grade: 'F2',
+  summer_course_type: 'A',
+  summer_slot_label: null,
+  summer_stray: true,
+  tutor_name: tutor,
+})
+
 const ids = (rows: { session: Row }[]) => rows.map((r) => r.session.id)
-const headers = (rows: { classHeader: { slotId: number } | null }[]) =>
+const headers = (rows: { classHeader: { slotId: number | null } | null }[]) =>
   rows.map((r) => r.classHeader?.slotId ?? null)
 
 describe('flattenSummerClusters', () => {
@@ -83,6 +93,56 @@ describe('flattenSummerClusters', () => {
     ])
     expect(ids(flat)).toEqual([1, 2])
     expect(flat.every((r) => r.classHeader === null)).toBe(true)
+  })
+
+  it('groups same-tutor strays from different home slots into one generic cluster', () => {
+    const flat = flattenSummerClusters([stray(1, 10, 'Mr A'), stray(2, 20, 'Mr A')])
+    expect(ids(flat)).toEqual([1, 2])
+    expect(flat[0].classHeader).toEqual({
+      slotId: null,
+      grade: null,
+      courseType: null,
+      slotLabel: null,
+    })
+    expect(flat[1].classHeader).toBeNull()
+  })
+
+  it('keeps strays of different tutors in separate clusters', () => {
+    const flat = flattenSummerClusters([stray(1, 10, 'Mr A'), stray(2, 10, 'Mr B')])
+    expect(ids(flat)).toEqual([1, 2])
+    expect(flat[0].classHeader).not.toBeNull()
+    expect(flat[1].classHeader).not.toBeNull()
+  })
+
+  it('does not pull a stray into the hosted cluster of the same slot', () => {
+    const flat = flattenSummerClusters([
+      summer(1, 10),
+      summer(2, 10),
+      stray(3, 10, 'Mr B'),
+    ])
+    expect(ids(flat)).toEqual([1, 2, 3])
+    expect(headers(flat)).toEqual([10, null, null])
+    expect(flat[2].classHeader).toEqual({
+      slotId: null,
+      grade: null,
+      courseType: null,
+      slotLabel: null,
+    })
+  })
+
+  it('clusters strays generically even without a resolved slot id', () => {
+    const flat = flattenSummerClusters([
+      { id: 1, summer_stray: true, tutor_name: 'Mr A' } as Row,
+      stray(2, 20, 'Mr A'),
+    ])
+    expect(ids(flat)).toEqual([1, 2])
+    expect(flat[0].classHeader).toEqual({
+      slotId: null,
+      grade: null,
+      courseType: null,
+      slotLabel: null,
+    })
+    expect(flat[1].classHeader).toBeNull()
   })
 
   it('takes class info from the first row of the cluster, preserving nulls', () => {

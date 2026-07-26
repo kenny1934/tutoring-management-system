@@ -9,12 +9,14 @@ import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge, YouTubeThumbnail } from "@/components/ui/url-badge";
 import { getPageLabel, getStudentIdDisplay, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
-import { getGradeColor } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { SummerCoursewareWidePanel } from "./SummerCoursewareWidePanel";
 import { StudentPickerPopover } from "./StudentPickerPopover";
-import type { Session, SessionExercise } from "@/types";
+import { EditableLessonNumberBadge, useSaveLessonNumber } from "@/components/sessions/EditableLessonNumberBadge";
+import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
+import type { Session } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -140,6 +142,7 @@ function StudentBlock({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
+  const saveLessonNumber = useSaveLessonNumber(session.id);
 
   const cwEntries = useMemo(
     () => entries.filter(e => e.exercise.exercise_type === "CW" || e.exercise.exercise_type === "Classwork"),
@@ -153,10 +156,21 @@ function StudentBlock({
   return (
     <div>
       <div className="flex items-center group">
-        <button
+        {/* div, not button: the lesson badge nests its own button/input. */}
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setExpanded(e => !e)}
+          onKeyDown={(e) => {
+            // Only toggle for keys on the row itself, not the badge input.
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setExpanded(x => !x);
+            }
+          }}
           className={cn(
-            "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors min-h-[44px] md:min-h-0 min-w-0",
+            "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors min-h-[44px] md:min-h-0 min-w-0 cursor-pointer",
             "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
           )}
         >
@@ -172,18 +186,21 @@ function StudentBlock({
               {session.student_name}
             </span>
             {session.grade && (
-              <span
-                className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
-                style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-              >
-                {session.grade}{session.lang_stream || ""}
-              </span>
+              <GradeBadge className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
             )}
+            <EditableLessonNumberBadge
+              lessonNumber={session.lesson_number}
+              movedLessonNumber={session.moved_lesson_number}
+              size="xs"
+              className="flex-shrink-0"
+              disabled={isReadOnly}
+              onSave={saveLessonNumber}
+            />
           </div>
           <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums flex-shrink-0">
             {entries.length}
           </span>
-        </button>
+        </div>
         {onBulkPrintStudent && (() => {
           const isBulkPrinting = printing?.id === -session.id;
           return (
@@ -451,14 +468,12 @@ function FileGroupItem({
                       )}>
                         {entry.studentName}
                       </span>
-                      {entry.grade && (
-                        <span
-                          className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
-                          style={{ backgroundColor: getGradeColor(entry.grade, entry.langStream) }}
-                        >
-                          {entry.grade}
-                        </span>
-                      )}
+                      <GradeBadge
+                        className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
+                        grade={entry.grade}
+                        langStream={entry.langStream}
+                      />
+                      <SessionLessonBadge session={entry.session} size="xs" className="flex-shrink-0" />
                       {pageLabel && (
                         <span className="text-[10px] text-[#b0a090] dark:text-[#706050] flex-shrink-0">
                           {pageLabel}
@@ -525,6 +540,10 @@ export function LessonWideSidebar({
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
   const handlePickerClose = useCallback(() => setPickerType(null), []);
 
+  // Group file groups by type for by-file view
+  const cwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "CW"), [fileGroups]);
+  const hwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "HW"), [fileGroups]);
+
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
@@ -533,10 +552,6 @@ export function LessonWideSidebar({
       </div>
     );
   }
-
-  // Group file groups by type for by-file view
-  const cwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "CW"), [fileGroups]);
-  const hwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "HW"), [fileGroups]);
 
   return (
     <div className="flex flex-col h-full">

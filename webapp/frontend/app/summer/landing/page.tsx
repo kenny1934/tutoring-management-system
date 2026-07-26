@@ -383,6 +383,31 @@ export default function SummerLandingPage() {
   }
 
   const promo = getActiveSummerPromo(config.pricing_config, LANG);
+
+  // The pricing poster follows the promo state: each early-bird tier has its
+  // own brand poster, and once every tier has passed we show the standard
+  // price list (still with coupon offers) instead of falling back to an
+  // expired early-bird offer.
+  const pricingPoster = promo.ebActive
+    ? promo.isExtension
+      ? {
+          src: "/summer/poster-pricing-616.jpg",
+          width: 2400,
+          height: 3000,
+          period: "適用日期：2026年6月16日至2026年7月15日",
+        }
+      : {
+          src: "/summer/poster-pricing.jpg",
+          width: 1600,
+          height: 2000,
+          period: "適用日期：2026年4月8日至2026年6月15日",
+        }
+    : {
+        src: "/summer/poster-pricing-standard.jpg",
+        width: 2400,
+        height: 3000,
+        period: "適用日期：2026年7月16日至2026年8月29日",
+      };
   const intro = config.course_intro;
   const pillars = intro?.pillars ?? [];
   const philosophy = intro?.philosophy?.zh ?? "";
@@ -804,14 +829,10 @@ export default function SummerLandingPage() {
               <div className="relative bg-white border border-[#F5C518]/40 p-3">
                 <div className="relative overflow-hidden">
                   <Image
-                    src={
-                      promo.isExtension
-                        ? "/summer/poster-pricing-616.jpg"
-                        : "/summer/poster-pricing.jpg"
-                    }
+                    src={pricingPoster.src}
                     alt="完整收費及優惠表"
-                    width={1600}
-                    height={2000}
+                    width={pricingPoster.width}
+                    height={pricingPoster.height}
                     sizes="(min-width: 640px) 576px, 100vw"
                     quality={90}
                     className="w-full h-auto block"
@@ -826,9 +847,7 @@ export default function SummerLandingPage() {
                 className="mt-5 text-center text-sm text-[#1A1614]/55 italic"
                 style={{ fontFamily: "var(--font-serif-tc)" }}
               >
-                {promo.isExtension
-                  ? "適用日期：2026年6月16日至2026年7月15日"
-                  : "適用日期：2026年4月8日至2026年6月15日"}
+                {pricingPoster.period}
               </p>
               <p
                 className="mt-3 text-center text-xs text-[#1A1614]/45 leading-relaxed px-4"

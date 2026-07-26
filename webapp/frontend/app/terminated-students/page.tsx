@@ -15,7 +15,6 @@ import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { terminationsAPI, enrollmentsAPI } from "@/lib/api";
 import { UserMinus, Loader2, Users, TrendingDown, ChevronDown, ChevronRight, Check, Save, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, Info, LayoutList, Grid3X3, Search, X, Download } from "lucide-react";
-import { getGradeColor } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { Modal } from "@/components/ui/modal";
@@ -26,6 +25,7 @@ import { mutate } from "swr";
 import type { TerminatedStudent, TutorTerminationStats, StatDetailStudent } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { CategoryDropdown } from "@/components/terminations/CategoryDropdown";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Lazy load chart components to keep Recharts (~40KB) out of initial bundle
 const TerminationTrendChart = dynamic(
@@ -1734,14 +1734,12 @@ function TimetableGridTable({
                           <span className="font-medium text-[11px] text-gray-800 dark:text-gray-200 truncate">
                             {s.student_name}
                           </span>
-                          {s.grade && (
-                            <span
-                              className="text-[8px] px-1 py-px rounded shrink-0 text-gray-800"
-                              style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream ?? undefined) }}
-                            >
-                              {s.grade}
-                            </span>
-                          )}
+                          <GradeBadge
+                            className="text-[8px] px-1 py-px rounded shrink-0 text-gray-800"
+                            grade={s.grade}
+                            langStream={s.lang_stream}
+                            showStream={false}
+                          />
                           {showTransferFromInfo && (s as EnrolledStudent).transferred_from_tutor && (
                             <span className="text-[9px] text-blue-600 dark:text-blue-400 shrink-0 truncate">
                               {"\u2190"} {(s as EnrolledStudent).transferred_from_tutor}

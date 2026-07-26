@@ -17,7 +17,6 @@ import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { getGradeColor } from "@/lib/constants";
 import { ratingToEmoji } from "@/lib/formatters";
 import {
   Check, X, Loader2, PartyPopper, AlertTriangle,
@@ -27,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import type { Session, UncheckedAttendanceReminder } from "@/types";
 import { useHaptic } from "@/lib/useHaptic";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 type CardState = "pending" | "rating" | "done";
 
@@ -851,11 +851,11 @@ const SessionCard = React.memo(function SessionCard({
               )}
               <span className="font-semibold text-[#3d2b1f] dark:text-[#e8d4b8]">{studentName}</span>
               <LessonNumberBadge lessonNumber={lessonNumber} size="xs" />
-              {grade && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800" style={{ backgroundColor: getGradeColor(grade, langStream) }}>
-                  {grade}{langStream}
-                </span>
-              )}
+              <GradeBadge
+                className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800"
+                grade={grade}
+                langStream={langStream}
+              />
               {school && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
                   {school}

@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Sun, ChevronDown, ChevronRight, FileText, FileCheck, Plus, Loader2, Cable, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 import {
   normalizeLangStream,
   pickDefaults,
   buildFullPath,
+  chapterLabel,
   type Chapter,
   type ChapterDefaults,
 } from "@/lib/summer-courseware-defaults";
@@ -15,11 +17,15 @@ import {
   sessionSummerYear,
   useSummerCoursewareIndex,
   useCoursewareDrive,
-  buildAssignmentPlan,
+  useChapterSelection,
+  buildSelectionPlan,
+  confirmPerLessonAssign,
+  formatLessonBreakdown,
   executeAssignmentPlan,
   describeAssignmentResult,
   type SummerDocType,
 } from "@/lib/summer-courseware-session";
+import { ChapterSelect } from "@/components/summer/ChapterSelect";
 import { coursewareGrade } from "@/lib/grade-utils";
 import type { Session, SummerCoursewareFile } from "@/types";
 
@@ -83,31 +89,6 @@ function SummerSectionShell({
         </div>
       )}
     </div>
-  );
-}
-
-function ChapterSelect({
-  chapter,
-  chapters,
-  onChange,
-}: {
-  chapter?: Chapter;
-  chapters: Chapter[];
-  onChange: (code: string) => void;
-}) {
-  return (
-    <select
-      value={chapter?.code ?? ""}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/70 dark:bg-[#1a1a1a]/70 text-xs text-gray-700 dark:text-gray-300 [&>option]:bg-white [&>option]:text-gray-700 dark:[&>option]:bg-[#2a2318] dark:[&>option]:text-gray-300"
-    >
-      {!chapter && <option value="">Choose chapter…</option>}
-      {chapters.map((c) => (
-        <option key={c.code} value={c.code}>
-          {c.lessonNumber != null ? `L${c.lessonNumber} · ` : ""}SM{c.code} {c.topicZh}
-        </option>
-      ))}
-    </select>
   );
 }
 
@@ -206,9 +187,7 @@ export function SummerMaterialsSection({
   const typed = rowDefaults(defaults, exerciseType);
   const summary = (
     <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
-      {lessonChapter
-        ? `L${lessonChapter.lessonNumber} · SM${lessonChapter.code} ${lessonChapter.topicZh ?? ""}`
-        : `L${session.lesson_number}`}
+      {lessonChapter ? chapterLabel(lessonChapter) : `L${session.lesson_number}`}
     </span>
   );
 
@@ -248,6 +227,7 @@ export function SummerBulkAssignSection({
   exerciseType: "CW" | "HW";
 }) {
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const grade = sessions[0]?.grade;
   const eligible =
@@ -259,31 +239,16 @@ export function SummerBulkAssignSection({
   const cwGrade = coursewareGrade(grade, year);
   const { index, chapters } = useSummerCoursewareIndex(year, eligible ? cwGrade : null);
 
-  // Default to the most common lesson number among the selection.
-  const commonLesson = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const s of sessions) {
-      if (s.lesson_number != null) {
-        counts.set(s.lesson_number, (counts.get(s.lesson_number) ?? 0) + 1);
-      }
-    }
-    let best: number | null = null;
-    let bestCount = 0;
-    for (const [lesson, count] of counts) {
-      if (count > bestCount) { best = lesson; bestCount = count; }
-    }
-    return best;
-  }, [sessions]);
-
-  const [chapterCode, setChapterCode] = useState<string | null>(null);
+  // In follow mode (mixed selection, no explicit pick) `chapter` is the
+  // majority lesson's chapter and only drives row visibility; assignment
+  // resolves per student.
+  const { breakdown, isMixed, followMode, lessonChapter, chapter, setChapterCode } =
+    useChapterSelection(sessions, chapters);
   const [assigning, setAssigning] = useState<SummerDocType | null>(null);
   const [done, setDone] = useState<Set<SummerDocType>>(new Set());
 
   if (!eligible || !index || chapters.length === 0) return null;
 
-  const lessonChapter = chapters.find((c) => c.lessonNumber === commonLesson);
-  const chapter: Chapter | undefined =
-    (chapterCode ? chapters.find((c) => c.code === chapterCode) : undefined) ?? lessonChapter;
   const pathPrefix = index.scan?.path_prefix;
 
   const langCounts = sessions.reduce(
@@ -297,10 +262,11 @@ export function SummerBulkAssignSection({
   );
 
   const handleAssign = async (docType: SummerDocType) => {
-    if (!chapter) return;
+    const plan = buildSelectionPlan(sessions, docType, { followMode, chapter, chapters }, pathPrefix);
+    if (!plan) return;
+    if (followMode && !(await confirmPerLessonAssign(confirm, plan))) return;
     setAssigning(docType);
     try {
-      const plan = buildAssignmentPlan(sessions, docType, chapter, pathPrefix);
       const result = await executeAssignmentPlan(plan, exerciseType, pathPrefix);
       showToast(
         describeAssignmentResult(plan, result, exerciseType),
@@ -353,7 +319,9 @@ export function SummerBulkAssignSection({
   const summary = (
     <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
       {cwGrade}
-      {lessonChapter ? ` · L${lessonChapter.lessonNumber} SM${lessonChapter.code}` : ""}
+      {isMixed
+        ? ` · ${formatLessonBreakdown(breakdown)}`
+        : lessonChapter ? ` · L${lessonChapter.lessonNumber} SM${lessonChapter.code}` : ""}
       {" · "}
       {[
         langCounts.c > 0 ? `${langCounts.c} C` : null,
@@ -366,11 +334,24 @@ export function SummerBulkAssignSection({
   return (
     <SummerSectionShell summary={summary}>
       <p className="text-[10px] text-gray-400 dark:text-gray-500">
-        Assigns straight away: each student gets their own language version with answers linked.
+        {followMode
+          ? "Assigns straight away: each student gets their own lesson's version with answers linked."
+          : "Assigns straight away: each student gets their own language version with answers linked."}
       </p>
-      <ChapterSelect chapter={chapter} chapters={chapters} onChange={setChapterCode} />
+      <ChapterSelect
+        chapter={chapter}
+        chapters={chapters}
+        onChange={setChapterCode}
+        followMode={followMode}
+        showFollowOption={isMixed}
+      />
       {chapter && (
         <>
+          {isMixed && !followMode && (
+            <p className="text-[10px] text-amber-700 dark:text-amber-400">
+              Assigns this chapter to all selected students ({formatLessonBreakdown(breakdown)}).
+            </p>
+          )}
           {renderRow(exerciseType === "CW" ? "Classwork" : "Homework", exerciseType)}
           {renderRow("Extra", "Extra")}
         </>

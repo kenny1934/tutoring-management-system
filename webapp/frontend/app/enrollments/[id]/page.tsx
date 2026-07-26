@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays } from "@/lib/hooks";
+import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions } from "@/lib/hooks";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
 import useSWR from "swr";
@@ -26,10 +26,11 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatError } from "@/lib/utils";
-import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, isSupersededSession } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
+import { HideSupersededToggle, AllSessionsHiddenNote } from "@/components/sessions/HideSupersededToggle";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -174,6 +175,12 @@ export default function EnrollmentDetailPage() {
     try {
       const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, updateData);
       mutate(['enrollment', enrollment.id], { ...enrollment, ...updatedEnrollment }, false);
+      // The summer application response snapshots the enrollment's coupon
+      // (coupon_discount_value), so refresh it after a save that may have
+      // changed the discount — the fee message reads the snapshot.
+      if (enrollment.summer_application_id) {
+        mutate(['summer-app', enrollment.summer_application_id]);
+      }
       setIsEditingSchedule(false);
       setIsEditingPayment(false);
       setEditForm({});
@@ -270,6 +277,11 @@ export default function EnrollmentDetailPage() {
     try {
       const updated = await enrollmentsAPI.update(enrollment.id, { ...deadlineBlock.base, ...extra });
       mutate(['enrollment', enrollment.id], { ...enrollment, ...updated }, false);
+      // Same coupon-snapshot refresh as handleSave — this path re-sends the
+      // blocked payment edit, which may also have changed the discount.
+      if (enrollment.summer_application_id) {
+        mutate(['summer-app', enrollment.summer_application_id]);
+      }
       showToast("Enrollment updated");
       setDeadlineBlock(null);
       setConfirmPayment(false);
@@ -496,6 +508,13 @@ export default function EnrollmentDetailPage() {
     );
   }, [enrollmentSessions]);
 
+  // Declutter toggle: hide cancelled and make-up-booked rows
+  const [hideSuperseded, setHideSuperseded] = useHideSupersededSessions();
+  const visibleSessions = useMemo(() => {
+    if (!hideSuperseded) return sortedSessions;
+    return sortedSessions.filter(s => !isSupersededSession(s));
+  }, [sortedSessions, hideSuperseded]);
+
   // Detect mobile device
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -594,6 +613,62 @@ export default function EnrollmentDetailPage() {
       </DeskSurface>
     );
   }
+
+  // Admin quick actions shared by the regular fee panel and the Summer
+  // message panel branch, so published Summer enrollments keep the
+  // enrollment-level Mark Sent + Confirm Payment actions. Cancel Enrollment
+  // stays regular-only (the backend blocks cancelling Summer enrollments —
+  // unpublish via the application instead), and Copy lives inside
+  // SummerMessagePanel for Summer.
+  const markSentAction = !isTutor && (enrollment.fee_message_sent ? (
+    <button
+      onClick={handleUnmarkSent}
+      disabled={markingSent || isReadOnly}
+      className={cn(
+        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+        isReadOnly
+          ? "border border-gray-200 text-gray-400 cursor-not-allowed"
+          : "border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+      )}
+      title={isReadOnly ? "Read-only access" : undefined}
+    >
+      {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+      Unmark Sent
+    </button>
+  ) : (
+    <button
+      onClick={handleMarkSent}
+      disabled={markingSent || isReadOnly}
+      className={cn(
+        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+        isReadOnly
+          ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+          : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+      )}
+      title={isReadOnly ? "Read-only access" : undefined}
+    >
+      {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+      Mark Sent
+    </button>
+  ));
+
+  const confirmPaymentAction = !isTutor &&
+    (enrollment.payment_status === "Pending Payment" || enrollment.payment_status === "Overdue") && (
+    <button
+      onClick={() => setConfirmPayment(true)}
+      disabled={markingPaid || isReadOnly}
+      className={cn(
+        "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50",
+        isReadOnly
+          ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+          : "bg-green-600 hover:bg-green-700"
+      )}
+      title={isReadOnly ? "Read-only access" : undefined}
+    >
+      {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
+      Confirm Payment
+    </button>
+  );
 
   return (
     <DeskSurface fullHeight>
@@ -1270,16 +1345,28 @@ export default function EnrollmentDetailPage() {
                         className="overflow-hidden"
                       >
                         {summerApp && summerConfig ? (
-                          <div className="pt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                            <SummerMessagePanel
-                              app={summerApp}
-                              config={summerConfig}
-                              discount={summerDiscount ?? undefined}
-                              mode="fee"
-                              onClose={() => setShowFeePanel(false)}
-                              onMarkSent={() => mutate(['summer-app', summerApp.id])}
-                            />
-                          </div>
+                          <>
+                            <div className="pt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                              <SummerMessagePanel
+                                app={summerApp}
+                                config={summerConfig}
+                                discount={summerDiscount ?? undefined}
+                                mode="fee"
+                                onClose={() => setShowFeePanel(false)}
+                                onMarkSent={() => mutate(['summer-app', summerApp.id])}
+                              />
+                            </div>
+                            {/* Enrollment-level quick actions (fee_message_sent +
+                                payment). The panel's own Mark Sent works on the
+                                application status and hides once Enrolled, so
+                                published enrollments need these here. */}
+                            {!isTutor && (
+                              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2 mt-3">
+                                {markSentAction}
+                                {confirmPaymentAction}
+                              </div>
+                            )}
+                          </>
                         ) : summerAppId && !summerApp ? (
                           <div className="pt-4 flex items-center justify-center py-8 text-sm text-gray-500">
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -1381,55 +1468,10 @@ export default function EnrollmentDetailPage() {
                             </button>
 
                             {/* Mark Sent / Unmark Sent - Admin only */}
-                            {!isTutor && (enrollment?.fee_message_sent ? (
-                              <button
-                                onClick={handleUnmarkSent}
-                                disabled={markingSent || isReadOnly}
-                                className={cn(
-                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
-                                  isReadOnly
-                                    ? "border border-gray-200 text-gray-400 cursor-not-allowed"
-                                    : "border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                )}
-                                title={isReadOnly ? "Read-only access" : undefined}
-                              >
-                                {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
-                                Unmark Sent
-                              </button>
-                            ) : (
-                              <button
-                                onClick={handleMarkSent}
-                                disabled={markingSent || isReadOnly}
-                                className={cn(
-                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
-                                  isReadOnly
-                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
-                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                                )}
-                                title={isReadOnly ? "Read-only access" : undefined}
-                              >
-                                {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                                Mark Sent
-                              </button>
-                            ))}
+                            {markSentAction}
 
                             {/* Confirm Payment - only show for pending/overdue - Admin only */}
-                            {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && (
-                              <button
-                                onClick={() => setConfirmPayment(true)}
-                                disabled={markingPaid || isReadOnly}
-                                className={cn(
-                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50",
-                                  isReadOnly
-                                    ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-                                    : "bg-green-600 hover:bg-green-700"
-                                )}
-                                title={isReadOnly ? "Read-only access" : undefined}
-                              >
-                                {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
-                                Confirm Payment
-                              </button>
-                            )}
+                            {confirmPaymentAction}
 
                             {/* Cancel Enrollment - only for pending/overdue with no completed sessions - Admin only */}
                             {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (
@@ -1622,10 +1664,19 @@ export default function EnrollmentDetailPage() {
               !isMobile && "paper-texture"
             )}
           >
-            <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Session History ({sortedSessions.length})
-            </h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Session History ({visibleSessions.length !== sortedSessions.length
+                  ? `${visibleSessions.length} of ${sortedSessions.length}`
+                  : sortedSessions.length})
+              </h3>
+              <HideSupersededToggle
+                active={hideSuperseded}
+                onToggle={() => setHideSuperseded(!hideSuperseded)}
+                hiddenCount={sortedSessions.length - visibleSessions.length}
+              />
+            </div>
 
             {sessionsLoading ? (
               <div className="space-y-2">
@@ -1645,9 +1696,11 @@ export default function EnrollmentDetailPage() {
                   </div>
                 </StickyNote>
               </div>
+            ) : visibleSessions.length === 0 ? (
+              <AllSessionsHiddenNote />
             ) : (
               <div className="space-y-2">
-                {sortedSessions.map((session, index) => {
+                {visibleSessions.map((session, index) => {
                   const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
                   const StatusIcon = statusConfig.Icon;
                   const sessionDate = new Date(session.session_date + 'T00:00:00');

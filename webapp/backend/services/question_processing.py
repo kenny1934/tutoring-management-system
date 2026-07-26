@@ -20,7 +20,7 @@ from services.question_extraction import (
 
 logger = logging.getLogger(__name__)
 
-PROCESS_MODEL = "gemini-2.5-flash"
+PROCESS_MODEL = "gemini-3-flash-preview"
 MAX_CONCURRENT = 5
 
 # ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ def _dedup_repetition(text: str) -> str:
 # Pattern to detect bare LaTeX (not wrapped in $...$) — e.g. \frac{a}{b}, \sqrt{x}
 _BARE_LATEX_RE = re.compile(
     r"(?<!\$)"  # not preceded by $
-    r"(\\(?:frac|dfrac|sqrt|sin|cos|tan|log|ln|lim|sum|int|prod|infty|alpha|beta|theta|pi|text|mathrm|left|right)\b[^$\n]*?)"
+    r"(\\(?:frac|dfrac|sqrt|sin|cos|tan|log|ln|lim|sum|int|prod|infty|alpha|beta|theta|pi|text|mathrm|left|right)\b[^$\n]*)"
     r"(?!\$)"   # not followed by $
 )
 
@@ -298,17 +298,30 @@ def _salvage_truncated_json(text: str) -> str:
 
 def _process_one_question_sync(question_text: str, use_vary: bool) -> tuple[dict, int, int]:
     """Process a single question synchronously (runs in thread pool)."""
+    from fastapi import HTTPException
+
+    # Gemini intermittently returns an empty or malformed response; one retry
+    # absorbs most of these without failing the whole question.
+    try:
+        return _process_one_question_attempt(question_text, use_vary)
+    except (HTTPException, json.JSONDecodeError):
+        return _process_one_question_attempt(question_text, use_vary)
+
+
+def _process_one_question_attempt(question_text: str, use_vary: bool) -> tuple[dict, int, int]:
     from services.ai_client import generate
 
     prompt_template = VARY_PROMPT if use_vary else SOLVE_PROMPT
     prompt = prompt_template.format(question_text=question_text)
 
+    # max_output_tokens includes thinking tokens on 3.x models, and thinking
+    # occasionally spikes — leave ample headroom or the answer comes back empty
     text, input_tokens, output_tokens, is_truncated = generate(
         prompt=prompt,
         model=PROCESS_MODEL,
         thinking_level="medium",
         response_mime_type="application/json",
-        max_output_tokens=8192,
+        max_output_tokens=16384,
         temperature=0.3,
     )
 
@@ -323,7 +336,12 @@ def _process_one_question_sync(question_text: str, use_vary: bool) -> tuple[dict
         result = json.loads(fixed)
     except json.JSONDecodeError:
         cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", fixed.strip())
-        result = json.loads(cleaned)
+        try:
+            result = json.loads(cleaned)
+        except json.JSONDecodeError:
+            # The model sometimes appends stray content after the JSON object;
+            # keep the first complete object and drop the rest
+            result, _ = json.JSONDecoder().raw_decode(cleaned)
 
     # Post-process text fields: fix bare LaTeX and detect repetition
     for key in ("solution", "variant", "variant_solution"):

@@ -14,6 +14,11 @@ from sqlalchemy.orm import Session
 
 from models import SessionLog, Student, Tutor, Enrollment
 from routers.sessions import _find_root_original_session, _verify_session_ownership
+from utils.makeup_validators import (
+    is_summer_session,
+    assert_summer_reschedule_deadline,
+    validate_makeup_constraints,
+)
 from utils.response_builders import _find_root_original_session_date, batch_find_root_original_session_dates
 from tests.helpers import make_auth_token
 
@@ -602,6 +607,132 @@ class TestMakeupDeadlineRule:
 
 
 # ============================================================================
+# Summer Reschedule Deadline (31 August) Tests
+# ============================================================================
+
+class TestSummerRescheduleDeadline:
+    """
+    Summer sessions bypass the Regular-enrollment deadline and 60-day makeup
+    rules; their single constraint is landing on or before 31 August of the
+    summer year.
+    """
+
+    @pytest.fixture
+    def summer_enrollment(self, db_session: Session, sample_student: Student, sample_tutor: Tutor) -> Enrollment:
+        enrollment = Enrollment(
+            student_id=sample_student.id,
+            tutor_id=sample_tutor.id,
+            assigned_day="Mon",
+            assigned_time="15:00-16:00",
+            location="Main Center",
+            lessons_paid=8,
+            payment_date=date(2026, 6, 15),
+            first_lesson_date=date(2026, 7, 6),
+            payment_status="Paid",
+            enrollment_type="Summer",
+        )
+        db_session.add(enrollment)
+        db_session.commit()
+        db_session.refresh(enrollment)
+        return enrollment
+
+    def _summer_session(self, db_session, summer_enrollment, sample_tutor, session_date):
+        session = SessionLog(
+            enrollment_id=summer_enrollment.id,
+            student_id=summer_enrollment.student_id,
+            tutor_id=sample_tutor.id,
+            session_date=session_date,
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Rescheduled - Pending Make-up",
+        )
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+        return session
+
+    def test_summer_enrollment_detected(self, db_session, summer_enrollment, sample_tutor):
+        session = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 7, 6))
+        assert is_summer_session(session) is True
+
+    def test_summer_publish_marker_detected(self):
+        """summer_session_id alone marks a session as summer (no enrollment needed)."""
+        session = SessionLog(summer_session_id=123)
+        assert is_summer_session(session) is True
+
+    def test_regular_session_not_summer(self, db_session, sample_enrollment, sample_tutor):
+        session = SessionLog(
+            enrollment_id=sample_enrollment.id,
+            student_id=sample_enrollment.student_id,
+            tutor_id=sample_tutor.id,
+            session_date=date(2026, 1, 5),
+            time_slot="15:00-16:00",
+            location="Main Center",
+            session_status="Scheduled",
+        )
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+        assert is_summer_session(session) is False
+
+    def test_on_or_before_31_august_allowed(self, db_session, summer_enrollment, sample_tutor):
+        session = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 7, 6))
+        # No exception on or before the deadline
+        assert_summer_reschedule_deadline(session, date(2026, 8, 31))
+
+    def test_after_31_august_blocked(self, db_session, summer_enrollment, sample_tutor):
+        session = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 7, 6))
+        with pytest.raises(HTTPException) as exc_info:
+            assert_summer_reschedule_deadline(session, date(2026, 9, 1))
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail["error"] == "SUMMER_DEADLINE_EXCEEDED"
+        assert exc_info.value.detail["summer_deadline"] == "2026-08-31"
+
+    def test_super_admin_overrides_summer_deadline(self, db_session, summer_enrollment, sample_tutor):
+        """Super Admin can move a summer session past 31 August, like the 60-day rule."""
+        session = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 7, 6))
+        # No exception with the override
+        assert_summer_reschedule_deadline(session, date(2026, 9, 1), is_super_admin=True)
+
+    def test_makeup_constraints_allow_summer_past_60_days(
+        self, db_session, summer_enrollment, sample_enrollment, sample_tutor
+    ):
+        """
+        A summer make-up 61 days after the origin, on the student's regular
+        slot past the (ended) Regular enrollment, must pass validation as long
+        as it lands on or before 31 August. This is the reported bug: the
+        Regular-enrollment deadline check used to demand an extension request.
+        """
+        origin = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 7, 1))
+        target = date(2026, 8, 31)  # 61 days later, Monday (regular slot day)
+        assert (target - origin.session_date).days == 61
+
+        validate_makeup_constraints(
+            db=db_session,
+            student_id=summer_enrollment.student_id,
+            consume_session=origin,
+            target_date=target,
+            target_time_slot="15:00-16:00",
+            target_location="Main Center",
+        )
+
+    def test_makeup_constraints_block_summer_after_31_august(
+        self, db_session, summer_enrollment, sample_tutor
+    ):
+        origin = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 8, 20))
+        with pytest.raises(HTTPException) as exc_info:
+            validate_makeup_constraints(
+                db=db_session,
+                student_id=summer_enrollment.student_id,
+                consume_session=origin,
+                target_date=date(2026, 9, 5),
+                target_time_slot="15:00-16:00",
+                target_location="Main Center",
+            )
+        assert exc_info.value.detail["error"] == "SUMMER_DEADLINE_EXCEEDED"
+
+
+# ============================================================================
 # Batch Root Date Resolution Tests
 # ============================================================================
 
@@ -1019,6 +1150,96 @@ class TestNonOwnerTutorActions:
         )
         assert resp.status_code == 200
         assert "Pending Make-up" in resp.json()["session_status"]
+
+
+class TestNonOwnerLessonNumberEdit:
+    """
+    Lesson-number-only PATCHes are exempt from the ownership check so any
+    tutor can fix lesson numbers while helping schedule make-up classes.
+    Every other field on the general PATCH stays owner-or-admin-only.
+    """
+
+    def test_non_owner_can_set_lesson_number(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 4},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.lesson_number == 4
+
+    def test_non_owner_can_clear_lesson_number(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session)
+        session.lesson_number = 4
+        db_session.commit()
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"clear_lesson_number": True},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.lesson_number is None
+
+    def test_non_owner_can_force_past_duplicate_guard(self, client, db_session):
+        """The confirm-retry flow sends force_lesson_duplicate alongside
+        lesson_number; the flag must not void the exemption, and the 409
+        guard itself must still fire for non-owners first."""
+        session, token = _seed_session_with_actor(db_session)
+        # Make the seeded session summer-linked and give the student a
+        # sibling summer session already holding lesson 1.
+        session.summer_session_id = 1
+        session.lesson_number = 2
+        sibling = SessionLog(
+            enrollment_id=session.enrollment_id, student_id=session.student_id,
+            tutor_id=session.tutor_id, session_date=session.session_date + timedelta(days=7),
+            time_slot="15:00-16:00", location="Main Center",
+            session_status="Scheduled", summer_session_id=2, lesson_number=1,
+        )
+        db_session.add(sibling)
+        db_session.commit()
+
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 1},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["error"] == "DUPLICATE_LESSON_NUMBER"
+
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 1, "force_lesson_duplicate": True},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.lesson_number == 1
+
+    def test_non_owner_still_blocked_on_other_fields(self, client, db_session):
+        session, token = _seed_session_with_actor(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"notes": "not my session"},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+
+    def test_non_owner_blocked_when_lesson_number_mixed_with_other_fields(self, client, db_session):
+        """Bundling another field with lesson_number must not slip past the
+        ownership check."""
+        session, token = _seed_session_with_actor(db_session)
+        resp = client.patch(
+            f"/api/sessions/{session.id}",
+            json={"lesson_number": 4, "session_status": "Attended"},
+            cookies={"access_token": token},
+        )
+        assert resp.status_code == 403
+        db_session.refresh(session)
+        assert session.lesson_number is None
+        assert session.session_status == "Scheduled"
 
 
 # ============================================================================

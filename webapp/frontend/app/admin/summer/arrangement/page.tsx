@@ -7,6 +7,7 @@ import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useVisibilityAwareInterval } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
@@ -85,6 +86,7 @@ export default function SummerArrangementPage() {
   usePageTitle("Summer Arrangement");
   const { canViewAdminPages: canView, isReadOnly: readOnly } = useAuth();
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const { mutate: globalMutate } = useSWRConfig();
   const router = useRouter();
@@ -657,13 +659,13 @@ export default function SummerArrangementPage() {
         ...(force ? { force_lesson_duplicate: true } : {}),
       });
     try {
-      const result = await confirmDuplicateOrRetry(trySave);
+      const result = await confirmDuplicateOrRetry(trySave, confirm);
       if (result === DUPLICATE_CANCELLED) return;
       refreshAll();
     } catch (e: unknown) {
       showToast(formatError(e, "Failed to place student"), "error");
     }
-  }, [refreshAll, showToast]);
+  }, [refreshAll, showToast, confirm]);
 
   const handleDropStudentCalendar = useCallback((
     applicationId: number,

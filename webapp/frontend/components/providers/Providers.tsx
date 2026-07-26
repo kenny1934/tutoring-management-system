@@ -10,6 +10,7 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { CommandPaletteProvider } from "@/contexts/CommandPaletteContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import { ZenProvider } from "@/contexts/ZenContext";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ZenActivator } from "@/components/zen";
@@ -63,15 +64,17 @@ export function Providers({ children }: { children: ReactNode }) {
                 <ZenProvider>
                   <CommandPaletteProvider>
                     <ToastProvider>
-                      <PageErrorBoundary>
-                        {children}
-                      </PageErrorBoundary>
-                      <AdminOnly>
-                        <CommandPalette />
-                        <ZenActivator />
-                        <ExerciseClipboardWidget />
-                      </AdminOnly>
-                      <OfflineBanner />
+                      <ConfirmProvider>
+                        <PageErrorBoundary>
+                          {children}
+                        </PageErrorBoundary>
+                        <AdminOnly>
+                          <CommandPalette />
+                          <ZenActivator />
+                          <ExerciseClipboardWidget />
+                        </AdminOnly>
+                        <OfflineBanner />
+                      </ConfirmProvider>
                     </ToastProvider>
                   </CommandPaletteProvider>
                 </ZenProvider>

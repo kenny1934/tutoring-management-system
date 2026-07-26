@@ -30,6 +30,9 @@ import { ZenLessonMode } from "@/components/zen/lesson/ZenLessonMode";
 import { ZenLessonWideMode } from "@/components/zen/lesson/ZenLessonWideMode";
 import type { Session, SessionFilters } from "@/types";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
+import { GradeLabel } from "@/components/ui/grade-label";
+import { gradeColorKey } from "@/lib/grade-utils";
+import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
 
 type ViewMode = "week" | "day";
 
@@ -955,6 +958,7 @@ function DayDetailView({
   onLessonMode?: (session: Session) => void;
   onLessonWideMode?: (timeSlot: string, sessions: Session[]) => void;
 }) {
+  const preGradeWindow = useSummerPreGradeWindow();
   if (flatSessions.length === 0) {
     return <div style={{ color: "var(--zen-dim)" }}>No sessions on this day</div>;
   }
@@ -1031,7 +1035,7 @@ function DayDetailView({
             const isAtCursor = flatIndex === sessionCursor;
             const isSelected = selectedIds.has(session.id);
             const statusColor = getStatusColor(session.session_status);
-            const gradeColor = getGradeColor(session.grade, session.lang_stream);
+            const gradeColor = getGradeColor(gradeColorKey(session.grade, preGradeWindow), session.lang_stream);
             const statusChar = getStatusChar(session.session_status);
             const isActionable = canBeMarked(session);
             const isExpanded = expandedSessionId === session.id;
@@ -1080,7 +1084,7 @@ function DayDetailView({
                     )}
                   </span>
                   <span style={{ width: "36px", padding: "0 4px", backgroundColor: gradeColor + "40", color: "var(--zen-fg)", borderRadius: "2px", textAlign: "center", fontSize: "11px" }}>
-                    {session.grade || "—"}{session.lang_stream || ""}
+                    {session.grade ? <GradeLabel grade={session.grade} langStream={session.lang_stream} /> : "—"}
                   </span>
                   <span style={{ minWidth: "70px", maxWidth: "70px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--zen-dim)", fontSize: "11px" }}>
                     {session.school || "—"}

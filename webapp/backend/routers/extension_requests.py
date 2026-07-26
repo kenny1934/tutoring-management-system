@@ -345,11 +345,8 @@ async def get_extension_requests(
     if location:
         query = query.join(ExtensionRequest.enrollment).filter(Enrollment.location == location)
 
-    # Order by pending first, then by request date (oldest first for pending)
-    query = query.order_by(
-        ExtensionRequest.request_status.desc(),  # Pending before Approved/Rejected
-        ExtensionRequest.requested_at.asc()
-    )
+    # Newest first so the row limit keeps recent requests; display order is client-side
+    query = query.order_by(ExtensionRequest.requested_at.desc())
 
     requests = query.offset(offset).limit(limit).all()
 

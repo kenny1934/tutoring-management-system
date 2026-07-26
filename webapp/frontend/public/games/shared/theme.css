@@ -1,0 +1,496 @@
+/* MathConcept Companion Games — shared theme
+ *
+ * Art direction: "marked exercise book".
+ *   Light — a printed worksheet: warm cream paper, faint graph grid,
+ *           near-black ink type, MathConcept red reserved for the
+ *           teacher's pen (actions + marking).
+ *   Dark  — a chalkboard: warm near-black (never pure #000, per the
+ *           CSM design system), chalk-white type, faint chalk grid.
+ * Type: Archivo Black (Latin display, echoes the logo's heavy M),
+ *       JetBrains Mono (all numerals/expressions/codes — CSM's data
+ *       font), Noto Sans TC body with system CJK bolds for headings.
+ * Feedback is MARKING: rotated ink stamps (✓/✗) + a red-ink margin
+ * note with the worked reason. No emoji as UI. Icons are inline SVG.
+ * Theme via [data-theme] on <html>; unset → follows the device.
+ */
+
+@font-face {
+  font-family: "Noto Sans TC";
+  /* subset woff2 (2.3MB vs the 6.8MB site TTF) — phones matter here */
+  src: url("fonts/NotoSansTC-sub.woff2") format("woff2"),
+       url("/fonts/NotoSansTC-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Archivo Black";
+  src: url("fonts/ArchivoBlack.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("fonts/JetBrainsMono-Var.woff2") format("woff2-variations");
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+:root {
+  /* Ink & paper (light = printed worksheet) */
+  --mc-paper: #faf5ec;
+  --mc-paper-raised: #fffdf8;
+  --mc-ink: #1c1917;
+  --mc-ink-soft: #57514b;
+  --mc-ink-faint: #a39c93;
+  --mc-line: #e3dccd;            /* hairlines, borders */
+  --mc-grid: rgba(28, 25, 23, 0.055);   /* graph-paper grid */
+
+  /* The teacher's pen */
+  --mc-red: #ec0000;             /* MathConcept brand red */
+  --mc-red-press: #c40000;
+  --mc-red-wash: rgba(236, 0, 0, 0.07);
+
+  /* Marking inks */
+  --mc-correct: #0e7f6a;         /* green-teal ✓ ink */
+  --mc-correct-wash: rgba(14, 127, 106, 0.08);
+  --mc-gold: #b57e00;            /* highlighter accent, sparing */
+
+  --mc-shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.12), 0 1px 2px rgba(28, 25, 23, 0.20);
+  --mc-shadow-md: 0 3px 6px rgba(28, 25, 23, 0.14), 0 2px 4px rgba(28, 25, 23, 0.10);
+
+  --mc-r: 6px;                   /* one radius; print corners, not pills */
+
+  --mc-display: "Archivo Black", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  --mc-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", -apple-system, sans-serif;
+  --mc-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --mc-paper: #211f1c;
+    --mc-paper-raised: #292623;
+    --mc-ink: #f2ede4;
+    --mc-ink-soft: #b5aca0;
+    --mc-ink-faint: #6e675e;
+    --mc-line: #3a362f;
+    --mc-grid: rgba(242, 237, 228, 0.045);
+    --mc-red: #ff4a3d;
+    --mc-red-press: #ec0000;
+    --mc-red-wash: rgba(255, 74, 61, 0.12);
+    --mc-correct: #3dc2a4;
+    --mc-correct-wash: rgba(61, 194, 164, 0.10);
+    --mc-gold: #e0af45;
+    --mc-shadow-sm: 0 0 0 1px rgba(242, 237, 228, 0.06);
+    --mc-shadow-md: 0 0 0 1px rgba(242, 237, 228, 0.08), 0 6px 18px rgba(0, 0, 0, 0.5);
+  }
+}
+:root[data-theme="dark"] {
+  --mc-paper: #211f1c;
+  --mc-paper-raised: #292623;
+  --mc-ink: #f2ede4;
+  --mc-ink-soft: #b5aca0;
+  --mc-ink-faint: #6e675e;
+  --mc-line: #3a362f;
+  --mc-grid: rgba(242, 237, 228, 0.045);
+  --mc-red: #ff4a3d;
+  --mc-red-press: #ec0000;
+  --mc-red-wash: rgba(255, 74, 61, 0.12);
+  --mc-correct: #3dc2a4;
+  --mc-correct-wash: rgba(61, 194, 164, 0.10);
+  --mc-gold: #e0af45;
+  --mc-shadow-sm: 0 0 0 1px rgba(242, 237, 228, 0.06);
+  --mc-shadow-md: 0 0 0 1px rgba(242, 237, 228, 0.08), 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- base ---------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+/* rem root: a student's browser font-size preference must actually
+   scale the reading text (board, keypad, notes). Scene-internal SVG
+   text stays px on purpose - it scales with the drawing's viewBox. */
+html { font-size: 100%; }
+body {
+  font-family: var(--mc-body);
+  font-size: 1rem;
+  line-height: 1.65;
+  background-color: var(--mc-paper);
+  /* graph-paper grid + fractal-noise grain (CSM paper-texture recipe) */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
+    linear-gradient(var(--mc-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mc-grid) 1px, transparent 1px);
+  background-size: 140px 140px, 26px 26px, 26px 26px;
+  color: var(--mc-ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-break: strict;       /* proper CJK punctuation line-breaking */
+}
+h1, h2, h3 { margin: 0; line-height: 1.15; text-wrap: balance; }
+/* avoid stranded short last lines (e.g. 「嘗試。」 alone) in prose */
+p, .mc-lede, .mc-note, .mc-status, .mc-margin-note { text-wrap: pretty; }
+button { font-family: inherit; }
+svg { display: block; }
+
+/* ---------- decorative maths marginalia ---------- */
+/* pencil doodles on the paper, always behind content */
+.mc-doodles { position: fixed; inset: 0; pointer-events: none; z-index: 0; color: var(--mc-ink); opacity: 0.08; }
+.mc-doodles svg { position: absolute; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+/* ---------- layout ---------- */
+.mc-stage { position: relative; z-index: 1; max-width: 620px; margin: 0 auto; padding: 22px 18px 40px; }
+.mc-stage--wide { max-width: 1020px; }
+/* clear the fixed chrome (toggles/conn pill) unless the viewport is wide
+   enough that the centred stage can't reach it (620px stage + chrome) */
+@media (max-width: 920px) {
+  .mc-stage { padding-top: calc(64px + env(safe-area-inset-top)); }
+}
+
+.mc-screen { display: none; }
+.mc-screen.active { display: block; }
+/* staggered entrance for direct children of an activating screen */
+.mc-screen.active > * { animation: mc-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.mc-screen.active > *:nth-child(2) { animation-delay: 60ms; }
+.mc-screen.active > *:nth-child(3) { animation-delay: 120ms; }
+.mc-screen.active > *:nth-child(4) { animation-delay: 180ms; }
+.mc-screen.active > *:nth-child(5) { animation-delay: 240ms; }
+@keyframes mc-rise { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- worksheet header ---------- */
+/* Top rule: topic code left, MC arrow right — every game opens with it */
+.mc-masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 2px solid var(--mc-ink);
+  padding-bottom: 8px;
+  margin-bottom: 22px;
+}
+.mc-masthead__code {
+  font-family: var(--mc-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mc-ink-soft);
+}
+.mc-masthead__code strong { color: var(--mc-red); font-weight: 800; }
+
+.mc-title {
+  font-family: var(--mc-display);
+  font-weight: 900;
+  font-size: clamp(2.125rem, 8vw, 3.25rem);
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+/* hand-drawn red underline swash beneath the title */
+.mc-swash { display: block; width: 150px; height: 12px; margin: 4px 0 12px; color: var(--mc-red); overflow: visible; }
+.mc-swash path {
+  stroke: currentColor; stroke-width: 3.5; fill: none; stroke-linecap: round;
+  stroke-dasharray: 170; stroke-dashoffset: 170;
+  animation: mc-draw 0.55s 0.3s ease-out forwards;
+}
+@keyframes mc-draw { to { stroke-dashoffset: 0; } }
+
+.mc-lede {
+  color: var(--mc-ink-soft);
+  margin: 0 0 18px;
+  max-width: 44ch;
+  text-wrap: balance;        /* short lede: equalise lines, break at the comma */
+  word-break: auto-phrase;   /* CJK phrase-boundary wrapping where supported */
+}
+
+/* kicker line, e.g. duration / player count */
+.mc-meta {
+  display: flex;
+  gap: 18px;
+  font-family: var(--mc-mono);
+  font-size: 0.78125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--mc-ink-faint);
+  margin-bottom: 22px;
+}
+.mc-meta > span { display: inline-flex; align-items: center; gap: 6px; }
+.mc-meta svg { width: 14px; height: 14px; stroke: currentColor; }
+
+/* ---------- ruled note block (how-to-play) ---------- */
+.mc-note {
+  position: relative;
+  background:
+    repeating-linear-gradient(transparent, transparent 31px, var(--mc-line) 31px, var(--mc-line) 32px);
+  background-color: var(--mc-paper-raised);
+  border: 1px solid var(--mc-line);
+  border-radius: var(--mc-r);
+  box-shadow: var(--mc-shadow-sm);
+  padding: 14px 18px 14px 44px;
+  line-height: 32px; /* text sits on the ruled lines */
+  margin-bottom: 24px;
+}
+.mc-note::before {
+  /* red margin line, like a real exercise book */
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 30px;
+  width: 1.5px;
+  background: color-mix(in srgb, var(--mc-red) 55%, transparent);
+}
+
+/* ---------- surfaces ---------- */
+.mc-sheet {
+  background: var(--mc-paper-raised);
+  border: 1px solid var(--mc-line);
+  border-radius: var(--mc-r);
+  box-shadow: var(--mc-shadow-md);
+  padding: 22px;
+}
+
+/* ---------- buttons ---------- */
+.mc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 13px 22px;
+  border: 1.5px solid var(--mc-ink);
+  border-radius: var(--mc-r);
+  background: var(--mc-paper-raised);
+  color: var(--mc-ink);
+  font-family: var(--mc-body);
+  font-size: 1.03125rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 0 var(--mc-ink);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.mc-btn:hover { background: var(--mc-red-wash); }
+.mc-btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--mc-ink); }
+.mc-btn:focus-visible { outline: 2.5px solid var(--mc-red); outline-offset: 3px; }
+.mc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.mc-btn--primary {
+  background: var(--mc-red);
+  border-color: var(--mc-red-press);
+  color: #fff;
+  box-shadow: 0 2px 0 var(--mc-red-press);
+}
+.mc-btn--primary:hover { background: var(--mc-red-press); }
+
+.mc-btn--quiet {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  color: var(--mc-ink-soft);
+  min-height: 40px;
+  padding: 8px 12px;
+  font-weight: 500;
+}
+.mc-btn--quiet:hover { background: var(--mc-red-wash); color: var(--mc-ink); }
+.mc-btn--block { width: 100%; }
+
+/* the MC arrow inside buttons — slides on hover */
+.mc-btn .mc-arrow { width: 18px; height: 14px; transition: transform 0.2s; }
+.mc-btn:hover .mc-arrow { transform: translateX(4px); }
+
+/* ---------- scoreboard / question display ---------- */
+.mc-board {
+  border: 1.5px solid var(--mc-ink);
+  border-radius: var(--mc-r);
+  background: var(--mc-paper-raised);
+  padding: 22px 20px;
+  text-align: center;
+  box-shadow: var(--mc-shadow-sm);
+}
+.mc-board__label {
+  font-family: var(--mc-mono);
+  font-size: 0.71875rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mc-ink-faint);
+  margin-bottom: 6px;
+}
+.mc-board__value {
+  font-family: var(--mc-mono);
+  font-weight: 800;
+  font-size: clamp(2.375rem, 9vw, 3.625rem);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.mc-board__value em { font-style: italic; }  /* maths variables */
+
+/* room code — printed big, mono, spaced */
+.mc-code {
+  font-family: var(--mc-mono);
+  font-weight: 800;
+  font-size: clamp(2.75rem, 12vw, 4.5rem);
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- attempts (marking circles, not emoji hearts) ---------- */
+.mc-tries { display: flex; gap: 10px; justify-content: center; }
+.mc-tries__dot { width: 26px; height: 26px; position: relative; }
+.mc-tries__dot circle { stroke: var(--mc-ink-faint); fill: none; stroke-width: 2; }
+.mc-tries__dot.used circle { stroke: var(--mc-line); }
+.mc-tries__dot .cross { stroke: var(--mc-red); stroke-width: 2.5; stroke-linecap: round; opacity: 0; }
+.mc-tries__dot.used .cross { opacity: 1; }
+@keyframes mc-cross { from { stroke-dashoffset: 30; } to { stroke-dashoffset: 0; } }
+.mc-tries__dot.used .cross line { stroke-dasharray: 30; animation: mc-cross 0.3s ease-out both; }
+.mc-tries__dot.used .cross line:nth-child(2) { animation-delay: 0.12s; }
+
+/* ---------- star shelf (streak reward, gold pen stars) ---------- */
+.mc-stars { display: flex; gap: 6px; justify-content: center; align-items: center; min-height: 24px; flex-wrap: wrap; }
+.mc-stars svg { width: 21px; height: 21px; fill: var(--mc-gold); animation: mc-pop 0.4s cubic-bezier(0.2, 1.6, 0.35, 1) both; }
+.mc-stars .mc-stars__count { font-family: var(--mc-mono); font-weight: 800; font-size: 0.9375rem; color: var(--mc-gold); }
+@keyframes mc-pop { from { transform: scale(0) rotate(-40deg); } }
+
+/* ---------- marking: stamps + margin notes ---------- */
+.mc-markzone { min-height: 96px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 14px; }
+/* tick/cross ink draws on inside the stamp */
+.mc-stamp .draw path {
+  stroke-dasharray: 46; stroke-dashoffset: 46;
+  animation: mc-draw 0.35s 0.12s ease-out forwards;
+}
+
+.mc-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mc-display);
+  font-size: 1.25rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mc-red);
+  border: 3px solid currentColor;
+  border-radius: 4px;
+  padding: 6px 18px;
+  transform: rotate(-3deg);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 35%, transparent);
+  animation: mc-stamp-in 0.35s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+}
+.mc-stamp--correct { color: var(--mc-correct); transform: rotate(2deg); }
+.mc-stamp svg { width: 22px; height: 22px; stroke: currentColor; }
+@keyframes mc-stamp-in {
+  from { opacity: 0; transform: scale(1.7) rotate(-8deg); }
+  to   { opacity: 1; }
+}
+
+/* the worked reason, written like red ink in the margin */
+.mc-margin-note {
+  font-family: var(--mc-mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--mc-red);
+  text-align: center;
+}
+.mc-margin-note--correct { color: var(--mc-correct); }
+
+/* ---------- inputs ---------- */
+.mc-input {
+  width: 100%;
+  min-height: 58px;
+  font-family: var(--mc-mono);
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--mc-ink);
+  background: var(--mc-paper-raised);
+  border: 1.5px solid var(--mc-ink);
+  border-radius: var(--mc-r);
+  box-shadow: inset 0 2px 0 rgba(28, 25, 23, 0.06);
+}
+.mc-input:focus { outline: none; border-color: var(--mc-red); box-shadow: 0 0 0 3px var(--mc-red-wash); }
+.mc-input::placeholder { color: var(--mc-ink-faint); font-size: 1.0625rem; font-weight: 500; letter-spacing: 0.02em; }
+
+/* ---------- status line (replaces alert()) ---------- */
+.mc-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: var(--mc-r);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--mc-ink-soft);
+  background: transparent;
+  border: 1px dashed var(--mc-line);
+}
+.mc-status--danger { color: var(--mc-red); border-color: color-mix(in srgb, var(--mc-red) 40%, transparent); background: var(--mc-red-wash); }
+.mc-status--ok { color: var(--mc-correct); border-color: color-mix(in srgb, var(--mc-correct) 40%, transparent); background: var(--mc-correct-wash); }
+
+/* ---------- fixed chrome: connection + toggles ---------- */
+.mc-conn {
+  position: fixed; top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); z-index: 50;
+  display: none;
+  align-items: center; gap: 7px;
+  font-family: var(--mc-mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+  padding: 6px 12px;
+  border-radius: var(--mc-r);
+  border: 1.5px solid currentColor;
+  background: var(--mc-paper-raised);
+}
+.mc-conn[data-conn="reconnecting"] { display: inline-flex; color: var(--mc-gold); }
+.mc-conn[data-conn="offline"] { display: inline-flex; color: var(--mc-red); }
+.mc-conn__dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: mc-blink 1.1s ease-in-out infinite; }
+@keyframes mc-blink { 50% { opacity: 0.25; } }
+
+/* absolute, not fixed: the toggles live at the page top and scroll away
+   during play (short landscape screens); only .mc-conn stays fixed */
+.mc-toggles { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); display: flex; gap: 6px; z-index: 50; }
+.mc-toggles .mc-btn--quiet {
+  font-family: var(--mc-mono);
+  font-size: 0.78125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--mc-line);
+  background: var(--mc-paper-raised);
+  min-height: 44px;   /* full touch target on student phones */
+  min-width: 44px;
+}
+.mc-toggles svg { width: 15px; height: 15px; stroke: currentColor; }
+
+/* ---------- brand line (logo + wordmark, per SummerHeader convention) ---------- */
+.mc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 34px;
+  padding-top: 14px;
+  border-top: 1px solid var(--mc-line);
+}
+.mc-brand img { height: 34px; width: auto; }
+.mc-brand__name { font-size: 0.84375rem; font-weight: 700; line-height: 1.25; }
+.mc-brand__sub { font-size: 0.71875rem; color: var(--mc-ink-faint); }
+/* theme swap: logo-secondary (black disc) on light, -dark (light disc) on dark */
+.mc-logo--dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mc-logo--light { display: none; }
+  :root:not([data-theme="light"]) .mc-logo--dark { display: block; }
+}
+:root[data-theme="dark"] .mc-logo--light { display: none; }
+:root[data-theme="dark"] .mc-logo--dark { display: block; }
+
+/* ---------- QR ---------- */
+.mc-qr { display: flex; justify-content: center; }
+.mc-qr svg { background: #fff; padding: 10px; border-radius: var(--mc-r); border: 1.5px solid var(--mc-ink); box-shadow: var(--mc-shadow-sm); }
+
+/* ---------- shake (wrong answer) ---------- */
+@keyframes mc-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+}
+.mc-shake { animation: mc-shake 0.35s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* draw-on strokes must still end visible */
+  .mc-swash path, .mc-stamp .draw path { stroke-dashoffset: 0 !important; }
+}

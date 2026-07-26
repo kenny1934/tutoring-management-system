@@ -11,6 +11,7 @@ import pytest
 from utils.summer_discounts import (
     compute_best_discount,
     compute_payment_deadline,
+    effective_final_fee,
     parse_discounts,
     resnap_enrollment_tier,
     NONE_CODE,
@@ -305,10 +306,72 @@ class TestPaymentDeadline:
 
 
 # ---------------------------------------------------------------------------
+# effective_final_fee — tier/override resolution + attached-coupon stacking
+# ---------------------------------------------------------------------------
+
+class TestEffectiveFinalFee:
+    """A coupon attached to the enrollment (discount_id) subtracts from the
+    tier/override fee, mirroring the regular enrollment fee message."""
+
+    def _enrollment(self, override=None, coupon=None):
+        discount = SimpleNamespace(discount_value=coupon) if coupon is not None else None
+        return SimpleNamespace(discount_override_code=override, discount=discount)
+
+    def test_no_coupon_keeps_tier_fee(self):
+        app = make_app(paid_at=datetime(2026, 6, 10))
+        config = make_config([EB])
+        result = compute_best_discount(app, [app], [], config, today=date(2026, 6, 10))
+        assert effective_final_fee(self._enrollment(), app, config, result) == 1450
+
+    def test_coupon_stacks_on_auto_tier(self):
+        app = make_app(paid_at=datetime(2026, 6, 10))
+        config = make_config([EB])
+        result = compute_best_discount(app, [app], [], config, today=date(2026, 6, 10))
+        assert effective_final_fee(self._enrollment(coupon=100), app, config, result) == 1350
+
+    def test_coupon_applies_when_no_tier_qualifies(self):
+        app = make_app(paid_at=datetime(2026, 6, 20))  # past EB deadline
+        config = make_config([EB])
+        result = compute_best_discount(app, [app], [], config, today=date(2026, 6, 20))
+        assert result.best is None
+        assert effective_final_fee(self._enrollment(coupon=100), app, config, result) == 1500
+
+    def test_coupon_stacks_on_override_tier(self):
+        app = make_app(paid_at=datetime(2026, 6, 20))  # past deadline, tier pinned back
+        config = make_config([EB])
+        result = compute_best_discount(app, [app], [], config, today=date(2026, 6, 20))
+        e = self._enrollment(override="EB", coupon=100)
+        assert effective_final_fee(e, app, config, result) == 1350
+
+    def test_coupon_stacks_on_none_override(self):
+        app = make_app(paid_at=datetime(2026, 6, 10))
+        config = make_config([EB])
+        result = compute_best_discount(app, [app], [], config, today=date(2026, 6, 10))
+        e = self._enrollment(override=NONE_CODE, coupon=100)
+        assert effective_final_fee(e, app, config, result) == 1500
+
+    def test_coupon_applies_to_partial_plan(self):
+        app = make_app(lessons_paid=6, paid_at=datetime(2026, 6, 10))
+        config = make_config([EB])
+        result = compute_best_discount(app, [app], [], config, today=date(2026, 6, 10))
+        assert result.final_fee == 2400  # 6 × default $400/lesson
+        assert effective_final_fee(self._enrollment(coupon=100), app, config, result) == 2300
+
+    def test_decimal_coupon_value_coerces_to_int(self):
+        from decimal import Decimal
+        app = make_app(paid_at=datetime(2026, 6, 10))
+        config = make_config([EB])
+        result = compute_best_discount(app, [app], [], config, today=date(2026, 6, 10))
+        e = self._enrollment(coupon=Decimal("100.00"))
+        assert effective_final_fee(e, app, config, result) == 1350
+
+
+# ---------------------------------------------------------------------------
 # resnap_enrollment_tier — integrates with DB via db_session fixture
 # ---------------------------------------------------------------------------
 
 from models import (
+    Discount,
     Enrollment,
     Student,
     Tutor,
@@ -436,3 +499,29 @@ class TestResnapEnrollmentTier:
         )
         db_session.add(app); db_session.commit()
         assert resnap_enrollment_tier(db_session, app, today=date(2026, 6, 21)) is False
+
+    def test_resnap_revenue_subtracts_attached_coupon(self, db_session, _tutor, _student, _config):
+        """A coupon attached to the enrollment keeps reducing revenue_total when
+        the tier is resnapped (here: EB forfeited → base fee − coupon)."""
+        app = SummerApplication(
+            config_id=_config.id, reference_code="A5", student_name="Kid", grade="F1",
+            contact_phone="1", application_status="Paid", sessions_per_week=1,
+            lessons_paid=8, existing_student_id=_student.id, paid_at=datetime(2026, 6, 10),
+        )
+        db_session.add(app); db_session.commit()
+        e = _make_enrollment(db_session, _student, _tutor, app, code="EB", amount=150)
+        coupon = Discount(
+            discount_name="$100 學費禮劵", discount_type="Coupon",
+            discount_value=100, is_active=True,
+        )
+        db_session.add(coupon); db_session.commit()
+        e.discount_id = coupon.id
+        db_session.commit()
+
+        # Admin corrects paid_at to after the deadline → tier drops to NONE.
+        app.paid_at = datetime(2026, 6, 20)
+        changed = resnap_enrollment_tier(db_session, app, today=date(2026, 6, 20))
+
+        assert changed is True
+        assert e.locked_discount_code == NONE_CODE
+        assert e.revenue_total == 1500.0  # 1600 base − $100 coupon

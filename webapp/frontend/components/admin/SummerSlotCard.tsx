@@ -389,6 +389,7 @@ export const SummerSlotCard = memo(function SummerSlotCard({
               <div className="flex-1 min-w-0">
                 <StudentInfoBadges
                   compact
+                  gradeIsEntering
                   student={{
                     student_name: displayName,
                     school_student_id: p.school_student_id ?? undefined,

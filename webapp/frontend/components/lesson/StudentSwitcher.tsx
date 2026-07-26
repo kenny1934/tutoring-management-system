@@ -1,9 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
 import { getStudentIdDisplay } from "@/lib/lesson-utils";
 import type { StudentExerciseEntry } from "./LessonWideMode";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface StudentSwitcherProps {
   entries: StudentExerciseEntry[];
@@ -47,14 +47,12 @@ export function StudentSwitcher({
               <span className="text-[10px] font-mono opacity-70">{studentId}</span>
             )}
             <span className="truncate max-w-[120px]">{entry.studentName}</span>
-            {entry.grade && (
-              <span
-                className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800"
-                style={{ backgroundColor: getGradeColor(entry.grade, entry.langStream) }}
-              >
-                {entry.grade}
-              </span>
-            )}
+            <GradeBadge
+              className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800"
+              grade={entry.grade}
+              langStream={entry.langStream}
+              showStream={false}
+            />
           </button>
         );
       })}

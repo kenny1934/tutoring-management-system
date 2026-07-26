@@ -201,3 +201,14 @@ export function isCountableSession(session: { session_status: string }): boolean
   if (NON_COUNTABLE_STATUS_PATTERNS.some(pattern => status.includes(pattern))) return false;
   return true;
 }
+
+/**
+ * Sessions whose lesson number no longer lives on the row: cancelled outright,
+ * or rescheduled with the make-up already booked (the lesson number moved to
+ * the make-up session). Pending make-ups are NOT superseded — the original row
+ * is still the only place that lesson number appears.
+ */
+export function isSupersededSession(session: { session_status: string }): boolean {
+  const status = session.session_status;
+  return status === 'Cancelled' || status.endsWith('- Make-up Booked');
+}

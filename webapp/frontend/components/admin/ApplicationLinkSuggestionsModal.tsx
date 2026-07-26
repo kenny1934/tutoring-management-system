@@ -22,6 +22,7 @@ import type {
   StudentLinkAppSummary,
   StudentSuggestionCandidate,
 } from "@/types";
+import { GradeLabel } from "@/components/ui/grade-label";
 
 type Mode = "preview" | "result";
 
@@ -322,7 +323,7 @@ function ProspectChip({ p }: { p: AutoMatchProspectSummary }) {
         branch?.badge || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
       )}>{p.source_branch}</span>
       <span className="truncate text-sm text-foreground">{p.student_name}</span>
-      {p.grade && <span className="shrink-0 text-[10px] text-muted-foreground">{p.grade}</span>}
+      {p.grade && <span className="shrink-0 text-[10px] text-muted-foreground"><GradeLabel grade={p.grade} /></span>}
     </span>
   );
 }
@@ -347,7 +348,7 @@ function StudentChip({ s }: { s: StudentSuggestionCandidate }) {
           {s.home_location}-{s.school_student_id}
         </span>
       )}
-      {s.grade && <span className="shrink-0 text-[10px] text-muted-foreground">{s.grade}</span>}
+      {s.grade && <span className="shrink-0 text-[10px] text-muted-foreground"><GradeLabel grade={s.grade} /></span>}
     </span>
   );
 }

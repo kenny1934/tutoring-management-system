@@ -102,8 +102,12 @@ def batch_load_summer_slots(sessions: list, db: Session) -> dict:
     Candidates are rows with summer_session_id plus rows on Summer
     enrollments (origins have no linkage left after the handoff).
 
-    Returns {session_log.id: SummerCourseSlot}; rows that resolve to
-    nothing are simply absent.
+    Returns {session_log.id: (SummerCourseSlot, is_host)}; rows that
+    resolve to nothing are simply absent. is_host is True for hosting
+    matches and False for home-slot fallbacks — a fallback means no class
+    of the row's tutor is hosted in its cell, so the slot describes where
+    the student belongs, not what is being taught there. Clients cluster
+    such stray rows under a generic header instead of the home class.
     """
     # The list endpoint eager-loads enrollment, so this costs no extra
     # queries there; single-session callers lazy-load at most one row.
@@ -142,10 +146,12 @@ def batch_load_summer_slots(sessions: list, db: Session) -> dict:
     result = {}
     for s in candidates:
         slot = host_by_cell.get((s.session_date, s.time_slot, s.tutor_id))
-        if slot is None and s.summer_session_id:
-            slot = home_by_ss_id.get(s.summer_session_id)
         if slot is not None:
-            result[s.id] = slot
+            result[s.id] = (slot, True)
+        elif s.summer_session_id:
+            home = home_by_ss_id.get(s.summer_session_id)
+            if home is not None:
+                result[s.id] = (home, False)
     return result
 
 
@@ -202,16 +208,18 @@ def build_session_response(session: SessionLog, db: Optional[Session] = None, ro
     if hasattr(session, 'enrollment') and session.enrollment:
         data.enrollment_payment_status = session.enrollment.payment_status
     # Summer class identity (slot of the class hosting this row's cell)
-    slot = None
+    slot_entry = None
     if summer_slots is not None:
-        slot = summer_slots.get(session.id)
+        slot_entry = summer_slots.get(session.id)
     elif db:
-        slot = batch_load_summer_slots([session], db).get(session.id)
-    if slot:
+        slot_entry = batch_load_summer_slots([session], db).get(session.id)
+    if slot_entry:
+        slot, is_host = slot_entry
         data.summer_slot_id = slot.id
         data.summer_class_grade = slot.grade
         data.summer_course_type = slot.course_type
         data.summer_slot_label = slot.slot_label
+        data.summer_stray = not is_host
     # Borrow the successor's lesson number for make-up origins so every
     # endpoint's response keeps the badge consistent with the list view.
     if data.lesson_number is None and session.rescheduled_to_id:

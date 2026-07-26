@@ -258,6 +258,7 @@ export const SummerApplicationCard = React.memo(function SummerApplicationCard({
           </div>
           <div className="min-w-0 flex-1">
             <StudentInfoBadges
+              gradeIsEntering
               student={{
                 student_name: app.student_name,
                 grade: app.grade,

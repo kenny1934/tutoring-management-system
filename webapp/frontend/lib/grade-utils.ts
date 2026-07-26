@@ -69,6 +69,23 @@ export function displayGrade(
 }
 
 /**
+ * Resolve the grade whose colour a badge should carry. Badge colours follow
+ * the DISPLAYED grade, so a stored P6 showing "Pre-F1" during the window
+ * takes F1's colour. Mirrors displayGrade's promotion rules exactly.
+ */
+export function gradeColorKey(
+  grade: string | null | undefined,
+  window: PreGradeWindow | null | undefined,
+  today: Date = todayLocal(),
+): string | undefined {
+  if (!grade) return grade ?? undefined;
+  if (!isInPreGradeWindow(window, today)) return grade;
+  const promoted = PROMOTE_MAP[grade];
+  if (!promoted || promoted === "Graduated") return grade;
+  return promoted;
+}
+
+/**
  * Translate a summer application's target grade into the stored "current"
  * grade when creating a Student record before the Sept 1 promotion of the
  * application's config year fires. After Sept 1 of that year, the target

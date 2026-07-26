@@ -1398,10 +1398,12 @@ async def get_overdue_enrollments(
     # matching its fee message — the override only affects the tier amount.
     from utils.summer_discounts import (
         compute_best_discount,
+        compute_payment_deadline,
         effective_final_fee,
         load_group_context,
     )
     live_tier: dict[int, tuple[str, int]] = {}
+    live_deadline: dict[int, Optional[date]] = {}
     summer_fee: dict[int, int] = {}
     summer_rows = [
         e for e in overdue_enrollments
@@ -1425,20 +1427,28 @@ async def get_overdue_enrollments(
             group_apps, siblings = load_group_context(db, app)
             result_tier = compute_best_discount(app, group_apps, siblings, app.config, today=today)
             # Only auto-tier rows get a live tier; pinned overrides keep theirs.
+            # The deadline follows the live tier too — the stored snapshot may
+            # still point at a tier deadline that has already lapsed.
             if not e.discount_override_code:
                 live_tier[e.id] = (result_tier.code, result_tier.amount)
+                live_deadline[e.id] = compute_payment_deadline(result_tier, e.first_lesson_date)
             summer_fee[e.id] = effective_final_fee(e, app, app.config, result_tier)
 
     result = []
     for enrollment in overdue_enrollments:
+        # Prefer the live tier's deadline over the stored snapshot; overrides
+        # and rows without a config keep the snapshot.
+        payment_deadline = live_deadline.get(enrollment.id, enrollment.payment_deadline)
+
         # Use the earlier of the two dates — whichever triggered the row
-        # should drive urgency. A Summer tier deadline that falls before the
-        # lesson date wins; otherwise first_lesson_date does.
+        # should drive urgency. A Summer tier deadline strictly before the
+        # lesson date wins; otherwise first_lesson_date does. Equal dates
+        # count as first_lesson so the UI doesn't show the same date twice.
         if (
-            enrollment.payment_deadline is not None
-            and enrollment.payment_deadline <= enrollment.first_lesson_date
+            payment_deadline is not None
+            and payment_deadline < enrollment.first_lesson_date
         ):
-            effective = enrollment.payment_deadline
+            effective = payment_deadline
             deadline_source = "payment_deadline"
         else:
             effective = enrollment.first_lesson_date
@@ -1473,7 +1483,7 @@ async def get_overdue_enrollments(
             lessons_paid=enrollment.lessons_paid or 0,
             days_overdue=days_overdue,
             enrollment_type=enrollment.enrollment_type,
-            payment_deadline=enrollment.payment_deadline,
+            payment_deadline=payment_deadline,
             deadline_source=deadline_source,
             locked_discount_code=tier_code,
             locked_discount_amount=tier_amount,

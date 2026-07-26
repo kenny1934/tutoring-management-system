@@ -26,6 +26,7 @@ import { parseTimeSlot } from "@/lib/calendar-utils";
 import { sessionsAPI, api, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirmOpen } from "@/contexts/ConfirmContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExerciseModal } from "./ExerciseModal";
 import { RateSessionModal } from "./RateSessionModal";
@@ -41,13 +42,13 @@ import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { formatShortDate } from "@/lib/formatters";
 import { formatProspectCode } from "@/lib/summer-utils";
-import { getGradeColor } from "@/lib/constants";
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 // Exercise item with copy, open, and print functionality - memoized to prevent re-renders
 const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise: { pdf_name?: string; url?: string; url_title?: string; page_start?: number; page_end?: number; remarks?: string }; stamp?: PrintStampInfo }) {
@@ -429,6 +430,7 @@ export function SessionDetailPopover({
   const { user, effectiveRole, impersonatedTutor, isReadOnly } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const saveLessonNumber = useSaveLessonNumber(session?.id);
+  const confirmDialogOpen = useConfirmOpen();
 
   // Modal state for keyboard shortcuts
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
@@ -612,7 +614,7 @@ export function SessionDetailPopover({
   }, [virtualReference, refs]);
 
   // Disable click-outside dismissal when any modal is open
-  const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen;
+  const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen || confirmDialogOpen;
   const dismiss = useDismiss(context, { enabled: !anyModalOpen });
   const { getFloatingProps } = useInteractions([dismiss]);
 
@@ -789,12 +791,7 @@ export function SessionDetailPopover({
           {session.grade && (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Grade:</span>
-              <span
-                className="text-xs px-1.5 py-0.5 rounded text-gray-800"
-                style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-              >
-                {session.grade}{session.lang_stream}
-              </span>
+              <GradeBadge className="text-xs px-1.5 py-0.5 rounded text-gray-800" grade={session.grade} langStream={session.lang_stream} />
             </div>
           )}
 

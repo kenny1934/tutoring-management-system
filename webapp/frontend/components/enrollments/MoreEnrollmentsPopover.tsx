@@ -15,11 +15,11 @@ import { X, HandCoins, AlertTriangle } from "lucide-react";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
-import { getGradeColor } from "@/lib/constants";
 import type { Enrollment } from "@/types";
 import type { GroupOption, SortOption, SortDirection } from "@/components/students/MyStudentsList";
 import { getGroupKey, compareGroupKeys, getGroupLabel } from "@/components/students/MyStudentsList";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 interface MoreEnrollmentsPopoverProps {
   enrollments: Enrollment[];
@@ -216,10 +216,7 @@ export function MoreEnrollmentsPopover({
                           )}>
                             <span className="truncate">{enrollment.student_name || "Unknown"}</span>
                             {enrollment.grade && (
-                              <span
-                                className="text-[9px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
-                                style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
-                              >{enrollment.grade}{enrollment.lang_stream || ''}</span>
+                              <GradeBadge className="text-[9px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap" grade={enrollment.grade} langStream={enrollment.lang_stream} />
                             )}
                             {enrollment.school && (
                               <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{enrollment.school}</span>

@@ -592,6 +592,7 @@ class SessionResponse(SessionBase):
     summer_class_grade: Optional[str] = Field(None, max_length=50, description="Grade of the summer class (e.g. F1), distinct from the student's own grade")
     summer_course_type: Optional[str] = Field(None, max_length=10, description="Summer course type (A/B) — determines lesson order")
     summer_slot_label: Optional[str] = Field(None, max_length=100, description="Label of the summer class slot")
+    summer_stray: Optional[bool] = Field(None, description="True when the summer class fields come from the home-slot fallback — no class of this row's tutor is hosted in its cell, so clients cluster the row under a generic summer header instead of the home class")
     moved_lesson_number: Optional[int] = Field(None, description="For make-up origins: lesson number now carried by the successor make-up row (display only; DB value stays NULL)")
 
     model_config = ConfigDict(from_attributes=True)
@@ -2480,6 +2481,11 @@ class SummerApplicationResponse(BaseModel):
     # Admin tier-override pinned on the published enrollment, surfaced here so
     # summer-side fee/tier displays honour it instead of recomputing the tier.
     discount_override_code: Optional[str] = None
+    # Flat value of a coupon attached to the published enrollment (its
+    # discount_id), surfaced so the summer fee message subtracts it like a
+    # regular enrollment's fee message does. None pre-publish or when no
+    # coupon is attached.
+    coupon_discount_value: Optional[int] = None
     # Stamped when admin marks status as Paid; editable for receipt-date
     # corrections. Drives discount-tier deadline check.
     paid_at: Optional[datetime] = None

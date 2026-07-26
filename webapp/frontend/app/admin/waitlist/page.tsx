@@ -45,6 +45,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import type { WaitlistEntry, WaitlistEntryBulkItem, Enrollment, Student } from "@/types";
+import { GradeBadge } from "@/components/ui/grade-label";
 
 const HEADER_PATTERNS: Record<string, RegExp> = {
   name: /^(name|student|student.?name|姓名|學生)/i,
@@ -552,12 +553,7 @@ export default function AdminWaitlistPage() {
                                   <span className="text-[10px] text-foreground/40 font-mono">{e.school_student_id}</span>
                                 )}
                                 <span className="text-sm font-medium text-foreground truncate">{e.student_name}</span>
-                                <span
-                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0"
-                                  style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream || undefined) }}
-                                >
-                                  {e.grade}{e.lang_stream}
-                                </span>
+                                <GradeBadge className="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-800 flex-shrink-0" grade={e.grade} langStream={e.lang_stream} />
                                 {e.school && <span className="text-[10px] text-foreground/40 truncate">{e.school}</span>}
                               </div>
                               <div className="text-[11px] text-foreground/50 leading-relaxed">
@@ -1191,18 +1187,11 @@ function WaitlistRow({
 
       {/* Grade */}
       <td className="py-2.5 px-3">
-        <span
+        <GradeBadge
           className="px-2 py-0.5 rounded text-xs font-medium text-gray-800"
-          style={{
-            backgroundColor: getGradeColor(
-              entry.grade,
-              entry.lang_stream || undefined
-            ),
-          }}
-        >
-          {entry.grade}
-          {entry.lang_stream}
-        </span>
+          grade={entry.grade}
+          langStream={entry.lang_stream}
+        />
       </td>
 
       {/* Phone */}

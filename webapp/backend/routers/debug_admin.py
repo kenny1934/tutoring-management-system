@@ -735,8 +735,9 @@ async def list_rows(
         query += f" ORDER BY `{sort_by}` {order}"
     else:
         default_sort = config.get("default_sort", ("id", "desc"))
+        sort_col = default_sort[0] if default_sort[0] in valid_columns else config["primary_key"]
         order = "DESC" if default_sort[1] == "desc" else "ASC"
-        query += f" ORDER BY `{default_sort[0]}` {order}"
+        query += f" ORDER BY `{sort_col}` {order}"
 
     # Pagination
     query += f" LIMIT :limit OFFSET :offset"
@@ -1286,8 +1287,9 @@ async def export_table(
 
     # Default sort and limit
     default_sort = config.get("default_sort", ("id", "desc"))
+    sort_col = default_sort[0] if default_sort[0] in valid_columns else config["primary_key"]
     order = "DESC" if default_sort[1] == "desc" else "ASC"
-    query += f" ORDER BY `{default_sort[0]}` {order} LIMIT :limit"
+    query += f" ORDER BY `{sort_col}` {order} LIMIT :limit"
     params["limit"] = limit
 
     try:
