@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.97](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.96...v2.0.97) (2026-07-28)
+
+
+### Bug Fixes
+
+* **Terminated students no longer treats the summer break as leaving**: the quarter that runs into the summer course was measured as though regular lessons carried on through it, so nearly every student whose lessons finished before the break appeared on the terminated list and the closing figure collapsed. That quarter is now measured up to the day regular lessons pause, and students who finished in the final four weeks before the pause are reviewed in the following quarter instead, once the new school year has begun. The following quarter opens on 1 September and carries the same students forward, so its opening figure matches the previous closing figure and students who do not return are counted there. Quarters away from the summer course are unchanged, and the quarterly report follows the same rule. The summer dates come from the summer course settings for each year.
+
 ## [2.0.96](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.95...v2.0.96) (2026-07-17)
 
 
