@@ -64,46 +64,37 @@ SessionLocal = sessionmaker(bind=engine)
 
 API_BASE_URL = "http://localhost:8000/api"
 
-# Custom Quarter definitions (start_month, start_day, end_month, end_day)
-# Q4 crosses the year boundary: Oct 22 - Jan 21 of next year
-QUARTERS = {
-    "Q1": (1, 22, 4, 21),   # Jan 22 - Apr 21
-    "Q2": (4, 22, 7, 21),   # Apr 22 - Jul 21
-    "Q3": (7, 22, 10, 21),  # Jul 22 - Oct 21
-    "Q4": (10, 22, 1, 21),  # Oct 22 - Jan 21 (next year)
-}
+# Custom quarters and the summer-pause scoping live in the backend so this report
+# and the Terminated Students page cannot drift apart. The README runs this script
+# with webapp/backend/venv/bin/python3, and quarters.py is stdlib-only, so importing
+# it pulls in no framework or database machinery.
+sys.path.insert(0, os.path.join(project_root, 'webapp', 'backend'))
+from quarters import (  # noqa: E402
+    PRE_SUMMER_GRACE_DAYS,
+    build_quarter_window,
+)
 
-OPENING_PERIOD_DAYS = 7  # Jan 22-28, Apr 22-28, Jul 22-28, Oct 22-28
+
+def fetch_summer_pause(year):
+    """The summer course period for a year, or None if no course is configured."""
+    db = SessionLocal()
+    try:
+        row = db.execute(text("""
+            SELECT course_start_date, course_end_date
+            FROM summer_course_configs
+            WHERE year = :year
+            LIMIT 1
+        """), {"year": year}).fetchone()
+    finally:
+        db.close()
+    if not row or not row[0] or not row[1]:
+        return None
+    return row[0], row[1]
 
 
-def get_quarter_dates(year, quarter):
-    """
-    Get key dates for a quarter.
-
-    Args:
-        year: The reporting year for the quarter
-        quarter: Quarter string ("Q1", "Q2", "Q3", "Q4")
-
-    Returns:
-        tuple: (opening_start, opening_end, closing_end) as date objects
-
-    Note: For Q4, the year parameter is the start year.
-          Q4 2025 runs from Oct 22, 2025 to Jan 21, 2026.
-    """
-    start_month, start_day, end_month, end_day = QUARTERS[quarter]
-
-    # Opening period start and end
-    opening_start = datetime(year, start_month, start_day).date()
-    opening_end = datetime(year, start_month, start_day + OPENING_PERIOD_DAYS - 1).date()
-
-    # Closing end date
-    if quarter == "Q4":
-        # Q4 ends in January of the NEXT year
-        closing_end = datetime(year + 1, end_month, end_day).date()
-    else:
-        closing_end = datetime(year, end_month, end_day).date()
-
-    return opening_start, opening_end, closing_end
+def get_quarter_window(year, quarter):
+    """Measured window for a quarter, with that year's summer pause taken out."""
+    return build_quarter_window(year, get_quarter_number(quarter), fetch_summer_pause(year))
 
 
 def get_quarter_number(quarter):
@@ -498,14 +489,13 @@ def build_terminated_students_list(terminated_students):
     return results
 
 
-def calculate_enrollment_stats(tutors, location, opening_start, opening_end, closing_end):
+def calculate_enrollment_stats(tutors, location, window):
     """Calculate Opening/Closing enrollment stats per tutor for a location.
 
     Runs the same SQL as /api/terminations/stats so the numbers match the
     Terminated Students page exactly. Uses the MySQL calculate_effective_end_date
     function and the 21-day grace window for holiday-delayed renewals.
     """
-    prev_closing_end = opening_start - timedelta(days=1)
 
     opening_query = text("""
         SELECT
@@ -521,7 +511,7 @@ def calculate_enrollment_stats(tutors, location, opening_start, opening_end, clo
             e.first_lesson_date,
             e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) >= :opening_start
+        ) >= :judged_from
         AND (
             e.first_lesson_date <= :opening_end
             OR e.student_id IN (
@@ -556,7 +546,7 @@ def calculate_enrollment_stats(tutors, location, opening_start, opening_end, clo
             e.first_lesson_date,
             e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) > :closing_end
+        ) > :churn_cutoff
         AND e.student_id IN (
             SELECT DISTINCT e2.student_id
             FROM enrollments e2
@@ -568,7 +558,7 @@ def calculate_enrollment_stats(tutors, location, opening_start, opening_end, clo
                 e2.first_lesson_date,
                 e2.lessons_paid,
                 COALESCE(e2.deadline_extension_weeks, 0)
-            ) >= :opening_start
+            ) >= :judged_from
         )
         AND e.location = :location
         GROUP BY e.tutor_id
@@ -577,16 +567,13 @@ def calculate_enrollment_stats(tutors, location, opening_start, opening_end, clo
     db = SessionLocal()
     try:
         opening_rows = db.execute(opening_query, {
-            "opening_start": opening_start,
-            "opening_end": opening_end,
-            "prev_closing_end": prev_closing_end,
+            **window.params(),
             "location": location,
         }).fetchall()
         opening_by_tutor = {row.tutor_id: row.opening_count for row in opening_rows}
 
         closing_rows = db.execute(closing_query, {
-            "opening_start": opening_start,
-            "closing_end": closing_end,
+            **window.params(),
             "location": location,
         }).fetchall()
         closing_by_tutor = {row.tutor_id: row.closing_count for row in closing_rows}
@@ -605,7 +592,7 @@ def calculate_enrollment_stats(tutors, location, opening_start, opening_end, clo
     return results
 
 
-def fetch_termination_counts_by_tutor(year, quarter_num, location, tutors, opening_start, closing_end):
+def fetch_termination_counts_by_tutor(year, quarter_num, location, tutors, window):
     """Count terminations per tutor for a location using the same SQL as
     /api/terminations/stats. Only counts students with count_as_terminated=TRUE
     for the quarter; attributes them to the tutor of their latest enrollment
@@ -632,8 +619,8 @@ def fetch_termination_counts_by_tutor(year, quarter_num, location, tutors, openi
             SELECT qe.student_id, qe.tutor_id
             FROM quarter_enrollments qe
             WHERE qe.rn = 1
-            AND qe.eff_end_date >= :opening_start
-            AND qe.eff_end_date <= :closing_end
+            AND qe.eff_end_date >= :judged_from
+            AND qe.eff_end_date <= :churn_cutoff
         )
         SELECT te.tutor_id, COUNT(*) as terminated_count
         FROM termed te
@@ -649,10 +636,9 @@ def fetch_termination_counts_by_tutor(year, quarter_num, location, tutors, openi
     db = SessionLocal()
     try:
         rows = db.execute(query, {
+            **window.params(),
             "year": year,
             "quarter": quarter_num,
-            "opening_start": opening_start,
-            "closing_end": closing_end,
             "location": location,
         }).fetchall()
     finally:
@@ -667,14 +653,13 @@ def fetch_termination_counts_by_tutor(year, quarter_num, location, tutors, openi
     return counts
 
 
-def fetch_location_totals(year, quarter_num, location, opening_start, opening_end, closing_end):
+def fetch_location_totals(year, quarter_num, location, window):
     """Compute location-wide Opening and Terminated totals using COUNT(DISTINCT).
 
     These are NOT the sum of per-tutor counts: a student enrolled with two
     tutors contributes 2 to the per-tutor sum but only 1 to the location total.
     Matches the location_stats block in /api/terminations/stats.
     """
-    prev_closing_end = opening_start - timedelta(days=1)
 
     opening_query = text("""
         SELECT COUNT(DISTINCT e.student_id) as cnt
@@ -687,7 +672,7 @@ def fetch_location_totals(year, quarter_num, location, opening_start, opening_en
         AND calculate_effective_end_date(
             e.first_lesson_date, e.lessons_paid,
             COALESCE(e.deadline_extension_weeks, 0)
-        ) >= :opening_start
+        ) >= :judged_from
         AND (
             e.first_lesson_date <= :opening_end
             OR e.student_id IN (
@@ -727,8 +712,8 @@ def fetch_location_totals(year, quarter_num, location, opening_start, opening_en
             SELECT qe.student_id
             FROM quarter_enrollments qe
             WHERE qe.rn = 1
-            AND qe.eff_end_date >= :opening_start
-            AND qe.eff_end_date <= :closing_end
+            AND qe.eff_end_date >= :judged_from
+            AND qe.eff_end_date <= :churn_cutoff
         )
         SELECT COUNT(DISTINCT te.student_id) as cnt
         FROM termed te
@@ -742,16 +727,13 @@ def fetch_location_totals(year, quarter_num, location, opening_start, opening_en
     db = SessionLocal()
     try:
         opening = db.execute(opening_query, {
-            "opening_start": opening_start,
-            "opening_end": opening_end,
-            "prev_closing_end": prev_closing_end,
+            **window.params(),
             "location": location,
         }).scalar() or 0
         terminated = db.execute(terminated_query, {
+            **window.params(),
             "quarter": quarter_num,
             "year": year,
-            "opening_start": opening_start,
-            "closing_end": closing_end,
             "location": location,
         }).scalar() or 0
     finally:
@@ -977,9 +959,13 @@ def main():
 
     # Normal mode: query database and generate reports
     # Get quarter dates
-    opening_start, opening_end, closing_end = get_quarter_dates(year, quarter)
-    print(f"Opening period: {opening_start} to {opening_end}")
-    print(f"Closing date: {closing_end}")
+    window = get_quarter_window(year, quarter)
+    print(f"Opening period: {window.opening_start} to {window.opening_end}")
+    print(f"Closing date: {window.closing_end}")
+    if window.summer:
+        handover_from = window.summer[0] - timedelta(days=PRE_SUMMER_GRACE_DAYS)
+        print(f"Summer course period {window.summer[0]} to {window.summer[1]} is excluded; "
+              f"lessons ending from {handover_from} are judged in the quarter that resumes after it")
 
     # Fetch locations
     print("\nFetching locations...")
@@ -1018,19 +1004,15 @@ def main():
 
         # Calculate enrollment stats for this location
         print("Calculating enrollment stats...")
-        enrollment_stats = calculate_enrollment_stats(
-            tutors, location, opening_start, opening_end, closing_end
-        )
+        enrollment_stats = calculate_enrollment_stats(tutors, location, window)
 
         # Count terminations by tutor (matches /api/terminations/stats)
         termination_counts = fetch_termination_counts_by_tutor(
-            year, quarter_num, location, tutors, opening_start, closing_end
+            year, quarter_num, location, tutors, window
         )
 
         # Location-wide totals (COUNT DISTINCT, not sum of per-tutor counts)
-        location_totals = fetch_location_totals(
-            year, quarter_num, location, opening_start, opening_end, closing_end
-        )
+        location_totals = fetch_location_totals(year, quarter_num, location, window)
         print(f"Location totals: Opening={location_totals['opening']}, Terminated={location_totals['terminated']}")
 
         # Write report
