@@ -12,6 +12,7 @@ import {
   RequiredMark,
   IconLabel,
 } from "@/lib/regular-utils";
+import { cn } from "@/lib/utils";
 
 interface StudentInfoStepProps {
   config: RegularCourseFormConfig;
@@ -77,14 +78,28 @@ export function StudentInfoStep({
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           {/* Full-bleed brand band — integrates with the card top edge,
               compact height, with a thin gold accent line at the bottom that
-              matches the header treatment. */}
-          <div className="relative bg-[#B60D20] h-[72px] sm:h-[80px] overflow-hidden">
+              matches the header treatment.
+
+              A banner is artwork with its own margins, so it is contained
+              rather than cropped: the band is wider than the art is tall, and
+              object-cover would slice the top and bottom off the lettering.
+              The band turns black behind it, which the current banner's own
+              background matches exactly, so the letterboxing does not read as
+              empty space. */}
+          <div
+            className={cn(
+              "relative overflow-hidden",
+              bannerImage
+                ? "bg-black h-[88px] sm:h-[112px]"
+                : "bg-[#B60D20] h-[72px] sm:h-[80px]"
+            )}
+          >
             {bannerImage ? (
               <Image
                 src={bannerImage}
                 alt={headlineText}
                 fill
-                className="object-cover object-center"
+                className="object-contain object-center"
                 priority
               />
             ) : (

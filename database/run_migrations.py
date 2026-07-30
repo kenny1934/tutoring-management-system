@@ -14,8 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "139_regular_slot_lang_stream.sql",
-    "140_prospect_regular_link.sql",
+    "141_regular_banner_image.sql",
 ]
 
 def main():

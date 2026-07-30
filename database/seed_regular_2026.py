@@ -116,6 +116,9 @@ CONFIG_2026 = {
         "registration_fee": 100,
     }),
     "course_intro": None,
+    # Reuses last year's Google Form header artwork; the wording carries no
+    # year, so it stands for every September intake.
+    "banner_image_url": "/regular/regular-banner.jpg",
     "is_active": True,
 }
 
