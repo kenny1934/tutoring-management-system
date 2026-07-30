@@ -139,6 +139,13 @@ export const REGULAR_STATUS_STEPS = [
   "Enrolled",
 ] as const;
 
+/** The course page on the MathConcept site. It is the marketing front door for
+ *  the September intake — the regular.* subdomain carries only the form — so
+ *  every parent-facing surface that needs "tell me about the course" points
+ *  here rather than at a landing page of our own. */
+export const REGULAR_COURSE_PAGE_URL =
+  "https://mathconcept.com.mo/regular-courses/secondary-school/";
+
 /** Side-exit statuses rendered as a pill instead of a ladder rung. */
 export const REGULAR_EXIT_STATUSES = new Set(["Waitlisted", "Withdrawn", "Rejected"]);
 

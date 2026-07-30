@@ -18,10 +18,11 @@ export function LayoutShell({ children }: LayoutShellProps) {
 
   // Zen mode / public pages / subdomains: render without any shell
   const isPublicSubdomain = typeof window !== 'undefined' &&
-    (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.') || window.location.hostname.startsWith('buddy.'));
+    (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.') || window.location.hostname.startsWith('buddy.') || window.location.hostname.startsWith('regular.'));
 
-  // /apply and /status are clean URLs served on summer.* via middleware rewrite —
-  // include them so SSR skips the admin shell before hydration sees the hostname.
+  // /apply and /status are clean URLs served on summer.* and regular.* via
+  // middleware rewrite — include them so SSR skips the admin shell before
+  // hydration sees the hostname.
   const isCleanPublicPath =
     pathname === "/apply" || pathname?.startsWith("/apply/") ||
     pathname === "/status" || pathname?.startsWith("/status/");

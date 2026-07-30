@@ -8,7 +8,7 @@ import type {
 } from "@/types";
 import { useRegularApplyFormState } from "@/hooks/useRegularApplyFormState";
 import { CheckCircle2, Copy, Check, Pencil, Phone } from "lucide-react";
-import { type Lang, t, REGULAR_STEP_LABELS } from "@/lib/regular-utils";
+import { type Lang, t, REGULAR_STEP_LABELS, REGULAR_COURSE_PAGE_URL } from "@/lib/regular-utils";
 import { getBranchContact } from "@/lib/branch-contacts";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
@@ -452,6 +452,19 @@ export default function RegularApplyPage() {
         }
       >
         {closed && <BranchContacts locations={config.locations} lang={lang} />}
+        {/* The only way onward from here. The subdomain root lands on this
+            page, so without the course page a parent arriving out of season
+            would hit a dead end. */}
+        <div className="mt-6">
+          <a
+            href={REGULAR_COURSE_PAGE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:text-primary-hover underline"
+          >
+            {t("查看課程詳情 →", "View course details →", lang)}
+          </a>
+        </div>
       </ApplyNotice>
     );
   }

@@ -3,13 +3,20 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { REGULAR_COURSE_PAGE_URL } from "@/lib/regular-utils";
 
 export function RegularHeader() {
   const pathname = usePathname();
 
+  // The apply / status pages are also served at clean URLs (/apply, /status)
+  // on the regular.* subdomain via middleware rewrite. usePathname() returns
+  // the visible URL, not the rewrite target, so both shapes must match or the
+  // subdomain would render the internal header on a parent-facing page.
   const isPublicPage =
     pathname.startsWith("/regular/apply") ||
-    pathname.startsWith("/regular/status");
+    pathname.startsWith("/regular/status") ||
+    pathname === "/apply" || pathname.startsWith("/apply/") ||
+    pathname === "/status" || pathname.startsWith("/status/");
 
   // Public apply / status pages get the brand bar: the parent MathConcept
   // mark on a white chip (the primary wordmark uses black + red on a
@@ -27,7 +34,7 @@ export function RegularHeader() {
       >
         <div className="mx-auto px-4 sm:px-8 h-14 flex items-center gap-3">
           <a
-            href="https://mathconcept.com.mo/regular-courses/secondary-school/"
+            href={REGULAR_COURSE_PAGE_URL}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="MathConcept"
