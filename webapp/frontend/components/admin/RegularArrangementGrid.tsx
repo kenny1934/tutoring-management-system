@@ -11,6 +11,37 @@ import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types"
 // identity across renders.
 const EMPTY_SLOTS: RegularSlot[] = [];
 
+// Small chip for the slot-attribute filter groups (grade / stream / has-space),
+// styled to match the day chips above them.
+function FilterChip({
+  label,
+  active,
+  onClick,
+  title,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={title}
+      className={cn(
+        "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+        active
+          ? "bg-[#a0704b] text-white"
+          : "bg-gray-100 dark:bg-gray-800 text-foreground/50 hover:text-foreground/70"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
 interface DragPrefs {
   primary: { day: string; time: string }[];
   backup: { day: string; time: string }[];
@@ -18,6 +49,9 @@ interface DragPrefs {
 
 interface RegularArrangementGridProps {
   days: string[];
+  /** Selected branch. Only a reset signal: the tutor filter is branch-scoped
+   *  and clears when this changes. */
+  branchKey?: string;
   timeSlots: string[];
   demand: RegularDemandCell[];
   slots: RegularSlot[];
@@ -53,6 +87,7 @@ interface RegularArrangementGridProps {
 
 export function RegularArrangementGrid({
   days,
+  branchKey,
   timeSlots,
   demand,
   slots,
@@ -111,17 +146,56 @@ export function RegularArrangementGrid({
     return max;
   }, [demand]);
 
-  // Index slots by (day, timeSlot)
+  // ---- Slot-attribute filters (grade / stream / tutor / has-space) ----
+  // Unlike the day chips (which hide whole columns), these narrow the slot
+  // CARDS shown inside each cell so an admin can pick out one combination at a
+  // glance, e.g. "F3E slots with space". A blank slot (grade/stream/tutor still
+  // unset at creation) never matches a specific filter — it isn't a configured
+  // class yet.
+  const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  const [streamFilter, setStreamFilter] = useState<string | null>(null);
+  const [tutorFilter, setTutorFilter] = useState<number | null>(null);
+  const [spaceOnly, setSpaceOnly] = useState(false);
+
+  // Tutor ids are branch-scoped, so a selection carried across a branch switch
+  // would match nothing; drop it. Grade/stream/space are branch-agnostic and
+  // intentionally persist.
+  useEffect(() => {
+    setTutorFilter(null);
+  }, [branchKey]);
+
+  const slotFilterActive =
+    gradeFilter !== null || streamFilter !== null || tutorFilter !== null || spaceOnly;
+
+  const visibleSlots = useMemo(() => {
+    if (!slotFilterActive) return slots;
+    return slots.filter((s) => {
+      if (gradeFilter !== null && s.grade !== gradeFilter) return false;
+      if (streamFilter !== null && s.lang_stream !== streamFilter) return false;
+      if (tutorFilter !== null && s.tutor_id !== tutorFilter) return false;
+      if (spaceOnly && s.assigned_count >= s.max_students) return false;
+      return true;
+    });
+  }, [slots, slotFilterActive, gradeFilter, streamFilter, tutorFilter, spaceOnly]);
+
+  const clearSlotFilters = useCallback(() => {
+    setGradeFilter(null);
+    setStreamFilter(null);
+    setTutorFilter(null);
+    setSpaceOnly(false);
+  }, []);
+
+  // Index the (filtered) slots by (day, timeSlot)
   const slotsMap = useMemo(() => {
     const map = new Map<string, RegularSlot[]>();
-    for (const slot of slots) {
+    for (const slot of visibleSlots) {
       const key = `${slot.slot_day}|${slot.time_slot}`;
       const arr = map.get(key) ?? [];
       arr.push(slot);
       map.set(key, arr);
     }
     return map;
-  }, [slots]);
+  }, [visibleSlots]);
 
   // Day-visibility toggle: resets when the set of open days changes (e.g.
   // branch switch). `days` is a fresh array every parent render, so key the
@@ -210,6 +284,98 @@ export function RegularArrangementGrid({
             All
           </button>
         )}
+
+        {/* Divider between the column (day) filter and the slot-content filters */}
+        <span className="h-4 w-px bg-border/70 mx-1 hidden sm:block" aria-hidden />
+
+        {/* Grade filter */}
+        <span className="text-[9px] text-muted-foreground mr-0.5">Grade:</span>
+        <FilterChip
+          label="All"
+          active={gradeFilter === null}
+          onClick={() => setGradeFilter(null)}
+          title="All grades"
+        />
+        {grades.map((g) => (
+          <FilterChip
+            key={g}
+            label={g}
+            active={gradeFilter === g}
+            onClick={() => setGradeFilter((prev) => (prev === g ? null : g))}
+            title={gradeFilter === g ? `Clear ${g} filter` : `Show only ${g} slots`}
+          />
+        ))}
+
+        {/* Stream filter */}
+        {streams.length > 0 && (
+          <>
+            <span className="text-[9px] text-muted-foreground ml-1 mr-0.5">Stream:</span>
+            <FilterChip
+              label="All"
+              active={streamFilter === null}
+              onClick={() => setStreamFilter(null)}
+              title="All streams"
+            />
+            {streams.map((s) => (
+              <FilterChip
+                key={s}
+                label={s}
+                active={streamFilter === s}
+                onClick={() => setStreamFilter((prev) => (prev === s ? null : s))}
+                title={streamFilter === s ? `Clear ${s} filter` : `Show only ${s} slots`}
+              />
+            ))}
+          </>
+        )}
+
+        {/* Tutor filter */}
+        {tutors.length > 0 && (
+          <select
+            value={tutorFilter ?? ""}
+            onChange={(e) => setTutorFilter(e.target.value ? Number(e.target.value) : null)}
+            className={cn(
+              // color-scheme flip: :root forces `light`, so without this the
+              // native control + option popup render on a white base in dark
+              // mode (the translucent active fill then looks white).
+              "ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium max-w-[9rem] cursor-pointer transition-colors border [color-scheme:light] dark:[color-scheme:dark]",
+              tutorFilter !== null
+                ? "border-[#a0704b] bg-[#a0704b]/10 dark:bg-[#a0704b]/25 text-[#a0704b] dark:text-[#d9a978]"
+                : "border-transparent bg-gray-100 dark:bg-gray-800 text-foreground/60 hover:text-foreground/80"
+            )}
+            aria-label="Filter by tutor"
+            title="Show only one tutor's slots"
+          >
+            <option value="">All tutors</option>
+            {tutors.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Has-space toggle */}
+        <FilterChip
+          label="Has space"
+          active={spaceOnly}
+          onClick={() => setSpaceOnly((v) => !v)}
+          title="Show only slots with room for more students"
+        />
+
+        {/* Match count + clear, only while a slot filter narrows the board */}
+        {slotFilterActive && (
+          <>
+            <span className="text-[10px] text-muted-foreground ml-1 tabular-nums">
+              {visibleSlots.length} of {slots.length} {slots.length === 1 ? "slot" : "slots"}
+            </span>
+            <button
+              onClick={clearSlotFilters}
+              className="text-[10px] text-[#a0704b] hover:underline ml-0.5"
+            >
+              Clear
+            </button>
+          </>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto rounded-lg border-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -257,13 +423,18 @@ export function RegularArrangementGrid({
                 const matches = (s: { day: string; time: string }) => s.day === day && s.time === ts;
                 const isPrefMatch =
                   dragPrefs?.primary.some(matches) || dragPrefs?.backup.some(matches);
+                const cellSlots = slotsMap.get(key) ?? EMPTY_SLOTS;
+                // With a slot filter on, cells holding no match recede so the
+                // matching slots pop; demand stays faintly visible underneath.
+                const dimmed = slotFilterActive && cellSlots.length === 0;
                 return (
                   <RegularSlotCell
                     key={key}
                     day={day}
                     timeSlot={ts}
                     demandCell={demandMap.get(key)}
-                    slots={slotsMap.get(key) ?? EMPTY_SLOTS}
+                    slots={cellSlots}
+                    dimmed={dimmed}
                     grades={grades}
                     streams={streams}
                     gradeStreams={activeGradeStreams}

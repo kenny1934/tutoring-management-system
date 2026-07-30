@@ -864,6 +864,7 @@ export default function RegularArrangementPage() {
                 <div className="flex-1 min-w-0 min-h-0 flex flex-col">
                   <RegularArrangementGrid
                     days={days}
+                    branchKey={location}
                     timeSlots={timeSlots}
                     demand={demand?.cells ?? []}
                     slots={slots ?? []}

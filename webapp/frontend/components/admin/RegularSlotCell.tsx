@@ -38,6 +38,9 @@ interface RegularSlotCellProps {
   onClickStudent?: (applicationId: number) => void;
   onDropFailed?: (reason: string) => void;
   prefHighlight?: boolean;
+  /** A slot filter is on and this cell holds no matching slot, so it recedes to
+   * let the matching cells stand out. */
+  dimmed?: boolean;
   /** Highest per-grade demand across the whole grid, so every cell's bars are
    * drawn on one comparable scale. */
   gradeMaxDemand?: number;
@@ -106,6 +109,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   onClickStudent,
   onDropFailed,
   prefHighlight,
+  dimmed = false,
   gradeMaxDemand = 1,
   onDemandBarClick,
   slotHighlightTarget,
@@ -214,8 +218,9 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   return (
     <div
       className={cn(
-        "min-h-[80px] p-1.5 transition-colors relative",
+        "min-h-[80px] p-1.5 transition relative",
         heatColor(remainingDemand),
+        dimmed && "opacity-40 hover:opacity-100",
         dragOver && "ring-2 ring-inset ring-primary",
         prefHighlight && !dragOver && "ring-2 ring-inset ring-primary/40 bg-primary/5"
       )}
