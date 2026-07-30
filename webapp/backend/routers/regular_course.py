@@ -99,6 +99,7 @@ from constants import (
     DAY_FULL_TO_SHORT,
     MIN_LESSONS_FOR_DISCOUNT,
     REGISTRATION_FEE,
+    REGULAR_EXIT_STATUSES,
     normalize_secondary_location,
     normalize_day_short,
 )
@@ -512,6 +513,21 @@ def _build_application_responses(
 # Public endpoints (no auth)
 # ============================================
 
+def _application_window(config: RegularCourseConfig) -> str:
+    """Where 'now' sits relative to the config's application window.
+
+    The form is gated on this rather than on the dates alone: submission has
+    always been rejected outside the window, so the form must not invite four
+    steps of typing it is going to refuse.
+    """
+    now = hk_now()
+    if now < config.application_open_date:
+        return "before"
+    if now > config.application_close_date:
+        return "closed"
+    return "open"
+
+
 @router.get("/regular/public/config", response_model=RegularCourseFormConfig)
 def get_public_config(request: Request, db: Session = Depends(get_db)):
     """Return the active regular course config for the public form."""
@@ -525,6 +541,7 @@ def get_public_config(request: Request, db: Session = Depends(get_db)):
         description=config.description,
         application_open_date=config.application_open_date,
         application_close_date=config.application_close_date,
+        application_window=_application_window(config),
         course_start_date=config.course_start_date,
         locations=config.locations or [],
         available_grades=config.available_grades or [],
@@ -552,9 +569,9 @@ def submit_application(
     if not config:
         raise HTTPException(status_code=404, detail="No active regular course found")
 
-    # Check application window
-    now = hk_now()
-    if now < config.application_open_date or now > config.application_close_date:
+    # Check application window (the form gates on the same helper, so a
+    # submission only reaches here if the visitor bypassed the closed screen)
+    if _application_window(config) != "open":
         raise HTTPException(status_code=400, detail="Application period is not open")
 
     # Duplicate check: same (normalized phone, student name) within this config.
@@ -1082,7 +1099,7 @@ def get_demand(
         .filter(
             RegularApplication.config_id == config_id,
             RegularApplication.preferred_location == location,
-            RegularApplication.application_status.not_in(["Withdrawn", "Rejected"]),
+            RegularApplication.application_status.not_in(REGULAR_EXIT_STATUSES),
         )
         .all()
     )
@@ -1117,6 +1134,21 @@ def get_demand(
 # Arrangement: weekly slots + assignment
 # ============================================
 
+def _seat_count(db: Session, slot_id: int, exclude_app_id: int | None = None) -> int:
+    """Applications holding a seat in this slot.
+
+    Exit-status applications are skipped: a student who withdrew after being
+    placed must not keep a seat that the class can offer to somebody else.
+    """
+    query = db.query(func.count(RegularApplication.id)).filter(
+        RegularApplication.assigned_slot_id == slot_id,
+        RegularApplication.application_status.not_in(REGULAR_EXIT_STATUSES),
+    )
+    if exclude_app_id is not None:
+        query = query.filter(RegularApplication.id != exclude_app_id)
+    return query.scalar() or 0
+
+
 def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[RegularSlotResponse]:
     """Build slot responses with batched assignment + publish lookups."""
     if not slots:
@@ -1138,7 +1170,13 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             .all()
         )
     by_slot: dict[int, list[RegularSlotStudentInfo]] = {}
+    # Seats held, counted separately from the row list: an exit-status student
+    # still shows on the slot (so the admin can see the placement they gave up)
+    # but no longer occupies one of its places.
+    seats: dict[int, int] = {}
     for a in assigned:
+        if a.application_status not in REGULAR_EXIT_STATUSES:
+            seats[a.assigned_slot_id] = seats.get(a.assigned_slot_id, 0) + 1
         by_slot.setdefault(a.assigned_slot_id, []).append(RegularSlotStudentInfo(
             application_id=a.id,
             student_name=a.student_name,
@@ -1162,7 +1200,7 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             tutor_id=s.tutor_id,
             tutor_name=tutor_names.get(s.tutor_id) if s.tutor_id else None,
             max_students=s.max_students,
-            assigned_count=len(by_slot.get(s.id, [])),
+            assigned_count=seats.get(s.id, 0),
             students=by_slot.get(s.id, []),
         )
         for s in slots
@@ -1244,11 +1282,7 @@ def update_slot(
         if not tutor:
             raise HTTPException(status_code=404, detail=f"Tutor with ID {updates['tutor_id']} not found")
     if "max_students" in updates:
-        assigned_count = (
-            db.query(func.count(RegularApplication.id))
-            .filter(RegularApplication.assigned_slot_id == slot_id)
-            .scalar()
-        )
+        assigned_count = _seat_count(db, slot_id)
         if updates["max_students"] < assigned_count:
             raise _publish_error(
                 "capacity_below_assigned",
@@ -1311,14 +1345,7 @@ def assign_application_slot(
                 "Slot belongs to a different intake config.",
             )
         if req.slot_id != old_slot_id:
-            assigned_count = (
-                db.query(func.count(RegularApplication.id))
-                .filter(
-                    RegularApplication.assigned_slot_id == req.slot_id,
-                    RegularApplication.id != app.id,
-                )
-                .scalar()
-            )
+            assigned_count = _seat_count(db, req.slot_id, exclude_app_id=app.id)
             if assigned_count >= slot.max_students:
                 raise _publish_error(
                     "slot_full",

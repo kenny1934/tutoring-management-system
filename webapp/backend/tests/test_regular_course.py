@@ -123,6 +123,24 @@ class TestPublicConfig:
         assert data["pricing_config"] == {
             "base_fee": 2400, "lessons_per_block": 6, "registration_fee": 100,
         }
+        assert data["application_window"] == "open"
+
+    def test_window_reported_before_it_opens(self, client, cfg, db_session):
+        cfg.application_open_date = datetime(2099, 1, 1)
+        cfg.application_close_date = datetime(2099, 12, 31)
+        db_session.commit()
+        resp = client.get("/api/regular/public/config")
+        # The config still ships: the status page needs it outside the window.
+        assert resp.status_code == 200
+        assert resp.json()["application_window"] == "before"
+
+    def test_window_reported_after_it_closes(self, client, cfg, db_session):
+        cfg.application_open_date = datetime(2020, 1, 1)
+        cfg.application_close_date = datetime(2020, 12, 31)
+        db_session.commit()
+        resp = client.get("/api/regular/public/config")
+        assert resp.status_code == 200
+        assert resp.json()["application_window"] == "closed"
 
 
 # ---- Apply ----

@@ -22,12 +22,12 @@ import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyM
 import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
 import type { RegularTutorOption } from "@/components/admin/RegularSlotCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV, effectiveStream } from "@/lib/regular-utils";
+import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV, effectiveStream, countSeatHolders, REGULAR_LEFT_INTAKE_STATUSES } from "@/lib/regular-utils";
 import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
 import type { RegularApplication, RegularSlot, RegularSlotUpdate } from "@/types";
 
 /** Exit statuses stay on the applications page triage surface. */
-const EXCLUDED_STATUSES = new Set(["Withdrawn", "Rejected"]);
+const EXCLUDED_STATUSES = REGULAR_LEFT_INTAKE_STATUSES;
 
 /** Publishing is gated on the fee message having gone out, same as summer. */
 const PUBLISHABLE_STATUSES = new Set(["Fee Sent", "Paid", "Enrolled"]);
@@ -579,9 +579,11 @@ export default function RegularArrangementPage() {
               published: false,
             },
           ];
-          return { ...s, students, assigned_count: students.length };
+          return { ...s, students, assigned_count: countSeatHolders(students) };
         }
-        return removed ? { ...s, students: without, assigned_count: without.length } : s;
+        return removed
+          ? { ...s, students: without, assigned_count: countSeatHolders(without) }
+          : s;
       });
     try {
       await mutateSlots(
@@ -612,7 +614,7 @@ export default function RegularArrangementPage() {
       (current ?? []).map((s) => {
         const without = s.students.filter((st) => st.application_id !== applicationId);
         return without.length !== s.students.length
-          ? { ...s, students: without, assigned_count: without.length }
+          ? { ...s, students: without, assigned_count: countSeatHolders(without) }
           : s;
       });
     try {

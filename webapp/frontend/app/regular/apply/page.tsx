@@ -7,8 +7,10 @@ import type {
   RegularApplicationCreate,
 } from "@/types";
 import { useRegularApplyFormState } from "@/hooks/useRegularApplyFormState";
-import { CheckCircle2, Copy, Check, Pencil } from "lucide-react";
+import { CheckCircle2, Copy, Check, Pencil, Phone } from "lucide-react";
 import { type Lang, t, REGULAR_STEP_LABELS } from "@/lib/regular-utils";
+import { getBranchContact } from "@/lib/branch-contacts";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   FormProgressBar,
   type StepStatus,
@@ -20,6 +22,82 @@ import { SchedulePreferenceStep } from "@/components/regular/steps/SchedulePrefe
 import { ContactConfirmStep } from "@/components/regular/steps/ContactConfirmStep";
 
 const TOTAL_STEPS = 4;
+
+/** Standing-in-for-the-form screen. The status link is only offered once an
+ *  intake has actually run: before the window opens nobody has an application
+ *  to look up, so the link would send the parent to a form that can only tell
+ *  them there is no such reference code. */
+function ApplyNotice({
+  heading,
+  body,
+  statusLink,
+  children,
+}: {
+  heading: string;
+  body: string;
+  statusLink?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="text-center py-20">
+      <h2 className="text-xl font-semibold text-foreground">{heading}</h2>
+      <p className="mt-2 text-muted-foreground">{body}</p>
+      {children}
+      {statusLink && (
+        <a
+          href="/regular/status"
+          className="inline-block mt-6 text-sm text-primary hover:text-primary-hover underline"
+        >
+          {statusLink}
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** Branch phone and WeChat, shown on the screen whose copy asks the parent to
+ *  get in touch. Branches come from the config, so a new one appears here as
+ *  soon as it has a contact entry. */
+function BranchContacts({
+  locations,
+  lang,
+}: {
+  locations: RegularCourseFormConfig["locations"];
+  lang: Lang;
+}) {
+  const branches = locations.flatMap((loc) => {
+    const contact = getBranchContact(loc.name);
+    return contact ? [{ loc, contact }] : [];
+  });
+  if (branches.length === 0) return null;
+  return (
+    <div className="mt-6 flex flex-wrap justify-center gap-3">
+      {branches.map(({ loc, contact }) => (
+        <div
+          key={loc.name}
+          className="rounded-xl border border-border bg-card px-4 py-3 text-left"
+        >
+          <div className="text-sm font-semibold text-foreground">
+            {lang === "zh" ? loc.name : loc.name_en || loc.name}
+          </div>
+          <div className="mt-1.5 flex items-center gap-4">
+            <a
+              href={`tel:${contact.phone.replace(/\s+/g, "")}`}
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-hover transition-colors"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              <span className="tabular-nums tracking-wider">{contact.phone}</span>
+            </a>
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+              <WeChatIcon className="h-3.5 w-3.5 text-green-600" />
+              <span className="tracking-wider">{contact.wechat}</span>
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function RegularApplyPage() {
   const [lang, setLang] = useState<Lang>("zh");
@@ -322,36 +400,59 @@ export default function RegularApplyPage() {
     );
   }
 
-  // No active config or load error — also covers the closed / not-yet-open
-  // application window, which the public config endpoint reports as no config.
+  // No active intake configured, or the config failed to load.
   if (!config) {
-    return (
+    return error ? (
       <div className="text-center py-20">
-        {error ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-            {error}
-          </div>
-        ) : (
-          <>
-            <h2 className="text-xl font-semibold text-foreground">
-              {t(
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+          {error}
+        </div>
+      </div>
+    ) : (
+      <ApplyNotice
+        heading={t(
+          "常規課程報名尚未開放",
+          "Regular course registration is not yet open",
+          lang
+        )}
+        body={t("請稍後再試", "Please check back later", lang)}
+      />
+    );
+  }
+
+  // Outside the application window the form is not offered at all. Submission
+  // is refused server-side either way, so showing four steps of fields would
+  // only invite typing that gets thrown away.
+  if (config.application_window !== "open") {
+    const closed = config.application_window === "closed";
+    return (
+      <ApplyNotice
+        heading={
+          closed
+            ? t("報名期已結束", "The application period has ended", lang)
+            : t(
                 "常規課程報名尚未開放",
                 "Regular course registration is not yet open",
                 lang
-              )}
-            </h2>
-            <p className="mt-2 text-muted-foreground">
-              {t("請稍後再試", "Please check back later", lang)}
-            </p>
-            <a
-              href="/regular/status"
-              className="inline-block mt-6 text-sm text-primary hover:text-primary-hover underline"
-            >
-              {t("已遞交申請？查看報名狀態 →", "Already applied? Check your status →", lang)}
-            </a>
-          </>
-        )}
-      </div>
+              )
+        }
+        body={
+          closed
+            ? t(
+                "如仍希望為子女報名，請與我們聯絡。",
+                "Please contact us if you would still like to enrol your child.",
+                lang
+              )
+            : t("請稍後再試", "Please check back later", lang)
+        }
+        statusLink={
+          closed
+            ? t("已遞交申請？查看報名狀態 →", "Already applied? Check your status →", lang)
+            : undefined
+        }
+      >
+        {closed && <BranchContacts locations={config.locations} lang={lang} />}
+      </ApplyNotice>
     );
   }
 

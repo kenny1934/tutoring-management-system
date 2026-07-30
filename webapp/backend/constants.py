@@ -209,6 +209,17 @@ class RegularApplicationStatus(str, Enum):
     REJECTED = 'Rejected'
 
 
+# Applications on these rungs have left the intake, so they stop holding the
+# arrangement seat they were placed in: capacity checks and slot fill counts
+# skip them, the same way summer skips non-attending sessions. The row stays
+# on the slot so an admin can still see the placement that was given up.
+# Waitlisted is deliberately absent — those applicants are still being worked.
+REGULAR_EXIT_STATUSES = (
+    RegularApplicationStatus.WITHDRAWN.value,
+    RegularApplicationStatus.REJECTED.value,
+)
+
+
 class SummerPlacementStatus(str, Enum):
     """Placement statuses for summer course slot assignments."""
     TENTATIVE = 'Tentative'

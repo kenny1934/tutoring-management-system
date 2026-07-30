@@ -207,6 +207,9 @@ export function RegularConfigEditor({
       description: description || null,
       application_open_date: appOpenDate || "",
       application_close_date: appCloseDate || "",
+      // The preview's job is to show the form itself, so it renders as though
+      // the window were open whatever dates are being edited above.
+      application_window: "open",
       course_start_date: courseStartDate || "",
       locations,
       available_grades: grades,

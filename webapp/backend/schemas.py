@@ -3758,6 +3758,11 @@ class RegularCourseFormConfig(BaseModel):
     description: Optional[str] = None
     application_open_date: datetime
     application_close_date: datetime
+    # 'before' | 'open' | 'closed' — resolved server-side against Hong Kong
+    # time so the form does not depend on the visitor's device clock. The
+    # config still ships in every state: the status page needs it after the
+    # window has closed.
+    application_window: str
     course_start_date: date
     locations: List[Dict[str, Any]]
     available_grades: List[Dict[str, Any]]

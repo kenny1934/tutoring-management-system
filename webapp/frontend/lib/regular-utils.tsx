@@ -142,6 +142,24 @@ export const REGULAR_STATUS_STEPS = [
 /** Side-exit statuses rendered as a pill instead of a ladder rung. */
 export const REGULAR_EXIT_STATUSES = new Set(["Waitlisted", "Withdrawn", "Rejected"]);
 
+/** Statuses that mean the applicant has left this intake: they drop out of
+ *  demand, out of the unassigned panel, and out of a slot's seat count.
+ *  Narrower than REGULAR_EXIT_STATUSES above, which is about ladder display
+ *  and counts Waitlisted as a side exit — a waitlisted applicant is still
+ *  being worked and still holds any seat they were placed in. Mirrors the
+ *  backend REGULAR_EXIT_STATUSES. */
+export const REGULAR_LEFT_INTAKE_STATUSES = new Set(["Withdrawn", "Rejected"]);
+
+/** Seats a slot actually has taken. An applicant who withdrew after being
+ *  placed stays listed on the slot but stops occupying one of its places. */
+export function countSeatHolders(
+  students: { application_status: string }[]
+): number {
+  return students.filter(
+    (s) => !REGULAR_LEFT_INTAKE_STATUSES.has(s.application_status)
+  ).length;
+}
+
 export const REGULAR_STATUS_LABELS: Record<string, { zh: string; en: string }> = {
   "Submitted": { zh: "已提交", en: "Submitted" },
   "Under Review": { zh: "處理中", en: "Under Review" },
@@ -163,7 +181,9 @@ export function regularStatusLabel(status: string, lang: RegularLang): string {
 /** Time slots available for a given location + day, mirroring
  *  getSummerTimeSlots but reading the regular config shape. */
 export function getRegularTimeSlots(
-  config: RegularCourseFormConfig | null,
+  // Only the two slot-bearing fields, so the admin config type works here too
+  // — the detail modal reads day/time options straight off the admin config.
+  config: Pick<RegularCourseFormConfig, "locations" | "time_slots"> | null,
   locationName: string,
   day: string,
 ): string[] {

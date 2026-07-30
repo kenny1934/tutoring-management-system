@@ -3599,6 +3599,9 @@ export interface RegularCourseFormConfig {
   description?: string | null;
   application_open_date: string;
   application_close_date: string;
+  /** Resolved server-side in Hong Kong time so the form never depends on the
+   *  visitor's device clock. The form is only offered while this is "open". */
+  application_window: "before" | "open" | "closed";
   course_start_date: string;
   locations: RegularLocation[];
   available_grades: RegularBilingualOption[];

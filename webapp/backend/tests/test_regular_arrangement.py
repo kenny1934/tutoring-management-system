@@ -232,6 +232,29 @@ class TestSlotsCrud:
         slots = list_slots(config_id=config.id, location=None, _admin=None, db=db_session)
         assert slots[0].students[0].school_student_id == "MSA-1024"
 
+    def test_exit_status_student_stays_listed_but_frees_its_place(
+        self, db_session, config, admin
+    ):
+        """The row stays so the admin can see the placement that was given up,
+        while the fill count reads as one place free."""
+        slot = _make_slot(db_session, config, max_students=2)
+        _make_app(db_session, config, name="Staying", slot_id=slot.id)
+        _make_app(db_session, config, name="Gone", slot_id=slot.id, status="Withdrawn")
+        slots = list_slots(config_id=config.id, location=None, _admin=None, db=db_session)
+        assert slots[0].assigned_count == 1
+        assert [s.student_name for s in slots[0].students] == ["Gone", "Staying"]
+
+    def test_capacity_can_drop_to_the_seats_actually_held(self, db_session, config, admin):
+        slot = _make_slot(db_session, config, max_students=3)
+        _make_app(db_session, config, name="Staying", slot_id=slot.id)
+        _make_app(db_session, config, name="Gone", slot_id=slot.id, status="Withdrawn")
+        updated = update_slot(
+            slot_id=slot.id,
+            data=RegularSlotUpdate(max_students=1),
+            _admin=None, db=db_session,
+        )
+        assert updated.max_students == 1
+
     def test_update_capacity_below_assigned_blocked(self, db_session, config, admin):
         slot = _make_slot(db_session, config, max_students=3)
         for i in range(2):
@@ -333,6 +356,25 @@ class TestAssign:
     def test_capacity_guard(self, db_session, config, admin):
         slot = _make_slot(db_session, config, max_students=1)
         _make_app(db_session, config, name="First", slot_id=slot.id)
+        late = _make_app(db_session, config, name="Late")
+        with pytest.raises(HTTPException) as exc:
+            _assign(db_session, admin, late, slot.id)
+        assert exc.value.detail["error_code"] == "slot_full"
+
+    @pytest.mark.parametrize("exit_status", ["Withdrawn", "Rejected"])
+    def test_exit_status_releases_the_seat(self, db_session, config, admin, exit_status):
+        """A student who leaves the intake must not hold a place the class can
+        offer to somebody else."""
+        slot = _make_slot(db_session, config, max_students=1)
+        _make_app(db_session, config, name="Gone", slot_id=slot.id, status=exit_status)
+        late = _make_app(db_session, config, name="Late")
+        resp = _assign(db_session, admin, late, slot.id)
+        assert resp.assigned_slot_id == slot.id
+
+    def test_waitlisted_keeps_its_seat(self, db_session, config, admin):
+        """Waitlisted is a holding rung, not an exit: the placement stands."""
+        slot = _make_slot(db_session, config, max_students=1)
+        _make_app(db_session, config, name="Held", slot_id=slot.id, status="Waitlisted")
         late = _make_app(db_session, config, name="Late")
         with pytest.raises(HTTPException) as exc:
             _assign(db_session, admin, late, slot.id)
