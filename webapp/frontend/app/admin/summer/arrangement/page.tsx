@@ -348,6 +348,21 @@ export default function SummerArrangementPage() {
     [slots],
   );
 
+  // Tutors actually present on this board's slots, for the grid's tutor filter.
+  // Deriving from the slots keeps the list location-scoped and free of tutors
+  // who have nothing to filter to.
+  const slotTutorOptions = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const s of regularSlots) {
+      if (s.tutor_id != null && !seen.has(s.tutor_id)) {
+        seen.set(s.tutor_id, s.tutor_name ?? `Tutor ${s.tutor_id}`);
+      }
+    }
+    return [...seen.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [regularSlots]);
+
   // Fetch active tutors and duties
   const { data: activeTutors } = useSWR(
     canView ? "summer-active-tutors" : null,
@@ -1195,11 +1210,13 @@ export default function SummerArrangementPage() {
                 {activeTab === "slots" ? (
                   <SummerArrangementGrid
                     days={openDays}
+                    branchKey={location}
                     timeSlots={timeSlots}
                     demand={demand?.cells ?? []}
                     slots={regularSlots}
                     loading={slots === undefined || demand === undefined}
                     grades={grades}
+                    tutors={slotTutorOptions}
                     readOnly={readOnly}
                     onCreateSlot={handleCreateSlot}
                     onUpdateSlot={handleUpdateSlot}
