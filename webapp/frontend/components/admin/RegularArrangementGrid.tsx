@@ -5,42 +5,12 @@ import { RegularSlotCell, type RegularDemandBarFilter } from "./RegularSlotCell"
 import type { RegularTutorOption } from "./RegularSlotCard";
 import { DAY_ABBREV } from "@/lib/regular-utils";
 import { cn } from "@/lib/utils";
+import { FilterChip, TutorFilterSelect } from "./ArrangementFilters";
 import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types";
 
 // Stable empty-slot array so cells with no slots keep a fixed `slots` prop
 // identity across renders.
 const EMPTY_SLOTS: RegularSlot[] = [];
-
-// Small chip for the slot-attribute filter groups (grade / stream / has-space),
-// styled to match the day chips above them.
-function FilterChip({
-  label,
-  active,
-  onClick,
-  title,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  title?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      title={title}
-      className={cn(
-        "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
-        active
-          ? "bg-[#a0704b] text-white"
-          : "bg-gray-100 dark:bg-gray-800 text-foreground/50 hover:text-foreground/70"
-      )}
-    >
-      {label}
-    </button>
-  );
-}
 
 interface DragPrefs {
   primary: { day: string; time: string }[];
@@ -329,30 +299,7 @@ export function RegularArrangementGrid({
         )}
 
         {/* Tutor filter */}
-        {tutors.length > 0 && (
-          <select
-            value={tutorFilter ?? ""}
-            onChange={(e) => setTutorFilter(e.target.value ? Number(e.target.value) : null)}
-            className={cn(
-              // color-scheme flip: :root forces `light`, so without this the
-              // native control + option popup render on a white base in dark
-              // mode (the translucent active fill then looks white).
-              "ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium max-w-[9rem] cursor-pointer transition-colors border [color-scheme:light] dark:[color-scheme:dark]",
-              tutorFilter !== null
-                ? "border-[#a0704b] bg-[#a0704b]/10 dark:bg-[#a0704b]/25 text-[#a0704b] dark:text-[#d9a978]"
-                : "border-transparent bg-gray-100 dark:bg-gray-800 text-foreground/60 hover:text-foreground/80"
-            )}
-            aria-label="Filter by tutor"
-            title="Show only one tutor's slots"
-          >
-            <option value="">All tutors</option>
-            {tutors.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <TutorFilterSelect value={tutorFilter} onChange={setTutorFilter} tutors={tutors} />
 
         {/* Has-space toggle */}
         <FilterChip

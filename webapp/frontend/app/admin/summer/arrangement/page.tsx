@@ -1241,6 +1241,8 @@ export default function SummerArrangementPage() {
                     courseEndDate={activeConfig!.course_end_date}
                     openDays={openDays}
                     timeSlots={timeSlots}
+                    grades={grades}
+                    tutors={slotTutorOptions}
                     totalLessons={activeConfig!.total_lessons}
                     readOnly={readOnly}
                     onDropStudent={handleDropStudentCalendar}
