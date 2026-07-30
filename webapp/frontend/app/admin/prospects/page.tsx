@@ -1209,7 +1209,12 @@ const ProspectRow = memo(function ProspectRow({
       {colVisible("notes") && (
         <td className="px-2 py-2 text-center">
           {p.contact_notes ? (
-            <MessageSquare className="h-3 w-3 text-primary/60" title={p.contact_notes} />
+            // Tooltip rides on the wrapper: the icon component does not take a
+            // title prop, so passing one there typed as an error and never
+            // reached the DOM.
+            <span title={p.contact_notes} className="inline-flex">
+              <MessageSquare className="h-3 w-3 text-primary/60" />
+            </span>
           ) : (
             <span className="text-xs text-muted-foreground/30">-</span>
           )}

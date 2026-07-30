@@ -121,7 +121,7 @@ export function StudentBackgroundStep({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Image
-                src="/summer/buddy/icon.png"
+                src="/logo-mathconcept-mark.png"
                 alt=""
                 width={20}
                 height={20}
@@ -141,7 +141,7 @@ export function StudentBackgroundStep({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Image
-                src="/summer/icon.png"
+                src="/logo-secondary.png"
                 alt=""
                 width={20}
                 height={20}

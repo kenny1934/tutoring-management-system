@@ -233,6 +233,10 @@ export function SummerSessionCalendar({
       if (courseTypeFilter !== null && l.course_type !== courseTypeFilter) return false;
       if (tutorFilter !== null && l.tutor_id !== tutorFilter) return false;
       if (spaceOnly) {
+        // A cancelled lesson has empty seats but refuses every one of them:
+        // placement, find-slot and the make-up suggester all skip it, so the
+        // chip would only surface a dead end.
+        if (l.lesson_status === "Cancelled") return false;
         // "Full" matches the lesson card's own rule: only attending sessions
         // count against capacity.
         const attending = l.sessions.filter((s) => !isNonAttending(s.session_status)).length;
