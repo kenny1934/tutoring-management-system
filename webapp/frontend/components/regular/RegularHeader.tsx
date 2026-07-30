@@ -27,7 +27,7 @@ export function RegularHeader() {
       >
         <div className="mx-auto px-4 sm:px-8 h-14 flex items-center gap-3">
           <a
-            href="https://mathconcept.com.mo/"
+            href="https://mathconcept.com.mo/regular-courses/secondary-school/"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="MathConcept"
