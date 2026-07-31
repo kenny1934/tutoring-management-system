@@ -6,6 +6,11 @@
 --
 -- Guarded on NULL so re-running never overwrites a banner set from the config
 -- editor, which is where an admin would change it.
+--
+-- Renumbered from 141, which collided with a summer migration that reached
+-- main while this branch was in flight. It was applied to production under the
+-- old number and ahead of 142-149, so its place in the sequence is not the
+-- order it actually ran in.
 
 UPDATE regular_course_configs
 SET banner_image_url = '/regular/regular-banner.jpg'
