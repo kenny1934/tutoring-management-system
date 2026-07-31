@@ -20,6 +20,7 @@ import {
   REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS, REGULAR_STATUS_ICONS, RegularStatusBadge,
   RegularOriginChip,
 } from "./RegularApplicationCard";
+import { LinkedStudentChip } from "@/components/admin/LinkedStudentChip";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
@@ -1040,6 +1041,14 @@ export function RegularApplicationDetailModal({
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
                           {app.school}
                         </span>
+                      )}
+                      {/* The linked record stays visible while editing: it is
+                          the student id and the link to their profile, which
+                          the origin dropdown does not replace. The dropdown
+                          then edits the origin the badge would otherwise
+                          show, so the two never duplicate each other. */}
+                      {canEdit && app.linked_student && (
+                        <LinkedStudentChip student={app.linked_student} />
                       )}
                       {canEdit ? (
                         <select

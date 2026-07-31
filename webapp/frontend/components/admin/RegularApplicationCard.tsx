@@ -107,41 +107,60 @@ export function RegularStatusBadge({ status }: { status: string }) {
   );
 }
 
+/** An admin's verified answer to "where did this student come from", for the
+ *  slot next to the linked-student badge. */
+function VerifiedOriginBadge({ value, asFrom }: { value: string; asFrom?: boolean }) {
+  const isNew = value === "New";
+  return (
+    <span
+      className={cn(
+        "shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded",
+        isNew
+          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+          : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+      )}
+      title={
+        isNew
+          ? "Verified: has never attended MathConcept."
+          : `Verified origin: ${value}.`
+      }
+      onClick={(e) => e.stopPropagation()}
+    >
+      <BadgeCheck className="h-3 w-3" />
+      {asFrom && <span className="font-normal opacity-70">from</span>}
+      {isNew ? "New" : <span className="font-mono">{value}</span>}
+    </span>
+  );
+}
+
 /** Where this applicant came from, in the same slot summer's PrimaryBranchChip
- *  occupies: an admin's verified answer if there is one, else the linked
- *  student record, else what the applicant told us.
+ *  occupies: the linked student record, an unverified claim of one, or a
+ *  genuinely new student, qualified by whatever an admin has verified.
  *
- *  The verified value leads because it is the only one a seasonal new-student
- *  offer may be granted on. The form asks which centre a student attends
- *  *now*, so a family that left last year answers "none" truthfully while
- *  still having a history, and nothing but a person checking can tell. */
+ *  The linked record leads, exactly as in summer: it carries the branch, the
+ *  student id and a link to the profile, so it strictly outranks a bare origin
+ *  code. The verified origin rides alongside it only when it adds something
+ *  the record does not say. */
 export function RegularOriginChip({ app }: { app: RegularApplication }) {
   const verified = app.verified_branch_origin;
-  if (verified) {
-    const isNew = verified === "New";
+
+  if (app.linked_student) {
+    // Worth showing next to the record: that the student has no history at all
+    // (which is what a seasonal new-student offer keys on, and which their new
+    // record cannot convey), or that they came from a different branch than
+    // the one they now belong to. A verified origin equal to their home branch
+    // is already on the badge, so it stays off.
+    const addsInfo =
+      !!verified && (verified === "New" || verified !== app.linked_student.home_location);
     return (
-      <span
-        className={cn(
-          "shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded",
-          isNew
-            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-            : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-        )}
-        title={
-          isNew
-            ? "Verified: has never attended MathConcept."
-            : `Verified origin: ${verified}.`
-        }
-        onClick={(e) => e.stopPropagation()}
-      >
-        ✓ {verified}
-      </span>
+      <>
+        <LinkedStudentChip student={app.linked_student} />
+        {addsInfo && <VerifiedOriginBadge value={verified} asFrom={verified !== "New"} />}
+      </>
     );
   }
 
-  if (app.linked_student) {
-    return <LinkedStudentChip student={app.linked_student} />;
-  }
+  if (verified) return <VerifiedOriginBadge value={verified} />;
 
   const claimsExisting = !!app.is_existing_student && app.is_existing_student !== "None";
   if (claimsExisting) {
