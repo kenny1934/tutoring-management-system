@@ -229,9 +229,9 @@ async def refresh_token(request: Request, response: Response):
     """
     Refresh the authentication token.
 
-    Extends the token expiry if the current token is valid and
-    within the refresh window (expires within 30 minutes or
-    recently expired within 5 minute grace period).
+    Extends the token expiry if the current token is still valid,
+    or expired within the 15-minute grace period
+    (REFRESH_GRACE_PERIOD_MINUTES in auth/jwt_handler.py).
 
     Returns a new token as an HTTP-only cookie.
     """
