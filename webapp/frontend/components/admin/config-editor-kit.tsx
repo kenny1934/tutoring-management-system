@@ -35,6 +35,17 @@ export function stampIds<T>(items: T[], prefix: string): WithId<T>[] {
   return items.map(item => ({ ...item, _id: genId(prefix) }));
 }
 
+/** Undo stampIds on the way out. `_id` is a drag-handle key regenerated on
+ *  every load, so it means nothing once stored — call this on any list headed
+ *  for the API, or it lands in the config JSON and outlives the session. */
+export function stripIds<T>(items: WithId<T>[]): T[] {
+  return items.map(item => {
+    const copy: Partial<WithId<T>> = { ...item };
+    delete copy._id;
+    return copy as T;
+  });
+}
+
 export function reorderByIds<T extends { _id: string }>(items: T[], newOrder: string[]): T[] {
   const byId = new Map(items.map(item => [item._id, item]));
   return newOrder.map(id => byId.get(id)!);

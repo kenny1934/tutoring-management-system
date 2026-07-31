@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "148_drop_open_days_label.sql",
+    "149_strip_config_editor_ids.sql",
 ]
 
 def main():
