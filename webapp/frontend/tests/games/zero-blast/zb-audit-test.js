@@ -695,6 +695,19 @@ async function sectionSound(browser) {
   check("sound: sampler ready after enable", !!ready, "samplerState never 'ready'");
   check("sound: sprite fetched", wavFetched(), "no request for zb-sprite.wav after enable");
 
+  // the cover carries a groove of its own: nothing sounds before the
+  // opt-in (sound starts off), and the opt-in itself starts it
+  const coverBgm = await poll(
+    page,
+    () => {
+      const s = ZBFX.bgm.state();
+      return s.tier === "cover" && s.playing === true ? s : null;
+    },
+    null,
+    3000
+  );
+  check("bgm: the cover opens on its own groove once sound is on", !!coverBgm, "cover tier never played");
+
   await startSolo(page);
   await waitStaged(page);
   const base = await page.evaluate(() => ZBFX.bgm.state());
@@ -729,12 +742,12 @@ async function sectionSound(browser) {
     () => {
       if (!document.getElementById("endScreen").classList.contains("active")) return null;
       const s = ZBFX.bgm.state();
-      return s.playing === false && s.tier === null ? s : null;
+      return s.playing === true && s.tier === "report" ? s : null;
     },
     null,
     9000
   );
-  check("bgm: stopped on the end screen", !!endBgm, "bgm still scheduling on the report");
+  check("bgm: the report winds down on its own groove", !!endBgm, "report tier not scheduling on the end screen");
 
   await page.reload();
   const survives = await poll(

@@ -27,5 +27,5 @@
     "inqfuse": "探究模式: seconds per answer window (default 15)",
     "inqhearts": "探究模式: lives per player for the whole arc (default 6; at 0 the player sits one round out on an empty strip, then returns with 2)"
   },
-  "version": "0.13.0"
+  "version": "0.14.0"
 }

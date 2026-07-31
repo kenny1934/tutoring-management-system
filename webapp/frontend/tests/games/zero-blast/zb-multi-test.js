@@ -1581,7 +1581,11 @@ async function main() {
   check("host leaderboard has 2 rows", rows === 2, "rows=" + rows);
 
   const bgmEnd = await host.evaluate(() => ZBFX.bgm.state());
-  check("bgm: stopped on the end screen", !bgmEnd.playing && bgmEnd.tier === null, JSON.stringify(bgmEnd));
+  check(
+    "bgm: the report winds down on its own groove",
+    bgmEnd.playing === true && bgmEnd.tier === "report",
+    JSON.stringify(bgmEnd)
+  );
 
   await until(
     async () =>
@@ -2537,6 +2541,14 @@ async function main() {
   await inqAdvanceTo("summary");
   const mainLabel = await host.evaluate(() => document.getElementById("btnInqPrimary").textContent);
   check("概念轉化 summary: the primary button hands over to the main game", mainLabel.includes("歸零爆破"), mainLabel);
+  // the recap is standings, not a seating plan: 輪空 named a round that
+  // is over, while 復活中 still says why one strip is empty
+  const rosterRecap = await rosterTagged(host, "zb-inqroster__bye");
+  check(
+    "重建: the recap drops the round's 輪空 seat and keeps the standing 復活中",
+    rosterRecap.n === 1 && rosterRecap.text.includes("復活中") && !rosterRecap.text.includes("輪空"),
+    JSON.stringify(rosterRecap)
+  );
   const primaryChip = await host.evaluate(() => getComputedStyle(document.getElementById("btnInqPrimary"), "::after").content);
   check("探究: the primary button wears its n shortcut chip", primaryChip === '"n"', "chip=" + primaryChip);
   const recap = await host.evaluate(() => ({
@@ -2652,6 +2664,14 @@ async function main() {
     "探究: 跳去探究二 lands on the lock intro",
     jumpState.stage === 2 && jumpState.step === "intro" && jumpState.seq === 1200,
     JSON.stringify(jumpState)
+  );
+  // all three came back on the pity round; the intro is a fresh stage,
+  // so the comeback tag goes with the round that earned it
+  const rosterJump = await rosterTagged(host, "zb-inqroster__back");
+  check(
+    "復活: the tag belongs to its round - gone by the next stage's intro",
+    rosterJump.n === 0,
+    JSON.stringify(rosterJump)
   );
   await until(() => phoneA2.evaluate(() => C.inq && C.inq.stage === 2 && C.inq.step === "intro"), { label: "phones follow the jump" });
   check("探究: the phones follow the jump", true);

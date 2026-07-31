@@ -3212,7 +3212,7 @@ function endCeremonyAudio() {
   gsap.timeline()
     .addLabel("stars", 0.3)
     .addLabel("chop", 1.25)
-    .call(() => ZBFX.audio.chime(), null, "stars")
+    .call(() => { ZBFX.audio.chime(); ZBFX.bgm.duck(500); }, null, "stars")
     .call(() => ZBFX.audio.stampSoft(), null, "chop");
 }
 
@@ -3522,7 +3522,7 @@ $("btnMenu").onclick = () => {
     G.room.close();
     G.room = null; G.started = false; G.players = {}; G.processedSeq = {};
   }
-  ZBFX.bgm.stop(); // back on the cover: the diorama plays silent
+  ZBFX.bgm.setIntensity("cover"); // back on the cover, back to its groove
   applyProjector();
   show("introScreen");
 };
@@ -4647,7 +4647,7 @@ function endGame() {
   // a tutor may end from inside a pause: the veil must not outlive the run
   G.paused = false;
   $("pauseVeil").style.display = "none";
-  ZBFX.bgm.stop(); // the report's ceremony one-shots own the end screen
+  ZBFX.bgm.setIntensity("report"); // the wind-down groove under the ceremony
   if (G.mode === "host") {
     clearHostRun();
     const results = Object.keys(G.players).map(id => ({
@@ -5558,20 +5558,28 @@ function renderInqRoster() {
   if (!inq) return;
   const ids = Object.keys(G.players);
   ids.sort((a, b) => (inq.hearts[b] || 0) - (inq.hearts[a] || 0));
+  // 輪空 and 復活 label a round: the seat you drew, the comeback you just
+  // made. Both go when the round does, so the recap and the next stage's
+  // intro read as plain standings. 復活中 is not a label but a standing
+  // state - at 0 and due back - so it holds across those screens, where
+  // it is the only thing telling an empty strip apart from a dead one.
+  // (The bench list itself must survive regardless: inqStartRound reads
+  // it to know who has already served their round out.)
+  const live = inq.step === "round" || inq.step === "reveal";
   // snapshots far outnumber roster changes (every sub write is one):
   // repaint only when the players, their lives, the bye or the bench moved
   const key = ids.map(id => id + ":" + inq.hearts[id]).join("|") + "|" + (inq.bye || "")
-    + "|" + (inq.rebuild || []).join(",") + "|" + (inq.reborn || []).join(",");
+    + "|" + (inq.rebuild || []).join(",") + "|" + (inq.reborn || []).join(",") + "|" + live;
   if (key === G.inqRosterKey) return;
   G.inqRosterKey = key;
   $("inqRoster").innerHTML = ids.map(id => {
     const h = typeof inq.hearts[id] === "number" ? inq.hearts[id] : CFG.inqHearts;
-    // 復活 stays on the chip for the whole comeback round: it is what
-    // explains a strip standing at 2 of 6 (§19 Batch AC). It stacks with
-    // 輪空 - a player can come back and still draw the odd seat out.
-    const back = (inq.reborn || []).indexOf(id) !== -1
+    // 復活 holds for the whole comeback round: it is what explains a strip
+    // standing at 2 of 6 (§19 Batch AC), and it stacks with 輪空, since a
+    // player can come back and still draw the odd seat out.
+    const back = live && (inq.reborn || []).indexOf(id) !== -1
       ? ` <span class="zb-inqroster__back">${t("inq_reborn_tag")}</span>` : "";
-    const tag = back + (id === inq.bye ? ` <span class="zb-inqroster__bye">${t("inq_bye_tag")}</span>`
+    const tag = back + (live && id === inq.bye ? ` <span class="zb-inqroster__bye">${t("inq_bye_tag")}</span>`
       : (inq.rebuild || []).indexOf(id) !== -1 ? ` <span class="zb-inqroster__bye">${t("inq_rebuild_tag")}</span>` : "");
     return `<span class="zb-inqroster__chip${h <= 0 ? " out" : ""}">${escapeText((G.players[id] || {}).name || t("player"))}${tag} ${inqLivesHtml(h)}</span>`;
   }).join("");
@@ -6753,9 +6761,12 @@ function ctrlEnd(results) {
 if (GameBridge.roomParam()) {
   initController();
 } else {
-  // this tab is the big stage (menu -> solo or host): the groove may
-  // play here once a tier is set post-gesture; controllers never allow
+  // this tab is the big stage (menu -> solo or host): controllers never
+  // allow. The cover opens on its own groove - sound starts off until
+  // the tutor opts in, so no audio graph is built and nothing sounds
+  // before then, and the opt-in itself syncs the groove (fx.js onChange).
   ZBFX.bgm.allow(true);
+  ZBFX.bgm.setIntensity("cover");
   // a host-side run snapshot in this tab offers 繼續上一場
   const savedRun = pendingHostRun();
   if (savedRun) {

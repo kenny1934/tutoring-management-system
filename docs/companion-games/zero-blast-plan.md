@@ -2272,3 +2272,41 @@ The rest of the pass was consolidation, no behaviour change:
   buys less than it risks), and the strip's pop still rides the heart
   delta rather than the published list, because that list stands through
   the reveal where the same phone can lose a life.
+
+### Batch AE - the tags belong to their round, the groove reaches the ends
+
+Two follow-ups from the audit Kenny ran over the whole demo batch.
+
+**The seat tags outlived their round.** 輪空 and 復活 both name something
+that happened in a round: the seat you drew, the comeback you just made.
+They were only ever recomputed when the *next* round started, so both sat
+on the projector roster through the stage recap and into the next stage's
+intro, where no round is in play and they read as current status.
+
+They now show only while a round is live or being revealed. 復活中 stays,
+because it is not a label but a standing state: at 0 and due back. On the
+recap it is the one thing that tells an empty strip apart from a dead one,
+and it clears by itself the moment `inqStartRound` credits that player.
+
+The bench list underneath is untouched. It has to survive the recap:
+`inqStartRound` reads it to know who has already served their round out,
+so clearing it there would have benched the same player twice. The fix is
+in the renderer, not in the state.
+
+**The cover and the report were the last silent screens.** Batch AB put a
+melodic bed under the lobby, the arc and the live fuse, and both ends of
+the lesson stayed quiet. `cover` and `report` are now tiers of their own,
+sharing the sparse groove the lobby and the fizzle cooldown use but each
+owning its name, so tuning the waiting room never retunes the title
+screen. The bed sits back on the cover (0.2) and a touch forward on the
+report (0.26), where it carries the wind-down under the ceremony; the
+stars chime ducks it the way a collapse does.
+
+The play policy did the hard part for free. Sound starts off until the
+tutor opts in, so a cold load builds no audio graph and nothing sounds
+before the first gesture, which is what the browser would enforce anyway.
+The opt-in itself syncs the groove, so answering the sound offer starts
+the cover playing where the tutor is standing. Returning to the cover
+from a run now resumes it instead of cutting to silence.
+
+Multi grew to 255, audit to 78.

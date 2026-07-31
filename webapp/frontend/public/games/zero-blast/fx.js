@@ -49,9 +49,14 @@
     50: 523.25, 58: 659.25,    // bar 3: C5 E5
   };
   // which tiers are melodic, and how present the riff is in each: the
-  // waiting room and the fizzle cooldown sit back, a live fuse leans in.
+  // title screen and the waiting room sit back, a live fuse leans in,
+  // the report lets the bed carry the wind-down under the ceremony.
   // grace (the 3·2·1 count-in) is percussion only.
-  var BGM_BED = { lobby: 0.22, idle: 0.22, base: 0.3, warn: 0.3 };
+  var BGM_BED = { cover: 0.2, lobby: 0.22, idle: 0.22, base: 0.3, warn: 0.3, report: 0.26 };
+  // the sparse groove's tiers. They share one pattern today but each
+  // owns its name, so tuning the waiting room never silently retunes
+  // the title screen, the post-fizzle reveal or the end report.
+  var BGM_SPARSE = { cover: 1, lobby: 1, idle: 1, report: 1 };
 
   var bgm = window.MCFXCore.createBgm({
     audio: core,
@@ -155,10 +160,7 @@
         var note = BGM_RIFF[s % 64];
         if (note) v.pluck(t, note, mel);
       }
-      // "idle" is the fizzle cooldown: it shares the lobby pattern
-      // today but owns its own name, so tuning the waiting room never
-      // silently retunes the post-fizzle reveal
-      if (tier === "lobby" || tier === "idle") {
+      if (BGM_SPARSE[tier]) {
         if (i % 4 === 0) v.grit(t, 0.5);
         if (i === 8) v.wood(t, false, 0.35);
         if (i === 14 && bar % 4 === 3) v.tink(t, 0.12);
