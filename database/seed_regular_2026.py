@@ -17,13 +17,22 @@ DB_NAME = os.getenv("DB_NAME")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
+# Sunday-first, matching the week order the forms and admin pages render in.
+# open_days is stored in display order, so every list below is built by
+# filtering this rather than written out by hand.
+WEEK_DAY_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 WEEKENDS = ["Saturday", "Sunday"]
 WEEKDAY_SLOTS = ["16:45 - 18:15", "18:25 - 19:55"]
 WEEKEND_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"]
 
-MSA_OPEN_DAYS = WEEKDAYS + WEEKENDS
-MSB_OPEN_DAYS = ["Monday", "Thursday", "Friday", "Saturday", "Sunday"]  # closed Tue + Wed
+
+def _open_days(*, closed=()):
+    return [d for d in WEEK_DAY_ORDER if d not in closed]
+
+
+MSA_OPEN_DAYS = _open_days()
+MSB_OPEN_DAYS = _open_days(closed=("Tuesday", "Wednesday"))
 
 # The Back to School offer, kept here so re-seeding the config does not wipe
 # what migration 143 set up. Only tuition_amount is money moving through an

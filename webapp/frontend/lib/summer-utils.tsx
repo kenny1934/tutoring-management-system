@@ -88,6 +88,23 @@ export const WEEK_DAY_ORDER = [
   "Saturday",
 ] as const;
 
+/**
+ * Put weekdays in calendar order regardless of how they arrived.
+ *
+ * `open_days` is stored as a plain array, so its order is whatever wrote the
+ * config last. Anything rendering a week to a parent should sort here rather
+ * than trust that, otherwise the picker silently starts on a different day
+ * than the strip above it. Unknown days sort last, in their original order.
+ */
+export function sortWeekDays(days: readonly string[]): string[] {
+  const order = WEEK_DAY_ORDER as readonly string[];
+  const rank = (d: string) => {
+    const i = order.indexOf(d);
+    return i === -1 ? order.length : i;
+  };
+  return [...days].sort((a, b) => rank(a) - rank(b));
+}
+
 /** Fallback branch photos, keyed by location name_en — overridden by
  *  `loc.image_url` in config when present. */
 export const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
