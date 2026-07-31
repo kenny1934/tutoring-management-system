@@ -2169,8 +2169,6 @@ export interface SummerLocation {
   address: string;
   address_en?: string;
   open_days: string[];
-  open_days_label?: string;
-  open_days_label_en?: string;
   image_url?: string | null;
   time_slots?: Record<string, string[]>;  // day → available time slots
 }

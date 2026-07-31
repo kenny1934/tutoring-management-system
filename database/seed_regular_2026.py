@@ -1,7 +1,7 @@
 """Seed regular_course_configs with the September 2026 intake.
 
-Branch open days and time slots follow last year's regular-course Google Form:
-華士古 open 7 days, 二龍喉 closed Tue + Wed; weekday slots 16:45/18:25,
+Branch open days and time slots follow last year's regular-course Google Form,
+except that 二龍喉 now opens 7 days like 華士古; weekday slots 16:45/18:25,
 weekend slots 10:00-19:30 in five bands.
 """
 import os
@@ -78,8 +78,6 @@ CONFIG_2026 = {
             "address": "澳門若翰亞美打街10號東輝閣地下B座",
             "address_en": "Rua de João de Almeida No 10, Tung Fai Kock, B R/C, Macau",
             "open_days": MSA_OPEN_DAYS,
-            "open_days_label": "一星期開七日",
-            "open_days_label_en": "Open 7 days a week",
             "time_slots": _slots_for(MSA_OPEN_DAYS),
         },
         {
@@ -88,8 +86,6 @@ CONFIG_2026 = {
             "address": "澳門士多紐拜斯大馬路47B號楹峯疊翠地下A座",
             "address_en": "Avenida de Sidonio Pais No. 47B, The Paramount, A R/C, Macau",
             "open_days": MSB_OPEN_DAYS,
-            "open_days_label": "一星期開七日",
-            "open_days_label_en": "Open 7 days a week",
             "time_slots": _slots_for(MSB_OPEN_DAYS),
         },
     ]),

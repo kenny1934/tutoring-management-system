@@ -1434,38 +1434,6 @@ export function SummerConfigEditor({
               </div>
             </div>
 
-            {/* Open days labels */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>Open Days Label (ZH)</Label>
-                <input
-                  value={loc.open_days_label || ""}
-                  onChange={(e) => {
-                    const next = [...locations];
-                    next[i] = { ...loc, open_days_label: e.target.value };
-                    setLocations(next);
-                  }}
-                  className={inputClass}
-                  disabled={isReadOnly}
-                  placeholder="e.g. 一星期開七日"
-                />
-              </div>
-              <div>
-                <Label>Open Days Label (EN)</Label>
-                <input
-                  value={loc.open_days_label_en || ""}
-                  onChange={(e) => {
-                    const next = [...locations];
-                    next[i] = { ...loc, open_days_label_en: e.target.value };
-                    setLocations(next);
-                  }}
-                  className={inputClass}
-                  disabled={isReadOnly}
-                  placeholder="e.g. Open 7 days a week"
-                />
-              </div>
-            </div>
-
             {/* Per-day time slots */}
             {loc.open_days.length > 0 && (
               <div className="mt-3 space-y-2">
