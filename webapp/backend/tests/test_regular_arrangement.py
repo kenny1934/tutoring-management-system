@@ -1075,7 +1075,10 @@ class TestRegularPromo:
         config.pricing_config = {
             "base_fee": 2400,
             "lessons_per_block": 6,
+            # Still the standard fee, quoted by the offer, but this intake
+            # collects it from nobody.
             "registration_fee": 100,
+            "registration_fee_charged": False,
             "promo": {**PROMO_CONFIG, "discount_id": discount.id},
         }
         db_session.commit()
@@ -1142,14 +1145,14 @@ class TestRegularPromo:
         )
         assert enrollment.promo_code is None
 
-    def test_waived_materials_fee_reaches_the_total_and_the_revenue(
+    def test_offer_recipient_pays_tuition_only(
         self, db_session, promo_config, admin, tutor, student, freeze_promo_window
     ):
         """The parent pays 2400 - 300 = 2100, all of it tuition.
 
         Guards the encoding choice: a single $400 discount with the fee still
         charged reaches the same 2100 but would report only 2000 of revenue and
-        claim a materials fee we waived.
+        claim a materials fee nobody paid.
         """
         from routers.enrollments import (
             compute_enrollment_total_fee,
@@ -1164,16 +1167,75 @@ class TestRegularPromo:
         assert compute_enrollment_total_fee(enrollment, db_session) == 2100
         assert float(enrollment.revenue_total) == 2100.0
 
-    def test_new_student_without_the_offer_still_pays_the_materials_fee(
+    def test_an_ordinary_regular_enrollment_still_charges_the_fee(
+        self, db_session, promo_config, admin, tutor, student
+    ):
+        """The intake's waiver must not leak past the intake.
+
+        An enrollment created outside the application flow carries no
+        regular_application_id, so it never reaches the intake config and a new
+        student owes the fee exactly as before. This is the seam that keeps
+        post-September enrollments and renewals working unchanged.
+        """
+        from routers.enrollments import (
+            compute_enrollment_total_fee,
+            enrollment_registration_fee,
+        )
+        plain = Enrollment(
+            student_id=student.id, tutor_id=tutor.id,
+            assigned_day="Tue", assigned_time="16:45 - 18:15", location="MSA",
+            lessons_paid=6, first_lesson_date=date(2026, 10, 6),
+            payment_status="Pending Payment", enrollment_type="Regular",
+            is_new_student=True,
+        )
+        db_session.add(plain)
+        db_session.commit()
+        assert plain.regular_application_id is None
+        assert enrollment_registration_fee(plain, db_session) == 100
+        assert compute_enrollment_total_fee(plain, db_session) == 2500
+
+    def test_primary_branch_transfer_pays_plain_tuition_and_gets_no_offer(
         self, db_session, promo_config, admin, tutor, student, freeze_promo_window
     ):
+        """A MathConcept primary student moving up to Secondary.
+
+        New to us, so is_new_student stands and the reporting stays honest,
+        but this intake collects the materials fee from nobody, so they pay
+        plain tuition. They are an existing MathConcept family, so no offer.
+        """
         from routers.enrollments import compute_enrollment_total_fee
         config, _discount = promo_config
         _app, enrollment = self._publish(
+            db_session, config, admin, tutor, student, origin="MTA"
+        )
+        assert enrollment.promo_code is None
+        assert enrollment.is_new_student is True
+        assert compute_enrollment_total_fee(enrollment, db_session) == 2400
+
+    def test_returning_secondary_student_owes_no_materials_fee(
+        self, db_session, promo_config, admin, tutor, student, freeze_promo_window
+    ):
+        """An existing Secondary Academy student pays plain tuition.
+
+        The materials fee follows enrolment history, not the verified origin,
+        so a prior enrollment is what removes it.
+        """
+        from routers.enrollments import compute_enrollment_total_fee
+        config, _discount = promo_config
+        prior = Enrollment(
+            student_id=student.id, tutor_id=tutor.id,
+            assigned_day="Mon", assigned_time="16:45 - 18:15", location="MSA",
+            lessons_paid=6, first_lesson_date=date(2026, 3, 2),
+            payment_status="Paid", enrollment_type="Regular",
+        )
+        db_session.add(prior)
+        db_session.commit()
+
+        _app, enrollment = self._publish(
             db_session, config, admin, tutor, student, origin="MSA"
         )
-        # 400*6 + 100 = 2500, no discount attached.
-        assert compute_enrollment_total_fee(enrollment, db_session) == 2500
+        assert enrollment.is_new_student is False
+        assert compute_enrollment_total_fee(enrollment, db_session) == 2400
 
     def test_public_config_hides_the_offer_before_launch(self, db_session, promo_config, monkeypatch):
         """Stripped server-side, so an unannounced offer is never sitting in

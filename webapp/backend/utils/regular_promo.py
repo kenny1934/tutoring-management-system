@@ -152,11 +152,34 @@ def promo_for_code(config, code: Optional[str]) -> Optional[RegularPromo]:
     return promo
 
 
-def promo_message_fields(promo: Optional[RegularPromo]) -> Optional[dict]:
+def intake_charges_registration_fee(config) -> bool:
+    """Whether this intake collects the one-off materials fee at all.
+
+    Defaults to True, so every existing config keeps charging it and only an
+    intake that opts out changes. The September 2026 intake opts out: the fee
+    is not collected from anyone, whether they are new to us, moving up from a
+    MathConcept primary branch, or returning.
+
+    Distinct from a promo's ``waives_registration_fee``, which is about
+    advertising rather than money: it decides whether the offer *mentions* the
+    fee as part of what it saved, and only a genuinely new student sees that.
+    """
+    if config is None:
+        return True
+    pricing = getattr(config, "pricing_config", None) or {}
+    return pricing.get("registration_fee_charged", True) is not False
+
+
+def promo_message_fields(promo: Optional[RegularPromo], registration_fee: int = 0) -> Optional[dict]:
     """Shape a promo into the dict ``format_fee_message`` expects.
 
     Keeps the message formatter free of this module's dataclass so it stays a
     pure string builder usable from any caller.
+
+    ``registration_fee`` is the intake's standard materials fee, passed through
+    as ``waived_fee`` when the offer claims to waive it. That is the nudge: a
+    genuinely new student is told the fee normally exists and that the offer
+    covered it. It is wording only and never enters the total.
     """
     if promo is None:
         return None
@@ -164,5 +187,17 @@ def promo_message_fields(promo: Optional[RegularPromo]) -> Optional[dict]:
         "name_zh": promo.short_name_zh,
         "name_en": promo.short_name_en,
         "total_value": promo.total_value,
-        "waives_registration_fee": promo.waives_registration_fee,
+        "waived_fee": int(registration_fee or 0) if promo.waives_registration_fee else 0,
     }
+
+
+def intake_registration_fee(config) -> int:
+    """The intake's standard materials fee, whether or not it is collected.
+
+    Quoted in the offer's original-price clause, so it is read even by an
+    intake that charges nobody.
+    """
+    if config is None:
+        return 0
+    pricing = getattr(config, "pricing_config", None) or {}
+    return int(pricing.get("registration_fee") or 0)

@@ -13,7 +13,7 @@ import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, displayLocation, DAY_ABBREV,
   getRegularTimeSlots, effectiveStream, BRANCH_INFO, hkTodayIso,
 } from "@/lib/regular-utils";
-import { isPromoActive } from "@/lib/regular-promo";
+import { intakeChargesRegistrationFee, isPromoActive } from "@/lib/regular-promo";
 import { firstWeekdayOnOrAfter } from "@/lib/regular-publish-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
@@ -702,14 +702,15 @@ export function RegularApplicationDetailModal({
   const promoWaivesFee = promoApplies && !!activePromo?.waives_registration_fee;
 
   // Client-side fee preview, mirroring what publishing will charge: base fee,
-  // less the selected discount, plus the materials fee when the API says this
-  // student still owes it and no offer waives it. The backend recomputes the
-  // real total on publish — this only has to agree with the fee message the
-  // parent got.
+  // less the selected discount, plus the materials fee when this intake still
+  // collects it and the API says this student owes it. The backend recomputes
+  // the real total on publish — this only has to agree with the fee message
+  // the parent got.
   const selectedDiscount = discounts.find((d) => d.id === pubDiscountId);
   const discountValue = selectedDiscount?.discount_value ? Number(selectedDiscount.discount_value) : 0;
   const baseFee = 400 * pubLessons;
-  const registrationFee = app.is_new_student && !promoWaivesFee ? REGISTRATION_FEE : 0;
+  const intakeChargesFee = intakeChargesRegistrationFee(config?.pricing_config);
+  const registrationFee = app.is_new_student && intakeChargesFee ? REGISTRATION_FEE : 0;
   const feeTotal = baseFee - discountValue + registrationFee;
 
   // Turning the override on seeds the manual fields from the assigned slot.
@@ -1845,11 +1846,19 @@ export function RegularApplicationDetailModal({
                         <> = ${feeTotal.toLocaleString()}</>
                       )}
                     </div>
+                    {/* Two different senses of "new" meet here, so the note
+                        says which one is doing the work. The materials fee
+                        follows enrolment history with us; the offer follows
+                        the verified origin. This intake charges the fee to
+                        nobody, so it is only ever mentioned as something the
+                        offer spared a genuinely new student. */}
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {registrationFee > 0
-                        ? "Includes the one-off $100 materials fee for a new student."
-                        : promoWaivesFee
-                          ? `Materials fee waived by the ${activePromo?.name_en}.`
+                        ? "Includes the one-off $100 materials fee. No previous enrolment with the Secondary Academy."
+                        : !intakeChargesFee
+                          ? promoWaivesFee
+                            ? `No materials fee this intake. The ${activePromo?.name_en} tells the parent it was waived.`
+                            : "No materials fee this intake."
                           : "No materials fee. This student has enrolled with us before."}
                     </p>
                   </div>

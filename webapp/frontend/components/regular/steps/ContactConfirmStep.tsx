@@ -11,7 +11,12 @@ import {
   IconLabel,
   shortCenterName,
 } from "@/lib/regular-utils";
-import { getActiveRegularPromo, promoName, promoPricing } from "@/lib/regular-promo";
+import {
+  getActiveRegularPromo,
+  intakeChargesRegistrationFee,
+  promoName,
+  promoPricing,
+} from "@/lib/regular-promo";
 
 /** Today's local date as YYYY-MM-DD, for lexicographic comparison with config dates. */
 function todayISO(): string {
@@ -273,7 +278,10 @@ export function ContactConfirmStep({
             />
           )}
         </div>
-        {config.pricing_config?.registration_fee ? (
+        {/* Only when this intake actually collects it. The September intake
+            does not, so the line would announce a charge nobody pays. */}
+        {config.pricing_config?.registration_fee &&
+        intakeChargesRegistrationFee(config.pricing_config) ? (
           <p className="text-xs text-muted-foreground leading-relaxed mt-2">
             {t(
               `新生另收一次性教材費 $${config.pricing_config.registration_fee.toLocaleString("en-US")}。`,

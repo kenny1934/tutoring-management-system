@@ -67,12 +67,24 @@ export function promoItems(promo: RegularPromo, lang: Lang): string[] {
   );
 }
 
+/** Whether this intake collects the one-off materials fee from anyone.
+ *  Absent means it does, so only an intake that opts out behaves differently. */
+export function intakeChargesRegistrationFee(
+  pricing: RegularPricingConfig | null | undefined,
+): boolean {
+  return pricing?.registration_fee_charged !== false;
+}
+
 /**
  * What a qualifying new student pays, and what they would have paid.
  *
  * The saving is the offer's headline `total_value` rather than a re-derivation,
  * so the form quotes the same number as the campaign. Returns null when the
  * pricing config is too incomplete to show a price at all.
+ *
+ * `originalFee` is the standard price including the materials fee, which is
+ * what the campaign compares against. An intake collecting the fee from nobody
+ * does not change that comparison: it is the list price, not this intake's.
  */
 export function promoPricing(
   pricing: RegularPricingConfig | null | undefined,
@@ -80,8 +92,9 @@ export function promoPricing(
 ): { originalFee: number; promoFee: number; saving: number } | null {
   if (!pricing?.base_fee) return null;
   const materialsFee = pricing.registration_fee ?? 0;
-  const waived = promo.waives_registration_fee ? materialsFee : 0;
+  const charged = intakeChargesRegistrationFee(pricing) && !promo.waives_registration_fee;
   const originalFee = pricing.base_fee + materialsFee;
-  const promoFee = pricing.base_fee - (promo.tuition_amount ?? 0) + (materialsFee - waived);
+  const promoFee =
+    pricing.base_fee - (promo.tuition_amount ?? 0) + (charged ? materialsFee : 0);
   return { originalFee, promoFee, saving: promo.total_value };
 }

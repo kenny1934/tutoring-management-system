@@ -602,23 +602,25 @@ class TestFormatFeeMessage:
             "name_zh": "2026 Back to School 新生優惠",
             "name_en": "2026 Back to School new student offer",
             "total_value": 400,
-            "waives_registration_fee": True,
+            "waived_fee": 100,
         }
         promo.update(overrides)
         return promo
 
-    def test_promo_waives_materials_fee(self):
-        """A waiving promo drops the materials fee from the total.
+    def test_waived_fee_is_wording_and_never_arithmetic(self):
+        """`waived_fee` must not move the total.
 
-        The $300 tuition cut rides the ordinary discount, so a new student pays
-        400*10 - 300 = 3700 rather than 3800 with the fee still charged.
+        What is charged stays the caller's decision via is_new_student, so an
+        intake that collects the fee from nobody passes False and pays
+        400*10 - 300 = 3700, while the offer still names the $100 it spared.
         """
         msg = format_fee_message(**self._base_args(
             discount_value=300,
-            is_new_student=True,
+            is_new_student=False,
             promo=self._promo(),
         ))
         assert "$3,700" in msg
+        assert "$100 materials fee" in msg
 
     def test_promo_quotes_offer_by_name_over_the_sticker_price(self):
         """The offer replaces the itemised discount wording and states the
@@ -626,7 +628,7 @@ class TestFormatFeeMessage:
         where the saving landed."""
         msg = format_fee_message(**self._base_args(
             discount_value=300,
-            is_new_student=True,
+            is_new_student=False,
             promo=self._promo(),
         ))
         assert "2026 Back to School new student offer $400 applied" in msg
@@ -634,24 +636,24 @@ class TestFormatFeeMessage:
         # The generic coupon wording must not also appear.
         assert "Discounted $300" not in msg
 
-    def test_promo_without_waiver_keeps_the_materials_fee(self):
-        """A promo that does not waive the fee still charges it: the waiver is
-        a property of the offer, not of having an offer at all."""
+    def test_offer_alongside_a_charged_fee_still_charges_it(self):
+        """An intake that does collect the fee keeps charging it even while an
+        offer runs: the two decisions are independent."""
         msg = format_fee_message(**self._base_args(
             discount_value=300,
             is_new_student=True,
-            promo=self._promo(waives_registration_fee=False, total_value=300),
+            promo=self._promo(waived_fee=0, total_value=300),
         ))
         # 400*10 - 300 + 100 = 3800
         assert "$3,800" in msg
 
-    def test_promo_for_returning_student_omits_the_fee_clause(self):
-        """No materials fee to waive means no fee mentioned in the original
+    def test_offer_without_a_waived_fee_omits_the_fee_clause(self):
+        """No fee claimed as waived means none mentioned in the original
         price, rather than a stray '+ $0'."""
         msg = format_fee_message(**self._base_args(
             discount_value=300,
             is_new_student=False,
-            promo=self._promo(),
+            promo=self._promo(waived_fee=0),
         ))
         assert "$3,700" in msg
         assert "materials fee" not in msg
@@ -661,7 +663,7 @@ class TestFormatFeeMessage:
         msg = format_fee_message(**self._base_args(
             lang="zh",
             discount_value=300,
-            is_new_student=True,
+            is_new_student=False,
             promo=self._promo(),
         ))
         assert "已享 2026 Back to School 新生優惠 $400" in msg

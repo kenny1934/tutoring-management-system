@@ -165,7 +165,10 @@ def main():
     CONFIG_2026["pricing_config"] = json.dumps({
         "base_fee": 2400,
         "lessons_per_block": 6,
+        # Still the standard fee, and the offer quotes it, but this intake
+        # collects it from nobody. See migration 144.
         "registration_fee": 100,
+        "registration_fee_charged": False,
         "promo": promo,
     })
 

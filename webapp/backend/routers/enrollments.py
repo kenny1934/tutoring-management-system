@@ -138,6 +138,27 @@ def discount_requires_min_lessons(discount) -> bool:
     return bool(discount) and discount.discount_type != PER_TWO_LESSONS_DISCOUNT_TYPE
 
 
+def regular_intake_config(enrollment, db: Session):
+    """The seasonal-intake config an enrollment was published from, or None.
+
+    Only enrollments created by publishing a regular application carry
+    ``regular_application_id``; ones added through the normal enrollment flow
+    or as renewals do not. That is the seam that keeps an intake's pricing
+    rules from reaching ordinary Regular enrollments once the intake is over.
+    """
+    if not enrollment.regular_application_id:
+        return None
+    from models import RegularApplication
+
+    app = (
+        db.query(RegularApplication)
+        .options(joinedload(RegularApplication.config))
+        .filter(RegularApplication.id == enrollment.regular_application_id)
+        .first()
+    )
+    return app.config if app else None
+
+
 def enrollment_promo(enrollment, db: Session):
     """Seasonal promo snapshotted on a published regular enrollment, or None.
 
@@ -150,33 +171,31 @@ def enrollment_promo(enrollment, db: Session):
     promotion never pay for the lookup.
     """
     code = getattr(enrollment, "promo_code", None)
-    if not code or not enrollment.regular_application_id:
+    if not code:
         return None
-    from models import RegularApplication
     from utils.regular_promo import promo_for_code
 
-    app = (
-        db.query(RegularApplication)
-        .options(joinedload(RegularApplication.config))
-        .filter(RegularApplication.id == enrollment.regular_application_id)
-        .first()
-    )
-    return promo_for_code(app.config, code) if app else None
+    return promo_for_code(regular_intake_config(enrollment, db), code)
 
 
 def enrollment_registration_fee(enrollment, db: Session) -> int:
     """The one-off materials fee actually charged on this enrollment.
 
     Sole owner of the rule, so the fee message, the displayed total and the
-    revenue snapshot can never disagree about whether it was collected. Only
-    new, non-Trial, non-Summer enrollments carry it, and a promo that waives
-    it zeroes it out.
+    revenue snapshot can never disagree about whether it was collected.
+
+    Normally it falls on new, non-Trial, non-Summer enrollments. A seasonal
+    intake may decline to collect it from anyone, which is a property of that
+    intake's config and so cannot affect an ordinary Regular enrollment: those
+    carry no application link and never reach the lookup.
     """
     is_new = bool(enrollment.is_new_student) and enrollment.enrollment_type not in ('Trial', 'Summer')
     if not is_new:
         return 0
-    promo = enrollment_promo(enrollment, db)
-    if promo and promo.waives_registration_fee:
+    from utils.regular_promo import intake_charges_registration_fee
+
+    config = regular_intake_config(enrollment, db)
+    if config is not None and not intake_charges_registration_fee(config):
         return 0
     return REGISTRATION_FEE
 
@@ -2026,24 +2045,29 @@ async def get_fee_message(
     # is no availability-based fallback here.
     discount_value = compute_discount_value(enrollment.discount, lessons_paid)
 
-    # Determine new student status: use override if provided, otherwise use enrollment value
-    # Trial enrollments never have reg fee
-    effective_is_new_student = is_new_student if is_new_student is not None else (enrollment.is_new_student or False)
+    # Whether this message charges the materials fee. An explicit override wins;
+    # otherwise the shared rule decides, which also covers a seasonal intake
+    # that collects it from nobody. Trial enrollments never carry it.
+    from utils.regular_promo import intake_registration_fee, promo_message_fields
+
+    if is_new_student is not None:
+        effective_is_new_student = is_new_student
+    else:
+        effective_is_new_student = enrollment_registration_fee(enrollment, db) > 0
     if enrollment.enrollment_type == 'Trial':
         effective_is_new_student = False
 
     # A seasonal offer the enrollment was published under is quoted by name, so
     # re-copying this message reproduces what the parent was originally sent.
     # Dropped when the caller overrides the new-student flag: the offer's value
-    # is stated against the new-student sticker price, so quoting it beside a
-    # returning student's price would misstate the saving.
-    from utils.regular_promo import promo_message_fields
-
-    promo_fields = (
-        promo_message_fields(enrollment_promo(enrollment, db))
-        if is_new_student is None
-        else None
-    )
+    # is stated against the standard price, so quoting it beside a hand-set
+    # price would misstate the saving.
+    promo_fields = None
+    if is_new_student is None:
+        promo = enrollment_promo(enrollment, db)
+        promo_fields = promo_message_fields(
+            promo, intake_registration_fee(regular_intake_config(enrollment, db))
+        )
 
     # Format the fee message
     message = format_fee_message(
@@ -2087,11 +2111,15 @@ def format_fee_message(
     dropped, since the lessons are individual off-cadence sessions.
 
     ``promo`` names a seasonal offer the student qualifies for, as
-    ``{name_zh, name_en, total_value, waives_registration_fee}`` (see
+    ``{name_zh, name_en, total_value, waived_fee}`` (see
     ``utils.regular_promo.promo_message_fields``). It replaces the itemised
-    discount wording with the offer's own name and headline value, and can
-    waive the one-off materials fee. The waived fee still appears in the
-    original-price clause, so a parent can see where the saving landed.
+    discount wording with the offer's own name and headline value.
+
+    ``waived_fee`` is wording, not arithmetic: it is added to the quoted
+    original price so a parent can see the materials fee among what the offer
+    spared them. What is actually charged is the caller's decision, expressed
+    through ``is_new_student`` as it always has been, which keeps this function
+    a pure formatter with no view on who owes what.
     """
     day_map_zh = {'Mon': '一', 'Tue': '二', 'Wed': '三', 'Thu': '四', 'Fri': '五', 'Sat': '六', 'Sun': '日',
                   'Monday': '一', 'Tuesday': '二', 'Wednesday': '三', 'Thursday': '四',
@@ -2105,11 +2133,9 @@ def format_fee_message(
     bank_map = {'MSA': '185000380468369', 'MSB': '185000010473304'}
 
     base_fee = BASE_FEE_PER_LESSON * lessons_paid
-    # Sticker materials fee for a new student, before any waiver. The offer
-    # clause quotes it even when waived, so it survives the subtraction below.
-    sticker_reg_fee = REGISTRATION_FEE if is_new_student else 0
-    waives_reg_fee = bool(promo and promo.get("waives_registration_fee"))
-    reg_fee = 0 if waives_reg_fee else sticker_reg_fee
+    reg_fee = REGISTRATION_FEE if is_new_student else 0
+    # Quoted in the offer's original-price clause only. Never charged here.
+    waived_fee = int((promo or {}).get("waived_fee") or 0)
     discount_value = int(discount_value)  # Ensure no decimals
     total_fee = base_fee - discount_value + reg_fee
     if is_adhoc and session_times:
@@ -2138,8 +2164,8 @@ def format_fee_message(
         fee_parts = []
         if promo:
             original = f'${base_fee:,}'
-            if sticker_reg_fee > 0:
-                original += f'+${sticker_reg_fee}教材費'
+            if waived_fee > 0:
+                original += f'+${waived_fee}教材費'
             fee_parts.append(f'已享 {promo["name_zh"]} ${promo["total_value"]}，原價為{original}')
         elif discount_value > 0 and reg_fee > 0:
             fee_parts.append(f'已折扣${discount_value}學費禮劵，含${reg_fee}教材費，原價為${base_fee}+${reg_fee}教材費')
@@ -2187,8 +2213,8 @@ Lesson Dates:
         fee_parts = []
         if promo:
             original = f'${base_fee:,}'
-            if sticker_reg_fee > 0:
-                original += f' + ${sticker_reg_fee} materials fee'
+            if waived_fee > 0:
+                original += f' + ${waived_fee} materials fee'
             fee_parts.append(
                 f'{promo["name_en"]} ${promo["total_value"]} applied, original price {original}'
             )

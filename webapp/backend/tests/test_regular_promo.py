@@ -13,6 +13,8 @@ import pytest
 from utils.regular_promo import (
     NEW_STUDENT_ORIGIN,
     application_promo,
+    intake_charges_registration_fee,
+    intake_registration_fee,
     is_verified_new,
     parse_promo,
     promo_active,
@@ -140,15 +142,35 @@ class TestPromoForCode:
         assert promo is not None
 
 
+class TestIntakeRegistrationFee:
+    def test_charged_by_default(self):
+        """Absent means charged, so no existing config changes behaviour."""
+        assert intake_charges_registration_fee(config_with()) is True
+        assert intake_charges_registration_fee(None) is True
+
+    def test_an_intake_can_decline_to_collect_it(self):
+        cfg = config_with(registration_fee_charged=False)
+        assert intake_charges_registration_fee(cfg) is False
+
+    def test_the_standard_fee_is_still_readable_when_not_collected(self):
+        """The offer quotes it, so it must survive the intake opting out."""
+        cfg = config_with(registration_fee=100, registration_fee_charged=False)
+        assert intake_registration_fee(cfg) == 100
+
+
 class TestPromoMessageFields:
     def test_hands_the_formatter_the_short_name(self):
-        fields = promo_message_fields(parse_promo(config_with()))
+        fields = promo_message_fields(parse_promo(config_with()), 100)
         assert fields == {
             "name_zh": "2026 Back to School 新生優惠",
             "name_en": "2026 Back to School new student offer",
             "total_value": 400,
-            "waives_registration_fee": True,
+            "waived_fee": 100,
         }
 
+    def test_an_offer_that_waives_nothing_quotes_no_fee(self):
+        promo = parse_promo(config_with({**PROMO_JSON, "waives_registration_fee": False}))
+        assert promo_message_fields(promo, 100)["waived_fee"] == 0
+
     def test_none_promo_yields_none(self):
-        assert promo_message_fields(None) is None
+        assert promo_message_fields(None, 100) is None

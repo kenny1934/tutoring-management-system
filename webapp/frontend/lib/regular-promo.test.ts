@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   getActiveRegularPromo,
+  intakeChargesRegistrationFee,
   isPromoActive,
   promoItems,
   promoName,
@@ -29,7 +30,10 @@ const PROMO: RegularPromo = {
 const PRICING: RegularPricingConfig = {
   base_fee: 2400,
   lessons_per_block: 6,
+  // The standard fee, which the offer quotes, but this intake collects it
+  // from nobody.
   registration_fee: 100,
+  registration_fee_charged: false,
   promo: PROMO,
 };
 
@@ -93,9 +97,21 @@ describe("promoPricing", () => {
     });
   });
 
-  it("keeps the materials fee when the offer does not waive it", () => {
+  it("charges nobody on an intake that has opted out", () => {
+    // Even an offer that claims no waiver leaves the fee uncollected, because
+    // the intake decides what is charged and the offer only decides wording.
     const noWaiver = { ...PROMO, waives_registration_fee: false, total_value: 300 };
     expect(promoPricing(PRICING, noWaiver)).toEqual({
+      originalFee: 2500,
+      promoFee: 2100,
+      saving: 300,
+    });
+  });
+
+  it("keeps the materials fee on an intake that does charge it", () => {
+    const charging = { ...PRICING, registration_fee_charged: true };
+    const noWaiver = { ...PROMO, waives_registration_fee: false, total_value: 300 };
+    expect(promoPricing(charging, noWaiver)).toEqual({
       originalFee: 2500,
       promoFee: 2200,
       saving: 300,
@@ -140,5 +156,17 @@ describe("promoName and promoItems", () => {
 
   it("returns an empty list when items are absent", () => {
     expect(promoItems({ ...PROMO, items: undefined }, "zh")).toEqual([]);
+  });
+});
+
+describe("intakeChargesRegistrationFee", () => {
+  it("charges by default, so existing configs are unaffected", () => {
+    expect(intakeChargesRegistrationFee({ base_fee: 2400, lessons_per_block: 6 })).toBe(true);
+    expect(intakeChargesRegistrationFee(null)).toBe(true);
+    expect(intakeChargesRegistrationFee(undefined)).toBe(true);
+  });
+
+  it("is false only when the intake explicitly opts out", () => {
+    expect(intakeChargesRegistrationFee(PRICING)).toBe(false);
   });
 });

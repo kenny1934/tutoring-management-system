@@ -3623,8 +3623,13 @@ export interface RegularPromo {
 export interface RegularPricingConfig {
   base_fee: number;
   lessons_per_block: number;
-  /** One-off materials fee charged to new students only. */
+  /** The standard one-off materials fee. Still quoted by an offer that claims
+   *  to waive it, even on an intake that collects it from nobody. */
   registration_fee?: number | null;
+  /** False when this intake does not collect the materials fee from anyone,
+   *  whatever their history. Absent means charged, so only an intake that
+   *  opts out behaves differently. */
+  registration_fee_charged?: boolean;
   /** Present on the public config only while the offer is running — the API
    *  removes it outside the window, so its presence is the signal to show it. */
   promo?: RegularPromo | null;

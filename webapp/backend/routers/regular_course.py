@@ -94,6 +94,8 @@ from utils.regular_messages import format_schedule_message, strip_blank_student_
 from utils.regular_promo import (
     NEW_STUDENT_ORIGIN,
     application_promo,
+    intake_charges_registration_fee,
+    intake_registration_fee,
     is_verified_new,
     parse_promo,
     promo_active,
@@ -2325,12 +2327,14 @@ def get_application_messages(
     student_code = (student.school_student_id or "") if student else ""
     student_name = student.student_name if student else app.student_name
 
-    # A running offer the applicant is verified for is quoted by name, and
-    # waives the materials fee, so the drafted message matches what publishing
-    # will charge.
+    # This intake does not collect the materials fee from anyone, so the draft
+    # charges nobody. A running offer the applicant is verified for is still
+    # quoted by name and still names the fee among what it saved them, which
+    # is the one place the $100 appears.
+    charges_reg_fee = intake_charges_registration_fee(app.config)
     promo = application_promo(app, app.config, hk_now().date())
-    promo_fields = promo_message_fields(promo)
-    waives_reg_fee = bool(promo and promo.waives_registration_fee)
+    promo_fields = promo_message_fields(promo, intake_registration_fee(app.config))
+    bills_reg_fee = is_new_student and charges_reg_fee
 
     def fee(lang: str) -> str:
         return strip_blank_student_id(format_fee_message(
@@ -2343,7 +2347,7 @@ def get_application_messages(
             lessons_paid=lessons_paid,
             session_dates=session_dates,
             discount_value=discount_value,
-            is_new_student=is_new_student,
+            is_new_student=bills_reg_fee,
             promo=promo_fields,
         ))
 
@@ -2362,7 +2366,7 @@ def get_application_messages(
     total_fee = (
         BASE_FEE_PER_LESSON * lessons_paid
         - discount_value
-        + (REGISTRATION_FEE if is_new_student and not waives_reg_fee else 0)
+        + (REGISTRATION_FEE if bills_reg_fee else 0)
     )
 
     return RegularApplicationMessages(
@@ -2383,7 +2387,7 @@ def get_application_messages(
         has_student_link=student is not None,
         promo_code=promo.code if promo else None,
         promo_name_en=promo.name_en if promo else None,
-        promo_waives_registration_fee=waives_reg_fee,
+        promo_waives_registration_fee=bool(promo and promo.waives_registration_fee),
     )
 
 
