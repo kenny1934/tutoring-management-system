@@ -139,6 +139,11 @@ async function sectionEnDark(browser) {
   page.on("pageerror", (e) => errors.push(String((e && e.message) || e)));
   await page.goto(BASE + "?lang=e&theme=dark&levels=3&rounds=1&seed=11&fuse=2");
 
+  // arc round defaults (no inqrounds override on this page): 探究一 runs
+  // 5, 探究二 the shorter 3 (§19 Batch AB)
+  const arcRounds = await page.evaluate(() => ({ r1: CFG.inqRounds, r2: CFG.inqRounds2 }));
+  check("探究二 defaults to 3 rounds, 探究一 to 5", arcRounds.r1 === 5 && arcRounds.r2 === 3, JSON.stringify(arcRounds));
+
   const introTxt = (await page.evaluate(() => document.body.innerText)) || "";
   check(
     "EN dark: no missing-string markers on intro",

@@ -15,16 +15,17 @@
   "players": { "min": 1, "max": 40 },
   "duration_min": 15,
   "config": {
-    "levels": "comma list of stage kinds 1-6, subset and order kept, e.g. 4,5,6",
-    "rounds": "buildings per stage: one number for all stages or a per-stage list (default 1,2,2,2,2,3)",
+    "levels": "comma list of stage kinds 1-8, subset and order kept, e.g. 4,5,6",
+    "rounds": "buildings per stage: one number for all stages or a per-stage list (default 1,2,2,2,2,3,1,1)",
     "fuse": "fuse time multiplier, e.g. 0.75",
     "grace": "seconds of all-pillars-down countdown before the collapse in multi (default 6, 0 = off)",
-    "diff": "easy | std | hard (easy: 1 round per stage, longer fuses; hard: adds a 3-building mixed street)",
+    "diff": "easy | std | hard (easy: 1 round per stage, longer fuses; hard: adds a 3-building mixed street before the two gates)",
     "seed": "integer for a reproducible run",
     "lang": "c | e",
-    "inqrounds": "探究模式: rounds per inquiry stage (default 5)",
+    "inqrounds": "探究模式: rounds for 探究一 (the A×B=N target hunt; default 5)",
+    "inqrounds2": "探究模式: rounds for 探究二 (the A×B=0 stage; default 3)",
     "inqfuse": "探究模式: seconds per answer window (default 15)",
-    "inqhearts": "探究模式: lives per player for the whole arc (default 6; at 0 the player rebuilds for one round and returns with 2)"
+    "inqhearts": "探究模式: lives per player for the whole arc (default 6; at 0 the player sits one round out on an empty strip, then returns with 2)"
   },
-  "version": "0.12.0"
+  "version": "0.13.0"
 }

@@ -2129,3 +2129,146 @@ reads the lobby 400ms in, which is the only way the gap is observable
 from a test.
 
 Suites: multi 243, solo 166, audit 76 - all green.
+
+## 20. Third demo feedback: the lesson's spine (2026-07-29)
+
+Six notes from Kenny after the next demo, each sharpening how the arc
+teaches the one idea (only "= 0" lets you read a factor off) or how
+the room feels while it does.
+
+### Batch AB - the six improvements
+
+1. **▢ × ▢ = N, not a bare N (探究一/二).** The warm-up target used to
+   be a lone number. It now reads as an equation - `▢ × ▢ = 12`, and
+   `▢ × ▢ = 0` with the 0 in red - so "two things multiplied" is on
+   screen from the first round, the setup for why guessing them at 12
+   is hard but at 0 is trivial. Two identical ▢ blanks (Kenny's pick,
+   reusing the main game's `k × ▢ = 0` glyph). The projector slot
+   machine now spins only the RHS (`#inqNVal`); the frame holds still.
+   The phone wears the same frame - each student is one of the two
+   blanks.
+
+2. **x(x−7), not (x)(x−7).** `factorText(0)` returned `"(x)"`; a naked
+   factor is just `x`, and the brackets only ever framed a subtraction
+   that isn't there. The bridge's round 3, its reveal, the 或-note and
+   the phone verdict all read `x(x−7) = 0` now. Its one caller is the
+   arc, so the change is contained.
+
+3. **A last building: (x−6)(x+4) = 39 (kind 8, the new finale).** The
+   gate (kind 7) proves you must reach the general form when the RHS is
+   a stray number given the LHS expanded; this proves it from the other
+   side - the LHS is already factored, and the shown brackets *lie*.
+   Reading a factor off (x = 6, x = −4) lands one bracket on 0, and
+   0 × 10 = 0, not 39. The move is to expand, carry the 39 over, and
+   re-factorise: x² − 2x − 63 = 0 → (x−9)(x+7) = 0, x = 9 or −7. Kenny
+   chose the numbers so the roots are whole - it plays like the gate,
+   not a demonstration. The trap answers get a bespoke nudge, same
+   grammar as the gate's −2/−3. Kind 8 is now the finale (double pay,
+   dressed); kind 7 becomes the penultimate single-pay gate. (Fixed in
+   passing: the gate card had shown ⟦b7⟧ - kinds 7 and 8 never had
+   building names; they are 摩天大樓 and 地標高塔 now.)
+
+4. **探究二 is three rounds, not five.** Every pair on 0 makes its point
+   fast; 探究一's target hunt still needs its five (the prime-37 despair
+   round is the climax). A per-stage `inqrounds2` knob, default 3.
+
+5. **Respawn audit.** A 20,000-game invariant sweep of the bench / pity
+   / bye / hearts accounting turned up no logic bug: KO'd buildings are
+   all restored to 2 and benched together unless that would drop the
+   active pool below 2 (then the pity rule pairs them on the spot), the
+   bye is drawn only from non-benched players, and hearts never leave
+   [0, max]. One real inconsistency fixed: the phone's `heartsMax`
+   fell back to 5 while the host default is 6 - harmless on the live
+   path (the wire always carries 6) but a latent projector-vs-phone
+   mismatch. (The credit itself stays 2 of 6, not a full refill - Kenny
+   kept the rule and asked for the UI to say so: Batch AC.)
+
+6. **A melodic BGM bed.** The soundscape was deliberately atonal
+   construction percussion, and it read as silence-plus-sfx. Under the
+   percussion now sits a bass pulse and a sparse C-major-pentatonic riff
+   over a I–V–vi–IV vamp, running across the arc and the main game,
+   still ducking hard on every collapse. No asset bytes - it is
+   sequenced live on the same bus, so the boom duck pulls it down with
+   the rest. Bus level nudged 0.14 → 0.17 for presence.
+
+Suites: multi 253, solo 174, audit 77 - all green. The solo and multi
+runs grew a building (kind 8); the arc tests pin `inqrounds2=2` for the
+deterministic boom while the audit asserts the real default of 3.
+
+### Batch AC - the respawn reads as a respawn
+
+Keeping the 2-of-6 credit (Kenny's call), the confusion was the timing:
+the fall credited the two lives immediately, so the benched phone said
+"本回合等緊復活" while its strip showed two lives standing. Out and alive
+at once, which reads as a bug.
+
+The credit now lands on the way **back**, not at the fall:
+
+- **While out**, the strip is genuinely empty. `inqStartRound` credits
+  whoever served last round's bench *before* it picks the new one, so the
+  freshly KO'd sit at 0 for their round out. The projector roster shows
+  the same thing: the chip dims, all six marks struck, tagged 復活中.
+  The bench list joins the host snapshot, so an F5 mid-bench still knows
+  who is owed a comeback.
+- **On the way back**, the refill is a beat. A published `reborn` list
+  names whoever was just credited: the phone's strip pops the restored
+  marks in and the round opens with 你復活返嚟！補返 2 個生命值。plus
+  今回合可以再出手。The roster wears a red 復活 tag for that round, which
+  is what explains a player standing at 2 of 6. A returning player can
+  still draw the bye, so 復活 stacks with 輪空 and the play line drops.
+- The all-KO pity rule is unchanged in effect: with nobody left to bench,
+  everyone is credited on the spot and tagged 復活 the same way.
+
+`INQ_REBUILD_LIVES` now owns the number, and the two notes take it as
+`{n}` rather than spelling "2" into the copy. Multi grew to 253 (the
+bench and comeback beats, projector and phone).
+
+### Batch AD - the cleanup pass, and two things it caught
+
+A four-angle review over the whole batch (reuse / simplification /
+efficiency / altitude) found two real defects behind the new finale,
+both from the same cause: kind 8 was added to the switches that were
+near the edit and missed the tables that live a thousand lines away.
+
+- **The finale rendered as an empty lot.** `basePartsOf`, `deckWash`,
+  `deckDress` and `WINDOW_LIGHTS` all stopped at kind 7, so `(x−6)(x+4)
+  = 39` drew pillars, a fuse, a crew and no building. Fixed at the
+  layer the bug came from: a `SCENE_N` map names which silhouette a kind
+  wears (7 and 8 are the expanded street's tower), the four scene
+  switches read `sceneN(level)`, and kind 7's pasted duplicate of kind
+  6's window list is gone. A new kind now joins the street with one
+  entry instead of four cases.
+- **The cover and the briefing still said "13 座建築".** The count is
+  read off the plan now (`PLAN_SIZE`), so it follows `?levels`, `?rounds`
+  and `?diff` instead of being copy that has to be remembered: the
+  default lesson says 14, the hard street says 17.
+
+The rest of the pass was consolidation, no behaviour change:
+
+- `levels.js` gained three shared pieces the kinds were each spelling
+  out: `hidesFactors` (the equation is written out, so the plaques hold
+  the factors), `generalForm` (x² + bx + (c − k), the one line the graph
+  label, the trap nudge, the working chain and the factorisation plaque
+  must agree on) and `trapAnswer` (which wrong answers are the confident
+  ones). `subLine` now owns the substituted-pair notation that had been
+  written out six times, the two gates share one working chain, and
+  `strength` treats them as one case, since the product gate's brackets
+  ARE b and c expanded.
+- The plaque reveal asks `p.hidden` instead of listing kinds, which
+  removes the three-way condition from all three call sites; the board
+  and the factorisation line ask `hidesFactors`. `da`/`db` left the
+  phone's level shape - the trap test reads b and c like the other gate.
+- `fx.js`: one struck-and-ringing voice (`ping`) behind both the site's
+  high pipe and the bed's pluck, and the bed opts in per tier from a
+  table instead of opting out of `grace`, so a new tier can't inherit a
+  melody nobody chose for it. The raised bus level is now recorded in
+  the comment as a decision rather than sitting there silently.
+- The respawn bench/credit/comeback split reads as one invariant, the
+  comeback tag joins the host snapshot, the roster's two tags share one
+  box, the pop stagger no longer hard-codes 2, and the phone's frame
+  derives its size from the hero exactly as the projector's does.
+- Left alone on purpose: the two gate blocks in the solo and multi
+  suites are still written out (a table-driven rewrite of passing tests
+  buys less than it risks), and the strip's pop still rides the heart
+  delta rather than the published list, because that list stands through
+  the reveal where the same phone can lose a life.
