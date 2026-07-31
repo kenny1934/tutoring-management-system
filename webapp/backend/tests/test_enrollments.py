@@ -580,20 +580,94 @@ class TestFormatFeeMessage:
         assert "Discounted $500" in msg
 
     def test_new_student_registration_fee(self):
-        """New student should have $100 registration fee added."""
+        """New student should have the $100 materials fee added."""
         msg = format_fee_message(**self._base_args(is_new_student=True))
         # 400*10 + 100 = 4100
         assert "$4,100" in msg
-        assert "$100 registration fee" in msg
+        assert "$100 materials fee" in msg
 
     def test_discount_and_registration_combined(self):
-        """Both discount and registration fee should be reflected."""
+        """Both discount and materials fee should be reflected."""
         msg = format_fee_message(**self._base_args(
             discount_value=200,
             is_new_student=True,
         ))
         # 400*10 - 200 + 100 = 3900
         assert "$3,900" in msg
+
+    # --- Seasonal offer (e.g. 26BTSSA) --------------------------------------
+
+    def _promo(self, **overrides):
+        promo = {
+            "name_zh": "2026 Back to School 新生優惠",
+            "name_en": "2026 Back to School new student offer",
+            "total_value": 400,
+            "waives_registration_fee": True,
+        }
+        promo.update(overrides)
+        return promo
+
+    def test_promo_waives_materials_fee(self):
+        """A waiving promo drops the materials fee from the total.
+
+        The $300 tuition cut rides the ordinary discount, so a new student pays
+        400*10 - 300 = 3700 rather than 3800 with the fee still charged.
+        """
+        msg = format_fee_message(**self._base_args(
+            discount_value=300,
+            is_new_student=True,
+            promo=self._promo(),
+        ))
+        assert "$3,700" in msg
+
+    def test_promo_quotes_offer_by_name_over_the_sticker_price(self):
+        """The offer replaces the itemised discount wording and states the
+        original price including the fee it waived, so the parent can see
+        where the saving landed."""
+        msg = format_fee_message(**self._base_args(
+            discount_value=300,
+            is_new_student=True,
+            promo=self._promo(),
+        ))
+        assert "2026 Back to School new student offer $400 applied" in msg
+        assert "original price $4,000 + $100 materials fee" in msg
+        # The generic coupon wording must not also appear.
+        assert "Discounted $300" not in msg
+
+    def test_promo_without_waiver_keeps_the_materials_fee(self):
+        """A promo that does not waive the fee still charges it: the waiver is
+        a property of the offer, not of having an offer at all."""
+        msg = format_fee_message(**self._base_args(
+            discount_value=300,
+            is_new_student=True,
+            promo=self._promo(waives_registration_fee=False, total_value=300),
+        ))
+        # 400*10 - 300 + 100 = 3800
+        assert "$3,800" in msg
+
+    def test_promo_for_returning_student_omits_the_fee_clause(self):
+        """No materials fee to waive means no fee mentioned in the original
+        price, rather than a stray '+ $0'."""
+        msg = format_fee_message(**self._base_args(
+            discount_value=300,
+            is_new_student=False,
+            promo=self._promo(),
+        ))
+        assert "$3,700" in msg
+        assert "materials fee" not in msg
+
+    def test_promo_chinese_wording(self):
+        """Chinese message names the offer and renames the fee to 教材費."""
+        msg = format_fee_message(**self._base_args(
+            lang="zh",
+            discount_value=300,
+            is_new_student=True,
+            promo=self._promo(),
+        ))
+        assert "已享 2026 Back to School 新生優惠 $400" in msg
+        assert "原價為$4,000+$100教材費" in msg
+        assert "報名費" not in msg
+        assert "學費禮劵" not in msg
 
     def test_chinese_language(self):
         """Chinese message should use Chinese day names and location."""

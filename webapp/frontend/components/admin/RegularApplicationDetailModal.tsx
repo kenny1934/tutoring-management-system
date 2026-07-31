@@ -11,8 +11,9 @@ import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, displayLocation, DAY_ABBREV,
-  getRegularTimeSlots, effectiveStream,
+  getRegularTimeSlots, effectiveStream, BRANCH_INFO, hkTodayIso,
 } from "@/lib/regular-utils";
+import { isPromoActive } from "@/lib/regular-promo";
 import { firstWeekdayOnOrAfter } from "@/lib/regular-publish-utils";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
@@ -30,7 +31,7 @@ import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
   User, Phone, MapPin, Clock, Grid3X3, Search, UserPlus, ArrowRight, FileText,
-  DollarSign, Link2,
+  DollarSign, Link2, Ticket,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { useDebouncedValue } from "@/lib/hooks";
@@ -249,6 +250,7 @@ export function RegularApplicationDetailModal({
   totalCount,
 }: RegularApplicationDetailModalProps) {
   const { showToast } = useToast();
+  const { copied: promoCodeCopied, copy: copyPromoCode } = useCopyToClipboard();
 
   // Pending edits. Everything the admin changes here is held locally and
   // written by Save Changes, as in summer, so a half-finished edit can be
@@ -293,6 +295,9 @@ export function RegularApplicationDetailModal({
   // Prospect journey linking (Feature 2), a direct action outside Save Changes.
   const [prospectModalOpen, setProspectModalOpen] = useState(false);
   const [prospectBusy, setProspectBusy] = useState(false);
+  // Admin-verified origin. Saved with the rest of the form rather than on
+  // change, so a mis-click can be abandoned like any other edit.
+  const [branchOrigin, setBranchOrigin] = useState("");
 
   // Publish form
   const [pubLocation, setPubLocation] = useState("MSA");
@@ -320,6 +325,7 @@ export function RegularApplicationDetailModal({
     if (!app || !isOpen) return;
     setStatus(app.application_status);
     setStudentId(app.existing_student_id?.toString() || "");
+    setBranchOrigin(app.verified_branch_origin || "");
     setNotes(app.admin_notes || "");
     setShowAllStatuses(false);
     setPendingDiscard(null);
@@ -529,6 +535,19 @@ export function RegularApplicationDetailModal({
     if (matching) setPubDiscountId(matching.id);
   }, [isOpen, isPublished, discounts, coupon, pubLessons]);
 
+  // Auto-select the seasonal offer's discount row for an eligible applicant.
+  // Runs after the coupon effect and wins, because a verified new student has
+  // no coupon history to spend and the offer is the reason they applied. The
+  // admin can still change it: this preselects, it does not lock.
+  useEffect(() => {
+    if (!isOpen || isPublished || discounts.length === 0) return;
+    if (pubLessons < MIN_LESSONS_FOR_DISCOUNT) return;
+    if (!app?.promo_eligible) return;
+    const promoDiscountId = config?.pricing_config?.promo?.discount_id;
+    if (!promoDiscountId) return;
+    if (discounts.some((d) => d.id === promoDiscountId)) setPubDiscountId(promoDiscountId);
+  }, [isOpen, isPublished, discounts, pubLessons, app?.promo_eligible, config?.pricing_config?.promo?.discount_id]);
+
   // Clear the selected discount if the lesson count drops below its minimum.
   useEffect(() => {
     if (pubDiscountId === null) return;
@@ -557,6 +576,7 @@ export function RegularApplicationDetailModal({
     status !== app.application_status ||
     notes !== (app.admin_notes || "") ||
     studentId !== (app.existing_student_id?.toString() || "") ||
+    branchOrigin !== (app.verified_branch_origin || "") ||
     detailChanged;
 
   const buildUpdate = (): RegularApplicationUpdate => {
@@ -566,6 +586,13 @@ export function RegularApplicationDetailModal({
     const newStudentId = studentId ? parseInt(studentId, 10) : null;
     if (newStudentId !== (app.existing_student_id ?? null)) {
       update.existing_student_id = newStudentId;
+    }
+    // Sent whenever it differs, including when cleared back to unverified. The
+    // backend only auto-fills this from a student link when the field is
+    // absent, so an explicit choice always wins over the guess.
+    const newBranchOrigin = branchOrigin || null;
+    if (newBranchOrigin !== (app.verified_branch_origin ?? null)) {
+      update.verified_branch_origin = newBranchOrigin;
     }
     if (dSchool !== (app.school || "")) update.school = dSchool;
     if (dGrade !== (app.grade || "")) update.grade = dGrade;
@@ -660,14 +687,28 @@ export function RegularApplicationDetailModal({
   }
   const publishFormIncomplete = !usingSlot && (!pubDay || !pubTime || !pubTutorId);
 
+  // The season's offer. Admins read the unfiltered config, so this is present
+  // before the campaign starts too — hence the separate live check, which lets
+  // staff handling an early application see that a discount is coming rather
+  // than quoting a fee that is about to change.
+  //
+  // Whether it actually applies is the API's call, not this component's:
+  // eligibility depends on the verified origin and the campaign window, and
+  // publishing must charge what the parent was quoted.
+  const activePromo = config?.pricing_config?.promo ?? null;
+  const promoLive = isPromoActive(activePromo, hkTodayIso());
+  const promoApplies = !!app.promo_eligible && !!activePromo;
+  const promoWaivesFee = promoApplies && !!activePromo?.waives_registration_fee;
+
   // Client-side fee preview, mirroring what publishing will charge: base fee,
-  // less the selected discount, plus the registration fee when the API says
-  // this student still owes it. The backend recomputes the real total on
-  // publish — this only has to agree with the fee message the parent got.
+  // less the selected discount, plus the materials fee when the API says this
+  // student still owes it and no offer waives it. The backend recomputes the
+  // real total on publish — this only has to agree with the fee message the
+  // parent got.
   const selectedDiscount = discounts.find((d) => d.id === pubDiscountId);
   const discountValue = selectedDiscount?.discount_value ? Number(selectedDiscount.discount_value) : 0;
   const baseFee = 400 * pubLessons;
-  const registrationFee = app.is_new_student ? REGISTRATION_FEE : 0;
+  const registrationFee = app.is_new_student && !promoWaivesFee ? REGISTRATION_FEE : 0;
   const feeTotal = baseFee - discountValue + registrationFee;
 
   // Turning the override on seeds the manual fields from the assigned slot.
@@ -1000,7 +1041,26 @@ export function RegularApplicationDetailModal({
                           {app.school}
                         </span>
                       )}
-                      <RegularOriginChip app={app} />
+                      {canEdit ? (
+                        <select
+                          value={branchOrigin}
+                          onChange={(e) => setBranchOrigin(e.target.value)}
+                          title={
+                            app.is_existing_student && app.is_existing_student !== "None"
+                              ? `Applicant claims: ${app.is_existing_student}`
+                              : "Where this student came from. Choose New only when they have attended no MathConcept centre."
+                          }
+                          className="text-[10px] pl-1.5 pr-5 py-0.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-foreground shrink-0 appearance-none bg-[length:12px] bg-[right_2px_center] bg-no-repeat bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%236b7280%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20d%3D%22M5.23%207.21a.75.75%200%20011.06.02L10%2011.168l3.71-3.938a.75.75%200%20111.08%201.04l-4.25%204.5a.75.75%200%2001-1.08%200l-4.25-4.5a.75.75%200%2001.02-1.06z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E')]"
+                        >
+                          <option value="">Unverified</option>
+                          <option value="New">New</option>
+                          {[...Object.keys(BRANCH_INFO).filter((c) => c !== "KC"), "MSA", "MSB"].map((code) => (
+                            <option key={code} value={code}>{code}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <RegularOriginChip app={app} />
+                      )}
                     </div>
                   </InfoBlock>
 
@@ -1098,6 +1158,61 @@ export function RegularApplicationDetailModal({
                   </div>
                 )}
               </InfoBlock>
+
+              {/* Seasonal offer. Shown whenever one is running, not only when
+                  this applicant qualifies: an admin looking at a returning
+                  student still needs to know why no code appeared, and the
+                  "verify the origin" prompt is what unblocks the ones that
+                  should qualify. */}
+              {activePromo && (
+                <InfoBlock
+                  icon={Ticket}
+                  tone="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                  title="Offer"
+                >
+                  {!promoLive ? (
+                    <div className="text-xs text-muted-foreground italic">
+                      {activePromo.name_en} starts{" "}
+                      {activePromo.from_date
+                        ? new Date(activePromo.from_date).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "long",
+                          })
+                        : "later"}
+                      . Fee messages sent before then will not include it.
+                    </div>
+                  ) : promoApplies ? (
+                    <>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-semibold text-base text-foreground">
+                          {activePromo.code}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyPromoCode(activePromo.code)}
+                          className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"
+                          title="Copy to clipboard"
+                        >
+                          {promoCodeCopied ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {activePromo.name_en} · saves ${activePromo.total_value}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-muted-foreground italic">
+                      {app.verified_branch_origin
+                        ? `Not eligible. ${activePromo.name_en} is for students with no MathConcept history.`
+                        : "Set the origin above to New to apply this offer, once you have confirmed the student has never attended MathConcept."}
+                    </div>
+                  )}
+                </InfoBlock>
+              )}
 
               <InfoBlock
                 icon={FileText}
@@ -1723,8 +1838,10 @@ export function RegularApplicationDetailModal({
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {registrationFee > 0
-                        ? "Includes the one-off $100 registration fee for a new student."
-                        : "No registration fee. This student has enrolled with us before."}
+                        ? "Includes the one-off $100 materials fee for a new student."
+                        : promoWaivesFee
+                          ? `Materials fee waived by the ${activePromo?.name_en}.`
+                          : "No materials fee. This student has enrolled with us before."}
                     </p>
                   </div>
 

@@ -84,6 +84,14 @@ def student(db_session):
 
 
 @pytest.fixture
+def freeze_promo_window(monkeypatch):
+    """Pin 'now' inside the campaign window so promo tests do not depend on the
+    day they are run."""
+    import routers.regular_course as rc
+    monkeypatch.setattr(rc, "hk_now", lambda: datetime(2026, 8, 20, 10, 0))
+
+
+@pytest.fixture
 def config(db_session):
     cfg = RegularCourseConfig(
         year=2026,
@@ -1029,3 +1037,177 @@ class TestTutorDuties:
         assert len(rows) == 1
         assert rows[0].config_id == config.id
         assert rows[0].location == "華士古分校"
+
+
+# ---------------------------------------------------------------------------
+# Seasonal offer (26BTSSA): eligibility gating and what it does to the money
+# ---------------------------------------------------------------------------
+
+PROMO_CONFIG = {
+    "code": "26BTSSA",
+    "name_zh": "2026 中學教室 Back to School 新生優惠",
+    "name_en": "2026 Secondary Academy Back to School New Student Offer",
+    "short_name_zh": "2026 Back to School 新生優惠",
+    "short_name_en": "2026 Back to School new student offer",
+    "total_value": 400,
+    "tuition_amount": 300,
+    "waives_registration_fee": True,
+    "from_date": "2026-08-12",
+    "until_date": None,
+}
+
+
+class TestRegularPromo:
+    """The offer is worth $400 to a verified new student: $300 off tuition via
+    an ordinary discounts row, plus the $100 materials fee waived."""
+
+    @pytest.fixture
+    def promo_config(self, db_session, config):
+        """The season's config with the offer running and a discount row."""
+        discount = Discount(
+            discount_name="2026 Back to School 新生優惠",
+            discount_type="fixed",
+            discount_value=300,
+            is_active=True,
+        )
+        db_session.add(discount)
+        db_session.commit()
+        config.pricing_config = {
+            "base_fee": 2400,
+            "lessons_per_block": 6,
+            "registration_fee": 100,
+            "promo": {**PROMO_CONFIG, "discount_id": discount.id},
+        }
+        db_session.commit()
+        return config, discount
+
+    def _publish(self, db_session, config, admin, tutor, student, *, origin,
+                 discount_id=None):
+        """Publish an application whose verified origin is `origin`.
+
+        A student record is always linked: publishing requires one, and a
+        genuinely new applicant gets a fresh record with no prior enrollments,
+        which is what keeps is_new_student true.
+        """
+        app = _make_app(
+            db_session, config,
+            name="New Applicant",
+            status="Fee Sent",
+            student_id=student.id,
+        )
+        app.verified_branch_origin = origin
+        db_session.commit()
+        req = RegularPublishRequest(
+            confirmed_day="Tuesday",
+            confirmed_time="16:45 - 18:15",
+            location="華士古分校",
+            tutor_id=tutor.id,
+            discount_id=discount_id,
+        )
+        resp = publish_application(app_id=app.id, req=req, admin=admin, db=db_session)
+        return app, db_session.get(Enrollment, resp.enrollment_id)
+
+    def test_verified_new_student_gets_the_offer_stamped(self, db_session, promo_config, admin, tutor, student, freeze_promo_window):
+        config, discount = promo_config
+        _app, enrollment = self._publish(
+            db_session, config, admin, tutor, student, origin="New", discount_id=discount.id
+        )
+        assert enrollment.promo_code == "26BTSSA"
+
+    def test_returning_student_does_not(self, db_session, promo_config, admin, tutor, student, freeze_promo_window):
+        """A verified branch origin is proof of history, so no offer applies
+        even though the campaign is running."""
+        config, discount = promo_config
+        _app, enrollment = self._publish(
+            db_session, config, admin, tutor, student, origin="MTA", discount_id=discount.id
+        )
+        assert enrollment.promo_code is None
+
+    def test_unverified_applicant_does_not(self, db_session, promo_config, admin, tutor, student, freeze_promo_window):
+        """Silence is not a yes: nobody has confirmed this applicant is new."""
+        config, discount = promo_config
+        _app, enrollment = self._publish(
+            db_session, config, admin, tutor, student, origin=None, discount_id=discount.id
+        )
+        assert enrollment.promo_code is None
+
+    def test_offer_is_not_stamped_before_its_launch_day(self, db_session, promo_config, admin, tutor, student, monkeypatch):
+        """The form opens before the campaign does, so an application published
+        in that window must not collect the offer."""
+        import routers.regular_course as rc
+        monkeypatch.setattr(rc, "hk_now", lambda: datetime(2026, 8, 6, 10, 0))
+        config, discount = promo_config
+        _app, enrollment = self._publish(
+            db_session, config, admin, tutor, student, origin="New", discount_id=discount.id
+        )
+        assert enrollment.promo_code is None
+
+    def test_waived_materials_fee_reaches_the_total_and_the_revenue(
+        self, db_session, promo_config, admin, tutor, student, freeze_promo_window
+    ):
+        """The parent pays 2400 - 300 = 2100, all of it tuition.
+
+        Guards the encoding choice: a single $400 discount with the fee still
+        charged reaches the same 2100 but would report only 2000 of revenue and
+        claim a materials fee we waived.
+        """
+        from routers.enrollments import (
+            compute_enrollment_total_fee,
+            enrollment_registration_fee,
+        )
+        config, discount = promo_config
+        _app, enrollment = self._publish(
+            db_session, config, admin, tutor, student, origin="New", discount_id=discount.id
+        )
+        assert enrollment.is_new_student is True
+        assert enrollment_registration_fee(enrollment, db_session) == 0
+        assert compute_enrollment_total_fee(enrollment, db_session) == 2100
+        assert float(enrollment.revenue_total) == 2100.0
+
+    def test_new_student_without_the_offer_still_pays_the_materials_fee(
+        self, db_session, promo_config, admin, tutor, student, freeze_promo_window
+    ):
+        from routers.enrollments import compute_enrollment_total_fee
+        config, _discount = promo_config
+        _app, enrollment = self._publish(
+            db_session, config, admin, tutor, student, origin="MSA"
+        )
+        # 400*6 + 100 = 2500, no discount attached.
+        assert compute_enrollment_total_fee(enrollment, db_session) == 2500
+
+    def test_public_config_hides_the_offer_before_launch(self, db_session, promo_config, monkeypatch):
+        """Stripped server-side, so an unannounced offer is never sitting in
+        the page's network response waiting to be read."""
+        import routers.regular_course as rc
+        monkeypatch.setattr(rc, "hk_now", lambda: datetime(2026, 8, 6, 10, 0))
+        config, _discount = promo_config
+        pricing = rc._public_pricing_config(config)
+        assert "promo" not in pricing
+        assert pricing["base_fee"] == 2400
+
+    def test_public_config_exposes_the_offer_once_live_without_internal_ids(
+        self, db_session, promo_config, freeze_promo_window
+    ):
+        import routers.regular_course as rc
+        config, _discount = promo_config
+        pricing = rc._public_pricing_config(config)
+        assert pricing["promo"]["code"] == "26BTSSA"
+        # The discounts row id addresses internal data and does nothing for the form.
+        assert "discount_id" not in pricing["promo"]
+
+    def test_application_response_reports_eligibility(self, db_session, promo_config, admin, freeze_promo_window):
+        config, _discount = promo_config
+        new = _make_app(db_session, config, name="New One")
+        new.verified_branch_origin = "New"
+        returning = _make_app(db_session, config, name="Returning One")
+        returning.verified_branch_origin = "MSA"
+        db_session.commit()
+
+        by_name = {
+            r.student_name: r
+            for r in list_applications(config_id=config.id, _admin=None, db=db_session)
+        }
+        assert by_name["New One"].promo_eligible is True
+        assert by_name["New One"].promo_code == "26BTSSA"
+        assert by_name["Returning One"].promo_eligible is False
+        assert by_name["Returning One"].promo_code is None

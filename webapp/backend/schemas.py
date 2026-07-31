@@ -3961,6 +3961,7 @@ class RegularApplicationResponse(BaseModel):
     lang_stream: Optional[str] = None
     is_existing_student: Optional[str] = None
     current_centers: Optional[List[str]] = None
+    verified_branch_origin: Optional[str] = None
     wechat_id: Optional[str] = None
     contact_phone: Optional[str] = None
     preferred_location: Optional[str] = None
@@ -3982,12 +3983,18 @@ class RegularApplicationResponse(BaseModel):
     # Publish bridge: set when application has been published into a native
     # Regular enrollment. Drives the Publish/Unpublish button state.
     published_enrollment_id: Optional[int] = None
-    # Whether the one-off registration fee still applies, decided by the same
+    # Whether the one-off materials fee still applies, decided by the same
     # rule publishing uses. Lets the admin fee preview quote the real total.
     is_new_student: bool = True
     # P6 prospect journey, when a prospect row links to this application. Batched
     # like is_new_student; null when the applicant was never a tracked prospect.
     prospect_journey: Optional[RegularProspectJourney] = None
+    # Whether a seasonal offer is running AND this applicant is verified new.
+    # False while the offer is out of window or the origin is still unverified,
+    # so the admin surfaces can prompt for the verification that unlocks it.
+    promo_eligible: bool = False
+    # Code of the offer they qualify for, e.g. 26BTSSA. Null when not eligible.
+    promo_code: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -3998,6 +4005,7 @@ class RegularApplicationUpdate(BaseModel):
     admin_notes: Optional[str] = None
     existing_student_id: Optional[int] = None
     lang_stream: Optional[str] = Field(None, max_length=10)
+    verified_branch_origin: Optional[str] = Field(None, max_length=20)
     # Detail fields admin can edit (mirrors RegularApplicationEditRequest +
     # identity fields locked for self-service)
     student_name: Optional[str] = Field(None, max_length=255)
@@ -4216,6 +4224,12 @@ class RegularApplicationMessages(BaseModel):
     discount_value: int
     is_new_student: bool
     has_student_link: bool
+    # Offer quoted in the message, when the applicant is verified new and it is
+    # running. Null otherwise. The fee preview reads these to explain why the
+    # materials fee vanished from the total.
+    promo_code: Optional[str] = None
+    promo_name_en: Optional[str] = None
+    promo_waives_registration_fee: bool = False
 
 
 # Enable forward references for nested models

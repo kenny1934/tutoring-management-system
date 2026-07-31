@@ -1,6 +1,7 @@
 import Image from "next/image";
-import { GraduationCap, Calendar, Clock, DollarSign, PenLine, Info } from "lucide-react";
+import { GraduationCap, Calendar, Clock, DollarSign, PenLine, Info, BadgePercent, Check } from "lucide-react";
 import type { RegularCourseFormConfig } from "@/types";
+import { getActiveRegularPromo, promoItems, promoName, promoPricing } from "@/lib/regular-promo";
 import {
   type Lang,
   t,
@@ -60,6 +61,11 @@ export function StudentInfoStep({
   const introPhilosophy = intro?.philosophy;
   const hasIntro = !!(introHeadline || introPillars.length > 0 || introPhilosophy);
   const bannerImage = config.banner_image_url;
+
+  // Seasonal offer. No date check here: the API withholds the promo from the
+  // public config until its launch day, so anything that arrived is live.
+  const promo = getActiveRegularPromo(config.pricing_config);
+  const promoPrice = promo ? promoPricing(config.pricing_config, promo) : null;
 
   const headlineText = t(
     introHeadline?.zh || config.title,
@@ -212,6 +218,69 @@ export function StudentInfoStep({
           )}
         </div>
       </div>
+
+      {/* Seasonal offer. Unlike summer there is no countdown and nothing to
+          expand: one offer, a short list of what it includes, no tiers to
+          compare. It sits directly under the facts strip so it reads as part
+          of the same metadata zone rather than a second hero.
+
+          The eligibility line is not decoration. The headline price is for new
+          students only, and a returning parent who reads past that arrives at
+          the fee message expecting a number we are not going to quote. */}
+      {promo && (
+        <div className="rounded-xl border border-amber-200 bg-gradient-to-b from-amber-50 to-amber-100/40 overflow-hidden">
+          <div className="flex items-start gap-2.5 px-4 py-3">
+            <BadgePercent className="h-5 w-5 shrink-0 mt-0.5 text-amber-600" />
+            <div className="min-w-0 flex-1 space-y-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-amber-900">
+                  {promoName(promo, lang)}
+                </span>
+                <span className="inline-flex items-center rounded-full bg-amber-600 text-white px-2 py-0.5 text-[11px] font-bold">
+                  {t(`省 $${promo.total_value}`, `Save $${promo.total_value}`, lang)}
+                </span>
+              </div>
+
+              {promoItems(promo, lang).length > 0 && (
+                <ul className="space-y-1">
+                  {promoItems(promo, lang).map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-amber-900 leading-relaxed">
+                      <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {promoPrice && (
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-2xl font-bold text-amber-900">
+                    ${promoPrice.promoFee.toLocaleString("en-US")}
+                  </span>
+                  <span className="text-xs text-amber-800">
+                    {t(
+                      `／首期 ${config.pricing_config?.lessons_per_block ?? ""}堂`,
+                      `/ first ${config.pricing_config?.lessons_per_block ?? ""} lessons`,
+                      lang
+                    )}
+                  </span>
+                  <span className="text-xs text-amber-700/80 line-through">
+                    ${promoPrice.originalFee.toLocaleString("en-US")}
+                  </span>
+                </div>
+              )}
+
+              <p className="text-[11px] text-amber-800 leading-relaxed border-t border-amber-200/70 pt-2">
+                {t(
+                  "此優惠只適用於從未於 MathConcept 就讀的新生。導師會於聯絡時確認您是否合資格。",
+                  "This offer is for new students who have never studied at MathConcept. Our team will confirm your eligibility when they contact you.",
+                  lang
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Inline notice placed right before the form fields — parents are about
           to act, and this is the moment to remind them the form is just a

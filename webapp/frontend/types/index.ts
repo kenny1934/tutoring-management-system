@@ -3586,11 +3586,48 @@ export type RegularBilingualOption = SummerBilingualOption;
 export type RegularLocation = SummerLocation;
 export type RegularCourseIntro = SummerCourseIntro;
 
+/**
+ * A seasonal offer on the regular intake. At most one runs at a time, so this
+ * is a single object rather than summer's array of competing tiers.
+ *
+ * Only `tuition_amount` is money moving through an enrollment — it names an
+ * ordinary discounts row via `discount_id`, so publishing and revenue price it
+ * through the usual path. `total_value` is the headline figure quoted to
+ * parents, which also counts the waived materials fee and so is larger.
+ */
+export interface RegularPromo {
+  /** Code staff put on the receipt, e.g. 26BTSSA. */
+  code: string;
+  name_zh: string;
+  name_en: string;
+  /** Shorter form for the fee message, where the surrounding text has already
+   *  named the centre and the course. Falls back to the full name. */
+  short_name_zh?: string;
+  short_name_en?: string;
+  /** Headline value advertised to parents. Prose, not arithmetic. */
+  total_value: number;
+  /** Dollars off tuition — the part backed by a discounts row. */
+  tuition_amount: number;
+  waives_registration_fee?: boolean;
+  /** First day the offer may be shown. The form opens before the campaign
+   *  launches, so the API withholds the whole promo until this date. */
+  from_date?: string | null;
+  until_date?: string | null;
+  /** Bullet list shown on the form. Includes non-monetary perks such as a
+   *  gift, which never affect the fee. */
+  items?: { name_zh: string; name_en: string }[];
+  /** Internal discounts row id. Stripped from the public config. */
+  discount_id?: number | null;
+}
+
 export interface RegularPricingConfig {
   base_fee: number;
   lessons_per_block: number;
-  /** One-off registration fee charged to new students only. */
+  /** One-off materials fee charged to new students only. */
   registration_fee?: number | null;
+  /** Present on the public config only while the offer is running — the API
+   *  removes it outside the window, so its presence is the signal to show it. */
+  promo?: RegularPromo | null;
 }
 
 export interface RegularCourseFormConfig {
@@ -3709,6 +3746,10 @@ export interface RegularApplication {
   lang_stream?: string | null;
   is_existing_student?: string | null;
   current_centers?: string[] | null;
+  /** Admin-verified origin: a branch code, or "New" for a student with no
+   *  MathConcept history. The form only asks which centre they attend *now*,
+   *  so seasonal new-student offers key off this instead. */
+  verified_branch_origin?: string | null;
   wechat_id?: string | null;
   contact_phone?: string | null;
   preferred_location?: string | null;
@@ -3733,12 +3774,17 @@ export interface RegularApplication {
   /** The assigned slot itself, inlined by the API so the card and the detail
    *  modal can show the placement without loading every slot in the config. */
   assigned_slot?: RegularAssignedSlot | null;
-  /** Whether the one-off registration fee still applies, decided by the same
+  /** Whether the one-off materials fee still applies, decided by the same
    *  rule the fee message and publishing use. */
   is_new_student?: boolean;
   /** P6 prospect journey, when a prospect links to this application. Null when
    *  the applicant was never a tracked prospect. */
   prospect_journey?: RegularProspectJourney | null;
+  /** True when a seasonal offer is running AND this applicant is verified as
+   *  new. False while unverified, which is what prompts staff to check. */
+  promo_eligible?: boolean;
+  /** Code of the offer they qualify for. Null when not eligible. */
+  promo_code?: string | null;
 }
 
 /** P6 prospect journey attached to a linked regular application. */
@@ -3854,6 +3900,9 @@ export interface RegularApplicationUpdate {
   admin_notes?: string;
   existing_student_id?: number | null;
   lang_stream?: string;
+  /** Null clears it back to unverified. Omit to let the backend auto-fill it
+   *  from a student or prospect link. */
+  verified_branch_origin?: string | null;
   // Detail-field admin edits (audited)
   student_name?: string;
   grade?: string;
@@ -3927,6 +3976,13 @@ export interface RegularApplicationMessages {
   discount_value: number;
   is_new_student: boolean;
   has_student_link: boolean;
+  /** Offer quoted in the message, when the applicant is verified new and it is
+   *  running. Null otherwise. */
+  promo_code?: string | null;
+  promo_name_en?: string | null;
+  /** True when that offer also waives the one-off materials fee, which is why
+   *  the total can be lower than base − discount + fee. */
+  promo_waives_registration_fee?: boolean;
 }
 
 export interface RegularSlotCreate {

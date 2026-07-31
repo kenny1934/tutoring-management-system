@@ -130,7 +130,11 @@ class Enrollment(Base):
 
     # Notes
     remark = Column(Text)
-    is_new_student = Column(Boolean, default=False, comment='TRUE if student is new (adds $100 reg fee)')
+    is_new_student = Column(Boolean, default=False, comment='TRUE if student is new (adds $100 materials fee)')
+    promo_code = Column(
+        String(32), nullable=True,
+        comment='Seasonal offer this was published under, e.g. 26BTSSA. Names the offer in the fee message and can waive the materials fee.'
+    )
 
     # Extension tracking (from migration 017)
     deadline_extension_weeks = Column(Integer, default=0, comment='Number of weeks deadline extended')
@@ -1717,6 +1721,11 @@ class RegularApplication(Base):
     lang_stream = Column(String(10))
     is_existing_student = Column(String(100))
     current_centers = Column(JSON, default=None)
+    # Admin-verified origin: a primary/secondary branch code, or 'New' for a
+    # student who has attended no MathConcept centre. The form's own
+    # is_existing_student answer only covers who they attend *now*, so seasonal
+    # new-student offers key off this instead. Mirrors summer_applications.
+    verified_branch_origin = Column(String(20), nullable=True)
     # Contact
     wechat_id = Column(String(100))
     contact_phone = Column(String(50))

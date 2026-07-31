@@ -91,6 +91,14 @@ from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
+from utils.regular_promo import (
+    NEW_STUDENT_ORIGIN,
+    application_promo,
+    is_verified_new,
+    parse_promo,
+    promo_active,
+    promo_message_fields,
+)
 from constants import (
     hk_now,
     RegularApplicationStatus,
@@ -493,6 +501,13 @@ def _build_application_responses(
     slots = _get_assigned_slots_bulk(db, [a.assigned_slot_id for a in apps])
     new_student = _new_student_flags_bulk(db, apps)
     journeys = _prospect_journeys_bulk(db, apps)
+    # Every application on a page shares one config, so the offer is parsed and
+    # date-checked once rather than per row.
+    active_promo = None
+    if apps:
+        candidate = parse_promo(apps[0].config)
+        if promo_active(candidate, hk_now().date()):
+            active_promo = candidate
     responses = []
     for app in apps:
         data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
@@ -505,6 +520,12 @@ def _build_application_responses(
         )
         data["is_new_student"] = new_student[app.id]
         data["prospect_journey"] = journeys.get(app.id)
+        # Eligible = the offer is running AND an admin has verified the
+        # applicant has no MathConcept history. An unverified application is
+        # not eligible yet, which is what puts the prompt in front of staff.
+        eligible = active_promo is not None and is_verified_new(app)
+        data["promo_eligible"] = eligible
+        data["promo_code"] = active_promo.code if eligible else None
         responses.append(RegularApplicationResponse.model_validate(data))
     return responses
 
@@ -526,6 +547,32 @@ def _application_window(config: RegularCourseConfig) -> str:
     if now > config.application_close_date:
         return "closed"
     return "open"
+
+
+def _public_pricing_config(config: RegularCourseConfig) -> Optional[dict]:
+    """The pricing block as a parent may see it.
+
+    A seasonal offer is advertised on a schedule the form does not control: the
+    application window opens days before the campaign launches, so the promo is
+    removed entirely until its own start date. Stripping it here rather than
+    hiding it in the browser means an unannounced offer is never sitting in the
+    page's network response waiting to be read, and a device with a wrong clock
+    cannot reveal it early.
+
+    ``discount_id`` is dropped even once the offer is live: it addresses an
+    internal discounts row and does nothing for the form.
+    """
+    pricing = config.pricing_config
+    if not pricing or "promo" not in pricing:
+        return pricing
+    pricing = dict(pricing)
+    promo = parse_promo(config)
+    if not promo_active(promo, hk_now().date()):
+        pricing.pop("promo", None)
+        return pricing
+    public_promo = {k: v for k, v in (pricing["promo"] or {}).items() if k != "discount_id"}
+    pricing["promo"] = public_promo
+    return pricing
 
 
 @router.get("/regular/public/config", response_model=RegularCourseFormConfig)
@@ -551,7 +598,7 @@ def get_public_config(request: Request, db: Session = Depends(get_db)):
         lang_stream_options=config.lang_stream_options,
         text_content=config.text_content,
         course_intro=config.course_intro,
-        pricing_config=config.pricing_config,
+        pricing_config=_public_pricing_config(config),
         banner_image_url=config.banner_image_url,
     )
 
@@ -1068,10 +1115,31 @@ def update_application(
             allowed_fields=_ADMIN_EDITABLE_FIELDS,
         )
 
-    # Anything left (admin_notes, existing_student_id) is written directly
-    # without audit — admin-only bookkeeping fields.
+    # Anything left (admin_notes, existing_student_id, verified_branch_origin)
+    # is written directly without audit — admin-only bookkeeping fields.
     for field, value in updates.items():
         setattr(app, field, value)
+
+    # Auto-fill verified_branch_origin when linking to a Student, unless the
+    # admin set it explicitly in the same request. A linked P6 prospect wins:
+    # the prospect is the true origin (a primary-branch student moving up),
+    # while the Student record is the destination. Mirrors summer, where the
+    # same omission silently lost a receipt code on F1 transitions — here it
+    # would instead hand a returning student a new-student offer.
+    if "existing_student_id" in data.model_fields_set and "verified_branch_origin" not in data.model_fields_set:
+        prospect_branch = (
+            db.query(PrimaryProspect.source_branch)
+            .filter(PrimaryProspect.regular_application_id == app.id)
+            .scalar()
+        )
+        if prospect_branch:
+            app.verified_branch_origin = prospect_branch
+        elif app.existing_student_id:
+            student = db.query(Student).filter(Student.id == app.existing_student_id).first()
+            if student and student.home_location:
+                app.verified_branch_origin = student.home_location
+        else:
+            app.verified_branch_origin = None
 
     db.commit()
     db.refresh(app)
@@ -1408,6 +1476,14 @@ def link_application_prospect(
         prospect.regular_application_id = app_id
         prospect.updated_at = hk_now()
         new_prospect_id = prospect.id
+        # A prospect link is evidence the applicant came from a primary branch,
+        # which directly contradicts an origin of 'New'. Fill an unset origin,
+        # and correct a 'New' one so a returning student cannot keep a
+        # new-student offer they no longer qualify for. An origin naming some
+        # other branch is left alone: that is an admin decision made with
+        # information this link does not have.
+        if prospect.source_branch and (app.verified_branch_origin or NEW_STUDENT_ORIGIN) == NEW_STUDENT_ORIGIN:
+            app.verified_branch_origin = prospect.source_branch
     else:
         if current is None:
             return _build_application_responses(db, [app])[0]  # already unlinked
@@ -2058,11 +2134,17 @@ def _publish_application_inner(
             ],
         )
 
-    # Regular (unlike Summer) must carry the $100 registration fee for
+    # Regular (unlike Summer) must carry the $100 materials fee for
     # genuinely new students. Same rule the fee message quoted.
     is_new_student = _is_new_student(
         db, app.existing_student_id, exclude_application_id=app.id
     )
+
+    # Snapshot the offer the enrollment is sold under, so a fee message
+    # re-copied later still names it and still knows the materials fee was
+    # waived. Resolved here rather than taken from the request: eligibility is
+    # the server's call, and publishing must charge what the parent was quoted.
+    promo = application_promo(app, app.config, hk_now().date())
 
     # Payment state follows the application status when the request stays
     # silent, mirroring summer: an app already marked Paid publishes as Paid.
@@ -2089,6 +2171,7 @@ def _publish_application_inner(
         # already gone out by the time an enrollment exists.
         fee_message_sent=True,
         is_new_student=is_new_student,
+        promo_code=promo.code if promo else None,
         discount_id=req.discount_id,
         regular_application_id=app.id,
         last_modified_by=admin_email,
@@ -2242,6 +2325,13 @@ def get_application_messages(
     student_code = (student.school_student_id or "") if student else ""
     student_name = student.student_name if student else app.student_name
 
+    # A running offer the applicant is verified for is quoted by name, and
+    # waives the materials fee, so the drafted message matches what publishing
+    # will charge.
+    promo = application_promo(app, app.config, hk_now().date())
+    promo_fields = promo_message_fields(promo)
+    waives_reg_fee = bool(promo and promo.waives_registration_fee)
+
     def fee(lang: str) -> str:
         return strip_blank_student_id(format_fee_message(
             lang=lang,
@@ -2254,6 +2344,7 @@ def get_application_messages(
             session_dates=session_dates,
             discount_value=discount_value,
             is_new_student=is_new_student,
+            promo=promo_fields,
         ))
 
     def schedule(lang: str) -> str:
@@ -2271,7 +2362,7 @@ def get_application_messages(
     total_fee = (
         BASE_FEE_PER_LESSON * lessons_paid
         - discount_value
-        + (REGISTRATION_FEE if is_new_student else 0)
+        + (REGISTRATION_FEE if is_new_student and not waives_reg_fee else 0)
     )
 
     return RegularApplicationMessages(
@@ -2290,6 +2381,9 @@ def get_application_messages(
         discount_value=discount_value,
         is_new_student=is_new_student,
         has_student_link=student is not None,
+        promo_code=promo.code if promo else None,
+        promo_name_en=promo.name_en if promo else None,
+        promo_waives_registration_fee=waives_reg_fee,
     )
 
 

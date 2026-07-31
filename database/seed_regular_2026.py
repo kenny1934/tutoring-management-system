@@ -25,6 +25,31 @@ WEEKEND_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:
 MSA_OPEN_DAYS = WEEKDAYS + WEEKENDS
 MSB_OPEN_DAYS = ["Monday", "Thursday", "Friday", "Saturday", "Sunday"]  # closed Tue + Wed
 
+# The Back to School offer, kept here so re-seeding the config does not wipe
+# what migration 143 set up. Only tuition_amount is money moving through an
+# enrollment (it names a discounts row); total_value is the headline figure
+# advertised, which also counts the waived materials fee.
+BTS_DISCOUNT_NAME = "2026 Back to School 新生優惠"
+BTS_PROMO = {
+    "code": "26BTSSA",
+    "name_zh": "2026 中學教室 Back to School 新生優惠",
+    "name_en": "2026 Secondary Academy Back to School New Student Offer",
+    "short_name_zh": "2026 Back to School 新生優惠",
+    "short_name_en": "2026 Back to School new student offer",
+    "total_value": 400,
+    "tuition_amount": 300,
+    "waives_registration_fee": True,
+    # The form opens around 5 August; the campaign launches on the 12th, and
+    # the offer stays out of the API response until then.
+    "from_date": "2026-08-12",
+    "until_date": None,
+    "items": [
+        {"name_zh": "9月新生學費立減 MOP 300", "name_en": "MOP 300 off September tuition for new students"},
+        {"name_zh": "免教材費 MOP 100", "name_en": "MOP 100 materials fee waived"},
+        {"name_zh": "贈 MathConcept 限量檯曆一份（價值 MOP 100）", "name_en": "A limited edition MathConcept desk calendar (worth MOP 100)"},
+    ],
+}
+
 
 def _slots_for(days):
     return {d: (WEEKEND_SLOTS if d in WEEKENDS else WEEKDAY_SLOTS) for d in days}
@@ -110,11 +135,8 @@ CONFIG_2026 = {
         "makeup_note_zh": "為能令課堂安排更完整，如學生於學費期內有事宜不能出席課堂，請提早通知導師，讓導師為您提早安排補堂。",
         "makeup_note_en": "To keep class arrangements complete, if the student cannot attend a lesson within the paid period, please notify the tutor in advance so a make-up lesson can be arranged early.",
     }),
-    "pricing_config": json.dumps({
-        "base_fee": 2400,
-        "lessons_per_block": 6,
-        "registration_fee": 100,
-    }),
+    # promo is filled in by main(), which resolves the discounts row id first.
+    "pricing_config": None,
     "course_intro": None,
     # Reuses last year's Google Form header artwork; the wording carries no
     # year, so it stands for every September intake.
@@ -131,6 +153,21 @@ def main():
         charset="utf8mb4", connect_timeout=10,
     )
     cursor = conn.cursor()
+
+    # Resolve the offer's discounts row so the promo points at a real id. The
+    # row itself is created by migration 143; without it the promo is seeded
+    # with no discount and the admin picks one manually.
+    cursor.execute("SELECT id FROM discounts WHERE discount_name = %s", (BTS_DISCOUNT_NAME,))
+    row = cursor.fetchone()
+    promo = {**BTS_PROMO, "discount_id": row[0] if row else None}
+    if not row:
+        print(f"  WARNING: no discounts row named {BTS_DISCOUNT_NAME!r} — run migration 143 first")
+    CONFIG_2026["pricing_config"] = json.dumps({
+        "base_fee": 2400,
+        "lessons_per_block": 6,
+        "registration_fee": 100,
+        "promo": promo,
+    })
 
     cursor.execute("SELECT id FROM regular_course_configs WHERE year = 2026")
     existing = cursor.fetchone()

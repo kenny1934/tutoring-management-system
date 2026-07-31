@@ -107,13 +107,38 @@ export function RegularStatusBadge({ status }: { status: string }) {
   );
 }
 
-/** The origin badge, in the same slot summer's PrimaryBranchChip occupies:
- *  the linked student record if there is one, else what the applicant told us.
- *  Regular has no prospect linkage and no branch verification, so the claim
- *  stays unqualified until an admin links a record. */
-/** Where this applicant came from: the linked student record, an
- *  unverified claim of one, or a genuinely new student. */
+/** Where this applicant came from, in the same slot summer's PrimaryBranchChip
+ *  occupies: an admin's verified answer if there is one, else the linked
+ *  student record, else what the applicant told us.
+ *
+ *  The verified value leads because it is the only one a seasonal new-student
+ *  offer may be granted on. The form asks which centre a student attends
+ *  *now*, so a family that left last year answers "none" truthfully while
+ *  still having a history, and nothing but a person checking can tell. */
 export function RegularOriginChip({ app }: { app: RegularApplication }) {
+  const verified = app.verified_branch_origin;
+  if (verified) {
+    const isNew = verified === "New";
+    return (
+      <span
+        className={cn(
+          "shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded",
+          isNew
+            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+            : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+        )}
+        title={
+          isNew
+            ? "Verified: has never attended MathConcept."
+            : `Verified origin: ${verified}.`
+        }
+        onClick={(e) => e.stopPropagation()}
+      >
+        ✓ {verified}
+      </span>
+    );
+  }
+
   if (app.linked_student) {
     return <LinkedStudentChip student={app.linked_student} />;
   }
@@ -138,11 +163,11 @@ export function RegularOriginChip({ app }: { app: RegularApplication }) {
 
   return (
     <span
-      className="shrink-0 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"
-      title="New student. No prior enrolment."
+      className="shrink-0 text-[10px] font-semibold text-muted-foreground border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded"
+      title="Applicant reports no current MathConcept centre. Not verified, so no new-student offer applies yet."
       onClick={(e) => e.stopPropagation()}
     >
-      New
+      Claims: new
     </span>
   );
 }

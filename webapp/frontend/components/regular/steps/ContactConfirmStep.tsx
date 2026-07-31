@@ -11,6 +11,7 @@ import {
   IconLabel,
   shortCenterName,
 } from "@/lib/regular-utils";
+import { getActiveRegularPromo, promoName, promoPricing } from "@/lib/regular-promo";
 
 /** Today's local date as YYYY-MM-DD, for lexicographic comparison with config dates. */
 function todayISO(): string {
@@ -136,6 +137,11 @@ export function ContactConfirmStep({
     ? `We will contact you on or before ${contactDate.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} to confirm class times. ${scheduleNoteEn}`
     : config.text_content?.disclaimer_en ||
       "We will confirm the final timetable on or before 17 August based on overall preferences.";
+
+  // Present only while the offer is running: the API strips it from the public
+  // config outside its window, so no date check is needed here.
+  const promo = getActiveRegularPromo(config.pricing_config);
+  const promoPrice = promo ? promoPricing(config.pricing_config, promo) : null;
 
   return (
     <div className="space-y-6">
@@ -270,8 +276,21 @@ export function ContactConfirmStep({
         {config.pricing_config?.registration_fee ? (
           <p className="text-xs text-muted-foreground leading-relaxed mt-2">
             {t(
-              `新生另收一次性報名費 $${config.pricing_config.registration_fee.toLocaleString("en-US")}。`,
-              `New students pay a one-off $${config.pricing_config.registration_fee.toLocaleString("en-US")} registration fee.`,
+              `新生另收一次性教材費 $${config.pricing_config.registration_fee.toLocaleString("en-US")}。`,
+              `New students pay a one-off $${config.pricing_config.registration_fee.toLocaleString("en-US")} materials fee.`,
+              lang
+            )}
+          </p>
+        ) : null}
+        {/* The offer is repeated here because this is the last screen before
+            submitting, and the fee row above quotes the standard price. A new
+            student should not have to scroll back to Step 1 to be reminded
+            that the number they will be given is lower. */}
+        {promo && promoPrice ? (
+          <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed mt-2">
+            {t(
+              `合資格新生可享${promoName(promo, lang)}，減免 $${promo.total_value}，首期學費為 $${promoPrice.promoFee.toLocaleString("en-US")}。`,
+              `Eligible new students receive the ${promoName(promo, lang)}, a saving of $${promo.total_value}, bringing the first block to $${promoPrice.promoFee.toLocaleString("en-US")}.`,
               lang
             )}
           </p>

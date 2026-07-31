@@ -11,7 +11,10 @@ import type {
   RegularLocation,
   RegularBilingualOption,
   RegularPricingConfig,
+  RegularPromo,
 } from "@/types";
+import { isPromoActive } from "@/lib/regular-promo";
+import { hkTodayIso } from "@/lib/regular-utils";
 import {
   ChevronDown,
   ChevronLeft,
@@ -122,6 +125,12 @@ export function RegularConfigEditor({
   const [pricingBaseFee, setPricingBaseFee] = useState("");
   const [pricingLessons, setPricingLessons] = useState("");
   const [pricingRegFee, setPricingRegFee] = useState("");
+  // The seasonal offer is defined by a migration, not typed in here — it
+  // carries bilingual names, a bullet list and a discounts row id, none of
+  // which belong in a form. It is held in state purely so saving the pricing
+  // section preserves it, with the campaign dates exposed below because those
+  // are the part that realistically moves.
+  const [promo, setPromo] = useState<RegularPromo | null>(null);
 
   // Assemble pricing_config only when the section is validly filled; a fully
   // blank (or still-invalid) section previews and saves as null.
@@ -134,8 +143,9 @@ export function RegularConfigEditor({
       base_fee: baseFeeNum,
       lessons_per_block: lessonsNum,
       registration_fee: regFeeNum > 0 ? regFeeNum : null,
+      ...(promo ? { promo } : {}),
     };
-  }, [pricingBaseFee, pricingLessons, pricingRegFee]);
+  }, [pricingBaseFee, pricingLessons, pricingRegFee, promo]);
 
   // Drop the intro to null when every field is empty, so save payload / dirty
   // tracking stay clean. Memoized so the `assembledConfig` memo stabilizes.
@@ -275,6 +285,7 @@ export function RegularConfigEditor({
                 setPricingBaseFee(pc ? String(pc.base_fee) : "");
                 setPricingLessons(pc ? String(pc.lessons_per_block) : "");
                 setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
+                setPromo(pc?.promo || null);
               },
             });
           } else {
@@ -329,6 +340,7 @@ export function RegularConfigEditor({
         setPricingBaseFee(pc ? String(pc.base_fee) : "");
         setPricingLessons(pc ? String(pc.lessons_per_block) : "");
         setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
+        setPromo(pc?.promo || null);
       } catch {
         showToast("Failed to load config", "error");
         onCancel();
@@ -403,7 +415,7 @@ export function RegularConfigEditor({
         errors.pricing = "Base fee and lessons per block must both be filled and greater than 0";
         sectionsWithErrors.add("pricing");
       } else if (pricingRegFee.trim() && !(parseFloat(pricingRegFee) > 0)) {
-        errors.pricing = "Registration fee must be greater than 0 or left blank";
+        errors.pricing = "Materials fee must be greater than 0 or left blank";
         sectionsWithErrors.add("pricing");
       }
     }
@@ -780,7 +792,7 @@ export function RegularConfigEditor({
             />
           </div>
           <div>
-            <Label htmlFor="pricingRegFee">Registration fee ($)</Label>
+            <Label htmlFor="pricingRegFee">Materials fee ($)</Label>
             <input
               id="pricingRegFee"
               type="number"
@@ -791,10 +803,70 @@ export function RegularConfigEditor({
               disabled={isReadOnly}
               placeholder="100"
             />
-            <p className="text-[10px] text-muted-foreground mt-1">Optional one-off fee for new students.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Optional one-off fee for new students. A seasonal offer can waive it.</p>
           </div>
         </div>
         <ValidationHint message={validationErrors.pricing ?? null} />
+
+        {/* Seasonal offer. Only the campaign window is editable: the offer's
+            wording, its perks and the discount it spends are set up once per
+            season, but the launch date moves when marketing moves. */}
+        {promo && (
+          <div className="mt-4 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-900/10 p-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-amber-900 dark:text-amber-300">
+                {promo.name_en}
+              </span>
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-200/70 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">
+                {promo.code}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                ${promo.tuition_amount} off tuition
+                {promo.waives_registration_fee ? " · materials fee waived" : ""}
+                {" · "}advertised as ${promo.total_value}
+              </span>
+              <span
+                className={`ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                  isPromoActive(promo, hkTodayIso())
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                    : "bg-gray-100 dark:bg-gray-800 text-muted-foreground"
+                }`}
+              >
+                {isPromoActive(promo, hkTodayIso()) ? "Live now" : "Not shown yet"}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+              <div>
+                <Label htmlFor="promoFrom">Show from</Label>
+                <input
+                  id="promoFrom"
+                  type="date"
+                  value={(promo.from_date || "").slice(0, 10)}
+                  onChange={(e) => setPromo({ ...promo, from_date: e.target.value || null })}
+                  className={inputClass}
+                  disabled={isReadOnly}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  The form hides the offer entirely until this date, even when applications are open.
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="promoUntil">Show until</Label>
+                <input
+                  id="promoUntil"
+                  type="date"
+                  value={(promo.until_date || "").slice(0, 10)}
+                  onChange={(e) => setPromo({ ...promo, until_date: e.target.value || null })}
+                  className={inputClass}
+                  disabled={isReadOnly}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Leave blank to run until the intake closes.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </Section>
 
       {/* Section 3: Grades → Step 1 */}
