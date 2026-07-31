@@ -1294,6 +1294,11 @@
     }
     .zb-inqn--zero { color: var(--mc-red); }
     .zb-inqn--land { animation: zb-inqland 0.35s cubic-bezier(0.2, 1.5, 0.35, 1); }
+    /* ▢ × ▢ = N: the blanks read smaller than the drawn RHS so the
+       number stays the hero the slot machine lands on. --zero / --land
+       ride the value span alone, so only the RHS reddens and pops. */
+    .zb-inqframe { font-size: 0.6em; color: var(--mc-ink-soft); letter-spacing: 0.02em; margin-right: 0.22em; }
+    .zb-inqnval { display: inline-block; }
     @keyframes zb-inqland { from { transform: scale(1.45); } to { transform: scale(1); } }
     .zb-inqlockbadge {
       display: inline-block; font-family: var(--mc-mono); font-weight: 800; font-size: 13px;
@@ -1365,8 +1370,16 @@
     }
     .zb-inqroster__chip { display: inline-flex; align-items: center; gap: 7px; font-size: 0.8125rem; }
     .zb-inqroster__chip.out { opacity: 0.55; }
-    .zb-inqroster__bye { font-size: 0.6875rem; color: var(--mc-ink-faint); border: 1px solid var(--mc-line); border-radius: 4px; padding: 0 4px; }
+    .zb-inqroster__bye,
+    .zb-inqroster__back { font-size: 0.6875rem; border: 1px solid var(--mc-line); border-radius: 4px; padding: 0 4px; }
+    .zb-inqroster__bye { color: var(--mc-ink-faint); }
+    /* 復活: a comeback reads as a gain, not a penalty like the bench */
+    .zb-inqroster__back { font-weight: 700; color: var(--mc-red); border-color: var(--mc-red); }
     .zb-inqtries { gap: 3px; }
+    /* the respawn credit landing: the restored marks pop in */
+    .zb-liveback .mc-tries__dot:not(.used) { animation: zb-liveback 0.45s cubic-bezier(0.2, 1.5, 0.35, 1) both; }
+    .zb-liveback .mc-tries__dot:not(.used):nth-child(n+2) { animation-delay: 0.1s; }
+    @keyframes zb-liveback { from { transform: scale(0.2); opacity: 0; } }
     .zb-inqtries .mc-tries__dot { width: 13px; height: 13px; }
     .zb-inqtries .mc-tries__dot svg { width: 100%; height: 100%; display: block; }
     .zb-inqprimary { min-width: 172px; }
@@ -1390,6 +1403,12 @@
     .zb-inqboard { justify-content: center; }
     .zb-inqboard .zb-inqbign { font-family: var(--mc-mono); font-weight: 800; font-size: clamp(44px, 18vw, 72px); line-height: 1.1; }
     .zb-inqboard .zb-inqbign.zero { color: var(--mc-red); }
+    /* the phone wears the same ▢ × ▢ = N frame: this student is one of
+       the two blanks, the target is what the pair must reach together */
+    .zb-inqeqn { display: inline-flex; align-items: baseline; justify-content: center; gap: 0.1em; flex-wrap: wrap; }
+    /* the hero size on the wrapper, so .zb-inqframe's 0.6em derives the
+       frame from it here exactly as it does on the projector */
+    .zb-inqboard .zb-inqeqn { font-size: clamp(44px, 18vw, 72px); }
     .zb-inqboard .zb-inqcardtag { display: block; width: 100%; font-size: 0.75rem; letter-spacing: 0.08em; color: var(--mc-ink-soft); margin-bottom: 2px; }
     .zb-inqlives { display: inline-flex; }
     /* 探究一/二 take plain 0-99: the sign key leaves the grid entirely
@@ -1414,6 +1433,7 @@
     .zb-stage--projector .zb-inqtries .mc-tries__dot { width: 16px; height: 16px; }
     @media (prefers-reduced-motion: reduce) {
       .zb-inqn--land, .zb-inqboomfx__ring, .zb-inqshake { animation: none !important; }
+      .zb-liveback .mc-tries__dot:not(.used) { animation: none; }
       .zb-inqboomfx::before { animation: none; opacity: 0; }
       .zb-inqboomphone { animation: none; }
     }
@@ -1580,7 +1600,7 @@
       <rect class="zb-dio__wipe" x="-20" y="-4" width="280" height="104"/>
     </svg>
     <div class="mc-meta">
-      <span><svg><use href="#i-clock"/></svg><span data-i18n="duration"></span></span>
+      <span><svg><use href="#i-clock"/></svg><span id="coverDuration"></span></span>
       <span><svg><use href="#i-players"/></svg><span data-i18n="players"></span></span>
     </div>
     </div>
@@ -1800,7 +1820,7 @@
     <!-- the lobby's how-to card moves in here (live node) -->
     <div id="briefHowto"></div>
     <div class="mc-meta">
-      <span><svg><use href="#i-clock"/></svg><span data-i18n="duration_game"></span></span>
+      <span><svg><use href="#i-clock"/></svg><span id="briefDuration"></span></span>
       <span><svg><use href="#i-players"/></svg><span id="briefPlayers"></span></span>
     </div>
     <button class="mc-btn mc-btn--primary mc-btn--block" id="btnBriefStart" style="margin-top:16px" data-key="n">
@@ -1930,7 +1950,10 @@
       <p class="zb-inqrule" id="inqRule"></p>
       <div class="zb-inqtargetwrap" id="inqTargetWrap" style="display:none">
         <div class="mc-board__label" id="inqTargetLabel"></div>
-        <div class="zb-inqn" id="inqN">–</div>
+        <!-- ▢ × ▢ = N: the two blanks say "two things multiplied" out
+             loud, the setup for why guessing them at N is hard but at 0
+             is easy. The slot-machine draws only the RHS (#inqNVal). -->
+        <div class="zb-inqn" id="inqN"><span class="zb-inqframe">▢ × ▢ =</span><span class="zb-inqnval" id="inqNVal">–</span></div>
         <span class="zb-inqlockbadge" id="inqLockBadge" style="display:none"><span data-i18n="inq_locked"></span></span>
         <div class="zb-board zb-inqexpr" id="inqExpr" style="display:none"></div>
       </div>
@@ -2091,8 +2114,8 @@ const STRINGS = {
   /* measured on a full class run: the whole lesson, arc included, lands
    * in 10 to 15 minutes. The briefing screen states the run's own size
    * instead, since we have no separate figure for it. */
-  duration:         { c: "13 座建築 · 全程約 10至15 分鐘", e: "13 buildings · about 10 to 15 min in all" },
-  duration_game:    { c: "13 座建築",   e: "13 buildings" },
+  duration_fmt:     { c: "{n} 座建築 · 全程約 10至15 分鐘", e: "{n} buildings · about 10 to 15 min in all" },
+  duration_game_fmt: { c: "{n} 座建築",  e: "{n} buildings" },
   players:          { c: "1 人或全班",  e: "Solo or whole class" },
   btn_host:         { c: "多裝置開始",  e: "Start · multi-device" },
   btn_solo:         { c: "單機開始",    e: "Start · one screen" },
@@ -2112,8 +2135,10 @@ const STRINGS = {
   lv5:              { c: "重根：一碼雙柱", e: "Double root: one code, both pillars" },
   lv6:              { c: "先因式分解",  e: "Factorise first" },
   lv7:              { c: "先化一般式",  e: "General form first" },
+  lv8:              { c: "先展開，化一般式", e: "Expand into general form" },
   lv_mix:           { c: "混合街",      e: "Mixed street" },
   offset_trap_fmt:  { c: "右邊係 {k}，唔係 0！|要先搬 {k} 過去，|化做一般式：", e: "The right side is {k}, not 0! Move the {k} over into general form first:" },
+  product_trap_fmt: { c: "括號相乘係 {k}，唔係 0！|要先展開，搬 {k} 過去，|化做一般式：", e: "The brackets multiply to {k}, not 0! Expand and move the {k} over into general form first:" },
   graph_tangent:    { c: "重根",        e: "double root" },
   finale_tag:       { c: "最後一條街 · 分數雙倍", e: "Final street · double points" },
   card_contractor:  { c: "承建商 MathConcept", e: "Contractor MathConcept" },
@@ -2123,6 +2148,8 @@ const STRINGS = {
   b4:               { c: "天橋",        e: "Footbridge" },
   b5:               { c: "煙囪",        e: "Chimney" },
   b6:               { c: "大廈",        e: "Tower block" },
+  b7:               { c: "摩天大樓",    e: "Skyscraper" },
+  b8:               { c: "地標高塔",    e: "Landmark tower" },
   lock_think:       { c: "諗一諗⋯",     e: "Think it through…" },
   stamp_demolished: { c: "拆卸完成",    e: "Demolished" },
   stamp_standing:   { c: "未拆除",      e: "Still standing" },
@@ -2278,7 +2305,10 @@ const STRINGS = {
   inq_ko_note:      { c: "生命值歸零！|下一回合做觀察員，|之後復活返嚟。", e: "No lives left! Next round you observe, then you respawn." },
   inq_rebuild:      { c: "本回合等緊復活", e: "Waiting to respawn this round" },
   inq_rebuild_tag:  { c: "復活中",      e: "respawning" },
-  inq_rebuild_note: { c: "你今回合等緊復活，做觀察員：|望住投影幕。|補返 2 個生命值，|下一回合再嚟過。", e: "You're waiting to respawn this round as the observer: watch the big screen. You're back to 2 lives, in again next round." },
+  inq_rebuild_note_fmt: { c: "你今回合等緊復活，做觀察員：|望住投影幕。|下一回合復活返嚟，|補返 {n} 個生命值。", e: "You're waiting to respawn this round as the observer: watch the big screen. Next round you come back with {n} lives." },
+  inq_reborn_tag:   { c: "復活",        e: "back in" },
+  inq_reborn_note_fmt: { c: "你復活返嚟！|補返 {n} 個生命值。", e: "You're back! {n} lives have been restored." },
+  inq_reborn_play:  { c: "今回合可以再出手。", e: "You can play again this round." },
   /* §19 Batch X: 分工 judging on the bridge */
   inq_wrong_factor_fmt: { c: "x = {v} 真係方程嘅解！|不過今次你負責嘅因式係 {f}。", e: "x = {v} does solve the equation! But your factor this time is {f}." },
   /* the 分工 reveal reads each member against their OWN bracket - the
@@ -2364,12 +2394,19 @@ const CFG = {
   rounds: numList(Q.get("rounds")),
   fuse: parseFloat(Q.get("fuse")) || 0,
   grace: Q.get("grace") !== null ? Math.max(0, parseFloat(Q.get("grace")) || 0) : 6,
-  // 探究模式 (SM901 活動二): rounds per stage, answer window, lives
+  // 探究模式 (SM901 活動二): rounds per stage, answer window, lives.
+  // Stage 2 (every pair on 0) makes its point fast, so it runs shorter
+  // than 探究一's target hunt - three looks, not five.
   inqRounds: Math.max(1, parseInt(Q.get("inqrounds"), 10) || 5),
+  inqRounds2: Math.max(1, parseInt(Q.get("inqrounds2"), 10) || 3),
   inqFuse: Math.max(1, parseFloat(Q.get("inqfuse")) || 15) * 1000,
   inqHearts: Math.max(1, parseInt(Q.get("inqhearts"), 10) || 6),
 };
 const PLAN = ZBLevels.planFromConfig(CFG);
+/* how many buildings this run stands up. The plan is config-driven
+ * (?levels / ?rounds / ?diff), so the cover and the briefing read the
+ * count off it instead of carrying a number in the copy. */
+const PLAN_SIZE = PLAN.reduce((n, stage) => n + stage.rounds, 0);
 
 /* 探究一's target pool, presented as a random draw but scripted for
  * difficulty: friendly composites first, then heavy-factor numbers,
@@ -2387,6 +2424,10 @@ const INQ_BRIDGE = [[3, -2], [5, -4], [0, 7], [3, 3]];
 /* the reveal rows' flat member keys: aId/aN/aV(/aC), bId…, cId… (trio).
  * Flat scalars keep every leaf inside the deployed RTDB depth clamp. */
 const INQ_KEYS = ["a", "b", "c"];
+/* lives a rebuilt player comes back with: enough to keep playing, few
+ * enough that the fall still cost something. Credited when they RETURN
+ * (§19 Batch AC), so a benched phone reads a true empty strip. */
+const INQ_REBUILD_LIVES = Math.min(2, CFG.inqHearts);
 
 /* ══════════════════════════════════════════════════════════════════
  * scene rendering — blueprint structures drawn on the graph paper
@@ -2467,15 +2508,24 @@ function dressVariant(level) {
   return ((level.seq * 2654435761) >>> 20) % 3;
 }
 
+/* which building a kind stands on the street. The gates (7, 8) are the
+ * expanded street's tower - they differ in the maths on the board, not
+ * in what gets demolished - so the scene switches all read this and a
+ * new kind joins the street by one entry here. Left as level.n only
+ * where the number IS the point (the report silhouettes, debris scale). */
+const SCENE_N = { 7: 6, 8: 6 };
+function sceneN(level) {
+  return SCENE_N[level.n] || level.n;
+}
+
 function deckWash(level) {
-  switch (level.n) {
+  switch (sceneN(level)) {
     case 1: return [W("223,106 228,104 228,142 223,142")];
     case 2: return [W("228,108 234,106 234,142 228,142"), W("212,120 216,118 216,142 212,142")];
     case 3: return [W("270,73 276,70 276,142 270,142"), W("124,70 276,70 272,74 128,74"), W("192,128 196,126 196,142 192,142")];
     case 4: return [W("150,122 156,120 156,142 150,142"), W("270,122 276,120 276,142 270,142")];
     case 5: return [W("212,46 218,44 218,142 212,142")];
-    case 6:
-    case 7: return [W("262,66 268,64 268,142 262,142"), W("238,36 244,34 244,64 238,64"), W("156,64 244,64 240,68 160,68"), W("194,129 198,127 198,142 194,142")];
+    case 6: return [W("262,66 268,64 268,142 262,142"), W("238,36 244,34 244,64 238,64"), W("156,64 244,64 240,68 160,68"), W("194,129 198,127 198,142 194,142")];
   }
   return [];
 }
@@ -2483,7 +2533,7 @@ function deckWash(level) {
 function deckDress(level, i0) {
   const v = dressVariant(level);
   const parts = [];
-  switch (level.n) {
+  switch (sceneN(level)) {
     case 1:
       if (v === 1) parts.push(PX("M212 95.5 v-8 h5 v7.5", "thin", i0 + 2));
       if (v === 2) parts.push(PX("M174 142 v-8 h8 v8 M176 134 v-6 h7 v6", "thin", i0 + 2));
@@ -2512,7 +2562,6 @@ function deckDress(level, i0) {
       if (v === 2) parts.push(PX("M182 62 h-9 M173 62 v-7 M173 55 h9", "thin", i0 + 2));
       break;
     case 6:
-    case 7:
       parts.push(PX("M194 142 v-15 h12 v15", "", i0 + 4));
       parts.push(PX("M152 122 v10 M248 122 v10 M152 100 v10 M200 100 v10 M248 100 v10 M152 78 v10 M200 78 v10 M248 78 v10", "thin faint", i0 + 5));
       if (v === 0) parts.push(PX("M216 34 v-6 M226 34 v-6 M213 28 h16 v-7 h-16 z", "thin", i0 + 2));
@@ -2537,7 +2586,7 @@ function deckParts(level, xs) {
 }
 
 function basePartsOf(level, xs, beam) {
-  switch (level.n) {
+  switch (sceneN(level)) {
     case 1: return [beam,
       P("M172 142 h56 v-38 h-56 z"),
       P("M172 118 h56 M172 130 h56", "thin"),
@@ -2564,8 +2613,7 @@ function basePartsOf(level, xs, beam) {
       P("M182 142 L188 44 h24 L218 142"),
       P("M184 118 h32 M186 92 h28 M187 68 h26", "thin"),
       P("M188 44 h24 v-10 h-24 z", "thin") + haz(200, 31)];
-    case 6:
-    case 7: return [beam,
+    case 6: return [beam,
       P("M132 142 V64 h136 V142"),
       P("M144 122 h16 v10 h-16 z M240 122 h16 v10 h-16 z", "thin"),
       P("M144 100 h16 v10 h-16 z M186 100 h28 v10 h-28 z M240 100 h16 v10 h-16 z", "thin"),
@@ -2594,15 +2642,14 @@ function chunkDeck(parts) {
 }
 
 /* dark-mode life: faint window lights inside the buildings that have
- * windows (kinds 2, 3, 6), dying one by one as the pillars fall */
+ * windows (scenes 2, 3, 6), dying one by one as the pillars fall */
 const WINDOW_LIGHTS = {
   2: [[183, 122]],
   3: [[147, 125], [243, 125], [147, 89], [195, 89], [243, 89]],
   6: [[152, 127], [248, 127], [152, 105], [200, 105], [248, 105], [152, 83], [200, 83], [248, 83]],
-  7: [[152, 127], [248, 127], [152, 105], [200, 105], [248, 105], [152, 83], [200, 83], [248, 83]],
 };
 function lightsSvg(level) {
-  const pts = WINDOW_LIGHTS[level.n];
+  const pts = WINDOW_LIGHTS[sceneN(level)];
   if (!pts) return "";
   return `<g class="zb-lights" id="lights">${pts.map(p =>
     `<rect x="${p[0] - 5}" y="${p[1] - 3.5}" width="10" height="7" rx="1"/>`).join("")}</g>`;
@@ -2949,7 +2996,8 @@ function graphLabel(level) {
     case "expanded": return "y = " + level.expr.replace(/\s*=\s*0$/, "");
     // the gate sketches its GENERAL form: the curve that crosses at
     // the true roots is x² + bx + (c − k)
-    case "offset": return "y = " + ZBLevels.quadText(level.b, level.c - level.k);
+    case "offset":
+    case "product": return "y = " + ZBLevels.generalForm(level);
     default: return "y = " + ps[0].label + ps[1].label;
   }
 }
@@ -3035,15 +3083,19 @@ function mathHtml(s) {
   return String(s).replace(/x/g, '<i class="zb-var">x</i>');
 }
 
-/* the gate's trap (§19 Batch AA): the guess zeroes the DISPLAYED left
- * side, but the right side isn't 0 - localized per device, so it lives
- * here and not in the wire's language-neutral working lines */
-function offsetTrapLines(level, v) {
-  if (!level || level.kind !== "offset" || typeof level.b !== "number") return [];
-  if (v * v + level.b * v + level.c !== 0) return [];
+/* the gates' trap (§19 Batch AA/AB): the guess zeroes the DISPLAYED left
+ * side, but the right side isn't 0. ZBLevels owns which answers qualify;
+ * only the wording lives here, localized per device and so kept out of
+ * the wire's language-neutral working lines. The offset gate's read-off
+ * zeroes the quad on the board; the product gate's zeroes ONE shown
+ * bracket, which proves nothing when the brackets multiply to 39. */
+function trapLines(level, v) {
+  if (!level || typeof level.b !== "number") return [];
+  const trap = ZBLevels.trapAnswer(level, v);
+  if (!trap) return [];
   return [
-    fmt("offset_trap_fmt", { k: ZBLevels.num(level.k) }),
-    mathHtml(escapeText(ZBLevels.quadText(level.b, level.c - level.k) + " = 0")),
+    fmt(level.kind === "product" ? "product_trap_fmt" : "offset_trap_fmt", { k: ZBLevels.num(trap.k) }),
+    mathHtml(escapeText(ZBLevels.generalForm(level) + " = 0")),
   ];
 }
 function svgMath(s) {
@@ -3060,9 +3112,10 @@ function exprHtml(expr) {
  * Level text renders escaped: on a phone the level arrives from room
  * state, which player names never write but rules alone guarantee. */
 function boardHtml(level) {
-  // kind 7 rides the same spanless path: its "= 2" tail passes through
-  // exprHtml unstyled - the MISSING red 0 is the tell (§19 Batch AA)
-  if (level.kind === "expanded" || level.kind === "offset") return exprHtml(level.expr);
+  // kinds 7-8 ride the same spanless path: their "= 2" / "= 39" tail
+  // passes through exprHtml unstyled - the MISSING red 0 is the tell
+  // (§19 Batch AA/AB)
+  if (ZBLevels.hidesFactors(level)) return exprHtml(level.expr);
   const span = (ids, text) =>
     `<span class="zb-factor" data-fids="${ids.join(" ")}">${mathHtml(escapeText(text))}</span>`;
   const tail = ' = <span class="zb-zero">0</span>';
@@ -3159,7 +3212,7 @@ function endCeremonyAudio() {
   gsap.timeline()
     .addLabel("stars", 0.3)
     .addLabel("chop", 1.25)
-    .call(() => ZBFX.audio.chime(), null, "stars")
+    .call(() => { ZBFX.audio.chime(); ZBFX.bgm.duck(500); }, null, "stars")
     .call(() => ZBFX.audio.stampSoft(), null, "chop");
 }
 
@@ -3469,7 +3522,7 @@ $("btnMenu").onclick = () => {
     G.room.close();
     G.room = null; G.started = false; G.players = {}; G.processedSeq = {};
   }
-  ZBFX.bgm.stop(); // back on the cover: the diorama plays silent
+  ZBFX.bgm.setIntensity("cover"); // back on the cover, back to its groove
   applyProjector();
   show("introScreen");
 };
@@ -3497,6 +3550,8 @@ function refreshDynamicText() {
     $("levelCardChop").style.display = G.level.finale ? "" : "none";
   }
   $("takeawayOr").textContent = t("or");
+  $("coverDuration").textContent = fmt("duration_fmt", { n: PLAN_SIZE });
+  $("briefDuration").textContent = fmt("duration_game_fmt", { n: PLAN_SIZE });
   if ($("inquiryScreen").classList.contains("active") && G.inq) {
     G.inqRosterKey = null; // the roster's labels re-render in the new language
     renderInqStage();
@@ -3665,7 +3720,7 @@ function startLevel(resume) {
     G.claimed.forEach(id => {
       const p = level.pillars.find(p => p.id === id);
       if (!p) return;
-      if (level.kind === "expanded" || level.kind === "offset") revealPlaque(id, p);
+      if (p.hidden) revealPlaque(id, p);
       const c = G.claimsBy[id];
       blowPillar(id, p.root, c && c.name);
     });
@@ -3953,7 +4008,7 @@ function submitCode(v, player) {
     G.streak = 0;
     renderStreak($("stars"), 0);
     const lines = ZBLevels.workingWrong(level, v).map(mathHtml)
-      .concat(offsetTrapLines(level, v))
+      .concat(trapLines(level, v))
       .concat([fmt("note_strength", { n: ZBLevels.strength(level, v) })]);
     $("markZone").innerHTML = markHtml("wrong", lines);
     $("exprBoard").classList.add("mc-shake");
@@ -3977,13 +4032,11 @@ function submitCode(v, player) {
   floatPoints(pts, pillarX(res.hit[0]));
   renderStreak($("stars"), G.streak);
 
-  // L6: reveal the hidden factor on the plaque just before it blows
-  if (level.kind === "expanded" || level.kind === "offset") {
-    res.hit.forEach(id => {
-      const p = level.pillars.find(p => p.id === id);
-      revealPlaque(id, p);
-    });
-  }
+  // L6/L7/L8: the hidden factor comes off the plaque just before it blows
+  res.hit.forEach(id => {
+    const p = level.pillars.find(p => p.id === id);
+    if (p.hidden) revealPlaque(id, p);
+  });
 
   res.hit.forEach(id => {
     const p = level.pillars.find(p => p.id === id);
@@ -4077,12 +4130,10 @@ function hostVerdict(player, v, res) {
   G.scoredRound[player.id] = true;
   recordSolveMs(player.id);
 
-  if (level.kind === "expanded" || level.kind === "offset") {
-    res.hit.forEach(id => {
-      const p = level.pillars.find(p => p.id === id);
-      revealPlaque(id, p);
-    });
-  }
+  res.hit.forEach(id => {
+    const p = level.pillars.find(p => p.id === id);
+    if (p.hidden) revealPlaque(id, p);
+  });
   res.hit.forEach(id => {
     const p = level.pillars.find(p => p.id === id);
     G.claimed.push(id);
@@ -4215,6 +4266,7 @@ const MINI_SIL = {
   5: "M12 34 h16 M15 34 L17 8 h6 L25 34",
   6: "M6 34 h28 M10 34 V12 h20 V34 M14 12 V6 h12 V12 M20 6 V2",
   7: "M6 34 h28 M10 34 V12 h20 V34 M10 23 h20 M14 12 V6 h12 V12 M20 6 V2 h6",
+  8: "M4 34 h32 M12 34 V14 h16 V34 M12 24 h16 M16 14 V8 h8 V14 M20 8 V3 M17 5 h6",
 };
 function renderStreet() {
   const el = $("streetStrip");
@@ -4271,6 +4323,11 @@ function saveHostRun() {
         n: G.inq.n, roots: G.inq.roots, exprA: G.inq.exprA, exprB: G.inq.exprB,
         hearts: G.inq.hearts, lastReveal: G.inq.lastReveal, theorem: G.inq.theorem,
         lastBye: G.inq.lastBye, extra: G.inq.extra, koed: G.inq.koed, hist: G.inq.hist,
+        // the bench must survive an F5: it is what credits the fallen
+        // back on their return round, and the comeback tag rides with it
+        // (§19 Batch AC). A round in flight is re-rolled by inqStartRound,
+        // which forgives whatever bench time was left - never the reverse.
+        rebuild: G.inq.rebuild, reborn: G.inq.reborn,
       } : null,
     }));
   } catch (_) {}
@@ -4590,7 +4647,7 @@ function endGame() {
   // a tutor may end from inside a pause: the veil must not outlive the run
   G.paused = false;
   $("pauseVeil").style.display = "none";
-  ZBFX.bgm.stop(); // the report's ceremony one-shots own the end screen
+  ZBFX.bgm.setIntensity("report"); // the wind-down groove under the ceremony
   if (G.mode === "host") {
     clearHostRun();
     const results = Object.keys(G.players).map(id => ({
@@ -5040,7 +5097,7 @@ document.addEventListener("keydown", e => {
 function inqRoundsTotal(stage) {
   // extra: rounds the tutor added live (加多一回合) when the class
   // needed another look, per stage
-  const base = stage === 3 ? INQ_BRIDGE.length : CFG.inqRounds;
+  const base = stage === 3 ? INQ_BRIDGE.length : stage === 2 ? CFG.inqRounds2 : CFG.inqRounds;
   return base + ((G.inq && G.inq.extra && G.inq.extra[stage]) || 0);
 }
 
@@ -5120,8 +5177,11 @@ function inqStatePayload() {
     // why); it narrows nothing about who is paired with whom
     bye: inq.bye || null,
     // the rebuild bench, same deal: a flat comma-joined pid list so the
-    // benched phones wear the 等緊復活 face (§19 Batch W)
+    // benched phones wear the 等緊復活 face (§19 Batch W). reborn is the
+    // other half of that beat: who just came back, so the two lives on
+    // their strip read as a refill (§19 Batch AC).
     rebuild: inq.rebuild && inq.rebuild.length ? inq.rebuild.join(",") : null,
+    reborn: inq.reborn && inq.reborn.length ? inq.reborn.join(",") : null,
     // any arc publish means the arc is live: a briefing flag left over
     // from a host refresh mid-handover can never strand a phone (§19.4)
     brief: null,
@@ -5139,7 +5199,7 @@ function startInquiry(fromStage) {
     pairs: [], hearts: {}, collect: {}, open: false, cards: null,
     lastReveal: null, theorem: false,
     bye: null, lastBye: null, extra: {},
-    rebuild: [], koed: {}, // §19: benched-this-round pids + ever-KO'd (生還者)
+    rebuild: [], reborn: [], koed: {}, // §19: benched / just-back pids + ever-KO'd (生還者)
     hist: [], // §19 Batch Y: 探究一's per-round {n, k passes, m pairs}
   };
   Object.keys(G.players).forEach(pid => { G.inq.hearts[pid] = CFG.inqHearts; });
@@ -5191,12 +5251,20 @@ function inqStartRound() {
     if (typeof inq.hearts[pid] !== "number") inq.hearts[pid] = CFG.inqHearts;
   });
   // §19 Batch W: KO'd buildings rebuild - benched for THIS round as
-  // observers, credited back to 2 hearts, paired again next round.
+  // observers, then paired again with a fresh pair of lives.
+  // §19 Batch AC: the credit lands on the way BACK, not at the fall.
+  // Crediting it at the fall left the benched phone showing 2 lives
+  // while it also said "you are out this round", which read as a bug.
+  // Empty strip while out, a visible refill on return.
   // Pity rule: if benching would leave fewer than 2 active players,
   // nobody is benched - everyone rebuilds on the spot instead.
-  const ko = allIds.filter(pid => inq.hearts[pid] <= 0);
-  inq.rebuild = allIds.length - ko.length >= 2 ? ko : [];
-  ko.forEach(pid => { inq.hearts[pid] = 2; });
+  const atZero = allIds.filter(pid => inq.hearts[pid] <= 0);
+  const fresh = atZero.filter(pid => (inq.rebuild || []).indexOf(pid) === -1);
+  inq.rebuild = allIds.length - fresh.length >= 2 ? fresh : [];
+  // at zero and not sitting out: either the bench has been served, or
+  // the pity rule waived it
+  inq.reborn = atZero.filter(pid => inq.rebuild.indexOf(pid) === -1);
+  inq.reborn.forEach(pid => { inq.hearts[pid] = INQ_REBUILD_LIVES; });
   const deal = inqMakePairs(allIds.filter(pid => inq.rebuild.indexOf(pid) === -1));
   inq.pairs = deal.pairs;
   inq.bye = deal.bye;
@@ -5455,7 +5523,7 @@ function inqBoomFx() {
  * INQ_POOL. No roll when instant (a reveal repaint), under reduced
  * motion, or for N = 0 (探究二) - the 0 lands as a stamp. */
 function inqSlotTo(n, instant) {
-  const el = $("inqN");
+  const el = $("inqNVal"); // the RHS only; ▢ × ▢ = stays put in the frame
   clearInterval(G.inqSlotIv);
   el.classList.toggle("zb-inqn--zero", n === 0);
   if (instant || ZBFX.reduced || n === 0) { el.textContent = String(n); return; }
@@ -5469,7 +5537,9 @@ function inqSlotTo(n, instant) {
       setTimeout(() => el.classList.remove("zb-inqn--land"), 420);
       ZBFX.audio.stampSoft();
     } else {
-      el.textContent = String(Math.floor(Math.random() * 100));
+      // two digits all the way down: a single-digit tick would shrink
+      // the value and twitch the ▢ × ▢ = frame sideways mid-spin
+      el.textContent = String(10 + Math.floor(Math.random() * 90));
     }
   }, 65);
 }
@@ -5488,15 +5558,29 @@ function renderInqRoster() {
   if (!inq) return;
   const ids = Object.keys(G.players);
   ids.sort((a, b) => (inq.hearts[b] || 0) - (inq.hearts[a] || 0));
+  // 輪空 and 復活 label a round: the seat you drew, the comeback you just
+  // made. Both go when the round does, so the recap and the next stage's
+  // intro read as plain standings. 復活中 is not a label but a standing
+  // state - at 0 and due back - so it holds across those screens, where
+  // it is the only thing telling an empty strip apart from a dead one.
+  // (The bench list itself must survive regardless: inqStartRound reads
+  // it to know who has already served their round out.)
+  const live = inq.step === "round" || inq.step === "reveal";
   // snapshots far outnumber roster changes (every sub write is one):
   // repaint only when the players, their lives, the bye or the bench moved
-  const key = ids.map(id => id + ":" + inq.hearts[id]).join("|") + "|" + (inq.bye || "") + "|" + (inq.rebuild || []).join(",");
+  const key = ids.map(id => id + ":" + inq.hearts[id]).join("|") + "|" + (inq.bye || "")
+    + "|" + (inq.rebuild || []).join(",") + "|" + (inq.reborn || []).join(",") + "|" + live;
   if (key === G.inqRosterKey) return;
   G.inqRosterKey = key;
   $("inqRoster").innerHTML = ids.map(id => {
     const h = typeof inq.hearts[id] === "number" ? inq.hearts[id] : CFG.inqHearts;
-    const tag = id === inq.bye ? ` <span class="zb-inqroster__bye">${t("inq_bye_tag")}</span>`
-      : (inq.rebuild || []).indexOf(id) !== -1 ? ` <span class="zb-inqroster__bye">${t("inq_rebuild_tag")}</span>` : "";
+    // 復活 holds for the whole comeback round: it is what explains a strip
+    // standing at 2 of 6 (§19 Batch AC), and it stacks with 輪空, since a
+    // player can come back and still draw the odd seat out.
+    const back = live && (inq.reborn || []).indexOf(id) !== -1
+      ? ` <span class="zb-inqroster__back">${t("inq_reborn_tag")}</span>` : "";
+    const tag = back + (live && id === inq.bye ? ` <span class="zb-inqroster__bye">${t("inq_bye_tag")}</span>`
+      : (inq.rebuild || []).indexOf(id) !== -1 ? ` <span class="zb-inqroster__bye">${t("inq_rebuild_tag")}</span>` : "");
     return `<span class="zb-inqroster__chip${h <= 0 ? " out" : ""}">${escapeText((G.players[id] || {}).name || t("player"))}${tag} ${inqLivesHtml(h)}</span>`;
   }).join("");
 }
@@ -5748,7 +5832,7 @@ function resumeInquiry(saved) {
     pairs: [], hearts: si.hearts || {}, collect: {}, open: false, cards: null,
     lastReveal: si.lastReveal || null, theorem: !!si.theorem,
     bye: null, lastBye: si.lastBye || null, extra: si.extra || {},
-    rebuild: [], koed: si.koed || {}, hist: si.hist || [],
+    rebuild: si.rebuild || [], reborn: si.reborn || [], koed: si.koed || {}, hist: si.hist || [],
   };
   G.room.update("players", G.players);
   G.watcher = G.room.watch(onHostRoom);
@@ -5887,11 +5971,14 @@ function sanitizeLevel(raw) {
     stageKind: raw.stageKind === "mix" ? "mix" : saneNum(raw.stageKind),
     fuseMs: saneNum(raw.fuseMs), finale: !!raw.finale, hard: !!raw.hard,
     konst: saneNum(raw.konst), b: saneNum(raw.b), c: saneNum(raw.c), k: saneNum(raw.k),
+    // the product gate's DISPLAYED brackets (roots 6, −4): the phone needs
+    // them to fire its own read-off trap nudge (§19 Batch AB)
   };
   if (lv.n == null || lv.seq == null || lv.fuseMs == null) return null;
   if (lv.kind === "numeric" && lv.konst == null) return null;
   if (lv.kind === "expanded" && (lv.b == null || lv.c == null)) return null;
   if (lv.kind === "offset" && (lv.b == null || lv.c == null || lv.k == null)) return null;
+  if (lv.kind === "product" && (lv.b == null || lv.c == null || lv.k == null)) return null;
   lv.pillars = raw.pillars.map(p => p && {
     id: p.id === "p1" || p.id === "p2" ? p.id : null,
     // null on a current host: the answer key is stripped from published
@@ -6062,7 +6149,9 @@ function sanitizeInq(raw) {
     roundsTotal: saneNum(raw.roundsTotal) || 0,
     seq: saneNum(raw.seq) || 0,
     step: ["intro", "round", "reveal", "summary"].indexOf(raw.step) !== -1 ? raw.step : "intro",
-    heartsMax: saneNum(raw.heartsMax) || 5,
+    heartsMax: saneNum(raw.heartsMax) || CFG.inqHearts, // the wire always
+    // carries it, but a literal here drew a different number of circles
+    // than the roster the one time it fell through
     n: saneNum(raw.n),
     exprA: raw.exprA ? String(raw.exprA).slice(0, 40) : null,
     exprB: raw.exprB ? String(raw.exprB).slice(0, 40) : null,
@@ -6071,6 +6160,7 @@ function sanitizeInq(raw) {
     // the rebuild bench: comma-joined pids (§19 Batch W); generous cap,
     // a full 40-player room of KO'd ids still fits
     rebuild: raw.rebuild ? String(raw.rebuild).slice(0, 1200) : null,
+    reborn: raw.reborn ? String(raw.reborn).slice(0, 1200) : null,
     // §19.4: the arc is over and the tutor is briefing the main game
     brief: !!raw.brief,
   };
@@ -6078,13 +6168,36 @@ function sanitizeInq(raw) {
   return inq;
 }
 
+/* am I on one of the arc's published pid lists? the bench and the
+ * just-back list both travel as flat comma-joined ids (§19) */
+function inqListHasMe(list) {
+  return typeof list === "string" && list.split(",").indexOf(C.id) !== -1;
+}
+
 function renderCtrlInqLives(hearts) {
   const inq = C.inq;
   if (!inq) return;
   const h = hearts && typeof hearts[C.id] === "number" ? hearts[C.id] : inq.heartsMax;
   if (h === C.myHearts) return; // snapshots far outnumber heart changes
+  // lives only ever climb on a respawn: pop the credited marks in so
+  // standing at 2 of 6 reads as a refill, not as four losses (Batch AC).
+  // The climb, not the published reborn list, is the trigger: that list
+  // stands for the whole comeback round, including the reveal where the
+  // same phone can LOSE a life.
+  const gained = C.myHearts !== null && h > C.myHearts;
   C.myHearts = h;
-  $("ctrlInqLives").innerHTML = inqLivesHtml(h, inq.heartsMax);
+  const box = $("ctrlInqLives");
+  box.innerHTML = inqLivesHtml(h, inq.heartsMax);
+  box.classList.toggle("zb-liveback", gained);
+}
+
+/* the phone's ▢ × ▢ = N target: the same pair-product frame the
+ * projector shows - this student fills one of the two blanks, the
+ * pair reaches N together (§19 Batch AB) */
+function inqTargetHtml(n) {
+  const val = typeof n === "number" ? n : "?";
+  return '<span class="zb-inqeqn"><span class="zb-inqframe">▢ × ▢ =</span>'
+    + `<span class="zb-inqbign${n === 0 ? " zero" : ""}">${val}</span></span>`;
 }
 
 /* the round face: target (or factor card) + pad, reset per round/step */
@@ -6112,7 +6225,10 @@ function renderCtrlInqFace(inq, st) {
     return;
   }
   if (inq.step === "round") {
-    const rebuilding = typeof inq.rebuild === "string" && inq.rebuild.split(",").indexOf(C.id) !== -1;
+    const rebuilding = inqListHasMe(inq.rebuild);
+    // the comeback line rides on whichever face this round hands them:
+    // back in play, or back but drawn as the bye (Batch AC)
+    const reborn = inqListHasMe(inq.reborn) ? fmt("inq_reborn_note_fmt", { n: INQ_REBUILD_LIVES }) : null;
     if (rebuilding || inq.bye === C.id) {
       // benched: the rotating bye (odd headcount) or the rebuild round
       // after a KO (§19 Batch W) - either way, observe, no pad, no risk
@@ -6121,11 +6237,22 @@ function renderCtrlInqFace(inq, st) {
       $("ctrlInqPadWrap").style.display = "none";
       const label = rebuilding ? t("inq_rebuild") : t("inq_bye");
       target.innerHTML = `<span class="zb-inqcardtag">${inqStageName(inq.stage)}</span>${label}`;
-      $("ctrlInqMark").innerHTML = markHtml("info", [escapeText(t(rebuilding ? "inq_rebuild_note" : "inq_bye_note"))]);
+      // a comeback and the bench are exclusive, so a reborn player on
+      // this face was drawn as the bye: the refill line leads, the seat
+      // note explains the wait
+      const notes = rebuilding
+        ? [fmt("inq_rebuild_note_fmt", { n: INQ_REBUILD_LIVES })]
+        : reborn ? [reborn, t("inq_bye_note")] : [t("inq_bye_note")];
+      $("ctrlInqMark").innerHTML = markHtml("info", notes.map(escapeText));
       ctrlStatus(label);
     } else {
       C.inqOpen = true;
-      $("ctrlInqMark").innerHTML = "";
+      // the comeback round opens with the refill spelled out: an empty
+      // strip filling to 2 needs a sentence, not a guess (Batch AC).
+      // Only here does the comeback also mean a turn - a returning
+      // player can still draw the bye, and that face says its own wait.
+      $("ctrlInqMark").innerHTML = reborn
+        ? markHtml("info", [reborn, t("inq_reborn_play")].map(escapeText)) : "";
       if (inq.stage === 3) {
         // the WHOLE equation, with the dealt factor underlined as the
         // assignment - 分工: zero YOUR bracket (§19 Batch X). A
@@ -6143,7 +6270,7 @@ function renderCtrlInqFace(inq, st) {
         }
         ctrlStatus(t("inq_factor_goal"));
       } else {
-        target.innerHTML = `<span class="zb-inqbign${inq.n === 0 ? " zero" : ""}">${typeof inq.n === "number" ? inq.n : "?"}</span>`;
+        target.innerHTML = inqTargetHtml(inq.n);
         ctrlStatus(t("inq_pick_hint"));
       }
       $("ctrlInqPadWrap").style.display = "";
@@ -6155,9 +6282,9 @@ function renderCtrlInqFace(inq, st) {
     $("ctrlInqPadWrap").style.display = "none";
     if (inq.step === "intro") {
       $("ctrlInqMark").innerHTML = markHtml("info", [escapeText(t("inq_rule" + inq.stage))]);
-      // 探究二's intro is the lock moment on the phone too
+      // 探究二's intro is the lock moment on the phone too: ▢ × ▢ = 0
       target.innerHTML = inq.stage === 2
-        ? '<span class="zb-inqbign zero">0</span>'
+        ? inqTargetHtml(0)
         : `<span class="zb-inqcardtag">${t("inq_title")}</span>${inqStageName(inq.stage)}`;
       ctrlStatus(t("inq_wait_round"));
     } else if (inq.step === "summary") {
@@ -6203,7 +6330,7 @@ function renderCtrlInqResult(rv, hearts) {
   });
   if (!row) {
     // no row holds me: benched (bye or rebuild) or joined mid-round
-    const benched = C.inq && typeof C.inq.rebuild === "string" && C.inq.rebuild.split(",").indexOf(C.id) !== -1;
+    const benched = !!C.inq && inqListHasMe(C.inq.rebuild);
     ctrlStatus(benched ? t("inq_rebuild") : C.inq && C.inq.bye === C.id ? t("inq_bye") : t("inq_join_next"));
     return;
   }
@@ -6246,7 +6373,7 @@ function renderCtrlInqResult(rv, hearts) {
   }
   // a KO reads as its own beat: the rebuild bench picks them up next
   // round (§19 Batch W). Hearts at 0 on a reveal always mean the fall
-  // just happened - every round start credits KO'd players back to 2.
+  // just happened - a benched phone holds no row and never gets here.
   const koLine = hearts && hearts[C.id] === 0 ? t("inq_ko_note") : null;
   if (row.boom) {
     lines.push(t("inq_boom_note")); // the note already counts the lives
@@ -6588,7 +6715,7 @@ function applyCtrlVerdict(v) {
     ZBFX.vibrate(v.hit > 1 ? [60, 40, 130] : 80);
   } else {
     renderStreak($("ctrlStars"), 0);
-    const lines = (hostWorking || []).concat(offsetTrapLines(C.level, v.v)).concat(
+    const lines = (hostWorking || []).concat(trapLines(C.level, v.v)).concat(
       typeof v.strength === "number" ? [fmt("note_strength", { n: v.strength })] : []);
     $("ctrlMark").innerHTML = markHtml("wrong", lines);
     $("ctrlExpr").classList.add("mc-shake");
@@ -6634,9 +6761,12 @@ function ctrlEnd(results) {
 if (GameBridge.roomParam()) {
   initController();
 } else {
-  // this tab is the big stage (menu -> solo or host): the groove may
-  // play here once a tier is set post-gesture; controllers never allow
+  // this tab is the big stage (menu -> solo or host): controllers never
+  // allow. The cover opens on its own groove - sound starts off until
+  // the tutor opts in, so no audio graph is built and nothing sounds
+  // before then, and the opt-in itself syncs the groove (fx.js onChange).
   ZBFX.bgm.allow(true);
+  ZBFX.bgm.setIntensity("cover");
   // a host-side run snapshot in this tab offers 繼續上一場
   const savedRun = pendingHostRun();
   if (savedRun) {
