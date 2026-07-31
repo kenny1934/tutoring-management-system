@@ -32,7 +32,7 @@ def _open_days(*, closed=()):
 
 
 MSA_OPEN_DAYS = _open_days()
-MSB_OPEN_DAYS = _open_days(closed=("Tuesday", "Wednesday"))
+MSB_OPEN_DAYS = _open_days()  # opened Tue + Wed for the 2026 September intake
 
 # The Back to School offer, kept here so re-seeding the config does not wipe
 # what migration 143 set up. Only tuition_amount is money moving through an
@@ -88,8 +88,8 @@ CONFIG_2026 = {
             "address": "澳門士多紐拜斯大馬路47B號楹峯疊翠地下A座",
             "address_en": "Avenida de Sidonio Pais No. 47B, The Paramount, A R/C, Macau",
             "open_days": MSB_OPEN_DAYS,
-            "open_days_label": "星期二、三休息",
-            "open_days_label_en": "Closed on Tue & Wed",
+            "open_days_label": "一星期開七日",
+            "open_days_label_en": "Open 7 days a week",
             "time_slots": _slots_for(MSB_OPEN_DAYS),
         },
     ]),

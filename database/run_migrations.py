@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "145_regular_open_days_week_order.sql",
+    "146_regular_msb_open_seven_days.sql",
 ]
 
 def main():
