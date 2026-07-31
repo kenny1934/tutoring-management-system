@@ -272,8 +272,8 @@ export function StudentInfoStep({
 
               <p className="text-[11px] text-amber-800 leading-relaxed border-t border-amber-200/70 pt-2">
                 {t(
-                  "此優惠只適用於從未於 MathConcept 就讀的新生。導師會於聯絡時確認您是否合資格。",
-                  "This offer is for new students who have never studied at MathConcept. Our team will confirm your eligibility when they contact you.",
+                  "此優惠只適用於從未於 MathConcept 就讀的新生。",
+                  "This offer is for new students who have never studied at MathConcept.",
                   lang
                 )}
               </p>
