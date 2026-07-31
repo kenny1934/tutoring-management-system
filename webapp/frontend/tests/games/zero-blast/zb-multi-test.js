@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (206 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (253 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,14 +18,15 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 206 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 253 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
- * one building per stage, kinds 1..6 in order, deterministic:
+ * one building per stage, kinds 1..8 in order, deterministic:
  *   1: 2 × ▢ = 0 (root 0)      2: (x−2) = 0 (root 2)
  *   3: (x−9)(x−7) = 0 (9, 7)   4: (x+5)(x−4) = 0 (−5, 4)
  *   5: (x−3)² = 0 (double 3)   6: x² + 4x − 5 = 0 (−5, 1)
+ *   7: x² + 5x + 6 = 2 (gate, −1, −4)   8: (x−6)(x+4) = 39 (finale, 9, −7)
  *
  * After the original run the suite exercises the fix batches: 再拆一次
  * restart (phones must come back to life — the audit's #1 finding),
@@ -36,12 +37,15 @@
  * The final section runs 探究模式 · 等式開口中 (SM901 活動二) in a
  * fresh room with ?inqrounds=2: the full arc 探究一 (A×B=N, secret
  * pairing, no pairing data on the wire) → 探究二 (N locked at 0, the
- * 0×0 boom fired by the real deadline path) → 概念轉化 (one equation,
- * one shared x: hint factors, negative roots, either-root-passes, the
- * 或-note) → host F5 recovery mid-arc → the rotating bye on an odd
- * headcount (late joiner) → tutor controls (加多一回合, stage jump)
- * → handover into the main game (inq state keys dropped, a live
- * verdict round-trip).
+ * 0×0 boom fired by the real deadline path, no hearts refill at the
+ * handover - §19's one pool) → 概念轉化 (分工 judging: each partner
+ * zeroes their OWN underlined factor, the partner's-root fail with
+ * its credit note, x(x−7)'s naked-x trap, the repeated-root
+ * tightening, the 或-note) → host F5 recovery mid-arc → the rotating
+ * bye on an odd headcount (late joiner) → the rebuild bench (0 hearts
+ * = one round out, back at 2) and its all-KO pity rule → tutor
+ * controls (加多一回合, stage jump) → handover into the main game
+ * (inq state keys dropped, a live verdict round-trip).
  *
  * Shared-context caveat: the live game mirrors the phone identity
  * `zb-<code>` to localStorage for re-scan recovery. Real phones are
@@ -251,6 +255,25 @@ async function padSubmit(page, v) {
   }, v);
 }
 
+/* how far the DIGIT block's centre sits from the screen's — what a
+ * student reads as "the keypad", which the sign key used to drag off
+ * centre from a fourth column. Also reports the pad geometry the
+ * layout checks lean on, so one probe serves all of them. */
+function padGeometry(page, padSel) {
+  return page.evaluate((sel) => {
+    const digits = [...document.querySelectorAll(sel + " .zb-key[data-d]")]
+      .map((k) => k.getBoundingClientRect());
+    const l = Math.min(...digits.map((r) => r.left));
+    const r = Math.max(...digits.map((r) => r.right));
+    const pad = document.querySelector(sel).getBoundingClientRect();
+    return {
+      offCentre: +Math.abs((l + r) / 2 - innerWidth / 2).toFixed(1),
+      padBottom: Math.round(pad.bottom),
+      vh: innerHeight,
+    };
+  }, padSel);
+}
+
 /* submit then wait for the host's private verdict; returns the verdict */
 async function submitVerdict(page, v) {
   const before = await page.evaluate(() => C.lastVerdictSeq);
@@ -313,6 +336,34 @@ async function main() {
     await route.fulfill({ status: 200, contentType: "application/javascript", body: body + "\n" + MOCK });
   });
 
+  /* ════════ the lobby before the room exists ════════
+   * 開始主持 puts the lobby on the projector and THEN awaits the room,
+   * which is a real network hop against Firebase. The mock resolves in
+   * a microtask, so only a deliberately slow host() exposes what the
+   * class actually reads during that wait: it must already be the
+   * resolved face, not both how-to cards collapsing to one when
+   * renderTrack finally runs. */
+  const preRoom = await context.newPage();
+  await preRoom.goto(HOST_URL, { waitUntil: "load" });
+  await preRoom.evaluate(() => {
+    const real = GameBridge.host;
+    GameBridge.host = (...a) => new Promise((r) => setTimeout(() => r(real(...a)), 5000));
+  });
+  await preRoom.click("#btnHost");
+  await sleep(400);
+  const preRoomFace = await preRoom.evaluate(() => ({
+    howtos: ["howtoCard", "arcHowtoCard"].filter(
+      (id) => document.getElementById(id).offsetParent !== null
+    ),
+    code: document.getElementById("roomCode").textContent.trim(),
+  }));
+  check(
+    "lobby paints ONE how-to while the room is still being created",
+    preRoomFace.howtos.length === 1 && preRoomFace.howtos[0] === "arcHowtoCard",
+    JSON.stringify(preRoomFace)
+  );
+  await preRoom.close();
+
   const hostErrors = [];
   const aErrors = [];
   const bErrors = [];
@@ -354,7 +405,9 @@ async function main() {
   check("host QR rendered", true);
 
   const qrW = await host.evaluate(() => document.querySelector("#qrBox svg").style.width);
-  check("QR at projector size", qrW === "300px", "svg width=" + qrW);
+  // §19.4: 270 on a projector, not 300 - the two-column lobby keeps the
+  // logo and the start button above the fold on a 768-tall laptop
+  check("QR at projector size", qrW === "270px", "svg width=" + qrW);
 
   const attract = await host.evaluate(() => {
     const el = document.getElementById("attractLoop");
@@ -375,9 +428,24 @@ async function main() {
   );
 
   const startDisplay = await host.evaluate(
-    () => getComputedStyle(document.getElementById("btnStartMulti")).display
+    () => getComputedStyle(document.getElementById("lessonTrack")).display
   );
-  check("start hidden with no players", startDisplay === "none", "display=" + startDisplay);
+  check("lesson track hidden with no players", startDisplay === "none", "display=" + startDisplay);
+  // §19.4: the lobby's how-to follows the track's entry step - the arc
+  // opens the night, so the arc's rules are the ones on the projector
+  const lobbyHowto = await host.evaluate(() => ({
+    game: document.querySelectorAll("#lobbyScreen #howtoCard .zb-howto__item").length,
+    arc: document.querySelectorAll("#lobbyScreen #arcHowtoCard .zb-howto__item").length,
+    gameShown: getComputedStyle(document.getElementById("howtoCard")).display !== "none",
+    arcShown: getComputedStyle(document.getElementById("arcHowtoCard")).display !== "none",
+    arcText: document.getElementById("arcHowtoCard").textContent,
+  }));
+  check(
+    "§19.4: the lobby reads the ARC's how-to (the arc opens the night), game rules held back",
+    lobbyHowto.game === 3 && lobbyHowto.arc === 3 && lobbyHowto.arcShown && !lobbyHowto.gameShown &&
+      lobbyHowto.arcText.includes("秘密配對") && lobbyHowto.arcText.includes("歸零爆破"),
+    JSON.stringify(lobbyHowto)
+  );
 
   const bgmLobby = await host.evaluate(() => ZBFX.bgm.state());
   check(
@@ -419,11 +487,46 @@ async function main() {
   );
   check("host sees both players", true);
 
-  const startVis = await host.evaluate(() => {
-    const el = document.getElementById("btnStartMulti");
-    return getComputedStyle(el).display !== "none" && el.getBoundingClientRect().width > 0;
+  const trackVis = await host.evaluate(() => {
+    const el = document.getElementById("lessonTrack");
+    const sel = document.querySelector("#trackSteps .zb-track__step.selected");
+    return {
+      shown: getComputedStyle(el).display !== "none" && el.getBoundingClientRect().width > 0,
+      steps: document.querySelectorAll("#trackSteps .zb-track__step").length,
+      selected: sel ? sel.getAttribute("data-start") : null,
+      label: document.getElementById("startFromLabel").textContent,
+    };
   });
-  check("start button visible", startVis);
+  check(
+    "lesson track visible: four equal steps, 探究一 selected by default",
+    trackVis.shown && trackVis.steps === 4 && trackVis.selected === "1" && trackVis.label.includes("探究一"),
+    JSON.stringify(trackVis)
+  );
+  // §19.4: stacked, the join sheet alone filled a 768-tall laptop and
+  // the tutor had to scroll to find the START button. Two columns now.
+  const fold = await host.evaluate(() => {
+    const bot = (s) => Math.round(document.querySelector(s).getBoundingClientRect().bottom);
+    return {
+      vh: innerHeight,
+      start: bot("#btnStartFrom"),
+      howto: bot("#arcHowtoCard"),
+      brand: bot("#lobbyScreen .mc-brand"),
+      cols: getComputedStyle(document.querySelector("#lobbyScreen .zb-splitgrid")).gridTemplateColumns.split(" ").length,
+      // §19.5: the masthead spans, so the two panels start on one line
+      sheetTop: Math.round(document.getElementById("lobbySheet").getBoundingClientRect().top),
+      sideTop: Math.round(document.getElementById("arcHowtoCard").getBoundingClientRect().top),
+    };
+  });
+  check(
+    "§19.4: the lobby's how-to, start button and logo all clear the fold on a laptop",
+    fold.cols === 2 && fold.howto < fold.vh && fold.start < fold.vh && fold.brand <= fold.vh,
+    JSON.stringify(fold)
+  );
+  check(
+    "§19.5: the two panels start on the same line (the right card had nothing to align to)",
+    fold.sheetTop === fold.sideTop,
+    JSON.stringify({ sheet: fold.sheetTop, side: fold.sideTop })
+  );
 
   /* ════════ kick ════════ */
   let bId = await phoneB.evaluate(() => C.id);
@@ -530,7 +633,11 @@ async function main() {
   await phoneC.close(); // never joins as a player: the roster stays A + B
 
   /* ════════ start → level 1 (kind 1) ════════ */
-  await host.click("#btnStartMulti");
+  // §19 Batch Z: the lobby's lesson track - pick 主遊戲, one start button
+  await host.click('#trackSteps .zb-track__step[data-start="main"]');
+  const mainLabel0 = await host.evaluate(() => document.getElementById("startFromLabel").textContent);
+  check("lesson track: selecting 主遊戲 relabels the start button", mainLabel0.includes("主遊戲"), mainLabel0);
+  await host.click("#btnStartFrom");
   await until(
     () => host.evaluate(() => document.getElementById("gameScreen").classList.contains("active") && G.started && !!G.level),
     { label: "game started" }
@@ -608,6 +715,21 @@ async function main() {
   );
   await host.setViewportSize({ width: 1280, height: 800 });
   await sleep(250);
+
+  /* the phone's play face is one full-height column: keys centred and
+   * down in the thumb zone, the progress line under them on screen.
+   * It used to float mid-sheet with the line below a 640-tall fold. */
+  const padPlace = await padGeometry(phoneA, "#ctrlPad");
+  padPlace.statusBottom = await phoneA.evaluate(() =>
+    Math.round(document.getElementById("ctrlStatus").getBoundingClientRect().bottom)
+  );
+  check(
+    "phone: keypad centred, in the thumb zone, progress line above the fold",
+    padPlace.offCentre <= 1 &&
+      padPlace.padBottom > padPlace.vh * 0.7 &&
+      padPlace.statusBottom <= padPlace.vh,
+    JSON.stringify(padPlace)
+  );
 
   /* ── level 1 scoring: A cracks the zero ── */
   const l1 = await host.evaluate(() => ({ n: G.level.n, roots: G.level.pillars.map((p) => p.root) }));
@@ -1071,6 +1193,29 @@ async function main() {
   );
   check("host refresh: tutor bar back", tutorVis1);
 
+  /* the phone's arc face: the pad's state, the margin note, and the
+   * lives strip (marks still standing + the respawn pop) */
+  const inqFace = async (page) =>
+    page.evaluate(() => ({
+      pad: getComputedStyle(document.getElementById("ctrlInqPadWrap")).display,
+      note: document.getElementById("ctrlInqMark").textContent,
+      live: document.querySelectorAll("#ctrlInqLives .mc-tries__dot:not(.used)").length,
+      pop: document.getElementById("ctrlInqLives").classList.contains("zb-liveback"),
+    }));
+  /* the projector roster's chips wearing a given tag (輪空 / 復活中 share
+   * one class, 復活 has its own) */
+  const rosterTagged = async (page, tagCls) =>
+    page.evaluate((cls) => {
+      const chips = [...document.querySelectorAll("#inqRoster .zb-inqroster__chip")]
+        .filter((c) => c.querySelector("." + cls));
+      return {
+        n: chips.length,
+        text: chips[0] ? chips[0].textContent : "",
+        out: chips[0] ? chips[0].classList.contains("out") : null,
+        live: chips[0] ? chips[0].querySelectorAll(".mc-tries__dot:not(.used)").length : -1,
+      };
+    }, tagCls);
+
   const phonesLive = async (page) =>
     page.evaluate(() => C.phase === "playing" && parseFloat(document.getElementById("ctrlTimerText").textContent) > 0);
   await until(async () => (await phonesLive(phoneA)) && (await phonesLive(phoneB)), {
@@ -1303,7 +1448,7 @@ async function main() {
   await submitVerdict(phoneA, l5root); // one code, both pillars
   await fastForwardGrace(host);
 
-  /* ════════ level 6 (kind 6, finale): hint, end confirm, report ════════ */
+  /* ════════ level 6 (kind 6): hint, then the gate, end confirm, report ════════ */
   await waitHostLevel(host, 6);
   const hintVis = await host.evaluate(() => {
     const el = document.getElementById("btnHint");
@@ -1322,18 +1467,83 @@ async function main() {
   check("tutor hint pencils the ghost factor", !!ghost && ghost.includes("(x"), "ghost=" + ghost);
 
   const l6 = await host.evaluate(() => G.level.pillars.map((p) => p.root));
-  // finale doubles ×2, the hint fee is ×0.75 → net ×1.5. Streak before
-  // this claim is 1 (L4 fizzle reset everyone, L5 claim rebuilt one),
-  // so expected = base(f) × 1.1 × 1.5 with f measured just before the
-  // submit — the drift to judge time on a 45s fuse is ~1pt, and net ×1
-  // or ×2 would land ~100pts off either side.
+  // the hint fee is ×0.75 (kind 6 is no longer the finale - the gate
+  // took the crown, §19 AA). Streak before this claim is 1 (L4 fizzle
+  // reset everyone, L5 claim rebuilt one), so expected = base(f) ×
+  // 1.1 × 0.75 with f measured just before the submit — the drift to
+  // judge time on a 45s fuse is ~1pt, and ×1.5 or ×1 would land far off.
   const fEst = await host.evaluate(() => (G.deadline - performance.now()) / G.duration);
   const vdHinted = await submitVerdict(phoneA, l6[0]);
-  const expHinted = (100 + Math.round(100 * fEst)) * 1.1 * 1.5;
+  const expHinted = (100 + Math.round(100 * fEst)) * 1.1 * 0.75;
   check(
-    "hinted finale claim pays 75% (net x1.5)",
+    "hinted kind-6 claim pays 75% (no finale double here now)",
     vdHinted.ok === true && Math.abs(vdHinted.pts - expHinted) <= 12,
     "pts=" + vdHinted.pts + " expected≈" + Math.round(expHinted)
+  );
+  await submitVerdict(phoneA, l6[1]); // clear the street
+  await fastForwardGrace(host);
+
+  /* ════════ level 7 — the general-form gate (now penultimate, §19 AB) ════════ */
+  await waitHostLevel(host, 7);
+  const gateFace = await host.evaluate(() => ({
+    expr: G.level.expr, finale: !!G.level.finale,
+    hintHid: getComputedStyle(document.getElementById("btnHint")).display === "none",
+  }));
+  check(
+    "the gate offers no hint and is no longer the finale (kind 8 is)",
+    gateFace.expr === "x² + 5x + 6 = 2" && !gateFace.finale && gateFace.hintHid,
+    JSON.stringify(gateFace)
+  );
+  const vdTrap = await submitVerdict(phoneA, -2);
+  check("gate trap: −2 zeroes the shown LHS but is rejected", vdTrap.ok === false, JSON.stringify(vdTrap));
+  const trapPhone = await phoneA.evaluate(() => document.getElementById("ctrlMark").textContent);
+  check(
+    "gate trap: the phone nudge names the move to general form",
+    trapPhone.includes("≠ 2") && trapPhone.includes("唔係 0") && trapPhone.includes("x² + 5x + 4 = 0"),
+    trapPhone
+  );
+  // padSubmit waits out the 3s wrong-lock; streak is 0 after the trap,
+  // so a correct claim pays base(f) × 1.0 × 1 - the gate is single now
+  const fEst7 = await host.evaluate(() => (G.deadline - performance.now()) / G.duration);
+  const vdGate = await submitVerdict(phoneA, -1);
+  const expGate = 100 + Math.round(100 * fEst7);
+  check(
+    "the gate pays single now (the finale double moved to kind 8)",
+    vdGate.ok === true && Math.abs(vdGate.pts - expGate) <= 12,
+    "pts=" + vdGate.pts + " expected≈" + Math.round(expGate)
+  );
+  await submitVerdict(phoneA, -4); // clear the gate's second root
+  await fastForwardGrace(host);
+
+  /* ════════ level 8 — the factored-but-nonzero gate, the true finale
+   * (x−6)(x+4) = 39 (§19 Batch AB) ════════ */
+  await waitHostLevel(host, 8);
+  const prodFace = await host.evaluate(() => ({
+    expr: G.level.expr, finale: !!G.level.finale,
+    hintHid: getComputedStyle(document.getElementById("btnHint")).display === "none",
+  }));
+  check(
+    "the 39 gate is the finale and offers no hint",
+    prodFace.expr === "(x−6)(x+4) = 39" && prodFace.finale && prodFace.hintHid,
+    JSON.stringify(prodFace)
+  );
+  const vdTrap8 = await submitVerdict(phoneA, 6);
+  check("39 gate trap: reading off x=6 zeroes one bracket but is rejected",
+    vdTrap8.ok === false, JSON.stringify(vdTrap8));
+  const trapPhone8 = await phoneA.evaluate(() => document.getElementById("ctrlMark").textContent);
+  check(
+    "39 gate trap: the phone nudge names the move to general form",
+    trapPhone8.includes("≠ 39") && trapPhone8.includes("唔係 0") && trapPhone8.includes("x² − 2x − 63 = 0"),
+    trapPhone8
+  );
+  // streak 0 after the trap, so the finale pays base(f) × 1.0 × 2
+  const fEst8 = await host.evaluate(() => (G.deadline - performance.now()) / G.duration);
+  const vdProd = await submitVerdict(phoneA, 9);
+  const expProd = (100 + Math.round(100 * fEst8)) * 2;
+  check(
+    "the 39 gate pays the finale double",
+    vdProd.ok === true && Math.abs(vdProd.pts - expProd) <= 12,
+    "pts=" + vdProd.pts + " expected≈" + Math.round(expProd)
   );
 
   await host.click("#btnEndGame");
@@ -1358,7 +1568,7 @@ async function main() {
     JSON.stringify(endLapsed)
   );
 
-  await submitVerdict(phoneA, l6[1]); // the last pillar of the street
+  await submitVerdict(phoneA, -7); // the finale's second root: the run's last code
   await fastForwardGrace(host);
   await until(() => host.evaluate(() => document.getElementById("endScreen").classList.contains("active")), {
     label: "host end screen",
@@ -1371,7 +1581,11 @@ async function main() {
   check("host leaderboard has 2 rows", rows === 2, "rows=" + rows);
 
   const bgmEnd = await host.evaluate(() => ZBFX.bgm.state());
-  check("bgm: stopped on the end screen", !bgmEnd.playing && bgmEnd.tier === null, JSON.stringify(bgmEnd));
+  check(
+    "bgm: the report winds down on its own groove",
+    bgmEnd.playing === true && bgmEnd.tier === "report",
+    JSON.stringify(bgmEnd)
+  );
 
   await until(
     async () =>
@@ -1625,7 +1839,10 @@ async function main() {
     });
   }
 
-  const INQ_URL = BASE + "?rounds=1&seed=" + SEED + "&grace=8&inqrounds=2";
+  // inqrounds2=2 pins 探究二 to two rounds for the deterministic boom
+  // test; its real default is 3 (one shorter than 探究一's 5), covered
+  // by the audit suite where a default-config page is loaded
+  const INQ_URL = BASE + "?rounds=1&seed=" + SEED + "&grace=8&inqrounds=2&inqrounds2=2";
   await host.goto(INQ_URL, { waitUntil: "load" });
   await host.click("#btnHost");
   const code2 = await until(
@@ -1652,16 +1869,16 @@ async function main() {
     () => host.evaluate(() => document.querySelectorAll("#playerList span[data-id]").length === 2),
     { label: "inq lobby sees both" }
   );
-  const inqBtnVis = await host.evaluate(() => {
-    const el = document.getElementById("btnStartInquiry");
-    return getComputedStyle(el).display !== "none" && el.getBoundingClientRect().width > 0;
-  });
-  check("探究: lobby offers the inquiry start", inqBtnVis);
+  const inqTrack = await host.evaluate(() => ({
+    shown: getComputedStyle(document.getElementById("lessonTrack")).display !== "none",
+    selected: (document.querySelector("#trackSteps .zb-track__step.selected") || { getAttribute: () => null }).getAttribute("data-start"),
+  }));
+  check("探究: the lesson track offers the arc, 探究一 selected", inqTrack.shown && inqTrack.selected === "1", JSON.stringify(inqTrack));
   const adaId = await phoneA2.evaluate(() => C.id);
   const benId = await phoneB.evaluate(() => C.id);
 
   /* ── 探究一 intro ── */
-  await host.click("#btnStartInquiry");
+  await host.click("#btnStartFrom"); // default step: the full arc from 探究一
   await until(
     () => host.evaluate(() => document.getElementById("inquiryScreen").classList.contains("active") && G.inq && G.inq.step === "intro"),
     { label: "inquiry screen up" }
@@ -1703,12 +1920,23 @@ async function main() {
     !("pairs" in r1State.inq) && !r1State.inqCards && JSON.stringify(r1State.inq).indexOf(adaId) === -1,
     JSON.stringify(r1State.inq)
   );
-  const signHidden = await phoneA2.evaluate(
-    () => getComputedStyle(document.querySelector("#ctrlInqPad .zb-key--sign")).visibility === "hidden"
+  // the sign key leaves the GRID here, it doesn't just go invisible:
+  // held in place it kept a column and left the digits off-centre
+  const signOut = await padGeometry(phoneA2, "#ctrlInqPad");
+  Object.assign(signOut, await phoneA2.evaluate(() => ({
+    gone: document.querySelector("#ctrlInqPad .zb-key--sign").offsetParent === null,
+    zeroSpansRow: document.querySelector("#ctrlInqPad .zb-key--zero").getBoundingClientRect().width
+      > document.querySelector('#ctrlInqPad .zb-key[data-d="7"]').getBoundingClientRect().width * 2.5,
+  })));
+  check(
+    "探究一: sign key out of the grid, digits centred on the phone",
+    signOut.gone && signOut.offCentre <= 1 && signOut.zeroSpansRow,
+    JSON.stringify(signOut)
   );
-  check("探究一: sign key hidden on the phone pad", signHidden);
-  const targetShown = await phoneA2.evaluate(() => document.getElementById("ctrlInqTarget").textContent.trim());
-  check("探究一: phone shows the target 12", targetShown.includes("12"), targetShown);
+  const targetShown = await phoneA2.evaluate(() =>
+    document.getElementById("ctrlInqTarget").textContent.replace(/\s+/g, " ").trim());
+  check("探究一: phone shows the ▢ × ▢ = 12 frame",
+    targetShown.includes("12") && targetShown.includes("▢ × ▢"), targetShown);
   await inqSubmit(phoneA2, 3);
   await inqSubmit(phoneB, 4);
   const subShape = (await roomData(host)).subs[adaId];
@@ -1732,7 +1960,7 @@ async function main() {
   const hearts1 = (await roomData(host)).state.inqHearts;
   check(
     "探究一: no lives lost on a pass",
-    hearts1[adaId] === 5 && hearts1[benId] === 5,
+    hearts1[adaId] === 6 && hearts1[benId] === 6,
     JSON.stringify(hearts1)
   );
   const hostGrid = await host.evaluate(() => ({
@@ -1754,6 +1982,13 @@ async function main() {
     adaMark.correct && adaMark.text.includes("安全過關") && adaMark.text.includes("Ben"),
     JSON.stringify(adaMark)
   );
+  // your own line leads the card: the pair's card order used to decide
+  // it, so a phone could open with the partner's verdict instead
+  check(
+    "探究一: the student's own line leads the result card",
+    adaMark.text.indexOf("你出咗") >= 0 && adaMark.text.indexOf("你出咗") < adaMark.text.indexOf("Ben"),
+    adaMark.text
+  );
 
   /* ── host F5 mid-arc: the inquiry snapshot resumes ── */
   await host.reload({ waitUntil: "load" });
@@ -1773,7 +2008,7 @@ async function main() {
   }), [adaId, benId]);
   check(
     "探究: host F5 resumes the arc with lives and the reveal intact",
-    inqResumed.hearts.join() === "5,5" && inqResumed.grid,
+    inqResumed.hearts.join() === "6,6" && inqResumed.grid,
     JSON.stringify(inqResumed)
   );
   await until(() => phoneA2.evaluate(() => C.phase === "inquiry"), { label: "Ada still in the arc" });
@@ -1803,22 +2038,40 @@ async function main() {
   const sum1 = await host.evaluate(() => ({
     label: document.getElementById("btnInqPrimary").textContent,
     rule: document.getElementById("inqRule").textContent,
+    recap: document.getElementById("inqRevealBox").textContent,
+    cliff: !!document.querySelector("#inqRevealBox .zb-inqcliff"),
   }));
   check(
     "探究一 summary: survivors named, the primary button IS the lock",
     sum1.label.includes("鎖定 N = 0") && sum1.rule.includes("Ada") && sum1.rule.includes("Ben"),
-    JSON.stringify(sum1)
+    JSON.stringify({ label: sum1.label, rule: sum1.rule })
+  );
+  check(
+    "探究一 recap: the played Ns land with their pair counts, then the cliffhanger",
+    sum1.recap.includes("N = 12") && sum1.recap.includes("N = 36") &&
+      sum1.recap.includes("1/1") && sum1.cliff && sum1.recap.includes("容易啲配對"),
+    sum1.recap
   );
   await inqAdvanceTo("intro");
   const lockFace = await host.evaluate(() => ({
-    n: document.getElementById("inqN").textContent,
+    // the RHS lives in #inqNVal now; ▢ × ▢ = stays in the frame
+    val: document.getElementById("inqNVal").textContent,
+    frame: document.getElementById("inqN").textContent.replace(/\s+/g, " ").trim(),
     badge: getComputedStyle(document.getElementById("inqLockBadge")).display !== "none",
-    zeroInk: document.getElementById("inqN").classList.contains("zb-inqn--zero"),
+    zeroInk: document.getElementById("inqNVal").classList.contains("zb-inqn--zero"),
   }));
   check(
-    "探究二 intro: the 0 lands stamped with the lock badge",
-    lockFace.n === "0" && lockFace.badge && lockFace.zeroInk,
+    "探究二 intro: ▢ × ▢ = 0 lands stamped with the lock badge",
+    lockFace.val === "0" && lockFace.frame.includes("▢ × ▢") && lockFace.badge && lockFace.zeroInk,
     JSON.stringify(lockFace)
+  );
+  // §19 Batch W: ONE hearts pool for the whole arc - the old per-stage
+  // refill is gone, so the handover moves no hearts
+  const heartsLock = (await roomData(host)).state.inqHearts;
+  check(
+    "探究二: no hearts refill at the stage handover (one pool)",
+    heartsLock[adaId] === 6 && heartsLock[benId] === 6,
+    JSON.stringify(heartsLock)
   );
   await until(
     () => phoneB.evaluate(() => document.getElementById("ctrlInqTarget").textContent.includes("0")),
@@ -1866,8 +2119,8 @@ async function main() {
   const rowB = rvB.pairs["0"];
   const heartsB = (await roomData(host)).state.inqHearts;
   check(
-    "探究二: 0×0 booms, two lives gone each",
-    rowB.boom === true && rowB.ok === false && heartsB[adaId] === 3 && heartsB[benId] === 3,
+    "探究二: 0×0 booms, two lives gone each (6 → 4 on the one pool)",
+    rowB.boom === true && rowB.ok === false && heartsB[adaId] === 4 && heartsB[benId] === 4,
     JSON.stringify({ rowB, heartsB })
   );
   const hostBoom = await host.evaluate(() => window.__boomSeen);
@@ -1884,15 +2137,16 @@ async function main() {
     JSON.stringify(benBoom)
   );
 
-  /* ── 探究二 summary: the takeaway is the tutor's beat ── */
+  /* ── 探究二 summary: the takeaway is the tutor's beat, ON the
+   * default path - 顯示歸納 IS the primary until pressed (§19 Y) ── */
   await inqAdvanceTo("summary");
   const preTheorem = await host.evaluate(() => ({
     hidden: getComputedStyle(document.getElementById("inqTheorem")).display === "none",
-    btn: getComputedStyle(document.getElementById("btnInqTheorem")).display !== "none",
+    primary: document.getElementById("btnInqPrimary").textContent,
   }));
   check(
-    "探究二 summary: theorem stays hidden until 顯示歸納",
-    preTheorem.hidden && preTheorem.btn,
+    "探究二 summary: theorem hidden, 顯示歸納 IS the primary",
+    preTheorem.hidden && preTheorem.primary.includes("顯示歸納"),
     JSON.stringify(preTheorem)
   );
   // bilingual spot-check while the summary is up
@@ -1903,11 +2157,11 @@ async function main() {
   }));
   check(
     "探究: host summary reads in English after the toggle",
-    enFace.primary.includes("bridge") && enFace.title.includes("Inquiry 2"),
+    enFace.primary.includes("takeaway") && enFace.title.includes("Inquiry 2"),
     JSON.stringify(enFace)
   );
   await host.evaluate(() => GameBridge.setLang("c"));
-  await host.click("#btnInqTheorem");
+  await host.click("#btnInqPrimary");
   await until(() => host.evaluate(() => getComputedStyle(document.getElementById("inqTheorem")).display !== "none"),
     { label: "theorem shown" });
   const theoremState = (await roomData(host)).state.inq.theorem;
@@ -1915,9 +2169,11 @@ async function main() {
     () => phoneA2.evaluate(() => document.getElementById("ctrlInqMark").textContent.includes("零乘積性質")),
     { label: "theorem landed on Ada's phone" }
   );
-  check("探究二: 顯示歸納 lands on the projector and every phone", theoremState === true);
+  check("探究二: the primary's first press lands the theorem on projector and phones", theoremState === true);
+  const postTheorem = await host.evaluate(() => document.getElementById("btnInqPrimary").textContent);
+  check("探究二: only then does the primary hand over to 概念轉化", postTheorem.includes("概念轉化"), postTheorem);
 
-  /* ── 概念轉化: factor cards, negatives, either-correct ── */
+  /* ── 概念轉化: factor cards, negatives, 分工 judging (§19) ── */
   await inqAdvanceTo("intro");
   await inqAdvanceTo("round");
   const s3 = (await roomData(host)).state;
@@ -1928,57 +2184,88 @@ async function main() {
       JSON.stringify(s3.inq).indexOf("root") === -1 && !s3.inqReveal,
     JSON.stringify({ inq: s3.inq, cards: s3.inqCards })
   );
-  const signBack = await phoneA2.evaluate(
-    () => getComputedStyle(document.querySelector("#ctrlInqPad .zb-key--sign")).visibility !== "hidden"
+  // back in the bottom row beside 0, one key row tall, digits still centred
+  const signBack = await padGeometry(phoneA2, "#ctrlInqPad");
+  Object.assign(signBack, await phoneA2.evaluate(() => {
+    const sign = document.querySelector("#ctrlInqPad .zb-key--sign").getBoundingClientRect();
+    const seven = document.querySelector('#ctrlInqPad .zb-key[data-d="7"]').getBoundingClientRect();
+    const zero = document.querySelector("#ctrlInqPad .zb-key--zero").getBoundingClientRect();
+    return {
+      shown: sign.width > 0 && sign.height > 0,
+      oneRow: Math.abs(sign.height - seven.height) <= 1,
+      bottomRow: Math.abs(sign.top - zero.top) <= 1 && sign.left > zero.left,
+    };
+  }));
+  check(
+    "概念轉化: sign key returns to the bottom row beside 0",
+    signBack.shown && signBack.oneRow && signBack.bottomRow && signBack.offCentre <= 1,
+    JSON.stringify(signBack)
   );
-  check("概念轉化: sign key returns for negative roots", signBack);
-  // x answers the EQUATION, not the bracket: the phone shows the whole
-  // equation with the dealt factor as an underlined hint. Whoever holds
-  // (x+2) plays its root through the sign key; the partner answers
-  // wrong — either root carries the pair (「或」)
+  // 分工: the phone shows the whole equation with the dealt factor
+  // underlined as the ASSIGNMENT - each partner must zero their own
+  // bracket. Whoever holds (x+2) plays −2 through the sign key, the
+  // (x−3) holder plays 3: both own zeros, the pair passes.
   const cards = s3.inqCards; // the published deal is what the phones consume
   const negPhone = cards[adaId] === 1 ? phoneA2 : phoneB;
   const posPhone = cards[adaId] === 1 ? phoneB : phoneA2;
   const eqFace = await negPhone.evaluate(() => ({
     text: document.getElementById("ctrlInqTarget").textContent,
     hint: (document.querySelector("#ctrlInqTarget .zb-inqhint") || {}).textContent || "",
+    label: document.getElementById("ctrlInqTarget").textContent,
   }));
   check(
-    "概念轉化: the phone shows the whole equation, hint factor underlined",
-    eqFace.text.includes("(x−3)(x+2)") && eqFace.hint.includes("(x+2)"),
+    "概念轉化: the phone shows the whole equation, own factor underlined",
+    eqFace.text.includes("(x−3)(x+2)") && eqFace.hint.includes("(x+2)") &&
+      eqFace.label.includes("你負責嘅因式"),
     JSON.stringify(eqFace)
   );
   await inqSubmit(negPhone, -2);
-  await inqSubmit(posPhone, 9);
+  await inqSubmit(posPhone, 3);
   await inqCollected(2);
   await inqAdvanceTo("reveal");
   const rv3 = (await roomData(host)).state.inqReveal;
   const row3 = rv3.pairs["0"];
   check(
-    "概念轉化: one true root carries the pair, no card keys on the wire",
+    "概念轉化: both own zeros pass the pair, assignments ride the wire",
     row3.ok === true && rv3.rootA === 3 && rv3.rootB === -2 &&
-      row3.aC === undefined && row3.bC === undefined && rv3.expr === "(x−3)(x+2) = 0",
+      typeof row3.aC === "number" && typeof row3.bC === "number" && rv3.expr === "(x−3)(x+2) = 0",
     JSON.stringify({ row3, rootA: rv3.rootA, rootB: rv3.rootB, expr: rv3.expr })
   );
   const hostReveal3 = await host.evaluate(() => ({
     expand: (document.querySelector("#inqRevealBox .zb-inqexpand") || {}).textContent || "",
     orNote: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
+    mine: document.querySelectorAll("#inqRevealBox .zb-inqsub .zb-inqhint").length,
+    ok: document.querySelectorAll("#inqRevealBox .zb-inqvmark.ok").length,
+    bad: document.querySelectorAll("#inqRevealBox .zb-inqvmark.bad").length,
+    expr: getComputedStyle(document.getElementById("inqTargetWrap")).display !== "none"
+      ? document.getElementById("inqExpr").textContent : "",
   }));
   check(
-    "概念轉化: the grid pushes each x through BOTH factors, 或-note names THIS pair",
-    hostReveal3.row.includes("(−5)(0) = 0") && hostReveal3.row.includes("(6)(11) = 66") &&
-      hostReveal3.orNote.includes("零點唔同") && hostReveal3.orNote.includes("(x−3)"),
+    "概念轉化: the grid pushes each x through BOTH factors, 或-note names THIS pair, the equation stays up",
+    hostReveal3.row.includes("(−5)(0) = 0") && hostReveal3.row.includes("(0)(5) = 0") &&
+      hostReveal3.orNote.includes("零點唔同") && hostReveal3.orNote.includes("(x−3)") &&
+      hostReveal3.expr.includes("(x−3)(x+2) = 0"),
     JSON.stringify(hostReveal3)
+  );
+  check(
+    "概念轉化: each substitution underlines the member's own factor and wears its ✓",
+    hostReveal3.mine === 2 && hostReveal3.ok === 2 && hostReveal3.bad === 0,
+    JSON.stringify({ mine: hostReveal3.mine, ok: hostReveal3.ok, bad: hostReveal3.bad })
   );
   check("概念轉化: the reveal holds no exam face (that beat waits for the recap)", hostReveal3.expand === "", hostReveal3.expand);
   await until(() => negPhone.evaluate(() => C.lastInqRevealSeq === 1301), { label: "neg phone got reveal" });
-  const negWorking = await negPhone.evaluate(() => document.getElementById("ctrlInqMark").textContent);
+  const negWorking = await negPhone.evaluate(() => ({
+    text: document.getElementById("ctrlInqMark").textContent,
+    ok: document.querySelectorAll("#ctrlInqMark .zb-inqvmark.ok").length,
+    bad: document.querySelectorAll("#ctrlInqMark .zb-inqvmark.bad").length,
+  }));
   check(
-    "概念轉化: the phone working substitutes into both factors",
-    negWorking.includes("(−2−3)(−2+2)") && negWorking.includes("(−5)(0) = 0") &&
-      negWorking.includes("其中一個因式歸零"),
-    negWorking
+    "概念轉化: the phone reads each partner against their OWN factor, 或-note lands",
+    negWorking.text.includes("你負責 (x+2)") && negWorking.text.includes("(−2+2) = 0") &&
+      negWorking.text.includes("(3−3) = 0") && !negWorking.text.includes("(−2−3)(−2+2)") &&
+      negWorking.ok === 2 && negWorking.bad === 0 && negWorking.text.includes("零點唔同"),
+    JSON.stringify(negWorking)
   );
 
   /* ── late joiner → trio round ── */
@@ -2030,11 +2317,13 @@ async function main() {
     JSON.stringify(byeFace)
   );
   const heartsBefore = (await roomData(host)).state.inqHearts[dealB.bye];
-  // the paired two take DIFFERENT roots: both right, and neither x
-  // zeroes both brackets - the 或 on display
+  // 分工: each partner plays their OWN factor's root (read from the
+  // published deal) - two different x's, and the reveal shows neither
+  // zeroes both brackets: the 或 on display
   const paired = [adaId, benId, calId].filter((id) => id !== dealB.bye);
-  await inqSubmit(pages[paired[0]], 5);
-  await inqSubmit(pages[paired[1]], -4);
+  const cardsB = stateB.inqCards;
+  await inqSubmit(pages[paired[0]], cardsB[paired[0]] === 0 ? 5 : -4);
+  await inqSubmit(pages[paired[1]], cardsB[paired[1]] === 0 ? 5 : -4);
   await inqCollected(2);
   await inqAdvanceTo("reveal");
   const rvT = (await roomData(host)).state.inqReveal;
@@ -2055,19 +2344,112 @@ async function main() {
   const orNote = await pages[paired[0]].evaluate(() => document.getElementById("ctrlInqMark").textContent);
   check("探究: two different roots trigger the 或-note on the phone", orNote.includes("零點唔同"), orNote);
 
-  /* ── the repeated root: (x−3)² = 0 is the standard third question ── */
+  /* ── round 3: x(x−7) = 0 - the naked-x trap, in person (§19) ── */
   await inqAdvanceTo("round");
-  const dealC = await host.evaluate(() => ({ bye: G.inq.bye, seq: G.inq.seq, roots: G.inq.roots }));
-  check("重根 round 3: (x−3)² served", dealC.seq === 1303 && dealC.roots.join() === "3,3", JSON.stringify(dealC));
+  const dealX = await host.evaluate(() => ({
+    bye: G.inq.bye, seq: G.inq.seq, roots: G.inq.roots, exprA: G.inq.exprA,
+  }));
   check(
-    "重根: the bye rotates again",
-    !!dealC.bye && dealC.bye !== dealB.bye,
-    JSON.stringify({ prev: dealB.bye, next: dealC.bye })
+    "x(x−7) round 3: the naked-x equation served",
+    dealX.seq === 1303 && dealX.roots.join() === "0,7" && dealX.exprA === "x",
+    JSON.stringify(dealX)
+  );
+  check(
+    "x(x−7): the bye rotates - never the same player twice in a row",
+    !!dealX.bye && dealX.bye !== dealB.bye,
+    JSON.stringify({ prev: dealB.bye, next: dealX.bye })
+  );
+  const s3x = (await roomData(host)).state;
+  const pairedX = [adaId, benId, calId].filter((id) => id !== dealX.bye);
+  const xHolder = pairedX.filter((id) => s3x.inqCards[id] === 0)[0];
+  const xPartner = pairedX.filter((id) => id !== xHolder)[0];
+  const xFace = await pages[xHolder].evaluate(() => ({
+    text: document.getElementById("ctrlInqTarget").textContent,
+    hint: (document.querySelector("#ctrlInqTarget .zb-inqhint") || {}).textContent || "",
+  }));
+  check(
+    "x(x−7): the phone face wears the naked x underlined",
+    xFace.text.includes("x(x−7)") && xFace.hint === "x",
+    JSON.stringify(xFace)
+  );
+  // the trap: the (x) holder plays the PARTNER's root 7 - a true root
+  // of the equation, but not their 分工. The pair fails, both lose 1.
+  // The holder is forced to 1 heart first so this fail KOs them: the
+  // rebuild bench is next round's test.
+  await host.evaluate((pid) => { G.inq.hearts[pid] = 1; }, xHolder);
+  await inqSubmit(pages[xHolder], 7);
+  await inqSubmit(pages[xPartner], 7);
+  await inqCollected(2);
+  await inqAdvanceTo("reveal");
+  const rvX = (await roomData(host)).state.inqReveal;
+  const heartsX = (await roomData(host)).state.inqHearts;
+  check(
+    "x(x−7): a partner's root does NOT pass the 分工 - the pair fails",
+    rvX.pairs["0"].ok === false && rvX.expr === "x(x−7) = 0" && heartsX[xHolder] === 0,
+    JSON.stringify({ row: rvX.pairs["0"], heartsX })
+  );
+  const hostRevealX = await host.evaluate(() => ({
+    note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
+    row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
+    ok: document.querySelectorAll("#inqRevealBox .zb-inqvmark.ok").length,
+    bad: document.querySelectorAll("#inqRevealBox .zb-inqvmark.bad").length,
+  }));
+  check(
+    "x(x−7): the reveal names the trap - x itself is a factor - and crosses the failed 分工",
+    hostRevealX.note.includes("x 自己都係一個因式") && hostRevealX.row.includes("(7)(0) = 0") &&
+      hostRevealX.ok === 1 && hostRevealX.bad === 1,
+    JSON.stringify(hostRevealX)
+  );
+  await until(() => pages[xHolder].evaluate(() => C.lastInqRevealSeq === 1303), { label: "x holder got reveal" });
+  const xMark = await pages[xHolder].evaluate(() => document.getElementById("ctrlInqMark").textContent);
+  check(
+    "x(x−7): the partner's-root verdict credits the maths, shows the own-factor miss, then the KO beat",
+    xMark.includes("真係方程嘅解") && xMark.includes("因式係 x") &&
+      xMark.includes("唔係 0") && xMark.includes("復活返嚟"),
+    xMark
+  );
+
+  /* ── round 4: the rebuild bench + the repeated root (x−3)² ── */
+  await inqAdvanceTo("round");
+  const dealC = await host.evaluate(() => ({
+    bye: G.inq.bye, seq: G.inq.seq, roots: G.inq.roots,
+    rebuild: G.inq.rebuild.slice(), pairs: G.inq.pairs.length, size: G.inq.pairs[0].length,
+  }));
+  check("重根 round 4: (x−3)² served", dealC.seq === 1304 && dealC.roots.join() === "3,3", JSON.stringify(dealC));
+  check(
+    "重建: the KO'd player is benched - the other two pair, no bye",
+    dealC.rebuild.join() === xHolder && !dealC.bye && dealC.pairs === 1 && dealC.size === 2,
+    JSON.stringify({ dealC, xHolder })
+  );
+  const stateRb = (await roomData(host)).state;
+  // §19 Batch AC: the credit waits for the comeback round - a benched
+  // phone showing 2 lives while it says "you are out" read as a bug
+  check("重建: the fallen sit the round out at 0 - no credit yet", stateRb.inqHearts[xHolder] === 0, JSON.stringify(stateRb.inqHearts));
+  check("重建: the bench is published for the phone", stateRb.inq.rebuild === xHolder, JSON.stringify(stateRb.inq.rebuild));
+  check("重建: nobody is marked as back on the bench round", !stateRb.inq.reborn, JSON.stringify(stateRb.inq.reborn || null));
+  await until(
+    () => pages[xHolder].evaluate(() => C.inq && C.inq.seq === 1304 &&
+      document.getElementById("ctrlInqTarget").textContent.includes("本回合等緊復活")),
+    { label: "rebuild face shown" }
+  );
+  const rbFace = await inqFace(pages[xHolder]);
+  check(
+    "重建: the benched phone observes - pad closed, strip empty, the note promises the comeback",
+    rbFace.pad === "none" && rbFace.live === 0 &&
+      rbFace.note.includes("等緊復活") && rbFace.note.includes("下一回合復活返嚟") &&
+      rbFace.note.includes("2 個生命值"),
+    JSON.stringify(rbFace)
+  );
+  const rosterOut = await rosterTagged(host, "zb-inqroster__bye");
+  check(
+    "重建: the roster shows the benched building struck out with an empty strip",
+    rosterOut.n === 1 && rosterOut.text.includes("復活中") && rosterOut.out && rosterOut.live === 0,
+    JSON.stringify(rosterOut)
   );
   const s3c = (await roomData(host)).state;
   check("重根: no hint cards dealt for identical factors", !s3c.inqCards, JSON.stringify(s3c.inqCards || null));
-  const pairedC = [adaId, benId, calId].filter((id) => id !== dealC.bye);
-  await until(() => pages[pairedC[0]].evaluate(() => C.inqOpen), { label: "round 3 open" });
+  const pairedC = [adaId, benId, calId].filter((id) => id !== xHolder);
+  await until(() => pages[pairedC[0]].evaluate(() => C.inqOpen), { label: "round 4 open" });
   const barMidRound = await host.evaluate(() =>
     ["btnInqJump1", "btnInqJump2", "btnInqJump3", "btnInqSkip"].map(
       (id) => getComputedStyle(document.getElementById(id)).display !== "none"
@@ -2088,12 +2470,12 @@ async function main() {
     JSON.stringify(sqFace)
   );
   await inqSubmit(pages[pairedC[0]], 3);
-  await inqSubmit(pages[pairedC[1]], 7); // wrong - the pair still passes on the 3
+  await inqSubmit(pages[pairedC[1]], 3); // identical brackets: BOTH must land the root (§19)
   await inqCollected(2);
   await inqAdvanceTo("reveal");
   const rvC = (await roomData(host)).state.inqReveal;
   check(
-    "重根: x = 3 passes, the wire carries (x−3)² = 0",
+    "重根: both on x = 3 pass, the wire carries (x−3)² = 0",
     rvC.pairs["0"].ok === true && rvC.expr === "(x−3)² = 0",
     JSON.stringify({ expr: rvC.expr, row: rvC.pairs["0"] })
   );
@@ -2110,24 +2492,42 @@ async function main() {
   check(
     "探究: the jumps return at the reveal, in a nav cluster anchored right",
     barAtReveal.jumps &&
-      barAtReveal.flow === "btnInqPrimary,btnInqMore,btnInqTheorem" &&
-      barAtReveal.nav === "btnInqJump1,btnInqJump2,btnInqJump3,btnInqSkip" &&
+      barAtReveal.flow === "btnInqPrimary,btnInqMore" &&
+      barAtReveal.nav === "btnInqJump1,btnInqJump2,btnInqJump3,btnInqQr,btnInqSkip" &&
       barAtReveal.split === "space-between",
     JSON.stringify(barAtReveal)
   );
+  /* ── §19: the rejoin QR toggles from the inquiry tutor bar ── */
+  await host.click("#btnInqQr");
+  const qrPop = await host.evaluate(() => ({
+    shown: getComputedStyle(document.getElementById("qrPop")).display !== "none",
+    code: document.getElementById("qrPopCode").textContent,
+    drawn: !!document.querySelector("#qrPopBox canvas, #qrPopBox img, #qrPopBox svg"),
+    note: document.querySelector("#qrPop .zb-qrpop__note").textContent,
+  }));
+  check(
+    "QR chip: the corner card shows the room QR + code + rejoin note",
+    qrPop.shown && qrPop.code === code2 && qrPop.drawn && qrPop.note.includes("scan"),
+    JSON.stringify({ shown: qrPop.shown, code: qrPop.code, drawn: qrPop.drawn })
+  );
+  await host.press("body", "q");
+  const qrHid = await host.evaluate(() => getComputedStyle(document.getElementById("qrPop")).display === "none");
+  check("QR chip: q toggles the card away", qrHid);
   const hostRevealC = await host.evaluate(() => ({
     row: (document.querySelector("#inqRevealBox .zb-inqrow") || {}).textContent || "",
     note: (document.querySelector("#inqRevealBox .zb-inqzero-note") || {}).textContent || "",
+    expr: getComputedStyle(document.getElementById("inqTargetWrap")).display !== "none"
+      ? document.getElementById("inqExpr").textContent : "",
   }));
   check(
-    "重根: the projector shows (0)(0) = 0 and names the exception",
-    hostRevealC.row.includes("(0)(0) = 0") && hostRevealC.row.includes("(4)(4) = 16") &&
-      hostRevealC.note.includes("重根"),
+    "重根: the projector shows (0)(0) = 0, names the exception, keeps the squared face up",
+    hostRevealC.row.includes("(0)(0) = 0") && hostRevealC.note.includes("重根") &&
+      hostRevealC.expr.includes("(x−3)² = 0"),
     JSON.stringify(hostRevealC)
   );
-  await until(() => pages[pairedC[0]].evaluate(() => C.lastInqRevealSeq === 1303), { label: "round 3 result" });
+  await until(() => pages[pairedC[0]].evaluate(() => C.lastInqRevealSeq === 1304), { label: "round 4 result" });
   const dblNote = await pages[pairedC[0]].evaluate(() => document.getElementById("ctrlInqMark").textContent);
-  check("重根: the phone working shows (0)(0) = 0 and names the repeated root", dblNote.includes("(0)(0) = 0") && dblNote.includes("重根"), dblNote);
+  check("重根: the phone reads both against the one bracket and names the repeated root", dblNote.includes("(3−3) = 0") && dblNote.includes("重根") && dblNote.includes("你負責 (x−3)"), dblNote);
 
   /* ── 320px sanity while the arc is still up ── */
   await phoneB.setViewportSize({ width: 320, height: 640 });
@@ -2141,38 +2541,79 @@ async function main() {
   await inqAdvanceTo("summary");
   const mainLabel = await host.evaluate(() => document.getElementById("btnInqPrimary").textContent);
   check("概念轉化 summary: the primary button hands over to the main game", mainLabel.includes("歸零爆破"), mainLabel);
+  // the recap is standings, not a seating plan: 輪空 named a round that
+  // is over, while 復活中 still says why one strip is empty
+  const rosterRecap = await rosterTagged(host, "zb-inqroster__bye");
+  check(
+    "重建: the recap drops the round's 輪空 seat and keeps the standing 復活中",
+    rosterRecap.n === 1 && rosterRecap.text.includes("復活中") && !rosterRecap.text.includes("輪空"),
+    JSON.stringify(rosterRecap)
+  );
   const primaryChip = await host.evaluate(() => getComputedStyle(document.getElementById("btnInqPrimary"), "::after").content);
   check("探究: the primary button wears its n shortcut chip", primaryChip === '"n"', "chip=" + primaryChip);
   const recap = await host.evaluate(() => ({
     shown: getComputedStyle(document.getElementById("inqRevealBox")).display !== "none",
     lines: document.querySelectorAll("#inqRevealBox .zb-inqexam").length,
     text: document.getElementById("inqRevealBox").textContent,
+    howto: document.querySelectorAll("#inqRevealBox #howtoCard .zb-howto__item").length,
   }));
   check(
-    "概念轉化 recap: the three equations wear their exam faces (the handover beat)",
-    recap.shown && recap.lines === 3 && recap.text.includes("考你") &&
-      recap.text.includes("x² − x − 6 = 0") && recap.text.includes("x² − 6x + 9 = 0"),
-    JSON.stringify(recap)
+    "概念轉化 recap: all four equations wear their exam faces (the handover beat)",
+    recap.shown && recap.lines === 4 && recap.text.includes("考你") &&
+      recap.text.includes("x² − x − 6 = 0") && recap.text.includes("x² − 7x = 0") &&
+      recap.text.includes("x² − 6x + 9 = 0"),
+    JSON.stringify({ lines: recap.lines, text: recap.text.slice(0, 120) })
   );
+  check("§19.4: the recap belongs to the arc - the game's how-to waits for the briefing", recap.howto === 0, "items=" + recap.howto);
   await host.click("#btnInqMore"); // the class needs another look
-  await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 4), { label: "extra round started" });
+  await until(() => host.evaluate(() => G.inq.step === "round" && G.inq.round === 5), { label: "extra round started" });
   const extraR = (await roomData(host)).state.inq;
   check(
-    "探究: 加多一回合 at the recap starts round 4/4 straight away",
-    extraR.round === 4 && extraR.roundsTotal === 4 && extraR.seq === 1304,
+    "探究: 加多一回合 at the recap starts round 5/5 straight away",
+    extraR.round === 5 && extraR.roundsTotal === 5 && extraR.seq === 1305,
     JSON.stringify(extraR)
   );
   check(
-    "探究: the bye rotates - never the same player twice in a row",
-    !!extraR.bye && extraR.bye !== dealC.bye,
-    JSON.stringify({ prev: dealC.bye, next: extraR.bye })
+    "探究: the rebuilt player stands again - the bye rotates among three",
+    !!extraR.bye && extraR.bye !== dealX.bye,
+    JSON.stringify({ prev: dealX.bye, next: extraR.bye })
   );
-  // finish the extra round early: round 4 cycles back to (x−3)(x+2)
+  /* ── the comeback beat: the credit lands on the way back in ── */
+  const stateBack = (await roomData(host)).state;
+  check(
+    "復活: the comeback round credits the fallen back to 2 lives and names them",
+    stateBack.inqHearts[xHolder] === 2 && stateBack.inq.reborn === xHolder && !stateBack.inq.rebuild,
+    JSON.stringify({ hearts: stateBack.inqHearts, reborn: stateBack.inq.reborn, rebuild: stateBack.inq.rebuild })
+  );
+  const rosterBack = await rosterTagged(host, "zb-inqroster__back");
+  check(
+    "復活: the projector tags the one comeback, back on its feet with two marks",
+    rosterBack.n === 1 && rosterBack.out === false && rosterBack.live === 2,
+    JSON.stringify(rosterBack)
+  );
+  await until(() => pages[xHolder].evaluate(() => C.inq && C.inq.seq === 1305), { label: "comeback face shown" });
+  const backFace = await inqFace(pages[xHolder]);
+  check(
+    "復活: the phone's strip fills back to 2 with the refill spelled out",
+    backFace.live === 2 && backFace.pop && backFace.note.includes("復活返嚟") && backFace.note.includes("2 個生命值"),
+    JSON.stringify(backFace)
+  );
+  // round 5 cycles back to (x−3)(x+2): the tightening in person - BOTH
+  // partners land true roots, but one plays the other's bracket. Under
+  // 分工 two right answers to the wrong 分工 still fail the pair.
   const paired3 = [adaId, benId, calId].filter((id) => id !== extraR.bye);
-  await inqSubmit(pages[paired3[0]], 3);
-  await inqSubmit(pages[paired3[1]], 3);
+  const cards5 = (await roomData(host)).state.inqCards;
+  const own5 = (id) => (cards5[id] === 0 ? 3 : -2);
+  await inqSubmit(pages[paired3[0]], own5(paired3[0]));
+  await inqSubmit(pages[paired3[1]], own5(paired3[1]) === 3 ? -2 : 3);
   await inqCollected(2);
   await inqAdvanceTo("reveal");
+  const rv5 = (await roomData(host)).state.inqReveal;
+  check(
+    "分工: two true roots still fail when one partner ignores their own factor",
+    rv5.pairs["0"].ok === false && rv5.expr === "(x−3)(x+2) = 0",
+    JSON.stringify(rv5.pairs["0"])
+  );
   // pressing 加多一回合 at the last reveal must confirm in place and
   // flip the primary back to 下一回合 - the silent press read as broken
   await host.click("#btnInqMore");
@@ -2181,10 +2622,39 @@ async function main() {
     flash: document.getElementById("btnInqMore").textContent,
   }));
   check(
-    "探究: 加多一回合 at a reveal flips the primary and confirms ✓ 共 5 回合",
-    flip.primary.includes("下一回合") && flip.flash.includes("✓") && flip.flash.includes("5"),
+    "探究: 加多一回合 at a reveal flips the primary and confirms ✓ 共 6 回合",
+    flip.primary.includes("下一回合") && flip.flash.includes("✓") && flip.flash.includes("6"),
     JSON.stringify(flip)
   );
+
+  /* ── the all-KO pity rule: nobody benched when too few stand ── */
+  await host.evaluate(() => {
+    Object.keys(G.inq.hearts).forEach((pid) => { G.inq.hearts[pid] = 0; });
+  });
+  await inqAdvanceTo("round"); // the queued extra round starts
+  const pity = await host.evaluate(() => ({
+    rebuild: G.inq.rebuild.length, pairs: G.inq.pairs.length, reborn: G.inq.reborn.length,
+    hearts: Object.keys(G.inq.hearts).map((pid) => G.inq.hearts[pid]).join(),
+    bye: G.inq.bye, seq: G.inq.seq,
+  }));
+  check(
+    "重建 pity: with everyone at 0 nobody is benched - all rebuild on the spot, all tagged back",
+    pity.rebuild === 0 && pity.reborn === 3 && pity.hearts === "2,2,2" && pity.pairs === 1 && !!pity.bye && pity.seq === 1306,
+    JSON.stringify(pity)
+  );
+  // a comeback that comes with a turn says so - the bye's own face
+  // carries the wait instead (§19 Batch AC)
+  const pityPlayer = [adaId, benId, calId].filter((id) => id !== pity.bye)[0];
+  await until(() => pages[pityPlayer].evaluate(() => C.inq && C.inq.seq === 1306), { label: "pity round on the phones" });
+  const pityFace = await inqFace(pages[pityPlayer]);
+  check(
+    "復活: a rebuilt player who is dealt in reads the refill AND the turn",
+    pityFace.live === 2 && pityFace.note.includes("復活返嚟") && pityFace.note.includes("再出手"),
+    JSON.stringify(pityFace)
+  );
+  // burn the round down unanswered: the pair loses 1, the bye is safe
+  await host.evaluate(() => { G.inqDeadline = performance.now() + 200; });
+  await until(() => host.evaluate(() => G.inq && G.inq.step === "reveal"), { label: "pity round resolved" });
   // jump chips: two taps take the class back to 探究二's lock intro
   await host.click("#btnInqJump2");
   await host.click("#btnInqJump2");
@@ -2195,12 +2665,88 @@ async function main() {
     jumpState.stage === 2 && jumpState.step === "intro" && jumpState.seq === 1200,
     JSON.stringify(jumpState)
   );
+  // all three came back on the pity round; the intro is a fresh stage,
+  // so the comeback tag goes with the round that earned it
+  const rosterJump = await rosterTagged(host, "zb-inqroster__back");
+  check(
+    "復活: the tag belongs to its round - gone by the next stage's intro",
+    rosterJump.n === 0,
+    JSON.stringify(rosterJump)
+  );
   await until(() => phoneA2.evaluate(() => C.inq && C.inq.stage === 2 && C.inq.step === "intro"), { label: "phones follow the jump" });
   check("探究: the phones follow the jump", true);
 
-  /* ── handover: 跳過探究 (two-tap) ── */
+  /* your own missed answer needs a subject: the shared 未提交 string is
+   * name-prefixed on the projector, so alone on a phone it read as a
+   * subjectless fragment under the partner's line. Rendered straight
+   * from a synthetic reveal - the arc's own rounds all get answers,
+   * and the ready face replaces this card a moment later anyway. */
+  const ownMiss = await phoneA2.evaluate((ids) => {
+    renderCtrlInqResult({
+      seq: 9999, stage: 1, n: 12,
+      pairs: { 0: { aId: ids[0], aN: "Ada", aV: null, bId: ids[1], bN: "Ben", bV: 4, ok: false } },
+    }, {});
+    return document.getElementById("ctrlInqMark").textContent;
+  }, [adaId, benId]);
+  check(
+    "探究: a missed answer of your own reads 你未提交, above the partner's line",
+    ownMiss.includes("你未提交") && ownMiss.indexOf("你未提交") < ownMiss.indexOf("Ben"),
+    ownMiss
+  );
+
+  /* ── handover: 跳過探究 (two-tap) → the briefing screen (§19.4) ── */
   await host.click("#btnInqSkip");
   await host.click("#btnInqSkip");
+  await until(
+    () => host.evaluate(() => document.getElementById("briefScreen").classList.contains("active") && !G.inq && !G.level),
+    { label: "briefing screen took the room" }
+  );
+  const brief = await host.evaluate(() => ({
+    howto: document.querySelectorAll("#briefHowto #howtoCard .zb-howto__item").length,
+    lede: document.querySelector("#briefScreen .mc-lede").textContent,
+    players: document.getElementById("briefPlayers").textContent,
+    joined: Object.keys(G.players).length,
+    chip: getComputedStyle(document.getElementById("btnBriefStart"), "::after").content,
+  }));
+  check(
+    "§19.4: the briefing reads the game's rules, bridges from the arc, counts the room",
+    brief.howto === 3 && brief.lede.includes("零因式性質") &&
+      brief.players.includes(String(brief.joined)) && brief.chip === '"n"',
+    JSON.stringify(brief)
+  );
+  // the phones say so too, so the run starting is never a surprise
+  await until(
+    () => phoneA2.evaluate(() => document.getElementById("ctrlInqTarget").textContent.includes("主遊戲準備開始")),
+    { label: "phones wear the ready face" }
+  );
+  const readyFace = await phoneA2.evaluate(() => ({
+    pad: getComputedStyle(document.getElementById("ctrlInqPadWrap")).display,
+    note: document.getElementById("ctrlInqMark").textContent,
+    // the board already carries the headline: a status echoing it word
+    // for word was noise, and the arc's clock and lives are spent
+    shows: ["ctrlStatus", "ctrlInqTimer", "ctrlInqLives"]
+      .filter((id) => document.getElementById(id).offsetParent !== null),
+  }));
+  check(
+    "§19.4: the phone waits on a ready face, pad closed, pointing at the projector",
+    readyFace.pad === "none" && readyFace.note.includes("望住投影幕"),
+    JSON.stringify(readyFace)
+  );
+  check(
+    "§19.4: the ready face drops the echoed status, the spent clock and lives",
+    readyFace.shows.length === 0,
+    JSON.stringify(readyFace)
+  );
+  // a host F5 mid-briefing must never strand the phones on the ready
+  // face: every arc publish clears the flag (§19.4)
+  const briefCleared = await host.evaluate(() => {
+    G.inq = { stage: 1, round: 1, seq: 1101, step: "round", n: 12, theorem: false, extra: 0 };
+    const p = inqStatePayload();
+    G.inq = null;
+    return p.brief;
+  });
+  check("§19.4: an arc publish clears the briefing flag (host F5 safety)", briefCleared === null, "brief=" + briefCleared);
+  await host.click("#btnBriefStart");
   await until(
     () => host.evaluate(() => document.getElementById("gameScreen").classList.contains("active") && G.started && !!G.level && !G.inq),
     { label: "main game took the room" }
@@ -2225,6 +2771,10 @@ async function main() {
   const l1root = await host.evaluate(() => G.level.pillars[0].root);
   const vdMain = await submitVerdict(phoneA2, l1root);
   check("handover: the main game judges a submission end-to-end", vdMain.ok === true && vdMain.pts > 0, JSON.stringify(vdMain));
+  await host.click("#btnGameQr");
+  const qrMain = await host.evaluate(() => getComputedStyle(document.getElementById("qrPop")).display !== "none");
+  check("QR chip: available on the main-game tutor bar too", qrMain);
+  await host.press("body", "q"); // tidy the card away for the error census
   const dBad = dErrors.filter((l) => !benign(l));
   check("no phone D errors", dBad.length === 0, JSON.stringify(dBad));
 

@@ -9,6 +9,17 @@
 
 export const GRADE_ORDER = ["P6", "F1", "F2", "F3", "F4", "F5", "F6", "Graduated"] as const;
 
+/** Ladder position of a grade; anything unrecognised sorts after the ladder. */
+export function gradeRank(grade: string): number {
+  const i = (GRADE_ORDER as readonly string[]).indexOf(grade);
+  return i === -1 ? GRADE_ORDER.length : i;
+}
+
+/** Sort grades up the ladder (P6 → F6), unrecognised values last, alphabetically. */
+export function sortGrades(grades: string[]): string[] {
+  return [...grades].sort((a, b) => gradeRank(a) - gradeRank(b) || a.localeCompare(b));
+}
+
 export const PROMOTE_MAP: Record<string, string> = {
   P6: "F1",
   F1: "F2",

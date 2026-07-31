@@ -212,3 +212,16 @@ export function isSupersededSession(session: { session_status: string }): boolea
   const status = session.session_status;
   return status === 'Cancelled' || status.endsWith('- Make-up Booked');
 }
+
+/**
+ * The lesson number a row shows: its own, or the one borrowed back from a
+ * booked make-up successor (make-up origins hand theirs over, and the DB keeps
+ * the origin NULL). Shared so anything filtering or grouping by lesson number
+ * agrees with the badge instead of re-deriving the fallback.
+ */
+export function displayedLessonNumber(session: {
+  lesson_number?: number | null;
+  moved_lesson_number?: number | null;
+}): number | null {
+  return session.lesson_number ?? session.moved_lesson_number ?? null;
+}

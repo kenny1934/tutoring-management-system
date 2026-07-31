@@ -1165,10 +1165,20 @@ class LocationTerminationStats(BaseModel):
     term_rate: float = Field(default=0.0, ge=0)
 
 
+class SummerPauseScope(BaseModel):
+    """How the summer course period narrowed the quarter these figures cover"""
+    pause_start: date
+    pause_end: date
+    measured_from: date
+    measured_to: date
+    handover_from: date  # lessons ending on or after this date are judged in the next quarter
+
+
 class TerminationStatsResponse(BaseModel):
     """Full stats response with tutor and location breakdowns"""
     tutor_stats: List[TutorTerminationStats]
     location_stats: LocationTerminationStats
+    summer_scope: Optional[SummerPauseScope] = None
 
 
 class QuarterOption(BaseModel):

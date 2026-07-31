@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { displayedLessonNumber } from "@/lib/session-status";
 
 interface LessonNumberBadgeProps {
   lessonNumber: number | null | undefined;
@@ -49,7 +50,7 @@ interface SessionLessonBadgeProps {
  * to the successor row; borrow it back (muted) so the origin keeps its badge.
  */
 export function SessionLessonBadge({ session, size, className }: SessionLessonBadgeProps) {
-  const lessonNumber = session.lesson_number ?? session.moved_lesson_number;
+  const lessonNumber = displayedLessonNumber(session);
   return (
     <LessonNumberBadge
       lessonNumber={lessonNumber}

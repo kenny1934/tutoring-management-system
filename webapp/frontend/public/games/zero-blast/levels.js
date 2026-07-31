@@ -18,7 +18,10 @@
   var MINUS = "−";
   var TIMES = "×";
 
-  /* ≈12 buildings / ≈20 codes; max fuse ≈ 6.75 min */
+  /* ≈14 buildings / ≈24 codes; max fuse ≈ 8.75 min. Kinds 7-8 are the
+   * scripted gates (§19 Batch AA/AB): the general-form gate x²+5x+6=2,
+   * then the factored-but-nonzero trap (x−6)(x+4)=39 - the true finale,
+   * the lesson's last proof that only "= 0" lets you read a factor off. */
   var DEFAULT_PLAN = [
     { kind: 1, rounds: 1, fuseMs: 20000 },
     { kind: 2, rounds: 2, fuseMs: 20000 },
@@ -26,6 +29,8 @@
     { kind: 4, rounds: 2, fuseMs: 35000 },
     { kind: 5, rounds: 2, fuseMs: 35000 },
     { kind: 6, rounds: 3, fuseMs: 45000 },
+    { kind: 7, rounds: 1, fuseMs: 60000 },
+    { kind: 8, rounds: 1, fuseMs: 60000 },
   ];
   var MIX_STAGE = { kind: "mix", rounds: 3, fuseMs: 40000 };
 
@@ -57,9 +62,12 @@
     return v < 0 ? "(" + MINUS + Math.abs(v) + ")" : String(v);
   }
 
-  /* (x − a) for root a: root 3 → "(x−3)", root −2 → "(x+2)" */
+  /* (x − a) for root a: root 3 → "(x−3)", root −2 → "(x+2)".
+   * Root 0 is the naked factor x, not "(x)": a bare x reads as a factor
+   * whose zero is x = 0, and the brackets only ever framed a subtraction
+   * that isn't there (the arc's x(x−7) bridge is its one caller). */
   function factorText(root) {
-    if (root === 0) return "(x)";
+    if (root === 0) return "x";
     return root > 0 ? "(x" + MINUS + root + ")" : "(x+" + Math.abs(root) + ")";
   }
 
@@ -176,6 +184,26 @@
           ],
         };
       }
+      case 7: {
+        // x² + bx + c = k - NOT in general form (§19 Batch AA): move
+        // the k over FIRST, then factorise. Scripted, not rolled: the
+        // SM901 lesson quotes this exact question as its bridge into
+        // 一般式. The displayed LHS factors cleanly as (x+2)(x+3), so
+        // the confident wrong answers −2/−3 exist (the UI catches them
+        // with a bespoke nudge); the true roots come from x²+5x+4=0.
+        return {
+          n: 7,
+          kind: "offset",
+          b: 5,
+          c: 6,
+          k: 2,
+          expr: quadText(5, 6) + " = 2",
+          pillars: [
+            { id: "p1", root: -1, label: "?", hidden: factorText(-1) },
+            { id: "p2", root: -4, label: "?", hidden: factorText(-4) },
+          ],
+        };
+      }
       case 6: {
         // x² + bx + c = 0 with a nice factorisation — factorise first.
         // Easy: roots within ±6 keep b, c inside familiar times tables.
@@ -206,6 +234,32 @@
           ],
         };
       }
+      case 8: {
+        // (x−6)(x+4) = 39 — factored, but the right side is NOT 0 (§19
+        // Batch AB). The shown brackets tempt a read-off (x = 6, x = −4)
+        // that lands ONE bracket on 0, and 0 × 10 = 0, not 39. The move
+        // is to expand, carry the 39 over, and factorise the general
+        // form: x² − 2x − 63 = 0 → (x−9)(x+7) = 0, x = 9 or −7. Scripted,
+        // the last building: the final proof that only "= 0" reads a
+        // factor off. da/db are the DISPLAYED brackets' roots (the
+        // traps); b/c are that product expanded (x² − 2x − 24); the true
+        // roots hide on the pillars.
+        var da = 6, db = -4; // the brackets on the board
+        return {
+          n: 8,
+          kind: "product",
+          da: da,
+          db: db,
+          b: -(da + db), // their product expanded: x² − 2x − 24
+          c: da * db,
+          k: 39,
+          expr: factorText(da) + factorText(db) + " = " + num(39),
+          pillars: [
+            { id: "p1", root: 9, label: "?", hidden: factorText(9) },
+            { id: "p2", root: -7, label: "?", hidden: factorText(-7) },
+          ],
+        };
+      }
     }
     throw new Error("no such level: " + n);
   }
@@ -225,7 +279,14 @@
       plan.forEach(function (s) { s.rounds = 1; });
       fuseMult *= 1.25;
     } else if (cfg.diff === "hard") {
-      plan.push({ kind: MIX_STAGE.kind, rounds: MIX_STAGE.rounds, fuseMs: MIX_STAGE.fuseMs });
+      // the mixed street slots in BEFORE the scripted gates: those stay
+      // the lesson's closing beats, and the last of them pays double as
+      // the finale
+      var gateAt = plan.length;
+      for (var gi = 0; gi < plan.length; gi++) {
+        if (SCRIPTED_KINDS.indexOf(plan[gi].kind) !== -1) { gateAt = gi; break; }
+      }
+      plan.splice(gateAt, 0, { kind: MIX_STAGE.kind, rounds: MIX_STAGE.rounds, fuseMs: MIX_STAGE.fuseMs });
     }
     if (cfg.levels && cfg.levels.length) {
       plan = cfg.levels.map(function (k) {
@@ -247,6 +308,11 @@
    * finale's biggest payout for the least work (up to 8 normal answers
    * for a single read-off) */
   var MIX_KINDS = [3, 4, 6];
+
+  /* the gates are scripted, not rolled: fixed numbers chosen to teach
+   * the general-form move, and they close the lesson. Anything inserted
+   * into the plan goes in front of them. */
+  var SCRIPTED_KINDS = [7, 8];
 
   /* roll every building of a plan; round 2+ (and every mixed-street
    * building) uses the hard generator. The last stage is the finale
@@ -326,9 +392,15 @@
     };
   }
 
-  /* |product| at x = v — the "strength" the structure holds with */
+  /* |product| at x = v — the "strength" the structure holds with.
+   * The gate measures |LHS − RHS|: only the general form's zero counts. */
   function strength(level, v) {
     if (level.kind === "numeric") return Math.abs(level.konst * v);
+    // both gates measure |LHS − RHS|, so only a true root of the general
+    // form reads as zero. The product gate's shown brackets ARE b and c
+    // expanded ((v−da)(v−db) ≡ v² + bv + c), so one line covers it.
+    if (level.kind === "offset" || level.kind === "product")
+      return Math.abs(v * v + level.b * v + level.c - level.k);
     if (level.kind === "expanded") return Math.abs(v * v + level.b * v + level.c);
     return Math.abs(
       level.pillars.reduce(function (acc, p) {
@@ -337,7 +409,39 @@
     );
   }
 
+  /* L6/L7/L8: the equation is written out in full, so each pillar keeps
+   * its factor hidden on the plaque until the level resolves. The board
+   * and the factorisation line ask this; the reveal asks the pillar. */
+  function hidesFactors(level) {
+    return level.kind === "expanded" || level.kind === "offset" || level.kind === "product";
+  }
+
+  /* the general form the gates must reach: x² + bx + (c − k) = 0. L6 is
+   * already there, so its k is nothing. The graph sketch, the trap nudge,
+   * the working chain and the factorisation plaque all read this ONE
+   * line - four independent copies of c − k used to agree by luck. */
+  function generalForm(level) {
+    return quadText(level.b, level.c - (level.k || 0));
+  }
+
+  /* a confidently-wrong gate answer: the guess zeroes the DISPLAYED left
+   * side while the general form is still off zero. Both gates show the
+   * same quadratic (the product gate's brackets ARE b and c expanded),
+   * so one test covers them. Returns the RHS to name, or null. */
+  function trapAnswer(level, v) {
+    if (level.kind !== "offset" && level.kind !== "product") return null;
+    return v * v + level.b * v + level.c === 0 ? { k: level.k } : null;
+  }
+
   /* ---------- worked reasons (arrays of margin-note lines) ---------- */
+
+  /* the substituted pair, evaluated: (v−f1)(v−f2) = m × n = tail. The
+   * lesson's core notation, so its spacing lives in one place. */
+  function subLine(f1, f2, v, tail) {
+    return factorSub(f1, v) + factorSub(f2, v) +
+      " = " + numSub(v - f1) + " " + TIMES + " " + numSub(v - f2) +
+      " = " + tail;
+  }
 
   /* wrong code v: show the substitution evaluated, product visibly ≠ 0 */
   function workingWrong(level, v) {
@@ -353,11 +457,7 @@
       case "square": {
         var f1 = level.pillars[0].root;
         var f2 = level.pillars[1].root;
-        return [
-          factorSub(f1, v) + factorSub(f2, v) +
-            " = " + numSub(v - f1) + " " + TIMES + " " + numSub(v - f2) +
-            " = " + num((v - f1) * (v - f2)),
-        ];
+        return [subLine(f1, f2, v, num((v - f1) * (v - f2)))];
       }
       case "expanded": {
         var val = v * v + level.b * v + level.c;
@@ -367,6 +467,23 @@
         if (level.c !== 0)
           terms.push((level.c > 0 ? "+ " : MINUS + " ") + Math.abs(level.c));
         return [terms.join(" ") + " = " + num(val)];
+      }
+      case "offset": {
+        // the substitution names both sides: the trap answer lands the
+        // LHS on 0 and the "≠ k" IS the lesson (the UI adds the nudge)
+        var valO = v * v + level.b * v + level.c;
+        var termsO = [numSub(v) + "²"];
+        if (level.b !== 0)
+          termsO.push((level.b > 0 ? "+ " : MINUS + " ") + Math.abs(level.b) + TIMES + numSub(v));
+        if (level.c !== 0)
+          termsO.push((level.c > 0 ? "+ " : MINUS + " ") + Math.abs(level.c));
+        return [termsO.join(" ") + " = " + num(valO) + " ≠ " + num(level.k)];
+      }
+      case "product": {
+        // the shown brackets substituted: a read-off zeroes one and the
+        // product is 0, not 39, so "≠ k" IS the lesson (UI adds the nudge)
+        var pv = (v - level.da) * (v - level.db);
+        return [subLine(level.da, level.db, v, num(pv) + " ≠ " + num(level.k))];
       }
     }
     return [];
@@ -386,20 +503,32 @@
       case "square": {
         var f1 = level.pillars[0].root;
         var f2 = level.pillars[1].root;
-        return [
-          factorSub(f1, v) + factorSub(f2, v) +
-            " = " + numSub(v - f1) + " " + TIMES + " " + numSub(v - f2) +
-            " = 0",
-        ];
+        return [subLine(f1, f2, v, "0")];
       }
       case "expanded": {
         var f1e = level.pillars[0].root;
         var f2e = level.pillars[1].root;
         return [
           quadText(level.b, level.c) + " = " + factorText(f1e) + factorText(f2e),
-          factorSub(f1e, v) + factorSub(f2e, v) +
-            " = " + numSub(v - f1e) + " " + TIMES + " " + numSub(v - f2e) +
-            " = 0",
+          subLine(f1e, f2e, v, "0"),
+        ];
+      }
+      case "offset":
+      case "product": {
+        // the whole chain: reach the general form, factorise, substitute -
+        // the general-form move made visible (§19 Batch AA). The product
+        // gate starts one step earlier, from the brackets it shows: they
+        // multiply out to the same quadratic (§19 Batch AB).
+        var f1g = level.pillars[0].root;
+        var f2g = level.pillars[1].root;
+        var gen = generalForm(level);
+        var shown = quadText(level.b, level.c) + " = " + num(level.k);
+        return [
+          (level.kind === "product"
+            ? factorText(level.da) + factorText(level.db) + " = " + num(level.k) + "  ⟹  " + shown
+            : shown) + "  ⟹  " + gen + " = 0",
+          gen + " = " + factorText(f1g) + factorText(f2g),
+          subLine(f1g, f2g, v, "0"),
         ];
       }
     }
@@ -417,11 +546,12 @@
     });
   }
 
-  /* L6 only: the factorised identity, shown when the level resolves */
+  /* L6/L7/L8: the factorised identity, shown when the level resolves.
+   * The gates factorise their GENERAL form - the moved-over c − k. */
   function factorisation(level) {
-    if (level.kind !== "expanded") return null;
+    if (!hidesFactors(level)) return null;
     return (
-      quadText(level.b, level.c) +
+      generalForm(level) +
       " = " +
       factorText(level.pillars[0].root) +
       factorText(level.pillars[1].root)
@@ -441,6 +571,9 @@
     workingHit: workingHit,
     roots: roots,
     factorisation: factorisation,
+    hidesFactors: hidesFactors,
+    generalForm: generalForm,
+    trapAnswer: trapAnswer,
     num: num,
     factorText: factorText,
     factorSub: factorSub,

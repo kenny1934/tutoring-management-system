@@ -92,6 +92,17 @@ import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorB
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
 import { flattenSummerClusters } from "@/lib/summer-class-grouping";
+import { SummerFilterPopover } from "@/components/sessions/SummerFilterPopover";
+import {
+  EMPTY_SUMMER_FILTER,
+  applySummerFilter,
+  decodeSummerFilter,
+  deriveSummerFilterOptions,
+  encodeSummerFilter,
+  isSummerFilterActive,
+  summerFiltersEqual,
+  type SummerFilterState,
+} from "@/lib/summer-session-filter";
 const ProposalDetailModal = dynamic(
   () => import("@/components/sessions/ProposalDetailModal").then(m => m.ProposalDetailModal),
   { ssr: false }
@@ -109,6 +120,7 @@ const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
 // Stable empty arrays to avoid new references on each render when SWR returns undefined
 const EMPTY_PROPOSALS: MakeupProposal[] = [];
 const EMPTY_SESSIONS: Session[] = [];
+const EMPTY_PROPOSED_SESSIONS: ProposedSession[] = [];
 
 // Number of session cards to show per tier before "Show more"
 const TIER_PAGE_SIZE = 20;
@@ -119,6 +131,20 @@ const PENDING_MAKEUP_STATUSES = [
   "Sick Leave - Pending Make-up",
   "Weather Cancelled - Pending Make-up",
 ];
+
+/** Stable empty selection so clearing an already-empty one bails out of a render. */
+const EMPTY_SELECTION: ReadonlySet<number> = new Set<number>();
+
+/**
+ * Single source of truth for which view the URL asks for. The pending make-ups
+ * view is list-only: its fetch spans 120 days and its banner lives in the list,
+ * so a grid would slice that window down to one week with nothing on screen
+ * explaining the mode.
+ */
+function resolveViewMode(urlView: string | null, urlFilter: string | null): ViewMode {
+  if ((urlFilter || "") === "pending-makeups") return 'list';
+  return (urlView as ViewMode) || 'list';
+}
 
 export default function SessionsPage() {
   usePageTitle("Sessions");
@@ -175,10 +201,28 @@ export default function SessionsPage() {
   });
   const [makeupSort, setMakeupSort] = useState<"most" | "least">("most");
   const [isMobile, setIsMobile] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const param = searchParams.get('view');
-    return (param as ViewMode) || 'list';
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    resolveViewMode(searchParams.get('view'), searchParams.get('filter'))
+  );
+
+  // Summer class filter (grade / type / lesson), applies in every view
+  const [summerFilter, setSummerFilter] = useState<SummerFilterState>(() =>
+    decodeSummerFilter(searchParams)
+  );
+
+  // Reached only from the notification bell and the command palette, so it is a
+  // focused destination rather than a view the user assembles: the toolbar drops
+  // everything the mode overrides or cannot act on and keeps the tutor filter,
+  // which still narrows the fetch.
+  const isPendingMakeupsView = specialFilter === "pending-makeups";
+
+  // A filter this mode does not own is disarmed, not merely hidden. Hiding a
+  // control while its value kept filtering is the defect this page already had
+  // once, so the effective values feed the fetch, the client-side passes and the
+  // URL alike — a saved ?filter=pending-makeups&sgrade=F1 link cannot silently
+  // drop rows with the control that would explain it out of reach.
+  const effectiveStatusFilter = isPendingMakeupsView ? "" : statusFilter;
+  const effectiveSummerFilter = isPendingMakeupsView ? EMPTY_SUMMER_FILTER : summerFilter;
 
   // Sync state from URL when searchParams change (for client-side navigation)
   useEffect(() => {
@@ -186,15 +230,16 @@ export default function SessionsPage() {
     const urlView = searchParams.get('view') as ViewMode | null;
     const urlDate = searchParams.get('date');
     const urlStatus = searchParams.get('status') || "";
+    const urlSummer = decodeSummerFilter(searchParams);
+
+    setSummerFilter(prev => summerFiltersEqual(prev, urlSummer) ? prev : urlSummer);
 
     if (urlFilter !== specialFilter) {
       setSpecialFilter(urlFilter);
     }
-    if (urlView && urlView !== viewMode) {
-      setViewMode(urlView);
-    } else if (!urlView && viewMode !== 'list') {
-      // Reset to list if no view param in URL
-      setViewMode('list');
+    const nextView = resolveViewMode(urlView, urlFilter);
+    if (nextView !== viewMode) {
+      setViewMode(nextView);
     }
     if (urlDate) {
       const parsed = new Date(urlDate + 'T00:00:00');
@@ -224,7 +269,7 @@ export default function SessionsPage() {
     };
 
     // Special filter: pending-makeups overrides date and status
-    if (specialFilter === "pending-makeups") {
+    if (isPendingMakeupsView) {
       // 120 days ago to catch overdue pending makeups
       const fetchWindow = new Date();
       fetchWindow.setDate(fetchWindow.getDate() - 120);
@@ -244,21 +289,39 @@ export default function SessionsPage() {
     }
 
     return filters;
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, specialFilter]);
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView]);
 
   // SWR hooks for data fetching with caching
   const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
   const { data: tutors = [] } = useActiveTutors();
 
   // Client-side filtering for composite "Active" filter
-  const sessions = useMemo(() => {
-    if (statusFilter !== "__active") return rawSessions;
+  const statusFilteredSessions = useMemo(() => {
+    if (effectiveStatusFilter !== "__active") return rawSessions;
     return rawSessions.filter(s =>
       !s.session_status.includes('Pending Make-up') &&
       !s.session_status.includes('Make-up Booked') &&
       s.session_status !== 'Cancelled'
     );
-  }, [rawSessions, statusFilter]);
+  }, [rawSessions, effectiveStatusFilter]);
+
+  // Summer class facets, derived from what is loaded rather than the course
+  // config: the control only offers values that would return something, and
+  // it disappears on its own outside the summer course period.
+  const summerFilterOptions = useMemo(
+    () => deriveSummerFilterOptions(statusFilteredSessions),
+    [statusFilteredSessions]
+  );
+
+  const sessions = useMemo(
+    () => applySummerFilter(statusFilteredSessions, effectiveSummerFilter),
+    [statusFilteredSessions, effectiveSummerFilter]
+  );
+
+  const countableSessionCount = useMemo(
+    () => sessions.filter(isCountableSession).length,
+    [sessions]
+  );
 
   // Scroll to time slot specified in URL ?slot= param (once per navigation)
   const lastScrolledSlot = useRef('');
@@ -286,7 +349,7 @@ export default function SessionsPage() {
 
   // Fetch proposals for the current date range (for showing proposed sessions)
   const proposalDateRange = useMemo(() => {
-    if (specialFilter === "pending-makeups") {
+    if (isPendingMakeupsView) {
       // Don't show proposed sessions in pending makeups view
       return { from: null, to: null };
     }
@@ -300,7 +363,7 @@ export default function SessionsPage() {
       return { from: toDateString(start), to: toDateString(end) };
     }
     return { from: null, to: null };
-  }, [selectedDate, viewMode, specialFilter]);
+  }, [selectedDate, viewMode, isPendingMakeupsView]);
 
   // Fetch proposals where PROPOSED SLOTS are in the date range (for ghost session display)
   const { data: proposalsForSlots = EMPTY_PROPOSALS } = useProposalsInDateRange(
@@ -322,13 +385,18 @@ export default function SessionsPage() {
 
   // Convert proposal slots to session-like objects for display
   // Uses proposals fetched by slot date so ghost sessions appear on correct dates
+  // Ghost rows carry no summer class of their own, so they drop out with every
+  // other non-summer row once a facet is set — they reach the views as their own
+  // prop rather than through the sessions memo, so they need saying explicitly.
   const proposedSessions = useMemo(
-    () => filterProposedSessions(
-      proposalSlotsToSessions(proposalsForSlots),
-      tutorFilter ? parseInt(tutorFilter) : null,
-      selectedLocation
-    ),
-    [proposalsForSlots, tutorFilter, selectedLocation]
+    () => isSummerFilterActive(effectiveSummerFilter)
+      ? EMPTY_PROPOSED_SESSIONS
+      : filterProposedSessions(
+          proposalSlotsToSessions(proposalsForSlots),
+          tutorFilter ? parseInt(tutorFilter) : null,
+          selectedLocation
+        ),
+    [proposalsForSlots, tutorFilter, selectedLocation, effectiveSummerFilter]
   );
 
   // Popover state for list view
@@ -494,6 +562,9 @@ export default function SessionsPage() {
       if (statusFilter) params.set('status', statusFilter);
     }
     if (tutorFilter) params.set('tutor', tutorFilter);
+    for (const [key, value] of Object.entries(encodeSummerFilter(effectiveSummerFilter))) {
+      params.set(key, value);
+    }
 
     const newUrl = `/sessions?${params.toString()}`;
     // Only call replaceState if URL actually changed — Next.js 15 patches
@@ -501,7 +572,7 @@ export default function SessionsPage() {
     if (newUrl !== `${window.location.pathname}${window.location.search}`) {
       window.history.replaceState(null, '', newUrl);
     }
-  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter]);
+  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter, effectiveSummerFilter]);
 
   // Restore scroll position when returning to list view (after data loads)
   useEffect(() => {
@@ -661,7 +732,7 @@ export default function SessionsPage() {
 
   // Group sessions by urgency tier for pending-makeups view
   const groupedByUrgencyTier = useMemo(() => {
-    if (specialFilter !== "pending-makeups") return null;
+    if (!isPendingMakeupsView) return null;
 
     const tiers: Record<'overdue' | 'critical' | 'warning' | 'ok', Session[]> = {
       overdue: [],
@@ -697,7 +768,7 @@ export default function SessionsPage() {
     if (tiers.ok.length > 0) result.push(['ok', tiers.ok]);
     if (tiers.overdue.length > 0) result.push(['overdue', tiers.overdue]);
     return result;
-  }, [sessions, specialFilter, makeupSort, getSessionUrgency]);
+  }, [sessions, isPendingMakeupsView, makeupSort, getSessionUrgency]);
 
 
   // Filter and sort tutors by selected location
@@ -1144,10 +1215,13 @@ export default function SessionsPage() {
   // Calculate sticky top for time slot headers (accounts for bulk action bar when visible)
   const timeSlotStickyTop = toolbarHeight + (hasSelection ? bulkActionBarHeight : 0);
 
-  // Clear selection when filters change
+  // Clear selection when filters change. specialFilter is in here so rows
+  // selected in the normal list do not survive a jump to the pending make-ups
+  // view, which has no selection UI to clear them with. Bails when nothing is
+  // selected, which is the common case — a fresh Set would re-render every row.
   useEffect(() => {
-    setSelectedIds(new Set());
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
+    setSelectedIds(prev => (prev.size === 0 ? prev : new Set(EMPTY_SELECTION)));
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, summerFilter, specialFilter]);
 
   // Close select dropdowns on outside click
   useEffect(() => {
@@ -1182,7 +1256,9 @@ export default function SessionsPage() {
 
       // Cmd/Ctrl+Shift+A - Cycle: markable → attended → clear
       // If a session is focused, scope to that timeslot; otherwise scope to visible (non-collapsed) sessions
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+      // Selection shortcuts are off in the pending make-ups view, which offers no
+      // selection at all. J/K navigation and the per-row shortcuts still work.
+      if (!isPendingMakeupsView && (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         const visibleSet = new Set(visibleSessionIds);
         const scopeSessions = focusedSessionId
@@ -1213,7 +1289,7 @@ export default function SessionsPage() {
       }
 
       // Cmd/Ctrl+A - Select all visible (non-collapsed) sessions
-      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+      if (!isPendingMakeupsView && (e.metaKey || e.ctrlKey) && e.key === 'a') {
         e.preventDefault();
         setSelectedIds(new Set(visibleSessionIds));
         return;
@@ -1275,7 +1351,7 @@ export default function SessionsPage() {
         }
       }
       // Space - toggle selection on focused card
-      else if (key === ' ' && focusedSessionId) {
+      else if (!isPendingMakeupsView && key === ' ' && focusedSessionId) {
         e.preventDefault();
         toggleSelect(focusedSessionId);
         return;
@@ -1380,7 +1456,7 @@ export default function SessionsPage() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewMode, isPendingMakeupsView, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll focused card into view
   useEffect(() => {
@@ -1405,7 +1481,7 @@ export default function SessionsPage() {
   // Clear focus when filters change
   useEffect(() => {
     setFocusedSessionId(null);
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation]);
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, summerFilter]);
 
   // Mark visible time slots as "seen" after initial render (to skip stagger on re-expand)
   useEffect(() => {
@@ -1717,84 +1793,105 @@ export default function SessionsPage() {
       <div className="flex items-center gap-2">
         <div className="relative mr-1.5">
           <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-          {sessions.filter(isCountableSession).length > 0 && (
+          {countableSessionCount > 0 && (
             <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-[#a0704b] dark:bg-[#cd853f] text-white">
-              {sessions.filter(isCountableSession).length}
+              {countableSessionCount}
             </span>
           )}
         </div>
         <h1 className="hidden sm:block text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
       </div>
 
-      <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-
-      {/* Inline View Switcher */}
-      <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
-
-      {/* Show filters for list and weekly views */}
-      {(viewMode === "list" || viewMode === "weekly") && (
+      {/* View switcher — hidden in the pending make-ups view, which is list-only */}
+      {!isPendingMakeupsView && (
         <>
           <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-
-          {/* Date Picker (only for list view) */}
-          {viewMode === "list" && (
-            <div className="flex items-center gap-2">
-              <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
-              {/* Today button - only show when not on today */}
-              {toDateString(selectedDate) !== toDateString(new Date()) && (
-                <button
-                  onClick={() => setSelectedDate(new Date())}
-                  className="px-2 py-1 text-xs font-medium rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
-                >
-                  Today
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Compact Status Filter with color indicators */}
-          <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
-
-          {/* Compact Tutor Filter */}
-          <select
-            value={tutorFilter}
-            onChange={(e) => setTutorFilter(e.target.value)}
-            className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 0.5rem center',
-            }}
-          >
-            <option value="">Tutor</option>
-            {filteredTutors.map((tutor) => (
-              <option key={tutor.id} value={tutor.id.toString()}>
-                {tutor.tutor_name}
-              </option>
-            ))}
-          </select>
+          <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
         </>
       )}
 
-      {/* Record Memo button */}
-      <button
-        onClick={() => setMemoDrawerOpen(true)}
-        className="relative flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
-        title="Record a session memo (for sessions not yet in system)"
+      {/* Filters — status and tutor apply in every view */}
+      <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+
+      {/* Date Picker (list view only; the other views carry their own navigation).
+          The pending make-ups window is fixed at 120 days, so no date to pick. */}
+      {viewMode === "list" && !isPendingMakeupsView && (
+        <div className="flex items-center gap-2">
+          <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
+          {/* Today button - only show when not on today */}
+          {toDateString(selectedDate) !== toDateString(new Date()) && (
+            <button
+              onClick={() => setSelectedDate(new Date())}
+              className="px-2 py-1 text-xs font-medium rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
+            >
+              Today
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Compact Status Filter with color indicators. Hidden in the pending
+          make-ups view, where the mode pins the status set and the dropdown
+          would sit there inert. */}
+      {!isPendingMakeupsView && (
+        <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
+      )}
+
+      {/* Compact Tutor Filter — kept everywhere, including the pending make-ups
+          view, where it still narrows the fetch */}
+      <select
+        value={tutorFilter}
+        onChange={(e) => setTutorFilter(e.target.value)}
+        className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'right 0.5rem center',
+        }}
       >
-        <StickyNoteIcon className="h-3 w-3" />
-        <span className="hidden sm:inline">Memo</span>
-        {(pendingMemoData?.count ?? 0) > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white">
-            {pendingMemoData!.count}
-          </span>
-        )}
-      </button>
+        <option value="">Tutor</option>
+        {filteredTutors.map((tutor) => (
+          <option key={tutor.id} value={tutor.id.toString()}>
+            {tutor.tutor_name}
+          </option>
+        ))}
+      </select>
+
+      {/* Summer class filter — every view; hides itself outside the course period */}
+      {!isPendingMakeupsView && (
+        <SummerFilterPopover
+          value={summerFilter}
+          onChange={setSummerFilter}
+          options={summerFilterOptions}
+          matchCount={sessions.length}
+          totalCount={statusFilteredSessions.length}
+        />
+      )}
+
+      {/* Record Memo button — unrelated to chasing make-ups, so it stays out of
+          that view */}
+      {!isPendingMakeupsView && (
+        <button
+          onClick={() => setMemoDrawerOpen(true)}
+          className="relative flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
+          title="Record a session memo (for sessions not yet in system)"
+        >
+          <StickyNoteIcon className="h-3 w-3" />
+          <span className="hidden sm:inline">Memo</span>
+          {(pendingMemoData?.count ?? 0) > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white">
+              {pendingMemoData!.count}
+            </span>
+          )}
+        </button>
+      )}
 
       <div className="flex-1" />
 
-      {/* Select All checkbox with dropdown (only in list view) */}
-      {viewMode === "list" && sessions.length > 0 && (
+      {/* Select All checkbox with dropdown (list view only). Every attendance
+          bulk action needs a Scheduled, Trial or Make-up Class row, which no
+          pending make-up is, so the control has nothing to offer there. */}
+      {viewMode === "list" && !isPendingMakeupsView && sessions.length > 0 && (
         <div className="relative">
           <div className="flex items-center">
             <button
@@ -1878,7 +1975,7 @@ export default function SessionsPage() {
             </div>
 
             {/* Special Filter Banner */}
-            {specialFilter === "pending-makeups" && (
+            {isPendingMakeupsView && (
               <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
                   <RefreshCw className="h-4 w-4" />
@@ -2033,11 +2130,28 @@ export default function SessionsPage() {
                   <div className="text-center">
                     <Clock className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
                     <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No sessions found</p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {specialFilter === "pending-makeups"
-                        ? "No pending make-ups in the last 60 days"
-                        : "Try selecting a different date or adjusting your filters"}
-                    </p>
+                    {isPendingMakeupsView ? (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        No pending make-ups in the last 60 days
+                      </p>
+                    ) : isSummerFilterActive(effectiveSummerFilter) ? (
+                      <>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          No summer classes match the grade, type and lesson you picked
+                        </p>
+                        <button
+                          onClick={() => setSummerFilter(EMPTY_SUMMER_FILTER)}
+                          className="mt-3 inline-flex items-center gap-1 rounded-md border border-amber-400 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
+                        >
+                          <X className="h-3 w-3" />
+                          Clear summer filter
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Try selecting a different date or adjusting your filters
+                      </p>
+                    )}
                   </div>
                 </StickyNote>
               </div>
@@ -2185,27 +2299,15 @@ export default function SessionsPage() {
                                       "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                       statusConfig.bgTint,
                                       !isMobile && "paper-texture",
-                                      selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                      focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                      focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                      // Only the keyboard focus outline: nothing in this
+                                      // view can be selected.
+                                      focusedSessionId === session.id && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
                                     )}
                                     style={{
                                       transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
                                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                                     }}
                                   >
-                                    {/* Checkbox for bulk selection */}
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
-                                      className="flex-shrink-0 p-1.5 sm:p-2 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                    >
-                                      {selectedIds.has(session.id) ? (
-                                        <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />
-                                      ) : (
-                                        <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
-                                      )}
-                                    </button>
-
                                     {/* Main content */}
                                     <div className="flex-1 p-2 sm:p-3 min-w-0">
                                       <div className="flex items-start justify-between gap-2">

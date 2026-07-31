@@ -672,9 +672,20 @@ export interface LocationTerminationStats {
   term_rate: number;
 }
 
+/** How the summer course period narrowed the quarter these figures cover */
+export interface SummerPauseScope {
+  pause_start: string;
+  pause_end: string;
+  measured_from: string;
+  measured_to: string;
+  /** Lessons ending on or after this date are judged in the next quarter */
+  handover_from: string;
+}
+
 export interface TerminationStatsResponse {
   tutor_stats: TutorTerminationStats[];
   location_stats: LocationTerminationStats;
+  summer_scope?: SummerPauseScope | null;
 }
 
 export interface QuarterOption {

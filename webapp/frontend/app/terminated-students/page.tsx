@@ -21,8 +21,9 @@ import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatDayFirstDate } from "@/lib/formatters";
 import { mutate } from "swr";
-import type { TerminatedStudent, TutorTerminationStats, StatDetailStudent } from "@/types";
+import type { TerminatedStudent, TutorTerminationStats, StatDetailStudent, SummerPauseScope } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { CategoryDropdown } from "@/components/terminations/CategoryDropdown";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -102,6 +103,36 @@ function deduplicateByStudentId<T extends { student_id: number }>(arr: T[]): T[]
 function SortIcon({ active, direction }: { active: boolean; direction: 'asc' | 'desc' }) {
   if (!active) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
   return direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+}
+
+/**
+ * Explains why a quarter next to the summer course covers a shorter window than
+ * its dates suggest. Shown on both sides of the pause: the quarter that runs into
+ * it, and the quarter that opens once regular lessons resume.
+ *
+ * "four weeks" tracks PRE_SUMMER_GRACE_DAYS = 28 in the backend's quarters.py.
+ */
+function SummerPauseNote({ scope, quarter }: { scope: SummerPauseScope; quarter: number }) {
+  const opensAfterPause = scope.measured_from > scope.pause_end;
+  const nextQuarter = (quarter % 4) + 1;
+
+  return (
+    <p className="mb-4 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] px-3 py-2 text-sm text-muted-foreground">
+      {opensAfterPause ? (
+        <>
+          This quarter opens on {formatDayFirstDate(scope.measured_from)}, when regular lessons
+          resume after the summer course. It counts the students carried over from the pause and
+          the four weeks before it.
+        </>
+      ) : (
+        <>
+          This quarter is measured to {formatDayFirstDate(scope.measured_to)}, when regular lessons
+          pause for the summer course. Students who finished in the final four weeks before the
+          pause are counted in Q{nextQuarter}.
+        </>
+      )}
+    </p>
+  );
 }
 
 /** Compute the most recent completed quarter synchronously to avoid waterfall */
@@ -859,12 +890,15 @@ export default function TerminatedStudentsPage() {
                   <TrendingDown className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
                   {effectiveLocation || "All Locations"} - Q{selectedQuarter} {selectedYear}
                 </h2>
+                {stats.summer_scope && selectedQuarter && (
+                  <SummerPauseNote scope={stats.summer_scope} quarter={selectedQuarter} />
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="text-center p-4 bg-[#f5ede3] dark:bg-[#3d3628] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
                     <button onClick={() => setStatDetailModal({ statType: "opening" })} className="text-2xl font-bold text-[#6b5a4a] dark:text-[#cd853f] hover:underline cursor-pointer">{stats.location_stats.opening}</button>
                     <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
                       Opening
-                      <Tooltip content="Students with an active enrollment during the first week of the quarter, plus continuing students whose renewal starts within 21 days after (accounts for holidays).">
+                      <Tooltip content="Students with an active enrollment during the first week of the quarter, plus continuing students whose renewal starts within 21 days after (accounts for holidays). Around the summer course, the first week is the week regular lessons resume.">
                         <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
                       </Tooltip>
                     </div>
@@ -899,7 +933,7 @@ export default function TerminatedStudentsPage() {
                     <button onClick={() => setStatDetailModal({ statType: "closing" })} className="text-2xl font-bold text-green-600 dark:text-green-400 hover:underline cursor-pointer">{stats.location_stats.closing}</button>
                     <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
                       Closing
-                      <Tooltip content="Students still active at the end of the quarter, including those who renewed within 21 days after the quarter boundary (must have had an enrollment during the quarter).">
+                      <Tooltip content="Students still active at the end of the quarter, including those who renewed within 21 days after the quarter boundary (must have had an enrollment during the quarter). For the quarter running into the summer course, this is measured at the pause.">
                         <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
                       </Tooltip>
                     </div>
@@ -1193,7 +1227,7 @@ export default function TerminatedStudentsPage() {
                             <th className="px-4 py-3 text-right font-medium">
                               <button onClick={() => handleTutorStatsSort('closing')} className="flex items-center gap-1 hover:text-foreground/80 ml-auto">
                                 Closing
-                                <Tooltip content="Students still active at quarter end, including renewals within 21 days after the boundary."><Info className="h-3 w-3 opacity-40" /></Tooltip>
+                                <Tooltip content="Students still active at quarter end, including renewals within 21 days after the boundary. For the quarter running into the summer course, this is measured at the pause."><Info className="h-3 w-3 opacity-40" /></Tooltip>
                                 <SortIcon active={tutorStatsSortConfig.column === 'closing'} direction={tutorStatsSortConfig.direction} />
                               </button>
                             </th>
