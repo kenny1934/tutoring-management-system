@@ -106,8 +106,11 @@ export function sortWeekDays(days: readonly string[]): string[] {
 }
 
 /** Fallback branch photos, keyed by location name_en — overridden by
- *  `loc.image_url` in config when present. */
+ *  `loc.image_url` in config when present. The Vasco branch appears under two
+ *  English names because each intake's config names it independently: the
+ *  regular form shortened it, the 2025 summer config has not. */
 export const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
+  "Vasco Center": "/summer/vasco-center.jpg",
   "Jardim de Vasco Center": "/summer/vasco-center.jpg",
   "Flora Garden Center": "/summer/flora-center.jpg",
 };

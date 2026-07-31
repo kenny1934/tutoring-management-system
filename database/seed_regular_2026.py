@@ -74,7 +74,7 @@ CONFIG_2026 = {
     "locations": json.dumps([
         {
             "name": "華士古分校",
-            "name_en": "Jardim de Vasco Center",
+            "name_en": "Vasco Center",
             "address": "澳門若翰亞美打街10號東輝閣地下B座",
             "address_en": "Rua de João de Almeida No 10, Tung Fai Kock, B R/C, Macau",
             "open_days": MSA_OPEN_DAYS,
@@ -120,7 +120,7 @@ CONFIG_2026 = {
         {"name": "二龍喉分校", "name_en": "Flora Garden Center"},
         {"name": "氹仔美景I分校", "name_en": "Taipa Mei Keng Center I"},
         {"name": "氹仔美景II分校", "name_en": "Taipa Mei Keng Center II"},
-        {"name": "MathConcept中學教室 (華士古分校)", "name_en": "MathConcept Secondary Academy (Jardim de Vasco Center)"},
+        {"name": "MathConcept中學教室 (華士古分校)", "name_en": "MathConcept Secondary Academy (Vasco Center)"},
         {"name": "MathConcept中學教室 (二龍喉分校)", "name_en": "MathConcept Secondary Academy (Flora Garden Center)"},
     ]),
     "text_content": json.dumps({
