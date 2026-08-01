@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Menu, Search } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
+import { isPublicPath, isPublicSubdomain } from "@/lib/public-routes";
 
 interface LayoutShellProps {
   children: React.ReactNode;
@@ -16,18 +17,9 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
 
-  // Zen mode / public pages / subdomains: render without any shell
-  const isPublicSubdomain = typeof window !== 'undefined' &&
-    (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.') || window.location.hostname.startsWith('buddy.') || window.location.hostname.startsWith('regular.'));
-
-  // /apply and /status are clean URLs served on summer.* and regular.* via
-  // middleware rewrite — include them so SSR skips the admin shell before
-  // hydration sees the hostname.
-  const isCleanPublicPath =
-    pathname === "/apply" || pathname?.startsWith("/apply/") ||
-    pathname === "/status" || pathname?.startsWith("/status/");
-
-  if (isPublicSubdomain || pathname?.startsWith("/zen") || pathname?.startsWith("/summer") || pathname?.startsWith("/regular") || isCleanPublicPath) {
+  // Render without any shell: the parent-facing pages, plus zen mode. Zen is
+  // staff-only, so it is asked about here rather than added to the public list.
+  if (isPublicSubdomain() || isPublicPath(pathname) || pathname?.startsWith("/zen")) {
     return <>{children}</>;
   }
 
