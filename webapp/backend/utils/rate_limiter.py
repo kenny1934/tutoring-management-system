@@ -52,6 +52,11 @@ RATE_LIMITS = {
     "summer_config": {"limit": 30, "window": 60},       # 30 config reads/min
     "summer_status": {"limit": 30, "window": 60},       # 30 status checks/min — raised from 10 for shared-IP audiences
     "summer_buddy": {"limit": 10, "window": 60},        # 10 buddy ops/min
+    # Regular course public endpoints (same rationale as the summer buckets)
+    "regular_apply": {"limit": 10, "window": 600},      # 10 submissions/10min
+    "regular_edit": {"limit": 30, "window": 600},       # 30 self-edits/10min
+    "regular_config": {"limit": 30, "window": 60},      # 30 config reads/min
+    "regular_status": {"limit": 30, "window": 60},      # 30 status checks/min
 
     # Buddy tracker endpoints (verify_pin keys are per-branch via f"buddy_verify_pin:{branch}")
     "buddy_verify_pin": {"limit": 5, "window": 300},      # 5 attempts/5min per branch

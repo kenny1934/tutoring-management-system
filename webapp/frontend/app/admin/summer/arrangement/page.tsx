@@ -19,12 +19,12 @@ import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel"
 import type { DemandBarFilter } from "@/components/admin/SummerSlotCell";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
-import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
+import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyModal";
 import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
-import { SummerTutorWorkloadPanel } from "@/components/admin/SummerTutorWorkloadPanel";
+import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
-import { SummerStudentSearch, type SummerStudentSearchEntry } from "@/components/admin/SummerStudentSearch";
+import { StudentJumpSearch, type StudentJumpSearchEntry } from "@/components/ui/student-jump-search";
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
@@ -46,6 +46,16 @@ const ARRANGEMENT_STATUSES = [
   ...PRE_ARRANGEMENT_STATUSES,
   ...POST_ARRANGEMENT_STATUSES,
 ];
+
+/** Summer's side of the shared tutor-duty modal. */
+const SUMMER_DUTY_API: TutorDutyApi = {
+  getActiveTutors: summerAPI.getActiveTutors,
+  getDuties: summerAPI.getTutorDuties,
+  bulkSetDuties: summerAPI.bulkSetTutorDuties,
+};
+
+/** A summer slot's students are its booked sessions. */
+const summerStudentsIn = (slot: SummerSlot) => slot.session_count ?? 0;
 
 function StatusFilterChip({
   status,
@@ -338,6 +348,21 @@ export default function SummerArrangementPage() {
     [slots],
   );
 
+  // Tutors actually present on this board's slots, for the grid's tutor filter.
+  // Deriving from the slots keeps the list location-scoped and free of tutors
+  // who have nothing to filter to.
+  const slotTutorOptions = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const s of regularSlots) {
+      if (s.tutor_id != null && !seen.has(s.tutor_id)) {
+        seen.set(s.tutor_id, s.tutor_name ?? `Tutor ${s.tutor_id}`);
+      }
+    }
+    return [...seen.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [regularSlots]);
+
   // Fetch active tutors and duties
   const { data: activeTutors } = useSWR(
     canView ? "summer-active-tutors" : null,
@@ -348,7 +373,7 @@ export default function SummerArrangementPage() {
     data: tutorDuties,
     mutate: mutateDuties,
   } = useSWR(
-    configId && location ? ["summer-duties", configId, location] : null,
+    configId && location ? ["tutor-duties", "summer", configId, location] : null,
     () => summerAPI.getTutorDuties(configId!, location)
   );
 
@@ -879,7 +904,7 @@ export default function SummerArrangementPage() {
   // date + session id — so selecting them routes straight to the calendar with
   // a ring highlight. Haystack folds phone digits + school/primary student id
   // so admins can paste any of those from a parent message and find the row.
-  const searchEntries = useMemo<SummerStudentSearchEntry[]>(() => {
+  const searchEntries = useMemo<StudentJumpSearchEntry[]>(() => {
     const digits = (s?: string | null) => (s ? s.replace(/\D+/g, "") : "");
     const makeEntry = (source: {
       application_id: number;
@@ -889,7 +914,7 @@ export default function SummerArrangementPage() {
       contact_phone?: string | null;
       linked_student?: { school_student_id?: string | null } | null;
       linked_prospect?: { primary_student_id?: string | null } | null;
-    }, firstLesson: SummerStudentSearchEntry["firstLesson"]): SummerStudentSearchEntry => {
+    }, firstLesson: StudentJumpSearchEntry["firstLesson"]): StudentJumpSearchEntry => {
       const studentId = getLinkedStudentId(source);
       return {
         applicationId: source.application_id,
@@ -903,7 +928,7 @@ export default function SummerArrangementPage() {
       };
     };
 
-    const out: SummerStudentSearchEntry[] = [];
+    const out: StudentJumpSearchEntry[] = [];
     const seen = new Set<number>();
     for (const s of studentLessonsData?.students ?? []) {
       const first = s.lessons
@@ -922,7 +947,7 @@ export default function SummerArrangementPage() {
     return out;
   }, [studentLessonsData, unassigned]);
 
-  const handleSearchSelect = useCallback((entry: SummerStudentSearchEntry) => {
+  const handleSearchSelect = useCallback((entry: StudentJumpSearchEntry) => {
     // Students tab already shows every row (placed + unplaced), so when the
     // user searches from that context, stay put and just ring the match
     // instead of yanking them to Slot Setup / Calendar.
@@ -1013,7 +1038,7 @@ export default function SummerArrangementPage() {
               </h1>
               <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
             </div>
-            <SummerStudentSearch
+            <StudentJumpSearch
               entries={searchEntries}
               onSelect={handleSearchSelect}
               className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
@@ -1126,9 +1151,10 @@ export default function SummerArrangementPage() {
             )}
           </div>
 
-          <SummerTutorWorkloadPanel
+          <TutorWorkloadPanel
             slots={regularSlots}
             open={workloadOpen && activeTab === "slots"}
+            studentsIn={summerStudentsIn}
           />
         </div>
 
@@ -1184,11 +1210,13 @@ export default function SummerArrangementPage() {
                 {activeTab === "slots" ? (
                   <SummerArrangementGrid
                     days={openDays}
+                    branchKey={location}
                     timeSlots={timeSlots}
                     demand={demand?.cells ?? []}
                     slots={regularSlots}
                     loading={slots === undefined || demand === undefined}
                     grades={grades}
+                    tutors={slotTutorOptions}
                     readOnly={readOnly}
                     onCreateSlot={handleCreateSlot}
                     onUpdateSlot={handleUpdateSlot}
@@ -1213,6 +1241,8 @@ export default function SummerArrangementPage() {
                     courseEndDate={activeConfig!.course_end_date}
                     openDays={openDays}
                     timeSlots={timeSlots}
+                    grades={grades}
+                    tutors={slotTutorOptions}
                     totalLessons={activeConfig!.total_lessons}
                     readOnly={readOnly}
                     onDropStudent={handleDropStudentCalendar}
@@ -1363,7 +1393,7 @@ export default function SummerArrangementPage() {
 
         {/* Tutor duty modal */}
         {dutyModalOpen && configId && (
-          <SummerTutorDutyModal
+          <TutorDutyModal
             isOpen={dutyModalOpen}
             onClose={() => setDutyModalOpen(false)}
             configId={configId}
@@ -1371,6 +1401,8 @@ export default function SummerArrangementPage() {
             days={openDays}
             timeSlots={timeSlots}
             onSaved={() => mutateDuties()}
+            api={SUMMER_DUTY_API}
+            intakeKey="summer"
           />
         )}
 

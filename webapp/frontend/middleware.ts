@@ -6,6 +6,10 @@ import type { NextRequest } from "next/server";
  * - summer.* → /summer/landing (marketing front door)
  *   ├─ /apply → /summer/apply (application form)
  *   └─ /status → /summer/status (status check)
+ * - regular.* → /apply (September intake form; no landing of its own, the
+ *   MathConcept site is the front door)
+ *   ├─ /apply → /regular/apply (application form)
+ *   └─ /status → /regular/status (status check)
  * - prospect.* → /summer/prospect (P6 prospect registration)
  * - buddy.* → /summer/buddy (buddy tracker for primary branches)
  * - games.* → clean per-game URLs over the /games/* static files
@@ -82,6 +86,49 @@ export function middleware(request: NextRequest) {
 
     // Unknown path on summer.* → bounce to landing.
     url.pathname = "/";
+    return NextResponse.redirect(url, 308);
+  }
+
+  // Regular subdomain → the September-intake application form. There is no
+  // landing page of its own: the MathConcept site is the marketing front door
+  // and its call to action points here, so the subdomain exists purely to be
+  // the short URL for the form (/apply) and the status check (/status).
+  //
+  // The bare root REDIRECTS to /apply rather than rewriting. A rewrite would
+  // leave the visible path at "/", which LayoutShell cannot recognise as a
+  // public page during SSR (it only sees the hostname after hydration), so the
+  // admin shell would render for a beat before disappearing.
+  if (hostname.startsWith("regular.")) {
+    if (allowInternals) return NextResponse.next();
+    const url = request.nextUrl.clone();
+
+    // Root and the internal /regular/* paths converge on the clean URLs, so
+    // there is one canonical address for each page whichever link was followed.
+    if (pathname === "/" || pathname === "/regular" || pathname === "/regular/apply") {
+      url.pathname = "/apply";
+      return NextResponse.redirect(url, 308);
+    }
+    if (pathname === "/regular/status") {
+      url.pathname = "/status";
+      return NextResponse.redirect(url, 308);
+    }
+
+    // Clean URLs → rewrite to the actual /regular/* files. Browser keeps the
+    // clean URL; RegularHeader and LayoutShell match both shapes.
+    if (pathname === "/apply" || pathname.startsWith("/apply/")) {
+      url.pathname = "/regular/apply" + pathname.slice("/apply".length);
+      return NextResponse.rewrite(url);
+    }
+    if (pathname === "/status" || pathname.startsWith("/status/")) {
+      url.pathname = "/regular/status" + pathname.slice("/status".length);
+      return NextResponse.rewrite(url);
+    }
+
+    // Anything else under /regular/* (e.g. nested assets) passes through.
+    if (pathname.startsWith("/regular/")) return NextResponse.next();
+
+    // Unknown path on regular.* → the form.
+    url.pathname = "/apply";
     return NextResponse.redirect(url, 308);
   }
 

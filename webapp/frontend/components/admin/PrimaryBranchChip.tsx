@@ -4,9 +4,9 @@ import Link from "next/link";
 import { BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BRANCH_INFO, formatProspectCode } from "@/lib/summer-utils";
+import { LinkedStudentChip } from "@/components/admin/LinkedStudentChip";
 import type { SummerApplication } from "@/types";
 
-type LinkedStudent = NonNullable<SummerApplication["linked_student"]>;
 type LinkedProspect = NonNullable<SummerApplication["linked_prospect"]>;
 
 type BranchChipApp = Pick<SummerApplication, "linked_student" | "linked_prospect" | "claimed_branch_code" | "is_existing_student" | "verified_branch_origin">;
@@ -21,24 +21,6 @@ export function isExistingOrigin(app: BranchChipApp): boolean {
     return true;
   }
   return false;
-}
-
-function StudentChip({ student }: { student: LinkedStudent }) {
-  return (
-    <a
-      href={`/students/${student.id}?tab=profile`}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold font-mono text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors"
-      title={`Linked to ${student.student_name}`}
-    >
-      <BadgeCheck className="h-3 w-3" />
-      {student.home_location && student.school_student_id
-        ? `${student.home_location}-${student.school_student_id}`
-        : student.school_student_id || `#${student.id}`}
-    </a>
-  );
 }
 
 function ProspectChip({
@@ -82,7 +64,7 @@ function ProspectChip({
   }
   return (
     <Link
-      href={`/admin/summer/prospects?focus=${prospect.id}`}
+      href={`/admin/prospects?focus=${prospect.id}`}
       onClick={(e) => e.stopPropagation()}
       className={chipClass}
       title={title}
@@ -113,14 +95,14 @@ export function PrimaryBranchChip({
   if (linkedStudent && linkedProspect) {
     return (
       <>
-        <StudentChip student={linkedStudent} />
+        <LinkedStudentChip student={linkedStudent} />
         <ProspectChip prospect={linkedProspect} asFrom onProspectClick={onProspectClick} />
       </>
     );
   }
 
   if (linkedStudent) {
-    return <StudentChip student={linkedStudent} />;
+    return <LinkedStudentChip student={linkedStudent} />;
   }
 
   if (linkedProspect) {

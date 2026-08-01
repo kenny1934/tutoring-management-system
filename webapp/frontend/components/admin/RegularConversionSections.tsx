@@ -1,0 +1,397 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, ArrowUpDown, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { IntentionBadge, OutreachBadge } from "@/components/summer/prospect-badges";
+import type { ProspectOutreachStatus, RegularConversionResponse } from "@/types";
+
+// Shared table styling, matching the funnel table already on the page.
+const wrap = "border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden";
+const scroll = "overflow-x-auto";
+const thead = "bg-[#f0e6d8]/50 dark:bg-[#2a2520]";
+const theadRow = "border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30";
+const th = "px-3 py-2 text-left font-medium text-foreground";
+const thNum = "px-3 py-2 text-right font-medium text-foreground";
+const tdNum = "px-3 py-2 text-right tabular-nums";
+const rowDivide = "divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30";
+
+/** Whole-number percent, guarding a zero denominator. */
+function pct(n: number, d: number): string {
+  return d > 0 ? `${Math.round((n / d) * 100)}%` : "-";
+}
+
+function EmptyRow({ span, children }: { span: number; children: React.ReactNode }) {
+  return (
+    <tr>
+      <td colSpan={span} className="px-3 py-4 text-center text-muted-foreground italic">{children}</td>
+    </tr>
+  );
+}
+
+type SortDir = "asc" | "desc";
+
+/** Client-side column sort that keeps the server's curated order until the user
+ *  clicks a header, then toggles asc/desc on repeat clicks of the same column. */
+function useSortable<T>(rows: T[]) {
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [dir, setDir] = useState<SortDir>("desc");
+  const sorted = useMemo(() => {
+    if (!sortKey) return rows;
+    const get = (o: T) => (o as Record<string, unknown>)[sortKey];
+    return [...rows].sort((a, b) => {
+      const av = get(a);
+      const bv = get(b);
+      let c: number;
+      if (typeof av === "number" && typeof bv === "number") c = av - bv;
+      else if (typeof av === "boolean" && typeof bv === "boolean") c = (av ? 1 : 0) - (bv ? 1 : 0);
+      else c = String(av ?? "").localeCompare(String(bv ?? ""));
+      return dir === "asc" ? c : -c;
+    });
+  }, [rows, sortKey, dir]);
+  const onSort = (k: string) => {
+    if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setDir("desc");
+    }
+  };
+  return { sorted, sortKey, dir, onSort };
+}
+
+/** A clickable, sort-aware table header cell. */
+function SortHeader({
+  label,
+  colKey,
+  sortKey,
+  dir,
+  onSort,
+  className,
+}: {
+  label: string;
+  colKey: string;
+  sortKey: string | null;
+  dir: SortDir;
+  onSort: (k: string) => void;
+  className: string;
+}) {
+  const active = sortKey === colKey;
+  return (
+    <th
+      className={cn(className, "cursor-pointer select-none")}
+      onClick={() => onSort(colKey)}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      title="Sort by this column"
+    >
+      <span className="inline-flex items-center gap-0.5">
+        {label}
+        {active ? (
+          dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />
+        )}
+      </span>
+    </th>
+  );
+}
+
+function Section({
+  title,
+  subtitle,
+  children,
+  id,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  id?: string;
+}) {
+  return (
+    <section
+      id={id}
+      className="scroll-mt-4 rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4"
+    >
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <p className="text-xs text-muted-foreground mt-0.5 mb-2">{subtitle}</p>
+      {children}
+    </section>
+  );
+}
+
+function IntentionTables({ data }: { data: RegularConversionResponse }) {
+  return (
+    <Section
+      title="Stated intention vs outcome"
+      subtitle="How many prospects at each stated intention went on to apply and enrol."
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Regular intention -> applied / enrolled regular */}
+        <div className={wrap}>
+          <div className={scroll}>
+            <table className="w-full text-xs min-w-[360px]">
+              <thead className={thead}>
+                <tr className={theadRow}>
+                  <th className={th}>Wants regular</th>
+                  <th className={thNum}>Prospects</th>
+                  <th className={thNum}>Applied</th>
+                  <th className={thNum}>Enrolled</th>
+                  <th className={thNum} title="Applied as a share of prospects at this intention">Apply %</th>
+                  <th className={thNum} title="Enrolled as a share of prospects at this intention">Enrol %</th>
+                </tr>
+              </thead>
+              <tbody className={rowDivide}>
+                {data.by_regular_intention.map((r) => (
+                  <tr key={r.intention}>
+                    <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
+                    <td className={tdNum}>{r.prospects}</td>
+                    <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
+                    <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
+                    <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.applied_regular, r.prospects)}</td>
+                    <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.enrolled_regular, r.prospects)}</td>
+                  </tr>
+                ))}
+                {data.by_regular_intention.length === 0 && <EmptyRow span={6}>No prospects.</EmptyRow>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Summer intention -> attended summer */}
+        <div className={wrap}>
+          <div className={scroll}>
+            <table className="w-full text-xs min-w-[360px]">
+              <thead className={thead}>
+                <tr className={theadRow}>
+                  <th className={th}>Wants summer</th>
+                  <th className={thNum}>Prospects</th>
+                  <th className={thNum}>Did summer</th>
+                  <th className={thNum} title="Did summer as a share of prospects at this intention">Rate</th>
+                </tr>
+              </thead>
+              <tbody className={rowDivide}>
+                {data.by_summer_intention.map((r) => (
+                  <tr key={r.intention}>
+                    <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
+                    <td className={tdNum}>{r.prospects}</td>
+                    <td className={cn(tdNum, "text-emerald-600")}>{r.attended_summer}</td>
+                    <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.attended_summer, r.prospects)}</td>
+                  </tr>
+                ))}
+                {data.by_summer_intention.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function SchoolTable({ data }: { data: RegularConversionResponse }) {
+  const { sorted, sortKey, dir, onSort } = useSortable(data.by_school);
+  const hp = { sortKey, dir, onSort };
+  return (
+    <Section title="Feeder schools" subtitle="Which schools the prospects come from, and how far each school converts.">
+      <div className={wrap}>
+        <div className={cn(scroll, "max-h-72 overflow-y-auto")}>
+          <table className="w-full text-xs min-w-[420px]">
+            <thead className={cn(thead, "sticky top-0")}>
+              <tr className={theadRow}>
+                <SortHeader label="School" colKey="school" className={th} {...hp} />
+                <SortHeader label="Prospects" colKey="prospects" className={thNum} {...hp} />
+                <SortHeader label="Applied" colKey="applied_regular" className={thNum} {...hp} />
+                <SortHeader label="Enrolled" colKey="enrolled_regular" className={thNum} {...hp} />
+              </tr>
+            </thead>
+            <tbody className={rowDivide}>
+              {sorted.map((r) => (
+                <tr key={r.school}>
+                  <td className="px-3 py-2 text-foreground max-w-[280px] truncate" title={r.school}>{r.school}</td>
+                  <td className={tdNum}>{r.prospects}</td>
+                  <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
+                  <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
+                </tr>
+              ))}
+              {sorted.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function TutorTable({ data }: { data: RegularConversionResponse }) {
+  const { sorted, sortKey, dir, onSort } = useSortable(data.by_tutor);
+  const hp = { sortKey, dir, onSort };
+  return (
+    <Section title="By submitting tutor" subtitle="Which P6 tutors bring in prospects that go on to apply and enrol.">
+      <div className={wrap}>
+        <div className={cn(scroll, "max-h-72 overflow-y-auto")}>
+          <table className="w-full text-xs min-w-[460px]">
+            <thead className={cn(thead, "sticky top-0")}>
+              <tr className={theadRow}>
+                <SortHeader label="Branch" colKey="branch" className={th} {...hp} />
+                <SortHeader label="Tutor" colKey="tutor_name" className={th} {...hp} />
+                <SortHeader label="Prospects" colKey="prospects" className={thNum} {...hp} />
+                <SortHeader label="Applied" colKey="applied_regular" className={thNum} {...hp} />
+                <SortHeader label="Enrolled" colKey="enrolled_regular" className={thNum} {...hp} />
+              </tr>
+            </thead>
+            <tbody className={rowDivide}>
+              {sorted.map((r, i) => (
+                <tr key={`${r.branch}-${r.tutor_name}-${i}`}>
+                  <td className="px-3 py-2 font-semibold text-foreground">{r.branch}</td>
+                  <td className={cn("px-3 py-2", r.tutor_name === "Unattributed" ? "text-muted-foreground italic" : "text-foreground")}>{r.tutor_name}</td>
+                  <td className={tdNum}>{r.prospects}</td>
+                  <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
+                  <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
+                </tr>
+              ))}
+              {sorted.length === 0 && <EmptyRow span={5}>No prospects.</EmptyRow>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function MovementTable({ data }: { data: RegularConversionResponse }) {
+  // A crossing is a concrete named branch that differs from where they enrolled.
+  const isCrossing = (wanted: string, enrolled: string) =>
+    wanted !== "None" && wanted !== enrolled && enrolled !== "Unknown";
+  // Summary over prospects who named a branch (exclude the "None" bucket).
+  const named = data.branch_movement.filter((r) => r.wanted_branch !== "None");
+  const namedTotal = named.reduce((s, r) => s + r.count, 0);
+  const crossed = named
+    .filter((r) => isCrossing(r.wanted_branch, r.enrolled_branch))
+    .reduce((s, r) => s + r.count, 0);
+  const matched = namedTotal - crossed;
+  return (
+    <Section
+      title="Branch preference vs where they enrolled"
+      subtitle="Enrolled prospects by the branch they named against the branch they actually joined. Highlighted rows crossed to a branch they did not name."
+    >
+      {namedTotal > 0 && (
+        <p className="text-xs text-muted-foreground mb-2">
+          <span className="font-semibold text-foreground">{matched}</span> of {namedTotal} landed at a branch they named
+          {crossed > 0 && (
+            <>
+              {" · "}
+              <span className="font-semibold text-amber-700 dark:text-amber-400">{crossed}</span> crossed elsewhere
+            </>
+          )}
+        </p>
+      )}
+      <div className={wrap}>
+        <div className={scroll}>
+          <table className="w-full text-xs min-w-[360px]">
+            <thead className={thead}>
+              <tr className={theadRow}>
+                <th className={th}>Wanted</th>
+                <th className="px-1 py-2" aria-hidden />
+                <th className={th}>Enrolled at</th>
+                <th className={thNum}>Students</th>
+              </tr>
+            </thead>
+            <tbody className={rowDivide}>
+              {data.branch_movement.map((r, i) => {
+                const crossing = isCrossing(r.wanted_branch, r.enrolled_branch);
+                return (
+                  <tr key={`${r.wanted_branch}-${r.enrolled_branch}-${i}`} className={crossing ? "bg-amber-50/60 dark:bg-amber-900/15" : ""}>
+                    <td className="px-3 py-2 font-medium text-foreground">{r.wanted_branch}</td>
+                    <td className="px-1 py-2 text-muted-foreground"><ArrowRight className="h-3 w-3" /></td>
+                    <td className={cn("px-3 py-2 font-medium", crossing ? "text-amber-700 dark:text-amber-400" : "text-foreground")}>{r.enrolled_branch}</td>
+                    <td className={tdNum}>{r.count}</td>
+                  </tr>
+                );
+              })}
+              {data.branch_movement.length === 0 && <EmptyRow span={4}>No enrolled prospects yet.</EmptyRow>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function LostTable({ data }: { data: RegularConversionResponse }) {
+  const { sorted, sortKey, dir, onSort } = useSortable(data.lost_prospects);
+  const hp = { sortKey, dir, onSort };
+  return (
+    <Section
+      id="conversion-still-to-chase"
+      title={`Still to chase (${data.lost_prospects.length})`}
+      subtitle="Prospects with no regular application yet. Open one to record outreach."
+    >
+      <div className={wrap}>
+        <div className={cn(scroll, "max-h-80 overflow-y-auto")}>
+          <table className="w-full text-xs min-w-[640px]">
+            <thead className={cn(thead, "sticky top-0")}>
+              <tr className={theadRow}>
+                <SortHeader label="Name" colKey="student_name" className={th} {...hp} />
+                <SortHeader label="Branch" colKey="source_branch" className={th} {...hp} />
+                <SortHeader label="Grade" colKey="grade" className={th} {...hp} />
+                <SortHeader label="School" colKey="school" className={th} {...hp} />
+                <SortHeader label="Wants regular" colKey="wants_regular" className={th} {...hp} />
+                <SortHeader label="Did summer" colKey="attended_summer" className={th} {...hp} />
+                <SortHeader label="Outreach" colKey="outreach_status" className={th} {...hp} />
+              </tr>
+            </thead>
+            <tbody className={rowDivide}>
+              {sorted.map((r) => (
+                <tr key={r.prospect_id} className="hover:bg-primary/[0.04]">
+                  <td className="px-3 py-2 font-medium">
+                    <Link
+                      href={`/admin/prospects?focus=${r.prospect_id}&year=${data.year}`}
+                      className="text-primary hover:underline"
+                      title="Open this prospect"
+                    >
+                      {r.student_name}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2 text-foreground">{r.source_branch}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.grade || "-"}</td>
+                  <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate" title={r.school || undefined}>{r.school || "-"}</td>
+                  <td className="px-3 py-2">
+                    {r.wants_regular
+                      ? <IntentionBadge value={r.wants_regular} />
+                      : <span className="text-muted-foreground/50">-</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {r.attended_summer
+                      ? <Check className="h-3.5 w-3.5 text-emerald-600" aria-label="Did summer" />
+                      : <span className="text-muted-foreground/50">-</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {r.outreach_status
+                      ? <OutreachBadge status={r.outreach_status as ProspectOutreachStatus} />
+                      : <span className="text-muted-foreground/50">-</span>}
+                  </td>
+                </tr>
+              ))}
+              {sorted.length === 0 && <EmptyRow span={7}>Every prospect has a regular application.</EmptyRow>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/** The deeper conversion axes, stacked below the funnel + grade-stream summary:
+ *  stated intention vs outcome, feeder schools, submitting tutor, branch
+ *  preference vs where they enrolled, and the still-to-chase list. */
+export function RegularConversionSections({ data }: { data: RegularConversionResponse }) {
+  return (
+    <>
+      <IntentionTables data={data} />
+      <MovementTable data={data} />
+      <SchoolTable data={data} />
+      <TutorTable data={data} />
+      <LostTable data={data} />
+    </>
+  );
+}

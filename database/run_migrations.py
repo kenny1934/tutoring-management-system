@@ -13,8 +13,14 @@ DB_NAME = os.getenv("DB_NAME")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
+# Writing a migration: statements are split on ";" before comments are
+# stripped, so a semicolon anywhere in the file — inside a "--" comment or a
+# quoted string included — cuts a statement in half and the fragment is sent to
+# MySQL as SQL. Use a full stop in prose. The run aborts and rolls back if that
+# happens, so the cost is a confusing syntax error rather than a half-applied
+# migration, but the file has to be written around it.
 MIGRATIONS = [
-    "141_summer_aware_terminated_students_view.sql",
+    "149_strip_config_editor_ids.sql",
 ]
 
 def main():
@@ -41,7 +47,10 @@ def main():
             with open(filepath, "r") as f:
                 sql_content = f.read().strip()
 
-            # Split on semicolons, strip comment-only lines from each fragment
+            # Split on semicolons, strip comment-only lines from each fragment.
+            # Splitting first is what makes a semicolon in a comment fatal — by
+            # the time comments are stripped, the line has already been cut and
+            # its tail looks like SQL. See the note above MIGRATIONS.
             raw_parts = sql_content.split(";")
             statements = []
             for part in raw_parts:

@@ -41,11 +41,13 @@ export function ProspectDashboard({
       wants_regular_yes: acc.wants_regular_yes + s.wants_regular_yes,
       wants_regular_considering: acc.wants_regular_considering + s.wants_regular_considering,
       matched: acc.matched + s.matched_to_application,
+      applied_regular: acc.applied_regular + s.applied_regular,
+      enrolled_regular: acc.enrolled_regular + s.enrolled_regular,
       not_started: acc.not_started + s.outreach_not_started,
       wechat_added: acc.wechat_added + s.outreach_wechat_added,
       wechat_issues: acc.wechat_issues + s.outreach_wechat_not_found + s.outreach_wechat_cannot_add,
     }),
-    { total: 0, wants_summer_yes: 0, wants_summer_considering: 0, wants_regular_yes: 0, wants_regular_considering: 0, matched: 0, not_started: 0, wechat_added: 0, wechat_issues: 0 }
+    { total: 0, wants_summer_yes: 0, wants_summer_considering: 0, wants_regular_yes: 0, wants_regular_considering: 0, matched: 0, applied_regular: 0, enrolled_regular: 0, not_started: 0, wechat_added: 0, wechat_issues: 0 }
   );
 
   return (
@@ -87,6 +89,8 @@ export function ProspectDashboard({
               <th colSpan={2} className="px-3 py-1 text-center font-medium text-foreground text-[10px] uppercase tracking-wider">Regular</th>
               <th colSpan={2} className="px-3 py-1 text-center font-medium text-foreground align-bottom"><WeChatIcon className="h-3 w-3 inline text-green-600" /></th>
               <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Linked to a summer application">Matched</th>
+              <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Linked to a regular application">Applied</th>
+              <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Regular application published to an enrollment">Enrolled</th>
               <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Outreach not yet attempted">Not Started</th>
             </tr>
             <tr>
@@ -115,6 +119,8 @@ export function ProspectDashboard({
                 <td className="px-3 py-2 text-right text-green-600">{s.outreach_wechat_added}</td>
                 <td className="px-3 py-2 text-right text-red-600">{s.outreach_wechat_not_found + s.outreach_wechat_cannot_add}</td>
                 <td className="px-3 py-2 text-right text-purple-600 font-medium">{s.matched_to_application}</td>
+                <td className="px-3 py-2 text-right text-blue-600 font-medium">{s.applied_regular}</td>
+                <td className="px-3 py-2 text-right text-green-600 font-medium">{s.enrolled_regular}</td>
                 <td className="px-3 py-2 text-right text-muted-foreground">{s.outreach_not_started}</td>
               </tr>
             ))}
@@ -130,6 +136,8 @@ export function ProspectDashboard({
               <td className="px-3 py-2 text-right text-green-600">{totals.wechat_added}</td>
               <td className="px-3 py-2 text-right text-red-600">{totals.wechat_issues}</td>
               <td className="px-3 py-2 text-right text-purple-600">{totals.matched}</td>
+              <td className="px-3 py-2 text-right text-blue-600">{totals.applied_regular}</td>
+              <td className="px-3 py-2 text-right text-green-600">{totals.enrolled_regular}</td>
               <td className="px-3 py-2 text-right text-muted-foreground">{totals.not_started}</td>
             </tr>
           </tfoot>

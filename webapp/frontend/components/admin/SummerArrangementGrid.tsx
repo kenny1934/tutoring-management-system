@@ -5,6 +5,7 @@ import { SummerSlotCell } from "./SummerSlotCell";
 import type { DemandBarFilter } from "./SummerSlotCell";
 import { DAY_ABBREV } from "@/lib/summer-utils";
 import { cn } from "@/lib/utils";
+import { FilterChip, TutorFilterSelect } from "./ArrangementFilters";
 import type { AvailableTutor } from "@/types";
 import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 
@@ -12,6 +13,10 @@ import type { SummerDemandCell, SummerSlot, SummerSlotUpdate } from "@/types";
 // identity across renders — otherwise `slotsMap.get(key) ?? []` emits a fresh
 // array every tick and breaks memo on every empty cell.
 const EMPTY_SLOTS: SummerSlot[] = [];
+const EMPTY_TUTORS: { id: number; name: string }[] = [];
+
+// Summer slots carry a course type (A/B) rather than a language stream.
+const COURSE_TYPES = ["A", "B"] as const;
 
 interface DragPrefs {
   primary: { day: string; time: string }[];
@@ -20,10 +25,15 @@ interface DragPrefs {
 
 interface SummerArrangementGridProps {
   days: string[];
+  /** Selected location. Only a reset signal: the tutor filter is location-
+   *  scoped and clears when this changes. */
+  branchKey?: string;
   timeSlots: string[];
   demand: SummerDemandCell[];
   slots: SummerSlot[];
   grades: string[];
+  /** Tutors present on this board's slots, for the tutor filter dropdown. */
+  tutors?: { id: number; name: string }[];
   /** True on initial load while slots/demand are still fetching — renders
    * pulsing skeleton cells and suppresses the getting-started banner so the
    * empty grid isn't mistaken for a legit empty state. */
@@ -55,10 +65,12 @@ interface SummerArrangementGridProps {
 
 export function SummerArrangementGrid({
   days,
+  branchKey,
   timeSlots,
   demand,
   slots,
   grades,
+  tutors = EMPTY_TUTORS,
   loading = false,
   readOnly = false,
   onCreateSlot,
@@ -97,17 +109,55 @@ export function SummerArrangementGrid({
     return max;
   }, [demand]);
 
-  // Index slots by (day, timeSlot)
+  // ---- Slot-attribute filters (grade / course type / tutor / has-space) ----
+  // Unlike the day chips (which hide whole columns), these narrow the slot
+  // CARDS shown inside each cell so an admin can pick out one combination at a
+  // glance, e.g. "A-type F3 slots with space". A blank slot (grade/course
+  // type/tutor still unset) never matches a specific filter — it isn't a
+  // configured class yet.
+  const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  const [courseTypeFilter, setCourseTypeFilter] = useState<string | null>(null);
+  const [tutorFilter, setTutorFilter] = useState<number | null>(null);
+  const [spaceOnly, setSpaceOnly] = useState(false);
+
+  // Tutor ids are location-scoped, so a selection carried across a location
+  // switch would match nothing; drop it. Grade/course type/space persist.
+  useEffect(() => {
+    setTutorFilter(null);
+  }, [branchKey]);
+
+  const slotFilterActive =
+    gradeFilter !== null || courseTypeFilter !== null || tutorFilter !== null || spaceOnly;
+
+  const visibleSlots = useMemo(() => {
+    if (!slotFilterActive) return slots;
+    return slots.filter((s) => {
+      if (gradeFilter !== null && s.grade !== gradeFilter) return false;
+      if (courseTypeFilter !== null && s.course_type !== courseTypeFilter) return false;
+      if (tutorFilter !== null && s.tutor_id !== tutorFilter) return false;
+      if (spaceOnly && s.session_count >= s.max_students) return false;
+      return true;
+    });
+  }, [slots, slotFilterActive, gradeFilter, courseTypeFilter, tutorFilter, spaceOnly]);
+
+  const clearSlotFilters = useCallback(() => {
+    setGradeFilter(null);
+    setCourseTypeFilter(null);
+    setTutorFilter(null);
+    setSpaceOnly(false);
+  }, []);
+
+  // Index the (filtered) slots by (day, timeSlot)
   const slotsMap = useMemo(() => {
     const map = new Map<string, SummerSlot[]>();
-    for (const slot of slots) {
+    for (const slot of visibleSlots) {
       const key = `${slot.slot_day}|${slot.time_slot}`;
       const arr = map.get(key) ?? [];
       arr.push(slot);
       map.set(key, arr);
     }
     return map;
-  }, [slots]);
+  }, [visibleSlots]);
 
   // Day-visibility toggle: resets when the set of open days changes (e.g.
   // location switch). `days` is a fresh array every parent render, so key the
@@ -188,6 +238,71 @@ export function SummerArrangementGrid({
             All
           </button>
         )}
+
+        {/* Divider between the column (day) filter and the slot-content filters */}
+        <span className="h-4 w-px bg-border/70 mx-1 hidden sm:block" aria-hidden />
+
+        {/* Grade filter */}
+        <span className="text-[9px] text-muted-foreground mr-0.5">Grade:</span>
+        <FilterChip
+          label="All"
+          active={gradeFilter === null}
+          onClick={() => setGradeFilter(null)}
+          title="All grades"
+        />
+        {grades.map((g) => (
+          <FilterChip
+            key={g}
+            label={g}
+            active={gradeFilter === g}
+            onClick={() => setGradeFilter((prev) => (prev === g ? null : g))}
+            title={gradeFilter === g ? `Clear ${g} filter` : `Show only ${g} slots`}
+          />
+        ))}
+
+        {/* Course-type filter (summer's slot-level A/B attribute) */}
+        <span className="text-[9px] text-muted-foreground ml-1 mr-0.5">Type:</span>
+        <FilterChip
+          label="All"
+          active={courseTypeFilter === null}
+          onClick={() => setCourseTypeFilter(null)}
+          title="All course types"
+        />
+        {COURSE_TYPES.map((ct) => (
+          <FilterChip
+            key={ct}
+            label={ct}
+            active={courseTypeFilter === ct}
+            onClick={() => setCourseTypeFilter((prev) => (prev === ct ? null : ct))}
+            title={courseTypeFilter === ct ? `Clear type ${ct} filter` : `Show only type ${ct} slots`}
+          />
+        ))}
+
+        {/* Tutor filter */}
+        <TutorFilterSelect value={tutorFilter} onChange={setTutorFilter} tutors={tutors} />
+
+        {/* Has-space toggle */}
+        <FilterChip
+          label="Has space"
+          active={spaceOnly}
+          onClick={() => setSpaceOnly((v) => !v)}
+          title="Show only slots with room for more students"
+        />
+
+        {/* Match count + clear, only while a slot filter narrows the board */}
+        {slotFilterActive && (
+          <>
+            <span className="text-[10px] text-muted-foreground ml-1 tabular-nums">
+              {visibleSlots.length} of {slots.length} {slots.length === 1 ? "slot" : "slots"}
+            </span>
+            <button
+              onClick={clearSlotFilters}
+              className="text-[10px] text-[#a0704b] hover:underline ml-0.5"
+            >
+              Clear
+            </button>
+          </>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto rounded-lg border-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -237,13 +352,18 @@ export function SummerArrangementGrid({
               const matches = (s: { day: string; time: string }) => s.day === day && s.time === ts;
               const isPrefMatch =
                 dragPrefs?.primary.some(matches) || dragPrefs?.backup.some(matches);
+              const cellSlots = slotsMap.get(key) ?? EMPTY_SLOTS;
+              // With a slot filter on, cells holding no match recede so the
+              // matching slots pop; demand stays faintly visible underneath.
+              const dimmed = slotFilterActive && cellSlots.length === 0;
               return (
                 <SummerSlotCell
                   key={key}
                   day={day}
                   timeSlot={ts}
                   demandCell={demandMap.get(key)}
-                  slots={slotsMap.get(key) ?? EMPTY_SLOTS}
+                  slots={cellSlots}
+                  dimmed={dimmed}
                   grades={grades}
                   readOnly={readOnly}
                   onCreateSlot={onCreateSlot}

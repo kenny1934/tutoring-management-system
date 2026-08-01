@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -10,10 +9,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import {
-  ClipboardList, Search, X, Loader2, ChevronDown, Check,
+  ClipboardList, Search, X, ChevronDown, Check,
   ArrowUpNarrowWide, ArrowDownNarrowWide, ExternalLink,
   RefreshCw, CheckSquare, SlidersHorizontal, Sparkles, LayoutList, LayoutGrid, BarChart3,
-  Send, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
@@ -29,16 +27,19 @@ import { SummerApplicationStats } from "@/components/admin/SummerApplicationStat
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { ApplicationLinkSuggestionsModal } from "@/components/admin/ApplicationLinkSuggestionsModal";
 import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
+import { BatchActionBar } from "@/components/admin/BatchActionBar";
+import { BatchPublishResultsModal } from "@/components/admin/BatchPublishResultsModal";
 import { SummerBuddyBoard } from "@/components/admin/SummerBuddyBoard";
 import { computeDiscountsForAll } from "@/lib/summer-discounts";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { displayLocation, CODE_TO_LOCATION, MIN_GROUP_SIZE, isPlaced, EXIT_STATUSES } from "@/lib/summer-utils";
 import { allPrefSlots } from "@/lib/summer-preferences";
 import { useLocation } from "@/contexts/LocationContext";
-import { formatTimeAgo } from "@/lib/formatters";
 import type { SummerApplication, SummerPublishResult } from "@/types";
 
 // Resolve the branch an application belongs to, in priority order:
@@ -96,130 +97,6 @@ function getDirectionLabel(preset: ViewPreset, dir: "asc" | "desc"): string {
 }
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
-
-// Inline dropdown with click-outside + escape handling. The menu is portalled
-// to document.body so it escapes any overflow-hidden ancestors (the paper
-// card), and its position is computed from the trigger's bounding rect and
-// clamped to the viewport so it never overflows on narrow screens.
-type DropdownTriggerProps = {
-  onClick: () => void;
-  "aria-haspopup": "menu";
-  "aria-expanded": boolean;
-};
-function DropdownMenu({
-  trigger,
-  children,
-  align = "left",
-  menuClassName,
-}: {
-  trigger: (ctx: { open: boolean; triggerProps: DropdownTriggerProps }) => React.ReactNode;
-  children: (close: () => void) => React.ReactNode;
-  align?: "left" | "right";
-  menuClassName?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLSpanElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  // `left` is always the final clamped x-coordinate. We use left-only
-  // positioning (no `right`) so the menu can never escape the viewport
-  // regardless of whether align is "left" or "right".
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useLayoutEffect(() => {
-    if (!open || !wrapperRef.current) return;
-    const compute = () => {
-      const rect = wrapperRef.current!.getBoundingClientRect();
-      // Fall back to 220 on the first pass before the menu is in the DOM;
-      // the rAF pass below corrects once the real width is measured.
-      const menuWidth = menuRef.current?.offsetWidth ?? 220;
-      const preferred = align === "right" ? rect.right - menuWidth : rect.left;
-      const maxLeft = window.innerWidth - menuWidth - 8;
-      const left = Math.max(8, Math.min(preferred, maxLeft));
-      setPos({ top: rect.bottom + 6, left });
-    };
-    compute();
-    const raf = requestAnimationFrame(compute);
-    window.addEventListener("scroll", compute, true);
-    window.addEventListener("resize", compute);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", compute, true);
-      window.removeEventListener("resize", compute);
-    };
-  }, [open, align]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (wrapperRef.current?.contains(t)) return;
-      if (menuRef.current?.contains(t)) return;
-      setOpen(false);
-    };
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onEsc);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onEsc);
-    };
-  }, [open]);
-
-  const triggerProps: DropdownTriggerProps = {
-    onClick: () => setOpen((o) => !o),
-    "aria-haspopup": "menu",
-    "aria-expanded": open,
-  };
-
-  return (
-    <>
-      <span ref={wrapperRef} className="inline-flex">
-        {trigger({ open, triggerProps })}
-      </span>
-      {open && pos && typeof document !== "undefined" && createPortal(
-        <div
-          ref={menuRef}
-          role="menu"
-          style={{
-            position: "fixed",
-            top: `${pos.top}px`,
-            left: `${pos.left}px`,
-            maxWidth: "calc(100vw - 1rem)",
-          }}
-          className={cn(
-            "z-[60] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[180px]",
-            menuClassName,
-          )}
-        >
-          {children(() => setOpen(false))}
-        </div>,
-        document.body,
-      )}
-    </>
-  );
-}
-
-const menuItemClass = "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors";
-
-/** Self-ticking "Updated X ago" label. Keeps its own 30s interval so the
- *  parent page doesn't re-render just to update a timestamp string. */
-function TimeAgo({ timestamp }: { timestamp: number }) {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 30000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <span
-      className="hidden md:inline text-[11px] text-muted-foreground tabular-nums"
-      title={new Date(timestamp).toLocaleString()}
-    >
-      Updated {formatTimeAgo(new Date(timestamp).toISOString())}
-    </span>
-  );
-}
 
 // Row heights are measured per-row so wrapping preference chips
 // (2× slots + alts on mobile) don't overlap the next card.
@@ -1720,153 +1597,31 @@ export default function SummerApplicationsPage() {
             </div>
           </div>
 
-          {/* Batch action bar */}
-          <AnimatePresence>
-            {checkedIds.size > 0 && !readOnly && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50"
-              >
-                {/* Confirmation card */}
-                <AnimatePresence>
-                  {showBatchConfirm && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      className="mb-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 text-center"
-                    >
-                      <p className="text-sm text-foreground mb-2">
-                        Update <span className="font-semibold">{checkedIds.size}</span> application{checkedIds.size !== 1 ? "s" : ""} to <span className="font-semibold">{batchStatus}</span>?
-                      </p>
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setShowBatchConfirm(false)}
-                          className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => { setShowBatchConfirm(false); handleBatchUpdate(); }}
-                          disabled={batchUpdating}
-                          className="px-3 py-1 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-                        >
-                          {batchUpdating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                          Confirm
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                {/* Main batch bar */}
-                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
-                  <span className="text-sm font-medium text-foreground">
-                    {checkedIds.size} selected
-                  </span>
-                  <select
-                    value={batchStatus}
-                    onChange={(e) => setBatchStatus(e.target.value)}
-                    className={selectClass}
-                  >
-                    {ALL_STATUSES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => setShowBatchConfirm(true)}
-                    disabled={batchUpdating}
-                    className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {batchUpdating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Update
-                  </button>
-                  <span className="w-px h-5 bg-gray-200 dark:bg-gray-700" />
-                  <button
-                    onClick={handleBatchPublish}
-                    disabled={batchPublishing || batchUpdating}
-                    title="Publish selected applications to native enrollments. Each runs independently — failures don't block successes."
-                    className="px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {batchPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                    Publish Selected
-                  </button>
-                  <button
-                    onClick={() => { setCheckedIds(new Set()); setShowBatchConfirm(false); }}
-                    className="p-1.5 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Batch publish results modal — shown after a batch publish completes
-              so admin can inspect which apps failed and why (per app error_code). */}
-          {batchPublishResults && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-              onClick={() => setBatchPublishResults(null)}
-            >
-              <div
-                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                  <h3 className="text-base font-semibold text-foreground">Publish results</h3>
-                  <button
-                    onClick={() => setBatchPublishResults(null)}
-                    className="p-1 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 text-sm">
-                  {batchPublishResults.map((r) => {
-                    const app = applications?.find((a) => a.id === r.application_id);
-                    const label = app ? `${app.student_name} (${app.reference_code})` : `App #${r.application_id}`;
-                    return (
-                      <div
-                        key={r.application_id}
-                        className={cn(
-                          "flex items-start gap-2 px-3 py-2 rounded-lg border",
-                          r.success
-                            ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                            : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800",
-                        )}
-                      >
-                        {r.success
-                          ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                          : <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />}
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-foreground truncate">{label}</div>
-                          {r.success ? (
-                            <div className="text-xs text-muted-foreground">
-                              Created enrollment #{r.enrollment_id} with {r.sessions_created} session(s).
-                            </div>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">
-                              <span className="font-mono">{r.error_code}</span> — {r.error}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-                  <button
-                    onClick={() => setBatchPublishResults(null)}
-                    className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
+          {!readOnly && (
+            <BatchActionBar
+              count={checkedIds.size}
+              statuses={ALL_STATUSES}
+              status={batchStatus}
+              onStatusChange={setBatchStatus}
+              confirmOpen={showBatchConfirm}
+              onConfirmOpenChange={setShowBatchConfirm}
+              onUpdate={handleBatchUpdate}
+              updating={batchUpdating}
+              onPublish={handleBatchPublish}
+              publishing={batchPublishing}
+              publishTitle="Publish selected applications to native enrollments. Each runs independently — failures don't block successes."
+              onClear={() => { setCheckedIds(new Set()); setShowBatchConfirm(false); }}
+            />
           )}
+
+          {/* Outcome of a batch publish, so admin can inspect which apps
+              failed and why (per app error_code). */}
+          <BatchPublishResultsModal
+            results={batchPublishResults}
+            applications={applications}
+            onClose={() => setBatchPublishResults(null)}
+          />
+
 
           {/* Detail modal */}
           <SummerApplicationDetailModal

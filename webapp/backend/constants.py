@@ -187,6 +187,39 @@ class SummerApplicationStatus(str, Enum):
     REJECTED = 'Rejected'
 
 
+class RegularApplicationStatus(str, Enum):
+    """Application statuses for regular course (September intake) applications.
+
+    Same ladder as SummerApplicationStatus, deliberately: admins work both
+    intakes from the same mental model. 'Placement Offered' = the weekly slot
+    has been offered to the parent, 'Placement Confirmed' = they agreed to it.
+    (Regular has a single weekly slot rather than summer's per-lesson
+    placements, but the rungs mean the same thing.)
+    """
+    SUBMITTED = 'Submitted'
+    UNDER_REVIEW = 'Under Review'
+    PLACEMENT_OFFERED = 'Placement Offered'
+    PLACEMENT_CONFIRMED = 'Placement Confirmed'
+    FEE_SENT = 'Fee Sent'
+    PAID = 'Paid'
+    ENROLLED = 'Enrolled'
+    # Side exits
+    WAITLISTED = 'Waitlisted'
+    WITHDRAWN = 'Withdrawn'
+    REJECTED = 'Rejected'
+
+
+# Applications on these rungs have left the intake, so they stop holding the
+# arrangement seat they were placed in: capacity checks and slot fill counts
+# skip them, the same way summer skips non-attending sessions. The row stays
+# on the slot so an admin can still see the placement that was given up.
+# Waitlisted is deliberately absent — those applicants are still being worked.
+REGULAR_EXIT_STATUSES = (
+    RegularApplicationStatus.WITHDRAWN.value,
+    RegularApplicationStatus.REJECTED.value,
+)
+
+
 class SummerPlacementStatus(str, Enum):
     """Placement statuses for summer course slot assignments."""
     TENTATIVE = 'Tentative'

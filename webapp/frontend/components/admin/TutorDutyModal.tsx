@@ -3,13 +3,24 @@
 import { useState, useEffect, useMemo } from "react";
 import { Users2, Loader2, Save, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { DAY_ABBREV, LOCATION_TO_CODE, displayLocation } from "@/lib/summer-utils";
 import useSWR from "swr";
-import type { SummerTutorDutyItem } from "@/types";
+import type { ActiveTutorOption, TutorDuty, TutorDutyItem } from "@/types";
 
-interface SummerTutorDutyModalProps {
+/** How the modal reaches one intake's roster. Both intakes keep their own
+ *  duty table, so the caller supplies the three calls for its own. */
+export interface TutorDutyApi {
+  getActiveTutors: () => Promise<ActiveTutorOption[]>;
+  getDuties: (configId: number, location: string) => Promise<TutorDuty[]>;
+  bulkSetDuties: (data: {
+    config_id: number;
+    location: string;
+    duties: TutorDutyItem[];
+  }) => Promise<unknown>;
+}
+
+interface TutorDutyModalProps {
   isOpen: boolean;
   onClose: () => void;
   configId: number;
@@ -17,10 +28,13 @@ interface SummerTutorDutyModalProps {
   days: string[];
   timeSlots: string[];
   onSaved: () => void;
+  api: TutorDutyApi;
+  /** Distinguishes the two intakes' entries in the SWR cache. */
+  intakeKey: string;
 }
 
 
-export function SummerTutorDutyModal({
+export function TutorDutyModal({
   isOpen,
   onClose,
   configId,
@@ -28,7 +42,9 @@ export function SummerTutorDutyModal({
   days,
   timeSlots,
   onSaved,
-}: SummerTutorDutyModalProps) {
+  api,
+  intakeKey,
+}: TutorDutyModalProps) {
   const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
   // Set of "tutorId|day|timeSlot" keys
@@ -37,8 +53,8 @@ export function SummerTutorDutyModal({
 
   // Fetch active tutors
   const { data: allTutors } = useSWR(
-    isOpen ? "summer-active-tutors" : null,
-    () => summerAPI.getActiveTutors()
+    isOpen ? ["duty-active-tutors", intakeKey] : null,
+    () => api.getActiveTutors()
   );
 
   // Filter tutors by selected location
@@ -50,8 +66,8 @@ export function SummerTutorDutyModal({
 
   // Fetch existing duties
   const { data: duties } = useSWR(
-    isOpen ? ["summer-duties", configId, location] : null,
-    () => summerAPI.getTutorDuties(configId, location)
+    isOpen ? ["tutor-duties", intakeKey, configId, location] : null,
+    () => api.getDuties(configId, location)
   );
 
   // Initialize checked set from existing duties
@@ -114,7 +130,7 @@ export function SummerTutorDutyModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const dutyItems: SummerTutorDutyItem[] = [];
+      const dutyItems: TutorDutyItem[] = [];
       for (const key of checked) {
         const [tutorId, day, ts] = key.split("|");
         dutyItems.push({
@@ -123,7 +139,7 @@ export function SummerTutorDutyModal({
           time_slot: ts,
         });
       }
-      await summerAPI.bulkSetTutorDuties({
+      await api.bulkSetDuties({
         config_id: configId,
         location,
         duties: dutyItems,

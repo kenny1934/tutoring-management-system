@@ -14,7 +14,6 @@ import type {
 import {
   ChevronDown,
   ChevronLeft,
-  GripVertical,
   Plus,
   Trash2,
   Save,
@@ -23,7 +22,28 @@ import {
   EyeOff,
   X,
 } from "lucide-react";
-import { Reorder, useDragControls, type DragControls } from "framer-motion";
+import { Reorder } from "framer-motion";
+import {
+  toDateInput,
+  toDatetimeInput,
+  ALL_DAYS,
+  TIME_SLOT_PATTERN,
+  genId,
+  stampIds,
+  stripIds,
+  type WithId,
+  reorderByIds,
+  Section,
+  Label,
+  editorInputClass as inputClass,
+  BilingualTextField,
+  ValidationHint,
+  ImagePreview,
+  AutoTextarea,
+  ReorderableItem,
+  DragHandle,
+  TimeSlotAdder,
+} from "./config-editor-kit";
 import { SummerConfigPreview } from "./SummerConfigPreview";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -33,36 +53,6 @@ interface SummerConfigEditorProps {
   isReadOnly: boolean;
   onSaved: () => void;
   onCancel: () => void;
-}
-
-// Helper to format date strings for input[type=date] and input[type=datetime-local]
-function toDateInput(val: string | null | undefined): string {
-  if (!val) return "";
-  return val.slice(0, 10);
-}
-function toDatetimeInput(val: string | null | undefined): string {
-  if (!val) return "";
-  return val.slice(0, 16);
-}
-
-const ALL_DAYS = [
-  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
-];
-
-const TIME_SLOT_PATTERN = /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/;
-
-// Stable ID generator for Reorder items (prevents flashing during drag)
-let _idCounter = 0;
-function genId(prefix: string) { return `${prefix}-${Date.now()}-${++_idCounter}`; }
-
-type WithId<T> = T & { _id: string };
-function stampIds<T>(items: T[], prefix: string): WithId<T>[] {
-  return items.map(item => ({ ...item, _id: genId(prefix) }));
-}
-
-function reorderByIds<T extends { _id: string }>(items: T[], newOrder: string[]): T[] {
-  const byId = new Map(items.map(item => [item._id, item]));
-  return newOrder.map(id => byId.get(id)!);
 }
 
 const TEXT_CONTENT_GROUPS = [
@@ -112,262 +102,6 @@ const TEXT_CONTENT_GROUPS = [
     ],
   },
 ];
-
-// Collapsible section component with status indicator
-function Section({
-  title,
-  subtitle,
-  status,
-  defaultOpen = false,
-  forceOpen,
-  onOpen,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  status?: { filled: boolean; count?: string };
-  defaultOpen?: boolean;
-  forceOpen?: boolean;
-  onOpen?: () => void;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  useEffect(() => { if (forceOpen) setOpen(true); }, [forceOpen]);
-  const isOpen = forceOpen || open;
-  return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={() => {
-          const willOpen = !isOpen;
-          setOpen(willOpen);
-          if (willOpen && onOpen) onOpen();
-        }}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50 text-sm font-semibold text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-      >
-        <span className="flex items-center gap-2">
-          {status && (
-            <span className={`w-2 h-2 rounded-full shrink-0 ${status.filled ? "bg-emerald-500" : "bg-amber-400"}`} />
-          )}
-          {title}
-          {subtitle && (
-            <span className="text-[10px] font-normal text-muted-foreground">{subtitle}</span>
-          )}
-          {status?.count && (
-            <span className="text-[10px] font-normal text-muted-foreground">({status.count})</span>
-          )}
-        </span>
-        <ChevronDown
-          className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
-        />
-      </button>
-      {isOpen && <div className="p-4 space-y-4">{children}</div>}
-    </div>
-  );
-}
-
-// Reusable field label
-function Label({
-  children,
-  htmlFor,
-}: {
-  children: React.ReactNode;
-  htmlFor?: string;
-}) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className="block text-xs font-medium text-muted-foreground mb-1"
-    >
-      {children}
-    </label>
-  );
-}
-
-// Reusable input
-const inputClass =
-  "w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-foreground text-sm disabled:opacity-50";
-
-// Bilingual text field — paired ZH/EN inputs. Use multiline for textareas.
-function BilingualTextField({
-  label,
-  zhValue,
-  enValue,
-  onChangeZh,
-  onChangeEn,
-  placeholderZh,
-  placeholderEn,
-  disabled,
-  multiline,
-  minHeight = "40px",
-}: {
-  label: string;
-  zhValue: string;
-  enValue: string;
-  onChangeZh: (v: string) => void;
-  onChangeEn: (v: string) => void;
-  placeholderZh?: string;
-  placeholderEn?: string;
-  disabled?: boolean;
-  multiline?: boolean;
-  minHeight?: string;
-}) {
-  const textareaStyle = { minHeight };
-  const renderInput = (
-    value: string,
-    onChange: (v: string) => void,
-    placeholder?: string,
-  ) =>
-    multiline ? (
-      <AutoTextarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={inputClass}
-        style={textareaStyle}
-        disabled={disabled}
-      />
-    ) : (
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={inputClass}
-        disabled={disabled}
-      />
-    );
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <Label>{label} (ZH)</Label>
-        {renderInput(zhValue, onChangeZh, placeholderZh)}
-      </div>
-      <div>
-        <Label>{label} (EN)</Label>
-        {renderInput(enValue, onChangeEn, placeholderEn)}
-      </div>
-    </div>
-  );
-}
-
-// Inline validation helper text
-function ValidationHint({ message }: { message: string | null }) {
-  if (!message) return null;
-  return <p className="text-xs text-red-500 mt-1">{message}</p>;
-}
-
-// Image thumbnail preview
-function ImagePreview({ url, className = "w-32 h-12" }: { url: string; className?: string }) {
-  if (!url) return null;
-  return (
-    <div className={`mt-1.5 rounded border border-gray-200 dark:border-gray-700 overflow-hidden ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt=""
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
-      />
-    </div>
-  );
-}
-
-// Auto-expanding textarea
-function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const ref = useCallback((el: HTMLTextAreaElement | null) => {
-    if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }
-  }, []);
-  return (
-    <textarea
-      {...props}
-      ref={ref}
-      onInput={(e) => {
-        const t = e.currentTarget;
-        t.style.height = "auto";
-        t.style.height = t.scrollHeight + "px";
-        props.onInput?.(e);
-      }}
-    />
-  );
-}
-
-// Drag-and-drop reorderable item (same pattern as ExerciseModal)
-function ReorderableItem({ value, disabled, children }: {
-  value: string;
-  disabled?: boolean;
-  children: (controls: DragControls | null) => React.ReactNode;
-}) {
-  const controls = useDragControls();
-  return (
-    <Reorder.Item value={value} dragListener={false}
-      dragControls={disabled ? undefined : controls}
-      className="select-none"
-      style={{ listStyle: "none" }}>
-      {children(disabled ? null : controls)}
-    </Reorder.Item>
-  );
-}
-
-function DragHandle({ controls }: { controls: DragControls | null }) {
-  if (!controls) return null;
-  return (
-    <div className="cursor-grab active:cursor-grabbing touch-none p-0.5 self-center"
-      onPointerDown={(e) => controls.start(e)}>
-      <GripVertical className="h-4 w-4 text-muted-foreground/40 hover:text-muted-foreground" />
-    </div>
-  );
-}
-
-// Inline time slot adder with native time pickers
-function TimeSlotAdder({ lastSlot, onAdd }: { lastSlot?: string; onAdd: (slot: string) => void }) {
-  const [show, setShow] = useState(false);
-
-  // Auto-suggest defaults based on last slot
-  const getDefaults = () => {
-    if (lastSlot) {
-      const match = lastSlot.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-      if (match) {
-        const endH = parseInt(match[3]);
-        const endM = parseInt(match[4]);
-        const startMin = endH * 60 + endM + 15;
-        const newEndMin = startMin + 90;
-        const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-        return { start: fmt(startMin), end: fmt(newEndMin) };
-      }
-    }
-    return { start: "10:00", end: "11:30" };
-  };
-
-  const defaults = getDefaults();
-  const [start, setStart] = useState(defaults.start);
-  const [end, setEnd] = useState(defaults.end);
-
-  if (!show) {
-    return (
-      <button type="button" onClick={() => { const d = getDefaults(); setStart(d.start); setEnd(d.end); setShow(true); }} className="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:text-primary-hover border border-dashed border-primary/40 rounded-md hover:border-primary/60">
-        <Plus className="h-3 w-3" /> Add
-      </button>
-    );
-  }
-
-  return (
-    <div className="inline-flex items-center gap-1.5">
-      <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="px-1.5 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-foreground" />
-      <span className="text-xs text-muted-foreground">to</span>
-      <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="px-1.5 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-foreground" />
-      <button type="button" onClick={() => {
-        if (start && end && start < end) {
-          onAdd(`${start} - ${end}`);
-          setShow(false);
-        }
-      }} className="p-1 text-primary hover:text-primary-hover"><Plus className="h-3.5 w-3.5" /></button>
-      <button type="button" onClick={() => setShow(false)} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
-    </div>
-  );
-}
 
 export function SummerConfigEditor({
   configId,
@@ -781,14 +515,14 @@ export function SummerConfigEditor({
       pricing_config: {
         base_fee: baseFee,
         registration_fee: registrationFee || undefined,
-        discounts: discounts.length > 0 ? discounts : undefined,
+        discounts: discounts.length > 0 ? stripIds(discounts) : undefined,
       },
-      locations,
-      available_grades: grades,
+      locations: stripIds(locations),
+      available_grades: stripIds(grades),
       time_slots: [],
-      existing_student_options: existingStudentOptions.length > 0 ? existingStudentOptions : null,
-      center_options: centerOptions.length > 0 ? centerOptions : null,
-      lang_stream_options: langStreamOptions.length > 0 ? langStreamOptions : null,
+      existing_student_options: existingStudentOptions.length > 0 ? stripIds(existingStudentOptions) : null,
+      center_options: centerOptions.length > 0 ? stripIds(centerOptions) : null,
+      lang_stream_options: langStreamOptions.length > 0 ? stripIds(langStreamOptions) : null,
       text_content: Object.keys(textContent).length > 0 ? textContent : null,
       course_intro: normalizedCourseIntro,
     };
@@ -1698,38 +1432,6 @@ export function SummerConfigEditor({
                     );
                   })}
                 </div>
-              </div>
-            </div>
-
-            {/* Open days labels */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>Open Days Label (ZH)</Label>
-                <input
-                  value={loc.open_days_label || ""}
-                  onChange={(e) => {
-                    const next = [...locations];
-                    next[i] = { ...loc, open_days_label: e.target.value };
-                    setLocations(next);
-                  }}
-                  className={inputClass}
-                  disabled={isReadOnly}
-                  placeholder="e.g. 一星期開七日"
-                />
-              </div>
-              <div>
-                <Label>Open Days Label (EN)</Label>
-                <input
-                  value={loc.open_days_label_en || ""}
-                  onChange={(e) => {
-                    const next = [...locations];
-                    next[i] = { ...loc, open_days_label_en: e.target.value };
-                    setLocations(next);
-                  }}
-                  className={inputClass}
-                  disabled={isReadOnly}
-                  placeholder="e.g. Open 7 days a week"
-                />
               </div>
             </div>
 

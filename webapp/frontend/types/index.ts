@@ -2180,8 +2180,6 @@ export interface SummerLocation {
   address: string;
   address_en?: string;
   open_days: string[];
-  open_days_label?: string;
-  open_days_label_en?: string;
   image_url?: string | null;
   time_slots?: Record<string, string[]>;  // day → available time slots
 }
@@ -2477,6 +2475,9 @@ export interface LinkedSecondaryStudentInfo {
   school_student_id?: string | null;
   home_location?: string | null;
   has_current_year_regular_enrollment?: boolean | null;
+  /** The student record's language stream (C/E) — the system of record for
+   *  placement, so regular surfaces can resolve effective stream client-side. */
+  lang_stream?: string | null;
 }
 
 export interface LinkedPrimaryProspectInfo {
@@ -2877,9 +2878,9 @@ export interface SummerSuggestResponse {
   unplaceable: Array<{ application_id: number; student_name: string; reason: string }>;
 }
 
-// ---- Summer Tutor Duty Types ----
+// ---- Tutor Duty Types (shared by both intakes) ----
 
-export interface SummerTutorDuty {
+export interface TutorDuty {
   id: number;
   config_id: number;
   tutor_id: number;
@@ -2889,13 +2890,13 @@ export interface SummerTutorDuty {
   time_slot: string;
 }
 
-export interface SummerTutorDutyItem {
+export interface TutorDutyItem {
   tutor_id: number;
   duty_day: string;
   time_slot: string;
 }
 
-export interface SummerActiveTutor {
+export interface ActiveTutorOption {
   id: number;
   tutor_name: string;
   default_location: string | null;
@@ -2960,11 +2961,14 @@ export interface PrimaryProspect {
   contact_notes: string | null;
   status: ProspectStatus;
   summer_application_id: number | null;
+  regular_application_id: number | null;
   submitted_at: string | null;
   updated_at: string | null;
   edit_history: Array<{ timestamp: string; field: string; old_value: string | null; new_value: string | null }>;
   matched_application_ref: string | null;
   matched_application_status: string | null;
+  matched_regular_ref: string | null;
+  matched_regular_status: string | null;
 }
 
 export interface PrimaryProspectBulkItem {
@@ -3001,6 +3005,8 @@ export interface PrimaryProspectStats {
   wants_regular_yes: number;
   wants_regular_considering: number;
   matched_to_application: number;
+  applied_regular: number;
+  enrolled_regular: number;
   outreach_not_started: number;
   outreach_wechat_added: number;
   outreach_wechat_not_found: number;
@@ -3576,4 +3582,523 @@ export interface WaitlistEntryUpdate {
   entry_type?: "New" | "Slot Change";
   student_id?: number | null;
   slot_preferences?: WaitlistSlotPreferenceCreate[];
+}
+
+// ============================================
+// Regular Course (September intake) Types
+// ============================================
+// Stripped-down mirrors of the summer types: no buddy/sibling, no pricing or
+// discount tiers, single weekly slot (preference 1 = first choice, 2 = backup).
+// Mirror webapp/backend/schemas.py's Regular* section.
+
+export type RegularBilingualOption = SummerBilingualOption;
+export type RegularLocation = SummerLocation;
+export type RegularCourseIntro = SummerCourseIntro;
+
+/**
+ * A seasonal offer on the regular intake. At most one runs at a time, so this
+ * is a single object rather than summer's array of competing tiers.
+ *
+ * Only `tuition_amount` is money moving through an enrollment — it names an
+ * ordinary discounts row via `discount_id`, so publishing and revenue price it
+ * through the usual path. `total_value` is the headline figure quoted to
+ * parents, which also counts the waived materials fee and so is larger.
+ */
+export interface RegularPromo {
+  /** Code staff put on the receipt, e.g. 26BTSSA. */
+  code: string;
+  name_zh: string;
+  name_en: string;
+  /** Shorter form for the fee message, where the surrounding text has already
+   *  named the centre and the course. Falls back to the full name. */
+  short_name_zh?: string;
+  short_name_en?: string;
+  /** Headline value advertised to parents. Prose, not arithmetic. */
+  total_value: number;
+  /** Dollars off tuition — the part backed by a discounts row. */
+  tuition_amount: number;
+  waives_registration_fee?: boolean;
+  /** First day the offer may be shown. The form opens before the campaign
+   *  launches, so the API withholds the whole promo until this date. */
+  from_date?: string | null;
+  until_date?: string | null;
+  /** Bullet list shown on the form. Includes non-monetary perks such as a
+   *  gift, which never affect the fee. */
+  items?: { name_zh: string; name_en: string }[];
+  /** Internal discounts row id. Stripped from the public config. */
+  discount_id?: number | null;
+}
+
+export interface RegularPricingConfig {
+  base_fee: number;
+  lessons_per_block: number;
+  /** The standard one-off materials fee. Still quoted by an offer that claims
+   *  to waive it, even on an intake that collects it from nobody. */
+  registration_fee?: number | null;
+  /** False when this intake does not collect the materials fee from anyone,
+   *  whatever their history. Absent means charged, so only an intake that
+   *  opts out behaves differently. */
+  registration_fee_charged?: boolean;
+  /** Present on the public config only while the offer is running — the API
+   *  removes it outside the window, so its presence is the signal to show it. */
+  promo?: RegularPromo | null;
+}
+
+export interface RegularCourseFormConfig {
+  year: number;
+  title: string;
+  description?: string | null;
+  application_open_date: string;
+  application_close_date: string;
+  /** Resolved server-side in Hong Kong time so the form never depends on the
+   *  visitor's device clock. The form is only offered while this is "open". */
+  application_window: "before" | "open" | "closed";
+  course_start_date: string;
+  locations: RegularLocation[];
+  available_grades: RegularBilingualOption[];
+  time_slots: string[];
+  existing_student_options?: RegularBilingualOption[] | null;
+  center_options?: RegularBilingualOption[] | null;
+  lang_stream_options?: RegularBilingualOption[] | null;
+  text_content?: Record<string, string> | null;
+  course_intro?: RegularCourseIntro | null;
+  pricing_config?: RegularPricingConfig | null;
+  banner_image_url?: string | null;
+}
+
+export interface RegularApplicationCreate {
+  student_name: string;
+  school?: string | null;
+  grade: string;
+  lang_stream?: string | null;
+  is_existing_student?: string | null;
+  current_centers?: string[] | null;
+  wechat_id?: string | null;
+  contact_phone: string;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  form_language?: string;
+}
+
+export interface RegularApplicationSubmitResponse {
+  reference_code: string;
+  message: string;
+}
+
+export interface RegularApplicationStatusResponse {
+  reference_code: string;
+  student_name: string;
+  application_status: string;
+  submitted_at?: string | null;
+  // Editable fields exposed to the status page
+  grade?: string | null;
+  school?: string | null;
+  lang_stream?: string | null;
+  wechat_id?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+}
+
+export interface RegularApplicationEditRequest {
+  grade?: string | null;
+  school?: string | null;
+  lang_stream?: string | null;
+  wechat_id?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+}
+
+export interface RegularApplicationEditEntry {
+  id: number;
+  edited_at: string;
+  field_name: string;
+  old_value?: string | null;
+  new_value?: string | null;
+  edited_via: "applicant" | "admin";
+  edited_by?: string | null;
+}
+
+export interface RegularCourseConfig {
+  id: number;
+  year: number;
+  title: string;
+  description?: string | null;
+  application_open_date: string;
+  application_close_date: string;
+  course_start_date: string;
+  locations: RegularLocation[];
+  available_grades: RegularBilingualOption[];
+  time_slots: string[];
+  existing_student_options?: RegularBilingualOption[] | null;
+  center_options?: RegularBilingualOption[] | null;
+  lang_stream_options?: RegularBilingualOption[] | null;
+  text_content?: Record<string, string> | null;
+  course_intro?: RegularCourseIntro | null;
+  pricing_config?: RegularPricingConfig | null;
+  banner_image_url?: string | null;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface RegularApplication {
+  id: number;
+  config_id: number;
+  reference_code: string;
+  student_name: string;
+  school?: string | null;
+  grade: string;
+  lang_stream?: string | null;
+  is_existing_student?: string | null;
+  current_centers?: string[] | null;
+  /** Admin-verified origin: a branch code, or "New" for a student with no
+   *  MathConcept history. The form only asks which centre they attend *now*,
+   *  so seasonal new-student offers key off this instead. */
+  verified_branch_origin?: string | null;
+  wechat_id?: string | null;
+  contact_phone?: string | null;
+  preferred_location?: string | null;
+  preference_1_day?: string | null;
+  preference_1_time?: string | null;
+  preference_2_day?: string | null;
+  preference_2_time?: string | null;
+  existing_student_id?: number | null;
+  application_status: string;
+  admin_notes?: string | null;
+  submitted_at?: string | null;
+  updated_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  form_language?: string | null;
+  linked_student?: LinkedSecondaryStudentInfo | null;
+  /** Set when the application has been published into a native Regular
+   *  enrollment. Drives the Publish/Unpublish button state. */
+  published_enrollment_id?: number | null;
+  /** Arrangement slot this application is assigned to, if any. */
+  assigned_slot_id?: number | null;
+  /** The assigned slot itself, inlined by the API so the card and the detail
+   *  modal can show the placement without loading every slot in the config. */
+  assigned_slot?: RegularAssignedSlot | null;
+  /** Whether the one-off materials fee still applies, decided by the same
+   *  rule the fee message and publishing use. */
+  is_new_student?: boolean;
+  /** P6 prospect journey, when a prospect links to this application. Null when
+   *  the applicant was never a tracked prospect. */
+  prospect_journey?: RegularProspectJourney | null;
+  /** True when a seasonal offer is running AND this applicant is verified as
+   *  new. False while unverified, which is what prompts staff to check. */
+  promo_eligible?: boolean;
+  /** Code of the offer they qualify for. Null when not eligible. */
+  promo_code?: string | null;
+}
+
+/** P6 prospect journey attached to a linked regular application. */
+export interface RegularProspectJourney {
+  prospect_id: number;
+  source_branch?: string | null;
+  /** True when the prospect's summer application published an enrollment and
+   *  was not withdrawn. Splits the "MAC -> regular" and "MAC -> summer ->
+   *  regular" chip copy. */
+  attended_summer: boolean;
+}
+
+/** One ranked prospect candidate for a regular application (reverse match). */
+export interface RegularProspectSuggestion {
+  prospect_id: number;
+  student_name: string;
+  source_branch: string;
+  grade?: string | null;
+  phone_1?: string | null;
+  match_type: "student" | "phone" | "name" | "phone+name";
+  similarity?: number | null;
+  already_linked: boolean;
+}
+
+export interface RegularProspectSuggestResponse {
+  application_id: number;
+  suggestions: RegularProspectSuggestion[];
+}
+
+/** One branch's slice of the prospect -> regular conversion funnel. */
+export interface RegularConversionBranchRow {
+  branch: string;
+  prospects: number;
+  wants_summer_yes: number;
+  wants_regular_yes: number;
+  attended_summer: number;
+  applied_regular: number;
+  enrolled_regular: number;
+}
+
+export interface RegularConversionTutorRow {
+  branch: string;
+  tutor_name: string;
+  prospects: number;
+  applied_regular: number;
+  enrolled_regular: number;
+}
+
+export interface RegularConversionIntentionRow {
+  intention: string;
+  prospects: number;
+  applied_regular: number;
+  enrolled_regular: number;
+  attended_summer: number;
+}
+
+export interface RegularConversionSchoolRow {
+  school: string;
+  prospects: number;
+  applied_regular: number;
+  enrolled_regular: number;
+}
+
+export interface RegularConversionMovementRow {
+  wanted_branch: string;
+  enrolled_branch: string;
+  count: number;
+}
+
+export interface RegularConversionLostRow {
+  prospect_id: number;
+  student_name: string;
+  source_branch: string;
+  grade: string | null;
+  school: string | null;
+  wants_regular: string | null;
+  outreach_status: string | null;
+  attended_summer: boolean;
+}
+
+export interface RegularConversionResponse {
+  year: number;
+  branches: RegularConversionBranchRow[];
+  totals: RegularConversionBranchRow;
+  by_grade_stream_applied: Record<string, number>;
+  by_grade_stream_enrolled: Record<string, number>;
+  by_tutor: RegularConversionTutorRow[];
+  by_regular_intention: RegularConversionIntentionRow[];
+  by_summer_intention: RegularConversionIntentionRow[];
+  by_school: RegularConversionSchoolRow[];
+  branch_movement: RegularConversionMovementRow[];
+  lost_prospects: RegularConversionLostRow[];
+}
+
+/** A weekly slot's own fields, with no assignment state. Inlined on the
+ *  application (regular's counterpart to a summer application's `sessions`
+ *  array) and the base of `RegularSlot`, so the two cannot drift. */
+export interface RegularAssignedSlot {
+  id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  /** Language stream (C/E); unset = any. Pairs with grade to render F1C. */
+  lang_stream?: string | null;
+  tutor_id?: number | null;
+  tutor_name?: string | null;
+  max_students: number;
+}
+
+export interface RegularApplicationUpdate {
+  application_status?: string;
+  admin_notes?: string;
+  existing_student_id?: number | null;
+  lang_stream?: string;
+  /** Null clears it back to unverified. Omit to let the backend auto-fill it
+   *  from a student or prospect link. */
+  verified_branch_origin?: string | null;
+  // Detail-field admin edits (audited)
+  student_name?: string;
+  grade?: string;
+  school?: string;
+  wechat_id?: string;
+  preferred_location?: string;
+  preference_1_day?: string;
+  preference_1_time?: string;
+  preference_2_day?: string;
+  preference_2_time?: string;
+}
+
+export interface RegularApplicationStats {
+  total: number;
+  by_status: Record<string, number>;
+  by_grade: Record<string, number>;
+  by_location: Record<string, number>;
+}
+
+export interface RegularDemandCell {
+  day: string;
+  time_slot: string;
+  total_first_pref: number;
+  total_second_pref: number;
+  /** Keyed by grade + effective stream (F1C, F1E, ...); bare grade (F1) when
+   *  no stream resolves. Separates the Chinese and English streams in the grid. */
+  by_grade_stream_first: Record<string, number>;
+  by_grade_stream_second: Record<string, number>;
+}
+
+export interface RegularDemandResponse {
+  location: string;
+  cells: RegularDemandCell[];
+}
+
+export interface RegularPublishRequest {
+  /** Weekday, full or short form (backend normalizes to "Tue" etc.).
+   *  Omit schedule fields to resolve them from the assigned slot. */
+  confirmed_day?: string | null;
+  confirmed_time?: string | null;
+  /** Branch display name or MSA/MSB code (backend normalizes). */
+  location?: string | null;
+  tutor_id?: number | null;
+  /** Defaults to 6, the standard regular enrollment block. */
+  lessons_paid?: number;
+  /** Omit to auto-compute: first occurrence of confirmed_day on/after the
+   *  config's course_start_date. */
+  first_lesson_date?: string | null;
+  /** Omit to derive from the application status (Paid/Enrolled → Paid). */
+  payment_status?: "Pending Payment" | "Paid" | null;
+  /** Discount applied to the enrollment (e.g. an auto-suggested coupon). */
+  discount_id?: number | null;
+}
+
+/** Ready-to-send parent messages for one application, both languages. */
+export interface RegularApplicationMessages {
+  application_id: number;
+  schedule_zh: string;
+  schedule_en: string;
+  fee_zh: string;
+  fee_en: string;
+  /** "slot" when taken from the assigned slot, "preference" when it fell
+   *  back to the applicant's first choice. */
+  schedule_source: "slot" | "preference";
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  lessons_paid: number;
+  first_lesson_date: string;
+  total_fee: number;
+  discount_value: number;
+  is_new_student: boolean;
+  has_student_link: boolean;
+  /** Offer quoted in the message, when the applicant is verified new and it is
+   *  running. Null otherwise. */
+  promo_code?: string | null;
+  promo_name_en?: string | null;
+  /** True when that offer also waives the one-off materials fee, which is why
+   *  the total can be lower than base − discount + fee. */
+  promo_waives_registration_fee?: boolean;
+}
+
+export interface RegularSlotCreate {
+  config_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  lang_stream?: string | null;
+  tutor_id?: number | null;
+  max_students?: number;
+}
+
+export interface RegularSlotUpdate {
+  slot_day?: string;
+  time_slot?: string;
+  location?: string;
+  grade?: string | null;
+  lang_stream?: string | null;
+  tutor_id?: number | null;
+  max_students?: number;
+}
+
+export interface RegularSlotStudentInfo {
+  application_id: number;
+  student_name: string;
+  grade: string;
+  lang_stream?: string | null;
+  school?: string | null;
+  application_status: string;
+  published: boolean;
+  /** From the linked student record, when the application has one. */
+  school_student_id?: string | null;
+}
+
+export interface RegularSlot extends RegularAssignedSlot {
+  config_id: number;
+  assigned_count: number;
+  students: RegularSlotStudentInfo[];
+}
+
+export interface RegularPublishResult {
+  application_id: number;
+  success: boolean;
+  enrollment_id?: number | null;
+  sessions_created?: number | null;
+  error_code?: string | null;
+  error?: string | null;
+}
+
+export interface RegularPublishBatchResponse {
+  results: RegularPublishResult[];
+  published_count: number;
+  failed_count: number;
+}
+
+export interface RegularSuggestion {
+  slot_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  lang_stream?: string | null;
+  tutor_name?: string | null;
+  assigned_count: number;
+  max_students: number;
+  score: number;
+  /** Machine reasons: pref_1_match | pref_2_match | same_grade |
+   *  stream_match | schoolmates:{n} */
+  reasons: string[];
+}
+
+export interface RegularSuggestResponse {
+  application_id: number;
+  suggestions: RegularSuggestion[];
+}
+
+export interface RegularPublishResponse {
+  application_id: number;
+  enrollment_id: number;
+  sessions_created: number;
+  first_lesson_date: string;
+  skipped_holidays: Array<{ date: string; name: string }>;
+}
+
+export interface RegularUnpublishResponse {
+  application_id: number;
+  enrollment_id: number;
+  sessions_deleted: number;
+  application_status: string;
+}
+
+export interface RegularPublishErrorDetail {
+  error_code: string;
+  message: string;
+  enrollment_id?: number;
+  current_status?: string;
+  conflicts?: Array<{
+    session_date: string;
+    time_slot?: string | null;
+    existing_tutor_name?: string | null;
+    session_status?: string | null;
+    enrollment_id?: number | null;
+  }>;
 }

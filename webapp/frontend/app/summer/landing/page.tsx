@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Plus, Minus, Phone, Copy, Check, X } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
+import { getBranchContact } from "@/lib/branch-contacts";
 import { summerAPI } from "@/lib/api";
 import type { SummerCourseFormConfig, SummerLocation } from "@/types";
 import {
@@ -197,16 +198,6 @@ const GENERAL_RULES = [
   "本校接受現金或指定戶口轉帳，繳費後需發收條至本校確認。",
   "所有已繳續費恕不退還。",
 ];
-
-// Per-branch contact info — matched by Chinese name substring (admin can
-// rename name_en freely without breaking the lookup). Not in the config
-// schema yet; if more branches arrive, promote to a config field.
-type BranchContact = { phone: string; wechat: string };
-function getBranchContact(loc: SummerLocation): BranchContact | null {
-  if (loc.name.includes("華士古")) return { phone: "2835 3333", wechat: "MathConcept9" };
-  if (loc.name.includes("二龍喉")) return { phone: "6890 5098", wechat: "MathConcept10" };
-  return null;
-}
 
 // Canonical Google Maps place URLs — address-search can mispin on Macau
 // addresses, so we prefer the `maps.app.goo.gl` short links that point at
@@ -875,7 +866,7 @@ export default function SummerLandingPage() {
             {config.locations.map((loc: SummerLocation, i) => {
               // Phone numbers are not in the config schema yet, so map by
               // location key. If we add more branches, move this to config.
-              const contact = getBranchContact(loc);
+              const contact = getBranchContact(loc.name);
               const openSet = new Set(loc.open_days || []);
               const branchImage =
                 loc.image_url || BRANCH_IMAGES_FALLBACK[loc.name_en];

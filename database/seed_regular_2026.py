@@ -1,0 +1,200 @@
+"""Seed regular_course_configs with the September 2026 intake.
+
+Branch open days and time slots follow last year's regular-course Google Form,
+except that 二龍喉 now opens 7 days like 華士古; weekday slots 16:45/18:25,
+weekend slots 10:00-19:30 in five bands.
+"""
+import os
+import json
+import pymysql
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "webapp", "backend", ".env"))
+
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
+
+# Sunday-first, matching the week order the forms and admin pages render in.
+# open_days is stored in display order, so every list below is built by
+# filtering this rather than written out by hand.
+WEEK_DAY_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+WEEKENDS = ["Saturday", "Sunday"]
+WEEKDAY_SLOTS = ["16:45 - 18:15", "18:25 - 19:55"]
+WEEKEND_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"]
+
+
+def _open_days(*, closed=()):
+    return [d for d in WEEK_DAY_ORDER if d not in closed]
+
+
+MSA_OPEN_DAYS = _open_days()
+MSB_OPEN_DAYS = _open_days()  # opened Tue + Wed for the 2026 September intake
+
+# The Back to School offer, kept here so re-seeding the config does not wipe
+# what migration 143 set up. Only tuition_amount is money moving through an
+# enrollment (it names a discounts row); total_value is the headline figure
+# advertised, which also counts the waived materials fee.
+BTS_DISCOUNT_NAME = "2026 Back to School 新生優惠"
+BTS_PROMO = {
+    "code": "26BTSSA",
+    "name_zh": "2026 中學教室 Back to School 新生優惠",
+    "name_en": "2026 Secondary Academy Back to School New Student Offer",
+    "short_name_zh": "2026 Back to School 新生優惠",
+    "short_name_en": "2026 Back to School new student offer",
+    "total_value": 400,
+    "tuition_amount": 300,
+    "waives_registration_fee": True,
+    # The form opens around 5 August; the campaign launches on the 12th, and
+    # the offer stays out of the API response until then.
+    "from_date": "2026-08-12",
+    "until_date": None,
+    "items": [
+        {"name_zh": "9月新生學費立減 MOP 300", "name_en": "MOP 300 off September tuition for new students"},
+        {"name_zh": "免教材費 MOP 100", "name_en": "MOP 100 materials fee waived"},
+        {"name_zh": "贈 MathConcept 限量檯曆一份（價值 MOP 100）", "name_en": "A limited edition MathConcept desk calendar (worth MOP 100)"},
+    ],
+}
+
+
+def _slots_for(days):
+    return {d: (WEEKEND_SLOTS if d in WEEKENDS else WEEKDAY_SLOTS) for d in days}
+
+
+CONFIG_2026 = {
+    "year": 2026,
+    "title": "2026年度9月常規課程留位 Intended Class Time for 2026 September Regular Course",
+    "description": None,
+    "application_open_date": "2026-08-03 00:00:00",
+    "application_close_date": "2026-09-30 23:59:59",
+    "course_start_date": "2026-09-01",
+    "locations": json.dumps([
+        {
+            "name": "華士古分校",
+            "name_en": "Vasco Center",
+            "address": "澳門若翰亞美打街10號東輝閣地下B座",
+            "address_en": "Rua de João de Almeida No 10, Tung Fai Kock, B R/C, Macau",
+            "open_days": MSA_OPEN_DAYS,
+            "time_slots": _slots_for(MSA_OPEN_DAYS),
+        },
+        {
+            "name": "二龍喉分校",
+            "name_en": "Flora Garden Center",
+            "address": "澳門士多紐拜斯大馬路47B號楹峯疊翠地下A座",
+            "address_en": "Avenida de Sidonio Pais No. 47B, The Paramount, A R/C, Macau",
+            "open_days": MSB_OPEN_DAYS,
+            "time_slots": _slots_for(MSB_OPEN_DAYS),
+        },
+    ]),
+    "available_grades": json.dumps([
+        {"name": "中一", "name_en": "Form 1", "value": "F1"},
+        {"name": "中二", "name_en": "Form 2", "value": "F2"},
+        {"name": "中三", "name_en": "Form 3", "value": "F3"},
+        {"name": "中四", "name_en": "Form 4", "value": "F4", "admin_only": True},
+    ]),
+    "time_slots": json.dumps(WEEKDAY_SLOTS + WEEKEND_SLOTS),
+    "existing_student_options": json.dumps([
+        {"name": "MathConcept數學思維", "name_en": "MathConcept Education"},
+        {"name": "MathConcept中學教室", "name_en": "MathConcept Secondary Academy"},
+        {"name": "以上皆非", "name_en": "None"},
+    ]),
+    # Values must match the summer config's (C / E / Int): the grade badge
+    # colour is keyed on grade + stream, and both intakes share that table.
+    "lang_stream_options": json.dumps([
+        {"name": "中文部", "name_en": "Chinese Section", "value": "C"},
+        {"name": "英文部", "name_en": "English Section", "value": "E"},
+        {"name": "國際學校", "name_en": "International", "value": "Int"},
+    ]),
+    "center_options": json.dumps([
+        {"name": "高士德分校", "name_en": "Costa Center"},
+        {"name": "水坑尾分校", "name_en": "Campo Center"},
+        {"name": "東方明珠分校", "name_en": "Areia Preta Center"},
+        {"name": "林茂塘分校", "name_en": "Lam Mau Tong Center"},
+        {"name": "二龍喉分校", "name_en": "Flora Garden Center"},
+        {"name": "氹仔美景I分校", "name_en": "Taipa Mei Keng Center I"},
+        {"name": "氹仔美景II分校", "name_en": "Taipa Mei Keng Center II"},
+        {"name": "MathConcept中學教室 (華士古分校)", "name_en": "MathConcept Secondary Academy (Vasco Center)"},
+        {"name": "MathConcept中學教室 (二龍喉分校)", "name_en": "MathConcept Secondary Academy (Flora Garden Center)"},
+    ]),
+    "text_content": json.dumps({
+        "title_zh": "2026年度9月常規課程留位",
+        "title_en": "September 2026 Regular Course Application",
+        "intro_zh": "此表單用於收集學生的理想上課時間。正式開班時間將根據多數學生的選擇而定。",
+        "intro_en": "This form collects students' preferred class times. The final timetable will be arranged based on the choices of the majority of students.",
+        "target_grades_zh": "中一至中三",
+        "target_grades_en": "F1 to F3",
+        "schedule_format_zh": "每星期一堂 · 90分鐘",
+        "schedule_format_en": "Weekly · 90 min",
+        "start_note_zh": "9月1日當週開課",
+        "start_note_en": "Classes begin the week of 1 September",
+        "existing_student_question_zh": "學生是否現正就讀於MathConcept旗下教育中心？",
+        "existing_student_question_en": "Are you currently a MathConcept student?",
+        "disclaimer_zh": "此表單僅用於收集學生的理想上課時間。正式開班時間將根據多數學生的選擇而定。如我們未能配合您所選擇之時段，敬希見諒。",
+        "disclaimer_en": "This form is intended solely for collecting students' preferred time slots. Class schedules will be arranged based on the time slots chosen by the majority of students. We apologise for any inconvenience if your preferred time slot is not available.",
+        "contact_by_date": "2026-08-17",
+        "success_message_zh": "我們會在微信給您發放上課的訊息。",
+        "success_message_en": "We will send you the class information via WeChat.",
+        "makeup_note_zh": "為能令課堂安排更完整，如學生於學費期內有事宜不能出席課堂，請提早通知導師，讓導師為您提早安排補堂。",
+        "makeup_note_en": "To keep class arrangements complete, if the student cannot attend a lesson within the paid period, please notify the tutor in advance so a make-up lesson can be arranged early.",
+    }),
+    # promo is filled in by main(), which resolves the discounts row id first.
+    "pricing_config": None,
+    "course_intro": None,
+    # Reuses last year's Google Form header artwork; the wording carries no
+    # year, so it stands for every September intake.
+    "banner_image_url": "/regular/regular-banner.jpg",
+    "is_active": True,
+}
+
+
+def main():
+    print(f"Connecting to {DB_HOST}:{DB_PORT}/{DB_NAME} as {DB_USER}...")
+    conn = pymysql.connect(
+        host=DB_HOST, port=DB_PORT, user=DB_USER,
+        password=DB_PASSWORD, database=DB_NAME,
+        charset="utf8mb4", connect_timeout=10,
+    )
+    cursor = conn.cursor()
+
+    # Resolve the offer's discounts row so the promo points at a real id. The
+    # row itself is created by migration 143; without it the promo is seeded
+    # with no discount and the admin picks one manually.
+    cursor.execute("SELECT id FROM discounts WHERE discount_name = %s", (BTS_DISCOUNT_NAME,))
+    row = cursor.fetchone()
+    promo = {**BTS_PROMO, "discount_id": row[0] if row else None}
+    if not row:
+        print(f"  WARNING: no discounts row named {BTS_DISCOUNT_NAME!r} — run migration 143 first")
+    CONFIG_2026["pricing_config"] = json.dumps({
+        "base_fee": 2400,
+        "lessons_per_block": 6,
+        # Still the standard fee, and the offer quotes it, but this intake
+        # collects it from nobody. See migration 144.
+        "registration_fee": 100,
+        "registration_fee_charged": False,
+        "promo": promo,
+    })
+
+    cursor.execute("SELECT id FROM regular_course_configs WHERE year = 2026")
+    existing = cursor.fetchone()
+    if existing:
+        print(f"  Deleting existing 2026 config (id={existing[0]})...")
+        cursor.execute("DELETE FROM regular_course_configs WHERE year = 2026")
+        conn.commit()
+
+    cols = ", ".join(CONFIG_2026.keys())
+    placeholders = ", ".join(["%s"] * len(CONFIG_2026))
+    sql = f"INSERT INTO regular_course_configs ({cols}) VALUES ({placeholders})"
+    cursor.execute(sql, list(CONFIG_2026.values()))
+    conn.commit()
+    print(f"  Seeded 2026 config (id={cursor.lastrowid}), is_active=True")
+
+    cursor.close()
+    conn.close()
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()

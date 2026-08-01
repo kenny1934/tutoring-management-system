@@ -140,6 +140,26 @@ import type {
   SummerApplicationStatusResponse,
   SummerApplicationEditRequest,
   SummerApplicationEditEntry,
+  RegularCourseFormConfig,
+  RegularApplicationCreate,
+  RegularApplicationSubmitResponse,
+  RegularApplicationStatusResponse,
+  RegularApplicationEditRequest,
+  RegularApplicationEditEntry,
+  RegularCourseConfig,
+  RegularApplication,
+  RegularApplicationUpdate,
+  RegularApplicationStats,
+  RegularApplicationMessages,
+  RegularDemandResponse,
+  RegularSlot,
+  RegularSlotCreate,
+  RegularSlotUpdate,
+  RegularSuggestResponse,
+  RegularPublishRequest,
+  RegularPublishResponse,
+  RegularPublishBatchResponse,
+  RegularUnpublishResponse,
   SummerSiblingInfo,
   SiblingVerificationStatus,
   SummerCourseConfig,
@@ -162,9 +182,9 @@ import type {
   SummerDemandResponse,
   SummerSuggestRequest,
   SummerSuggestResponse,
-  SummerTutorDuty,
-  SummerTutorDutyItem,
-  SummerActiveTutor,
+  TutorDuty,
+  TutorDutyItem,
+  ActiveTutorOption,
   SummerLesson,
   SummerLessonUpdate,
   SummerLessonCalendarResponse,
@@ -2642,17 +2662,17 @@ export const summerAPI = {
   // ---- Tutor Duty endpoints ----
 
   getActiveTutors: () =>
-    fetchAPI<SummerActiveTutor[]>("/summer/tutors/active"),
+    fetchAPI<ActiveTutorOption[]>("/summer/tutors/active"),
 
   getTutorDuties: (configId: number, location: string) =>
-    fetchAPI<SummerTutorDuty[]>(
+    fetchAPI<TutorDuty[]>(
       `/summer/tutor-duties?config_id=${configId}&location=${encodeURIComponent(location)}`
     ),
 
   bulkSetTutorDuties: (data: {
     config_id: number;
     location: string;
-    duties: SummerTutorDutyItem[];
+    duties: TutorDutyItem[];
   }) =>
     fetchAPI<{ success: boolean; count: number }>("/summer/tutor-duties/bulk-set", {
       method: "POST",
@@ -2785,7 +2805,7 @@ export const prospectsAPI = {
   adminGet: (id: number) =>
     fetchAPI<PrimaryProspect>(`/prospects/admin/${id}`),
 
-  adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null }) =>
+  adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null; regular_application_id?: number | null }) =>
     fetchAPI<PrimaryProspect>(`/prospects/${id}/admin`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -2824,6 +2844,15 @@ export const prospectsAPI = {
   autoMatch: (year: number, options: { dryRun?: boolean } = {}) =>
     fetchAPI<import("@/types").AutoMatchResult>(
       `/prospects/admin/auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
+      { method: "POST" },
+    ),
+
+  findRegularMatches: (id: number) =>
+    fetchAPI<PrimaryProspectMatchResult>(`/prospects/admin/regular-match/${id}`),
+
+  regularAutoMatch: (year: number, options: { dryRun?: boolean } = {}) =>
+    fetchAPI<import("@/types").AutoMatchResult>(
+      `/prospects/admin/regular-auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
       { method: "POST" },
     ),
 };
@@ -2933,6 +2962,232 @@ export const waitlistAPI = {
 };
 
 // Export all APIs as a single object
+export const regularAPI = {
+  // Public endpoints (no auth)
+  getFormConfig: () =>
+    fetchAPI<RegularCourseFormConfig>("/regular/public/config"),
+
+  submitApplication: (data: RegularApplicationCreate) =>
+    fetchAPI<RegularApplicationSubmitResponse>("/regular/public/apply", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  checkStatus: (referenceCode: string, phone: string) =>
+    fetchAPI<RegularApplicationStatusResponse>(
+      `/regular/public/status/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`
+    ),
+
+  editApplication: (
+    referenceCode: string,
+    phone: string,
+    data: RegularApplicationEditRequest
+  ) =>
+    fetchAPI<RegularApplicationStatusResponse>(
+      `/regular/public/application/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`,
+      { method: "PATCH", body: JSON.stringify(data) }
+    ),
+
+  // Admin endpoints
+  getConfigs: () =>
+    fetchAPI<RegularCourseConfig[]>("/regular/configs"),
+
+  createConfig: (data: Partial<RegularCourseConfig>) =>
+    fetchAPI<RegularCourseConfig>("/regular/configs", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getConfig: (id: number) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}`),
+
+  updateConfig: (id: number, data: Partial<RegularCourseConfig>) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteConfig: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/regular/configs/${id}`, { method: "DELETE" }),
+
+  cloneConfig: (id: number, targetYear: number) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}/clone?target_year=${targetYear}`, {
+      method: "POST",
+    }),
+
+  getApplications: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    published?: "published" | "unpublished";
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<RegularApplication[]>(`/regular/applications${qs ? `?${qs}` : ""}`);
+  },
+
+  getApplicationStats: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    published?: "published" | "unpublished";
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<RegularApplicationStats>(`/regular/applications/stats${qs ? `?${qs}` : ""}`);
+  },
+
+  getApplication: (id: number) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${id}`),
+
+  updateApplication: (id: number, data: RegularApplicationUpdate) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getApplicationEdits: (id: number) =>
+    fetchAPI<RegularApplicationEditEntry[]>(`/regular/applications/${id}/edits`),
+
+  // Same response shape as the summer endpoint, so both link-suggestion
+  // modals read one set of types.
+  suggestStudentLinks: (configId: number, dryRun: boolean) =>
+    fetchAPI<import("@/types").StudentLinkSuggestResult>(
+      `/regular/admin/suggest-student-links?config_id=${configId}&dry_run=${dryRun}`
+    ),
+
+  /** Parent-facing schedule + fee messages, generated from the schedule and
+   *  fee inputs the publish flow will use. */
+  getApplicationMessages: (
+    id: number,
+    params: { lessons_paid?: number; discount_id?: number | null; first_lesson_date?: string | null } = {}
+  ) => {
+    const qs = new URLSearchParams();
+    if (params.lessons_paid != null) qs.set("lessons_paid", String(params.lessons_paid));
+    if (params.discount_id != null) qs.set("discount_id", String(params.discount_id));
+    if (params.first_lesson_date) qs.set("first_lesson_date", params.first_lesson_date);
+    const q = qs.toString();
+    return fetchAPI<RegularApplicationMessages>(
+      `/regular/applications/${id}/messages${q ? `?${q}` : ""}`
+    );
+  },
+
+  getDemand: (configId: number, location: string) =>
+    fetchAPI<RegularDemandResponse>(
+      `/regular/demand?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+
+  // Arrangement: weekly slots + assignment + suggestions
+  getSlots: (configId: number, location?: string) =>
+    fetchAPI<RegularSlot[]>(
+      `/regular/slots?config_id=${configId}${location ? `&location=${encodeURIComponent(location)}` : ""}`
+    ),
+
+  createSlot: (data: RegularSlotCreate) =>
+    fetchAPI<RegularSlot>("/regular/slots", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateSlot: (id: number, data: RegularSlotUpdate) =>
+    fetchAPI<RegularSlot>(`/regular/slots/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteSlot: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/regular/slots/${id}`, { method: "DELETE" }),
+
+  assignSlot: (applicationId: number, slotId: number | null) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${applicationId}/slot`, {
+      method: "PATCH",
+      body: JSON.stringify({ slot_id: slotId }),
+    }),
+
+  getSuggestions: (configId: number, applicationId: number) =>
+    fetchAPI<RegularSuggestResponse>(
+      `/regular/suggest?config_id=${configId}&application_id=${applicationId}`
+    ),
+
+  // ---- Prospect journey ----
+  linkProspect: (applicationId: number, prospectId: number | null) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${applicationId}/prospect`, {
+      method: "PATCH",
+      body: JSON.stringify({ prospect_id: prospectId }),
+    }),
+
+  getProspectSuggestions: (applicationId: number) =>
+    fetchAPI<import("@/types").RegularProspectSuggestResponse>(
+      `/regular/applications/${applicationId}/prospect-suggestions`
+    ),
+
+  getConversion: (year: number, branch?: string | null) =>
+    fetchAPI<import("@/types").RegularConversionResponse>(
+      `/regular/conversion?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
+    ),
+
+  publishApplication: (id: number, data: RegularPublishRequest) =>
+    fetchAPI<RegularPublishResponse>(`/regular/applications/${id}/publish`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  unpublishApplication: (id: number) =>
+    fetchAPI<RegularUnpublishResponse>(`/regular/applications/${id}/publish`, {
+      method: "DELETE",
+    }),
+
+  publishApplicationsBatch: (
+    items: Array<{ application_id: number } & RegularPublishRequest>
+  ) =>
+    fetchAPI<RegularPublishBatchResponse>("/regular/applications/publish-batch", {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    }),
+
+  // ---- Tutor Duty endpoints ----
+
+  // Off the general tutors endpoint rather than an intake-specific one: the
+  // roster is the same list of people whichever intake is being staffed.
+  getActiveTutors: async (): Promise<ActiveTutorOption[]> =>
+    (await tutorsAPI.getAll())
+      .filter((t) => t.is_active_tutor !== false)
+      .map((t) => ({
+        id: t.id,
+        tutor_name: t.tutor_name,
+        default_location: t.default_location ?? null,
+      })),
+
+  getTutorDuties: (configId: number, location: string) =>
+    fetchAPI<TutorDuty[]>(
+      `/regular/tutor-duties?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+
+  bulkSetTutorDuties: (data: {
+    config_id: number;
+    location: string;
+    duties: TutorDutyItem[];
+  }) =>
+    fetchAPI<{ success: boolean; count: number }>("/regular/tutor-duties/bulk-set", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
 export const api = {
   tutors: tutorsAPI,
   students: studentsAPI,
@@ -2958,6 +3213,7 @@ export const api = {
   wecom: wecomAPI,
   memos: memosAPI,
   summer: summerAPI,
+  regular: regularAPI,
   prospects: prospectsAPI,
   buddyTracker: buddyTrackerAPI,
   auth: authAPI,
