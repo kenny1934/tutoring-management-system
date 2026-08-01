@@ -12,7 +12,6 @@ export { useGroupedSessions, type TimeSlotGroup, type SessionStats } from './use
 
 // Calendar and sync hooks
 export { useCalendarSync } from './useCalendarSync';
-export { useNowMinutes } from './useNowMinutes';
 
 // UI interaction hooks
 export { useSwipeGesture } from './useSwipeGesture';

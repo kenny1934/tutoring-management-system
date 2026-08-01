@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount } from "@/lib/hooks";
+import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,9 +79,9 @@ const MemoListDrawer = dynamic(
 );
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { toDateString, getWeekBounds, getMonthBounds, getNowSlotPosition, minutesToTime, parseTimeSlot } from "@/lib/calendar-utils";
-import { useNowMinutes } from "@/lib/hooks/index";
-import { LessonNudge, isLessonTeachable } from "@/components/sessions/LessonNudge";
+import { toDateString, getWeekBounds, getMonthBounds, getNowSlotPosition } from "@/lib/calendar-utils";
+import { LessonNudge } from "@/components/sessions/LessonNudge";
+import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { formatCompactDateTimeSlot } from "@/lib/formatters";
@@ -720,13 +720,17 @@ export default function SessionsPage() {
 
   // Current-time position among the listed slots (today + list view only):
   // drives the now divider, the header Now chip, the toolbar jump chip,
-  // the one-shot autoscroll and the lesson-mode nudge.
-  const nowMinutes = useNowMinutes();
-  const isTodaySelected = toDateString(selectedDate) === toDateString(new Date());
+  // the one-shot autoscroll and the lesson-mode nudge. The tick is disabled
+  // in states where no indicator can render, so other views and dates skip
+  // the once-a-minute re-render of this heavy page.
+  const selectedDateString = toDateString(selectedDate);
+  const isTodaySelected = selectedDateString === toDateString(new Date());
+  const nowIndicatorLive = viewMode === "list" && !isPendingMakeupsView && isTodaySelected;
+  const nowMinutes = useNowMinutes(nowIndicatorLive ? 30000 : 0);
   const nowPosition = useMemo(() => {
-    if (viewMode !== "list" || isPendingMakeupsView || !isTodaySelected) return null;
+    if (!nowIndicatorLive) return null;
     return getNowSlotPosition(groupedSessions.map(([timeSlot]) => timeSlot), nowMinutes);
-  }, [viewMode, isPendingMakeupsView, isTodaySelected, groupedSessions, nowMinutes]);
+  }, [nowIndicatorLive, groupedSessions, nowMinutes]);
 
   const scrollToSlot = useCallback((timeSlot: string) => {
     document.getElementById(`slot-${timeSlot}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2467,23 +2471,22 @@ export default function SessionsPage() {
               <>
                 {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => {
                   const copyText = formatCompactDateTimeSlot(selectedDate, timeSlot);
+                  const isCurrentSlot = nowPosition?.kind === "during" && nowPosition.timeSlot === timeSlot;
                   return (
                   <React.Fragment key={timeSlot}>
                     {/* Current-time divider (shown in the gap before the next slot) */}
                     {nowPosition?.kind === "before" && nowPosition.timeSlot === timeSlot && (
-                      <div className="flex items-center gap-2 px-1" aria-hidden="true">
-                        <span className="h-2 w-2 rounded-full bg-red-500" />
-                        <span className="h-0.5 flex-1 rounded-full bg-red-400/60" />
-                        <span className="text-xs font-semibold tabular-nums text-red-500">
-                          {minutesToTime(nowMinutes)}
-                        </span>
-                      </div>
+                      <NowDivider nowMinutes={nowMinutes} />
                     )}
 
+                    {/* Non-sticky wrapper carries the scroll anchor: a stuck header's
+                        own rect already sits at the scroll target, which made
+                        scrollIntoView a no-op when jumping back up to it.
+                        scrollMarginTop keeps anchored scrolls clear of the sticky toolbar. */}
+                    <div id={`slot-${timeSlot}`} className="flex flex-col gap-2 sm:gap-3" style={{ scrollMarginTop: timeSlotStickyTop }}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    {/* scrollMarginTop keeps scrollIntoView targets clear of the sticky toolbar */}
-                    <div id={`slot-${timeSlot}`} className={cn("sticky mb-2", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop, scrollMarginTop: timeSlotStickyTop }}>
+                    <div className={cn("sticky mb-2", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
                       <div
                         onClick={() => toggleSlot(timeSlot)}
                         className={cn(
@@ -2546,12 +2549,7 @@ export default function SessionsPage() {
                             <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
                               {timeSlot}
                             </h3>
-                            {nowPosition?.kind === "during" && nowPosition.timeSlot === timeSlot && (
-                              <span className="flex items-center gap-1 text-xs font-bold text-red-500">
-                                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                                Now
-                              </span>
-                            )}
+                            {isCurrentSlot && <NowChip />}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -2579,9 +2577,8 @@ export default function SessionsPage() {
                           <div className="flex items-center gap-2">
                             {tutorFilter && (
                               <LessonNudge
-                                active={tutorFilter === effectiveUserId && nowPosition?.kind === "during" && nowPosition.timeSlot === timeSlot && sessionsInSlot.some(isLessonTeachable)}
-                                slotStart={parseTimeSlot(timeSlot)?.start ?? timeSlot}
-                                date={toDateString(selectedDate)}
+                                active={tutorFilter === effectiveUserId && isCurrentSlot && sessionsInSlot.some(isCountableSession)}
+                                date={selectedDateString}
                                 timeSlot={timeSlot}
                                 tutorId={tutorFilter}
                               >
@@ -2844,6 +2841,7 @@ export default function SessionsPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+                    </div>
                   </React.Fragment>
                   );
                 })}

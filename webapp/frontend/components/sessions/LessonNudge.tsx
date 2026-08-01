@@ -2,47 +2,48 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import type { Session } from "@/types";
+import { parseTimeSlot } from "@/lib/calendar-utils";
+
+const STORAGE_KEY = "lesson-nudge-state";
 
 /**
- * Statuses lesson mode itself filters out; a slot with none of these left
- * has nothing to teach, so it should not nudge.
+ * Per-day record of which slots have shown the bubble and which Lesson
+ * buttons were clicked. Scoping the whole record to a single date means a
+ * new day simply overwrites it — no key pruning needed.
  */
-export function isLessonTeachable(session: Session): boolean {
-  const status = session.session_status;
-  return (
-    status !== "Cancelled" &&
-    !status.includes("Pending Make-up") &&
-    !status.includes("Make-up Booked")
-  );
+interface NudgeState {
+  date: string;
+  seen: Record<string, true>;
+  opened: Record<string, true>;
 }
 
-const OPENED_PREFIX = "lesson-opened-";
-const SEEN_PREFIX = "lesson-nudge-seen-";
-
-/** Keys embed the date, so anything from an earlier day is stale. */
-function pruneStaleKeys(prefix: string, date: string) {
+function readState(date: string): NudgeState {
   try {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(prefix) && !key.startsWith(prefix + date)) {
-        localStorage.removeItem(key);
-      }
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "");
+    if (stored && stored.date === date) {
+      return { date, seen: stored.seen ?? {}, opened: stored.opened ?? {} };
     }
   } catch {
-    // localStorage unavailable; nothing to prune
+    // localStorage unavailable or unparseable; start fresh
+  }
+  return { date, seen: {}, opened: {} };
+}
+
+function writeState(state: NudgeState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // localStorage unavailable; component state still covers this page view
   }
 }
 
 interface LessonNudgeProps {
   /**
    * Time-and-content gate computed by the parent: now is inside this slot
-   * and the slot has teachable sessions belonging to the current tutor.
+   * and the slot has countable sessions belonging to the current tutor.
    */
   active: boolean;
-  /** Normalised slot start (e.g. "16:45"), used in the bubble copy. */
-  slotStart: string;
-  /** Today as YYYY-MM-DD; scopes the storage keys and prunes older days. */
+  /** Today as YYYY-MM-DD; scopes the stored seen/opened record. */
   date: string;
   timeSlot: string;
   tutorId: string | number;
@@ -55,20 +56,16 @@ interface LessonNudgeProps {
  * progress and a one-time bubble hint pointing tutors at lesson mode.
  * Clicking the button quiets the nudge for that slot for the rest of the day.
  */
-export function LessonNudge({ active, slotStart, date, timeSlot, tutorId, children }: LessonNudgeProps) {
-  const keyCore = `${date}-${timeSlot}-${tutorId}`;
+export function LessonNudge({ active, date, timeSlot, tutorId, children }: LessonNudgeProps) {
+  const slotKey = `${timeSlot}-${tutorId}`;
   const [opened, setOpened] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
   const bubbleRef = useRef<HTMLSpanElement>(null);
 
   // Read after mount so SSR and the first client render agree.
   useEffect(() => {
-    try {
-      setOpened(localStorage.getItem(OPENED_PREFIX + keyCore) === "1");
-    } catch {
-      // localStorage unavailable; keep false
-    }
-  }, [keyCore]);
+    setOpened(!!readState(date).opened[slotKey]);
+  }, [date, slotKey]);
 
   const suppressed = !active || opened;
 
@@ -78,30 +75,26 @@ export function LessonNudge({ active, slotStart, date, timeSlot, tutorId, childr
       setShowBubble(false);
       return;
     }
-    try {
-      if (localStorage.getItem(SEEN_PREFIX + keyCore) === "1") return;
-      localStorage.setItem(SEEN_PREFIX + keyCore, "1");
-      pruneStaleKeys(SEEN_PREFIX, date);
-    } catch {
-      // localStorage unavailable; the bubble may repeat, which is harmless
-    }
+    const state = readState(date);
+    if (state.seen[slotKey]) return;
+    state.seen[slotKey] = true;
+    writeState(state);
     setShowBubble(true);
     const timer = setTimeout(() => setShowBubble(false), 15000);
     return () => clearTimeout(timer);
-  }, [suppressed, keyCore, date]);
+  }, [suppressed, date, slotKey]);
 
   // Capture phase, so the Lesson button's own stopPropagation cannot hide the click.
   const handleClickCapture = (e: React.MouseEvent) => {
     if (bubbleRef.current?.contains(e.target as Node)) return;
     setOpened(true);
     setShowBubble(false);
-    try {
-      localStorage.setItem(OPENED_PREFIX + keyCore, "1");
-      pruneStaleKeys(OPENED_PREFIX, date);
-    } catch {
-      // localStorage unavailable; state alone quiets this page view
-    }
+    const state = readState(date);
+    state.opened[slotKey] = true;
+    writeState(state);
   };
+
+  const slotStart = parseTimeSlot(timeSlot)?.start ?? timeSlot;
 
   return (
     <span className="relative inline-flex" onClickCapture={handleClickCapture}>
