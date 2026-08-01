@@ -2918,7 +2918,12 @@ export type ProspectOutreachStatus =
   | 'Called'
   | 'No Response';
 
-export type ProspectStatus = 'New' | 'Contacted' | 'Interested' | 'Applied' | 'Enrolled' | 'Declined';
+// Relationship stage only. Applied/enrolled per course are derived on the
+// backend (summer_state / regular_state), never stored in status.
+export type ProspectStatus = 'New' | 'Contacted' | 'Interested' | 'Declined';
+
+// Derived course journey state; null = never applied to that course.
+export type ProspectCourseState = 'applied' | 'enrolled' | 'withdrawn';
 
 export type ProspectIntention = 'Yes' | 'No' | 'Considering';
 
@@ -2969,6 +2974,8 @@ export interface PrimaryProspect {
   matched_application_status: string | null;
   matched_regular_ref: string | null;
   matched_regular_status: string | null;
+  summer_state: ProspectCourseState | null;
+  regular_state: ProspectCourseState | null;
 }
 
 export interface PrimaryProspectBulkItem {
@@ -3004,7 +3011,9 @@ export interface PrimaryProspectStats {
   wants_summer_considering: number;
   wants_regular_yes: number;
   wants_regular_considering: number;
-  matched_to_application: number;
+  // Exclusive funnel states: applied = live application, no enrollment yet.
+  applied_summer: number;
+  enrolled_summer: number;
   applied_regular: number;
   enrolled_regular: number;
   outreach_not_started: number;

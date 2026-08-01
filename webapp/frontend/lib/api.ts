@@ -2786,7 +2786,8 @@ export const prospectsAPI = {
     outreach_status?: string;
     wants_summer?: string;
     wants_regular?: string;
-    linked?: string;
+    summer_state?: string;
+    regular_state?: string;
     has_wechat?: string;
     search?: string;
   }) => {
@@ -2796,7 +2797,8 @@ export const prospectsAPI = {
     if (params.outreach_status) qs.set("outreach_status", params.outreach_status);
     if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
     if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
-    if (params.linked) qs.set("linked", params.linked);
+    if (params.summer_state) qs.set("summer_state", params.summer_state);
+    if (params.regular_state) qs.set("regular_state", params.regular_state);
     if (params.has_wechat) qs.set("has_wechat", params.has_wechat);
     if (params.search) qs.set("search", params.search);
     return fetchAPI<PrimaryProspect[]>(`/prospects/admin?${qs}`);
@@ -2823,7 +2825,8 @@ export const prospectsAPI = {
     outreach_status?: string;
     wants_summer?: string;
     wants_regular?: string;
-    linked?: string;
+    summer_state?: string;
+    regular_state?: string;
     has_wechat?: string;
     search?: string;
   }) => {
@@ -2832,7 +2835,8 @@ export const prospectsAPI = {
     if (params.outreach_status) qs.set("outreach_status", params.outreach_status);
     if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
     if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
-    if (params.linked) qs.set("linked", params.linked);
+    if (params.summer_state) qs.set("summer_state", params.summer_state);
+    if (params.regular_state) qs.set("regular_state", params.regular_state);
     if (params.has_wechat) qs.set("has_wechat", params.has_wechat);
     if (params.search) qs.set("search", params.search);
     return fetchAPI<PrimaryProspectStats[]>(`/prospects/admin/stats?${qs}`);

@@ -28,12 +28,14 @@ import {
   BranchBadges,
   OutreachBadge,
   ProspectStatusBadge,
+  CourseStateBadge,
   OUTREACH_OPTIONS,
   STATUS_OPTIONS,
 } from "@/components/summer/prospect-badges";
 import { StatusBadge as ApplicationStatusBadge } from "@/components/admin/SummerApplicationCard";
 import type {
   PrimaryProspect,
+  PrimaryProspectMatchResult,
   ProspectOutreachStatus,
   ProspectStatus,
 } from "@/types";
@@ -81,8 +83,6 @@ export function ProspectDetailModal({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
-  const unlinkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Reset local form state when navigating to a different prospect (no remount).
   useEffect(() => {
@@ -91,7 +91,6 @@ export function ProspectDetailModal({
     setContactNotes(prospect.contact_notes || "");
     setSaveError(null);
     setShowHistory(false);
-    setConfirmingUnlink(false);
   }, [prospect.id]);
 
   const hasChanges = outreachStatus !== prospect.outreach_status
@@ -101,6 +100,11 @@ export function ProspectDetailModal({
   const { data: matchResult } = useSWR(
     !prospect.summer_application_id ? `prospect-match-${prospect.id}` : null,
     () => prospectsAPI.findMatches(prospect.id),
+    { revalidateOnFocus: false }
+  );
+  const { data: regularMatchResult } = useSWR(
+    !prospect.regular_application_id ? `prospect-regular-match-${prospect.id}` : null,
+    () => prospectsAPI.findRegularMatches(prospect.id),
     { revalidateOnFocus: false }
   );
 
@@ -122,17 +126,28 @@ export function ProspectDetailModal({
     }
   };
 
-  const handleLink = async (applicationId: number) => {
+  const handleLink = async (patch: { summer_application_id?: number; regular_application_id?: number }) => {
     setSaveError(null);
     try {
-      await prospectsAPI.adminUpdate(prospect.id, {
-        summer_application_id: applicationId,
-        status: "Applied",
-      });
+      await prospectsAPI.adminUpdate(prospect.id, patch);
       onSave();
       onClose();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Link failed");
+    }
+  };
+
+  const handleUnlink = async (course: "summer" | "regular") => {
+    setSaveError(null);
+    try {
+      await prospectsAPI.adminUpdate(
+        prospect.id,
+        course === "summer" ? { summer_application_id: null } : { regular_application_id: null },
+      );
+      onSave();
+      onClose();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Unlink failed");
     }
   };
 
@@ -225,7 +240,7 @@ export function ProspectDetailModal({
             </div>
           )}
 
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Wants Summer?</span>
               <IntentionBadge value={prospect.wants_summer} />
@@ -233,6 +248,17 @@ export function ProspectDetailModal({
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Wants Regular (Sept)?</span>
               <IntentionBadge value={prospect.wants_regular} />
+            </div>
+          </div>
+
+          <div className="flex gap-4 flex-wrap">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Summer</span>
+              <CourseStateBadge state={prospect.summer_state} />
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Regular (Sept)</span>
+              <CourseStateBadge state={prospect.regular_state} />
             </div>
           </div>
 
@@ -316,81 +342,41 @@ export function ProspectDetailModal({
           </div>
 
           {prospect.summer_application_id ? (
-            <div className="border-t border-border pt-5">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Linked Summer Application</div>
-              <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Link2 className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium">{prospect.matched_application_ref}</span>
-                  {prospect.matched_application_status && (
-                    <ApplicationStatusBadge status={prospect.matched_application_status} />
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <a
-                    href={`/admin/summer/applications?search=${prospect.matched_application_ref}`}
-                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                  >
-                    View &rarr;
-                  </a>
-                  {!readOnly && (
-                    <button
-                      onClick={async () => {
-                        if (!confirmingUnlink) {
-                          setConfirmingUnlink(true);
-                          clearTimeout(unlinkTimerRef.current);
-                          unlinkTimerRef.current = setTimeout(() => setConfirmingUnlink(false), 3000);
-                          return;
-                        }
-                        clearTimeout(unlinkTimerRef.current);
-                        setConfirmingUnlink(false);
-                        setSaveError(null);
-                        try {
-                          await prospectsAPI.adminUpdate(prospect.id, { summer_application_id: null });
-                          onSave();
-                          onClose();
-                        } catch (err) {
-                          setSaveError(err instanceof Error ? err.message : "Unlink failed");
-                        }
-                      }}
-                      className={`text-xs font-medium transition-colors ${confirmingUnlink ? "bg-red-500 text-white px-2 py-0.5 rounded" : "text-red-600 hover:text-red-700"}`}
-                    >
-                      {confirmingUnlink ? "Sure? Click again" : "Unlink"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+            <LinkedAppBlock
+              key={`summer-link-${prospect.id}`}
+              title="Linked Summer Application"
+              refCode={prospect.matched_application_ref}
+              appStatus={prospect.matched_application_status}
+              viewHref={`/admin/summer/applications?q=${prospect.matched_application_ref}`}
+              onUnlink={() => handleUnlink("summer")}
+              readOnly={readOnly}
+            />
           ) : matchResult && matchResult.matches.length > 0 ? (
-            <div className="border-t border-border pt-5">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Potential Matches ({matchResult.matches.length})
-              </div>
-              <div className="space-y-2">
-                {matchResult.matches.map((m) => (
-                  <div
-                    key={m.application_id}
-                    className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-xl p-4 flex items-center justify-between"
-                  >
-                    <div>
-                      <span className="text-sm font-medium">{m.student_name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {m.reference_code} &middot; {m.contact_phone} &middot; {m.match_type}
-                      </span>
-                    </div>
-                    {!readOnly && (
-                      <button
-                        onClick={() => handleLink(m.application_id)}
-                        className="inline-flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 font-medium transition-colors"
-                      >
-                        <Link2 className="h-3 w-3" />
-                        Link
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <MatchList
+              title={`Potential Summer Matches (${matchResult.matches.length})`}
+              matches={matchResult.matches}
+              onLink={(id) => handleLink({ summer_application_id: id })}
+              readOnly={readOnly}
+            />
+          ) : null}
+
+          {prospect.regular_application_id ? (
+            <LinkedAppBlock
+              key={`regular-link-${prospect.id}`}
+              title="Linked Regular Application"
+              refCode={prospect.matched_regular_ref}
+              appStatus={prospect.matched_regular_status}
+              viewHref={`/admin/regular/applications?q=${prospect.matched_regular_ref}`}
+              onUnlink={() => handleUnlink("regular")}
+              readOnly={readOnly}
+            />
+          ) : regularMatchResult && regularMatchResult.matches.length > 0 ? (
+            <MatchList
+              title={`Potential Regular Matches (${regularMatchResult.matches.length})`}
+              matches={regularMatchResult.matches}
+              onLink={(id) => handleLink({ regular_application_id: id })}
+              readOnly={readOnly}
+            />
           ) : null}
 
           {prospect.edit_history && prospect.edit_history.length > 0 && (
@@ -418,6 +404,104 @@ export function ProspectDetailModal({
     </motion.div>
     </AnimatePresence>,
     document.body
+  );
+}
+
+function LinkedAppBlock({
+  title,
+  refCode,
+  appStatus,
+  viewHref,
+  onUnlink,
+  readOnly,
+}: {
+  title: string;
+  refCode: string | null;
+  appStatus: string | null;
+  viewHref: string;
+  onUnlink: () => void;
+  readOnly: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  return (
+    <div className="border-t border-border pt-5">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{title}</div>
+      <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-medium">{refCode}</span>
+          {appStatus && <ApplicationStatusBadge status={appStatus} />}
+        </div>
+        <div className="flex items-center gap-3">
+          <a href={viewHref} className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+            View &rarr;
+          </a>
+          {!readOnly && (
+            <button
+              onClick={() => {
+                if (!confirming) {
+                  setConfirming(true);
+                  clearTimeout(timerRef.current);
+                  timerRef.current = setTimeout(() => setConfirming(false), 3000);
+                  return;
+                }
+                clearTimeout(timerRef.current);
+                setConfirming(false);
+                onUnlink();
+              }}
+              className={`text-xs font-medium transition-colors ${confirming ? "bg-red-500 text-white px-2 py-0.5 rounded" : "text-red-600 hover:text-red-700"}`}
+            >
+              {confirming ? "Sure? Click again" : "Unlink"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MatchList({
+  title,
+  matches,
+  onLink,
+  readOnly,
+}: {
+  title: string;
+  matches: PrimaryProspectMatchResult["matches"];
+  onLink: (applicationId: number) => void;
+  readOnly: boolean;
+}) {
+  return (
+    <div className="border-t border-border pt-5">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{title}</div>
+      <div className="space-y-2">
+        {matches.map((m) => (
+          <div
+            key={m.application_id}
+            className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-xl p-4 flex items-center justify-between"
+          >
+            <div>
+              <span className="text-sm font-medium">{m.student_name}</span>
+              <span className="text-xs text-muted-foreground ml-2">
+                {m.reference_code} &middot; {m.contact_phone} &middot; {m.match_type}
+              </span>
+            </div>
+            {!readOnly && (
+              <button
+                onClick={() => onLink(m.application_id)}
+                className="inline-flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 font-medium transition-colors"
+              >
+                <Link2 className="h-3 w-3" />
+                Link
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

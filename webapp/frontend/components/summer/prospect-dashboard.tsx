@@ -12,7 +12,8 @@ export type DashboardFilterPatch = Partial<{
   outreach_status: string;
   wants_summer: string;
   wants_regular: string;
-  linked: string;
+  summer_state: string;
+  regular_state: string;
 }>;
 
 export function ProspectDashboard({
@@ -40,15 +41,19 @@ export function ProspectDashboard({
       wants_summer_considering: acc.wants_summer_considering + s.wants_summer_considering,
       wants_regular_yes: acc.wants_regular_yes + s.wants_regular_yes,
       wants_regular_considering: acc.wants_regular_considering + s.wants_regular_considering,
-      matched: acc.matched + s.matched_to_application,
+      applied_summer: acc.applied_summer + s.applied_summer,
+      enrolled_summer: acc.enrolled_summer + s.enrolled_summer,
       applied_regular: acc.applied_regular + s.applied_regular,
       enrolled_regular: acc.enrolled_regular + s.enrolled_regular,
       not_started: acc.not_started + s.outreach_not_started,
       wechat_added: acc.wechat_added + s.outreach_wechat_added,
       wechat_issues: acc.wechat_issues + s.outreach_wechat_not_found + s.outreach_wechat_cannot_add,
     }),
-    { total: 0, wants_summer_yes: 0, wants_summer_considering: 0, wants_regular_yes: 0, wants_regular_considering: 0, matched: 0, applied_regular: 0, enrolled_regular: 0, not_started: 0, wechat_added: 0, wechat_issues: 0 }
+    { total: 0, wants_summer_yes: 0, wants_summer_considering: 0, wants_regular_yes: 0, wants_regular_considering: 0, applied_summer: 0, enrolled_summer: 0, applied_regular: 0, enrolled_regular: 0, not_started: 0, wechat_added: 0, wechat_issues: 0 }
   );
+
+  const groupBorder = "border-l border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30";
+  const cellBorder = "border-l border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20";
 
   return (
     <div className="space-y-5">
@@ -71,8 +76,14 @@ export function ProspectDashboard({
           <span className="text-red-600">{totals.wechat_issues}</span> <WeChatIcon className="h-3 w-3 text-red-500" /> <span className="text-muted-foreground">issues</span>
         </button>
         <span className="text-border hidden sm:inline">|</span>
-        <button onClick={() => onJumpToList({ linked: "linked" })} className="hover:underline">
-          <span className="font-semibold text-purple-600">{totals.matched}</span> <span className="text-muted-foreground">matched</span>
+        <button onClick={() => onJumpToList({ summer_state: "enrolled" })} className="hover:underline">
+          <span className="font-semibold text-emerald-600">{totals.enrolled_summer}</span> <span className="text-muted-foreground">summer enrolled</span>
+        </button>
+        <button onClick={() => onJumpToList({ regular_state: "applied" })} className="hover:underline">
+          <span className="font-semibold text-blue-600">{totals.applied_regular}</span> <span className="text-muted-foreground">regular applied</span>
+        </button>
+        <button onClick={() => onJumpToList({ regular_state: "enrolled" })} className="hover:underline">
+          <span className="font-semibold text-emerald-600">{totals.enrolled_regular}</span> <span className="text-muted-foreground">regular enrolled</span>
         </button>
         <button onClick={() => onJumpToList({ outreach_status: "Not Started" })} className="hover:underline">
           <span className="text-muted-foreground">{totals.not_started} not started</span>
@@ -80,25 +91,26 @@ export function ProspectDashboard({
       </div>
 
       <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-x-auto">
-        <table className="w-full text-xs min-w-[640px]">
+        <table className="w-full text-xs min-w-[820px]">
           <thead className="bg-[#f0e6d8]/50 dark:bg-[#2a2520]">
             <tr className="border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
               <th rowSpan={2} className="px-3 py-1.5 text-left font-medium text-foreground align-bottom">Branch</th>
               <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom">Total</th>
-              <th colSpan={2} className="px-3 py-1 text-center font-medium text-foreground text-[10px] uppercase tracking-wider">Summer</th>
-              <th colSpan={2} className="px-3 py-1 text-center font-medium text-foreground text-[10px] uppercase tracking-wider">Regular</th>
-              <th colSpan={2} className="px-3 py-1 text-center font-medium text-foreground align-bottom"><WeChatIcon className="h-3 w-3 inline text-green-600" /></th>
-              <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Linked to a summer application">Matched</th>
-              <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Linked to a regular application">Applied</th>
-              <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Regular application published to an enrollment">Enrolled</th>
+              <th colSpan={4} className={`px-3 py-1 text-center font-medium text-foreground text-[10px] uppercase tracking-wider ${groupBorder}`}>Summer</th>
+              <th colSpan={4} className={`px-3 py-1 text-center font-medium text-foreground text-[10px] uppercase tracking-wider ${groupBorder}`}>Regular</th>
+              <th colSpan={2} className={`px-3 py-1 text-center font-medium text-foreground align-bottom ${groupBorder}`}><WeChatIcon className="h-3 w-3 inline text-green-600" /></th>
               <th rowSpan={2} className="px-3 py-1.5 text-right font-medium text-foreground align-bottom cursor-help" title="Outreach not yet attempted">Not Started</th>
             </tr>
             <tr>
-              <th className="px-3 py-1 text-right"><IntentionBadge value="Yes" /></th>
+              <th className={`px-3 py-1 text-right ${groupBorder}`}><IntentionBadge value="Yes" /></th>
               <th className="px-3 py-1 text-right"><IntentionBadge value="Considering" /></th>
-              <th className="px-3 py-1 text-right"><IntentionBadge value="Yes" /></th>
+              <th className="px-3 py-1 text-right text-[10px] text-blue-600 font-medium cursor-help" title="Live summer application, not yet enrolled">Applied</th>
+              <th className="px-3 py-1 text-right text-[10px] text-emerald-600 font-medium cursor-help" title="Summer application published to an enrollment">Enrolled</th>
+              <th className={`px-3 py-1 text-right ${groupBorder}`}><IntentionBadge value="Yes" /></th>
               <th className="px-3 py-1 text-right"><IntentionBadge value="Considering" /></th>
-              <th className="px-3 py-1 text-right text-[10px] text-green-600 font-medium">Added</th>
+              <th className="px-3 py-1 text-right text-[10px] text-blue-600 font-medium cursor-help" title="Live regular application, not yet enrolled">Applied</th>
+              <th className="px-3 py-1 text-right text-[10px] text-emerald-600 font-medium cursor-help" title="Regular application published to an enrollment">Enrolled</th>
+              <th className={`px-3 py-1 text-right text-[10px] text-green-600 font-medium ${groupBorder}`}>Added</th>
               <th className="px-3 py-1 text-right text-[10px] text-red-600 font-medium">Issues</th>
             </tr>
           </thead>
@@ -112,15 +124,16 @@ export function ProspectDashboard({
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right font-medium">{s.total}</td>
-                <td className="px-3 py-2 text-right text-green-600 font-medium">{s.wants_summer_yes}</td>
+                <td className={`px-3 py-2 text-right text-green-600 font-medium ${cellBorder}`}>{s.wants_summer_yes}</td>
                 <td className="px-3 py-2 text-right text-yellow-600">{s.wants_summer_considering}</td>
-                <td className="px-3 py-2 text-right text-blue-600 font-medium">{s.wants_regular_yes}</td>
+                <td className="px-3 py-2 text-right text-blue-600 font-medium">{s.applied_summer}</td>
+                <td className="px-3 py-2 text-right text-emerald-600 font-medium">{s.enrolled_summer}</td>
+                <td className={`px-3 py-2 text-right text-green-600 font-medium ${cellBorder}`}>{s.wants_regular_yes}</td>
                 <td className="px-3 py-2 text-right text-yellow-600">{s.wants_regular_considering}</td>
-                <td className="px-3 py-2 text-right text-green-600">{s.outreach_wechat_added}</td>
-                <td className="px-3 py-2 text-right text-red-600">{s.outreach_wechat_not_found + s.outreach_wechat_cannot_add}</td>
-                <td className="px-3 py-2 text-right text-purple-600 font-medium">{s.matched_to_application}</td>
                 <td className="px-3 py-2 text-right text-blue-600 font-medium">{s.applied_regular}</td>
-                <td className="px-3 py-2 text-right text-green-600 font-medium">{s.enrolled_regular}</td>
+                <td className="px-3 py-2 text-right text-emerald-600 font-medium">{s.enrolled_regular}</td>
+                <td className={`px-3 py-2 text-right text-green-600 ${cellBorder}`}>{s.outreach_wechat_added}</td>
+                <td className="px-3 py-2 text-right text-red-600">{s.outreach_wechat_not_found + s.outreach_wechat_cannot_add}</td>
                 <td className="px-3 py-2 text-right text-muted-foreground">{s.outreach_not_started}</td>
               </tr>
             ))}
@@ -129,15 +142,16 @@ export function ProspectDashboard({
             <tr>
               <td className="px-3 py-2 text-foreground">Total</td>
               <td className="px-3 py-2 text-right">{totals.total}</td>
-              <td className="px-3 py-2 text-right text-green-600">{totals.wants_summer_yes}</td>
+              <td className={`px-3 py-2 text-right text-green-600 ${cellBorder}`}>{totals.wants_summer_yes}</td>
               <td className="px-3 py-2 text-right text-yellow-600">{totals.wants_summer_considering}</td>
-              <td className="px-3 py-2 text-right text-blue-600">{totals.wants_regular_yes}</td>
+              <td className="px-3 py-2 text-right text-blue-600">{totals.applied_summer}</td>
+              <td className="px-3 py-2 text-right text-emerald-600">{totals.enrolled_summer}</td>
+              <td className={`px-3 py-2 text-right text-green-600 ${cellBorder}`}>{totals.wants_regular_yes}</td>
               <td className="px-3 py-2 text-right text-yellow-600">{totals.wants_regular_considering}</td>
-              <td className="px-3 py-2 text-right text-green-600">{totals.wechat_added}</td>
-              <td className="px-3 py-2 text-right text-red-600">{totals.wechat_issues}</td>
-              <td className="px-3 py-2 text-right text-purple-600">{totals.matched}</td>
               <td className="px-3 py-2 text-right text-blue-600">{totals.applied_regular}</td>
-              <td className="px-3 py-2 text-right text-green-600">{totals.enrolled_regular}</td>
+              <td className="px-3 py-2 text-right text-emerald-600">{totals.enrolled_regular}</td>
+              <td className={`px-3 py-2 text-right text-green-600 ${cellBorder}`}>{totals.wechat_added}</td>
+              <td className="px-3 py-2 text-right text-red-600">{totals.wechat_issues}</td>
               <td className="px-3 py-2 text-right text-muted-foreground">{totals.not_started}</td>
             </tr>
           </tfoot>

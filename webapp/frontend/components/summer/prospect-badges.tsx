@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Check, Copy } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
-import type { ProspectIntention, ProspectOutreachStatus, ProspectStatus } from "@/types";
+import type { ProspectCourseState, ProspectIntention, ProspectOutreachStatus, ProspectStatus } from "@/types";
 import { OUTREACH_STATUS_HINTS } from "@/types";
 
 // ---- Shared option lists (used by filter selects, bulk action bar, inline editors) ----
@@ -17,12 +17,12 @@ export const OUTREACH_OPTIONS: ProspectOutreachStatus[] = [
   "No Response",
 ];
 
+// Relationship stages only — applied/enrolled per course are derived and
+// shown by CourseStateBadge, not picked by hand.
 export const STATUS_OPTIONS: ProspectStatus[] = [
   "New",
   "Contacted",
   "Interested",
-  "Applied",
-  "Enrolled",
   "Declined",
 ];
 
@@ -66,9 +66,19 @@ export const STATUS_BADGE_COLORS: Record<string, string> = {
   New: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
   Contacted: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   Interested: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  Applied: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  Enrolled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   Declined: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
+
+export const COURSE_STATE_BADGE_COLORS: Record<ProspectCourseState, string> = {
+  applied: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  enrolled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  withdrawn: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
+
+export const COURSE_STATE_LABELS: Record<ProspectCourseState, string> = {
+  applied: "Applied",
+  enrolled: "Enrolled",
+  withdrawn: "Withdrawn",
 };
 
 // ---- Components ----
@@ -100,6 +110,15 @@ export function ProspectStatusBadge({ status }: { status: ProspectStatus }) {
   return (
     <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${STATUS_BADGE_COLORS[status] || "bg-gray-100"}`}>
       {status}
+    </span>
+  );
+}
+
+export function CourseStateBadge({ state }: { state: ProspectCourseState | null }) {
+  if (!state) return <span className="text-xs text-muted-foreground/40">—</span>;
+  return (
+    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap ${COURSE_STATE_BADGE_COLORS[state] || "bg-gray-100"}`}>
+      {COURSE_STATE_LABELS[state] || state}
     </span>
   );
 }

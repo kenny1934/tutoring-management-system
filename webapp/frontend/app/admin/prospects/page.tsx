@@ -37,6 +37,7 @@ import {
   BranchBadges,
   CopyableCell,
   ProspectStatusBadge,
+  CourseStateBadge,
   INTENTION_LABELS,
   OUTREACH_BADGE_COLORS,
   STATUS_BADGE_COLORS,
@@ -64,6 +65,14 @@ import {
 const inputSmall =
   "text-xs border-2 border-border rounded-lg px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors duration-200";
 
+// Filter labels for the derived course states ("none" = never applied).
+const STATE_FILTER_LABELS: Record<string, string> = {
+  none: "Not applied",
+  applied: "Applied",
+  enrolled: "Enrolled",
+  withdrawn: "Withdrawn",
+};
+
 
 // ---- Main Page ----
 
@@ -89,6 +98,8 @@ const SORT_KEYS = [
   "tutor_name",
   "outreach_status",
   "status",
+  "summer_state",
+  "regular_state",
   "submitted_at",
 ] as const;
 type SortKey = typeof SORT_KEYS[number];
@@ -109,6 +120,8 @@ function getSortValue(p: PrimaryProspect, key: SortKey): string | number | null 
     case "tutor_name": return p.tutor_name;
     case "outreach_status": return p.outreach_status;
     case "status": return p.status;
+    case "summer_state": return p.summer_state;
+    case "regular_state": return p.regular_state;
     case "submitted_at": return p.submitted_at;
   }
 }
@@ -143,7 +156,8 @@ export default function AdminProspectsPage() {
     outreach_status: searchParams.get("outreach") ?? "",
     wants_summer: searchParams.get("wantsSummer") ?? "",
     wants_regular: searchParams.get("wantsRegular") ?? "",
-    linked: searchParams.get("linked") ?? "",
+    summer_state: searchParams.get("summerState") ?? "",
+    regular_state: searchParams.get("regularState") ?? "",
     has_wechat: searchParams.get("wechat") ?? "",
     search: searchParams.get("q") ?? "",
   }));
@@ -215,7 +229,7 @@ export default function AdminProspectsPage() {
   }, [searchInput]);
 
   const swrKey = tab === "list" && year
-    ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search]
+    ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search]
     : null;
   const { data: prospects, isLoading } = useSWR(
     swrKey,
@@ -226,7 +240,8 @@ export default function AdminProspectsPage() {
       outreach_status: filters.outreach_status || undefined,
       wants_summer: filters.wants_summer || undefined,
       wants_regular: filters.wants_regular || undefined,
-      linked: filters.linked || undefined,
+      summer_state: filters.summer_state || undefined,
+      regular_state: filters.regular_state || undefined,
       has_wechat: filters.has_wechat || undefined,
       search: filters.search || undefined,
     }),
@@ -303,7 +318,8 @@ export default function AdminProspectsPage() {
     if (filters.outreach_status) params.set("outreach", filters.outreach_status);
     if (filters.wants_summer) params.set("wantsSummer", filters.wants_summer);
     if (filters.wants_regular) params.set("wantsRegular", filters.wants_regular);
-    if (filters.linked) params.set("linked", filters.linked);
+    if (filters.summer_state) params.set("summerState", filters.summer_state);
+    if (filters.regular_state) params.set("regularState", filters.regular_state);
     if (filters.has_wechat) params.set("wechat", filters.has_wechat);
     if (filters.search) params.set("q", filters.search);
     if (sortBy !== "submitted_at") params.set("sort", sortBy);
@@ -327,7 +343,7 @@ export default function AdminProspectsPage() {
   // Stats key includes all filters except `branch` — the pills themselves
   // are the branch axis, so including it would zero every other pill.
   const statsKey = year
-    ? ["admin-prospect-stats", year, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search]
+    ? ["admin-prospect-stats", year, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search]
     : null;
   const { data: stats } = useSWR(
     statsKey,
@@ -337,7 +353,8 @@ export default function AdminProspectsPage() {
       outreach_status: filters.outreach_status || undefined,
       wants_summer: filters.wants_summer || undefined,
       wants_regular: filters.wants_regular || undefined,
-      linked: filters.linked || undefined,
+      summer_state: filters.summer_state || undefined,
+      regular_state: filters.regular_state || undefined,
       has_wechat: filters.has_wechat || undefined,
       search: filters.search || undefined,
     }),
@@ -410,7 +427,7 @@ export default function AdminProspectsPage() {
   );
 
   // Clear selection when filters change so we don't act on hidden rows
-  const filterFingerprint = `${filters.branch}|${filters.status}|${filters.outreach_status}|${filters.wants_summer}|${filters.wants_regular}|${filters.linked}|${filters.has_wechat}|${filters.search}|${choice.join(",")}`;
+  const filterFingerprint = `${filters.branch}|${filters.status}|${filters.outreach_status}|${filters.wants_summer}|${filters.wants_regular}|${filters.summer_state}|${filters.regular_state}|${filters.has_wechat}|${filters.search}|${choice.join(",")}`;
   useEffect(() => {
     setSelectedIds(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -438,12 +455,12 @@ export default function AdminProspectsPage() {
     }
   }, [year]);
 
-  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search].filter(Boolean).length + choice.length;
+  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search].filter(Boolean).length + choice.length;
 
   const clearAllFilters = useCallback(() => {
     setSearchInput("");
     setChoice([]);
-    setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", has_wechat: "", search: "" }));
+    setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", summer_state: "", regular_state: "", has_wechat: "", search: "" }));
   }, []);
 
   // Active filter chip descriptors (for the chip strip above the table)
@@ -466,12 +483,12 @@ export default function AdminProspectsPage() {
     });
     if (filters.wants_summer) chips.push({
       key: "wants_summer",
-      label: `Summer: ${filters.wants_summer}`,
+      label: `Wants summer: ${filters.wants_summer}`,
       onRemove: () => setFilters((f) => ({ ...f, wants_summer: "" })),
     });
     if (filters.wants_regular) chips.push({
       key: "wants_regular",
-      label: `Regular: ${filters.wants_regular}`,
+      label: `Wants regular: ${filters.wants_regular}`,
       onRemove: () => setFilters((f) => ({ ...f, wants_regular: "" })),
     });
     if (filters.outreach_status) chips.push({
@@ -484,10 +501,15 @@ export default function AdminProspectsPage() {
       label: `Status: ${filters.status}`,
       onRemove: () => setFilters((f) => ({ ...f, status: "" })),
     });
-    if (filters.linked) chips.push({
-      key: "linked",
-      label: filters.linked === "linked" ? "Linked" : "Unlinked",
-      onRemove: () => setFilters((f) => ({ ...f, linked: "" })),
+    if (filters.summer_state) chips.push({
+      key: "summer_state",
+      label: `Summer: ${STATE_FILTER_LABELS[filters.summer_state] || filters.summer_state}`,
+      onRemove: () => setFilters((f) => ({ ...f, summer_state: "" })),
+    });
+    if (filters.regular_state) chips.push({
+      key: "regular_state",
+      label: `Regular: ${STATE_FILTER_LABELS[filters.regular_state] || filters.regular_state}`,
+      onRemove: () => setFilters((f) => ({ ...f, regular_state: "" })),
     });
     if (filters.has_wechat) chips.push({
       key: "has_wechat",
@@ -774,7 +796,8 @@ export default function AdminProspectsPage() {
                       {colVisible("notes") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><span className="inline-flex items-center gap-1"><MessageSquare className="h-3 w-3" />Notes</span></th>}
                       <SortTh label="Outreach" sortKey="outreach_status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <SortTh label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Linked</th>
+                      <SortTh label="Summer" sortKey="summer_state" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      <SortTh label="Regular" sortKey="regular_state" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <SortTh label="Updated" icon={<Clock className="h-3 w-3" />} sortKey="submitted_at" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                     </tr>
                   </thead>
@@ -816,7 +839,8 @@ export default function AdminProspectsPage() {
               outreach_status: "",
               wants_summer: "",
               wants_regular: "",
-              linked: "",
+              summer_state: "",
+              regular_state: "",
               has_wechat: "",
               search: f.search,
               ...patch,
@@ -882,7 +906,8 @@ type FiltersShape = {
   outreach_status: string;
   wants_summer: string;
   wants_regular: string;
-  linked: string;
+  summer_state: string;
+  regular_state: string;
   has_wechat: string;
   search: string;
 };
@@ -899,11 +924,11 @@ function FilterSelects({
   return (
     <div className={className}>
       <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={inputSmall}>
-        <option value="">Summer: All</option>
+        <option value="">Wants summer: All</option>
         {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
       </select>
       <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={inputSmall}>
-        <option value="">Regular: All</option>
+        <option value="">Wants regular: All</option>
         {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
       </select>
       <select value={filters.has_wechat} onChange={(e) => setFilters((f) => ({ ...f, has_wechat: e.target.value }))} className={inputSmall}>
@@ -919,28 +944,33 @@ function FilterSelects({
         <option value="">Status: All</option>
         {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
       </select>
-      <select value={filters.linked} onChange={(e) => setFilters((f) => ({ ...f, linked: e.target.value }))} className={inputSmall}>
-        <option value="">Linked: All</option>
-        <option value="linked">Linked</option>
-        <option value="unlinked">Unlinked</option>
+      <select value={filters.summer_state} onChange={(e) => setFilters((f) => ({ ...f, summer_state: e.target.value }))} className={inputSmall}>
+        <option value="">Summer: All</option>
+        {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
+      </select>
+      <select value={filters.regular_state} onChange={(e) => setFilters((f) => ({ ...f, regular_state: e.target.value }))} className={inputSmall}>
+        <option value="">Regular: All</option>
+        {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
       </select>
     </div>
   );
 }
 
-function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinked: () => void }) {
+function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number; course: "summer" | "regular"; onLinked: () => void }) {
   const [open, setOpen] = useState(false);
   const [linking, setLinking] = useState<number | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
   const close = useCallback(() => setOpen(false), []);
-  // Linked column sits at the far right of the table — anchor the popover
+  // Course columns sit at the far right of the table — anchor the popover
   // to the trigger's right edge so it grows leftward instead of overflowing.
   const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
 
   // Lazy + cached + deduped via SWR. Fetches only when the popover opens.
   const { data, error, isLoading } = useSWR(
-    open ? ["prospect-matches", prospectId] : null,
-    () => prospectsAPI.findMatches(prospectId),
+    open ? [`prospect-${course}-matches`, prospectId] : null,
+    () => course === "summer"
+      ? prospectsAPI.findMatches(prospectId)
+      : prospectsAPI.findRegularMatches(prospectId),
     { revalidateOnFocus: false }
   );
   const matches = data?.matches;
@@ -949,7 +979,12 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
     setLinking(applicationId);
     setLinkError(null);
     try {
-      await prospectsAPI.adminUpdate(prospectId, { summer_application_id: applicationId, status: "Applied" });
+      await prospectsAPI.adminUpdate(
+        prospectId,
+        course === "summer"
+          ? { summer_application_id: applicationId }
+          : { regular_application_id: applicationId },
+      );
       setOpen(false);
       onLinked();
     } catch (err) {
@@ -965,7 +1000,7 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        title="Find and link a summer application"
+        title={`Find and link a ${course} application`}
         className="text-[10px] font-medium text-muted-foreground hover:text-primary px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors"
       >
         + Link
@@ -1122,7 +1157,18 @@ function ProspectCard({
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <OutreachBadge status={p.outreach_status} />
             <ProspectStatusBadge status={p.status} />
-            {p.summer_application_id && <Link2 className="h-3.5 w-3.5 text-green-600" />}
+            {p.summer_state && (
+              <span className="inline-flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Summer</span>
+                <CourseStateBadge state={p.summer_state} />
+              </span>
+            )}
+            {p.regular_state && (
+              <span className="inline-flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Reg</span>
+                <CourseStateBadge state={p.regular_state} />
+              </span>
+            )}
             <span className="ml-auto text-[10px] text-muted-foreground">
               {p.submitted_at ? formatTimeAgo(p.submitted_at) : ""}
             </span>
@@ -1244,21 +1290,38 @@ const ProspectRow = memo(function ProspectRow({
           />
         )}
       </td>
-      <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
         {p.summer_application_id ? (
           <a
-            href={`/admin/summer/applications?search=${encodeURIComponent(p.matched_application_ref || "")}`}
+            href={`/admin/summer/applications?q=${encodeURIComponent(p.matched_application_ref || "")}`}
             target="_blank"
             rel="noopener noreferrer"
             title={p.matched_application_ref || "Linked"}
-            className="inline-flex"
+            className="inline-flex hover:opacity-80 transition-opacity"
           >
-            <Link2 className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
+            <CourseStateBadge state={p.summer_state} />
           </a>
         ) : !readOnly ? (
-          <QuickLinkButton prospectId={p.id} onLinked={onRefresh} />
+          <QuickLinkButton prospectId={p.id} course="summer" onLinked={onRefresh} />
         ) : (
-          <span className="text-xs text-muted-foreground/60">—</span>
+          <CourseStateBadge state={null} />
+        )}
+      </td>
+      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+        {p.regular_application_id ? (
+          <a
+            href={`/admin/regular/applications?q=${encodeURIComponent(p.matched_regular_ref || "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={p.matched_regular_ref || "Linked"}
+            className="inline-flex hover:opacity-80 transition-opacity"
+          >
+            <CourseStateBadge state={p.regular_state} />
+          </a>
+        ) : !readOnly ? (
+          <QuickLinkButton prospectId={p.id} course="regular" onLinked={onRefresh} />
+        ) : (
+          <CourseStateBadge state={null} />
         )}
       </td>
       <td
