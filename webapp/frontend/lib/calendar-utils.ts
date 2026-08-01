@@ -121,6 +121,40 @@ export function timeToMinutes(time: string): number {
 }
 
 /**
+ * Convert minutes since midnight back to a HH:MM string (e.g., 570 -> "09:30")
+ */
+export function minutesToTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+/**
+ * Where "now" sits relative to an ordered list of time-slot strings
+ * (render order, earliest first): inside a slot, or in the gap before
+ * the next upcoming one.
+ */
+export type NowSlotPosition =
+  | { kind: "during"; timeSlot: string }
+  | { kind: "before"; timeSlot: string };
+
+/**
+ * Locate the current time within a day's time slots so list surfaces can
+ * highlight the in-progress group or draw a divider before the next one.
+ * Unparseable slots (e.g. "Unscheduled") are skipped; returns null once
+ * the last slot has ended.
+ */
+export function getNowSlotPosition(timeSlots: string[], nowMinutes: number): NowSlotPosition | null {
+  for (const slot of timeSlots) {
+    const parsed = parseTimeSlot(slot);
+    if (!parsed) continue;
+    if (nowMinutes < timeToMinutes(parsed.start)) return { kind: "before", timeSlot: slot };
+    if (nowMinutes < timeToMinutes(parsed.end)) return { kind: "during", timeSlot: slot };
+  }
+  return null;
+}
+
+/**
  * Validate that end time is after start time
  * @param startTime - Start time in HH:MM format
  * @param endTime - End time in HH:MM format
