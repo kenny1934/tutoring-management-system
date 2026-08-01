@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect, memo } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef, memo } from "react";
 import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
-import { useSessions, useProposalsInDateRange, usePendingMemoCount } from "@/lib/hooks";
+import { useSessions, useProposalsInDateRange, usePendingMemoCount, useNowMinutes } from "@/lib/hooks";
 import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeSlotGroup } from "@/lib/hooks/index";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -29,7 +29,9 @@ import { flattenSummerClusters } from "@/lib/summer-class-grouping";
 import { MemoListDrawer } from "@/components/sessions/MemoListDrawer";
 import { useAuth } from "@/contexts/AuthContext";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
-import { toDateString } from "@/lib/calendar-utils";
+import { toDateString, getNowSlotPosition } from "@/lib/calendar-utils";
+import { LessonNudge } from "@/components/sessions/LessonNudge";
+import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { GradeBadge } from "@/components/ui/grade-label";
 
 interface TodaySessionsCardProps {
@@ -98,6 +100,29 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
 
   // Group and sort sessions
   const { groupedSessions, stats, allSessionIds } = useGroupedSessions(sessions, proposedSessions);
+
+  // Current-time position among today's slots (drives the now line, the
+  // one-shot autoscroll and the lesson-mode nudge)
+  const nowMinutes = useNowMinutes();
+  const nowPosition = useMemo(
+    () => getNowSlotPosition(groupedSessions.map((g) => g.timeSlot), nowMinutes),
+    [groupedSessions, nowMinutes]
+  );
+
+  // Open the list at the current (or next upcoming) slot, once per mount.
+  // Manual scrollTop math rather than scrollIntoView: the card is a nested
+  // scroller, and scrollIntoView would also scroll the app's main container.
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const hasAutoScrolledRef = useRef(false);
+  useEffect(() => {
+    if (hasAutoScrolledRef.current || isLoading || !nowPosition) return;
+    const container = listScrollRef.current;
+    const target = container?.querySelector<HTMLElement>(`[data-slot="${CSS.escape(nowPosition.timeSlot)}"]`);
+    if (!container || !target) return;
+    hasAutoScrolledRef.current = true;
+    const offset = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+    container.scrollTop = Math.max(0, offset - 4);
+  }, [isLoading, nowPosition]);
 
   // Bulk selection state
   const {
@@ -334,7 +359,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
       </div>
 
       {/* Sessions List */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div ref={listScrollRef} className="flex-1 overflow-y-auto min-h-0">
         {groupedSessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
             <NoSessionsToday className="mb-2 opacity-80" />
@@ -343,8 +368,15 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
           </div>
         ) : (
           <div className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
-            {groupedSessions.map((group) => (
-              <div key={group.timeSlot}>
+            {groupedSessions.map((group) => {
+              const isCurrentSlot = nowPosition?.kind === "during" && nowPosition.timeSlot === group.timeSlot;
+              return (
+              <div key={group.timeSlot} data-slot={group.timeSlot}>
+                {/* Current-time divider (shown in the gap before the next slot) */}
+                {nowPosition?.kind === "before" && nowPosition.timeSlot === group.timeSlot && (
+                  <NowDivider nowMinutes={nowMinutes} compact />
+                )}
+
                 {/* Time Slot Header */}
                 <div className="px-3 py-1.5 bg-[#f5ede3]/50 dark:bg-[#3d3628]/50 flex items-center gap-2">
                   <Clock className="h-3 w-3 text-[#a0704b] dark:text-[#cd853f]" />
@@ -354,24 +386,32 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     ({group.sessions.filter(isCountableSession).length}{group.proposedSessions.length > 0 && ` + ${group.proposedSessions.length} proposed`})
                   </span>
+                  {isCurrentSlot && <NowChip compact />}
                   <div className="flex-1" />
                   {tutorId && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const params = new URLSearchParams({
-                          date: todayString,
-                          slot: group.timeSlot,
-                          tutor_id: String(tutorId),
-                        });
-                        window.open(`/sessions/lesson?${params.toString()}`, '_blank');
-                      }}
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
-                      title="Open lesson mode for this time slot"
+                    <LessonNudge
+                      active={isCurrentSlot && group.sessions.some(isCountableSession)}
+                      date={todayString}
+                      timeSlot={group.timeSlot}
+                      tutorId={tutorId}
                     >
-                      <Presentation className="h-3 w-3" />
-                      <span className="hidden sm:inline">Lesson</span>
-                    </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const params = new URLSearchParams({
+                            date: todayString,
+                            slot: group.timeSlot,
+                            tutor_id: String(tutorId),
+                          });
+                          window.open(`/sessions/lesson?${params.toString()}`, '_blank');
+                        }}
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
+                        title="Open lesson mode for this time slot"
+                      >
+                        <Presentation className="h-3 w-3" />
+                        <span className="hidden sm:inline">Lesson</span>
+                      </button>
+                    </LessonNudge>
                   )}
                 </div>
 
@@ -416,7 +456,8 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

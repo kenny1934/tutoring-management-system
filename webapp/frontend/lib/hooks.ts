@@ -122,6 +122,33 @@ export function useVisibilityAwareInterval(baseInterval: number): number {
   return isVisible ? baseInterval : 0;
 }
 
+function minutesNow(): number {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+/**
+ * Minutes since local midnight, kept fresh on an interval. Pass 0 to disable
+ * ticking entirely (surfaces in a state where no now indicator can render).
+ * Ticks pause while the tab is hidden and catch up when it becomes visible.
+ * State only moves when the minute value changes, so consumers re-render at
+ * most once a minute.
+ */
+export function useNowMinutes(intervalMs = 30000): number {
+  const interval = useVisibilityAwareInterval(intervalMs);
+  const [nowMinutes, setNowMinutes] = useState(minutesNow);
+
+  useEffect(() => {
+    if (!interval) return;
+    // Catch up immediately: the effect re-runs when the tab becomes visible.
+    setNowMinutes(minutesNow());
+    const id = setInterval(() => setNowMinutes(minutesNow()), interval);
+    return () => clearInterval(id);
+  }, [interval]);
+
+  return nowMinutes;
+}
+
 /**
  * Hook for debouncing a value
  * Useful for search inputs to avoid filtering on every keystroke

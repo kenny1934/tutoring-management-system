@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount } from "@/lib/hooks";
+import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,7 +79,9 @@ const MemoListDrawer = dynamic(
 );
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
+import { toDateString, getWeekBounds, getMonthBounds, getNowSlotPosition } from "@/lib/calendar-utils";
+import { LessonNudge } from "@/components/sessions/LessonNudge";
+import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { formatCompactDateTimeSlot } from "@/lib/formatters";
@@ -715,6 +717,35 @@ export default function SessionsPage() {
       return startA.localeCompare(startB);
     });
   }, [sessions, selectedDate, proposedSessions]);
+
+  // Current-time position among the listed slots (today + list view only):
+  // drives the now divider, the header Now chip, the toolbar jump chip,
+  // the one-shot autoscroll and the lesson-mode nudge. The tick is disabled
+  // in states where no indicator can render, so other views and dates skip
+  // the once-a-minute re-render of this heavy page.
+  const selectedDateString = toDateString(selectedDate);
+  const isTodaySelected = selectedDateString === toDateString(new Date());
+  const nowIndicatorLive = viewMode === "list" && !isPendingMakeupsView && isTodaySelected;
+  const nowMinutes = useNowMinutes(nowIndicatorLive ? 30000 : 0);
+  const nowPosition = useMemo(() => {
+    if (!nowIndicatorLive) return null;
+    return getNowSlotPosition(groupedSessions.map(([timeSlot]) => timeSlot), nowMinutes);
+  }, [nowIndicatorLive, groupedSessions, nowMinutes]);
+
+  const scrollToSlot = useCallback((timeSlot: string) => {
+    document.getElementById(`slot-${timeSlot}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // Jump the list to the current time slot once per visit, on today only.
+  // Explicit ?slot= links and restored scroll positions take precedence.
+  const autoScrollDecidedRef = useRef(false);
+  useEffect(() => {
+    if (autoScrollDecidedRef.current || viewMode !== "list" || loading || sessions.length === 0) return;
+    autoScrollDecidedRef.current = true;
+    if (!nowPosition || searchParams.get('slot') || sessionStorage.getItem(SCROLL_POSITION_KEY)) return;
+    const { timeSlot } = nowPosition;
+    requestAnimationFrame(() => scrollToSlot(timeSlot));
+  }, [viewMode, loading, sessions.length, nowPosition, searchParams, scrollToSlot]);
 
   // Compute days old and urgency tier for a session
   const getSessionUrgency = useCallback((session: Session) => {
@@ -1819,12 +1850,23 @@ export default function SessionsPage() {
         <div className="flex items-center gap-2">
           <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
           {/* Today button - only show when not on today */}
-          {toDateString(selectedDate) !== toDateString(new Date()) && (
+          {!isTodaySelected && (
             <button
               onClick={() => setSelectedDate(new Date())}
               className="px-2 py-1 text-xs font-medium rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
             >
               Today
+            </button>
+          )}
+          {/* Jump to the current time slot - today only, while lessons remain */}
+          {nowPosition && (
+            <button
+              onClick={() => scrollToSlot(nowPosition.timeSlot)}
+              className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
+              title="Jump to the current time slot"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              Now
             </button>
           )}
         </div>
@@ -2429,11 +2471,22 @@ export default function SessionsPage() {
               <>
                 {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => {
                   const copyText = formatCompactDateTimeSlot(selectedDate, timeSlot);
+                  const isCurrentSlot = nowPosition?.kind === "during" && nowPosition.timeSlot === timeSlot;
                   return (
                   <React.Fragment key={timeSlot}>
+                    {/* Current-time divider (shown in the gap before the next slot) */}
+                    {nowPosition?.kind === "before" && nowPosition.timeSlot === timeSlot && (
+                      <NowDivider nowMinutes={nowMinutes} />
+                    )}
+
+                    {/* Non-sticky wrapper carries the scroll anchor: a stuck header's
+                        own rect already sits at the scroll target, which made
+                        scrollIntoView a no-op when jumping back up to it.
+                        scrollMarginTop keeps anchored scrolls clear of the sticky toolbar. */}
+                    <div id={`slot-${timeSlot}`} className="flex flex-col gap-2 sm:gap-3" style={{ scrollMarginTop: timeSlotStickyTop }}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    <div id={`slot-${timeSlot}`} className={cn("sticky mb-2", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
+                    <div className={cn("sticky mb-2", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
                       <div
                         onClick={() => toggleSlot(timeSlot)}
                         className={cn(
@@ -2496,6 +2549,7 @@ export default function SessionsPage() {
                             <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
                               {timeSlot}
                             </h3>
+                            {isCurrentSlot && <NowChip />}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -2522,22 +2576,29 @@ export default function SessionsPage() {
                           {/* Right: lesson button + counts */}
                           <div className="flex items-center gap-2">
                             {tutorFilter && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const params = new URLSearchParams({
-                                    date: toDateString(selectedDate),
-                                    slot: timeSlot,
-                                    tutor_id: tutorFilter,
-                                  });
-                                  window.open(`/sessions/lesson?${params.toString()}`, '_blank');
-                                }}
-                                className="flex items-center gap-1 px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
-                                title="Open lesson mode for this time slot"
+                              <LessonNudge
+                                active={tutorFilter === effectiveUserId && isCurrentSlot && sessionsInSlot.some(isCountableSession)}
+                                date={selectedDateString}
+                                timeSlot={timeSlot}
+                                tutorId={tutorFilter}
                               >
-                                <Presentation className="h-3.5 w-3.5" />
-                                Lesson
-                              </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const params = new URLSearchParams({
+                                      date: toDateString(selectedDate),
+                                      slot: timeSlot,
+                                      tutor_id: tutorFilter,
+                                    });
+                                    window.open(`/sessions/lesson?${params.toString()}`, '_blank');
+                                  }}
+                                  className="flex items-center gap-1 px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
+                                  title="Open lesson mode for this time slot"
+                                >
+                                  <Presentation className="h-3.5 w-3.5" />
+                                  Lesson
+                                </button>
+                              </LessonNudge>
                             )}
                             <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
                               {sessionsInSlot.filter(isCountableSession).length} session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}
@@ -2780,6 +2841,7 @@ export default function SessionsPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+                    </div>
                   </React.Fragment>
                   );
                 })}

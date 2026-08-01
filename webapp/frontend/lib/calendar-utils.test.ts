@@ -22,6 +22,8 @@ import {
   getWeekStartStr,
   getWeekEndStr,
   getWeekDateStrings,
+  minutesToTime,
+  getNowSlotPosition,
 } from './calendar-utils';
 
 // ============================================================================
@@ -338,5 +340,70 @@ describe('string-based week helpers', () => {
     expect(dates).toHaveLength(7);
     expect(dates[0]).toBe('2026-03-08');
     expect(dates[6]).toBe('2026-03-14');
+  });
+});
+
+// ============================================================================
+// minutesToTime
+// ============================================================================
+
+describe('minutesToTime', () => {
+  it('formats minutes since midnight as HH:MM', () => {
+    expect(minutesToTime(570)).toBe('09:30');
+    expect(minutesToTime(0)).toBe('00:00');
+    expect(minutesToTime(1012)).toBe('16:52');
+  });
+
+  it('round-trips with timeToMinutes', () => {
+    expect(minutesToTime(timeToMinutes('18:25'))).toBe('18:25');
+  });
+});
+
+// ============================================================================
+// getNowSlotPosition
+// ============================================================================
+
+describe('getNowSlotPosition', () => {
+  const slots = ['16:45 - 18:15', '18:25 - 19:55'];
+
+  it('returns before the first slot ahead of the day', () => {
+    expect(getNowSlotPosition(slots, timeToMinutes('16:00')))
+      .toEqual({ kind: 'before', timeSlot: '16:45 - 18:15' });
+  });
+
+  it('returns during while inside a slot', () => {
+    expect(getNowSlotPosition(slots, timeToMinutes('17:00')))
+      .toEqual({ kind: 'during', timeSlot: '16:45 - 18:15' });
+  });
+
+  it('slot start counts as during, slot end does not', () => {
+    expect(getNowSlotPosition(slots, timeToMinutes('16:45')))
+      .toEqual({ kind: 'during', timeSlot: '16:45 - 18:15' });
+    expect(getNowSlotPosition(slots, timeToMinutes('18:15')))
+      .toEqual({ kind: 'before', timeSlot: '18:25 - 19:55' });
+  });
+
+  it('returns before the next slot in a gap', () => {
+    expect(getNowSlotPosition(slots, timeToMinutes('18:20')))
+      .toEqual({ kind: 'before', timeSlot: '18:25 - 19:55' });
+  });
+
+  it('returns null once the last slot has ended', () => {
+    expect(getNowSlotPosition(slots, timeToMinutes('20:00'))).toBeNull();
+  });
+
+  it('skips unparseable slots', () => {
+    expect(getNowSlotPosition(['Unscheduled'], 600)).toBeNull();
+    expect(getNowSlotPosition(['Unscheduled', ...slots], timeToMinutes('17:00')))
+      .toEqual({ kind: 'during', timeSlot: '16:45 - 18:15' });
+  });
+
+  it('handles single-digit and no-space slot formats', () => {
+    expect(getNowSlotPosition(['9:30-10:30'], timeToMinutes('10:00')))
+      .toEqual({ kind: 'during', timeSlot: '9:30-10:30' });
+  });
+
+  it('returns null for an empty list', () => {
+    expect(getNowSlotPosition([], 600)).toBeNull();
   });
 });
