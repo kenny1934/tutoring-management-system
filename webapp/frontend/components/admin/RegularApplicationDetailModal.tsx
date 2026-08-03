@@ -386,12 +386,14 @@ export function RegularApplicationDetailModal({
     isOpen && app && !isPublished ? "regular-publish-tutors" : null,
     () => tutorsAPI.getAll()
   );
+  // Scoped to the selected branch, like the arrangement page's list: a tutor
+  // based at the other centre should not be offered for a lesson here.
   const tutorOptions = useMemo(
     () =>
       (tutors || [])
-        .filter((t) => t.is_active_tutor !== false)
+        .filter((t) => t.is_active_tutor !== false && t.default_location === pubLocation)
         .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name)),
-    [tutors]
+    [tutors, pubLocation]
   );
 
   // --- Student linking ---
@@ -1744,7 +1746,14 @@ export function RegularApplicationDetailModal({
                             <button
                               key={code}
                               type="button"
-                              onClick={() => setPubLocation(code)}
+                              onClick={() => {
+                                if (code === pubLocation) return;
+                                setPubLocation(code);
+                                // The tutor list is branch-scoped, so the old
+                                // pick is never valid here. Clearing it keeps
+                                // the incomplete-form guard honest.
+                                setPubTutorId("");
+                              }}
                               className={cn(
                                 "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
                                 active
