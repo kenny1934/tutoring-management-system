@@ -1549,6 +1549,7 @@ async def get_overdue_enrollments(
             discount_override_code=enrollment.discount_override_code,
             discount_override_reason=enrollment.discount_override_reason,
             total_fee=total_fee,
+            registration_fee=enrollment_registration_fee(enrollment, db),
         ))
 
     result.sort(key=lambda x: x.days_overdue, reverse=True)
@@ -1845,6 +1846,7 @@ async def get_enrollment_detail(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 
@@ -1959,7 +1961,8 @@ async def get_enrollment_detail_for_modal(
         phone=enrollment.student.phone if enrollment.student else None,
         contacts=enrollment.student.contacts if enrollment.student else None,
         fee_message_sent=enrollment.fee_message_sent or False,
-        is_new_student=enrollment.is_new_student or False
+        is_new_student=enrollment.is_new_student or False,
+        registration_fee=enrollment_registration_fee(enrollment, db)
     )
 
 
@@ -2414,6 +2417,7 @@ async def update_enrollment(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2482,6 +2486,7 @@ async def update_enrollment_extension(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2555,6 +2560,7 @@ async def set_discount_override(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2610,6 +2616,7 @@ async def clear_discount_override(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 

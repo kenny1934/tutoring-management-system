@@ -4,7 +4,6 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, Loader2, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getIsNewStudentParam } from "@/lib/enrollment-utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
 import Link from "next/link";
@@ -145,7 +144,7 @@ export function EnrollmentDetailModal({
       const message =
         detail.enrollment_type === 'Summer' && detail.summer_application_id
           ? await fetchSummerFeeMessage(detail.summer_application_id)
-          : (await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid, getIsNewStudentParam(detail))).message;
+          : (await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid)).message;
       await navigator.clipboard.writeText(message);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -397,7 +396,7 @@ export function EnrollmentDetailModal({
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-600 dark:text-gray-400">New Student</span>
                   <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                    +$100 Reg Fee
+                    {detail.registration_fee === 0 ? "Yes" : "+$100 Reg Fee"}
                   </span>
                 </div>
               )}

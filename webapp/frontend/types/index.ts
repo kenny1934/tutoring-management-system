@@ -233,6 +233,10 @@ export interface Enrollment {
   // Total tuition shown in the fee message (base - discount + reg fee).
   // null/undefined for Summer enrollments without a priceable config.
   total_fee?: number | null;
+  // One-off materials fee actually charged: 0 for a new student whose intake
+  // collects it from nobody, null/undefined when the endpoint did not compute
+  // it (the badge then falls back to assuming it was charged).
+  registration_fee?: number | null;
   student?: Student;
 }
 
@@ -751,6 +755,8 @@ export interface OverdueEnrollment {
   discount_override_reason?: string | null;
   // Total tuition shown in the fee message; null for Summer rows with no priceable config.
   total_fee?: number | null;
+  // One-off materials fee actually charged; 0 when waived or not applicable.
+  registration_fee?: number | null;
 }
 
 // Unchecked attendance types
@@ -1536,6 +1542,8 @@ export interface EnrollmentDetailResponse {
   contacts?: StudentContact[];
   fee_message_sent: boolean;
   is_new_student?: boolean;
+  // One-off materials fee actually charged; 0 when the intake waived it.
+  registration_fee?: number | null;
   enrollment_type?: string | null;
   summer_application_id?: number | null;
   payment_date?: string | null;

@@ -36,7 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
 import { MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
-import { getDisplayPaymentStatus, getIsNewStudentParam } from "@/lib/enrollment-utils";
+import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
@@ -532,7 +532,9 @@ export default function EnrollmentDetailPage() {
     let cancelled = false;
     setFeeMessageLoading(true);
 
-    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6, getIsNewStudentParam(enrollment))
+    // No is_new_student override: the backend derives it from the enrollment
+    // and applies the intake rule (an intake may charge the fee to nobody).
+    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6)
       .then(response => {
         if (!cancelled) {
           setFeeMessage(response.message);
@@ -1265,12 +1267,14 @@ export default function EnrollmentDetailPage() {
                       </div>
                     )}
 
-                    {/* New Student - not applicable to Trial */}
+                    {/* New Student - not applicable to Trial. The fee is only
+                        claimed when it was actually charged: a seasonal intake
+                        may collect it from nobody. */}
                     {enrollment.is_new_student && enrollment.enrollment_type !== 'Trial' && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500 dark:text-gray-400">New Student</span>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-medium">
-                          +$100 Reg Fee
+                          {enrollment.registration_fee === 0 ? "Yes" : "+$100 Reg Fee"}
                         </span>
                       </div>
                     )}

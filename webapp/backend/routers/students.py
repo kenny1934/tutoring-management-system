@@ -12,7 +12,7 @@ from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, Stude
 from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.query_helpers import get_handover_prospect
-from routers.enrollments import get_active_enrollment_objects
+from routers.enrollments import get_active_enrollment_objects, enrollment_registration_fee
 
 router = APIRouter()
 
@@ -344,6 +344,9 @@ async def get_student_detail(
     response = StudentDetailResponse.model_validate(student)
     for i, enrollment in enumerate(student.enrollments):
         response.enrollments[i].tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+        # These rows feed the enrollment detail popover, whose new-student
+        # badge only claims the materials fee when it was actually charged.
+        response.enrollments[i].registration_fee = enrollment_registration_fee(enrollment, db)
 
     prospect = get_handover_prospect(db, student_id)
     if prospect:

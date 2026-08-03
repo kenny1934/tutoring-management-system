@@ -218,6 +218,7 @@ class EnrollmentResponse(EnrollmentBase):
     discount_override_by: Optional[str] = Field(None, max_length=255)
     discount_override_at: Optional[datetime] = None
     total_fee: Optional[int] = Field(None, description="Total tuition shown in the fee message (base - discount + reg fee). None for Summer when no priceable config is linked.")
+    registration_fee: Optional[int] = Field(None, description="One-off materials fee actually charged on this enrollment. 0 for a new student whose intake collects it from nobody; None when the endpoint did not compute it.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -290,6 +291,7 @@ class OverdueEnrollment(BaseModel):
     discount_override_code: Optional[str] = Field(None, max_length=32)
     discount_override_reason: Optional[str] = None
     total_fee: Optional[int] = Field(None, description="Total tuition shown in the fee message; None for Summer rows with no priceable config")
+    registration_fee: Optional[int] = Field(None, description="One-off materials fee actually charged on this enrollment; 0 when waived or not applicable")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -510,6 +512,9 @@ class EnrollmentDetailResponse(BaseModel):
     contacts: Optional[List[StudentContact]] = None
     fee_message_sent: bool = False
     is_new_student: bool = False
+    # One-off materials fee actually charged, from the shared rule — 0 for a
+    # new student whose intake collects it from nobody. Drives the badge copy.
+    registration_fee: Optional[int] = None
     enrollment_type: Optional[str] = None
     summer_application_id: Optional[int] = None
     regular_application_id: Optional[int] = None

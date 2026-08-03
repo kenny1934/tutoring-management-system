@@ -657,9 +657,11 @@ export const enrollmentsAPI = {
     return fetchAPI<EnrollmentDetailResponse>(`/enrollments/${id}/detail`);
   },
 
-  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6, isNewStudent?: boolean) => {
+  // The backend decides the new-student flag from the enrollment itself, which
+  // also honours an intake that charges the materials fee to nobody. Its
+  // is_new_student override query param exists but no UI passes it.
+  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6) => {
     const params = new URLSearchParams({ lang, lessons_paid: lessonsPaid.toString() });
-    if (isNewStudent !== undefined) params.set('is_new_student', String(isNewStudent));
     return fetchAPI<FeeMessageResponse>(`/enrollments/${id}/fee-message?${params}`);
   },
 

@@ -134,7 +134,7 @@ export function ZenEnrollmentDetail({
         detail.enrollment_type === "Summer" && detail.summer_application_id
           ? await fetchSummerFeeMessage(detail.summer_application_id)
           : (await enrollmentsAPI.getFeeMessage(
-              enrollmentId, "zh", detail.lessons_paid, detail.is_new_student
+              enrollmentId, "zh", detail.lessons_paid
             )).message;
       await navigator.clipboard.writeText(message);
       setZenStatus("Fee message copied to clipboard", "success");
