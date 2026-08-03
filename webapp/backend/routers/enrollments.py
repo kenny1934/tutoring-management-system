@@ -1277,6 +1277,10 @@ async def get_enrollments(
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
         enrollment_data.summer_unavailability_notes = summer_unavailability.get(enrollment.summer_application_id)
+        # Rows reach the enrollment detail popover, whose new-student badge
+        # only claims the materials fee when it was actually charged. Costs a
+        # lookup only for new students published from an application.
+        enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
     return result
@@ -1390,6 +1394,9 @@ async def get_active_enrollments(
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
+        # Same badge rule as the main list: only claim the materials fee when
+        # it was actually charged.
+        enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
     return result
@@ -1650,6 +1657,9 @@ async def get_my_students(
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
+        # Same badge rule as the main list: only claim the materials fee when
+        # it was actually charged.
+        enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
     return result
