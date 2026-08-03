@@ -209,15 +209,19 @@ class RegularApplicationStatus(str, Enum):
     REJECTED = 'Rejected'
 
 
-# Applications on these rungs have left the intake, so they stop holding the
-# arrangement seat they were placed in: capacity checks and slot fill counts
-# skip them, the same way summer skips non-attending sessions. The row stays
-# on the slot so an admin can still see the placement that was given up.
+# Applications on these rungs have left the intake. The summer and regular
+# status ladders share these exit rungs by design, so one constant serves
+# both courses: match pools and prospect journey states skip these apps, and
+# regular capacity checks and slot fill counts skip them the same way summer
+# skips non-attending sessions (the row stays on the slot so an admin can
+# still see the placement that was given up).
 # Waitlisted is deliberately absent — those applicants are still being worked.
-REGULAR_EXIT_STATUSES = (
+APPLICATION_EXIT_STATUSES = (
     RegularApplicationStatus.WITHDRAWN.value,
     RegularApplicationStatus.REJECTED.value,
 )
+# Name used by the regular-course router's seat/capacity logic.
+REGULAR_EXIT_STATUSES = APPLICATION_EXIT_STATUSES
 
 
 class SummerPlacementStatus(str, Enum):

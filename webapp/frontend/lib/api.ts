@@ -195,6 +195,7 @@ import type {
   PrimaryProspectBulkCreate,
   PrimaryProspectStats,
   PrimaryProspectMatchResult,
+  ProspectCourse,
   BuddyMember,
   BuddyMemberCreate,
   BuddyMemberUpdate,
@@ -2859,7 +2860,24 @@ export const prospectsAPI = {
       `/prospects/admin/regular-auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
       { method: "POST" },
     ),
+
+  // Course-parameterized wrappers so components pass a course through instead
+  // of branching on which endpoint or link field belongs to which course.
+  findCourseMatches: (id: number, course: ProspectCourse) =>
+    course === "summer" ? prospectsAPI.findMatches(id) : prospectsAPI.findRegularMatches(id),
+
+  linkCourseApplication: (id: number, course: ProspectCourse, applicationId: number | null) =>
+    prospectsAPI.adminUpdate(
+      id,
+      course === "summer" ? { summer_application_id: applicationId } : { regular_application_id: applicationId },
+    ),
 };
+
+// Deep link into an applications page with its search box prefilled. Both
+// pages read the ?q= param — this helper owns that contract for every link
+// from the prospects surfaces.
+export const applicationSearchHref = (course: ProspectCourse, ref: string | null | undefined) =>
+  `/admin/${course}/applications?q=${encodeURIComponent(ref || "")}`;
 
 export const buddyTrackerAPI = {
   verifyPin: (branch: string, pin: string) =>

@@ -27,7 +27,8 @@ import {
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { prospectsAPI, summerAPI } from "@/lib/api";
+import { applicationSearchHref, prospectsAPI, summerAPI } from "@/lib/api";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { parseHKTimestamp, formatTimeAgo, wasEdited } from "@/lib/formatters";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -38,6 +39,7 @@ import {
   CopyableCell,
   ProspectStatusBadge,
   CourseStateBadge,
+  COURSE_STATE_FILTER_LABELS,
   INTENTION_LABELS,
   OUTREACH_BADGE_COLORS,
   STATUS_BADGE_COLORS,
@@ -53,6 +55,8 @@ import { usePortalPopover } from "@/hooks/usePortalPopover";
 import type {
   PrimaryProspect,
   PrimaryProspectStats,
+  ProspectCourse,
+  ProspectCourseState,
   ProspectIntention,
   ProspectOutreachStatus,
   ProspectStatus,
@@ -66,13 +70,8 @@ import {
 const inputSmall =
   "text-xs border-2 border-border rounded-lg px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors duration-200";
 
-// Filter labels for the derived course states ("none" = never applied).
-const STATE_FILTER_LABELS: Record<string, string> = {
-  none: "Not applied",
-  applied: "Applied",
-  enrolled: "Enrolled",
-  withdrawn: "Withdrawn",
-};
+// Widened index type: URL params arrive as plain strings.
+const STATE_FILTER_LABELS: Record<string, string> = COURSE_STATE_FILTER_LABELS;
 
 
 // ---- Main Page ----
@@ -190,7 +189,6 @@ export default function AdminProspectsPage() {
   });
   const [showColMenu, setShowColMenu] = useState(false);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
   useEffect(() => {
     try {
       localStorage.setItem("prospect_hidden_cols", JSON.stringify([...hiddenCols]));
@@ -661,30 +659,28 @@ export default function AdminProspectsPage() {
                 className={`${inputSmall} pl-8 w-52`}
               />
             </div>
-            <div className="relative">
-              <button
-                onClick={() => setShowFilterPanel((v) => !v)}
-                className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                  selectFilterCount > 0
-                    ? "border-primary/50 text-primary"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-                }`}
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Filters
-                {selectFilterCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary text-white">{selectFilterCount}</span>
-                )}
-              </button>
-              {showFilterPanel && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowFilterPanel(false)} />
-                  <div className="absolute left-0 mt-1 w-[380px] bg-card border border-border rounded-lg shadow-lg p-3 z-20">
-                    <FilterPanel filters={filters} setFilters={setFilters} />
-                  </div>
-                </>
+            <DropdownMenu
+              align="left"
+              menuClassName="w-[380px] p-3"
+              trigger={({ open, triggerProps }) => (
+                <button
+                  {...triggerProps}
+                  className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    selectFilterCount > 0 || open
+                      ? "border-primary/50 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  }`}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  Filters
+                  {selectFilterCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary text-white">{selectFilterCount}</span>
+                  )}
+                </button>
               )}
-            </div>
+            >
+              {() => <FilterPanel filters={filters} setFilters={setFilters} />}
+            </DropdownMenu>
             {activeFilterCount > 0 && (
               <button
                 onClick={clearAllFilters}
@@ -1020,7 +1016,7 @@ function FilterPanel({
   );
 }
 
-function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number; course: "summer" | "regular"; onLinked: () => void }) {
+function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number; course: ProspectCourse; onLinked: () => void }) {
   const [open, setOpen] = useState(false);
   const [linking, setLinking] = useState<number | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -1029,12 +1025,11 @@ function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number;
   // to the trigger's right edge so it grows leftward instead of overflowing.
   const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
 
-  // Lazy + cached + deduped via SWR. Fetches only when the popover opens.
+  // Lazy + cached via SWR. Fetches only when the popover opens; the key is
+  // shared with the detail modal so either surface reuses the other's fetch.
   const { data, error, isLoading } = useSWR(
-    open ? [`prospect-${course}-matches`, prospectId] : null,
-    () => course === "summer"
-      ? prospectsAPI.findMatches(prospectId)
-      : prospectsAPI.findRegularMatches(prospectId),
+    open ? ["prospect-matches", course, prospectId] : null,
+    () => prospectsAPI.findCourseMatches(prospectId, course),
     { revalidateOnFocus: false }
   );
   const matches = data?.matches;
@@ -1043,12 +1038,7 @@ function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number;
     setLinking(applicationId);
     setLinkError(null);
     try {
-      await prospectsAPI.adminUpdate(
-        prospectId,
-        course === "summer"
-          ? { summer_application_id: applicationId }
-          : { regular_application_id: applicationId },
-      );
+      await prospectsAPI.linkCourseApplication(prospectId, course, applicationId);
       setOpen(false);
       onLinked();
     } catch (err) {
@@ -1114,6 +1104,46 @@ function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number;
         document.body
       )}
     </>
+  );
+}
+
+// One course's table cell: linked state badge as a deep link into the
+// applications page, or the quick-link popover when unlinked and editable.
+function CourseCell({
+  course,
+  appId,
+  refCode,
+  state,
+  prospectId,
+  readOnly,
+  onRefresh,
+}: {
+  course: ProspectCourse;
+  appId: number | null;
+  refCode: string | null;
+  state: ProspectCourseState | null;
+  prospectId: number;
+  readOnly?: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+      {appId ? (
+        <a
+          href={applicationSearchHref(course, refCode)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={refCode || "Linked"}
+          className="inline-flex hover:opacity-80 transition-opacity"
+        >
+          <CourseStateBadge state={state} />
+        </a>
+      ) : !readOnly ? (
+        <QuickLinkButton prospectId={prospectId} course={course} onLinked={onRefresh} />
+      ) : (
+        <CourseStateBadge state={null} />
+      )}
+    </td>
   );
 }
 
@@ -1354,40 +1384,8 @@ const ProspectRow = memo(function ProspectRow({
           />
         )}
       </td>
-      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-        {p.summer_application_id ? (
-          <a
-            href={`/admin/summer/applications?q=${encodeURIComponent(p.matched_application_ref || "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={p.matched_application_ref || "Linked"}
-            className="inline-flex hover:opacity-80 transition-opacity"
-          >
-            <CourseStateBadge state={p.summer_state} />
-          </a>
-        ) : !readOnly ? (
-          <QuickLinkButton prospectId={p.id} course="summer" onLinked={onRefresh} />
-        ) : (
-          <CourseStateBadge state={null} />
-        )}
-      </td>
-      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-        {p.regular_application_id ? (
-          <a
-            href={`/admin/regular/applications?q=${encodeURIComponent(p.matched_regular_ref || "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={p.matched_regular_ref || "Linked"}
-            className="inline-flex hover:opacity-80 transition-opacity"
-          >
-            <CourseStateBadge state={p.regular_state} />
-          </a>
-        ) : !readOnly ? (
-          <QuickLinkButton prospectId={p.id} course="regular" onLinked={onRefresh} />
-        ) : (
-          <CourseStateBadge state={null} />
-        )}
-      </td>
+      <CourseCell course="summer" appId={p.summer_application_id} refCode={p.matched_application_ref} state={p.summer_state} prospectId={p.id} readOnly={readOnly} onRefresh={onRefresh} />
+      <CourseCell course="regular" appId={p.regular_application_id} refCode={p.matched_regular_ref} state={p.regular_state} prospectId={p.id} readOnly={readOnly} onRefresh={onRefresh} />
       <td
         className="px-2 py-2 text-[10px] text-muted-foreground"
         title={[

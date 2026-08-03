@@ -3,7 +3,7 @@
 import { Search } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { BRANCH_INFO } from "@/lib/summer-utils";
-import { IntentionBadge } from "@/components/summer/prospect-badges";
+import { IntentionBadge, COURSE_STATE_TEXT_COLORS } from "@/components/summer/prospect-badges";
 import type { PrimaryProspectStats } from "@/types";
 
 export type DashboardFilterPatch = Partial<{
@@ -77,13 +77,13 @@ export function ProspectDashboard({
         </button>
         <span className="text-border hidden sm:inline">|</span>
         <button onClick={() => onJumpToList({ summer_state: "enrolled" })} className="hover:underline">
-          <span className="font-semibold text-emerald-600">{totals.enrolled_summer}</span> <span className="text-muted-foreground">summer enrolled</span>
+          <span className={`font-semibold ${COURSE_STATE_TEXT_COLORS.enrolled}`}>{totals.enrolled_summer}</span> <span className="text-muted-foreground">summer enrolled</span>
         </button>
         <button onClick={() => onJumpToList({ regular_state: "applied" })} className="hover:underline">
-          <span className="font-semibold text-blue-600">{totals.applied_regular}</span> <span className="text-muted-foreground">regular applied</span>
+          <span className={`font-semibold ${COURSE_STATE_TEXT_COLORS.applied}`}>{totals.applied_regular}</span> <span className="text-muted-foreground">regular applied</span>
         </button>
         <button onClick={() => onJumpToList({ regular_state: "enrolled" })} className="hover:underline">
-          <span className="font-semibold text-emerald-600">{totals.enrolled_regular}</span> <span className="text-muted-foreground">regular enrolled</span>
+          <span className={`font-semibold ${COURSE_STATE_TEXT_COLORS.enrolled}`}>{totals.enrolled_regular}</span> <span className="text-muted-foreground">regular enrolled</span>
         </button>
         <button onClick={() => onJumpToList({ outreach_status: "Not Started" })} className="hover:underline">
           <span className="text-muted-foreground">{totals.not_started} not started</span>
@@ -104,12 +104,12 @@ export function ProspectDashboard({
             <tr>
               <th className={`px-3 py-1 text-right ${groupBorder}`}><IntentionBadge value="Yes" /></th>
               <th className="px-3 py-1 text-right"><IntentionBadge value="Considering" /></th>
-              <th className="px-3 py-1 text-right text-[10px] text-blue-600 font-medium cursor-help" title="Live summer application, not yet enrolled">Applied</th>
-              <th className="px-3 py-1 text-right text-[10px] text-emerald-600 font-medium cursor-help" title="Summer application published to an enrollment">Enrolled</th>
+              <th className={`px-3 py-1 text-right text-[10px] ${COURSE_STATE_TEXT_COLORS.applied} font-medium cursor-help`} title="Live summer application, not yet enrolled">Applied</th>
+              <th className={`px-3 py-1 text-right text-[10px] ${COURSE_STATE_TEXT_COLORS.enrolled} font-medium cursor-help`} title="Summer application published to an enrollment">Enrolled</th>
               <th className={`px-3 py-1 text-right ${groupBorder}`}><IntentionBadge value="Yes" /></th>
               <th className="px-3 py-1 text-right"><IntentionBadge value="Considering" /></th>
-              <th className="px-3 py-1 text-right text-[10px] text-blue-600 font-medium cursor-help" title="Live regular application, not yet enrolled">Applied</th>
-              <th className="px-3 py-1 text-right text-[10px] text-emerald-600 font-medium cursor-help" title="Regular application published to an enrollment">Enrolled</th>
+              <th className={`px-3 py-1 text-right text-[10px] ${COURSE_STATE_TEXT_COLORS.applied} font-medium cursor-help`} title="Live regular application, not yet enrolled">Applied</th>
+              <th className={`px-3 py-1 text-right text-[10px] ${COURSE_STATE_TEXT_COLORS.enrolled} font-medium cursor-help`} title="Regular application published to an enrollment">Enrolled</th>
               <th className={`px-3 py-1 text-right text-[10px] text-green-600 font-medium ${groupBorder}`}>Added</th>
               <th className="px-3 py-1 text-right text-[10px] text-red-600 font-medium">Issues</th>
             </tr>
@@ -126,12 +126,12 @@ export function ProspectDashboard({
                 <td className="px-3 py-2 text-right font-medium">{s.total}</td>
                 <td className={`px-3 py-2 text-right text-green-600 font-medium ${cellBorder}`}>{s.wants_summer_yes}</td>
                 <td className="px-3 py-2 text-right text-yellow-600">{s.wants_summer_considering}</td>
-                <td className="px-3 py-2 text-right text-blue-600 font-medium">{s.applied_summer}</td>
-                <td className="px-3 py-2 text-right text-emerald-600 font-medium">{s.enrolled_summer}</td>
+                <td className={`px-3 py-2 text-right font-medium ${COURSE_STATE_TEXT_COLORS.applied}`}>{s.applied_summer}</td>
+                <td className={`px-3 py-2 text-right font-medium ${COURSE_STATE_TEXT_COLORS.enrolled}`}>{s.enrolled_summer}</td>
                 <td className={`px-3 py-2 text-right text-green-600 font-medium ${cellBorder}`}>{s.wants_regular_yes}</td>
                 <td className="px-3 py-2 text-right text-yellow-600">{s.wants_regular_considering}</td>
-                <td className="px-3 py-2 text-right text-blue-600 font-medium">{s.applied_regular}</td>
-                <td className="px-3 py-2 text-right text-emerald-600 font-medium">{s.enrolled_regular}</td>
+                <td className={`px-3 py-2 text-right font-medium ${COURSE_STATE_TEXT_COLORS.applied}`}>{s.applied_regular}</td>
+                <td className={`px-3 py-2 text-right font-medium ${COURSE_STATE_TEXT_COLORS.enrolled}`}>{s.enrolled_regular}</td>
                 <td className={`px-3 py-2 text-right text-green-600 ${cellBorder}`}>{s.outreach_wechat_added}</td>
                 <td className="px-3 py-2 text-right text-red-600">{s.outreach_wechat_not_found + s.outreach_wechat_cannot_add}</td>
                 <td className="px-3 py-2 text-right text-muted-foreground">{s.outreach_not_started}</td>
@@ -144,12 +144,12 @@ export function ProspectDashboard({
               <td className="px-3 py-2 text-right">{totals.total}</td>
               <td className={`px-3 py-2 text-right text-green-600 ${cellBorder}`}>{totals.wants_summer_yes}</td>
               <td className="px-3 py-2 text-right text-yellow-600">{totals.wants_summer_considering}</td>
-              <td className="px-3 py-2 text-right text-blue-600">{totals.applied_summer}</td>
-              <td className="px-3 py-2 text-right text-emerald-600">{totals.enrolled_summer}</td>
+              <td className={`px-3 py-2 text-right ${COURSE_STATE_TEXT_COLORS.applied}`}>{totals.applied_summer}</td>
+              <td className={`px-3 py-2 text-right ${COURSE_STATE_TEXT_COLORS.enrolled}`}>{totals.enrolled_summer}</td>
               <td className={`px-3 py-2 text-right text-green-600 ${cellBorder}`}>{totals.wants_regular_yes}</td>
               <td className="px-3 py-2 text-right text-yellow-600">{totals.wants_regular_considering}</td>
-              <td className="px-3 py-2 text-right text-blue-600">{totals.applied_regular}</td>
-              <td className="px-3 py-2 text-right text-emerald-600">{totals.enrolled_regular}</td>
+              <td className={`px-3 py-2 text-right ${COURSE_STATE_TEXT_COLORS.applied}`}>{totals.applied_regular}</td>
+              <td className={`px-3 py-2 text-right ${COURSE_STATE_TEXT_COLORS.enrolled}`}>{totals.enrolled_regular}</td>
               <td className={`px-3 py-2 text-right text-green-600 ${cellBorder}`}>{totals.wechat_added}</td>
               <td className="px-3 py-2 text-right text-red-600">{totals.wechat_issues}</td>
               <td className="px-3 py-2 text-right text-muted-foreground">{totals.not_started}</td>

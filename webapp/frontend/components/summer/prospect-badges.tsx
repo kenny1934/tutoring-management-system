@@ -69,16 +69,30 @@ export const STATUS_BADGE_COLORS: Record<string, string> = {
   Declined: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
+// Applied is blue and enrolled emerald everywhere a course state shows —
+// badges, dashboard columns and pills all read from these two maps.
 export const COURSE_STATE_BADGE_COLORS: Record<ProspectCourseState, string> = {
-  applied: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  applied: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   enrolled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   withdrawn: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
+
+export const COURSE_STATE_TEXT_COLORS: Record<ProspectCourseState, string> = {
+  applied: "text-blue-600",
+  enrolled: "text-emerald-600",
+  withdrawn: "text-red-600",
 };
 
 export const COURSE_STATE_LABELS: Record<ProspectCourseState, string> = {
   applied: "Applied",
   enrolled: "Enrolled",
   withdrawn: "Withdrawn",
+};
+
+// Filter selects and chips add a "none" rung for prospects who never applied.
+export const COURSE_STATE_FILTER_LABELS: Record<"none" | ProspectCourseState, string> = {
+  none: "Not applied",
+  ...COURSE_STATE_LABELS,
 };
 
 // ---- Components ----

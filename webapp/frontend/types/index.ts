@@ -2925,6 +2925,9 @@ export type ProspectStatus = 'New' | 'Contacted' | 'Interested' | 'Declined';
 // Derived course journey state; null = never applied to that course.
 export type ProspectCourseState = 'applied' | 'enrolled' | 'withdrawn';
 
+// The two course journeys a prospect can be on.
+export type ProspectCourse = 'summer' | 'regular';
+
 export type ProspectIntention = 'Yes' | 'No' | 'Considering';
 
 export const PROSPECT_BRANCHES = ['MAC', 'MCP', 'MNT', 'MTA', 'MLT', 'MTR', 'MOT'] as const;

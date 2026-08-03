@@ -20,7 +20,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
-import { prospectsAPI } from "@/lib/api";
+import { applicationSearchHref, prospectsAPI } from "@/lib/api";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import {
@@ -36,6 +36,7 @@ import { StatusBadge as ApplicationStatusBadge } from "@/components/admin/Summer
 import type {
   PrimaryProspect,
   PrimaryProspectMatchResult,
+  ProspectCourse,
   ProspectOutreachStatus,
   ProspectStatus,
 } from "@/types";
@@ -97,14 +98,16 @@ export function ProspectDetailModal({
     || status !== prospect.status
     || (contactNotes || "") !== (prospect.contact_notes || "");
 
+  // Keys shared with the list's quick-link popover so either surface reuses
+  // the other's fetch.
   const { data: matchResult } = useSWR(
-    !prospect.summer_application_id ? `prospect-match-${prospect.id}` : null,
-    () => prospectsAPI.findMatches(prospect.id),
+    !prospect.summer_application_id ? ["prospect-matches", "summer", prospect.id] : null,
+    () => prospectsAPI.findCourseMatches(prospect.id, "summer"),
     { revalidateOnFocus: false }
   );
   const { data: regularMatchResult } = useSWR(
-    !prospect.regular_application_id ? `prospect-regular-match-${prospect.id}` : null,
-    () => prospectsAPI.findRegularMatches(prospect.id),
+    !prospect.regular_application_id ? ["prospect-matches", "regular", prospect.id] : null,
+    () => prospectsAPI.findCourseMatches(prospect.id, "regular"),
     { revalidateOnFocus: false }
   );
 
@@ -126,28 +129,15 @@ export function ProspectDetailModal({
     }
   };
 
-  const handleLink = async (patch: { summer_application_id?: number; regular_application_id?: number }) => {
+  // Link (applicationId) and unlink (null) share one save flow.
+  const handleLink = async (course: ProspectCourse, applicationId: number | null) => {
     setSaveError(null);
     try {
-      await prospectsAPI.adminUpdate(prospect.id, patch);
+      await prospectsAPI.linkCourseApplication(prospect.id, course, applicationId);
       onSave();
       onClose();
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Link failed");
-    }
-  };
-
-  const handleUnlink = async (course: "summer" | "regular") => {
-    setSaveError(null);
-    try {
-      await prospectsAPI.adminUpdate(
-        prospect.id,
-        course === "summer" ? { summer_application_id: null } : { regular_application_id: null },
-      );
-      onSave();
-      onClose();
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Unlink failed");
+      setSaveError(err instanceof Error ? err.message : "Update failed");
     }
   };
 
@@ -347,15 +337,15 @@ export function ProspectDetailModal({
               title="Linked Summer Application"
               refCode={prospect.matched_application_ref}
               appStatus={prospect.matched_application_status}
-              viewHref={`/admin/summer/applications?q=${prospect.matched_application_ref}`}
-              onUnlink={() => handleUnlink("summer")}
+              viewHref={applicationSearchHref("summer", prospect.matched_application_ref)}
+              onUnlink={() => handleLink("summer", null)}
               readOnly={readOnly}
             />
           ) : matchResult && matchResult.matches.length > 0 ? (
             <MatchList
               title={`Potential Summer Matches (${matchResult.matches.length})`}
               matches={matchResult.matches}
-              onLink={(id) => handleLink({ summer_application_id: id })}
+              onLink={(id) => handleLink("summer", id)}
               readOnly={readOnly}
             />
           ) : null}
@@ -366,15 +356,15 @@ export function ProspectDetailModal({
               title="Linked Regular Application"
               refCode={prospect.matched_regular_ref}
               appStatus={prospect.matched_regular_status}
-              viewHref={`/admin/regular/applications?q=${prospect.matched_regular_ref}`}
-              onUnlink={() => handleUnlink("regular")}
+              viewHref={applicationSearchHref("regular", prospect.matched_regular_ref)}
+              onUnlink={() => handleLink("regular", null)}
               readOnly={readOnly}
             />
           ) : regularMatchResult && regularMatchResult.matches.length > 0 ? (
             <MatchList
               title={`Potential Regular Matches (${regularMatchResult.matches.length})`}
               matches={regularMatchResult.matches}
-              onLink={(id) => handleLink({ regular_application_id: id })}
+              onLink={(id) => handleLink("regular", id)}
               readOnly={readOnly}
             />
           ) : null}

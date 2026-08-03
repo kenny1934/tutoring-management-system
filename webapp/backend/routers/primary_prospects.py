@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import exists, or_
 from sqlalchemy.orm import Session, joinedload
 
-from constants import hk_now
+from constants import hk_now, APPLICATION_EXIT_STATUSES
 from database import get_db
 from models import (
     PrimaryProspect,
@@ -54,8 +54,6 @@ VALID_OUTREACH = {"Not Started", "WeChat - Not Found", "WeChat - Cannot Add", "W
 # application links (summer_state / regular_state), never stored here.
 VALID_STATUS = {"New", "Contacted", "Interested", "Declined"}
 VALID_COURSE_STATE = {"none", "applied", "enrolled", "withdrawn"}
-DEAD_APP_STATUSES = ("Withdrawn", "Rejected")
-
 
 
 # ---- Helpers ----
@@ -69,18 +67,19 @@ def _check_pin(request: Request, branch: str):
         logger.warning("Failed PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
-def _derive_state(app, in_enrolled_ids: bool) -> Optional[str]:
+def _derive_state(app, enrolled_ids: set) -> Optional[str]:
     """Course journey state for one linked application, or None when unlinked.
 
     Enrollment-row existence is the enrolled signal (unpublish deletes the
     row); a Withdrawn/Rejected application is a dead end regardless of any
-    leftover row.
+    leftover row. `enrolled_ids` is the matching course's set from
+    _enrollment_backed_ids.
     """
     if app is None:
         return None
-    if app.application_status in DEAD_APP_STATUSES:
+    if app.application_status in APPLICATION_EXIT_STATUSES:
         return "withdrawn"
-    if in_enrolled_ids:
+    if app.id in enrolled_ids:
         return "enrolled"
     return "applied"
 
@@ -89,23 +88,26 @@ def _enrollment_backed_ids(db: Session, prospects: list) -> tuple[set[int], set[
     """Among these prospects' linked applications, the (summer, regular)
     application ids that published an enrollment. Two queries total, so list
     endpoints derive every row's course states without an N+1."""
-    summer_ids = {p.summer_application_id for p in prospects if p.summer_application_id}
-    regular_ids = {p.regular_application_id for p in prospects if p.regular_application_id}
-    enrolled_summer: set[int] = set()
-    enrolled_regular: set[int] = set()
-    if summer_ids:
-        enrolled_summer = {
-            sid for (sid,) in db.query(Enrollment.summer_application_id)
-            .filter(Enrollment.summer_application_id.in_(summer_ids))
-            if sid is not None
-        }
-    if regular_ids:
-        enrolled_regular = {
-            rid for (rid,) in db.query(Enrollment.regular_application_id)
-            .filter(Enrollment.regular_application_id.in_(regular_ids))
-            if rid is not None
-        }
-    return enrolled_summer, enrolled_regular
+    def backed(col, ids: set) -> set:
+        if not ids:
+            return set()
+        return {i for (i,) in db.query(col).filter(col.in_(ids)) if i is not None}
+    return (
+        backed(Enrollment.summer_application_id, {p.summer_application_id for p in prospects if p.summer_application_id}),
+        backed(Enrollment.regular_application_id, {p.regular_application_id for p in prospects if p.regular_application_id}),
+    )
+
+
+def _linked_app_loads():
+    """Eager-load options for both application links, trimmed to the two
+    columns responses actually read — the application tables are wide (Text
+    and JSON columns) and everything else would be fetched for nothing."""
+    return (
+        joinedload(PrimaryProspect.summer_application).load_only(
+            SummerApplication.reference_code, SummerApplication.application_status),
+        joinedload(PrimaryProspect.regular_application).load_only(
+            RegularApplication.reference_code, RegularApplication.application_status),
+    )
 
 
 def _prospect_to_response(
@@ -147,8 +149,8 @@ def _prospect_to_response(
         "matched_application_status": None,
         "matched_regular_ref": None,
         "matched_regular_status": None,
-        "summer_state": _derive_state(p.summer_application, p.summer_application_id in enrolled_summer_ids),
-        "regular_state": _derive_state(p.regular_application, p.regular_application_id in enrolled_regular_ids),
+        "summer_state": _derive_state(p.summer_application, enrolled_summer_ids),
+        "regular_state": _derive_state(p.regular_application, enrolled_regular_ids),
     }
     if p.summer_application:
         data["matched_application_ref"] = p.summer_application.reference_code
@@ -251,8 +253,7 @@ def list_prospects(
     prospects = (
         db.query(PrimaryProspect)
         .options(
-            joinedload(PrimaryProspect.summer_application),
-            joinedload(PrimaryProspect.regular_application),
+            *_linked_app_loads(),
         )
         .filter(PrimaryProspect.source_branch == branch, PrimaryProspect.year == year)
         .order_by(PrimaryProspect.id)
@@ -335,20 +336,24 @@ def delete_prospect(
 
 # ---- Admin endpoints (auth required) ----
 
-def _course_state_predicate(state: str, link_col, dead, enrolled_exists):
+def _course_state_predicate(state: str, link_col, rel, app_model):
     """Filter predicate matching _derive_state for one course.
 
-    `dead` is a relationship .has() on Withdrawn/Rejected app status;
-    `enrolled_exists` is a correlated EXISTS on the enrollment link column.
+    `rel`/`app_model` name the course's application relationship. The dead
+    and enrolled signals are built here so the recipe exists once for both
+    courses; the correlated EXISTS relies on Enrollment naming its FK the
+    same as the prospect link column.
     """
+    dead = rel.has(app_model.application_status.in_(APPLICATION_EXIT_STATUSES))
+    enrolled = exists().where(getattr(Enrollment, link_col.key) == link_col)
     if state == "none":
         return link_col.is_(None)
     if state == "withdrawn":
         return dead
     if state == "enrolled":
-        return link_col.isnot(None) & ~dead & enrolled_exists
+        return link_col.isnot(None) & ~dead & enrolled
     # applied: live link that has not published an enrollment
-    return link_col.isnot(None) & ~dead & ~enrolled_exists
+    return link_col.isnot(None) & ~dead & ~enrolled
 
 
 def _apply_admin_filters(
@@ -378,20 +383,12 @@ def _apply_admin_filters(
         q = q.filter(PrimaryProspect.wants_regular == wants_regular)
     if summer_state in VALID_COURSE_STATE:
         q = q.filter(_course_state_predicate(
-            summer_state,
-            PrimaryProspect.summer_application_id,
-            PrimaryProspect.summer_application.has(
-                SummerApplication.application_status.in_(DEAD_APP_STATUSES)),
-            exists().where(Enrollment.summer_application_id == PrimaryProspect.summer_application_id),
-        ))
+            summer_state, PrimaryProspect.summer_application_id,
+            PrimaryProspect.summer_application, SummerApplication))
     if regular_state in VALID_COURSE_STATE:
         q = q.filter(_course_state_predicate(
-            regular_state,
-            PrimaryProspect.regular_application_id,
-            PrimaryProspect.regular_application.has(
-                RegularApplication.application_status.in_(DEAD_APP_STATUSES)),
-            exists().where(Enrollment.regular_application_id == PrimaryProspect.regular_application_id),
-        ))
+            regular_state, PrimaryProspect.regular_application_id,
+            PrimaryProspect.regular_application, RegularApplication))
     if has_wechat == "yes":
         q = q.filter(PrimaryProspect.wechat_id.isnot(None), PrimaryProspect.wechat_id != "")
     elif has_wechat == "no":
@@ -438,8 +435,7 @@ def admin_list_prospects(
     )
     prospects = (
         q.options(
-            joinedload(PrimaryProspect.summer_application),
-            joinedload(PrimaryProspect.regular_application),
+            *_linked_app_loads(),
         )
         .order_by(PrimaryProspect.source_branch, PrimaryProspect.id)
         .all()
@@ -553,10 +549,7 @@ def admin_prospect_stats(
         has_wechat=has_wechat,
         search=search,
     )
-    prospects = q.options(
-        joinedload(PrimaryProspect.summer_application),
-        joinedload(PrimaryProspect.regular_application),
-    ).all()
+    prospects = q.options(*_linked_app_loads()).all()
     enrolled_summer, enrolled_regular = _enrollment_backed_ids(db, prospects)
 
     by_branch: dict[str, PrimaryProspectStats] = {}
@@ -569,8 +562,8 @@ def admin_prospect_stats(
         s.wants_summer_considering += p.wants_summer == 'Considering'
         s.wants_regular_yes += p.wants_regular == 'Yes'
         s.wants_regular_considering += p.wants_regular == 'Considering'
-        ss = _derive_state(p.summer_application, p.summer_application_id in enrolled_summer)
-        rs = _derive_state(p.regular_application, p.regular_application_id in enrolled_regular)
+        ss = _derive_state(p.summer_application, enrolled_summer)
+        rs = _derive_state(p.regular_application, enrolled_regular)
         s.applied_summer += ss == "applied"
         s.enrolled_summer += ss == "enrolled"
         s.applied_regular += rs == "applied"
@@ -594,7 +587,7 @@ def _regular_year_apps(db: Session, year: int, taken_ids: set[int]) -> list[Regu
         .join(RegularCourseConfig, RegularApplication.config_id == RegularCourseConfig.id)
         .filter(
             RegularCourseConfig.year == year,
-            RegularApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+            RegularApplication.application_status.notin_(APPLICATION_EXIT_STATUSES),
         )
         .all()
     )
@@ -851,8 +844,7 @@ def admin_get_prospect(
     p = (
         db.query(PrimaryProspect)
         .options(
-            joinedload(PrimaryProspect.summer_application),
-            joinedload(PrimaryProspect.regular_application),
+            *_linked_app_loads(),
         )
         .filter(PrimaryProspect.id == prospect_id)
         .first()
@@ -900,7 +892,7 @@ def admin_find_matches(
         .filter(
             SummerCourseConfig.year == prospect.year,
             SummerApplication.existing_student_id.is_(None),
-            SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+            SummerApplication.application_status.notin_(APPLICATION_EXIT_STATUSES),
         )
         .all()
     )
@@ -1009,7 +1001,7 @@ def admin_auto_match(
         .filter(
             SummerCourseConfig.year == year,
             SummerApplication.existing_student_id.is_(None),
-            SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+            SummerApplication.application_status.notin_(APPLICATION_EXIT_STATUSES),
         )
         .all()
     )
