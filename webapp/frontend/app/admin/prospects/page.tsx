@@ -53,6 +53,7 @@ import { usePortalPopover } from "@/hooks/usePortalPopover";
 import type {
   PrimaryProspect,
   PrimaryProspectStats,
+  ProspectIntention,
   ProspectOutreachStatus,
   ProspectStatus,
 } from "@/types";
@@ -189,6 +190,7 @@ export default function AdminProspectsPage() {
   });
   const [showColMenu, setShowColMenu] = useState(false);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   useEffect(() => {
     try {
       localStorage.setItem("prospect_hidden_cols", JSON.stringify([...hiddenCols]));
@@ -457,6 +459,11 @@ export default function AdminProspectsPage() {
 
   const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search].filter(Boolean).length + choice.length;
 
+  // Badge on the desktop Filters button counts only the selects that live
+  // inside its popover — search and branch choice have their own visible
+  // controls in the toolbar.
+  const selectFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat].filter(Boolean).length;
+
   const clearAllFilters = useCallback(() => {
     setSearchInput("");
     setChoice([]);
@@ -483,12 +490,12 @@ export default function AdminProspectsPage() {
     });
     if (filters.wants_summer) chips.push({
       key: "wants_summer",
-      label: `Wants summer: ${filters.wants_summer}`,
+      label: `Wants summer: ${INTENTION_LABELS[filters.wants_summer as ProspectIntention] || filters.wants_summer}`,
       onRemove: () => setFilters((f) => ({ ...f, wants_summer: "" })),
     });
     if (filters.wants_regular) chips.push({
       key: "wants_regular",
-      label: `Wants regular: ${filters.wants_regular}`,
+      label: `Wants regular: ${INTENTION_LABELS[filters.wants_regular as ProspectIntention] || filters.wants_regular}`,
       onRemove: () => setFilters((f) => ({ ...f, wants_regular: "" })),
     });
     if (filters.outreach_status) chips.push({
@@ -654,7 +661,30 @@ export default function AdminProspectsPage() {
                 className={`${inputSmall} pl-8 w-52`}
               />
             </div>
-            <FilterSelects filters={filters} setFilters={setFilters} className="contents" />
+            <div className="relative">
+              <button
+                onClick={() => setShowFilterPanel((v) => !v)}
+                className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                  selectFilterCount > 0
+                    ? "border-primary/50 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                }`}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Filters
+                {selectFilterCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary text-white">{selectFilterCount}</span>
+                )}
+              </button>
+              {showFilterPanel && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowFilterPanel(false)} />
+                  <div className="absolute left-0 mt-1 w-[380px] bg-card border border-border rounded-lg shadow-lg p-3 z-20">
+                    <FilterPanel filters={filters} setFilters={setFilters} />
+                  </div>
+                </>
+              )}
+            </div>
             {activeFilterCount > 0 && (
               <button
                 onClick={clearAllFilters}
@@ -912,46 +942,80 @@ type FiltersShape = {
   search: string;
 };
 
-function FilterSelects({
+const filterGroupHeading = "text-[10px] font-semibold text-muted-foreground uppercase tracking-wider";
+
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-2">
+      <span className="w-14 shrink-0 text-[11px] text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+// Grouped filter selects — shared by the desktop Filters popover and the
+// mobile filter drawer. Field labels live outside the selects so every
+// select can open with a plain "All".
+function FilterPanel({
   filters,
   setFilters,
-  className = "",
 }: {
   filters: FiltersShape;
   setFilters: React.Dispatch<React.SetStateAction<FiltersShape>>;
-  className?: string;
 }) {
+  const select = `${inputSmall} flex-1 min-w-0`;
   return (
-    <div className={className}>
-      <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={inputSmall}>
-        <option value="">Wants summer: All</option>
-        {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
-      </select>
-      <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={inputSmall}>
-        <option value="">Wants regular: All</option>
-        {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
-      </select>
-      <select value={filters.has_wechat} onChange={(e) => setFilters((f) => ({ ...f, has_wechat: e.target.value }))} className={inputSmall}>
-        <option value="">WeChat: All</option>
-        <option value="yes">Has WeChat</option>
-        <option value="no">No WeChat</option>
-      </select>
-      <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={inputSmall}>
-        <option value="">Outreach: All</option>
-        {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
-      </select>
-      <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={inputSmall}>
-        <option value="">Status: All</option>
-        {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
-      </select>
-      <select value={filters.summer_state} onChange={(e) => setFilters((f) => ({ ...f, summer_state: e.target.value }))} className={inputSmall}>
-        <option value="">Summer: All</option>
-        {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
-      </select>
-      <select value={filters.regular_state} onChange={(e) => setFilters((f) => ({ ...f, regular_state: e.target.value }))} className={inputSmall}>
-        <option value="">Regular: All</option>
-        {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
-      </select>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <div className={filterGroupHeading}>Summer</div>
+        <div className={filterGroupHeading}>Regular</div>
+        <FilterField label="Intent">
+          <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+          </select>
+        </FilterField>
+        <FilterField label="Intent">
+          <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+          </select>
+        </FilterField>
+        <FilterField label="Journey">
+          <select value={filters.summer_state} onChange={(e) => setFilters((f) => ({ ...f, summer_state: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
+          </select>
+        </FilterField>
+        <FilterField label="Journey">
+          <select value={filters.regular_state} onChange={(e) => setFilters((f) => ({ ...f, regular_state: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
+          </select>
+        </FilterField>
+      </div>
+      <div className="space-y-2">
+        <div className={filterGroupHeading}>Contact</div>
+        <FilterField label="WeChat">
+          <select value={filters.has_wechat} onChange={(e) => setFilters((f) => ({ ...f, has_wechat: e.target.value }))} className={select}>
+            <option value="">All</option>
+            <option value="yes">Has WeChat</option>
+            <option value="no">No WeChat</option>
+          </select>
+        </FilterField>
+        <FilterField label="Outreach">
+          <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
+          </select>
+        </FilterField>
+        <FilterField label="Status">
+          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
+          </select>
+        </FilterField>
+      </div>
     </div>
   );
 }
@@ -1533,7 +1597,7 @@ function MobileFilterDrawer({
               })}
             </div>
           </div>
-          <FilterSelects filters={filters} setFilters={setFilters} className="grid grid-cols-2 gap-2" />
+          <FilterPanel filters={filters} setFilters={setFilters} />
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
           <span className="text-xs text-muted-foreground">{activeFilterCount} active</span>
