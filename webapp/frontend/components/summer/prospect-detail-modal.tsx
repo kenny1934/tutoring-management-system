@@ -435,14 +435,17 @@ function LinkedAppBlock({
           <Link2 className="h-4 w-4 text-green-600" />
           <span className="text-sm font-medium">{refCode}</span>
           {appStatus && <ApplicationStatusBadge status={appStatus} />}
-          {studentCode && (
-            studentId ? (
-              <a href={`/students/${studentId}`} title="Open student page" className="hover:opacity-80 transition-opacity">
-                <StudentCodeBadge code={studentCode} />
-              </a>
-            ) : (
+          {studentCode && studentId && (
+            <a
+              href={`/students/${studentId}?tab=profile`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Open student page"
+              className="hover:opacity-80 transition-opacity"
+            >
               <StudentCodeBadge code={studentCode} />
-            )
+            </a>
           )}
         </div>
         <div className="flex items-center gap-3">

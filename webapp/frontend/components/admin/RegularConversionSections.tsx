@@ -332,7 +332,7 @@ const filterSelect =
 
 // Tighter header padding than the shared `th`, matching the chase table's
 // px-2 cells.
-const thTight = "px-2 py-2 text-left font-medium text-foreground";
+const thTight = cn(th, "px-2");
 
 // The wants-regular ladder, for the filter's option order.
 const INTENTION_ORDER = ["Yes", "Considering", "No", "Unknown"];
@@ -409,21 +409,18 @@ export function RegularConversionChaseList({
     };
   }, [data.lost_prospects]);
 
-  // The prospect code is derived up front so it sorts like any other column.
   const rows = useMemo(
     () =>
-      data.lost_prospects
-        .filter(
-          (r) =>
-            (!branchFilter || r.source_branch === branchFilter) &&
-            (!wantedFilter ||
-              (wantedFilter === "none"
-                ? r.preferred_branches.length === 0
-                : r.preferred_branches.includes(wantedFilter))) &&
-            (!wantsFilter || (r.wants_regular ?? "Unknown") === wantsFilter) &&
-            (!outreachFilter || r.outreach_status === outreachFilter)
-        )
-        .map((r) => ({ ...r, code: formatProspectCode(r.source_branch, r.primary_student_id) })),
+      data.lost_prospects.filter(
+        (r) =>
+          (!branchFilter || r.source_branch === branchFilter) &&
+          (!wantedFilter ||
+            (wantedFilter === "none"
+              ? r.preferred_branches.length === 0
+              : r.preferred_branches.includes(wantedFilter))) &&
+          (!wantsFilter || (r.wants_regular ?? "Unknown") === wantsFilter) &&
+          (!outreachFilter || r.outreach_status === outreachFilter)
+      ),
     [data.lost_prospects, branchFilter, wantedFilter, wantsFilter, outreachFilter]
   );
   const { sorted, sortKey, dir, onSort } = useSortable(rows);
@@ -445,7 +442,7 @@ export function RegularConversionChaseList({
     <Section
       title={`Still to chase (${data.lost_prospects.length})`}
       subtitle="Prospects with no regular application yet. Click one to record outreach without leaving this page."
-      className="h-full flex flex-col min-h-0"
+      className="flex-1 min-h-0 flex flex-col"
     >
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <select
@@ -527,11 +524,13 @@ export function RegularConversionChaseList({
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] font-mono text-muted-foreground">{r.code}</div>
+                    <div className="text-[10px] font-mono text-muted-foreground">
+                      {formatProspectCode(r.source_branch, r.primary_student_id)}
+                    </div>
                   </td>
                   <td className="px-2 py-2 text-muted-foreground">{r.grade || "-"}</td>
                   <td className="px-2 py-2 text-muted-foreground max-w-[160px] truncate" title={r.school || undefined}>{r.school || "-"}</td>
-                  <td className="px-2 py-2 whitespace-nowrap">
+                  <td className="px-2 py-2">
                     <div className="tabular-nums text-foreground"><CopyableCell text={r.phone_1 || ""} /></div>
                     {r.phone_2 && (
                       <div className="tabular-nums text-muted-foreground"><CopyableCell text={r.phone_2} /></div>

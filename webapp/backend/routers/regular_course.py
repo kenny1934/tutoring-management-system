@@ -86,6 +86,7 @@ from schemas import (
 )
 from auth.dependencies import require_admin_view, require_admin_write, require_super_admin
 from routers.students import find_duplicate_students
+from routers.primary_prospects import enrollment_backed_students
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
@@ -110,7 +111,6 @@ from constants import (
     MIN_LESSONS_FOR_DISCOUNT,
     REGISTRATION_FEE,
     REGULAR_EXIT_STATUSES,
-    format_student_code,
     normalize_secondary_location,
     normalize_day_short,
 )
@@ -1616,18 +1616,14 @@ def get_conversion(
     summer_app_ids = {p.summer_application_id for p in prospects if p.summer_application_id}
     # The enrolled student's MSA/MSB code rides the enrolled-signal query so
     # the chase list can badge summer alumni with who they became.
-    summer_code_by_app: dict[int, Optional[str]] = {}
+    summer_code_by_app = {
+        aid: code
+        for aid, (_sid, code) in enrollment_backed_students(
+            db, Enrollment.summer_application_id, summer_app_ids
+        ).items()
+    }
     withdrawn_summer_ids: set[int] = set()
     if summer_app_ids:
-        summer_code_by_app = {
-            sid: format_student_code(loc, ssid)
-            for sid, loc, ssid in db.query(
-                Enrollment.summer_application_id, Student.home_location, Student.school_student_id
-            )
-            .join(Student, Student.id == Enrollment.student_id)
-            .filter(Enrollment.summer_application_id.in_(summer_app_ids))
-            if sid is not None
-        }
         withdrawn_summer_ids = {
             aid for (aid,) in db.query(SummerApplication.id)
             .filter(

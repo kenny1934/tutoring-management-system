@@ -54,9 +54,10 @@ export const BRANCH_COLORS: Record<string, { badge: string; selected: string }> 
 };
 
 /** An enrolled student's MSA/MSB code, coloured by the code's branch prefix
- *  so it reads the same as the branch badges everywhere else. */
+ *  (the segment before the dash) so it reads the same as the branch badges
+ *  everywhere else. A code with no recognised prefix falls back to grey. */
 export function StudentCodeBadge({ code }: { code: string }) {
-  const branch = BRANCH_COLORS[code.slice(0, 3)];
+  const branch = BRANCH_COLORS[code.split("-")[0]];
   return (
     <span
       className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${

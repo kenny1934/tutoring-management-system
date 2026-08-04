@@ -68,7 +68,13 @@ def _check_pin(request: Request, branch: str):
         logger.warning("Failed PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
-def _derive_state(app, enrolled_ids) -> Optional[str]:
+# Application id -> (student id, display code) for linked applications that
+# published an enrollment. Membership is the enrolled signal; the values feed
+# the matched-student badges.
+BackedStudents = dict[int, tuple[int, Optional[str]]]
+
+
+def _derive_state(app, enrolled_ids: BackedStudents) -> Optional[str]:
     """Course journey state for one linked application, or None when unlinked.
 
     Enrollment-row existence is the enrolled signal (unpublish deletes the
@@ -85,30 +91,31 @@ def _derive_state(app, enrolled_ids) -> Optional[str]:
     return "applied"
 
 
-def _enrollment_backed_ids(
-    db: Session, prospects: list
-) -> tuple[dict[int, tuple[int, Optional[str]]], dict[int, tuple[int, Optional[str]]]]:
-    """Among these prospects' linked applications, the (summer, regular)
-    applications that published an enrollment, each mapped to the enrolled
-    student's (id, school_student_id). Membership is the enrolled signal;
-    the values feed the matched-student badge. Two queries total, so list
-    endpoints derive every row's course states without an N+1."""
-    def backed(col, ids: set) -> dict[int, tuple[int, Optional[str]]]:
-        if not ids:
-            return {}
-        rows = (
-            db.query(col, Enrollment.student_id, Student.home_location, Student.school_student_id)
-            .join(Student, Student.id == Enrollment.student_id)
-            .filter(col.in_(ids))
-        )
-        return {
-            i: (sid, format_student_code(loc, ssid))
-            for (i, sid, loc, ssid) in rows
-            if i is not None
-        }
+def enrollment_backed_students(db: Session, link_col, ids: set) -> BackedStudents:
+    """The applications among `ids` (values of `link_col`) that published an
+    enrollment, mapped to the enrolled student's (id, display code). Shared
+    with the conversion report's chase list, which reads the same signal."""
+    if not ids:
+        return {}
+    rows = (
+        db.query(link_col, Enrollment.student_id, Student.home_location, Student.school_student_id)
+        .join(Student, Student.id == Enrollment.student_id)
+        .filter(link_col.in_(ids))
+    )
+    return {
+        i: (sid, format_student_code(loc, ssid))
+        for (i, sid, loc, ssid) in rows
+        if i is not None
+    }
+
+
+def _enrollment_backed_ids(db: Session, prospects: list) -> tuple[BackedStudents, BackedStudents]:
+    """Among these prospects' linked applications, the (summer, regular) maps
+    from enrollment_backed_students. Two queries total, so list endpoints
+    derive every row's course states without an N+1."""
     return (
-        backed(Enrollment.summer_application_id, {p.summer_application_id for p in prospects if p.summer_application_id}),
-        backed(Enrollment.regular_application_id, {p.regular_application_id for p in prospects if p.regular_application_id}),
+        enrollment_backed_students(db, Enrollment.summer_application_id, {p.summer_application_id for p in prospects if p.summer_application_id}),
+        enrollment_backed_students(db, Enrollment.regular_application_id, {p.regular_application_id for p in prospects if p.regular_application_id}),
     )
 
 
@@ -126,8 +133,8 @@ def _linked_app_loads():
 
 def _prospect_to_response(
     p: PrimaryProspect,
-    enrolled_summer_ids: dict[int, tuple[int, Optional[str]]],
-    enrolled_regular_ids: dict[int, tuple[int, Optional[str]]],
+    enrolled_summer_ids: BackedStudents,
+    enrolled_regular_ids: BackedStudents,
 ) -> dict:
     """Convert a PrimaryProspect ORM object to response dict with matched application info."""
     data = {
