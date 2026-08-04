@@ -16,7 +16,6 @@ import {
 } from "@floating-ui/react";
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
-import { getIsNewStudentParam } from "@/lib/enrollment-utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { useToast } from "@/contexts/ToastContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -299,7 +298,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
       const message =
         enrollment.enrollment_type === 'Summer' && enrollment.summer_application_id
           ? await fetchSummerFeeMessage(enrollment.summer_application_id)
-          : (await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid, getIsNewStudentParam(enrollment))).message;
+          : (await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid)).message;
       await navigator.clipboard.writeText(message);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
@@ -571,12 +570,14 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             </span>
           </div>
 
-          {/* New Student - not applicable to Trial */}
+          {/* New Student - not applicable to Trial. The fee is only claimed
+              when it was actually charged: a seasonal intake may collect it
+              from nobody. */}
           {enrollment.is_new_student && enrollment.enrollment_type !== 'Trial' && (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">New Student:</span>
               <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
-                +$100 Reg Fee
+                {enrollment.registration_fee === 0 ? "Yes" : "+$100 Reg Fee"}
               </span>
             </div>
           )}
