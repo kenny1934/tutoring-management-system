@@ -1669,3 +1669,26 @@ export function usePresence() {
   );
   return useMemo(() => new Set(data?.online || []), [data?.online]);
 }
+
+/**
+ * Exit-on-Escape for full-screen style surfaces. Listens on window only while
+ * `enabled`. Presses landing on a focused form control are ignored — inputs
+ * own their Escape (e.g. the student jump search closes its dropdown without
+ * stopping propagation). Callers fold "an overlay is open" into `enabled` so
+ * Esc keeps serving modals first.
+ */
+export function useEscapeKey(enabled: boolean, onEscape: () => void) {
+  const onEscapeRef = useRef(onEscape);
+  onEscapeRef.current = onEscape;
+  useEffect(() => {
+    if (!enabled) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      onEscapeRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [enabled]);
+}

@@ -5,11 +5,13 @@ import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useVisibilityAwareInterval } from "@/lib/hooks";
+import { usePageTitle, useVisibilityAwareInterval, useEscapeKey } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { BarChart3, Grid3X3, RefreshCw, Users, Users2, UploadCloud, X } from "lucide-react";
+import { useConfirmOpen } from "@/contexts/ConfirmContext";
+import { BarChart3, Grid3X3, Maximize2, RefreshCw, Users, Users2, UploadCloud, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import { regularAPI, tutorsAPI } from "@/lib/api";
+import { ArrangementFullScreenStrip } from "@/components/admin/ArrangementFullScreenStrip";
 import { RegularArrangementGrid } from "@/components/admin/RegularArrangementGrid";
 import { RegularUnassignedPanel } from "@/components/admin/RegularUnassignedPanel";
 import { RegularApplicationDetailModal } from "@/components/admin/RegularApplicationDetailModal";
@@ -90,6 +92,7 @@ export default function RegularArrangementPage() {
   usePageTitle("Regular Arrangement");
   const { canViewAdminPages: canView, isReadOnly: readOnly } = useAuth();
   const { showToast } = useToast();
+  const confirmDialogOpen = useConfirmOpen();
 
   const [configId, setConfigId] = useState<number | null>(null);
   const [location, setLocation] = useState<string>("");
@@ -111,6 +114,9 @@ export default function RegularArrangementPage() {
   const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(null);
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
   const [workloadOpen, setWorkloadOpen] = useState(false);
+  // Full screen: the page chrome collapses to a slim strip so the timetable
+  // takes the height. The app sidebar and the unassigned panel stay.
+  const [fullScreen, setFullScreen] = useState(false);
   // Search jump target. `seq` bumps on every pick so re-selecting the same
   // student rings the card again.
   const [slotTarget, setSlotTarget] = useState<{
@@ -151,6 +157,14 @@ export default function RegularArrangementPage() {
       }
     }
   }, [configs, configId, location]);
+
+  // Esc exits full screen unless an overlay above the board should get the
+  // key first. Form-control focus is handled inside useEscapeKey.
+  const overlayOpen =
+    dutyModalOpen || selectedAppId !== null || pendingDelete !== null ||
+    publishConfirmOpen || publishResult !== null || mobilePanelOpen ||
+    confirmDialogOpen;
+  useEscapeKey(fullScreen && !overlayOpen, () => setFullScreen(false));
 
   const activeConfig = configs?.find((c) => c.id === configId);
   const locations = activeConfig?.locations ?? [];
@@ -728,143 +742,166 @@ export default function RegularArrangementPage() {
 
   return (
     <DeskSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-2 sm:p-6">
+      <PageTransition className={cn("flex flex-col h-full", fullScreen ? "p-1 sm:p-2" : "p-2 sm:p-6")}>
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
-          {/* Header */}
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
-            {/* Row 1: Title + search + location + refresh. On mobile the search
-                wraps to its own full-width row via order-last + w-full; on sm+
-                it sits inline between the title and the location select. */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
-                  <span>Arrangement</span>
-                  {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
-                </h1>
-                <p className="hidden sm:block text-xs text-muted-foreground">
-                  Create weekly slots and assign applications. Publish once schedules are confirmed.
-                </p>
-              </div>
-              <StudentJumpSearch
-                entries={searchEntries}
-                onSelect={handleSearchSelect}
-                placeholder="Find student..."
-                className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
-              />
-              <select
-                value={location}
-                onChange={(e) => { setLocation(e.target.value); setPendingPlacementAppId(null); }}
-                className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
-                aria-label="Branch"
-              >
-                {locations.map((l) => (
-                  <option key={l.name} value={l.name}>
-                    {LOCATION_TO_CODE[l.name] || l.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={refreshAll}
-                disabled={isValidating}
-                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-                title="Refresh"
-                aria-label="Refresh arrangement data"
-              >
-                <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
-              </button>
-            </div>
-
-            {/* Row 2: Stats + actions */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span>{unassignedApps.length} unassigned</span>
-                <span>{assignedCount} assigned</span>
-                <span className="text-green-600 dark:text-green-400">{publishedCount} published</span>
-              </div>
-
-              <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
-
-              <div className="flex items-center gap-1 flex-wrap" role="group" aria-label="Filter by application status">
-                {ARRANGEMENT_STATUSES.map((status, i) => (
-                  <Fragment key={status}>
-                    {i === PRE_ARRANGEMENT_STATUSES.length && (
-                      <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
-                    )}
-                    <StatusFilterChip
-                      status={status}
-                      count={statusCounts[status] ?? 0}
-                      active={statusFilter === status}
-                      onToggle={() => handleStatusChipToggle(status)}
-                    />
-                  </Fragment>
-                ))}
-              </div>
-
-              <span className="hidden sm:block h-5 w-px bg-border" aria-hidden />
-
-              <PublishFilterDropdown
-                publishedFilter={publishedFilter}
-                onChangePublished={handlePublishedFilterChange}
-                statusFilter={statusFilter}
-                onChangeStatus={handleStatusFilterChange}
-              />
-
-              <div className="flex-1" />
-              {!readOnly && (
-                <button
-                  onClick={() => setDutyModalOpen(true)}
-                  disabled={!location}
-                  title="Tutor Duties"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Users2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Tutor Duties</span>
-                </button>
-              )}
-              <button
-                onClick={() => setWorkloadOpen((v) => !v)}
-                title={workloadOpen ? "Hide workload summary" : "Show workload summary"}
-                aria-pressed={workloadOpen}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors",
-                  workloadOpen
-                    ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
-                    : "border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800",
-                )}
-              >
-                <BarChart3 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Workload</span>
-              </button>
-              {!readOnly && (
-                <button
-                  onClick={() => setPublishConfirmOpen(true)}
-                  disabled={publishEligible.length === 0 || publishing}
-                  title={
-                    publishEligible.length === 0
-                      ? "Nothing is ready. An application has to be placed in a slot and have its fee message sent before it can be published."
-                      : `Publish ${publishEligible.length} placed application${publishEligible.length === 1 ? "" : "s"} whose fee message has been sent. Anything still earlier on the ladder is left alone.`
-                  }
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <UploadCloud className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Publish ready</span>
-                  <span className="sm:hidden">Publish</span>
-                  {publishEligible.length > 0 && (
-                    <span className="tabular-nums">({publishEligible.length})</span>
-                  )}
-                </button>
-              )}
-            </div>
-
-            <TutorWorkloadPanel
-              slots={slots ?? []}
-              open={workloadOpen}
-              studentsIn={regularStudentsIn}
+          {/* Header. Full screen swaps the two rows for the shared slim strip
+              so the timetable keeps the height. */}
+          {fullScreen ? (
+            <ArrangementFullScreenStrip
+              entries={searchEntries}
+              onSearchSelect={handleSearchSelect}
+              locations={locations}
+              location={location}
+              onLocationChange={(name) => { setLocation(name); setPendingPlacementAppId(null); }}
+              refreshing={isValidating}
+              onRefresh={refreshAll}
+              onExit={() => setFullScreen(false)}
             />
-          </div>
+          ) : (
+            <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+              {/* Row 1: Title + search + location + refresh. On mobile the search
+                  wraps to its own full-width row via order-last + w-full; on sm+
+                  it sits inline between the title and the location select. */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
+                    <span>Arrangement</span>
+                    {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
+                  </h1>
+                  <p className="hidden sm:block text-xs text-muted-foreground">
+                    Create weekly slots and assign applications. Publish once schedules are confirmed.
+                  </p>
+                </div>
+                <StudentJumpSearch
+                  entries={searchEntries}
+                  onSelect={handleSearchSelect}
+                  placeholder="Find student..."
+                  className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
+                />
+                <select
+                  value={location}
+                  onChange={(e) => { setLocation(e.target.value); setPendingPlacementAppId(null); }}
+                  className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
+                  aria-label="Branch"
+                >
+                  {locations.map((l) => (
+                    <option key={l.name} value={l.name}>
+                      {LOCATION_TO_CODE[l.name] || l.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={refreshAll}
+                  disabled={isValidating}
+                  className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  title="Refresh"
+                  aria-label="Refresh arrangement data"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
+                </button>
+              </div>
+
+              {/* Row 2: Stats + actions */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <span>{unassignedApps.length} unassigned</span>
+                  <span>{assignedCount} assigned</span>
+                  <span className="text-green-600 dark:text-green-400">{publishedCount} published</span>
+                </div>
+
+                <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+                <div className="flex items-center gap-1 flex-wrap" role="group" aria-label="Filter by application status">
+                  {ARRANGEMENT_STATUSES.map((status, i) => (
+                    <Fragment key={status}>
+                      {i === PRE_ARRANGEMENT_STATUSES.length && (
+                        <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
+                      )}
+                      <StatusFilterChip
+                        status={status}
+                        count={statusCounts[status] ?? 0}
+                        active={statusFilter === status}
+                        onToggle={() => handleStatusChipToggle(status)}
+                      />
+                    </Fragment>
+                  ))}
+                </div>
+
+                <span className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+                <PublishFilterDropdown
+                  publishedFilter={publishedFilter}
+                  onChangePublished={handlePublishedFilterChange}
+                  statusFilter={statusFilter}
+                  onChangeStatus={handleStatusFilterChange}
+                />
+
+                <div className="flex-1" />
+                {/* Secondary actions stay icon-only; only Publish, which
+                    changes data, keeps its label. */}
+                {!readOnly && (
+                  <button
+                    onClick={() => setDutyModalOpen(true)}
+                    disabled={!location}
+                    title="Tutor duties"
+                    aria-label="Tutor duties"
+                    className="p-1.5 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Users2 className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setWorkloadOpen((v) => !v)}
+                  title={workloadOpen ? "Hide workload summary" : "Show workload summary"}
+                  aria-pressed={workloadOpen}
+                  className={cn(
+                    "p-1.5 rounded-lg border transition-colors",
+                    workloadOpen
+                      ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                      : "border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800",
+                  )}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setFullScreen(true)}
+                  title="Full screen (Esc to exit)"
+                  aria-label="Full screen"
+                  className="p-1.5 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => setPublishConfirmOpen(true)}
+                    disabled={publishEligible.length === 0 || publishing}
+                    title={
+                      publishEligible.length === 0
+                        ? "Nothing is ready. An application has to be placed in a slot and have its fee message sent before it can be published."
+                        : `Publish ${publishEligible.length} placed application${publishEligible.length === 1 ? "" : "s"} whose fee message has been sent. Anything still earlier on the ladder is left alone.`
+                    }
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <UploadCloud className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Publish ready</span>
+                    <span className="sm:hidden">Publish</span>
+                    {publishEligible.length > 0 && (
+                      <span className="tabular-nums">({publishEligible.length})</span>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              <TutorWorkloadPanel
+                slots={slots ?? []}
+                open={workloadOpen}
+                studentsIn={regularStudentsIn}
+              />
+            </div>
+          )}
 
           {/* Main content: grid + unassigned panel */}
           {isLoading ? (
@@ -873,7 +910,7 @@ export default function RegularArrangementPage() {
             </div>
           ) : (
             <>
-              <div className="flex gap-4 flex-1 min-h-0 p-2 sm:p-4">
+              <div className={cn("flex gap-4 flex-1 min-h-0", fullScreen ? "p-2" : "p-2 sm:p-4")}>
                 <div className="flex-1 min-w-0 min-h-0 flex flex-col">
                   <RegularArrangementGrid
                     days={days}
