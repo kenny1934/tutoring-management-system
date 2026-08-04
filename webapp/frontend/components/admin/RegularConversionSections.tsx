@@ -475,7 +475,7 @@ export function RegularConversionChaseList({
                     if (full) setSelected(full);
                   }}
                 >
-                  <td className="px-3 py-2 font-medium text-primary">{r.student_name}</td>
+                  <td className="px-3 py-2 font-semibold text-foreground">{r.student_name}</td>
                   <td className="px-3 py-2 font-mono text-muted-foreground">{r.code}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.grade || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate" title={r.school || undefined}>{r.school || "-"}</td>
