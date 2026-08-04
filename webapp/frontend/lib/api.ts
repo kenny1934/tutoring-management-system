@@ -195,6 +195,7 @@ import type {
   PrimaryProspectBulkCreate,
   PrimaryProspectStats,
   PrimaryProspectMatchResult,
+  ProspectCourse,
   BuddyMember,
   BuddyMemberCreate,
   BuddyMemberUpdate,
@@ -2788,7 +2789,8 @@ export const prospectsAPI = {
     outreach_status?: string;
     wants_summer?: string;
     wants_regular?: string;
-    linked?: string;
+    summer_state?: string;
+    regular_state?: string;
     has_wechat?: string;
     search?: string;
   }) => {
@@ -2798,7 +2800,8 @@ export const prospectsAPI = {
     if (params.outreach_status) qs.set("outreach_status", params.outreach_status);
     if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
     if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
-    if (params.linked) qs.set("linked", params.linked);
+    if (params.summer_state) qs.set("summer_state", params.summer_state);
+    if (params.regular_state) qs.set("regular_state", params.regular_state);
     if (params.has_wechat) qs.set("has_wechat", params.has_wechat);
     if (params.search) qs.set("search", params.search);
     return fetchAPI<PrimaryProspect[]>(`/prospects/admin?${qs}`);
@@ -2825,7 +2828,8 @@ export const prospectsAPI = {
     outreach_status?: string;
     wants_summer?: string;
     wants_regular?: string;
-    linked?: string;
+    summer_state?: string;
+    regular_state?: string;
     has_wechat?: string;
     search?: string;
   }) => {
@@ -2834,7 +2838,8 @@ export const prospectsAPI = {
     if (params.outreach_status) qs.set("outreach_status", params.outreach_status);
     if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
     if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
-    if (params.linked) qs.set("linked", params.linked);
+    if (params.summer_state) qs.set("summer_state", params.summer_state);
+    if (params.regular_state) qs.set("regular_state", params.regular_state);
     if (params.has_wechat) qs.set("has_wechat", params.has_wechat);
     if (params.search) qs.set("search", params.search);
     return fetchAPI<PrimaryProspectStats[]>(`/prospects/admin/stats?${qs}`);
@@ -2857,7 +2862,24 @@ export const prospectsAPI = {
       `/prospects/admin/regular-auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
       { method: "POST" },
     ),
+
+  // Course-parameterized wrappers so components pass a course through instead
+  // of branching on which endpoint or link field belongs to which course.
+  findCourseMatches: (id: number, course: ProspectCourse) =>
+    course === "summer" ? prospectsAPI.findMatches(id) : prospectsAPI.findRegularMatches(id),
+
+  linkCourseApplication: (id: number, course: ProspectCourse, applicationId: number | null) =>
+    prospectsAPI.adminUpdate(
+      id,
+      course === "summer" ? { summer_application_id: applicationId } : { regular_application_id: applicationId },
+    ),
 };
+
+// Deep link into an applications page with its search box prefilled. Both
+// pages read the ?q= param — this helper owns that contract for every link
+// from the prospects surfaces.
+export const applicationSearchHref = (course: ProspectCourse, ref: string | null | undefined) =>
+  `/admin/${course}/applications?q=${encodeURIComponent(ref || "")}`;
 
 export const buddyTrackerAPI = {
   verifyPin: (branch: string, pin: string) =>

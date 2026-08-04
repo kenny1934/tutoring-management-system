@@ -27,7 +27,8 @@ import {
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { prospectsAPI, summerAPI } from "@/lib/api";
+import { applicationSearchHref, prospectsAPI, summerAPI } from "@/lib/api";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { parseHKTimestamp, formatTimeAgo, wasEdited } from "@/lib/formatters";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
@@ -37,6 +38,8 @@ import {
   BranchBadges,
   CopyableCell,
   ProspectStatusBadge,
+  CourseStateBadge,
+  COURSE_STATE_FILTER_LABELS,
   INTENTION_LABELS,
   OUTREACH_BADGE_COLORS,
   STATUS_BADGE_COLORS,
@@ -52,6 +55,9 @@ import { usePortalPopover } from "@/hooks/usePortalPopover";
 import type {
   PrimaryProspect,
   PrimaryProspectStats,
+  ProspectCourse,
+  ProspectCourseState,
+  ProspectIntention,
   ProspectOutreachStatus,
   ProspectStatus,
 } from "@/types";
@@ -63,6 +69,9 @@ import {
 
 const inputSmall =
   "text-xs border-2 border-border rounded-lg px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary transition-colors duration-200";
+
+// Widened index type: URL params arrive as plain strings.
+const STATE_FILTER_LABELS: Record<string, string> = COURSE_STATE_FILTER_LABELS;
 
 
 // ---- Main Page ----
@@ -89,6 +98,8 @@ const SORT_KEYS = [
   "tutor_name",
   "outreach_status",
   "status",
+  "summer_state",
+  "regular_state",
   "submitted_at",
 ] as const;
 type SortKey = typeof SORT_KEYS[number];
@@ -109,6 +120,8 @@ function getSortValue(p: PrimaryProspect, key: SortKey): string | number | null 
     case "tutor_name": return p.tutor_name;
     case "outreach_status": return p.outreach_status;
     case "status": return p.status;
+    case "summer_state": return p.summer_state;
+    case "regular_state": return p.regular_state;
     case "submitted_at": return p.submitted_at;
   }
 }
@@ -143,7 +156,8 @@ export default function AdminProspectsPage() {
     outreach_status: searchParams.get("outreach") ?? "",
     wants_summer: searchParams.get("wantsSummer") ?? "",
     wants_regular: searchParams.get("wantsRegular") ?? "",
-    linked: searchParams.get("linked") ?? "",
+    summer_state: searchParams.get("summerState") ?? "",
+    regular_state: searchParams.get("regularState") ?? "",
     has_wechat: searchParams.get("wechat") ?? "",
     search: searchParams.get("q") ?? "",
   }));
@@ -215,7 +229,7 @@ export default function AdminProspectsPage() {
   }, [searchInput]);
 
   const swrKey = tab === "list" && year
-    ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search]
+    ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search]
     : null;
   const { data: prospects, isLoading } = useSWR(
     swrKey,
@@ -226,7 +240,8 @@ export default function AdminProspectsPage() {
       outreach_status: filters.outreach_status || undefined,
       wants_summer: filters.wants_summer || undefined,
       wants_regular: filters.wants_regular || undefined,
-      linked: filters.linked || undefined,
+      summer_state: filters.summer_state || undefined,
+      regular_state: filters.regular_state || undefined,
       has_wechat: filters.has_wechat || undefined,
       search: filters.search || undefined,
     }),
@@ -303,7 +318,8 @@ export default function AdminProspectsPage() {
     if (filters.outreach_status) params.set("outreach", filters.outreach_status);
     if (filters.wants_summer) params.set("wantsSummer", filters.wants_summer);
     if (filters.wants_regular) params.set("wantsRegular", filters.wants_regular);
-    if (filters.linked) params.set("linked", filters.linked);
+    if (filters.summer_state) params.set("summerState", filters.summer_state);
+    if (filters.regular_state) params.set("regularState", filters.regular_state);
     if (filters.has_wechat) params.set("wechat", filters.has_wechat);
     if (filters.search) params.set("q", filters.search);
     if (sortBy !== "submitted_at") params.set("sort", sortBy);
@@ -327,7 +343,7 @@ export default function AdminProspectsPage() {
   // Stats key includes all filters except `branch` — the pills themselves
   // are the branch axis, so including it would zero every other pill.
   const statsKey = year
-    ? ["admin-prospect-stats", year, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search]
+    ? ["admin-prospect-stats", year, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search]
     : null;
   const { data: stats } = useSWR(
     statsKey,
@@ -337,7 +353,8 @@ export default function AdminProspectsPage() {
       outreach_status: filters.outreach_status || undefined,
       wants_summer: filters.wants_summer || undefined,
       wants_regular: filters.wants_regular || undefined,
-      linked: filters.linked || undefined,
+      summer_state: filters.summer_state || undefined,
+      regular_state: filters.regular_state || undefined,
       has_wechat: filters.has_wechat || undefined,
       search: filters.search || undefined,
     }),
@@ -410,7 +427,7 @@ export default function AdminProspectsPage() {
   );
 
   // Clear selection when filters change so we don't act on hidden rows
-  const filterFingerprint = `${filters.branch}|${filters.status}|${filters.outreach_status}|${filters.wants_summer}|${filters.wants_regular}|${filters.linked}|${filters.has_wechat}|${filters.search}|${choice.join(",")}`;
+  const filterFingerprint = `${filters.branch}|${filters.status}|${filters.outreach_status}|${filters.wants_summer}|${filters.wants_regular}|${filters.summer_state}|${filters.regular_state}|${filters.has_wechat}|${filters.search}|${choice.join(",")}`;
   useEffect(() => {
     setSelectedIds(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -438,12 +455,17 @@ export default function AdminProspectsPage() {
     }
   }, [year]);
 
-  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.linked, filters.has_wechat, filters.search].filter(Boolean).length + choice.length;
+  const activeFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search].filter(Boolean).length + choice.length;
+
+  // Badge on the desktop Filters button counts only the selects that live
+  // inside its popover — search and branch choice have their own visible
+  // controls in the toolbar.
+  const selectFilterCount = [filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat].filter(Boolean).length;
 
   const clearAllFilters = useCallback(() => {
     setSearchInput("");
     setChoice([]);
-    setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", linked: "", has_wechat: "", search: "" }));
+    setFilters((f) => ({ ...f, status: "", outreach_status: "", wants_summer: "", wants_regular: "", summer_state: "", regular_state: "", has_wechat: "", search: "" }));
   }, []);
 
   // Active filter chip descriptors (for the chip strip above the table)
@@ -466,12 +488,12 @@ export default function AdminProspectsPage() {
     });
     if (filters.wants_summer) chips.push({
       key: "wants_summer",
-      label: `Summer: ${filters.wants_summer}`,
+      label: `Wants summer: ${INTENTION_LABELS[filters.wants_summer as ProspectIntention] || filters.wants_summer}`,
       onRemove: () => setFilters((f) => ({ ...f, wants_summer: "" })),
     });
     if (filters.wants_regular) chips.push({
       key: "wants_regular",
-      label: `Regular: ${filters.wants_regular}`,
+      label: `Wants regular: ${INTENTION_LABELS[filters.wants_regular as ProspectIntention] || filters.wants_regular}`,
       onRemove: () => setFilters((f) => ({ ...f, wants_regular: "" })),
     });
     if (filters.outreach_status) chips.push({
@@ -484,10 +506,15 @@ export default function AdminProspectsPage() {
       label: `Status: ${filters.status}`,
       onRemove: () => setFilters((f) => ({ ...f, status: "" })),
     });
-    if (filters.linked) chips.push({
-      key: "linked",
-      label: filters.linked === "linked" ? "Linked" : "Unlinked",
-      onRemove: () => setFilters((f) => ({ ...f, linked: "" })),
+    if (filters.summer_state) chips.push({
+      key: "summer_state",
+      label: `Summer: ${STATE_FILTER_LABELS[filters.summer_state] || filters.summer_state}`,
+      onRemove: () => setFilters((f) => ({ ...f, summer_state: "" })),
+    });
+    if (filters.regular_state) chips.push({
+      key: "regular_state",
+      label: `Regular: ${STATE_FILTER_LABELS[filters.regular_state] || filters.regular_state}`,
+      onRemove: () => setFilters((f) => ({ ...f, regular_state: "" })),
     });
     if (filters.has_wechat) chips.push({
       key: "has_wechat",
@@ -632,7 +659,28 @@ export default function AdminProspectsPage() {
                 className={`${inputSmall} pl-8 w-52`}
               />
             </div>
-            <FilterSelects filters={filters} setFilters={setFilters} className="contents" />
+            <DropdownMenu
+              align="left"
+              menuClassName="w-[380px] p-3"
+              trigger={({ open, triggerProps }) => (
+                <button
+                  {...triggerProps}
+                  className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    selectFilterCount > 0 || open
+                      ? "border-primary/50 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  }`}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  Filters
+                  {selectFilterCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary text-white">{selectFilterCount}</span>
+                  )}
+                </button>
+              )}
+            >
+              {() => <FilterPanel filters={filters} setFilters={setFilters} />}
+            </DropdownMenu>
             {activeFilterCount > 0 && (
               <button
                 onClick={clearAllFilters}
@@ -774,7 +822,8 @@ export default function AdminProspectsPage() {
                       {colVisible("notes") && <th className="px-2 py-2 text-left text-xs font-medium text-foreground" title="Admin contact notes"><span className="inline-flex items-center gap-1"><MessageSquare className="h-3 w-3" />Notes</span></th>}
                       <SortTh label="Outreach" sortKey="outreach_status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <SortTh label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
-                      <th className="px-2 py-2 text-left text-xs font-medium text-foreground">Linked</th>
+                      <SortTh label="Summer" sortKey="summer_state" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
+                      <SortTh label="Regular" sortKey="regular_state" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                       <SortTh label="Updated" icon={<Clock className="h-3 w-3" />} sortKey="submitted_at" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
                     </tr>
                   </thead>
@@ -816,7 +865,8 @@ export default function AdminProspectsPage() {
               outreach_status: "",
               wants_summer: "",
               wants_regular: "",
-              linked: "",
+              summer_state: "",
+              regular_state: "",
               has_wechat: "",
               search: f.search,
               ...patch,
@@ -882,65 +932,104 @@ type FiltersShape = {
   outreach_status: string;
   wants_summer: string;
   wants_regular: string;
-  linked: string;
+  summer_state: string;
+  regular_state: string;
   has_wechat: string;
   search: string;
 };
 
-function FilterSelects({
+const filterGroupHeading = "text-[10px] font-semibold text-muted-foreground uppercase tracking-wider";
+
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-2">
+      <span className="w-14 shrink-0 text-[11px] text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+// Grouped filter selects — shared by the desktop Filters popover and the
+// mobile filter drawer. Field labels live outside the selects so every
+// select can open with a plain "All".
+function FilterPanel({
   filters,
   setFilters,
-  className = "",
 }: {
   filters: FiltersShape;
   setFilters: React.Dispatch<React.SetStateAction<FiltersShape>>;
-  className?: string;
 }) {
+  const select = `${inputSmall} flex-1 min-w-0`;
   return (
-    <div className={className}>
-      <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={inputSmall}>
-        <option value="">Summer: All</option>
-        {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
-      </select>
-      <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={inputSmall}>
-        <option value="">Regular: All</option>
-        {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
-      </select>
-      <select value={filters.has_wechat} onChange={(e) => setFilters((f) => ({ ...f, has_wechat: e.target.value }))} className={inputSmall}>
-        <option value="">WeChat: All</option>
-        <option value="yes">Has WeChat</option>
-        <option value="no">No WeChat</option>
-      </select>
-      <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={inputSmall}>
-        <option value="">Outreach: All</option>
-        {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
-      </select>
-      <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={inputSmall}>
-        <option value="">Status: All</option>
-        {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
-      </select>
-      <select value={filters.linked} onChange={(e) => setFilters((f) => ({ ...f, linked: e.target.value }))} className={inputSmall}>
-        <option value="">Linked: All</option>
-        <option value="linked">Linked</option>
-        <option value="unlinked">Unlinked</option>
-      </select>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <div className={filterGroupHeading}>Summer</div>
+        <div className={filterGroupHeading}>Regular</div>
+        <FilterField label="Intent">
+          <select value={filters.wants_summer} onChange={(e) => setFilters((f) => ({ ...f, wants_summer: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+          </select>
+        </FilterField>
+        <FilterField label="Intent">
+          <select value={filters.wants_regular} onChange={(e) => setFilters((f) => ({ ...f, wants_regular: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {INTENTION_OPTIONS.map((i) => (<option key={i} value={i}>{INTENTION_LABELS[i]}</option>))}
+          </select>
+        </FilterField>
+        <FilterField label="Journey">
+          <select value={filters.summer_state} onChange={(e) => setFilters((f) => ({ ...f, summer_state: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
+          </select>
+        </FilterField>
+        <FilterField label="Journey">
+          <select value={filters.regular_state} onChange={(e) => setFilters((f) => ({ ...f, regular_state: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {Object.entries(STATE_FILTER_LABELS).map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
+          </select>
+        </FilterField>
+      </div>
+      <div className="space-y-2">
+        <div className={filterGroupHeading}>Contact</div>
+        <FilterField label="WeChat">
+          <select value={filters.has_wechat} onChange={(e) => setFilters((f) => ({ ...f, has_wechat: e.target.value }))} className={select}>
+            <option value="">All</option>
+            <option value="yes">Has WeChat</option>
+            <option value="no">No WeChat</option>
+          </select>
+        </FilterField>
+        <FilterField label="Outreach">
+          <select value={filters.outreach_status} onChange={(e) => setFilters((f) => ({ ...f, outreach_status: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {OUTREACH_OPTIONS.map((o) => (<option key={o} value={o}>{o}</option>))}
+          </select>
+        </FilterField>
+        <FilterField label="Status">
+          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={select}>
+            <option value="">All</option>
+            {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
+          </select>
+        </FilterField>
+      </div>
     </div>
   );
 }
 
-function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinked: () => void }) {
+function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number; course: ProspectCourse; onLinked: () => void }) {
   const [open, setOpen] = useState(false);
   const [linking, setLinking] = useState<number | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
   const close = useCallback(() => setOpen(false), []);
-  // Linked column sits at the far right of the table — anchor the popover
+  // Course columns sit at the far right of the table — anchor the popover
   // to the trigger's right edge so it grows leftward instead of overflowing.
   const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
 
-  // Lazy + cached + deduped via SWR. Fetches only when the popover opens.
+  // Lazy + cached via SWR. Fetches only when the popover opens; the key is
+  // shared with the detail modal so either surface reuses the other's fetch.
   const { data, error, isLoading } = useSWR(
-    open ? ["prospect-matches", prospectId] : null,
-    () => prospectsAPI.findMatches(prospectId),
+    open ? ["prospect-matches", course, prospectId] : null,
+    () => prospectsAPI.findCourseMatches(prospectId, course),
     { revalidateOnFocus: false }
   );
   const matches = data?.matches;
@@ -949,7 +1038,7 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
     setLinking(applicationId);
     setLinkError(null);
     try {
-      await prospectsAPI.adminUpdate(prospectId, { summer_application_id: applicationId, status: "Applied" });
+      await prospectsAPI.linkCourseApplication(prospectId, course, applicationId);
       setOpen(false);
       onLinked();
     } catch (err) {
@@ -965,7 +1054,7 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        title="Find and link a summer application"
+        title={`Find and link a ${course} application`}
         className="text-[10px] font-medium text-muted-foreground hover:text-primary px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors"
       >
         + Link
@@ -1015,6 +1104,46 @@ function QuickLinkButton({ prospectId, onLinked }: { prospectId: number; onLinke
         document.body
       )}
     </>
+  );
+}
+
+// One course's table cell: linked state badge as a deep link into the
+// applications page, or the quick-link popover when unlinked and editable.
+function CourseCell({
+  course,
+  appId,
+  refCode,
+  state,
+  prospectId,
+  readOnly,
+  onRefresh,
+}: {
+  course: ProspectCourse;
+  appId: number | null;
+  refCode: string | null;
+  state: ProspectCourseState | null;
+  prospectId: number;
+  readOnly?: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+      {appId ? (
+        <a
+          href={applicationSearchHref(course, refCode)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={refCode || "Linked"}
+          className="inline-flex hover:opacity-80 transition-opacity"
+        >
+          <CourseStateBadge state={state} />
+        </a>
+      ) : !readOnly ? (
+        <QuickLinkButton prospectId={prospectId} course={course} onLinked={onRefresh} />
+      ) : (
+        <CourseStateBadge state={null} />
+      )}
+    </td>
   );
 }
 
@@ -1122,7 +1251,18 @@ function ProspectCard({
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <OutreachBadge status={p.outreach_status} />
             <ProspectStatusBadge status={p.status} />
-            {p.summer_application_id && <Link2 className="h-3.5 w-3.5 text-green-600" />}
+            {p.summer_state && (
+              <span className="inline-flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Summer</span>
+                <CourseStateBadge state={p.summer_state} />
+              </span>
+            )}
+            {p.regular_state && (
+              <span className="inline-flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Reg</span>
+                <CourseStateBadge state={p.regular_state} />
+              </span>
+            )}
             <span className="ml-auto text-[10px] text-muted-foreground">
               {p.submitted_at ? formatTimeAgo(p.submitted_at) : ""}
             </span>
@@ -1244,23 +1384,8 @@ const ProspectRow = memo(function ProspectRow({
           />
         )}
       </td>
-      <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-        {p.summer_application_id ? (
-          <a
-            href={`/admin/summer/applications?search=${encodeURIComponent(p.matched_application_ref || "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={p.matched_application_ref || "Linked"}
-            className="inline-flex"
-          >
-            <Link2 className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
-          </a>
-        ) : !readOnly ? (
-          <QuickLinkButton prospectId={p.id} onLinked={onRefresh} />
-        ) : (
-          <span className="text-xs text-muted-foreground/60">—</span>
-        )}
-      </td>
+      <CourseCell course="summer" appId={p.summer_application_id} refCode={p.matched_application_ref} state={p.summer_state} prospectId={p.id} readOnly={readOnly} onRefresh={onRefresh} />
+      <CourseCell course="regular" appId={p.regular_application_id} refCode={p.matched_regular_ref} state={p.regular_state} prospectId={p.id} readOnly={readOnly} onRefresh={onRefresh} />
       <td
         className="px-2 py-2 text-[10px] text-muted-foreground"
         title={[
@@ -1470,7 +1595,7 @@ function MobileFilterDrawer({
               })}
             </div>
           </div>
-          <FilterSelects filters={filters} setFilters={setFilters} className="grid grid-cols-2 gap-2" />
+          <FilterPanel filters={filters} setFilters={setFilters} />
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
           <span className="text-xs text-muted-foreground">{activeFilterCount} active</span>

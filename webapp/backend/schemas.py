@@ -3187,6 +3187,10 @@ class PrimaryProspectResponse(BaseModel):
     # Joined from regular_application when matched
     matched_regular_ref: Optional[str] = None
     matched_regular_status: Optional[str] = None
+    # Derived course journey states (never stored): None when unlinked,
+    # else applied | enrolled | withdrawn.
+    summer_state: Optional[str] = None
+    regular_state: Optional[str] = None
 # Student Progress Schemas
 # ============================================
 
@@ -3377,15 +3381,17 @@ class PrimaryProspectBulkOutreach(BaseModel):
 
 
 class PrimaryProspectStats(BaseModel):
-    """Funnel stats per branch."""
+    """Funnel stats per branch. Applied and Enrolled are exclusive states
+    (applied = live application, no enrollment yet), so each dashboard cell
+    equals the filtered list it jumps to."""
     branch: str
     total: int = 0
     wants_summer_yes: int = 0
     wants_summer_considering: int = 0
     wants_regular_yes: int = 0
     wants_regular_considering: int = 0
-    matched_to_application: int = 0
-    # Regular-intake outcomes for the dashboard funnel.
+    applied_summer: int = 0
+    enrolled_summer: int = 0
     applied_regular: int = 0
     enrolled_regular: int = 0
     outreach_not_started: int = 0

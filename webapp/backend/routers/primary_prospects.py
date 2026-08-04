@@ -9,10 +9,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import func, or_, case
+from sqlalchemy import exists, or_
 from sqlalchemy.orm import Session, joinedload
 
-from constants import hk_now
+from constants import hk_now, APPLICATION_EXIT_STATUSES
 from database import get_db
 from models import (
     PrimaryProspect,
@@ -50,8 +50,10 @@ _empty_pins = [b for b, p in BRANCH_PINS.items() if not p]
 if _empty_pins:
     logger.warning("Missing PROSPECT_PIN env vars for branches: %s — PIN auth will fail for these", ", ".join(_empty_pins))
 VALID_OUTREACH = {"Not Started", "WeChat - Not Found", "WeChat - Cannot Add", "WeChat - Added", "Called", "No Response"}
-VALID_STATUS = {"New", "Contacted", "Interested", "Applied", "Enrolled", "Declined"}
-
+# Relationship stages only. Applied/enrolled per course are derived from the
+# application links (summer_state / regular_state), never stored here.
+VALID_STATUS = {"New", "Contacted", "Interested", "Declined"}
+VALID_COURSE_STATE = {"none", "applied", "enrolled", "withdrawn"}
 
 
 # ---- Helpers ----
@@ -65,7 +67,54 @@ def _check_pin(request: Request, branch: str):
         logger.warning("Failed PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
-def _prospect_to_response(p: PrimaryProspect) -> dict:
+def _derive_state(app, enrolled_ids: set) -> Optional[str]:
+    """Course journey state for one linked application, or None when unlinked.
+
+    Enrollment-row existence is the enrolled signal (unpublish deletes the
+    row); a Withdrawn/Rejected application is a dead end regardless of any
+    leftover row. `enrolled_ids` is the matching course's set from
+    _enrollment_backed_ids.
+    """
+    if app is None:
+        return None
+    if app.application_status in APPLICATION_EXIT_STATUSES:
+        return "withdrawn"
+    if app.id in enrolled_ids:
+        return "enrolled"
+    return "applied"
+
+
+def _enrollment_backed_ids(db: Session, prospects: list) -> tuple[set[int], set[int]]:
+    """Among these prospects' linked applications, the (summer, regular)
+    application ids that published an enrollment. Two queries total, so list
+    endpoints derive every row's course states without an N+1."""
+    def backed(col, ids: set) -> set:
+        if not ids:
+            return set()
+        return {i for (i,) in db.query(col).filter(col.in_(ids)) if i is not None}
+    return (
+        backed(Enrollment.summer_application_id, {p.summer_application_id for p in prospects if p.summer_application_id}),
+        backed(Enrollment.regular_application_id, {p.regular_application_id for p in prospects if p.regular_application_id}),
+    )
+
+
+def _linked_app_loads():
+    """Eager-load options for both application links, trimmed to the two
+    columns responses actually read — the application tables are wide (Text
+    and JSON columns) and everything else would be fetched for nothing."""
+    return (
+        joinedload(PrimaryProspect.summer_application).load_only(
+            SummerApplication.reference_code, SummerApplication.application_status),
+        joinedload(PrimaryProspect.regular_application).load_only(
+            RegularApplication.reference_code, RegularApplication.application_status),
+    )
+
+
+def _prospect_to_response(
+    p: PrimaryProspect,
+    enrolled_summer_ids: set[int],
+    enrolled_regular_ids: set[int],
+) -> dict:
     """Convert a PrimaryProspect ORM object to response dict with matched application info."""
     data = {
         "id": p.id,
@@ -100,6 +149,8 @@ def _prospect_to_response(p: PrimaryProspect) -> dict:
         "matched_application_status": None,
         "matched_regular_ref": None,
         "matched_regular_status": None,
+        "summer_state": _derive_state(p.summer_application, enrolled_summer_ids),
+        "regular_state": _derive_state(p.regular_application, enrolled_regular_ids),
     }
     if p.summer_application:
         data["matched_application_ref"] = p.summer_application.reference_code
@@ -108,6 +159,12 @@ def _prospect_to_response(p: PrimaryProspect) -> dict:
         data["matched_regular_ref"] = p.regular_application.reference_code
         data["matched_regular_status"] = p.regular_application.application_status
     return data
+
+
+def _single_response(db: Session, p: PrimaryProspect) -> dict:
+    """_prospect_to_response for one prospect, deriving its course states."""
+    enrolled_summer, enrolled_regular = _enrollment_backed_ids(db, [p])
+    return _prospect_to_response(p, enrolled_summer, enrolled_regular)
 
 
 # ---- Public endpoints (PIN-protected) ----
@@ -195,12 +252,15 @@ def list_prospects(
 
     prospects = (
         db.query(PrimaryProspect)
-        .options(joinedload(PrimaryProspect.summer_application))
+        .options(
+            *_linked_app_loads(),
+        )
         .filter(PrimaryProspect.source_branch == branch, PrimaryProspect.year == year)
         .order_by(PrimaryProspect.id)
         .all()
     )
-    return [_prospect_to_response(p) for p in prospects]
+    enrolled_summer, enrolled_regular = _enrollment_backed_ids(db, prospects)
+    return [_prospect_to_response(p, enrolled_summer, enrolled_regular) for p in prospects]
 
 
 @router.patch("/{prospect_id}")
@@ -246,7 +306,7 @@ def update_prospect(
 
     db.commit()
     db.refresh(prospect)
-    return _prospect_to_response(prospect)
+    return _single_response(db, prospect)
 
 
 @router.delete("/{prospect_id}")
@@ -276,6 +336,26 @@ def delete_prospect(
 
 # ---- Admin endpoints (auth required) ----
 
+def _course_state_predicate(state: str, link_col, rel, app_model):
+    """Filter predicate matching _derive_state for one course.
+
+    `rel`/`app_model` name the course's application relationship. The dead
+    and enrolled signals are built here so the recipe exists once for both
+    courses; the correlated EXISTS relies on Enrollment naming its FK the
+    same as the prospect link column.
+    """
+    dead = rel.has(app_model.application_status.in_(APPLICATION_EXIT_STATUSES))
+    enrolled = exists().where(getattr(Enrollment, link_col.key) == link_col)
+    if state == "none":
+        return link_col.is_(None)
+    if state == "withdrawn":
+        return dead
+    if state == "enrolled":
+        return link_col.isnot(None) & ~dead & enrolled
+    # applied: live link that has not published an enrollment
+    return link_col.isnot(None) & ~dead & ~enrolled
+
+
 def _apply_admin_filters(
     q,
     *,
@@ -284,7 +364,8 @@ def _apply_admin_filters(
     outreach_status: Optional[str] = None,
     wants_summer: Optional[str] = None,
     wants_regular: Optional[str] = None,
-    linked: Optional[str] = None,
+    summer_state: Optional[str] = None,
+    regular_state: Optional[str] = None,
     has_wechat: Optional[str] = None,
     search: Optional[str] = None,
 ):
@@ -300,10 +381,14 @@ def _apply_admin_filters(
         q = q.filter(PrimaryProspect.wants_summer == wants_summer)
     if wants_regular:
         q = q.filter(PrimaryProspect.wants_regular == wants_regular)
-    if linked == "linked":
-        q = q.filter(PrimaryProspect.summer_application_id.isnot(None))
-    elif linked == "unlinked":
-        q = q.filter(PrimaryProspect.summer_application_id.is_(None))
+    if summer_state in VALID_COURSE_STATE:
+        q = q.filter(_course_state_predicate(
+            summer_state, PrimaryProspect.summer_application_id,
+            PrimaryProspect.summer_application, SummerApplication))
+    if regular_state in VALID_COURSE_STATE:
+        q = q.filter(_course_state_predicate(
+            regular_state, PrimaryProspect.regular_application_id,
+            PrimaryProspect.regular_application, RegularApplication))
     if has_wechat == "yes":
         q = q.filter(PrimaryProspect.wechat_id.isnot(None), PrimaryProspect.wechat_id != "")
     elif has_wechat == "no":
@@ -328,7 +413,8 @@ def admin_list_prospects(
     outreach_status: Optional[str] = Query(None),
     wants_summer: Optional[str] = Query(None),
     wants_regular: Optional[str] = Query(None),
-    linked: Optional[str] = Query(None),
+    summer_state: Optional[str] = Query(None),
+    regular_state: Optional[str] = Query(None),
     has_wechat: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
@@ -342,12 +428,20 @@ def admin_list_prospects(
         outreach_status=outreach_status,
         wants_summer=wants_summer,
         wants_regular=wants_regular,
-        linked=linked,
+        summer_state=summer_state,
+        regular_state=regular_state,
         has_wechat=has_wechat,
         search=search,
     )
-    prospects = q.options(joinedload(PrimaryProspect.summer_application)).order_by(PrimaryProspect.source_branch, PrimaryProspect.id).all()
-    return [_prospect_to_response(p) for p in prospects]
+    prospects = (
+        q.options(
+            *_linked_app_loads(),
+        )
+        .order_by(PrimaryProspect.source_branch, PrimaryProspect.id)
+        .all()
+    )
+    enrolled_summer, enrolled_regular = _enrollment_backed_ids(db, prospects)
+    return [_prospect_to_response(p, enrolled_summer, enrolled_regular) for p in prospects]
 
 
 @router.patch("/{prospect_id}/admin")
@@ -398,7 +492,7 @@ def admin_update_prospect(
     prospect.updated_at = hk_now()
     db.commit()
     db.refresh(prospect)
-    return _prospect_to_response(prospect)
+    return _single_response(db, prospect)
 
 
 @router.post("/admin/bulk-outreach")
@@ -430,7 +524,8 @@ def admin_prospect_stats(
     outreach_status: Optional[str] = Query(None),
     wants_summer: Optional[str] = Query(None),
     wants_regular: Optional[str] = Query(None),
-    linked: Optional[str] = Query(None),
+    summer_state: Optional[str] = Query(None),
+    regular_state: Optional[str] = Query(None),
     has_wechat: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
@@ -438,68 +533,49 @@ def admin_prospect_stats(
 ):
     """Per-branch funnel stats. Filters match /admin (except `branch`, which
     is the axis the pills themselves represent — including it would zero
-    every other pill)."""
-    subq = _apply_admin_filters(
+    every other pill).
+
+    Aggregated in Python over the filtered rows (a few hundred per year) so
+    the funnel counts come from the same _derive_state as the list badges —
+    a dashboard cell always equals the list it jumps to."""
+    q = _apply_admin_filters(
         db.query(PrimaryProspect).filter(PrimaryProspect.year == year),
         status=status,
         outreach_status=outreach_status,
         wants_summer=wants_summer,
         wants_regular=wants_regular,
-        linked=linked,
+        summer_state=summer_state,
+        regular_state=regular_state,
         has_wechat=has_wechat,
         search=search,
-    ).subquery()
-    rows = (
-        db.query(
-            subq.c.source_branch,
-            func.count().label("total"),
-            func.sum(case((subq.c.wants_summer == 'Yes', 1), else_=0)).label("wants_summer_yes"),
-            func.sum(case((subq.c.wants_summer == 'Considering', 1), else_=0)).label("wants_summer_considering"),
-            func.sum(case((subq.c.wants_regular == 'Yes', 1), else_=0)).label("wants_regular_yes"),
-            func.sum(case((subq.c.wants_regular == 'Considering', 1), else_=0)).label("wants_regular_considering"),
-            func.sum(case((subq.c.summer_application_id.isnot(None), 1), else_=0)).label("matched_to_application"),
-            func.sum(case((subq.c.regular_application_id.isnot(None), 1), else_=0)).label("applied_regular"),
-            func.sum(case((subq.c.outreach_status == 'Not Started', 1), else_=0)).label("outreach_not_started"),
-            func.sum(case((subq.c.outreach_status == 'WeChat - Added', 1), else_=0)).label("outreach_wechat_added"),
-            func.sum(case((subq.c.outreach_status == 'WeChat - Not Found', 1), else_=0)).label("outreach_wechat_not_found"),
-            func.sum(case((subq.c.outreach_status == 'WeChat - Cannot Add', 1), else_=0)).label("outreach_wechat_cannot_add"),
-            func.sum(case((subq.c.outreach_status == 'Called', 1), else_=0)).label("outreach_called"),
-            func.sum(case((subq.c.outreach_status == 'No Response', 1), else_=0)).label("outreach_no_response"),
-        )
-        .group_by(subq.c.source_branch)
-        .all()
     )
+    prospects = q.options(*_linked_app_loads()).all()
+    enrolled_summer, enrolled_regular = _enrollment_backed_ids(db, prospects)
 
-    # enrolled_regular needs enrollment-row existence, so it can't ride the
-    # case-sum above. Count, per branch, the filtered prospects whose regular
-    # application published an enrollment.
-    enrolled_by_branch = dict(
-        db.query(subq.c.source_branch, func.count())
-        .join(Enrollment, Enrollment.regular_application_id == subq.c.regular_application_id)
-        .group_by(subq.c.source_branch)
-        .all()
-    )
+    by_branch: dict[str, PrimaryProspectStats] = {}
+    for p in prospects:
+        s = by_branch.get(p.source_branch)
+        if s is None:
+            s = by_branch[p.source_branch] = PrimaryProspectStats(branch=p.source_branch)
+        s.total += 1
+        s.wants_summer_yes += p.wants_summer == 'Yes'
+        s.wants_summer_considering += p.wants_summer == 'Considering'
+        s.wants_regular_yes += p.wants_regular == 'Yes'
+        s.wants_regular_considering += p.wants_regular == 'Considering'
+        ss = _derive_state(p.summer_application, enrolled_summer)
+        rs = _derive_state(p.regular_application, enrolled_regular)
+        s.applied_summer += ss == "applied"
+        s.enrolled_summer += ss == "enrolled"
+        s.applied_regular += rs == "applied"
+        s.enrolled_regular += rs == "enrolled"
+        s.outreach_not_started += p.outreach_status == 'Not Started'
+        s.outreach_wechat_added += p.outreach_status == 'WeChat - Added'
+        s.outreach_wechat_not_found += p.outreach_status == 'WeChat - Not Found'
+        s.outreach_wechat_cannot_add += p.outreach_status == 'WeChat - Cannot Add'
+        s.outreach_called += p.outreach_status == 'Called'
+        s.outreach_no_response += p.outreach_status == 'No Response'
 
-    return [
-        PrimaryProspectStats(
-            branch=r.source_branch,
-            total=r.total,
-            wants_summer_yes=r.wants_summer_yes or 0,
-            wants_summer_considering=r.wants_summer_considering or 0,
-            wants_regular_yes=r.wants_regular_yes or 0,
-            wants_regular_considering=r.wants_regular_considering or 0,
-            matched_to_application=r.matched_to_application or 0,
-            applied_regular=r.applied_regular or 0,
-            enrolled_regular=enrolled_by_branch.get(r.source_branch, 0),
-            outreach_not_started=r.outreach_not_started or 0,
-            outreach_wechat_added=r.outreach_wechat_added or 0,
-            outreach_wechat_not_found=r.outreach_wechat_not_found or 0,
-            outreach_wechat_cannot_add=r.outreach_wechat_cannot_add or 0,
-            outreach_called=r.outreach_called or 0,
-            outreach_no_response=r.outreach_no_response or 0,
-        )
-        for r in rows
-    ]
+    return [by_branch[b] for b in sorted(by_branch)]
 
 
 def _regular_year_apps(db: Session, year: int, taken_ids: set[int]) -> list[RegularApplication]:
@@ -511,7 +587,7 @@ def _regular_year_apps(db: Session, year: int, taken_ids: set[int]) -> list[Regu
         .join(RegularCourseConfig, RegularApplication.config_id == RegularCourseConfig.id)
         .filter(
             RegularCourseConfig.year == year,
-            RegularApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+            RegularApplication.application_status.notin_(APPLICATION_EXIT_STATUSES),
         )
         .all()
     )
@@ -667,8 +743,6 @@ def admin_regular_auto_match(
         matches.append({"prospect": p_summary(prospect), "application": a_summary(app)})
         if not dry_run:
             prospect.regular_application_id = app.id
-            if prospect.status == "New":
-                prospect.status = "Applied"
             prospect.updated_at = hk_now()
 
     # Pass 0: exact via shared student. One regular app per student, so this is
@@ -769,13 +843,15 @@ def admin_get_prospect(
     """Fetch a single prospect by id for admin preview from other pages."""
     p = (
         db.query(PrimaryProspect)
-        .options(joinedload(PrimaryProspect.summer_application))
+        .options(
+            *_linked_app_loads(),
+        )
         .filter(PrimaryProspect.id == prospect_id)
         .first()
     )
     if not p:
         raise HTTPException(status_code=404, detail="Prospect not found")
-    return _prospect_to_response(p)
+    return _single_response(db, p)
 
 
 @router.get("/admin/match/{prospect_id}")
@@ -816,7 +892,7 @@ def admin_find_matches(
         .filter(
             SummerCourseConfig.year == prospect.year,
             SummerApplication.existing_student_id.is_(None),
-            SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+            SummerApplication.application_status.notin_(APPLICATION_EXIT_STATUSES),
         )
         .all()
     )
@@ -925,7 +1001,7 @@ def admin_auto_match(
         .filter(
             SummerCourseConfig.year == year,
             SummerApplication.existing_student_id.is_(None),
-            SummerApplication.application_status.notin_(["Withdrawn", "Rejected"]),
+            SummerApplication.application_status.notin_(APPLICATION_EXIT_STATUSES),
         )
         .all()
     )
@@ -980,8 +1056,6 @@ def admin_auto_match(
             prospect.summer_application_id = app.id
             if not app.verified_branch_origin:
                 app.verified_branch_origin = prospect.source_branch
-            if prospect.status == "New":
-                prospect.status = "Applied"
             prospect.updated_at = hk_now()
 
     # Pass 2: remaining prospects that touched an ambiguous phone.

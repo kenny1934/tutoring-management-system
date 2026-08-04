@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 import pytest
+from fastapi import HTTPException
 
 from models import (
     PrimaryProspect,
@@ -25,6 +26,7 @@ from schemas import RegularProspectLinkRequest, PrimaryProspectAdminUpdate
 from routers.primary_prospects import (
     admin_find_regular_matches,
     admin_regular_auto_match,
+    admin_list_prospects,
     admin_prospect_stats,
     admin_update_prospect,
 )
@@ -179,6 +181,29 @@ def _enrollment(db_session, tutor, *, student_id, summer_app_id=None, regular_ap
     return e
 
 
+# Called outside FastAPI, Query(None) defaults would otherwise reach the
+# query as sentinel objects — so both helpers pass every filter explicitly.
+
+def _stats(db_session, **overrides):
+    kwargs = dict(
+        year=2026, status=None, outreach_status=None, wants_summer=None,
+        wants_regular=None, summer_state=None, regular_state=None,
+        has_wechat=None, search=None,
+    )
+    kwargs.update(overrides)
+    return admin_prospect_stats(db=db_session, _admin=None, **kwargs)
+
+
+def _admin_list(db_session, **overrides):
+    kwargs = dict(
+        year=2026, branch=None, status=None, outreach_status=None,
+        wants_summer=None, wants_regular=None, summer_state=None,
+        regular_state=None, has_wechat=None, search=None,
+    )
+    kwargs.update(overrides)
+    return admin_list_prospects(db=db_session, _admin=None, **kwargs)
+
+
 # ---------------------------------------------------------------------------
 # Matching cascade
 # ---------------------------------------------------------------------------
@@ -204,7 +229,9 @@ class TestRegularMatching:
         assert len(result["matches"]) == 1
         db_session.refresh(p)
         assert p.regular_application_id == ra.id
-        assert p.status == "Applied"
+        # Applied is derived from the link now; the manual relationship
+        # stage is left alone.
+        assert p.status == "New"
 
     def test_phone_1to1_auto_links(self, db_session, reg_cfg):
         ra = _reg_app(db_session, reg_cfg, phone="85277776666")
@@ -353,14 +380,14 @@ class TestConversion:
         ra = _reg_app(db_session, reg_cfg, student_id=student.id)
         _enrollment(db_session, tutor, student_id=student.id, regular_app_id=ra.id, etype="Regular")
         _prospect(db_session, regular_app_id=ra.id, branch="MAC")
-        # Pass filters explicitly: called outside FastAPI, Query(None) defaults
-        # would otherwise reach the query as sentinel objects.
-        rows = admin_prospect_stats(
-            year=2026, status=None, outreach_status=None, wants_summer=None,
-            wants_regular=None, linked=None, has_wechat=None, search=None,
-            db=db_session, _admin=None,
-        )
+        # A second prospect whose application is live but not yet enrolled.
+        ra2 = _reg_app(db_session, reg_cfg, name="Only Applied", phone="85200000010")
+        _prospect(db_session, name="Only Applied", regular_app_id=ra2.id, branch="MAC",
+                  phone_1="85200000010")
+        rows = _stats(db_session)
         mac = next(r for r in rows if r.branch == "MAC")
+        # Applied and Enrolled are exclusive: the enrolled prospect counts
+        # only in enrolled_regular.
         assert mac.applied_regular == 1
         assert mac.enrolled_regular == 1
 
@@ -492,3 +519,75 @@ class TestReverseSuggestions:
         resp = suggest_prospects_for_application(app_id=ra.id, _admin=None, db=db_session)
         assert resp.suggestions[0].prospect_id == p.id
         assert resp.suggestions[0].match_type == "student"
+
+
+# ---------------------------------------------------------------------------
+# Derived course states
+# ---------------------------------------------------------------------------
+
+class TestCourseStates:
+    """summer_state / regular_state carry the journey truth the manual status
+    field no longer holds: derived from links + enrollment rows, never stored."""
+
+    def test_states_derive_from_links_and_enrollments(self, db_session, reg_cfg, sum_cfg, tutor):
+        student = _student(db_session)
+        sa = _sum_app(db_session, sum_cfg, student_id=student.id)
+        _enrollment(db_session, tutor, student_id=student.id, summer_app_id=sa.id)
+        ra = _reg_app(db_session, reg_cfg, student_id=student.id)
+        _prospect(db_session, summer_app_id=sa.id, regular_app_id=ra.id)
+
+        row = _admin_list(db_session)[0]
+        assert row["summer_state"] == "enrolled"
+        assert row["regular_state"] == "applied"
+
+    def test_withdrawn_and_unlinked_states(self, db_session, sum_cfg):
+        dead = _sum_app(db_session, sum_cfg, status="Withdrawn")
+        _prospect(db_session, summer_app_id=dead.id)
+        _prospect(db_session, name="Never Applied", phone_1="85200000030")
+
+        rows = {r["student_name"]: r for r in _admin_list(db_session)}
+        assert rows["Chan Tai Man"]["summer_state"] == "withdrawn"
+        assert rows["Never Applied"]["summer_state"] is None
+        assert rows["Never Applied"]["regular_state"] is None
+
+    def test_state_filters_slice_the_list(self, db_session, sum_cfg, tutor):
+        student = _student(db_session)
+        enrolled_app = _sum_app(db_session, sum_cfg, student_id=student.id)
+        _enrollment(db_session, tutor, student_id=student.id, summer_app_id=enrolled_app.id)
+        _prospect(db_session, summer_app_id=enrolled_app.id)
+        live_app = _sum_app(db_session, sum_cfg, name="Only Applied",
+                            phone="85200000031", status="Submitted")
+        _prospect(db_session, name="Only Applied", summer_app_id=live_app.id,
+                  phone_1="85200000031")
+        _prospect(db_session, name="Never Applied", phone_1="85200000032")
+
+        assert [r["student_name"] for r in _admin_list(db_session, summer_state="enrolled")] == ["Chan Tai Man"]
+        assert [r["student_name"] for r in _admin_list(db_session, summer_state="applied")] == ["Only Applied"]
+        assert [r["student_name"] for r in _admin_list(db_session, summer_state="none")] == ["Never Applied"]
+
+    def test_stats_summer_funnel_is_exclusive(self, db_session, sum_cfg, tutor):
+        student = _student(db_session)
+        enrolled_app = _sum_app(db_session, sum_cfg, student_id=student.id)
+        _enrollment(db_session, tutor, student_id=student.id, summer_app_id=enrolled_app.id)
+        _prospect(db_session, summer_app_id=enrolled_app.id, branch="MAC")
+        live_app = _sum_app(db_session, sum_cfg, name="Only Applied",
+                            phone="85200000033", status="Submitted")
+        _prospect(db_session, name="Only Applied", summer_app_id=live_app.id,
+                  branch="MAC", phone_1="85200000033")
+
+        mac = next(r for r in _stats(db_session) if r.branch == "MAC")
+        assert mac.applied_summer == 1
+        assert mac.enrolled_summer == 1
+
+    def test_manual_status_rejects_derived_values(self, db_session):
+        p = _prospect(db_session)
+        with pytest.raises(HTTPException):
+            admin_update_prospect(
+                p.id, PrimaryProspectAdminUpdate(status="Applied"),
+                db=db_session, _admin=None,
+            )
+        resp = admin_update_prospect(
+            p.id, PrimaryProspectAdminUpdate(status="Contacted"),
+            db=db_session, _admin=None,
+        )
+        assert resp["status"] == "Contacted"
