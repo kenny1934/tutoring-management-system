@@ -8,7 +8,8 @@ import { prospectsAPI } from "@/lib/api";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { STAGE_TONES } from "@/lib/regular-utils";
 import {
-  CopyableCell, IntentionBadge, OutreachBadge, StudentCodeBadge, INTENTION_LABELS, OUTREACH_OPTIONS,
+  BranchBadges, CopyableCell, IntentionBadge, OutreachBadge, StudentCodeBadge,
+  INTENTION_LABELS, OUTREACH_OPTIONS,
 } from "@/components/summer/prospect-badges";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import type { PrimaryProspect, ProspectIntention, ProspectOutreachStatus, RegularConversionResponse } from "@/types";
@@ -369,22 +370,29 @@ export function RegularConversionChaseList({
   );
 
   const [branchFilter, setBranchFilter] = useState("");
+  const [wantedFilter, setWantedFilter] = useState("");
   const [wantsFilter, setWantsFilter] = useState("");
   const [outreachFilter, setOutreachFilter] = useState("");
 
   // Filter options only offer values that actually occur in the list, each
   // in its canonical order.
-  const { branchOptions, wantsOptions, outreachOptions } = useMemo(() => {
+  const { branchOptions, wantedOptions, hasNoWanted, wantsOptions, outreachOptions } = useMemo(() => {
     const branches = new Set<string>();
+    const wanted = new Set<string>();
+    let noWanted = false;
     const wants = new Set<string>();
     const outreach = new Set<string | null>();
     for (const r of data.lost_prospects) {
       branches.add(r.source_branch);
+      if (r.preferred_branches.length === 0) noWanted = true;
+      for (const b of r.preferred_branches) wanted.add(b);
       wants.add(r.wants_regular ?? "Unknown");
       outreach.add(r.outreach_status);
     }
     return {
       branchOptions: [...branches].sort(),
+      wantedOptions: [...wanted].sort(),
+      hasNoWanted: noWanted,
       wantsOptions: INTENTION_ORDER.filter((v) => wants.has(v)),
       outreachOptions: OUTREACH_OPTIONS.filter((v) => outreach.has(v)),
     };
@@ -397,6 +405,10 @@ export function RegularConversionChaseList({
         .filter(
           (r) =>
             (!branchFilter || r.source_branch === branchFilter) &&
+            (!wantedFilter ||
+              (wantedFilter === "none"
+                ? r.preferred_branches.length === 0
+                : r.preferred_branches.includes(wantedFilter))) &&
             (!wantsFilter || (r.wants_regular ?? "Unknown") === wantsFilter) &&
             (!outreachFilter || r.outreach_status === outreachFilter)
         )
@@ -416,7 +428,7 @@ export function RegularConversionChaseList({
     [sorted, prospectById]
   );
 
-  const isFiltered = Boolean(branchFilter || wantsFilter || outreachFilter);
+  const isFiltered = Boolean(branchFilter || wantedFilter || wantsFilter || outreachFilter);
 
   return (
     <Section
@@ -432,6 +444,16 @@ export function RegularConversionChaseList({
         >
           <option value="">All branches</option>
           {branchOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+        </select>
+        <select
+          value={wantedFilter}
+          onChange={(e) => setWantedFilter(e.target.value)}
+          className={filterSelect}
+          aria-label="Filter by the branch the prospect wants"
+        >
+          <option value="">Wants branch: all</option>
+          {wantedOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+          {hasNoWanted && <option value="none">Not specified</option>}
         </select>
         <select
           value={wantsFilter}
@@ -463,7 +485,7 @@ export function RegularConversionChaseList({
       </div>
       <div className={wrap}>
         <div className={cn(scroll, "max-h-[65vh] overflow-y-auto")}>
-          <table className="w-full text-xs min-w-[880px]">
+          <table className="w-full text-xs min-w-[960px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>
                 <SortHeader label="Name" colKey="student_name" className={th} {...hp} />
@@ -473,6 +495,7 @@ export function RegularConversionChaseList({
                 <th className={th}>Phone</th>
                 <th className={th}>WeChat</th>
                 <SortHeader label="Wants regular" colKey="wants_regular" className={th} {...hp} />
+                <th className={th}>Wants branch</th>
                 <SortHeader label="Did summer" colKey="attended_summer" className={th} {...hp} />
                 <SortHeader label="Outreach" colKey="outreach_status" className={th} {...hp} />
               </tr>
@@ -514,6 +537,9 @@ export function RegularConversionChaseList({
                       : <span className="text-muted-foreground/50">-</span>}
                   </td>
                   <td className="px-3 py-2">
+                    <BranchBadges branches={r.preferred_branches} />
+                  </td>
+                  <td className="px-3 py-2">
                     {r.attended_summer
                       ? <Check className={cn("h-3.5 w-3.5", STAGE_TONES.didSummer)} aria-label="Did summer" />
                       : <span className="text-muted-foreground/50">-</span>}
@@ -526,7 +552,7 @@ export function RegularConversionChaseList({
                 </tr>
               ))}
               {sorted.length === 0 && (
-                <EmptyRow span={9}>
+                <EmptyRow span={10}>
                   {isFiltered ? "No prospects match these filters." : "Every prospect has a regular application."}
                 </EmptyRow>
               )}

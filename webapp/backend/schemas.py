@@ -3489,6 +3489,9 @@ class RegularConversionLostRow(BaseModel):
     phone_2: Optional[str] = None
     wechat_id: Optional[str] = None
     wants_regular: Optional[str] = None
+    # Ordered MSA/MSB choices from the prospect form; empty when the parent
+    # named no branch.
+    preferred_branches: List[str] = []
     outreach_status: Optional[str] = None
     attended_summer: bool = False
     # The enrolled summer student's MSA/MSB code, set only while

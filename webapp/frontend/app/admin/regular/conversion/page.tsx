@@ -84,12 +84,12 @@ function buildConversionCsv(data: RegularConversionResponse): string {
   data.branch_movement.forEach((r) => rows.push([r.wanted_branch, r.enrolled_branch, r.count]));
   rows.push([]);
 
-  rows.push(["Still to chase — name", "Code", "Student code", "Grade", "School", "Phone 1", "Phone 2", "WeChat", "Wants regular", "Did summer", "Outreach"]);
+  rows.push(["Still to chase — name", "Code", "Student code", "Grade", "School", "Phone 1", "Phone 2", "WeChat", "Wants regular", "Wants branch", "Did summer", "Outreach"]);
   data.lost_prospects.forEach((r) =>
     rows.push([
       r.student_name, formatProspectCode(r.source_branch, r.primary_student_id), r.summer_student_code,
       r.grade, r.school, r.phone_1, r.phone_2, r.wechat_id, r.wants_regular,
-      r.attended_summer ? "Yes" : "", r.outreach_status,
+      r.preferred_branches.join(" / "), r.attended_summer ? "Yes" : "", r.outreach_status,
     ]));
 
   return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");

@@ -1774,6 +1774,7 @@ def get_conversion(
                 phone_2=p.phone_2,
                 wechat_id=p.wechat_id,
                 wants_regular=p.wants_regular,
+                preferred_branches=[b for b in (p.preferred_branches or []) if b],
                 outreach_status=p.outreach_status,
                 attended_summer=attended,
                 summer_student_code=summer_code_by_app.get(p.summer_application_id) if attended else None,

@@ -3905,6 +3905,9 @@ export interface RegularConversionLostRow {
   phone_2: string | null;
   wechat_id: string | null;
   wants_regular: string | null;
+  /** Ordered MSA/MSB choices from the prospect form; empty when the parent
+   *  named no branch. */
+  preferred_branches: string[];
   outreach_status: string | null;
   attended_summer: boolean;
   /** The enrolled summer student's MSA/MSB code, set only while

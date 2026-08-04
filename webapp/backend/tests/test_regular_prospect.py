@@ -501,7 +501,7 @@ class TestConversionAxes:
                       student_id=summer_student.id)
         _enrollment(db_session, tutor, student_id=summer_student.id, summer_app_id=sa.id)
         keen = _prospect(db_session, name="Keen Chan", branch="MAC", phone_1="85255550001",
-                         wants_regular="Yes", summer_app_id=sa.id)
+                         wants_regular="Yes", summer_app_id=sa.id, preferred_branches=["MSA"])
         keen.primary_student_id = "MAC1023"
         keen.phone_2 = "85255551111"
         keen.wechat_id = "keen_mum"
@@ -524,8 +524,10 @@ class TestConversionAxes:
         # Summer alumni carry the student code; everyone else carries none.
         assert row.attended_summer is True
         assert row.summer_student_code == "MSA-2088"
+        assert row.preferred_branches == ["MSA"]
         cold = next(r for r in resp.lost_prospects if r.student_name == "Cold Wong")
         assert cold.summer_student_code is None
+        assert cold.preferred_branches == []
 
 
 class TestReverseSuggestions:
