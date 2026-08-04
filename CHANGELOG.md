@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.103](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.102...v2.0.103) (2026-08-05)
+
+
+### New Features
+
+* **A certificate list for the summer course**: a new Certificates tab under Summer Course lists every enrolled summer student with the branch where they sat the course, their student code, and the sessions they attended out of the lessons they paid for. Students who attended at least 7 of the 8 lessons carry an Eligible badge for the official 80% rule, and everyone else keeps their figures visible so borderline cases can still be judged by hand. The list can be narrowed by branch, searched by name or code, cut down to eligible students only, and exported as a CSV file. Clicking a row opens the application's details.
+
 ## [2.0.102](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.101...v2.0.102) (2026-08-05)
 
 
