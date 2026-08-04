@@ -11,6 +11,9 @@ from datetime import date, datetime
 
 from models import (
     Tutor,
+    Student,
+    Enrollment,
+    PrimaryProspect,
     RegularCourseConfig,
     RegularApplication,
     RegularApplicationEdit,
@@ -459,3 +462,78 @@ class TestDemand:
                   status="Rejected")
         result = get_demand(config_id=cfg.id, location="華士古分校", _admin=None, db=db_session)
         assert result.cells == []
+
+
+# ---- Super Admin delete ----
+
+class TestDeleteApplication:
+    def test_not_found(self, db_session, admin):
+        from routers.regular_course import delete_application
+        from fastapi import HTTPException
+        with pytest.raises(HTTPException) as exc:
+            delete_application(app_id=99999, _admin=admin, db=db_session)
+        assert exc.value.status_code == 404
+
+    def test_blocked_while_published(self, db_session, cfg, admin):
+        from routers.regular_course import delete_application
+        from fastapi import HTTPException
+        app = _make_app(db_session, cfg, ref="RC2026-DEL1", phone="85299993000")
+        student = Student(student_name="Pub Student", grade="F1", home_location="MSA")
+        db_session.add(student)
+        db_session.commit()
+        enrollment = Enrollment(
+            student_id=student.id,
+            tutor_id=admin.id,
+            regular_application_id=app.id,
+            lessons_paid=6,
+        )
+        db_session.add(enrollment)
+        db_session.commit()
+        with pytest.raises(HTTPException) as exc:
+            delete_application(app_id=app.id, _admin=admin, db=db_session)
+        assert exc.value.status_code == 409
+        assert db_session.query(RegularApplication).filter_by(id=app.id).first() is not None
+
+    def test_delete_removes_edits_and_unlinks_prospect(self, db_session, cfg, admin):
+        from routers.regular_course import delete_application
+        app = _make_app(db_session, cfg, ref="RC2026-DEL2", phone="85299993001")
+        db_session.add(RegularApplicationEdit(
+            application_id=app.id,
+            edited_by="applicant",
+            edited_via="self-service",
+            field_name="school",
+            old_value="A",
+            new_value="B",
+        ))
+        prospect = PrimaryProspect(
+            year=2026,
+            source_branch="MAC",
+            student_name="Linked Prospect",
+            regular_application_id=app.id,
+        )
+        db_session.add(prospect)
+        db_session.commit()
+
+        result = delete_application(app_id=app.id, _admin=admin, db=db_session)
+        assert result == {"success": True}
+        assert db_session.query(RegularApplication).filter_by(id=app.id).first() is None
+        assert db_session.query(RegularApplicationEdit).filter_by(application_id=app.id).count() == 0
+        db_session.refresh(prospect)
+        assert prospect.regular_application_id is None
+
+    def test_route_requires_super_admin(self):
+        """The endpoint's auth dependency must be require_super_admin, not the
+        broader admin-write gate the rest of this router uses."""
+        import inspect
+        from routers.regular_course import delete_application
+        from auth.dependencies import require_super_admin
+        dep = inspect.signature(delete_application).parameters["_admin"].default
+        assert dep.dependency is require_super_admin
+
+    def test_require_super_admin_rejects_admin_role(self, db_session, admin):
+        from types import SimpleNamespace
+        from fastapi import HTTPException
+        from auth.dependencies import require_super_admin
+        with pytest.raises(HTTPException) as exc:
+            require_super_admin(request=SimpleNamespace(headers={}), current_user=admin)
+        assert exc.value.status_code == 403

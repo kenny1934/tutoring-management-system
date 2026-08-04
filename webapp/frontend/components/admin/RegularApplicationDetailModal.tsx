@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { regularAPI, tutorsAPI, studentsAPI, discountsAPI, ApiError } from "@/lib/api";
 import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, getGradeColor, minLessonsForDiscount } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, displayLocation, DAY_ABBREV,
@@ -251,6 +252,7 @@ export function RegularApplicationDetailModal({
   totalCount,
 }: RegularApplicationDetailModalProps) {
   const { showToast } = useToast();
+  const { effectiveRole } = useAuth();
   const { copied: promoCodeCopied, copy: copyPromoCode } = useCopyToClipboard();
 
   // Pending edits. Everything the admin changes here is held locally and
@@ -316,8 +318,12 @@ export function RegularApplicationDetailModal({
   const [publishResult, setPublishResult] = useState<RegularPublishResponse | null>(null);
   const [pendingUnpublish, setPendingUnpublish] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
+  // Super Admin cleanup of test submissions.
+  const [pendingDelete, setPendingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isPublished = !!app?.published_enrollment_id;
+  const isSuperAdmin = effectiveRole === "Super Admin";
   const canEdit = !readOnly && !isPublished;
   const courseStart = (config?.course_start_date || "").split("T")[0];
 
@@ -367,6 +373,7 @@ export function RegularApplicationDetailModal({
     setPublishError(null);
     setPublishResult(null);
     setPendingUnpublish(false);
+    setPendingDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app?.id, isOpen]);
 
@@ -774,6 +781,22 @@ export function RegularApplicationDetailModal({
     }
   };
 
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await regularAPI.deleteApplication(app.id);
+      showToast("Application deleted", "success");
+      setPendingDelete(false);
+      await onUpdated();
+      onClose();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to delete application", "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const enrollmentId = app.published_enrollment_id ?? publishResult?.enrollment_id ?? null;
 
   // One-click forward moves for the current rung; "All statuses…" swaps in
@@ -836,6 +859,18 @@ export function RegularApplicationDetailModal({
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
+            )}
+            {!readOnly && isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => setPendingDelete(true)}
+                disabled={isPublished}
+                title={isPublished ? "Unpublish the enrollment before deleting" : undefined}
+                className="ml-2 px-2 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
             )}
             {!readOnly && (
               <div className="flex items-center gap-2 ml-auto">
@@ -1983,6 +2018,22 @@ export function RegularApplicationDetailModal({
         confirmText="Unpublish"
         variant="danger"
         loading={unpublishing}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDelete}
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(false)}
+        title="Delete this application?"
+        message={`This permanently deletes the application from ${app.student_name} (${app.reference_code}).`}
+        consequences={[
+          "The application and its edit history will be removed permanently.",
+          "Any linked prospect will no longer show a regular application.",
+          "The linked student record itself is not affected.",
+        ]}
+        confirmText="Delete"
+        variant="danger"
+        loading={deleting}
       />
 
       <ConfirmDialog

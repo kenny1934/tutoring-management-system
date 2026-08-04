@@ -3087,6 +3087,11 @@ export const regularAPI = {
   getApplicationEdits: (id: number) =>
     fetchAPI<RegularApplicationEditEntry[]>(`/regular/applications/${id}/edits`),
 
+  // Super Admin cleanup for test submissions. The backend refuses (409) while
+  // a published enrollment still references the application.
+  deleteApplication: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/regular/applications/${id}`, { method: "DELETE" }),
+
   // Same response shape as the summer endpoint, so both link-suggestion
   // modals read one set of types.
   suggestStudentLinks: (configId: number, dryRun: boolean) =>

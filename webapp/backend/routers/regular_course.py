@@ -84,7 +84,7 @@ from schemas import (
     RegularConversionLostRow,
     ProspectIntention,
 )
-from auth.dependencies import require_admin_view, require_admin_write
+from auth.dependencies import require_admin_view, require_admin_write, require_super_admin
 from routers.students import find_duplicate_students
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.phone_matching import normalize_phone
@@ -2535,3 +2535,50 @@ def unpublish_application(
         sessions_deleted=sessions_deleted,
         application_status=app.application_status,
     )
+
+
+@router.delete("/regular/applications/{app_id}")
+def delete_application(
+    app_id: int,
+    _admin: Tutor = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Permanently delete an application and its edit history. Super Admin
+    only: a cleanup tool for test submissions, not part of the normal flow.
+    Real applicants exit through Withdrawn/Rejected so the funnel keeps them.
+
+    Blocked while an enrollment references the application, because the
+    enrollment's registration fee resolves through this link (application →
+    intake config): deleting the application would flip a waived fee back to
+    charged on every display. Unpublish first, then delete."""
+    app = db.query(RegularApplication).filter(RegularApplication.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    enrollment = (
+        db.query(Enrollment)
+        .filter(Enrollment.regular_application_id == app_id)
+        .first()
+    )
+    if enrollment:
+        raise HTTPException(
+            status_code=409,
+            detail="This application has a published enrollment. Unpublish it before deleting.",
+        )
+
+    # The prospect FK is SET NULL at the DB layer, but clear it here as well so
+    # the ORM sees the unlink in the same transaction and the prospect's
+    # derived regular journey returns to "none" immediately.
+    db.query(PrimaryProspect).filter(
+        PrimaryProspect.regular_application_id == app_id
+    ).update({PrimaryProspect.regular_application_id: None})
+
+    # CASCADE would get these too; explicit so the delete does not depend on
+    # how the DB constraint was created.
+    db.query(RegularApplicationEdit).filter(
+        RegularApplicationEdit.application_id == app_id
+    ).delete()
+
+    db.delete(app)
+    db.commit()
+    return {"success": True}
