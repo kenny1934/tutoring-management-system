@@ -110,6 +110,7 @@ from constants import (
     MIN_LESSONS_FOR_DISCOUNT,
     REGISTRATION_FEE,
     REGULAR_EXIT_STATUSES,
+    format_student_code,
     normalize_secondary_location,
     normalize_day_short,
 )
@@ -1619,8 +1620,10 @@ def get_conversion(
     withdrawn_summer_ids: set[int] = set()
     if summer_app_ids:
         summer_code_by_app = {
-            sid: code
-            for sid, code in db.query(Enrollment.summer_application_id, Student.school_student_id)
+            sid: format_student_code(loc, ssid)
+            for sid, loc, ssid in db.query(
+                Enrollment.summer_application_id, Student.home_location, Student.school_student_id
+            )
             .join(Student, Student.id == Enrollment.student_id)
             .filter(Enrollment.summer_application_id.in_(summer_app_ids))
             if sid is not None

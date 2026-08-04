@@ -294,6 +294,15 @@ def normalize_secondary_location(location: str | None) -> str | None:
     return SECONDARY_LOCATION_TO_CODE.get(location, location)
 
 
+def format_student_code(home_location: str | None, school_student_id: str | None) -> str | None:
+    """A student's display code, e.g. "MSA-1001". school_student_id is a bare
+    per-location number, so the branch prefix comes from home_location —
+    the same composition the frontend's student-info badges use."""
+    if not school_student_id:
+        return None
+    return f"{home_location}-{school_student_id}" if home_location else school_student_id
+
+
 # Day-of-week short forms used throughout the enrollments / session_log
 # tables. Slots on the summer side store full names ("Saturday"); the rest
 # of the CSM system uses the 3-letter abbreviation.

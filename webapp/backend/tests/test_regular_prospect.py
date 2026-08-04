@@ -496,7 +496,7 @@ class TestConversionAxes:
         self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="華士古分校",
                        preferred=["MSA"], phone="85255550000")
         # Keen did summer, so the chase row also carries the student code.
-        summer_student = _student(db_session, name="Keen Chan", code="MSA2088")
+        summer_student = _student(db_session, name="Keen Chan", code="2088")
         sa = _sum_app(db_session, sum_cfg, name="Keen Chan", phone="85255550001",
                       student_id=summer_student.id)
         _enrollment(db_session, tutor, student_id=summer_student.id, summer_app_id=sa.id)
@@ -523,7 +523,7 @@ class TestConversionAxes:
             "MAC1023", "85255550001", "85255551111", "keen_mum")
         # Summer alumni carry the student code; everyone else carries none.
         assert row.attended_summer is True
-        assert row.summer_student_code == "MSA2088"
+        assert row.summer_student_code == "MSA-2088"
         cold = next(r for r in resp.lost_prospects if r.student_name == "Cold Wong")
         assert cold.summer_student_code is None
 
@@ -548,7 +548,9 @@ class TestCourseStates:
     field no longer holds: derived from links + enrollment rows, never stored."""
 
     def test_states_derive_from_links_and_enrollments(self, db_session, reg_cfg, sum_cfg, tutor):
-        student = _student(db_session, code="MSA1023")
+        # school_student_id is a bare per-location number; the display code
+        # composes it with home_location (MSA here, from the helper).
+        student = _student(db_session, code="1023")
         sa = _sum_app(db_session, sum_cfg, student_id=student.id)
         _enrollment(db_session, tutor, student_id=student.id, summer_app_id=sa.id)
         ra = _reg_app(db_session, reg_cfg, student_id=student.id)
@@ -560,7 +562,7 @@ class TestCourseStates:
         # The enrolled course carries who the applicant became; the merely
         # applied course does not.
         assert row["matched_student_id"] == student.id
-        assert row["matched_student_code"] == "MSA1023"
+        assert row["matched_student_code"] == "MSA-1023"
         assert row["matched_regular_student_id"] is None
         assert row["matched_regular_student_code"] is None
 

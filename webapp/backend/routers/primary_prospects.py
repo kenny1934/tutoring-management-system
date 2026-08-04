@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import exists, or_
 from sqlalchemy.orm import Session, joinedload
 
-from constants import hk_now, APPLICATION_EXIT_STATUSES
+from constants import hk_now, APPLICATION_EXIT_STATUSES, format_student_code
 from database import get_db
 from models import (
     PrimaryProspect,
@@ -97,11 +97,15 @@ def _enrollment_backed_ids(
         if not ids:
             return {}
         rows = (
-            db.query(col, Enrollment.student_id, Student.school_student_id)
+            db.query(col, Enrollment.student_id, Student.home_location, Student.school_student_id)
             .join(Student, Student.id == Enrollment.student_id)
             .filter(col.in_(ids))
         )
-        return {i: (sid, code) for (i, sid, code) in rows if i is not None}
+        return {
+            i: (sid, format_student_code(loc, ssid))
+            for (i, sid, loc, ssid) in rows
+            if i is not None
+        }
     return (
         backed(Enrollment.summer_application_id, {p.summer_application_id for p in prospects if p.summer_application_id}),
         backed(Enrollment.regular_application_id, {p.regular_application_id for p in prospects if p.regular_application_id}),
