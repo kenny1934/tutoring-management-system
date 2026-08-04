@@ -195,6 +195,11 @@ def _effective_lesson_number(
     return None
 
 
+def _effective_status(ss: "SummerSession", live: "SessionLog | None") -> str:
+    """Post-publish the live session_log status wins over the frozen snapshot."""
+    return live.session_status if live else ss.session_status
+
+
 def _build_student_lesson_entry(
     ln: int,
     ss: "SummerSession",
@@ -203,7 +208,7 @@ def _build_student_lesson_entry(
     """Resolve effective date/time/status from live vs. frozen snapshot."""
     effective_date = live.session_date if live else (ss.lesson.lesson_date if ss.lesson else None)
     effective_time_slot = live.time_slot if live else (ss.slot.time_slot if ss.slot else None)
-    effective_status = live.session_status if live else ss.session_status
+    effective_status = _effective_status(ss, live)
     return SummerStudentLessonEntry(
         lesson_number=ln,
         placed=True,
@@ -4146,14 +4151,33 @@ def get_student_lessons(
             1
             for bucket in placed_by_lesson.values()
             for (s, live) in bucket
-            if (live.session_status if live else s.session_status) in SUMMER_NON_ATTENDING_STATUSES
+            if _effective_status(s, live) in SUMMER_NON_ATTENDING_STATUSES
         )
+        # A lesson counts as attended once, even when a redo duplicates its
+        # lesson_number — so this counts lessons, while placed_count and
+        # rescheduled_count count sessions.
+        attended_count = sum(
+            1
+            for bucket in placed_by_lesson.values()
+            if any(_effective_status(s, live) in COMPLETED_STATUSES for (s, live) in bucket)
+        )
+        # Branch by booked slot locations, falling back to preference — the
+        # same rule as the branch revenue report's _branch_of_app.
+        slot_locs = {
+            normalize_secondary_location(s.slot.location)
+            for s in app.sessions
+            if s.session_status != "Cancelled" and s.slot and s.slot.location
+        }
+        branch_code = (
+            "/".join(sorted(slot_locs)) if len(slot_locs) > 1 else next(iter(slot_locs))
+        ) if slot_locs else normalize_secondary_location(app.preferred_location)
         claimed_center = (app.current_centers or [None])[0]
         rows.append(SummerStudentLessonsRow(
             application_id=app.id,
             student_name=app.student_name,
             grade=app.grade,
             lang_stream=app.lang_stream,
+            branch_code=branch_code,
             application_status=app.application_status,
             is_existing_student=app.is_existing_student,
             claimed_branch_code=_resolve_claimed_branch_code(claimed_center, app.is_existing_student) if claimed_center else None,
@@ -4164,6 +4188,7 @@ def get_student_lessons(
             sessions_per_week=app.sessions_per_week,
             lessons_paid=app.lessons_paid,
             placed_count=placed_count,
+            attended_count=attended_count,
             rescheduled_count=rescheduled_count,
             total_lessons=total,
             lessons=entries,

@@ -2798,6 +2798,8 @@ export interface SummerStudentLessonsRow {
   student_name: string;
   grade: string;
   lang_stream?: string | null;
+  /** Branch the course is taken at (MSA/MSB), not the origin-branch chip. */
+  branch_code?: string | null;
   application_status?: string | null;
   is_existing_student?: string | null;
   claimed_branch_code?: string | null;
@@ -2808,6 +2810,7 @@ export interface SummerStudentLessonsRow {
   sessions_per_week: number;
   lessons_paid: number;
   placed_count: number;
+  attended_count: number;
   rescheduled_count: number;
   total_lessons: number;
   lessons: SummerStudentLessonEntry[];

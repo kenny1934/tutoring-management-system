@@ -2726,9 +2726,9 @@ export const summerAPI = {
     return fetchAPI<SummerFindSlotResult[]>(`/summer/lessons/find-slot?${qs}`);
   },
 
-  getStudentLessons: (configId: number, location: string) =>
+  getStudentLessons: (configId: number, location?: string) =>
     fetchAPI<SummerStudentLessonsResponse>(
-      `/summer/students/lessons?config_id=${configId}&location=${encodeURIComponent(location)}`
+      `/summer/students/lessons?config_id=${configId}${location ? `&location=${encodeURIComponent(location)}` : ""}`
     ),
 };
 

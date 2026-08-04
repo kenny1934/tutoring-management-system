@@ -2874,6 +2874,9 @@ class SummerStudentLessonsRow(BaseModel):
     student_name: str
     grade: str
     lang_stream: Optional[str] = None
+    # Branch the course is taken at (MSA/MSB), unlike claimed_branch_code
+    # which is the branch the student claims to originate from.
+    branch_code: Optional[str] = None
     application_status: Optional[str] = None
     is_existing_student: Optional[str] = None
     claimed_branch_code: Optional[str] = None
@@ -2884,6 +2887,9 @@ class SummerStudentLessonsRow(BaseModel):
     sessions_per_week: int
     lessons_paid: int
     placed_count: int
+    # Lessons attended, not sessions: a redo at the same lesson_number counts
+    # once, unlike placed_count/rescheduled_count which count session rows.
+    attended_count: int = 0
     rescheduled_count: int = 0
     total_lessons: int
     lessons: List[SummerStudentLessonEntry]

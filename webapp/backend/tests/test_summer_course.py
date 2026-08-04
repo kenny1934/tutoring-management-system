@@ -607,6 +607,38 @@ class TestCourseTypeReset:
         assert [l.lesson_number for l in lessons] == [5, 6, 7, 8, 1, 2, 3, 4]
 
 
+def _ordered_lessons(db_session, slot):
+    """Ensure the slot's lessons exist and return them ordered by lesson_number."""
+    from routers.summer_course import _ensure_lessons_for_slot
+    _ensure_lessons_for_slot(slot, db_session)
+    db_session.commit()
+    return (
+        db_session.query(SummerLesson)
+        .filter(SummerLesson.slot_id == slot.id)
+        .order_by(SummerLesson.lesson_number)
+        .all()
+    )
+
+
+def _add_live_rows(db_session, rows, student_name="Live"):
+    """Create a Student plus one live SessionLog per
+    (summer_session, lesson_date, status[, lesson_number]) tuple."""
+    from models import SessionLog, Student
+    student = Student(student_name=student_name, grade="F1")
+    db_session.add(student)
+    db_session.flush()
+    admin = db_session.query(Tutor).first()
+    for summer_session, lesson_date, status, *lesson_number in rows:
+        db_session.add(SessionLog(
+            student_id=student.id, tutor_id=admin.id,
+            session_date=lesson_date, time_slot="10:00 - 11:30",
+            location="MSA", session_status=status,
+            summer_session_id=summer_session.id,
+            lesson_number=lesson_number[0] if lesson_number else None,
+        ))
+    db_session.commit()
+
+
 class TestStudentLessons:
     """Test get_student_lessons endpoint."""
 
@@ -645,21 +677,77 @@ class TestStudentLessons:
         placed_lessons = [l for l in student.lessons if l.placed]
         assert len(placed_lessons) == 4
 
+    def test_attended_count_from_live_statuses(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """Attended and Attended (Make-up) on live rows count; Scheduled
+        does not. branch_code follows the booked slot's location."""
+        from routers.summer_course import get_student_lessons
+
+        lessons = _ordered_lessons(db_session, slot_type_a)
+        sessions = []
+        for lesson in lessons[:3]:
+            s = SummerSession(
+                application_id=application.id,
+                slot_id=slot_type_a.id,
+                lesson_id=lesson.id,
+                session_status="Confirmed",
+            )
+            sessions.append(s)
+            db_session.add(s)
+        db_session.flush()
+
+        _add_live_rows(db_session, [
+            (sessions[0], lessons[0].lesson_date, "Attended"),
+            (sessions[1], lessons[1].lesson_date, "Attended (Make-up)"),
+            (sessions[2], lessons[2].lesson_date, "Scheduled"),
+        ])
+
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        student = result.students[0]
+        assert student.attended_count == 2
+        assert student.branch_code == "MSA"
+
+    def test_attended_count_counts_duplicated_lesson_once(
+        self, db_session, summer_config, slot_type_a, application, admin_tutor,
+    ):
+        """Two attended sessions at the same effective lesson_number (a redo
+        of the same lesson) count as one lesson attended."""
+        from routers.summer_course import get_student_lessons
+
+        lessons = _ordered_lessons(db_session, slot_type_a)
+        s1 = SummerSession(
+            application_id=application.id, slot_id=slot_type_a.id,
+            lesson_id=lessons[1].id, session_status="Confirmed",
+        )
+        s2 = SummerSession(
+            application_id=application.id, slot_id=slot_type_a.id,
+            lesson_id=lessons[3].id, lesson_number=2, session_status="Confirmed",
+        )
+        db_session.add_all([s1, s2])
+        db_session.flush()
+
+        _add_live_rows(db_session, [
+            (s1, lessons[1].lesson_date, "Attended", 2),
+            (s2, lessons[3].lesson_date, "Attended", 2),
+        ])
+
+        result = get_student_lessons(
+            config_id=summer_config.id, location="MSA",
+            _admin=None, db=db_session,
+        )
+        assert result.students[0].attended_count == 1
+
 
 class TestStudentLessonsDuplicates:
     """Duplicates at the same effective lesson_number must surface via the
     `duplicates` field rather than silently collapsing to a single primary."""
 
     def _setup(self, db_session, slot):
-        from routers.summer_course import _ensure_lessons_for_slot
-        _ensure_lessons_for_slot(slot, db_session)
-        db_session.commit()
-        return (
-            db_session.query(SummerLesson)
-            .filter(SummerLesson.slot_id == slot.id)
-            .order_by(SummerLesson.lesson_number)
-            .all()
-        )
+        return _ordered_lessons(db_session, slot)
 
     def test_duplicate_lesson_number_surfaces_in_duplicates(
         self, db_session, summer_config, slot_type_a, application, admin_tutor,
@@ -900,15 +988,7 @@ class TestSummerSessionLessonNumberDuplicateGuard:
     Mirrors the SessionLog guard in PATCH /sessions/{id}."""
 
     def _setup(self, db_session, slot):
-        from routers.summer_course import _ensure_lessons_for_slot
-        _ensure_lessons_for_slot(slot, db_session)
-        db_session.commit()
-        return (
-            db_session.query(SummerLesson)
-            .filter(SummerLesson.slot_id == slot.id)
-            .order_by(SummerLesson.lesson_number)
-            .all()
-        )
+        return _ordered_lessons(db_session, slot)
 
     def test_post_raises_409_on_duplicate_lesson_number(
         self, db_session, summer_config, slot_type_a, application, admin_tutor,
