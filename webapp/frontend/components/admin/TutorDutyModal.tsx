@@ -27,6 +27,10 @@ interface TutorDutyModalProps {
   location: string;
   days: string[];
   timeSlots: string[];
+  /** Open "day|time" pairs from the branch's per-day ladder. Days keep only
+   *  their own columns, so a weekday never offers weekend-only times. Omit
+   *  (or pass null) to show the full day x time grid. */
+  openCells?: Set<string> | null;
   onSaved: () => void;
   api: TutorDutyApi;
   /** Distinguishes the two intakes' entries in the SWR cache. */
@@ -41,6 +45,7 @@ export function TutorDutyModal({
   location,
   days,
   timeSlots,
+  openCells,
   onSaved,
   api,
   intakeKey,
@@ -88,6 +93,31 @@ export function TutorDutyModal({
     }
   }, [isOpen]);
 
+  // Columns: grouped by day, each day keeping only its own open time slots
+  // when a ladder is provided. A duty recorded at a combination that is no
+  // longer open stays in `checked` unseen and re-saves untouched, so hiding
+  // a column never deletes data.
+  const columns = useMemo(
+    () =>
+      days.flatMap((d) =>
+        timeSlots
+          .filter((ts) => !openCells || openCells.has(`${d}|${ts}`))
+          .map((ts, i) => ({ day: d, ts, firstOfDay: i === 0 }))
+      ),
+    [days, timeSlots, openCells]
+  );
+
+  // Day header groups sized to each day's surviving columns.
+  const dayGroups = useMemo(() => {
+    const groups: { day: string; count: number }[] = [];
+    for (const c of columns) {
+      const last = groups[groups.length - 1];
+      if (last && last.day === c.day) last.count += 1;
+      else groups.push({ day: c.day, count: 1 });
+    }
+    return groups;
+  }, [columns]);
+
   const toggle = (tutorId: number, day: string, ts: string) => {
     const key = `${tutorId}|${day}|${ts}`;
     setChecked((prev) => {
@@ -101,9 +131,7 @@ export function TutorDutyModal({
   const toggleTutorRow = (tutorId: number) => {
     setChecked((prev) => {
       const next = new Set(prev);
-      const allKeys = days.flatMap((d) =>
-        timeSlots.map((ts) => `${tutorId}|${d}|${ts}`)
-      );
+      const allKeys = columns.map(({ day, ts }) => `${tutorId}|${day}|${ts}`);
       const allChecked = allKeys.every((k) => next.has(k));
       for (const k of allKeys) {
         if (allChecked) next.delete(k);
@@ -154,12 +182,6 @@ export function TutorDutyModal({
     }
   };
 
-  // Columns: grouped by day, each day has its time slots
-  const columns = useMemo(
-    () => days.flatMap((d) => timeSlots.map((ts) => ({ day: d, ts }))),
-    [days, timeSlots]
-  );
-
   if (!isOpen) return null;
 
   const loading = !tutors || !duties;
@@ -203,10 +225,10 @@ export function TutorDutyModal({
                   {/* Day header row */}
                   <tr className="bg-secondary">
                     <th className="sticky left-0 z-10 bg-secondary text-left px-3 py-2 border-b border-border" />
-                    {days.map((day) => (
+                    {dayGroups.map(({ day, count }) => (
                       <th
                         key={day}
-                        colSpan={timeSlots.length}
+                        colSpan={count}
                         className="text-center px-1 py-2 font-semibold text-foreground border-b border-border border-l-2 border-l-primary/15"
                       >
                         {DAY_ABBREV[day] || day}
@@ -218,13 +240,12 @@ export function TutorDutyModal({
                     <th className="sticky left-0 z-10 bg-secondary/50 text-left px-3 py-1.5 border-b border-border font-medium text-muted-foreground">
                       Tutor
                     </th>
-                    {columns.map(({ day, ts }, i) => (
+                    {columns.map(({ day, ts, firstOfDay }) => (
                       <th
                         key={`${day}-${ts}`}
                         className={cn(
                           "text-center px-2 py-1.5 font-normal text-muted-foreground border-b border-border border-r border-border/30 cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors",
-                          i % timeSlots.length === 0 &&
-                            "border-l-2 border-l-primary/15"
+                          firstOfDay && "border-l-2 border-l-primary/15"
                         )}
                         onClick={() => toggleColumn(day, ts)}
                         title={`Toggle all tutors for ${DAY_ABBREV[day] || day} ${ts}`}
@@ -252,7 +273,7 @@ export function TutorDutyModal({
                       >
                         {tutor.tutor_name}
                       </td>
-                      {columns.map(({ day, ts }, i) => {
+                      {columns.map(({ day, ts, firstOfDay }) => {
                         const key = `${tutor.id}|${day}|${ts}`;
                         const isChecked = checked.has(key);
                         return (
@@ -260,8 +281,7 @@ export function TutorDutyModal({
                             key={key}
                             className={cn(
                               "text-center px-2 py-2 border-b border-border/50 border-r border-border/30 cursor-pointer transition-colors",
-                              i % timeSlots.length === 0 &&
-                                "border-l-2 border-l-primary/15",
+                              firstOfDay && "border-l-2 border-l-primary/15",
                               isChecked
                                 ? "bg-primary/20 hover:bg-primary/30"
                                 : "hover:bg-primary/8"

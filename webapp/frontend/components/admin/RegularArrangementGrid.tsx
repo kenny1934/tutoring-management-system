@@ -23,6 +23,10 @@ interface RegularArrangementGridProps {
    *  and clears when this changes. */
   branchKey?: string;
   timeSlots: string[];
+  /** Open "day|time" pairs from the branch's per-day ladder. Cells outside
+   *  the set are closed: no slot creation, no drops onto empty cells. Null
+   *  disables the guard. */
+  openCells?: Set<string> | null;
   demand: RegularDemandCell[];
   slots: RegularSlot[];
   grades: string[];
@@ -59,6 +63,7 @@ export function RegularArrangementGrid({
   days,
   branchKey,
   timeSlots,
+  openCells,
   demand,
   slots,
   grades,
@@ -374,11 +379,13 @@ export function RegularArrangementGrid({
                 // With a slot filter on, cells holding no match recede so the
                 // matching slots pop; demand stays faintly visible underneath.
                 const dimmed = slotFilterActive && cellSlots.length === 0;
+                const closed = openCells ? !openCells.has(key) : false;
                 return (
                   <RegularSlotCell
                     key={key}
                     day={day}
                     timeSlot={ts}
+                    closed={closed}
                     demandCell={demandMap.get(key)}
                     slots={cellSlots}
                     dimmed={dimmed}

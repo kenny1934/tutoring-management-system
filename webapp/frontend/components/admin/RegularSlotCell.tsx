@@ -20,6 +20,10 @@ export interface RegularDemandBarFilter {
 interface RegularSlotCellProps {
   day: string;
   timeSlot: string;
+  /** This (day, time) is outside the branch's ladder. The cell refuses slot
+   *  creation and, while empty, drops and taps; existing slots stay fully
+   *  manageable so off-ladder data is never stranded. */
+  closed?: boolean;
   demandCell?: RegularDemandCell;
   slots: RegularSlot[];
   grades: string[];
@@ -94,6 +98,7 @@ function compareRegularSlots(a: RegularSlot, b: RegularSlot): number {
 export const RegularSlotCell = memo(function RegularSlotCell({
   day,
   timeSlot,
+  closed = false,
   demandCell,
   slots,
   grades,
@@ -168,12 +173,18 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   const totalAssigned = slots.reduce((sum, s) => sum + s.assigned_count, 0);
   const remainingDemand = Math.max(0, first + second - totalAssigned);
 
-  // Drop target for the whole cell (assigns to first non-full slot)
+  // A closed cell only blocks placement while it holds no slot: an off-ladder
+  // slot that exists was made deliberately and stays a working drop target.
+  const closedEmpty = closed && slots.length === 0;
+
+  // Drop target for the whole cell (assigns to first non-full slot). Not
+  // calling preventDefault on a closed empty cell means the drop event never
+  // fires and the browser shows the not-allowed cursor.
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (readOnly) return;
+    if (readOnly || closedEmpty) return;
     e.preventDefault();
     setDragOver(true);
-  }, [readOnly]);
+  }, [readOnly, closedEmpty]);
 
   const handleDragLeave = useCallback(() => {
     setDragOver(false);
@@ -210,20 +221,29 @@ export const RegularSlotCell = memo(function RegularSlotCell({
       const target = e.target as HTMLElement;
       // Slot cards and the Add-slot button stop or own this tap themselves.
       if (target.closest("button")) return;
+      if (closedEmpty) {
+        onDropFailed?.(`This branch has no classes on ${day} at ${timeSlot}.`);
+        return;
+      }
       placeInFirstOpenSlot(pendingPlacementAppId!);
     },
-    [tapPlaceActive, pendingPlacementAppId, placeInFirstOpenSlot]
+    [tapPlaceActive, pendingPlacementAppId, placeInFirstOpenSlot, closedEmpty, onDropFailed, day, timeSlot]
   );
 
   return (
     <div
       className={cn(
         "min-h-[80px] p-1.5 transition relative",
-        heatColor(remainingDemand),
+        // Hatching marks the cell as outside the branch's ladder; it replaces
+        // the demand heat tint, which has nothing real to show there.
+        closed
+          ? "bg-[#f6f1e9] dark:bg-[#211e19] bg-[repeating-linear-gradient(135deg,transparent,transparent_6px,rgba(0,0,0,0.05)_6px,rgba(0,0,0,0.05)_12px)] dark:bg-[repeating-linear-gradient(135deg,transparent,transparent_6px,rgba(255,255,255,0.04)_6px,rgba(255,255,255,0.04)_12px)]"
+          : heatColor(remainingDemand),
         dimmed && "opacity-40 hover:opacity-100",
         dragOver && "ring-2 ring-inset ring-primary",
         prefHighlight && !dragOver && "ring-2 ring-inset ring-primary/40 bg-primary/5"
       )}
+      title={closed ? `No classes on ${day} at ${timeSlot}` : undefined}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -319,8 +339,10 @@ export const RegularSlotCell = memo(function RegularSlotCell({
         ))}
       </div>
 
-      {/* Add slot button — more prominent when no slots yet */}
-      {!readOnly && (
+      {/* Add slot button — more prominent when no slots yet. Closed cells
+          never offer it: creating an off-ladder slot is the accident this
+          guard exists to prevent. */}
+      {!readOnly && !closed && (
         <button
           onClick={() => onCreateSlot(day, timeSlot)}
           className={cn(

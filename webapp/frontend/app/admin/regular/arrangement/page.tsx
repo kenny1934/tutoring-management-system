@@ -234,6 +234,18 @@ export default function RegularArrangementPage() {
     return [...set].sort();
   }, [selectedLocation, slots, activeConfig]);
 
+  // Open (day, time) pairs from the branch's per-day ladder. The grid closes
+  // every cell outside the set so a weekday column never offers weekend-only
+  // times. Null (no ladder configured) turns the guard off rather than
+  // closing the whole board.
+  const openCells = useMemo(() => {
+    const set = new Set<string>();
+    for (const day of selectedLocation?.open_days ?? []) {
+      for (const t of selectedLocation?.time_slots?.[day] ?? []) set.add(`${day}|${t}`);
+    }
+    return set.size > 0 ? set : null;
+  }, [selectedLocation]);
+
   // Per-cell tutor lists carrying duty state. Precomputed once so every cell
   // keeps a stable array identity rather than a fresh one per render.
   const tutorsByCell = useMemo(() => {
@@ -868,6 +880,7 @@ export default function RegularArrangementPage() {
                     days={days}
                     branchKey={location}
                     timeSlots={timeSlots}
+                    openCells={openCells}
                     demand={demand?.cells ?? []}
                     slots={slots ?? []}
                     grades={grades}
@@ -1008,6 +1021,7 @@ export default function RegularArrangementPage() {
             location={location}
             days={days}
             timeSlots={timeSlots}
+            openCells={openCells}
             onSaved={() => mutateDuties()}
             api={REGULAR_DUTY_API}
             intakeKey="regular"
