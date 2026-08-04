@@ -8,7 +8,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
-import { getLinkedStudentId, LOCATION_TO_CODE, SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { getLinkedStudentId, LOCATION_TO_CODE } from "@/lib/summer-utils";
+import { getGradeColor } from "@/lib/constants";
 import { Award, Check, ChevronDown, Download, Loader2 } from "lucide-react";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
@@ -316,10 +317,13 @@ export default function SummerCertificatesPage() {
                           {name}
                         </td>
                         <td className="px-3 py-2">
-                          <span className={cn(
-                            "text-[10px] font-bold px-1 rounded",
-                            SUMMER_GRADE_BG[row.grade] || "bg-gray-100 dark:bg-gray-700"
-                          )}>
+                          {/* Same badge as the student's own record (StudentInfoBadges):
+                              colour keyed by grade + stream. Summer grades are entering
+                              grades, so no Pre- transform. */}
+                          <span
+                            className="rounded text-gray-800 text-[10px] px-1.5 py-0.5"
+                            style={{ backgroundColor: getGradeColor(row.grade, row.lang_stream ?? undefined) }}
+                          >
                             {row.grade}
                             {row.lang_stream || ""}
                           </span>
