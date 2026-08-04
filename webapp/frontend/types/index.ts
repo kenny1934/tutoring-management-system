@@ -3892,8 +3892,12 @@ export interface RegularConversionLostRow {
   prospect_id: number;
   student_name: string;
   source_branch: string;
+  primary_student_id: string | null;
   grade: string | null;
   school: string | null;
+  phone_1: string | null;
+  phone_2: string | null;
+  wechat_id: string | null;
   wants_regular: string | null;
   outreach_status: string | null;
   attended_summer: boolean;

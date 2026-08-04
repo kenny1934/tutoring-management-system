@@ -495,8 +495,12 @@ class TestConversionAxes:
         # One who applied (not lost); two who did not, one keen, one not.
         self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="華士古分校",
                        preferred=["MSA"], phone="85255550000")
-        _prospect(db_session, name="Keen Chan", branch="MAC", phone_1="85255550001",
-                  wants_regular="Yes")
+        keen = _prospect(db_session, name="Keen Chan", branch="MAC", phone_1="85255550001",
+                         wants_regular="Yes")
+        keen.primary_student_id = "MAC1023"
+        keen.phone_2 = "85255551111"
+        keen.wechat_id = "keen_mum"
+        db_session.commit()
         _prospect(db_session, name="Cold Wong", branch="MTA", phone_1="85255550002",
                   wants_regular="No")
 
@@ -508,6 +512,10 @@ class TestConversionAxes:
         assert len(resp.lost_prospects) == 2
         # wants_regular == Yes sorts ahead of the rest.
         assert resp.lost_prospects[0].student_name == "Keen Chan"
+        # Contact fields ride along so the chase list is workable in place.
+        row = resp.lost_prospects[0]
+        assert (row.primary_student_id, row.phone_1, row.phone_2, row.wechat_id) == (
+            "MAC1023", "85255550001", "85255551111", "keen_mum")
 
 
 class TestReverseSuggestions:

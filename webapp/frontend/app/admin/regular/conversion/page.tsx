@@ -9,12 +9,20 @@ import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
 import { getGradeColor, splitGradeStream } from "@/lib/regular-utils";
+import { formatProspectCode } from "@/lib/summer-utils";
 import { TrendingUp, Loader2, ChevronDown, AlertTriangle, Download } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import { RegularConversionSections } from "@/components/admin/RegularConversionSections";
+import {
+  RegularConversionBreakdowns,
+  RegularConversionChaseList,
+} from "@/components/admin/RegularConversionSections";
 import type { RegularConversionBranchRow, RegularConversionResponse } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+
+/** The three tabs the report splits into: the intake at a glance, the deeper
+ *  analysis axes, and the actionable still-to-chase list. */
+type ConversionTab = "overview" | "breakdowns" | "chase";
 
 /** Columns of the per-branch funnel, in flow order. Colours ramp along each
  *  path (summer: teal -> emerald; regular: sky -> indigo -> purple) so no two
@@ -76,9 +84,12 @@ function buildConversionCsv(data: RegularConversionResponse): string {
   data.branch_movement.forEach((r) => rows.push([r.wanted_branch, r.enrolled_branch, r.count]));
   rows.push([]);
 
-  rows.push(["Still to chase — name", "Branch", "Grade", "School", "Wants regular", "Did summer", "Outreach"]);
+  rows.push(["Still to chase — name", "Code", "Grade", "School", "Phone 1", "Phone 2", "WeChat", "Wants regular", "Did summer", "Outreach"]);
   data.lost_prospects.forEach((r) =>
-    rows.push([r.student_name, r.source_branch, r.grade, r.school, r.wants_regular, r.attended_summer ? "Yes" : "", r.outreach_status]));
+    rows.push([
+      r.student_name, formatProspectCode(r.source_branch, r.primary_student_id), r.grade, r.school,
+      r.phone_1, r.phone_2, r.wechat_id, r.wants_regular, r.attended_summer ? "Yes" : "", r.outreach_status,
+    ]));
 
   return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
 }
@@ -138,9 +149,10 @@ function FunnelChart({ totals }: { totals: RegularConversionBranchRow }) {
 
 export default function RegularConversionPage() {
   usePageTitle("Regular Conversion");
-  const { canViewAdminPages } = useAuth();
+  const { canViewAdminPages, isReadOnly } = useAuth();
   const [year, setYear] = useState<number | null>(null);
   const [branch, setBranch] = useState<string | null>(null);
+  const [tab, setTab] = useState<ConversionTab>("overview");
   // Branch options come from the unfiltered ("All") view and persist while a
   // single branch is selected, so the dropdown never collapses to one option.
   const [branchOptions, setBranchOptions] = useState<string[]>([]);
@@ -162,7 +174,7 @@ export default function RegularConversionPage() {
     [configs]
   );
 
-  const { data, isLoading } = useSWR(
+  const { data, isLoading, mutate } = useSWR(
     year != null ? ["regular-conversion", year, branch] : null,
     () => regularAPI.getConversion(year!, branch)
   );
@@ -315,6 +327,31 @@ export default function RegularConversionPage() {
             </div>
           </div>
 
+          {/* Tab bar: the intake at a glance, the analysis axes, and the chase list */}
+          <div className="px-4 sm:px-6 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="inline-flex bg-muted rounded-full p-0.5">
+              {([
+                { key: "overview", label: "Overview" },
+                { key: "breakdowns", label: "Breakdowns" },
+                { key: "chase", label: `Still to chase${data ? ` (${data.lost_prospects.length})` : ""}` },
+              ] as { key: ConversionTab; label: string }[]).map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium rounded-full transition-all duration-200",
+                    tab === t.key
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Body */}
           {isLoading || !data ? (
             <div className="flex items-center justify-center flex-1 text-muted-foreground">
@@ -322,6 +359,8 @@ export default function RegularConversionPage() {
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 space-y-6">
+              {tab === "overview" && (
+              <>
               {/* Headline conversion metrics */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <KpiCard label="Prospects" value={String(data.totals.prospects)} sub="P6 prospects this year" />
@@ -344,15 +383,11 @@ export default function RegularConversionPage() {
                 />
               </div>
 
-              {/* Still-to-chase callout: jumps to the list at the bottom */}
+              {/* Still-to-chase callout: switches to the chase tab */}
               {data.lost_prospects.length > 0 && (
                 <button
                   type="button"
-                  onClick={() =>
-                    document
-                      .getElementById("conversion-still-to-chase")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }
+                  onClick={() => setTab("chase")}
                   className="w-full flex items-center gap-2 rounded-lg border border-amber-300/70 dark:border-amber-700/50 bg-amber-50/70 dark:bg-amber-900/15 px-3 py-2 text-left text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/25 transition-colors"
                 >
                   <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -360,7 +395,7 @@ export default function RegularConversionPage() {
                     {data.lost_prospects.length} prospect{data.lost_prospects.length === 1 ? "" : "s"} still to chase
                   </span>
                   <span className="text-amber-700/80 dark:text-amber-400/80">no regular application yet</span>
-                  <span className="ml-auto underline">Jump to list</span>
+                  <span className="ml-auto underline">View list</span>
                 </button>
               )}
 
@@ -478,7 +513,14 @@ export default function RegularConversionPage() {
                 )}
               </div>
 
-              <RegularConversionSections data={data} />
+              </>
+              )}
+
+              {tab === "breakdowns" && <RegularConversionBreakdowns data={data} />}
+
+              {tab === "chase" && (
+                <RegularConversionChaseList data={data} readOnly={isReadOnly} onChanged={() => mutate()} />
+              )}
             </div>
           )}
         </div>

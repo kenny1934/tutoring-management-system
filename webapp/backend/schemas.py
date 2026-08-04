@@ -3475,12 +3475,19 @@ class RegularConversionMovementRow(BaseModel):
 
 
 class RegularConversionLostRow(BaseModel):
-    """A prospect with no regular application yet — the still-to-chase list."""
+    """A prospect with no regular application yet — the still-to-chase list.
+
+    Carries the contact fields (phones, WeChat, the branch's own student id)
+    so the chase list is workable without opening each prospect."""
     prospect_id: int
     student_name: str
     source_branch: str
+    primary_student_id: Optional[str] = None
     grade: Optional[str] = None
     school: Optional[str] = None
+    phone_1: Optional[str] = None
+    phone_2: Optional[str] = None
+    wechat_id: Optional[str] = None
     wants_regular: Optional[str] = None
     outreach_status: Optional[str] = None
     attended_summer: bool = False

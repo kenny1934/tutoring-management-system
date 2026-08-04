@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { ArrowRight, ArrowUpDown, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { IntentionBadge, OutreachBadge } from "@/components/summer/prospect-badges";
-import type { ProspectOutreachStatus, RegularConversionResponse } from "@/types";
+import { prospectsAPI } from "@/lib/api";
+import { formatProspectCode } from "@/lib/summer-utils";
+import { IntentionBadge, OutreachBadge, OUTREACH_OPTIONS } from "@/components/summer/prospect-badges";
+import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
+import type { PrimaryProspect, ProspectOutreachStatus, RegularConversionResponse } from "@/types";
 
 // Shared table styling, matching the funnel table already on the page.
 const wrap = "border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden";
@@ -100,18 +103,13 @@ function Section({
   title,
   subtitle,
   children,
-  id,
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
-  id?: string;
 }) {
   return (
-    <section
-      id={id}
-      className="scroll-mt-4 rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4"
-    >
+    <section className="rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4">
       <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       <p className="text-xs text-muted-foreground mt-0.5 mb-2">{subtitle}</p>
       {children}
@@ -317,24 +315,151 @@ function MovementTable({ data }: { data: RegularConversionResponse }) {
   );
 }
 
-function LostTable({ data }: { data: RegularConversionResponse }) {
-  const { sorted, sortKey, dir, onSort } = useSortable(data.lost_prospects);
+// Native select styling for the chase-list filters, sized to the table text.
+const filterSelect =
+  "text-xs border border-border rounded-lg px-2 py-1.5 bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30";
+
+// The wants-regular ladder, for the filter's option order.
+const INTENTION_ORDER = ["Yes", "Considering", "No", "Unknown"];
+
+/** The analysis tab: stated intention vs outcome, branch preference vs where
+ *  they landed, and the feeder-school / submitting-tutor pair side by side on
+ *  wide screens. */
+export function RegularConversionBreakdowns({ data }: { data: RegularConversionResponse }) {
+  return (
+    <>
+      <IntentionTables data={data} />
+      <MovementTable data={data} />
+      <div className="grid gap-6 xl:grid-cols-2 items-start">
+        <SchoolTable data={data} />
+        <TutorTable data={data} />
+      </div>
+    </>
+  );
+}
+
+/** The still-to-chase tab: contact columns, filters, and an in-place detail
+ *  modal so working the list never leaves the page. */
+export function RegularConversionChaseList({
+  data,
+  readOnly,
+  onChanged,
+}: {
+  data: RegularConversionResponse;
+  readOnly: boolean;
+  onChanged: () => void;
+}) {
+  // Full prospect records back the in-place modal. Fetched when this tab first
+  // mounts, so the other tabs never pay for it.
+  const { data: prospects, mutate: mutateProspects } = useSWR(
+    ["conversion-chase-prospects", data.year],
+    () => prospectsAPI.adminList({ year: data.year })
+  );
+  const prospectById = useMemo(
+    () => new Map((prospects ?? []).map((p) => [p.id, p])),
+    [prospects]
+  );
+
+  const [branchFilter, setBranchFilter] = useState("");
+  const [wantsFilter, setWantsFilter] = useState("");
+  const [outreachFilter, setOutreachFilter] = useState("");
+
+  // Filter options only offer values that actually occur in the list.
+  const branchOptions = useMemo(
+    () => Array.from(new Set(data.lost_prospects.map((r) => r.source_branch))).sort(),
+    [data.lost_prospects]
+  );
+  const wantsOptions = useMemo(() => {
+    const present = new Set(data.lost_prospects.map((r) => r.wants_regular ?? "Unknown"));
+    return INTENTION_ORDER.filter((v) => present.has(v));
+  }, [data.lost_prospects]);
+  const outreachOptions = useMemo(() => {
+    const present = new Set(data.lost_prospects.map((r) => r.outreach_status));
+    return OUTREACH_OPTIONS.filter((v) => present.has(v));
+  }, [data.lost_prospects]);
+
+  // The prospect code is derived up front so it sorts like any other column.
+  const rows = useMemo(
+    () =>
+      data.lost_prospects
+        .filter(
+          (r) =>
+            (!branchFilter || r.source_branch === branchFilter) &&
+            (!wantsFilter || (r.wants_regular ?? "Unknown") === wantsFilter) &&
+            (!outreachFilter || r.outreach_status === outreachFilter)
+        )
+        .map((r) => ({ ...r, code: formatProspectCode(r.source_branch, r.primary_student_id) })),
+    [data.lost_prospects, branchFilter, wantsFilter, outreachFilter]
+  );
+  const { sorted, sortKey, dir, onSort } = useSortable(rows);
   const hp = { sortKey, dir, onSort };
+
+  // In-place modal; prev/next walks the list in its displayed order.
+  const [selected, setSelected] = useState<PrimaryProspect | null>(null);
+  const siblings = useMemo(
+    () => sorted.map((r) => prospectById.get(r.prospect_id)).filter(Boolean) as PrimaryProspect[],
+    [sorted, prospectById]
+  );
+  // After a save refreshes the prospect list, point the open modal at the
+  // fresh record so it never shows stale fields.
+  useEffect(() => {
+    if (!selected || !prospects) return;
+    const updated = prospects.find((p) => p.id === selected.id);
+    if (updated && updated !== selected) setSelected(updated);
+  }, [prospects, selected]);
+
+  const isFiltered = Boolean(branchFilter || wantsFilter || outreachFilter);
+
   return (
     <Section
-      id="conversion-still-to-chase"
       title={`Still to chase (${data.lost_prospects.length})`}
-      subtitle="Prospects with no regular application yet. Open one to record outreach."
+      subtitle="Prospects with no regular application yet. Click one to record outreach without leaving this page."
     >
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <select
+          value={branchFilter}
+          onChange={(e) => setBranchFilter(e.target.value)}
+          className={filterSelect}
+          aria-label="Filter by branch"
+        >
+          <option value="">All branches</option>
+          {branchOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+        </select>
+        <select
+          value={wantsFilter}
+          onChange={(e) => setWantsFilter(e.target.value)}
+          className={filterSelect}
+          aria-label="Filter by regular intention"
+        >
+          <option value="">Wants regular: all</option>
+          {wantsOptions.map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <select
+          value={outreachFilter}
+          onChange={(e) => setOutreachFilter(e.target.value)}
+          className={filterSelect}
+          aria-label="Filter by outreach status"
+        >
+          <option value="">Outreach: all</option>
+          {outreachOptions.map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+        {isFiltered && (
+          <span className="text-xs text-muted-foreground">
+            Showing {sorted.length} of {data.lost_prospects.length}
+          </span>
+        )}
+      </div>
       <div className={wrap}>
-        <div className={cn(scroll, "max-h-80 overflow-y-auto")}>
-          <table className="w-full text-xs min-w-[640px]">
+        <div className={cn(scroll, "max-h-[65vh] overflow-y-auto")}>
+          <table className="w-full text-xs min-w-[880px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>
                 <SortHeader label="Name" colKey="student_name" className={th} {...hp} />
-                <SortHeader label="Branch" colKey="source_branch" className={th} {...hp} />
+                <SortHeader label="Code" colKey="code" className={th} {...hp} />
                 <SortHeader label="Grade" colKey="grade" className={th} {...hp} />
                 <SortHeader label="School" colKey="school" className={th} {...hp} />
+                <th className={th}>Phone</th>
+                <th className={th}>WeChat</th>
                 <SortHeader label="Wants regular" colKey="wants_regular" className={th} {...hp} />
                 <SortHeader label="Did summer" colKey="attended_summer" className={th} {...hp} />
                 <SortHeader label="Outreach" colKey="outreach_status" className={th} {...hp} />
@@ -342,19 +467,25 @@ function LostTable({ data }: { data: RegularConversionResponse }) {
             </thead>
             <tbody className={rowDivide}>
               {sorted.map((r) => (
-                <tr key={r.prospect_id} className="hover:bg-primary/[0.04]">
-                  <td className="px-3 py-2 font-medium">
-                    <Link
-                      href={`/admin/prospects?focus=${r.prospect_id}&year=${data.year}`}
-                      className="text-primary hover:underline"
-                      title="Open this prospect"
-                    >
-                      {r.student_name}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2 text-foreground">{r.source_branch}</td>
+                <tr
+                  key={r.prospect_id}
+                  className={cn("hover:bg-primary/[0.04]", prospectById.size > 0 && "cursor-pointer")}
+                  onClick={() => {
+                    const full = prospectById.get(r.prospect_id);
+                    if (full) setSelected(full);
+                  }}
+                >
+                  <td className="px-3 py-2 font-medium text-primary">{r.student_name}</td>
+                  <td className="px-3 py-2 font-mono text-muted-foreground">{r.code}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.grade || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate" title={r.school || undefined}>{r.school || "-"}</td>
+                  <td className="px-3 py-2 tabular-nums text-foreground whitespace-nowrap">
+                    {r.phone_1 || <span className="text-muted-foreground/50">-</span>}
+                    {r.phone_2 && <div className="text-muted-foreground">{r.phone_2}</div>}
+                  </td>
+                  <td className="px-3 py-2 text-foreground max-w-[140px] truncate" title={r.wechat_id || undefined}>
+                    {r.wechat_id || <span className="text-muted-foreground/50">-</span>}
+                  </td>
                   <td className="px-3 py-2">
                     {r.wants_regular
                       ? <IntentionBadge value={r.wants_regular} />
@@ -372,26 +503,25 @@ function LostTable({ data }: { data: RegularConversionResponse }) {
                   </td>
                 </tr>
               ))}
-              {sorted.length === 0 && <EmptyRow span={7}>Every prospect has a regular application.</EmptyRow>}
+              {sorted.length === 0 && (
+                <EmptyRow span={9}>
+                  {isFiltered ? "No prospects match these filters." : "Every prospect has a regular application."}
+                </EmptyRow>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+      {selected && (
+        <ProspectDetailModal
+          prospect={selected}
+          onClose={() => setSelected(null)}
+          onSave={() => { mutateProspects(); onChanged(); }}
+          siblings={siblings}
+          onNavigate={setSelected}
+          readOnly={readOnly}
+        />
+      )}
     </Section>
-  );
-}
-
-/** The deeper conversion axes, stacked below the funnel + grade-stream summary:
- *  stated intention vs outcome, feeder schools, submitting tutor, branch
- *  preference vs where they enrolled, and the still-to-chase list. */
-export function RegularConversionSections({ data }: { data: RegularConversionResponse }) {
-  return (
-    <>
-      <IntentionTables data={data} />
-      <MovementTable data={data} />
-      <SchoolTable data={data} />
-      <TutorTable data={data} />
-      <LostTable data={data} />
-    </>
   );
 }
