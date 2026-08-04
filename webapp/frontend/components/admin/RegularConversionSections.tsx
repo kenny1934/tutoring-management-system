@@ -413,7 +413,7 @@ export function RegularConversionChaseList({
             (!outreachFilter || r.outreach_status === outreachFilter)
         )
         .map((r) => ({ ...r, code: formatProspectCode(r.source_branch, r.primary_student_id) })),
-    [data.lost_prospects, branchFilter, wantsFilter, outreachFilter]
+    [data.lost_prospects, branchFilter, wantedFilter, wantsFilter, outreachFilter]
   );
   const { sorted, sortKey, dir, onSort } = useSortable(rows);
   const hp = { sortKey, dir, onSort };
