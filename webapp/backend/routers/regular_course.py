@@ -1613,11 +1613,15 @@ def get_conversion(
     prospects = q.all()
 
     summer_app_ids = {p.summer_application_id for p in prospects if p.summer_application_id}
-    enrolled_summer_ids: set[int] = set()
+    # The enrolled student's MSA/MSB code rides the enrolled-signal query so
+    # the chase list can badge summer alumni with who they became.
+    summer_code_by_app: dict[int, Optional[str]] = {}
     withdrawn_summer_ids: set[int] = set()
     if summer_app_ids:
-        enrolled_summer_ids = {
-            sid for (sid,) in db.query(Enrollment.summer_application_id)
+        summer_code_by_app = {
+            sid: code
+            for sid, code in db.query(Enrollment.summer_application_id, Student.school_student_id)
+            .join(Student, Student.id == Enrollment.student_id)
             .filter(Enrollment.summer_application_id.in_(summer_app_ids))
             if sid is not None
         }
@@ -1691,7 +1695,7 @@ def get_conversion(
         if p.wants_regular == "Yes":
             row.wants_regular_yes += 1
         attended = (
-            p.summer_application_id in enrolled_summer_ids
+            p.summer_application_id in summer_code_by_app
             and p.summer_application_id not in withdrawn_summer_ids
         )
         if attended:
@@ -1769,6 +1773,7 @@ def get_conversion(
                 wants_regular=p.wants_regular,
                 outreach_status=p.outreach_status,
                 attended_summer=attended,
+                summer_student_code=summer_code_by_app.get(p.summer_application_id) if attended else None,
             ))
 
     branches = [rows[b] for b in sorted(rows)]

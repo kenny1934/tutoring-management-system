@@ -53,6 +53,21 @@ export const BRANCH_COLORS: Record<string, { badge: string; selected: string }> 
   },
 };
 
+/** An enrolled student's MSA/MSB code, coloured by the code's branch prefix
+ *  so it reads the same as the branch badges everywhere else. */
+export function StudentCodeBadge({ code }: { code: string }) {
+  const branch = BRANCH_COLORS[code.slice(0, 3)];
+  return (
+    <span
+      className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${
+        branch?.badge ?? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+      }`}
+    >
+      {code}
+    </span>
+  );
+}
+
 export const OUTREACH_BADGE_COLORS: Record<string, string> = {
   "Not Started": "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
   "WeChat - Not Found": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",

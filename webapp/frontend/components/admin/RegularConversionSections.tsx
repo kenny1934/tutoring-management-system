@@ -8,7 +8,7 @@ import { prospectsAPI } from "@/lib/api";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { STAGE_TONES } from "@/lib/regular-utils";
 import {
-  CopyableCell, IntentionBadge, OutreachBadge, INTENTION_LABELS, OUTREACH_OPTIONS,
+  CopyableCell, IntentionBadge, OutreachBadge, StudentCodeBadge, INTENTION_LABELS, OUTREACH_OPTIONS,
 } from "@/components/summer/prospect-badges";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import type { PrimaryProspect, ProspectIntention, ProspectOutreachStatus, RegularConversionResponse } from "@/types";
@@ -486,7 +486,14 @@ export function RegularConversionChaseList({
                     if (prospectById.has(r.prospect_id)) setSelectedId(r.prospect_id);
                   }}
                 >
-                  <td className="px-3 py-2 font-semibold text-foreground">{r.student_name}</td>
+                  <td className="px-3 py-2 font-semibold text-foreground whitespace-nowrap">
+                    {r.student_name}
+                    {r.summer_student_code && (
+                      <span className="ml-1.5 align-middle">
+                        <StudentCodeBadge code={r.summer_student_code} />
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 font-mono text-muted-foreground">{r.code}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.grade || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate" title={r.school || undefined}>{r.school || "-"}</td>

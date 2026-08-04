@@ -29,6 +29,7 @@ import {
   OutreachBadge,
   ProspectStatusBadge,
   CourseStateBadge,
+  StudentCodeBadge,
   OUTREACH_OPTIONS,
   STATUS_OPTIONS,
 } from "@/components/summer/prospect-badges";
@@ -337,6 +338,8 @@ export function ProspectDetailModal({
               title="Linked Summer Application"
               refCode={prospect.matched_application_ref}
               appStatus={prospect.matched_application_status}
+              studentCode={prospect.matched_student_code}
+              studentId={prospect.matched_student_id}
               viewHref={applicationSearchHref("summer", prospect.matched_application_ref)}
               onUnlink={() => handleLink("summer", null)}
               readOnly={readOnly}
@@ -356,6 +359,8 @@ export function ProspectDetailModal({
               title="Linked Regular Application"
               refCode={prospect.matched_regular_ref}
               appStatus={prospect.matched_regular_status}
+              studentCode={prospect.matched_regular_student_code}
+              studentId={prospect.matched_regular_student_id}
               viewHref={applicationSearchHref("regular", prospect.matched_regular_ref)}
               onUnlink={() => handleLink("regular", null)}
               readOnly={readOnly}
@@ -401,6 +406,8 @@ function LinkedAppBlock({
   title,
   refCode,
   appStatus,
+  studentCode,
+  studentId,
   viewHref,
   onUnlink,
   readOnly,
@@ -408,6 +415,10 @@ function LinkedAppBlock({
   title: string;
   refCode: string | null;
   appStatus: string | null;
+  /** The enrolled student's MSA/MSB code + id; unset until an enrollment
+   *  publishes. The badge deep-links to the student page. */
+  studentCode?: string | null;
+  studentId?: number | null;
   viewHref: string;
   onUnlink: () => void;
   readOnly: boolean;
@@ -424,6 +435,15 @@ function LinkedAppBlock({
           <Link2 className="h-4 w-4 text-green-600" />
           <span className="text-sm font-medium">{refCode}</span>
           {appStatus && <ApplicationStatusBadge status={appStatus} />}
+          {studentCode && (
+            studentId ? (
+              <a href={`/students/${studentId}`} title="Open student page" className="hover:opacity-80 transition-opacity">
+                <StudentCodeBadge code={studentCode} />
+              </a>
+            ) : (
+              <StudentCodeBadge code={studentCode} />
+            )
+          )}
         </div>
         <div className="flex items-center gap-3">
           <a href={viewHref} className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">

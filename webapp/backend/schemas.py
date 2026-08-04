@@ -3491,6 +3491,9 @@ class RegularConversionLostRow(BaseModel):
     wants_regular: Optional[str] = None
     outreach_status: Optional[str] = None
     attended_summer: bool = False
+    # The enrolled summer student's MSA/MSB code, set only while
+    # attended_summer holds.
+    summer_student_code: Optional[str] = None
 
 
 class RegularConversionResponse(BaseModel):

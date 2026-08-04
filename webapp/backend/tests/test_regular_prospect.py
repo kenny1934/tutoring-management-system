@@ -100,8 +100,8 @@ def sum_cfg(db_session):
 _SEQ = iter(range(1, 9999))
 
 
-def _student(db_session, name="Chan Tai Man"):
-    s = Student(student_name=name, grade="F1", home_location="MSA")
+def _student(db_session, name="Chan Tai Man", code=None):
+    s = Student(student_name=name, grade="F1", home_location="MSA", school_student_id=code)
     db_session.add(s)
     db_session.commit()
     return s
@@ -491,12 +491,17 @@ class TestConversionAxes:
                        if r.wanted_branch == "MSA" and r.enrolled_branch == "MSA")
         assert matched.count == 1
 
-    def test_lost_prospects_excludes_applicants_yes_first(self, db_session, reg_cfg, tutor):
+    def test_lost_prospects_excludes_applicants_yes_first(self, db_session, reg_cfg, sum_cfg, tutor):
         # One who applied (not lost); two who did not, one keen, one not.
         self._enrolled(db_session, reg_cfg, tutor, branch="MAC", location="華士古分校",
                        preferred=["MSA"], phone="85255550000")
+        # Keen did summer, so the chase row also carries the student code.
+        summer_student = _student(db_session, name="Keen Chan", code="MSA2088")
+        sa = _sum_app(db_session, sum_cfg, name="Keen Chan", phone="85255550001",
+                      student_id=summer_student.id)
+        _enrollment(db_session, tutor, student_id=summer_student.id, summer_app_id=sa.id)
         keen = _prospect(db_session, name="Keen Chan", branch="MAC", phone_1="85255550001",
-                         wants_regular="Yes")
+                         wants_regular="Yes", summer_app_id=sa.id)
         keen.primary_student_id = "MAC1023"
         keen.phone_2 = "85255551111"
         keen.wechat_id = "keen_mum"
@@ -516,6 +521,11 @@ class TestConversionAxes:
         row = resp.lost_prospects[0]
         assert (row.primary_student_id, row.phone_1, row.phone_2, row.wechat_id) == (
             "MAC1023", "85255550001", "85255551111", "keen_mum")
+        # Summer alumni carry the student code; everyone else carries none.
+        assert row.attended_summer is True
+        assert row.summer_student_code == "MSA2088"
+        cold = next(r for r in resp.lost_prospects if r.student_name == "Cold Wong")
+        assert cold.summer_student_code is None
 
 
 class TestReverseSuggestions:
@@ -538,7 +548,7 @@ class TestCourseStates:
     field no longer holds: derived from links + enrollment rows, never stored."""
 
     def test_states_derive_from_links_and_enrollments(self, db_session, reg_cfg, sum_cfg, tutor):
-        student = _student(db_session)
+        student = _student(db_session, code="MSA1023")
         sa = _sum_app(db_session, sum_cfg, student_id=student.id)
         _enrollment(db_session, tutor, student_id=student.id, summer_app_id=sa.id)
         ra = _reg_app(db_session, reg_cfg, student_id=student.id)
@@ -547,6 +557,12 @@ class TestCourseStates:
         row = _admin_list(db_session)[0]
         assert row["summer_state"] == "enrolled"
         assert row["regular_state"] == "applied"
+        # The enrolled course carries who the applicant became; the merely
+        # applied course does not.
+        assert row["matched_student_id"] == student.id
+        assert row["matched_student_code"] == "MSA1023"
+        assert row["matched_regular_student_id"] is None
+        assert row["matched_regular_student_code"] is None
 
     def test_withdrawn_and_unlinked_states(self, db_session, sum_cfg):
         dead = _sum_app(db_session, sum_cfg, status="Withdrawn")

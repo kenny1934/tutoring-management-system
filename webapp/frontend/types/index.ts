@@ -2985,6 +2985,12 @@ export interface PrimaryProspect {
   matched_application_status: string | null;
   matched_regular_ref: string | null;
   matched_regular_status: string | null;
+  /** Who the applicant became once a course enrolled: the student's id and
+   *  MSA/MSB code, set only while the matching state is 'enrolled'. */
+  matched_student_id: number | null;
+  matched_student_code: string | null;
+  matched_regular_student_id: number | null;
+  matched_regular_student_code: string | null;
   summer_state: ProspectCourseState | null;
   regular_state: ProspectCourseState | null;
 }
@@ -3901,6 +3907,9 @@ export interface RegularConversionLostRow {
   wants_regular: string | null;
   outreach_status: string | null;
   attended_summer: boolean;
+  /** The enrolled summer student's MSA/MSB code, set only while
+   *  attended_summer holds. */
+  summer_student_code: string | null;
 }
 
 export interface RegularConversionResponse {

@@ -21,6 +21,7 @@ from models import (
     RegularApplication,
     RegularCourseConfig,
     Enrollment,
+    Student,
 )
 from schemas import (
     PrimaryProspectBulkCreate,
@@ -67,13 +68,13 @@ def _check_pin(request: Request, branch: str):
         logger.warning("Failed PIN attempt for branch %s from %s", branch, request.client.host if request.client else "unknown")
         raise HTTPException(status_code=403, detail="Invalid or missing branch PIN")
 
-def _derive_state(app, enrolled_ids: set) -> Optional[str]:
+def _derive_state(app, enrolled_ids) -> Optional[str]:
     """Course journey state for one linked application, or None when unlinked.
 
     Enrollment-row existence is the enrolled signal (unpublish deletes the
     row); a Withdrawn/Rejected application is a dead end regardless of any
-    leftover row. `enrolled_ids` is the matching course's set from
-    _enrollment_backed_ids.
+    leftover row. `enrolled_ids` is the matching course's map from
+    _enrollment_backed_ids (membership is all this check needs).
     """
     if app is None:
         return None
@@ -84,14 +85,23 @@ def _derive_state(app, enrolled_ids: set) -> Optional[str]:
     return "applied"
 
 
-def _enrollment_backed_ids(db: Session, prospects: list) -> tuple[set[int], set[int]]:
+def _enrollment_backed_ids(
+    db: Session, prospects: list
+) -> tuple[dict[int, tuple[int, Optional[str]]], dict[int, tuple[int, Optional[str]]]]:
     """Among these prospects' linked applications, the (summer, regular)
-    application ids that published an enrollment. Two queries total, so list
+    applications that published an enrollment, each mapped to the enrolled
+    student's (id, school_student_id). Membership is the enrolled signal;
+    the values feed the matched-student badge. Two queries total, so list
     endpoints derive every row's course states without an N+1."""
-    def backed(col, ids: set) -> set:
+    def backed(col, ids: set) -> dict[int, tuple[int, Optional[str]]]:
         if not ids:
-            return set()
-        return {i for (i,) in db.query(col).filter(col.in_(ids)) if i is not None}
+            return {}
+        rows = (
+            db.query(col, Enrollment.student_id, Student.school_student_id)
+            .join(Student, Student.id == Enrollment.student_id)
+            .filter(col.in_(ids))
+        )
+        return {i: (sid, code) for (i, sid, code) in rows if i is not None}
     return (
         backed(Enrollment.summer_application_id, {p.summer_application_id for p in prospects if p.summer_application_id}),
         backed(Enrollment.regular_application_id, {p.regular_application_id for p in prospects if p.regular_application_id}),
@@ -112,8 +122,8 @@ def _linked_app_loads():
 
 def _prospect_to_response(
     p: PrimaryProspect,
-    enrolled_summer_ids: set[int],
-    enrolled_regular_ids: set[int],
+    enrolled_summer_ids: dict[int, tuple[int, Optional[str]]],
+    enrolled_regular_ids: dict[int, tuple[int, Optional[str]]],
 ) -> dict:
     """Convert a PrimaryProspect ORM object to response dict with matched application info."""
     data = {
@@ -149,6 +159,10 @@ def _prospect_to_response(
         "matched_application_status": None,
         "matched_regular_ref": None,
         "matched_regular_status": None,
+        "matched_student_id": None,
+        "matched_student_code": None,
+        "matched_regular_student_id": None,
+        "matched_regular_student_code": None,
         "summer_state": _derive_state(p.summer_application, enrolled_summer_ids),
         "regular_state": _derive_state(p.regular_application, enrolled_regular_ids),
     }
@@ -158,6 +172,17 @@ def _prospect_to_response(
     if p.regular_application:
         data["matched_regular_ref"] = p.regular_application.reference_code
         data["matched_regular_status"] = p.regular_application.application_status
+    # Who the applicant became once enrolled: the student's id + MSA/MSB code,
+    # gated on the derived state so a withdrawn application with a leftover
+    # enrollment row never badges.
+    if data["summer_state"] == "enrolled":
+        sid, code = enrolled_summer_ids[p.summer_application_id]
+        data["matched_student_id"] = sid
+        data["matched_student_code"] = code
+    if data["regular_state"] == "enrolled":
+        sid, code = enrolled_regular_ids[p.regular_application_id]
+        data["matched_regular_student_id"] = sid
+        data["matched_regular_student_code"] = code
     return data
 
 
