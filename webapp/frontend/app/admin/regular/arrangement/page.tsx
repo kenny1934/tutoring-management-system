@@ -220,24 +220,11 @@ export default function RegularArrangementPage() {
     return WEEK_DAY_ORDER.filter((d) => set.has(d));
   }, [selectedLocation, slots]);
 
-  // Time rows: union of the branch's per-day slot ladders plus any time
-  // carried by an existing slot. HH:MM strings sort correctly.
-  const timeSlots = useMemo(() => {
-    const set = new Set<string>();
-    for (const day of selectedLocation?.open_days ?? []) {
-      for (const t of selectedLocation?.time_slots?.[day] ?? []) set.add(t);
-    }
-    for (const s of slots ?? []) set.add(s.time_slot);
-    if (set.size === 0) {
-      for (const t of activeConfig?.time_slots ?? []) set.add(t);
-    }
-    return [...set].sort();
-  }, [selectedLocation, slots, activeConfig]);
-
   // Open (day, time) pairs from the branch's per-day ladder. The grid closes
   // every cell outside the set so a weekday column never offers weekend-only
   // times. Null (no ladder configured) turns the guard off rather than
-  // closing the whole board.
+  // closing the whole board. Deps stay on the config alone so the set's
+  // identity survives slot polling.
   const openCells = useMemo(() => {
     const set = new Set<string>();
     for (const day of selectedLocation?.open_days ?? []) {
@@ -245,6 +232,18 @@ export default function RegularArrangementPage() {
     }
     return set.size > 0 ? set : null;
   }, [selectedLocation]);
+
+  // Time rows: the ladder's times plus any time carried by an existing slot.
+  // HH:MM strings sort correctly.
+  const timeSlots = useMemo(() => {
+    const set = new Set<string>();
+    for (const key of openCells ?? []) set.add(key.split("|")[1]);
+    for (const s of slots ?? []) set.add(s.time_slot);
+    if (set.size === 0) {
+      for (const t of activeConfig?.time_slots ?? []) set.add(t);
+    }
+    return [...set].sort();
+  }, [openCells, slots, activeConfig]);
 
   // Per-cell tutor lists carrying duty state. Precomputed once so every cell
   // keeps a stable array identity rather than a fresh one per render.

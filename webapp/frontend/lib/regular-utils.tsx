@@ -200,3 +200,15 @@ export function getRegularTimeSlots(
   if (perDay && perDay.length > 0) return perDay;
   return config.time_slots || [];
 }
+
+/** Conversion-funnel stage text tones, each a light + dark class pair. The
+ *  single owner for the funnel table, KPI cards and every breakdown table on
+ *  the conversion page, so a palette change is a one-line edit. */
+export const STAGE_TONES = {
+  prospects: "text-foreground",
+  wantsSummer: "text-teal-600 dark:text-teal-400",
+  wantsRegular: "text-sky-600 dark:text-sky-400",
+  didSummer: "text-emerald-600 dark:text-emerald-400",
+  applied: "text-indigo-600 dark:text-indigo-400",
+  enrolled: "text-purple-600 dark:text-purple-400",
+} as const;

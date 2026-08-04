@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { ArrowRight, ArrowUpDown, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prospectsAPI } from "@/lib/api";
 import { formatProspectCode } from "@/lib/summer-utils";
-import { IntentionBadge, OutreachBadge, OUTREACH_OPTIONS } from "@/components/summer/prospect-badges";
+import { STAGE_TONES } from "@/lib/regular-utils";
+import {
+  CopyableCell, IntentionBadge, OutreachBadge, INTENTION_LABELS, OUTREACH_OPTIONS,
+} from "@/components/summer/prospect-badges";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
-import type { PrimaryProspect, ProspectOutreachStatus, RegularConversionResponse } from "@/types";
+import type { PrimaryProspect, ProspectIntention, ProspectOutreachStatus, RegularConversionResponse } from "@/types";
 
 // Shared table styling, matching the funnel table already on the page.
 const wrap = "border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden";
@@ -143,8 +146,8 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                   <tr key={r.intention}>
                     <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
                     <td className={tdNum}>{r.prospects}</td>
-                    <td className={cn(tdNum, "text-indigo-600 dark:text-indigo-400")}>{r.applied_regular}</td>
-                    <td className={cn(tdNum, "text-purple-600 dark:text-purple-400")}>{r.enrolled_regular}</td>
+                    <td className={cn(tdNum, STAGE_TONES.applied)}>{r.applied_regular}</td>
+                    <td className={cn(tdNum, STAGE_TONES.enrolled)}>{r.enrolled_regular}</td>
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.applied_regular, r.prospects)}</td>
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.enrolled_regular, r.prospects)}</td>
                   </tr>
@@ -172,7 +175,7 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                   <tr key={r.intention}>
                     <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
                     <td className={tdNum}>{r.prospects}</td>
-                    <td className={cn(tdNum, "text-emerald-600 dark:text-emerald-400")}>{r.attended_summer}</td>
+                    <td className={cn(tdNum, STAGE_TONES.didSummer)}>{r.attended_summer}</td>
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.attended_summer, r.prospects)}</td>
                   </tr>
                 ))}
@@ -207,8 +210,8 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
                 <tr key={r.school}>
                   <td className="px-3 py-2 text-foreground max-w-[280px] truncate" title={r.school}>{r.school}</td>
                   <td className={tdNum}>{r.prospects}</td>
-                  <td className={cn(tdNum, "text-indigo-600 dark:text-indigo-400")}>{r.applied_regular}</td>
-                  <td className={cn(tdNum, "text-purple-600 dark:text-purple-400")}>{r.enrolled_regular}</td>
+                  <td className={cn(tdNum, STAGE_TONES.applied)}>{r.applied_regular}</td>
+                  <td className={cn(tdNum, STAGE_TONES.enrolled)}>{r.enrolled_regular}</td>
                 </tr>
               ))}
               {sorted.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
@@ -243,8 +246,8 @@ function TutorTable({ data }: { data: RegularConversionResponse }) {
                   <td className="px-3 py-2 font-semibold text-foreground">{r.branch}</td>
                   <td className={cn("px-3 py-2", r.tutor_name === "Unattributed" ? "text-muted-foreground italic" : "text-foreground")}>{r.tutor_name}</td>
                   <td className={tdNum}>{r.prospects}</td>
-                  <td className={cn(tdNum, "text-indigo-600 dark:text-indigo-400")}>{r.applied_regular}</td>
-                  <td className={cn(tdNum, "text-purple-600 dark:text-purple-400")}>{r.enrolled_regular}</td>
+                  <td className={cn(tdNum, STAGE_TONES.applied)}>{r.applied_regular}</td>
+                  <td className={cn(tdNum, STAGE_TONES.enrolled)}>{r.enrolled_regular}</td>
                 </tr>
               ))}
               {sorted.length === 0 && <EmptyRow span={5}>No prospects.</EmptyRow>}
@@ -349,11 +352,16 @@ export function RegularConversionChaseList({
   readOnly: boolean;
   onChanged: () => void;
 }) {
-  // Full prospect records back the in-place modal. Fetched when this tab first
-  // mounts, so the other tabs never pay for it.
+  // Full prospect records back the in-place modal. Fetched when this tab
+  // first mounts, so the other tabs never pay for it. regular_state "none"
+  // is exactly the chase list's own predicate (no linked regular
+  // application), so the fetch skips every prospect who already applied.
+  // Tab flips remount this component; the cached list is served as-is
+  // rather than refetched, and saves refresh it through mutate below.
   const { data: prospects, mutate: mutateProspects } = useSWR(
     ["conversion-chase-prospects", data.year],
-    () => prospectsAPI.adminList({ year: data.year })
+    () => prospectsAPI.adminList({ year: data.year, regular_state: "none" }),
+    { revalidateIfStale: false }
   );
   const prospectById = useMemo(
     () => new Map((prospects ?? []).map((p) => [p.id, p])),
@@ -364,18 +372,22 @@ export function RegularConversionChaseList({
   const [wantsFilter, setWantsFilter] = useState("");
   const [outreachFilter, setOutreachFilter] = useState("");
 
-  // Filter options only offer values that actually occur in the list.
-  const branchOptions = useMemo(
-    () => Array.from(new Set(data.lost_prospects.map((r) => r.source_branch))).sort(),
-    [data.lost_prospects]
-  );
-  const wantsOptions = useMemo(() => {
-    const present = new Set(data.lost_prospects.map((r) => r.wants_regular ?? "Unknown"));
-    return INTENTION_ORDER.filter((v) => present.has(v));
-  }, [data.lost_prospects]);
-  const outreachOptions = useMemo(() => {
-    const present = new Set(data.lost_prospects.map((r) => r.outreach_status));
-    return OUTREACH_OPTIONS.filter((v) => present.has(v));
+  // Filter options only offer values that actually occur in the list, each
+  // in its canonical order.
+  const { branchOptions, wantsOptions, outreachOptions } = useMemo(() => {
+    const branches = new Set<string>();
+    const wants = new Set<string>();
+    const outreach = new Set<string | null>();
+    for (const r of data.lost_prospects) {
+      branches.add(r.source_branch);
+      wants.add(r.wants_regular ?? "Unknown");
+      outreach.add(r.outreach_status);
+    }
+    return {
+      branchOptions: [...branches].sort(),
+      wantsOptions: INTENTION_ORDER.filter((v) => wants.has(v)),
+      outreachOptions: OUTREACH_OPTIONS.filter((v) => outreach.has(v)),
+    };
   }, [data.lost_prospects]);
 
   // The prospect code is derived up front so it sorts like any other column.
@@ -394,19 +406,15 @@ export function RegularConversionChaseList({
   const { sorted, sortKey, dir, onSort } = useSortable(rows);
   const hp = { sortKey, dir, onSort };
 
-  // In-place modal; prev/next walks the list in its displayed order.
-  const [selected, setSelected] = useState<PrimaryProspect | null>(null);
+  // In-place modal; prev/next walks the list in its displayed order. Only
+  // the id is state — the record derives from the fetched list, so a save's
+  // refetch can never leave the open modal on stale fields.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selected = selectedId != null ? prospectById.get(selectedId) ?? null : null;
   const siblings = useMemo(
     () => sorted.map((r) => prospectById.get(r.prospect_id)).filter(Boolean) as PrimaryProspect[],
     [sorted, prospectById]
   );
-  // After a save refreshes the prospect list, point the open modal at the
-  // fresh record so it never shows stale fields.
-  useEffect(() => {
-    if (!selected || !prospects) return;
-    const updated = prospects.find((p) => p.id === selected.id);
-    if (updated && updated !== selected) setSelected(updated);
-  }, [prospects, selected]);
 
   const isFiltered = Boolean(branchFilter || wantsFilter || outreachFilter);
 
@@ -432,7 +440,11 @@ export function RegularConversionChaseList({
           aria-label="Filter by regular intention"
         >
           <option value="">Wants regular: all</option>
-          {wantsOptions.map((v) => <option key={v} value={v}>{v}</option>)}
+          {wantsOptions.map((v) => (
+            <option key={v} value={v}>
+              {INTENTION_LABELS[v as ProspectIntention] ?? v}
+            </option>
+          ))}
         </select>
         <select
           value={outreachFilter}
@@ -471,8 +483,7 @@ export function RegularConversionChaseList({
                   key={r.prospect_id}
                   className={cn("hover:bg-primary/[0.04]", prospectById.size > 0 && "cursor-pointer")}
                   onClick={() => {
-                    const full = prospectById.get(r.prospect_id);
-                    if (full) setSelected(full);
+                    if (prospectById.has(r.prospect_id)) setSelectedId(r.prospect_id);
                   }}
                 >
                   <td className="px-3 py-2 font-semibold text-foreground">{r.student_name}</td>
@@ -480,11 +491,15 @@ export function RegularConversionChaseList({
                   <td className="px-3 py-2 text-muted-foreground">{r.grade || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate" title={r.school || undefined}>{r.school || "-"}</td>
                   <td className="px-3 py-2 tabular-nums text-foreground whitespace-nowrap">
-                    {r.phone_1 || <span className="text-muted-foreground/50">-</span>}
-                    {r.phone_2 && <div className="text-muted-foreground">{r.phone_2}</div>}
+                    <CopyableCell text={r.phone_1 || ""} />
+                    {r.phone_2 && (
+                      <div className="text-muted-foreground">
+                        <CopyableCell text={r.phone_2} />
+                      </div>
+                    )}
                   </td>
-                  <td className="px-3 py-2 text-foreground max-w-[140px] truncate" title={r.wechat_id || undefined}>
-                    {r.wechat_id || <span className="text-muted-foreground/50">-</span>}
+                  <td className="px-3 py-2 text-foreground max-w-[140px]">
+                    <CopyableCell text={r.wechat_id || ""} />
                   </td>
                   <td className="px-3 py-2">
                     {r.wants_regular
@@ -493,7 +508,7 @@ export function RegularConversionChaseList({
                   </td>
                   <td className="px-3 py-2">
                     {r.attended_summer
-                      ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-label="Did summer" />
+                      ? <Check className={cn("h-3.5 w-3.5", STAGE_TONES.didSummer)} aria-label="Did summer" />
                       : <span className="text-muted-foreground/50">-</span>}
                   </td>
                   <td className="px-3 py-2">
@@ -515,10 +530,10 @@ export function RegularConversionChaseList({
       {selected && (
         <ProspectDetailModal
           prospect={selected}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedId(null)}
           onSave={() => { mutateProspects(); onChanged(); }}
           siblings={siblings}
-          onNavigate={setSelected}
+          onNavigate={(p) => setSelectedId(p.id)}
           readOnly={readOnly}
         />
       )}

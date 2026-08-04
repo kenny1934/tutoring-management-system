@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
-import { getGradeColor, splitGradeStream } from "@/lib/regular-utils";
+import { getGradeColor, splitGradeStream, STAGE_TONES } from "@/lib/regular-utils";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { TrendingUp, Loader2, ChevronDown, AlertTriangle, Download } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -28,12 +28,12 @@ type ConversionTab = "overview" | "breakdowns" | "chase";
  *  path (summer: teal -> emerald; regular: sky -> indigo -> purple) so no two
  *  stages read as the same tone. */
 const COLUMNS: { key: keyof RegularConversionBranchRow; label: string; title: string; tone: string }[] = [
-  { key: "prospects", label: "Prospects", title: "P6 prospects submitted for this year", tone: "text-foreground" },
-  { key: "wants_summer_yes", label: "Wants summer", title: "Prospects who said Yes to summer", tone: "text-teal-600 dark:text-teal-400" },
-  { key: "wants_regular_yes", label: "Wants regular", title: "Prospects who said Yes to regular", tone: "text-sky-600 dark:text-sky-400" },
-  { key: "attended_summer", label: "Did summer", title: "Prospects whose summer application published an enrollment", tone: "text-emerald-600 dark:text-emerald-400" },
-  { key: "applied_regular", label: "Applied regular", title: "Prospects linked to a regular application", tone: "text-indigo-600 dark:text-indigo-400" },
-  { key: "enrolled_regular", label: "Enrolled regular", title: "Prospects whose regular application published an enrollment", tone: "text-purple-600 dark:text-purple-400" },
+  { key: "prospects", label: "Prospects", title: "P6 prospects submitted for this year", tone: STAGE_TONES.prospects },
+  { key: "wants_summer_yes", label: "Wants summer", title: "Prospects who said Yes to summer", tone: STAGE_TONES.wantsSummer },
+  { key: "wants_regular_yes", label: "Wants regular", title: "Prospects who said Yes to regular", tone: STAGE_TONES.wantsRegular },
+  { key: "attended_summer", label: "Did summer", title: "Prospects whose summer application published an enrollment", tone: STAGE_TONES.didSummer },
+  { key: "applied_regular", label: "Applied regular", title: "Prospects linked to a regular application", tone: STAGE_TONES.applied },
+  { key: "enrolled_regular", label: "Enrolled regular", title: "Prospects whose regular application published an enrollment", tone: STAGE_TONES.enrolled },
 ];
 
 /** Whole-number percent, guarding a zero denominator. */
@@ -368,13 +368,13 @@ export default function RegularConversionPage() {
                   label="Applied regular"
                   value={String(data.totals.applied_regular)}
                   sub={`${pct(data.totals.applied_regular, data.totals.prospects)} of prospects`}
-                  tone="text-indigo-600 dark:text-indigo-400"
+                  tone={STAGE_TONES.applied}
                 />
                 <KpiCard
                   label="Enrolled regular"
                   value={String(data.totals.enrolled_regular)}
                   sub={`${pct(data.totals.enrolled_regular, data.totals.prospects)} of prospects`}
-                  tone="text-purple-600 dark:text-purple-400"
+                  tone={STAGE_TONES.enrolled}
                 />
                 <KpiCard
                   label="Apply to enrol"
@@ -499,7 +499,7 @@ export default function RegularConversionPage() {
                             <span className="font-semibold">{applied}</span> applied
                           </div>
                           <div className="text-[11px] text-muted-foreground tabular-nums">
-                            <span className="font-medium text-purple-600 dark:text-purple-400">{enrolled}</span> enrolled
+                            <span className={cn("font-medium", STAGE_TONES.enrolled)}>{enrolled}</span> enrolled
                           </div>
                           {applied > 0 && (
                             <div className="text-[11px] text-muted-foreground/80 tabular-nums mt-0.5">

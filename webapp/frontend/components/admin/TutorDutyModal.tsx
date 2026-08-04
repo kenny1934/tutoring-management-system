@@ -93,30 +93,27 @@ export function TutorDutyModal({
     }
   }, [isOpen]);
 
-  // Columns: grouped by day, each day keeping only its own open time slots
-  // when a ladder is provided. A duty recorded at a combination that is no
-  // longer open stays in `checked` unseen and re-saves untouched, so hiding
-  // a column never deletes data.
-  const columns = useMemo(
+  // Each day keeps only its own open time slots when a ladder is provided;
+  // a day with none left disappears entirely. A duty recorded at a
+  // combination that is no longer open stays in `checked` unseen and
+  // re-saves untouched, so hiding a column never deletes data.
+  const openByDay = useMemo(
     () =>
-      days.flatMap((d) =>
-        timeSlots
-          .filter((ts) => !openCells || openCells.has(`${d}|${ts}`))
-          .map((ts, i) => ({ day: d, ts, firstOfDay: i === 0 }))
-      ),
+      days
+        .map((day) => ({
+          day,
+          slots: timeSlots.filter((ts) => !openCells || openCells.has(`${day}|${ts}`)),
+        }))
+        .filter((g) => g.slots.length > 0),
     [days, timeSlots, openCells]
   );
-
-  // Day header groups sized to each day's surviving columns.
-  const dayGroups = useMemo(() => {
-    const groups: { day: string; count: number }[] = [];
-    for (const c of columns) {
-      const last = groups[groups.length - 1];
-      if (last && last.day === c.day) last.count += 1;
-      else groups.push({ day: c.day, count: 1 });
-    }
-    return groups;
-  }, [columns]);
+  const columns = useMemo(
+    () =>
+      openByDay.flatMap(({ day, slots }) =>
+        slots.map((ts, i) => ({ day, ts, firstOfDay: i === 0 }))
+      ),
+    [openByDay]
+  );
 
   const toggle = (tutorId: number, day: string, ts: string) => {
     const key = `${tutorId}|${day}|${ts}`;
@@ -225,10 +222,10 @@ export function TutorDutyModal({
                   {/* Day header row */}
                   <tr className="bg-secondary">
                     <th className="sticky left-0 z-10 bg-secondary text-left px-3 py-2 border-b border-border" />
-                    {dayGroups.map(({ day, count }) => (
+                    {openByDay.map(({ day, slots }) => (
                       <th
                         key={day}
-                        colSpan={count}
+                        colSpan={slots.length}
                         className="text-center px-1 py-2 font-semibold text-foreground border-b border-border border-l-2 border-l-primary/15"
                       >
                         {DAY_ABBREV[day] || day}
