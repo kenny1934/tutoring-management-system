@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "@/contexts/LocationContext";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
@@ -123,6 +124,7 @@ export default function SummerCertificatesPage() {
   const [eligibleOnly, setEligibleOnly] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
   const preGradeWindow = useSummerPreGradeWindow();
+  const { selectedLocation } = useLocation();
 
   const { data: configs } = useSWR(
     canViewAdminPages ? "summer-configs" : null,
@@ -156,7 +158,25 @@ export default function SummerCertificatesPage() {
   const threshold = config ? officialThreshold(config.total_lessons) : null;
 
   // The config owns which branches exist; rows only say who sits where.
-  const branchOptions = (config?.locations ?? []).map((l) => LOCATION_TO_CODE[l.name] ?? l.name);
+  const branchOptions = useMemo(
+    () => (config?.locations ?? []).map((l) => LOCATION_TO_CODE[l.name] ?? l.name),
+    [config]
+  );
+
+  // Default the branch filter to the user's app-wide location setting.
+  // Tracks changes to that setting until the user explicitly picks a branch
+  // on this page, at which point we stop syncing.
+  const branchUserOverride = useRef(false);
+  useEffect(() => {
+    if (branchUserOverride.current || branchOptions.length === 0) return;
+    if (!selectedLocation || selectedLocation === "All Locations") {
+      if (branch !== null) setBranch(null);
+      return;
+    }
+    if (branchOptions.includes(selectedLocation) && branch !== selectedLocation) {
+      setBranch(selectedLocation);
+    }
+  }, [branchOptions, selectedLocation, branch]);
 
   // Branch and search narrow the list; the eligible count reflects that
   // narrowed list so the toggle never changes the numbers, only the rows.
@@ -256,9 +276,13 @@ export default function SummerCertificatesPage() {
                 align="left"
                 label={branch ?? "All branches"}
                 items={[
-                  { key: "all", label: "All branches", selected: branch === null, onSelect: () => setBranch(null) },
+                  {
+                    key: "all", label: "All branches", selected: branch === null,
+                    onSelect: () => { branchUserOverride.current = true; setBranch(null); },
+                  },
                   ...branchOptions.map((b) => ({
-                    key: b, label: b, selected: b === branch, onSelect: () => setBranch(b),
+                    key: b, label: b, selected: b === branch,
+                    onSelect: () => { branchUserOverride.current = true; setBranch(b); },
                   })),
                 ]}
               />
