@@ -135,13 +135,13 @@ export function ContactConfirmStep({
     "Actual schedules will be arranged and adjusted based on overall demand.";
 
   const disclaimerZh = contactDate
-    ? `我們會在${contactDate.getMonth() + 1}月${contactDate.getDate()}日或之前聯絡您確認上課時間，${scheduleNoteZh}`
+    ? `我們會在${contactDate.getMonth() + 1}月${contactDate.getDate()}日或之前聯絡您確認上課時間。${scheduleNoteZh}`
     : config.text_content?.disclaimer_zh ||
-      "我們會在8月17日或之前根據整體報名情況確認實際上課時間表。";
+      "我們會在8月18日或之前根據整體報名情況確認實際上課時間表。";
   const disclaimerEn = contactDate
     ? `We will contact you on or before ${contactDate.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} to confirm class times. ${scheduleNoteEn}`
     : config.text_content?.disclaimer_en ||
-      "We will confirm the final timetable on or before 17 August based on overall preferences.";
+      "We will confirm the final timetable on or before 18 August based on overall preferences.";
 
   // Present only while the offer is running: the API strips it from the public
   // config outside its window, so no date check is needed here.
@@ -332,7 +332,7 @@ export function ContactConfirmStep({
               config.text_content?.makeup_note_zh ||
                 "為能令課堂安排更完整，如學生於學費期內有事宜不能出席課堂，請提早通知導師，讓導師為您提早安排補堂。",
               config.text_content?.makeup_note_en ||
-                "To keep class arrangements complete, if the student cannot attend a lesson within the paid period, please notify the tutor in advance so a make-up lesson can be arranged early.",
+                "If the student cannot attend a lesson during the paid lesson block, please notify the tutor in advance so a make-up lesson can be arranged as early as possible.",
               lang
             )}
           </span>
