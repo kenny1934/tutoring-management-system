@@ -2482,6 +2482,9 @@ export interface LinkedSecondaryStudentInfo {
   student_name: string;
   school_student_id?: string | null;
   home_location?: string | null;
+  /** The student record's stored grade (pre-promotion), for the same
+   *  window-aware badge as the student's own page. */
+  grade?: string | null;
   has_current_year_regular_enrollment?: boolean | null;
   /** The student record's language stream (C/E) — the system of record for
    *  placement, so regular surfaces can resolve effective stream client-side. */

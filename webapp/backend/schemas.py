@@ -2476,6 +2476,9 @@ class LinkedSecondaryStudentInfo(BaseModel):
     student_name: str
     school_student_id: Optional[str] = None
     home_location: Optional[str] = None
+    # The student record's stored grade (pre-promotion), so surfaces can show
+    # the same window-aware badge as the student's own page.
+    grade: Optional[str] = None
     # The student record's language stream (C/E), the system of record for
     # placement — lets the regular surfaces resolve effective stream client-side.
     lang_stream: Optional[str] = None

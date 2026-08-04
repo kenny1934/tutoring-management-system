@@ -1497,6 +1497,8 @@ def _get_linked_students_bulk(
             Student.student_name,
             Student.school_student_id,
             Student.home_location,
+            Student.grade,
+            Student.lang_stream,
         )
         .filter(Student.id.in_(student_ids))
         .all()
@@ -1522,6 +1524,8 @@ def _get_linked_students_bulk(
             student_name=r.student_name,
             school_student_id=r.school_student_id,
             home_location=r.home_location,
+            grade=r.grade,
+            lang_stream=r.lang_stream,
             has_current_year_regular_enrollment=(
                 (r.id in has_current) if academic_year_window else None
             ),

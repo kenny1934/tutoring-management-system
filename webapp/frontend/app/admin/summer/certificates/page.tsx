@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
 import { getLinkedStudentId, LOCATION_TO_CODE } from "@/lib/summer-utils";
 import { getGradeColor } from "@/lib/constants";
+import { displayGrade, type PreGradeWindow } from "@/lib/grade-utils";
+import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
+import { GradeBadge } from "@/components/ui/grade-label";
 import { Award, Check, ChevronDown, Download, Loader2 } from "lucide-react";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
@@ -37,6 +40,19 @@ function studentCode(row: SummerStudentLessonsRow): string {
 /** The CSM student record's name wins over the self-filled application name. */
 function displayName(row: SummerStudentLessonsRow): string {
   return row.linked_student?.student_name || row.student_name;
+}
+
+/** Grade and stream exactly as the student's own record shows them: stored
+ *  grade in its window-aware Pre- form plus the record's C/E stream. Falls
+ *  back to the application's entering grade when no record is linked. */
+function recordGradeStream(
+  row: SummerStudentLessonsRow,
+  window: PreGradeWindow | null,
+): { grade: string | undefined; stream: string | null | undefined } {
+  const ls = row.linked_student;
+  return ls?.grade
+    ? { grade: displayGrade(ls.grade, window), stream: ls.lang_stream }
+    : { grade: row.grade, stream: row.lang_stream };
 }
 
 /** One dropdown in the house style, shared by the year and branch pickers. */
@@ -79,13 +95,18 @@ function csvCell(v: string | number | null | undefined): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function buildCertificatesCsv(rows: SummerStudentLessonsRow[], threshold: number): string {
+function buildCertificatesCsv(
+  rows: SummerStudentLessonsRow[],
+  threshold: number,
+  window: PreGradeWindow | null,
+): string {
   const lines: (string | number | null | undefined)[][] = [];
   lines.push(["Branch", "Code", "Student", "Grade", "Stream", "Attended", "Lessons paid", "Attendance %", "Certificate"]);
   rows.forEach((r) => {
     const pct = attendancePct(r);
+    const { grade, stream } = recordGradeStream(r, window);
     lines.push([
-      r.branch_code, studentCode(r), displayName(r), r.grade, r.lang_stream,
+      r.branch_code, studentCode(r), displayName(r), grade, stream,
       r.attended_count, r.lessons_paid, pct === null ? "" : `${pct}%`,
       r.attended_count >= threshold ? "Eligible" : "",
     ]);
@@ -101,6 +122,7 @@ export default function SummerCertificatesPage() {
   const [search, setSearch] = useState("");
   const [eligibleOnly, setEligibleOnly] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
+  const preGradeWindow = useSummerPreGradeWindow();
 
   const { data: configs } = useSWR(
     canViewAdminPages ? "summer-configs" : null,
@@ -161,7 +183,7 @@ export default function SummerCertificatesPage() {
   const handleExport = () => {
     if (rows.length === 0 || threshold === null || !config) return;
     const BOM = String.fromCharCode(0xfeff); // so Excel reads the UTF-8 file
-    const csv = BOM + buildCertificatesCsv(rows, threshold);
+    const csv = BOM + buildCertificatesCsv(rows, threshold, preGradeWindow);
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
     a.href = url;
@@ -317,16 +339,24 @@ export default function SummerCertificatesPage() {
                           {name}
                         </td>
                         <td className="px-3 py-2">
-                          {/* Same badge as the student's own record (StudentInfoBadges):
-                              colour keyed by grade + stream. Summer grades are entering
-                              grades, so no Pre- transform. */}
-                          <span
-                            className="rounded text-gray-800 text-[10px] px-1.5 py-0.5"
-                            style={{ backgroundColor: getGradeColor(row.grade, row.lang_stream ?? undefined) }}
-                          >
-                            {row.grade}
-                            {row.lang_stream || ""}
-                          </span>
+                          {/* The student record's own badge: stored grade in its
+                              window-aware Pre- form with the record's C/E stream.
+                              Unlinked rows fall back to the application values. */}
+                          {row.linked_student?.grade ? (
+                            <GradeBadge
+                              grade={row.linked_student.grade}
+                              langStream={row.linked_student.lang_stream}
+                              className="rounded text-gray-800 text-[10px] px-1.5 py-0.5"
+                            />
+                          ) : (
+                            <span
+                              className="rounded text-gray-800 text-[10px] px-1.5 py-0.5"
+                              style={{ backgroundColor: getGradeColor(row.grade, row.lang_stream ?? undefined) }}
+                            >
+                              {row.grade}
+                              {row.lang_stream || ""}
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           <span className="font-semibold text-foreground">{row.attended_count}</span>
