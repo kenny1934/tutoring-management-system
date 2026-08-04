@@ -107,13 +107,20 @@ function Section({
   title,
   subtitle,
   children,
+  className,
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4">
+    <section
+      className={cn(
+        "rounded-xl border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 bg-white/30 dark:bg-white/[0.01] p-4",
+        className
+      )}
+    >
       <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       <p className="text-xs text-muted-foreground mt-0.5 mb-2">{subtitle}</p>
       {children}
@@ -434,6 +441,7 @@ export function RegularConversionChaseList({
     <Section
       title={`Still to chase (${data.lost_prospects.length})`}
       subtitle="Prospects with no regular application yet. Click one to record outreach without leaving this page."
+      className="h-full flex flex-col min-h-0"
     >
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <select
@@ -483,8 +491,8 @@ export function RegularConversionChaseList({
           </span>
         )}
       </div>
-      <div className={wrap}>
-        <div className={cn(scroll, "max-h-[65vh] overflow-y-auto")}>
+      <div className={cn(wrap, "flex-1 min-h-0 flex flex-col")}>
+        <div className={cn(scroll, "flex-1 min-h-0 overflow-y-auto")}>
           <table className="w-full text-xs min-w-[960px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>

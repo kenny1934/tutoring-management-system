@@ -359,7 +359,14 @@ export default function RegularConversionPage() {
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : (
-            <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 space-y-6">
+            <div
+              className={cn(
+                "flex-1 min-h-0 p-4 sm:p-6",
+                // The chase tab sizes its table to the space and scrolls
+                // inside it; the other tabs scroll the body as one page.
+                tab === "chase" ? "flex flex-col overflow-hidden" : "overflow-auto space-y-6"
+              )}
+            >
               {tab === "overview" && (
               <>
               {/* Headline conversion metrics */}
