@@ -498,6 +498,51 @@ class TestSessionPlanCap:
         assert active == 1
 
 
+class TestUnassignedPartialPlan:
+    """The unassigned list measures completeness against each application's
+    own plan (lessons_paid), not the config's total_lessons."""
+
+    def test_full_partial_plan_drops_out(self, db_session, summer_config, slot_type_a, application, admin_tutor):
+        from routers.summer_course import _ensure_lessons_for_slot, create_session, list_unassigned
+        from schemas import SummerSessionCreate
+
+        _ensure_lessons_for_slot(slot_type_a, db_session)
+        db_session.commit()
+
+        # Partial plan, fully placed (4/4) — and a full-plan student with the
+        # same number of sessions (4/8) who is genuinely incomplete.
+        application.lessons_paid = 4
+        other = SummerApplication(
+            config_id=summer_config.id,
+            reference_code="SC2025-FULL8",
+            student_name="Full Plan",
+            grade="F1",
+            contact_phone="11112222",
+            preferred_location="MSA",
+            application_status="Submitted",
+            sessions_per_week=1,
+        )
+        db_session.add(other)
+        db_session.commit()
+
+        admin = db_session.query(Tutor).first()
+        for app in (application, other):
+            create_session(
+                data=SummerSessionCreate(
+                    application_id=app.id,
+                    slot_id=slot_type_a.id,
+                    mode="first_half",
+                ),
+                admin=admin,
+                db=db_session,
+            )
+
+        rows = list_unassigned(config_id=summer_config.id, _admin=None, db=db_session)
+        ids = {r.id for r in rows}
+        assert application.id not in ids
+        assert other.id in ids
+
+
 class TestDeleteCascade:
     """Test delete_session cascade behavior."""
 

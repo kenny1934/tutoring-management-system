@@ -4009,7 +4009,9 @@ def list_unassigned(
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """List applications with fewer than total_lessons active sessions (includes partially placed)."""
+    """List applications with fewer active sessions than their own plan
+    (includes partially placed). A partial plan completes at its lessons_paid,
+    not the config's total_lessons."""
     config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
     total_lessons = config.total_lessons if config else 8
 
@@ -4038,7 +4040,8 @@ def list_unassigned(
         .filter(
             SummerApplication.config_id == config_id,
             SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
-            placed_count_sub < total_lessons,
+            # lessons_paid is NOT NULL (migration 111 backfilled full plans).
+            placed_count_sub < SummerApplication.lessons_paid,
         )
     )
     if location:
@@ -4166,8 +4169,9 @@ def get_student_lessons(
             lessons=entries,
         ))
 
-    # Sort: least complete first
-    rows.sort(key=lambda r: r.placed_count / r.total_lessons if r.total_lessons else 0)
+    # Sort: least complete first. A partial plan completes at its own
+    # lessons_paid, not the config total (`or 1` only guards division by zero).
+    rows.sort(key=lambda r: r.placed_count / (r.lessons_paid or 1))
     return SummerStudentLessonsResponse(students=rows)
 
 
