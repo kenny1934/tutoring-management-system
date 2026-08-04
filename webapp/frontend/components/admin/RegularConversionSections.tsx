@@ -330,6 +330,10 @@ function MovementTable({ data }: { data: RegularConversionResponse }) {
 const filterSelect =
   "text-xs border border-border rounded-lg px-2 py-1.5 bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30";
 
+// Tighter header padding than the shared `th`, matching the chase table's
+// px-2 cells.
+const thTight = "px-2 py-2 text-left font-medium text-foreground";
+
 // The wants-regular ladder, for the filter's option order.
 const INTENTION_ORDER = ["Yes", "Considering", "No", "Unknown"];
 
@@ -493,19 +497,16 @@ export function RegularConversionChaseList({
       </div>
       <div className={cn(wrap, "flex-1 min-h-0 flex flex-col")}>
         <div className={cn(scroll, "flex-1 min-h-0 overflow-y-auto")}>
-          <table className="w-full text-xs min-w-[960px]">
+          <table className="w-full text-xs min-w-[720px]">
             <thead className={cn(thead, "sticky top-0")}>
               <tr className={theadRow}>
-                <SortHeader label="Name" colKey="student_name" className={th} {...hp} />
-                <SortHeader label="Code" colKey="code" className={th} {...hp} />
-                <SortHeader label="Grade" colKey="grade" className={th} {...hp} />
-                <SortHeader label="School" colKey="school" className={th} {...hp} />
-                <th className={th}>Phone</th>
-                <th className={th}>WeChat</th>
-                <SortHeader label="Wants regular" colKey="wants_regular" className={th} {...hp} />
-                <th className={th}>Wants branch</th>
-                <SortHeader label="Did summer" colKey="attended_summer" className={th} {...hp} />
-                <SortHeader label="Outreach" colKey="outreach_status" className={th} {...hp} />
+                <SortHeader label="Name" colKey="student_name" className={thTight} {...hp} />
+                <SortHeader label="Grade" colKey="grade" className={thTight} {...hp} />
+                <SortHeader label="School" colKey="school" className={thTight} {...hp} />
+                <th className={thTight}>Contact</th>
+                <SortHeader label="Wants" colKey="wants_regular" className={thTight} {...hp} />
+                <SortHeader label="Did summer" colKey="attended_summer" className={thTight} {...hp} />
+                <SortHeader label="Outreach" colKey="outreach_status" className={thTight} {...hp} />
               </tr>
             </thead>
             <tbody className={rowDivide}>
@@ -517,42 +518,44 @@ export function RegularConversionChaseList({
                     if (prospectById.has(r.prospect_id)) setSelectedId(r.prospect_id);
                   }}
                 >
-                  <td className="px-3 py-2 font-semibold text-foreground whitespace-nowrap">
-                    {r.student_name}
-                    {r.summer_student_code && (
-                      <span className="ml-1.5 align-middle">
-                        <StudentCodeBadge code={r.summer_student_code} />
-                      </span>
-                    )}
+                  <td className="px-2 py-2">
+                    <div className="font-semibold text-foreground whitespace-nowrap">
+                      {r.student_name}
+                      {r.summer_student_code && (
+                        <span className="ml-1.5 align-middle">
+                          <StudentCodeBadge code={r.summer_student_code} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground">{r.code}</div>
                   </td>
-                  <td className="px-3 py-2 font-mono text-muted-foreground">{r.code}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.grade || "-"}</td>
-                  <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate" title={r.school || undefined}>{r.school || "-"}</td>
-                  <td className="px-3 py-2 tabular-nums text-foreground whitespace-nowrap">
-                    <CopyableCell text={r.phone_1 || ""} />
+                  <td className="px-2 py-2 text-muted-foreground">{r.grade || "-"}</td>
+                  <td className="px-2 py-2 text-muted-foreground max-w-[160px] truncate" title={r.school || undefined}>{r.school || "-"}</td>
+                  <td className="px-2 py-2 whitespace-nowrap">
+                    <div className="tabular-nums text-foreground"><CopyableCell text={r.phone_1 || ""} /></div>
                     {r.phone_2 && (
-                      <div className="text-muted-foreground">
-                        <CopyableCell text={r.phone_2} />
+                      <div className="tabular-nums text-muted-foreground"><CopyableCell text={r.phone_2} /></div>
+                    )}
+                    {r.wechat_id && (
+                      <div className="text-muted-foreground max-w-[150px]">
+                        <CopyableCell text={r.wechat_id} title={`WeChat: ${r.wechat_id}`} />
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-foreground max-w-[140px]">
-                    <CopyableCell text={r.wechat_id || ""} />
+                  <td className="px-2 py-2">
+                    <span className="flex items-center gap-1 flex-wrap">
+                      {r.wants_regular
+                        ? <IntentionBadge value={r.wants_regular} />
+                        : <span className="text-muted-foreground/50">-</span>}
+                      {r.preferred_branches.length > 0 && <BranchBadges branches={r.preferred_branches} />}
+                    </span>
                   </td>
-                  <td className="px-3 py-2">
-                    {r.wants_regular
-                      ? <IntentionBadge value={r.wants_regular} />
-                      : <span className="text-muted-foreground/50">-</span>}
-                  </td>
-                  <td className="px-3 py-2">
-                    <BranchBadges branches={r.preferred_branches} />
-                  </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     {r.attended_summer
                       ? <Check className={cn("h-3.5 w-3.5", STAGE_TONES.didSummer)} aria-label="Did summer" />
                       : <span className="text-muted-foreground/50">-</span>}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     {r.outreach_status
                       ? <OutreachBadge status={r.outreach_status as ProspectOutreachStatus} />
                       : <span className="text-muted-foreground/50">-</span>}
@@ -560,7 +563,7 @@ export function RegularConversionChaseList({
                 </tr>
               ))}
               {sorted.length === 0 && (
-                <EmptyRow span={10}>
+                <EmptyRow span={7}>
                   {isFiltered ? "No prospects match these filters." : "Every prospect has a regular application."}
                 </EmptyRow>
               )}
