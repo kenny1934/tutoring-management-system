@@ -29,11 +29,11 @@ type ConversionTab = "overview" | "breakdowns" | "chase";
  *  stages read as the same tone. */
 const COLUMNS: { key: keyof RegularConversionBranchRow; label: string; title: string; tone: string }[] = [
   { key: "prospects", label: "Prospects", title: "P6 prospects submitted for this year", tone: "text-foreground" },
-  { key: "wants_summer_yes", label: "Wants summer", title: "Prospects who said Yes to summer", tone: "text-teal-600" },
-  { key: "wants_regular_yes", label: "Wants regular", title: "Prospects who said Yes to regular", tone: "text-sky-600" },
-  { key: "attended_summer", label: "Did summer", title: "Prospects whose summer application published an enrollment", tone: "text-emerald-600" },
-  { key: "applied_regular", label: "Applied regular", title: "Prospects linked to a regular application", tone: "text-indigo-600" },
-  { key: "enrolled_regular", label: "Enrolled regular", title: "Prospects whose regular application published an enrollment", tone: "text-purple-600" },
+  { key: "wants_summer_yes", label: "Wants summer", title: "Prospects who said Yes to summer", tone: "text-teal-600 dark:text-teal-400" },
+  { key: "wants_regular_yes", label: "Wants regular", title: "Prospects who said Yes to regular", tone: "text-sky-600 dark:text-sky-400" },
+  { key: "attended_summer", label: "Did summer", title: "Prospects whose summer application published an enrollment", tone: "text-emerald-600 dark:text-emerald-400" },
+  { key: "applied_regular", label: "Applied regular", title: "Prospects linked to a regular application", tone: "text-indigo-600 dark:text-indigo-400" },
+  { key: "enrolled_regular", label: "Enrolled regular", title: "Prospects whose regular application published an enrollment", tone: "text-purple-600 dark:text-purple-400" },
 ];
 
 /** Whole-number percent, guarding a zero denominator. */
@@ -368,13 +368,13 @@ export default function RegularConversionPage() {
                   label="Applied regular"
                   value={String(data.totals.applied_regular)}
                   sub={`${pct(data.totals.applied_regular, data.totals.prospects)} of prospects`}
-                  tone="text-indigo-600"
+                  tone="text-indigo-600 dark:text-indigo-400"
                 />
                 <KpiCard
                   label="Enrolled regular"
                   value={String(data.totals.enrolled_regular)}
                   sub={`${pct(data.totals.enrolled_regular, data.totals.prospects)} of prospects`}
-                  tone="text-purple-600"
+                  tone="text-purple-600 dark:text-purple-400"
                 />
                 <KpiCard
                   label="Apply to enrol"
@@ -499,7 +499,7 @@ export default function RegularConversionPage() {
                             <span className="font-semibold">{applied}</span> applied
                           </div>
                           <div className="text-[11px] text-muted-foreground tabular-nums">
-                            <span className="font-medium text-purple-600">{enrolled}</span> enrolled
+                            <span className="font-medium text-purple-600 dark:text-purple-400">{enrolled}</span> enrolled
                           </div>
                           {applied > 0 && (
                             <div className="text-[11px] text-muted-foreground/80 tabular-nums mt-0.5">

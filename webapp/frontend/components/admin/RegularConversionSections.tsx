@@ -143,8 +143,8 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                   <tr key={r.intention}>
                     <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
                     <td className={tdNum}>{r.prospects}</td>
-                    <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
-                    <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
+                    <td className={cn(tdNum, "text-indigo-600 dark:text-indigo-400")}>{r.applied_regular}</td>
+                    <td className={cn(tdNum, "text-purple-600 dark:text-purple-400")}>{r.enrolled_regular}</td>
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.applied_regular, r.prospects)}</td>
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.enrolled_regular, r.prospects)}</td>
                   </tr>
@@ -172,7 +172,7 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
                   <tr key={r.intention}>
                     <td className="px-3 py-2 font-medium text-foreground">{r.intention}</td>
                     <td className={tdNum}>{r.prospects}</td>
-                    <td className={cn(tdNum, "text-emerald-600")}>{r.attended_summer}</td>
+                    <td className={cn(tdNum, "text-emerald-600 dark:text-emerald-400")}>{r.attended_summer}</td>
                     <td className={cn(tdNum, "text-muted-foreground")}>{pct(r.attended_summer, r.prospects)}</td>
                   </tr>
                 ))}
@@ -207,8 +207,8 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
                 <tr key={r.school}>
                   <td className="px-3 py-2 text-foreground max-w-[280px] truncate" title={r.school}>{r.school}</td>
                   <td className={tdNum}>{r.prospects}</td>
-                  <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
-                  <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
+                  <td className={cn(tdNum, "text-indigo-600 dark:text-indigo-400")}>{r.applied_regular}</td>
+                  <td className={cn(tdNum, "text-purple-600 dark:text-purple-400")}>{r.enrolled_regular}</td>
                 </tr>
               ))}
               {sorted.length === 0 && <EmptyRow span={4}>No prospects.</EmptyRow>}
@@ -243,8 +243,8 @@ function TutorTable({ data }: { data: RegularConversionResponse }) {
                   <td className="px-3 py-2 font-semibold text-foreground">{r.branch}</td>
                   <td className={cn("px-3 py-2", r.tutor_name === "Unattributed" ? "text-muted-foreground italic" : "text-foreground")}>{r.tutor_name}</td>
                   <td className={tdNum}>{r.prospects}</td>
-                  <td className={cn(tdNum, "text-indigo-600")}>{r.applied_regular}</td>
-                  <td className={cn(tdNum, "text-purple-600")}>{r.enrolled_regular}</td>
+                  <td className={cn(tdNum, "text-indigo-600 dark:text-indigo-400")}>{r.applied_regular}</td>
+                  <td className={cn(tdNum, "text-purple-600 dark:text-purple-400")}>{r.enrolled_regular}</td>
                 </tr>
               ))}
               {sorted.length === 0 && <EmptyRow span={5}>No prospects.</EmptyRow>}
@@ -493,7 +493,7 @@ export function RegularConversionChaseList({
                   </td>
                   <td className="px-3 py-2">
                     {r.attended_summer
-                      ? <Check className="h-3.5 w-3.5 text-emerald-600" aria-label="Did summer" />
+                      ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-label="Did summer" />
                       : <span className="text-muted-foreground/50">-</span>}
                   </td>
                   <td className="px-3 py-2">
