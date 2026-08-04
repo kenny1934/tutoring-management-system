@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.0.102](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.101...v2.0.102) (2026-08-05)
+
+
+### New Features
+
+* **The arrangement timetable can go full screen**: a new button on the summer and September arrangement pages collapses the header into one slim strip so the timetable takes almost the whole window. The strip keeps the student search, the branch selector and refresh, and on the summer page the Slot Setup, Calendar and Students views turn into icons there as well. The panel of unassigned students stays in place, and pressing Esc or the button at the far right returns the page to normal.
+
+
+### Improvements
+
+* **A tidier toolbar above the timetable**: the Tutor Duties, Workload and full screen buttons are now compact icons with hover hints, so the status counts and filters have more room before the row wraps. The main action keeps its wording: Publish ready on the September page and Auto-Suggest on the summer page.
+
+
+### Bug Fixes
+
+* **Shorter summer plans finish at their own length**: a student who arranged fewer than the full course of lessons used to stay in the incomplete list even after every lesson in their plan was placed. The incomplete list, the ordering on the Students tab and its summary figures now measure each student against their own plan, so a finished shorter plan counts as finished.
+
 ## [2.0.101](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.100...v2.0.101) (2026-08-04)
 
 
