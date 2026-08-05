@@ -28,6 +28,7 @@ export {
   shortCenterName,
   // Branch metadata
   BRANCH_INFO,
+  formatProspectCode,
   BRANCH_IMAGES_FALLBACK,
   LOCATION_TO_CODE,
   CODE_TO_LOCATION,

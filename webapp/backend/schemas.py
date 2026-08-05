@@ -3990,10 +3990,10 @@ class RegularProspectJourney(BaseModel):
     """
     prospect_id: int
     source_branch: Optional[str] = None
-    # The applicant's code at their primary branch, e.g. "MCP-1112". Lets an
-    # admin reconcile the chip against the branch's own records without opening
-    # the prospect.
-    primary_student_code: Optional[str] = None
+    # Their id at the primary branch, as the branch tutor submitted it
+    # ("MCP1112"). The chip renders it through formatProspectCode, the same
+    # helper every other prospect-code display already uses.
+    primary_student_id: Optional[str] = None
     attended_summer: bool = False
 
 

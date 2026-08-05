@@ -92,14 +92,17 @@ from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
-from utils.branch_codes import SECONDARY_CENTER_NAME_TO_CODE, resolve_claimed_branch_code
+from utils.branch_codes import (
+    SECONDARY_BRANCH_CODES,
+    SECONDARY_CENTER_NAME_TO_CODE,
+    resolve_claimed_branch_code,
+    should_fill_prospect_origin,
+)
 from utils.regular_promo import (
-    NEW_STUDENT_ORIGIN,
     application_promo,
     intake_charges_registration_fee,
     intake_registration_fee,
     is_verified_new,
-    should_fill_prospect_origin,
     parse_promo,
     promo_active,
     promo_message_fields,
@@ -110,11 +113,9 @@ from constants import (
     BASE_FEE_PER_LESSON,
     COMPLETED_STATUSES,
     DAY_FULL_TO_SHORT,
-    format_primary_student_code,
     MIN_LESSONS_FOR_DISCOUNT,
     REGISTRATION_FEE,
     REGULAR_EXIT_STATUSES,
-    SECONDARY_BRANCH_CODES,
     normalize_secondary_location,
     normalize_day_short,
 )
@@ -492,7 +493,7 @@ def _prospect_journeys_bulk(
         result[p.regular_application_id] = RegularProspectJourney(
             prospect_id=p.id,
             source_branch=p.source_branch,
-            primary_student_code=format_primary_student_code(p.source_branch, p.primary_student_id),
+            primary_student_id=p.primary_student_id,
             attended_summer=bool(attended),
         )
     return result
@@ -877,14 +878,6 @@ def clone_config(
 
 # ---- Applications admin ----
 
-# Shared with summer via utils/branch_codes.py, which is also what resolves a
-# claimed centre for the response field. This alias only serves the
-# secondary-only lookup in the student-link suggester below, where the query
-# has already narrowed to Secondary Academy claimants.
-_SECONDARY_CENTER_NAME_TO_CODE = SECONDARY_CENTER_NAME_TO_CODE
-
-_SECONDARY_BRANCH_CODES = SECONDARY_BRANCH_CODES
-
 # Must match the merged match_reason emitted by find_duplicate_students for a
 # combined exact-name + phone hit (see routers/students.py).
 _AUTO_LINK_REASON = "Same name and phone at this location"
@@ -916,8 +909,8 @@ def admin_suggest_student_links(
     apps: list[tuple[RegularApplication, str]] = []
     for app in candidate_apps:
         center_name = (app.current_centers or [None])[0]
-        code = _SECONDARY_CENTER_NAME_TO_CODE.get(center_name or "")
-        if code in _SECONDARY_BRANCH_CODES:
+        code = SECONDARY_CENTER_NAME_TO_CODE.get(center_name or "")
+        if code in SECONDARY_BRANCH_CODES:
             apps.append((app, code))
 
     def a_summary(a: RegularApplication, code: str) -> dict:
@@ -937,11 +930,13 @@ def admin_suggest_student_links(
     # A prospect outranks the student record as an origin: the prospect is
     # where the applicant came from, the student record is where they landed.
     # Same precedence update_application applies when an admin links by hand.
+    # Only the write path reads this, and the preview is the common call, so
+    # a dry run skips the query entirely.
     prospect_branch_by_app = dict(
         db.query(PrimaryProspect.regular_application_id, PrimaryProspect.source_branch)
         .filter(PrimaryProspect.regular_application_id.in_([a.id for a, _ in apps]))
         .all()
-    ) if apps else {}
+    ) if apps and not dry_run else {}
 
     for app, code in apps:
         candidates = find_duplicate_students(
@@ -957,6 +952,10 @@ def admin_suggest_student_links(
                 if should_fill_prospect_origin(app.verified_branch_origin, prospect_branch):
                     app.verified_branch_origin = prospect_branch
                 elif not app.verified_branch_origin and chosen.get("home_location"):
+                    # Narrower than update_application's version of this, which
+                    # overwrites whatever is there: that runs when an admin
+                    # deliberately changes the student link, while this is a
+                    # bulk auto-link, so it only fills a blank.
                     app.verified_branch_origin = chosen["home_location"]
         elif candidates:
             skipped.append({

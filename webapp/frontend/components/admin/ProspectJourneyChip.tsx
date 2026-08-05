@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { formatProspectCode } from "@/lib/regular-utils";
 import type { RegularProspectJourney } from "@/types";
 
 /**
@@ -25,15 +26,19 @@ export function ProspectJourneyChip({
   if (!journey) return null;
 
   const branch = journey.source_branch || "P6";
-  const origin = journey.primary_student_code || branch;
+  // The same helper every other prospect-code display uses, so the chip and
+  // the prospect pages can't render one student's code two ways.
+  const origin = journey.source_branch
+    ? formatProspectCode(journey.source_branch, journey.primary_student_id)
+    : branch;
   const label = journey.attended_summer
     ? `${origin} → summer → regular`
     : `${origin} → regular`;
   const summer = journey.attended_summer
     ? "Took the summer course."
     : "Did not take the summer course.";
-  const title = journey.primary_student_code
-    ? `P6 prospect from ${branch}, ${journey.primary_student_code}. ${summer}`
+  const title = journey.primary_student_id
+    ? `P6 prospect from ${branch}, ${origin}. ${summer}`
     : `P6 prospect from ${branch}. ${summer}`;
 
   return (

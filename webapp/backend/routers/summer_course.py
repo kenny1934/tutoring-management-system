@@ -108,11 +108,7 @@ from services.summer_marketing_snapshot import (
 )
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
-from utils.branch_codes import (
-    PRIMARY_CENTER_NAME_TO_CODE,
-    SECONDARY_CENTER_NAME_TO_CODE,
-    resolve_claimed_branch_code,
-)
+from utils.branch_codes import SECONDARY_BRANCH_CODES, resolve_claimed_branch_code
 from constants import (
     hk_now,
     SummerApplicationStatus,
@@ -1386,13 +1382,6 @@ def clone_config(
 # and MSB (Secondary Academy) — disambiguate via is_existing_student. Kept
 # here rather than on the config JSON because the code isn't stored there.
 # Update alongside any seed_summer_*.py changes.
-# Centre-name maps and the resolver now live in utils/branch_codes.py, shared
-# with the regular intake. These aliases keep the call sites below unchanged.
-_PRIMARY_CENTER_NAME_TO_CODE = PRIMARY_CENTER_NAME_TO_CODE
-_SECONDARY_CENTER_NAME_TO_CODE = SECONDARY_CENTER_NAME_TO_CODE
-_resolve_claimed_branch_code = resolve_claimed_branch_code
-
-
 def _published_filter_clause(db: Session, published: Optional[str]):
     """Build a clause that filters SummerApplication by publish state, or None
     when the argument isn't a recognized choice. `"published"` keeps apps with
@@ -1709,7 +1698,7 @@ def _build_application_response(
 
     claimed_center = (app.current_centers or [None])[0]
     if claimed_center:
-        data["claimed_branch_code"] = _resolve_claimed_branch_code(
+        data["claimed_branch_code"] = resolve_claimed_branch_code(
             claimed_center, app.is_existing_student
         )
 
@@ -1814,7 +1803,6 @@ def _build_application_responses(
     ]
 
 
-_SECONDARY_BRANCH_CODES = frozenset({"MSA", "MSB"})
 
 # Strict auto-link threshold: only a candidate whose reason combines both name
 # and phone is high-confidence enough to link without human review.
@@ -1864,8 +1852,8 @@ def admin_suggest_student_links(
         if app.id in prospect_claimed_ids:
             continue
         center_name = (app.current_centers or [None])[0]
-        code = _resolve_claimed_branch_code(center_name, app.is_existing_student)
-        if code in _SECONDARY_BRANCH_CODES:
+        code = resolve_claimed_branch_code(center_name, app.is_existing_student)
+        if code in SECONDARY_BRANCH_CODES:
             apps.append((app, code))
 
     def a_summary(a: SummerApplication, code: str) -> dict:
@@ -4158,7 +4146,7 @@ def get_student_lessons(
             branch_code=branch_code,
             application_status=app.application_status,
             is_existing_student=app.is_existing_student,
-            claimed_branch_code=_resolve_claimed_branch_code(claimed_center, app.is_existing_student) if claimed_center else None,
+            claimed_branch_code=resolve_claimed_branch_code(claimed_center, app.is_existing_student) if claimed_center else None,
             verified_branch_origin=app.verified_branch_origin,
             contact_phone=app.contact_phone,
             linked_student=linked_students.get(app.existing_student_id) if app.existing_student_id else None,

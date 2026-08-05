@@ -303,29 +303,6 @@ def format_student_code(home_location: str | None, school_student_id: str | None
     return f"{home_location}-{school_student_id}" if home_location else school_student_id
 
 
-# The Secondary Academy branches. As a verified_branch_origin these mean "was
-# already a secondary student", which is a destination rather than an origin
-# for anyone transitioning up from a primary branch.
-SECONDARY_BRANCH_CODES = frozenset({"MSA", "MSB"})
-
-
-def format_primary_student_code(source_branch: str | None, primary_student_id: str | None) -> str | None:
-    """A P6 prospect's code at their primary branch, e.g. "MCP-1112".
-
-    Branch tutors submit the id with the branch already baked in ("MCP1112"),
-    so this splits the prefix back off to match the hyphenated form every other
-    student code on the admin surfaces uses. An id that doesn't carry the
-    prefix is returned as submitted rather than guessed at.
-    """
-    code = (primary_student_id or "").strip()
-    if not code:
-        return None
-    branch = (source_branch or "").strip()
-    if branch and code.upper().startswith(branch.upper()) and len(code) > len(branch):
-        return f"{branch}-{code[len(branch):].lstrip('-')}"
-    return code
-
-
 # Day-of-week short forms used throughout the enrollments / session_log
 # tables. Slots on the summer side store full names ("Saturday"); the rest
 # of the CSM system uses the 3-letter abbreviation.

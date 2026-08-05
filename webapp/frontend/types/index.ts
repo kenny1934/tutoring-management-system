@@ -3840,8 +3840,9 @@ export interface RegularApplication {
 export interface RegularProspectJourney {
   prospect_id: number;
   source_branch?: string | null;
-  /** The applicant's code at their primary branch, e.g. "MCP-1112". */
-  primary_student_code?: string | null;
+  /** Their id at the primary branch as submitted ("MCP1112"). Render it
+   *  through formatProspectCode. */
+  primary_student_id?: string | null;
   /** True when the prospect's summer application published an enrollment and
    *  was not withdrawn. Splits the "MAC -> regular" and "MAC -> summer ->
    *  regular" chip copy. */

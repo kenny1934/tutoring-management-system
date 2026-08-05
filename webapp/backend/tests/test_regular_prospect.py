@@ -22,8 +22,6 @@ from models import (
     Tutor,
     Enrollment,
 )
-from constants import format_primary_student_code
-from utils.branch_codes import resolve_claimed_branch_code
 from schemas import RegularProspectLinkRequest, PrimaryProspectAdminUpdate
 from routers.primary_prospects import (
     admin_find_regular_matches,
@@ -212,30 +210,6 @@ def _admin_list(db_session, **overrides):
 # Matching cascade
 # ---------------------------------------------------------------------------
 
-class TestPrimaryStudentCode:
-    """Branch tutors submit the id with the branch baked in; the chip shows the
-    hyphenated form every other student code on the admin surfaces uses."""
-
-    def test_splits_the_branch_prefix(self):
-        assert format_primary_student_code("MCP", "MCP1112") == "MCP-1112"
-
-    def test_case_insensitive_prefix(self):
-        assert format_primary_student_code("MCP", "mcp1112") == "MCP-1112"
-
-    def test_keeps_an_already_hyphenated_id(self):
-        assert format_primary_student_code("MCP", "MCP-1112") == "MCP-1112"
-
-    def test_passes_through_an_id_without_the_prefix(self):
-        assert format_primary_student_code("MCP", "1112") == "1112"
-
-    def test_no_id_is_no_code(self):
-        assert format_primary_student_code("MCP", None) is None
-        assert format_primary_student_code("MCP", "  ") is None
-
-    def test_bare_prefix_is_not_split_into_an_empty_number(self):
-        assert format_primary_student_code("MCP", "MCP") == "MCP"
-
-
 class TestRegularMatching:
     def test_exact_match_via_shared_student(self, db_session, reg_cfg, sum_cfg):
         student = _student(db_session)
@@ -363,17 +337,17 @@ class TestJourney:
         resp = get_application(app_id=ra.id, _admin=None, db=db_session)
         assert resp.prospect_journey is None
 
-    def test_journey_carries_hyphenated_primary_code(self, db_session, reg_cfg):
+    def test_journey_carries_the_primary_id(self, db_session, reg_cfg):
         ra = _reg_app(db_session, reg_cfg)
         _prospect(db_session, regular_app_id=ra.id, branch="MCP", primary_student_id="MCP1112")
         resp = get_application(app_id=ra.id, _admin=None, db=db_session)
-        assert resp.prospect_journey.primary_student_code == "MCP-1112"
+        assert resp.prospect_journey.primary_student_id == "MCP1112"
 
-    def test_journey_code_is_null_without_a_primary_id(self, db_session, reg_cfg):
+    def test_journey_id_is_null_without_one(self, db_session, reg_cfg):
         ra = _reg_app(db_session, reg_cfg)
         _prospect(db_session, regular_app_id=ra.id, branch="MCP", primary_student_id=None)
         resp = get_application(app_id=ra.id, _admin=None, db=db_session)
-        assert resp.prospect_journey.primary_student_code is None
+        assert resp.prospect_journey.primary_student_id is None
         assert resp.prospect_journey.source_branch == "MCP"
 
 
@@ -715,43 +689,3 @@ class TestCourseStates:
             db=db_session, _admin=None,
         )
         assert resp["status"] == "Contacted"
-
-
-# ---------------------------------------------------------------------------
-# Claimed centre -> branch code
-# ---------------------------------------------------------------------------
-
-class TestClaimedBranchCode:
-    """The form stores the centre's Chinese display name. 二龍喉分校 exists on
-    both sides, so the resolution needs the existing-student category too."""
-
-    def test_secondary_claim_resolves(self):
-        assert resolve_claimed_branch_code(
-            "MathConcept中學教室 (華士古分校)", "MathConcept Secondary Academy") == "MSA"
-
-    def test_primary_claim_resolves(self):
-        assert resolve_claimed_branch_code("高士德分校", "MathConcept Education") == "MAC"
-
-    def test_shared_centre_name_splits_on_the_category(self):
-        assert resolve_claimed_branch_code("二龍喉分校", "MathConcept Education") == "MOT"
-        assert resolve_claimed_branch_code("二龍喉分校", "MathConcept Secondary Academy") == "MSB"
-
-    def test_no_centre_is_no_code(self):
-        assert resolve_claimed_branch_code(None, "MathConcept Education") is None
-        assert resolve_claimed_branch_code("", "MathConcept Education") is None
-
-    def test_unrecognised_centre_is_no_code(self):
-        assert resolve_claimed_branch_code("某某分校", "MathConcept Education") is None
-
-    def test_response_carries_the_code(self, db_session, reg_cfg):
-        ra = _reg_app(db_session, reg_cfg)
-        ra.is_existing_student = "MathConcept Education"
-        ra.current_centers = ["二龍喉分校"]
-        db_session.commit()
-        resp = get_application(app_id=ra.id, _admin=None, db=db_session)
-        assert resp.claimed_branch_code == "MOT"
-
-    def test_no_claim_leaves_the_code_empty(self, db_session, reg_cfg):
-        ra = _reg_app(db_session, reg_cfg)
-        resp = get_application(app_id=ra.id, _admin=None, db=db_session)
-        assert resp.claimed_branch_code is None

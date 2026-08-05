@@ -35,7 +35,7 @@ from schemas import (
 from auth.dependencies import require_admin_view, require_admin_write
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.phone_matching import normalize_phone
-from utils.regular_promo import should_fill_prospect_origin
+from utils.branch_codes import should_fill_prospect_origin
 from utils.rate_limiter import check_ip_rate_limit, clear_ip_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -520,8 +520,11 @@ def admin_update_prospect(
             reg_app = db.query(RegularApplication).filter(RegularApplication.id == reg_id).first()
             if not reg_app:
                 raise HTTPException(404, "Regular application not found")
-            # Carry the prospect's branch onto the origin, same as the summer
-            # link above and the application-side PATCH.
+            # Carry the prospect's branch onto the origin, as every other
+            # regular prospect-link path does. Deliberately a stronger rule
+            # than the summer link above, which only fills a blank: regular
+            # links the student first, so by now the origin usually already
+            # reads MSA and a blank-only rule would never correct it.
             if should_fill_prospect_origin(reg_app.verified_branch_origin, prospect.source_branch):
                 reg_app.verified_branch_origin = prospect.source_branch
         else:
@@ -1029,11 +1032,7 @@ def admin_auto_match(
     if not phone_to_prospects:
         return empty
 
-    # An app already claimed by another prospect is off the table. A linked
-    # student is not: the same app can carry both, and it must, because
-    # publishing an enrollment requires the student link — filtering those out
-    # would empty the pool the moment the season starts enrolling. Mirrors the
-    # rule _regular_year_apps already uses on the regular side.
+    # Claimed-by-another-prospect only, same rule as admin_find_matches above.
     taken_app_ids = {
         aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
         .filter(PrimaryProspect.summer_application_id.isnot(None))

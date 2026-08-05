@@ -4,11 +4,12 @@ import { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
 import {
   Search, Users, PanelRightClose, PanelRightOpen, Loader2, X, Info, CheckCircle2,
-  ArrowUpDown, StickyNote,
+  ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUMMER_GRADE_BORDER, DAY_ABBREV, effectiveStream } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { AdminNoteLine } from "@/components/admin/AdminNoteLine";
 import {
   REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS, REGULAR_STATUS_ICONS,
 } from "./RegularApplicationCard";
@@ -537,21 +538,11 @@ export function RegularUnassignedPanel({
                       )}
                     </div>
 
-                    {/* Row 3: the internal note, when there is one. It sits under
-                        the preferences because that is what it usually qualifies
-                        ("only Sat", "sibling in F3E"), and it has to be readable
-                        without opening the card: this list is worked by dragging,
-                        and a note only found in the detail modal is a note nobody
-                        reads mid-drag. One line, full text on hover. */}
-                    {app.admin_notes?.trim() && (
-                      <div
-                        className="mt-1 flex items-start gap-1 text-[9px] leading-snug text-amber-700 dark:text-amber-400"
-                        title={app.admin_notes}
-                      >
-                        <StickyNote className="h-2.5 w-2.5 shrink-0 mt-[1px]" />
-                        <span className="truncate">{app.admin_notes.trim()}</span>
-                      </div>
-                    )}
+                    {/* Row 3: the internal note. It sits under the preferences
+                        because that is what it usually qualifies ("only Sat"),
+                        and this list is worked by dragging, so a note reachable
+                        only from the detail modal is one nobody reads in time. */}
+                    <AdminNoteLine note={app.admin_notes} compact className="mt-1 flex" />
 
                     {/* Suggest popover: anchored under the card so it scrolls
                         with the list and never clips against the panel edge. */}

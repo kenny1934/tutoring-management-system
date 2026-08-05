@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import {
-  StickyNote, Copy, Check, Phone, AlertCircle, AlertTriangle,
+  Copy, Check, Phone, AlertCircle, AlertTriangle,
   Clock, CheckCircle, Grid3X3,
   FileInput, Eye, CalendarCheck, GraduationCap, LogOut, XCircle,
   Send, CreditCard, BadgeCheck,
@@ -17,6 +17,7 @@ import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges
 import { LinkedStudentChip } from "@/components/admin/LinkedStudentChip";
 import { InlineStatusSelect } from "@/components/admin/InlineStatusSelect";
 import { ProspectJourneyChip } from "@/components/admin/ProspectJourneyChip";
+import { AdminNoteLine } from "@/components/admin/AdminNoteLine";
 import type { RegularApplication } from "@/types";
 
 // Status pill colours, matching the summer card's dot/bg/text/borderL scheme
@@ -146,15 +147,10 @@ export function RegularOriginChip({
   hideJourneyEcho = false,
 }: {
   app: RegularApplication;
-  /** Set this where a ProspectJourneyChip renders immediately alongside. That
-   *  chip already leads with the prospect's branch and their code at it, so a
-   *  bare "from MCP" next to it is noise — and it is now the common case, since
-   *  linking a prospect writes its branch onto the origin, which then differs
-   *  from the MSA/MSB record the student ended up with, exactly the difference
-   *  the linked-record rule below treats as worth saying.
-   *
-   *  Off by default: surfaces that show the origin on its own, like the detail
-   *  modal's Branch origin block, would otherwise render nothing at all. */
+  /** Set this where a ProspectJourneyChip renders alongside: it already leads
+   *  with the prospect's branch, so a bare "from MCP" next to it is noise. Off
+   *  by default, because surfaces that show the origin on its own (the detail
+   *  modal's Branch origin block) would otherwise render nothing. */
   hideJourneyEcho?: boolean;
 }) {
   const verified = app.verified_branch_origin;
@@ -432,15 +428,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
               <AlertTriangle className="h-3 w-3" /> Edited after review
             </span>
           )}
-          {app.admin_notes && (
-            <span
-              className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 min-w-0"
-              title={app.admin_notes}
-            >
-              <StickyNote className="h-3 w-3 shrink-0" />
-              <span className="truncate">{app.admin_notes}</span>
-            </span>
-          )}
+          <AdminNoteLine note={app.admin_notes} />
           <span className="ml-auto shrink-0 inline-flex items-center gap-2">
             {langChip && (
               <span

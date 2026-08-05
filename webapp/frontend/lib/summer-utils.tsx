@@ -189,9 +189,11 @@ export function formatProspectCode(
   sourceBranch: string,
   primaryStudentId?: string | null,
 ): string {
-  const raw = primaryStudentId ?? "";
-  const stripped = raw.startsWith(sourceBranch)
-    ? raw.slice(sourceBranch.length)
+  const raw = (primaryStudentId ?? "").trim();
+  // Case-insensitive: branch tutors paste ids in whatever case their own sheet
+  // holds, and "mcp1023" must not render as "MCP-mcp1023".
+  const stripped = raw.toUpperCase().startsWith(sourceBranch.toUpperCase())
+    ? raw.slice(sourceBranch.length).replace(/^-/, "")
     : raw;
   return stripped ? `${sourceBranch}-${stripped}` : sourceBranch;
 }
