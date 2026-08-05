@@ -35,6 +35,7 @@ from schemas import (
 from auth.dependencies import require_admin_view, require_admin_write
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.phone_matching import normalize_phone
+from utils.regular_promo import should_fill_prospect_origin
 from utils.rate_limiter import check_ip_rate_limit, clear_ip_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -519,6 +520,10 @@ def admin_update_prospect(
             reg_app = db.query(RegularApplication).filter(RegularApplication.id == reg_id).first()
             if not reg_app:
                 raise HTTPException(404, "Regular application not found")
+            # Carry the prospect's branch onto the origin, same as the summer
+            # link above and the application-side PATCH.
+            if should_fill_prospect_origin(reg_app.verified_branch_origin, prospect.source_branch):
+                reg_app.verified_branch_origin = prospect.source_branch
         else:
             update_data["regular_application_id"] = None
 
@@ -780,6 +785,8 @@ def admin_regular_auto_match(
         if not dry_run:
             prospect.regular_application_id = app.id
             prospect.updated_at = hk_now()
+            if should_fill_prospect_origin(app.verified_branch_origin, prospect.source_branch):
+                app.verified_branch_origin = prospect.source_branch
 
     # Pass 0: exact via shared student. One regular app per student, so this is
     # unambiguous when it fires.

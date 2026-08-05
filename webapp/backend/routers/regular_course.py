@@ -98,6 +98,7 @@ from utils.regular_promo import (
     intake_charges_registration_fee,
     intake_registration_fee,
     is_verified_new,
+    should_fill_prospect_origin,
     parse_promo,
     promo_active,
     promo_message_fields,
@@ -108,9 +109,11 @@ from constants import (
     BASE_FEE_PER_LESSON,
     COMPLETED_STATUSES,
     DAY_FULL_TO_SHORT,
+    format_primary_student_code,
     MIN_LESSONS_FOR_DISCOUNT,
     REGISTRATION_FEE,
     REGULAR_EXIT_STATUSES,
+    SECONDARY_BRANCH_CODES,
     normalize_secondary_location,
     normalize_day_short,
 )
@@ -488,6 +491,7 @@ def _prospect_journeys_bulk(
         result[p.regular_application_id] = RegularProspectJourney(
             prospect_id=p.id,
             source_branch=p.source_branch,
+            primary_student_code=format_primary_student_code(p.source_branch, p.primary_student_id),
             attended_summer=bool(attended),
         )
     return result
@@ -878,7 +882,7 @@ _SECONDARY_CENTER_NAME_TO_CODE: dict[str, str] = {
     "MathConcept中學教室 (二龍喉分校)": "MSB",
 }
 
-_SECONDARY_BRANCH_CODES = frozenset({"MSA", "MSB"})
+_SECONDARY_BRANCH_CODES = SECONDARY_BRANCH_CODES
 
 # Must match the merged match_reason emitted by find_duplicate_students for a
 # combined exact-name + phone hit (see routers/students.py).
@@ -929,6 +933,15 @@ def admin_suggest_student_links(
     matches: list[dict] = []
     skipped: list[dict] = []
 
+    # A prospect outranks the student record as an origin: the prospect is
+    # where the applicant came from, the student record is where they landed.
+    # Same precedence update_application applies when an admin links by hand.
+    prospect_branch_by_app = dict(
+        db.query(PrimaryProspect.regular_application_id, PrimaryProspect.source_branch)
+        .filter(PrimaryProspect.regular_application_id.in_([a.id for a, _ in apps]))
+        .all()
+    ) if apps else {}
+
     for app, code in apps:
         candidates = find_duplicate_students(
             db, app.student_name, code, app.contact_phone
@@ -939,6 +952,11 @@ def admin_suggest_student_links(
             matches.append({"application": a_summary(app, code), "student": chosen})
             if not dry_run:
                 app.existing_student_id = chosen["id"]
+                prospect_branch = prospect_branch_by_app.get(app.id)
+                if should_fill_prospect_origin(app.verified_branch_origin, prospect_branch):
+                    app.verified_branch_origin = prospect_branch
+                elif not app.verified_branch_origin and chosen.get("home_location"):
+                    app.verified_branch_origin = chosen["home_location"]
         elif candidates:
             skipped.append({
                 "application": a_summary(app, code),
@@ -1479,13 +1497,7 @@ def link_application_prospect(
         prospect.regular_application_id = app_id
         prospect.updated_at = hk_now()
         new_prospect_id = prospect.id
-        # A prospect link is evidence the applicant came from a primary branch,
-        # which directly contradicts an origin of 'New'. Fill an unset origin,
-        # and correct a 'New' one so a returning student cannot keep a
-        # new-student offer they no longer qualify for. An origin naming some
-        # other branch is left alone: that is an admin decision made with
-        # information this link does not have.
-        if prospect.source_branch and (app.verified_branch_origin or NEW_STUDENT_ORIGIN) == NEW_STUDENT_ORIGIN:
+        if should_fill_prospect_origin(app.verified_branch_origin, prospect.source_branch):
             app.verified_branch_origin = prospect.source_branch
     else:
         if current is None:

@@ -46,6 +46,7 @@ export default function RegularApplicationsPage() {
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
   // Client-side journey filter: the prospect block rides on each application.
   const [prospectFilter, setProspectFilter] = useState<"skipped" | "did" | "none" | null>(null);
+  const [unverifiedOriginOnly, setUnverifiedOriginOnly] = useState(false);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,17 +130,20 @@ export default function RegularApplicationsPage() {
     [mutateApps, mutateStats]
   );
 
-  // Journey filter is applied client-side, so it refines the fetched list.
+  // Journey and origin filters are applied client-side, so they refine the
+  // fetched list rather than changing the SWR key.
   const displayedApps = useMemo(() => {
     if (!applications) return applications;
-    if (!prospectFilter) return applications;
+    if (!prospectFilter && !unverifiedOriginOnly) return applications;
     return applications.filter((a) => {
+      if (unverifiedOriginOnly && !!a.verified_branch_origin) return false;
+      if (!prospectFilter) return true;
       const j = a.prospect_journey;
       if (prospectFilter === "none") return !j;
       if (prospectFilter === "skipped") return !!j && !j.attended_summer;
       return !!j && j.attended_summer; // "did"
     });
-  }, [applications, prospectFilter]);
+  }, [applications, prospectFilter, unverifiedOriginOnly]);
 
   const selectedApp: RegularApplication | null =
     applications?.find((a) => a.id === selectedId) ?? null;
@@ -184,12 +188,14 @@ export default function RegularApplicationsPage() {
   }, [detailOpen, stepSelection]);
 
   const hasFilters =
-    !!statusFilter || !!gradeFilter || !!locationFilter || !!publishedFilter || !!debouncedSearch || !!prospectFilter;
+    !!statusFilter || !!gradeFilter || !!locationFilter || !!publishedFilter || !!debouncedSearch
+    || !!prospectFilter || unverifiedOriginOnly;
 
   const clearFilters = () => {
     setStatusFilter(null);
     setGradeFilter(null);
     setProspectFilter(null);
+    setUnverifiedOriginOnly(false);
     setLocationFilter(null);
     setPublishedFilter(null);
     setSearchQuery("");
@@ -203,7 +209,8 @@ export default function RegularApplicationsPage() {
     () => (activeConfig?.locations || []).map((l) => LOCATION_TO_CODE[l.name] || l.name),
     [activeConfig]
   );
-  const moreFilterCount = (gradeFilter ? 1 : 0) + (prospectFilter ? 1 : 0);
+  const moreFilterCount =
+    (gradeFilter ? 1 : 0) + (prospectFilter ? 1 : 0) + (unverifiedOriginOnly ? 1 : 0);
 
   // --- Batch selection ---
 
@@ -600,9 +607,22 @@ export default function RegularApplicationsPage() {
                         <option value="none">Not a prospect</option>
                       </select>
                     </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={unverifiedOriginOnly}
+                        onChange={(e) => setUnverifiedOriginOnly(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                      />
+                      <span className="text-xs text-foreground">Unverified branch origin</span>
+                    </label>
                     {moreFilterCount > 0 && (
                       <button
-                        onClick={() => { setGradeFilter(null); setProspectFilter(null); }}
+                        onClick={() => {
+                          setGradeFilter(null);
+                          setProspectFilter(null);
+                          setUnverifiedOriginOnly(false);
+                        }}
                         className="text-xs text-muted-foreground hover:text-foreground"
                       >
                         Clear these filters

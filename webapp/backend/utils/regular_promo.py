@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
+from constants import SECONDARY_BRANCH_CODES
+
 
 # verified_branch_origin value meaning "has never attended any MathConcept
 # centre". Matches the summer application's vocabulary so the two intakes stay
@@ -117,6 +119,38 @@ def is_verified_new(app) -> bool:
     """Whether an admin has confirmed the applicant has attended no MathConcept
     centre. Unverified applications are not eligible — silence is not a yes."""
     return (getattr(app, "verified_branch_origin", None) or "") == NEW_STUDENT_ORIGIN
+
+
+def should_fill_prospect_origin(current: Optional[str], source_branch: Optional[str]) -> bool:
+    """Whether a P6 prospect link may write `source_branch` onto an
+    application's verified_branch_origin.
+
+    A prospect link is evidence the applicant came from a primary branch, so it
+    overrides three values:
+      - unset, the ordinary case;
+      - 'New', which the link now contradicts, so a returning student cannot
+        keep a new-student offer they no longer qualify for;
+      - MSA/MSB, which is where they landed, not where they came from. Linking
+        a student record fills the origin from that student's home location, so
+        by the time an admin links the prospect the origin usually already
+        reads MSA. Treating that as a decision would mean the origin permanently
+        records the destination for every P6 transition that enrolled first.
+
+    An origin naming another primary branch is left alone: that is a real admin
+    decision, made with information this link does not have.
+
+    Shared by every path that can attach a prospect to a regular application
+    (the detail modal, the bulk matcher, and the prospects page) so they cannot
+    drift apart.
+    """
+    if not source_branch:
+        return False
+    existing = (current or "").strip()
+    return (
+        not existing
+        or existing == NEW_STUDENT_ORIGIN
+        or existing.upper() in SECONDARY_BRANCH_CODES
+    )
 
 
 def application_promo(

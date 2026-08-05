@@ -22,6 +22,7 @@ from models import (
     Tutor,
     Enrollment,
 )
+from constants import format_primary_student_code
 from schemas import RegularProspectLinkRequest, PrimaryProspectAdminUpdate
 from routers.primary_prospects import (
     admin_find_regular_matches,
@@ -145,11 +146,13 @@ def _sum_app(db_session, sum_cfg, *, name="Chan Tai Man", phone="85212340000",
 def _prospect(db_session, *, name="Chan Tai Man", branch="MAC", phone_1="85212340000",
               summer_app_id=None, regular_app_id=None, wants_summer="Considering",
               wants_regular="Considering", year=2026, tutor_name=None, school=None,
-              grade=None, preferred_branches=None, outreach_status="Not Started"):
+              grade=None, preferred_branches=None, outreach_status="Not Started",
+              primary_student_id=None):
     p = PrimaryProspect(
         year=year,
         source_branch=branch,
         student_name=name,
+        primary_student_id=primary_student_id,
         phone_1=phone_1,
         summer_application_id=summer_app_id,
         regular_application_id=regular_app_id,
@@ -208,6 +211,30 @@ def _admin_list(db_session, **overrides):
 # Matching cascade
 # ---------------------------------------------------------------------------
 
+class TestPrimaryStudentCode:
+    """Branch tutors submit the id with the branch baked in; the chip shows the
+    hyphenated form every other student code on the admin surfaces uses."""
+
+    def test_splits_the_branch_prefix(self):
+        assert format_primary_student_code("MCP", "MCP1112") == "MCP-1112"
+
+    def test_case_insensitive_prefix(self):
+        assert format_primary_student_code("MCP", "mcp1112") == "MCP-1112"
+
+    def test_keeps_an_already_hyphenated_id(self):
+        assert format_primary_student_code("MCP", "MCP-1112") == "MCP-1112"
+
+    def test_passes_through_an_id_without_the_prefix(self):
+        assert format_primary_student_code("MCP", "1112") == "1112"
+
+    def test_no_id_is_no_code(self):
+        assert format_primary_student_code("MCP", None) is None
+        assert format_primary_student_code("MCP", "  ") is None
+
+    def test_bare_prefix_is_not_split_into_an_empty_number(self):
+        assert format_primary_student_code("MCP", "MCP") == "MCP"
+
+
 class TestRegularMatching:
     def test_exact_match_via_shared_student(self, db_session, reg_cfg, sum_cfg):
         student = _student(db_session)
@@ -240,6 +267,50 @@ class TestRegularMatching:
         assert len(result["matches"]) == 1
         db_session.refresh(p)
         assert p.regular_application_id == ra.id
+
+    def test_auto_match_fills_verified_branch_origin(self, db_session, reg_cfg):
+        ra = _reg_app(db_session, reg_cfg, phone="85277775555")
+        _prospect(db_session, branch="MCP", phone_1="85277775555")
+        admin_regular_auto_match(year=2026, dry_run=False, db=db_session, _admin=None)
+        db_session.refresh(ra)
+        assert ra.verified_branch_origin == "MCP"
+
+    def test_auto_match_corrects_a_new_origin(self, db_session, reg_cfg):
+        # "New" contradicts a prospect link: they came from a primary branch.
+        ra = _reg_app(db_session, reg_cfg, phone="85277774444")
+        ra.verified_branch_origin = "New"
+        db_session.commit()
+        _prospect(db_session, branch="MTA", phone_1="85277774444")
+        admin_regular_auto_match(year=2026, dry_run=False, db=db_session, _admin=None)
+        db_session.refresh(ra)
+        assert ra.verified_branch_origin == "MTA"
+
+    def test_auto_match_replaces_the_landing_branch(self, db_session, reg_cfg):
+        # Linking the student first leaves MSA behind; the prospect says where
+        # they actually came from.
+        ra = _reg_app(db_session, reg_cfg, phone="85277773333")
+        ra.verified_branch_origin = "MSA"
+        db_session.commit()
+        _prospect(db_session, branch="MTA", phone_1="85277773333")
+        admin_regular_auto_match(year=2026, dry_run=False, db=db_session, _admin=None)
+        db_session.refresh(ra)
+        assert ra.verified_branch_origin == "MTA"
+
+    def test_auto_match_leaves_another_primary_branch_alone(self, db_session, reg_cfg):
+        ra = _reg_app(db_session, reg_cfg, phone="85277771111")
+        ra.verified_branch_origin = "MOT"
+        db_session.commit()
+        _prospect(db_session, branch="MTA", phone_1="85277771111")
+        admin_regular_auto_match(year=2026, dry_run=False, db=db_session, _admin=None)
+        db_session.refresh(ra)
+        assert ra.verified_branch_origin == "MOT"
+
+    def test_dry_run_writes_no_origin(self, db_session, reg_cfg):
+        ra = _reg_app(db_session, reg_cfg, phone="85277772222")
+        _prospect(db_session, branch="MCP", phone_1="85277772222")
+        admin_regular_auto_match(year=2026, dry_run=True, db=db_session, _admin=None)
+        db_session.refresh(ra)
+        assert ra.verified_branch_origin is None
 
     def test_name_candidate_surfaced_not_linked(self, db_session, reg_cfg):
         _reg_app(db_session, reg_cfg, name="Chan Tai Man", phone="85200000000")
@@ -290,6 +361,19 @@ class TestJourney:
         ra = _reg_app(db_session, reg_cfg)
         resp = get_application(app_id=ra.id, _admin=None, db=db_session)
         assert resp.prospect_journey is None
+
+    def test_journey_carries_hyphenated_primary_code(self, db_session, reg_cfg):
+        ra = _reg_app(db_session, reg_cfg)
+        _prospect(db_session, regular_app_id=ra.id, branch="MCP", primary_student_id="MCP1112")
+        resp = get_application(app_id=ra.id, _admin=None, db=db_session)
+        assert resp.prospect_journey.primary_student_code == "MCP-1112"
+
+    def test_journey_code_is_null_without_a_primary_id(self, db_session, reg_cfg):
+        ra = _reg_app(db_session, reg_cfg)
+        _prospect(db_session, regular_app_id=ra.id, branch="MCP", primary_student_id=None)
+        resp = get_application(app_id=ra.id, _admin=None, db=db_session)
+        assert resp.prospect_journey.primary_student_code is None
+        assert resp.prospect_journey.source_branch == "MCP"
 
 
 # ---------------------------------------------------------------------------
@@ -347,6 +431,17 @@ class TestLinkFromApplication:
         )
         db_session.refresh(p)
         assert p.regular_application_id == ra.id
+
+    def test_admin_update_fills_verified_branch_origin(self, db_session, reg_cfg, admin):
+        ra = _reg_app(db_session, reg_cfg)
+        p = _prospect(db_session, branch="MNT")
+        admin_update_prospect(
+            prospect_id=p.id,
+            payload=PrimaryProspectAdminUpdate(regular_application_id=ra.id),
+            db=db_session, _admin=None,
+        )
+        db_session.refresh(ra)
+        assert ra.verified_branch_origin == "MNT"
 
 
 # ---------------------------------------------------------------------------

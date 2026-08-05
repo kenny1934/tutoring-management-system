@@ -17,6 +17,7 @@ from utils.regular_promo import (
     intake_registration_fee,
     is_verified_new,
     parse_promo,
+    should_fill_prospect_origin,
     promo_active,
     promo_for_code,
     promo_message_fields,
@@ -98,6 +99,37 @@ class TestPromoActive:
 
     def test_no_promo_is_never_active(self):
         assert promo_active(None, date(2026, 8, 20)) is False
+
+
+class TestProspectOrigin:
+    """The rule every prospect-link path shares. Getting it wrong either loses
+    the branch origin or hands a returning student a new-student offer."""
+
+    def test_fills_an_unset_origin(self):
+        assert should_fill_prospect_origin(None, "MCP") is True
+        assert should_fill_prospect_origin("", "MCP") is True
+
+    def test_corrects_a_new_origin(self):
+        # A prospect came from a primary branch, so "New" is now known wrong.
+        assert should_fill_prospect_origin(NEW_STUDENT_ORIGIN, "MCP") is True
+
+    def test_overrides_a_secondary_branch(self):
+        """MSA/MSB is where they landed. Linking the student record fills the
+        origin from that student's home location, so without this the origin
+        would permanently record the destination for every P6 transition that
+        enrolled before anyone linked the prospect."""
+        assert should_fill_prospect_origin("MSA", "MCP") is True
+        assert should_fill_prospect_origin("MSB", "MCP") is True
+        assert should_fill_prospect_origin("msa", "MCP") is True
+
+    def test_leaves_another_primary_branch_alone(self):
+        # An admin picked that branch knowing more than the link does.
+        assert should_fill_prospect_origin("MTA", "MCP") is False
+        assert should_fill_prospect_origin("MOT", "MCP") is False
+
+    def test_a_prospect_without_a_branch_writes_nothing(self):
+        assert should_fill_prospect_origin(None, None) is False
+        assert should_fill_prospect_origin(NEW_STUDENT_ORIGIN, "") is False
 
 
 class TestEligibility:
