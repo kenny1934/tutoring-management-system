@@ -3792,6 +3792,9 @@ export interface RegularApplication {
   lang_stream?: string | null;
   is_existing_student?: string | null;
   current_centers?: string[] | null;
+  /** The centre the applicant claims, resolved to a branch code (MAC, MSB,
+   *  ...). Null when they claim none, or when the stored name is unrecognised. */
+  claimed_branch_code?: string | null;
   /** Admin-verified origin: a branch code, or "New" for a student with no
    *  MathConcept history. The form only asks which centre they attend *now*,
    *  so seasonal new-student offers key off this instead. */

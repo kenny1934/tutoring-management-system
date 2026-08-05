@@ -4008,6 +4008,10 @@ class RegularApplicationResponse(BaseModel):
     lang_stream: Optional[str] = None
     is_existing_student: Optional[str] = None
     current_centers: Optional[List[str]] = None
+    # The claimed centre resolved to a branch code (MAC, MSB, ...). Derived,
+    # not a column: current_centers holds the Chinese display name, and which
+    # side 二龍喉分校 belongs to depends on is_existing_student.
+    claimed_branch_code: Optional[str] = None
     verified_branch_origin: Optional[str] = None
     wechat_id: Optional[str] = None
     contact_phone: Optional[str] = None

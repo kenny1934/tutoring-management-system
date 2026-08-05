@@ -23,6 +23,7 @@ from models import (
     Enrollment,
 )
 from constants import format_primary_student_code
+from utils.branch_codes import resolve_claimed_branch_code
 from schemas import RegularProspectLinkRequest, PrimaryProspectAdminUpdate
 from routers.primary_prospects import (
     admin_find_regular_matches,
@@ -714,3 +715,43 @@ class TestCourseStates:
             db=db_session, _admin=None,
         )
         assert resp["status"] == "Contacted"
+
+
+# ---------------------------------------------------------------------------
+# Claimed centre -> branch code
+# ---------------------------------------------------------------------------
+
+class TestClaimedBranchCode:
+    """The form stores the centre's Chinese display name. 二龍喉分校 exists on
+    both sides, so the resolution needs the existing-student category too."""
+
+    def test_secondary_claim_resolves(self):
+        assert resolve_claimed_branch_code(
+            "MathConcept中學教室 (華士古分校)", "MathConcept Secondary Academy") == "MSA"
+
+    def test_primary_claim_resolves(self):
+        assert resolve_claimed_branch_code("高士德分校", "MathConcept Education") == "MAC"
+
+    def test_shared_centre_name_splits_on_the_category(self):
+        assert resolve_claimed_branch_code("二龍喉分校", "MathConcept Education") == "MOT"
+        assert resolve_claimed_branch_code("二龍喉分校", "MathConcept Secondary Academy") == "MSB"
+
+    def test_no_centre_is_no_code(self):
+        assert resolve_claimed_branch_code(None, "MathConcept Education") is None
+        assert resolve_claimed_branch_code("", "MathConcept Education") is None
+
+    def test_unrecognised_centre_is_no_code(self):
+        assert resolve_claimed_branch_code("某某分校", "MathConcept Education") is None
+
+    def test_response_carries_the_code(self, db_session, reg_cfg):
+        ra = _reg_app(db_session, reg_cfg)
+        ra.is_existing_student = "MathConcept Education"
+        ra.current_centers = ["二龍喉分校"]
+        db_session.commit()
+        resp = get_application(app_id=ra.id, _admin=None, db=db_session)
+        assert resp.claimed_branch_code == "MOT"
+
+    def test_no_claim_leaves_the_code_empty(self, db_session, reg_cfg):
+        ra = _reg_app(db_session, reg_cfg)
+        resp = get_application(app_id=ra.id, _admin=None, db=db_session)
+        assert resp.claimed_branch_code is None

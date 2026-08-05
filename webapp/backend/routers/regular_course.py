@@ -92,6 +92,7 @@ from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
+from utils.branch_codes import SECONDARY_CENTER_NAME_TO_CODE, resolve_claimed_branch_code
 from utils.regular_promo import (
     NEW_STUDENT_ORIGIN,
     application_promo,
@@ -527,6 +528,9 @@ def _build_application_responses(
         )
         data["is_new_student"] = new_student[app.id]
         data["prospect_journey"] = journeys.get(app.id)
+        data["claimed_branch_code"] = resolve_claimed_branch_code(
+            (app.current_centers or [None])[0], app.is_existing_student
+        )
         # Eligible = the offer is running AND an admin has verified the
         # applicant has no MathConcept history. An unverified application is
         # not eligible yet, which is what puts the prompt in front of staff.
@@ -873,14 +877,11 @@ def clone_config(
 
 # ---- Applications admin ----
 
-# Copy of summer's map for resolving a claimed centre to a Secondary branch
-# code (keep in sync with summer_course._SECONDARY_CENTER_NAME_TO_CODE).
-_SECONDARY_CENTER_NAME_TO_CODE: dict[str, str] = {
-    "華士古分校": "MSA",
-    "二龍喉分校": "MSB",
-    "MathConcept中學教室 (華士古分校)": "MSA",
-    "MathConcept中學教室 (二龍喉分校)": "MSB",
-}
+# Shared with summer via utils/branch_codes.py, which is also what resolves a
+# claimed centre for the response field. This alias only serves the
+# secondary-only lookup in the student-link suggester below, where the query
+# has already narrowed to Secondary Academy claimants.
+_SECONDARY_CENTER_NAME_TO_CODE = SECONDARY_CENTER_NAME_TO_CODE
 
 _SECONDARY_BRANCH_CODES = SECONDARY_BRANCH_CODES
 

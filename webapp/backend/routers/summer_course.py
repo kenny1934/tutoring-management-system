@@ -108,6 +108,11 @@ from services.summer_marketing_snapshot import (
 )
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
+from utils.branch_codes import (
+    PRIMARY_CENTER_NAME_TO_CODE,
+    SECONDARY_CENTER_NAME_TO_CODE,
+    resolve_claimed_branch_code,
+)
 from constants import (
     hk_now,
     SummerApplicationStatus,
@@ -1381,42 +1386,11 @@ def clone_config(
 # and MSB (Secondary Academy) — disambiguate via is_existing_student. Kept
 # here rather than on the config JSON because the code isn't stored there.
 # Update alongside any seed_summer_*.py changes.
-_PRIMARY_CENTER_NAME_TO_CODE: dict[str, str] = {
-    "高士德分校": "MAC",
-    "水坑尾分校": "MCP",
-    "東方明珠分校": "MNT",
-    "林茂塘分校": "MLT",
-    "二龍喉分校": "MOT",
-    "氹仔美景I分校": "MTA",
-    "氹仔美景II分校": "MTR",
-}
-
-_SECONDARY_CENTER_NAME_TO_CODE: dict[str, str] = {
-    "華士古分校": "MSA",
-    "二龍喉分校": "MSB",
-    # Full-name fallback in case an older config stored the unshortened form.
-    "MathConcept中學教室 (華士古分校)": "MSA",
-    "MathConcept中學教室 (二龍喉分校)": "MSB",
-}
-
-
-def _resolve_claimed_branch_code(
-    center_name: Optional[str], is_existing: Optional[str]
-) -> Optional[str]:
-    """Map a stored center name to a branch code, using the existing-student
-    category to disambiguate centers that exist on both Primary and Secondary
-    sides (currently only 二龍喉分校)."""
-    if not center_name:
-        return None
-    if is_existing == "MathConcept Secondary Academy":
-        return _SECONDARY_CENTER_NAME_TO_CODE.get(center_name)
-    if is_existing == "MathConcept Education":
-        return _PRIMARY_CENTER_NAME_TO_CODE.get(center_name)
-    # No category hint — try primary, then fall through to secondary.
-    return (
-        _PRIMARY_CENTER_NAME_TO_CODE.get(center_name)
-        or _SECONDARY_CENTER_NAME_TO_CODE.get(center_name)
-    )
+# Centre-name maps and the resolver now live in utils/branch_codes.py, shared
+# with the regular intake. These aliases keep the call sites below unchanged.
+_PRIMARY_CENTER_NAME_TO_CODE = PRIMARY_CENTER_NAME_TO_CODE
+_SECONDARY_CENTER_NAME_TO_CODE = SECONDARY_CENTER_NAME_TO_CODE
+_resolve_claimed_branch_code = resolve_claimed_branch_code
 
 
 def _published_filter_clause(db: Session, published: Optional[str]):

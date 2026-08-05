@@ -197,7 +197,14 @@ export function RegularOriginChip({
         }
         onClick={(e) => e.stopPropagation()}
       >
-        Claims: existing
+        {/* Naming the branch, as summer's chip does: "Claims: MTR" tells you
+            which records to search, where "existing" only says that some
+            search is owed. Falls back when the stored centre name resolves to
+            no code, so an unmappable one still reads as a claim. */}
+        Claims:{" "}
+        {app.claimed_branch_code
+          ? <span className="font-mono">{app.claimed_branch_code}</span>
+          : "existing"}
       </span>
     );
   }
