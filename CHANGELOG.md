@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.0.104](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.103...v2.0.104) (2026-08-05)
+
+
+### New Features
+
+* **Link suggestions can now find P6 prospects for September applications**: the Link suggestions button on the September applications page used to match applications to existing student records only, so an applicant who came up from a primary branch was never recorded as having done so and the conversion page showed nothing for the September intake. It now works in two halves. The first matches P6 prospects to applications, by the student they enrolled as over the summer and then by phone, with anything less certain listed for you to pick from. The second matches student records as before. The two are not alternatives: an application normally ends up with both, a student record so it can be published, and a prospect so the funnel knows where the family came from.
+* **The prospect journey shows the primary branch code**: the chip on a September application read "MCP to summer to regular", naming the branch but not the student. It now leads with the applicant's code at their primary branch, so a card reads "MCP-1112 to summer to regular" and can be checked against that branch's own records without opening anything.
+* **The claim badge names the branch**: an application from someone who says they already study with us showed "Claims: existing", which told you a check was owed but not where to look. It now names the centre they picked, for example "Claims: MTR".
+
+
+### Improvements
+
+* **The branch a student came from fills itself in**: linking a P6 prospect to a September application now records that prospect's branch as the applicant's verified origin, the way the summer course has always done. Where the origin already read MSA or MSB it is corrected to the primary branch, because that is where the family came from rather than where they landed. A branch chosen by hand is never overwritten.
+* **Applications with no branch origin can be filtered**: the More filters menu on the September applications page gained an Unverified branch origin tick box, matching the summer page, so the applications still awaiting a check can be listed on their own.
+* **Notes show on the cards you drag**: the September arrangement page now shows an application's internal note on its card in the unassigned list, shortened to one line with the whole note on hover. A note that could only be found by opening the application was a note nobody read while placing students.
+
+
+### Bug Fixes
+
+* **Demand colours on the arrangement timetable match the rest of the app**: each demand row coloured its bar by grade and stream but its label by grade alone, from a separate set of colours, so an F1C bar was green while its F1C label was blue. Both now use the grade badge colour used everywhere else, and the label is that badge, so a demand row and a student card agree on what F1C looks like. First choice fills solid and a backup choice the same colour more faintly.
+* **One branch badge instead of two**: a September application linked to a prospect showed both a "from MCP" badge and a journey chip already beginning with MCP. The card now drops the badge when the chip says the same thing, and keeps it when it does not, such as an origin that names a different branch.
+
 ## [2.0.103](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.102...v2.0.103) (2026-08-05)
 
 
