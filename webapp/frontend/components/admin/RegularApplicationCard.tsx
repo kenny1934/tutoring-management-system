@@ -141,8 +141,27 @@ function VerifiedOriginBadge({ value, asFrom }: { value: string; asFrom?: boolea
  *  student id and a link to the profile, so it strictly outranks a bare origin
  *  code. The verified origin rides alongside it only when it adds something
  *  the record does not say. */
-export function RegularOriginChip({ app }: { app: RegularApplication }) {
+export function RegularOriginChip({
+  app,
+  hideJourneyEcho = false,
+}: {
+  app: RegularApplication;
+  /** Set this where a ProspectJourneyChip renders immediately alongside. That
+   *  chip already leads with the prospect's branch and their code at it, so a
+   *  bare "from MCP" next to it is noise — and it is now the common case, since
+   *  linking a prospect writes its branch onto the origin, which then differs
+   *  from the MSA/MSB record the student ended up with, exactly the difference
+   *  the linked-record rule below treats as worth saying.
+   *
+   *  Off by default: surfaces that show the origin on its own, like the detail
+   *  modal's Branch origin block, would otherwise render nothing at all. */
+  hideJourneyEcho?: boolean;
+}) {
   const verified = app.verified_branch_origin;
+  // Only a branch the journey chip already names is dropped. A 'New' origin, or
+  // one naming a different branch than the prospect came from, still shows.
+  const toldByJourney =
+    hideJourneyEcho && !!verified && verified === app.prospect_journey?.source_branch;
 
   if (app.linked_student) {
     // Worth showing next to the record: that the student has no history at all
@@ -151,7 +170,8 @@ export function RegularOriginChip({ app }: { app: RegularApplication }) {
     // the one they now belong to. A verified origin equal to their home branch
     // is already on the badge, so it stays off.
     const addsInfo =
-      !!verified && (verified === "New" || verified !== app.linked_student.home_location);
+      !!verified && !toldByJourney
+      && (verified === "New" || verified !== app.linked_student.home_location);
     return (
       <>
         <LinkedStudentChip student={app.linked_student} />
@@ -160,7 +180,9 @@ export function RegularOriginChip({ app }: { app: RegularApplication }) {
     );
   }
 
-  if (verified) return <VerifiedOriginBadge value={verified} />;
+  // Returning nothing rather than falling through to the Claims chips below:
+  // the origin IS verified, the journey chip is simply the one saying so.
+  if (verified) return toldByJourney ? null : <VerifiedOriginBadge value={verified} />;
 
   const claimsExisting = !!app.is_existing_student && app.is_existing_student !== "None";
   if (claimsExisting) {
@@ -299,7 +321,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
               }}
               trailing={
                 <>
-                  <RegularOriginChip app={app} />
+                  <RegularOriginChip app={app} hideJourneyEcho />
                   <ProspectJourneyChip journey={app.prospect_journey} />
                 </>
               }
