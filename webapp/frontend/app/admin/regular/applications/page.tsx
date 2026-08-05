@@ -352,9 +352,9 @@ export default function RegularApplicationsPage() {
                 {!isReadOnly && (
                   <button
                     onClick={() => setLinkSuggestionsOpen(true)}
-                    disabled={!configId}
+                    disabled={!configId || !activeConfig?.year}
                     className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium disabled:opacity-50"
-                    title="Preview which unlinked applications can be matched to existing students"
+                    title="Preview which applications can be matched to P6 prospects and existing student records"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     <span className="hidden md:inline">Link suggestions</span>
@@ -719,6 +719,7 @@ export default function RegularApplicationsPage() {
       <RegularLinkSuggestionsModal
         isOpen={linkSuggestionsOpen}
         onClose={() => setLinkSuggestionsOpen(false)}
+        year={activeConfig?.year ?? null}
         configId={configId}
         onDone={handleRefresh}
       />

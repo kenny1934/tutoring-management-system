@@ -911,8 +911,12 @@ def admin_find_matches(
         n for n in (normalize_phone(prospect.phone_1), normalize_phone(prospect.phone_2)) if n
     }
 
-    # Exclude apps that some other prospect already links to, or that a local
-    # MSA/MSB student already claims — those aren't candidates for this prospect.
+    # Exclude apps that some other prospect already links to — an application
+    # holds at most one prospect. A linked student is NOT a disqualifier: the
+    # two links answer different questions ("which student record is this" vs
+    # "did they come from a primary branch"), and publishing an enrollment
+    # requires the student link, so excluding those would hide every enrolled
+    # app from the matcher and break the prospect -> summer -> regular funnel.
     taken_app_ids = {
         aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
         .filter(PrimaryProspect.summer_application_id.isnot(None))
@@ -927,7 +931,6 @@ def admin_find_matches(
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
         .filter(
             SummerCourseConfig.year == prospect.year,
-            SummerApplication.existing_student_id.is_(None),
             SummerApplication.application_status.notin_(APPLICATION_EXIT_STATUSES),
         )
         .all()
@@ -1019,16 +1022,18 @@ def admin_auto_match(
     if not phone_to_prospects:
         return empty
 
-    # An app already claimed by another prospect — or linked to a local MSA/MSB
-    # student — is off the table. Collect the IDs once and reuse the exclusion
-    # for both the phone-match pool and the Pass 3 fuzzy candidate pool.
+    # An app already claimed by another prospect is off the table. A linked
+    # student is not: the same app can carry both, and it must, because
+    # publishing an enrollment requires the student link — filtering those out
+    # would empty the pool the moment the season starts enrolling. Mirrors the
+    # rule _regular_year_apps already uses on the regular side.
     taken_app_ids = {
         aid for (aid,) in db.query(PrimaryProspect.summer_application_id)
         .filter(PrimaryProspect.summer_application_id.isnot(None))
         if aid is not None
     }
 
-    # Load the year's unlinked apps once; we can't filter by normalized phone
+    # Load the year's unclaimed apps once; we can't filter by normalized phone
     # in SQL, and the same pool feeds Pass 3 anyway. Withdrawn/Rejected apps
     # are excluded — linking to a dead application is never the right outcome.
     year_apps = (
@@ -1036,7 +1041,6 @@ def admin_auto_match(
         .join(SummerCourseConfig, SummerApplication.config_id == SummerCourseConfig.id)
         .filter(
             SummerCourseConfig.year == year,
-            SummerApplication.existing_student_id.is_(None),
             SummerApplication.application_status.notin_(APPLICATION_EXIT_STATUSES),
         )
         .all()
