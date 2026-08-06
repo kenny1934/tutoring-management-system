@@ -240,6 +240,7 @@ interface RegularApplicationCardProps {
   onToggleCheck?: (id: number) => void;
   showCheckbox?: boolean;
   onStatusChange?: (id: number, status: string) => void;
+  onProspectClick?: (prospectId: number) => void;
 }
 
 export const RegularApplicationCard = React.memo(function RegularApplicationCard({
@@ -251,6 +252,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
   onToggleCheck,
   showCheckbox = false,
   onStatusChange,
+  onProspectClick,
 }: RegularApplicationCardProps) {
   const [refCopied, setRefCopied] = useState(false);
 
@@ -325,7 +327,7 @@ export const RegularApplicationCard = React.memo(function RegularApplicationCard
               trailing={
                 <>
                   <RegularOriginChip app={app} hideJourneyEcho />
-                  <ProspectJourneyChip journey={app.prospect_journey} />
+                  <ProspectJourneyChip journey={app.prospect_journey} onProspectClick={onProspectClick} />
                 </>
               }
             />

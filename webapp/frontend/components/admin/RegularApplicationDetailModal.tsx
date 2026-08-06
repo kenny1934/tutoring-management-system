@@ -235,6 +235,14 @@ interface RegularApplicationDetailModalProps {
   hasNext?: boolean;
   currentIndex?: number;
   totalCount?: number;
+  /** Open the linked P6 prospect's record. The page owns that modal so one
+   *  fetch serves both the cards behind this one and the chip inside it. */
+  onProspectClick?: (prospectId: number) => void;
+  /** True while that prospect record is stacked on top. Escape and backdrop
+   *  clicks then belong to it alone: this modal listens on `document` and the
+   *  prospect one on `window`, so document fires first and a single Escape
+   *  would otherwise close the application out from under the prospect. */
+  prospectPreviewOpen?: boolean;
 }
 
 export function RegularApplicationDetailModal({
@@ -250,6 +258,8 @@ export function RegularApplicationDetailModal({
   hasNext,
   currentIndex,
   totalCount,
+  onProspectClick,
+  prospectPreviewOpen = false,
 }: RegularApplicationDetailModalProps) {
   const { showToast } = useToast();
   const { effectiveRole } = useAuth();
@@ -821,6 +831,7 @@ export function RegularApplicationDetailModal({
       <Modal
         isOpen={isOpen}
         onClose={() => guardNav(onClose)}
+        persistent={prospectPreviewOpen}
         size="xl"
         title={
           <span className="inline-flex items-center gap-3 min-w-0">
@@ -1572,7 +1583,7 @@ export function RegularApplicationDetailModal({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-semibold text-foreground">P6 prospect</span>
                     {app.prospect_journey ? (
-                      <ProspectJourneyChip journey={app.prospect_journey} />
+                      <ProspectJourneyChip journey={app.prospect_journey} onProspectClick={onProspectClick} />
                     ) : (
                       <span className="text-[10px] italic text-muted-foreground">Not a tracked prospect</span>
                     )}

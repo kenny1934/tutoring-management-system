@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { regularAPI } from "@/lib/api";
+import { prospectsAPI, regularAPI } from "@/lib/api";
 import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, REGULAR_STATUS_STEPS, REGULAR_EXIT_STATUSES,
 } from "@/lib/regular-utils";
@@ -16,6 +16,7 @@ import {
   RegularApplicationCard, REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS,
 } from "@/components/admin/RegularApplicationCard";
 import { RegularApplicationDetailModal } from "@/components/admin/RegularApplicationDetailModal";
+import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { RegularLinkSuggestionsModal } from "@/components/admin/RegularLinkSuggestionsModal";
 import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
 import { BatchActionBar } from "@/components/admin/BatchActionBar";
@@ -152,6 +153,18 @@ export default function RegularApplicationsPage() {
   const openDetail = useCallback((picked: RegularApplication) => {
     setSelectedId(picked.id);
     setDetailOpen(true);
+  }, []);
+
+  // Prospect preview — opened from the journey chip, on a card or inside the
+  // detail modal. The page owns it so both entry points share one fetch, and
+  // the SWR key matches the prospects page's so either reuses the other's.
+  const [previewProspectId, setPreviewProspectId] = useState<number | null>(null);
+  const { data: previewProspect, mutate: mutatePreviewProspect } = useSWR(
+    previewProspectId ? ["prospect-preview", previewProspectId] : null,
+    () => prospectsAPI.adminGet(previewProspectId!),
+  );
+  const handleProspectClick = useCallback((prospectId: number) => {
+    setPreviewProspectId(prospectId);
   }, []);
 
   // Modal prev/next walks the filtered list in display order.
@@ -690,6 +703,7 @@ export default function RegularApplicationsPage() {
                     onToggleCheck={isReadOnly ? undefined : toggleCheck}
                     showCheckbox={showCheckboxes}
                     onStatusChange={isReadOnly ? undefined : handleStatusChange}
+                    onProspectClick={handleProspectClick}
                   />
                 ))}
               </div>
@@ -734,6 +748,8 @@ export default function RegularApplicationsPage() {
         hasNext={selectedIndex !== -1 && selectedIndex < totalCount - 1}
         currentIndex={selectedIndex === -1 ? undefined : selectedIndex}
         totalCount={totalCount}
+        onProspectClick={handleProspectClick}
+        prospectPreviewOpen={previewProspectId !== null}
       />
 
       <RegularLinkSuggestionsModal
@@ -743,6 +759,17 @@ export default function RegularApplicationsPage() {
         configId={configId}
         onDone={handleRefresh}
       />
+
+      {/* Last in the tree so it stacks above the application modal it can be
+          opened from — both overlays sit at the same z-index. */}
+      {previewProspectId && previewProspect && (
+        <ProspectDetailModal
+          prospect={previewProspect}
+          onClose={() => setPreviewProspectId(null)}
+          onSave={() => { mutatePreviewProspect(); handleRefresh(); }}
+          readOnly={isReadOnly}
+        />
+      )}
     </DeskSurface>
   );
 }
