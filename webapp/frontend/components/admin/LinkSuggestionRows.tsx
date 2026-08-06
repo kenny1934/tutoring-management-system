@@ -7,6 +7,7 @@ import { GradeLabel } from "@/components/ui/grade-label";
 import type {
   AutoMatchEntry,
   AutoMatchSkipEntry,
+  AutoMatchSkipReason,
   AutoMatchProspectSummary,
   AutoMatchAppSummary,
   StudentLinkMatch,
@@ -164,6 +165,18 @@ export function StudentSkipRow({
 
 // ---------- P6 prospect rows ----------
 
+/**
+ * Why a prospect was held back for review. A Record rather than a ternary
+ * chain so adding a reason to AutoMatchSkipReason fails to compile until it
+ * has a label here, instead of silently falling through to the last arm.
+ */
+const SKIP_REASON_LABELS: Record<AutoMatchSkipReason, string> = {
+  multiple_apps_share_phone: "Multiple applications share this phone",
+  multiple_prospects_share_phone: "Multiple prospects share this phone",
+  grade_mismatch: "Phone matches, but the grade does not. Likely a sibling",
+  name_similarity: "Similar name, no matching phone",
+};
+
 export function ProspectChip({ p }: { p: AutoMatchProspectSummary }) {
   const branch = BRANCH_INFO[p.source_branch];
   return (
@@ -198,11 +211,7 @@ export function ProspectSkipRow({
   onOverride: (prospectId: number, appId: number) => void;
 }) {
   const phoneList = [entry.prospect.phone_1, entry.prospect.phone_2].filter(Boolean).join(" / ");
-  const reasonLabel =
-    entry.reason === "multiple_apps_share_phone" ? "Multiple applications share this phone" :
-    entry.reason === "multiple_prospects_share_phone" ? "Multiple prospects share this phone" :
-    entry.reason === "grade_mismatch" ? "Phone matches, but the grade does not. Likely a sibling" :
-    "Similar name, no matching phone";
+  const reasonLabel = SKIP_REASON_LABELS[entry.reason];
   const showPhone = entry.reason !== "name_similarity" && Boolean(phoneList);
 
   if (overriddenAppId !== null) {

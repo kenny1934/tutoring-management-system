@@ -46,7 +46,13 @@ const P6_TOKENS = new Set([
  * Fold the many spellings of P6 to the canonical "P6". Only recognised P6
  * forms are rewritten; anything else is returned as typed, so a genuinely odd
  * value stays visible for a human to fix. Mirrors normalize_prospect_grade in
- * webapp/backend/utils/grades.py — the paste table shows what will be stored.
+ * webapp/backend/utils/grades.py.
+ *
+ * Used on the paste path so a pasted column previews as it will be stored.
+ * The Grade field in the row editor is deliberately NOT folded as you type —
+ * a lone "6" would jump to "P6" mid-keystroke — so a hand-typed spelling
+ * previews raw and is canonicalised by the backend on submit. Storage is
+ * correct either way; this only buys the paste preview.
  */
 export function normalizeProspectGrade(grade: string): string {
   const text = grade.trim();

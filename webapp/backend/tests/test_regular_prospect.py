@@ -659,6 +659,31 @@ class TestReverseSuggestions:
         assert resp.suggestions[0].prospect_id == p.id
         assert resp.suggestions[0].match_type == "student"
 
+    def test_wrong_grade_prospect_is_not_suggested(self, db_session, reg_cfg):
+        """The grade guard runs in this direction too, so the application page
+        and the prospects page agree about the same pair."""
+        ra = _reg_app(db_session, reg_cfg, name="Chloe Wong",
+                      phone="85255220000", grade="F2")
+        _prospect(db_session, name="Chloe Wong", phone_1="85255220000", grade="P6")
+
+        resp = suggest_prospects_for_application(app_id=ra.id, _admin=None, db=db_session)
+
+        assert resp.suggestions == []
+
+    def test_shared_student_survives_a_grade_clash(self, db_session, reg_cfg, sum_cfg):
+        """Exempt for the same reason as the forward matcher: the student link
+        is exact, so a clash means a wrong grade, not a different child."""
+        student = _student(db_session)
+        sa = _sum_app(db_session, sum_cfg, student_id=student.id, phone="85200000031")
+        ra = _reg_app(db_session, reg_cfg, student_id=student.id,
+                      phone="85299990001", grade="F3")
+        p = _prospect(db_session, summer_app_id=sa.id, phone_1="85200000031", grade="P6")
+
+        resp = suggest_prospects_for_application(app_id=ra.id, _admin=None, db=db_session)
+
+        assert [s.prospect_id for s in resp.suggestions] == [p.id]
+        assert resp.suggestions[0].match_type == "student"
+
 
 # ---------------------------------------------------------------------------
 # Derived course states

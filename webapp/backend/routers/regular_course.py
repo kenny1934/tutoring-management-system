@@ -88,6 +88,7 @@ from auth.dependencies import require_admin_view, require_admin_write, require_s
 from routers.students import find_duplicate_students
 from routers.primary_prospects import enrollment_backed_students
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
+from utils.grades import grade_blocks_prospect_link
 from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
@@ -1569,10 +1570,16 @@ def suggest_prospects_for_application(
         similarity = 0
         if app.existing_student_id and sid_by_prospect.get(p.id) == app.existing_student_id:
             signals.add("student")
+        # Phone and name are guesses, so both are held to the grade constraint:
+        # a P6 prospect can only belong to an F1 application. Same rule the
+        # prospects-side matchers apply, so the two surfaces agree on a pair.
+        # The exact student signal above is exempt: a grade clash there means
+        # someone's grade is wrong, not that it's a different child.
+        wrong_grade = grade_blocks_prospect_link(p.grade, app.grade)
         p_phones = {normalize_phone(p.phone_1), normalize_phone(p.phone_2)} - {""}
-        if app_phones and (app_phones & p_phones):
+        if app_phones and not wrong_grade and (app_phones & p_phones):
             signals.add("phone")
-        if app.student_name and p.student_name:
+        if app.student_name and p.student_name and not wrong_grade:
             score = name_similarity(p.student_name, app.student_name)
             if score >= NAME_CANDIDATE_THRESHOLD:
                 signals.add("name")

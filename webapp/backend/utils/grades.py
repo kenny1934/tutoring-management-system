@@ -1,16 +1,24 @@
-"""Grade progression and pre-grade display helpers.
+"""Grade vocabulary: progression, pre-grade display, and prospect matching.
 
 The school year in HK starts on Sept 1. A student stored as F1 today should
 become F2 once the new year begins. During the summer course window between
 the academic year ending and Sept 1 the badge should display "Pre-F2" so
 tutors know what curriculum to assign, but the stored grade stays F1 until
 the promotion job runs.
+
+The last section reads the same ladder as a matching signal, alongside
+utils/name_matching.py and utils/phone_matching.py: a prospect can only belong
+to an application for the grade they are entering. It lives here rather than in
+its own module because it is three lines over PROMOTE_MAP, mirroring how
+utils/branch_codes.py keeps its link-time policy beside the vocabulary it
+reasons about.
 """
 
 from __future__ import annotations
 
 import re
 from datetime import date, timedelta
+from functools import lru_cache
 from typing import Optional, Tuple
 
 GRADE_ORDER = ["P6", "F1", "F2", "F3", "F4", "F5", "F6", "Graduated"]
@@ -58,12 +66,17 @@ _P6_TOKENS = frozenset({
 _GRADE_TOKEN_SPLIT = re.compile(r"[^0-9a-z一-鿿]+")
 
 
+@lru_cache(maxsize=256)
 def normalize_prospect_grade(grade: Optional[str]) -> Optional[str]:
     """Fold the many spellings of P6 to the canonical "P6".
 
     Only recognised P6 forms are rewritten. Anything else is returned as
     typed, so a genuinely odd value stays visible for a human to fix rather
     than being silently coerced into a grade nobody entered.
+
+    Cached because the matchers call this once per prospect-application pair
+    — tens of thousands of times per auto-match run over a handful of distinct
+    values. Pure function of its argument, so the cache can never go stale.
     """
     if grade is None:
         return None
@@ -73,7 +86,13 @@ def normalize_prospect_grade(grade: Optional[str]) -> Optional[str]:
     tokens = [t for t in _GRADE_TOKEN_SPLIT.split(text.lower()) if t]
     if not tokens:
         return text
-    # "primary 6" arrives as two tokens; rejoin so spelled-out forms match too.
+    # Two ways to be P6, because punctuation means both things here. Rejoined,
+    # it catches a separator *within* one spelling ("P.6", "Primary 6"). Token
+    # by token, it catches two spellings of the same fact ("P6/G6").
+    #
+    # Adding a token affects both readings: a bare "primary" added for the
+    # first would also make "primary" alone fold via the second. Add whole
+    # compacted spellings ("primary6"), not fragments.
     if "".join(tokens) in _P6_TOKENS or all(t in _P6_TOKENS for t in tokens):
         return "P6"
     return text
