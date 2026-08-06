@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, api, type ParentCommunication } from './api';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, prospectsAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -286,6 +286,37 @@ export function useStudent(id: number | null | undefined) {
   return useSWR<Student>(
     id ? ['student', id] : null,
     () => studentsAPI.getById(id!)  );
+}
+
+/**
+ * P6 prospect record opened from an application surface — a chip on a card or
+ * inside a detail modal. Owns the id, the fetch and the close, so a page wires
+ * one of these and hands `open` to every chip it renders.
+ *
+ * The SWR key is shared with every other host of this hook, so two application
+ * pages reuse one another's cache for the same prospect.
+ *
+ * `isOpen` tracks whether the record is actually on screen, not merely
+ * requested — a caller suppressing its own keyboard handling while this sits on
+ * top needs the mounted state, and the fetch is not instant.
+ */
+export function useProspectPreview() {
+  const [prospectId, setProspectId] = useState<number | null>(null);
+  const { data: prospect, mutate: mutateProspect } = useSWR<PrimaryProspect>(
+    prospectId ? ['prospect-preview', prospectId] : null,
+    () => prospectsAPI.adminGet(prospectId!),
+  );
+  const open = useCallback((id: number) => setProspectId(id), []);
+  const close = useCallback(() => setProspectId(null), []);
+  // Saving closes the record, so revalidating would land in a cache nobody is
+  // reading. Dropping the entry costs no request and still means a re-open
+  // shows the saved values rather than the ones from before the edit.
+  const invalidate = useCallback(
+    () => mutateProspect(undefined, { revalidate: false }),
+    [mutateProspect],
+  );
+  return { prospect: prospectId && prospect ? prospect : null, open, close, invalidate,
+           isOpen: !!(prospectId && prospect) };
 }
 
 /**

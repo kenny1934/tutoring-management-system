@@ -74,9 +74,12 @@ export function ProspectJourneyChip({
       </button>
     );
   }
+  // prefetch off: the href carries ?focus=<id>, so every chip would warm a
+  // separate copy of a page most readers never open.
   return (
     <Link
       href={`/admin/prospects?focus=${journey.prospect_id}`}
+      prefetch={false}
       onClick={(e) => e.stopPropagation()}
       className={chipClass}
       title={title}

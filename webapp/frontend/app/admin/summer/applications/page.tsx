@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { usePageTitle, useDebouncedValue, useProspectPreview } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import {
   ClipboardList, Search, X, ChevronDown, Check,
@@ -32,7 +32,6 @@ import { BatchPublishResultsModal } from "@/components/admin/BatchPublishResults
 import { SummerBuddyBoard } from "@/components/admin/SummerBuddyBoard";
 import { computeDiscountsForAll } from "@/lib/summer-discounts";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
-import { prospectsAPI } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { TimeAgo } from "@/components/ui/time-ago";
@@ -458,14 +457,7 @@ export default function SummerApplicationsPage() {
   };
 
   // Prospect preview — opened inline from the card's linked-prospect chip
-  const [previewProspectId, setPreviewProspectId] = useState<number | null>(null);
-  const { data: previewProspect } = useSWR(
-    previewProspectId ? ["prospect-preview", previewProspectId] : null,
-    () => prospectsAPI.adminGet(previewProspectId!)
-  );
-  const handleProspectClick = useCallback((prospectId: number) => {
-    setPreviewProspectId(prospectId);
-  }, []);
+  const prospectPreview = useProspectPreview();
 
   // Inline single-row status change from the card
   const handleStatusChange = useCallback(async (id: number, status: string) => {
@@ -1544,7 +1536,7 @@ export default function SummerApplicationsPage() {
                               onToggleCheck={toggleCheck}
                               showCheckbox={showCheckboxes}
                               onStatusChange={readOnly ? undefined : handleStatusChange}
-                              onProspectClick={handleProspectClick}
+                              onProspectClick={prospectPreview.open}
                               totalLessons={activeConfig?.total_lessons}
                             />
                           );
@@ -1567,7 +1559,7 @@ export default function SummerApplicationsPage() {
                     onSelect: openDetail,
                     onToggleCheck: toggleCheck,
                     onStatusChange: readOnly ? undefined : handleStatusChange,
-                    onProspectClick: handleProspectClick,
+                    onProspectClick: prospectPreview.open,
                     totalLessons: activeConfig?.total_lessons,
                     setRowHeight: dynamicRowHeight.setRowHeight,
                   }}
@@ -1587,7 +1579,7 @@ export default function SummerApplicationsPage() {
                       onToggleCheck={toggleCheck}
                       showCheckbox={showCheckboxes}
                       onStatusChange={readOnly ? undefined : handleStatusChange}
-                      onProspectClick={handleProspectClick}
+                      onProspectClick={prospectPreview.open}
                       totalLessons={activeConfig?.total_lessons}
                     />
                   ))}
@@ -1655,14 +1647,11 @@ export default function SummerApplicationsPage() {
             }}
           />
 
-          {previewProspectId && previewProspect && (
+          {prospectPreview.prospect && (
             <ProspectDetailModal
-              prospect={previewProspect}
-              onClose={() => setPreviewProspectId(null)}
-              onSave={() => {
-                mutate(["prospect-preview", previewProspect.id]);
-                handleRefresh();
-              }}
+              prospect={prospectPreview.prospect}
+              onClose={prospectPreview.close}
+              onSave={() => { prospectPreview.invalidate(); handleRefresh(); }}
               readOnly={readOnly}
             />
           )}
