@@ -3081,6 +3081,7 @@ export interface AutoMatchAppSummary {
 export type AutoMatchSkipReason =
   | "multiple_prospects_share_phone"
   | "multiple_apps_share_phone"
+  | "grade_mismatch"
   | "name_similarity";
 
 export interface AutoMatchEntry {

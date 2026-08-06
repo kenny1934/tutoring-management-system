@@ -4,6 +4,7 @@ import {
   gradeColorKey,
   applyTargetToPreGrade,
   coursewareGrade,
+  normalizeProspectGrade,
 } from "./grade-utils";
 
 const WINDOW = { start: "2026-07-05", end: "2026-08-31" };
@@ -60,5 +61,24 @@ describe("gradeColorKey (badge colour follows displayed grade)", () => {
     expect(gradeColorKey("P6", WINDOW, AFTER_WINDOW)).toBe("P6");
     expect(gradeColorKey("F6", WINDOW, IN_WINDOW)).toBe("F6");
     expect(gradeColorKey("Graduated", WINDOW, IN_WINDOW)).toBe("Graduated");
+  });
+});
+
+describe("normalizeProspectGrade", () => {
+  it("folds every spelling of P6 to the canonical value", () => {
+    for (const raw of ["P6", "p6", " P6 ", "P.6", "G6", "P6/G6", "P6 / G6", "6", "Primary 6", "小六"]) {
+      expect(normalizeProspectGrade(raw)).toBe("P6");
+    }
+  });
+
+  it("leaves anything it does not recognise as typed", () => {
+    expect(normalizeProspectGrade("F1")).toBe("F1");
+    expect(normalizeProspectGrade("P5")).toBe("P5");
+    expect(normalizeProspectGrade("P6/G7")).toBe("P6/G7");
+    expect(normalizeProspectGrade("")).toBe("");
+  });
+
+  it("feeds the badge so a pasted grade renders as Pre-F1", () => {
+    expect(displayGrade(normalizeProspectGrade("P6/G6"), WINDOW, IN_WINDOW)).toBe("Pre-F1");
   });
 });

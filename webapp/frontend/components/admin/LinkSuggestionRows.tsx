@@ -201,6 +201,7 @@ export function ProspectSkipRow({
   const reasonLabel =
     entry.reason === "multiple_apps_share_phone" ? "Multiple applications share this phone" :
     entry.reason === "multiple_prospects_share_phone" ? "Multiple prospects share this phone" :
+    entry.reason === "grade_mismatch" ? "Phone matches, but the grade does not. Likely a sibling" :
     "Similar name, no matching phone";
   const showPhone = entry.reason !== "name_similarity" && Boolean(phoneList);
 

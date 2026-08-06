@@ -30,6 +30,34 @@ export const PROMOTE_MAP: Record<string, string> = {
   F6: "Graduated",
 };
 
+/**
+ * A primary prospect is by definition a P6 student heading for secondary, but
+ * the grade arrives as free text from a branch tutor's pasted spreadsheet, so
+ * the column holds "P6", "P6/G6", "小六" and friends. Every spelling a token
+ * can take; a value made only of these folds to the canonical "P6".
+ */
+const P6_TOKENS = new Set([
+  "p6", "g6", "6",
+  "primary6", "grade6",
+  "小六", "六年級", "小學六年級",
+]);
+
+/**
+ * Fold the many spellings of P6 to the canonical "P6". Only recognised P6
+ * forms are rewritten; anything else is returned as typed, so a genuinely odd
+ * value stays visible for a human to fix. Mirrors normalize_prospect_grade in
+ * webapp/backend/utils/grades.py — the paste table shows what will be stored.
+ */
+export function normalizeProspectGrade(grade: string): string {
+  const text = grade.trim();
+  if (!text) return text;
+  const tokens = text.toLowerCase().split(/[^0-9a-z一-鿿]+/).filter(Boolean);
+  if (!tokens.length) return text;
+  // "primary 6" arrives as two tokens; rejoin so spelled-out forms match too.
+  if (P6_TOKENS.has(tokens.join("")) || tokens.every((t) => P6_TOKENS.has(t))) return "P6";
+  return text;
+}
+
 export const TARGET_TO_PRE_GRADE: Record<string, string> = {
   F1: "P6",
   F2: "F1",

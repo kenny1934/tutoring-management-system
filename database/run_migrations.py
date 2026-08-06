@@ -20,7 +20,7 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 # happens, so the cost is a confusing syntax error rather than a half-applied
 # migration, but the file has to be written around it.
 MIGRATIONS = [
-    "152_regular_prospect_branch_origin_backfill.sql",
+    "153_prospect_grade_canonical_p6.sql",
 ]
 
 def main():

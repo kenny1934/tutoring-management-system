@@ -45,6 +45,7 @@ import { useFormDirtyTracking, useCooldown } from "@/lib/ui-hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KNOWN_SCHOOLS } from "@/lib/school-list";
 import { BRANCH_INFO } from "@/lib/summer-utils";
+import { normalizeProspectGrade } from "@/lib/grade-utils";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import {
   IntentionBadge,
@@ -380,7 +381,7 @@ function parsePastedData(text: string, branch: string | null): { rows: ParsedRow
       ...createEmptyRow(),
       primary_student_id: normalizeStudentId(id, branch),
       student_name: name,
-      grade: grade || "P6",
+      grade: normalizeProspectGrade(grade) || "P6",
       tutor_name: tutor,
       phone_1: phone,
       school: school,

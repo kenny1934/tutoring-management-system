@@ -3102,6 +3102,17 @@ class SummerPublishBatchResponse(BaseModel):
 ProspectIntention = Literal["Yes", "No", "Considering"]
 
 
+def _canonical_prospect_grade(v):
+    """Fold the pasted spellings of P6 to the canonical value.
+
+    utils.grades is imported inside the call because utils/__init__ pulls in
+    response_builders, which imports this module — a module-level import here
+    is circular.
+    """
+    from utils.grades import normalize_prospect_grade
+    return normalize_prospect_grade(v) if isinstance(v, str) else v
+
+
 class PrimaryProspectBulkItem(BaseModel):
     """Single row from paste (used in bulk create)."""
     primary_student_id: Optional[str] = Field(None, max_length=50)
@@ -3121,6 +3132,11 @@ class PrimaryProspectBulkItem(BaseModel):
     preferred_time_note: Optional[str] = None
     preferred_tutor_note: Optional[str] = None
     sibling_info: Optional[str] = None
+
+    @field_validator('grade', mode='before')
+    @classmethod
+    def canonicalize_grade(cls, v):
+        return _canonical_prospect_grade(v)
 
 
 class PrimaryProspectBulkCreate(BaseModel):
@@ -3149,6 +3165,11 @@ class PrimaryProspectUpdate(BaseModel):
     preferred_time_note: Optional[str] = None
     preferred_tutor_note: Optional[str] = None
     sibling_info: Optional[str] = None
+
+    @field_validator('grade', mode='before')
+    @classmethod
+    def canonicalize_grade(cls, v):
+        return _canonical_prospect_grade(v)
 
 
 class PrimaryProspectAdminUpdate(BaseModel):

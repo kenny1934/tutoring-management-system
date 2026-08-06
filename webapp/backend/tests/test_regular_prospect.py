@@ -108,12 +108,12 @@ def _student(db_session, name="Chan Tai Man", code=None):
 
 
 def _reg_app(db_session, reg_cfg, *, name="Chan Tai Man", phone="85212340000",
-             student_id=None, status="Submitted"):
+             student_id=None, status="Submitted", grade="F1"):
     a = RegularApplication(
         config_id=reg_cfg.id,
         reference_code=f"RC2026-P{next(_SEQ)}",
         student_name=name,
-        grade="F1",
+        grade=grade,
         contact_phone=phone,
         preferred_location="華士古分校",
         application_status=status,
@@ -297,6 +297,55 @@ class TestRegularMatching:
         assert "name_similarity" in reasons
         db_session.refresh(p)
         assert p.regular_application_id is None
+
+    def test_phone_match_into_the_wrong_grade_is_not_linked(self, db_session, reg_cfg):
+        """The sibling case: the parent's number sits on both children. A P6
+        prospect can only belong to an F1 application."""
+        ra = _reg_app(db_session, reg_cfg, name="Wong Siu Ming",
+                      phone="85266001122", grade="F3")
+        p = _prospect(db_session, name="Wong Siu Fong",
+                      phone_1="85266001122", grade="P6")
+
+        result = admin_regular_auto_match(year=2026, dry_run=False, db=db_session, _admin=None)
+
+        assert result["matches"] == []
+        assert [s["reason"] for s in result["skipped"]] == ["grade_mismatch"]
+        assert result["skipped"][0]["conflicting_apps"][0]["id"] == ra.id
+        db_session.refresh(p)
+        assert p.regular_application_id is None
+
+    def test_wrong_grade_is_not_suggested_by_name(self, db_session, reg_cfg):
+        """An exact name match on the wrong grade is a different child."""
+        _reg_app(db_session, reg_cfg, name="Chloe Wong", phone="85255110000", grade="F2")
+        _prospect(db_session, name="Chloe Wong", phone_1="85299887766", grade="P6")
+
+        result = admin_regular_auto_match(year=2026, dry_run=True, db=db_session, _admin=None)
+
+        assert result["matches"] == []
+        assert result["skipped"] == []
+
+    def test_shared_student_outranks_a_grade_clash(self, db_session, reg_cfg, sum_cfg):
+        """The student link is exact. A grade clash there means someone's grade
+        is wrong, not that it is a different child, so the link still stands."""
+        student = _student(db_session)
+        sa = _sum_app(db_session, sum_cfg, student_id=student.id, phone="85200000077")
+        ra = _reg_app(db_session, reg_cfg, student_id=student.id,
+                      phone="85299999977", grade="F2")
+        p = _prospect(db_session, summer_app_id=sa.id, phone_1="85200000077", grade="P6")
+
+        result = admin_regular_auto_match(year=2026, dry_run=False, db=db_session, _admin=None)
+
+        assert len(result["matches"]) == 1
+        db_session.refresh(p)
+        assert p.regular_application_id == ra.id
+
+    def test_find_regular_matches_hides_the_wrong_grade(self, db_session, reg_cfg):
+        _reg_app(db_session, reg_cfg, name="Chloe Wong", phone="85255110003", grade="F2")
+        p = _prospect(db_session, name="Chloe Wong", phone_1="85255110003", grade="P6")
+
+        result = admin_find_regular_matches(p.id, db=db_session, _admin=None)
+
+        assert result.matches == []
 
 
 # ---------------------------------------------------------------------------

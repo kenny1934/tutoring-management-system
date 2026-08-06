@@ -35,6 +35,7 @@ from schemas import (
 from auth.dependencies import require_admin_view, require_admin_write
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.phone_matching import normalize_phone
+from utils.grades import grade_blocks_prospect_link
 from utils.branch_codes import should_fill_prospect_origin
 from utils.rate_limiter import check_ip_rate_limit, clear_ip_rate_limit
 
@@ -690,14 +691,20 @@ def admin_find_regular_matches(
             if app.existing_student_id == inherited_student_id:
                 candidates[app.id] = (app, {"student"}, 0)
 
-    for app in year_apps:
+    # Phone and name are guesses, so both are held to the grade constraint: a
+    # P6 prospect can only belong to an F1 application. The student signal
+    # above is exact and stays — a grade clash there means someone's grade is
+    # wrong, not that it's a different child.
+    plausible = [a for a in year_apps if not grade_blocks_prospect_link(prospect.grade, a.grade)]
+
+    for app in plausible:
         if prospect_phones and normalize_phone(app.contact_phone) in prospect_phones:
             existing = candidates.get(app.id)
             candidates[app.id] = (app, (existing[1] if existing else set()) | {"phone"},
                                   existing[2] if existing else 0)
 
     if prospect.student_name:
-        for app in year_apps:
+        for app in plausible:
             if not app.student_name:
                 continue
             score = name_similarity(prospect.student_name, app.student_name)
@@ -824,7 +831,19 @@ def admin_regular_auto_match(
     for phone, phone_apps in apps_by_phone.items():
         prospects_at_phone = [p for p in phone_to_prospects.get(phone, []) if p.id not in handled]
         if len(phone_apps) == 1 and len(prospects_at_phone) == 1:
-            do_link(prospects_at_phone[0], phone_apps[0])
+            p, app = prospects_at_phone[0], phone_apps[0]
+            # A clean 1:1 phone match into the wrong grade is the sibling case:
+            # the parent's number on both children's records. Send it to review
+            # rather than writing a link to the wrong child.
+            if grade_blocks_prospect_link(p.grade, app.grade):
+                handled.add(p.id)
+                skipped.append({
+                    "prospect": p_summary(p), "reason": "grade_mismatch",
+                    "conflicting_apps": [a_summary(app)],
+                    "conflicting_prospects": [],
+                })
+            else:
+                do_link(p, app)
 
     # Ambiguous phone buckets → skip for review.
     for phone, phone_apps in apps_by_phone.items():
@@ -858,6 +877,8 @@ def admin_regular_auto_match(
         for p in name_remaining:
             scored = []
             for app in candidate_apps:
+                if grade_blocks_prospect_link(p.grade, app.grade):
+                    continue
                 score = name_similarity(p.student_name, app.student_name)
                 if score >= NAME_CANDIDATE_THRESHOLD:
                     scored.append((score, app))
@@ -946,6 +967,11 @@ def admin_find_matches(
         .all()
     )
     year_apps = [a for a in year_apps if a.id not in taken_app_ids]
+
+    # Both signals below are guesses — siblings share a phone and HK given
+    # names collide — so hold them to the grade constraint: a P6 prospect can
+    # only belong to an F1 application.
+    year_apps = [a for a in year_apps if not grade_blocks_prospect_link(prospect.grade, a.grade)]
 
     # app_id -> (app, signals, similarity)
     candidates: dict[int, tuple[SummerApplication, set[str], int]] = {}
@@ -1097,6 +1123,17 @@ def admin_auto_match(
             continue
         handled_prospect_ids.add(prospect.id)
         app = phone_apps[0]
+        # A clean 1:1 phone match into the wrong grade is the sibling case: the
+        # parent's number on both children's records. Review it rather than
+        # writing a link to the wrong child.
+        if grade_blocks_prospect_link(prospect.grade, app.grade):
+            skipped.append({
+                "prospect": p_summary(prospect),
+                "reason": "grade_mismatch",
+                "conflicting_apps": [a_summary(app)],
+                "conflicting_prospects": [],
+            })
+            continue
         matches.append({"prospect": p_summary(prospect), "application": a_summary(app)})
         if not dry_run:
             prospect.summer_application_id = app.id
@@ -1145,6 +1182,8 @@ def admin_auto_match(
         for p in remaining_prospects:
             scored = []
             for app in candidate_apps:
+                if grade_blocks_prospect_link(p.grade, app.grade):
+                    continue
                 score = name_similarity(p.student_name, app.student_name)
                 if score >= NAME_CANDIDATE_THRESHOLD:
                     scored.append((score, app))
