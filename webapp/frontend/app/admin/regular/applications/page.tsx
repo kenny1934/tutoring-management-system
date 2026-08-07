@@ -741,7 +741,6 @@ export default function RegularApplicationsPage() {
         currentIndex={selectedIndex === -1 ? undefined : selectedIndex}
         totalCount={totalCount}
         onProspectClick={prospectPreview.open}
-        prospectPreviewOpen={prospectPreview.isOpen}
       />
 
       <RegularLinkSuggestionsModal

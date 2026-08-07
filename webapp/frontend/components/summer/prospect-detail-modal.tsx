@@ -19,6 +19,7 @@ import {
   X,
   Clock,
 } from "lucide-react";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { applicationSearchHref, prospectsAPI } from "@/lib/api";
 import { parseHKTimestamp } from "@/lib/formatters";
@@ -66,15 +67,22 @@ export function ProspectDetailModal({
   const goPrev = canNavigate && idx > 0 ? () => onNavigate!(siblings![idx - 1]) : null;
   const goNext = canNavigate && idx < siblings!.length - 1 ? () => onNavigate!(siblings![idx + 1]) : null;
 
+  // Mounting is opening here, so the layer lasts as long as the component.
+  // The application modals stack this one on top of themselves, and only the
+  // stack can tell either of them apart from the other's keypresses. Scroll is
+  // already frozen by whatever opened this.
+  const { isTopmost, zIndex } = useOverlayLayer(true);
+
   // Keyboard navigation: ← / → to flip prospects, Escape to close.
   // Arrow keys are ignored while focus is in an input/textarea/select.
+  // Suspended whenever something is stacked above, so the keys reach it alone.
   useStableKeyboardHandler((e) => {
     const target = e.target as HTMLElement | null;
     if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
     if (e.key === "ArrowLeft" && goPrev) { e.preventDefault(); goPrev(); }
     else if (e.key === "ArrowRight" && goNext) { e.preventDefault(); goNext(); }
     else if (e.key === "Escape") onClose();
-  });
+  }, isTopmost);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -151,8 +159,9 @@ export function ProspectDetailModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        style={{ zIndex }}
+        className="fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+        onClick={() => { if (isTopmost) onClose(); }}
         role="dialog"
         aria-modal="true"
         aria-label={`Prospect details: ${prospect.student_name}`}
