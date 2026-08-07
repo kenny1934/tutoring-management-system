@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.0.105](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.104...v2.0.105) (2026-08-07)
+
+
+### New Features
+
+* **regular:** open the prospect record from the journey chip ([976adbe](https://github.com/kenny1934/tutoring-management-system/commit/976adbe274267e3fab4a5beb4d2013b2fdb4cf46))
+
+
+### Bug Fixes
+
+* **prospects:** hold link suggestions to the entering grade ([34f21c4](https://github.com/kenny1934/tutoring-management-system/commit/34f21c4956d5b723d0cc2823df2258ee334ee8a9))
+* **ui:** one overlay stack decides which modal Escape belongs to ([#97](https://github.com/kenny1934/tutoring-management-system/issues/97)) ([621faca](https://github.com/kenny1934/tutoring-management-system/commit/621faca492412984016e13bd4d61c0c4918b4d58))
+
+
+### Improvements
+
+* **admin:** one hook owns the prospect preview ([42243d5](https://github.com/kenny1934/tutoring-management-system/commit/42243d5435801d76509db1991c2ce2fc6cc2b86d))
+* **prospects:** route every link surface through the grade guard ([5a365d5](https://github.com/kenny1934/tutoring-management-system/commit/5a365d5018b0735198396a7a4129d07d564d200a))
+
 ## [2.0.104](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.103...v2.0.104) (2026-08-05)
 
 
