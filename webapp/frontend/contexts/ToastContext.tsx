@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, u
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
+import { ABOVE_OVERLAYS_Z } from "@/hooks/useOverlayLayer";
 import { cn, formatError } from "@/lib/utils";
 import { useHaptic } from "@/lib/useHaptic";
 
@@ -118,7 +119,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {isMounted &&
         createPortal(
           <div
-            className="fixed bottom-4 right-4 z-[10001] flex flex-col gap-2 pointer-events-none"
+            // Above any depth of stacked overlay: a confirm dialog's scrim
+            // would otherwise cover the toast reporting what it just did.
+            style={{ zIndex: ABOVE_OVERLAYS_Z }}
+            className="fixed bottom-4 right-4 flex flex-col gap-2 pointer-events-none"
             aria-label="Notifications"
           >
             <AnimatePresence mode="popLayout">

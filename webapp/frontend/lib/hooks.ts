@@ -295,10 +295,6 @@ export function useStudent(id: number | null | undefined) {
  *
  * The SWR key is shared with every other host of this hook, so two application
  * pages reuse one another's cache for the same prospect.
- *
- * `isOpen` tracks whether the record is actually on screen, not merely
- * requested — a caller suppressing its own keyboard handling while this sits on
- * top needs the mounted state, and the fetch is not instant.
  */
 export function useProspectPreview() {
   const [prospectId, setProspectId] = useState<number | null>(null);
@@ -315,8 +311,7 @@ export function useProspectPreview() {
     () => mutateProspect(undefined, { revalidate: false }),
     [mutateProspect],
   );
-  return { prospect: prospectId && prospect ? prospect : null, open, close, invalidate,
-           isOpen: !!(prospectId && prospect) };
+  return { prospect: prospectId && prospect ? prospect : null, open, close, invalidate };
 }
 
 /**
