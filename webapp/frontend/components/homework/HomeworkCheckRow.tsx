@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Circle, Check, Minus, X, MessageSquare, Paperclip, Camera, FileText, Loader2 } from "lucide-react";
-import dynamic from "next/dynamic";
+import { Circle, Check, Minus, X, MessageSquare, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { homeworkAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -10,12 +9,9 @@ import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ratingToEmoji } from "@/lib/formatters";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { getPageLabel } from "@/lib/lesson-utils";
+import { assignedLabel } from "@/lib/homework-utils";
+import { useHomeworkAttachments } from "./useHomeworkAttachments";
 import type { HomeworkCompletion, HomeworkStatus, SessionExercise } from "@/types";
-
-// Only loaded once a tutor actually opens a photo.
-const ImageLightbox = dynamic(() => import("@/components/inbox/ImageLightbox"), { ssr: false });
-
-const ACCEPTED_FILES = "image/*,application/pdf";
 
 const STATES: Array<{
   status: HomeworkStatus;
@@ -49,21 +45,6 @@ const STATES: Array<{
   },
 ];
 
-/** Short label for where the homework came from: "last session" or "3 sessions ago". */
-export function assignedLabel(hw: HomeworkCompletion): string {
-  const parts: string[] = [];
-
-  if (hw.homework_assigned_date) {
-    const date = new Date(hw.homework_assigned_date);
-    parts.push(
-      date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
-    );
-  }
-  if (hw.assigned_by_tutor) parts.push(hw.assigned_by_tutor);
-
-  return parts.join(" · ");
-}
-
 interface HomeworkCheckRowProps {
   homework: HomeworkCompletion;
   /** Session the tutor is marking from. */
@@ -85,9 +66,6 @@ export function HomeworkCheckRow({
   const [commentOpen, setCommentOpen] = useState(false);
   const [comment, setComment] = useState(homework.tutor_comments || "");
   const commentRef = useRef<HTMLTextAreaElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   // Keep in step when the parent refetches.
   useEffect(() => {
@@ -152,53 +130,21 @@ export function HomeworkCheckRow({
     void save({ tutor_comments: trimmed }, previous);
   };
 
-  const handleUpload = useCallback(
-    async (chosen: File | undefined) => {
-      if (!chosen) return;
-      setUploading(true);
-      try {
-        const saved = await homeworkAPI.uploadFile(
-          sessionId,
-          homework.session_exercise_id,
-          chosen
-        );
-        setState(saved);
-        onMarked?.(saved);
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : "Could not attach that file", "error");
-      } finally {
-        setUploading(false);
-        if (fileRef.current) fileRef.current.value = "";
-      }
-    },
-    [homework.session_exercise_id, onMarked, sessionId, showToast]
-  );
-
-  const handleRemoveFile = useCallback(
-    async (fileId: number) => {
-      setUploading(true);
-      try {
-        const saved = await homeworkAPI.deleteFile(
-          sessionId,
-          homework.session_exercise_id,
-          fileId
-        );
-        setState(saved);
-        onMarked?.(saved);
-      } catch {
-        showToast("Could not remove that file", "error");
-      } finally {
-        setUploading(false);
-      }
-    },
-    [homework.session_exercise_id, onMarked, sessionId, showToast]
-  );
-
   const currentStatus: HomeworkStatus = state.completion_status || "Not Checked";
   const source = assignedLabel(state);
   const hasComment = !!state.tutor_comments;
+
+  const attachments = useHomeworkAttachments({
+    sessionId,
+    sessionExerciseId: homework.session_exercise_id,
+    files: state.files || [],
+    readOnly,
+    onChanged: (saved) => {
+      setState(saved);
+      onMarked?.(saved);
+    },
+  });
   const files = state.files || [];
-  const photos = files.filter((f) => f.file_type === "image");
   // Same page rule as every other exercise surface, remarks included.
   const pageLabel = getPageLabel({
     page_start: state.page_start,
@@ -291,106 +237,10 @@ export function HomeworkCheckRow({
           <MessageSquare className="h-3.5 w-3.5" />
         </button>
 
-        {!readOnly && (
-          <>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              title="Photograph what was handed in, or attach a PDF"
-              className={cn(
-                "p-1 rounded transition-colors",
-                files.length
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300",
-                uploading && "cursor-not-allowed opacity-60"
-              )}
-            >
-              {uploading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Camera className="h-3.5 w-3.5" />
-              )}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept={ACCEPTED_FILES}
-              className="hidden"
-              onChange={(e) => void handleUpload(e.target.files?.[0])}
-            />
-          </>
-        )}
+        {attachments.control}
       </div>
 
-      {/* What was handed in */}
-      {files.length > 0 && (
-        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-          {files.map((file) =>
-            file.file_type === "image" ? (
-              <div key={file.id} className="relative group/file">
-                <button
-                  type="button"
-                  onClick={() => setLightboxIndex(photos.findIndex((p) => p.id === file.id))}
-                  className="block h-12 w-12 rounded border border-gray-200 dark:border-gray-700 overflow-hidden hover:opacity-80 transition-opacity"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={file.file_path}
-                    alt={file.file_name || "Handed in"}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                </button>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => void handleRemoveFile(file.id)}
-                    disabled={uploading}
-                    title="Remove"
-                    className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-gray-700 text-white flex items-center justify-center opacity-0 group-hover/file:opacity-100 focus:opacity-100 transition-opacity"
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div key={file.id} className="relative group/file">
-                <a
-                  href={file.file_path}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={file.file_name || "Open PDF"}
-                  className="flex items-center gap-1 h-12 px-2 rounded border border-gray-200 dark:border-gray-700 text-[10px] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors max-w-[8rem]"
-                >
-                  <FileText className="h-3.5 w-3.5 flex-shrink-0 text-red-500" />
-                  <span className="truncate">{file.file_name || "PDF"}</span>
-                </a>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => void handleRemoveFile(file.id)}
-                    disabled={uploading}
-                    title="Remove"
-                    className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-gray-700 text-white flex items-center justify-center opacity-0 group-hover/file:opacity-100 focus:opacity-100 transition-opacity"
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                )}
-              </div>
-            )
-          )}
-        </div>
-      )}
-
-      {lightboxIndex !== null && photos.length > 0 && (
-        <ImageLightbox
-          images={photos.map((p) => p.file_path)}
-          currentIndex={Math.max(0, Math.min(lightboxIndex, photos.length - 1))}
-          onClose={() => setLightboxIndex(null)}
-          onChangeIndex={setLightboxIndex}
-        />
-      )}
+      {attachments.previews}
 
       {/* Comment, shown once asked for or once one exists */}
       {(commentOpen || hasComment) && (

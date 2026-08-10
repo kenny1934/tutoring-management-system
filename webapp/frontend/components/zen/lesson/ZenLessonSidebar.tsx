@@ -3,7 +3,7 @@
 import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { UrlBadgeInline } from "@/components/ui/url-badge";
 import { checkedCount } from "@/lib/homework-utils";
-import { statusGlyph } from "./ZenHomeworkCheck";
+import { statusGlyph } from "./zen-homework";
 import type { HomeworkCompletion, SessionExercise } from "@/types";
 
 interface ZenLessonSidebarProps {

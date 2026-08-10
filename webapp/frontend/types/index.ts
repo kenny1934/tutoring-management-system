@@ -284,7 +284,9 @@ export type HomeworkStatus =
 export interface HomeworkFile {
   id: number;
   file_path: string;
-  file_type: "image" | "pdf" | "document";
+  // The column allows 'document' as well, but only photos and PDFs can be
+  // attached, so nothing writes it.
+  file_type: "image" | "pdf";
   file_name?: string;
   file_size_kb?: number;
   file_order?: number;

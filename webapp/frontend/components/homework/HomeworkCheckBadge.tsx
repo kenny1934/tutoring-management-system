@@ -2,7 +2,7 @@
 
 import { Home } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { homeworkCountTone } from "@/lib/homework-utils";
+import { homeworkCountLabel, homeworkCountTone } from "@/lib/homework-utils";
 import { useHomeworkCounts } from "./HomeworkCountsProvider";
 
 /**
@@ -22,11 +22,8 @@ export function HomeworkCheckBadge({
 
   if (!counts || counts.total === 0) return null;
 
-  const allChecked = counts.checked >= counts.total;
   const label = `${counts.checked}/${counts.total}`;
-  const title = allChecked
-    ? "All homework checked"
-    : `${counts.total - counts.checked} homework item${counts.total - counts.checked === 1 ? "" : "s"} still to check`;
+  const title = homeworkCountLabel(counts.checked, counts.total);
 
   const Element = onClick ? "button" : "span";
 

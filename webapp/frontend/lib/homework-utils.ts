@@ -26,3 +26,26 @@ export function homeworkCountTone(checked: number, total: number): string {
     ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
     : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
 }
+
+/** Tooltip for any checked/total indicator. One wording, wherever it appears. */
+export function homeworkCountLabel(checked: number, total: number): string {
+  const left = total - checked;
+  return left <= 0
+    ? "All homework checked"
+    : `${left} homework item${left === 1 ? "" : "s"} still to check`;
+}
+
+/** Where a homework item came from: "Tue 3 Aug · Ms Other". */
+export function assignedLabel(hw: HomeworkCompletion): string {
+  const parts: string[] = [];
+
+  if (hw.homework_assigned_date) {
+    const date = new Date(hw.homework_assigned_date);
+    parts.push(
+      date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+    );
+  }
+  if (hw.assigned_by_tutor) parts.push(hw.assigned_by_tutor);
+
+  return parts.join(" · ");
+}

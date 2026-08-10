@@ -11,6 +11,7 @@ import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./u
 import { ZenExerciseAssign } from "@/components/zen/ZenExerciseAssign";
 import { ZenLessonHelp } from "./ZenLessonHelp";
 import { ZenHomeworkCheck } from "./ZenHomeworkCheck";
+import { statusForKey } from "./zen-homework";
 import { ZenExitConfirmDialog } from "./ZenExitConfirmDialog";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
@@ -101,45 +102,39 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
   const [homeworkCursor, setHomeworkCursor] = useState(0);
   const [homeworkSaving, setHomeworkSaving] = useState(false);
 
-  // Refs, because the keyboard handler is registered once and must not
-  // re-register on every mark.
-  const homeworkRef = useRef<HomeworkCompletion[]>(homework);
-  homeworkRef.current = homework;
-  const homeworkOpenRef = useRef(homeworkOpen);
-  homeworkOpenRef.current = homeworkOpen;
-  const homeworkCursorRef = useRef(homeworkCursor);
-  homeworkCursorRef.current = homeworkCursor;
-  const activeSessionIdRef = useRef<number | undefined>(activeSession?.id);
-  activeSessionIdRef.current = activeSession?.id;
-  const applyHomeworkMarkRef = useRef(applyHomeworkMark);
-  applyHomeworkMarkRef.current = applyHomeworkMark;
-
   // Marking is per student, so the cursor restarts when the student changes.
   useEffect(() => {
     setHomeworkCursor(0);
   }, [studentIndex]);
 
   const markHomework = useCallback(async (status: HomeworkStatus) => {
-    const items = homeworkRef.current;
-    const target = items[homeworkCursorRef.current];
-    const sessionId = activeSessionIdRef.current;
-    if (!target || !sessionId) return;
+    const target = homework[homeworkCursor];
+    if (!target || !activeSession) return;
 
     setHomeworkSaving(true);
     try {
-      const saved = await homeworkAPI.mark(sessionId, target.session_exercise_id, {
+      const saved = await homeworkAPI.mark(activeSession.id, target.session_exercise_id, {
         completion_status: status,
       });
-      applyHomeworkMarkRef.current(saved);
+      applyHomeworkMark(saved);
       setZenStatus(`${getExerciseDisplayName(saved)} — ${status.toLowerCase()}`, "success");
       // Move on, so marking a stack is one key per item.
-      setHomeworkCursor((prev) => Math.min(prev + 1, items.length - 1));
+      setHomeworkCursor((prev) => Math.min(prev + 1, homework.length - 1));
     } catch {
       setZenStatus("Could not save homework check", "error");
     } finally {
       setHomeworkSaving(false);
     }
-  }, []);
+  }, [homework, homeworkCursor, activeSession, applyHomeworkMark]);
+
+  // Mirrored once, like every other handler here: the keyboard listener is
+  // registered a single time and must not tear down as homework changes.
+  const homeworkRef = useRef<HomeworkCompletion[]>(homework);
+  homeworkRef.current = homework;
+  const homeworkOpenRef = useRef(homeworkOpen);
+  homeworkOpenRef.current = homeworkOpen;
+  const markHomeworkRef = useRef(markHomework);
+  markHomeworkRef.current = markHomework;
 
   const handleBulkPrint = useCallback(async (type: "CW" | "HW") => {
     setShowPrintMenu(false);
@@ -220,18 +215,13 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         e.stopImmediatePropagation();
         const items = homeworkRef.current;
 
+        const status = statusForKey(e.key);
         if (e.key === "j" || e.key === "ArrowDown") {
           setHomeworkCursor((prev) => Math.min(prev + 1, items.length - 1));
         } else if (e.key === "k" || e.key === "ArrowUp") {
           setHomeworkCursor((prev) => Math.max(prev - 1, 0));
-        } else if (e.key === "1") {
-          void markHomework("Completed");
-        } else if (e.key === "2") {
-          void markHomework("Partially Completed");
-        } else if (e.key === "3") {
-          void markHomework("Not Completed");
-        } else if (e.key === "0") {
-          void markHomework("Not Checked");
+        } else if (status) {
+          void markHomeworkRef.current(status);
         } else {
           setHomeworkOpen(false);
         }
@@ -340,7 +330,7 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         digitBufferRef.current = null;
       }
     };
-  }, [sessions, onClose, handleBulkPrint, markHomework]);
+  }, [sessions, onClose, handleBulkPrint]);
 
   return (
     <div

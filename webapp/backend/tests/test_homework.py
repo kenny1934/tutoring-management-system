@@ -396,6 +396,42 @@ def test_delete_rejects_a_file_from_another_homework(
     assert db_session.query(HomeworkFile).count() == 1
 
 
+def test_to_check_returns_files_that_were_handed_in(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    """
+    The read path loads files only for rows the view reports as having them, so
+    that gate needs exercising: in production the view counts them live.
+    """
+    db_session.add(HomeworkCompletion(
+        id=77, current_session_id=200, session_exercise_id=10, student_id=1,
+        completion_status="Completed",
+    ))
+    db_session.add(HomeworkFile(
+        id=5, homework_completion_id=77,
+        file_path="https://storage.googleapis.com/csm-inbox-images/homework/a.jpg",
+        file_type="image", file_name="a.jpg", file_order=1,
+    ))
+    db_session.query(HomeworkToCheck).filter(
+        HomeworkToCheck.session_exercise_id == 10
+    ).update({"completion_id": 77, "attachment_count": 1})
+    db_session.commit()
+
+    resp = client.get("/api/homework/to-check?session_ids=200", cookies=AUTH_COOKIE)
+    assert resp.status_code == 200
+
+    homework = resp.json()[0]["homework"][0]
+    assert homework["attachment_count"] == 1
+    assert [f["file_name"] for f in homework["files"]] == ["a.jpg"]
+
+
+def test_to_check_skips_the_file_query_when_nothing_was_handed_in(
+    client: TestClient, as_tutor, homework_setup
+):
+    resp = client.get("/api/homework/to-check?session_ids=200", cookies=AUTH_COOKIE)
+    assert resp.json()[0]["homework"][0]["files"] == []
+
+
 def test_uploading_is_blocked_for_read_only_users(client: TestClient, homework_setup, fake_storage):
     app.dependency_overrides[get_current_user] = lambda: _tutor(role="Supervisor")
     resp = client.post(

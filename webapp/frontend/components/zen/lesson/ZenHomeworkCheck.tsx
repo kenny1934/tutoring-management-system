@@ -2,29 +2,9 @@
 
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { getPageLabel } from "@/lib/lesson-utils";
-import { assignedLabel } from "@/components/homework/HomeworkCheckRow";
-import type { HomeworkCompletion, HomeworkStatus, SessionExercise } from "@/types";
-
-/** Terminal-style marker for each state, so a glance reads the whole list. */
-export function statusGlyph(status: HomeworkStatus | undefined): { mark: string; colour: string } {
-  switch (status) {
-    case "Completed":
-      return { mark: "[x]", colour: "var(--zen-success)" };
-    case "Partially Completed":
-      return { mark: "[~]", colour: "var(--zen-warning)" };
-    case "Not Completed":
-      return { mark: "[!]", colour: "var(--zen-error)" };
-    default:
-      return { mark: "[ ]", colour: "var(--zen-dim)" };
-  }
-}
-
-const KEYS: { key: string; label: string; status: HomeworkStatus }[] = [
-  { key: "1", label: "done", status: "Completed" },
-  { key: "2", label: "partly", status: "Partially Completed" },
-  { key: "3", label: "not done", status: "Not Completed" },
-  { key: "0", label: "clear", status: "Not Checked" },
-];
+import { assignedLabel } from "@/lib/homework-utils";
+import { MARK_KEYS, statusGlyph } from "./zen-homework";
+import type { HomeworkCompletion, SessionExercise } from "@/types";
 
 /**
  * Homework marking overlay for wide lesson mode.
@@ -119,7 +99,7 @@ export function ZenHomeworkCheck({
         )}
 
         <div style={{ marginTop: "16px", paddingTop: "8px", borderTop: "1px solid var(--zen-border)", display: "flex", flexWrap: "wrap", gap: "12px", fontSize: "10px" }}>
-          {KEYS.map((k) => (
+          {MARK_KEYS.map((k) => (
             <span key={k.key}>
               <span style={{ color: "var(--zen-accent)", fontFamily: "monospace" }}>{k.key}</span>
               <span style={{ color: "var(--zen-dim)", marginLeft: "4px" }}>{k.label}</span>

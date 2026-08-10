@@ -1,5 +1,7 @@
 "use client";
 
+import { MARK_KEYS } from "./zen-homework";
+
 interface ShortcutEntry {
   key: string;
   description: string;
@@ -76,8 +78,12 @@ const WIDE_SHORTCUTS: ShortcutGroup[] = [
     title: "Homework",
     shortcuts: [
       { key: "H", description: "Check homework from earlier lessons" },
-      { key: "1 / 2 / 3", description: "Done / partly done / not done" },
-      { key: "0", description: "Back to unchecked" },
+      // Built from the same table the keys are bound to, so this cannot
+      // describe a shortcut that does something else.
+      ...MARK_KEYS.map(({ key, label }) => ({
+        key,
+        description: `Mark as ${label}`,
+      })),
     ],
   },
   {

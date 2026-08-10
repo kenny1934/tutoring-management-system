@@ -16,7 +16,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { LessonWideSidebar } from "./LessonWideSidebar";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
-import { checkedCount } from "@/lib/homework-utils";
+import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
 import { StudentSwitcher } from "./StudentSwitcher";
 import { PdfPageViewer } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -1032,11 +1032,7 @@ export function LessonWideMode({
                   ? "bg-white/15 text-white/80"
                   : "bg-amber-400/20 text-amber-200"
               )}
-              title={
-                homeworkProgress.checked >= homeworkProgress.total
-                  ? "All homework checked for this slot"
-                  : `${homeworkProgress.total - homeworkProgress.checked} homework item${homeworkProgress.total - homeworkProgress.checked === 1 ? "" : "s"} still to check`
-              }
+              title={homeworkCountLabel(homeworkProgress.checked, homeworkProgress.total)}
             >
               <Home className="h-2.5 w-2.5" />
               HW {homeworkProgress.checked}/{homeworkProgress.total}

@@ -329,10 +329,13 @@ export class ApiError extends Error {
 // Generic fetch wrapper with error handling and automatic token refresh
 async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
   try {
-    // Build headers with optional impersonation role
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    // Build headers with optional impersonation role. A multipart body has to
+    // set its own Content-Type, boundary included, so leave it to the browser.
+    const isMultipart =
+      typeof FormData !== "undefined" && options?.body instanceof FormData;
+    const headers: Record<string, string> = isMultipart
+      ? {}
+      : { "Content-Type": "application/json" };
 
     // Add impersonation header if Super Admin is impersonating another role
     if (typeof window !== "undefined") {
@@ -3237,30 +3240,14 @@ export const homeworkAPI = {
   },
 
   /** Attach a photo or PDF of what the student handed in. */
-  uploadFile: async (
-    sessionId: number,
-    sessionExerciseId: number,
-    file: File
-  ): Promise<HomeworkCompletion> => {
+  uploadFile: (sessionId: number, sessionExerciseId: number, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
 
-    const headers: Record<string, string> = {};
-    if (typeof window !== "undefined") {
-      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
-      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/sessions/${sessionId}/homework/${sessionExerciseId}/files`,
-      { method: "POST", body: formData, credentials: "include", headers }
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}/files`,
+      { method: "POST", body: formData }
     );
-
-    if (!response.ok) {
-      const detail = await response.json().catch(() => null);
-      throw new Error(detail?.detail || "Upload failed");
-    }
-    return response.json();
   },
 
   /** Remove one attachment. Returns the homework with its remaining files. */

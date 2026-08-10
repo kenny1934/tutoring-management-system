@@ -6,11 +6,12 @@ keyed to the assignment rather than to the session the tutor happened to be
 sitting in. The homework_to_check view decides what is still open for a given
 session, looking back up to three sat sessions.
 """
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from auth.dependencies import get_current_user, reject_read_only
 from constants import hk_now
@@ -30,7 +31,13 @@ from schemas import (
     HomeworkMarkRequest,
     SessionHomeworkResponse,
 )
-from services.image_storage import delete_image, upload_document, upload_image
+from services.image_storage import (
+    MAX_DOC_SIZE,
+    MAX_FILE_SIZE,
+    delete_image,
+    upload_document,
+    upload_image,
+)
 
 router = APIRouter()
 
@@ -171,9 +178,15 @@ async def get_homework_counts(
     ]
 
 
-def _resolve_assignment(
-    db: Session, session_id: int, session_exercise_id: int
-) -> Tuple[SessionLog, SessionExercise, Optional[SessionLog], Optional[str]]:
+class Assignment(NamedTuple):
+    """One homework assignment, resolved against the session marking it."""
+    session: SessionLog
+    exercise: SessionExercise
+    assigning_session: Optional[SessionLog]
+    assigned_by_tutor: Optional[str]
+
+
+def _resolve_assignment(db: Session, session_id: int, session_exercise_id: int) -> Assignment:
     """
     The session being marked from, the homework, and the lesson that set it.
 
@@ -209,21 +222,19 @@ def _resolve_assignment(
             detail="That homework belongs to a different student",
         )
 
-    return session, exercise, assigning_session, assigned_by_tutor
+    return Assignment(session, exercise, assigning_session, assigned_by_tutor)
 
 
-def _upsert_completion(
-    db: Session,
-    session: SessionLog,
-    exercise: SessionExercise,
-    assigning_session: Optional[SessionLog],
-) -> HomeworkCompletion:
+def _upsert_completion(db: Session, assignment: Assignment) -> HomeworkCompletion:
     """
     Find or create the record for this assignment and refresh its snapshot.
 
     Attaching a photo before picking a status has to create the record too, so
     this is shared rather than repeated.
     """
+    session, exercise = assignment.session, assignment.exercise
+    assigning_session = assignment.assigning_session
+
     completion = db.query(HomeworkCompletion).filter(
         HomeworkCompletion.session_exercise_id == exercise.id
     ).first()
@@ -256,20 +267,22 @@ def _upsert_completion(
 
 def _completion_response(
     db: Session,
-    session_id: int,
+    assignment: Assignment,
     completion: HomeworkCompletion,
-    exercise: SessionExercise,
-    assigning_session: Optional[SessionLog],
-    assigned_by_tutor: Optional[str],
 ) -> HomeworkCompletionResponse:
     """
     The saved state, as the view sees it where it has a row.
 
     Every write path returns this one shape, so the client folds a mark and an
-    upload back into its cache the same way.
+    upload back into its cache the same way. Call after the commit: everything
+    read here is re-read, so the response reflects what was stored.
     """
-    db.refresh(completion)
-    files = [HomeworkFileResponse.model_validate(f) for f in completion.files]
+    session_id = assignment.session.id
+    exercise = assignment.exercise
+
+    # Counted from the files themselves rather than the view's own column, so
+    # an upload's response cannot disagree with the list it just changed.
+    files = _load_files(db, [completion.id]).get(completion.id, [])
 
     row = db.query(HomeworkToCheck).filter(
         HomeworkToCheck.current_session_id == session_id,
@@ -279,7 +292,6 @@ def _completion_response(
     if row:
         response = HomeworkCompletionResponse.model_validate(row)
         response.files = files
-        # The view counts in its own query, which ran before this commit landed.
         response.attachment_count = len(files)
         return response
 
@@ -292,9 +304,11 @@ def _completion_response(
         student_id=completion.student_id,
         assigned_session_id=exercise.session_id,
         homework_assigned_date=completion.assigned_date,
-        assigned_time_slot=assigning_session.time_slot if assigning_session else None,
+        assigned_time_slot=(
+            assignment.assigning_session.time_slot if assignment.assigning_session else None
+        ),
         assigned_by_tutor_id=completion.assigned_by_tutor_id,
-        assigned_by_tutor=assigned_by_tutor,
+        assigned_by_tutor=assignment.assigned_by_tutor,
         sessions_ago=0,
         pdf_name=completion.pdf_name,
         page_start=completion.page_start,
@@ -332,10 +346,9 @@ async def mark_homework(
     Marking from a different session than the original check moves the record
     to the new session, since that is where the tutor actually saw the work.
     """
-    session, exercise, assigning_session, assigned_by_tutor = _resolve_assignment(
-        db, session_id, session_exercise_id
-    )
-    completion = _upsert_completion(db, session, exercise, assigning_session)
+    assignment = _resolve_assignment(db, session_id, session_exercise_id)
+    session = assignment.session
+    completion = _upsert_completion(db, assignment)
 
     if request.completion_status is not None:
         completion.completion_status = request.completion_status
@@ -359,9 +372,7 @@ async def mark_homework(
 
     db.commit()
 
-    return _completion_response(
-        db, session_id, completion, exercise, assigning_session, assigned_by_tutor
-    )
+    return _completion_response(db, assignment, completion)
 
 
 @router.post(
@@ -381,9 +392,8 @@ async def upload_homework_file(
     Creates the completion record if the tutor photographs the work before
     picking a status, which is the usual order at the desk.
     """
-    session, exercise, assigning_session, assigned_by_tutor = _resolve_assignment(
-        db, session_id, session_exercise_id
-    )
+    assignment = _resolve_assignment(db, session_id, session_exercise_id)
+    session = assignment.session
 
     content_type = (file.content_type or "").split(";")[0].strip()
     is_image = content_type.startswith("image/")
@@ -392,28 +402,42 @@ async def upload_homework_file(
             status_code=400, detail="Only photos and PDFs can be attached"
         )
 
+    # An animated GIF would be flattened by the resize, so it is stored as-is
+    # like a PDF. Everything else photographic goes through resize and compress:
+    # a page shot on a phone is several megabytes otherwise.
+    reprocess = is_image and content_type != "image/gif"
+    size_cap = MAX_FILE_SIZE if reprocess else MAX_DOC_SIZE
+
+    # Reject on the declared size before pulling the body into memory.
+    if file.size and file.size > size_cap:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is {size_cap // (1024 * 1024)}MB",
+        )
+
     contents = await file.read()
     if not contents:
         raise HTTPException(status_code=400, detail="That file is empty")
 
+    filename = file.filename or ("photo.jpg" if is_image else "homework.pdf")
+
     try:
-        if is_image and content_type != "image/gif":
-            # Photos go through resize and compress: a page shot on a phone is
-            # several megabytes otherwise.
-            url = upload_image(contents, file.filename, prefix=STORAGE_PREFIX)
+        # Resizing and the upload itself are blocking, and this process serves
+        # every other tutor while a lesson is running.
+        if reprocess:
+            url = await run_in_threadpool(
+                upload_image, contents, filename, STORAGE_PREFIX
+            )
         else:
-            url = upload_document(
-                contents,
-                file.filename or ("scan.gif" if is_image else "homework.pdf"),
-                content_type,
-                prefix=STORAGE_PREFIX,
+            url = await run_in_threadpool(
+                upload_document, contents, filename, content_type, STORAGE_PREFIX
             )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-    completion = _upsert_completion(db, session, exercise, assigning_session)
+    completion = _upsert_completion(db, assignment)
     db.flush()
 
     next_order = db.query(func.coalesce(func.max(HomeworkFile.file_order), 0)).filter(
@@ -436,9 +460,7 @@ async def upload_homework_file(
 
     db.commit()
 
-    return _completion_response(
-        db, session_id, completion, exercise, assigning_session, assigned_by_tutor
-    )
+    return _completion_response(db, assignment, completion)
 
 
 @router.delete(
@@ -453,9 +475,8 @@ async def delete_homework_file(
     db: Session = Depends(get_db),
 ):
     """Remove one attachment, and the stored file behind it."""
-    session, exercise, assigning_session, assigned_by_tutor = _resolve_assignment(
-        db, session_id, session_exercise_id
-    )
+    assignment = _resolve_assignment(db, session_id, session_exercise_id)
+    session = assignment.session
 
     completion = db.query(HomeworkCompletion).filter(
         HomeworkCompletion.session_exercise_id == session_exercise_id
@@ -480,6 +501,4 @@ async def delete_homework_file(
 
     db.commit()
 
-    return _completion_response(
-        db, session_id, completion, exercise, assigning_session, assigned_by_tutor
-    )
+    return _completion_response(db, assignment, completion)
