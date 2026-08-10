@@ -447,13 +447,15 @@ export default function TerminatedStudentsPage() {
   }, []);
 
   // Handle reason category update
+  // Keep "" (the "-- None --" choice) as-is: storing undefined would make the
+  // ?? fallbacks below read the saved category back, so clearing never stuck.
   const handleCategoryUpdate = useCallback((student: TerminatedStudent, newCategory: string) => {
     setPendingChanges(prev => {
       const next = new Map(prev);
       const existing = next.get(student.student_id) || {};
       next.set(student.student_id, {
         ...existing,
-        reasonCategory: newCategory || undefined,
+        reasonCategory: newCategory,
       });
       return next;
     });
@@ -508,8 +510,9 @@ export default function TerminatedStudentsPage() {
             return terminationsAPI.updateRecord(studentId, {
               quarter: selectedQuarter,
               year: selectedYear,
-              reason: changes.reason ?? originalStudent?.reason ?? undefined,
-              reason_category: changes.reasonCategory ?? originalStudent?.reason_category ?? undefined,
+              // "" means cleared, send it as absent so the record ends up null
+              reason: (changes.reason ?? originalStudent?.reason) || undefined,
+              reason_category: (changes.reasonCategory ?? originalStudent?.reason_category) || undefined,
               count_as_terminated: changes.countAsTerminated ?? originalStudent?.count_as_terminated ?? false,
             }, user?.email || 'system');
           })
@@ -528,8 +531,12 @@ export default function TerminatedStudentsPage() {
         if (!change) return s;
         return {
           ...s,
-          reason: change.reason ?? s.reason,
-          reason_category: change.reasonCategory ?? s.reason_category,
+          reason: change.reason !== undefined
+            ? (change.reason || undefined)
+            : s.reason,
+          reason_category: change.reasonCategory !== undefined
+            ? (change.reasonCategory || undefined)
+            : s.reason_category,
           count_as_terminated: change.countAsTerminated ?? s.count_as_terminated,
         };
       });
@@ -1974,8 +1981,11 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
 
   const handleReasonBlur = () => {
     setIsEditing(false);
-    if (localReason !== effectiveReason) {
-      onReasonUpdate(student, localReason);
+    // Trim so a whitespace-only edit reads as cleared, not as text
+    const trimmed = localReason.trim();
+    if (trimmed !== localReason) setLocalReason(trimmed);
+    if (trimmed !== effectiveReason) {
+      onReasonUpdate(student, trimmed);
     }
   };
 
