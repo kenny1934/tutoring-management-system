@@ -731,6 +731,8 @@ class HomeworkFileResponse(BaseModel):
     """A file uploaded against a homework check"""
     id: int = Field(..., gt=0)
     file_path: str = Field(..., max_length=500)
+    # Small derivative for previews. Null means show file_path instead.
+    thumbnail_path: Optional[str] = Field(None, max_length=500)
     file_type: str = Field(..., max_length=20)
     file_name: Optional[str] = Field(None, max_length=255)
     file_size_kb: Optional[int] = None

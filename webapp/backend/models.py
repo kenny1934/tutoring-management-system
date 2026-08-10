@@ -460,6 +460,9 @@ class HomeworkFile(Base):
         Integer, ForeignKey("homework_completion.id", ondelete="CASCADE"), nullable=False
     )
     file_path = Column(String(500), nullable=False, comment='Public storage URL')
+    # Small derivative for list previews. NULL on rows written before
+    # thumbnails existed, and on anything that is not an image.
+    thumbnail_path = Column(String(500), nullable=True)
     file_type = Column(Enum('image', 'pdf', 'document', name='homework_file_type_enum'), nullable=False)
     file_name = Column(String(255))
     file_size_kb = Column(Integer)

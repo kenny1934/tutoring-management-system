@@ -36,7 +36,7 @@ from services.image_storage import (
     MAX_FILE_SIZE,
     delete_image,
     upload_document,
-    upload_image,
+    upload_image_with_thumbnail,
 )
 
 router = APIRouter()
@@ -420,13 +420,16 @@ async def upload_homework_file(
         raise HTTPException(status_code=400, detail="That file is empty")
 
     filename = file.filename or ("photo.jpg" if is_image else "homework.pdf")
+    thumbnail_url = None
 
     try:
         # Resizing and the upload itself are blocking, and this process serves
         # every other tutor while a lesson is running.
         if reprocess:
-            url = await run_in_threadpool(
-                upload_image, contents, filename, STORAGE_PREFIX
+            # A thumbnail as well: these render at 48px in the row, and the
+            # full upload is 1920px.
+            url, thumbnail_url = await run_in_threadpool(
+                upload_image_with_thumbnail, contents, filename, STORAGE_PREFIX
             )
         else:
             url = await run_in_threadpool(
@@ -447,6 +450,7 @@ async def upload_homework_file(
     db.add(HomeworkFile(
         homework_completion_id=completion.id,
         file_path=url,
+        thumbnail_path=thumbnail_url,
         file_type='image' if is_image else 'pdf',
         file_name=file.filename,
         file_size_kb=len(contents) // 1024,
@@ -491,9 +495,11 @@ async def delete_homework_file(
     if not file:
         raise HTTPException(status_code=404, detail=f"File with ID {file_id} not found")
 
-    # Best effort on the stored file: one left behind is harmless, but a row
+    # Best effort on the stored files: one left behind is harmless, but a row
     # kept because the delete failed leaves a thumbnail that cannot load.
     delete_image(file.file_path)
+    if file.thumbnail_path:
+        delete_image(file.thumbnail_path)
     db.delete(file)
 
     session.last_modified_by = current_user.user_email

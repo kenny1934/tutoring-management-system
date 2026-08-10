@@ -62,6 +62,7 @@ core change from the legacy design and everything else follows from it.
 | --- | --- | --- |
 | 154 | The rework above | Applied to prod 2026-08-10 |
 | 155 | Restores `previous_session_id` and `submitted` on the view as aliases | Applied to prod 2026-08-10 |
+| 156 | `homework_files.thumbnail_path`, nullable | Applied to prod 2026-08-10 |
 
 **Migration 155 exists only because the deployed backend still selects those two
 columns.** Once this branch's backend is live, a follow-up migration should drop
@@ -203,10 +204,20 @@ Deleting removes the stored file as well as the row, via `delete_image`, which
 despite its name handles any blob in the bucket. It is best effort: a file left
 behind is harmless, a row kept because the delete failed is a broken thumbnail.
 
-Frontend lives entirely in `HomeworkCheckRow`, so it reached every marking
-surface at once: a camera button beside the comment icon, thumbnails below,
-`components/inbox/ImageLightbox` (dynamically imported) for photos, and PDFs as
-a chip that opens in a new tab. Hovering a thumbnail reveals its remove button.
+Photos are stored twice: the 1920px original and a 320px derivative at q70,
+sharing one name (`<uuid>.jpg` and `<uuid>_thumb.jpg`). Previews render at 48px,
+so serving the full upload cost roughly a megabyte to paint three postage
+stamps. `thumbnail_path` is nullable and the UI falls back to `file_path`, which
+covers PDFs and anything uploaded before migration 156. Deleting a file removes
+both blobs.
+
+Frontend lives in `useHomeworkAttachments`, a hook rather than a component
+because its pieces land in two places: the camera sits in the marking row's
+button cluster, the thumbnails below it. `HomeworkCheckRow` mounts it, so every
+marking surface got capture at once. Photos open in
+`components/inbox/ImageLightbox` (dynamically imported, and it shows the full
+image, not the derivative); PDFs are a chip that opens in a new tab. Hovering a
+thumbnail reveals its remove button.
 
 Note on `capture`: the doc previously said to set `capture="environment"` so
 phones open the camera directly. That was dropped once PDFs were in scope, since
@@ -253,7 +264,7 @@ already computes per-student checked rate, completion score, star average and
 
 ## Test baselines
 
-`webapp/backend`: 1159 pass, of which `tests/test_homework.py` is 24.
+`webapp/backend`: 1161 pass, of which `tests/test_homework.py` is 26.
 `webapp/frontend`: 625 pass. `npx tsc --noEmit` reports 172 errors, all
 pre-existing; `main` reports 173.
 

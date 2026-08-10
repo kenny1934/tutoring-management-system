@@ -123,7 +123,9 @@ export function useHomeworkAttachments({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={file.file_path}
+                  // Rows uploaded before thumbnails existed only have the full
+                  // image, so fall back rather than showing nothing.
+                  src={file.thumbnail_path || file.file_path}
                   alt={file.file_name || "Handed in"}
                   className="h-full w-full object-cover"
                   loading="lazy"

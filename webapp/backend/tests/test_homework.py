@@ -1,6 +1,7 @@
 """Tests for the homework checking endpoints."""
 
 from datetime import date, timedelta
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -280,18 +281,25 @@ def fake_storage(monkeypatch):
     """Stand in for GCS so uploads can be exercised without a bucket."""
     uploaded = []
 
+    store = SimpleNamespace(uploaded=[], deleted=[])
+
     def _upload_image(file_bytes, original_filename=None, prefix="inbox"):
-        uploaded.append(("image", prefix, original_filename))
-        return f"https://storage.googleapis.com/csm-inbox-images/{prefix}/fake.jpg"
+        store.uploaded.append(("image", prefix, original_filename))
+        base = f"https://storage.googleapis.com/csm-inbox-images/{prefix}/fake"
+        return f"{base}.jpg", f"{base}_thumb.jpg"
 
     def _upload_document(file_bytes, original_filename, content_type, prefix="inbox"):
-        uploaded.append(("document", prefix, original_filename))
+        store.uploaded.append(("document", prefix, original_filename))
         return f"https://storage.googleapis.com/csm-inbox-images/{prefix}/docs/fake.pdf"
 
-    monkeypatch.setattr("routers.homework.upload_image", _upload_image)
+    def _delete(url):
+        store.deleted.append(url)
+        return True
+
+    monkeypatch.setattr("routers.homework.upload_image_with_thumbnail", _upload_image)
     monkeypatch.setattr("routers.homework.upload_document", _upload_document)
-    monkeypatch.setattr("routers.homework.delete_image", lambda url: True)
-    return uploaded
+    monkeypatch.setattr("routers.homework.delete_image", _delete)
+    return store
 
 
 def test_upload_photo_creates_the_completion_record(
@@ -309,6 +317,8 @@ def test_upload_photo_creates_the_completion_record(
     assert payload["attachment_count"] == 1
     assert len(payload["files"]) == 1
     assert payload["files"][0]["file_type"] == "image"
+    # A small derivative, so a 48px preview does not pull the full upload.
+    assert payload["files"][0]["thumbnail_path"].endswith("_thumb.jpg")
     # Created but untouched, so it still reads as waiting to be checked.
     assert payload["completion_status"] == "Not Checked"
 
@@ -316,7 +326,7 @@ def test_upload_photo_creates_the_completion_record(
         HomeworkCompletion.session_exercise_id == 10
     ).one()
     assert record.pdf_name == "Ch5.pdf"
-    assert fake_storage == [("image", "homework", "book.jpg")]
+    assert fake_storage.uploaded == [("image", "homework", "book.jpg")]
 
 
 def test_upload_pdf_is_stored_without_reprocessing(
@@ -329,7 +339,9 @@ def test_upload_pdf_is_stored_without_reprocessing(
     )
     assert resp.status_code == 200
     assert resp.json()["files"][0]["file_type"] == "pdf"
-    assert fake_storage == [("document", "homework", "scan.pdf")]
+    # Nothing to preview, so no derivative is made.
+    assert resp.json()["files"][0]["thumbnail_path"] is None
+    assert fake_storage.uploaded == [("document", "homework", "scan.pdf")]
 
 
 def test_uploads_stack_in_order(client: TestClient, as_tutor, homework_setup, fake_storage):
@@ -351,7 +363,7 @@ def test_upload_rejects_other_file_types(client: TestClient, as_tutor, homework_
     )
     assert resp.status_code == 400
     assert "photos and pdfs" in resp.json()["detail"].lower()
-    assert fake_storage == []
+    assert fake_storage.uploaded == []
 
 
 def test_upload_rejects_classwork(client: TestClient, as_tutor, homework_setup, fake_storage):
@@ -361,7 +373,7 @@ def test_upload_rejects_classwork(client: TestClient, as_tutor, homework_setup, 
         cookies=AUTH_COOKIE,
     )
     assert resp.status_code == 400
-    assert fake_storage == []
+    assert fake_storage.uploaded == []
 
 
 def test_delete_removes_the_attachment(
@@ -376,6 +388,9 @@ def test_delete_removes_the_attachment(
     assert resp.json()["attachment_count"] == 0
     assert resp.json()["files"] == []
     assert db_session.query(HomeworkFile).count() == 0
+    # Both blobs go, or the thumbnail is left orphaned in the bucket.
+    assert len(fake_storage.deleted) == 2
+    assert any(url.endswith("_thumb.jpg") for url in fake_storage.deleted)
 
 
 def test_delete_rejects_a_file_from_another_homework(
@@ -440,7 +455,7 @@ def test_uploading_is_blocked_for_read_only_users(client: TestClient, homework_s
         cookies=AUTH_COOKIE,
     )
     assert resp.status_code == 403
-    assert fake_storage == []
+    assert fake_storage.uploaded == []
 
 
 def test_marking_is_blocked_for_read_only_users(client: TestClient, homework_setup):

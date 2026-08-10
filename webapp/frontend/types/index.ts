@@ -284,6 +284,8 @@ export type HomeworkStatus =
 export interface HomeworkFile {
   id: number;
   file_path: string;
+  /** Small derivative for previews. Absent on older rows and on PDFs. */
+  thumbnail_path?: string;
   // The column allows 'document' as well, but only photos and PDFs can be
   // attached, so nothing writes it.
   file_type: "image" | "pdf";
