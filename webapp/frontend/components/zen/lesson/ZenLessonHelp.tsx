@@ -73,6 +73,14 @@ const WIDE_SHORTCUTS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "Homework",
+    shortcuts: [
+      { key: "H", description: "Check homework from earlier lessons" },
+      { key: "1 / 2 / 3", description: "Done / partly done / not done" },
+      { key: "0", description: "Back to unchecked" },
+    ],
+  },
+  {
     title: "Bulk Print",
     shortcuts: [
       { key: "P", description: "Open print menu (CW / HW)" },

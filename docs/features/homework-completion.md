@@ -4,8 +4,8 @@ Tutors mark whether homework set in an earlier lesson came back done. The
 tables came from the legacy AppSheet app and sat unused for a year; this is the
 build-out that makes them usable.
 
-Branch: `feature/homework-completion`. Phases 0 and 1 are done, phases 2 and 3
-are specified below but not started.
+Branch: `feature/homework-completion`. Phases 0, 1 and 2 are done. Phase 3 is
+specified below but not started.
 
 ---
 
@@ -136,33 +136,42 @@ Wired into:
 | `ExerciseModal` | Same, inside its Recap. |
 | `BookmarkTab` (session detail page) | Rows inside the Homework section. |
 | Sessions list rows, `TodaySessionsCard` | The badge. The provider must sit above the view-mode branch, or badges mount outside it and silently render nothing. |
+| `LessonWideSidebar` | "To check" block per student, plus a slot counter in the header. |
+| `ZenLessonSidebar` | "TO CHECK" list for the active student, and the `H` overlay to mark it. |
 | `LessonExerciseSidebar` | Status tick on previous-session homework, read only. |
 
 ---
 
 ## Phase 2: wide lesson mode
 
-Not started. This is the surface Kenny most wanted.
+Done. This was the surface Kenny most wanted.
 
-`LessonWideMode` shows every student in a time slot with their exercises for the
-*current* session. It has no previous-session data at all, so nothing to mark.
+Both wide modes fetch the whole slot in one request, via
+`useHomeworkToCheck(sessions.map(s => s.id))`, and pass `useHomeworkMarked()`
+straight through as `onMarked`. Switching student costs nothing.
 
-1. In `app/sessions/lesson/page.tsx` (or `LessonWideMode` itself), call
-   `useHomeworkToCheck(sessions.map(s => s.id))`. One request covers the slot.
-   Pass `useHomeworkMarked()` as `onMarked`; no bespoke cache fold is needed.
-2. In `LessonWideSidebar`, add a homework block per `StudentBlock`, above or
-   below the existing CW/HW sections, using `HomeworkPanel`. Keep it collapsed:
-   the sidebar is narrow, and a student can carry up to 6 items.
-3. Add a slot-level counter in the header, "HW checked 4/7", from the same data.
-4. **The Zen twin matters.** `components/zen/lesson/ZenLessonWideMode.tsx` is a
-   separate implementation with its own styling and keyboard map. Anything built
-   in the normal mode needs the Zen equivalent or the feature reads as half done.
-   Zen has a keyboard help overlay (`ZenLessonHelp.tsx`) listing shortcuts, so a
-   key for homework marking should be registered there too.
+**Normal mode.** `LessonWideSidebar`'s `StudentBlock` opens with a "To check"
+section above Classwork, because settling last lesson's homework comes before
+starting today's. It carries the `checked/total` chip and starts open only while
+something is outstanding, since the sidebar is narrow and a student can hold six
+items. The header shows the slot total, "HW 4/7", amber until it is clear.
 
-Watch out: wide mode groups by student, and each student's homework comes from
-*their own* previous sessions, which for summer classes may be a different
-tutor's lesson. The `assigned_by_tutor` label is doing real work there.
+**Zen mode.** Zen shows one student at a time, so `ZenLessonSidebar` gets a
+`TO CHECK (n/m)` list with terminal glyphs (`[ ]`, `[x]`, `[~]`, `[!]`) and
+`ZenHomeworkCheck` is the marking overlay, opened with `H` or by clicking the
+list. It follows the print-menu idiom: the lesson's own keyboard handler owns
+the cursor and keys, `j`/`k` move, `1`/`2`/`3` mark, `0` clears, anything else
+closes. Marking advances the cursor, so a stack clears in one key per item. The
+shortcuts are listed in `ZenLessonHelp` under "Homework".
+
+Note: wide mode groups by student, and each student's homework comes from *their
+own* earlier sessions, which for summer classes may be a different tutor's
+lesson. The `assigned_by_tutor` label is doing real work there.
+
+Adjacent, pre-existing, not fixed: `app/sessions/lesson/page.tsx` fetches the
+day with `limit: 50` and filters to the slot client-side. A tutor with more than
+50 sessions that day loses the tail, so a slot can render short. Unrelated to
+homework, but it would hide the panel for the missing students.
 
 ## Phase 3: submissions
 
@@ -185,9 +194,13 @@ To build:
 2. `homeworkAPI.uploadFile` / `deleteFile`, modelled on `messagesAPI.uploadImage`.
 3. In `HomeworkCheckRow`, a camera button next to the comment icon. Use
    `capture="environment"` on the input so phones open the camera directly:
-   tutors will photograph exercise books at the desk.
+   tutors will photograph exercise books at the desk. Every marking surface
+   renders that row, so this reaches all of them at once, Zen aside.
 4. Thumbnails inline with a lightbox. `attachment_count` already drives the
    paperclip, so the badge work is done.
+5. Zen needs its own treatment again: `ZenHomeworkCheck` would want an upload
+   key, and photos do not really belong in a terminal overlay. Showing the count
+   and leaving capture to the normal mode is a defensible answer.
 
 ## Phase 4: reporting
 
