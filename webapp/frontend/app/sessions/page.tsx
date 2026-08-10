@@ -150,7 +150,19 @@ function resolveViewMode(urlView: string | null, urlFilter: string | null): View
   return (urlView as ViewMode) || 'list';
 }
 
+/**
+ * One provider above the view-mode branch, so homework badges get their counts
+ * whichever view renders them.
+ */
 export default function SessionsPage() {
+  return (
+    <HomeworkCountsProvider>
+      <SessionsPageContent />
+    </HomeworkCountsProvider>
+  );
+}
+
+function SessionsPageContent() {
   usePageTitle("Sessions");
 
   const { selectedLocation } = useLocation();
@@ -3050,7 +3062,6 @@ export default function SessionsPage() {
 
   // Non-list views (weekly, daily, monthly)
   return (
-    <HomeworkCountsProvider>
     <>
     <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
       <PageTransition className={cn(
@@ -3134,7 +3145,6 @@ export default function SessionsPage() {
     {/* Quick Attend FAB - mobile only, outside DeskSurface to avoid overflow-hidden clipping */}
     <QuickAttendFAB selectedDate={selectedDate} />
     </>
-    </HomeworkCountsProvider>
   );
 }
 

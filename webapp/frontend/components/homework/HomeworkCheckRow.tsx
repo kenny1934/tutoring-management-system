@@ -8,7 +8,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ratingToEmoji } from "@/lib/formatters";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
-import type { HomeworkCompletion, HomeworkStatus } from "@/types";
+import { getPageLabel } from "@/lib/lesson-utils";
+import type { HomeworkCompletion, HomeworkStatus, SessionExercise } from "@/types";
 
 const STATES: Array<{
   status: HomeworkStatus;
@@ -64,8 +65,6 @@ interface HomeworkCheckRowProps {
   readOnly?: boolean;
   /** Fired with the saved record so the parent can update its cache. */
   onMarked?: (updated: HomeworkCompletion) => void;
-  /** Drops the rating and comment controls, for tight surfaces like the popover. */
-  compact?: boolean;
 }
 
 export function HomeworkCheckRow({
@@ -73,7 +72,6 @@ export function HomeworkCheckRow({
   sessionId,
   readOnly,
   onMarked,
-  compact = false,
 }: HomeworkCheckRowProps) {
   const { showToast } = useToast();
   const [state, setState] = useState(homework);
@@ -148,6 +146,12 @@ export function HomeworkCheckRow({
   const currentStatus: HomeworkStatus = state.completion_status || "Not Checked";
   const source = assignedLabel(state);
   const hasComment = !!state.tutor_comments;
+  // Same page rule as every other exercise surface, remarks included.
+  const pageLabel = getPageLabel({
+    page_start: state.page_start,
+    page_end: state.page_end,
+    remarks: state.assignment_remarks,
+  } as SessionExercise);
 
   return (
     <div className={cn("py-1.5", saving && "opacity-70")}>
@@ -156,9 +160,9 @@ export function HomeworkCheckRow({
         <span className="text-xs text-gray-800 dark:text-gray-200 truncate">
           {getExerciseDisplayName(state)}
         </span>
-        {state.pages && (
+        {pageLabel && (
           <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
-            {state.pages}
+            {pageLabel}
           </span>
         )}
         {state.attachment_count > 0 && (
@@ -211,34 +215,30 @@ export function HomeworkCheckRow({
           })}
         </div>
 
-        {!compact && (
-          <>
-            <StarRating
-              rating={parseStarRating(state.homework_rating)}
-              size="sm"
-              onChange={readOnly ? undefined : handleRating}
-            />
-            <button
-              type="button"
-              onClick={() => setCommentOpen((open) => !open)}
-              disabled={readOnly}
-              title={state.tutor_comments || "Add a comment"}
-              className={cn(
-                "p-1 rounded transition-colors",
-                hasComment
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300",
-                readOnly && "cursor-not-allowed opacity-60"
-              )}
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-            </button>
-          </>
-        )}
+        <StarRating
+          rating={parseStarRating(state.homework_rating)}
+          size="sm"
+          onChange={readOnly ? undefined : handleRating}
+        />
+        <button
+          type="button"
+          onClick={() => setCommentOpen((open) => !open)}
+          disabled={readOnly}
+          title={state.tutor_comments || "Add a comment"}
+          className={cn(
+            "p-1 rounded transition-colors",
+            hasComment
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300",
+            readOnly && "cursor-not-allowed opacity-60"
+          )}
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {/* Comment, shown once asked for or once one exists */}
-      {!compact && (commentOpen || hasComment) && (
+      {(commentOpen || hasComment) && (
         <div className="mt-1">
           {commentOpen ? (
             <textarea

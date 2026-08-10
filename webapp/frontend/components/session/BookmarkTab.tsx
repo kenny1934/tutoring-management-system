@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { uncheckedCount } from "@/lib/homework-utils";
 
 // Copy button component for PDF paths
 function CopyButton({ text }: { text: string }) {
@@ -94,9 +95,7 @@ export function BookmarkTab({
   ) || [];
 
   // Count unchecked homework
-  const uncheckedCount = homeworkToCheck.filter(hw =>
-    !hw.completion_status || hw.completion_status === "Not Checked"
-  ).length;
+  const openHomeworkCount = uncheckedCount(homeworkToCheck);
 
   // Shared content component
   const TabContent = () => (
@@ -285,9 +284,9 @@ export function BookmarkTab({
             <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
               Homework
             </h4>
-            {uncheckedCount > 0 && (
+            {openHomeworkCount > 0 && (
               <Badge variant="destructive" className="text-xs ml-auto">
-                {uncheckedCount}
+                {openHomeworkCount}
               </Badge>
             )}
           </button>
@@ -346,9 +345,9 @@ export function BookmarkTab({
         }}
       >
         <History className="h-5 w-5 text-white" />
-        {uncheckedCount > 0 && (
+        {openHomeworkCount > 0 && (
           <div className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-            <span className="text-[10px] font-bold text-white">{uncheckedCount}</span>
+            <span className="text-[10px] font-bold text-white">{openHomeworkCount}</span>
           </div>
         )}
       </button>
@@ -405,9 +404,9 @@ export function BookmarkTab({
           </div>
 
           {/* Notification badge */}
-          {uncheckedCount > 0 && (
+          {openHomeworkCount > 0 && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-              <span className="text-[10px] font-bold text-white">{uncheckedCount}</span>
+              <span className="text-[10px] font-bold text-white">{openHomeworkCount}</span>
             </div>
           )}
         </button>

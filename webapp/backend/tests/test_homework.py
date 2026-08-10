@@ -168,6 +168,18 @@ def test_rating_and_comment_save_independently(client: TestClient, db_session: S
     assert record.tutor_comments == "Neat work"
 
 
+def test_rating_only_mark_still_reads_as_unchecked(client: TestClient, db_session: Session, as_tutor, homework_setup):
+    """A star before a status must not make the item look checked."""
+    client.patch("/api/sessions/200/homework/10", json={"homework_rating": "⭐⭐⭐"}, cookies=AUTH_COOKIE)
+
+    record = db_session.query(HomeworkCompletion).filter(
+        HomeworkCompletion.session_exercise_id == 10
+    ).one()
+    assert record.homework_rating == "⭐⭐⭐"
+    assert record.completion_status == "Not Checked"
+    assert record.checked_by is None
+
+
 def test_mark_rejects_unknown_status(client: TestClient, as_tutor, homework_setup):
     resp = client.patch(
         "/api/sessions/200/homework/10",
@@ -234,9 +246,9 @@ def test_to_check_rejects_bad_ids(client: TestClient, as_tutor, homework_setup):
     assert resp.status_code == 400
 
 
-def test_to_check_needs_a_filter(client: TestClient, as_tutor, homework_setup):
+def test_to_check_needs_session_ids(client: TestClient, as_tutor, homework_setup):
     resp = client.get("/api/homework/to-check", cookies=AUTH_COOKIE)
-    assert resp.status_code == 400
+    assert resp.status_code == 422
 
 
 def test_counts_summarise_open_homework(client: TestClient, db_session: Session, as_tutor, homework_setup):

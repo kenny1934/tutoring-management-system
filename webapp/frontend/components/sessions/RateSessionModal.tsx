@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { HomeworkPanel } from "@/components/homework/HomeworkPanel";
-import { useRefreshHomeworkCounts } from "@/components/homework/HomeworkCountsProvider";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { updateSessionInCache } from "@/lib/session-cache";
-import type { Session, HomeworkCompletion } from "@/types";
+import type { Session } from "@/types";
 import { ratingToEmoji } from "@/lib/formatters";
 import { GradeBadge } from "@/components/ui/grade-label";
 
@@ -37,14 +37,9 @@ export function RateSessionModal({
   // Homework carried over from earlier lessons, marked here at the point the
   // tutor closes off the session rather than behind a separate disclosure.
   const sessionIds = useMemo(() => (isOpen ? [session.id] : []), [isOpen, session.id]);
-  const { bySession, applyMark } = useHomeworkToCheck(sessionIds);
+  const { bySession } = useHomeworkToCheck(sessionIds);
   const openHomework = bySession.get(session.id) ?? [];
-  const refreshHomeworkCounts = useRefreshHomeworkCounts();
-
-  const handleHomeworkMarked = useCallback((updated: HomeworkCompletion) => {
-    applyMark(updated);
-    refreshHomeworkCounts(updated.current_session_id);
-  }, [applyMark, refreshHomeworkCounts]);
+  const handleHomeworkMarked = useHomeworkMarked();
 
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);

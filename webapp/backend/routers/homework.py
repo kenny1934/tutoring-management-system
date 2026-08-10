@@ -6,8 +6,7 @@ keyed to the assignment rather than to the session the tutor happened to be
 sitting in. The homework_to_check view decides what is still open for a given
 session, looking back up to three sat sessions.
 """
-from datetime import date as date_type
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func
@@ -35,34 +34,19 @@ SUBMITTED_STATUSES = ('Completed', 'Partially Completed')
 MAX_BULK_SESSIONS = 200
 
 
-def _to_response(row: HomeworkToCheck) -> HomeworkCompletionResponse:
-    """Map a homework_to_check row onto the API shape."""
-    return HomeworkCompletionResponse(
-        session_exercise_id=row.session_exercise_id,
-        current_session_id=row.current_session_id,
-        student_id=row.student_id,
-        assigned_session_id=row.assigned_session_id,
-        homework_assigned_date=row.homework_assigned_date,
-        assigned_time_slot=row.assigned_time_slot,
-        assigned_by_tutor_id=row.assigned_by_tutor_id,
-        assigned_by_tutor=row.assigned_by_tutor,
-        sessions_ago=row.sessions_ago,
-        pdf_name=row.pdf_name,
-        page_start=row.page_start,
-        page_end=row.page_end,
-        pages=row.pages,
-        url=row.url,
-        url_title=row.url_title,
-        assignment_remarks=row.assignment_remarks,
-        completion_id=row.completion_id,
-        completion_status=row.completion_status,
-        homework_rating=row.homework_rating,
-        tutor_comments=row.tutor_comments,
-        checked_by=row.checked_by,
-        checked_at=row.checked_at,
-        checked_in_session_id=row.checked_in_session_id,
-        attachment_count=row.attachment_count or 0,
-    )
+def _parse_session_ids(raw: str) -> List[int]:
+    """Read a comma-separated session id list, rejecting junk and huge requests."""
+    try:
+        ids = [int(part) for part in raw.split(",") if part.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="session_ids must be integers")
+
+    if len(ids) > MAX_BULK_SESSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many sessions requested. Maximum is {MAX_BULK_SESSIONS}",
+        )
+    return ids
 
 
 def load_homework_to_check(db: Session, session_ids: List[int]) -> dict:
@@ -80,7 +64,9 @@ def load_homework_to_check(db: Session, session_ids: List[int]) -> dict:
 
     by_session: dict = {}
     for row in rows:
-        by_session.setdefault(row.current_session_id, []).append(_to_response(row))
+        by_session.setdefault(row.current_session_id, []).append(
+            HomeworkCompletionResponse.model_validate(row)
+        )
 
     # Oldest assignment first, so the longest-outstanding homework leads.
     for items in by_session.values():
@@ -91,40 +77,15 @@ def load_homework_to_check(db: Session, session_ids: List[int]) -> dict:
 
 @router.get("/homework/to-check", response_model=List[SessionHomeworkResponse])
 async def get_homework_to_check(
-    session_ids: Optional[str] = Query(
-        None, description="Comma-separated session IDs"
-    ),
-    date: Optional[date_type] = Query(None, description="Session date (YYYY-MM-DD)"),
-    tutor_id: Optional[int] = Query(None, description="Limit to one tutor's sessions"),
-    time_slot: Optional[str] = Query(None, description="Limit to one time slot"),
+    session_ids: str = Query(..., description="Comma-separated session IDs"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
 ):
     """
-    Homework still open across many sessions, for the sessions list and wide
-    lesson mode. Either pass session_ids, or a date with optional tutor and
-    time slot filters.
+    Homework still open across many sessions, for surfaces holding several at
+    once: the bulk rate modal and wide lesson mode.
     """
-    if session_ids:
-        try:
-            ids = [int(part) for part in session_ids.split(",") if part.strip()]
-        except ValueError:
-            raise HTTPException(status_code=400, detail="session_ids must be integers")
-        if len(ids) > MAX_BULK_SESSIONS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Too many sessions requested. Maximum is {MAX_BULK_SESSIONS}",
-            )
-    elif date:
-        query = db.query(SessionLog.id).filter(SessionLog.session_date == date)
-        if tutor_id:
-            query = query.filter(SessionLog.tutor_id == tutor_id)
-        if time_slot:
-            query = query.filter(SessionLog.time_slot == time_slot)
-        ids = [row[0] for row in query.limit(MAX_BULK_SESSIONS).all()]
-    else:
-        raise HTTPException(status_code=400, detail="Provide either session_ids or date")
-
+    ids = _parse_session_ids(session_ids)
     by_session = load_homework_to_check(db, ids)
 
     return [
@@ -145,24 +106,17 @@ async def get_homework_counts(
     Counts only. The full detail comes from the session itself when a tutor
     opens it, which keeps this cheap enough to call for a screen of rows.
     """
-    try:
-        ids = [int(part) for part in session_ids.split(",") if part.strip()]
-    except ValueError:
-        raise HTTPException(status_code=400, detail="session_ids must be integers")
-
+    ids = _parse_session_ids(session_ids)
     if not ids:
         return []
-    if len(ids) > MAX_BULK_SESSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Too many sessions requested. Maximum is {MAX_BULK_SESSIONS}",
-        )
 
+    # Counted off completion_status, the same field the panels read, so a badge
+    # and the rows behind it can never disagree.
     rows = db.query(
         HomeworkToCheck.current_session_id.label("session_id"),
         func.count().label("total"),
         func.sum(
-            case((HomeworkToCheck.check_status == 'Checked', 1), else_=0)
+            case((HomeworkToCheck.completion_status.in_(CHECKED_STATUSES), 1), else_=0)
         ).label("checked"),
     ).filter(
         HomeworkToCheck.current_session_id.in_(ids)
@@ -200,21 +154,23 @@ async def mark_homework(
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
-    exercise = db.query(SessionExercise).filter(
-        SessionExercise.id == session_exercise_id
-    ).first()
-    if not exercise:
+    # The exercise, the session that set it and that session's tutor in one trip.
+    assignment = db.query(SessionExercise, SessionLog, Tutor.tutor_name).outerjoin(
+        SessionLog, SessionLog.id == SessionExercise.session_id
+    ).outerjoin(
+        Tutor, Tutor.id == SessionLog.tutor_id
+    ).filter(SessionExercise.id == session_exercise_id).first()
+
+    if not assignment:
         raise HTTPException(
             status_code=404, detail=f"Homework with ID {session_exercise_id} not found"
         )
+    exercise, assigning_session, assigned_by_tutor = assignment
+
     if exercise.exercise_type not in ('HW', 'Homework'):
         raise HTTPException(
             status_code=400, detail="That exercise is classwork, not homework"
         )
-
-    assigning_session = db.query(SessionLog).filter(
-        SessionLog.id == exercise.session_id
-    ).first()
 
     # The assignment has to belong to the same student, or this is the wrong row.
     if assigning_session and assigning_session.student_id != session.student_id:
@@ -231,6 +187,9 @@ async def mark_homework(
         completion = HomeworkCompletion(
             session_exercise_id=session_exercise_id,
             student_id=session.student_id,
+            # Explicit rather than NULL, so a rating-only first save still reads
+            # as unchecked everywhere.
+            completion_status='Not Checked',
             created_at=hk_now(),
         )
         db.add(completion)
@@ -275,10 +234,11 @@ async def mark_homework(
     ).first()
 
     if row:
-        return _to_response(row)
+        return HomeworkCompletionResponse.model_validate(row)
 
-    # The view drops rows it no longer considers open for this session. Fall
-    # back to the stored record so the caller still gets the saved state.
+    # The view only lists homework set in an earlier session, so this is reached
+    # when the assignment and the check share one. Everything needed is already
+    # in hand, which is what the record's snapshot is for.
     db.refresh(completion)
     return HomeworkCompletionResponse(
         session_exercise_id=session_exercise_id,
@@ -286,11 +246,15 @@ async def mark_homework(
         student_id=completion.student_id,
         assigned_session_id=exercise.session_id,
         homework_assigned_date=completion.assigned_date,
+        assigned_time_slot=assigning_session.time_slot if assigning_session else None,
         assigned_by_tutor_id=completion.assigned_by_tutor_id,
+        assigned_by_tutor=assigned_by_tutor,
+        sessions_ago=0,
         pdf_name=completion.pdf_name,
         page_start=completion.page_start,
         page_end=completion.page_end,
         url=completion.url,
+        url_title=exercise.url_title,
         assignment_remarks=completion.exercise_remarks,
         completion_id=completion.id,
         completion_status=completion.completion_status,

@@ -32,7 +32,8 @@ import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
-import { useRefreshHomeworkCounts } from "@/components/homework/HomeworkCountsProvider";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { uncheckedCount } from "@/lib/homework-utils";
 import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
 import { SummerMaterialsSection } from "./SummerMaterialsSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -219,28 +220,12 @@ export function ExerciseModal({
   }, [exercises, duplicateIndex]);
 
   // Fetch detailed session data for recap (previous session, homework completion)
-  const { data: detailedSession, isLoading: isLoadingDetails, mutate: mutateDetail } = useSession(session?.id ?? 0);
+  const { data: detailedSession, isLoading: isLoadingDetails } = useSession(session?.id ?? 0);
 
-  const refreshHomeworkCounts = useRefreshHomeworkCounts();
-
-  // Fold a saved homework check back into the cached detail response.
-  const handleHomeworkMarked = useCallback((updated: HomeworkCompletion) => {
-    void mutateDetail((current) => {
-      if (!current?.homework_completion) return current;
-      return {
-        ...current,
-        homework_completion: current.homework_completion.map((hw) =>
-          hw.session_exercise_id === updated.session_exercise_id ? updated : hw
-        ),
-      };
-    }, { revalidate: false });
-    refreshHomeworkCounts(updated.current_session_id);
-  }, [mutateDetail, refreshHomeworkCounts]);
+  const handleHomeworkMarked = useHomeworkMarked();
 
   // Compute recap data
-  const uncheckedHwCount = detailedSession?.homework_completion?.filter(
-    hw => !hw.completion_status || hw.completion_status === "Not Checked"
-  ).length || 0;
+  const uncheckedHwCount = uncheckedCount(detailedSession?.homework_completion || []);
 
   const starCount = detailedSession?.previous_session?.performance_rating
     ? (detailedSession.previous_session.performance_rating.match(/⭐/g) || []).length

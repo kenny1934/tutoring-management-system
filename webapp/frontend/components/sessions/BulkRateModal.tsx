@@ -11,10 +11,10 @@ import { useToast } from "@/contexts/ToastContext";
 import { sessionsAPI } from "@/lib/api";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { HomeworkPanel } from "@/components/homework/HomeworkPanel";
-import { useRefreshHomeworkCounts } from "@/components/homework/HomeworkCountsProvider";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useFormDirtyTracking } from "@/lib/ui-hooks";
-import type { Session, HomeworkCompletion } from "@/types";
+import type { Session } from "@/types";
 import { ratingToEmoji } from "@/lib/formatters";
 import { GradeBadge } from "@/components/ui/grade-label";
 
@@ -78,13 +78,8 @@ export function BulkRateModal({
     () => (isOpen ? sessions.map((s) => s.id) : []),
     [isOpen, sessions]
   );
-  const { bySession, applyMark } = useHomeworkToCheck(sessionIds);
-  const refreshHomeworkCounts = useRefreshHomeworkCounts();
-
-  const handleHomeworkMarked = useCallback((updated: HomeworkCompletion) => {
-    applyMark(updated);
-    refreshHomeworkCounts(updated.current_session_id);
-  }, [applyMark, refreshHomeworkCounts]);
+  const { bySession } = useHomeworkToCheck(sessionIds);
+  const handleHomeworkMarked = useHomeworkMarked();
 
   // Compute which sessions have changes
   const changedSessionIds = useMemo(() => {

@@ -211,9 +211,9 @@ export function useHomeworkToCheck(sessionIds: number[] | null | undefined) {
     [sessionIds]
   );
 
-  const { data, mutate: mutateHomework, isLoading } = useSWR(
+  const { data, isLoading } = useSWR(
     ids.length ? ['homework-to-check', ids.join(',')] : null,
-    () => homeworkAPI.getToCheck({ sessionIds: ids })
+    () => homeworkAPI.getToCheck(ids)
   );
 
   const bySession = useMemo(() => {
@@ -222,25 +222,7 @@ export function useHomeworkToCheck(sessionIds: number[] | null | undefined) {
     return map;
   }, [data]);
 
-  /** Fold a saved mark back into the cache without a refetch. */
-  const applyMark = useCallback((updated: HomeworkCompletion) => {
-    void mutateHomework(
-      (current) =>
-        current?.map((entry) =>
-          entry.session_id === updated.current_session_id
-            ? {
-                ...entry,
-                homework: entry.homework.map((hw) =>
-                  hw.session_exercise_id === updated.session_exercise_id ? updated : hw
-                ),
-              }
-            : entry
-        ),
-      { revalidate: false }
-    );
-  }, [mutateHomework]);
-
-  return { bySession, isLoading, applyMark };
+  return { bySession, isLoading };
 }
 
 /**

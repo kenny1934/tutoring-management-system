@@ -47,7 +47,8 @@ import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
-import { useRefreshHomeworkCounts } from "@/components/homework/HomeworkCountsProvider";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { uncheckedCount } from "@/lib/homework-utils";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -457,23 +458,9 @@ export function SessionDetailPopover({
   );
 
   // Fetch detailed session with SWR caching (for previous_session and homework_completion)
-  const { data: detailedSession, isLoading: isLoadingDetails, mutate: mutateDetail } = useSession(isOpen ? session?.id : null);
+  const { data: detailedSession, isLoading: isLoadingDetails } = useSession(isOpen ? session?.id : null);
 
-  const refreshHomeworkCounts = useRefreshHomeworkCounts();
-
-  // Fold a saved homework check back into the cached detail response.
-  const handleHomeworkMarked = useCallback((updated: HomeworkCompletion) => {
-    void mutateDetail((current) => {
-      if (!current?.homework_completion) return current;
-      return {
-        ...current,
-        homework_completion: current.homework_completion.map((hw) =>
-          hw.session_exercise_id === updated.session_exercise_id ? updated : hw
-        ),
-      };
-    }, { revalidate: false });
-    refreshHomeworkCounts(updated.current_session_id);
-  }, [mutateDetail, refreshHomeworkCounts]);
+  const handleHomeworkMarked = useHomeworkMarked();
 
   // Stamp for individual exercise printing in recap section
   const printStamp = useMemo((): PrintStampInfo => ({
@@ -698,9 +685,7 @@ export function SessionDetailPopover({
   const parsed = parseTimeSlot(session.time_slot);
 
   // Computed values for Recap section (using detailedSession from API)
-  const uncheckedHwCount = detailedSession?.homework_completion?.filter(
-    hw => !hw.completion_status || hw.completion_status === "Not Checked"
-  ).length || 0;
+  const uncheckedHwCount = uncheckedCount(detailedSession?.homework_completion || []);
 
   const starCount = detailedSession?.previous_session?.performance_rating
     ? (detailedSession.previous_session.performance_rating.match(/⭐/g) || []).length

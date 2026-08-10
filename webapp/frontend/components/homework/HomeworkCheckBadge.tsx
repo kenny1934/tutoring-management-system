@@ -2,6 +2,7 @@
 
 import { Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { homeworkCountTone } from "@/lib/homework-utils";
 import { useHomeworkCounts } from "./HomeworkCountsProvider";
 
 /**
@@ -35,9 +36,7 @@ export function HomeworkCheckBadge({
       title={title}
       className={cn(
         "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
-        allChecked
-          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-          : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+        homeworkCountTone(counts.checked, counts.total),
         onClick && "hover:opacity-80 transition-opacity",
         className
       )}

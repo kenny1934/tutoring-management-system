@@ -759,7 +759,6 @@ class HomeworkCompletionResponse(BaseModel):
     pdf_name: Optional[str] = Field(None, max_length=500)
     page_start: Optional[int] = Field(None, gt=0)
     page_end: Optional[int] = Field(None, gt=0)
-    pages: Optional[str] = Field(None, max_length=50)
     url: Optional[str] = Field(None, max_length=2048)
     url_title: Optional[str] = Field(None, max_length=500)
     assignment_remarks: Optional[str] = None
@@ -773,6 +772,11 @@ class HomeworkCompletionResponse(BaseModel):
     checked_at: Optional[datetime] = None
     checked_in_session_id: Optional[int] = Field(None, gt=0)
     attachment_count: int = 0
+
+    @field_validator('attachment_count', mode='before')
+    @classmethod
+    def default_attachment_count(cls, v):
+        return v or 0
 
     model_config = ConfigDict(from_attributes=True)
 

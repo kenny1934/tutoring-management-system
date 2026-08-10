@@ -298,7 +298,6 @@ export interface HomeworkCompletion {
   pdf_name?: string;
   page_start?: number;
   page_end?: number;
-  pages?: string;
   url?: string;
   url_title?: string;
   assignment_remarks?: string;

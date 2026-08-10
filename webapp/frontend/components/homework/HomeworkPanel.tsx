@@ -2,15 +2,9 @@
 
 import { Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { checkedCount, homeworkCountTone } from "@/lib/homework-utils";
 import { HomeworkCheckRow } from "./HomeworkCheckRow";
 import type { HomeworkCompletion } from "@/types";
-
-const OPEN_STATUSES = new Set([undefined, "Not Checked"]);
-
-/** How many of these items have actually been looked at. */
-export function checkedCount(items: HomeworkCompletion[]): number {
-  return items.filter((hw) => !OPEN_STATUSES.has(hw.completion_status)).length;
-}
 
 /**
  * Homework carried over from earlier lessons, ready to mark.
@@ -36,7 +30,6 @@ export function HomeworkPanel({
   if (!items.length) return null;
 
   const done = checkedCount(items);
-  const allDone = done === items.length;
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -48,9 +41,7 @@ export function HomeworkPanel({
         <span
           className={cn(
             "text-[11px] px-1.5 py-0.5 rounded font-medium tabular-nums ml-auto",
-            allDone
-              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-              : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+            homeworkCountTone(done, items.length)
           )}
         >
           {done}/{items.length}

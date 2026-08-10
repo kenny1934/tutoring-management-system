@@ -16,15 +16,18 @@ export interface HomeworkCounts {
   checked: number;
 }
 
-interface HomeworkCountsValue {
-  /** Register interest in a session. Returns an unregister function. */
-  watch: (sessionId: number) => () => void;
-  counts: Map<number, HomeworkCounts>;
+interface HomeworkCountsActions {
+  /** Register interest in a session, so its counts get fetched. */
+  watch: (sessionId: number) => void;
   /** Re-fetch a session's counts, after marking homework somewhere. */
   refresh: (sessionId: number) => void;
 }
 
-const HomeworkCountsContext = createContext<HomeworkCountsValue | null>(null);
+// Actions and data are separate contexts on purpose. The actions never change
+// identity, so a badge subscribes once; if they shared a context every batch
+// would re-run every badge's effect and queue the ids all over again.
+const HomeworkCountsActionsContext = createContext<HomeworkCountsActions | null>(null);
+const HomeworkCountsDataContext = createContext<Map<number, HomeworkCounts> | null>(null);
 
 // The counts query costs a few milliseconds per session, so ask only for the
 // rows actually on screen and send them as one batch.
@@ -37,7 +40,6 @@ const CHUNK_SIZE = 100;
  */
 export function HomeworkCountsProvider({ children }: { children: React.ReactNode }) {
   const [counts, setCounts] = useState<Map<number, HomeworkCounts>>(new Map());
-  const watched = useRef<Map<number, number>>(new Map()); // session id -> mounted count
   const pending = useRef<Set<number>>(new Set());
   const fetched = useRef<Set<number>>(new Set());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,28 +85,19 @@ export function HomeworkCountsProvider({ children }: { children: React.ReactNode
     timer.current = setTimeout(() => void flush(), BATCH_DELAY_MS);
   }, [flush]);
 
-  const watch = useCallback(
-    (sessionId: number) => {
-      watched.current.set(sessionId, (watched.current.get(sessionId) || 0) + 1);
-      if (!fetched.current.has(sessionId)) {
+  const actions = useMemo<HomeworkCountsActions>(
+    () => ({
+      watch: (sessionId: number) => {
+        if (fetched.current.has(sessionId)) return;
         pending.current.add(sessionId);
         schedule();
-      }
-      return () => {
-        const remaining = (watched.current.get(sessionId) || 1) - 1;
-        if (remaining <= 0) watched.current.delete(sessionId);
-        else watched.current.set(sessionId, remaining);
-      };
-    },
-    [schedule]
-  );
-
-  const refresh = useCallback(
-    (sessionId: number) => {
-      fetched.current.delete(sessionId);
-      pending.current.add(sessionId);
-      schedule();
-    },
+      },
+      refresh: (sessionId: number) => {
+        fetched.current.delete(sessionId);
+        pending.current.add(sessionId);
+        schedule();
+      },
+    }),
     [schedule]
   );
 
@@ -112,12 +105,12 @@ export function HomeworkCountsProvider({ children }: { children: React.ReactNode
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
-  const value = useMemo(() => ({ watch, counts, refresh }), [watch, counts, refresh]);
-
   return (
-    <HomeworkCountsContext.Provider value={value}>
-      {children}
-    </HomeworkCountsContext.Provider>
+    <HomeworkCountsActionsContext.Provider value={actions}>
+      <HomeworkCountsDataContext.Provider value={counts}>
+        {children}
+      </HomeworkCountsDataContext.Provider>
+    </HomeworkCountsActionsContext.Provider>
   );
 }
 
@@ -126,22 +119,22 @@ export function HomeworkCountsProvider({ children }: { children: React.ReactNode
  * until the batch resolves, so callers can render nothing.
  */
 export function useHomeworkCounts(sessionId: number | null | undefined): HomeworkCounts | null {
-  const context = useContext(HomeworkCountsContext);
+  const actions = useContext(HomeworkCountsActionsContext);
+  const counts = useContext(HomeworkCountsDataContext);
 
   useEffect(() => {
-    if (!context || !sessionId) return;
-    return context.watch(sessionId);
-  }, [context, sessionId]);
+    if (actions && sessionId) actions.watch(sessionId);
+  }, [actions, sessionId]);
 
-  if (!context || !sessionId) return null;
-  return context.counts.get(sessionId) ?? null;
+  if (!sessionId) return null;
+  return counts?.get(sessionId) ?? null;
 }
 
 /** Ask the provider to re-count a session after homework was marked. */
 export function useRefreshHomeworkCounts() {
-  const context = useContext(HomeworkCountsContext);
+  const actions = useContext(HomeworkCountsActionsContext);
   return useCallback(
-    (sessionId: number) => context?.refresh(sessionId),
-    [context]
+    (sessionId: number) => actions?.refresh(sessionId),
+    [actions]
   );
 }

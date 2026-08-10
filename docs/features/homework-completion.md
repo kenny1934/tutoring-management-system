@@ -78,8 +78,8 @@ All under `webapp/backend/routers/homework.py`.
   `tutor_comments`; omitted fields are left alone. Snapshots the assignment,
   stamps `checked_by` and `checked_at`, and clears that stamp when set back to
   `Not Checked`. Rejects classwork and another student's homework.
-- `GET /api/homework/to-check?session_ids=` or `?date=&tutor_id=&time_slot=` —
-  full detail for many sessions. Capped at 200 sessions.
+- `GET /api/homework/to-check?session_ids=` — full detail for many sessions.
+  Capped at 200.
 - `GET /api/homework/counts?session_ids=` — `{session_id, total, checked}` only,
   for list badges.
 
@@ -115,7 +115,16 @@ request per chunk. Rows behind "show more" cost nothing until rendered.
 - `HomeworkCountsProvider` / `useHomeworkCounts` / `useRefreshHomeworkCounts`.
 
 `useHomeworkToCheck(sessionIds)` in `lib/hooks.ts` fetches a whole set in one
-request and exposes `applyMark` to fold a save back into cache without a refetch.
+request.
+
+`useHomeworkMarked()` is what every marking surface passes as `onMarked`. The
+same homework arrives through two endpoints, the session detail and the bulk
+lookup, so a save has to reach both caches plus the badge counts. Doing that in
+one hook is why a new surface needs no glue of its own.
+
+`lib/homework-utils.ts` owns `isChecked` and the counts derived from it. Panel
+chips, tab counters and badge colours all read it, and the counts endpoint
+counts the same field, so nothing can disagree about whether an item is done.
 
 Wired into:
 
@@ -126,7 +135,7 @@ Wired into:
 | `SessionDetailPopover` | Rows inside Recap, collapsed by default. |
 | `ExerciseModal` | Same, inside its Recap. |
 | `BookmarkTab` (session detail page) | Rows inside the Homework section. |
-| Sessions list rows, `TodaySessionsCard` | The badge. Both wrap in the provider. |
+| Sessions list rows, `TodaySessionsCard` | The badge. The provider must sit above the view-mode branch, or badges mount outside it and silently render nothing. |
 | `LessonExerciseSidebar` | Status tick on previous-session homework, read only. |
 
 ---
@@ -140,9 +149,10 @@ Not started. This is the surface Kenny most wanted.
 
 1. In `app/sessions/lesson/page.tsx` (or `LessonWideMode` itself), call
    `useHomeworkToCheck(sessions.map(s => s.id))`. One request covers the slot.
+   Pass `useHomeworkMarked()` as `onMarked`; no bespoke cache fold is needed.
 2. In `LessonWideSidebar`, add a homework block per `StudentBlock`, above or
-   below the existing CW/HW sections, using `HomeworkPanel`. Keep it collapsed
-   or compact: the sidebar is narrow, and a student can carry up to 6 items.
+   below the existing CW/HW sections, using `HomeworkPanel`. Keep it collapsed:
+   the sidebar is narrow, and a student can carry up to 6 items.
 3. Add a slot-level counter in the header, "HW checked 4/7", from the same data.
 4. **The Zen twin matters.** `components/zen/lesson/ZenLessonWideMode.tsx` is a
    separate implementation with its own styling and keyboard map. Anything built
@@ -211,7 +221,7 @@ already computes per-student checked rate, completion score, star average and
 
 ## Test baselines
 
-`webapp/backend`: 1150 pass, of which `tests/test_homework.py` is 15.
+`webapp/backend`: 1151 pass, of which `tests/test_homework.py` is 16.
 `webapp/frontend`: 625 pass. `npx tsc --noEmit` reports 172 errors, all
 pre-existing; `main` reports 173.
 

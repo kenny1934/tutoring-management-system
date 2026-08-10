@@ -3222,19 +3222,11 @@ export const regularAPI = {
 };
 
 export const homeworkAPI = {
-  /** Homework still open for a session, keyed by session id. */
-  getToCheck: (params: {
-    sessionIds?: number[];
-    date?: string;
-    tutorId?: number;
-    timeSlot?: string;
-  }) => {
-    const query = new URLSearchParams();
-    if (params.sessionIds?.length) query.set("session_ids", params.sessionIds.join(","));
-    if (params.date) query.set("date", params.date);
-    if (params.tutorId != null) query.set("tutor_id", String(params.tutorId));
-    if (params.timeSlot) query.set("time_slot", params.timeSlot);
-    return fetchAPI<SessionHomework[]>(`/homework/to-check?${query.toString()}`);
+  /** Homework still open for each of the given sessions, keyed by session id. */
+  getToCheck: (sessionIds: number[]) => {
+    return fetchAPI<SessionHomework[]>(
+      `/homework/to-check?session_ids=${sessionIds.join(",")}`
+    );
   },
 
   /** Open homework counts per session, for list badges. */
