@@ -226,6 +226,30 @@ export function useHomeworkToCheck(sessionIds: number[] | null | undefined) {
 }
 
 /**
+ * A student's whole homework record, keyed by assignment.
+ *
+ * Unlike useHomeworkToCheck this is not a backlog: it covers everything ever
+ * set, including items no session can still reach, which is what lets the
+ * student page mark and correct them.
+ */
+export function useStudentHomework(studentId: number | null | undefined) {
+  const { data, error, isLoading, mutate } = useSWR<HomeworkCompletion[]>(
+    studentId ? ['student-homework', studentId] : null,
+    () => homeworkAPI.getForStudent(studentId!)
+  );
+
+  const byExercise = useMemo(() => {
+    const map = new Map<number, HomeworkCompletion>();
+    data?.forEach((hw) => map.set(hw.session_exercise_id, hw));
+    return map;
+  }, [data]);
+
+  // error is returned rather than swallowed: without it a failed fetch looks
+  // exactly like a student who has never been set any homework.
+  return { homework: data, byExercise, error, isLoading, mutate };
+}
+
+/**
  * Hook for fetching a single session by ID
  * Returns null key when id is falsy to skip fetching
  */

@@ -209,7 +209,7 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         return;
       }
 
-      // Homework marking — cursor keys move, 0-3 mark, anything else closes
+      // Homework marking — cursor keys move, 0-4 mark, anything else closes
       if (homeworkOpenRef.current) {
         e.preventDefault();
         e.stopImmediatePropagation();

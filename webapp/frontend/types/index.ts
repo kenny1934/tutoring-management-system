@@ -274,8 +274,13 @@ export interface ExerciseHistoryResponse {
 }
 
 // Homework Completion types
+//
+// A ladder, not a set of peers. "Submitted" is work that came back but nobody
+// has marked yet, so it still counts as unchecked: it stays in the backlog and
+// keeps ageing until a tutor gives it a verdict.
 export type HomeworkStatus =
   | "Not Checked"
+  | "Submitted"
   | "Completed"
   | "Partially Completed"
   | "Not Completed";

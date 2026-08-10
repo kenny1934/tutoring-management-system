@@ -467,3 +467,196 @@ def test_marking_is_blocked_for_read_only_users(client: TestClient, homework_set
         cookies=AUTH_COOKIE,
     )
     assert resp.status_code == 403
+
+
+# --- Handed in, not yet marked ---
+
+def test_submitted_records_who_took_the_work_in(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    """Taking work in is something a tutor did, so it leaves a trace."""
+    resp = client.patch(
+        "/api/sessions/200/homework/10",
+        json={"completion_status": "Submitted"},
+        cookies=AUTH_COOKIE,
+    )
+    assert resp.status_code == 200
+
+    record = db_session.query(HomeworkCompletion).filter(
+        HomeworkCompletion.session_exercise_id == 10
+    ).one()
+    assert record.completion_status == "Submitted"
+    assert record.checked_by == 99
+    assert record.checked_at is not None
+    # The work came back, which is what the legacy flag is supposed to mean.
+    assert record.submitted is True
+
+
+def test_submitted_still_counts_as_unchecked(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    """
+    Handed in but unmarked still needs a tutor, so the badge keeps asking.
+
+    That is the whole point of the state: it ages in the backlog instead of
+    disappearing the moment someone records that the work arrived.
+    """
+    db_session.add(HomeworkToCheck(
+        current_session_id=200, session_exercise_id=12, student_id=1,
+        current_tutor_id=99, current_session_date=TODAY, student_name="Test Student",
+        assigned_session_id=100, homework_assigned_date=TWO_WEEKS_AGO, sessions_ago=2,
+        pdf_name="Ch4.pdf", completion_status="Submitted", attachment_count=0,
+        check_status="Submitted",
+    ))
+    db_session.commit()
+
+    resp = client.get("/api/homework/counts?session_ids=200", cookies=AUTH_COOKIE)
+    assert resp.status_code == 200
+    assert resp.json() == [{"session_id": 200, "total": 2, "checked": 0}]
+
+
+# --- A student's whole homework record ---
+
+def test_student_homework_returns_every_assignment(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    """Homework only, newest first, whatever the rolling backlog can still see."""
+    db_session.add(SessionExercise(
+        id=13, session_id=200, exercise_type="Homework", pdf_name="Ch6.pdf",
+        page_start=1, created_by="me@example.com",
+    ))
+    db_session.commit()
+
+    resp = client.get("/api/students/1/homework", cookies=AUTH_COOKIE)
+    assert resp.status_code == 200
+
+    payload = resp.json()
+    # Classwork (exercise 11) is not homework and must not appear.
+    assert [hw["session_exercise_id"] for hw in payload] == [13, 10]
+    assert payload[1]["pdf_name"] == "Ch5.pdf"
+    assert payload[1]["assigned_by_tutor"] == "Ms Other"
+    assert payload[1]["assigned_session_id"] == 100
+    # Never marked, so it reads as such rather than as a missing record.
+    assert payload[1]["completion_status"] == "Not Checked"
+    assert payload[1]["completion_id"] is None
+
+
+def test_student_homework_reports_the_check_state(
+    client: TestClient, as_tutor, homework_setup
+):
+    client.patch(
+        "/api/sessions/200/homework/10",
+        json={"completion_status": "Partially Completed", "tutor_comments": "Half of it"},
+        cookies=AUTH_COOKIE,
+    )
+
+    resp = client.get("/api/students/1/homework", cookies=AUTH_COOKIE)
+    hw = resp.json()[0]
+    assert hw["completion_status"] == "Partially Completed"
+    assert hw["tutor_comments"] == "Half of it"
+    assert hw["checked_by"] == 99
+
+
+def test_student_homework_marks_against_the_lesson_still_showing_it(
+    client: TestClient, as_tutor, homework_setup
+):
+    """
+    The page is not a lesson, so a mark from it needs one to land on.
+
+    It has to be the lesson still listing the item, or marking here would hide
+    the item from a panel a tutor is about to open: homework_to_check only
+    shows an assessed assignment in the session that assessed it.
+    """
+    before = client.get("/api/students/1/homework", cookies=AUTH_COOKIE).json()[0]
+    assert before["current_session_id"] == 200
+
+
+def test_student_homework_falls_back_when_no_lesson_can_reach_it(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    """Aged out of every backlog. The lesson that set it stands in."""
+    db_session.query(HomeworkToCheck).delete()
+    db_session.commit()
+
+    hw = client.get("/api/students/1/homework", cookies=AUTH_COOKIE).json()[0]
+    assert hw["current_session_id"] == 100
+
+
+def test_student_homework_leaves_an_assessed_item_where_it_was_assessed(
+    client: TestClient, as_tutor, homework_setup
+):
+    """The lesson that gave the verdict keeps the credit."""
+    client.patch(
+        "/api/sessions/200/homework/10",
+        json={"completion_status": "Completed"},
+        cookies=AUTH_COOKIE,
+    )
+
+    after = client.get("/api/students/1/homework", cookies=AUTH_COOKIE).json()[0]
+    assert after["current_session_id"] == 200
+    assert after["checked_in_session_id"] == 200
+
+
+def test_marking_from_the_assigning_session_works(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    """
+    What the student page does for homework no lesson can still reach.
+
+    homework_to_check only looks back three sat sessions, so without this an
+    item that aged out unmarked would stay that way forever.
+    """
+    resp = client.patch(
+        "/api/sessions/100/homework/10",
+        json={"completion_status": "Not Completed"},
+        cookies=AUTH_COOKIE,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["completion_status"] == "Not Completed"
+
+    record = db_session.query(HomeworkCompletion).filter(
+        HomeworkCompletion.session_exercise_id == 10
+    ).one()
+    assert record.current_session_id == 100
+    assert record.checked_by == 99
+
+
+def test_student_homework_is_scoped_to_the_student(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    db_session.add(Student(id=2, student_name="Other Student", school_student_id="STU002", grade="F2"))
+    db_session.add(SessionLog(
+        id=300, student_id=2, tutor_id=99, session_date=TODAY,
+        time_slot="17:00 - 18:30", session_status="Attended", location="Main Center",
+    ))
+    db_session.add(SessionExercise(
+        id=14, session_id=300, exercise_type="HW", pdf_name="Theirs.pdf",
+        created_by="me@example.com",
+    ))
+    db_session.commit()
+
+    payload = client.get("/api/students/1/homework", cookies=AUTH_COOKIE).json()
+    assert [hw["session_exercise_id"] for hw in payload] == [10]
+
+
+def test_student_homework_carries_what_was_handed_in(
+    client: TestClient, db_session: Session, as_tutor, homework_setup
+):
+    client.patch(
+        "/api/sessions/200/homework/10",
+        json={"completion_status": "Completed"},
+        cookies=AUTH_COOKIE,
+    )
+    completion = db_session.query(HomeworkCompletion).filter(
+        HomeworkCompletion.session_exercise_id == 10
+    ).one()
+    db_session.add(HomeworkFile(
+        homework_completion_id=completion.id, file_path="https://x/book.jpg",
+        thumbnail_path="https://x/book_thumb.jpg", file_type="image",
+        file_name="book.jpg", file_order=1,
+    ))
+    db_session.commit()
+
+    hw = client.get("/api/students/1/homework", cookies=AUTH_COOKIE).json()[0]
+    assert hw["attachment_count"] == 1
+    assert hw["files"][0]["file_path"] == "https://x/book.jpg"

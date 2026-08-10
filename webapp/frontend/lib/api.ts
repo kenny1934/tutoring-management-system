@@ -3232,6 +3232,18 @@ export const homeworkAPI = {
     );
   },
 
+  /**
+   * Every homework assignment a student has been set, with its check state.
+   *
+   * The whole record rather than the rolling backlog, so the student page can
+   * show and mark homework the lesson surfaces have already let go of.
+   */
+  getForStudent: (studentId: number, limit = 500) => {
+    return fetchAPI<HomeworkCompletion[]>(
+      `/students/${studentId}/homework?limit=${limit}`
+    );
+  },
+
   /** Open homework counts per session, for list badges. */
   getCounts: (sessionIds: number[]) => {
     return fetchAPI<HomeworkCount[]>(

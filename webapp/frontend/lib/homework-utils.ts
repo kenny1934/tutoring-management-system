@@ -1,13 +1,27 @@
 import type { HomeworkCompletion } from "@/types";
 
 /**
- * Whether a tutor has actually looked at this homework.
+ * Whether a tutor has actually assessed this homework.
  *
  * The one definition. Badges, panel chips and recap counters all read it, so
  * they cannot drift apart or disagree with the backend's own rule.
+ *
+ * "Submitted" is not checked: the work came back, but nobody has marked it, so
+ * it still needs a tutor. That is what keeps it in the backlog, ageing.
  */
 export function isChecked(hw: Pick<HomeworkCompletion, "completion_status">): boolean {
-  return !!hw.completion_status && hw.completion_status !== "Not Checked";
+  return (
+    !!hw.completion_status &&
+    hw.completion_status !== "Not Checked" &&
+    hw.completion_status !== "Submitted"
+  );
+}
+
+/** Handed in and sitting with a tutor, unmarked. The state worth nudging about. */
+export function isAwaitingMarking(
+  hw: Pick<HomeworkCompletion, "completion_status">
+): boolean {
+  return hw.completion_status === "Submitted";
 }
 
 /** How many of these have been checked. */
@@ -18,6 +32,13 @@ export function checkedCount(items: Pick<HomeworkCompletion, "completion_status"
 /** How many are still waiting, which is what the counters on tabs and rows show. */
 export function uncheckedCount(items: Pick<HomeworkCompletion, "completion_status">[]): number {
   return items.length - checkedCount(items);
+}
+
+/** How many are sitting with a tutor, handed in and still owed a verdict. */
+export function awaitingMarkingCount(
+  items: Pick<HomeworkCompletion, "completion_status">[]
+): number {
+  return items.filter(isAwaitingMarking).length;
 }
 
 /** Green once everything is done, orange while anything is still open. */
