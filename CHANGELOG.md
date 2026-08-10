@@ -9,6 +9,11 @@
 * **What a student handed in can be kept with the record**: a tutor who wanted to keep a page of working, or a marked exercise, had nowhere to put it. Photographs and PDFs now attach to a piece of homework. On a phone the camera opens straight from the button, so a book on the desk can be photographed where it lies, and the photographs are shown against the homework they belong to. Opening one shows it full size, and anything attached by mistake can be taken off again.
 
 
+### Improvements
+
+* **Regular Intake shows how many applications are waiting**: the Summer Course item in the side menu carries a count of the applications still to be worked through, and an Open pill while the form is taking submissions. Regular Intake carried nothing, so the only way to know whether anything had come in was to open the page. It now carries the same badge. The count follows the branch picked in the side menu and leaves out anyone enrolled, waitlisted, withdrawn or not arranged, so the number shown is the number still needing someone. When nothing is waiting and the form is still open, the Open pill takes its place, and with the menu collapsed both show as a dot on the icon.
+
+
 ### Bug Fixes
 
 * **A category on the terminated students page can be cleared again**: picking None did nothing once a category had been set, because the choice was dropped the moment it was made and the previous category came straight back. A category picked by mistake could be swapped for another one but never taken off. None now clears it, both on screen and when the changes are saved. Emptying the reason box, or leaving only spaces in it, likewise now records no reason rather than blank text, so a record cleared either way is counted the same in the quarter's breakdown.

@@ -16,6 +16,14 @@ const changelogData = [
         ]
       },
       {
+        "title": "Improvements",
+        "items": [
+          {
+            "description": "**Regular Intake shows how many applications are waiting**: the Summer Course item in the side menu carries a count of the applications still to be worked through, and an Open pill while the form is taking submissions. Regular Intake carried nothing, so the only way to know whether anything had come in was to open the page. It now carries the same badge. The count follows the branch picked in the side menu and leaves out anyone enrolled, waitlisted, withdrawn or not arranged, so the number shown is the number still needing someone. When nothing is waiting and the form is still open, the Open pill takes its place, and with the menu collapsed both show as a dot on the icon."
+          }
+        ]
+      },
+      {
         "title": "Bug Fixes",
         "items": [
           {

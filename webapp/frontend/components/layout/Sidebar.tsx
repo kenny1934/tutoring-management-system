@@ -18,7 +18,7 @@ import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
-import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge } from "@/lib/hooks";
+import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge, useRegularSidebarBadge } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -82,23 +82,31 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     isAdminOrAbove,
     selectedLocation,
   );
+  const { isOpen: regularIsOpen, actionableCount: regularActionable } = useRegularSidebarBadge(
+    isAdminOrAbove,
+    selectedLocation,
+  );
 
   // Per-item badge state for the admin nav. Renewals turns red when any
-  // enrollment has expired; Overdue Payments is always red. Summer Course
-  // shows an "Open" pill (or a dot when collapsed) during the application
-  // window when there's nothing to triage.
+  // enrollment has expired; Overdue Payments is always red. Summer Course and
+  // Regular Intake show an "Open" pill (or a dot when collapsed) during their
+  // application window when there's nothing to triage.
   const adminBadgeFor = (name: string) => {
     const count =
       name === "Renewals" ? renewalCounts?.total
       : name === "Overdue Payments" ? pendingPayments
       : name === "Extensions" ? extensionCount?.count
       : name === "Summer Course" ? summerActionable
+      : name === "Regular Intake" ? regularActionable
       : 0;
     const color =
       name === "Overdue Payments" ? "bg-red-500"
       : name === "Renewals" && (renewalCounts?.expired ?? 0) > 0 ? "bg-red-500"
       : "bg-orange-500";
-    const showOpen = name === "Summer Course" && summerIsOpen && (count ?? 0) <= 0;
+    const isIntakeOpen =
+      (name === "Summer Course" && summerIsOpen) ||
+      (name === "Regular Intake" && regularIsOpen);
+    const showOpen = isIntakeOpen && (count ?? 0) <= 0;
     return { count, color, showOpen };
   };
 

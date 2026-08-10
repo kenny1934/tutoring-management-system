@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, prospectsAPI, api, type ParentCommunication } from './api';
+import { homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { isFileSystemAccessSupported } from './file-system';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion } from '@/types';
@@ -1107,6 +1107,47 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
     const today = new Date().toISOString().slice(0, 10);
     return formConfig.application_open_date <= today && today <= formConfig.application_close_date;
   })();
+
+  const actionableCount = stats
+    ? Object.entries(stats.by_status).reduce(
+        (sum, [status, n]) => (INACTIVE_APP_STATUSES.has(status) ? sum : sum + n),
+        0,
+      )
+    : 0;
+
+  return { isOpen, actionableCount };
+}
+
+/**
+ * Sidebar Regular Intake badge state — the summer badge's counterpart.
+ * - `isOpen`: the public form is inside its application window. The regular
+ *   config resolves this server-side in Hong Kong time, so no date maths here.
+ * - `actionableCount`: applications still in the active workflow at the given
+ *   location. The regular status ladder has the same rungs as summer's, so the
+ *   same inactive set applies.
+ * The public form-config endpoint is unauthenticated; the stats call only fires
+ * for admins.
+ */
+export function useRegularSidebarBadge(isAdmin: boolean, location?: string) {
+  const refreshInterval = useVisibilityAwareInterval(120000); // 2 min
+  // "All Locations" is the unscoped sentinel from LocationContext. Regular
+  // applications store the Chinese branch name in preferred_location, so
+  // translate the sidebar's short code (MSA/MSB) before querying.
+  const scopedLocation = location && location !== "All Locations"
+    ? (CODE_TO_LOCATION[location] ?? location)
+    : undefined;
+  const { data: formConfig } = useSWR(
+    isAdmin ? "regular-public-config" : null,
+    () => regularAPI.getFormConfig(),
+    { revalidateOnFocus: false },
+  );
+  const { data: stats } = useSWR(
+    isAdmin ? ["regular-app-stats-sidebar", scopedLocation ?? "all"] : null,
+    () => regularAPI.getApplicationStats({ location: scopedLocation }),
+    { refreshInterval, revalidateOnFocus: false },
+  );
+
+  const isOpen = formConfig?.application_window === "open";
 
   const actionableCount = stats
     ? Object.entries(stats.by_status).reduce(
