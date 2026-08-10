@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.106](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.105...v2.0.106) (2026-08-10)
+
+
+### Bug Fixes
+
+* **A category on the terminated students page can be cleared again**: picking None did nothing once a category had been set, because the choice was dropped the moment it was made and the previous category came straight back. A category picked by mistake could be swapped for another one but never taken off. None now clears it, both on screen and when the changes are saved. Emptying the reason box, or leaving only spaces in it, likewise now records no reason rather than blank text, so a record cleared either way is counted the same in the quarter's breakdown.
+
 ## [2.0.105](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.104...v2.0.105) (2026-08-07)
 
 
