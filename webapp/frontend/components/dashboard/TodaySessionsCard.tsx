@@ -18,6 +18,8 @@ import { SessionsAccent } from "@/components/illustrations/CardAccents";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
+import { HomeworkCountsProvider } from "@/components/homework/HomeworkCountsProvider";
+import { HomeworkCheckBadge } from "@/components/homework/HomeworkCheckBadge";
 import type { Session, MakeupProposal } from "@/types";
 import { proposalSlotsToSessions, filterProposedSessions } from "@/lib/proposal-utils";
 import type { ProposedSession } from "@/lib/proposal-utils";
@@ -258,6 +260,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   }
 
   return (
+    <HomeworkCountsProvider>
     <div className={cn(
       "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
       !isMobile && "paper-texture",
@@ -634,6 +637,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
         />
       )}
     </div>
+    </HomeworkCountsProvider>
   );
 }
 
@@ -736,8 +740,9 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           )}
         </div>
 
-        {/* Right: Status + Tutor */}
+        {/* Right: Homework + Status + Tutor */}
         <div className="flex-shrink-0 flex items-center gap-2">
+          <HomeworkCheckBadge sessionId={session.id} />
           {/* Status badge */}
           {isLoading ? (
             <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />

@@ -3,14 +3,14 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
-  Check, X, Printer, Loader2, ExternalLink,
+  Check, X, Minus, Printer, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge, YouTubeThumbnail } from "@/components/ui/url-badge";
 import { getPageLabel, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { formatShortDate } from "@/lib/formatters";
-import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
+import type { Session, SessionExercise, HomeworkCompletion, HomeworkStatus } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { SummerCoursewarePanel } from "./SummerCoursewarePanel";
 
@@ -45,7 +45,7 @@ function ExerciseItem({
   isSelected: boolean;
   onClick: () => void;
   hasAnnotations?: boolean;
-  completionStatus?: "submitted" | "not_submitted";
+  completionStatus?: HomeworkStatus;
   onPrint?: (exercise: SessionExercise) => void;
   isPrinting?: boolean;
   printProgress?: string | null;
@@ -111,11 +111,14 @@ function ExerciseItem({
               )}
             </div>
           )}
-          {completionStatus === "submitted" && (
-            <span title="Submitted"><Check className="h-3 w-3 text-green-500" /></span>
+          {completionStatus === "Completed" && (
+            <span title="Homework done"><Check className="h-3 w-3 text-green-500" /></span>
           )}
-          {completionStatus === "not_submitted" && (
-            <span title="Not submitted"><X className="h-3 w-3 text-red-400" /></span>
+          {completionStatus === "Partially Completed" && (
+            <span title="Homework partly done"><Minus className="h-3 w-3 text-amber-500" /></span>
+          )}
+          {completionStatus === "Not Completed" && (
+            <span title="Homework not done"><X className="h-3 w-3 text-red-400" /></span>
           )}
           {hasAnnotations && (
             <span className="w-2 h-2 rounded-full bg-[#a0704b]" title="Has annotations" />
@@ -189,7 +192,7 @@ function ExerciseSection({
                 isSelected={ex.id === selectedExerciseId}
                 onClick={() => onExerciseSelect(ex)}
                 hasAnnotations={hasAnnotations?.(ex.id)}
-                completionStatus={hwc ? (hwc.submitted ? "submitted" : "not_submitted") : undefined}
+                completionStatus={hwc?.completion_status}
                 onPrint={onPrint}
                 isPrinting={printing?.id === ex.id}
                 printProgress={printing?.id === ex.id ? printing.progress : undefined}

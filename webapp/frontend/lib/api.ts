@@ -1,4 +1,8 @@
 import type {
+  HomeworkCompletion,
+  HomeworkCount,
+  HomeworkStatus,
+  SessionHomework,
   Tutor,
   TutorUpdate,
   Student,
@@ -3217,6 +3221,49 @@ export const regularAPI = {
     }),
 };
 
+export const homeworkAPI = {
+  /** Homework still open for a session, keyed by session id. */
+  getToCheck: (params: {
+    sessionIds?: number[];
+    date?: string;
+    tutorId?: number;
+    timeSlot?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params.sessionIds?.length) query.set("session_ids", params.sessionIds.join(","));
+    if (params.date) query.set("date", params.date);
+    if (params.tutorId != null) query.set("tutor_id", String(params.tutorId));
+    if (params.timeSlot) query.set("time_slot", params.timeSlot);
+    return fetchAPI<SessionHomework[]>(`/homework/to-check?${query.toString()}`);
+  },
+
+  /** Open homework counts per session, for list badges. */
+  getCounts: (sessionIds: number[]) => {
+    return fetchAPI<HomeworkCount[]>(
+      `/homework/counts?session_ids=${sessionIds.join(",")}`
+    );
+  },
+
+  /** Mark one homework assignment as checked in this session. */
+  mark: (
+    sessionId: number,
+    sessionExerciseId: number,
+    updates: {
+      completion_status?: HomeworkStatus;
+      homework_rating?: string | null;
+      tutor_comments?: string | null;
+    }
+  ) => {
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }
+    );
+  },
+};
+
 export const api = {
   tutors: tutorsAPI,
   students: studentsAPI,
@@ -3248,4 +3295,5 @@ export const api = {
   auth: authAPI,
   arkLeave: arkLeaveAPI,
   waitlist: waitlistAPI,
+  homework: homeworkAPI,
 };

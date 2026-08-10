@@ -1,0 +1,49 @@
+"use client";
+
+import { Home } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useHomeworkCounts } from "./HomeworkCountsProvider";
+
+/**
+ * Small pill showing how much homework is waiting to be checked in a session.
+ * Renders nothing when the session has none, so rows stay quiet by default.
+ */
+export function HomeworkCheckBadge({
+  sessionId,
+  onClick,
+  className,
+}: {
+  sessionId: number;
+  onClick?: (e: React.MouseEvent) => void;
+  className?: string;
+}) {
+  const counts = useHomeworkCounts(sessionId);
+
+  if (!counts || counts.total === 0) return null;
+
+  const allChecked = counts.checked >= counts.total;
+  const label = `${counts.checked}/${counts.total}`;
+  const title = allChecked
+    ? "All homework checked"
+    : `${counts.total - counts.checked} homework item${counts.total - counts.checked === 1 ? "" : "s"} still to check`;
+
+  const Element = onClick ? "button" : "span";
+
+  return (
+    <Element
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
+        allChecked
+          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+          : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+        onClick && "hover:opacity-80 transition-opacity",
+        className
+      )}
+    >
+      <Home className="h-2.5 w-2.5" />
+      HW {label}
+    </Element>
+  );
+}

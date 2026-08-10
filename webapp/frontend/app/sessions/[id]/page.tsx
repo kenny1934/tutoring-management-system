@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, memo } from "react";
+import React, { useEffect, useState, useCallback, memo } from "react";
 import useSWR from "swr";
 import { useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -12,7 +12,7 @@ import { useBackNavigation } from "@/lib/ui-hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
+import type { Session, CurriculumSuggestion, UpcomingTestAlert, HomeworkCompletion } from "@/types";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import {
   ArrowLeft,
@@ -256,6 +256,19 @@ export default function SessionDetailPage() {
   // SWR hook for session data with caching
   const { data: session, error, isLoading: loading, mutate } = useSession(sessionId);
   const { isReadOnly } = useAuth();
+
+  // Fold a saved homework check back into the cached session.
+  const handleHomeworkMarked = useCallback((updated: HomeworkCompletion) => {
+    void mutate((current) => {
+      if (!current?.homework_completion) return current;
+      return {
+        ...current,
+        homework_completion: current.homework_completion.map((hw) =>
+          hw.session_exercise_id === updated.session_exercise_id ? updated : hw
+        ),
+      };
+    }, { revalidate: false });
+  }, [mutate]);
 
   const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
   const { data: upcomingTests = [] } = useSWR<UpcomingTestAlert[]>(
@@ -508,6 +521,9 @@ export default function SessionDetailPage() {
         <BookmarkTab
           previousSession={session.previous_session}
           homeworkToCheck={session.homework_completion}
+          sessionId={session.id}
+          readOnly={isReadOnly}
+          onHomeworkMarked={handleHomeworkMarked}
         />
 
         {/* Curriculum Tab for Curriculum Suggestions (fixed position) */}

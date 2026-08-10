@@ -274,23 +274,57 @@ export interface ExerciseHistoryResponse {
 }
 
 // Homework Completion types
+export type HomeworkStatus =
+  | "Not Checked"
+  | "Completed"
+  | "Partially Completed"
+  | "Not Completed";
+
+/** One homework assignment still open for a session, with its check state. */
 export interface HomeworkCompletion {
-  id: number;
-  current_session_id: number;
   session_exercise_id: number;
+  current_session_id: number;
   student_id: number;
-  completion_status?: string;
-  submitted: boolean;
-  tutor_comments?: string;
-  checked_by?: number;
-  checked_at?: string;
+
+  // Where it was assigned. sessions_ago is 1 for last session, 2 for the one before.
+  assigned_session_id?: number;
+  homework_assigned_date?: string;
+  assigned_time_slot?: string;
+  assigned_by_tutor_id?: number;
+  assigned_by_tutor?: string;
+  sessions_ago?: number;
+
+  // The assignment
   pdf_name?: string;
   page_start?: number;
   page_end?: number;
+  pages?: string;
   url?: string;
-  homework_assigned_date?: string;
-  assigned_by_tutor_id?: number;
-  assigned_by_tutor?: string;
+  url_title?: string;
+  assignment_remarks?: string;
+
+  // Check state
+  completion_id?: number;
+  completion_status?: HomeworkStatus;
+  homework_rating?: string;
+  tutor_comments?: string;
+  checked_by?: number;
+  checked_at?: string;
+  checked_in_session_id?: number;
+  attachment_count: number;
+}
+
+/** Open homework counts for one session, for list badges. */
+export interface HomeworkCount {
+  session_id: number;
+  total: number;
+  checked: number;
+}
+
+/** Open homework for one session, as returned by the bulk endpoint. */
+export interface SessionHomework {
+  session_id: number;
+  homework: HomeworkCompletion[];
 }
 
 // Curriculum Suggestion types

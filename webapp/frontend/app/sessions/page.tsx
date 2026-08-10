@@ -91,6 +91,8 @@ import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/util
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
+import { HomeworkCountsProvider } from "@/components/homework/HomeworkCountsProvider";
+import { HomeworkCheckBadge } from "@/components/homework/HomeworkCheckBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
 import { flattenSummerClusters } from "@/lib/summer-class-grouping";
@@ -2427,6 +2429,13 @@ export default function SessionsPage() {
                                               <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                             </p>
                                           )}
+                                          <HomeworkCheckBadge
+                                            sessionId={session.id}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleCardClick(session, e);
+                                            }}
+                                          />
                                         </div>
                                       </div>
                                     </div>
@@ -2783,6 +2792,13 @@ export default function SessionsPage() {
                                         <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                       </p>
                                     )}
+                                    <HomeworkCheckBadge
+                                      sessionId={session.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCardClick(session, e);
+                                      }}
+                                    />
                                     {/* Show proposal indicator if session has pending proposal */}
                                     {sessionProposalMap.has(session.id) && (
                                       <ProposalIndicatorBadge
@@ -3034,6 +3050,7 @@ export default function SessionsPage() {
 
   // Non-list views (weekly, daily, monthly)
   return (
+    <HomeworkCountsProvider>
     <>
     <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
       <PageTransition className={cn(
@@ -3117,6 +3134,7 @@ export default function SessionsPage() {
     {/* Quick Attend FAB - mobile only, outside DeskSurface to avoid overflow-hidden clipping */}
     <QuickAttendFAB selectedDate={selectedDate} />
     </>
+    </HomeworkCountsProvider>
   );
 }
 
