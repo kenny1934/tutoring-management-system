@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
+import { useHomeworkToCheck } from "@/lib/hooks";
+import { HomeworkPanel } from "@/components/homework/HomeworkPanel";
+import { useRefreshHomeworkCounts } from "@/components/homework/HomeworkCountsProvider";
 import { updateSessionInCache } from "@/lib/session-cache";
-import type { Session } from "@/types";
+import type { Session, HomeworkCompletion } from "@/types";
 import { ratingToEmoji } from "@/lib/formatters";
 import { GradeBadge } from "@/components/ui/grade-label";
 
@@ -30,6 +33,18 @@ export function RateSessionModal({
 }: RateSessionModalProps) {
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState("");
+
+  // Homework carried over from earlier lessons, marked here at the point the
+  // tutor closes off the session rather than behind a separate disclosure.
+  const sessionIds = useMemo(() => (isOpen ? [session.id] : []), [isOpen, session.id]);
+  const { bySession, applyMark } = useHomeworkToCheck(sessionIds);
+  const openHomework = bySession.get(session.id) ?? [];
+  const refreshHomeworkCounts = useRefreshHomeworkCounts();
+
+  const handleHomeworkMarked = useCallback((updated: HomeworkCompletion) => {
+    applyMark(updated);
+    refreshHomeworkCounts(updated.current_session_id);
+  }, [applyMark, refreshHomeworkCounts]);
 
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);
@@ -212,6 +227,14 @@ export function RateSessionModal({
             {new Date(session.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} | {session.time_slot}
           </span>
         </div>
+
+        {/* Homework still open from earlier lessons */}
+        <HomeworkPanel
+          items={openHomework}
+          sessionId={session.id}
+          readOnly={readOnly}
+          onMarked={handleHomeworkMarked}
+        />
 
         {/* Performance Rating */}
         <div className="space-y-2">

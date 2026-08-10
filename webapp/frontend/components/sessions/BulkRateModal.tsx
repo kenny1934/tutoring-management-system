@@ -9,9 +9,12 @@ import { MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { sessionsAPI } from "@/lib/api";
+import { useHomeworkToCheck } from "@/lib/hooks";
+import { HomeworkPanel } from "@/components/homework/HomeworkPanel";
+import { useRefreshHomeworkCounts } from "@/components/homework/HomeworkCountsProvider";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useFormDirtyTracking } from "@/lib/ui-hooks";
-import type { Session } from "@/types";
+import type { Session, HomeworkCompletion } from "@/types";
 import { ratingToEmoji } from "@/lib/formatters";
 import { GradeBadge } from "@/components/ui/grade-label";
 
@@ -68,6 +71,20 @@ export function BulkRateModal({
   }, [focusedIndex]);
 
   const focusedSession = sessions[focusedIndex];
+
+  // One request covers every session on show, so a whole slot's outstanding
+  // homework is markable without leaving the modal.
+  const sessionIds = useMemo(
+    () => (isOpen ? sessions.map((s) => s.id) : []),
+    [isOpen, sessions]
+  );
+  const { bySession, applyMark } = useHomeworkToCheck(sessionIds);
+  const refreshHomeworkCounts = useRefreshHomeworkCounts();
+
+  const handleHomeworkMarked = useCallback((updated: HomeworkCompletion) => {
+    applyMark(updated);
+    refreshHomeworkCounts(updated.current_session_id);
+  }, [applyMark, refreshHomeworkCounts]);
 
   // Compute which sessions have changes
   const changedSessionIds = useMemo(() => {
@@ -309,6 +326,14 @@ export function BulkRateModal({
 
                 {/* Rating controls — always visible */}
                 <div className="px-3 pb-3 pt-1 space-y-3">
+                  <HomeworkPanel
+                    items={bySession.get(session.id) ?? []}
+                    sessionId={session.id}
+                    readOnly={readOnly}
+                    onMarked={handleHomeworkMarked}
+                    title="Homework to check"
+                  />
+
                   {/* Star rating */}
                   <div className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
                     <StarRating
