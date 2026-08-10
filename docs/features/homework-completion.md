@@ -63,10 +63,13 @@ core change from the legacy design and everything else follows from it.
 | 154 | The rework above | Applied to prod 2026-08-10 |
 | 155 | Restores `previous_session_id` and `submitted` on the view as aliases | Applied to prod 2026-08-10 |
 | 156 | `homework_files.thumbnail_path`, nullable | Applied to prod 2026-08-10 |
+| 157 | Drops the 155 aliases now the new backend is live | Applied to prod 2026-08-10 |
 
-**Migration 155 exists only because the deployed backend still selects those two
-columns.** Once this branch's backend is live, a follow-up migration should drop
-them from the view. Do not drop them before the deploy.
+Migration 155 existed only because the backend deployed at the time still
+selected those two columns. It was the fix for breaking production by renaming a
+column out from under a running deploy. Migration 157 removed the aliases once
+v2.0.107 was live, so the view is back to one name per thing. The lesson stands:
+never rename or drop a column the deployed backend selects.
 
 ---
 
@@ -278,9 +281,6 @@ the tool.
 
 Still outstanding:
 
-- After the backend deploys, a migration to drop the 155 compatibility aliases.
-  Migrations 154, 155 and 156 are already in production, so the deploy needs no
-  database step of its own.
 - Consider capping `HomeworkPanel` at the 3 most recent items with an "N older"
   line: a student with 6 outstanding makes the rate modal tall.
 - `app/sessions/lesson/page.tsx` fetches the day with `limit: 50`, which a busy
