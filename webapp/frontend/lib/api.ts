@@ -1,4 +1,8 @@
 import type {
+  HomeworkCompletion,
+  HomeworkCount,
+  HomeworkStatus,
+  SessionHomework,
   Tutor,
   TutorUpdate,
   Student,
@@ -325,10 +329,13 @@ export class ApiError extends Error {
 // Generic fetch wrapper with error handling and automatic token refresh
 async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
   try {
-    // Build headers with optional impersonation role
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    // Build headers with optional impersonation role. A multipart body has to
+    // set its own Content-Type, boundary included, so leave it to the browser.
+    const isMultipart =
+      typeof FormData !== "undefined" && options?.body instanceof FormData;
+    const headers: Record<string, string> = isMultipart
+      ? {}
+      : { "Content-Type": "application/json" };
 
     // Add impersonation header if Super Admin is impersonating another role
     if (typeof window !== "undefined") {
@@ -3217,6 +3224,60 @@ export const regularAPI = {
     }),
 };
 
+export const homeworkAPI = {
+  /** Homework still open for each of the given sessions, keyed by session id. */
+  getToCheck: (sessionIds: number[]) => {
+    return fetchAPI<SessionHomework[]>(
+      `/homework/to-check?session_ids=${sessionIds.join(",")}`
+    );
+  },
+
+  /** Open homework counts per session, for list badges. */
+  getCounts: (sessionIds: number[]) => {
+    return fetchAPI<HomeworkCount[]>(
+      `/homework/counts?session_ids=${sessionIds.join(",")}`
+    );
+  },
+
+  /** Attach a photo or PDF of what the student handed in. */
+  uploadFile: (sessionId: number, sessionExerciseId: number, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}/files`,
+      { method: "POST", body: formData }
+    );
+  },
+
+  /** Remove one attachment. Returns the homework with its remaining files. */
+  deleteFile: (sessionId: number, sessionExerciseId: number, fileId: number) => {
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}/files/${fileId}`,
+      { method: "DELETE" }
+    );
+  },
+
+  /** Mark one homework assignment as checked in this session. */
+  mark: (
+    sessionId: number,
+    sessionExerciseId: number,
+    updates: {
+      completion_status?: HomeworkStatus;
+      homework_rating?: string | null;
+      tutor_comments?: string | null;
+    }
+  ) => {
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }
+    );
+  },
+};
+
 export const api = {
   tutors: tutorsAPI,
   students: studentsAPI,
@@ -3248,4 +3309,5 @@ export const api = {
   auth: authAPI,
   arkLeave: arkLeaveAPI,
   waitlist: waitlistAPI,
+  homework: homeworkAPI,
 };

@@ -13,6 +13,7 @@ import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, 
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import {
   ArrowLeft,
@@ -256,6 +257,8 @@ export default function SessionDetailPage() {
   // SWR hook for session data with caching
   const { data: session, error, isLoading: loading, mutate } = useSession(sessionId);
   const { isReadOnly } = useAuth();
+
+  const handleHomeworkMarked = useHomeworkMarked();
 
   const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
   const { data: upcomingTests = [] } = useSWR<UpcomingTestAlert[]>(
@@ -508,6 +511,9 @@ export default function SessionDetailPage() {
         <BookmarkTab
           previousSession={session.previous_session}
           homeworkToCheck={session.homework_completion}
+          sessionId={session.id}
+          readOnly={isReadOnly}
+          onHomeworkMarked={handleHomeworkMarked}
         />
 
         {/* Curriculum Tab for Curriculum Suggestions (fixed position) */}

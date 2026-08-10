@@ -10,6 +10,8 @@ import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
+import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { uncheckedCount } from "@/lib/homework-utils";
 
 // Copy button component for PDF paths
 function CopyButton({ text }: { text: string }) {
@@ -47,9 +49,19 @@ function CopyButton({ text }: { text: string }) {
 interface BookmarkTabProps {
   previousSession: Session["previous_session"];
   homeworkToCheck?: HomeworkCompletion[];
+  /** Session the tutor is marking homework from. */
+  sessionId: number;
+  readOnly?: boolean;
+  onHomeworkMarked?: (updated: HomeworkCompletion) => void;
 }
 
-export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkTabProps) {
+export function BookmarkTab({
+  previousSession,
+  homeworkToCheck = [],
+  sessionId,
+  readOnly,
+  onHomeworkMarked,
+}: BookmarkTabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isClassworkExpanded, setIsClassworkExpanded] = useState(false);
@@ -83,9 +95,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
   ) || [];
 
   // Count unchecked homework
-  const uncheckedCount = homeworkToCheck.filter(hw =>
-    !hw.completion_status || hw.completion_status === "Not Checked"
-  ).length;
+  const openHomeworkCount = uncheckedCount(homeworkToCheck);
 
   // Shared content component
   const TabContent = () => (
@@ -274,9 +284,9 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
             <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
               Homework
             </h4>
-            {uncheckedCount > 0 && (
+            {openHomeworkCount > 0 && (
               <Badge variant="destructive" className="text-xs ml-auto">
-                {uncheckedCount}
+                {openHomeworkCount}
               </Badge>
             )}
           </button>
@@ -294,64 +304,25 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                 <div className="space-y-1.5 pb-2">
                   {homeworkToCheck.map((hw, index) => (
                     <div
-                      key={hw.id}
+                      key={hw.session_exercise_id}
                       className={cn(
-                        "py-2 px-2.5 bg-[#f5ede3]/50 dark:bg-[#3a3020]/30 rounded border border-[#d4a574]/20",
+                        "py-1.5 px-2.5 bg-[#f5ede3]/50 dark:bg-[#3a3020]/30 rounded border border-[#d4a574]/20",
                         index > 0 && "mt-1.5"
                       )}
                     >
-                      {/* Main row: PDF name with copy button and status */}
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={hw.pdf_name || hw.url}>
-                            {getExerciseDisplayName(hw)}
-                          </p>
+                      <div className="flex items-start gap-1.5">
+                        <div className="flex-1 min-w-0">
+                          <HomeworkCheckRow
+                            homework={hw}
+                            sessionId={sessionId}
+                            readOnly={readOnly}
+                            onMarked={onHomeworkMarked}
+                          />
+                        </div>
+                        <div className="pt-2 flex-shrink-0">
                           <CopyButton text={hw.pdf_name || hw.url || ""} />
                         </div>
-                        <Badge
-                          variant={
-                            hw.completion_status === "Completed" ? "success" :
-                            hw.completion_status === "Partially Completed" ? "warning" :
-                            hw.completion_status === "Not Completed" ? "destructive" :
-                            "default"
-                          }
-                          className="text-[9px] h-4 px-1.5 shrink-0"
-                        >
-                          {hw.completion_status || "Not Checked"}
-                        </Badge>
                       </div>
-
-                      {/* Metadata row */}
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-                        {(hw.page_start || hw.page_end) && (
-                          <span>
-                            p.{hw.page_start}
-                            {hw.page_end && hw.page_end !== hw.page_start && `-${hw.page_end}`}
-                          </span>
-                        )}
-                        {hw.homework_assigned_date && (
-                          <span className="flex items-center gap-1">
-                            <span className="text-muted-foreground/50">•</span>
-                            {new Date(hw.homework_assigned_date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
-                        )}
-                        {hw.assigned_by_tutor && (
-                          <span className="flex items-center gap-1">
-                            <span className="text-muted-foreground/50">•</span>
-                            {getTutorDisplayName(hw.assigned_by_tutor)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Comments if any */}
-                      {hw.tutor_comments && (
-                        <p className="text-[10px] italic text-foreground/70 mt-1 leading-tight">
-                          &ldquo;{hw.tutor_comments}&rdquo;
-                        </p>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -374,9 +345,9 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
         }}
       >
         <History className="h-5 w-5 text-white" />
-        {uncheckedCount > 0 && (
+        {openHomeworkCount > 0 && (
           <div className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-            <span className="text-[10px] font-bold text-white">{uncheckedCount}</span>
+            <span className="text-[10px] font-bold text-white">{openHomeworkCount}</span>
           </div>
         )}
       </button>
@@ -433,9 +404,9 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
           </div>
 
           {/* Notification badge */}
-          {uncheckedCount > 0 && (
+          {openHomeworkCount > 0 && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-              <span className="text-[10px] font-bold text-white">{uncheckedCount}</span>
+              <span className="text-[10px] font-bold text-white">{openHomeworkCount}</span>
             </div>
           )}
         </button>

@@ -12,7 +12,7 @@ import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import { useLocation } from "@/contexts/LocationContext";
-import type { Session, PageSelection, CoursewarePopularity, ExerciseHistorySession } from "@/types";
+import type { Session, PageSelection, CoursewarePopularity, ExerciseHistorySession, HomeworkCompletion } from "@/types";
 import Link from "next/link";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
 import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-modal";
@@ -31,6 +31,9 @@ import { YouTubeThumbnail } from "@/components/ui/url-badge";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
+import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { uncheckedCount } from "@/lib/homework-utils";
 import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
 import { SummerMaterialsSection } from "./SummerMaterialsSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -219,10 +222,10 @@ export function ExerciseModal({
   // Fetch detailed session data for recap (previous session, homework completion)
   const { data: detailedSession, isLoading: isLoadingDetails } = useSession(session?.id ?? 0);
 
+  const handleHomeworkMarked = useHomeworkMarked();
+
   // Compute recap data
-  const uncheckedHwCount = detailedSession?.homework_completion?.filter(
-    hw => !hw.completion_status || hw.completion_status === "Not Checked"
-  ).length || 0;
+  const uncheckedHwCount = uncheckedCount(detailedSession?.homework_completion || []);
 
   const starCount = detailedSession?.previous_session?.performance_rating
     ? (detailedSession.previous_session.performance_rating.match(/⭐/g) || []).length
@@ -1184,27 +1187,21 @@ export function ExerciseModal({
                     )}
                   </div>
                 )}
-                {/* Homework to Check */}
+                {/* Homework to check, markable in place */}
                 {detailedSession?.homework_completion && detailedSession.homework_completion.length > 0 && (
-                  <div className="text-xs space-y-0.5">
+                  <div className="text-xs">
                     <span className="text-gray-500 text-[10px]">HW to check:</span>
-                    {detailedSession.homework_completion.map((hw, i) => (
-                      <div key={i} className="flex items-center gap-1.5">
-                        <span className={cn(
-                          "text-[9px] px-1 rounded flex-shrink-0",
-                          hw.completion_status === 'Completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                          hw.completion_status === 'Partially Completed' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                          'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                        )}>
-                          {hw.completion_status === 'Completed' ? '✓' : hw.completion_status === 'Partially Completed' ? '~' : '○'}
-                        </span>
-                        {(hw.pdf_name || hw.url) ? (
-                          <RecapExerciseItem pdfName={hw.pdf_name || ''} url={hw.url} stamp={recapStamp} />
-                        ) : (
-                          <span className="text-gray-500 italic">No file</span>
-                        )}
-                      </div>
-                    ))}
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {detailedSession.homework_completion.map((hw) => (
+                        <HomeworkCheckRow
+                          key={hw.session_exercise_id}
+                          homework={hw}
+                          sessionId={session.id}
+                          readOnly={readOnly}
+                          onMarked={handleHomeworkMarked}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

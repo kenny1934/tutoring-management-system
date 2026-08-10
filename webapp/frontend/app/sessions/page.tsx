@@ -91,6 +91,8 @@ import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/util
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
+import { HomeworkCountsProvider } from "@/components/homework/HomeworkCountsProvider";
+import { HomeworkCheckBadge } from "@/components/homework/HomeworkCheckBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
 import { flattenSummerClusters } from "@/lib/summer-class-grouping";
@@ -148,7 +150,19 @@ function resolveViewMode(urlView: string | null, urlFilter: string | null): View
   return (urlView as ViewMode) || 'list';
 }
 
+/**
+ * One provider above the view-mode branch, so homework badges get their counts
+ * whichever view renders them.
+ */
 export default function SessionsPage() {
+  return (
+    <HomeworkCountsProvider>
+      <SessionsPageContent />
+    </HomeworkCountsProvider>
+  );
+}
+
+function SessionsPageContent() {
   usePageTitle("Sessions");
 
   const { selectedLocation } = useLocation();
@@ -2427,6 +2441,13 @@ export default function SessionsPage() {
                                               <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                             </p>
                                           )}
+                                          <HomeworkCheckBadge
+                                            sessionId={session.id}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleCardClick(session, e);
+                                            }}
+                                          />
                                         </div>
                                       </div>
                                     </div>
@@ -2783,6 +2804,13 @@ export default function SessionsPage() {
                                         <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                       </p>
                                     )}
+                                    <HomeworkCheckBadge
+                                      sessionId={session.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCardClick(session, e);
+                                      }}
+                                    />
                                     {/* Show proposal indicator if session has pending proposal */}
                                     {sessionProposalMap.has(session.id) && (
                                       <ProposalIndicatorBadge

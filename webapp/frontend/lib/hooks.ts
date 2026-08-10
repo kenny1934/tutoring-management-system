@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, prospectsAPI, api, type ParentCommunication } from './api';
+import { homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, prospectsAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -197,6 +197,32 @@ export function useSessions(filters?: SessionFilters) {
     key,
     () => sessionsAPI.getAll(filters)
   );
+}
+
+/**
+ * Homework still open across a set of sessions, keyed by session id.
+ *
+ * One request covers the whole set, so callers holding several sessions (the
+ * bulk rate modal, wide lesson mode) do not fan out per session.
+ */
+export function useHomeworkToCheck(sessionIds: number[] | null | undefined) {
+  const ids = useMemo(
+    () => (sessionIds?.length ? [...new Set(sessionIds)].sort((a, b) => a - b) : []),
+    [sessionIds]
+  );
+
+  const { data, isLoading } = useSWR(
+    ids.length ? ['homework-to-check', ids.join(',')] : null,
+    () => homeworkAPI.getToCheck(ids)
+  );
+
+  const bySession = useMemo(() => {
+    const map = new Map<number, HomeworkCompletion[]>();
+    data?.forEach((entry) => map.set(entry.session_id, entry.homework));
+    return map;
+  }, [data]);
+
+  return { bySession, isLoading };
 }
 
 /**

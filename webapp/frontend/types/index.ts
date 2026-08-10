@@ -274,23 +274,75 @@ export interface ExerciseHistoryResponse {
 }
 
 // Homework Completion types
-export interface HomeworkCompletion {
+export type HomeworkStatus =
+  | "Not Checked"
+  | "Completed"
+  | "Partially Completed"
+  | "Not Completed";
+
+/** A photo or PDF of what the student handed in. */
+export interface HomeworkFile {
   id: number;
-  current_session_id: number;
+  file_path: string;
+  /** Small derivative for previews. Absent on older rows and on PDFs. */
+  thumbnail_path?: string;
+  // The column allows 'document' as well, but only photos and PDFs can be
+  // attached, so nothing writes it.
+  file_type: "image" | "pdf";
+  file_name?: string;
+  file_size_kb?: number;
+  file_order?: number;
+  uploaded_at?: string;
+  uploaded_by?: string;
+}
+
+/** One homework assignment still open for a session, with its check state. */
+export interface HomeworkCompletion {
   session_exercise_id: number;
+  current_session_id: number;
   student_id: number;
-  completion_status?: string;
-  submitted: boolean;
-  tutor_comments?: string;
-  checked_by?: number;
-  checked_at?: string;
+
+  // Where it was assigned. sessions_ago is 1 for last session, 2 for the one before.
+  assigned_session_id?: number;
+  homework_assigned_date?: string;
+  assigned_time_slot?: string;
+  assigned_by_tutor_id?: number;
+  assigned_by_tutor?: string;
+  sessions_ago?: number;
+
+  // The assignment
   pdf_name?: string;
   page_start?: number;
   page_end?: number;
   url?: string;
-  homework_assigned_date?: string;
-  assigned_by_tutor_id?: number;
-  assigned_by_tutor?: string;
+  url_title?: string;
+  assignment_remarks?: string;
+
+  // Check state
+  completion_id?: number;
+  completion_status?: HomeworkStatus;
+  homework_rating?: string;
+  tutor_comments?: string;
+  checked_by?: number;
+  checked_at?: string;
+  checked_in_session_id?: number;
+
+  // What the student handed in
+  attachment_count: number;
+  files: HomeworkFile[];
+}
+
+/** Open homework counts for one session, for list badges. */
+export interface HomeworkCount {
+  session_id: number;
+  total: number;
+  checked: number;
+}
+
+/** Open homework for one session, as returned by the bulk endpoint. */
+export interface SessionHomework {
+  session_id: number;
+  homework: HomeworkCompletion[];
 }
 
 // Curriculum Suggestion types

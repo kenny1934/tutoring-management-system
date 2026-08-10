@@ -724,24 +724,98 @@ class SessionUpdate(BaseModel):
     clear_lesson_number: bool = False
 
 
-class HomeworkCompletionResponse(BaseModel):
-    """Homework completion tracking response"""
+HOMEWORK_STATUSES = ('Not Checked', 'Completed', 'Partially Completed', 'Not Completed')
+
+
+class HomeworkFileResponse(BaseModel):
+    """A file uploaded against a homework check"""
     id: int = Field(..., gt=0)
-    current_session_id: int = Field(..., gt=0)
+    file_path: str = Field(..., max_length=500)
+    # Small derivative for previews. Null means show file_path instead.
+    thumbnail_path: Optional[str] = Field(None, max_length=500)
+    file_type: str = Field(..., max_length=20)
+    file_name: Optional[str] = Field(None, max_length=255)
+    file_size_kb: Optional[int] = None
+    file_order: Optional[int] = None
+    uploaded_at: Optional[datetime] = None
+    uploaded_by: Optional[str] = Field(None, max_length=255)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkCompletionResponse(BaseModel):
+    """One homework assignment still open for a session, with its check state"""
     session_exercise_id: int = Field(..., gt=0)
+    current_session_id: int = Field(..., gt=0)
     student_id: int = Field(..., gt=0)
-    completion_status: Optional[str] = Field(None, max_length=50)
-    submitted: bool = False
-    tutor_comments: Optional[str] = Field(None, max_length=1000)
-    checked_by: Optional[int] = Field(None, gt=0)
-    checked_at: Optional[datetime] = None
+
+    # Where it came from. sessions_ago is 1 for last session, 2 for the one before.
+    assigned_session_id: Optional[int] = Field(None, gt=0)
+    homework_assigned_date: Optional[date] = None
+    assigned_time_slot: Optional[str] = Field(None, max_length=100)
+    assigned_by_tutor_id: Optional[int] = Field(None, gt=0)
+    assigned_by_tutor: Optional[str] = Field(None, max_length=200)
+    sessions_ago: Optional[int] = None
+
+    # The assignment
     pdf_name: Optional[str] = Field(None, max_length=500)
     page_start: Optional[int] = Field(None, gt=0)
     page_end: Optional[int] = Field(None, gt=0)
     url: Optional[str] = Field(None, max_length=2048)
-    homework_assigned_date: Optional[date] = None
-    assigned_by_tutor_id: Optional[int] = Field(None, gt=0)
-    assigned_by_tutor: Optional[str] = Field(None, max_length=200)
+    url_title: Optional[str] = Field(None, max_length=500)
+    assignment_remarks: Optional[str] = None
+
+    # Check state
+    completion_id: Optional[int] = Field(None, gt=0)
+    completion_status: Optional[str] = Field(None, max_length=50)
+    homework_rating: Optional[str] = Field(None, max_length=10)
+    tutor_comments: Optional[str] = Field(None, max_length=1000)
+    checked_by: Optional[int] = Field(None, gt=0)
+    checked_at: Optional[datetime] = None
+    checked_in_session_id: Optional[int] = Field(None, gt=0)
+
+    # What the student handed in. attachment_count comes from the view and is
+    # filled for list rows; files is populated wherever they are shown.
+    attachment_count: int = 0
+    files: List[HomeworkFileResponse] = []
+
+    @field_validator('attachment_count', mode='before')
+    @classmethod
+    def default_attachment_count(cls, v):
+        return v or 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkMarkRequest(BaseModel):
+    """Mark one homework assignment. Omitted fields are left untouched."""
+    completion_status: Optional[str] = None
+    homework_rating: Optional[str] = Field(None, max_length=10)
+    tutor_comments: Optional[str] = Field(None, max_length=1000)
+
+    @field_validator('completion_status')
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None and v not in HOMEWORK_STATUSES:
+            raise ValueError(f"completion_status must be one of {', '.join(HOMEWORK_STATUSES)}")
+        return v
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkCountResponse(BaseModel):
+    """How much homework is open for one session"""
+    session_id: int = Field(..., gt=0)
+    total: int = 0
+    checked: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SessionHomeworkResponse(BaseModel):
+    """Homework still open for one session"""
+    session_id: int = Field(..., gt=0)
+    homework: List[HomeworkCompletionResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 

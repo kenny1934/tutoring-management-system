@@ -18,10 +18,11 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
+from models import SessionLog, Student, Tutor, SessionExercise, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
+from routers.homework import load_homework_to_check
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates, batch_load_summer_slots, borrowed_lesson_number
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import (
@@ -713,46 +714,8 @@ async def get_session_detail(
         for exercise in exercises_by_session.get(session_id, [])
     ]
 
-    # Load homework to check from previous session (using homework_to_check view)
-    homework_to_check = db.query(HomeworkToCheck).filter(
-        HomeworkToCheck.current_session_id == session_id
-    ).all()
-
-    # Convert homework_to_check view data to HomeworkCompletionResponse format
-    homework_completion_list = []
-    for hw in homework_to_check:
-        # Parse pages field (e.g., "p.1-3" or "p.5") into page_start and page_end
-        page_start = None
-        page_end = None
-        if hw.pages:
-            pages_str = hw.pages.replace('p.', '')
-            if '-' in pages_str:
-                parts = pages_str.split('-')
-                page_start = int(parts[0]) if parts[0].isdigit() else None
-                page_end = int(parts[1]) if parts[1].isdigit() else None
-            elif pages_str.isdigit():
-                page_start = int(pages_str)
-
-        homework_completion_list.append(HomeworkCompletionResponse(
-            id=hw.session_exercise_id,  # Use exercise ID as identifier
-            current_session_id=hw.current_session_id,
-            session_exercise_id=hw.session_exercise_id,
-            student_id=hw.student_id,
-            completion_status=hw.completion_status,
-            submitted=hw.submitted or False,
-            tutor_comments=hw.tutor_comments,
-            checked_by=hw.checked_by,
-            checked_at=hw.checked_at,
-            pdf_name=hw.pdf_name,
-            page_start=page_start,
-            page_end=page_end,
-            url=hw.url,
-            homework_assigned_date=hw.homework_assigned_date,
-            assigned_by_tutor_id=hw.assigned_by_tutor_id,
-            assigned_by_tutor=hw.assigned_by_tutor
-        ))
-
-    session_data.homework_completion = homework_completion_list
+    # Homework still open for this session, going back up to three sat sessions
+    session_data.homework_completion = load_homework_to_check(db, [session_id]).get(session_id, [])
 
     # Build previous session data with pre-loaded exercises
     if previous_session:

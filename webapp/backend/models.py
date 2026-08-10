@@ -401,40 +401,83 @@ class SessionExercise(Base):
 class HomeworkCompletion(Base):
     """
     Tracks homework completion status for each assignment.
-    Links session exercises to student completion records.
+
+    One row per homework assignment, not per checking session: an assignment
+    stays open across sessions until someone marks it, and the row records
+    which session it was finally checked in.
     """
     __tablename__ = "homework_completion"
 
     id = Column(Integer, primary_key=True, index=True)
-    current_session_id = Column(Integer, ForeignKey("session_log.id"), nullable=False)
-    session_exercise_id = Column(Integer, ForeignKey("session_exercises.id"), nullable=False)
+    current_session_id = Column(Integer, ForeignKey("session_log.id"), nullable=False,
+                                comment='Session in which the homework was checked')
+    session_exercise_id = Column(Integer, ForeignKey("session_exercises.id", ondelete="SET NULL"), nullable=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
     completion_status = Column(
         Enum('Not Checked', 'Completed', 'Partially Completed', 'Not Completed', name='completion_status_enum'),
         nullable=True
     )
+    homework_rating = Column(String(10), nullable=True, comment='Star rating as emojis, NULL = not rated')
+    # Legacy AppSheet flag, kept in sync with completion_status so the older
+    # reporting queries keep working. completion_status is the source of truth.
     submitted = Column(Boolean, default=False)
     tutor_comments = Column(Text)
     checked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     checked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=True)
 
-    # Denormalized homework details from session_exercises
+    # Snapshot of the assignment, so history survives the exercise being edited
     pdf_name = Column(String(255))
     page_start = Column(Integer)
     page_end = Column(Integer)
     url = Column(String(2048), nullable=True)
+    exercise_remarks = Column(Text)
+    assigned_date = Column(Date, nullable=True)
+    assigned_by_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=True)
 
     # Relationships
     session = relationship("SessionLog", foreign_keys=[current_session_id])
     exercise = relationship("SessionExercise", foreign_keys=[session_exercise_id])
     student = relationship("Student", foreign_keys=[student_id])
     checked_by_tutor = relationship("Tutor", foreign_keys=[checked_by])
+    files = relationship(
+        "HomeworkFile",
+        back_populates="completion",
+        cascade="all, delete-orphan",
+        order_by="HomeworkFile.file_order",
+    )
+
+
+class HomeworkFile(Base):
+    """
+    Files a tutor uploaded for a homework check: photos of the work handed in,
+    scanned pages, or a PDF.
+    """
+    __tablename__ = "homework_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    homework_completion_id = Column(
+        Integer, ForeignKey("homework_completion.id", ondelete="CASCADE"), nullable=False
+    )
+    file_path = Column(String(500), nullable=False, comment='Public storage URL')
+    # Small derivative for list previews. NULL on rows written before
+    # thumbnails existed, and on anything that is not an image.
+    thumbnail_path = Column(String(500), nullable=True)
+    file_type = Column(Enum('image', 'pdf', 'document', name='homework_file_type_enum'), nullable=False)
+    file_name = Column(String(255))
+    file_size_kb = Column(Integer)
+    file_order = Column(Integer, default=1)
+    uploaded_at = Column(DateTime, nullable=True)
+    uploaded_by = Column(String(255))
+
+    completion = relationship("HomeworkCompletion", back_populates="files")
 
 
 class HomeworkToCheck(Base):
     """
-    View that shows homework from previous session that needs checking in current session.
-    Read-only view - combines data from session_exercises and homework_completion.
+    View of homework still open for a session: assignments from up to three
+    sat sessions back that nobody has marked yet, plus anything marked in this
+    session. Read-only.
     """
     __tablename__ = "homework_to_check"
     __table_args__ = {'info': {'is_view': True}}  # Mark as view for SQLAlchemy
@@ -450,24 +493,32 @@ class HomeworkToCheck(Base):
     student_name = Column(String(255))
     current_tutor_name = Column(String(255))
 
-    # Previous session info
-    previous_session_id = Column(Integer)
+    # Where the homework was assigned, which may be several sessions back
+    assigned_session_id = Column(Integer)
     homework_assigned_date = Column(Date)
+    assigned_time_slot = Column(String(100))
     assigned_by_tutor_id = Column(Integer)
     assigned_by_tutor = Column(String(255))
+    sessions_ago = Column(Integer)
 
     # Homework details from session_exercises
     pdf_name = Column(String(255))
     url = Column(String(2048))
+    url_title = Column(String(500))
+    page_start = Column(Integer)
+    page_end = Column(Integer)
     pages = Column(String(50))
     assignment_remarks = Column(Text)
 
     # Completion status from homework_completion (if checked)
+    completion_id = Column(Integer)
     completion_status = Column(String(50))
-    submitted = Column(Boolean)
+    homework_rating = Column(String(10))
     tutor_comments = Column(Text)
     checked_at = Column(DateTime)
     checked_by = Column(Integer)
+    checked_in_session_id = Column(Integer)
+    attachment_count = Column(Integer)
     check_status = Column(String(20))  # 'Checked' or 'Pending'
 
 

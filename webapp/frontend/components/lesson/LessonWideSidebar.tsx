@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import {
   PenTool, BookOpen, ChevronDown, Pencil, Plus, FileX,
-  Users, FileStack, User, Printer, Loader2,
+  Users, FileStack, User, Printer, Loader2, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
@@ -14,9 +14,11 @@ import { SummerCoursewareWidePanel } from "./SummerCoursewareWidePanel";
 import { StudentPickerPopover } from "./StudentPickerPopover";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "@/components/sessions/EditableLessonNumberBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
-import type { Session } from "@/types";
+import type { Session, HomeworkCompletion } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { checkedCount } from "@/lib/homework-utils";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -37,6 +39,9 @@ interface LessonWideSidebarProps {
   onBulkAssign?: (type: "CW" | "HW", sessionIds?: number[]) => void;
   /** Bundled printing state: which exercise ID is printing + progress message. */
   printing?: PrintingState;
+  /** Homework carried in from earlier lessons, keyed by session. */
+  homeworkBySession?: Map<number, HomeworkCompletion[]>;
+  onHomeworkMarked?: (updated: HomeworkCompletion) => void;
 }
 
 // --- By-Student mode components ---
@@ -126,6 +131,8 @@ function StudentBlock({
   onPrint,
   onBulkPrintStudent,
   printing,
+  homework,
+  onHomeworkMarked,
 }: {
   session: Session;
   entries: StudentExerciseEntry[];
@@ -139,6 +146,8 @@ function StudentBlock({
   onPrint?: (entry: StudentExerciseEntry) => void;
   onBulkPrintStudent?: (session: Session, type: 'CW' | 'HW') => void;
   printing?: PrintingState;
+  homework: HomeworkCompletion[];
+  onHomeworkMarked?: (updated: HomeworkCompletion) => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
@@ -251,6 +260,16 @@ function StudentBlock({
             className="overflow-hidden"
           >
             <div className="pl-3 pr-1 pt-1 pb-2 flex flex-col gap-3 border-l-2 border-[#e8d4b8] dark:border-[#3a3228] ml-4">
+              {/* Last lesson's homework comes first: it is the thing to settle
+                  before starting on today's work. */}
+              {homework.length > 0 && (
+                <HomeworkCheckSection
+                  sessionId={session.id}
+                  items={homework}
+                  isReadOnly={isReadOnly}
+                  onMarked={onHomeworkMarked}
+                />
+              )}
               {cwEntries.length > 0 && (
                 <ExerciseTypeSection
                   label="Classwork"
@@ -281,11 +300,88 @@ function StudentBlock({
                   printing={printing}
                 />
               )}
-              {cwEntries.length === 0 && hwEntries.length === 0 && (
+              {cwEntries.length === 0 && hwEntries.length === 0 && homework.length === 0 && (
                 <p className="text-xs text-[#b0a090] dark:text-[#706050] italic text-center py-2">
                   No exercises assigned
                 </p>
               )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * Homework set in earlier lessons, ready to mark.
+ *
+ * Collapsed by default and styled as a pinned note rather than a third
+ * exercise section: it is a reminder about the last lesson, not part of this
+ * one. The dashed edge and the count carry the signal; opening it is a choice.
+ */
+function HomeworkCheckSection({
+  sessionId,
+  items,
+  isReadOnly,
+  onMarked,
+}: {
+  sessionId: number;
+  items: HomeworkCompletion[];
+  isReadOnly?: boolean;
+  onMarked?: (updated: HomeworkCompletion) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const done = checkedCount(items);
+  const outstanding = done < items.length;
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        title={
+          outstanding
+            ? `${items.length - done} to check from earlier lessons`
+            : "All homework checked"
+        }
+        className={cn(
+          "w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-dashed transition-colors",
+          outstanding
+            ? "border-amber-400/60 bg-amber-50/60 text-amber-700 hover:bg-amber-50 dark:border-amber-600/40 dark:bg-amber-900/10 dark:text-amber-400/90 dark:hover:bg-amber-900/20"
+            : "border-[#dcc9a8] text-[#a0906e] hover:bg-[#f0e6d4]/50 dark:border-[#3a3228] dark:text-[#8a7a60] dark:hover:bg-[#252018]/60"
+        )}
+      >
+        <div className={cn("transition-transform flex-shrink-0", expanded ? "rotate-0" : "-rotate-90")}>
+          <ChevronDown className="h-3 w-3 opacity-70" />
+        </div>
+        <Home className="h-3 w-3 flex-shrink-0 opacity-80" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider">
+          To check
+        </span>
+        <span className="ml-auto text-[10px] font-medium tabular-nums">
+          {done}/{items.length}
+        </span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-1 px-2 rounded-md bg-[#faf3e8]/70 dark:bg-[#221c14]/50 divide-y divide-[#e8d4b8]/70 dark:divide-[#3a3228]/70">
+              {items.map((hw) => (
+                <HomeworkCheckRow
+                  key={hw.session_exercise_id}
+                  homework={hw}
+                  sessionId={sessionId}
+                  readOnly={isReadOnly}
+                  onMarked={onMarked}
+                />
+              ))}
             </div>
           </motion.div>
         )}
@@ -535,6 +631,8 @@ export function LessonWideSidebar({
   onBulkPrintStudent,
   onBulkAssign,
   printing,
+  homeworkBySession,
+  onHomeworkMarked,
 }: LessonWideSidebarProps) {
   // Student picker popover state (both modes)
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
@@ -641,6 +739,8 @@ export function LessonWideSidebar({
                   onPrint={onPrint}
                   onBulkPrintStudent={onBulkPrintStudent}
                   printing={printing}
+                  homework={homeworkBySession?.get(session.id) ?? []}
+                  onHomeworkMarked={onHomeworkMarked}
                 />
               );
             })}
