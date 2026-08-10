@@ -151,10 +151,13 @@ Both wide modes fetch the whole slot in one request, via
 straight through as `onMarked`. Switching student costs nothing.
 
 **Normal mode.** `LessonWideSidebar`'s `StudentBlock` opens with a "To check"
-section above Classwork, because settling last lesson's homework comes before
-starting today's. It carries the `checked/total` chip and starts open only while
-something is outstanding, since the sidebar is narrow and a student can hold six
-items. The header shows the slot total, "HW 4/7", amber until it is clear.
+strip above Classwork, because settling last lesson's homework comes before
+starting today's. It is **collapsed by default** and drawn as a dashed note in
+the desk palette, not as a third exercise section: with every student block
+expanded, an open panel each ate the sidebar, and a blue box competed with
+Classwork and Homework for attention. Amber while anything is outstanding,
+receding to muted desk tone once the count is complete. The header carries the
+slot total, "HW 4/7", amber until it is clear.
 
 **Zen mode.** Zen shows one student at a time, so `ZenLessonSidebar` gets a
 `TO CHECK (n/m)` list with terminal glyphs (`[ ]`, `[x]`, `[~]`, `[!]`) and

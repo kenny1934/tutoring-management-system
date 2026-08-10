@@ -18,7 +18,7 @@ import type { Session, HomeworkCompletion } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
-import { checkedCount, homeworkCountTone } from "@/lib/homework-utils";
+import { checkedCount } from "@/lib/homework-utils";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -316,8 +316,9 @@ function StudentBlock({
 /**
  * Homework set in earlier lessons, ready to mark.
  *
- * Starts open while anything is outstanding and closed once it is all done,
- * because the sidebar is narrow and a student can carry several items.
+ * Collapsed by default and styled as a pinned note rather than a third
+ * exercise section: it is a reminder about the last lesson, not part of this
+ * one. The dashed edge and the count carry the signal; opening it is a choice.
  */
 function HomeworkCheckSection({
   sessionId,
@@ -330,28 +331,34 @@ function HomeworkCheckSection({
   isReadOnly?: boolean;
   onMarked?: (updated: HomeworkCompletion) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const done = checkedCount(items);
-  const [expanded, setExpanded] = useState(done < items.length);
+  const outstanding = done < items.length;
 
   return (
     <div>
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-1.5 mb-1 rounded hover:bg-[#e8d4b8]/30 dark:hover:bg-[#3a3228]/50 transition-colors"
+        title={
+          outstanding
+            ? `${items.length - done} to check from earlier lessons`
+            : "All homework checked"
+        }
+        className={cn(
+          "w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-dashed transition-colors",
+          outstanding
+            ? "border-amber-400/60 bg-amber-50/60 text-amber-700 hover:bg-amber-50 dark:border-amber-600/40 dark:bg-amber-900/10 dark:text-amber-400/90 dark:hover:bg-amber-900/20"
+            : "border-[#dcc9a8] text-[#a0906e] hover:bg-[#f0e6d4]/50 dark:border-[#3a3228] dark:text-[#8a7a60] dark:hover:bg-[#252018]/60"
+        )}
       >
         <div className={cn("transition-transform flex-shrink-0", expanded ? "rotate-0" : "-rotate-90")}>
-          <ChevronDown className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
+          <ChevronDown className="h-3 w-3 opacity-70" />
         </div>
-        <Home className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
-        <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
+        <Home className="h-3 w-3 flex-shrink-0 opacity-80" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider">
           To check
         </span>
-        <span
-          className={cn(
-            "text-[10px] px-1 py-0.5 rounded font-medium tabular-nums ml-auto mr-1",
-            homeworkCountTone(done, items.length)
-          )}
-        >
+        <span className="ml-auto text-[10px] font-medium tabular-nums">
           {done}/{items.length}
         </span>
       </button>
@@ -365,7 +372,7 @@ function HomeworkCheckSection({
             transition={{ duration: 0.15 }}
             className="overflow-hidden"
           >
-            <div className="rounded-md border border-blue-200/70 dark:border-blue-800/50 bg-blue-50/40 dark:bg-blue-900/10 px-2 divide-y divide-blue-200/50 dark:divide-blue-800/40">
+            <div className="mt-1 px-2 rounded-md bg-[#faf3e8]/70 dark:bg-[#221c14]/50 divide-y divide-[#e8d4b8]/70 dark:divide-[#3a3228]/70">
               {items.map((hw) => (
                 <HomeworkCheckRow
                   key={hw.session_exercise_id}
