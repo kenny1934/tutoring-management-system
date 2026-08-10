@@ -771,7 +771,11 @@ class HomeworkCompletionResponse(BaseModel):
     checked_by: Optional[int] = Field(None, gt=0)
     checked_at: Optional[datetime] = None
     checked_in_session_id: Optional[int] = Field(None, gt=0)
+
+    # What the student handed in. attachment_count comes from the view and is
+    # filled for list rows; files is populated wherever they are shown.
     attachment_count: int = 0
+    files: List[HomeworkFileResponse] = []
 
     @field_validator('attachment_count', mode='before')
     @classmethod

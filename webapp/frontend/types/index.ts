@@ -280,6 +280,18 @@ export type HomeworkStatus =
   | "Partially Completed"
   | "Not Completed";
 
+/** A photo or PDF of what the student handed in. */
+export interface HomeworkFile {
+  id: number;
+  file_path: string;
+  file_type: "image" | "pdf" | "document";
+  file_name?: string;
+  file_size_kb?: number;
+  file_order?: number;
+  uploaded_at?: string;
+  uploaded_by?: string;
+}
+
 /** One homework assignment still open for a session, with its check state. */
 export interface HomeworkCompletion {
   session_exercise_id: number;
@@ -310,7 +322,10 @@ export interface HomeworkCompletion {
   checked_by?: number;
   checked_at?: string;
   checked_in_session_id?: number;
+
+  // What the student handed in
   attachment_count: number;
+  files: HomeworkFile[];
 }
 
 /** Open homework counts for one session, for list badges. */

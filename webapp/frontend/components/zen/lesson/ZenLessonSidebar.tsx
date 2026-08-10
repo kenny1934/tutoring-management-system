@@ -116,6 +116,14 @@ function HomeworkToCheckSection({
             >
               {getExerciseDisplayName(hw)}
             </span>
+            {hw.attachment_count > 0 && (
+              <span
+                style={{ color: "var(--zen-success)", fontSize: "9px", flexShrink: 0 }}
+                title={`${hw.attachment_count} handed in`}
+              >
+                [{hw.attachment_count}]
+              </span>
+            )}
             {(hw.sessions_ago || 0) > 1 && (
               <span style={{ color: "var(--zen-warning)", fontSize: "9px", flexShrink: 0 }}>
                 {hw.sessions_ago}x

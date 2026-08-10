@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from main import app
 from models import (
     HomeworkCompletion,
+    HomeworkFile,
     HomeworkToCheck,
     SessionExercise,
     SessionLog,
@@ -270,6 +271,140 @@ def test_counts_omit_sessions_without_homework(client: TestClient, as_tutor, hom
     resp = client.get("/api/homework/counts?session_ids=100", cookies=AUTH_COOKIE)
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+# --- Handed-in files ---
+
+@pytest.fixture
+def fake_storage(monkeypatch):
+    """Stand in for GCS so uploads can be exercised without a bucket."""
+    uploaded = []
+
+    def _upload_image(file_bytes, original_filename=None, prefix="inbox"):
+        uploaded.append(("image", prefix, original_filename))
+        return f"https://storage.googleapis.com/csm-inbox-images/{prefix}/fake.jpg"
+
+    def _upload_document(file_bytes, original_filename, content_type, prefix="inbox"):
+        uploaded.append(("document", prefix, original_filename))
+        return f"https://storage.googleapis.com/csm-inbox-images/{prefix}/docs/fake.pdf"
+
+    monkeypatch.setattr("routers.homework.upload_image", _upload_image)
+    monkeypatch.setattr("routers.homework.upload_document", _upload_document)
+    monkeypatch.setattr("routers.homework.delete_image", lambda url: True)
+    return uploaded
+
+
+def test_upload_photo_creates_the_completion_record(
+    client: TestClient, db_session: Session, as_tutor, homework_setup, fake_storage
+):
+    """A tutor photographing the work first must not need a status beforehand."""
+    resp = client.post(
+        "/api/sessions/200/homework/10/files",
+        files={"file": ("book.jpg", b"pretend-jpeg", "image/jpeg")},
+        cookies=AUTH_COOKIE,
+    )
+    assert resp.status_code == 200
+
+    payload = resp.json()
+    assert payload["attachment_count"] == 1
+    assert len(payload["files"]) == 1
+    assert payload["files"][0]["file_type"] == "image"
+    # Created but untouched, so it still reads as waiting to be checked.
+    assert payload["completion_status"] == "Not Checked"
+
+    record = db_session.query(HomeworkCompletion).filter(
+        HomeworkCompletion.session_exercise_id == 10
+    ).one()
+    assert record.pdf_name == "Ch5.pdf"
+    assert fake_storage == [("image", "homework", "book.jpg")]
+
+
+def test_upload_pdf_is_stored_without_reprocessing(
+    client: TestClient, as_tutor, homework_setup, fake_storage
+):
+    resp = client.post(
+        "/api/sessions/200/homework/10/files",
+        files={"file": ("scan.pdf", b"%PDF-fake", "application/pdf")},
+        cookies=AUTH_COOKIE,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["files"][0]["file_type"] == "pdf"
+    assert fake_storage == [("document", "homework", "scan.pdf")]
+
+
+def test_uploads_stack_in_order(client: TestClient, as_tutor, homework_setup, fake_storage):
+    client.post("/api/sessions/200/homework/10/files",
+                files={"file": ("one.jpg", b"a", "image/jpeg")}, cookies=AUTH_COOKIE)
+    resp = client.post("/api/sessions/200/homework/10/files",
+                       files={"file": ("two.jpg", b"b", "image/jpeg")}, cookies=AUTH_COOKIE)
+
+    files = resp.json()["files"]
+    assert [f["file_order"] for f in files] == [1, 2]
+    assert [f["file_name"] for f in files] == ["one.jpg", "two.jpg"]
+
+
+def test_upload_rejects_other_file_types(client: TestClient, as_tutor, homework_setup, fake_storage):
+    resp = client.post(
+        "/api/sessions/200/homework/10/files",
+        files={"file": ("notes.docx", b"zip", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        cookies=AUTH_COOKIE,
+    )
+    assert resp.status_code == 400
+    assert "photos and pdfs" in resp.json()["detail"].lower()
+    assert fake_storage == []
+
+
+def test_upload_rejects_classwork(client: TestClient, as_tutor, homework_setup, fake_storage):
+    resp = client.post(
+        "/api/sessions/200/homework/11/files",
+        files={"file": ("book.jpg", b"a", "image/jpeg")},
+        cookies=AUTH_COOKIE,
+    )
+    assert resp.status_code == 400
+    assert fake_storage == []
+
+
+def test_delete_removes_the_attachment(
+    client: TestClient, db_session: Session, as_tutor, homework_setup, fake_storage
+):
+    upload = client.post("/api/sessions/200/homework/10/files",
+                         files={"file": ("book.jpg", b"a", "image/jpeg")}, cookies=AUTH_COOKIE)
+    file_id = upload.json()["files"][0]["id"]
+
+    resp = client.delete(f"/api/sessions/200/homework/10/files/{file_id}", cookies=AUTH_COOKIE)
+    assert resp.status_code == 200
+    assert resp.json()["attachment_count"] == 0
+    assert resp.json()["files"] == []
+    assert db_session.query(HomeworkFile).count() == 0
+
+
+def test_delete_rejects_a_file_from_another_homework(
+    client: TestClient, db_session: Session, as_tutor, homework_setup, fake_storage
+):
+    """File ids are only meaningful against their own assignment."""
+    client.post("/api/sessions/200/homework/10/files",
+                files={"file": ("book.jpg", b"a", "image/jpeg")}, cookies=AUTH_COOKIE)
+
+    db_session.add(SessionExercise(
+        id=12, session_id=100, exercise_type="HW", pdf_name="Other.pdf",
+        created_by="other@example.com",
+    ))
+    db_session.commit()
+
+    resp = client.delete("/api/sessions/200/homework/12/files/1", cookies=AUTH_COOKIE)
+    assert resp.status_code == 404
+    assert db_session.query(HomeworkFile).count() == 1
+
+
+def test_uploading_is_blocked_for_read_only_users(client: TestClient, homework_setup, fake_storage):
+    app.dependency_overrides[get_current_user] = lambda: _tutor(role="Supervisor")
+    resp = client.post(
+        "/api/sessions/200/homework/10/files",
+        files={"file": ("book.jpg", b"a", "image/jpeg")},
+        cookies=AUTH_COOKIE,
+    )
+    assert resp.status_code == 403
+    assert fake_storage == []
 
 
 def test_marking_is_blocked_for_read_only_users(client: TestClient, homework_setup):

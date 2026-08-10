@@ -6,22 +6,31 @@ keyed to the assignment rather than to the session the tutor happened to be
 sitting in. The homework_to_check view decides what is still open for a given
 session, looking back up to three sat sessions.
 """
-from typing import List
+from typing import List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user, reject_read_only
 from constants import hk_now
 from database import get_db
-from models import HomeworkCompletion, HomeworkToCheck, SessionExercise, SessionLog, Tutor
+from models import (
+    HomeworkCompletion,
+    HomeworkFile,
+    HomeworkToCheck,
+    SessionExercise,
+    SessionLog,
+    Tutor,
+)
 from schemas import (
     HomeworkCompletionResponse,
     HomeworkCountResponse,
+    HomeworkFileResponse,
     HomeworkMarkRequest,
     SessionHomeworkResponse,
 )
+from services.image_storage import delete_image, upload_document, upload_image
 
 router = APIRouter()
 
@@ -32,6 +41,9 @@ CHECKED_STATUSES = ('Completed', 'Partially Completed', 'Not Completed')
 SUBMITTED_STATUSES = ('Completed', 'Partially Completed')
 
 MAX_BULK_SESSIONS = 200
+
+# Everything lands under one folder in the shared bucket.
+STORAGE_PREFIX = "homework"
 
 
 def _parse_session_ids(raw: str) -> List[int]:
@@ -49,6 +61,28 @@ def _parse_session_ids(raw: str) -> List[int]:
     return ids
 
 
+def _load_files(db: Session, completion_ids: List[int]) -> dict:
+    """
+    Uploaded files for the given completion records, keyed by record.
+
+    Only called for records the view says have attachments, so the usual case
+    of nothing handed in costs no query at all.
+    """
+    if not completion_ids:
+        return {}
+
+    files = db.query(HomeworkFile).filter(
+        HomeworkFile.homework_completion_id.in_(completion_ids)
+    ).order_by(HomeworkFile.file_order, HomeworkFile.id).all()
+
+    by_completion: dict = {}
+    for file in files:
+        by_completion.setdefault(file.homework_completion_id, []).append(
+            HomeworkFileResponse.model_validate(file)
+        )
+    return by_completion
+
+
 def load_homework_to_check(db: Session, session_ids: List[int]) -> dict:
     """
     Open homework for each of the given sessions, keyed by session id.
@@ -62,11 +96,16 @@ def load_homework_to_check(db: Session, session_ids: List[int]) -> dict:
         HomeworkToCheck.current_session_id.in_(session_ids)
     ).all()
 
+    files_by_completion = _load_files(db, [
+        row.completion_id for row in rows
+        if row.completion_id and (row.attachment_count or 0) > 0
+    ])
+
     by_session: dict = {}
     for row in rows:
-        by_session.setdefault(row.current_session_id, []).append(
-            HomeworkCompletionResponse.model_validate(row)
-        )
+        item = HomeworkCompletionResponse.model_validate(row)
+        item.files = files_by_completion.get(row.completion_id, [])
+        by_session.setdefault(row.current_session_id, []).append(item)
 
     # Oldest assignment first, so the longest-outstanding homework leads.
     for items in by_session.values():
@@ -132,23 +171,14 @@ async def get_homework_counts(
     ]
 
 
-@router.patch(
-    "/sessions/{session_id}/homework/{session_exercise_id}",
-    response_model=HomeworkCompletionResponse,
-)
-async def mark_homework(
-    session_id: int,
-    session_exercise_id: int,
-    request: HomeworkMarkRequest,
-    current_user: Tutor = Depends(reject_read_only),
-    db: Session = Depends(get_db),
-):
+def _resolve_assignment(
+    db: Session, session_id: int, session_exercise_id: int
+) -> Tuple[SessionLog, SessionExercise, Optional[SessionLog], Optional[str]]:
     """
-    Mark one homework assignment as checked in this session.
+    The session being marked from, the homework, and the lesson that set it.
 
-    Creates the completion record on first mark and updates it afterwards.
-    Marking from a different session than the original check moves the record
-    to the new session, since that is where the tutor actually saw the work.
+    Raises the same errors for every write path, so marking and uploading
+    cannot disagree about what counts as a valid target.
     """
     session = db.query(SessionLog).filter(SessionLog.id == session_id).first()
     if not session:
@@ -179,22 +209,37 @@ async def mark_homework(
             detail="That homework belongs to a different student",
         )
 
+    return session, exercise, assigning_session, assigned_by_tutor
+
+
+def _upsert_completion(
+    db: Session,
+    session: SessionLog,
+    exercise: SessionExercise,
+    assigning_session: Optional[SessionLog],
+) -> HomeworkCompletion:
+    """
+    Find or create the record for this assignment and refresh its snapshot.
+
+    Attaching a photo before picking a status has to create the record too, so
+    this is shared rather than repeated.
+    """
     completion = db.query(HomeworkCompletion).filter(
-        HomeworkCompletion.session_exercise_id == session_exercise_id
+        HomeworkCompletion.session_exercise_id == exercise.id
     ).first()
 
     if not completion:
         completion = HomeworkCompletion(
-            session_exercise_id=session_exercise_id,
+            session_exercise_id=exercise.id,
             student_id=session.student_id,
-            # Explicit rather than NULL, so a rating-only first save still reads
-            # as unchecked everywhere.
+            # Explicit rather than NULL, so a rating-only or photo-only first
+            # save still reads as unchecked everywhere.
             completion_status='Not Checked',
             created_at=hk_now(),
         )
         db.add(completion)
 
-    completion.current_session_id = session_id
+    completion.current_session_id = session.id
 
     # Snapshot the assignment so the record survives the exercise being edited.
     completion.pdf_name = exercise.pdf_name
@@ -205,6 +250,92 @@ async def mark_homework(
     if assigning_session:
         completion.assigned_date = assigning_session.session_date
         completion.assigned_by_tutor_id = assigning_session.tutor_id
+
+    return completion
+
+
+def _completion_response(
+    db: Session,
+    session_id: int,
+    completion: HomeworkCompletion,
+    exercise: SessionExercise,
+    assigning_session: Optional[SessionLog],
+    assigned_by_tutor: Optional[str],
+) -> HomeworkCompletionResponse:
+    """
+    The saved state, as the view sees it where it has a row.
+
+    Every write path returns this one shape, so the client folds a mark and an
+    upload back into its cache the same way.
+    """
+    db.refresh(completion)
+    files = [HomeworkFileResponse.model_validate(f) for f in completion.files]
+
+    row = db.query(HomeworkToCheck).filter(
+        HomeworkToCheck.current_session_id == session_id,
+        HomeworkToCheck.session_exercise_id == exercise.id,
+    ).first()
+
+    if row:
+        response = HomeworkCompletionResponse.model_validate(row)
+        response.files = files
+        # The view counts in its own query, which ran before this commit landed.
+        response.attachment_count = len(files)
+        return response
+
+    # The view only lists homework set in an earlier session, so this is reached
+    # when the assignment and the check share one. Everything needed is already
+    # in hand, which is what the record's snapshot is for.
+    return HomeworkCompletionResponse(
+        session_exercise_id=exercise.id,
+        current_session_id=session_id,
+        student_id=completion.student_id,
+        assigned_session_id=exercise.session_id,
+        homework_assigned_date=completion.assigned_date,
+        assigned_time_slot=assigning_session.time_slot if assigning_session else None,
+        assigned_by_tutor_id=completion.assigned_by_tutor_id,
+        assigned_by_tutor=assigned_by_tutor,
+        sessions_ago=0,
+        pdf_name=completion.pdf_name,
+        page_start=completion.page_start,
+        page_end=completion.page_end,
+        url=completion.url,
+        url_title=exercise.url_title,
+        assignment_remarks=completion.exercise_remarks,
+        completion_id=completion.id,
+        completion_status=completion.completion_status,
+        homework_rating=completion.homework_rating,
+        tutor_comments=completion.tutor_comments,
+        checked_by=completion.checked_by,
+        checked_at=completion.checked_at,
+        checked_in_session_id=completion.current_session_id,
+        attachment_count=len(files),
+        files=files,
+    )
+
+
+@router.patch(
+    "/sessions/{session_id}/homework/{session_exercise_id}",
+    response_model=HomeworkCompletionResponse,
+)
+async def mark_homework(
+    session_id: int,
+    session_exercise_id: int,
+    request: HomeworkMarkRequest,
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db),
+):
+    """
+    Mark one homework assignment as checked in this session.
+
+    Creates the completion record on first mark and updates it afterwards.
+    Marking from a different session than the original check moves the record
+    to the new session, since that is where the tutor actually saw the work.
+    """
+    session, exercise, assigning_session, assigned_by_tutor = _resolve_assignment(
+        db, session_id, session_exercise_id
+    )
+    completion = _upsert_completion(db, session, exercise, assigning_session)
 
     if request.completion_status is not None:
         completion.completion_status = request.completion_status
@@ -228,40 +359,127 @@ async def mark_homework(
 
     db.commit()
 
-    row = db.query(HomeworkToCheck).filter(
-        HomeworkToCheck.current_session_id == session_id,
-        HomeworkToCheck.session_exercise_id == session_exercise_id,
+    return _completion_response(
+        db, session_id, completion, exercise, assigning_session, assigned_by_tutor
+    )
+
+
+@router.post(
+    "/sessions/{session_id}/homework/{session_exercise_id}/files",
+    response_model=HomeworkCompletionResponse,
+)
+async def upload_homework_file(
+    session_id: int,
+    session_exercise_id: int,
+    file: UploadFile = File(...),
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db),
+):
+    """
+    Attach a photo or PDF of what the student handed in.
+
+    Creates the completion record if the tutor photographs the work before
+    picking a status, which is the usual order at the desk.
+    """
+    session, exercise, assigning_session, assigned_by_tutor = _resolve_assignment(
+        db, session_id, session_exercise_id
+    )
+
+    content_type = (file.content_type or "").split(";")[0].strip()
+    is_image = content_type.startswith("image/")
+    if not is_image and content_type != "application/pdf":
+        raise HTTPException(
+            status_code=400, detail="Only photos and PDFs can be attached"
+        )
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="That file is empty")
+
+    try:
+        if is_image and content_type != "image/gif":
+            # Photos go through resize and compress: a page shot on a phone is
+            # several megabytes otherwise.
+            url = upload_image(contents, file.filename, prefix=STORAGE_PREFIX)
+        else:
+            url = upload_document(
+                contents,
+                file.filename or ("scan.gif" if is_image else "homework.pdf"),
+                content_type,
+                prefix=STORAGE_PREFIX,
+            )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+    completion = _upsert_completion(db, session, exercise, assigning_session)
+    db.flush()
+
+    next_order = db.query(func.coalesce(func.max(HomeworkFile.file_order), 0)).filter(
+        HomeworkFile.homework_completion_id == completion.id
+    ).scalar()
+
+    db.add(HomeworkFile(
+        homework_completion_id=completion.id,
+        file_path=url,
+        file_type='image' if is_image else 'pdf',
+        file_name=file.filename,
+        file_size_kb=len(contents) // 1024,
+        file_order=(next_order or 0) + 1,
+        uploaded_at=hk_now(),
+        uploaded_by=current_user.user_email,
+    ))
+
+    session.last_modified_by = current_user.user_email
+    session.last_modified_time = hk_now()
+
+    db.commit()
+
+    return _completion_response(
+        db, session_id, completion, exercise, assigning_session, assigned_by_tutor
+    )
+
+
+@router.delete(
+    "/sessions/{session_id}/homework/{session_exercise_id}/files/{file_id}",
+    response_model=HomeworkCompletionResponse,
+)
+async def delete_homework_file(
+    session_id: int,
+    session_exercise_id: int,
+    file_id: int,
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db),
+):
+    """Remove one attachment, and the stored file behind it."""
+    session, exercise, assigning_session, assigned_by_tutor = _resolve_assignment(
+        db, session_id, session_exercise_id
+    )
+
+    completion = db.query(HomeworkCompletion).filter(
+        HomeworkCompletion.session_exercise_id == session_exercise_id
     ).first()
+    if not completion:
+        raise HTTPException(status_code=404, detail="Nothing has been handed in for this homework")
 
-    if row:
-        return HomeworkCompletionResponse.model_validate(row)
+    file = db.query(HomeworkFile).filter(
+        HomeworkFile.id == file_id,
+        HomeworkFile.homework_completion_id == completion.id,
+    ).first()
+    if not file:
+        raise HTTPException(status_code=404, detail=f"File with ID {file_id} not found")
 
-    # The view only lists homework set in an earlier session, so this is reached
-    # when the assignment and the check share one. Everything needed is already
-    # in hand, which is what the record's snapshot is for.
-    db.refresh(completion)
-    return HomeworkCompletionResponse(
-        session_exercise_id=session_exercise_id,
-        current_session_id=session_id,
-        student_id=completion.student_id,
-        assigned_session_id=exercise.session_id,
-        homework_assigned_date=completion.assigned_date,
-        assigned_time_slot=assigning_session.time_slot if assigning_session else None,
-        assigned_by_tutor_id=completion.assigned_by_tutor_id,
-        assigned_by_tutor=assigned_by_tutor,
-        sessions_ago=0,
-        pdf_name=completion.pdf_name,
-        page_start=completion.page_start,
-        page_end=completion.page_end,
-        url=completion.url,
-        url_title=exercise.url_title,
-        assignment_remarks=completion.exercise_remarks,
-        completion_id=completion.id,
-        completion_status=completion.completion_status,
-        homework_rating=completion.homework_rating,
-        tutor_comments=completion.tutor_comments,
-        checked_by=completion.checked_by,
-        checked_at=completion.checked_at,
-        checked_in_session_id=completion.current_session_id,
-        attachment_count=len(completion.files or []),
+    # Best effort on the stored file: one left behind is harmless, but a row
+    # kept because the delete failed leaves a thumbnail that cannot load.
+    delete_image(file.file_path)
+    db.delete(file)
+
+    session.last_modified_by = current_user.user_email
+    session.last_modified_time = hk_now()
+
+    db.commit()
+
+    return _completion_response(
+        db, session_id, completion, exercise, assigning_session, assigned_by_tutor
     )

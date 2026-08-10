@@ -3236,6 +3236,41 @@ export const homeworkAPI = {
     );
   },
 
+  /** Attach a photo or PDF of what the student handed in. */
+  uploadFile: async (
+    sessionId: number,
+    sessionExerciseId: number,
+    file: File
+  ): Promise<HomeworkCompletion> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const headers: Record<string, string> = {};
+    if (typeof window !== "undefined") {
+      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
+      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/sessions/${sessionId}/homework/${sessionExerciseId}/files`,
+      { method: "POST", body: formData, credentials: "include", headers }
+    );
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      throw new Error(detail?.detail || "Upload failed");
+    }
+    return response.json();
+  },
+
+  /** Remove one attachment. Returns the homework with its remaining files. */
+  deleteFile: (sessionId: number, sessionExerciseId: number, fileId: number) => {
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}/files/${fileId}`,
+      { method: "DELETE" }
+    );
+  },
+
   /** Mark one homework assignment as checked in this session. */
   mark: (
     sessionId: number,

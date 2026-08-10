@@ -105,7 +105,12 @@ ALLOWED_DOC_TYPES = {
 }
 
 
-def upload_document(file_bytes: bytes, original_filename: str, content_type: str) -> str:
+def upload_document(
+    file_bytes: bytes,
+    original_filename: str,
+    content_type: str,
+    prefix: str = "inbox",
+) -> str:
     """
     Upload a document (PDF, Word, etc.) to Google Cloud Storage without processing.
 
@@ -113,6 +118,7 @@ def upload_document(file_bytes: bytes, original_filename: str, content_type: str
         file_bytes: Raw file bytes
         original_filename: Original filename (preserved in storage path)
         content_type: MIME type of the file
+        prefix: Top-level folder in the bucket
 
     Returns:
         Public URL of the uploaded document
@@ -131,7 +137,7 @@ def upload_document(file_bytes: bytes, original_filename: str, content_type: str
     # Sanitize filename: keep alphanumeric, dots, hyphens, underscores
     import re
     safe_name = re.sub(r'[^\w.\-]', '_', original_filename)
-    blob_name = f"inbox/docs/{uuid.uuid4()}_{safe_name}"
+    blob_name = f"{prefix}/docs/{uuid.uuid4()}_{safe_name}"
 
     client = storage.Client()
     bucket = client.bucket(BUCKET_NAME)

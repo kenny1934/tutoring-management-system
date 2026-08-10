@@ -4,8 +4,8 @@ Tutors mark whether homework set in an earlier lesson came back done. The
 tables came from the legacy AppSheet app and sat unused for a year; this is the
 build-out that makes them usable.
 
-Branch: `feature/homework-completion`. Phases 0, 1 and 2 are done. Phase 3 is
-specified below but not started.
+Branch: `feature/homework-completion`. Phases 0 to 3 are done. Phase 4
+(reporting) is sketched below and deliberately deferred.
 
 ---
 
@@ -41,7 +41,7 @@ core change from the legacy design and everything else follows from it.
   (`completion_status IN ('Completed', 'Partially Completed')`) and read by
   nothing new. Safe to drop once nothing external depends on it.
 
-`homework_files` — created by migration 013, still empty, waiting for phase 3.
+`homework_files` — created by migration 013, unused until phase 3 filled it.
 
 `homework_to_check` (view) — decides what is open for a session:
 - Looks back up to 3 *sat* sessions, excluding cancelled, no-show, rescheduled,
@@ -82,6 +82,7 @@ All under `webapp/backend/routers/homework.py`.
   Capped at 200.
 - `GET /api/homework/counts?session_ids=` — `{session_id, total, checked}` only,
   for list badges.
+- The two file endpoints, under Phase 3 below.
 
 `GET /api/sessions/{id}` fills `homework_completion` through the same shared
 loader, `load_homework_to_check`.
@@ -178,32 +179,47 @@ homework, but it would hide the panel for the missing students.
 
 ## Phase 3: submissions
 
-Not started. This is the "record what they handed in" half of the original ask.
+Done. This is the "record what they handed in" half of the original ask.
 
-Everything needed already exists:
-- `homework_files` table: `file_path`, `file_type` (`image`/`pdf`/`document`),
-  `file_name`, `file_size_kb`, `file_order`, `uploaded_at`, `uploaded_by`.
-- `HomeworkFile` ORM model, and `attachment_count` already flows through the
-  view, the response schema and `HomeworkCheckRow`'s paperclip.
-- `services/image_storage.py` uploads to GCS with resize to 1920 and JPEG q80,
-  10 MB cap. `upload_image` takes a `prefix`, so pass `homework`. Consider a
-  separate bucket from `csm-inbox-images` if retention should differ.
+**Photos and PDFs**, on Kenny's call. Both land in the existing
+`csm-inbox-images` bucket under a `homework/` prefix, so no GCS or IAM setup was
+needed. Photos go through `upload_image` (resize 1920, JPEG q80, 10 MB); PDFs go
+through `upload_document` untouched (25 MB), which gained a `prefix` argument
+defaulting to `inbox` so its existing callers are unaffected. Anything else is
+rejected with "Only photos and PDFs can be attached".
 
-To build:
-1. `POST /api/homework/{completion_id}/files` (multipart) and
-   `DELETE /api/homework/files/{file_id}`. A file can only attach to a
-   completion record, so the record must exist first: create it on upload if the
-   tutor attaches a photo before setting a status.
-2. `homeworkAPI.uploadFile` / `deleteFile`, modelled on `messagesAPI.uploadImage`.
-3. In `HomeworkCheckRow`, a camera button next to the comment icon. Use
-   `capture="environment"` on the input so phones open the camera directly:
-   tutors will photograph exercise books at the desk. Every marking surface
-   renders that row, so this reaches all of them at once, Zen aside.
-4. Thumbnails inline with a lightbox. `attachment_count` already drives the
-   paperclip, so the badge work is done.
-5. Zen needs its own treatment again: `ZenHomeworkCheck` would want an upload
-   key, and photos do not really belong in a terminal overlay. Showing the count
-   and leaving capture to the normal mode is a defensible answer.
+- `POST /api/sessions/{session_id}/homework/{session_exercise_id}/files`
+- `DELETE /api/sessions/{session_id}/homework/{session_exercise_id}/files/{file_id}`
+
+Both use the *same addressing as the mark endpoint* rather than the
+`{completion_id}` this doc originally proposed, because a tutor who photographs
+the work before picking a status has no record yet. Upload creates it via the
+shared `_upsert_completion`, exactly as a rating-only save does, so the snapshot
+rules cannot drift between the two paths. Both return the full
+`HomeworkCompletionResponse`, so the client folds an upload through
+`useHomeworkMarked` with no new cache plumbing.
+
+Deleting removes the stored file as well as the row, via `delete_image`, which
+despite its name handles any blob in the bucket. It is best effort: a file left
+behind is harmless, a row kept because the delete failed is a broken thumbnail.
+
+Frontend lives entirely in `HomeworkCheckRow`, so it reached every marking
+surface at once: a camera button beside the comment icon, thumbnails below,
+`components/inbox/ImageLightbox` (dynamically imported) for photos, and PDFs as
+a chip that opens in a new tab. Hovering a thumbnail reveals its remove button.
+
+Note on `capture`: the doc previously said to set `capture="environment"` so
+phones open the camera directly. That was dropped once PDFs were in scope, since
+`capture` hard-forces the camera and would make a PDF unpickable. With
+`accept="image/*,application/pdf"` and no `capture`, mobile still offers Take
+Photo in its sheet.
+
+Zen shows `[n]` against an item that has attachments and offers no capture:
+photographing into a terminal overlay is the wrong shape.
+
+`files` is populated by `_load_files`, which only runs for records the view
+already says have attachments, so the common case of nothing handed in costs no
+extra query.
 
 ## Phase 4: reporting
 
@@ -237,7 +253,7 @@ already computes per-student checked rate, completion score, star average and
 
 ## Test baselines
 
-`webapp/backend`: 1151 pass, of which `tests/test_homework.py` is 16.
+`webapp/backend`: 1159 pass, of which `tests/test_homework.py` is 24.
 `webapp/frontend`: 625 pass. `npx tsc --noEmit` reports 172 errors, all
 pre-existing; `main` reports 173.
 
