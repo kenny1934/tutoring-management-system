@@ -1,6 +1,12 @@
 # Changelog
 
-## [2.0.106](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.105...v2.0.106) (2026-08-10)
+## [2.0.107](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.106...v2.0.107) (2026-08-10)
+
+
+### New Features
+
+* **Homework set in an earlier lesson can be marked as done**: whether homework came back was only ever known to the tutor who asked for it, so nothing followed the student from one week to the next. Each piece of homework now carries one control with four states, not checked, done, partly done and not done, along with a star rating and a comment. A piece stays on the list for up to three lessons the student actually sat, and every row says which lesson it was set in, with the date and the tutor who set it. That last part matters in summer, when the lesson before was often somebody else's class. Marking is available wherever a lesson is being worked through: when rating a session, either singly or for a whole time slot at once, from a session's details, and in wide lesson mode alongside the exercises for every student in the slot. Sessions lists and today's lessons on the dashboard show how much is still waiting, and lesson mode shows the total for the slot.
+* **What a student handed in can be kept with the record**: a tutor who wanted to keep a page of working, or a marked exercise, had nowhere to put it. Photographs and PDFs now attach to a piece of homework. On a phone the camera opens straight from the button, so a book on the desk can be photographed where it lies, and the photographs are shown against the homework they belong to. Opening one shows it full size, and anything attached by mistake can be taken off again.
 
 
 ### Bug Fixes
