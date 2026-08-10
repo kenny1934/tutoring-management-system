@@ -21,27 +21,97 @@ SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
 -- -----------------------------------------------------
 -- Re-key homework_completion onto the assignment
 -- -----------------------------------------------------
+-- Each index and key change is guarded, so this section can be re-run and
+-- lands the same way whatever state the table is in. MySQL commits DDL as it
+-- goes, so a failure part way through cannot be rolled back and the rest has
+-- to be safe to replay.
+--
+-- Order matters. current_session_id gets its own index before the composite
+-- unique key goes, otherwise its foreign key has nothing left to lean on.
 
-ALTER TABLE homework_completion
-DROP FOREIGN KEY homework_completion_ibfk_2;
+SET @idx_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'homework_completion'
+       AND INDEX_NAME = 'idx_current_session'
+);
+SET @sql := IF(@idx_exists > 0,
+    'DO 0',
+    'ALTER TABLE homework_completion ADD INDEX idx_current_session (current_session_id)');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-ALTER TABLE homework_completion
-DROP INDEX session_exercise_id;
+SET @fk_exists := (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'homework_completion'
+       AND CONSTRAINT_NAME = 'homework_completion_ibfk_2'
+       AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @sql := IF(@fk_exists > 0,
+    'ALTER TABLE homework_completion DROP FOREIGN KEY homework_completion_ibfk_2',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-ALTER TABLE homework_completion
-DROP INDEX unique_exercise_check;
+SET @idx_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'homework_completion'
+       AND INDEX_NAME = 'session_exercise_id'
+);
+SET @sql := IF(@idx_exists > 0,
+    'ALTER TABLE homework_completion DROP INDEX session_exercise_id',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @idx_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'homework_completion'
+       AND INDEX_NAME = 'unique_exercise_check'
+);
+SET @sql := IF(@idx_exists > 0,
+    'ALTER TABLE homework_completion DROP INDEX unique_exercise_check',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 ALTER TABLE homework_completion
 MODIFY COLUMN session_exercise_id INT NULL
     COMMENT 'Homework assignment being checked. NULL once the assignment row is edited away, the snapshot columns keep the history';
 
-ALTER TABLE homework_completion
-ADD UNIQUE KEY unique_homework_check (session_exercise_id)
-    COMMENT 'One check per homework assignment, wherever it was checked';
+SET @idx_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'homework_completion'
+       AND INDEX_NAME = 'unique_homework_check'
+);
+SET @sql := IF(@idx_exists > 0,
+    'DO 0',
+    'ALTER TABLE homework_completion ADD UNIQUE KEY unique_homework_check (session_exercise_id)');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-ALTER TABLE homework_completion
-ADD CONSTRAINT homework_completion_ibfk_2
-    FOREIGN KEY (session_exercise_id) REFERENCES session_exercises(id) ON DELETE SET NULL;
+SET @fk_exists := (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'homework_completion'
+       AND CONSTRAINT_NAME = 'homework_completion_ibfk_2'
+       AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @sql := IF(@fk_exists > 0,
+    'DO 0',
+    'ALTER TABLE homework_completion ADD CONSTRAINT homework_completion_ibfk_2 FOREIGN KEY (session_exercise_id) REFERENCES session_exercises(id) ON DELETE SET NULL');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 ALTER TABLE homework_completion
 MODIFY COLUMN current_session_id INT NOT NULL
