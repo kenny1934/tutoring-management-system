@@ -268,10 +268,21 @@ already computes per-student checked rate, completion score, star average and
 `webapp/frontend`: 625 pass. `npx tsc --noEmit` reports 172 errors, all
 pre-existing; `main` reports 173.
 
-## Before the PR
+## Shipping
 
-- Changelog entry, then regenerate with
-  `cd webapp/frontend && npx tsx scripts/parse-changelog.ts` and commit both.
+The changelog is **not** a pre-PR step. `CHANGELOG.md` is only ever touched by
+`chore(release)` commits: release-please raises a Release PR from the
+conventional commit subjects, and the entries are rewritten into user-facing
+prose there before that PR is merged. A feature branch that edits it is fighting
+the tool.
+
+Still outstanding:
+
 - After the backend deploys, a migration to drop the 155 compatibility aliases.
+  Migrations 154, 155 and 156 are already in production, so the deploy needs no
+  database step of its own.
 - Consider capping `HomeworkPanel` at the 3 most recent items with an "N older"
   line: a student with 6 outstanding makes the rate modal tall.
+- `app/sessions/lesson/page.tsx` fetches the day with `limit: 50`, which a busy
+  tutor already exceeds, so wide mode can render a slot short. Pre-existing and
+  unrelated to homework, but it would hide the panel for the missing students.
