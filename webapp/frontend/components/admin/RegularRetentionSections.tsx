@@ -1,7 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowUpDown, Loader2, MessageSquarePlus, UserMinus, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Download,
+  Loader2,
+  MessageSquarePlus,
+  Search,
+  UserMinus,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { terminationsAPI } from "@/lib/api";
 import { getGradeColor } from "@/lib/regular-utils";
@@ -12,6 +22,15 @@ import {
 } from "@/lib/termination-constants";
 import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
+import {
+  EMPTY_CHASE_FILTERS,
+  filterChaseRows,
+  isFollowUpDue,
+  shortDate,
+  sortChaseRows,
+  type ChaseFilters,
+  type ChaseSortKey,
+} from "@/lib/retention-utils";
 import type {
   RegularRetentionChaseRow,
   RegularRetentionResponse,
@@ -87,9 +106,9 @@ function GradeBadge({ row }: { row: RegularRetentionChaseRow }) {
       {row.rung === "admin_only" && (
         <span
           className="text-[10px] text-muted-foreground"
-          title="This grade is not on the public form — staff have to enter the application"
+          title="This grade is not on the public form, so staff enter the application"
         >
-          staff only
+          admin only
         </span>
       )}
     </span>
@@ -373,7 +392,21 @@ export function NotReturningDialog({
   );
 }
 
-type SortKey = "student_name" | "expected_grade" | "branch" | "tutor_name" | "days_since_contact";
+// Working a 500-name list takes more than one sitting, and losing your filters
+// to a tab switch means finding your place again. Session storage rather than
+// the URL: it survives a refresh without the Suspense boundary a search-param
+// hook would force on this page.
+const FILTER_STORE_KEY = "regular-retention-chase-filters";
+
+function loadFilters(): ChaseFilters {
+  if (typeof window === "undefined") return EMPTY_CHASE_FILTERS;
+  try {
+    const raw = window.sessionStorage.getItem(FILTER_STORE_KEY);
+    return raw ? { ...EMPTY_CHASE_FILTERS, ...JSON.parse(raw) } : EMPTY_CHASE_FILTERS;
+  } catch {
+    return EMPTY_CHASE_FILTERS;
+  }
+}
 
 export function RegularRetentionChaseList({
   data,
@@ -388,102 +421,202 @@ export function RegularRetentionChaseList({
 }) {
   // The list arrives whole so the page can filter without a second request.
   // Unresponsive students are the work, so that is where it opens.
-  const [state, setState] = useState<RetentionState | "all">("no_response");
-  const [branch, setBranch] = useState<string>("");
-  const [grade, setGrade] = useState<string>("");
-  const [source, setSource] = useState<string>("");
-  const [contact, setContact] = useState<"" | "yes" | "no">("");
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [filters, setFilters] = useState<ChaseFilters>(EMPTY_CHASE_FILTERS);
+  const [restored, setRestored] = useState(false);
+  const [sortKey, setSortKey] = useState<ChaseSortKey | null>(null);
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
 
-  const branches = useMemo(
-    () => Array.from(new Set(data.chase.map((r) => r.branch).filter(Boolean))).sort() as string[],
-    [data.chase]
-  );
-  const grades = useMemo(
-    () => Array.from(new Set(data.chase.map((r) => r.expected_grade).filter(Boolean))).sort() as string[],
-    [data.chase]
+  // Read on mount rather than in useState, so the server and first client
+  // render agree and hydration stays quiet.
+  useEffect(() => {
+    setFilters(loadFilters());
+    setRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      window.sessionStorage.setItem(FILTER_STORE_KEY, JSON.stringify(filters));
+    } catch {
+      // A full or blocked store is not worth failing the page over.
+    }
+  }, [filters, restored]);
+
+  const set = <K extends keyof ChaseFilters>(key: K, value: ChaseFilters[K]) =>
+    setFilters((f) => ({ ...f, [key]: value }));
+
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const options = useMemo(() => {
+    const branches = new Set<string>();
+    const grades = new Set<string>();
+    const tutors = new Set<string>();
+    for (const r of data.chase) {
+      if (r.branch) branches.add(r.branch);
+      if (r.expected_grade) grades.add(r.expected_grade);
+      if (r.tutor_name) tutors.add(r.tutor_name);
+    }
+    return {
+      branches: [...branches].sort(),
+      grades: [...grades].sort(),
+      tutors: [...tutors].sort(),
+    };
+  }, [data.chase]);
+
+  const rows = useMemo(
+    () => sortChaseRows(filterChaseRows(data.chase, filters, today), sortKey, dir),
+    [data.chase, filters, sortKey, dir, today]
   );
 
-  const rows = useMemo(() => {
-    const filtered = data.chase.filter((r) => {
-      if (state !== "all" && r.state !== state) return false;
-      if (branch && r.branch !== branch) return false;
-      if (grade && r.expected_grade !== grade) return false;
-      if (source && r.source !== source) return false;
-      if (contact === "yes" && !r.last_contact_date) return false;
-      if (contact === "no" && r.last_contact_date) return false;
-      return true;
-    });
-    if (!sortKey) return filtered;
-    return [...filtered].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      let c: number;
-      if (typeof av === "number" && typeof bv === "number") c = av - bv;
-      else c = String(av ?? "").localeCompare(String(bv ?? ""));
-      return dir === "asc" ? c : -c;
-    });
-  }, [data.chase, state, branch, grade, source, contact, sortKey, dir]);
+  const dueCount = useMemo(
+    () => data.chase.filter((r) => isFollowUpDue(r, today)).length,
+    [data.chase, today]
+  );
 
-  const onSort = (k: SortKey) => {
+  const filtersActive =
+    JSON.stringify(filters) !== JSON.stringify(EMPTY_CHASE_FILTERS);
+
+  const onSort = (k: ChaseSortKey) => {
     if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
       setSortKey(k);
-      setDir("asc");
+      // Staleness is the call queue, so it opens with the most overdue first.
+      setDir(k === "days_since_contact" ? "desc" : "asc");
     }
   };
 
-  const SortHeader = ({ k, children, className }: { k: SortKey; children: React.ReactNode; className?: string }) => (
-    <th className={className ?? th}>
-      <button
-        type="button"
-        onClick={() => onSort(k)}
-        className="inline-flex items-center gap-1 hover:text-primary"
-      >
-        {children}
-        <ArrowUpDown className={cn("h-3 w-3", sortKey === k ? "text-primary" : "text-muted-foreground/50")} />
-      </button>
-    </th>
-  );
+  /** Exports what is on screen, not the whole report — a filtered view is a
+   *  call sheet for one person, and that is what someone wants to hand over. */
+  const exportView = () => {
+    const header = [
+      "Code", "Student", "Entering", "Branch", "Tutor", "Phone",
+      "Last contacted", "Days since", "Follow up", "State", "Reason",
+    ];
+    const cell = (v: string | number | null | undefined) => {
+      const s = String(v ?? "");
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const body = rows.map((r) => [
+      r.student_code, r.student_name, r.expected_grade, r.branch, r.tutor_name, r.phone,
+      r.last_contact_date ? r.last_contact_date.slice(0, 10) : "",
+      r.days_since_contact, r.follow_up_date, STATE_META[r.state].label,
+      r.decline_reason_category,
+    ]);
+    const csv =
+      String.fromCharCode(0xfeff) +
+      [header, ...body].map((line) => line.map(cell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chase-list-${data.year}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const SortHeader = ({ k, children }: { k: ChaseSortKey; children: React.ReactNode }) => {
+    const active = sortKey === k;
+    const Arrow = !active ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <th className={th}>
+        <button
+          type="button"
+          onClick={() => onSort(k)}
+          className={cn("inline-flex items-center gap-1 hover:text-primary", active && "text-primary")}
+        >
+          {children}
+          <Arrow className={cn("h-3 w-3", active ? "text-primary" : "text-muted-foreground/50")} />
+        </button>
+      </th>
+    );
+  };
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <select value={state} onChange={(e) => setState(e.target.value as RetentionState | "all")} className={selectClass}>
+        <div className="relative">
+          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="search"
+            value={filters.q}
+            onChange={(e) => set("q", e.target.value)}
+            placeholder="Name, code or phone"
+            className={cn(selectClass, "pl-8 w-52")}
+          />
+        </div>
+        <select
+          value={filters.state}
+          onChange={(e) => set("state", e.target.value as RetentionState | "all")}
+          className={selectClass}
+        >
           <option value="no_response">No response</option>
           <option value="applied">Applied</option>
           <option value="enrolled">Enrolled</option>
           <option value="declined">Not returning</option>
           <option value="all">Everyone</option>
         </select>
-        {branches.length > 1 && (
-          <select value={branch} onChange={(e) => setBranch(e.target.value)} className={selectClass}>
-            <option value="">All branches</option>
-            {branches.map((b) => <option key={b} value={b}>{b}</option>)}
+        {options.tutors.length > 1 && (
+          <select value={filters.tutor} onChange={(e) => set("tutor", e.target.value)} className={selectClass}>
+            <option value="">All tutors</option>
+            {options.tutors.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         )}
-        <select value={grade} onChange={(e) => setGrade(e.target.value)} className={selectClass}>
+        {options.branches.length > 1 && (
+          <select value={filters.branch} onChange={(e) => set("branch", e.target.value)} className={selectClass}>
+            <option value="">All branches</option>
+            {options.branches.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+        )}
+        <select value={filters.grade} onChange={(e) => set("grade", e.target.value)} className={selectClass}>
           <option value="">All grades</option>
-          {grades.map((g) => <option key={g} value={g}>Entering {g}</option>)}
+          {options.grades.map((g) => <option key={g} value={g}>Entering {g}</option>)}
         </select>
-        <select value={source} onChange={(e) => setSource(e.target.value)} className={selectClass}>
+        <select value={filters.source} onChange={(e) => set("source", e.target.value)} className={selectClass}>
           <option value="">Any source</option>
           {(Object.keys(SOURCE_LABELS) as RetentionSource[]).map((s) => (
             <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
           ))}
         </select>
-        <select value={contact} onChange={(e) => setContact(e.target.value as "" | "yes" | "no")} className={selectClass}>
+        <select
+          value={filters.contact}
+          onChange={(e) => set("contact", e.target.value as ChaseFilters["contact"])}
+          className={selectClass}
+        >
           <option value="">Contacted or not</option>
           <option value="no">Never contacted</option>
           <option value="yes">Contacted before</option>
+          <option value="due">Follow-up due{dueCount ? ` (${dueCount})` : ""}</option>
         </select>
-        <span className="text-xs text-muted-foreground ml-auto tabular-nums">
-          {rows.length} of {data.chase.length}
-        </span>
+
+        {filtersActive && (
+          <button
+            type="button"
+            onClick={() => setFilters(EMPTY_CHASE_FILTERS)}
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            Reset
+          </button>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {rows.length} of {data.chase.length}
+          </span>
+          <button
+            type="button"
+            onClick={exportView}
+            disabled={rows.length === 0}
+            title="Download the rows shown as a call sheet"
+            className={cn(selectClass, "inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed")}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Export view</span>
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -491,13 +624,13 @@ export function RegularRetentionChaseList({
         <table className="w-full text-xs">
           <thead className={cn(thead, "sticky top-0 z-10")}>
             <tr className={theadRow}>
+              <SortHeader k="student_code">Code</SortHeader>
               <SortHeader k="student_name">Student</SortHeader>
               <SortHeader k="expected_grade">Entering</SortHeader>
               <SortHeader k="branch">Branch</SortHeader>
-              <th className={th}>Source</th>
-              <th className={th}>Contact</th>
               <SortHeader k="tutor_name">Tutor</SortHeader>
-              <SortHeader k="days_since_contact">Last spoken</SortHeader>
+              <th className={th}>Phone</th>
+              <SortHeader k="days_since_contact">Last contacted</SortHeader>
               <th className={th}>State</th>
               <th className={th} />
             </tr>
@@ -506,87 +639,106 @@ export function RegularRetentionChaseList({
             {rows.length === 0 ? (
               <EmptyRow span={9}>Nobody matches these filters.</EmptyRow>
             ) : (
-              rows.map((r) => (
-                <tr key={r.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-1.5">
+              rows.map((r) => {
+                const due = isFollowUpDue(r, today);
+                return (
+                  <tr key={r.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      {r.student_code ? (
+                        <StudentCodeBadge code={r.student_code} />
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5">
                       <span className="text-foreground font-medium">{r.student_name}</span>
-                      {r.student_code && <StudentCodeBadge code={r.student_code} />}
-                    </div>
-                    {r.on_prospect_board && (
-                      <div
-                        className="text-[10px] text-sky-700 dark:text-sky-400 mt-0.5"
-                        title="A primary branch is already following this family up on the prospect board"
-                      >
-                        also on prospect board
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2"><GradeBadge row={r} /></td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.branch ?? "-"}</td>
-                  <td className="px-3 py-2 text-muted-foreground" title={SOURCE_HINTS[r.source]}>
-                    {SOURCE_LABELS[r.source]}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.phone ? (
-                      <span className="tabular-nums text-foreground"><CopyableCell text={r.phone} /></span>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.tutor_name ?? "-"}</td>
-                  <td className="px-3 py-2 tabular-nums text-muted-foreground">
-                    {r.days_since_contact == null
-                      ? <span className="italic">never</span>
-                      : `${r.days_since_contact}d ago`}
-                    {r.follow_up_needed && r.follow_up_date && (
-                      <div className="text-[10px] text-sky-700 dark:text-sky-400">
-                        follow up {r.follow_up_date}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <StateBadge state={r.state} />
-                    {r.decline_reason_category && r.state !== "declined" && (
-                      <div
-                        className="text-[10px] text-rose-600 dark:text-rose-400 mt-0.5"
-                        title="This family was marked as not returning but has a live application — worth checking"
-                      >
-                        also marked leaving
-                      </div>
-                    )}
-                    {r.state === "declined" && r.decline_reason_category && (
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                        {r.decline_reason_category}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    {!isReadOnly && (
-                      <div className="flex items-center gap-1 justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setContactFor(r)}
-                          title="Log a contact with this family"
-                          className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                      {r.on_prospect_board && (
+                        <span
+                          className="ml-1.5 text-[10px] text-sky-700 dark:text-sky-400 align-middle"
+                          title="A primary branch is already following this family up on the prospect board"
                         >
-                          <MessageSquarePlus className="h-3.5 w-3.5" />
-                        </button>
-                        {r.state !== "declined" && (
+                          ◆
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 whitespace-nowrap"><GradeBadge row={r} /></td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{r.branch ?? "-"}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground whitespace-nowrap">{r.tutor_name ?? "-"}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      {r.phone ? (
+                        <span className="tabular-nums text-foreground"><CopyableCell text={r.phone} /></span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      {/* Never contacted is the front of the queue, so it reads
+                          as a state rather than as missing data. */}
+                      {r.last_contact_date == null ? (
+                        <span className="text-amber-700 dark:text-amber-400 font-medium">Never</span>
+                      ) : (
+                        <span className="text-muted-foreground tabular-nums">
+                          {shortDate(r.last_contact_date)}
+                          <span className="text-muted-foreground/70"> · {r.days_since_contact}d</span>
+                        </span>
+                      )}
+                      {r.follow_up_needed && r.follow_up_date && (
+                        <span
+                          className={cn(
+                            "ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
+                            due
+                              ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                              : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                          )}
+                          title={`Someone promised to follow up on ${r.follow_up_date}`}
+                        >
+                          {due ? "due" : shortDate(r.follow_up_date)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      <StateBadge state={r.state} />
+                      {r.decline_reason_category && r.state !== "declined" && (
+                        <span
+                          className="ml-1.5 text-[10px] text-rose-600 dark:text-rose-400"
+                          title="This family was marked as not returning but has a live application — worth checking"
+                        >
+                          conflict
+                        </span>
+                      )}
+                      {r.state === "declined" && r.decline_reason_category && (
+                        <span className="ml-1.5 text-[10px] text-muted-foreground">
+                          {r.decline_reason_category}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      {!isReadOnly && (
+                        <div className="flex items-center gap-1 justify-end">
                           <button
                             type="button"
-                            onClick={() => setDeclineFor(r)}
-                            title="Mark this family as not returning"
-                            className="p-1.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
+                            onClick={() => setContactFor(r)}
+                            title="Log a contact with this family"
+                            className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
                           >
-                            <UserMinus className="h-3.5 w-3.5" />
+                            <MessageSquarePlus className="h-3.5 w-3.5" />
                           </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))
+                          {r.state !== "declined" && (
+                            <button
+                              type="button"
+                              onClick={() => setDeclineFor(r)}
+                              title="Mark this family as not returning"
+                              className="p-1.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

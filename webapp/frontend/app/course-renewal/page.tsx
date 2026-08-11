@@ -145,11 +145,15 @@ export default function CourseRenewalPage() {
                                 <CopyableCell text={s.phone} />
                               </span>
                             )}
-                            <span>
-                              {s.days_since_contact == null
-                                ? "never spoken to"
-                                : `last spoken ${s.days_since_contact}d ago`}
-                            </span>
+                            {/* Never contacted is the front of the queue, so it
+                                reads as a state rather than as missing data. */}
+                            {s.days_since_contact == null ? (
+                              <span className="text-amber-700 dark:text-amber-400 font-medium">
+                                Never contacted
+                              </span>
+                            ) : (
+                              <span>last contacted {s.days_since_contact}d ago</span>
+                            )}
                             {s.follow_up_needed && s.follow_up_date && (
                               <span className="text-sky-700 dark:text-sky-400">
                                 follow up {s.follow_up_date}
