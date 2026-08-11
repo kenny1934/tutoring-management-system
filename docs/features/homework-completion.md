@@ -66,12 +66,21 @@ core change from the legacy design and everything else follows from it.
 | 155 | Restores `previous_session_id` and `submitted` on the view as aliases | Applied to prod 2026-08-10 |
 | 156 | `homework_files.thumbnail_path`, nullable | Applied to prod 2026-08-10 |
 | 157 | Drops the 155 aliases now the new backend is live | Applied to prod 2026-08-10 |
-| 158 | The `Submitted` state, and all three views rebuilt around it | Not yet applied |
+| 158 | The `Submitted` state, and all three views rebuilt around it | Applied to prod 2026-08-11 |
 
 Migration 158 is additive only: the enum widens, no column is renamed or
 dropped, and the views keep every column they had. The deployed backend reads
-`Submitted` as unchecked without knowing what it is, so the migration is safe
-to land ahead of the code. Nothing writes the state until then.
+`Submitted` as unchecked without knowing what it is, and `check_status`'s new
+third value is mapped by the ORM but read by nothing, so it landed ahead of the
+code safely. Nothing writes the state until v2.0.108 deploys.
+
+Verified after applying: the enum carries all five with `DEFAULT 'Not Checked'`
+intact, the six legacy rows moved to `Submitted` with their flag kept and no
+audit stamp invented, `student_homework_statistics` gained
+`total_awaiting_marking` while `last_checked_date` stays NULL for them,
+`student_homework_history` still holds verdicts only, and the promoted rows age
+through `homework_to_check` across three sessions as intended. 16 rows before
+and after.
 
 Migration 155 existed only because the backend deployed at the time still
 selected those two columns. It was the fix for breaking production by renaming a
