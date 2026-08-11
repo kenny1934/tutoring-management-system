@@ -3623,6 +3623,123 @@ class RegularConversionResponse(BaseModel):
     by_school: List[RegularConversionSchoolRow] = []
     branch_movement: List[RegularConversionMovementRow] = []
     lost_prospects: List[RegularConversionLostRow] = []
+
+
+# ---- Regular Course Retention (did last year's students come back?) ----
+
+# Where a cohort member came from. Conversion answers "did new blood arrive";
+# retention answers "did the people we already had stay", so the two boards
+# never share a denominator.
+RetentionSource = Literal["regular_and_summer", "regular_only", "summer_only"]
+
+# What happened to them this intake. Ordered by how settled the answer is:
+# everything before "no_response" is a resolved outcome, and only no_response
+# earns a place on the chase list.
+RetentionState = Literal["enrolled", "applied", "declined", "not_churn", "no_response"]
+
+# Whether the grade they are entering is one the form actually offers.
+# `admin_only` rungs exist in the config but are hidden from parents, so those
+# families cannot self-serve even when chased.
+RetentionRung = Literal["open", "admin_only", "none"]
+
+
+class RegularRetentionRow(BaseModel):
+    """One slice of the retention funnel, keyed by whatever axis built it.
+
+    Every axis counts the same measures, so they share a row shape rather than
+    growing a class each: `key` is the branch code, entering grade, source tag,
+    tutor name, or decline reason depending on which list the row came from.
+
+    `cohort` is the denominator and holds declines — a family who said no is a
+    retention failure, not an exclusion. Only `not_churn` (transferred away,
+    graduated) leaves the denominator, which is why it has no column here."""
+    key: str
+    cohort: int = 0
+    applied: int = 0
+    enrolled: int = 0
+    declined: int = 0
+    # Someone logged a parent contact inside the application window. Independent
+    # of state: a contacted family can still be sitting at no_response.
+    contacted: int = 0
+    no_response: int = 0
+
+
+class RegularRetentionChaseRow(BaseModel):
+    """One cohort member, with everything needed to chase them in one row.
+
+    Carries contact details and the last-contact date so staff can work the
+    list without opening each student, matching how the conversion board's
+    chase list behaves."""
+    student_id: int
+    student_name: str
+    student_code: Optional[str] = None
+    branch: Optional[str] = None
+    # The grade on the student record — last school year's, until the Sept 1
+    # promotion job runs.
+    grade: Optional[str] = None
+    # The grade they are entering, which is what an application carries. Equal
+    # to `grade` only after promotion.
+    expected_grade: Optional[str] = None
+    rung: RetentionRung = "none"
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    phone: Optional[str] = None
+    tutor_id: Optional[int] = None
+    tutor_name: Optional[str] = None
+    source: RetentionSource = "regular_only"
+    # True when a P6 prospect row already covers this student, so the primary
+    # branch is chasing them too and this board should not double-call.
+    on_prospect_board: bool = False
+    state: RetentionState = "no_response"
+    reference_code: Optional[str] = None
+    last_contact_date: Optional[datetime] = None
+    days_since_contact: Optional[int] = None
+    follow_up_needed: bool = False
+    follow_up_date: Optional[date] = None
+    decline_reason: Optional[str] = None
+    decline_reason_category: Optional[str] = None
+
+
+class RegularRetentionReconciliation(BaseModel):
+    """Applications claiming to be existing students but carrying no student
+    link. Their families read as "no response" and would be chased in error,
+    so the board surfaces the count and offers the existing auto-match."""
+    unlinked_count: int = 0
+    # Split by claimed centre, since only the Secondary Academy ones are this
+    # board's cohort — the rest feed the conversion board.
+    unlinked_secondary: int = 0
+    unlinked_primary: int = 0
+
+
+class RegularRetentionResponse(BaseModel):
+    """Did last year's students apply for this year's regular course?
+
+    The mirror of the conversion report for existing customers: conversion
+    tracks P6 prospects arriving, this tracks the students already here
+    staying. `totals` sums only the rungs the form offers; `no_rung` holds the
+    students whose entering grade the config has no place for (F5 and up), who
+    are reported separately and never counted as unresponsive."""
+    year: int
+    # Bounds the board reads from the config, echoed so the UI can explain
+    # itself without recomputing them.
+    window_start: Optional[datetime] = None
+    active_from: Optional[date] = None
+    # The reporting quarter a decline is written into. The application window
+    # falls inside a single quarter, which is what lets a decline ride on
+    # termination_records instead of needing its own table.
+    intake_year: int
+    intake_quarter: int
+    totals: RegularRetentionRow
+    by_branch: List[RegularRetentionRow] = []
+    by_expected_grade: List[RegularRetentionRow] = []
+    by_source: List[RegularRetentionRow] = []
+    by_tutor: List[RegularRetentionRow] = []
+    by_decline_reason: List[RegularRetentionRow] = []
+    no_rung: RegularRetentionRow
+    chase: List[RegularRetentionChaseRow] = []
+    reconciliation: RegularRetentionReconciliation
+
+
 class SavedReportDetailResponse(BaseModel):
     id: int
     student_id: int

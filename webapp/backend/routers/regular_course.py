@@ -14,6 +14,7 @@ keep them in sync when the summer versions change.
 """
 import logging
 import secrets
+from calendar import monthrange
 from datetime import date as date_type, timedelta
 from typing import Optional, get_args
 
@@ -31,10 +32,13 @@ from models import (
     RegularTutorDuty,
     Discount,
     Enrollment,
+    ParentCommunication,
     PrimaryProspect,
     SummerApplication,
+    SummerCourseConfig,
     SessionLog,
     Student,
+    TerminationRecord,
     Tutor,
 )
 from schemas import (
@@ -82,13 +86,18 @@ from schemas import (
     RegularConversionSchoolRow,
     RegularConversionMovementRow,
     RegularConversionLostRow,
+    RegularRetentionResponse,
+    RegularRetentionRow,
+    RegularRetentionChaseRow,
+    RegularRetentionReconciliation,
     ProspectIntention,
 )
 from auth.dependencies import require_admin_view, require_admin_write, require_super_admin
 from routers.students import find_duplicate_students
 from routers.primary_prospects import enrollment_backed_students
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
-from utils.grades import grade_blocks_prospect_link
+from utils.grades import GRADE_ORDER, grade_blocks_prospect_link, next_grade
+from quarters import get_quarter_dates, get_quarter_for_date
 from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
@@ -117,6 +126,7 @@ from constants import (
     MIN_LESSONS_FOR_DISCOUNT,
     REGISTRATION_FEE,
     REGULAR_EXIT_STATUSES,
+    format_student_code,
     normalize_secondary_location,
     normalize_day_short,
 )
@@ -1844,6 +1854,483 @@ def get_conversion(
         branch_movement=branch_movement,
         lost_prospects=lost_prospects,
     )
+
+
+# ============================================
+# Retention: did last year's students come back?
+# ============================================
+# The mirror of the conversion report. Conversion asks whether new blood
+# arrived (P6 prospects -> F1); retention asks whether the students already
+# here stayed. The two never share a denominator, which is why this builds its
+# cohort from enrollments rather than from primary_prospects.
+
+# How far back a regular enrollment may end and still count its student as
+# "here at the end of last year". Four months before the course starts lands
+# at 1 May, which is where the cohort size stops moving: earlier cutoffs only
+# add long-lapsed students, later ones start cutting real ones whose final
+# lesson pack ran out ahead of the summer pause.
+RETENTION_ACTIVE_MONTHS_BACK = 4
+
+# The one payment status that never represented an attending student. Written
+# as an exclusion rather than the Paid/Pending allow-list the latest_enrollments
+# view uses, so statuses like Waived — which do represent a real student — don't
+# silently drop out of the cohort.
+RETENTION_VOID_PAYMENT_STATUSES = ("Cancelled",)
+
+
+def _months_before(d: date_type, months: int) -> date_type:
+    """`d` shifted back whole months, clamped to the shorter month's last day."""
+    month, year = d.month - months, d.year
+    while month <= 0:
+        month += 12
+        year -= 1
+    return d.replace(year=year, month=month, day=min(d.day, monthrange(year, month)[1]))
+
+
+def _retention_rungs(config: RegularCourseConfig) -> dict[str, str]:
+    """Entering grade -> whether the form has a place for it.
+
+    `admin_only` rungs are real but hidden from parents, so those families
+    can't self-serve however hard they're chased. Grades absent from the config
+    have nowhere to apply at all; their students are reported separately and
+    never counted as unresponsive."""
+    rungs: dict[str, str] = {}
+    for entry in config.available_grades or []:
+        value = (entry.get("value") or "").strip()
+        if value:
+            rungs[value.upper()] = "admin_only" if entry.get("admin_only") else "open"
+    return rungs
+
+
+def _retention_cohort_sources(db: Session, config: RegularCourseConfig, active_from: date_type):
+    """The two cohort sources, each as {student_id: (last_start, branch, tutor_id)}.
+
+    Source A is a regular enrollment still running at the end of last school
+    year; source B is this year's summer course. A student in both is the
+    strongest retention signal there is, so the caller tags rather than merges
+    them. Branch and tutor come from the most recent enrollment on each side —
+    the regular one wins downstream, being the student's home class."""
+    def _fold(rows) -> dict[int, tuple]:
+        latest: dict[int, tuple] = {}
+        for student_id, location, tutor_id, first_lesson in rows:
+            current = latest.get(student_id)
+            if current is None or (first_lesson or date_type.min) >= current[0]:
+                latest[student_id] = (
+                    first_lesson or date_type.min,
+                    normalize_secondary_location(location),
+                    tutor_id,
+                )
+        return latest
+
+    columns = (
+        Enrollment.student_id,
+        Enrollment.location,
+        Enrollment.tutor_id,
+        Enrollment.first_lesson_date,
+    )
+    # The holiday-aware end date the enrollment list and renewal pages already
+    # read, rather than first_lesson_date + lessons_paid done by hand here.
+    effective_end = func.calculate_effective_end_date(
+        Enrollment.first_lesson_date,
+        Enrollment.lessons_paid,
+        func.coalesce(Enrollment.deadline_extension_weeks, 0),
+    )
+    regular = _fold(
+        db.query(*columns).filter(
+            Enrollment.enrollment_type == 'Regular',
+            Enrollment.payment_status.notin_(RETENTION_VOID_PAYMENT_STATUSES),
+            Enrollment.first_lesson_date.isnot(None),
+            effective_end >= active_from,
+        )
+    )
+    summer = _fold(
+        db.query(*columns)
+        .join(SummerApplication, SummerApplication.id == Enrollment.summer_application_id)
+        .join(SummerCourseConfig, SummerCourseConfig.id == SummerApplication.config_id)
+        .filter(
+            Enrollment.enrollment_type == 'Summer',
+            SummerCourseConfig.year == config.year,
+            SummerApplication.application_status.notin_(REGULAR_EXIT_STATUSES),
+        )
+    )
+    return regular, summer
+
+
+def _retention_terminations(
+    db: Session, student_ids: set[int], active_from: date_type, intake: tuple[int, int]
+):
+    """Split this cohort's termination records into the three things they mean.
+
+    A decline rides on termination_records because the application window falls
+    inside a single reporting quarter, and that quarter is already the one built
+    to catch "didn't come back when regular lessons resumed". So a termination
+    filed in the intake quarter *is* a declined intake:
+
+      - `declined`   counted termination in the intake quarter -> real churn.
+                     Off the chase list, but it stays in the denominator: a
+                     family who said no is a retention failure, not an exclusion.
+      - `not_churn`  uncounted termination in the intake quarter -> transferred
+                     branch, graduated, moved away. Out of both.
+      - `left_before` counted termination from an earlier quarter -> they left
+                     last year and are not a retention question at all.
+
+    `left_before` only honours quarters that close on or after `active_from`.
+    Cohort membership already requires lessons running that late, so an older
+    termination is contradicted by the enrollment that came after it; the more
+    recent signal wins."""
+    intake_year, intake_quarter = intake
+    left_before: set[int] = set()
+    declined: dict[int, tuple[Optional[str], Optional[str]]] = {}
+    not_churn: set[int] = set()
+    if not student_ids:
+        return left_before, declined, not_churn
+
+    rows = db.query(
+        TerminationRecord.student_id,
+        TerminationRecord.year,
+        TerminationRecord.quarter,
+        TerminationRecord.count_as_terminated,
+        TerminationRecord.reason,
+        TerminationRecord.reason_category,
+    ).filter(TerminationRecord.student_id.in_(student_ids))
+
+    for student_id, term_year, quarter, counted, reason, category in rows:
+        if term_year is None or quarter is None:
+            continue
+        position = (term_year, quarter)
+        if position == (intake_year, intake_quarter):
+            if counted:
+                declined[student_id] = (reason, category)
+            else:
+                not_churn.add(student_id)
+        elif position < (intake_year, intake_quarter) and counted:
+            if get_quarter_dates(term_year, quarter)[2] >= active_from:
+                left_before.add(student_id)
+    return left_before, declined, not_churn
+
+
+def _retention_applications(db: Session, config: RegularCourseConfig, year: int):
+    """This intake's live applications, mapped to the student each belongs to.
+
+    Two link paths, because a student can reach an application either way:
+    `existing_student_id` is the main one, and a P6 prospect's own link picks up
+    the handful whose application was matched to the prospect but never back to
+    the student record. Missing the second path would read as "no response" for
+    a family that already applied."""
+    apps = (
+        db.query(RegularApplication)
+        .filter(
+            RegularApplication.config_id == config.id,
+            RegularApplication.application_status.notin_(REGULAR_EXIT_STATUSES),
+        )
+        .all()
+    )
+    app_by_student: dict[int, RegularApplication] = {}
+    for app in apps:
+        if app.existing_student_id:
+            app_by_student.setdefault(app.existing_student_id, app)
+
+    prospects = (
+        db.query(PrimaryProspect)
+        .filter(
+            PrimaryProspect.year == year,
+            PrimaryProspect.summer_application_id.isnot(None),
+        )
+        .all()
+    )
+    backed = enrollment_backed_students(
+        db,
+        Enrollment.summer_application_id,
+        {p.summer_application_id for p in prospects},
+    )
+    by_id = {app.id: app for app in apps}
+    on_prospect_board: set[int] = set()
+    for prospect in prospects:
+        pair = backed.get(prospect.summer_application_id)
+        if not pair:
+            continue
+        student_id = pair[0]
+        on_prospect_board.add(student_id)
+        if prospect.regular_application_id and student_id not in app_by_student:
+            app = by_id.get(prospect.regular_application_id)
+            if app:
+                app_by_student[student_id] = app
+
+    enrolled_app_ids: set[int] = set()
+    app_ids = {app.id for app in app_by_student.values()}
+    if app_ids:
+        enrolled_app_ids = {
+            app_id
+            for (app_id,) in db.query(Enrollment.regular_application_id).filter(
+                Enrollment.regular_application_id.in_(app_ids)
+            )
+            if app_id is not None
+        }
+    return app_by_student, enrolled_app_ids, on_prospect_board
+
+
+def _retention_contacts(db: Session, student_ids: set[int], window_start):
+    """Per-student parent-contact facts: last contact, whether it fell inside
+    the application window, and any booked follow-up.
+
+    Reuses parent_communications rather than growing an outreach table of its
+    own, so a renewal call and a progress call live in one history."""
+    contacts: dict[int, dict] = {}
+    if not student_ids:
+        return contacts
+    rows = db.query(
+        ParentCommunication.student_id,
+        ParentCommunication.contact_date,
+        ParentCommunication.follow_up_needed,
+        ParentCommunication.follow_up_date,
+    ).filter(ParentCommunication.student_id.in_(student_ids))
+
+    for student_id, contact_date, follow_up_needed, follow_up_date in rows:
+        entry = contacts.setdefault(
+            student_id,
+            {"last": None, "in_window": False, "follow_up_needed": False, "follow_up_date": None},
+        )
+        if contact_date and (entry["last"] is None or contact_date > entry["last"]):
+            entry["last"] = contact_date
+        if contact_date and window_start and contact_date >= window_start:
+            entry["in_window"] = True
+        if follow_up_needed:
+            entry["follow_up_needed"] = True
+            if follow_up_date and (
+                entry["follow_up_date"] is None or follow_up_date < entry["follow_up_date"]
+            ):
+                entry["follow_up_date"] = follow_up_date
+    return contacts
+
+
+def _retention_reconciliation(db: Session, config: RegularCourseConfig):
+    """Applications that claim an existing student but carry no student link.
+
+    Their families read as "no response" and would be chased despite having
+    applied, so the board surfaces the count and offers the auto-match that
+    already exists."""
+    rows = (
+        db.query(RegularApplication.is_existing_student, func.count(RegularApplication.id))
+        .filter(
+            RegularApplication.config_id == config.id,
+            RegularApplication.application_status.notin_(REGULAR_EXIT_STATUSES),
+            RegularApplication.is_existing_student.isnot(None),
+            RegularApplication.is_existing_student != "None",
+            RegularApplication.existing_student_id.is_(None),
+        )
+        .group_by(RegularApplication.is_existing_student)
+        .all()
+    )
+    secondary = sum(n for claim, n in rows if claim == "MathConcept Secondary Academy")
+    total = sum(n for _claim, n in rows)
+    return RegularRetentionReconciliation(
+        unlinked_count=total,
+        unlinked_secondary=secondary,
+        unlinked_primary=total - secondary,
+    )
+
+
+def _build_retention(
+    db: Session,
+    config: RegularCourseConfig,
+    *,
+    branch: Optional[str] = None,
+    tutor_id: Optional[int] = None,
+) -> RegularRetentionResponse:
+    """Assemble the retention report for one intake.
+
+    `tutor_id` scopes the whole report to one tutor's students, which is what
+    the tutor-facing view reads; the caller decides what of it that role is
+    allowed to see."""
+    year = config.year
+    active_from = _months_before(config.course_start_date, RETENTION_ACTIVE_MONTHS_BACK)
+    window_start = config.application_open_date
+    intake_quarter, intake_year = get_quarter_for_date(
+        window_start.date() if window_start else config.course_start_date
+    )
+
+    regular_src, summer_src = _retention_cohort_sources(db, config, active_from)
+    cohort_ids = set(regular_src) | set(summer_src)
+    left_before, declined, not_churn = _retention_terminations(
+        db, cohort_ids, active_from, (intake_year, intake_quarter)
+    )
+    cohort_ids -= left_before
+    cohort_ids -= not_churn
+
+    app_by_student, enrolled_app_ids, on_prospect_board = _retention_applications(db, config, year)
+    contacts = _retention_contacts(db, cohort_ids, window_start)
+    rungs = _retention_rungs(config)
+
+    students = {
+        s.id: s for s in db.query(Student).filter(Student.id.in_(cohort_ids))
+    } if cohort_ids else {}
+    tutor_ids = {
+        src[student_id][2]
+        for student_id in cohort_ids
+        for src in (regular_src, summer_src)
+        if student_id in src and src[student_id][2]
+    }
+    tutor_names = dict(
+        db.query(Tutor.id, Tutor.tutor_name).filter(Tutor.id.in_(tutor_ids))
+    ) if tutor_ids else {}
+
+    totals = RegularRetentionRow(key="All")
+    no_rung_row = RegularRetentionRow(key="No rung offered")
+    by_branch: dict[str, RegularRetentionRow] = {}
+    by_grade: dict[str, RegularRetentionRow] = {}
+    by_source: dict[str, RegularRetentionRow] = {}
+    by_tutor: dict[str, RegularRetentionRow] = {}
+    by_reason: dict[str, RegularRetentionRow] = {}
+    chase: list[RegularRetentionChaseRow] = []
+
+    def _bump(row: RegularRetentionRow, state: str, contacted: bool) -> None:
+        row.cohort += 1
+        # Enrolled nests inside applied, matching the conversion funnel's
+        # strictly-nested stages.
+        if state == "enrolled":
+            row.applied += 1
+            row.enrolled += 1
+        elif state == "applied":
+            row.applied += 1
+        elif state == "declined":
+            row.declined += 1
+        elif state == "no_response":
+            row.no_response += 1
+        if contacted:
+            row.contacted += 1
+
+    today = hk_now().date()
+
+    for student_id in cohort_ids:
+        student = students.get(student_id)
+        if not student:
+            continue
+        in_regular, in_summer = student_id in regular_src, student_id in summer_src
+        home = regular_src.get(student_id) or summer_src.get(student_id)
+        student_branch = home[1] if home else None
+        student_tutor_id = home[2] if home else None
+        if branch and student_branch != branch:
+            continue
+        if tutor_id is not None and student_tutor_id != tutor_id:
+            continue
+
+        # The stored grade is last school year's until the Sept 1 job runs, but
+        # an application carries the grade being entered. Bridging the two is
+        # what keeps the board stable across the promotion boundary.
+        already_promoted = (student.last_promoted_year or 0) >= year
+        expected_grade = student.grade if already_promoted else next_grade(student.grade)
+        rung = rungs.get((expected_grade or "").upper(), "none")
+
+        app = app_by_student.get(student_id)
+        decline = declined.get(student_id)
+        if app and app.id in enrolled_app_ids:
+            state = "enrolled"
+        elif app:
+            state = "applied"
+        elif decline:
+            state = "declined"
+        else:
+            state = "no_response"
+
+        contact = contacts.get(student_id) or {}
+        last_contact = contact.get("last")
+        source = (
+            "regular_and_summer" if in_regular and in_summer
+            else "regular_only" if in_regular
+            else "summer_only"
+        )
+        chase.append(RegularRetentionChaseRow(
+            student_id=student_id,
+            student_name=student.student_name,
+            student_code=format_student_code(student.home_location, student.school_student_id),
+            branch=student_branch,
+            grade=student.grade,
+            expected_grade=expected_grade,
+            rung=rung,
+            lang_stream=student.lang_stream,
+            school=student.school,
+            phone=student.phone,
+            tutor_id=student_tutor_id,
+            tutor_name=tutor_names.get(student_tutor_id),
+            source=source,
+            on_prospect_board=student_id in on_prospect_board,
+            state=state,
+            reference_code=app.reference_code if app else None,
+            last_contact_date=last_contact,
+            days_since_contact=(today - last_contact.date()).days if last_contact else None,
+            follow_up_needed=bool(contact.get("follow_up_needed")),
+            follow_up_date=contact.get("follow_up_date"),
+            # Kept even when an application won the state, so a family that
+            # applied *and* was marked not-returning shows the contradiction
+            # instead of hiding it.
+            decline_reason=decline[0] if decline else None,
+            decline_reason_category=decline[1] if decline else None,
+        ))
+
+        contacted = bool(contact.get("in_window"))
+        if rung == "none":
+            _bump(no_rung_row, state, contacted)
+            continue
+        _bump(totals, state, contacted)
+        _bump(by_branch.setdefault(student_branch or "Unknown",
+                                   RegularRetentionRow(key=student_branch or "Unknown")), state, contacted)
+        _bump(by_grade.setdefault(expected_grade or "Unknown",
+                                  RegularRetentionRow(key=expected_grade or "Unknown")), state, contacted)
+        _bump(by_source.setdefault(source, RegularRetentionRow(key=source)), state, contacted)
+        tutor_key = tutor_names.get(student_tutor_id) or "Unattributed"
+        _bump(by_tutor.setdefault(tutor_key, RegularRetentionRow(key=tutor_key)), state, contacted)
+        if state == "declined":
+            reason_key = (decline[1] if decline else None) or "Unspecified"
+            _bump(by_reason.setdefault(reason_key, RegularRetentionRow(key=reason_key)), state, contacted)
+
+    # Unresponsive students lead every list — they are the work. Within that,
+    # group by branch and entering grade so a caller works one class at a time.
+    state_order = {"no_response": 0, "declined": 1, "applied": 2, "enrolled": 3, "not_churn": 4}
+    chase.sort(key=lambda r: (
+        state_order.get(r.state, 9),
+        r.branch or "",
+        GRADE_ORDER.index(r.expected_grade) if r.expected_grade in GRADE_ORDER else 99,
+        r.student_name or "",
+    ))
+
+    return RegularRetentionResponse(
+        year=year,
+        window_start=window_start,
+        active_from=active_from,
+        intake_year=intake_year,
+        intake_quarter=intake_quarter,
+        totals=totals,
+        by_branch=sorted(by_branch.values(), key=lambda r: r.key),
+        by_expected_grade=sorted(
+            by_grade.values(),
+            key=lambda r: GRADE_ORDER.index(r.key) if r.key in GRADE_ORDER else 99,
+        ),
+        by_source=sorted(by_source.values(), key=lambda r: -r.cohort),
+        by_tutor=sorted(by_tutor.values(), key=lambda r: (r.key == "Unattributed", -r.cohort, r.key)),
+        by_decline_reason=sorted(by_reason.values(), key=lambda r: (-r.declined, r.key)),
+        no_rung=no_rung_row,
+        chase=chase,
+        reconciliation=_retention_reconciliation(db, config),
+    )
+
+
+@router.get("/regular/retention", response_model=RegularRetentionResponse)
+def get_retention(
+    year: int = Query(...),
+    branch: Optional[str] = None,  # MSA / MSB
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Did last year's students apply for this year's regular course?
+
+    Counterpart to /regular/conversion: that one tracks P6 prospects arriving,
+    this tracks the students already here staying. The cohort is everyone with
+    a regular enrollment still running at the end of last school year, plus
+    this year's summer course, minus the students who had already left."""
+    config = db.query(RegularCourseConfig).filter(RegularCourseConfig.year == year).first()
+    if not config:
+        raise HTTPException(status_code=404, detail=f"No regular course config for {year}")
+    return _build_retention(db, config, branch=branch)
 
 
 def _norm_school(school: Optional[str]) -> Optional[str]:

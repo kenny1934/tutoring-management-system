@@ -6,12 +6,12 @@ Usage:
 """
 import os
 import pytest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Generator
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
@@ -32,6 +32,36 @@ test_engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+@event.listens_for(test_engine, "connect")
+def _register_sqlite_stand_ins(dbapi_connection, _connection_record):
+    """Stand-ins for the MySQL stored functions the app calls from SQL.
+
+    SQLite has no equivalent, so any query filtering on one of them raises
+    rather than returning a wrong answer — which is why the code paths that
+    use them had no test coverage before.
+
+    The real `calculate_effective_end_date` walks forward a week at a time from
+    the first lesson, skipping holidays, until it has counted
+    `lessons_paid + extension_weeks` lesson dates, and returns the last one.
+    This double reproduces the weekly cadence but not the holiday skipping:
+    tests that care about holidays exercise the Python twin in
+    routers/enrollments.py directly (see test_enrollments.py), and tests that
+    use this one only need the date to fall on the right side of a cutoff.
+    """
+    def calculate_effective_end_date(first_lesson_date, lessons_paid, extension_weeks):
+        if not first_lesson_date:
+            return None
+        total = (lessons_paid or 0) + (extension_weeks or 0)
+        start = date.fromisoformat(str(first_lesson_date)[:10])
+        if total <= 0:
+            return start.isoformat()
+        return (start + timedelta(weeks=total - 1)).isoformat()
+
+    dbapi_connection.create_function(
+        "calculate_effective_end_date", 3, calculate_effective_end_date
+    )
 
 
 @pytest.fixture(scope="function")
