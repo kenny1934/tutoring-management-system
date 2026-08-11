@@ -45,9 +45,12 @@ export default function CourseRenewalPage() {
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
 
+  // Same reasoning as the admin board: the list changes when this tutor logs
+  // something, and that path already refetches. See the comment there.
   const { data, isLoading, error, mutate } = useSWR(
     isGuest ? null : "my-retention",
-    () => regularAPI.getMyRetention()
+    () => regularAPI.getMyRetention(),
+    { revalidateOnFocus: false }
   );
 
   const outstanding = useMemo(

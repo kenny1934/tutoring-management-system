@@ -4038,37 +4038,43 @@ export interface RegularRetentionRow {
   no_response_contacted: number;
 }
 
+/** One student to chase.
+ *
+ *  The optional fields really are absent, not null: the report is about 800 of
+ *  these and most of them have nothing to say about a call nobody has made, so
+ *  the endpoint leaves empty keys out of the JSON entirely. Read them with `??`
+ *  or a falsy check and the two cases behave the same. */
 export interface RegularRetentionChaseRow {
   student_id: number;
   student_name: string;
-  student_code: string | null;
-  branch: string | null;
+  student_code?: string | null;
+  branch?: string | null;
   /** The grade on the student record: last school year's, until the Sept 1
    *  promotion job runs. */
-  grade: string | null;
+  grade?: string | null;
   /** The grade they are entering, which is what an application carries. Equal
    *  to `grade` only after promotion. */
-  expected_grade: string | null;
+  expected_grade?: string | null;
   rung: RetentionRung;
-  lang_stream: string | null;
-  school: string | null;
-  phone: string | null;
-  tutor_id: number | null;
-  tutor_name: string | null;
+  lang_stream?: string | null;
+  school?: string | null;
+  phone?: string | null;
+  tutor_name?: string | null;
   source: RetentionSource;
   /** A P6 prospect row already covers this student, so the primary branch is
    *  chasing them too and this board should not double-call. */
   on_prospect_board: boolean;
   state: RetentionState;
-  reference_code: string | null;
-  last_contact_date: string | null;
+  reference_code?: string | null;
+  last_contact_date?: string | null;
   /** What was said on that call, clipped to a couple of lines. */
-  last_contact_note: string | null;
-  days_since_contact: number | null;
+  last_contact_note?: string | null;
+  days_since_contact?: number | null;
   follow_up_needed: boolean;
-  follow_up_date: string | null;
-  decline_reason: string | null;
-  decline_reason_category: string | null;
+  follow_up_date?: string | null;
+  /** The category only. The free-text reason lives on the termination record
+   *  and reads in full on the student's own page. */
+  decline_reason_category?: string | null;
 }
 
 /** One student who applied without being in this year's group. Named rather
@@ -4078,11 +4084,11 @@ export interface RegularRetentionChaseRow {
 export interface RegularRetentionOutsideRow {
   student_id: number;
   student_name: string;
-  student_code: string | null;
-  branch: string | null;
-  grade: string | null;
-  applied_grade: string | null;
-  reference_code: string | null;
+  student_code?: string | null;
+  branch?: string | null;
+  grade?: string | null;
+  applied_grade?: string | null;
+  reference_code?: string | null;
 }
 
 export interface RegularRetentionReconciliation {
@@ -4112,8 +4118,8 @@ export interface RegularRetentionTrendPoint {
 
 export interface RegularRetentionResponse {
   year: number;
-  window_start: string | null;
-  active_from: string | null;
+  window_start?: string | null;
+  active_from?: string | null;
   /** The reporting quarter a decline is written into. The application window
    *  falls inside a single quarter, which is what lets a decline ride on
    *  termination records instead of needing its own store. */

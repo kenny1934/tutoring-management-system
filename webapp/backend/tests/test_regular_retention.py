@@ -28,7 +28,9 @@ from models import (
     Tutor,
 )
 from routers.regular_course import (
+    _RETENTION_CACHE,
     _build_retention,
+    _cached_retention,
     _retention_trend,
     get_my_retention,
     get_retention,
@@ -45,6 +47,20 @@ INTAKE_QUARTER = (2026, 3)
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _empty_retention_cache():
+    """Start every test with a cold cache.
+
+    The report is held for two minutes against a fingerprint of the data behind
+    it, and two tests building different worlds in the same second with the same
+    row counts fingerprint alike. That cannot happen to one real database moving
+    forwards in time, but it happens constantly to a suite starting over.
+    """
+    _RETENTION_CACHE.clear()
+    yield
+    _RETENTION_CACHE.clear()
+
 
 @pytest.fixture
 def tutor(db_session):
@@ -1088,3 +1104,97 @@ class TestTutorView:
         with pytest.raises(HTTPException) as exc:
             get_my_retention(year=None, current_user=tutor, db=db_session)
         assert exc.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Caching
+# ---------------------------------------------------------------------------
+
+class TestCaching:
+    """The report costs about 600ms of database work and is the same for
+    everybody who opens the board that minute, so it is held for two.
+
+    What these tests pin down is that holding it never shows one person another
+    person's report, and that the board's own buttons take effect at once
+    rather than after the timer. Both come from the fingerprint in the key.
+    """
+
+    def test_reading_it_twice_builds_it_once(self, db_session, reg_cfg, tutor):
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+
+        first = _cached_retention(db_session, reg_cfg)
+        second = _cached_retention(db_session, reg_cfg)
+
+        assert second is first
+        assert _RETENTION_CACHE.hits == 1
+
+    def test_logging_a_contact_takes_effect_straight_away(self, db_session, reg_cfg, tutor):
+        """The whole point of fingerprinting rather than trusting the timer:
+        somebody rings a family, the board reloads, and the row has moved."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        before = _cached_retention(db_session, reg_cfg)
+        assert before.totals.contacted == 0
+
+        db_session.add(ParentCommunication(
+            student_id=s.id, tutor_id=tutor.id, contact_date=datetime(2026, 8, 10),
+            contact_method="Phone", contact_type="General", brief_notes="rang them",
+        ))
+        db_session.commit()
+
+        after = _cached_retention(db_session, reg_cfg)
+        assert after is not before
+        assert after.totals.contacted == 1
+
+    def test_marking_a_family_as_leaving_takes_effect_straight_away(
+        self, db_session, reg_cfg, tutor
+    ):
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        before = _cached_retention(db_session, reg_cfg)
+        assert before.totals.declined == 0
+
+        _termination(db_session, s, year=2026, quarter=3, category="Moved away")
+
+        after = _cached_retention(db_session, reg_cfg)
+        assert after.totals.declined == 1
+
+    def test_one_branch_is_not_served_the_other_branch_s_report(
+        self, db_session, reg_cfg, tutor
+    ):
+        msa = _student(db_session, name="At MSA")
+        msb = _student(db_session, name="At MSB")
+        msb.home_location = "MSB"
+        db_session.commit()
+        _regular_enrollment(db_session, msa, tutor, first_lesson=date(2026, 4, 7))
+        _regular_enrollment(db_session, msb, tutor, first_lesson=date(2026, 4, 7),
+                            location="MSB")
+
+        everyone = _cached_retention(db_session, reg_cfg)
+        just_msb = _cached_retention(db_session, reg_cfg, branch="MSB")
+
+        assert everyone.totals.cohort == 2
+        assert [r.student_name for r in just_msb.chase] == ["At MSB"]
+
+    def test_a_tutor_is_not_served_the_whole_centre_s_report(
+        self, db_session, reg_cfg, tutor
+    ):
+        """The nastiest thing a shared cache could do here: hand a tutor the
+        admin report because the two calls landed in the same second."""
+        other = Tutor(user_email="o2@test.com", tutor_name="Mr Lei", role="Tutor",
+                      is_active_tutor=True)
+        db_session.add(other)
+        db_session.commit()
+        mine = _student(db_session, name="Mine")
+        theirs = _student(db_session, name="Theirs")
+        _regular_enrollment(db_session, mine, tutor, first_lesson=date(2026, 4, 7))
+        _regular_enrollment(db_session, theirs, other, first_lesson=date(2026, 4, 7))
+
+        everyone = _cached_retention(db_session, reg_cfg)
+        just_mine = _cached_retention(
+            db_session, reg_cfg, tutor_id=tutor.id, include_reconciliation=False
+        )
+
+        assert everyone.totals.cohort == 2
+        assert [r.student_name for r in just_mine.chase] == ["Mine"]

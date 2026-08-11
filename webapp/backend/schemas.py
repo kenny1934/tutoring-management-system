@@ -3718,7 +3718,6 @@ class RegularRetentionChaseRow(BaseModel):
     lang_stream: Optional[str] = None
     school: Optional[str] = None
     phone: Optional[str] = None
-    tutor_id: Optional[int] = None
     tutor_name: Optional[str] = None
     source: RetentionSource = "regular_only"
     # True when a P6 prospect row already covers this student, so the primary
@@ -3733,7 +3732,9 @@ class RegularRetentionChaseRow(BaseModel):
     days_since_contact: Optional[int] = None
     follow_up_needed: bool = False
     follow_up_date: Optional[date] = None
-    decline_reason: Optional[str] = None
+    # The category only. The free-text reason a member of staff typed is on the
+    # termination record and reads in full on the student's own page; carrying
+    # it on all 800 rows of a list that never shows it was only weight.
     decline_reason_category: Optional[str] = None
 
 

@@ -333,9 +333,14 @@ export default function RegularRetentionPage() {
     [configs]
   );
 
+  // The report is a few hundred KB and about 600ms of database work, and it
+  // only changes when somebody logs a contact or marks a family as leaving.
+  // Both of those already call mutate(), so refetching every time the window
+  // regains focus bought nothing and cost a query per tab switch.
   const { data, isLoading, mutate } = useSWR(
     year != null ? ["regular-retention", year, branch] : null,
-    () => regularAPI.getRetention(year!, branch)
+    () => regularAPI.getRetention(year!, branch),
+    { revalidateOnFocus: false }
   );
 
   useEffect(() => {

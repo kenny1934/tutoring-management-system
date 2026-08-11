@@ -108,6 +108,7 @@ from utils.grades import GRADE_ORDER, grade_blocks_prospect_link, next_grade
 from quarters import get_quarter_dates, get_quarter_for_date
 from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
+from utils.ttl_cache import TTLCache
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
 from utils.branch_codes import (
@@ -2437,7 +2438,6 @@ def _build_retention(
             lang_stream=student.lang_stream,
             school=student.school,
             phone=student.phone,
-            tutor_id=student_tutor_id,
             tutor_name=tutor_names.get(student_tutor_id),
             source=source,
             on_prospect_board=student_id in on_prospect_board,
@@ -2451,7 +2451,6 @@ def _build_retention(
             # Kept even when an application won the state, so a family that
             # applied *and* was marked not-returning shows the contradiction
             # instead of hiding it.
-            decline_reason=decline[0] if decline else None,
             decline_reason_category=decline[1] if decline else None,
         ))
 
@@ -2576,7 +2575,81 @@ def _build_retention(
     )
 
 
-@router.get("/regular/retention", response_model=RegularRetentionResponse)
+# The report costs about 600ms of database CPU, most of it working out which
+# enrollments were still running at the end of last school year, and the answer
+# is the same for everybody who opens the board that minute. Two minutes is
+# short enough that a slow-changing input (a phone number edited on a student
+# record, a change to the config) heals on its own, and long enough to collapse
+# a morning's worth of staff all opening the board at once into one query.
+#
+# Anything the board's own buttons change is caught properly rather than waited
+# out: the fingerprint below goes in the key, so logging a contact or marking a
+# family as not returning produces a different key immediately, on every
+# instance at once. See utils/ttl_cache.py for why that matters here.
+_RETENTION_CACHE = TTLCache(ttl_seconds=120, maxsize=8)
+
+
+def _retention_fingerprint(db: Session, config: RegularCourseConfig) -> tuple:
+    """A cheap stand-in for "has anything the report reads changed?".
+
+    Counts catch inserts and deletes, and the latest `updated_at` catches an
+    edit in place. Applications, terminations and parent contacts are the three
+    tables this board writes to, so its own actions always land. Everything else
+    it reads (students, enrollments) changes rarely and is left to the TTL.
+
+    Parent contacts have no `updated_at` column, so an edit to an existing note
+    is the one change that waits for the TTL rather than showing straight away.
+    """
+    apps = db.query(
+        func.count(RegularApplication.id), func.max(RegularApplication.updated_at)
+    ).filter(RegularApplication.config_id == config.id).one()
+    terms = db.query(
+        func.count(TerminationRecord.id), func.max(TerminationRecord.updated_at)
+    ).one()
+    contacts = db.query(
+        func.count(ParentCommunication.id), func.max(ParentCommunication.id)
+    ).one()
+    return (
+        tuple(apps), tuple(terms), tuple(contacts),
+        config.updated_at,
+        # The trend runs to today, so a report built yesterday is stale at
+        # midnight however little else moved.
+        date_type.today(),
+    )
+
+
+def _cached_retention(
+    db: Session,
+    config: RegularCourseConfig,
+    *,
+    branch: Optional[str] = None,
+    tutor_id: Optional[int] = None,
+    include_reconciliation: bool = True,
+) -> RegularRetentionResponse:
+    """`_build_retention`, but skipped when nothing has moved since last time."""
+    key = (
+        config.id, branch, tutor_id, include_reconciliation,
+        _retention_fingerprint(db, config),
+    )
+    cached = _RETENTION_CACHE.get(key)
+    if cached is not None:
+        return cached
+    report = _build_retention(
+        db, config, branch=branch, tutor_id=tutor_id,
+        include_reconciliation=include_reconciliation,
+    )
+    _RETENTION_CACHE.set(key, report)
+    return report
+
+
+@router.get(
+    "/regular/retention",
+    response_model=RegularRetentionResponse,
+    # About 800 rows, most of whose optional fields are empty: a family nobody
+    # has rung has nothing to say about the call. Leaving those keys out of the
+    # JSON rather than sending them as null is a quarter of the payload.
+    response_model_exclude_none=True,
+)
 def get_retention(
     year: int = Query(...),
     branch: Optional[str] = None,  # MSA / MSB
@@ -2592,10 +2665,14 @@ def get_retention(
     config = db.query(RegularCourseConfig).filter(RegularCourseConfig.year == year).first()
     if not config:
         raise HTTPException(status_code=404, detail=f"No regular course config for {year}")
-    return _build_retention(db, config, branch=branch)
+    return _cached_retention(db, config, branch=branch)
 
 
-@router.get("/regular/retention/mine", response_model=RegularRetentionMineResponse)
+@router.get(
+    "/regular/retention/mine",
+    response_model=RegularRetentionMineResponse,
+    response_model_exclude_none=True,
+)
 def get_my_retention(
     year: Optional[int] = None,
     current_user: Tutor = Depends(reject_guest),
@@ -2621,7 +2698,7 @@ def get_my_retention(
             status_code=404,
             detail=f"No regular course config for {year}" if year else "No active regular intake",
         )
-    report = _build_retention(
+    report = _cached_retention(
         db, config, tutor_id=current_user.id, include_reconciliation=False
     )
     return RegularRetentionMineResponse(

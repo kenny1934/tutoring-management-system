@@ -25,7 +25,6 @@ function row(over: Partial<RegularRetentionChaseRow> = {}): RegularRetentionChas
     lang_stream: "C",
     school: null,
     phone: "66880000",
-    tutor_id: 1,
     tutor_name: "Ms Ho",
     source: "regular_only",
     on_prospect_board: false,
@@ -36,7 +35,6 @@ function row(over: Partial<RegularRetentionChaseRow> = {}): RegularRetentionChas
     days_since_contact: null,
     follow_up_needed: false,
     follow_up_date: null,
-    decline_reason: null,
     decline_reason_category: null,
     ...over,
   };
