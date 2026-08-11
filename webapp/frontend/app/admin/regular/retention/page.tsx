@@ -62,23 +62,23 @@ function buildRetentionCsv(data: RegularRetentionResponse): string {
   // The groups held out of the rate, named rather than counted, so a reader
   // can reconcile the total against the centre's own headcount and see who.
   rows.push(["Students we are not counting"]);
-  rows.push(["Student", "Code", "Branch", "Why"]);
+  rows.push(["Code", "Student", "Branch", "Why"]);
   data.chase
     .filter((r) => r.state === "not_churn")
     .forEach((r) =>
-      rows.push([r.student_name, r.student_code, r.branch, "Moved branch or finished school"])
+      rows.push([r.student_code, r.student_name, r.branch, "Moved branch or finished school"])
     );
   data.chase
     .filter((r) => r.rung === "none" && r.state !== "not_churn")
     .forEach((r) =>
       rows.push([
-        r.student_name, r.student_code, r.branch,
+        r.student_code, r.student_name, r.branch,
         `No class at ${r.expected_grade ?? "their entering grade"}`,
       ])
     );
   data.reconciliation.applied_outside.forEach((r) =>
     rows.push([
-      r.student_name, r.student_code, r.branch,
+      r.student_code, r.student_name, r.branch,
       `Applied for ${r.applied_grade ?? "a place"} but was not with us last year`,
     ])
   );
@@ -209,7 +209,11 @@ function OutcomeBar({ totals }: { totals: RegularRetentionRow }) {
  *  Each of these groups is small by construction, and every member of one has
  *  their own story: a count says two students are not being chased, a pair of
  *  names says both are leaving for sixth form. Scrolls rather than truncating,
- *  so a bad year cannot hide anyone. */
+ *  so a bad year cannot hide anyone.
+ *
+ *  Fixed column widths, because the groups sit one under the other and three
+ *  tables that size themselves independently read as three ragged lists
+ *  rather than one panel. */
 function OutsideTable({
   rows,
 }: {
@@ -221,17 +225,24 @@ function OutsideTable({
 }) {
   return (
     <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
-      <table className="w-full text-[11px]">
+      <table className="w-full text-[11px] table-fixed">
+        <colgroup>
+          <col className="w-24" />
+          <col />
+          <col className="w-1/3" />
+        </colgroup>
         <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
           {rows.map(({ row, code, detail }) => (
             <tr key={row.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
-              <td className="px-2.5 py-1.5">
-                <StudentLink row={row} className="text-foreground font-medium" />
-              </td>
-              <td className="px-2.5 py-1.5 text-muted-foreground whitespace-nowrap w-24">
+              {/* Code first: it is the fixed-width column, and it is what
+                  staff search the office system by. */}
+              <td className="px-2.5 py-1.5 text-muted-foreground whitespace-nowrap">
                 {code ?? ""}
               </td>
-              <td className="px-2.5 py-1.5 text-muted-foreground">{detail}</td>
+              <td className="px-2.5 py-1.5 truncate">
+                <StudentLink row={row} className="text-foreground font-medium" />
+              </td>
+              <td className="px-2.5 py-1.5 text-muted-foreground truncate">{detail}</td>
             </tr>
           ))}
         </tbody>
@@ -281,9 +292,10 @@ function BranchCompare({
                   style={{ width: `${Math.round(rate * 100)}%` }}
                 />
               </div>
+              {/* A caption under the number, so it stays a label. */}
               <div className="text-[11px] text-muted-foreground tabular-nums mt-1.5">
-                {r.applied} of its {r.cohort} students have applied.
-                {r.no_response > 0 && ` ${r.no_response} have not answered.`}
+                {r.applied} of {r.cohort} applied
+                {r.no_response > 0 && ` · ${r.no_response} still to chase`}
               </div>
             </button>
           );
@@ -510,33 +522,33 @@ export default function RegularRetentionPage() {
               {tab === "overview" && (
                 <>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* These captions are labels under a number, not prose, so
+                        they stay short and take no full stop. The sentences
+                        live in the panels below. */}
                     <KpiCard
                       // Not "here at the end of last year": a good third of
                       // them came through the summer course instead.
                       label="Students"
                       value={String(data.totals.cohort)}
-                      sub="We taught them last year or this summer."
+                      sub="taught last year or this summer"
                     />
                     <KpiCard
                       label="Applied"
                       value={String(data.totals.applied)}
                       sub={
                         data.totals.applied > 0
-                          ? `That is ${pct(data.totals.applied, data.totals.cohort)} of them.`
-                          : "Nobody has applied yet."
+                          ? `${pct(data.totals.applied, data.totals.cohort)} of them`
+                          : "none yet"
                       }
                       tone="text-indigo-600 dark:text-indigo-400"
                     />
                     <KpiCard
                       label="Not returning"
                       value={String(data.totals.declined)}
-                      // A subtitle written for the usual case reads as
-                      // nonsense under a zero, and on day one they are all
-                      // zero.
+                      // A caption written for the usual case reads as nonsense
+                      // under a zero, and on day one they are all zero.
                       sub={
-                        data.totals.declined > 0
-                          ? "They have told us they are leaving."
-                          : "Nobody has told us they are leaving."
+                        data.totals.declined > 0 ? "told us they are leaving" : "none so far"
                       }
                       tone="text-rose-600 dark:text-rose-400"
                     />
@@ -544,13 +556,13 @@ export default function RegularRetentionPage() {
                       label="No response"
                       value={String(noResponse)}
                       // Scoped to the unresponsive: under this heading a
-                      // cohort-wide figure reads as "of these, N were called".
+                      // centre-wide figure reads as "of these, N were called".
                       sub={
                         noResponse === 0
-                          ? "Everybody has answered."
+                          ? "everybody has answered"
                           : data.totals.no_response_contacted > 0
-                            ? `We have contacted ${data.totals.no_response_contacted} of them.`
-                            : "Nobody has been contacted yet."
+                            ? `${data.totals.no_response_contacted} of them contacted`
+                            : "none contacted yet"
                       }
                       tone="text-amber-700 dark:text-amber-400"
                     />
@@ -643,11 +655,14 @@ export default function RegularRetentionPage() {
                             They moved to another branch or finished school, so we do not count
                             them against ourselves.
                           </p>
+                          {/* All three groups put the same thing in the last
+                              column, phrased the same way: why this student is
+                              not being counted. */}
                           <OutsideTable
                             rows={notChurnRows.map((r) => ({
                               row: r,
                               code: r.student_code,
-                              detail: r.decline_reason_category ?? r.branch ?? "",
+                              detail: r.decline_reason_category ?? "moved branch or finished school",
                             }))}
                           />
                         </div>
@@ -666,7 +681,7 @@ export default function RegularRetentionPage() {
                             rows={noRungRows.map((r) => ({
                               row: r,
                               code: r.student_code,
-                              detail: `${r.grade ?? "?"} to ${r.expected_grade ?? "?"}`,
+                              detail: r.expected_grade ? `entering ${r.expected_grade}` : "",
                             }))}
                           />
                         </div>
@@ -676,8 +691,8 @@ export default function RegularRetentionPage() {
                         <div>
                           <p className="text-[11px] text-muted-foreground">
                             {data.reconciliation.applied_outside.length === 1
-                              ? "One family has applied who was not studying with us last year or this summer."
-                              : `${data.reconciliation.applied_outside.length} families have applied who were not studying with us last year or this summer.`}{" "}
+                              ? "One student has applied who was not studying with us last year or this summer."
+                              : `${data.reconciliation.applied_outside.length} students have applied who were not studying with us last year or this summer.`}{" "}
                             Their applications are real and count on the applications page. They
                             are left out here because this page measures the students we already
                             had.
@@ -686,7 +701,7 @@ export default function RegularRetentionPage() {
                             rows={data.reconciliation.applied_outside.map((r) => ({
                               row: r,
                               code: r.student_code,
-                              detail: `${r.grade ?? "?"}, applied for ${r.applied_grade ?? "?"}`,
+                              detail: `was ${r.grade ?? "not recorded"}, applied for ${r.applied_grade ?? "a place"}`,
                             }))}
                           />
                         </div>
