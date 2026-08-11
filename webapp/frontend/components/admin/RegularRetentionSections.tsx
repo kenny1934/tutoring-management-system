@@ -211,7 +211,9 @@ function AxisTable({
   renderKey?: (key: string) => React.ReactNode;
 }) {
   return (
-    <table className="w-full text-xs">
+    // Seven columns of numbers squashed into a phone are unreadable, so the
+    // table keeps its width and the wrapper around it scrolls.
+    <table className="w-full min-w-[34rem] text-xs">
       <thead className={thead}>
         <tr className={theadRow}>
           <th className={th}>{label}</th>
@@ -262,38 +264,100 @@ function AxisTable({
   );
 }
 
+/** The four ways of slicing the same measures. One table and a switcher rather
+ *  than four stacked blocks: the columns never differ, so stacking them only
+ *  bought scrolling, and nobody was reading branch and tutor at the same time. */
+type BreakdownAxis = {
+  key: "branch" | "grade" | "source" | "tutor";
+  /** On the button. */
+  label: string;
+  /** Finishing the sentence "Broken down by ...". */
+  heading: string;
+  /** The first column's header, which names one row rather than the axis. */
+  column: string;
+  hint: string;
+  rows: (data: RegularRetentionResponse) => RegularRetentionRow[];
+  renderKey?: (key: string) => React.ReactNode;
+};
+
+const BREAKDOWN_AXES: BreakdownAxis[] = [
+  {
+    key: "branch",
+    label: "Branch",
+    heading: "branch",
+    column: "Branch",
+    hint: "Each student counts at the branch they studied at last year.",
+    rows: (d) => d.by_branch,
+  },
+  {
+    key: "grade",
+    label: "Entering grade",
+    heading: "entering grade",
+    column: "Entering",
+    hint: "This is the grade each student moves into in September, not the grade on their record today.",
+    rows: (d) => d.by_expected_grade,
+  },
+  {
+    key: "source",
+    label: "Where they came from",
+    heading: "where they came from",
+    column: "Source",
+    hint: "Students who did both last year's course and this summer are the likeliest to stay.",
+    rows: (d) => d.by_source,
+    renderKey: (key) => (
+      <span title={SOURCE_HINTS[key as RetentionSource] ?? ""}>
+        {SOURCE_LABELS[key as RetentionSource] ?? key}
+      </span>
+    ),
+  },
+  {
+    key: "tutor",
+    label: "Tutor",
+    heading: "tutor",
+    column: "Tutor",
+    hint: "These are the students each tutor taught last year.",
+    rows: (d) => d.by_tutor,
+  },
+];
+
 export function RegularRetentionBreakdowns({ data }: { data: RegularRetentionResponse }) {
+  const [axisKey, setAxisKey] = useState<BreakdownAxis["key"]>("branch");
+  const axis = BREAKDOWN_AXES.find((a) => a.key === axisKey) ?? BREAKDOWN_AXES[0];
+
   return (
     <div className="space-y-6">
-      <Section title="By branch" hint="Each student counts at the branch they studied at last year.">
-        <AxisTable rows={data.by_branch} label="Branch" />
-      </Section>
-
-      <Section
-        title="By entering grade"
-        hint="This is the grade each student moves into in September, not the grade on their record today."
-      >
-        <AxisTable rows={data.by_expected_grade} label="Entering" />
-      </Section>
-
-      <Section
-        title="By where they came from"
-        hint="Students who did both last year's course and this summer are the likeliest to stay."
-      >
-        <AxisTable
-          rows={data.by_source}
-          label="Source"
-          renderKey={(key) => (
-            <span title={SOURCE_HINTS[key as RetentionSource] ?? ""}>
-              {SOURCE_LABELS[key as RetentionSource] ?? key}
-            </span>
-          )}
-        />
-      </Section>
-
-      <Section title="By tutor" hint="These are the students each tutor taught last year.">
-        <AxisTable rows={data.by_tutor} label="Tutor" />
-      </Section>
+      <div>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">
+              Broken down by {axis.heading}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-2">{axis.hint}</p>
+          </div>
+          {/* The same pill switcher the chart above uses, so the two places
+              where this page changes what it is showing look alike. */}
+          <div className="inline-flex bg-muted rounded-full p-0.5 shrink-0 flex-wrap">
+            {BREAKDOWN_AXES.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => setAxisKey(a.key)}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-medium rounded-full transition-all duration-200",
+                  a.key === axisKey
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={cn(wrap, "overflow-x-auto")}>
+          <AxisTable rows={axis.rows(data)} label={axis.column} renderKey={axis.renderKey} />
+        </div>
+      </div>
 
       <Section
         title="Why they are not returning"
@@ -773,6 +837,163 @@ function loadFilters(): ChaseFilters {
   }
 }
 
+/** One student as a card, for phones.
+ *
+ *  The table is nine columns wide and a phone shows about three of them, so a
+ *  tutor's own list got cards from the start while an admin on the same phone
+ *  got a sideways scroll. This is the admin's row with the same information in
+ *  a column: everything the table shows, plus the tick and the two actions,
+ *  which are labelled here because a 14px icon is a poor touch target. */
+function ChaseCard({
+  row,
+  today,
+  isReadOnly,
+  picked,
+  onPick,
+  onContact,
+  onDecline,
+  onUndo,
+}: {
+  row: RegularRetentionChaseRow;
+  today: string;
+  isReadOnly: boolean;
+  picked: boolean;
+  onPick: () => void;
+  onContact: () => void;
+  onDecline: () => void;
+  onUndo: () => void;
+}) {
+  const due = isFollowUpDue(row, today);
+  const leaving = isRecordedAsLeaving(row.state);
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-3 py-2.5",
+        picked
+          ? "border-primary/50 bg-primary/5"
+          : "border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02]"
+      )}
+    >
+      <div className="flex items-start gap-2.5">
+        {!isReadOnly && (
+          <input
+            type="checkbox"
+            checked={picked}
+            onChange={onPick}
+            aria-label={`Select ${row.student_name}`}
+            className="mt-1 shrink-0"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {row.student_code && <StudentCodeBadge code={row.student_code} />}
+            <StudentLink row={row} className="text-sm font-medium text-foreground" />
+            {row.on_prospect_board && (
+              <span
+                role="img"
+                aria-label="Already being followed up by a primary branch"
+                className="text-[10px] text-sky-700 dark:text-sky-400"
+                title="A primary branch is already following this family up on the prospect board"
+              >
+                ◆
+              </span>
+            )}
+            <span className="ml-auto shrink-0">
+              <StateBadge state={row.state} />
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-muted-foreground">
+            <GradeBadge row={row} />
+            {row.branch && <span>{row.branch}</span>}
+            {row.tutor_name && <span>{row.tutor_name}</span>}
+          </div>
+
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
+            <PhoneCell row={row} />
+            {row.last_contact_date == null ? (
+              <span className="text-amber-700 dark:text-amber-400 font-medium">
+                Never contacted
+              </span>
+            ) : (
+              <span className="text-muted-foreground">
+                last contacted {shortDate(row.last_contact_date)} · {row.days_since_contact}d ago
+              </span>
+            )}
+            {row.follow_up_needed && row.follow_up_date && (
+              <span
+                className={cn(
+                  due
+                    ? "text-rose-600 dark:text-rose-400 font-medium"
+                    : "text-sky-700 dark:text-sky-400"
+                )}
+              >
+                {due ? "follow-up due" : `follow up ${shortDate(row.follow_up_date)}`}
+              </span>
+            )}
+          </div>
+
+          {row.last_contact_note && (
+            <p className="text-xs text-muted-foreground/80 mt-1.5 line-clamp-2">
+              {row.last_contact_note}
+            </p>
+          )}
+
+          {row.decline_reason_category && (
+            <p
+              className={cn(
+                "text-xs mt-1.5",
+                leaving ? "text-muted-foreground" : "text-rose-600 dark:text-rose-400"
+              )}
+            >
+              {leaving
+                ? row.decline_reason_category
+                : `Marked as not returning (${row.decline_reason_category}) but has a live application. Worth checking.`}
+            </p>
+          )}
+
+          {!isReadOnly && (
+            <div className="flex items-center gap-2 mt-2.5">
+              <button
+                type="button"
+                onClick={onContact}
+                className={cn(selectClass, "text-xs py-1 inline-flex items-center gap-1.5")}
+              >
+                <MessageSquarePlus className="h-3.5 w-3.5" />
+                Log a contact
+              </button>
+              {leaving ? (
+                <button
+                  type="button"
+                  onClick={onUndo}
+                  className={cn(selectClass, "text-xs py-1 inline-flex items-center gap-1.5")}
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Put back on the list
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onDecline}
+                  className={cn(
+                    selectClass,
+                    "text-xs py-1 inline-flex items-center gap-1.5",
+                    "text-rose-600 dark:text-rose-400"
+                  )}
+                >
+                  <UserMinus className="h-3.5 w-3.5" />
+                  Not returning
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function RegularRetentionChaseList({
   data,
   isReadOnly,
@@ -948,14 +1169,14 @@ export function RegularRetentionChaseList({
     <div className="flex flex-col min-h-0 flex-1">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             type="search"
             value={filters.q}
             onChange={(e) => set("q", e.target.value)}
             placeholder="Name, code or phone"
-            className={cn(selectClass, "pl-8 w-52")}
+            className={cn(selectClass, "pl-8 w-full sm:w-52")}
           />
         </div>
         <select
@@ -1002,6 +1223,24 @@ export function RegularRetentionChaseList({
           <option value="yes">Contacted before</option>
           <option value="due">Follow-up due{dueCount ? ` (${dueCount})` : ""}</option>
           <option value="nophone">No phone number{noPhoneCount ? ` (${noPhoneCount})` : ""}</option>
+        </select>
+
+        {/* Sorting lives in the column headers, and the cards below have no
+            headers, so a phone gets the same three orders as a select. */}
+        <select
+          value={sortKey ? `${sortKey}:${dir}` : ""}
+          onChange={(e) => {
+            const [k, d] = e.target.value.split(":");
+            setSortKey(k ? (k as ChaseSortKey) : null);
+            if (d) setDir(d as "asc" | "desc");
+          }}
+          className={cn(selectClass, "md:hidden")}
+          aria-label="Sort the list"
+        >
+          <option value="">Unresponsive first</option>
+          <option value="days_since_contact:desc">Longest waiting first</option>
+          <option value="student_name:asc">By name</option>
+          <option value="expected_grade:asc">By entering grade</option>
         </select>
 
         {filtersActive && (
@@ -1078,8 +1317,38 @@ export function RegularRetentionChaseList({
         </p>
       )}
 
+      {/* Cards on a phone, the table from a tablet up. The select-all sits
+          above them because on a table it lives in the header row. */}
+      {!isReadOnly && rows.length > 0 && (
+        <label className="md:hidden flex items-center gap-2 mb-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={allShownPicked} onChange={toggleAllShown} />
+          Select all {rows.length} shown
+        </label>
+      )}
+      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-2">
+        {rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground px-1 py-4 text-center">
+            Nobody matches these filters.
+          </p>
+        ) : (
+          rows.map((r) => (
+            <ChaseCard
+              key={r.student_id}
+              row={r}
+              today={today}
+              isReadOnly={isReadOnly}
+              picked={picked.has(r.student_id)}
+              onPick={() => togglePicked(r.student_id)}
+              onContact={() => setContactFor(r)}
+              onDecline={() => setDeclineFor(r)}
+              onUndo={() => setUndoFor(r)}
+            />
+          ))
+        )}
+      </div>
+
       {/* Table */}
-      <div className={cn(wrap, "flex-1 min-h-0 overflow-auto")}>
+      <div className={cn(wrap, "hidden md:block flex-1 min-h-0 overflow-auto")}>
         <table className="w-full text-xs">
           <thead className={cn(thead, "sticky top-0 z-10")}>
             <tr className={theadRow}>

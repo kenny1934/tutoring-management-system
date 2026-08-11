@@ -219,11 +219,13 @@ export default function CourseRenewalPage() {
                       <div className="flex items-start gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
+                            {/* Code first, the way it reads everywhere else on
+                                the board and on a class list. */}
+                            {s.student_code && <StudentCodeBadge code={s.student_code} />}
                             <StudentLink
                               row={s}
                               className="text-sm font-medium text-foreground"
                             />
-                            {s.student_code && <StudentCodeBadge code={s.student_code} />}
                             {s.expected_grade && (
                               <span className="text-[11px] text-muted-foreground">
                                 entering {s.expected_grade}
