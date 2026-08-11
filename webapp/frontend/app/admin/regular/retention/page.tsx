@@ -14,6 +14,7 @@ import {
   RegularRetentionBreakdowns,
   RegularRetentionChaseList,
 } from "@/components/admin/RegularRetentionSections";
+import { RegularRetentionTrend } from "@/components/admin/RegularRetentionTrend";
 import { RegularLinkSuggestionsModal } from "@/components/admin/RegularLinkSuggestionsModal";
 import type { RegularRetentionResponse, RegularRetentionRow } from "@/types";
 
@@ -70,21 +71,35 @@ function buildRetentionCsv(data: RegularRetentionResponse): string {
   block("By source", data.by_source);
   block("By tutor", data.by_tutor);
 
-  rows.push(["Not returning — reason", "Students"]);
+  rows.push(["Not returning reason", "Students"]);
   data.by_decline_reason.forEach((r) => rows.push([r.key, r.declined]));
+  rows.push([]);
+
+  // Day by day, so the intake curve can be replotted outside the app.
+  rows.push(["Day by day"]);
+  rows.push([
+    "Date", "Applications", "Contacts", "Not returning",
+    "Applications total", "Contacts total", "Not returning total",
+  ]);
+  data.trend.forEach((p) =>
+    rows.push([
+      p.date, p.applied, p.contacted, p.declined,
+      p.applied_total, p.contacted_total, p.declined_total,
+    ])
+  );
   rows.push([]);
 
   rows.push([
     "Student", "Code", "Branch", "Grade now", "Entering", "Rung", "Stream", "School",
     "Phone", "Tutor", "Source", "On prospect board", "State", "Reference",
-    "Last contact", "Days since", "Follow up", "Not returning reason",
+    "Last contact", "Days since", "Follow up", "Not returning reason", "Last note",
   ]);
   data.chase.forEach((r) =>
     rows.push([
       r.student_name, r.student_code, r.branch, r.grade, r.expected_grade, r.rung,
       r.lang_stream, r.school, r.phone, r.tutor_name, r.source, r.on_prospect_board,
       r.state, r.reference_code, r.last_contact_date, r.days_since_contact,
-      r.follow_up_date, r.decline_reason_category,
+      r.follow_up_date, r.decline_reason_category, r.last_contact_note,
     ])
   );
 
@@ -166,6 +181,58 @@ function OutcomeBar({ totals }: { totals: RegularRetentionRow }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** The two branches side by side, which is a difference big enough to act on
+ *  and was previously two tabs deep. Each card filters the board to itself. */
+function BranchCompare({
+  rows,
+  onPick,
+}: {
+  rows: RegularRetentionRow[];
+  onPick: (branch: string) => void;
+}) {
+  const best = Math.max(...rows.map((r) => (r.cohort > 0 ? r.applied / r.cohort : 0)));
+
+  return (
+    <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
+      <h2 className="text-sm font-semibold text-foreground">How the branches compare</h2>
+      <p className="text-xs text-muted-foreground mt-0.5">
+        Applications so far, against each branch&apos;s own cohort.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2 mt-3">
+        {rows.map((r) => {
+          const rate = r.cohort > 0 ? r.applied / r.cohort : 0;
+          const leads = rows.length > 1 && rate === best && best > 0;
+          return (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => onPick(r.key)}
+              title={`Show only ${r.label ?? r.key}`}
+              className="text-left rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 hover:border-[#a0704b]/60 transition-colors"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-medium text-foreground">{r.label ?? r.key}</span>
+                <span className="text-lg font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">
+                  {pct(r.applied, r.cohort)}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 rounded-full bg-[#f0e6d8]/60 dark:bg-[#2a2520] overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full", leads ? "bg-indigo-500" : "bg-indigo-400/70")}
+                  style={{ width: `${Math.round(rate * 100)}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-muted-foreground tabular-nums mt-1.5">
+                {r.applied} of {r.cohort} applied · {r.no_response} still to chase
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -453,6 +520,14 @@ export default function RegularRetentionPage() {
                   )}
 
                   <OutcomeBar totals={data.totals} />
+
+                  <RegularRetentionTrend data={data} />
+
+                  {/* Only worth the space when there is something to compare:
+                      one branch is already the whole board above. */}
+                  {data.by_branch.length > 1 && (
+                    <BranchCompare rows={data.by_branch} onPick={setBranch} />
+                  )}
 
                   {/* Nothing has been published for the new year yet, which
                       reads as a broken chart rather than an empty one unless

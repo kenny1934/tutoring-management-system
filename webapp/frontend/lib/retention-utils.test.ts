@@ -32,6 +32,7 @@ function row(over: Partial<RegularRetentionChaseRow> = {}): RegularRetentionChas
     state: "no_response",
     reference_code: null,
     last_contact_date: null,
+    last_contact_note: null,
     days_since_contact: null,
     follow_up_needed: false,
     follow_up_date: null,

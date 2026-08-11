@@ -247,6 +247,13 @@ export default function CourseRenewalPage() {
                               </span>
                             )}
                           </div>
+                          {/* What was said last time, so the next call opens
+                              with it rather than repeating the question. */}
+                          {s.last_contact_note && (
+                            <div className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
+                              {s.last_contact_note}
+                            </div>
+                          )}
                           {s.state !== "no_response" && (
                             <div className={cn("text-xs mt-1", STATE_META[s.state].tone)}>
                               {STATE_META[s.state].label}

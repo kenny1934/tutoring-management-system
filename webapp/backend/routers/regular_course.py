@@ -15,7 +15,7 @@ keep them in sync when the summer versions change.
 import logging
 import secrets
 from calendar import monthrange
-from datetime import date as date_type, timedelta
+from datetime import date as date_type, datetime, timedelta
 from typing import Optional, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -91,6 +91,7 @@ from schemas import (
     RegularRetentionChaseRow,
     RegularRetentionReconciliation,
     RegularRetentionMineResponse,
+    RegularRetentionTrendPoint,
     ProspectIntention,
 )
 from auth.dependencies import (
@@ -2050,7 +2051,9 @@ def _retention_terminations(
     recent signal wins."""
     intake_year, intake_quarter = intake
     left_before: set[int] = set()
-    declined: dict[int, tuple[Optional[str], Optional[str]]] = {}
+    # (reason, category, filed_at) — the filing date is what the trend plots,
+    # since a decline is only known to the centre once somebody records it.
+    declined: dict[int, tuple[Optional[str], Optional[str], Optional[datetime]]] = {}
     not_churn: set[int] = set()
     if not student_ids:
         return left_before, declined, not_churn
@@ -2062,15 +2065,16 @@ def _retention_terminations(
         TerminationRecord.count_as_terminated,
         TerminationRecord.reason,
         TerminationRecord.reason_category,
+        TerminationRecord.created_at,
     ).filter(TerminationRecord.student_id.in_(student_ids))
 
-    for student_id, term_year, quarter, counted, reason, category in rows:
+    for student_id, term_year, quarter, counted, reason, category, filed_at in rows:
         if term_year is None or quarter is None:
             continue
         position = (term_year, quarter)
         if position == (intake_year, intake_quarter):
             if counted:
-                declined[student_id] = (reason, category)
+                declined[student_id] = (reason, category, filed_at)
             else:
                 not_churn.add(student_id)
         elif position < (intake_year, intake_quarter) and counted:
@@ -2153,17 +2157,34 @@ def _retention_contacts(db: Session, student_ids: set[int], window_start):
         ParentCommunication.contact_date,
         ParentCommunication.follow_up_needed,
         ParentCommunication.follow_up_date,
+        ParentCommunication.brief_notes,
     ).filter(ParentCommunication.student_id.in_(student_ids))
 
-    for student_id, contact_date, follow_up_needed, follow_up_date in rows:
+    for student_id, contact_date, follow_up_needed, follow_up_date, notes in rows:
         entry = contacts.setdefault(
             student_id,
-            {"last": None, "in_window": False, "follow_up_needed": False, "follow_up_date": None},
+            {
+                "last": None,
+                "note": None,
+                "in_window": False,
+                # The first call of the window, not the most recent one: the
+                # trend asks when a family stopped being unreached, and a
+                # second call does not move that date.
+                "first_in_window": None,
+                "follow_up_needed": False,
+                "follow_up_date": None,
+            },
         )
         if contact_date and (entry["last"] is None or contact_date > entry["last"]):
             entry["last"] = contact_date
+            # What was said, so a second caller does not repeat the first.
+            # Clipped because this rides on every row of an already large
+            # payload and the list shows one line of it.
+            entry["note"] = (notes or "").strip()[:200] or None
         if contact_date and window_start and contact_date >= window_start:
             entry["in_window"] = True
+            if entry["first_in_window"] is None or contact_date < entry["first_in_window"]:
+                entry["first_in_window"] = contact_date
         if follow_up_needed:
             entry["follow_up_needed"] = True
             if follow_up_date and (
@@ -2205,6 +2226,78 @@ def _retention_reconciliation(
         unlinked_secondary=secondary,
         unlinked_primary=len(rows) - secondary,
     )
+
+
+def _event_day(value, window_start) -> Optional[date_type]:
+    """The day an event lands on, falling back to the day the window opened.
+
+    A record with no timestamp is old enough to predate the window either way,
+    and dropping it would leave the chart's last point short of the headline it
+    sits under."""
+    if value is None:
+        value = window_start
+    if value is None:
+        return None
+    return value.date() if isinstance(value, datetime) else value
+
+
+def _retention_trend(
+    applied: list[date_type],
+    declined: list[date_type],
+    contacted: list[date_type],
+    *,
+    start: Optional[date_type],
+    today: date_type,
+    close: Optional[date_type],
+) -> list[RegularRetentionTrendPoint]:
+    """The window day by day, from the dates the events already carry.
+
+    No snapshot table stands behind this. Applications know when they were
+    submitted, terminations when they were filed and contacts when the call was
+    made, so the history is reconstructable at any time — which means the chart
+    is complete from the day it ships rather than starting flat and filling in.
+
+    The caller passes one date per student counted, so the running totals end on
+    the same figures the headline shows. Dates before the window open are folded
+    onto its first day rather than dropped, which keeps that guarantee for a
+    contact logged early."""
+    if start is None:
+        return []
+    end = today if close is None or today <= close else close
+    latest = max([*applied, *declined, *contacted], default=None)
+    # A late application still belongs on the chart; a closed window with none
+    # simply stops on its closing date.
+    if latest and latest > end:
+        end = latest
+    if end < start:
+        return []
+
+    def daily(dates: list[date_type]) -> dict[date_type, int]:
+        counts: dict[date_type, int] = {}
+        for value in dates:
+            if value is None:
+                continue
+            day = start if value < start else value
+            counts[day] = counts.get(day, 0) + 1
+        return counts
+
+    per_day = (daily(applied), daily(declined), daily(contacted))
+    running = [0, 0, 0]
+    points: list[RegularRetentionTrendPoint] = []
+    for offset in range((end - start).days + 1):
+        day = start + timedelta(days=offset)
+        fresh = [counts.get(day, 0) for counts in per_day]
+        running = [total + new for total, new in zip(running, fresh)]
+        points.append(RegularRetentionTrendPoint(
+            date=day,
+            applied=fresh[0],
+            declined=fresh[1],
+            contacted=fresh[2],
+            applied_total=running[0],
+            declined_total=running[1],
+            contacted_total=running[2],
+        ))
+    return points
 
 
 def _build_retention(
@@ -2264,6 +2357,11 @@ def _build_retention(
     by_tutor: dict[str, RegularRetentionRow] = {}
     by_reason: dict[str, RegularRetentionRow] = {}
     chase: list[RegularRetentionChaseRow] = []
+    # One date per student the totals count, which is what keeps the last point
+    # of the trend equal to the KPI above it.
+    applied_dates: list[date_type] = []
+    declined_dates: list[date_type] = []
+    contacted_dates: list[date_type] = []
 
     def _bump(row: RegularRetentionRow, state: str, contacted: bool) -> None:
         row.cohort += 1
@@ -2345,6 +2443,7 @@ def _build_retention(
             state=state,
             reference_code=app.reference_code if app else None,
             last_contact_date=last_contact,
+            last_contact_note=contact.get("note"),
             days_since_contact=(today - last_contact.date()).days if last_contact else None,
             follow_up_needed=bool(contact.get("follow_up_needed")),
             follow_up_date=contact.get("follow_up_date"),
@@ -2366,6 +2465,14 @@ def _build_retention(
             _bump(no_rung_row, state, contacted)
             continue
         _bump(totals, state, contacted)
+        # Dated as the same event the row was counted as, so a student who both
+        # applied and was contacted appears on both lines and once each.
+        if state in ("applied", "enrolled") and app:
+            applied_dates.append(_event_day(app.submitted_at, window_start))
+        elif state == "declined" and decline:
+            declined_dates.append(_event_day(decline[2], window_start))
+        if contacted:
+            contacted_dates.append(_event_day(contact.get("first_in_window"), window_start))
         _bump(by_branch.setdefault(student_branch or "Unknown",
                                    RegularRetentionRow(key=student_branch or "Unknown")), state, contacted)
         _bump(by_grade.setdefault(expected_grade or "Unknown",
@@ -2440,6 +2547,17 @@ def _build_retention(
         not_churn=not_churn_row,
         chase=chase,
         reconciliation=reconciliation,
+        trend=_retention_trend(
+            applied_dates,
+            declined_dates,
+            contacted_dates,
+            start=window_start.date() if window_start else None,
+            today=today,
+            close=(
+                config.application_close_date.date()
+                if config.application_close_date else None
+            ),
+        ),
     )
 
 

@@ -27,7 +27,12 @@ from models import (
     TerminationRecord,
     Tutor,
 )
-from routers.regular_course import _build_retention, get_my_retention, get_retention
+from routers.regular_course import (
+    _build_retention,
+    _retention_trend,
+    get_my_retention,
+    get_retention,
+)
 from routers.terminations import delete_termination_record
 
 # The intake under test: applications open 4 Aug 2026, course starts 1 Sep.
@@ -591,6 +596,39 @@ class TestContactAndScoping:
         # The history still shows, so a caller knows when they last spoke.
         assert _row(result, s.id).last_contact_date == datetime(2026, 5, 30)
 
+    def test_the_last_note_rides_along_with_the_last_contact(self, db_session, reg_cfg, tutor):
+        """The note is what stops a second caller repeating the first, and it
+        has to be the note from the call the date refers to."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        for when, note in (
+            (datetime(2026, 8, 6), "left a message"),
+            (datetime(2026, 8, 9), "mother will decide after the results"),
+        ):
+            db_session.add(ParentCommunication(
+                student_id=s.id, tutor_id=tutor.id, contact_date=when,
+                contact_method="Phone", contact_type="General", brief_notes=note,
+            ))
+        db_session.commit()
+
+        row = _row(_build_retention(db_session, reg_cfg), s.id)
+
+        assert row.last_contact_date == datetime(2026, 8, 9)
+        assert row.last_contact_note == "mother will decide after the results"
+
+    def test_a_long_note_is_clipped(self, db_session, reg_cfg, tutor):
+        """It rides on every row of a payload that is already large, and the
+        list has room for one line of it."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        db_session.add(ParentCommunication(
+            student_id=s.id, tutor_id=tutor.id, contact_date=datetime(2026, 8, 6),
+            contact_method="Phone", contact_type="General", brief_notes="x" * 500,
+        ))
+        db_session.commit()
+
+        assert len(_row(_build_retention(db_session, reg_cfg), s.id).last_contact_note) == 200
+
     def test_contacting_the_unresponsive_is_counted_separately(self, db_session, reg_cfg, tutor):
         """Cohort-wide "contacted" reads as "of the unresponsive, N called" when
         it sits under a no-response heading, so the scoped figure is its own."""
@@ -712,6 +750,173 @@ class TestContactAndScoping:
         with pytest.raises(HTTPException) as exc:
             get_retention(year=1999, branch=None, _admin=None, db=db_session)
         assert exc.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# The trend
+# ---------------------------------------------------------------------------
+
+class TestTrendSeries:
+    """The pure part: dates in, one point per day out. No snapshot stands
+    behind the chart, so these are the rules that make a rebuilt series
+    trustworthy."""
+
+    def test_a_window_that_has_not_opened_has_no_points(self):
+        assert _retention_trend(
+            [], [], [], start=date(2026, 8, 4), today=date(2026, 8, 1),
+            close=date(2026, 9, 30),
+        ) == []
+
+    def test_no_window_at_all_has_no_points(self):
+        assert _retention_trend([], [], [], start=None, today=date(2026, 8, 10),
+                                close=None) == []
+
+    def test_one_point_per_day_up_to_today(self):
+        points = _retention_trend(
+            [], [], [], start=date(2026, 8, 4), today=date(2026, 8, 6),
+            close=date(2026, 9, 30),
+        )
+        assert [p.date for p in points] == [
+            date(2026, 8, 4), date(2026, 8, 5), date(2026, 8, 6),
+        ]
+
+    def test_a_closed_window_stops_closing(self):
+        """Months of flat tail after the intake ends says nothing, so the
+        series ends where the window did."""
+        points = _retention_trend(
+            [date(2026, 9, 29)], [], [], start=date(2026, 9, 28),
+            today=date(2026, 12, 25), close=date(2026, 9, 30),
+        )
+        assert [p.date for p in points] == [
+            date(2026, 9, 28), date(2026, 9, 29), date(2026, 9, 30),
+        ]
+
+    def test_a_late_application_extends_the_series(self):
+        """One taken after the deadline is still an application; dropping it
+        would leave the last point short of the headline."""
+        points = _retention_trend(
+            [date(2026, 10, 2)], [], [], start=date(2026, 9, 29),
+            today=date(2026, 12, 25), close=date(2026, 9, 30),
+        )
+        assert points[-1].date == date(2026, 10, 2)
+        assert points[-1].applied_total == 1
+
+    def test_events_before_the_window_fold_onto_its_first_day(self):
+        """Rather than dropping off the chart while the headline still counts
+        them."""
+        points = _retention_trend(
+            [date(2026, 7, 1)], [], [], start=date(2026, 8, 4),
+            today=date(2026, 8, 5), close=date(2026, 9, 30),
+        )
+        assert points[0].applied == 1
+        assert points[-1].applied_total == 1
+
+    def test_running_totals_accumulate_across_the_three_series(self):
+        points = _retention_trend(
+            [date(2026, 8, 4), date(2026, 8, 6)],
+            [date(2026, 8, 5)],
+            [date(2026, 8, 4), date(2026, 8, 4)],
+            start=date(2026, 8, 4), today=date(2026, 8, 6), close=date(2026, 9, 30),
+        )
+        assert [(p.applied, p.declined, p.contacted) for p in points] == [
+            (1, 0, 2), (0, 1, 0), (1, 0, 0),
+        ]
+        assert [(p.applied_total, p.declined_total, p.contacted_total) for p in points] == [
+            (1, 0, 2), (1, 1, 2), (2, 1, 2),
+        ]
+
+
+class TestTrendInTheReport:
+    """The wiring: the chart is read directly under the headline figures, so
+    the two must never disagree."""
+
+    def test_the_last_point_equals_the_headline(self, db_session, reg_cfg, tutor):
+        applied = _student(db_session, name="Applied")
+        silent = _student(db_session, name="Silent")
+        for s in (applied, silent):
+            _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        app = _application(db_session, reg_cfg, applied)
+        app.submitted_at = datetime(2026, 8, 5, 9, 30)
+        db_session.commit()
+
+        result = _build_retention(db_session, reg_cfg)
+
+        last = result.trend[-1]
+        assert last.applied_total == result.totals.applied == 1
+        assert last.declined_total == result.totals.declined
+        assert last.contacted_total == result.totals.contacted
+        by_day = {p.date: p for p in result.trend}
+        assert by_day[date(2026, 8, 5)].applied == 1
+        assert by_day[date(2026, 8, 4)].applied == 0
+
+    def test_a_decline_is_dated_when_it_was_filed(self, db_session, reg_cfg, tutor):
+        """Not when the quarter started: the chart is asking when the centre
+        found out."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        record = _termination(db_session, s, year=2026, quarter=3, category="Moving Away")
+        record.created_at = datetime(2026, 8, 7, 14, 0)
+        db_session.commit()
+
+        result = _build_retention(db_session, reg_cfg)
+
+        by_day = {p.date: p for p in result.trend}
+        assert by_day[date(2026, 8, 7)].declined == 1
+        assert result.trend[-1].declined_total == result.totals.declined == 1
+
+    def test_a_family_called_twice_is_counted_once_on_the_first_call(
+        self, db_session, reg_cfg, tutor
+    ):
+        """The line answers when a family stopped being unreached, and a
+        second call does not move that day."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        for when in (datetime(2026, 8, 6), datetime(2026, 8, 9)):
+            db_session.add(ParentCommunication(
+                student_id=s.id, tutor_id=tutor.id, contact_date=when,
+                contact_method="Phone", contact_type="General",
+            ))
+        db_session.commit()
+
+        result = _build_retention(db_session, reg_cfg)
+
+        by_day = {p.date: p for p in result.trend}
+        assert by_day[date(2026, 8, 6)].contacted == 1
+        assert by_day[date(2026, 8, 9)].contacted == 0
+        assert result.trend[-1].contacted_total == result.totals.contacted == 1
+
+    def test_students_outside_the_denominator_stay_off_the_chart(
+        self, db_session, reg_cfg, tutor
+    ):
+        """An F6 leaver has no place to apply for and is never counted as
+        unresponsive, so their application is not part of this rate either."""
+        s = _student(db_session, name="Leaving school", grade="F5")
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        app = _application(db_session, reg_cfg, s, grade="F6")
+        app.submitted_at = datetime(2026, 8, 5)
+        db_session.commit()
+
+        result = _build_retention(db_session, reg_cfg)
+
+        assert result.no_rung.cohort == 1
+        assert result.totals.cohort == 0
+        assert all(p.applied == 0 for p in result.trend)
+
+    def test_the_branch_filter_reaches_the_chart(self, db_session, reg_cfg, tutor):
+        msa = _student(db_session, name="At MSA")
+        msb = _student(db_session, name="At MSB")
+        for s, location in ((msa, "MSA"), (msb, "MSB")):
+            _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7),
+                                location=location)
+            app = _application(db_session, reg_cfg, s)
+            app.submitted_at = datetime(2026, 8, 5)
+        db_session.commit()
+
+        both = _build_retention(db_session, reg_cfg)
+        one = _build_retention(db_session, reg_cfg, branch="MSB")
+
+        assert both.trend[-1].applied_total == 2
+        assert one.trend[-1].applied_total == one.totals.applied == 1
 
 
 # ---------------------------------------------------------------------------

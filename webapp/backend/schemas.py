@@ -3700,6 +3700,9 @@ class RegularRetentionChaseRow(BaseModel):
     state: RetentionState = "no_response"
     reference_code: Optional[str] = None
     last_contact_date: Optional[datetime] = None
+    # What was said on that call. Clipped to a couple of lines: it rides on
+    # every row and the list has room for one of them.
+    last_contact_note: Optional[str] = None
     days_since_contact: Optional[int] = None
     follow_up_needed: bool = False
     follow_up_date: Optional[date] = None
@@ -3720,6 +3723,30 @@ class RegularRetentionReconciliation(BaseModel):
     # earlier, or never had a qualifying enrollment. Counted so they read as
     # excluded rather than as missing.
     applied_outside_cohort: int = 0
+
+
+class RegularRetentionTrendPoint(BaseModel):
+    """One day of the intake window, as counts on that date and running totals.
+
+    Derived from the timestamps the events already carry — when an application
+    was submitted, when a termination was filed, when a parent was called —
+    rather than from a stored snapshot. That gives the whole window from the
+    day the feature ships instead of starting flat, and the last point equals
+    the headline figures by construction, because both are built from the same
+    rows.
+
+    The denominator is deliberately fixed: every point measures against the
+    cohort as it stands today, so a moving line means the chasing moved and
+    not that the cohort was recounted."""
+    date: date
+    # New that day.
+    applied: int = 0
+    declined: int = 0
+    contacted: int = 0
+    # Running totals to the end of that day.
+    applied_total: int = 0
+    declined_total: int = 0
+    contacted_total: int = 0
 
 
 class RegularRetentionResponse(BaseModel):
@@ -3755,6 +3782,9 @@ class RegularRetentionResponse(BaseModel):
     not_churn: RegularRetentionRow
     chase: List[RegularRetentionChaseRow] = []
     reconciliation: RegularRetentionReconciliation
+    # One point per day of the window so far, counting only the students in
+    # `totals` — the same filters, so the chart and the headline never disagree.
+    trend: List[RegularRetentionTrendPoint] = []
 
 
 class RegularRetentionMineResponse(BaseModel):

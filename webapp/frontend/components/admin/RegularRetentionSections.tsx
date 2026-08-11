@@ -214,12 +214,17 @@ function AxisTable({
           <th className={thNum}>Applied</th>
           <th className={thNum}>Not returning</th>
           <th className={thNum}>No response</th>
+          {/* Of the unresponsive, not of everybody: under a "no response"
+              heading a cohort-wide figure reads as this one anyway. */}
+          <th className={thNum} title="Of those with no response, how many have already been called">
+            Called
+          </th>
           <th className={thNum}>Apply %</th>
         </tr>
       </thead>
       <tbody className={rowDivide}>
         {rows.length === 0 ? (
-          <EmptyRow span={6}>Nothing to show yet.</EmptyRow>
+          <EmptyRow span={7}>Nothing to show yet.</EmptyRow>
         ) : (
           rows.map((r) => (
             <tr key={r.key} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
@@ -232,6 +237,9 @@ function AxisTable({
                 {r.declined || "-"}
               </td>
               <td className={cn(tdNum, "text-amber-700 dark:text-amber-400")}>{r.no_response}</td>
+              <td className={cn(tdNum, "text-muted-foreground")}>
+                {r.no_response > 0 ? `${r.no_response_contacted} of ${r.no_response}` : "-"}
+              </td>
               <td className={cn(tdNum, "font-semibold")}>{pct(r.applied, r.cohort)}</td>
             </tr>
           ))
@@ -630,7 +638,7 @@ export function RegularRetentionChaseList({
   const exportView = () => {
     const header = [
       "Code", "Student", "Entering", "Branch", "Tutor", "Phone",
-      "Last contacted", "Days since", "Follow up", "State", "Reason",
+      "Last contacted", "Days since", "Follow up", "State", "Reason", "Last note",
     ];
     const cell = (v: string | number | null | undefined) => {
       const s = String(v ?? "");
@@ -640,7 +648,7 @@ export function RegularRetentionChaseList({
       r.student_code, r.student_name, r.expected_grade, r.branch, r.tutor_name, r.phone,
       r.last_contact_date ? r.last_contact_date.slice(0, 10) : "",
       r.days_since_contact, r.follow_up_date, STATE_META[r.state].label,
-      r.decline_reason_category,
+      r.decline_reason_category, r.last_contact_note,
     ]);
     const csv =
       String.fromCharCode(0xfeff) +
@@ -807,29 +815,41 @@ export function RegularRetentionChaseList({
                     <td className="px-3 py-1.5 text-muted-foreground">{r.branch ?? "-"}</td>
                     <td className="px-3 py-1.5 text-muted-foreground whitespace-nowrap">{r.tutor_name ?? "-"}</td>
                     <td className="px-3 py-1.5 whitespace-nowrap"><PhoneCell row={r} /></td>
-                    <td className="px-3 py-1.5 whitespace-nowrap">
-                      {/* Never contacted is the front of the queue, so it reads
-                          as a state rather than as missing data. */}
-                      {r.last_contact_date == null ? (
-                        <span className="text-amber-700 dark:text-amber-400 font-medium">Never</span>
-                      ) : (
-                        <span className="text-muted-foreground tabular-nums">
-                          {shortDate(r.last_contact_date)}
-                          <span className="text-muted-foreground/70"> · {r.days_since_contact}d</span>
-                        </span>
-                      )}
-                      {r.follow_up_needed && r.follow_up_date && (
-                        <span
-                          className={cn(
-                            "ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
-                            due
-                              ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
-                              : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-                          )}
-                          title={`Someone promised to follow up on ${r.follow_up_date}`}
+                    <td className="px-3 py-1.5 max-w-[13rem]">
+                      <div className="whitespace-nowrap">
+                        {/* Never contacted is the front of the queue, so it reads
+                            as a state rather than as missing data. */}
+                        {r.last_contact_date == null ? (
+                          <span className="text-amber-700 dark:text-amber-400 font-medium">Never</span>
+                        ) : (
+                          <span className="text-muted-foreground tabular-nums">
+                            {shortDate(r.last_contact_date)}
+                            <span className="text-muted-foreground/70"> · {r.days_since_contact}d</span>
+                          </span>
+                        )}
+                        {r.follow_up_needed && r.follow_up_date && (
+                          <span
+                            className={cn(
+                              "ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
+                              due
+                                ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                                : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                            )}
+                            title={`Someone promised to follow up on ${r.follow_up_date}`}
+                          >
+                            {due ? "due" : shortDate(r.follow_up_date)}
+                          </span>
+                        )}
+                      </div>
+                      {/* What was said, so the next caller opens with it
+                          instead of asking the family the same question. */}
+                      {r.last_contact_note && (
+                        <div
+                          className="text-[11px] text-muted-foreground/80 truncate"
+                          title={r.last_contact_note}
                         >
-                          {due ? "due" : shortDate(r.follow_up_date)}
-                        </span>
+                          {r.last_contact_note}
+                        </div>
                       )}
                     </td>
                     <td className="px-3 py-1.5 whitespace-nowrap">

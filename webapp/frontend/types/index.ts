@@ -4062,6 +4062,8 @@ export interface RegularRetentionChaseRow {
   state: RetentionState;
   reference_code: string | null;
   last_contact_date: string | null;
+  /** What was said on that call, clipped to a couple of lines. */
+  last_contact_note: string | null;
   days_since_contact: number | null;
   follow_up_needed: boolean;
   follow_up_date: string | null;
@@ -4076,6 +4078,21 @@ export interface RegularRetentionReconciliation {
   /** Applications linked to a student who is not in this cohort: they lapsed
    *  earlier, or never had a qualifying enrollment. */
   applied_outside_cohort: number;
+}
+
+/** One day of the intake window: what happened that day, and the running total
+ *  to the end of it. Derived from the dates the events already carry, so the
+ *  series is complete from the first day the board is opened and its last point
+ *  always equals the headline figures. Every point measures against the cohort
+ *  as it stands today, so a moving line means the chasing moved. */
+export interface RegularRetentionTrendPoint {
+  date: string;
+  applied: number;
+  declined: number;
+  contacted: number;
+  applied_total: number;
+  declined_total: number;
+  contacted_total: number;
 }
 
 export interface RegularRetentionResponse {
@@ -4105,6 +4122,9 @@ export interface RegularRetentionResponse {
    *  subset; the rest is returned so the page can filter without a second call. */
   chase: RegularRetentionChaseRow[];
   reconciliation: RegularRetentionReconciliation;
+  /** One point per day of the window so far, counting only the students in
+   *  `totals` — the same filters, so the chart and the headline agree. */
+  trend: RegularRetentionTrendPoint[];
 }
 
 /** One tutor's own students. Deliberately narrower than the admin report: no
