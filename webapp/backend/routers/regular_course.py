@@ -108,6 +108,7 @@ from utils.grades import GRADE_ORDER, grade_blocks_prospect_link, next_grade
 from quarters import get_quarter_dates, get_quarter_for_date
 from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
+from utils.effective_end import reaches_clause
 from utils.ttl_cache import TTLCache
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
@@ -1886,12 +1887,6 @@ RETENTION_ACTIVE_MONTHS_BACK = 4
 # silently drop out of the cohort.
 RETENTION_VOID_PAYMENT_STATUSES = ("Cancelled",)
 
-# How far past its plain weekly span a lesson pack is allowed to stretch before
-# the cohort query stops considering it. See `_reaches_clause`: this bounds the
-# holiday weeks the stored function can add, and holidays land on any given
-# weekday at most five times a year.
-RETENTION_HOLIDAY_SLACK_WEEKS = 12
-
 
 def _months_before(d: date_type, months: int) -> date_type:
     """`d` shifted back whole months, clamped to the shorter month's last day."""
@@ -1920,35 +1915,9 @@ def _retention_rungs(config: RegularCourseConfig) -> dict[str, str]:
 def _reaches_clause(active_from: date_type):
     """`effective_end_date >= active_from`, without walking every enrollment.
 
-    `calculate_effective_end_date` steps forward a week at a time doing a
-    holiday lookup per step, which costs ~0.1ms of database CPU per row — real
-    money over every enrollment ever taken. Holidays only ever push an end date
-    *later*, so the plain weekly span
-
-        first_lesson + (lessons_paid + extension - 1) weeks
-
-    is a lower bound on it. An enrollment already reaching the cutoff on that
-    alone qualifies without the function running at all; only rows landing
-    inside the slack window below can still be dragged over the line, and only
-    those pay. SQL's OR short-circuits left to right, which is what keeps the
-    function off the rows that already answered.
-
-    Whole-day arithmetic rather than DATE_ADD with an INTERVAL, because
-    TO_DAYS is the one date function SQLite can be taught (tests/conftest.py)."""
-    total_dates = Enrollment.lessons_paid + func.coalesce(Enrollment.deadline_extension_weeks, 0)
-    lower_bound = func.to_days(Enrollment.first_lesson_date) + (total_dates - 1) * 7
-    cutoff = func.to_days(literal(active_from, Date))
-    return or_(
-        lower_bound >= cutoff,
-        and_(
-            lower_bound >= cutoff - RETENTION_HOLIDAY_SLACK_WEEKS * 7,
-            func.calculate_effective_end_date(
-                Enrollment.first_lesson_date,
-                Enrollment.lessons_paid,
-                func.coalesce(Enrollment.deadline_extension_weeks, 0),
-            ) >= active_from,
-        ),
-    )
+    The trick and the reasoning behind it now live in `utils/effective_end.py`,
+    because the termination reports need the same thing in raw SQL."""
+    return reaches_clause(active_from)
 
 
 def _retention_cohort_sources(

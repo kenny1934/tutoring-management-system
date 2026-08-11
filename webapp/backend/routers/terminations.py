@@ -33,8 +33,108 @@ from schemas import (
     SummerPauseScope
 )
 from auth.dependencies import require_admin_write, get_current_user, get_effective_role, reject_guest, reject_read_only
+from utils.effective_end import (
+    effective_end_sql,
+    ends_within_prefilter_sql,
+    reaches_sql,
+)
 
 router = APIRouter()
+
+# Every enrollment row that was ever taken and paid for, on the regular course.
+# The three conditions repeat in every query below, so they are written once.
+_REGULAR_ENROLLMENTS = """
+        e.payment_status IN ('Paid', 'Pending Payment')
+        AND e.enrollment_type = 'Regular'
+        AND e.first_lesson_date IS NOT NULL
+"""
+
+# On the roster at the start of the quarter: either the pack had already begun
+# by the opening week, or it is the renewal of one that was running at the end
+# of the previous quarter and started a few weeks late because of holidays.
+_ON_ROSTER_AT_OPENING = f"""
+        AND e.first_lesson_date <= :opening_end_grace
+        AND {reaches_sql('e', ':judged_from')}
+        AND (
+            e.first_lesson_date <= :opening_end
+            OR e.student_id IN (
+                SELECT DISTINCT e2.student_id
+                FROM enrollments e2
+                WHERE e2.payment_status IN ('Paid', 'Pending Payment')
+                AND e2.enrollment_type = 'Regular'
+                AND e2.first_lesson_date IS NOT NULL
+                AND e2.first_lesson_date <= :opening_end
+                AND {reaches_sql('e2', ':prev_closing_end_grace')}
+            )
+        )
+"""
+
+# Still on the roster when the quarter closed, counting only students who were
+# already here during it: a pack running past the cutoff, belonging to somebody
+# who also had lessons inside the window.
+_ON_ROSTER_AT_CLOSING = f"""
+        AND e.first_lesson_date <= :closing_end_grace
+        AND {reaches_sql('e', ':churn_cutoff', strict=True)}
+        AND e.student_id IN (
+            SELECT DISTINCT e2.student_id
+            FROM enrollments e2
+            WHERE e2.payment_status IN ('Paid', 'Pending Payment')
+            AND e2.enrollment_type = 'Regular'
+            AND e2.first_lesson_date IS NOT NULL
+            AND e2.first_lesson_date <= :closing_end
+            AND {reaches_sql('e2', ':judged_from')}
+        )
+"""
+
+# Who left in this quarter: the student's last pack before the window closed,
+# where that pack's lessons ran out inside the window.
+#
+# The end date is worked out for one enrollment per student rather than for
+# every enrollment ever taken, which is the whole cost of these reports. The
+# ranking runs first on plain columns, then the cheap bounds narrow the
+# survivors to the ones that could possibly have ended in the window, and only
+# then does the stored function run. `termed` applies the real test.
+#
+# Callers append their own final SELECT over `termed`.
+_TERMED_CTE = f"""
+    WITH ranked AS (
+        SELECT e.*,
+               ROW_NUMBER() OVER (
+                   PARTITION BY e.student_id
+                   ORDER BY e.first_lesson_date DESC
+               ) as rn
+        FROM enrollments e
+        WHERE {_REGULAR_ENROLLMENTS}
+        AND e.first_lesson_date <= :comeback_cutoff
+    ),
+    candidates AS (
+        SELECT qe.id, qe.student_id, qe.tutor_id, qe.assigned_day, qe.assigned_time,
+               {effective_end_sql('qe')} as eff_end_date
+        FROM ranked qe
+        WHERE qe.rn = 1
+        AND {ends_within_prefilter_sql('qe', ':judged_from', ':churn_cutoff')}
+    ),
+    termed AS (
+        SELECT c.id as enrollment_id, c.student_id, c.tutor_id,
+               c.assigned_day, c.assigned_time,
+               c.eff_end_date as termination_date
+        FROM candidates c
+        WHERE c.eff_end_date >= :judged_from
+        AND c.eff_end_date <= :churn_cutoff
+    )
+"""
+
+
+def _as_date(value):
+    """A date, whichever way the driver handed the end date back.
+
+    MySQL types the stored function's result as a DATE and the connector builds
+    a `date` from it. The SQLite stand-in the tests use can only return a
+    string, because that is all SQLite lets a user-defined function return.
+    """
+    if isinstance(value, str):
+        return date.fromisoformat(value[:10])
+    return value
 
 
 def get_summer_pauses(db: Session) -> dict:
@@ -80,19 +180,21 @@ async def get_available_quarters(
     Scans enrollments directly instead of using the terminated_students view,
     so that comeback students don't erase historical quarter data.
     """
-    query = text("""
-        SELECT DISTINCT
-            calculate_effective_end_date(
-                e.first_lesson_date,
-                e.lessons_paid,
-                COALESCE(e.deadline_extension_weeks, 0)
-            ) as eff_end_date
-        FROM enrollments e
-        JOIN students s ON e.student_id = s.id
-        WHERE e.payment_status IN ('Paid', 'Pending Payment')
-        AND e.enrollment_type = 'Regular'
-        AND e.first_lesson_date IS NOT NULL
-        AND (:location IS NULL OR s.home_location = :location)
+    # Every distinct end date there has ever been, which is what says which
+    # quarters exist. Two enrollments with the same start date, pack size and
+    # extension end on the same day, so the distinct combinations are asked
+    # first and the stored function runs once per combination rather than once
+    # per enrollment. Same answer, a fraction of the work.
+    query = text(f"""
+        SELECT DISTINCT {effective_end_sql('packs')} as eff_end_date
+        FROM (
+            SELECT DISTINCT e.first_lesson_date, e.lessons_paid,
+                   e.deadline_extension_weeks
+            FROM enrollments e
+            JOIN students s ON e.student_id = s.id
+            WHERE {_REGULAR_ENROLLMENTS}
+            AND (:location IS NULL OR s.home_location = :location)
+        ) packs
     """)
 
     result = db.execute(query, {"location": location})
@@ -103,8 +205,9 @@ async def get_available_quarters(
     pauses = get_summer_pauses(db)
     seen_quarters: set = set()
     for row in rows:
-        if row.eff_end_date:
-            q, y = attribute_quarter(row.eff_end_date, pauses.get(row.eff_end_date.year))
+        end_date = _as_date(row.eff_end_date)
+        if end_date:
+            q, y = attribute_quarter(end_date, pauses.get(end_date.year))
             seen_quarters.add((q, y))
 
     # Filter out current and future quarters (not yet ready for review)
@@ -140,33 +243,7 @@ async def get_terminated_students(
 
     window = get_quarter_window(db, year, quarter)
 
-    query = text("""
-        WITH quarter_enrollments AS (
-            SELECT e.*,
-                   calculate_effective_end_date(
-                       e.first_lesson_date,
-                       e.lessons_paid,
-                       COALESCE(e.deadline_extension_weeks, 0)
-                   ) as eff_end_date,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY e.student_id
-                       ORDER BY e.first_lesson_date DESC
-                   ) as rn
-            FROM enrollments e
-            WHERE e.payment_status IN ('Paid', 'Pending Payment')
-            AND e.enrollment_type = 'Regular'
-            AND e.first_lesson_date IS NOT NULL
-            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
-        ),
-        termed AS (
-            SELECT qe.student_id, qe.tutor_id,
-                   qe.eff_end_date as termination_date,
-                   qe.assigned_time, qe.assigned_day
-            FROM quarter_enrollments qe
-            WHERE qe.rn = 1
-            AND qe.eff_end_date >= :judged_from
-            AND qe.eff_end_date <= :churn_cutoff
-        )
+    query = text(_TERMED_CTE + """
         SELECT
             te.student_id,
             s.student_name,
@@ -240,17 +317,20 @@ async def update_termination_record(
 
     # Get tutor_id from latest enrollment within the quarter window
     # (scoped to quarter_end + 30 days to ignore comeback enrollments)
-    closing_end = get_quarter_window(db, data.year, data.quarter).closing_end
+    window = get_quarter_window(db, data.year, data.quarter)
     latest_enrollment = db.execute(text("""
         SELECT tutor_id FROM enrollments
         WHERE student_id = :student_id
         AND payment_status IN ('Paid', 'Pending Payment')
         AND enrollment_type = 'Regular'
         AND first_lesson_date IS NOT NULL
-        AND first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
+        AND first_lesson_date <= :comeback_cutoff
         ORDER BY first_lesson_date DESC
         LIMIT 1
-    """), {"student_id": student_id, "closing_end": closing_end}).fetchone()
+    """), {
+        "student_id": student_id,
+        "comeback_cutoff": window.params()["comeback_cutoff"],
+    }).fetchone()
     tutor_id = latest_enrollment.tutor_id if latest_enrollment else None
 
     # Check if record exists
@@ -364,7 +444,7 @@ async def get_termination_stats(
     # Count distinct students active during opening week (new + continuing),
     # plus continuing students whose renewal starts within 21 days after
     # opening_end (accounts for holidays delaying renewals).
-    opening_query = text("""
+    opening_query = text(f"""
         SELECT
             e.tutor_id,
             t.tutor_name,
@@ -372,31 +452,8 @@ async def get_termination_stats(
         FROM enrollments e
         JOIN tutors t ON e.tutor_id = t.id
         JOIN students s ON e.student_id = s.id
-        WHERE e.payment_status IN ('Paid', 'Pending Payment')
-        AND e.enrollment_type = 'Regular'
-        AND e.first_lesson_date IS NOT NULL
-        AND e.first_lesson_date <= DATE_ADD(:opening_end, INTERVAL 21 DAY)
-        AND calculate_effective_end_date(
-            e.first_lesson_date,
-            e.lessons_paid,
-            COALESCE(e.deadline_extension_weeks, 0)
-        ) >= :judged_from
-        AND (
-            e.first_lesson_date <= :opening_end
-            OR e.student_id IN (
-                SELECT DISTINCT e2.student_id
-                FROM enrollments e2
-                WHERE e2.payment_status IN ('Paid', 'Pending Payment')
-                AND e2.enrollment_type = 'Regular'
-                AND e2.first_lesson_date IS NOT NULL
-                AND e2.first_lesson_date <= :opening_end
-                AND calculate_effective_end_date(
-                    e2.first_lesson_date,
-                    e2.lessons_paid,
-                    COALESCE(e2.deadline_extension_weeks, 0)
-                ) >= DATE_SUB(:prev_closing_end, INTERVAL 21 DAY)
-            )
-        )
+        WHERE {_REGULAR_ENROLLMENTS}
+        {_ON_ROSTER_AT_OPENING}
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
         GROUP BY e.tutor_id, t.tutor_name
@@ -414,7 +471,7 @@ async def get_termination_stats(
     # Includes renewals starting within 21 days after quarter end (accounts for
     # holidays and consecutive holidays where students may not return for weeks),
     # but only if the student had an enrollment during this quarter (not brand new).
-    closing_query = text("""
+    closing_query = text(f"""
         SELECT
             e.tutor_id,
             t.tutor_name,
@@ -422,28 +479,8 @@ async def get_termination_stats(
         FROM enrollments e
         JOIN tutors t ON e.tutor_id = t.id
         JOIN students s ON e.student_id = s.id
-        WHERE e.payment_status IN ('Paid', 'Pending Payment')
-        AND e.enrollment_type = 'Regular'
-        AND e.first_lesson_date IS NOT NULL
-        AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 21 DAY)
-        AND calculate_effective_end_date(
-            e.first_lesson_date,
-            e.lessons_paid,
-            COALESCE(e.deadline_extension_weeks, 0)
-        ) > :churn_cutoff
-        AND e.student_id IN (
-            SELECT DISTINCT e2.student_id
-            FROM enrollments e2
-            WHERE e2.payment_status IN ('Paid', 'Pending Payment')
-            AND e2.enrollment_type = 'Regular'
-            AND e2.first_lesson_date IS NOT NULL
-            AND e2.first_lesson_date <= :closing_end
-            AND calculate_effective_end_date(
-                e2.first_lesson_date,
-                e2.lessons_paid,
-                COALESCE(e2.deadline_extension_weeks, 0)
-            ) >= :judged_from
-        )
+        WHERE {_REGULAR_ENROLLMENTS}
+        {_ON_ROSTER_AT_CLOSING}
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
         GROUP BY e.tutor_id, t.tutor_name
@@ -459,31 +496,7 @@ async def get_termination_stats(
     # Query for Terminated count per tutor
     # Uses same CTE logic as the terminated students list to ensure consistency:
     # only counts students who actually appear in the list AND are marked count_as_terminated
-    terminated_query = text("""
-        WITH quarter_enrollments AS (
-            SELECT e.*,
-                   calculate_effective_end_date(
-                       e.first_lesson_date,
-                       e.lessons_paid,
-                       COALESCE(e.deadline_extension_weeks, 0)
-                   ) as eff_end_date,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY e.student_id
-                       ORDER BY e.first_lesson_date DESC
-                   ) as rn
-            FROM enrollments e
-            WHERE e.payment_status IN ('Paid', 'Pending Payment')
-            AND e.enrollment_type = 'Regular'
-            AND e.first_lesson_date IS NOT NULL
-            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
-        ),
-        termed AS (
-            SELECT qe.student_id, qe.tutor_id
-            FROM quarter_enrollments qe
-            WHERE qe.rn = 1
-            AND qe.eff_end_date >= :judged_from
-            AND qe.eff_end_date <= :churn_cutoff
-        )
+    terminated_query = text(_TERMED_CTE + """
         SELECT
             te.tutor_id,
             t.tutor_name,
@@ -539,33 +552,12 @@ async def get_termination_stats(
 
     # Location-wide totals: count unique students (not sum of per-tutor counts,
     # which double-counts students enrolled with multiple tutors)
-    location_opening_query = text("""
+    location_opening_query = text(f"""
         SELECT COUNT(DISTINCT e.student_id) as cnt
         FROM enrollments e
         JOIN students s ON e.student_id = s.id
-        WHERE e.payment_status IN ('Paid', 'Pending Payment')
-        AND e.enrollment_type = 'Regular'
-        AND e.first_lesson_date IS NOT NULL
-        AND e.first_lesson_date <= DATE_ADD(:opening_end, INTERVAL 21 DAY)
-        AND calculate_effective_end_date(
-            e.first_lesson_date, e.lessons_paid,
-            COALESCE(e.deadline_extension_weeks, 0)
-        ) >= :judged_from
-        AND (
-            e.first_lesson_date <= :opening_end
-            OR e.student_id IN (
-                SELECT DISTINCT e2.student_id
-                FROM enrollments e2
-                WHERE e2.payment_status IN ('Paid', 'Pending Payment')
-                AND e2.enrollment_type = 'Regular'
-                AND e2.first_lesson_date IS NOT NULL
-                AND e2.first_lesson_date <= :opening_end
-                AND calculate_effective_end_date(
-                    e2.first_lesson_date, e2.lessons_paid,
-                    COALESCE(e2.deadline_extension_weeks, 0)
-                ) >= DATE_SUB(:prev_closing_end, INTERVAL 21 DAY)
-            )
-        )
+        WHERE {_REGULAR_ENROLLMENTS}
+        {_ON_ROSTER_AT_OPENING}
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
     """)
@@ -573,30 +565,12 @@ async def get_termination_stats(
         **window.params(), "location": location, "tutor_id": tutor_id
     }).scalar()
 
-    location_closing_query = text("""
+    location_closing_query = text(f"""
         SELECT COUNT(DISTINCT e.student_id) as cnt
         FROM enrollments e
         JOIN students s ON e.student_id = s.id
-        WHERE e.payment_status IN ('Paid', 'Pending Payment')
-        AND e.enrollment_type = 'Regular'
-        AND e.first_lesson_date IS NOT NULL
-        AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 21 DAY)
-        AND calculate_effective_end_date(
-            e.first_lesson_date, e.lessons_paid,
-            COALESCE(e.deadline_extension_weeks, 0)
-        ) > :churn_cutoff
-        AND e.student_id IN (
-            SELECT DISTINCT e2.student_id
-            FROM enrollments e2
-            WHERE e2.payment_status IN ('Paid', 'Pending Payment')
-            AND e2.enrollment_type = 'Regular'
-            AND e2.first_lesson_date IS NOT NULL
-            AND e2.first_lesson_date <= :closing_end
-            AND calculate_effective_end_date(
-                e2.first_lesson_date, e2.lessons_paid,
-                COALESCE(e2.deadline_extension_weeks, 0)
-            ) >= :judged_from
-        )
+        WHERE {_REGULAR_ENROLLMENTS}
+        {_ON_ROSTER_AT_CLOSING}
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
     """)
@@ -604,30 +578,7 @@ async def get_termination_stats(
         **window.params(), "location": location, "tutor_id": tutor_id
     }).scalar()
 
-    location_terminated_query = text("""
-        WITH quarter_enrollments AS (
-            SELECT e.*,
-                   calculate_effective_end_date(
-                       e.first_lesson_date, e.lessons_paid,
-                       COALESCE(e.deadline_extension_weeks, 0)
-                   ) as eff_end_date,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY e.student_id
-                       ORDER BY e.first_lesson_date DESC
-                   ) as rn
-            FROM enrollments e
-            WHERE e.payment_status IN ('Paid', 'Pending Payment')
-            AND e.enrollment_type = 'Regular'
-            AND e.first_lesson_date IS NOT NULL
-            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
-        ),
-        termed AS (
-            SELECT qe.student_id
-            FROM quarter_enrollments qe
-            WHERE qe.rn = 1
-            AND qe.eff_end_date >= :judged_from
-            AND qe.eff_end_date <= :churn_cutoff
-        )
+    location_terminated_query = text(_TERMED_CTE + """
         SELECT COUNT(DISTINCT te.student_id) as cnt
         FROM termed te
         JOIN students s ON te.student_id = s.id
@@ -691,33 +642,12 @@ def _compute_location_stats(
     )
 
     # Opening count
-    opening_query = text("""
+    opening_query = text(f"""
         SELECT COUNT(DISTINCT e.student_id) as cnt
         FROM enrollments e
         JOIN students s ON e.student_id = s.id
-        WHERE e.payment_status IN ('Paid', 'Pending Payment')
-        AND e.enrollment_type = 'Regular'
-        AND e.first_lesson_date IS NOT NULL
-        AND e.first_lesson_date <= DATE_ADD(:opening_end, INTERVAL 21 DAY)
-        AND calculate_effective_end_date(
-            e.first_lesson_date, e.lessons_paid,
-            COALESCE(e.deadline_extension_weeks, 0)
-        ) >= :judged_from
-        AND (
-            e.first_lesson_date <= :opening_end
-            OR e.student_id IN (
-                SELECT DISTINCT e2.student_id
-                FROM enrollments e2
-                WHERE e2.payment_status IN ('Paid', 'Pending Payment')
-                AND e2.enrollment_type = 'Regular'
-                AND e2.first_lesson_date IS NOT NULL
-                AND e2.first_lesson_date <= :opening_end
-                AND calculate_effective_end_date(
-                    e2.first_lesson_date, e2.lessons_paid,
-                    COALESCE(e2.deadline_extension_weeks, 0)
-                ) >= DATE_SUB(:prev_closing_end, INTERVAL 21 DAY)
-            )
-        )
+        WHERE {_REGULAR_ENROLLMENTS}
+        {_ON_ROSTER_AT_OPENING}
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
     """)
@@ -726,30 +656,12 @@ def _compute_location_stats(
     }).scalar() or 0
 
     # Closing count
-    closing_query = text("""
+    closing_query = text(f"""
         SELECT COUNT(DISTINCT e.student_id) as cnt
         FROM enrollments e
         JOIN students s ON e.student_id = s.id
-        WHERE e.payment_status IN ('Paid', 'Pending Payment')
-        AND e.enrollment_type = 'Regular'
-        AND e.first_lesson_date IS NOT NULL
-        AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 21 DAY)
-        AND calculate_effective_end_date(
-            e.first_lesson_date, e.lessons_paid,
-            COALESCE(e.deadline_extension_weeks, 0)
-        ) > :churn_cutoff
-        AND e.student_id IN (
-            SELECT DISTINCT e2.student_id
-            FROM enrollments e2
-            WHERE e2.payment_status IN ('Paid', 'Pending Payment')
-            AND e2.enrollment_type = 'Regular'
-            AND e2.first_lesson_date IS NOT NULL
-            AND e2.first_lesson_date <= :closing_end
-            AND calculate_effective_end_date(
-                e2.first_lesson_date, e2.lessons_paid,
-                COALESCE(e2.deadline_extension_weeks, 0)
-            ) >= :judged_from
-        )
+        WHERE {_REGULAR_ENROLLMENTS}
+        {_ON_ROSTER_AT_CLOSING}
         AND (:location IS NULL OR e.location = :location)
         AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
     """)
@@ -758,30 +670,7 @@ def _compute_location_stats(
     }).scalar() or 0
 
     # Terminated count
-    terminated_query = text("""
-        WITH quarter_enrollments AS (
-            SELECT e.*,
-                   calculate_effective_end_date(
-                       e.first_lesson_date, e.lessons_paid,
-                       COALESCE(e.deadline_extension_weeks, 0)
-                   ) as eff_end_date,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY e.student_id
-                       ORDER BY e.first_lesson_date DESC
-                   ) as rn
-            FROM enrollments e
-            WHERE e.payment_status IN ('Paid', 'Pending Payment')
-            AND e.enrollment_type = 'Regular'
-            AND e.first_lesson_date IS NOT NULL
-            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
-        ),
-        termed AS (
-            SELECT qe.student_id
-            FROM quarter_enrollments qe
-            WHERE qe.rn = 1
-            AND qe.eff_end_date >= :judged_from
-            AND qe.eff_end_date <= :churn_cutoff
-        )
+    terminated_query = text(_TERMED_CTE + """
         SELECT COUNT(DISTINCT te.student_id) as cnt
         FROM termed te
         JOIN students s ON te.student_id = s.id
@@ -799,30 +688,7 @@ def _compute_location_stats(
     term_rate = round(total_terminated / total_opening * 100, 2) if total_opening > 0 else 0.0
 
     # Reason category breakdown
-    reason_query = text("""
-        WITH quarter_enrollments AS (
-            SELECT e.*,
-                   calculate_effective_end_date(
-                       e.first_lesson_date, e.lessons_paid,
-                       COALESCE(e.deadline_extension_weeks, 0)
-                   ) as eff_end_date,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY e.student_id
-                       ORDER BY e.first_lesson_date DESC
-                   ) as rn
-            FROM enrollments e
-            WHERE e.payment_status IN ('Paid', 'Pending Payment')
-            AND e.enrollment_type = 'Regular'
-            AND e.first_lesson_date IS NOT NULL
-            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
-        ),
-        termed AS (
-            SELECT qe.student_id
-            FROM quarter_enrollments qe
-            WHERE qe.rn = 1
-            AND qe.eff_end_date >= :judged_from
-            AND qe.eff_end_date <= :churn_cutoff
-        )
+    reason_query = text(_TERMED_CTE + """
         SELECT COALESCE(tr.reason_category, 'Uncategorized') as category, COUNT(*) as cnt
         FROM termed te
         JOIN students s ON te.student_id = s.id
@@ -883,32 +749,7 @@ async def get_review_needed_count(
     prev_window = get_quarter_window(db, prev_y, prev_q)
 
     # Count terminated students from previous quarter missing both reason and category
-    query = text("""
-        WITH quarter_enrollments AS (
-            SELECT e.*,
-                   calculate_effective_end_date(
-                       e.first_lesson_date,
-                       e.lessons_paid,
-                       COALESCE(e.deadline_extension_weeks, 0)
-                   ) as eff_end_date,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY e.student_id
-                       ORDER BY e.first_lesson_date DESC
-                   ) as rn
-            FROM enrollments e
-            WHERE e.payment_status IN ('Paid', 'Pending Payment')
-            AND e.enrollment_type = 'Regular'
-            AND e.first_lesson_date IS NOT NULL
-            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
-        ),
-        termed AS (
-            SELECT qe.student_id, qe.tutor_id,
-                   qe.eff_end_date as termination_date
-            FROM quarter_enrollments qe
-            WHERE qe.rn = 1
-            AND qe.eff_end_date >= :judged_from
-            AND qe.eff_end_date <= :churn_cutoff
-        )
+    query = text(_TERMED_CTE + """
         SELECT COUNT(*) as cnt
         FROM termed te
         JOIN students s ON te.student_id = s.id
@@ -1021,29 +862,8 @@ async def get_stat_details(
                 FROM enrollments e
                 JOIN tutors t ON e.tutor_id = t.id
                 JOIN students s ON e.student_id = s.id
-                WHERE e.payment_status IN ('Paid', 'Pending Payment')
-                AND e.enrollment_type = 'Regular'
-                AND e.first_lesson_date IS NOT NULL
-                AND e.first_lesson_date <= DATE_ADD(:opening_end, INTERVAL 21 DAY)
-                AND calculate_effective_end_date(
-                    e.first_lesson_date, e.lessons_paid,
-                    COALESCE(e.deadline_extension_weeks, 0)
-                ) >= :judged_from
-                AND (
-                    e.first_lesson_date <= :opening_end
-                    OR e.student_id IN (
-                        SELECT DISTINCT e2.student_id
-                        FROM enrollments e2
-                        WHERE e2.payment_status IN ('Paid', 'Pending Payment')
-                        AND e2.enrollment_type = 'Regular'
-                        AND e2.first_lesson_date IS NOT NULL
-                        AND e2.first_lesson_date <= :opening_end
-                        AND calculate_effective_end_date(
-                            e2.first_lesson_date, e2.lessons_paid,
-                            COALESCE(e2.deadline_extension_weeks, 0)
-                        ) >= DATE_SUB(:prev_closing_end, INTERVAL 21 DAY)
-                    )
-                )
+                WHERE {_REGULAR_ENROLLMENTS}
+                {_ON_ROSTER_AT_OPENING}
                 AND (:location IS NULL OR e.location = :location)
                 AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
             )
@@ -1067,26 +887,8 @@ async def get_stat_details(
                 FROM enrollments e
                 JOIN tutors t ON e.tutor_id = t.id
                 JOIN students s ON e.student_id = s.id
-                WHERE e.payment_status IN ('Paid', 'Pending Payment')
-                AND e.enrollment_type = 'Regular'
-                AND e.first_lesson_date IS NOT NULL
-                AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 21 DAY)
-                AND calculate_effective_end_date(
-                    e.first_lesson_date, e.lessons_paid,
-                    COALESCE(e.deadline_extension_weeks, 0)
-                ) > :churn_cutoff
-                AND e.student_id IN (
-                    SELECT DISTINCT e2.student_id
-                    FROM enrollments e2
-                    WHERE e2.payment_status IN ('Paid', 'Pending Payment')
-                    AND e2.enrollment_type = 'Regular'
-                    AND e2.first_lesson_date IS NOT NULL
-                    AND e2.first_lesson_date <= :closing_end
-                    AND calculate_effective_end_date(
-                        e2.first_lesson_date, e2.lessons_paid,
-                        COALESCE(e2.deadline_extension_weeks, 0)
-                    ) >= :judged_from
-                )
+                WHERE {_REGULAR_ENROLLMENTS}
+                {_ON_ROSTER_AT_CLOSING}
                 AND (:location IS NULL OR e.location = :location)
                 AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
             )
@@ -1100,31 +902,7 @@ async def get_stat_details(
         }
 
     else:  # terminated
-        query = text(f"""
-            WITH quarter_enrollments AS (
-                SELECT e.*,
-                       calculate_effective_end_date(
-                           e.first_lesson_date, e.lessons_paid,
-                           COALESCE(e.deadline_extension_weeks, 0)
-                       ) as eff_end_date,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY e.student_id
-                           ORDER BY e.first_lesson_date DESC
-                       ) as rn
-                FROM enrollments e
-                WHERE e.payment_status IN ('Paid', 'Pending Payment')
-                AND e.enrollment_type = 'Regular'
-                AND e.first_lesson_date IS NOT NULL
-                AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
-            ),
-            termed AS (
-                SELECT qe.id as enrollment_id, qe.student_id, qe.tutor_id,
-                       qe.assigned_day, qe.assigned_time
-                FROM quarter_enrollments qe
-                WHERE qe.rn = 1
-                AND qe.eff_end_date >= :judged_from
-                AND qe.eff_end_date <= :churn_cutoff
-            )
+        query = text(_TERMED_CTE + """
             SELECT
                 te.enrollment_id,
                 te.student_id,
