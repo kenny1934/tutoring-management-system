@@ -215,19 +215,24 @@ function AxisTable({
       <thead className={thead}>
         <tr className={theadRow}>
           <th className={th}>{label}</th>
-          <th className={thNum}>Cohort</th>
+          {/* "Students", not "Cohort". The word is ours, not the centre's. */}
+          <th className={thNum}>Students</th>
           <th className={thNum}>Applied</th>
           <th className={thNum}>Not returning</th>
           <th className={thNum}>No response</th>
           {/* Of the unresponsive, not of everybody: under a "no response"
-              heading a cohort-wide figure reads as this one anyway. */}
+              heading a centre-wide figure reads as this one anyway. */}
           <th
             className={thNum}
             title="How many of the students who have not answered we have already called."
           >
             Called
           </th>
-          <th className={thNum}>Apply %</th>
+          {/* Worded and explained exactly as the conversion board words it, so
+              the two regular boards read the same way. */}
+          <th className={thNum} title="Applied as a share of the students in this row">
+            Apply %
+          </th>
         </tr>
       </thead>
       <tbody className={rowDivide}>
@@ -299,7 +304,14 @@ export function RegularRetentionBreakdowns({ data }: { data: RegularRetentionRes
             <tr className={theadRow}>
               <th className={th}>Reason</th>
               <th className={thNum}>Students</th>
-              <th className={thNum}>Share</th>
+              {/* The reason's share of everybody leaving, so the header has to
+                  say what it is a share of. "Share" on its own told nobody. */}
+              <th
+                className={thNum}
+                title="How much of the not-returning group this one reason accounts for."
+              >
+                % of those leaving
+              </th>
             </tr>
           </thead>
           <tbody className={rowDivide}>
@@ -1090,7 +1102,7 @@ export function RegularRetentionChaseList({
               <SortHeader k="tutor_name">Tutor</SortHeader>
               <th className={th}>Phone</th>
               <SortHeader k="days_since_contact">Last contacted</SortHeader>
-              <th className={th}>State</th>
+              <th className={th}>Status</th>
               <th className={th} />
             </tr>
           </thead>
