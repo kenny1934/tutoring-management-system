@@ -9,6 +9,7 @@ filed.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -27,6 +28,7 @@ from models import (
     Tutor,
 )
 from routers.regular_course import _build_retention, get_my_retention, get_retention
+from routers.terminations import delete_termination_record
 
 # The intake under test: applications open 4 Aug 2026, course starts 1 Sep.
 # That puts the cohort cutoff at 1 May 2026 and the decline quarter at Q3 2026.
@@ -217,6 +219,34 @@ class TestCohort:
         result = _build_retention(db_session, reg_cfg)
 
         assert result.totals.cohort == 0
+
+    def test_the_cutoff_is_inclusive_to_the_day(self, db_session, reg_cfg, tutor):
+        """The cohort query reaches the same rows through the cheap weekly span
+        as it did by walking every enrollment, so the boundary is worth pinning:
+        a pack whose last lesson lands exactly on 1 May is in, and the same pack
+        a week earlier is out."""
+        on_the_day = _student(db_session, name="Last lesson 1 May")
+        a_week_short = _student(db_session, name="Last lesson 24 Apr")
+        # 8 lessons from 13 March: 13 Mar + 7 weeks = 1 May.
+        _regular_enrollment(db_session, on_the_day, tutor, first_lesson=date(2026, 3, 13))
+        _regular_enrollment(db_session, a_week_short, tutor, first_lesson=date(2026, 3, 6))
+
+        result = _build_retention(db_session, reg_cfg)
+
+        assert result.totals.cohort == 1
+        assert _row(result, on_the_day.id) is not None
+
+    def test_an_extension_can_carry_a_pack_over_the_cutoff(self, db_session, reg_cfg, tutor):
+        """Extension weeks buy extra lesson dates, so they move the end date and
+        must move cohort membership with it."""
+        s = _student(db_session)
+        e = _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 3, 6))
+        assert _build_retention(db_session, reg_cfg).totals.cohort == 0
+
+        e.deadline_extension_weeks = 2
+        db_session.commit()
+
+        assert _build_retention(db_session, reg_cfg).totals.cohort == 1
 
     def test_cancelled_enrollment_never_counted(self, db_session, reg_cfg, tutor):
         """Cancelled rows never represented an attending student."""
@@ -440,7 +470,8 @@ class TestTerminations:
 
     def test_uncounted_termination_leaves_the_denominator(self, db_session, reg_cfg, tutor):
         """Transferred branch or graduated: never a retention failure, so it
-        drops out of both the chase list and the rate."""
+        leaves the rate — but it is still reported, because a cohort that
+        shrank silently is one nobody trusts."""
         s = _student(db_session)
         _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
         _termination(db_session, s, year=2026, quarter=3, counted=False,
@@ -449,7 +480,40 @@ class TestTerminations:
         result = _build_retention(db_session, reg_cfg)
 
         assert result.totals.cohort == 0
-        assert _row(result, s.id) is None
+        assert result.not_churn.cohort == 1
+        assert _row(result, s.id).state == "not_churn"
+
+    def test_a_transfer_is_not_a_decline(self, db_session, reg_cfg, tutor):
+        """The two states share a table and mean opposite things: one is a lost
+        customer, the other is a customer who is still ours."""
+        left = _student(db_session, name="Left")
+        moved = _student(db_session, name="Moved")
+        for s in (left, moved):
+            _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        _termination(db_session, left, year=2026, quarter=3, counted=True,
+                     category="Switched to competitor")
+        _termination(db_session, moved, year=2026, quarter=3, counted=False,
+                     category="Relocated")
+
+        result = _build_retention(db_session, reg_cfg)
+
+        assert (result.totals.cohort, result.totals.declined) == (1, 1)
+        assert result.not_churn.cohort == 1
+        assert [r.key for r in result.by_decline_reason] == ["Switched to competitor"]
+
+    def test_an_application_outranks_a_transfer(self, db_session, reg_cfg, tutor):
+        """Marked as moving branch and then applied anyway: the application is
+        the later word, so they return to the denominator."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        _termination(db_session, s, year=2026, quarter=3, counted=False)
+        _application(db_session, reg_cfg, s)
+
+        result = _build_retention(db_session, reg_cfg)
+
+        assert (result.totals.cohort, result.totals.applied) == (1, 1)
+        assert result.not_churn.cohort == 0
+        assert _row(result, s.id).state == "applied"
 
     def test_termination_from_the_quarter_before_removes_the_student(self, db_session, reg_cfg, tutor):
         """Q2 closes 21 July, after the 1 May cutoff, so it is the more recent
@@ -527,6 +591,25 @@ class TestContactAndScoping:
         # The history still shows, so a caller knows when they last spoke.
         assert _row(result, s.id).last_contact_date == datetime(2026, 5, 30)
 
+    def test_contacting_the_unresponsive_is_counted_separately(self, db_session, reg_cfg, tutor):
+        """Cohort-wide "contacted" reads as "of the unresponsive, N called" when
+        it sits under a no-response heading, so the scoped figure is its own."""
+        applied = _student(db_session, name="Applied")
+        silent = _student(db_session, name="Silent")
+        for s in (applied, silent):
+            _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+            db_session.add(ParentCommunication(
+                student_id=s.id, tutor_id=tutor.id, contact_date=datetime(2026, 8, 10),
+                contact_method="Phone", contact_type="General",
+            ))
+        _application(db_session, reg_cfg, applied)
+        db_session.commit()
+
+        result = _build_retention(db_session, reg_cfg)
+
+        assert result.totals.contacted == 2
+        assert result.totals.no_response_contacted == 1
+
     def test_unlinked_applications_are_surfaced_for_reconciliation(self, db_session, reg_cfg, tutor):
         """These claim an existing student but have no link, so their families
         read as unresponsive and would be chased in error."""
@@ -538,6 +621,35 @@ class TestContactAndScoping:
         assert result.reconciliation.unlinked_count == 2
         assert result.reconciliation.unlinked_secondary == 2
 
+    def test_unlinked_applications_follow_the_branch_filter(self, db_session, reg_cfg, tutor):
+        """An unmatched application has no student record to take a branch from,
+        so the branch it asked for is the only one it has. Counting all of them
+        against one branch overstates what is wrong with that list."""
+        msa = _application(db_session, reg_cfg, None)
+        msb = _application(db_session, reg_cfg, None)
+        msb.preferred_location = "二龍喉分校"
+        db_session.commit()
+
+        assert msa.preferred_location == "華士古分校"
+        assert _build_retention(db_session, reg_cfg).reconciliation.unlinked_count == 2
+        assert _build_retention(db_session, reg_cfg, branch="MSB").reconciliation.unlinked_count == 1
+
+    def test_applications_from_outside_the_cohort_are_counted(self, db_session, reg_cfg, tutor):
+        """They applied but were never in the denominator. Reported so they read
+        as excluded rather than as missing."""
+        lapsed = _student(db_session, name="Lapsed")
+        _regular_enrollment(db_session, lapsed, tutor, first_lesson=date(2026, 1, 6), lessons=4)
+        _application(db_session, reg_cfg, lapsed)
+
+        result = _build_retention(db_session, reg_cfg)
+
+        assert result.totals.cohort == 0
+        assert result.reconciliation.applied_outside_cohort == 1
+        # Their home branch is the only branch they have, so a branch-scoped
+        # board counts them where the student sits.
+        assert _build_retention(db_session, reg_cfg, branch="MSA").reconciliation.applied_outside_cohort == 1
+        assert _build_retention(db_session, reg_cfg, branch="MSB").reconciliation.applied_outside_cohort == 0
+
     def test_branch_filter_scopes_the_whole_report(self, db_session, reg_cfg, tutor):
         msa = _student(db_session, name="At MSA")
         msb = _student(db_session, name="At MSB")
@@ -548,6 +660,23 @@ class TestContactAndScoping:
 
         assert result.totals.cohort == 1
         assert [r.key for r in result.by_branch] == ["MSB"]
+
+    def test_tutors_sharing_a_name_stay_two_rows(self, db_session, reg_cfg, tutor):
+        """Keyed on the tutor's id: merging them would hand one of them the
+        other's students and quietly halve the row count."""
+        namesake = Tutor(user_email="w2@test.com", tutor_name="Ms Ho", role="Tutor",
+                         is_active_tutor=True)
+        db_session.add(namesake)
+        db_session.commit()
+        for t in (tutor, namesake):
+            s = _student(db_session, name=f"Student of {t.id}")
+            _regular_enrollment(db_session, s, t, first_lesson=date(2026, 4, 7))
+
+        result = _build_retention(db_session, reg_cfg)
+
+        assert [r.key for r in result.by_tutor] == [str(tutor.id), str(namesake.id)]
+        assert {r.label for r in result.by_tutor} == {"Ms Ho"}
+        assert [r.cohort for r in result.by_tutor] == [1, 1]
 
     def test_tutor_scope_hides_other_tutors_students(self, db_session, reg_cfg, tutor):
         """What the tutor-facing view reads."""
@@ -586,6 +715,74 @@ class TestContactAndScoping:
 
 
 # ---------------------------------------------------------------------------
+# Taking it back
+# ---------------------------------------------------------------------------
+
+class TestUndo:
+    """Marking a family as not returning is one click, so unmarking them has to
+    be one too. Flipping count_as_terminated is not an undo: it says "left, but
+    not churn", which leaves the student off the board a second way."""
+
+    def _undo(self, db_session, student, tutor):
+        # A private loop rather than asyncio.run(): that clears the process's
+        # current event loop on the way out, and tests elsewhere in the suite
+        # still reach for it with get_event_loop().
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(delete_termination_record(
+                student_id=student.id, year=2026, quarter=3,
+                current_user=tutor, db=db_session,
+            ))
+        finally:
+            loop.close()
+
+    def test_undoing_a_decline_returns_the_student_to_the_list(self, db_session, reg_cfg, tutor):
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        _termination(db_session, s, year=2026, quarter=3, category="Lost interest")
+        assert _build_retention(db_session, reg_cfg).totals.declined == 1
+
+        self._undo(db_session, s, tutor)
+
+        result = _build_retention(db_session, reg_cfg)
+        assert result.totals.declined == 0
+        assert result.totals.no_response == 1
+        assert _row(result, s.id).state == "no_response"
+
+    def test_undoing_a_transfer_puts_them_back_in_the_denominator(self, db_session, reg_cfg, tutor):
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        _termination(db_session, s, year=2026, quarter=3, counted=False)
+        assert _build_retention(db_session, reg_cfg).totals.cohort == 0
+
+        self._undo(db_session, s, tutor)
+
+        assert _build_retention(db_session, reg_cfg).totals.cohort == 1
+
+    def test_undoing_leaves_other_quarters_alone(self, db_session, reg_cfg, tutor):
+        """The board only ever writes into the intake quarter, so it must only
+        ever remove from it — an earlier termination is somebody else's record."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        _termination(db_session, s, year=2026, quarter=1, counted=True)
+        _termination(db_session, s, year=2026, quarter=3, counted=True)
+
+        self._undo(db_session, s, tutor)
+
+        left = db_session.query(TerminationRecord).filter(
+            TerminationRecord.student_id == s.id
+        ).all()
+        assert [(r.year, r.quarter) for r in left] == [(2026, 1)]
+
+    def test_undoing_nothing_is_not_an_error(self, db_session, reg_cfg, tutor):
+        """Two callers clearing the same row is a race, not a failure."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+
+        assert self._undo(db_session, s, tutor) is None
+
+
+# ---------------------------------------------------------------------------
 # The tutor-facing view
 # ---------------------------------------------------------------------------
 
@@ -604,6 +801,26 @@ class TestTutorView:
 
         assert [s.student_name for s in result.students] == ["Mine"]
         assert result.totals.cohort == 1
+
+    def test_a_summer_student_stays_with_their_regular_tutor(
+        self, db_session, reg_cfg, sum_cfg, tutor
+    ):
+        """Scoping the cohort in SQL narrows each source independently, so a
+        student taught over the summer by one tutor and in September by another
+        would otherwise land on both worklists."""
+        summer_tutor = Tutor(user_email="s@test.com", tutor_name="Mr Lei", role="Tutor",
+                             is_active_tutor=True)
+        db_session.add(summer_tutor)
+        db_session.commit()
+        s = _student(db_session, name="Taught by both")
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        _summer_enrollment(db_session, s, summer_tutor, sum_cfg)
+
+        mine = get_my_retention(year=YEAR, current_user=tutor, db=db_session)
+        theirs = get_my_retention(year=YEAR, current_user=summer_tutor, db=db_session)
+
+        assert [r.student_name for r in mine.students] == ["Taught by both"]
+        assert theirs.students == []
 
     def test_carries_no_centre_wide_figures(self, db_session, reg_cfg, tutor):
         """A tutor sees their students, not how the centre is performing — the

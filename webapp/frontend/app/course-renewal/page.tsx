@@ -8,26 +8,42 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
-import { CalendarCheck, Check, Loader2, MessageSquarePlus, UserMinus } from "lucide-react";
-import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-badges";
+import { CalendarCheck, Check, Loader2, MessageSquarePlus, Search, Undo2, UserMinus } from "lucide-react";
+import { StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import {
   NotReturningDialog,
+  PhoneCell,
   STATE_META,
+  StudentLink,
+  UndoNotReturningDialog,
+  isRecordedAsLeaving,
 } from "@/components/admin/RegularRetentionSections";
+import { hasPhone, sortChaseRows, staleness } from "@/lib/retention-utils";
 import type { RegularRetentionChaseRow } from "@/types";
+
+const selectClass =
+  "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
+
+/** How the list is ordered. Staleness is the default because the point of the
+ *  page is a queue: whoever has been waiting longest goes first. */
+type RenewalOrder = "stale" | "name" | "grade";
 
 /** A tutor's own view of who hasn't come back yet.
  *
  *  Deliberately not the admin board: no rates, no branch totals, no comparison
- *  against other tutors. Just their students, what we know, and the two things
- *  they can do about it. */
+ *  against other tutors. Just their students, what we know, and the three
+ *  things they can do about it. */
 export default function CourseRenewalPage() {
   usePageTitle("Course Renewal");
   const { isGuest, isReadOnly, user } = useAuth();
   const [showDone, setShowDone] = useState(false);
+  const [q, setQ] = useState("");
+  const [grade, setGrade] = useState("");
+  const [order, setOrder] = useState<RenewalOrder>("stale");
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
+  const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
 
   const { data, isLoading, error, mutate } = useSWR(
     isGuest ? null : "my-retention",
@@ -42,7 +58,31 @@ export default function CourseRenewalPage() {
     () => (data?.students ?? []).filter((s) => s.state !== "no_response"),
     [data]
   );
-  const rows = showDone ? settled : outstanding;
+
+  const grades = useMemo(() => {
+    const found = new Set<string>();
+    for (const s of data?.students ?? []) if (s.expected_grade) found.add(s.expected_grade);
+    return [...found].sort();
+  }, [data]);
+
+  // The busiest tutor has over a hundred students, so a flat list means
+  // scrolling to find anyone. Same filtering the admin chase list uses, minus
+  // the axes a tutor has no use for.
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const pool = (showDone ? settled : outstanding).filter((s) => {
+      if (grade && s.expected_grade !== grade) return false;
+      if (!needle) return true;
+      return `${s.student_name} ${s.student_code ?? ""} ${s.phone ?? ""}`
+        .toLowerCase()
+        .includes(needle);
+    });
+    if (order === "name") return sortChaseRows(pool, "student_name", "asc");
+    if (order === "grade") return sortChaseRows(pool, "expected_grade", "asc");
+    return [...pool].sort((a, b) => staleness(b) - staleness(a));
+  }, [showDone, settled, outstanding, grade, q, order]);
+
+  const filtered = q.trim() !== "" || grade !== "";
 
   if (isGuest) {
     return (
@@ -85,7 +125,7 @@ export default function CourseRenewalPage() {
           ) : (
             <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6">
               {/* Two counts, no rate: this is a worklist, not a scoreboard. */}
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setShowDone(false)}
@@ -112,13 +152,61 @@ export default function CourseRenewalPage() {
                 </button>
               </div>
 
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="search"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Name, code or phone"
+                    className={cn(selectClass, "pl-8 w-48")}
+                  />
+                </div>
+                {grades.length > 1 && (
+                  <select
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    className={selectClass}
+                  >
+                    <option value="">All grades</option>
+                    {grades.map((g) => (
+                      <option key={g} value={g}>Entering {g}</option>
+                    ))}
+                  </select>
+                )}
+                <select
+                  value={order}
+                  onChange={(e) => setOrder(e.target.value as RenewalOrder)}
+                  className={selectClass}
+                >
+                  <option value="stale">Longest waiting first</option>
+                  <option value="name">By name</option>
+                  <option value="grade">By entering grade</option>
+                </select>
+                {filtered && (
+                  <button
+                    type="button"
+                    onClick={() => { setQ(""); setGrade(""); }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    Reset
+                  </button>
+                )}
+                <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                  {rows.length} shown
+                </span>
+              </div>
+
               {rows.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground gap-2">
                   <Check className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                   <p className="text-sm">
-                    {showDone
-                      ? "Nothing settled yet."
-                      : "Every one of your students has answered. Nothing to chase."}
+                    {filtered
+                      ? "Nobody matches what you searched for."
+                      : showDone
+                        ? "Nothing settled yet."
+                        : "Every one of your students has answered. Nothing to chase."}
                   </p>
                 </div>
               ) : (
@@ -131,7 +219,10 @@ export default function CourseRenewalPage() {
                       <div className="flex items-start gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-sm font-medium text-foreground">{s.student_name}</span>
+                            <StudentLink
+                              row={s}
+                              className="text-sm font-medium text-foreground"
+                            />
                             {s.student_code && <StudentCodeBadge code={s.student_code} />}
                             {s.expected_grade && (
                               <span className="text-[11px] text-muted-foreground">
@@ -140,11 +231,7 @@ export default function CourseRenewalPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                            {s.phone && (
-                              <span className="tabular-nums text-foreground">
-                                <CopyableCell text={s.phone} />
-                              </span>
-                            )}
+                            <PhoneCell row={s} />
                             {/* Never contacted is the front of the queue, so it
                                 reads as a state rather than as missing data. */}
                             {s.days_since_contact == null ? (
@@ -178,7 +265,16 @@ export default function CourseRenewalPage() {
                             >
                               <MessageSquarePlus className="h-4 w-4" />
                             </button>
-                            {s.state !== "declined" && (
+                            {isRecordedAsLeaving(s.state) ? (
+                              <button
+                                type="button"
+                                onClick={() => setUndoFor(s)}
+                                title="Put this student back on the list"
+                                className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                              >
+                                <Undo2 className="h-4 w-4" />
+                              </button>
+                            ) : (
                               <button
                                 type="button"
                                 onClick={() => setDeclineFor(s)}
@@ -194,6 +290,15 @@ export default function CourseRenewalPage() {
                     </div>
                   ))}
                 </div>
+              )}
+
+              {/* Nobody can be rung from a row with no number, so the page says
+                  how many there are rather than letting them absorb calls. */}
+              {!showDone && outstanding.some((s) => !hasPhone(s)) && (
+                <p className="text-[11px] text-muted-foreground mt-3">
+                  {outstanding.filter((s) => !hasPhone(s)).length} of your students have no phone
+                  number on file. The office can add one to their record.
+                </p>
               )}
             </div>
           )}
@@ -219,6 +324,18 @@ export default function CourseRenewalPage() {
               onClose={(saved) => {
                 setDeclineFor(null);
                 if (saved) mutate();
+              }}
+            />
+          )}
+
+          {undoFor && data && (
+            <UndoNotReturningDialog
+              row={undoFor}
+              year={data.intake_year}
+              quarter={data.intake_quarter}
+              onClose={(undone) => {
+                setUndoFor(null);
+                if (undone) mutate();
               }}
             />
           )}

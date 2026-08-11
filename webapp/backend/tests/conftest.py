@@ -59,9 +59,18 @@ def _register_sqlite_stand_ins(dbapi_connection, _connection_record):
             return start.isoformat()
         return (start + timedelta(weeks=total - 1)).isoformat()
 
+    def to_days(value):
+        """MySQL's TO_DAYS: a date as a day number, so date arithmetic can be
+        written as whole-day arithmetic and run on both engines. Only
+        differences matter to the callers, so the epoch need not match MySQL's."""
+        if not value:
+            return None
+        return date.fromisoformat(str(value)[:10]).toordinal()
+
     dbapi_connection.create_function(
         "calculate_effective_end_date", 3, calculate_effective_end_date
     )
+    dbapi_connection.create_function("to_days", 1, to_days)
 
 
 @pytest.fixture(scope="function")

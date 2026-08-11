@@ -16,7 +16,11 @@ export type ChaseSortKey =
   | "tutor_name"
   | "days_since_contact";
 
-export type ContactFilter = "" | "yes" | "no" | "due";
+/** How reachable a family is, which is a different axis from what state they
+ *  are in. "nophone" is on this list because a row with no number cannot be
+ *  worked from the list at all: it needs somebody to go and find the number,
+ *  not another caller trying. */
+export type ContactFilter = "" | "yes" | "no" | "due" | "nophone";
 
 export interface ChaseFilters {
   state: RetentionState | "all";
@@ -62,6 +66,11 @@ export function isFollowUpDue(row: RegularRetentionChaseRow, today: string): boo
   return Boolean(row.follow_up_needed && row.follow_up_date && row.follow_up_date <= today);
 }
 
+/** Whether there is a number to ring. A blank string counts as no number. */
+export function hasPhone(row: RegularRetentionChaseRow): boolean {
+  return Boolean(row.phone && row.phone.trim());
+}
+
 export function filterChaseRows(
   rows: RegularRetentionChaseRow[],
   filters: ChaseFilters,
@@ -77,6 +86,7 @@ export function filterChaseRows(
     if (filters.contact === "yes" && !r.last_contact_date) return false;
     if (filters.contact === "no" && r.last_contact_date) return false;
     if (filters.contact === "due" && !isFollowUpDue(r, today)) return false;
+    if (filters.contact === "nophone" && hasPhone(r)) return false;
     if (needle) {
       const hay = `${r.student_name} ${r.student_code ?? ""} ${r.phone ?? ""}`.toLowerCase();
       if (!hay.includes(needle)) return false;

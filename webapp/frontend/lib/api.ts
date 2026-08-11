@@ -1356,6 +1356,16 @@ export const terminationsAPI = {
     });
   },
 
+  // Remove a quarter's record entirely. Flipping count_as_terminated is not an
+  // undo — it says "left, but not churn", which is a different claim.
+  deleteRecord: (studentId: number, year: number, quarter: number) => {
+    const params = new URLSearchParams({
+      year: year.toString(),
+      quarter: quarter.toString(),
+    });
+    return fetchAPI<void>(`/terminations/${studentId}?${params}`, { method: "DELETE" });
+  },
+
   // Get termination stats for a quarter
   getStats: (
     quarter: number,

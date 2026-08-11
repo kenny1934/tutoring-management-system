@@ -19,7 +19,7 @@ from datetime import date as date_type, timedelta
 from typing import Optional, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, or_, select
+from sqlalchemy import Date, and_, func, literal, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -1883,6 +1883,12 @@ RETENTION_ACTIVE_MONTHS_BACK = 4
 # silently drop out of the cohort.
 RETENTION_VOID_PAYMENT_STATUSES = ("Cancelled",)
 
+# How far past its plain weekly span a lesson pack is allowed to stretch before
+# the cohort query stops considering it. See `_reaches_clause`: this bounds the
+# holiday weeks the stored function can add, and holidays land on any given
+# weekday at most five times a year.
+RETENTION_HOLIDAY_SLACK_WEEKS = 12
+
 
 def _months_before(d: date_type, months: int) -> date_type:
     """`d` shifted back whole months, clamped to the shorter month's last day."""
@@ -1908,14 +1914,57 @@ def _retention_rungs(config: RegularCourseConfig) -> dict[str, str]:
     return rungs
 
 
-def _retention_cohort_sources(db: Session, config: RegularCourseConfig, active_from: date_type):
+def _reaches_clause(active_from: date_type):
+    """`effective_end_date >= active_from`, without walking every enrollment.
+
+    `calculate_effective_end_date` steps forward a week at a time doing a
+    holiday lookup per step, which costs ~0.1ms of database CPU per row — real
+    money over every enrollment ever taken. Holidays only ever push an end date
+    *later*, so the plain weekly span
+
+        first_lesson + (lessons_paid + extension - 1) weeks
+
+    is a lower bound on it. An enrollment already reaching the cutoff on that
+    alone qualifies without the function running at all; only rows landing
+    inside the slack window below can still be dragged over the line, and only
+    those pay. SQL's OR short-circuits left to right, which is what keeps the
+    function off the rows that already answered.
+
+    Whole-day arithmetic rather than DATE_ADD with an INTERVAL, because
+    TO_DAYS is the one date function SQLite can be taught (tests/conftest.py)."""
+    total_dates = Enrollment.lessons_paid + func.coalesce(Enrollment.deadline_extension_weeks, 0)
+    lower_bound = func.to_days(Enrollment.first_lesson_date) + (total_dates - 1) * 7
+    cutoff = func.to_days(literal(active_from, Date))
+    return or_(
+        lower_bound >= cutoff,
+        and_(
+            lower_bound >= cutoff - RETENTION_HOLIDAY_SLACK_WEEKS * 7,
+            func.calculate_effective_end_date(
+                Enrollment.first_lesson_date,
+                Enrollment.lessons_paid,
+                func.coalesce(Enrollment.deadline_extension_weeks, 0),
+            ) >= active_from,
+        ),
+    )
+
+
+def _retention_cohort_sources(
+    db: Session,
+    config: RegularCourseConfig,
+    active_from: date_type,
+    tutor_id: Optional[int] = None,
+):
     """The two cohort sources, each as {student_id: (last_start, branch, tutor_id)}.
 
     Source A is a regular enrollment still running at the end of last school
     year; source B is this year's summer course. A student in both is the
     strongest retention signal there is, so the caller tags rather than merges
     them. Branch and tutor come from the most recent enrollment on each side —
-    the regular one wins downstream, being the student's home class."""
+    the regular one wins downstream, being the student's home class.
+
+    `tutor_id` narrows both sources in SQL rather than leaving the caller to
+    discard other people's students in Python, which is most of what the tutor
+    view used to spend its time on."""
     def _fold(rows) -> dict[int, tuple]:
         latest: dict[int, tuple] = {}
         for student_id, location, tutor_id, first_lesson in rows:
@@ -1934,22 +1983,16 @@ def _retention_cohort_sources(db: Session, config: RegularCourseConfig, active_f
         Enrollment.tutor_id,
         Enrollment.first_lesson_date,
     )
-    # The holiday-aware end date the enrollment list and renewal pages already
-    # read, rather than first_lesson_date + lessons_paid done by hand here.
-    effective_end = func.calculate_effective_end_date(
-        Enrollment.first_lesson_date,
-        Enrollment.lessons_paid,
-        func.coalesce(Enrollment.deadline_extension_weeks, 0),
+    # Still the holiday-aware end date the enrollment list and renewal pages
+    # read, just reached without running the walk on every row.
+    regular_filters = (
+        Enrollment.enrollment_type == 'Regular',
+        Enrollment.payment_status.notin_(RETENTION_VOID_PAYMENT_STATUSES),
+        Enrollment.first_lesson_date.isnot(None),
+        _reaches_clause(active_from),
     )
-    regular = _fold(
-        db.query(*columns).filter(
-            Enrollment.enrollment_type == 'Regular',
-            Enrollment.payment_status.notin_(RETENTION_VOID_PAYMENT_STATUSES),
-            Enrollment.first_lesson_date.isnot(None),
-            effective_end >= active_from,
-        )
-    )
-    summer = _fold(
+    regular_q = db.query(*columns).filter(*regular_filters)
+    summer_q = (
         db.query(*columns)
         .join(SummerApplication, SummerApplication.id == Enrollment.summer_application_id)
         .join(SummerCourseConfig, SummerCourseConfig.id == SummerApplication.config_id)
@@ -1959,6 +2002,27 @@ def _retention_cohort_sources(db: Session, config: RegularCourseConfig, active_f
             SummerApplication.application_status.notin_(REGULAR_EXIT_STATUSES),
         )
     )
+    if tutor_id is not None:
+        regular_q = regular_q.filter(Enrollment.tutor_id == tutor_id)
+        summer_q = summer_q.filter(Enrollment.tutor_id == tutor_id)
+
+    regular = _fold(regular_q)
+    summer = _fold(summer_q)
+
+    if tutor_id is not None:
+        # A student whose regular class belongs to someone else is that tutor's
+        # to chase, however many summer lessons they took here. Without this,
+        # narrowing in SQL would quietly hand them to both tutors.
+        summer_only = set(summer) - set(regular)
+        if summer_only:
+            taught_elsewhere = {
+                student_id
+                for (student_id,) in db.query(Enrollment.student_id).filter(
+                    *regular_filters, Enrollment.student_id.in_(summer_only)
+                )
+            }
+            for student_id in taught_elsewhere:
+                summer.pop(student_id, None)
     return regular, summer
 
 
@@ -2109,14 +2173,21 @@ def _retention_contacts(db: Session, student_ids: set[int], window_start):
     return contacts
 
 
-def _retention_reconciliation(db: Session, config: RegularCourseConfig):
+def _retention_reconciliation(
+    db: Session, config: RegularCourseConfig, branch: Optional[str] = None
+):
     """Applications that claim an existing student but carry no student link.
 
     Their families read as "no response" and would be chased despite having
     applied, so the board surfaces the count and offers the auto-match that
-    already exists."""
+    already exists.
+
+    With a branch selected, only the applications asking for that branch are
+    counted: an unmatched application has no student record to take a branch
+    from, so the branch it asked for is the only one it has. Counting all of
+    them against one branch's list would overstate what is wrong with it."""
     rows = (
-        db.query(RegularApplication.is_existing_student, func.count(RegularApplication.id))
+        db.query(RegularApplication.is_existing_student, RegularApplication.preferred_location)
         .filter(
             RegularApplication.config_id == config.id,
             RegularApplication.application_status.notin_(REGULAR_EXIT_STATUSES),
@@ -2124,15 +2195,15 @@ def _retention_reconciliation(db: Session, config: RegularCourseConfig):
             RegularApplication.is_existing_student != "None",
             RegularApplication.existing_student_id.is_(None),
         )
-        .group_by(RegularApplication.is_existing_student)
         .all()
     )
-    secondary = sum(n for claim, n in rows if claim == "MathConcept Secondary Academy")
-    total = sum(n for _claim, n in rows)
+    if branch:
+        rows = [r for r in rows if normalize_secondary_location(r[1]) == branch]
+    secondary = sum(1 for claim, _loc in rows if claim == "MathConcept Secondary Academy")
     return RegularRetentionReconciliation(
-        unlinked_count=total,
+        unlinked_count=len(rows),
         unlinked_secondary=secondary,
-        unlinked_primary=total - secondary,
+        unlinked_primary=len(rows) - secondary,
     )
 
 
@@ -2142,6 +2213,7 @@ def _build_retention(
     *,
     branch: Optional[str] = None,
     tutor_id: Optional[int] = None,
+    include_reconciliation: bool = True,
 ) -> RegularRetentionResponse:
     """Assemble the retention report for one intake.
 
@@ -2155,13 +2227,16 @@ def _build_retention(
         window_start.date() if window_start else config.course_start_date
     )
 
-    regular_src, summer_src = _retention_cohort_sources(db, config, active_from)
+    regular_src, summer_src = _retention_cohort_sources(db, config, active_from, tutor_id)
     cohort_ids = set(regular_src) | set(summer_src)
     left_before, declined, not_churn = _retention_terminations(
         db, cohort_ids, active_from, (intake_year, intake_quarter)
     )
+    # Students who left before the window are not a retention question at all.
+    # Those who left during it for a reason that was never churn — moved
+    # branch, finished school — stay on the board and out of the denominator,
+    # because a cohort that shrank silently is a cohort nobody trusts.
     cohort_ids -= left_before
-    cohort_ids -= not_churn
 
     app_by_student, enrolled_app_ids, on_prospect_board = _retention_applications(db, config, year)
     contacts = _retention_contacts(db, cohort_ids, window_start)
@@ -2182,6 +2257,7 @@ def _build_retention(
 
     totals = RegularRetentionRow(key="All")
     no_rung_row = RegularRetentionRow(key="No rung offered")
+    not_churn_row = RegularRetentionRow(key="Accounted for")
     by_branch: dict[str, RegularRetentionRow] = {}
     by_grade: dict[str, RegularRetentionRow] = {}
     by_source: dict[str, RegularRetentionRow] = {}
@@ -2202,6 +2278,8 @@ def _build_retention(
             row.declined += 1
         elif state == "no_response":
             row.no_response += 1
+            if contacted:
+                row.no_response_contacted += 1
         if contacted:
             row.contacted += 1
 
@@ -2229,12 +2307,16 @@ def _build_retention(
 
         app = app_by_student.get(student_id)
         decline = declined.get(student_id)
+        # A live application outranks a termination filed in the same quarter:
+        # it is the later word from the same family.
         if app and app.id in enrolled_app_ids:
             state = "enrolled"
         elif app:
             state = "applied"
         elif decline:
             state = "declined"
+        elif student_id in not_churn:
+            state = "not_churn"
         else:
             state = "no_response"
 
@@ -2274,6 +2356,12 @@ def _build_retention(
         ))
 
         contacted = bool(contact.get("in_window"))
+        # Both of these are reported on their own and never counted as a
+        # retention outcome: one had nowhere to apply, the other was never a
+        # loss. Leaving either in the denominator would understate the rate.
+        if state == "not_churn":
+            _bump(not_churn_row, state, contacted)
+            continue
         if rung == "none":
             _bump(no_rung_row, state, contacted)
             continue
@@ -2283,11 +2371,42 @@ def _build_retention(
         _bump(by_grade.setdefault(expected_grade or "Unknown",
                                   RegularRetentionRow(key=expected_grade or "Unknown")), state, contacted)
         _bump(by_source.setdefault(source, RegularRetentionRow(key=source)), state, contacted)
-        tutor_key = tutor_names.get(student_tutor_id) or "Unattributed"
-        _bump(by_tutor.setdefault(tutor_key, RegularRetentionRow(key=tutor_key)), state, contacted)
+        # Keyed on the tutor's id, not their name: two tutors called Ms Wong
+        # are two rows, not one row with both their students in it.
+        tutor_key = str(student_tutor_id) if student_tutor_id else "unattributed"
+        _bump(
+            by_tutor.setdefault(
+                tutor_key,
+                RegularRetentionRow(
+                    key=tutor_key,
+                    label=tutor_names.get(student_tutor_id) or "Unattributed",
+                ),
+            ),
+            state,
+            contacted,
+        )
         if state == "declined":
             reason_key = (decline[1] if decline else None) or "Unspecified"
             _bump(by_reason.setdefault(reason_key, RegularRetentionRow(key=reason_key)), state, contacted)
+
+    # Only the admin board can act on any of this, so the tutor view does not
+    # pay for the queries behind it.
+    reconciliation = RegularRetentionReconciliation()
+    if include_reconciliation:
+        reconciliation = _retention_reconciliation(db, config, branch)
+        # Applications from students this cohort never contained: they lapsed
+        # earlier, or never had a qualifying enrollment. Reported so the board
+        # says where they went rather than losing them. Their branch is their
+        # home branch, there being no enrollment here to take one from.
+        outside = [sid for sid in app_by_student if sid not in cohort_ids]
+        if outside and branch:
+            outside = [
+                sid
+                for (sid,) in db.query(Student.id).filter(
+                    Student.id.in_(outside), Student.home_location == branch
+                )
+            ]
+        reconciliation.applied_outside_cohort = len(outside)
 
     # Unresponsive students lead every list — they are the work. Within that,
     # group by branch and entering grade so a caller works one class at a time.
@@ -2312,11 +2431,15 @@ def _build_retention(
             key=lambda r: GRADE_ORDER.index(r.key) if r.key in GRADE_ORDER else 99,
         ),
         by_source=sorted(by_source.values(), key=lambda r: -r.cohort),
-        by_tutor=sorted(by_tutor.values(), key=lambda r: (r.key == "Unattributed", -r.cohort, r.key)),
+        by_tutor=sorted(
+            by_tutor.values(),
+            key=lambda r: (r.key == "unattributed", -r.cohort, r.label or r.key),
+        ),
         by_decline_reason=sorted(by_reason.values(), key=lambda r: (-r.declined, r.key)),
         no_rung=no_rung_row,
+        not_churn=not_churn_row,
         chase=chase,
-        reconciliation=_retention_reconciliation(db, config),
+        reconciliation=reconciliation,
     )
 
 
@@ -2365,7 +2488,9 @@ def get_my_retention(
             status_code=404,
             detail=f"No regular course config for {year}" if year else "No active regular intake",
         )
-    report = _build_retention(db, config, tutor_id=current_user.id)
+    report = _build_retention(
+        db, config, tutor_id=current_user.id, include_reconciliation=False
+    )
     return RegularRetentionMineResponse(
         year=report.year,
         intake_year=report.intake_year,

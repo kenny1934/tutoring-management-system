@@ -3654,6 +3654,9 @@ class RegularRetentionRow(BaseModel):
     retention failure, not an exclusion. Only `not_churn` (transferred away,
     graduated) leaves the denominator, which is why it has no column here."""
     key: str
+    # What to show instead of `key` when the key is an identifier rather than a
+    # name. Tutors are keyed by id so two tutors sharing a name stay two rows.
+    label: Optional[str] = None
     cohort: int = 0
     applied: int = 0
     enrolled: int = 0
@@ -3662,6 +3665,10 @@ class RegularRetentionRow(BaseModel):
     # of state: a contacted family can still be sitting at no_response.
     contacted: int = 0
     no_response: int = 0
+    # Of the unresponsive, how many have already been contacted. Cohort-wide
+    # `contacted` answers a different question and reads as this one when it
+    # sits under a "no response" heading, so both are counted.
+    no_response_contacted: int = 0
 
 
 class RegularRetentionChaseRow(BaseModel):
@@ -3709,6 +3716,10 @@ class RegularRetentionReconciliation(BaseModel):
     # board's cohort — the rest feed the conversion board.
     unlinked_secondary: int = 0
     unlinked_primary: int = 0
+    # Applications linked to a student who is not in this cohort: they lapsed
+    # earlier, or never had a qualifying enrollment. Counted so they read as
+    # excluded rather than as missing.
+    applied_outside_cohort: int = 0
 
 
 class RegularRetentionResponse(BaseModel):
@@ -3718,7 +3729,12 @@ class RegularRetentionResponse(BaseModel):
     tracks P6 prospects arriving, this tracks the students already here
     staying. `totals` sums only the rungs the form offers; `no_rung` holds the
     students whose entering grade the config has no place for (F5 and up), who
-    are reported separately and never counted as unresponsive."""
+    are reported separately and never counted as unresponsive.
+
+    `not_churn` holds the students who left for a reason that was never a
+    retention failure — moved to another branch, finished school. They are out
+    of the denominator but still reported, because "where did they go" is the
+    first question asked of a cohort that shrank."""
     year: int
     # Bounds the board reads from the config, echoed so the UI can explain
     # itself without recomputing them.
@@ -3736,6 +3752,7 @@ class RegularRetentionResponse(BaseModel):
     by_tutor: List[RegularRetentionRow] = []
     by_decline_reason: List[RegularRetentionRow] = []
     no_rung: RegularRetentionRow
+    not_churn: RegularRetentionRow
     chase: List[RegularRetentionChaseRow] = []
     reconciliation: RegularRetentionReconciliation
 

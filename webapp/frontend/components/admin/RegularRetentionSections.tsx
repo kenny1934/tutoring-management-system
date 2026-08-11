@@ -9,6 +9,7 @@ import {
   Loader2,
   MessageSquarePlus,
   Search,
+  Undo2,
   UserMinus,
   X,
 } from "lucide-react";
@@ -20,11 +21,13 @@ import {
   TERMINATION_REASON_CATEGORIES,
   getCategoryColor,
 } from "@/lib/termination-constants";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import {
   EMPTY_CHASE_FILTERS,
   filterChaseRows,
+  hasPhone,
   isFollowUpDue,
   shortDate,
   sortChaseRows,
@@ -66,6 +69,54 @@ export const STATE_META: Record<RetentionState, { label: string; tone: string; d
   not_churn: { label: "Accounted for", tone: "text-muted-foreground", dot: "bg-slate-400" },
   no_response: { label: "No response", tone: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
 };
+
+/** The two states that were written by hand and can be taken back. */
+export function isRecordedAsLeaving(state: RetentionState): boolean {
+  return state === "declined" || state === "not_churn";
+}
+
+/** The student's own record, opened alongside the list rather than in place of
+ *  it: the list is a call queue, and losing your place in it to read one
+ *  history is how a caller loses ten minutes. */
+export function StudentLink({
+  row,
+  className,
+}: {
+  row: RegularRetentionChaseRow;
+  className?: string;
+}) {
+  return (
+    <a
+      href={`/students/${row.student_id}?tab=profile`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Open ${row.student_name}'s record in a new tab`}
+      className={cn("hover:text-primary hover:underline", className)}
+    >
+      {row.student_name}
+    </a>
+  );
+}
+
+/** A family with no number on file cannot be worked from this list at all, so
+ *  it says so rather than showing a dash that reads as "not loaded yet". */
+export function PhoneCell({ row }: { row: RegularRetentionChaseRow }) {
+  if (hasPhone(row)) {
+    return (
+      <span className="tabular-nums text-foreground">
+        <CopyableCell text={row.phone!} />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="text-[11px] text-amber-700 dark:text-amber-400"
+      title="No number on file, so this family cannot be rung from here"
+    >
+      No number
+    </span>
+  );
+}
 
 const SOURCE_LABELS: Record<RetentionSource, string> = {
   regular_and_summer: "Regular + summer",
@@ -172,7 +223,9 @@ function AxisTable({
         ) : (
           rows.map((r) => (
             <tr key={r.key} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
-              <td className="px-3 py-2 text-foreground">{renderKey ? renderKey(r.key) : r.key}</td>
+              <td className="px-3 py-2 text-foreground">
+                {renderKey ? renderKey(r.key) : r.label ?? r.key}
+              </td>
               <td className={tdNum}>{r.cohort}</td>
               <td className={cn(tdNum, "text-indigo-600 dark:text-indigo-400")}>{r.applied}</td>
               <td className={cn(tdNum, r.declined > 0 && "text-rose-600 dark:text-rose-400")}>
@@ -287,6 +340,10 @@ export function NotReturningDialog({
 }) {
   const [category, setCategory] = useState<string>("");
   const [reason, setReason] = useState("");
+  // Moving branch or finishing school is not a lost customer. Both write the
+  // same record; this is the flag that keeps one of them out of the churn
+  // figures the quarterly report is built on.
+  const [stillWithUs, setStillWithUs] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -301,7 +358,7 @@ export function NotReturningDialog({
           quarter,
           reason: reason.trim() || undefined,
           reason_category: category || undefined,
-          count_as_terminated: true,
+          count_as_terminated: !stillWithUs,
         },
         updatedBy
       );
@@ -361,10 +418,26 @@ export function NotReturningDialog({
             />
           </div>
 
+          <label className="flex items-start gap-2 rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-2.5 py-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={stillWithUs}
+              onChange={(e) => setStillWithUs(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span className="text-xs text-foreground">
+              They are moving to another branch or finishing school
+              <span className="block text-[11px] text-muted-foreground mt-0.5">
+                Recorded, but not counted as a student we lost.
+              </span>
+            </span>
+          </label>
+
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            This also records the student as having left in quarter {quarter} of {year}, so the
-            quarterly report and this board stay in agreement. You can undo it from the terminated
-            students page.
+            {stillWithUs
+              ? `This records the student as having left in quarter ${quarter} of ${year} without counting towards the quarterly termination figures.`
+              : `This also records the student as having left in quarter ${quarter} of ${year}, so the quarterly report and this board stay in agreement.`}{" "}
+            You can undo it from this list.
           </p>
 
           {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
@@ -380,15 +453,72 @@ export function NotReturningDialog({
             disabled={saving || !category}
             className={cn(
               selectClass,
-              "bg-rose-600 text-white border-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+              "text-white disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5",
+              stillWithUs
+                ? "bg-slate-600 border-slate-600 hover:bg-slate-700"
+                : "bg-rose-600 border-rose-600 hover:bg-rose-700"
             )}
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Mark as not returning
+            {stillWithUs ? "Record as accounted for" : "Mark as not returning"}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+/** Puts a student who was marked as leaving back on the list.
+ *
+ *  A real undo removes the record rather than flipping it to "not counted",
+ *  which is a different claim and would leave the student off the board in a
+ *  second way. It does throw away whatever reason was typed, so it asks. */
+export function UndoNotReturningDialog({
+  row,
+  year,
+  quarter,
+  onClose,
+}: {
+  row: RegularRetentionChaseRow;
+  year: number;
+  quarter: number;
+  onClose: (undone: boolean) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const undo = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await terminationsAPI.deleteRecord(row.student_id, year, quarter);
+      onClose(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not undo. Please try again.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ConfirmDialog
+      isOpen
+      onConfirm={undo}
+      onCancel={() => onClose(false)}
+      title="Put this student back on the list?"
+      message={
+        <>
+          {row.student_name} will count as waiting for an answer again.
+          {error && <span className="block mt-2 text-rose-600 dark:text-rose-400">{error}</span>}
+        </>
+      }
+      consequences={[
+        "The reason recorded against them is removed",
+        `They drop out of the quarter ${quarter} ${year} termination report`,
+      ]}
+      confirmText="Put back on the list"
+      variant="warning"
+      loading={saving}
+    />
   );
 }
 
@@ -427,6 +557,7 @@ export function RegularRetentionChaseList({
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
+  const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
 
   // Read on mount rather than in useState, so the server and first client
   // render agree and hydration stays quiet.
@@ -473,6 +604,13 @@ export function RegularRetentionChaseList({
   const dueCount = useMemo(
     () => data.chase.filter((r) => isFollowUpDue(r, today)).length,
     [data.chase, today]
+  );
+
+  // Counted over the unresponsive only: a family who already applied does not
+  // need ringing, so a missing number is not work.
+  const noPhoneCount = useMemo(
+    () => data.chase.filter((r) => r.state === "no_response" && !hasPhone(r)).length,
+    [data.chase]
   );
 
   const filtersActive =
@@ -557,6 +695,7 @@ export function RegularRetentionChaseList({
           <option value="applied">Applied</option>
           <option value="enrolled">Enrolled</option>
           <option value="declined">Not returning</option>
+          <option value="not_churn">Accounted for</option>
           <option value="all">Everyone</option>
         </select>
         {options.tutors.length > 1 && (
@@ -586,10 +725,11 @@ export function RegularRetentionChaseList({
           onChange={(e) => set("contact", e.target.value as ChaseFilters["contact"])}
           className={selectClass}
         >
-          <option value="">Contacted or not</option>
+          <option value="">Any contact status</option>
           <option value="no">Never contacted</option>
           <option value="yes">Contacted before</option>
           <option value="due">Follow-up due{dueCount ? ` (${dueCount})` : ""}</option>
+          <option value="nophone">No phone number{noPhoneCount ? ` (${noPhoneCount})` : ""}</option>
         </select>
 
         {filtersActive && (
@@ -651,9 +791,11 @@ export function RegularRetentionChaseList({
                       )}
                     </td>
                     <td className="px-3 py-1.5">
-                      <span className="text-foreground font-medium">{r.student_name}</span>
+                      <StudentLink row={r} className="text-foreground font-medium" />
                       {r.on_prospect_board && (
                         <span
+                          role="img"
+                          aria-label="Already being followed up by a primary branch"
                           className="ml-1.5 text-[10px] text-sky-700 dark:text-sky-400 align-middle"
                           title="A primary branch is already following this family up on the prospect board"
                         >
@@ -664,13 +806,7 @@ export function RegularRetentionChaseList({
                     <td className="px-3 py-1.5 whitespace-nowrap"><GradeBadge row={r} /></td>
                     <td className="px-3 py-1.5 text-muted-foreground">{r.branch ?? "-"}</td>
                     <td className="px-3 py-1.5 text-muted-foreground whitespace-nowrap">{r.tutor_name ?? "-"}</td>
-                    <td className="px-3 py-1.5 whitespace-nowrap">
-                      {r.phone ? (
-                        <span className="tabular-nums text-foreground"><CopyableCell text={r.phone} /></span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
+                    <td className="px-3 py-1.5 whitespace-nowrap"><PhoneCell row={r} /></td>
                     <td className="px-3 py-1.5 whitespace-nowrap">
                       {/* Never contacted is the front of the queue, so it reads
                           as a state rather than as missing data. */}
@@ -723,7 +859,16 @@ export function RegularRetentionChaseList({
                           >
                             <MessageSquarePlus className="h-3.5 w-3.5" />
                           </button>
-                          {r.state !== "declined" && (
+                          {isRecordedAsLeaving(r.state) ? (
+                            <button
+                              type="button"
+                              onClick={() => setUndoFor(r)}
+                              title="Put this student back on the list"
+                              className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                            >
+                              <Undo2 className="h-3.5 w-3.5" />
+                            </button>
+                          ) : (
                             <button
                               type="button"
                               onClick={() => setDeclineFor(r)}
@@ -765,6 +910,18 @@ export function RegularRetentionChaseList({
           onClose={(saved) => {
             setDeclineFor(null);
             if (saved) onChanged();
+          }}
+        />
+      )}
+
+      {undoFor && (
+        <UndoNotReturningDialog
+          row={undoFor}
+          year={data.intake_year}
+          quarter={data.intake_quarter}
+          onClose={(undone) => {
+            setUndoFor(null);
+            if (undone) onChanged();
           }}
         />
       )}

@@ -36,10 +36,13 @@ function csvCell(v: string | number | null | undefined | boolean): string {
 /** Flatten the whole report into one CSV with a titled block per axis. */
 function buildRetentionCsv(data: RegularRetentionResponse): string {
   const rows: (string | number | null | undefined | boolean)[][] = [];
-  const axisHeader = ["Key", "Cohort", "Applied", "Enrolled", "Not returning", "Contacted", "No response", "Apply %"];
+  const axisHeader = [
+    "Key", "Cohort", "Applied", "Enrolled", "Not returning", "Contacted",
+    "No response", "No response contacted", "Apply %",
+  ];
   const axisLine = (r: RegularRetentionRow) => [
-    r.key, r.cohort, r.applied, r.enrolled, r.declined, r.contacted, r.no_response,
-    pct(r.applied, r.cohort),
+    r.label ?? r.key, r.cohort, r.applied, r.enrolled, r.declined, r.contacted,
+    r.no_response, r.no_response_contacted, pct(r.applied, r.cohort),
   ];
 
   const block = (title: string, axis: RegularRetentionRow[]) => {
@@ -52,6 +55,14 @@ function buildRetentionCsv(data: RegularRetentionResponse): string {
   rows.push(["Retention overall"]);
   rows.push(axisHeader);
   rows.push(axisLine(data.totals));
+  rows.push([]);
+
+  // The two groups held out of the rate, so a reader can reconcile the
+  // denominator against the centre's own headcount.
+  rows.push(["Counted outside the cohort", "Students"]);
+  rows.push(["Accounted for (moved branch or finished school)", data.not_churn.cohort]);
+  rows.push(["No place to apply at their entering grade", data.no_rung.cohort]);
+  rows.push(["Applied from outside this cohort", data.reconciliation.applied_outside_cohort]);
   rows.push([]);
 
   block("By branch", data.by_branch);
@@ -116,29 +127,45 @@ function OutcomeBar({ totals }: { totals: RegularRetentionRow }) {
         </p>
       </div>
 
-      <div className="flex h-7 rounded overflow-hidden bg-[#f0e6d8]/40 dark:bg-[#2a2520]">
-        {segments.map((s) => (
-          <div
-            key={s.label}
-            className={cn("h-full", s.fill)}
-            style={{ width: `${(s.value / base) * 100}%` }}
-            title={`${s.label}: ${s.value} (${pct(s.value, base)})`}
-          />
-        ))}
-      </div>
-
-      {/* Labelled legend, so colour is never the only cue. */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
-        {segments.map((s) => (
-          <div key={s.label} className="flex items-center gap-1.5 text-xs">
-            <span className={cn("h-2 w-2 rounded-sm shrink-0", s.fill)} />
-            <span className="text-foreground">{s.label}</span>
-            <span className="text-muted-foreground tabular-nums">
-              {s.value} · {pct(s.value, base)}
-            </span>
+      {/* A year with no data would draw an empty bar and four zeroes, which
+          reads as a broken chart rather than an empty one. */}
+      {totals.cohort === 0 ? (
+        <p className="text-xs text-muted-foreground italic">
+          Nobody was studying here at the end of the year before this intake, so there is no
+          cohort to track yet.
+        </p>
+      ) : (
+        <>
+          {/* Widths are grown from the counts rather than set outright, so a
+              three-in-eight-hundred outcome still shows as a sliver instead of
+              rounding away to nothing. */}
+          <div className="flex h-7 rounded overflow-hidden bg-[#f0e6d8]/40 dark:bg-[#2a2520]">
+            {segments.map((s) => (
+              <div
+                key={s.label}
+                role="img"
+                aria-label={`${s.label}: ${s.value} of ${base} (${pct(s.value, base)})`}
+                className={cn("h-full", s.fill)}
+                style={{ flexGrow: s.value, flexBasis: 0, minWidth: "0.35rem" }}
+                title={`${s.label}: ${s.value} (${pct(s.value, base)})`}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+
+          {/* Labelled legend, so colour is never the only cue. */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+            {segments.map((s) => (
+              <div key={s.label} className="flex items-center gap-1.5 text-xs">
+                <span className={cn("h-2 w-2 rounded-sm shrink-0", s.fill)} />
+                <span className="text-foreground">{s.label}</span>
+                <span className="text-muted-foreground tabular-nums">
+                  {s.value} · {pct(s.value, base)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -369,7 +396,13 @@ export default function RegularRetentionPage() {
                     <KpiCard
                       label="No response"
                       value={String(noResponse)}
-                      sub={`${data.totals.contacted} contacted so far`}
+                      // Scoped to the unresponsive: under this heading a
+                      // cohort-wide figure reads as "of these, N were called".
+                      sub={
+                        noResponse > 0
+                          ? `${data.totals.no_response_contacted} of them contacted`
+                          : "everybody has answered"
+                      }
                       tone="text-amber-700 dark:text-amber-400"
                     />
                   </div>
@@ -431,16 +464,48 @@ export default function RegularRetentionPage() {
                     </p>
                   )}
 
-                  {data.no_rung.cohort > 0 && (
-                    <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5">
+                  {/* Everything the cohort deliberately leaves out. Without
+                      these lines the denominator just looks smaller than the
+                      centre is, and nobody can tell why. */}
+                  {(data.not_churn.cohort > 0 ||
+                    data.no_rung.cohort > 0 ||
+                    data.reconciliation.applied_outside_cohort > 0) && (
+                    <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 space-y-2">
                       <div className="text-xs font-medium text-foreground">
-                        {data.no_rung.cohort} student{data.no_rung.cohort === 1 ? "" : "s"} with no
-                        place to apply
+                        Counted outside the cohort
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        The course does not run at the grade they are entering, so they are counted
-                        separately and never treated as unresponsive.
-                      </p>
+                      {data.not_churn.cohort > 0 && (
+                        <p className="text-[11px] text-muted-foreground">
+                          <span className="text-foreground font-medium">
+                            {data.not_churn.cohort} student
+                            {data.not_churn.cohort === 1 ? "" : "s"} accounted for.
+                          </span>{" "}
+                          They moved to another branch or finished school, so they were never a
+                          student we lost. Find them under &quot;Accounted for&quot; on the chase
+                          list.
+                        </p>
+                      )}
+                      {data.no_rung.cohort > 0 && (
+                        <p className="text-[11px] text-muted-foreground">
+                          <span className="text-foreground font-medium">
+                            {data.no_rung.cohort} student{data.no_rung.cohort === 1 ? "" : "s"} with
+                            no place to apply.
+                          </span>{" "}
+                          The course does not run at the grade they are entering, so they are never
+                          treated as unresponsive.
+                        </p>
+                      )}
+                      {data.reconciliation.applied_outside_cohort > 0 && (
+                        <p className="text-[11px] text-muted-foreground">
+                          <span className="text-foreground font-medium">
+                            {data.reconciliation.applied_outside_cohort} application
+                            {data.reconciliation.applied_outside_cohort === 1 ? "" : "s"} from
+                            outside this cohort.
+                          </span>{" "}
+                          These families applied but were not studying here at the end of last year,
+                          so they count on the applications page rather than towards this rate.
+                        </p>
+                      )}
                     </div>
                   )}
                 </>

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   EMPTY_CHASE_FILTERS,
   filterChaseRows,
+  hasPhone,
   isFollowUpDue,
   shortDate,
   sortChaseRows,
@@ -165,6 +166,18 @@ describe("filterChaseRows", () => {
     expect(filterChaseRows(rows, filters({ contact: "yes" }), TODAY).map((r) => r.student_id)).toEqual([2]);
   });
 
+  it("finds the students who cannot be rung at all", () => {
+    // These absorb caller effort silently: they look like ordinary work until
+    // somebody opens the row and finds there is no number.
+    const rows = [
+      row({ student_id: 1, phone: null }),
+      row({ student_id: 2, phone: "   " }),
+      row({ student_id: 3, phone: "66880000" }),
+    ];
+    expect(filterChaseRows(rows, filters({ contact: "nophone" }), TODAY).map((r) => r.student_id))
+      .toEqual([1, 2]);
+  });
+
   it("finds the follow-ups that have come due", () => {
     const rows = [
       row({ student_id: 1, follow_up_needed: true, follow_up_date: "2026-08-01" }),
@@ -192,6 +205,27 @@ describe("filterChaseRows", () => {
       row({ student_id: 3, state: "enrolled" }),
     ];
     expect(filterChaseRows(rows, filters({ state: "all" }), TODAY)).toHaveLength(3);
+  });
+
+  it("separates a transfer from a family that left", () => {
+    // Two states written by the same dialog and meaning opposite things: one
+    // is a lost customer, the other is a customer who is still ours.
+    const rows = [
+      row({ student_id: 1, state: "declined" }),
+      row({ student_id: 2, state: "not_churn" }),
+    ];
+    expect(filterChaseRows(rows, filters({ state: "not_churn" }), TODAY).map((r) => r.student_id))
+      .toEqual([2]);
+    expect(filterChaseRows(rows, filters({ state: "declined" }), TODAY).map((r) => r.student_id))
+      .toEqual([1]);
+  });
+});
+
+describe("hasPhone", () => {
+  it("treats a blank number as no number", () => {
+    expect(hasPhone(row({ phone: "   " }))).toBe(false);
+    expect(hasPhone(row({ phone: null }))).toBe(false);
+    expect(hasPhone(row({ phone: "66880000" }))).toBe(true);
   });
 });
 

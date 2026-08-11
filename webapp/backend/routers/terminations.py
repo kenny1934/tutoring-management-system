@@ -310,6 +310,35 @@ async def update_termination_record(
         )
 
 
+@router.delete("/terminations/{student_id}", status_code=204)
+async def delete_termination_record(
+    student_id: int,
+    year: int = Query(..., description="Reporting year of the record to remove"),
+    quarter: int = Query(..., ge=1, le=4, description="Reporting quarter of the record"),
+    current_user: Tutor = Depends(reject_read_only),
+    db: Session = Depends(get_db)
+):
+    """Remove one quarter's termination record for a student.
+
+    The undo behind "not returning" on the retention board. Flipping
+    count_as_terminated is not an undo — it says "left, but it wasn't churn",
+    which is a different claim. Removing the record returns the student to
+    unreviewed, which is what they were before somebody clicked.
+
+    Deleting a record that is not there is not an error: the caller wanted no
+    record for that quarter, and there is none.
+    """
+    record = db.query(TerminationRecord).filter(
+        TerminationRecord.student_id == student_id,
+        TerminationRecord.quarter == quarter,
+        TerminationRecord.year == year
+    ).first()
+    if record:
+        db.delete(record)
+        db.commit()
+    return None
+
+
 @router.get("/terminations/stats", response_model=TerminationStatsResponse)
 async def get_termination_stats(
     request: Request,

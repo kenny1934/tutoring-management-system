@@ -4018,9 +4018,12 @@ export type RetentionState =
 export type RetentionRung = "open" | "admin_only" | "none";
 
 export interface RegularRetentionRow {
-  /** Branch code, entering grade, source tag, tutor name or decline reason,
+  /** Branch code, entering grade, source tag, tutor id or decline reason,
    *  depending on which list the row came from. */
   key: string;
+  /** What to show instead of `key` when the key is an identifier. Tutors are
+   *  keyed by id so two tutors sharing a name stay two rows. */
+  label?: string | null;
   /** The denominator. Holds declines: a family who said no is a retention
    *  failure, not an exclusion. */
   cohort: number;
@@ -4031,6 +4034,8 @@ export interface RegularRetentionRow {
    *  state — a contacted family can still be sitting at no_response. */
   contacted: number;
   no_response: number;
+  /** Of the unresponsive, how many have already been contacted. */
+  no_response_contacted: number;
 }
 
 export interface RegularRetentionChaseRow {
@@ -4068,6 +4073,9 @@ export interface RegularRetentionReconciliation {
   unlinked_count: number;
   unlinked_secondary: number;
   unlinked_primary: number;
+  /** Applications linked to a student who is not in this cohort: they lapsed
+   *  earlier, or never had a qualifying enrollment. */
+  applied_outside_cohort: number;
 }
 
 export interface RegularRetentionResponse {
@@ -4088,6 +4096,11 @@ export interface RegularRetentionResponse {
   /** Students whose entering grade the config has no place for. Reported apart
    *  and never counted as unresponsive. */
   no_rung: RegularRetentionRow;
+  /** Students who left for a reason that was never a retention failure: moved
+   *  to another branch, finished school. Out of the denominator, still
+   *  reported, because "where did they go" is the first question asked of a
+   *  cohort that shrank. */
+  not_churn: RegularRetentionRow;
   /** The whole cohort, unresponsive first. The chase list is the no_response
    *  subset; the rest is returned so the page can filter without a second call. */
   chase: RegularRetentionChaseRow[];
