@@ -11,9 +11,15 @@ import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./u
 import { ZenExerciseAssign } from "@/components/zen/ZenExerciseAssign";
 import { ZenLessonHelp } from "./ZenLessonHelp";
 import { ZenExitConfirmDialog } from "./ZenExitConfirmDialog";
+import { ZenHomeworkCheck } from "./ZenHomeworkCheck";
+import { statusForKey } from "./zen-homework";
+import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useZenAnnotationHandlers } from "./useZenAnnotationHandlers";
-import type { Session } from "@/types";
+import { useHomeworkToCheck } from "@/lib/hooks";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { homeworkAPI } from "@/lib/api";
+import type { HomeworkCompletion, HomeworkStatus, Session } from "@/types";
 
 interface ZenLessonModeProps {
   session: Session;
@@ -60,6 +66,51 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
   const [showHelp, setShowHelp] = useState(false);
   const showHelpRef = useRef(showHelp);
   showHelpRef.current = showHelp;
+
+  // --- Homework carried in from earlier lessons ---
+  // Fetched rather than read off the session: this one arrives from a list,
+  // which carries no homework of its own.
+  const homeworkSessionIds = useMemo(() => [session.id], [session.id]);
+  const { bySession: homeworkBySession } = useHomeworkToCheck(homeworkSessionIds);
+  const applyHomeworkMark = useHomeworkMarked();
+
+  const homework = useMemo(
+    () => homeworkBySession.get(session.id) ?? [],
+    [homeworkBySession, session.id]
+  );
+
+  const [homeworkOpen, setHomeworkOpen] = useState(false);
+  const [homeworkCursor, setHomeworkCursor] = useState(0);
+  const [homeworkSaving, setHomeworkSaving] = useState(false);
+
+  const markHomework = useCallback(async (status: HomeworkStatus) => {
+    const target = homework[homeworkCursor];
+    if (!target) return;
+
+    setHomeworkSaving(true);
+    try {
+      const saved = await homeworkAPI.mark(session.id, target.session_exercise_id, {
+        completion_status: status,
+      });
+      applyHomeworkMark(saved);
+      setZenStatus(`${getExerciseDisplayName(saved)}: ${status.toLowerCase()}`, "success");
+      // Move on, so marking a stack is one key per item.
+      setHomeworkCursor((prev) => Math.min(prev + 1, homework.length - 1));
+    } catch {
+      setZenStatus("Could not save homework check", "error");
+    } finally {
+      setHomeworkSaving(false);
+    }
+  }, [homework, homeworkCursor, session.id, applyHomeworkMark]);
+
+  // Mirrored once, like every other handler here: the keyboard listener is
+  // registered a single time and must not tear down as homework changes.
+  const homeworkRef = useRef<HomeworkCompletion[]>(homework);
+  homeworkRef.current = homework;
+  const homeworkOpenRef = useRef(homeworkOpen);
+  homeworkOpenRef.current = homeworkOpen;
+  const markHomeworkRef = useRef(markHomework);
+  markHomeworkRef.current = markHomework;
 
   // Annotations
   const annotations = useAnnotations(`zen-lesson-${session.id}`);
@@ -126,6 +177,38 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
         return;
       }
 
+      // Homework marking — cursor keys move, 0-4 mark, anything else closes
+      if (homeworkOpenRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const items = homeworkRef.current;
+
+        const status = statusForKey(e.key);
+        if (e.key === "j" || e.key === "ArrowDown") {
+          setHomeworkCursor((prev) => Math.min(prev + 1, items.length - 1));
+        } else if (e.key === "k" || e.key === "ArrowUp") {
+          setHomeworkCursor((prev) => Math.max(prev - 1, 0));
+        } else if (status) {
+          void markHomeworkRef.current(status);
+        } else {
+          setHomeworkOpen(false);
+        }
+        return;
+      }
+
+      // Mark homework (Shift+H), next to lowercase h for editing it
+      if (e.key === "H" && e.shiftKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (homeworkRef.current.length === 0) {
+          setZenStatus("No homework to check for this student", "info");
+        } else {
+          setHomeworkCursor(0);
+          setHomeworkOpen(true);
+        }
+        return;
+      }
+
       handleLessonKeyDown(e, stateRef.current, {
         stamp: stampRef.current,
         onClose,
@@ -172,6 +255,8 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
             onSelect={state.setExerciseCursor}
             answerAvailable={answerAvailable}
             onEditExercises={handleEditExercises}
+            homework={homework}
+            onCheckHomework={homework.length > 0 ? () => { setHomeworkCursor(0); setHomeworkOpen(true); } : undefined}
           />
         </div>
 
@@ -301,6 +386,7 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
           <span style={{ color: "var(--zen-fg)" }}>a</span>=answer{" "}
           <span style={{ color: "var(--zen-fg)" }}>c</span>=classwork{" "}
           <span style={{ color: "var(--zen-fg)" }}>h</span>=homework{" "}
+          <span style={{ color: "var(--zen-fg)" }}>H</span>=check{" "}
           <span style={{ color: "var(--zen-fg)" }}>o</span>=open{" "}
           <span style={{ color: "var(--zen-fg)" }}>p</span>=print{" "}
           <span style={{ color: "var(--zen-fg)" }}>d</span>=draw{" "}
@@ -325,6 +411,15 @@ export function ZenLessonMode({ session, onClose }: ZenLessonModeProps) {
 
       {showHelp && (
         <ZenLessonHelp mode="single" onClose={() => setShowHelp(false)} />
+      )}
+
+      {homeworkOpen && (
+        <ZenHomeworkCheck
+          studentName={session.student_name || "Unknown"}
+          items={homework}
+          cursor={homeworkCursor}
+          saving={homeworkSaving}
+        />
       )}
 
       {ann.showExitConfirm && (

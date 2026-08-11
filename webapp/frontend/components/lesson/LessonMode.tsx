@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle, Sigma,
   Maximize2, Minimize2, PencilLine, ChevronDown,
-  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink,
+  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
@@ -33,8 +33,11 @@ import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
-import type { Session, SessionExercise } from "@/types";
+import type { HomeworkStatus, Session, SessionExercise } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { useStudentHomework } from "@/lib/hooks";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
 
 interface LessonModeProps {
   session: Session;
@@ -129,6 +132,61 @@ export function LessonMode({
 
   // Wolfram Alpha panel
   const [showWolfram, setShowWolfram] = useState(false);
+
+  // --- Homework carried in from earlier lessons ---
+  // Already on the session detail response: the same open backlog every other
+  // marking surface reads, so the sidebar needs no request of its own.
+  const homeworkToCheck = useMemo(
+    () => session.homework_completion ?? [],
+    [session.homework_completion]
+  );
+  const applyHomeworkMark = useHomeworkMarked();
+  const [homeworkOpen, setHomeworkOpen] = useState(false);
+
+  // The student's whole record, for the tick on exercise rows. The backlog on
+  // its own cannot answer for work checked in an earlier lesson: the view
+  // hands an assessed item to the session that assessed it and to no other, so
+  // homework marked last week would read here as homework nobody has seen.
+  const { byExercise: studentHomework } = useStudentHomework(session.student_id);
+
+  const openByExercise = useMemo(
+    () => new Map(homeworkToCheck.map(hw => [hw.session_exercise_id, hw])),
+    [homeworkToCheck]
+  );
+
+  const homeworkStatusFor = useCallback(
+    (exerciseId: number): HomeworkStatus | undefined =>
+      (openByExercise.get(exerciseId) ?? studentHomework.get(exerciseId))?.completion_status,
+    [openByExercise, studentHomework]
+  );
+
+  const homeworkProgress = useMemo(
+    () => ({ checked: checkedCount(homeworkToCheck), total: homeworkToCheck.length }),
+    [homeworkToCheck]
+  );
+
+  // Focus mode hides the sidebar and mobile keeps it in a sheet, so opening
+  // the block has to bring its container with it. Shared by the shortcut and
+  // the header counter, which otherwise silently expanded something behind a
+  // closed sheet.
+  const toggleHomeworkBlock = useCallback(() => {
+    const opening = !homeworkOpen;
+    setHomeworkOpen(opening);
+    if (opening && focusMode) setHoverSidebar(true);
+    if (opening && isMobile) setMobileExerciseListOpen(true);
+  }, [homeworkOpen, focusMode, isMobile]);
+
+  // The sidebar is mounted three times over, in the split pane, the focus mode
+  // overlay and the mobile sheet. Spreading one object is what stops the three
+  // from drifting apart as props are added.
+  const homeworkSidebarProps = {
+    homeworkToCheck,
+    homeworkStatusFor,
+    sessionId: session.id,
+    onHomeworkMarked: applyHomeworkMark,
+    homeworkExpanded: homeworkOpen,
+    onHomeworkExpandedChange: setHomeworkOpen,
+  };
 
   // S2: Focus mode helpers
   const exitFocusMode = useCallback(() => {
@@ -789,6 +847,11 @@ export function LessonMode({
           handleEditExercises(currentSession, "HW");
         }
         break;
+      case "H":
+        if (homeworkProgress.total === 0) break;
+        e.preventDefault();
+        toggleHomeworkBlock();
+        break;
       case "p":
         e.preventDefault();
         handlePrint();
@@ -894,6 +957,21 @@ export function LessonMode({
           <LessonNumberBadge lessonNumber={session.lesson_number} size="sm" />
           {session.grade && (
             <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800" grade={session.grade} langStream={session.lang_stream} />
+          )}
+          {homeworkProgress.total > 0 && (
+            <button
+              onClick={toggleHomeworkBlock}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums flex-shrink-0 transition-colors",
+                homeworkProgress.checked >= homeworkProgress.total
+                  ? "bg-white/15 text-white/80 hover:bg-white/25"
+                  : "bg-amber-400/20 text-amber-200 hover:bg-amber-400/30"
+              )}
+              title={`${homeworkCountLabel(homeworkProgress.checked, homeworkProgress.total)} (H)`}
+            >
+              <Home className="h-2.5 w-2.5" />
+              HW {homeworkProgress.checked}/{homeworkProgress.total}
+            </button>
           )}
         </div>
 
@@ -1076,6 +1154,7 @@ export function LessonMode({
                   ["e", "Eraser tool"],
                   ["z / Z", "Undo / Redo"],
                   ["c / h", "Edit CW / HW"],
+                  ["H", "Check homework"],
                   ["p", "Print"],
                   ["a", "Answer key"],
                   ["w", "Wolfram Alpha"],
@@ -1115,7 +1194,7 @@ export function LessonMode({
                 onEditExercises={handleEditExercises}
                 isReadOnly={isReadOnly}
                 hasAnnotations={checkHasAnnotations}
-                homeworkCompletion={session.homework_completion}
+                {...homeworkSidebarProps}
                 onPrint={handlePrintExercise}
                 printing={printing}
               />
@@ -1347,7 +1426,7 @@ export function LessonMode({
                     onEditExercises={handleEditExercises}
                     isReadOnly={isReadOnly}
                     hasAnnotations={checkHasAnnotations}
-                    homeworkCompletion={session.homework_completion}
+                    {...homeworkSidebarProps}
                     onPrint={handlePrintExercise}
                     printing={printing}
                   />
@@ -1396,6 +1475,15 @@ export function LessonMode({
           aria-label="Exercise list"
         >
           <LayoutList className="h-6 w-6 text-white" />
+          {/* Everything is behind the sheet on mobile, so without this the
+              homework waiting to be checked has nothing to announce it. */}
+          {homeworkProgress.total > homeworkProgress.checked && (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-amber-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
+              <span className="text-[10px] font-bold text-white tabular-nums">
+                {homeworkProgress.total - homeworkProgress.checked}
+              </span>
+            </span>
+          )}
         </button>
       )}
 
@@ -1414,7 +1502,7 @@ export function LessonMode({
           onEditExercises={handleEditExercises}
           isReadOnly={isReadOnly}
           hasAnnotations={checkHasAnnotations}
-          homeworkCompletion={session.homework_completion}
+          {...homeworkSidebarProps}
           onPrint={handlePrintExercise}
           printing={printing}
         />

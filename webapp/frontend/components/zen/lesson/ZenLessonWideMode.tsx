@@ -117,7 +117,7 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         completion_status: status,
       });
       applyHomeworkMark(saved);
-      setZenStatus(`${getExerciseDisplayName(saved)} — ${status.toLowerCase()}`, "success");
+      setZenStatus(`${getExerciseDisplayName(saved)}: ${status.toLowerCase()}`, "success");
       // Move on, so marking a stack is one key per item.
       setHomeworkCursor((prev) => Math.min(prev + 1, homework.length - 1));
     } catch {
