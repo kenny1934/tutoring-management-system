@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
-  Check, X, Minus, Printer, Loader2, ExternalLink,
+  Check, X, Minus, Inbox, Printer, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
@@ -110,6 +110,9 @@ function ExerciseItem({
                 <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
               )}
             </div>
+          )}
+          {completionStatus === "Submitted" && (
+            <span title="Handed in, not marked"><Inbox className="h-3 w-3 text-blue-500" /></span>
           )}
           {completionStatus === "Completed" && (
             <span title="Homework done"><Check className="h-3 w-3 text-green-500" /></span>

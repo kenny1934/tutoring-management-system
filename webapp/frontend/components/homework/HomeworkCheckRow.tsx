@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Circle, Check, Minus, X, MessageSquare, Paperclip } from "lucide-react";
+import { MessageSquare, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { homeworkAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -10,40 +10,9 @@ import { ratingToEmoji } from "@/lib/formatters";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { getPageLabel } from "@/lib/lesson-utils";
 import { assignedLabel } from "@/lib/homework-utils";
+import { HOMEWORK_STATES } from "./homework-status";
 import { useHomeworkAttachments } from "./useHomeworkAttachments";
 import type { HomeworkCompletion, HomeworkStatus, SessionExercise } from "@/types";
-
-const STATES: Array<{
-  status: HomeworkStatus;
-  icon: typeof Check;
-  label: string;
-  activeClass: string;
-}> = [
-  {
-    status: "Not Checked",
-    icon: Circle,
-    label: "Not checked",
-    activeClass: "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
-  },
-  {
-    status: "Completed",
-    icon: Check,
-    label: "Done",
-    activeClass: "bg-green-500 text-white",
-  },
-  {
-    status: "Partially Completed",
-    icon: Minus,
-    label: "Partly done",
-    activeClass: "bg-amber-500 text-white",
-  },
-  {
-    status: "Not Completed",
-    icon: X,
-    label: "Not done",
-    activeClass: "bg-red-500 text-white",
-  },
-];
 
 interface HomeworkCheckRowProps {
   homework: HomeworkCompletion;
@@ -192,7 +161,7 @@ export function HomeworkCheckRow({
       {/* The four states, plus rating and comment */}
       <div className="flex items-center gap-2 mt-1 flex-wrap">
         <div className="flex items-center gap-0.5" role="group" aria-label="Homework status">
-          {STATES.map(({ status, icon: Icon, label, activeClass }) => {
+          {HOMEWORK_STATES.map(({ status, icon: Icon, label, activeClass }) => {
             const active = currentStatus === status;
             return (
               <button

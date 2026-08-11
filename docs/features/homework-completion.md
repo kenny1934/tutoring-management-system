@@ -15,7 +15,7 @@ These came from Kenny and should not be relitigated without asking.
 
 | Decision | Detail |
 | --- | --- |
-| One four-state control | `Not Checked` / `Completed` / `Partially Completed` / `Not Completed`, as a segmented row of four buttons. The separate `submitted` flag only existed because of AppSheet limits. |
+| One five-state control | `Not Checked` / `Submitted` / `Completed` / `Partially Completed` / `Not Completed`, as a segmented row read left to right as a ladder. Originally four states; `Submitted` was added once it was clear the four could not separate "handed in, nobody has marked it" from "did not come back". See Phase 5. |
 | Rating and comment both stay | Per homework item, alongside the status. Rating is emoji stars, matching `performance_rating`. |
 | Rolling backlog, 3 sessions | Homework stays open across up to three sat sessions. The UI must always say which session an item came from, with date and tutor. |
 | Marking lives in the rate modals | Kenny rejected auto-expanding the popover's Recap: it also holds the previous session and classwork, so opening it to reach 3 homework rows makes the popover too long for the value. Tutors already open Rate to close off a lesson. |
@@ -38,8 +38,10 @@ core change from the legacy design and everything else follows from it.
   `page_start`, `page_end`, `url`, `exercise_remarks`, `assigned_date`,
   `assigned_by_tutor_id`) written at mark time, so history survives.
 - `submitted` is legacy. It is written as a derived value
-  (`completion_status IN ('Completed', 'Partially Completed')`) and read by
-  nothing new. Safe to drop once nothing external depends on it.
+  (`completion_status IN ('Submitted', 'Completed', 'Partially Completed')`) and
+  read by nothing new. Safe to drop once nothing external depends on it. Since
+  migration 158 it finally means what its name says; before that it missed both
+  handed-in-but-unmarked work and work handed in blank.
 
 `homework_files` — created by migration 013, unused until phase 3 filled it.
 
@@ -64,6 +66,21 @@ core change from the legacy design and everything else follows from it.
 | 155 | Restores `previous_session_id` and `submitted` on the view as aliases | Applied to prod 2026-08-10 |
 | 156 | `homework_files.thumbnail_path`, nullable | Applied to prod 2026-08-10 |
 | 157 | Drops the 155 aliases now the new backend is live | Applied to prod 2026-08-10 |
+| 158 | The `Submitted` state, and all three views rebuilt around it | Applied to prod 2026-08-11 |
+
+Migration 158 is additive only: the enum widens, no column is renamed or
+dropped, and the views keep every column they had. The deployed backend reads
+`Submitted` as unchecked without knowing what it is, and `check_status`'s new
+third value is mapped by the ORM but read by nothing, so it landed ahead of the
+code safely. Nothing writes the state until v2.0.108 deploys.
+
+Verified after applying: the enum carries all five with `DEFAULT 'Not Checked'`
+intact, the six legacy rows moved to `Submitted` with their flag kept and no
+audit stamp invented, `student_homework_statistics` gained
+`total_awaiting_marking` while `last_checked_date` stays NULL for them,
+`student_homework_history` still holds verdicts only, and the promoted rows age
+through `homework_to_check` across three sessions as intended. 16 rows before
+and after.
 
 Migration 155 existed only because the backend deployed at the time still
 selected those two columns. It was the fix for breaking production by renaming a
@@ -86,6 +103,13 @@ All under `webapp/backend/routers/homework.py`.
   Capped at 200.
 - `GET /api/homework/counts?session_ids=` — `{session_id, total, checked}` only,
   for list badges.
+- `GET /api/students/{student_id}/homework` — a student's whole record, not a
+  backlog. The assignments come from the tables directly rather than the view:
+  no lookback, no correlated subqueries, one indexed pass. It then asks the
+  view, once and scoped to the student, which lesson still lists each open
+  item, because that is where a mark from this page has to land. Returns the
+  same `HomeworkCompletionResponse` shape as everything else, so
+  `HomeworkCheckRow` renders it unchanged.
 - The two file endpoints, under Phase 3 below.
 
 `GET /api/sessions/{id}` fills `homework_completion` through the same shared
@@ -112,10 +136,14 @@ request per chunk. Rows behind "show more" cost nothing until rendered.
 ## Frontend
 
 `components/homework/`
-- `HomeworkCheckRow` — one item: name, pages, source label, the four buttons,
+- `HomeworkCheckRow` — one item: name, pages, source label, the five buttons,
   stars, comment. Saves on tap, optimistic, reverts and toasts on failure.
-- `HomeworkPanel` — titled group of rows with a `checked/total` chip. Renders
-  nothing when the list is empty.
+- `homework-status.tsx` — the icon, labels and colours for all five states, in
+  ladder order. The marking buttons, the student page's glyphs and its filter
+  chips all read it, so how a state looks cannot drift between them.
+- `HomeworkPanel` — titled group of rows with a `checked/total` chip and an
+  "n waiting" chip for work handed in but unmarked. Renders nothing when the
+  list is empty.
 - `HomeworkCheckBadge` — the `HW 1/2` pill. Renders nothing at zero.
 - `HomeworkCountsProvider` / `useHomeworkCounts` / `useRefreshHomeworkCounts`.
 
@@ -144,6 +172,7 @@ Wired into:
 | `LessonWideSidebar` | "To check" block per student, plus a slot counter in the header. |
 | `ZenLessonSidebar` | "TO CHECK" list for the active student, and the `H` overlay to mark it. |
 | `LessonExerciseSidebar` | Status tick on previous-session homework, read only. |
+| Student page, Courseware tab | Status glyph on every homework row, marking inline, a summary and a status filter. See Phase 5. |
 
 ---
 
@@ -235,6 +264,87 @@ photographing into a terminal overlay is the wrong shape.
 already says have attachments, so the common case of nothing handed in costs no
 extra query.
 
+## Phase 5: the whole record, on the student page
+
+Done. Two things, which turned out to be one.
+
+**The hole.** Every marking surface reads `homework_to_check`, which reaches
+back three sat sessions and 60 days. Anything that aged out unmarked was
+unreachable from all of them: it could not be marked, corrected, or have its
+attachments looked at, ever. The student page is the only surface whose scope
+is a student rather than a lesson, so it is where that gets fixed.
+
+The Courseware tab already listed every exercise and knew nothing about
+completion. It now shows a status glyph on each homework row, expands the row
+into `HomeworkCheckRow` when the glyph is clicked, carries a proportion bar and
+per-state counts in its summary strip, and filters by state. Filtering to
+*Not checked* is the catch-up pass.
+
+Note the tab's "Homework (n)" header button opens `ExerciseModal`, whose Recap
+shows the homework to check *in* that session, meaning the previous lesson's
+assignments. It looks like it should already answer "did this come back" and
+does not. That is what made the tab feel blind.
+
+Marking has no lesson of its own to claim, so the endpoint picks one, in this
+order:
+
+1. An **assessed** item keeps the lesson that assessed it, so marking again
+   never moves the credit.
+2. Otherwise the **latest lesson still listing it**, read from
+   `homework_to_check` itself rather than by reimplementing its window.
+3. Only when no lesson can still reach it does the **lesson that set it** stand
+   in, which is the aged-out case this surface exists for.
+
+Rung 2 is not optional, and getting it wrong is the sharpest edge here. The
+view shows an assessed assignment *only* in the session that assessed it, so
+marking against the assigning session removes it from every later panel and
+badge instead of showing the verdict there: the tutor teaching today would lose
+all trace that homework was set. Reusing the view is also what stops this page
+and the lesson surfaces disagreeing about which lesson owns an item. It costs
+one extra query, measured at ~220 ms for the busiest student in prod.
+
+No write path changed: all three targets pass `_resolve_assignment`'s
+same-student rule.
+
+Consequence worth knowing: `student_homework_history.checked_date` reads the
+checking session's date, so a mark made against the assigning session reports
+the day the work was set. `checked_at` is the honest field and phase 4 should
+read that one.
+
+`useHomeworkMarked` gained a third cache fold for the student list, matched on
+the assignment alone since that is globally unique.
+
+**The state.** Sizing this up exposed the modelling problem behind it: the four
+states mixed the student's axis with the tutor's. Handed in but unmarked had no
+home, and it is exactly the case that deserves a nudge. `Submitted` is the
+answer, as a rung rather than a second field — two independent fields would
+have allowed contradictory rows nothing prevents.
+
+It counts as unchecked everywhere, so it stays in the backlog, keeps ageing
+through `sessions_ago`, and keeps counting against the `HW n/m` badge. That
+ageing is the reminder. It is stamped with `checked_by` and `checked_at` like
+the verdicts are: taking work in is something a tutor did.
+
+Counting as unchecked has one cost: on its own, work already in hand reads the
+same as work nobody has seen. So `HomeworkPanel` carries an "n waiting" chip
+beside its `checked/total`, which puts the nudge on the rate modals and the
+lesson sidebars, where tutors already are.
+
+Timing was the argument for doing it now rather than later. Prod held 16
+completion rows, none marked since the feature went live and no files at all,
+so there was nothing to backfill and no habit to unteach.
+
+Six of those rows turned out to be the state already, in the old shape:
+`completion_status = 'Not Checked'` with the AppSheet-era `submitted = 1`,
+meaning work that came back and was never marked. Migration 158 promotes them
+rather than letting the closing resync flatten them, which would have destroyed
+the only record they carried.
+
+`components/homework/homework-status.tsx` owns the icon, labels and colours for
+all five, so the marking buttons, the glyphs and the filter chips cannot drift.
+Zen's keys were renumbered to run in ladder order: `1` handed in, `2` done,
+`3` partly, `4` not done, `0` clear.
+
 ## Phase 4: reporting
 
 Only worth doing once phases 1 to 3 show real adoption. `student_homework_statistics`
@@ -245,6 +355,16 @@ already computes per-student checked rate, completion score, star average and
 
 ## Gotchas
 
+- **No semicolons in a migration's prose.** `run_migrations.py` splits on the
+  statement separator *before* it strips comment lines, so one inside a `--`
+  comment cuts the next statement in half and the whole run aborts on a syntax
+  error. Migration 158 had one and would not have applied at all. Validate a
+  migration through that splitter, not by stripping comments first, or the
+  check passes on SQL the runner will never send.
+- **`MODIFY COLUMN` replaces the whole definition.** Restate `DEFAULT`, or it
+  is silently dropped. 158 nearly lost `DEFAULT 'Not Checked'`, which is the
+  only thing keeping a NULL status unreachable, and a NULL status is invisible
+  to every one of these views.
 - **MySQL commits DDL as it goes.** `run_migrations.py` wraps the run in a
   transaction, but a failure part way through cannot be rolled back. Migration
   154 died on statement 3 with two ALTERs already live. Guard index and key
@@ -267,9 +387,9 @@ already computes per-student checked rate, completion score, star average and
 
 ## Test baselines
 
-`webapp/backend`: 1161 pass, of which `tests/test_homework.py` is 26.
+`webapp/backend`: 1171 pass, of which `tests/test_homework.py` is 36.
 `webapp/frontend`: 625 pass. `npx tsc --noEmit` reports 172 errors, all
-pre-existing; `main` reports 173.
+pre-existing; `main` reports the same 172.
 
 ## Shipping
 

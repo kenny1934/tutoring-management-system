@@ -44,6 +44,15 @@ export function useHomeworkMarked() {
         { revalidate: false }
       );
 
+      // Any student's whole-record list, as loaded by useStudentHomework.
+      // Matched on the assignment alone, which is globally unique, so this
+      // needs no idea of which student's list is open.
+      void globalMutate(
+        (key) => Array.isArray(key) && key[0] === "student-homework",
+        (current?: HomeworkCompletion[]) => current?.map(replace),
+        { revalidate: false }
+      );
+
       refreshCounts(updated.current_session_id);
     },
     [refreshCounts]

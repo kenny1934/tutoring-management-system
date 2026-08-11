@@ -724,7 +724,7 @@ class SessionUpdate(BaseModel):
     clear_lesson_number: bool = False
 
 
-HOMEWORK_STATUSES = ('Not Checked', 'Completed', 'Partially Completed', 'Not Completed')
+HOMEWORK_STATUSES = ('Not Checked', 'Submitted', 'Completed', 'Partially Completed', 'Not Completed')
 
 
 class HomeworkFileResponse(BaseModel):

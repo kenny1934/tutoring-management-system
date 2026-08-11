@@ -413,8 +413,12 @@ class HomeworkCompletion(Base):
                                 comment='Session in which the homework was checked')
     session_exercise_id = Column(Integer, ForeignKey("session_exercises.id", ondelete="SET NULL"), nullable=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    # A ladder, not a set of peers: nothing recorded, handed in but unmarked,
+    # then the three verdicts. 'Submitted' counts as unchecked everywhere, so
+    # it stays in the backlog and keeps ageing until someone assesses it.
     completion_status = Column(
-        Enum('Not Checked', 'Completed', 'Partially Completed', 'Not Completed', name='completion_status_enum'),
+        Enum('Not Checked', 'Submitted', 'Completed', 'Partially Completed', 'Not Completed',
+             name='completion_status_enum'),
         nullable=True
     )
     homework_rating = Column(String(10), nullable=True, comment='Star rating as emojis, NULL = not rated')

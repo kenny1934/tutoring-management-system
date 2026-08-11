@@ -7,10 +7,12 @@ import type { HomeworkStatus } from "@/types";
  * handler all read this, so a key cannot silently do something other than what
  * the screen says it does.
  */
+// Keyed in ladder order, so the digits run the same way the states do.
 export const MARK_KEYS: { key: string; label: string; status: HomeworkStatus }[] = [
-  { key: "1", label: "done", status: "Completed" },
-  { key: "2", label: "partly done", status: "Partially Completed" },
-  { key: "3", label: "not done", status: "Not Completed" },
+  { key: "1", label: "handed in", status: "Submitted" },
+  { key: "2", label: "done", status: "Completed" },
+  { key: "3", label: "partly done", status: "Partially Completed" },
+  { key: "4", label: "not done", status: "Not Completed" },
   { key: "0", label: "clear", status: "Not Checked" },
 ];
 
@@ -22,6 +24,9 @@ export function statusForKey(key: string): HomeworkStatus | undefined {
 /** Terminal-style marker for each state, so a glance reads the whole list. */
 export function statusGlyph(status: HomeworkStatus | undefined): { mark: string; colour: string } {
   switch (status) {
+    case "Submitted":
+      // In hand, still owed a verdict, so it reads as open rather than done.
+      return { mark: "[>]", colour: "var(--zen-accent)" };
     case "Completed":
       return { mark: "[x]", colour: "var(--zen-success)" };
     case "Partially Completed":

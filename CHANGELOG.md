@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.108](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.107...v2.0.108) (2026-08-11)
+
+
+### New Features
+
+* **A student's whole homework record, and marking, on their own page**: the Courseware tab on a student's page listed what had been set and said nothing about what came back, so the only way to see how a student was doing was to open the lessons one at a time. Every piece of homework in the list now shows how it went, and clicking that mark opens the piece where it stands, so the state, the star rating, the comment and the photographs can all be set or put right without leaving the page. A summary across the top gives the shape of the student's year at a glance, and the list can be narrowed to one state, so everything still waiting can be worked through in a single pass. This also reaches homework that nothing else could. A piece stays on a lesson's list for up to three lessons the student actually sat, and anything that passed that point without being marked could no longer be marked, corrected, or have what the student handed in looked at again, from anywhere in the app. A student's own page has no such window.
+* **Homework that came back but has not been marked yet now has its own state**: the four states could say a piece was done, partly done or not done, but none of them could say it is here and nobody has looked at it. Work sitting in a tutor's bag was recorded exactly the same as work that never arrived. There is now a fifth state, Handed in, between not checked and the three ways of marking it. It counts as still waiting, so the piece stays on the lesson's list and goes on showing how many lessons it has been there, and every homework panel now says how many pieces are waiting to be marked rather than waiting to come in. Six older records that had been kept as handed in without ever being marked have been moved to the new state.
+
+
+### Improvements
+
+* **The homework keys in lesson mode follow the order on screen**: the marking keys now run in the same order as the buttons, so 1 is handed in, 2 done, 3 partly done and 4 not done, with 0 still clearing. They previously started at done, which no longer matched what was on screen once the new state was added.
+
 ## [2.0.107](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.106...v2.0.107) (2026-08-10)
 
 
