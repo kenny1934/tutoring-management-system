@@ -1282,6 +1282,22 @@ export const parentCommunicationsAPI = {
     });
   },
 
+  // One contact against several students, written in a single transaction.
+  createBulk: (
+    data: Omit<ParentCommunicationCreate, "student_id"> & { student_ids: number[] },
+    tutor_id: number,
+    created_by: string
+  ) => {
+    const params = new URLSearchParams({
+      tutor_id: tutor_id.toString(),
+      created_by,
+    });
+    return fetchAPI<{ created: number; skipped: number[] }>(
+      `/parent-communications/bulk?${params}`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+  },
+
   // Update communication
   update: (id: number, data: Partial<ParentCommunicationCreate>) => {
     return fetchAPI<ParentCommunication>(`/parent-communications/${id}`, {

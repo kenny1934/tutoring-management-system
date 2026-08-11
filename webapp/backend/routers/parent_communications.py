@@ -15,6 +15,8 @@ from models import ParentCommunication, Student, Tutor, Enrollment, LocationSett
 from routers.enrollments import calculate_effective_end_date_bulk, get_holidays_in_range
 from schemas import (
     ParentCommunicationCreate,
+    ParentCommunicationBulkCreate,
+    ParentCommunicationBulkResponse,
     ParentCommunicationUpdate,
     ParentCommunicationResponse,
     StudentContactStatus,
@@ -753,6 +755,55 @@ async def create_communication(
         follow_up_date=comm.follow_up_date,
         created_at=comm.created_at,
         created_by=comm.created_by
+    )
+
+
+@router.post("/parent-communications/bulk", response_model=ParentCommunicationBulkResponse)
+async def create_communications_bulk(
+    data: ParentCommunicationBulkCreate,
+    tutor_id: int = Query(..., description="Tutor ID creating these records"),
+    created_by: str = Query(..., description="Email of user creating these records"),
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_read_only),
+):
+    """Log one contact against several students in a single write.
+
+    Chasing a renewal is a round of calls or one broadcast message, so the
+    alternative was the same form filled in twenty times. Written as one
+    transaction: a database error leaves nothing behind rather than half a
+    round, and the only partial outcome is an id whose student has since been
+    deleted, which comes back in `skipped`."""
+    tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
+    if not tutor:
+        raise HTTPException(status_code=404, detail="Tutor not found")
+
+    wanted = list(dict.fromkeys(data.student_ids))
+    found = {
+        student_id
+        for (student_id,) in db.query(Student.id).filter(Student.id.in_(wanted))
+    }
+    when = data.contact_date or hk_now()
+
+    db.add_all([
+        ParentCommunication(
+            student_id=student_id,
+            tutor_id=tutor_id,
+            contact_date=when,
+            contact_method=data.contact_method,
+            contact_type=data.contact_type,
+            brief_notes=data.brief_notes,
+            follow_up_needed=data.follow_up_needed,
+            follow_up_date=data.follow_up_date,
+            created_by=created_by,
+        )
+        for student_id in wanted
+        if student_id in found
+    ])
+    db.commit()
+
+    return ParentCommunicationBulkResponse(
+        created=len(found),
+        skipped=[student_id for student_id in wanted if student_id not in found],
     )
 
 

@@ -14,7 +14,9 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { terminationsAPI } from "@/lib/api";
+import { parentCommunicationsAPI, terminationsAPI } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { useActiveTutors } from "@/lib/hooks";
 import { getGradeColor } from "@/lib/regular-utils";
 import {
   CATEGORY_CONFIG,
@@ -24,6 +26,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
+import { CONTACT_METHODS, CONTACT_TYPES } from "@/components/parent-contacts/contact-utils";
 import {
   EMPTY_CHASE_FILTERS,
   filterChaseRows,
@@ -530,6 +533,213 @@ export function UndoNotReturningDialog({
   );
 }
 
+/** Matches the cap the endpoint enforces. Nobody rings two hundred families in
+ *  a sitting, so a batch that large is a mis-click on select-all rather than a
+ *  round of calls, and a note claiming otherwise is worse than no note. */
+export const BULK_CONTACT_LIMIT = 200;
+
+/** One contact, logged against every student ticked on the list.
+ *
+ *  Chasing a renewal is a round of calls or one broadcast message, so the
+ *  alternative was this form filled in twenty times. Deliberately narrower
+ *  than the single-student modal: no student picker, because the selection is
+ *  the picker, and one note that is true of all of them. */
+export function BulkContactDialog({
+  rows,
+  currentUserEmail,
+  onClose,
+}: {
+  rows: RegularRetentionChaseRow[];
+  currentUserEmail: string;
+  onClose: (logged: number) => void;
+}) {
+  const { data: tutors = [] } = useActiveTutors();
+  const { user } = useAuth();
+  const [tutorId, setTutorId] = useState<number | null>(null);
+  const [when, setWhen] = useState(() => new Date().toISOString().slice(0, 10));
+  const [method, setMethod] = useState<string>(CONTACT_METHODS[0]);
+  const [type, setType] = useState<string>("General");
+  const [notes, setNotes] = useState("");
+  const [followUp, setFollowUp] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Whoever is logged in did the calling, so their own name is the default.
+  // An admin who is not on the tutor list picks somebody, rather than the
+  // records landing on nobody.
+  useEffect(() => {
+    if (tutorId === null && tutors.length) {
+      setTutorId(tutors.find((t) => t.tutor_name === user?.name)?.id ?? null);
+    }
+  }, [tutors, user?.name, tutorId]);
+
+  const save = async () => {
+    if (!tutorId) {
+      setError("Choose who made the contact.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await parentCommunicationsAPI.createBulk(
+        {
+          student_ids: rows.map((r) => r.student_id),
+          contact_method: method,
+          contact_type: type,
+          // Noon rather than midnight: the single-student modal sends a local
+          // time as UTC too, and from noon the eight-hour shift cannot walk
+          // the contact back onto the day before.
+          contact_date: new Date(`${when}T12:00:00`).toISOString(),
+          brief_notes: notes || undefined,
+          follow_up_needed: followUp,
+          follow_up_date: followUp && followUpDate ? followUpDate : undefined,
+        },
+        tutorId,
+        currentUserEmail || user?.email || "system"
+      );
+      onClose(result.created);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save. Please try again.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf8f5] dark:bg-[#1a1a1a] shadow-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <MessageSquarePlus className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground flex-1">
+            Log a contact for {rows.length} student{rows.length === 1 ? "" : "s"}
+          </h2>
+          <button
+            type="button"
+            onClick={() => onClose(0)}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3 overflow-y-auto">
+          {/* Named, not just counted: a wrong tick is easier to spot in a list
+              of names than in a number. */}
+          <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-2.5 py-2 max-h-24 overflow-y-auto text-xs text-muted-foreground">
+            {rows.map((r) => r.student_name).join(", ")}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-foreground mb-1">Contacted by</label>
+            <select
+              value={tutorId ?? ""}
+              onChange={(e) => setTutorId(e.target.value ? Number(e.target.value) : null)}
+              className={cn(selectClass, "w-full")}
+            >
+              <option value="">Choose a name</option>
+              {tutors.map((t) => (
+                <option key={t.id} value={t.id}>{t.tutor_name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Date</label>
+              <input
+                type="date"
+                value={when}
+                onChange={(e) => setWhen(e.target.value)}
+                className={cn(selectClass, "w-full")}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Method</label>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+                className={cn(selectClass, "w-full")}
+              >
+                {CONTACT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-foreground mb-1">Type</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className={cn(selectClass, "w-full")}
+            >
+              {CONTACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-foreground mb-1">
+              Notes <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Saved word for word against every student above"
+              className={cn(selectClass, "w-full resize-none")}
+            />
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={followUp}
+              onChange={(e) => setFollowUp(e.target.checked)}
+            />
+            <span className="text-xs text-foreground">Follow-up needed</span>
+          </label>
+          {followUp && (
+            <input
+              type="date"
+              value={followUpDate}
+              onChange={(e) => setFollowUpDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)}
+              className={cn(selectClass, "w-full")}
+            />
+          )}
+
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            This adds one contact record to each of these students, exactly as if you had
+            logged them one at a time. They will show as contacted on this board and in each
+            student&apos;s own history.
+          </p>
+
+          {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+        </div>
+
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <button type="button" onClick={() => onClose(0)} className={selectClass}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !tutorId}
+            className={cn(
+              selectClass,
+              "bg-primary border-primary text-primary-foreground hover:opacity-90",
+              "disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+            )}
+          >
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Log for {rows.length} student{rows.length === 1 ? "" : "s"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Working a 500-name list takes more than one sitting, and losing your filters
 // to a tab switch means finding your place again. Session storage rather than
 // the URL: it survives a refresh without the Suspense boundary a search-param
@@ -566,6 +776,11 @@ export function RegularRetentionChaseList({
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
+  // Ticked rows survive a filter change, because narrowing the list is how you
+  // build a selection: filter to F2, tick them, filter to F3, tick those.
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [logged, setLogged] = useState<number | null>(null);
 
   // Read on mount rather than in useState, so the server and first client
   // render agree and hydration stays quiet.
@@ -623,6 +838,38 @@ export function RegularRetentionChaseList({
 
   const filtersActive =
     JSON.stringify(filters) !== JSON.stringify(EMPTY_CHASE_FILTERS);
+
+  // The selection is a set of ids, but the dialog wants the rows behind them,
+  // and only rows that still exist in the report.
+  const pickedRows = useMemo(
+    () => data.chase.filter((r) => picked.has(r.student_id)),
+    [data.chase, picked]
+  );
+  const shownPicked = rows.filter((r) => picked.has(r.student_id)).length;
+  const allShownPicked = rows.length > 0 && shownPicked === rows.length;
+
+  const togglePicked = (studentId: number) => {
+    setLogged(null);
+    setPicked((current) => {
+      const next = new Set(current);
+      if (!next.delete(studentId)) next.add(studentId);
+      return next;
+    });
+  };
+
+  /** Ticks or clears every row currently on screen, leaving anything picked
+   *  under an earlier filter alone. */
+  const toggleAllShown = () => {
+    setLogged(null);
+    setPicked((current) => {
+      const next = new Set(current);
+      for (const r of rows) {
+        if (allShownPicked) next.delete(r.student_id);
+        else next.add(r.student_id);
+      }
+      return next;
+    });
+  };
 
   const onSort = (k: ChaseSortKey) => {
     if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -767,11 +1014,70 @@ export function RegularRetentionChaseList({
         </div>
       </div>
 
+      {/* What the ticks can do. Only here when something is ticked, so the
+          toolbar above stays the same height while working normally. */}
+      {!isReadOnly && picked.size > 0 && (
+        <div className="flex items-center gap-3 mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+          <span className="text-xs font-medium text-foreground tabular-nums">
+            {picked.size} selected
+            {shownPicked < picked.size && (
+              <span className="text-muted-foreground font-normal">
+                {" "}({picked.size - shownPicked} not in this view)
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            disabled={picked.size > BULK_CONTACT_LIMIT}
+            className={cn(
+              selectClass,
+              "inline-flex items-center gap-1.5 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            Log a contact
+          </button>
+          {picked.size > BULK_CONTACT_LIMIT && (
+            <span className="text-xs text-amber-700 dark:text-amber-400">
+              A contact can be logged for {BULK_CONTACT_LIMIT} students at a time.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setPicked(new Set())}
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* Said once, where the ticks were, rather than as a toast that is gone
+          before the list finishes reloading. */}
+      {logged !== null && (
+        <p className="text-xs text-emerald-700 dark:text-emerald-400 mb-3">
+          Contact logged for {logged} student{logged === 1 ? "" : "s"}.
+        </p>
+      )}
+
       {/* Table */}
       <div className={cn(wrap, "flex-1 min-h-0 overflow-auto")}>
         <table className="w-full text-xs">
           <thead className={cn(thead, "sticky top-0 z-10")}>
             <tr className={theadRow}>
+              {!isReadOnly && (
+                <th className={cn(th, "w-8")}>
+                  <input
+                    type="checkbox"
+                    checked={allShownPicked}
+                    onChange={toggleAllShown}
+                    disabled={rows.length === 0}
+                    aria-label={allShownPicked ? "Clear every row shown" : "Select every row shown"}
+                    title={allShownPicked ? "Clear every row shown" : "Select every row shown"}
+                  />
+                </th>
+              )}
               <SortHeader k="student_code">Code</SortHeader>
               <SortHeader k="student_name">Student</SortHeader>
               <SortHeader k="expected_grade">Entering</SortHeader>
@@ -785,12 +1091,22 @@ export function RegularRetentionChaseList({
           </thead>
           <tbody className={rowDivide}>
             {rows.length === 0 ? (
-              <EmptyRow span={9}>Nobody matches these filters.</EmptyRow>
+              <EmptyRow span={isReadOnly ? 9 : 10}>Nobody matches these filters.</EmptyRow>
             ) : (
               rows.map((r) => {
                 const due = isFollowUpDue(r, today);
                 return (
                   <tr key={r.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
+                    {!isReadOnly && (
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={picked.has(r.student_id)}
+                          onChange={() => togglePicked(r.student_id)}
+                          aria-label={`Select ${r.student_name}`}
+                        />
+                      </td>
+                    )}
                     <td className="px-3 py-1.5 whitespace-nowrap">
                       {r.student_code ? (
                         <StudentCodeBadge code={r.student_code} />
@@ -918,6 +1234,21 @@ export function RegularRetentionChaseList({
           }}
           editingContact={null}
           preselectedStudentId={contactFor.student_id}
+        />
+      )}
+
+      {bulkOpen && (
+        <BulkContactDialog
+          rows={pickedRows}
+          currentUserEmail={currentUserEmail}
+          onClose={(count) => {
+            setBulkOpen(false);
+            if (count > 0) {
+              setLogged(count);
+              setPicked(new Set());
+              onChanged();
+            }
+          }}
         />
       )}
 

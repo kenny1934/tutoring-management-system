@@ -1094,6 +1094,33 @@ class ParentCommunicationCreate(BaseModel):
     contact_date: Optional[datetime] = None  # Defaults to now if not provided
 
 
+class ParentCommunicationBulkCreate(BaseModel):
+    """One contact, logged against several students at once.
+
+    Same fields as a single record minus the student, because the point is
+    that one round of calls or one broadcast message covered all of them. The
+    cap is a guard against a mis-click on a select-all: nobody rings 200
+    families in a sitting, and a note that claims they did is worse than no
+    note."""
+    student_ids: List[int] = Field(..., min_length=1, max_length=200)
+    contact_method: str = Field(default='WeChat', max_length=50)
+    contact_type: str = Field(default='Progress Update', max_length=50)
+    brief_notes: Optional[str] = Field(None, max_length=500)
+    follow_up_needed: bool = Field(default=False)
+    follow_up_date: Optional[date] = None
+    contact_date: Optional[datetime] = None
+
+
+class ParentCommunicationBulkResponse(BaseModel):
+    """What actually got written.
+
+    `skipped` holds ids with no student behind them any more, which is the
+    only way part of a batch can fail: everything else is written in one
+    transaction and either all lands or none does."""
+    created: int = 0
+    skipped: List[int] = []
+
+
 class ParentCommunicationUpdate(BaseModel):
     """Schema for updating a parent communication record"""
     contact_method: Optional[str] = Field(None, max_length=50)
