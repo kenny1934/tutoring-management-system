@@ -158,7 +158,7 @@ export function HomeworkCheckRow({
         </p>
       )}
 
-      {/* The four states, plus rating and comment */}
+      {/* The ladder, plus rating and comment */}
       <div className="flex items-center gap-2 mt-1 flex-wrap">
         <div className="flex items-center gap-0.5" role="group" aria-label="Homework status">
           {HOMEWORK_STATES.map(({ status, icon: Icon, label, activeClass }) => {

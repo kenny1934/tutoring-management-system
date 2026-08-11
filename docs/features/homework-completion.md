@@ -171,7 +171,8 @@ Wired into:
 | Sessions list rows, `TodaySessionsCard` | The badge. The provider must sit above the view-mode branch, or badges mount outside it and silently render nothing. |
 | `LessonWideSidebar` | "To check" block per student, plus a slot counter in the header. |
 | `ZenLessonSidebar` | "TO CHECK" list for the active student, and the `H` overlay to mark it. |
-| `LessonExerciseSidebar` | Status tick on previous-session homework, read only. |
+| `LessonExerciseSidebar` (normal lesson mode) | "To check" block above the session blocks, a counter in the header, a status tick on every homework row. See Phase 6. |
+| `ZenLessonMode` | Same `TO CHECK` list and `H` overlay as Zen wide mode. |
 | Student page, Courseware tab | Status glyph on every homework row, marking inline, a summary and a status filter. See Phase 5. |
 
 ---
@@ -345,6 +346,51 @@ all five, so the marking buttons, the glyphs and the filter chips cannot drift.
 Zen's keys were renumbered to run in ladder order: `1` handed in, `2` done,
 `3` partly, `4` not done, `0` clear.
 
+## Phase 6: the non-wide lesson modes
+
+Both single-student lesson modes could show homework state but not touch it,
+which made them the only surfaces less capable than the page that launches
+them: flipping the session detail page into lesson mode unmounts `BookmarkTab`
+and its marking with it.
+
+**Normal mode.** `LessonMode` was already holding everything it needed.
+`session.homework_completion` is not the previous session's completions, it is
+`load_homework_to_check(db, [session_id])` from `routers/sessions.py`, the same
+open backlog every other marking surface reads. It was being spent on a
+decorative tick. So this phase adds no endpoint and no fetch for the backlog:
+the block, the header counter and the mobile badge all read the prop.
+
+`HomeworkCheckSection` moved out of `LessonWideSidebar` into
+`components/homework/` and both sidebars now import it. It grew optional
+`expanded` / `onExpandedChange` props so a keyboard shortcut can drive it;
+left alone it owns its own state, which is what wide mode does.
+
+The sidebar is mounted three times over, in the split pane, the focus mode
+overlay and the mobile sheet. `LessonMode` spreads one `homeworkSidebarProps`
+object into all three rather than repeating the props, because the three had
+already drifted once.
+
+`H` opens the block, next to lowercase `h` for editing homework, matching Zen.
+It reveals the sidebar first when focus mode has hidden it, and opens the sheet
+on mobile, since otherwise it would expand something nobody can see.
+
+**The tick reads from two sources.** The backlog alone cannot answer for work
+checked in an earlier lesson: the view hands an assessed item to the session
+that assessed it and to no other, so a row marked last week reads as a row
+nobody has seen. `homeworkStatusFor` prefers the open backlog and falls back to
+`useStudentHomework`, the student's whole record, which is the same endpoint the
+student page uses and is folded by `useHomeworkMarked` for free. Undefined now
+means no record at all, which is the only case that draws nothing.
+
+**Zen single-session.** `ZenLessonSidebar` already accepted `homework` and
+`onCheckHomework`, and `ZenHomeworkCheck` already existed; `ZenLessonMode`
+passed neither, so the whole section was dark. It fetches with
+`useHomeworkToCheck([session.id])` rather than reading the session, because
+this one arrives from a list, which carries no homework. The keyboard branch is
+the wide one, layered after the exit-confirm and help branches: `1`/`2`/`3` only
+collide inside the exit dialog, which returns early. The `Homework` group in
+`ZenLessonHelp` was wide-only and is now shared by both modes.
+
 ## Phase 4: reporting
 
 Only worth doing once phases 1 to 3 show real adoption. `student_homework_statistics`
@@ -388,8 +434,12 @@ already computes per-student checked rate, completion score, star average and
 ## Test baselines
 
 `webapp/backend`: 1171 pass, of which `tests/test_homework.py` is 36.
-`webapp/frontend`: 625 pass. `npx tsc --noEmit` reports 172 errors, all
-pre-existing; `main` reports the same 172.
+`webapp/frontend`: 646 pass, of which `lib/homework-utils.test.ts` is 14 and
+`components/homework/HomeworkCheckSection.test.tsx` is 7. `npx tsc --noEmit`
+reports 172 errors, all pre-existing; `main` reports the same 172.
+
+Note for the section's tests: jsdom has no `scrollIntoView`, so the block calls
+it optionally. Scrolling is a nicety there, not the behaviour under test.
 
 ## Shipping
 

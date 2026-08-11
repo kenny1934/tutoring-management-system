@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.109](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.108...v2.0.109) (2026-08-11)
+
+
+### New Features
+
+* **Homework set in earlier lessons can be marked from lesson mode**: lesson mode listed the homework that had been set but offered no way to say how it went, so a tutor part way through a lesson, with the student sitting there and the book in front of them, had to come out of it to record anything. The homework still waiting from earlier lessons now sits at the top of the exercise list, with the same marking, star rating, comment and photographs offered everywhere else. The lesson header shows how many pieces have been checked out of the total, pressing H opens the list from anywhere in the lesson, and on a phone the exercise list button carries a count of what is still waiting. Zen lesson mode for a single student gains the same list, and the same marking keys it already had when a whole time slot was open.
+
+
+### Bug Fixes
+
+* **Homework marked in an earlier lesson no longer looks unmarked**: the mark beside a piece of homework in lesson mode was only drawn while that piece was still waiting to be checked, so it vanished the moment somebody marked it in an earlier lesson. A piece that was done then looked exactly like a piece nobody had seen. The mark now comes from the student's own record once the lesson no longer carries it, so it stays where it was put, and nothing shown means nothing has ever been recorded.
+
 ## [2.0.108](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.107...v2.0.108) (2026-08-11)
 
 

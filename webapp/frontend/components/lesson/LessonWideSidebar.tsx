@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import {
   PenTool, BookOpen, ChevronDown, Pencil, Plus, FileX,
-  Users, FileStack, User, Printer, Loader2, Home,
+  Users, FileStack, User, Printer, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
@@ -17,8 +17,7 @@ import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import type { Session, HomeworkCompletion } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
-import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
-import { checkedCount } from "@/lib/homework-utils";
+import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -305,83 +304,6 @@ function StudentBlock({
                   No exercises assigned
                 </p>
               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/**
- * Homework set in earlier lessons, ready to mark.
- *
- * Collapsed by default and styled as a pinned note rather than a third
- * exercise section: it is a reminder about the last lesson, not part of this
- * one. The dashed edge and the count carry the signal; opening it is a choice.
- */
-function HomeworkCheckSection({
-  sessionId,
-  items,
-  isReadOnly,
-  onMarked,
-}: {
-  sessionId: number;
-  items: HomeworkCompletion[];
-  isReadOnly?: boolean;
-  onMarked?: (updated: HomeworkCompletion) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const done = checkedCount(items);
-  const outstanding = done < items.length;
-
-  return (
-    <div>
-      <button
-        onClick={() => setExpanded(e => !e)}
-        title={
-          outstanding
-            ? `${items.length - done} to check from earlier lessons`
-            : "All homework checked"
-        }
-        className={cn(
-          "w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-dashed transition-colors",
-          outstanding
-            ? "border-amber-400/60 bg-amber-50/60 text-amber-700 hover:bg-amber-50 dark:border-amber-600/40 dark:bg-amber-900/10 dark:text-amber-400/90 dark:hover:bg-amber-900/20"
-            : "border-[#dcc9a8] text-[#a0906e] hover:bg-[#f0e6d4]/50 dark:border-[#3a3228] dark:text-[#8a7a60] dark:hover:bg-[#252018]/60"
-        )}
-      >
-        <div className={cn("transition-transform flex-shrink-0", expanded ? "rotate-0" : "-rotate-90")}>
-          <ChevronDown className="h-3 w-3 opacity-70" />
-        </div>
-        <Home className="h-3 w-3 flex-shrink-0 opacity-80" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider">
-          To check
-        </span>
-        <span className="ml-auto text-[10px] font-medium tabular-nums">
-          {done}/{items.length}
-        </span>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="overflow-hidden"
-          >
-            <div className="mt-1 px-2 rounded-md bg-[#faf3e8]/70 dark:bg-[#221c14]/50 divide-y divide-[#e8d4b8]/70 dark:divide-[#3a3228]/70">
-              {items.map((hw) => (
-                <HomeworkCheckRow
-                  key={hw.session_exercise_id}
-                  homework={hw}
-                  sessionId={sessionId}
-                  readOnly={isReadOnly}
-                  onMarked={onMarked}
-                />
-              ))}
             </div>
           </motion.div>
         )}
