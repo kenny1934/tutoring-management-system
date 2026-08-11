@@ -3737,6 +3737,23 @@ class RegularRetentionChaseRow(BaseModel):
     decline_reason_category: Optional[str] = None
 
 
+class RegularRetentionOutsideRow(BaseModel):
+    """One student who applied without being in this year's group.
+
+    Named rather than counted because every one of them is a different
+    situation: a family who lapsed a year ago and came back, a primary
+    student the conversion board owns, somebody whose enrollment ended early.
+    A number cannot tell those apart and a name can."""
+    student_id: int
+    student_name: str
+    student_code: Optional[str] = None
+    branch: Optional[str] = None
+    # The grade on their record, and the grade the application asks for.
+    grade: Optional[str] = None
+    applied_grade: Optional[str] = None
+    reference_code: Optional[str] = None
+
+
 class RegularRetentionReconciliation(BaseModel):
     """Applications claiming to be existing students but carrying no student
     link. Their families read as "no response" and would be chased in error,
@@ -3748,8 +3765,9 @@ class RegularRetentionReconciliation(BaseModel):
     unlinked_primary: int = 0
     # Applications linked to a student who is not in this cohort: they lapsed
     # earlier, or never had a qualifying enrollment. Counted so they read as
-    # excluded rather than as missing.
+    # excluded rather than as missing, and listed so staff can see who.
     applied_outside_cohort: int = 0
+    applied_outside: List[RegularRetentionOutsideRow] = []
 
 
 class RegularRetentionTrendPoint(BaseModel):

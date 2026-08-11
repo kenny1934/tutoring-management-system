@@ -4071,13 +4071,28 @@ export interface RegularRetentionChaseRow {
   decline_reason_category: string | null;
 }
 
+/** One student who applied without being in this year's group. Named rather
+ *  than counted because each is a different situation: a family who lapsed and
+ *  came back, a primary student the conversion board owns, an enrollment that
+ *  ended early. A number cannot tell those apart. */
+export interface RegularRetentionOutsideRow {
+  student_id: number;
+  student_name: string;
+  student_code: string | null;
+  branch: string | null;
+  grade: string | null;
+  applied_grade: string | null;
+  reference_code: string | null;
+}
+
 export interface RegularRetentionReconciliation {
   unlinked_count: number;
   unlinked_secondary: number;
   unlinked_primary: number;
-  /** Applications linked to a student who is not in this cohort: they lapsed
-   *  earlier, or never had a qualifying enrollment. */
+  /** Applications linked to a student who is not in this year's group: they
+   *  lapsed earlier, or never had a qualifying enrollment. */
   applied_outside_cohort: number;
+  applied_outside: RegularRetentionOutsideRow[];
 }
 
 /** One day of the intake window: what happened that day, and the running total

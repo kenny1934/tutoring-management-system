@@ -13,6 +13,7 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import {
   RegularRetentionBreakdowns,
   RegularRetentionChaseList,
+  StudentLink,
 } from "@/components/admin/RegularRetentionSections";
 import { RegularRetentionTrend } from "@/components/admin/RegularRetentionTrend";
 import { RegularLinkSuggestionsModal } from "@/components/admin/RegularLinkSuggestionsModal";
@@ -38,7 +39,7 @@ function csvCell(v: string | number | null | undefined | boolean): string {
 function buildRetentionCsv(data: RegularRetentionResponse): string {
   const rows: (string | number | null | undefined | boolean)[][] = [];
   const axisHeader = [
-    "Key", "Cohort", "Applied", "Enrolled", "Not returning", "Contacted",
+    "Key", "Students", "Applied", "Enrolled", "Not returning", "Contacted",
     "No response", "No response contacted", "Apply %",
   ];
   const axisLine = (r: RegularRetentionRow) => [
@@ -58,12 +59,29 @@ function buildRetentionCsv(data: RegularRetentionResponse): string {
   rows.push(axisLine(data.totals));
   rows.push([]);
 
-  // The two groups held out of the rate, so a reader can reconcile the
-  // denominator against the centre's own headcount.
-  rows.push(["Counted outside the cohort", "Students"]);
-  rows.push(["Accounted for (moved branch or finished school)", data.not_churn.cohort]);
-  rows.push(["No place to apply at their entering grade", data.no_rung.cohort]);
-  rows.push(["Applied from outside this cohort", data.reconciliation.applied_outside_cohort]);
+  // The groups held out of the rate, named rather than counted, so a reader
+  // can reconcile the total against the centre's own headcount and see who.
+  rows.push(["Students we are not counting"]);
+  rows.push(["Student", "Code", "Branch", "Why"]);
+  data.chase
+    .filter((r) => r.state === "not_churn")
+    .forEach((r) =>
+      rows.push([r.student_name, r.student_code, r.branch, "Moved branch or finished school"])
+    );
+  data.chase
+    .filter((r) => r.rung === "none" && r.state !== "not_churn")
+    .forEach((r) =>
+      rows.push([
+        r.student_name, r.student_code, r.branch,
+        `No class at ${r.expected_grade ?? "their entering grade"}`,
+      ])
+    );
+  data.reconciliation.applied_outside.forEach((r) =>
+    rows.push([
+      r.student_name, r.student_code, r.branch,
+      `Applied for ${r.applied_grade ?? "a place"} but was not with us last year`,
+    ])
+  );
   rows.push([]);
 
   block("By branch", data.by_branch);
@@ -136,9 +154,10 @@ function OutcomeBar({ totals }: { totals: RegularRetentionRow }) {
   return (
     <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
       <div className="mb-3">
-        <h2 className="text-sm font-semibold text-foreground">Where the cohort stands</h2>
+        <h2 className="text-sm font-semibold text-foreground">Where these students stand</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Every student who was here at the end of last year, and what we know about them now.
+          This is every student we taught last year or this summer, and what we know about
+          each of them now.
         </p>
       </div>
 
@@ -146,8 +165,8 @@ function OutcomeBar({ totals }: { totals: RegularRetentionRow }) {
           reads as a broken chart rather than an empty one. */}
       {totals.cohort === 0 ? (
         <p className="text-xs text-muted-foreground italic">
-          Nobody was studying here at the end of the year before this intake, so there is no
-          cohort to track yet.
+          We taught nobody in the year before this intake, so there is nobody to follow up
+          yet.
         </p>
       ) : (
         <>
@@ -185,6 +204,42 @@ function OutcomeBar({ totals }: { totals: RegularRetentionRow }) {
   );
 }
 
+/** The students behind one of the held-out counts, named.
+ *
+ *  Each of these groups is small by construction, and every member of one has
+ *  their own story: a count says two students are not being chased, a pair of
+ *  names says both are leaving for sixth form. Scrolls rather than truncating,
+ *  so a bad year cannot hide anyone. */
+function OutsideTable({
+  rows,
+}: {
+  rows: {
+    row: { student_id: number; student_name: string };
+    code?: string | null;
+    detail?: string;
+  }[];
+}) {
+  return (
+    <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+      <table className="w-full text-[11px]">
+        <tbody className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
+          {rows.map(({ row, code, detail }) => (
+            <tr key={row.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
+              <td className="px-2.5 py-1.5">
+                <StudentLink row={row} className="text-foreground font-medium" />
+              </td>
+              <td className="px-2.5 py-1.5 text-muted-foreground whitespace-nowrap w-24">
+                {code ?? ""}
+              </td>
+              <td className="px-2.5 py-1.5 text-muted-foreground">{detail}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** The two branches side by side, which is a difference big enough to act on
  *  and was previously two tabs deep. Each card filters the board to itself. */
 function BranchCompare({
@@ -200,7 +255,7 @@ function BranchCompare({
     <div className="border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-xl bg-white/30 dark:bg-white/[0.01] p-4">
       <h2 className="text-sm font-semibold text-foreground">How the branches compare</h2>
       <p className="text-xs text-muted-foreground mt-0.5">
-        Applications so far, against each branch&apos;s own cohort.
+        Each branch is measured against its own students, not against the whole centre.
       </p>
       <div className="grid gap-3 sm:grid-cols-2 mt-3">
         {rows.map((r) => {
@@ -227,7 +282,8 @@ function BranchCompare({
                 />
               </div>
               <div className="text-[11px] text-muted-foreground tabular-nums mt-1.5">
-                {r.applied} of {r.cohort} applied · {r.no_response} still to chase
+                {r.applied} of its {r.cohort} students have applied.
+                {r.no_response > 0 && ` ${r.no_response} have not answered.`}
               </div>
             </button>
           );
@@ -289,6 +345,17 @@ export default function RegularRetentionPage() {
   };
 
   const noResponse = data?.totals.no_response ?? 0;
+
+  // Both groups are already in the chase payload, held out of the totals but
+  // never named on the overview until now.
+  const notChurnRows = useMemo(
+    () => (data?.chase ?? []).filter((r) => r.state === "not_churn"),
+    [data]
+  );
+  const noRungRows = useMemo(
+    () => (data?.chase ?? []).filter((r) => r.rung === "none" && r.state !== "not_churn"),
+    [data]
+  );
   const configId = useMemo(
     () => configs?.find((c) => c.year === year)?.id ?? null,
     [configs, year]
@@ -317,7 +384,7 @@ export default function RegularRetentionPage() {
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground">Retention</h1>
                 <p className="hidden sm:block text-xs text-muted-foreground">
-                  Whether last year&apos;s students have applied for this year&apos;s course.
+                  Have the students we already teach applied for this September?
                 </p>
               </div>
               <div className="shrink-0 flex items-center gap-2">
@@ -444,20 +511,33 @@ export default function RegularRetentionPage() {
                 <>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <KpiCard
-                      label="Cohort"
+                      // Not "here at the end of last year": a good third of
+                      // them came through the summer course instead.
+                      label="Students"
                       value={String(data.totals.cohort)}
-                      sub="here at the end of last year"
+                      sub="We taught them last year or this summer."
                     />
                     <KpiCard
                       label="Applied"
                       value={String(data.totals.applied)}
-                      sub={`${pct(data.totals.applied, data.totals.cohort)} of the cohort`}
+                      sub={
+                        data.totals.applied > 0
+                          ? `That is ${pct(data.totals.applied, data.totals.cohort)} of them.`
+                          : "Nobody has applied yet."
+                      }
                       tone="text-indigo-600 dark:text-indigo-400"
                     />
                     <KpiCard
                       label="Not returning"
                       value={String(data.totals.declined)}
-                      sub="told us they are leaving"
+                      // A subtitle written for the usual case reads as
+                      // nonsense under a zero, and on day one they are all
+                      // zero.
+                      sub={
+                        data.totals.declined > 0
+                          ? "They have told us they are leaving."
+                          : "Nobody has told us they are leaving."
+                      }
                       tone="text-rose-600 dark:text-rose-400"
                     />
                     <KpiCard
@@ -466,9 +546,11 @@ export default function RegularRetentionPage() {
                       // Scoped to the unresponsive: under this heading a
                       // cohort-wide figure reads as "of these, N were called".
                       sub={
-                        noResponse > 0
-                          ? `${data.totals.no_response_contacted} of them contacted`
-                          : "everybody has answered"
+                        noResponse === 0
+                          ? "Everybody has answered."
+                          : data.totals.no_response_contacted > 0
+                            ? `We have contacted ${data.totals.no_response_contacted} of them.`
+                            : "Nobody has been contacted yet."
                       }
                       tone="text-amber-700 dark:text-amber-400"
                     />
@@ -482,12 +564,14 @@ export default function RegularRetentionPage() {
                       <Link2 className="h-4 w-4 shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <span className="font-medium">
-                          {data.reconciliation.unlinked_secondary} application
-                          {data.reconciliation.unlinked_secondary === 1 ? "" : "s"} not matched to a student record
+                          {data.reconciliation.unlinked_secondary === 1
+                            ? "One application has not been matched to a student record."
+                            : `${data.reconciliation.unlinked_secondary} applications have not been matched to a student record.`}
                         </span>
                         <p className="text-sky-800/80 dark:text-sky-400/80 mt-0.5">
-                          These families say they already study here, so some of them are counted as
-                          no response below. Matching them settles the numbers.
+                          These families say they already study here, so some of them are being
+                          counted below as having given us no answer. Matching them settles the
+                          numbers.
                         </p>
                       </div>
                       {!isReadOnly && (
@@ -510,12 +594,11 @@ export default function RegularRetentionPage() {
                     >
                       <AlertTriangle className="h-4 w-4 shrink-0" />
                       <span className="font-medium">
-                        {noResponse} student{noResponse === 1 ? "" : "s"} still to chase
+                        {noResponse === 1
+                          ? "One student has not applied and has not answered."
+                          : `${noResponse} students have not applied and have not answered.`}
                       </span>
-                      <span className="text-amber-700/80 dark:text-amber-400/80">
-                        no application and no answer yet
-                      </span>
-                      <span className="ml-auto underline">View list</span>
+                      <span className="ml-auto underline shrink-0">View the list</span>
                     </button>
                   )}
 
@@ -534,52 +617,79 @@ export default function RegularRetentionPage() {
                       the page says so. */}
                   {data.totals.applied > 0 && data.totals.enrolled === 0 && (
                     <p className="text-xs text-muted-foreground">
-                      No places have been confirmed yet. Applications become enrolments once you
-                      publish them from the arrangement page.
+                      No places have been confirmed yet. An application becomes an enrolment
+                      when you publish it from the arrangement page.
                     </p>
                   )}
 
-                  {/* Everything the cohort deliberately leaves out. Without
-                      these lines the denominator just looks smaller than the
-                      centre is, and nobody can tell why. */}
-                  {(data.not_churn.cohort > 0 ||
-                    data.no_rung.cohort > 0 ||
-                    data.reconciliation.applied_outside_cohort > 0) && (
-                    <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 space-y-2">
+                  {/* Everything held out of the rate. Without these lines the
+                      total just looks smaller than the centre is and nobody
+                      can tell why, and without the names nobody can act on
+                      any of it. */}
+                  {(notChurnRows.length > 0 ||
+                    noRungRows.length > 0 ||
+                    data.reconciliation.applied_outside.length > 0) && (
+                    <div className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5 space-y-3">
                       <div className="text-xs font-medium text-foreground">
-                        Counted outside the cohort
+                        Students we are not counting
                       </div>
-                      {data.not_churn.cohort > 0 && (
-                        <p className="text-[11px] text-muted-foreground">
-                          <span className="text-foreground font-medium">
-                            {data.not_churn.cohort} student
-                            {data.not_churn.cohort === 1 ? "" : "s"} accounted for.
-                          </span>{" "}
-                          They moved to another branch or finished school, so they were never a
-                          student we lost. Find them under &quot;Accounted for&quot; on the chase
-                          list.
-                        </p>
+
+                      {notChurnRows.length > 0 && (
+                        <div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {notChurnRows.length === 1
+                              ? "One student has left for a reason that was never our loss."
+                              : `${notChurnRows.length} students have left for reasons that were never our loss.`}{" "}
+                            They moved to another branch or finished school, so we do not count
+                            them against ourselves.
+                          </p>
+                          <OutsideTable
+                            rows={notChurnRows.map((r) => ({
+                              row: r,
+                              code: r.student_code,
+                              detail: r.decline_reason_category ?? r.branch ?? "",
+                            }))}
+                          />
+                        </div>
                       )}
-                      {data.no_rung.cohort > 0 && (
-                        <p className="text-[11px] text-muted-foreground">
-                          <span className="text-foreground font-medium">
-                            {data.no_rung.cohort} student{data.no_rung.cohort === 1 ? "" : "s"} with
-                            no place to apply.
-                          </span>{" "}
-                          The course does not run at the grade they are entering, so they are never
-                          treated as unresponsive.
-                        </p>
+
+                      {noRungRows.length > 0 && (
+                        <div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {noRungRows.length === 1
+                              ? "One student has no class to apply for."
+                              : `${noRungRows.length} students have no class to apply for.`}{" "}
+                            We do not teach the grade they are entering, so nobody should be
+                            chasing them.
+                          </p>
+                          <OutsideTable
+                            rows={noRungRows.map((r) => ({
+                              row: r,
+                              code: r.student_code,
+                              detail: `${r.grade ?? "?"} to ${r.expected_grade ?? "?"}`,
+                            }))}
+                          />
+                        </div>
                       )}
-                      {data.reconciliation.applied_outside_cohort > 0 && (
-                        <p className="text-[11px] text-muted-foreground">
-                          <span className="text-foreground font-medium">
-                            {data.reconciliation.applied_outside_cohort} application
-                            {data.reconciliation.applied_outside_cohort === 1 ? "" : "s"} from
-                            outside this cohort.
-                          </span>{" "}
-                          These families applied but were not studying here at the end of last year,
-                          so they count on the applications page rather than towards this rate.
-                        </p>
+
+                      {data.reconciliation.applied_outside.length > 0 && (
+                        <div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {data.reconciliation.applied_outside.length === 1
+                              ? "One family has applied who was not studying with us last year or this summer."
+                              : `${data.reconciliation.applied_outside.length} families have applied who were not studying with us last year or this summer.`}{" "}
+                            Their applications are real and count on the applications page. They
+                            are left out here because this page measures the students we already
+                            had.
+                          </p>
+                          <OutsideTable
+                            rows={data.reconciliation.applied_outside.map((r) => ({
+                              row: r,
+                              code: r.student_code,
+                              detail: `${r.grade ?? "?"}, applied for ${r.applied_grade ?? "?"}`,
+                            }))}
+                          />
+                        </div>
                       )}
                     </div>
                   )}

@@ -688,6 +688,40 @@ class TestContactAndScoping:
         assert _build_retention(db_session, reg_cfg, branch="MSA").reconciliation.applied_outside_cohort == 1
         assert _build_retention(db_session, reg_cfg, branch="MSB").reconciliation.applied_outside_cohort == 0
 
+    def test_applications_from_outside_the_cohort_are_named(self, db_session, reg_cfg, tutor):
+        """Each of them is a different situation: one lapsed a year ago, one is
+        a primary student the conversion board owns. A count cannot tell those
+        apart and staff cannot act on it."""
+        lapsed = _student(db_session, name="Lapsed", grade="F2", code="1426")
+        _regular_enrollment(db_session, lapsed, tutor, first_lesson=date(2026, 1, 6), lessons=4)
+        _application(db_session, reg_cfg, lapsed, grade="F3")
+
+        [row] = _build_retention(db_session, reg_cfg).reconciliation.applied_outside
+
+        assert row.student_id == lapsed.id
+        assert row.student_name == "Lapsed"
+        assert row.student_code == "MSA-1426"
+        assert row.branch == "MSA"
+        # What they are on record as, against what they have asked for.
+        assert (row.grade, row.applied_grade) == ("F2", "F3")
+        assert row.reference_code
+
+    def test_students_with_no_class_to_apply_for_stay_on_the_list(
+        self, db_session, reg_cfg, tutor
+    ):
+        """Held out of the rate but kept in `chase`, which is what lets the
+        overview name them instead of just counting them."""
+        leaver = _student(db_session, name="Leaving school", grade="F5")
+        _regular_enrollment(db_session, leaver, tutor, first_lesson=date(2026, 4, 7))
+
+        result = _build_retention(db_session, reg_cfg)
+
+        assert result.no_rung.cohort == 1
+        assert result.totals.cohort == 0
+        row = _row(result, leaver.id)
+        assert row is not None and row.rung == "none"
+        assert row.expected_grade == "F6"
+
     def test_branch_filter_scopes_the_whole_report(self, db_session, reg_cfg, tutor):
         msa = _student(db_session, name="At MSA")
         msb = _student(db_session, name="At MSB")

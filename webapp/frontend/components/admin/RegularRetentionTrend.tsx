@@ -21,26 +21,42 @@ const METRICS: {
   key: Metric;
   label: string;
   color: string;
-  /** Sentence under the chart when nothing of this kind has happened yet. */
+  /** The sentence above the chart. Written per metric rather than assembled
+   *  from fragments, because "245 applications, 30% of the cohort" is how a
+   *  headline is written and not how anybody speaks. */
+  summary: (total: number, students: number, opened: string) => string;
+  /** And the sentence in its place when nothing of this kind has happened. */
   empty: string;
 }[] = [
   {
     key: "applied",
     label: "Applications",
     color: "#6366f1",
-    empty: "Nobody from this cohort has applied yet.",
+    summary: (total, students, opened) =>
+      `Our students have sent in ${total} application${total === 1 ? "" : "s"}` +
+      `${opened ? ` since applications opened on ${opened}` : ""}.` +
+      (students > 0
+        ? ` That is ${Math.round((total / students) * 100)}% of the ${students} students we are following up.`
+        : ""),
+    empty: "None of these students has applied yet.",
   },
   {
     key: "contacted",
     label: "Contacts",
     color: "#0ea5e9",
-    empty: "No calls or messages have been logged since the window opened.",
+    summary: (total, students, opened) =>
+      `We have contacted ${total}${students > 0 ? ` of the ${students}` : ""} students` +
+      `${opened ? ` since applications opened on ${opened}` : ""}.`,
+    empty: "No calls or messages have been logged since applications opened.",
   },
   {
     key: "declined",
     label: "Not returning",
     color: "#f43f5e",
-    empty: "Nobody has been recorded as not returning.",
+    summary: (total, students) =>
+      `${total}${students > 0 ? ` of the ${students}` : ""} students have told us they are ` +
+      `not coming back.`,
+    empty: "Nobody has told us they are leaving.",
   },
 ];
 
@@ -102,6 +118,10 @@ export function RegularRetentionTrend({ data }: { data: RegularRetentionResponse
     [data.trend]
   );
 
+  // The day the window opened, named in the sentence so the reader knows what
+  // "so far" is measured from without opening the config.
+  const opened = data.trend.length ? shortDate(data.trend[0].date) : "";
+
   const totals = useMemo(() => {
     const last = data.trend[data.trend.length - 1];
     return {
@@ -130,12 +150,12 @@ export function RegularRetentionTrend({ data }: { data: RegularRetentionResponse
       <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
         <div>
           <h2 className="text-sm font-semibold text-foreground">How the intake is going</h2>
-          <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-            {total} {active.label.toLowerCase()} since the window opened
-            {metric === "applied" && cohort > 0
-              ? `, ${Math.round((total / cohort) * 100)}% of the cohort`
-              : ""}
-            . {lastSeven} in the last seven days.
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {active.summary(total, cohort, opened)}
+            {/* Only when the last week is genuinely a slice of the whole. In
+                the opening days it is the same number twice, which reads as a
+                mistake rather than as momentum. */}
+            {lastSeven < total && ` ${lastSeven} of those came in the last seven days.`}
           </p>
         </div>
         <div className="inline-flex bg-muted rounded-full p-0.5 shrink-0">
@@ -210,8 +230,9 @@ export function RegularRetentionTrend({ data }: { data: RegularRetentionResponse
       )}
 
       <p className="text-[11px] text-muted-foreground mt-2">
-        Bars count each day on the left, the line is the running total on the right. Every day is
-        measured against the cohort as it stands today, so the line moves when the chasing does.
+        Each bar is one day, counted on the left. The line is the running total, counted on the
+        right. Every day is measured against the same group of students, so the line only moves
+        when a family does something.
       </p>
     </div>
   );

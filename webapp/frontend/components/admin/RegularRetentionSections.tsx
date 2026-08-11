@@ -85,7 +85,9 @@ export function StudentLink({
   row,
   className,
 }: {
-  row: RegularRetentionChaseRow;
+  // Anything carrying a student's id and name, so the panels that list
+  // students who are not on the chase list can use it too.
+  row: { student_id: number; student_name: string };
   className?: string;
 }) {
   return (
@@ -114,7 +116,7 @@ export function PhoneCell({ row }: { row: RegularRetentionChaseRow }) {
   return (
     <span
       className="text-[11px] text-amber-700 dark:text-amber-400"
-      title="No number on file, so this family cannot be rung from here"
+      title="We have no number for this family, so nobody can ring them from this list."
     >
       No number
     </span>
@@ -128,9 +130,9 @@ const SOURCE_LABELS: Record<RetentionSource, string> = {
 };
 
 const SOURCE_HINTS: Record<RetentionSource, string> = {
-  regular_and_summer: "Studied last year and did summer — the strongest signal there is",
-  regular_only: "Studied last year, skipped summer",
-  summer_only: "Came in through summer with no regular history",
+  regular_and_summer: "These students studied with us last year and came back for the summer.",
+  regular_only: "These students studied with us last year but did not do the summer course.",
+  summer_only: "These students joined us for the summer and had not studied here before.",
 };
 
 function StateBadge({ state }: { state: RetentionState }) {
@@ -219,7 +221,10 @@ function AxisTable({
           <th className={thNum}>No response</th>
           {/* Of the unresponsive, not of everybody: under a "no response"
               heading a cohort-wide figure reads as this one anyway. */}
-          <th className={thNum} title="Of those with no response, how many have already been called">
+          <th
+            className={thNum}
+            title="How many of the students who have not answered we have already called."
+          >
             Called
           </th>
           <th className={thNum}>Apply %</th>
@@ -255,20 +260,20 @@ function AxisTable({
 export function RegularRetentionBreakdowns({ data }: { data: RegularRetentionResponse }) {
   return (
     <div className="space-y-6">
-      <Section title="By branch" hint="Where the cohort studied last year.">
+      <Section title="By branch" hint="Each student counts at the branch they studied at last year.">
         <AxisTable rows={data.by_branch} label="Branch" />
       </Section>
 
       <Section
         title="By entering grade"
-        hint="The grade each student moves into this September, not the one on their record today."
+        hint="This is the grade each student moves into in September, not the grade on their record today."
       >
         <AxisTable rows={data.by_expected_grade} label="Entering" />
       </Section>
 
       <Section
         title="By where they came from"
-        hint="Students in both last year's regular course and this summer are the ones most likely to stay."
+        hint="Students who did both last year's course and this summer are the likeliest to stay."
       >
         <AxisTable
           rows={data.by_source}
@@ -281,13 +286,13 @@ export function RegularRetentionBreakdowns({ data }: { data: RegularRetentionRes
         />
       </Section>
 
-      <Section title="By tutor" hint="Whose students have and haven't come back.">
+      <Section title="By tutor" hint="These are the students each tutor taught last year.">
         <AxisTable rows={data.by_tutor} label="Tutor" />
       </Section>
 
       <Section
         title="Why they are not returning"
-        hint="Reasons recorded against families who told us they are leaving. These feed the quarterly termination report too."
+        hint="These are the reasons staff recorded for the families who told us they are leaving. The same reasons appear in the quarterly termination report."
       >
         <table className="w-full text-xs">
           <thead className={thead}>
@@ -439,7 +444,7 @@ export function NotReturningDialog({
             <span className="text-xs text-foreground">
               They are moving to another branch or finishing school
               <span className="block text-[11px] text-muted-foreground mt-0.5">
-                Recorded, but not counted as a student we lost.
+                We will record that they left, but not count them as a student we lost.
               </span>
             </span>
           </label>
@@ -1173,7 +1178,7 @@ export function RegularRetentionChaseList({
                       {r.decline_reason_category && r.state !== "declined" && (
                         <span
                           className="ml-1.5 text-[10px] text-rose-600 dark:text-rose-400"
-                          title="This family was marked as not returning but has a live application — worth checking"
+                          title="Somebody marked this family as not returning, but they have a live application. Worth checking."
                         >
                           conflict
                         </span>

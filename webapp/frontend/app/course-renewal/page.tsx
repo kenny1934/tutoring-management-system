@@ -107,7 +107,7 @@ export default function CourseRenewalPage() {
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground">Course Renewal</h1>
                 <p className="hidden sm:block text-xs text-muted-foreground">
-                  Your students who have not yet applied for September.
+                  These are your students who have not yet applied for September.
                 </p>
               </div>
             </div>
@@ -205,8 +205,8 @@ export default function CourseRenewalPage() {
                     {filtered
                       ? "Nobody matches what you searched for."
                       : showDone
-                        ? "Nothing settled yet."
-                        : "Every one of your students has answered. Nothing to chase."}
+                        ? "None of your students has answered yet."
+                        : "Every one of your students has answered. There is nobody to chase."}
                   </p>
                 </div>
               ) : (

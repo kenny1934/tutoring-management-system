@@ -91,6 +91,7 @@ from schemas import (
     RegularRetentionChaseRow,
     RegularRetentionReconciliation,
     RegularRetentionMineResponse,
+    RegularRetentionOutsideRow,
     RegularRetentionTrendPoint,
     ProspectIntention,
 )
@@ -2502,18 +2503,32 @@ def _build_retention(
     if include_reconciliation:
         reconciliation = _retention_reconciliation(db, config, branch)
         # Applications from students this cohort never contained: they lapsed
-        # earlier, or never had a qualifying enrollment. Reported so the board
-        # says where they went rather than losing them. Their branch is their
-        # home branch, there being no enrollment here to take one from.
-        outside = [sid for sid in app_by_student if sid not in cohort_ids]
-        if outside and branch:
-            outside = [
-                sid
-                for (sid,) in db.query(Student.id).filter(
-                    Student.id.in_(outside), Student.home_location == branch
-                )
-            ]
+        # earlier, or never had a qualifying enrollment. Named rather than
+        # counted, because each one is a different situation and a number
+        # cannot tell them apart. Their branch is their home branch, there
+        # being no enrollment here to take one from.
+        outside_ids = [sid for sid in app_by_student if sid not in cohort_ids]
+        outside: list[RegularRetentionOutsideRow] = []
+        if outside_ids:
+            query = db.query(Student).filter(Student.id.in_(outside_ids))
+            if branch:
+                query = query.filter(Student.home_location == branch)
+            for student in query:
+                app = app_by_student[student.id]
+                outside.append(RegularRetentionOutsideRow(
+                    student_id=student.id,
+                    student_name=student.student_name,
+                    student_code=format_student_code(
+                        student.home_location, student.school_student_id
+                    ),
+                    branch=student.home_location,
+                    grade=student.grade,
+                    applied_grade=app.grade,
+                    reference_code=app.reference_code,
+                ))
+            outside.sort(key=lambda r: r.student_name or "")
         reconciliation.applied_outside_cohort = len(outside)
+        reconciliation.applied_outside = outside
 
     # Unresponsive students lead every list — they are the work. Within that,
     # group by branch and entering grade so a caller works one class at a time.
