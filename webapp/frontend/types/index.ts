@@ -3999,6 +3999,101 @@ export interface RegularConversionResponse {
   lost_prospects: RegularConversionLostRow[];
 }
 
+/** Where a cohort member came from. Conversion answers "did new blood
+ *  arrive"; retention answers "did the people we already had stay". */
+export type RetentionSource = "regular_and_summer" | "regular_only" | "summer_only";
+
+/** What happened to them this intake. Everything before "no_response" is a
+ *  resolved outcome; only no_response earns a place on the chase list. */
+export type RetentionState =
+  | "enrolled"
+  | "applied"
+  | "declined"
+  | "not_churn"
+  | "no_response";
+
+/** Whether the grade they are entering is one the form actually offers.
+ *  `admin_only` rungs exist but are hidden from parents, so those families
+ *  cannot self-serve however hard they are chased. */
+export type RetentionRung = "open" | "admin_only" | "none";
+
+export interface RegularRetentionRow {
+  /** Branch code, entering grade, source tag, tutor name or decline reason,
+   *  depending on which list the row came from. */
+  key: string;
+  /** The denominator. Holds declines: a family who said no is a retention
+   *  failure, not an exclusion. */
+  cohort: number;
+  applied: number;
+  enrolled: number;
+  declined: number;
+  /** A parent contact was logged inside the application window. Independent of
+   *  state — a contacted family can still be sitting at no_response. */
+  contacted: number;
+  no_response: number;
+}
+
+export interface RegularRetentionChaseRow {
+  student_id: number;
+  student_name: string;
+  student_code: string | null;
+  branch: string | null;
+  /** The grade on the student record: last school year's, until the Sept 1
+   *  promotion job runs. */
+  grade: string | null;
+  /** The grade they are entering, which is what an application carries. Equal
+   *  to `grade` only after promotion. */
+  expected_grade: string | null;
+  rung: RetentionRung;
+  lang_stream: string | null;
+  school: string | null;
+  phone: string | null;
+  tutor_id: number | null;
+  tutor_name: string | null;
+  source: RetentionSource;
+  /** A P6 prospect row already covers this student, so the primary branch is
+   *  chasing them too and this board should not double-call. */
+  on_prospect_board: boolean;
+  state: RetentionState;
+  reference_code: string | null;
+  last_contact_date: string | null;
+  days_since_contact: number | null;
+  follow_up_needed: boolean;
+  follow_up_date: string | null;
+  decline_reason: string | null;
+  decline_reason_category: string | null;
+}
+
+export interface RegularRetentionReconciliation {
+  unlinked_count: number;
+  unlinked_secondary: number;
+  unlinked_primary: number;
+}
+
+export interface RegularRetentionResponse {
+  year: number;
+  window_start: string | null;
+  active_from: string | null;
+  /** The reporting quarter a decline is written into. The application window
+   *  falls inside a single quarter, which is what lets a decline ride on
+   *  termination records instead of needing its own store. */
+  intake_year: number;
+  intake_quarter: number;
+  totals: RegularRetentionRow;
+  by_branch: RegularRetentionRow[];
+  by_expected_grade: RegularRetentionRow[];
+  by_source: RegularRetentionRow[];
+  by_tutor: RegularRetentionRow[];
+  by_decline_reason: RegularRetentionRow[];
+  /** Students whose entering grade the config has no place for. Reported apart
+   *  and never counted as unresponsive. */
+  no_rung: RegularRetentionRow;
+  /** The whole cohort, unresponsive first. The chase list is the no_response
+   *  subset; the rest is returned so the page can filter without a second call. */
+  chase: RegularRetentionChaseRow[];
+  reconciliation: RegularRetentionReconciliation;
+}
+
 /** A weekly slot's own fields, with no assignment state. Inlined on the
  *  application (regular's counterpart to a summer application's `sessions`
  *  array) and the base of `RegularSlot`, so the two cannot drift. */

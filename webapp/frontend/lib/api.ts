@@ -3176,6 +3176,11 @@ export const regularAPI = {
       `/regular/conversion?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
     ),
 
+  getRetention: (year: number, branch?: string | null) =>
+    fetchAPI<import("@/types").RegularRetentionResponse>(
+      `/regular/retention?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
+    ),
+
   publishApplication: (id: number, data: RegularPublishRequest) =>
     fetchAPI<RegularPublishResponse>(`/regular/applications/${id}/publish`, {
       method: "POST",
