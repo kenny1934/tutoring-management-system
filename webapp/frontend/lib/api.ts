@@ -3181,6 +3181,12 @@ export const regularAPI = {
       `/regular/retention?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
     ),
 
+  /** The caller's own students only. Defaults to the open intake. */
+  getMyRetention: (year?: number | null) =>
+    fetchAPI<import("@/types").RegularRetentionMineResponse>(
+      `/regular/retention/mine${year ? `?year=${year}` : ""}`
+    ),
+
   publishApplication: (id: number, data: RegularPublishRequest) =>
     fetchAPI<RegularPublishResponse>(`/regular/applications/${id}/publish`, {
       method: "POST",

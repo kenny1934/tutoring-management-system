@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
@@ -18,7 +18,7 @@ import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
-import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge, useRegularSidebarBadge } from "@/lib/hooks";
+import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge, useRegularSidebarBadge, useRegularIntakeOpen } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -85,6 +85,21 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const { isOpen: regularIsOpen, actionableCount: regularActionable } = useRegularSidebarBadge(
     isAdminOrAbove,
     selectedLocation,
+  );
+
+  // Course Renewal is a seasonal surface: it only means anything while the
+  // September intake is taking applications, so it appears for the window and
+  // then goes away rather than sitting empty for ten months.
+  const intakeOpen = useRegularIntakeOpen(!isGuest);
+  const mainNavigation = useMemo(
+    () =>
+      intakeOpen
+        ? [
+            ...navigation,
+            { name: "Course Renewal", href: "/course-renewal", icon: CalendarCheck, color: "bg-sky-500" },
+          ]
+        : navigation,
+    [intakeOpen],
   );
 
   // Per-item badge state for the admin nav. Renewals turns red when any
@@ -316,7 +331,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           className="h-full overflow-y-auto scrollbar-hide"
         >
         <nav className="space-y-2 px-3 py-4">
-        {navigation
+        {mainNavigation
           // Filter out Inbox for Guest (read-only role; Supervisors get broadcast-only view)
           .filter((item) => !(item.name === "Inbox" && isGuest))
           .map((item) => {

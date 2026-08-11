@@ -253,7 +253,7 @@ export function RegularRetentionBreakdowns({ data }: { data: RegularRetentionRes
  *  and that quarter already means "didn't come back when lessons resumed". The
  *  upside is that this board and the quarterly termination report read the same
  *  rows instead of drifting apart — which is also why the dialog says so. */
-function NotReturningDialog({
+export function NotReturningDialog({
   row,
   year,
   quarter,

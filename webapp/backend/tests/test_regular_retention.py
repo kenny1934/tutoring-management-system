@@ -26,7 +26,7 @@ from models import (
     TerminationRecord,
     Tutor,
 )
-from routers.regular_course import _build_retention, get_retention
+from routers.regular_course import _build_retention, get_my_retention, get_retention
 
 # The intake under test: applications open 4 Aug 2026, course starts 1 Sep.
 # That puts the cohort cutoff at 1 May 2026 and the decline quarter at Q3 2026.
@@ -582,4 +582,53 @@ class TestContactAndScoping:
     def test_unknown_year_is_a_404(self, db_session):
         with pytest.raises(HTTPException) as exc:
             get_retention(year=1999, branch=None, _admin=None, db=db_session)
+        assert exc.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# The tutor-facing view
+# ---------------------------------------------------------------------------
+
+class TestTutorView:
+    def test_returns_only_the_callers_own_students(self, db_session, reg_cfg, tutor):
+        other = Tutor(user_email="o@test.com", tutor_name="Mr Lei", role="Tutor",
+                      is_active_tutor=True)
+        db_session.add(other)
+        db_session.commit()
+        mine = _student(db_session, name="Mine")
+        theirs = _student(db_session, name="Theirs")
+        _regular_enrollment(db_session, mine, tutor, first_lesson=date(2026, 4, 7))
+        _regular_enrollment(db_session, theirs, other, first_lesson=date(2026, 4, 7))
+
+        result = get_my_retention(year=YEAR, current_user=tutor, db=db_session)
+
+        assert [s.student_name for s in result.students] == ["Mine"]
+        assert result.totals.cohort == 1
+
+    def test_carries_no_centre_wide_figures(self, db_session, reg_cfg, tutor):
+        """A tutor sees their students, not how the centre is performing — the
+        response has nowhere to put a branch or tutor comparison."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+
+        result = get_my_retention(year=YEAR, current_user=tutor, db=db_session)
+
+        for leaked in ("by_branch", "by_tutor", "by_source", "reconciliation"):
+            assert not hasattr(result, leaked), f"{leaked} must not reach a tutor"
+
+    def test_defaults_to_the_open_intake(self, db_session, reg_cfg, tutor):
+        """A tutor chases whichever intake is open, so the year is optional."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+
+        result = get_my_retention(year=None, current_user=tutor, db=db_session)
+
+        assert result.year == YEAR
+
+    def test_no_active_intake_is_a_404(self, db_session, reg_cfg, tutor):
+        reg_cfg.is_active = False
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            get_my_retention(year=None, current_user=tutor, db=db_session)
         assert exc.value.status_code == 404

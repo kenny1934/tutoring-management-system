@@ -4094,6 +4094,17 @@ export interface RegularRetentionResponse {
   reconciliation: RegularRetentionReconciliation;
 }
 
+/** One tutor's own students. Deliberately narrower than the admin report: no
+ *  branch rows, no tutor comparison, no reconciliation. `totals` counts only
+ *  this tutor's students — a worklist size, not a measure of the centre. */
+export interface RegularRetentionMineResponse {
+  year: number;
+  intake_year: number;
+  intake_quarter: number;
+  totals: RegularRetentionRow;
+  students: RegularRetentionChaseRow[];
+}
+
 /** A weekly slot's own fields, with no assignment state. Inlined on the
  *  application (regular's counterpart to a summer application's `sessions`
  *  array) and the base of `RegularSlot`, so the two cannot drift. */

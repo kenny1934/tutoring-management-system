@@ -3740,6 +3740,21 @@ class RegularRetentionResponse(BaseModel):
     reconciliation: RegularRetentionReconciliation
 
 
+class RegularRetentionMineResponse(BaseModel):
+    """One tutor's own students and whether they have come back.
+
+    Deliberately narrower than the admin report: no branch rows, no tutor
+    comparison, no reconciliation. `totals` counts only this tutor's own
+    students, which is their worklist size rather than a measure of how the
+    centre is performing."""
+    year: int
+    # Echoed so the "not returning" action can name the quarter it writes to.
+    intake_year: int
+    intake_quarter: int
+    totals: RegularRetentionRow
+    students: List[RegularRetentionChaseRow] = []
+
+
 class SavedReportDetailResponse(BaseModel):
     id: int
     student_id: int

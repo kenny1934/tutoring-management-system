@@ -90,9 +90,15 @@ from schemas import (
     RegularRetentionRow,
     RegularRetentionChaseRow,
     RegularRetentionReconciliation,
+    RegularRetentionMineResponse,
     ProspectIntention,
 )
-from auth.dependencies import require_admin_view, require_admin_write, require_super_admin
+from auth.dependencies import (
+    reject_guest,
+    require_admin_view,
+    require_admin_write,
+    require_super_admin,
+)
 from routers.students import find_duplicate_students
 from routers.primary_prospects import enrollment_backed_students
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
@@ -2331,6 +2337,42 @@ def get_retention(
     if not config:
         raise HTTPException(status_code=404, detail=f"No regular course config for {year}")
     return _build_retention(db, config, branch=branch)
+
+
+@router.get("/regular/retention/mine", response_model=RegularRetentionMineResponse)
+def get_my_retention(
+    year: Optional[int] = None,
+    current_user: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """A tutor's own students and whether they have come back.
+
+    The same cohort logic as the admin report, scoped to the caller's own
+    students and stripped of everything that would read as a scoreboard: no
+    branch rows, no comparison against other tutors, no reconciliation. Admins
+    calling this see their own students too — the admin board is where the
+    whole picture lives.
+
+    Defaults to the active intake, since a tutor chases the one that is open."""
+    query = db.query(RegularCourseConfig)
+    config = (
+        query.filter(RegularCourseConfig.year == year).first()
+        if year is not None
+        else query.filter(RegularCourseConfig.is_active == True).first()  # noqa: E712
+    )
+    if not config:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No regular course config for {year}" if year else "No active regular intake",
+        )
+    report = _build_retention(db, config, tutor_id=current_user.id)
+    return RegularRetentionMineResponse(
+        year=report.year,
+        intake_year=report.intake_year,
+        intake_quarter=report.intake_quarter,
+        totals=report.totals,
+        students=report.chase,
+    )
 
 
 def _norm_school(school: Optional[str]) -> Optional[str]:

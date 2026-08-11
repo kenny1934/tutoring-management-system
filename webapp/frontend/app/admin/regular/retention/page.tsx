@@ -14,6 +14,7 @@ import {
   RegularRetentionBreakdowns,
   RegularRetentionChaseList,
 } from "@/components/admin/RegularRetentionSections";
+import { RegularLinkSuggestionsModal } from "@/components/admin/RegularLinkSuggestionsModal";
 import type { RegularRetentionResponse, RegularRetentionRow } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
@@ -151,6 +152,7 @@ export default function RegularRetentionPage() {
   // Branch options come from the unfiltered view and persist while a single
   // branch is selected, so the dropdown never collapses to one option.
   const [branchOptions, setBranchOptions] = useState<string[]>([]);
+  const [linkingOpen, setLinkingOpen] = useState(false);
 
   const { data: configs } = useSWR(
     canViewAdminPages ? "regular-configs" : null,
@@ -193,6 +195,10 @@ export default function RegularRetentionPage() {
   };
 
   const noResponse = data?.totals.no_response ?? 0;
+  const configId = useMemo(
+    () => configs?.find((c) => c.year === year)?.id ?? null,
+    [configs, year]
+  );
 
   if (!canViewAdminPages) {
     return (
@@ -381,10 +387,18 @@ export default function RegularRetentionPage() {
                         </span>
                         <p className="text-sky-800/80 dark:text-sky-400/80 mt-0.5">
                           These families say they already study here, so some of them are counted as
-                          no response below. Match them on the applications page and the numbers
-                          settle.
+                          no response below. Matching them settles the numbers.
                         </p>
                       </div>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => setLinkingOpen(true)}
+                          className="shrink-0 underline font-medium hover:no-underline"
+                        >
+                          Match now
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -444,6 +458,16 @@ export default function RegularRetentionPage() {
               )}
             </div>
           )}
+
+          {/* Same matching flow the applications page uses, so an application
+              only ever gets linked one way. */}
+          <RegularLinkSuggestionsModal
+            isOpen={linkingOpen}
+            onClose={() => setLinkingOpen(false)}
+            year={year}
+            configId={configId}
+            onDone={() => mutate()}
+          />
         </div>
       </PageTransition>
     </DeskSurface>

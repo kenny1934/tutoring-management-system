@@ -1152,6 +1152,22 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
  * The public form-config endpoint is unauthenticated; the stats call only fires
  * for admins.
  */
+/** Whether the regular intake is currently taking applications.
+ *
+ *  Reads the same public config the form itself does, under the same SWR key
+ *  as the admin sidebar badge so the two share one request. Unlike that badge
+ *  this is not admin-only: tutors need it to know whether they have anyone to
+ *  chase, and the surfaces built on it disappear the rest of the year. */
+export function useRegularIntakeOpen(enabled: boolean) {
+  const { data } = useSWR(
+    enabled ? "regular-public-config" : null,
+    () => regularAPI.getFormConfig(),
+    { revalidateOnFocus: false },
+  );
+  return data?.application_window === "open";
+}
+
+
 export function useRegularSidebarBadge(isAdmin: boolean, location?: string) {
   const refreshInterval = useVisibilityAwareInterval(120000); // 2 min
   // "All Locations" is the unscoped sentinel from LocationContext. Regular
