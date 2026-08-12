@@ -4061,9 +4061,10 @@ export interface RegularRetentionChaseRow {
   phone?: string | null;
   tutor_name?: string | null;
   source: RetentionSource;
-  /** A P6 prospect row already covers this student, so the primary branch is
-   *  chasing them too and this board should not double-call. */
-  on_prospect_board: boolean;
+  /** Where a student who came up from a primary branch this summer came from.
+   *  The same block the applications page reads, so one chip renders it in
+   *  both places. Absent for everyone else. */
+  prospect_journey?: RegularProspectJourney | null;
   state: RetentionState;
   reference_code?: string | null;
   /** Where the application has got to on the ladder the parent also sees on

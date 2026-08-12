@@ -27,6 +27,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-badges";
+import { ProspectJourneyChip } from "@/components/admin/ProspectJourneyChip";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import {
   CONTACT_METHODS,
@@ -1349,17 +1350,10 @@ export function ChaseListBody({
                       )}
                     </td>
                     <td className="px-3 py-1.5">
-                      <StudentLink row={r} className="text-foreground font-medium" />
-                      {r.on_prospect_board && (
-                        <span
-                          role="img"
-                          aria-label="Already being followed up by a primary branch"
-                          className="ml-1.5 text-[10px] text-sky-700 dark:text-sky-400 align-middle"
-                          title="A primary branch is already following this student up on the prospect board"
-                        >
-                          ◆
-                        </span>
-                      )}
+                      <span className="inline-flex items-center gap-1.5 flex-wrap">
+                        <StudentLink row={r} className="text-foreground font-medium" />
+                        <ProspectJourneyChip journey={r.prospect_journey} trail={false} />
+                      </span>
                     </td>
                     <td className="px-3 py-1.5 whitespace-nowrap"><GradeBadge row={r} /></td>
                     {showBranch && (
@@ -1539,16 +1533,7 @@ function ChaseCard({
           <div className="flex items-center gap-1.5 flex-wrap">
             {row.student_code && <StudentCodeBadge code={row.student_code} />}
             <StudentLink row={row} className="text-sm font-medium text-foreground" />
-            {row.on_prospect_board && (
-              <span
-                role="img"
-                aria-label="Already being followed up by a primary branch"
-                className="text-[10px] text-sky-700 dark:text-sky-400"
-                title="A primary branch is already following this student up on the prospect board"
-              >
-                ◆
-              </span>
-            )}
+            <ProspectJourneyChip journey={row.prospect_journey} trail={false} />
             <span className="ml-auto shrink-0 inline-flex items-center gap-1.5">
               <LadderRung row={row} />
               <StateBadge state={row.state} />

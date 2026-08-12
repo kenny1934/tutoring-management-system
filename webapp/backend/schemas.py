@@ -3699,6 +3699,22 @@ class RegularRetentionRow(BaseModel):
     no_response_contacted: int = 0
 
 
+class RegularProspectJourney(BaseModel):
+    """P6 prospect journey attached to a linked regular application.
+
+    Batched onto the application response (like is_new_student) to feed the
+    journey chip and the applications-page filter. attended_summer is true when
+    a summer enrollment row exists and the summer application was not withdrawn.
+    """
+    prospect_id: int
+    source_branch: Optional[str] = None
+    # Their id at the primary branch, as the branch tutor submitted it
+    # ("MCP1112"). The chip renders it through formatProspectCode, the same
+    # helper every other prospect-code display already uses.
+    primary_student_id: Optional[str] = None
+    attended_summer: bool = False
+
+
 class RegularRetentionChaseRow(BaseModel):
     """One cohort member, with everything needed to chase them in one row.
 
@@ -3721,9 +3737,11 @@ class RegularRetentionChaseRow(BaseModel):
     phone: Optional[str] = None
     tutor_name: Optional[str] = None
     source: RetentionSource = "regular_only"
-    # True when a P6 prospect row already covers this student, so the primary
-    # branch is chasing them too and this board should not double-call.
-    on_prospect_board: bool = False
+    # Where a student who came up from a primary branch this summer came from.
+    # Set for the ones a primary tutor put forward on the P6 prospect list,
+    # which is the same block the applications page reads, so one chip renders
+    # it in both places. Absent for everyone else.
+    prospect_journey: Optional[RegularProspectJourney] = None
     state: RetentionState = "no_response"
     reference_code: Optional[str] = None
     # Where the application has got to on the ladder the parent also sees on
@@ -4348,22 +4366,6 @@ class RegularAssignedSlotInfo(BaseModel):
     tutor_id: Optional[int] = None
     tutor_name: Optional[str] = None
     max_students: int
-
-
-class RegularProspectJourney(BaseModel):
-    """P6 prospect journey attached to a linked regular application.
-
-    Batched onto the application response (like is_new_student) to feed the
-    journey chip and the applications-page filter. attended_summer is true when
-    a summer enrollment row exists and the summer application was not withdrawn.
-    """
-    prospect_id: int
-    source_branch: Optional[str] = None
-    # Their id at the primary branch, as the branch tutor submitted it
-    # ("MCP1112"). The chip renders it through formatProspectCode, the same
-    # helper every other prospect-code display already uses.
-    primary_student_id: Optional[str] = None
-    attended_summer: bool = False
 
 
 class RegularApplicationResponse(BaseModel):

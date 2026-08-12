@@ -2065,7 +2065,12 @@ def _retention_applications(db: Session, config: RegularCourseConfig, year: int)
     `existing_student_id` is the main one, and a P6 prospect's own link picks up
     the handful whose application was matched to the prospect but never back to
     the student record. Missing the second path would read as "no response" for
-    a family that already applied."""
+    a family that already applied.
+
+    Returns the prospect block for each of those students as well, since the
+    same pass over the prospect list already has it in hand. The board renders
+    it as the chip the applications page uses, so a student who came up from a
+    primary branch is labelled the same way wherever staff meet them."""
     apps = (
         db.query(RegularApplication)
         .filter(
@@ -2081,6 +2086,7 @@ def _retention_applications(db: Session, config: RegularCourseConfig, year: int)
 
     prospects = (
         db.query(PrimaryProspect)
+        .options(joinedload(PrimaryProspect.summer_application))
         .filter(
             PrimaryProspect.year == year,
             PrimaryProspect.summer_application_id.isnot(None),
@@ -2093,13 +2099,25 @@ def _retention_applications(db: Session, config: RegularCourseConfig, year: int)
         {p.summer_application_id for p in prospects},
     )
     by_id = {app.id: app for app in apps}
-    on_prospect_board: set[int] = set()
+    journeys: dict[int, RegularProspectJourney] = {}
     for prospect in prospects:
         pair = backed.get(prospect.summer_application_id)
         if not pair:
             continue
         student_id = pair[0]
-        on_prospect_board.add(student_id)
+        summer_app = prospect.summer_application
+        journeys[student_id] = RegularProspectJourney(
+            prospect_id=prospect.id,
+            source_branch=prospect.source_branch,
+            primary_student_id=prospect.primary_student_id,
+            # Same rule the applications page uses, so the chip cannot say two
+            # different things about one student: they took the course if the
+            # summer application published an enrollment and was not withdrawn.
+            attended_summer=bool(
+                summer_app is not None
+                and summer_app.application_status != "Withdrawn"
+            ),
+        )
         if prospect.regular_application_id and student_id not in app_by_student:
             app = by_id.get(prospect.regular_application_id)
             if app:
@@ -2115,7 +2133,7 @@ def _retention_applications(db: Session, config: RegularCourseConfig, year: int)
             )
             if app_id is not None
         }
-    return app_by_student, enrolled_app_ids, on_prospect_board
+    return app_by_student, enrolled_app_ids, journeys
 
 
 def _retention_contacts(db: Session, student_ids: set[int], window_start):
@@ -2306,7 +2324,7 @@ def _build_retention(
     # because a cohort that shrank silently is a cohort nobody trusts.
     cohort_ids -= left_before
 
-    app_by_student, enrolled_app_ids, on_prospect_board = _retention_applications(db, config, year)
+    app_by_student, enrolled_app_ids, prospect_journeys = _retention_applications(db, config, year)
     contacts = _retention_contacts(db, cohort_ids, window_start)
     rungs = _retention_rungs(config)
 
@@ -2413,7 +2431,7 @@ def _build_retention(
             phone=student.phone,
             tutor_name=tutor_names.get(student_tutor_id),
             source=source,
-            on_prospect_board=student_id in on_prospect_board,
+            prospect_journey=prospect_journeys.get(student_id),
             state=state,
             reference_code=app.reference_code if app else None,
             application_status=app.application_status if app else None,

@@ -17,6 +17,7 @@ import {
 } from "@/components/admin/RegularRetentionSections";
 import { RegularRetentionTrend } from "@/components/admin/RegularRetentionTrend";
 import { RegularLinkSuggestionsModal } from "@/components/admin/RegularLinkSuggestionsModal";
+import { formatProspectCode } from "@/lib/regular-utils";
 import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularRetentionResponse, RegularRetentionRow } from "@/types";
 
@@ -112,13 +113,19 @@ function buildRetentionCsv(data: RegularRetentionResponse): string {
 
   rows.push([
     "Student", "Code", "Branch", "Grade now", "Entering", "Rung", "Stream", "School",
-    "Phone", "Tutor", "Source", "On prospect board", "State", "Reference",
+    "Phone", "Tutor", "Source", "Came from", "State", "Reference",
     "Last contact", "Days since", "Follow up", "Not returning reason", "Last note",
   ]);
   data.chase.forEach((r) =>
     rows.push([
       r.student_name, r.student_code, r.branch, r.grade, r.expected_grade, r.rung,
-      r.lang_stream, r.school, r.phone, r.tutor_name, r.source, r.on_prospect_board,
+      r.lang_stream, r.school, r.phone, r.tutor_name, r.source,
+      // The branch's own code for the ones who came up from primary, which is
+      // what reconciles this list against the branch's records. A yes/no told
+      // whoever opened the export nothing they could act on.
+      r.prospect_journey?.source_branch
+        ? formatProspectCode(r.prospect_journey.source_branch, r.prospect_journey.primary_student_id)
+        : "",
       r.state, r.reference_code, r.last_contact_date, r.days_since_contact,
       r.follow_up_date, r.decline_reason_category, r.last_contact_note,
     ])

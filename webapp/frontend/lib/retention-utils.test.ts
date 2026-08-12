@@ -33,7 +33,7 @@ function row(over: Partial<RegularRetentionChaseRow> = {}): RegularRetentionChas
     phone: "66880000",
     tutor_name: "Ms Ho",
     source: "regular_only",
-    on_prospect_board: false,
+    prospect_journey: null,
     state: "no_response",
     reference_code: null,
     last_contact_date: null,

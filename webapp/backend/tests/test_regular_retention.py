@@ -453,17 +453,19 @@ class TestApplied:
 
         row = _row(result, s.id)
         assert row.state == "applied"
-        assert row.on_prospect_board is True
+        assert row.prospect_journey is not None
+        assert row.prospect_journey.source_branch == "MAC"
 
-    def test_prospect_board_membership_is_flagged_even_without_an_application(
+    def test_where_a_student_came_from_is_carried_even_without_an_application(
         self, db_session, reg_cfg, sum_cfg, tutor
     ):
-        """The primary branch is already chasing these families; the board says
-        so rather than sending a second caller."""
+        """These students came up from a primary branch this summer, and the
+        board says so with the branch's own code for them."""
         s = _student(db_session, grade="P6")
         summer_app, _ = _summer_enrollment(db_session, s, tutor, sum_cfg)
         db_session.add(PrimaryProspect(
-            year=YEAR, source_branch="MAC", student_name=s.student_name, grade="P6",
+            year=YEAR, source_branch="MAC", primary_student_id="MAC1112",
+            student_name=s.student_name, grade="P6",
             summer_application_id=summer_app.id,
         ))
         db_session.commit()
@@ -471,7 +473,20 @@ class TestApplied:
         row = _row(_build_retention(db_session, reg_cfg), s.id)
 
         assert row.state == "no_response"
-        assert row.on_prospect_board is True
+        assert row.prospect_journey is not None
+        assert row.prospect_journey.source_branch == "MAC"
+        assert row.prospect_journey.primary_student_id == "MAC1112"
+        # They are only on this list because their summer application produced
+        # an enrollment, so the chip must not say they skipped the course.
+        assert row.prospect_journey.attended_summer is True
+
+    def test_a_student_who_never_came_from_primary_has_no_prospect_block(
+        self, db_session, reg_cfg, sum_cfg, tutor
+    ):
+        s = _student(db_session, grade="F1")
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+
+        assert _row(_build_retention(db_session, reg_cfg), s.id).prospect_journey is None
 
 
 # ---------------------------------------------------------------------------
