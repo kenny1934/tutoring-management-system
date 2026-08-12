@@ -4186,6 +4186,10 @@ export interface RegularPublishResponse {
   sessions_created: number;
   first_lesson_date: string;
   skipped_holidays: Array<{ date: string; name: string }>;
+  /** The rung publishing left the application on, which is Enrolled. Reported
+   *  back like the unpublish response reports the status it restored, so a
+   *  screen holding the status as a pending edit can follow along. */
+  application_status: string;
 }
 
 export interface RegularUnpublishResponse {

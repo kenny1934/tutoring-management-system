@@ -2242,6 +2242,7 @@ def _publish_application_inner(
         sessions_created=sessions_created,
         first_lesson_date=first_lesson_date,
         skipped_holidays=skipped_holidays,
+        application_status=app.application_status,
     )
 
 

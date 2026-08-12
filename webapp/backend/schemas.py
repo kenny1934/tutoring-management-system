@@ -4310,6 +4310,12 @@ class RegularPublishResponse(BaseModel):
     sessions_created: int
     first_lesson_date: date
     skipped_holidays: List[Dict[str, str]] = Field(default_factory=list)
+    # Publishing moves the application to Enrolled, so it is reported back the
+    # way the unpublish response reports the status it restored. The detail
+    # modal holds the status as a pending edit and would otherwise keep the
+    # rung the application was on before, then offer to save it and demote the
+    # application it just enrolled.
+    application_status: str
 
 
 class RegularUnpublishResponse(BaseModel):

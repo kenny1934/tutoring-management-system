@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
@@ -305,6 +305,11 @@ export function RegularApplicationDetailModal({
   // Admin-verified origin. Saved with the rest of the form rather than on
   // change, so a mis-click can be abandoned like any other edit.
   const [branchOrigin, setBranchOrigin] = useState("");
+  // Whether the admin has picked an origin since the form was last seeded. The
+  // backend derives this field from a student or prospect link, so a save that
+  // was never about the origin must not carry a value for it and undo what the
+  // backend worked out.
+  const [originTouched, setOriginTouched] = useState(false);
 
   // Publish form
   const [pubLocation, setPubLocation] = useState("MSA");
@@ -331,26 +336,37 @@ export function RegularApplicationDetailModal({
   const canEdit = !readOnly && !isPublished;
   const courseStart = (config?.course_start_date || "").split("T")[0];
 
+  // Fill the form from an application record. Called when the modal opens on
+  // one, and again from the record every write returns, because the backend
+  // decides some of these for itself: linking a student or a prospect fills in
+  // the verified origin. Without reading its answer back the dropdown would go
+  // on showing Unverified, the modal would look permanently unsaved, and the
+  // next save would send the empty value and undo the link's own work.
+  const seedFormFields = useCallback((a: RegularApplication) => {
+    setStatus(a.application_status);
+    setStudentId(a.existing_student_id?.toString() || "");
+    setBranchOrigin(a.verified_branch_origin || "");
+    setOriginTouched(false);
+    setNotes(a.admin_notes || "");
+    setDSchool(a.school || "");
+    setDGrade(a.grade || "");
+    setDLang(a.lang_stream || "");
+    setDWechat(a.wechat_id || "");
+    setDLocation(a.preferred_location || "");
+    setDP1Day(a.preference_1_day || "");
+    setDP1Time(a.preference_1_time || "");
+    setDP2Day(a.preference_2_day || "");
+    setDP2Time(a.preference_2_time || "");
+  }, []);
+
   // Reset all local state when the modal opens or moves to another application.
   useEffect(() => {
     if (!app || !isOpen) return;
-    setStatus(app.application_status);
-    setStudentId(app.existing_student_id?.toString() || "");
-    setBranchOrigin(app.verified_branch_origin || "");
-    setNotes(app.admin_notes || "");
+    seedFormFields(app);
     setShowAllStatuses(false);
     setPendingDiscard(null);
     setPendingStatusConfirm(null);
     setEditingDetails(false);
-    setDSchool(app.school || "");
-    setDGrade(app.grade || "");
-    setDLang(app.lang_stream || "");
-    setDWechat(app.wechat_id || "");
-    setDLocation(app.preferred_location || "");
-    setDP1Day(app.preference_1_day || "");
-    setDP1Time(app.preference_1_time || "");
-    setDP2Day(app.preference_2_day || "");
-    setDP2Time(app.preference_2_time || "");
     setStudentSearch("");
     setSearchFocused(false);
     setShowManualId(false);
@@ -590,7 +606,7 @@ export function RegularApplicationDetailModal({
     status !== app.application_status ||
     notes !== (app.admin_notes || "") ||
     studentId !== (app.existing_student_id?.toString() || "") ||
-    branchOrigin !== (app.verified_branch_origin || "") ||
+    (originTouched && branchOrigin !== (app.verified_branch_origin || "")) ||
     detailChanged;
 
   const buildUpdate = (): RegularApplicationUpdate => {
@@ -601,11 +617,13 @@ export function RegularApplicationDetailModal({
     if (newStudentId !== (app.existing_student_id ?? null)) {
       update.existing_student_id = newStudentId;
     }
-    // Sent whenever it differs, including when cleared back to unverified. The
-    // backend only auto-fills this from a student link when the field is
-    // absent, so an explicit choice always wins over the guess.
+    // Sent only when the admin picked an origin, including when they picked
+    // Unverified to clear one. The backend auto-fills this from a student or
+    // prospect link whenever the field is absent, so an explicit choice wins
+    // over the guess and a save that never touched the dropdown leaves the
+    // backend's own answer alone.
     const newBranchOrigin = branchOrigin || null;
-    if (newBranchOrigin !== (app.verified_branch_origin ?? null)) {
+    if (originTouched && newBranchOrigin !== (app.verified_branch_origin ?? null)) {
       update.verified_branch_origin = newBranchOrigin;
     }
     if (dSchool !== (app.school || "")) update.school = dSchool;
@@ -623,7 +641,11 @@ export function RegularApplicationDetailModal({
   const doSave = async () => {
     setSaving(true);
     try {
-      await regularAPI.updateApplication(app.id, buildUpdate());
+      const updated = await regularAPI.updateApplication(app.id, buildUpdate());
+      // Read back what the save produced before refreshing the list behind us.
+      // A student link makes the backend fill in the verified origin, and the
+      // form has to show that rather than the blank it sent.
+      seedFormFields(updated);
       showToast("Changes saved", "success");
       setEditingDetails(false);
       await onUpdated();
@@ -676,7 +698,8 @@ export function RegularApplicationDetailModal({
   const handleUnlinkProspect = async () => {
     setProspectBusy(true);
     try {
-      await regularAPI.linkProspect(app.id, null);
+      const updated = await regularAPI.linkProspect(app.id, null);
+      seedFormFields(updated);
       showToast("Prospect unlinked", "success");
       onUpdated();
     } catch (e) {
@@ -759,6 +782,10 @@ export function RegularApplicationDetailModal({
         discount_id: pubDiscountId,
       });
       setPublishResult(result);
+      // Publishing enrols the application, so follow it. The status is held
+      // here as a pending edit, and leaving it on the old rung would offer to
+      // save that rung back and demote what was just enrolled.
+      setStatus(result.application_status);
       showToast("Published to enrollments", "success");
       await onUpdated();
     } catch (e) {
@@ -776,6 +803,8 @@ export function RegularApplicationDetailModal({
       const result = await regularAPI.unpublishApplication(app.id);
       showToast(`Unpublished. ${result.sessions_deleted} scheduled sessions removed.`, "success");
       setPublishResult(null);
+      // Unpublishing puts the application back a rung and says which one.
+      setStatus(result.application_status);
       await onUpdated();
     } catch (e) {
       setPublishError(toPublishError(e));
@@ -1095,7 +1124,10 @@ export function RegularApplicationDetailModal({
                       {canEdit ? (
                         <select
                           value={branchOrigin}
-                          onChange={(e) => setBranchOrigin(e.target.value)}
+                          onChange={(e) => {
+                            setBranchOrigin(e.target.value);
+                            setOriginTouched(true);
+                          }}
                           title={
                             app.is_existing_student && app.is_existing_student !== "None"
                               ? `Applicant claims: ${app.is_existing_student}`
@@ -2005,7 +2037,10 @@ export function RegularApplicationDetailModal({
         isOpen={prospectModalOpen}
         onClose={() => setProspectModalOpen(false)}
         applicationId={app.id}
-        onLinked={onUpdated}
+        onLinked={(updated) => {
+          seedFormFields(updated);
+          onUpdated();
+        }}
       />
 
       <ConfirmDialog
