@@ -4,7 +4,7 @@ import { CalendarDays, Loader2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { StudentLink } from "@/components/admin/RegularRetentionSections";
-import { regularStatusLabel } from "@/lib/regular-utils";
+import { foldStream, getGradeColor, regularStatusLabel } from "@/lib/regular-utils";
 import type { RegularMyClassResponse, RegularMyClassSlot, RegularMyClassStudent } from "@/types";
 
 /** Who is coming to a tutor's classes in September.
@@ -91,12 +91,7 @@ function SlotCard({ slot }: { slot: RegularMyClassSlot }) {
           {slot.slot_day} {slot.time_slot}
         </span>
         <span className="text-xs text-muted-foreground">{slot.location}</span>
-        {slot.grade && (
-          <span className="text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground">
-            {slot.grade}
-            {slot.lang_stream ? ` ${streamWord(slot.lang_stream)}` : ""}
-          </span>
-        )}
+        {slot.grade && <SlotGrade grade={slot.grade} langStream={slot.lang_stream} />}
         <span
           className={cn(
             "ml-auto inline-flex items-center gap-1 text-xs tabular-nums",
@@ -123,6 +118,23 @@ function SlotCard({ slot }: { slot: RegularMyClassSlot }) {
         </ul>
       )}
     </div>
+  );
+}
+
+/** The class's grade and stream, as the same badge a tutor sees against a
+ *  lesson on their sessions page: "F2C", the palette colour behind it, dark
+ *  grey text that does not follow the theme because the colour does not
+ *  either. A slot the office has left open to any grade has no badge at all. */
+function SlotGrade({ grade, langStream }: { grade: string; langStream?: string | null }) {
+  const stream = foldStream(langStream);
+  return (
+    <span
+      className="text-[11px] px-1.5 py-0.5 rounded font-semibold text-gray-800"
+      style={{ backgroundColor: getGradeColor(grade, stream ?? undefined) }}
+    >
+      {grade}
+      {stream ?? ""}
+    </span>
   );
 }
 
@@ -172,8 +184,4 @@ function ClassmateRow({
  *  sentences rather than as a count with a plural bolted on. */
 function countText(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
-}
-
-function streamWord(stream: string): string {
-  return stream === "C" ? "Chinese" : stream === "E" ? "English" : stream;
 }

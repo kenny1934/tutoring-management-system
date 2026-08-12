@@ -164,8 +164,15 @@ function StateBadge({ state }: { state: RetentionState }) {
   );
 }
 
-/** The entering grade, coloured on the shared grade+stream palette so a grade
- *  reads the same here as on every other regular page. */
+/** The entering grade, drawn the way every other grade badge in the app is
+ *  drawn: the palette colour as a solid background with fixed dark grey text.
+ *  The grey does not follow the theme because the background does not either,
+ *  so the badge reads the same in both.
+ *
+ *  This is deliberately not the shared GradeBadge from components/ui, which
+ *  runs the grade through the summer pre-grade transform. The row already
+ *  holds the grade the student is entering, so transforming it again would
+ *  move it a year further on. */
 function GradeBadge({ row }: { row: RegularRetentionChaseRow }) {
   if (!row.expected_grade) return <span className="text-muted-foreground">-</span>;
   const stream = row.lang_stream ? row.lang_stream.toUpperCase() : "";
@@ -173,8 +180,8 @@ function GradeBadge({ row }: { row: RegularRetentionChaseRow }) {
   return (
     <span className="inline-flex items-center gap-1">
       <span
-        className="px-1.5 py-0.5 rounded text-[11px] font-semibold"
-        style={{ backgroundColor: `${colour}22`, color: colour }}
+        className="px-1.5 py-0.5 rounded text-[11px] font-semibold text-gray-800"
+        style={{ backgroundColor: colour }}
       >
         {row.expected_grade}{stream}
       </span>
