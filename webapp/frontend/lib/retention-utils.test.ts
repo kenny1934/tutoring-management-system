@@ -1,9 +1,15 @@
 import { describe, it, expect } from "vitest";
 import {
   EMPTY_CHASE_FILTERS,
+  chaseFiltersFromQuery,
+  chaseFiltersToQuery,
+  countChaseContact,
+  countChaseStates,
   filterChaseRows,
+  formatChaseSort,
   hasPhone,
   isFollowUpDue,
+  parseChaseSort,
   shortDate,
   sortChaseRows,
   staleness,
@@ -189,11 +195,15 @@ describe("filterChaseRows", () => {
 
   it("combines filters rather than replacing them", () => {
     const rows = [
-      row({ student_id: 1, tutor_name: "Ms Ho", branch: "MSA", expected_grade: "F2" }),
-      row({ student_id: 2, tutor_name: "Ms Ho", branch: "MSB", expected_grade: "F2" }),
-      row({ student_id: 3, tutor_name: "Ms Ho", branch: "MSA", expected_grade: "F3" }),
+      row({ student_id: 1, tutor_name: "Ms Ho", source: "regular_only", expected_grade: "F2" }),
+      row({ student_id: 2, tutor_name: "Ms Ho", source: "summer_only", expected_grade: "F2" }),
+      row({ student_id: 3, tutor_name: "Ms Ho", source: "regular_only", expected_grade: "F3" }),
     ];
-    const got = filterChaseRows(rows, filters({ tutor: "Ms Ho", branch: "MSA", grade: "F2" }), TODAY);
+    const got = filterChaseRows(
+      rows,
+      filters({ tutor: "Ms Ho", source: "regular_only", grade: "F2" }),
+      TODAY
+    );
     expect(got.map((r) => r.student_id)).toEqual([1]);
   });
 
@@ -225,6 +235,146 @@ describe("hasPhone", () => {
     expect(hasPhone(row({ phone: "   " }))).toBe(false);
     expect(hasPhone(row({ phone: null }))).toBe(false);
     expect(hasPhone(row({ phone: "66880000" }))).toBe(true);
+  });
+});
+
+describe("countChaseStates", () => {
+  it("counts each state under the other filters, not under itself", () => {
+    // The point of the numbers on the buttons: pressing one has to give you
+    // the number it was showing. Counting the whole payload instead would have
+    // every button overstate itself the moment anything else was narrowed.
+    const rows = [
+      row({ student_id: 1, state: "no_response", tutor_name: "Ms Ho" }),
+      row({ student_id: 2, state: "applied", tutor_name: "Ms Ho" }),
+      row({ student_id: 3, state: "applied", tutor_name: "Mr Lei" }),
+    ];
+    const counts = countChaseStates(rows, filters({ tutor: "Ms Ho" }), TODAY);
+
+    expect(counts.no_response).toBe(1);
+    expect(counts.applied).toBe(1);
+    expect(counts.all).toBe(2);
+  });
+
+  it("holds still while you move between states", () => {
+    const rows = [
+      row({ student_id: 1, state: "no_response" }),
+      row({ student_id: 2, state: "declined" }),
+    ];
+    const onChase = countChaseStates(rows, filters({ state: "no_response" }), TODAY);
+    const onDeclined = countChaseStates(rows, filters({ state: "declined" }), TODAY);
+
+    expect(onChase).toEqual(onDeclined);
+  });
+
+  it("agrees with the list each button produces", () => {
+    const rows = [
+      row({ student_id: 1, state: "no_response" }),
+      row({ student_id: 2, state: "no_response", phone: null }),
+      row({ student_id: 3, state: "applied" }),
+    ];
+    const base = filters({ contact: "nophone" });
+    const counts = countChaseStates(rows, base, TODAY);
+
+    expect(filterChaseRows(rows, { ...base, state: "no_response" }, TODAY)).toHaveLength(
+      counts.no_response
+    );
+    expect(filterChaseRows(rows, { ...base, state: "all" }, TODAY)).toHaveLength(counts.all);
+  });
+});
+
+describe("countChaseContact", () => {
+  it("counts each way of being reachable, ignoring the one in force", () => {
+    const rows = [
+      row({ student_id: 1, last_contact_date: null }),
+      row({ student_id: 2, last_contact_date: "2026-05-30T00:00:00" }),
+      row({ student_id: 3, phone: null, last_contact_date: null }),
+      row({ student_id: 4, follow_up_needed: true, follow_up_date: "2026-08-01" }),
+    ];
+    const counts = countChaseContact(rows, filters({ contact: "due" }), TODAY);
+
+    expect(counts.no).toBe(3);
+    expect(counts.yes).toBe(1);
+    expect(counts.nophone).toBe(1);
+    expect(counts.due).toBe(1);
+  });
+
+  it("respects the filters that are not about reachability", () => {
+    const rows = [
+      row({ student_id: 1, expected_grade: "F2", last_contact_date: null }),
+      row({ student_id: 2, expected_grade: "F3", last_contact_date: null }),
+    ];
+    expect(countChaseContact(rows, filters({ grade: "F2" }), TODAY).no).toBe(1);
+  });
+});
+
+describe("chase filters in the query string", () => {
+  it("writes nothing for a filter still at its default", () => {
+    expect(chaseFiltersToQuery(EMPTY_CHASE_FILTERS)).toEqual({
+      q: null,
+      grade: null,
+      tutor: null,
+      contact: null,
+      source: null,
+      state: null,
+    });
+  });
+
+  it("survives the round trip", () => {
+    const chosen = filters({
+      q: "chan",
+      grade: "F2",
+      tutor: "Ms Ho",
+      contact: "due",
+      source: "regular_only",
+      state: "applied",
+    });
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(chaseFiltersToQuery(chosen))) if (v) params.set(k, v);
+
+    expect(chaseFiltersFromQuery(params)).toEqual(chosen);
+  });
+
+  it("opens on the students to chase when the link says nothing", () => {
+    expect(chaseFiltersFromQuery(new URLSearchParams())).toEqual(EMPTY_CHASE_FILTERS);
+  });
+
+  it("ignores values the list cannot offer", () => {
+    // Links get edited, truncated by chat clients and kept past a rename. A
+    // value nothing matches would show an empty table with no way to tell why.
+    const params = new URLSearchParams("state=leaving&contact=maybe&source=nowhere");
+    expect(chaseFiltersFromQuery(params)).toEqual(EMPTY_CHASE_FILTERS);
+  });
+
+  it("keeps a grade or tutor it does not recognise", () => {
+    // These are real values that have simply moved on, and an empty list is
+    // the honest answer rather than quietly showing somebody else's students.
+    const got = chaseFiltersFromQuery(new URLSearchParams("grade=F9&tutor=Ms%20Nobody"));
+    expect(got.grade).toBe("F9");
+    expect(got.tutor).toBe("Ms Nobody");
+  });
+});
+
+describe("chase sort in the query string", () => {
+  it("survives the round trip", () => {
+    const sort = { key: "days_since_contact", dir: "desc" } as const;
+    expect(parseChaseSort(formatChaseSort(sort))).toEqual(sort);
+  });
+
+  it("writes nothing while the list is in the order the server sent", () => {
+    expect(formatChaseSort({ key: null, dir: "asc" })).toBe("");
+  });
+
+  it("falls back to that order rather than throwing on rubbish", () => {
+    for (const raw of [null, "", "nonsense", "student_nam:asc", ":::"]) {
+      expect(parseChaseSort(raw)).toEqual({ key: null, dir: "asc" });
+    }
+  });
+
+  it("treats anything but desc as ascending", () => {
+    expect(parseChaseSort("student_name:sideways")).toEqual({
+      key: "student_name",
+      dir: "asc",
+    });
   });
 });
 

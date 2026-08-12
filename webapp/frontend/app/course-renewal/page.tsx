@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle } from "@/lib/hooks";
+import { useDebouncedValue, usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
 import { CalendarCheck, Check, Loader2, MessageSquarePlus, Search, Undo2, UserMinus } from "lucide-react";
@@ -20,6 +20,7 @@ import {
   isRecordedAsLeaving,
 } from "@/components/admin/RegularRetentionSections";
 import { hasPhone, sortChaseRows, staleness } from "@/lib/retention-utils";
+import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularRetentionChaseRow } from "@/types";
 
 const selectClass =
@@ -28,6 +29,8 @@ const selectClass =
 /** How the list is ordered. Staleness is the default because the point of the
  *  page is a queue: whoever has been waiting longest goes first. */
 type RenewalOrder = "stale" | "name" | "grade";
+
+const RENEWAL_ORDERS: RenewalOrder[] = ["stale", "name", "grade"];
 
 /** A tutor's own view of who hasn't come back yet.
  *
@@ -44,6 +47,33 @@ export default function CourseRenewalPage() {
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
+  const [restored, setRestored] = useState(false);
+
+  // The same reason the admin board keeps its filters in the link: a narrowed
+  // list is something you send to somebody. Read after mounting so that the
+  // server's HTML and the browser's first paint agree.
+  useEffect(() => {
+    const params = currentQuery();
+    setShowDone(params.get("list") === "settled");
+    setQ(params.get("q") ?? "");
+    setGrade(params.get("grade") ?? "");
+    const orderParam = params.get("order");
+    if (RENEWAL_ORDERS.includes(orderParam as RenewalOrder)) setOrder(orderParam as RenewalOrder);
+    setRestored(true);
+  }, []);
+
+  // The search box waits for a pause in the typing: every write to the address
+  // bar is a navigation, and a name typed out is a dozen of them.
+  const settledQuery = useDebouncedValue(q, 300);
+  useQuerySync(
+    {
+      list: showDone ? "settled" : null,
+      q: settledQuery.trim() || null,
+      grade: grade || null,
+      order: order === "stale" ? null : order,
+    },
+    restored
+  );
 
   // Same reasoning as the admin board: the list changes when this tutor logs
   // something, and that path already refetches. See the comment there.
@@ -53,12 +83,20 @@ export default function CourseRenewalPage() {
     { revalidateOnFocus: false }
   );
 
+  // A student entering a grade the centre does not teach has nothing to apply
+  // for, so they are not waiting to answer and there is nothing to ring them
+  // about. The admin board holds them out of its chase list for the same
+  // reason, and the two surfaces should not disagree about who is work.
   const outstanding = useMemo(
-    () => (data?.students ?? []).filter((s) => s.state === "no_response"),
+    () => (data?.students ?? []).filter((s) => s.state === "no_response" && s.rung !== "none"),
     [data]
   );
   const settled = useMemo(
     () => (data?.students ?? []).filter((s) => s.state !== "no_response"),
+    [data]
+  );
+  const noClass = useMemo(
+    () => (data?.students ?? []).filter((s) => s.state === "no_response" && s.rung === "none"),
     [data]
   );
 
@@ -155,50 +193,58 @@ export default function CourseRenewalPage() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
-                <div className="relative">
-                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="search"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="Name, code or phone"
-                    className={cn(selectClass, "pl-8 w-48")}
-                  />
-                </div>
-                {grades.length > 1 && (
+              {/* Two zones rather than one wrapping row, so the count on the
+                  right keeps its place instead of moving to whichever line
+                  has room for it. */}
+              <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <div className="relative w-full sm:w-auto">
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="search"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Name, code or phone"
+                      className={cn(selectClass, "pl-8 w-full sm:w-48")}
+                    />
+                  </div>
+                  {grades.length > 1 && (
+                    <select
+                      value={grade}
+                      onChange={(e) => setGrade(e.target.value)}
+                      className={selectClass}
+                    >
+                      <option value="">All grades</option>
+                      {grades.map((g) => (
+                        <option key={g} value={g}>Entering {g}</option>
+                      ))}
+                    </select>
+                  )}
                   <select
-                    value={grade}
-                    onChange={(e) => setGrade(e.target.value)}
+                    value={order}
+                    onChange={(e) => setOrder(e.target.value as RenewalOrder)}
                     className={selectClass}
                   >
-                    <option value="">All grades</option>
-                    {grades.map((g) => (
-                      <option key={g} value={g}>Entering {g}</option>
-                    ))}
+                    <option value="stale">Longest waiting first</option>
+                    <option value="name">By name</option>
+                    <option value="grade">By entering grade</option>
                   </select>
-                )}
-                <select
-                  value={order}
-                  onChange={(e) => setOrder(e.target.value as RenewalOrder)}
-                  className={selectClass}
-                >
-                  <option value="stale">Longest waiting first</option>
-                  <option value="name">By name</option>
-                  <option value="grade">By entering grade</option>
-                </select>
-                {filtered && (
-                  <button
-                    type="button"
-                    onClick={() => { setQ(""); setGrade(""); }}
-                    className="text-xs text-muted-foreground hover:text-foreground underline"
-                  >
-                    Reset
-                  </button>
-                )}
-                <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-                  {rows.length} shown
-                </span>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {rows.length} shown
+                  </span>
+                  {filtered && (
+                    <button
+                      type="button"
+                      onClick={() => { setQ(""); setGrade(""); }}
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
               </div>
 
               {rows.length === 0 ? (
@@ -310,6 +356,16 @@ export default function CourseRenewalPage() {
                 <p className="text-[11px] text-muted-foreground mt-3">
                   {outstanding.filter((s) => !hasPhone(s)).length} of your students have no phone
                   number on file. The office can add one to their record.
+                </p>
+              )}
+
+              {/* Held back rather than silently dropped: a list that is quietly
+                  shorter than the tutor expects is worse than one that says so. */}
+              {!showDone && noClass.length > 0 && (
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  {noClass.length === 1
+                    ? "One of your students is entering a grade we do not teach, so there is nothing for them to apply for and they are not on this list."
+                    : `${noClass.length} of your students are entering a grade we do not teach, so there is nothing for them to apply for and they are not on this list.`}
                 </p>
               )}
             </div>

@@ -17,12 +17,15 @@ import {
 } from "@/components/admin/RegularRetentionSections";
 import { RegularRetentionTrend } from "@/components/admin/RegularRetentionTrend";
 import { RegularLinkSuggestionsModal } from "@/components/admin/RegularLinkSuggestionsModal";
+import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularRetentionResponse, RegularRetentionRow } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
 /** The intake at a glance, the analysis axes, and the list staff actually work. */
 type RetentionTab = "overview" | "breakdowns" | "chase";
+
+const RETENTION_TABS: RetentionTab[] = ["overview", "breakdowns", "chase"];
 
 /** Whole-number percent, guarding a zero denominator. */
 function pct(n: number, d: number): string {
@@ -315,6 +318,31 @@ export default function RegularRetentionPage() {
   // branch is selected, so the dropdown never collapses to one option.
   const [branchOptions, setBranchOptions] = useState<string[]>([]);
   const [linkingOpen, setLinkingOpen] = useState(false);
+  const [restored, setRestored] = useState(false);
+
+  // Which year, which branch and which tab all belong in the link, so that
+  // "the MSB list, for this September" is something you can send to somebody.
+  // Read after mounting rather than during the first render, which keeps the
+  // server's HTML and the browser's first paint identical.
+  useEffect(() => {
+    const params = currentQuery();
+    const tabParam = params.get("tab");
+    if (RETENTION_TABS.includes(tabParam as RetentionTab)) setTab(tabParam as RetentionTab);
+    const yearParam = Number(params.get("year"));
+    if (Number.isInteger(yearParam) && yearParam > 2000) setYear(yearParam);
+    const branchParam = params.get("branch");
+    if (branchParam) setBranch(branchParam);
+    setRestored(true);
+  }, []);
+
+  useQuerySync(
+    {
+      tab: tab === "overview" ? null : tab,
+      year: year == null ? null : String(year),
+      branch,
+    },
+    restored
+  );
 
   const { data: configs } = useSWR(
     canViewAdminPages ? "regular-configs" : null,
@@ -346,6 +374,15 @@ export default function RegularRetentionPage() {
   useEffect(() => {
     if (data && branch === null) setBranchOptions(data.by_branch.map((b) => b.key));
   }, [data, branch]);
+
+  // A link that arrives already narrowed to one branch has never seen the
+  // unfiltered report, so the only branch it knows about is its own. The
+  // chosen one is folded in and "All branches" is always on the menu, so
+  // whoever opened the link can always get back to the whole centre.
+  const branchChoices = useMemo(
+    () => [...new Set([...branchOptions, ...(branch ? [branch] : [])])].sort(),
+    [branchOptions, branch]
+  );
 
   const handleExport = () => {
     if (!data) return;
@@ -405,11 +442,16 @@ export default function RegularRetentionPage() {
                 </p>
               </div>
               <div className="shrink-0 flex items-center gap-2">
-                {branchOptions.length > 1 && (
+                {(branchChoices.length > 1 || branch !== null) && (
                   <DropdownMenu
                     align="right"
                     trigger={({ triggerProps }) => (
-                      <button type="button" {...triggerProps} className={cn(selectClass, "inline-flex items-center gap-1.5")}>
+                      <button
+                        type="button"
+                        {...triggerProps}
+                        title="Every tab on this page, including the chase list, follows this"
+                        className={cn(selectClass, "inline-flex items-center gap-1.5")}
+                      >
                         <span className="font-medium">{branch ?? "All branches"}</span>
                         <ChevronDown className="h-3.5 w-3.5" />
                       </button>
@@ -427,7 +469,7 @@ export default function RegularRetentionPage() {
                         >
                           All branches
                         </button>
-                        {branchOptions.map((b) => (
+                        {branchChoices.map((b) => (
                           <button
                             key={b}
                             type="button"

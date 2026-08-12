@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { parentCommunicationsAPI, terminationsAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActiveTutors } from "@/lib/hooks";
+import { useActiveTutors, useDebouncedValue } from "@/lib/hooks";
 import { getGradeColor } from "@/lib/regular-utils";
 import {
   CATEGORY_CONFIG,
@@ -28,15 +28,28 @@ import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-bad
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { CONTACT_METHODS, CONTACT_TYPES } from "@/components/parent-contacts/contact-utils";
 import {
+  CHASE_QUERY_KEYS,
+  CHASE_STATES,
+  CONTACT_FILTERS,
+  DEFAULT_CHASE_SORT,
   EMPTY_CHASE_FILTERS,
+  chaseFiltersFromQuery,
+  chaseFiltersToQuery,
+  countChaseContact,
+  countChaseStates,
   filterChaseRows,
+  formatChaseSort,
   hasPhone,
   isFollowUpDue,
+  parseChaseSort,
   shortDate,
   sortChaseRows,
   type ChaseFilters,
+  type ChaseSort,
   type ChaseSortKey,
+  type ContactFilter,
 } from "@/lib/retention-utils";
+import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type {
   RegularRetentionChaseRow,
   RegularRetentionResponse,
@@ -821,20 +834,128 @@ export function BulkContactDialog({
   );
 }
 
-// Working a 500-name list takes more than one sitting, and losing your filters
-// to a tab switch means finding your place again. Session storage rather than
-// the URL: it survives a refresh without the Suspense boundary a search-param
-// hook would force on this page.
-const FILTER_STORE_KEY = "regular-retention-chase-filters";
+/** What the six state buttons say, in the order they read. Five of them are
+ *  the states a student can be in and take their wording and their colour from
+ *  the badge in the table, so pressing "Not returning" and reading "Not
+ *  returning" down the Status column are visibly the same thing. */
+const STATE_BUTTON_LABEL: Record<RetentionState | "all", string> = {
+  no_response: STATE_META.no_response.label,
+  applied: STATE_META.applied.label,
+  enrolled: STATE_META.enrolled.label,
+  declined: STATE_META.declined.label,
+  not_churn: STATE_META.not_churn.label,
+  all: "Everyone",
+};
 
-function loadFilters(): ChaseFilters {
-  if (typeof window === "undefined") return EMPTY_CHASE_FILTERS;
-  try {
-    const raw = window.sessionStorage.getItem(FILTER_STORE_KEY);
-    return raw ? { ...EMPTY_CHASE_FILTERS, ...JSON.parse(raw) } : EMPTY_CHASE_FILTERS;
-  } catch {
-    return EMPTY_CHASE_FILTERS;
-  }
+/** Which of the six lists is on screen.
+ *
+ *  A row of buttons rather than a dropdown, because this is not really a
+ *  filter: it is the question the page is answering, and which one you are on
+ *  should be readable without opening anything. The counts are the other
+ *  reason. A button reading "No response 578" says where the work is; the
+ *  dropdown it replaces read "No response" and said nothing at all. */
+function StateButtons({
+  counts,
+  value,
+  onChange,
+}: {
+  counts: Record<RetentionState | "all", number>;
+  value: RetentionState | "all";
+  onChange: (next: RetentionState | "all") => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {CHASE_STATES.map((key) => {
+        const active = key === value;
+        const count = counts[key];
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            aria-pressed={active}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+              active
+                ? "border-primary/50 bg-primary/10 text-foreground font-medium"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
+              // An empty list is still worth being able to open, but it should
+              // not compete for the eye with the ones that have people in them.
+              !active && count === 0 && "opacity-60"
+            )}
+          >
+            {key !== "all" && (
+              <span
+                className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATE_META[key].dot)}
+              />
+            )}
+            {STATE_BUTTON_LABEL[key]}
+            <span className="tabular-nums text-muted-foreground">{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** How far the chasing has got with a family, and whether it can happen at
+ *  all. Buttons rather than a dropdown for the same reason as above: each one
+ *  carries the number of students behind it, and "No number 24" is a piece of
+ *  news about the list rather than an option buried in a menu. */
+const CONTACT_LABEL: Record<Exclude<ContactFilter, "">, string> = {
+  no: "Never contacted",
+  yes: "Contacted before",
+  due: "Follow-up due",
+  nophone: "No number",
+};
+
+const CONTACT_HINT: Record<Exclude<ContactFilter, "">, string> = {
+  no: "Nobody has rung or messaged this family about September yet.",
+  yes: "Somebody has already been in touch about September.",
+  due: "Somebody promised to ring back, and the day has come.",
+  nophone: "We hold no number for these families, so nobody can ring them from this list.",
+};
+
+function ContactButtons({
+  counts,
+  value,
+  onChange,
+}: {
+  counts: Record<Exclude<ContactFilter, "">, number>;
+  value: ContactFilter;
+  onChange: (next: ContactFilter) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {CONTACT_FILTERS.map((key) => {
+        const active = key === value;
+        const count = counts[key];
+        return (
+          <button
+            key={key}
+            type="button"
+            // Pressing the one that is already on clears it, so getting back
+            // to the whole list never means hunting for a reset.
+            onClick={() => onChange(active ? "" : key)}
+            aria-pressed={active}
+            title={CONTACT_HINT[key]}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+              active
+                ? "border-primary/50 bg-primary/10 text-foreground font-medium"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
+              // An empty list is still worth being able to open, but it should
+              // not compete for the eye with the ones that have people in them.
+              !active && count === 0 && "opacity-60"
+            )}
+          >
+            {CONTACT_LABEL[key]}
+            <span className="tabular-nums text-muted-foreground">{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 /** One student as a card, for phones.
@@ -1008,9 +1129,8 @@ export function RegularRetentionChaseList({
   // The list arrives whole so the page can filter without a second request.
   // Unresponsive students are the work, so that is where it opens.
   const [filters, setFilters] = useState<ChaseFilters>(EMPTY_CHASE_FILTERS);
+  const [sort, setSort] = useState<ChaseSort>(DEFAULT_CHASE_SORT);
   const [restored, setRestored] = useState(false);
-  const [sortKey, setSortKey] = useState<ChaseSortKey | null>(null);
-  const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
@@ -1020,68 +1140,80 @@ export function RegularRetentionChaseList({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [logged, setLogged] = useState<number | null>(null);
 
-  // Read on mount rather than in useState, so the server and first client
+  // Read on mount rather than in useState, so the server and the first client
   // render agree and hydration stays quiet.
   useEffect(() => {
-    setFilters(loadFilters());
+    const params = currentQuery();
+    setFilters(chaseFiltersFromQuery(params));
+    setSort(parseChaseSort(params.get("sort")));
     setRestored(true);
   }, []);
 
-  useEffect(() => {
-    if (!restored) return;
-    try {
-      window.sessionStorage.setItem(FILTER_STORE_KEY, JSON.stringify(filters));
-    } catch {
-      // A full or blocked store is not worth failing the page over.
-    }
-  }, [filters, restored]);
+  // A narrowed list is worth handing to whoever is making the calls, and the
+  // way you hand over a view is to hand over its URL. Nothing is written until
+  // the read above has happened, or the defaults would wipe the link that was
+  // just followed. The search box waits for a pause in the typing, since every
+  // write is a navigation and a name is a dozen of them.
+  const settledQuery = useDebouncedValue(filters.q, 300);
+  useQuerySync(
+    {
+      ...chaseFiltersToQuery({ ...filters, q: settledQuery }),
+      sort: formatChaseSort(sort) || null,
+    },
+    restored
+  );
 
   const set = <K extends keyof ChaseFilters>(key: K, value: ChaseFilters[K]) =>
     setFilters((f) => ({ ...f, [key]: value }));
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
+  // Everybody this list can actually work.
+  //
+  // A student entering a grade the centre does not teach has nothing to apply
+  // for, so they are not waiting to answer us and nobody should be ringing
+  // them. They are named on the overview instead, under the students we are
+  // not counting. Leaving them here would also put a number on the "No
+  // response" button that disagreed with the one on the tab an inch above it,
+  // because the tab counts the same students out of the totals.
+  const chaseable = useMemo(() => data.chase.filter((r) => r.rung !== "none"), [data.chase]);
+  const heldOut = data.chase.length - chaseable.length;
+
   const options = useMemo(() => {
-    const branches = new Set<string>();
     const grades = new Set<string>();
     const tutors = new Set<string>();
-    for (const r of data.chase) {
-      if (r.branch) branches.add(r.branch);
+    for (const r of chaseable) {
       if (r.expected_grade) grades.add(r.expected_grade);
       if (r.tutor_name) tutors.add(r.tutor_name);
     }
-    return {
-      branches: [...branches].sort(),
-      grades: [...grades].sort(),
-      tutors: [...tutors].sort(),
-    };
-  }, [data.chase]);
+    return { grades: [...grades].sort(), tutors: [...tutors].sort() };
+  }, [chaseable]);
 
   const rows = useMemo(
-    () => sortChaseRows(filterChaseRows(data.chase, filters, today), sortKey, dir),
-    [data.chase, filters, sortKey, dir, today]
+    () => sortChaseRows(filterChaseRows(chaseable, filters, today), sort.key, sort.dir),
+    [chaseable, filters, sort, today]
   );
 
-  const dueCount = useMemo(
-    () => data.chase.filter((r) => isFollowUpDue(r, today)).length,
-    [data.chase, today]
+  // Each button's own number: what it would show if you pressed it, with
+  // everything else on the toolbar left as it is.
+  const stateCounts = useMemo(
+    () => countChaseStates(chaseable, filters, today),
+    [chaseable, filters, today]
+  );
+  const contactCounts = useMemo(
+    () => countChaseContact(chaseable, filters, today),
+    [chaseable, filters, today]
   );
 
-  // Counted over the unresponsive only: a family who already applied does not
-  // need ringing, so a missing number is not work.
-  const noPhoneCount = useMemo(
-    () => data.chase.filter((r) => r.state === "no_response" && !hasPhone(r)).length,
-    [data.chase]
-  );
-
-  const filtersActive =
-    JSON.stringify(filters) !== JSON.stringify(EMPTY_CHASE_FILTERS);
+  // Compared key by key rather than by stringifying the pair, which quietly
+  // depended on both objects listing their keys in the same order.
+  const filtersActive = CHASE_QUERY_KEYS.some((k) => filters[k] !== EMPTY_CHASE_FILTERS[k]);
 
   // The selection is a set of ids, but the dialog wants the rows behind them,
   // and only rows that still exist in the report.
   const pickedRows = useMemo(
-    () => data.chase.filter((r) => picked.has(r.student_id)),
-    [data.chase, picked]
+    () => chaseable.filter((r) => picked.has(r.student_id)),
+    [chaseable, picked]
   );
   const shownPicked = rows.filter((r) => picked.has(r.student_id)).length;
   const allShownPicked = rows.length > 0 && shownPicked === rows.length;
@@ -1109,14 +1241,13 @@ export function RegularRetentionChaseList({
     });
   };
 
-  const onSort = (k: ChaseSortKey) => {
-    if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(k);
-      // Staleness is the call queue, so it opens with the most overdue first.
-      setDir(k === "days_since_contact" ? "desc" : "asc");
-    }
-  };
+  const onSort = (k: ChaseSortKey) =>
+    setSort((s) =>
+      s.key === k
+        ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" }
+        // Staleness is the call queue, so it opens with the most overdue first.
+        : { key: k, dir: k === "days_since_contact" ? "desc" : "asc" }
+    );
 
   /** Exports what is on screen, not the whole report — a filtered view is a
    *  call sheet for one person, and that is what someone wants to hand over. */
@@ -1149,8 +1280,8 @@ export function RegularRetentionChaseList({
   };
 
   const SortHeader = ({ k, children }: { k: ChaseSortKey; children: React.ReactNode }) => {
-    const active = sortKey === k;
-    const Arrow = !active ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
+    const active = sort.key === k;
+    const Arrow = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
     return (
       <th className={th}>
         <button
@@ -1167,96 +1298,85 @@ export function RegularRetentionChaseList({
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="relative w-full sm:w-auto">
-          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            type="search"
-            value={filters.q}
-            onChange={(e) => set("q", e.target.value)}
-            placeholder="Name, code or phone"
-            className={cn(selectClass, "pl-8 w-full sm:w-52")}
+      {/* Which of the six lists is on screen. Its own row, because it is the
+          question the page is answering rather than one more way to narrow. */}
+      <StateButtons
+        counts={stateCounts}
+        value={filters.state}
+        onChange={(state) => set("state", state)}
+      />
+
+      {/* Who is on it. These run left to right in the order the columns below
+          run in — search covers the code, the name and the number, then the
+          entering grade, then the tutor, then how the chasing is going, which
+          is the phone and last-contact columns. Only the source has no column
+          of its own, so it comes last.
+
+          Two zones rather than one wrapping row: the count and the buttons on
+          the right used to be pushed over by ml-auto, which meant they landed
+          on whichever line happened to have room and moved as filters were
+          added. */}
+      <div className="flex flex-col gap-2 mt-2 mb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <div className="relative w-full sm:w-auto">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="search"
+              value={filters.q}
+              onChange={(e) => set("q", e.target.value)}
+              placeholder="Name, code or phone"
+              className={cn(selectClass, "pl-8 w-full sm:w-52")}
+            />
+          </div>
+          <select value={filters.grade} onChange={(e) => set("grade", e.target.value)} className={selectClass}>
+            <option value="">All grades</option>
+            {options.grades.map((g) => <option key={g} value={g}>Entering {g}</option>)}
+          </select>
+          {options.tutors.length > 1 && (
+            <select value={filters.tutor} onChange={(e) => set("tutor", e.target.value)} className={selectClass}>
+              <option value="">All tutors</option>
+              {options.tutors.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
+          <ContactButtons
+            counts={contactCounts}
+            value={filters.contact}
+            onChange={(contact) => set("contact", contact)}
           />
+          <select value={filters.source} onChange={(e) => set("source", e.target.value)} className={selectClass}>
+            <option value="">All sources</option>
+            {(Object.keys(SOURCE_LABELS) as RetentionSource[]).map((s) => (
+              <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
+            ))}
+          </select>
         </div>
-        <select
-          value={filters.state}
-          onChange={(e) => set("state", e.target.value as RetentionState | "all")}
-          className={selectClass}
-        >
-          <option value="no_response">No response</option>
-          <option value="applied">Applied</option>
-          <option value="enrolled">Enrolled</option>
-          <option value="declined">Not returning</option>
-          <option value="not_churn">Accounted for</option>
-          <option value="all">Everyone</option>
-        </select>
-        {options.tutors.length > 1 && (
-          <select value={filters.tutor} onChange={(e) => set("tutor", e.target.value)} className={selectClass}>
-            <option value="">All tutors</option>
-            {options.tutors.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        )}
-        {options.branches.length > 1 && (
-          <select value={filters.branch} onChange={(e) => set("branch", e.target.value)} className={selectClass}>
-            <option value="">All branches</option>
-            {options.branches.map((b) => <option key={b} value={b}>{b}</option>)}
-          </select>
-        )}
-        <select value={filters.grade} onChange={(e) => set("grade", e.target.value)} className={selectClass}>
-          <option value="">All grades</option>
-          {options.grades.map((g) => <option key={g} value={g}>Entering {g}</option>)}
-        </select>
-        <select value={filters.source} onChange={(e) => set("source", e.target.value)} className={selectClass}>
-          <option value="">Any source</option>
-          {(Object.keys(SOURCE_LABELS) as RetentionSource[]).map((s) => (
-            <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
-          ))}
-        </select>
-        <select
-          value={filters.contact}
-          onChange={(e) => set("contact", e.target.value as ChaseFilters["contact"])}
-          className={selectClass}
-        >
-          <option value="">Any contact status</option>
-          <option value="no">Never contacted</option>
-          <option value="yes">Contacted before</option>
-          <option value="due">Follow-up due{dueCount ? ` (${dueCount})` : ""}</option>
-          <option value="nophone">No phone number{noPhoneCount ? ` (${noPhoneCount})` : ""}</option>
-        </select>
 
-        {/* Sorting lives in the column headers, and the cards below have no
-            headers, so a phone gets the same three orders as a select. */}
-        <select
-          value={sortKey ? `${sortKey}:${dir}` : ""}
-          onChange={(e) => {
-            const [k, d] = e.target.value.split(":");
-            setSortKey(k ? (k as ChaseSortKey) : null);
-            if (d) setDir(d as "asc" | "desc");
-          }}
-          className={cn(selectClass, "md:hidden")}
-          aria-label="Sort the list"
-        >
-          <option value="">Unresponsive first</option>
-          <option value="days_since_contact:desc">Longest waiting first</option>
-          <option value="student_name:asc">By name</option>
-          <option value="expected_grade:asc">By entering grade</option>
-        </select>
-
-        {filtersActive && (
-          <button
-            type="button"
-            onClick={() => setFilters(EMPTY_CHASE_FILTERS)}
-            className="text-xs text-muted-foreground hover:text-foreground underline"
-          >
-            Reset
-          </button>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-muted-foreground tabular-nums">
-            {rows.length} of {data.chase.length}
+            {rows.length} of {chaseable.length}
           </span>
+          {/* Sorting lives in the column headers, and the cards a phone gets
+              have no headers, so that width gets the same orders as a menu. */}
+          <select
+            value={formatChaseSort(sort)}
+            onChange={(e) => setSort(parseChaseSort(e.target.value))}
+            className={cn(selectClass, "md:hidden")}
+            aria-label="Sort the list"
+          >
+            <option value="">Unresponsive first</option>
+            <option value="days_since_contact:desc">Longest waiting first</option>
+            <option value="student_name:asc">By name</option>
+            <option value="expected_grade:asc">By entering grade</option>
+          </select>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={() => setFilters(EMPTY_CHASE_FILTERS)}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              Reset
+            </button>
+          )}
           <button
             type="button"
             onClick={exportView}
@@ -1510,6 +1630,17 @@ export function RegularRetentionChaseList({
           </tbody>
         </table>
       </div>
+
+      {/* Said here as well as on the overview, because a list that quietly
+          holds somebody back is worse than one that says who and why. */}
+      {heldOut > 0 && (
+        <p className="text-[11px] text-muted-foreground mt-2 shrink-0">
+          {heldOut === 1
+            ? "One more student is entering a grade we do not teach, so there is nothing for them to apply for and they are not on this list."
+            : `${heldOut} more students are entering a grade we do not teach, so there is nothing for them to apply for and they are not on this list.`}{" "}
+          The overview names them.
+        </p>
+      )}
 
       {contactFor && (
         <RecordContactModal
