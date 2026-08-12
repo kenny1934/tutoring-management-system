@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { parentCommunicationsAPI, terminationsAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActiveTutors, useDebouncedValue } from "@/lib/hooks";
+import { useActiveTutors, useDebouncedValue, useProspectPreview } from "@/lib/hooks";
 import { getGradeColor, regularStatusLabel } from "@/lib/regular-utils";
 import {
   CATEGORY_CONFIG,
@@ -28,6 +28,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { ProspectJourneyChip } from "@/components/admin/ProspectJourneyChip";
+import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import {
   CONTACT_METHODS,
@@ -1240,6 +1241,15 @@ export function ChaseListBody({
   const columnCount =
     7 + (selection ? 1 : 0) + (showBranch ? 1 : 0) + (showTutor ? 1 : 0);
 
+  // The prospect record opens over the list rather than taking the reader to
+  // another page, the same way it opens over the applications pages. It holds
+  // the phone numbers, the WeChat id and what the primary tutor wrote about
+  // the family, which is what somebody about to ring them wants in front of
+  // them. The list owns it rather than each page, so both get it. The fetch
+  // only fires once something is opened, and the chip refuses to open for
+  // anyone who cannot read the record anyway.
+  const prospectPreview = useProspectPreview();
+
   const SortHeader = ({ k, children }: { k: ChaseSortKey; children: React.ReactNode }) => {
     const active = sort.key === k;
     const Arrow = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
@@ -1284,6 +1294,7 @@ export function ChaseListBody({
               showTutor={showTutor}
               picked={selection?.picked.has(r.student_id) ?? false}
               onPick={selection && (() => selection.onToggle(r.student_id))}
+              onProspectClick={prospectPreview.open}
               onContact={() => onContact(r)}
               onDecline={() => onDecline(r)}
               onUndo={() => onUndo(r)}
@@ -1352,7 +1363,11 @@ export function ChaseListBody({
                     <td className="px-3 py-1.5">
                       <span className="inline-flex items-center gap-1.5 flex-wrap">
                         <StudentLink row={r} className="text-foreground font-medium" />
-                        <ProspectJourneyChip journey={r.prospect_journey} trail={false} />
+                        <ProspectJourneyChip
+                          journey={r.prospect_journey}
+                          trail={false}
+                          onProspectClick={prospectPreview.open}
+                        />
                       </span>
                     </td>
                     <td className="px-3 py-1.5 whitespace-nowrap"><GradeBadge row={r} /></td>
@@ -1459,6 +1474,18 @@ export function ChaseListBody({
           </tbody>
         </table>
       </div>
+
+      {/* Saving only touches the outreach status, the relationship status and
+          the notes, none of which this list shows, so the record is dropped
+          from the cache and the board is left alone. */}
+      {prospectPreview.prospect && (
+        <ProspectDetailModal
+          prospect={prospectPreview.prospect}
+          onClose={prospectPreview.close}
+          onSave={prospectPreview.invalidate}
+          readOnly={isReadOnly}
+        />
+      )}
     </>
   );
 }
@@ -1492,6 +1519,7 @@ function ChaseCard({
   showTutor = true,
   picked = false,
   onPick,
+  onProspectClick,
   onContact,
   onDecline,
   onUndo,
@@ -1503,6 +1531,7 @@ function ChaseCard({
   picked?: boolean;
   /** Absent on a tutor's own list, which has nothing to do with a selection. */
   onPick?: () => void;
+  onProspectClick: (prospectId: number) => void;
   onContact: () => void;
   onDecline: () => void;
   onUndo: () => void;
@@ -1533,7 +1562,11 @@ function ChaseCard({
           <div className="flex items-center gap-1.5 flex-wrap">
             {row.student_code && <StudentCodeBadge code={row.student_code} />}
             <StudentLink row={row} className="text-sm font-medium text-foreground" />
-            <ProspectJourneyChip journey={row.prospect_journey} trail={false} />
+            <ProspectJourneyChip
+              journey={row.prospect_journey}
+              trail={false}
+              onProspectClick={onProspectClick}
+            />
             <span className="ml-auto shrink-0 inline-flex items-center gap-1.5">
               <LadderRung row={row} />
               <StateBadge state={row.state} />
