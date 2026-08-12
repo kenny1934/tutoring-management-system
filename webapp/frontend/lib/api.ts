@@ -1282,6 +1282,22 @@ export const parentCommunicationsAPI = {
     });
   },
 
+  // One contact against several students, written in a single transaction.
+  createBulk: (
+    data: Omit<ParentCommunicationCreate, "student_id"> & { student_ids: number[] },
+    tutor_id: number,
+    created_by: string
+  ) => {
+    const params = new URLSearchParams({
+      tutor_id: tutor_id.toString(),
+      created_by,
+    });
+    return fetchAPI<{ created: number; skipped: number[] }>(
+      `/parent-communications/bulk?${params}`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+  },
+
   // Update communication
   update: (id: number, data: Partial<ParentCommunicationCreate>) => {
     return fetchAPI<ParentCommunication>(`/parent-communications/${id}`, {
@@ -1354,6 +1370,16 @@ export const terminationsAPI = {
       method: "PUT",
       body: JSON.stringify(data),
     });
+  },
+
+  // Remove a quarter's record entirely. Flipping count_as_terminated is not an
+  // undo — it says "left, but not churn", which is a different claim.
+  deleteRecord: (studentId: number, year: number, quarter: number) => {
+    const params = new URLSearchParams({
+      year: year.toString(),
+      quarter: quarter.toString(),
+    });
+    return fetchAPI<void>(`/terminations/${studentId}?${params}`, { method: "DELETE" });
   },
 
   // Get termination stats for a quarter
@@ -3174,6 +3200,27 @@ export const regularAPI = {
   getConversion: (year: number, branch?: string | null) =>
     fetchAPI<import("@/types").RegularConversionResponse>(
       `/regular/conversion?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
+    ),
+
+  getRetention: (year: number, branch?: string | null) =>
+    fetchAPI<import("@/types").RegularRetentionResponse>(
+      `/regular/retention?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
+    ),
+
+  /** The caller's own students only. Defaults to the open intake.
+   *
+   *  `tutorId` asks for somebody else's list, which only an admin may do. It
+   *  is what makes impersonation reach the data: the sidebar picks a tutor and
+   *  the page has to answer as them rather than as the person logged in. */
+  getMyRetention: (year?: number | null, tutorId?: number | null) =>
+    fetchAPI<import("@/types").RegularRetentionMineResponse>(
+      `/regular/retention/mine${buildLocationQuery({ year }, undefined, tutorId ?? undefined)}`
+    ),
+
+  /** The caller's own September classes and who has been placed in them. */
+  getMyClass: (year?: number | null, tutorId?: number | null) =>
+    fetchAPI<import("@/types").RegularMyClassResponse>(
+      `/regular/class/mine${buildLocationQuery({ year }, undefined, tutorId ?? undefined)}`
     ),
 
   publishApplication: (id: number, data: RegularPublishRequest) =>

@@ -1878,9 +1878,9 @@ export interface ParentCommunicationStats {
   total_active_students: number;
   students_contacted_recently: number;
   contact_coverage_percent: number;
-  progress_update_count: number;
-  concern_count: number;
-  general_count: number;
+  /** Contacts of each type in the last 30 days, keyed by the type. A type with
+   *  nothing against it is absent rather than zero. */
+  type_counts: Record<string, number>;
   contacts_this_week: number;
   contacts_last_week: number;
   average_days_since_contact: number | null;
@@ -3997,6 +3997,214 @@ export interface RegularConversionResponse {
   by_school: RegularConversionSchoolRow[];
   branch_movement: RegularConversionMovementRow[];
   lost_prospects: RegularConversionLostRow[];
+}
+
+/** Where a cohort member came from. Conversion answers "did new blood
+ *  arrive"; retention answers "did the people we already had stay". */
+export type RetentionSource = "regular_and_summer" | "regular_only" | "summer_only";
+
+/** What happened to them this intake. Everything before "no_response" is a
+ *  resolved outcome; only no_response earns a place on the chase list. */
+export type RetentionState =
+  | "enrolled"
+  | "applied"
+  | "declined"
+  | "not_churn"
+  | "no_response";
+
+/** Whether the grade they are entering is one the form actually offers.
+ *  `admin_only` rungs exist but are hidden from parents, so those families
+ *  cannot self-serve however hard they are chased. */
+export type RetentionRung = "open" | "admin_only" | "none";
+
+export interface RegularRetentionRow {
+  /** Branch code, entering grade, source tag, tutor id or decline reason,
+   *  depending on which list the row came from. */
+  key: string;
+  /** What to show instead of `key` when the key is an identifier. Tutors are
+   *  keyed by id so two tutors sharing a name stay two rows. */
+  label?: string | null;
+  /** The denominator. Holds declines: a family who said no is a retention
+   *  failure, not an exclusion. */
+  cohort: number;
+  applied: number;
+  enrolled: number;
+  declined: number;
+  /** A parent contact was logged inside the application window. Independent of
+   *  state — a contacted family can still be sitting at no_response. */
+  contacted: number;
+  no_response: number;
+  /** Of the unresponsive, how many have already been contacted. */
+  no_response_contacted: number;
+}
+
+/** One student to chase.
+ *
+ *  The optional fields really are absent, not null: the report is about 800 of
+ *  these and most of them have nothing to say about a call nobody has made, so
+ *  the endpoint leaves empty keys out of the JSON entirely. Read them with `??`
+ *  or a falsy check and the two cases behave the same. */
+export interface RegularRetentionChaseRow {
+  student_id: number;
+  student_name: string;
+  student_code?: string | null;
+  branch?: string | null;
+  /** The grade on the student record: last school year's, until the Sept 1
+   *  promotion job runs. */
+  grade?: string | null;
+  /** The grade they are entering, which is what an application carries. Equal
+   *  to `grade` only after promotion. */
+  expected_grade?: string | null;
+  rung: RetentionRung;
+  lang_stream?: string | null;
+  school?: string | null;
+  phone?: string | null;
+  tutor_name?: string | null;
+  source: RetentionSource;
+  /** Where a student who came up from a primary branch this summer came from.
+   *  The same block the applications page reads, so one chip renders it in
+   *  both places. Absent for everyone else. */
+  prospect_journey?: RegularProspectJourney | null;
+  state: RetentionState;
+  reference_code?: string | null;
+  /** Where the application has got to on the ladder the parent also sees on
+   *  the status page: Submitted, Placement Offered, Fee Sent and so on. Only
+   *  set for a student who has one. */
+  application_status?: string | null;
+  last_contact_date?: string | null;
+  /** What was said on that call, clipped to a couple of lines. */
+  last_contact_note?: string | null;
+  days_since_contact?: number | null;
+  follow_up_needed: boolean;
+  follow_up_date?: string | null;
+  /** The category only. The free-text reason lives on the termination record
+   *  and reads in full on the student's own page. */
+  decline_reason_category?: string | null;
+}
+
+/** One student who applied without being in this year's group. Named rather
+ *  than counted because each is a different situation: a family who lapsed and
+ *  came back, a primary student the conversion board owns, an enrollment that
+ *  ended early. A number cannot tell those apart. */
+export interface RegularRetentionOutsideRow {
+  student_id: number;
+  student_name: string;
+  student_code?: string | null;
+  branch?: string | null;
+  grade?: string | null;
+  applied_grade?: string | null;
+  reference_code?: string | null;
+}
+
+export interface RegularRetentionReconciliation {
+  unlinked_count: number;
+  unlinked_secondary: number;
+  unlinked_primary: number;
+  /** Of the secondary ones, those with a student record at the branch they
+   *  named that might be the same person, which is the only subset worth
+   *  showing: the rest are mostly P6 students coming up from a primary branch
+   *  who have never studied here, so nothing can be matched and nothing is
+   *  being miscounted. Equal to the number of rows the matching tool lists. */
+  unlinked_matchable: number;
+  /** Applications linked to a student who is not in this year's group: they
+   *  lapsed earlier, or never had a qualifying enrollment. */
+  applied_outside_cohort: number;
+  applied_outside: RegularRetentionOutsideRow[];
+}
+
+/** One day of the intake window: what happened that day, and the running total
+ *  to the end of it. Derived from the dates the events already carry, so the
+ *  series is complete from the first day the board is opened and its last point
+ *  always equals the headline figures. Every point measures against the cohort
+ *  as it stands today, so a moving line means the chasing moved. */
+export interface RegularRetentionTrendPoint {
+  date: string;
+  applied: number;
+  declined: number;
+  contacted: number;
+  applied_total: number;
+  declined_total: number;
+  contacted_total: number;
+}
+
+export interface RegularRetentionResponse {
+  year: number;
+  window_start?: string | null;
+  active_from?: string | null;
+  /** The reporting quarter a decline is written into. The application window
+   *  falls inside a single quarter, which is what lets a decline ride on
+   *  termination records instead of needing its own store. */
+  intake_year: number;
+  intake_quarter: number;
+  totals: RegularRetentionRow;
+  by_branch: RegularRetentionRow[];
+  by_expected_grade: RegularRetentionRow[];
+  by_source: RegularRetentionRow[];
+  by_tutor: RegularRetentionRow[];
+  by_decline_reason: RegularRetentionRow[];
+  /** Students whose entering grade the config has no place for. Reported apart
+   *  and never counted as unresponsive. */
+  no_rung: RegularRetentionRow;
+  /** Students who left for a reason that was never a retention failure: moved
+   *  to another branch, finished school. Out of the denominator, still
+   *  reported, because "where did they go" is the first question asked of a
+   *  cohort that shrank. */
+  not_churn: RegularRetentionRow;
+  /** The whole cohort, unresponsive first. The chase list is the no_response
+   *  subset; the rest is returned so the page can filter without a second call. */
+  chase: RegularRetentionChaseRow[];
+  reconciliation: RegularRetentionReconciliation;
+  /** One point per day of the window so far, counting only the students in
+   *  `totals` — the same filters, so the chart and the headline agree. */
+  trend: RegularRetentionTrendPoint[];
+}
+
+/** One tutor's own students. Deliberately narrower than the admin report: no
+ *  branch rows, no tutor comparison, no reconciliation. `totals` counts only
+ *  this tutor's students — a worklist size, not a measure of the centre. */
+export interface RegularRetentionMineResponse {
+  year: number;
+  intake_year: number;
+  intake_quarter: number;
+  totals: RegularRetentionRow;
+  students: RegularRetentionChaseRow[];
+}
+
+/** One applicant placed in a tutor's September slot. An application rather
+ *  than a student record: about a third of them are families the centre has
+ *  never taught, so the name on the form is the only name there is. */
+export interface RegularMyClassStudent {
+  application_id: number;
+  student_name: string;
+  grade?: string | null;
+  lang_stream?: string | null;
+  school?: string | null;
+  application_status: string;
+  /** Set when the application is matched to a student we already have. */
+  student_id?: number | null;
+  student_code?: string | null;
+  /** This tutor taught them last school year, so the class list can say which
+   *  faces are already familiar. */
+  taught_by_me_last_year: boolean;
+}
+
+/** One weekly slot a tutor is down to teach, and who is in it. */
+export interface RegularMyClassSlot {
+  slot_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  lang_stream?: string | null;
+  max_students: number;
+  students: RegularMyClassStudent[];
+}
+
+/** A tutor's own September classes, as far as arrangement has got. Empty for
+ *  most tutors until the office assigns tutors to slots. */
+export interface RegularMyClassResponse {
+  year: number;
+  slots: RegularMyClassSlot[];
 }
 
 /** A weekly slot's own fields, with no assignment state. Inlined on the

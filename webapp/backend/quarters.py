@@ -35,6 +35,15 @@ OPENING_PERIOD_DAYS = 7  # Jan 22-28, Apr 22-28, Jul 22-28, Oct 22-28
 PRE_SUMMER_GRACE_DAYS = 28  # lessons ending this close to the pause are judged in the quarter after it
 REGULAR_RESUME_MONTH_DAY = (9, 1)  # regular lessons resume 1 Sep, once the pause is over
 
+# How late a renewal can start and still count as the same student carrying on.
+# Holidays delay renewals, so a pack beginning a few weeks after the window is
+# the continuation of the one before it.
+RENEWAL_GRACE_DAYS = 21
+# And how long after a quarter closed a new pack stops being a renewal at all.
+# Past this it is a student coming back, and the quarter they left in has to keep
+# reading as the quarter they left in.
+COMEBACK_GRACE_DAYS = 30
+
 
 def get_quarter_dates(year: int, quarter: int):
     """
@@ -140,13 +149,28 @@ class QuarterWindow:
         return self.summer[0] - timedelta(days=PRE_SUMMER_GRACE_DAYS)
 
     def params(self) -> dict:
-        """Bind values shared by every quarter-scoped query."""
+        """Bind values shared by every quarter-scoped query.
+
+        The last three are the grace periods the termination queries used to
+        write inline as `DATE_ADD(:closing_end, INTERVAL 21 DAY)`. They are
+        computed here instead for two reasons: the reader sees what the number
+        means rather than a bare interval, and SQLite has no DATE_ADD, so the
+        queries that use them can now be tested rather than only measured.
+        """
         return {
             "opening_end": self.opening_end,
             "closing_end": self.closing_end,
             "churn_cutoff": self.churn_cutoff,
             "judged_from": self.judged_from,
             "prev_closing_end": self.prev_closing_end,
+            # A renewal that starts a few weeks late is the same student
+            # continuing, not a new one: holidays delay renewals.
+            "opening_end_grace": self.opening_end + timedelta(days=RENEWAL_GRACE_DAYS),
+            "closing_end_grace": self.closing_end + timedelta(days=RENEWAL_GRACE_DAYS),
+            "prev_closing_end_grace": self.prev_closing_end - timedelta(days=RENEWAL_GRACE_DAYS),
+            # A pack starting more than a month after the window closed is a
+            # student coming back, and must not rewrite the quarter's history.
+            "comeback_cutoff": self.closing_end + timedelta(days=COMEBACK_GRACE_DAYS),
         }
 
 

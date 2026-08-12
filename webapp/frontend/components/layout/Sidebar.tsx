@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
@@ -18,7 +18,7 @@ import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
-import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge, useRegularSidebarBadge } from "@/lib/hooks";
+import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge, useRegularSidebarBadge, useRegularIntakeOpen } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -86,6 +86,23 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     isAdminOrAbove,
     selectedLocation,
   );
+
+  // Course Renewal is a seasonal surface: it only means anything while the
+  // September intake is taking applications, so it appears for the window and
+  // then goes away rather than sitting empty for ten months. The dates come
+  // from the intake config, so moving the window in the config editor moves
+  // this too.
+  const intakeOpen = useRegularIntakeOpen(!isGuest);
+  // It goes in above Inbox rather than at the end. For the weeks it is here it
+  // is a job somebody has to finish, and the end of the list is where an item
+  // goes to be missed.
+  const mainNavigation = useMemo(() => {
+    if (!intakeOpen) return navigation;
+    const renewal = { name: "Course Renewal", href: "/course-renewal", icon: CalendarCheck, color: "bg-sky-500" };
+    const inboxAt = navigation.findIndex((item) => item.name === "Inbox");
+    if (inboxAt === -1) return [...navigation, renewal];
+    return [...navigation.slice(0, inboxAt), renewal, ...navigation.slice(inboxAt)];
+  }, [intakeOpen]);
 
   // Per-item badge state for the admin nav. Renewals turns red when any
   // enrollment has expired; Overdue Payments is always red. Summer Course and
@@ -316,7 +333,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           className="h-full overflow-y-auto scrollbar-hide"
         >
         <nav className="space-y-2 px-3 py-4">
-        {navigation
+        {mainNavigation
           // Filter out Inbox for Guest (read-only role; Supervisors get broadcast-only view)
           .filter((item) => !(item.name === "Inbox" && isGuest))
           .map((item) => {
@@ -382,6 +399,20 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     <span className="absolute -top-2 -right-3 text-[7px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
                       Beta
                     </span>
+                  )}
+
+                  {/* Course Renewal only appears at all while the intake is
+                      taking applications, and the dot is there to catch the eye
+                      on the way past. It sits on the icon rather than beside
+                      the label because "Course Renewal" needs 115px of the
+                      148px a row gives a label, which is not enough left over
+                      for the "Open" pill the admin nav uses: the label wrapped
+                      onto a second line. */}
+                  {item.name === "Course Renewal" && (
+                    <span
+                      className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500"
+                      title="The September intake is taking applications"
+                    />
                   )}
                 </div>
 

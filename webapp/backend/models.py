@@ -631,7 +631,10 @@ class ParentCommunication(Base):
     tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
     contact_date = Column(DateTime, nullable=False)
     contact_method = Column(String(50), default='WeChat')  # WeChat, Phone, In-Person
-    contact_type = Column(String(50), default='Progress Update')  # Progress Update, Concern, General
+    # Progress Update, Concern, General, Course Renewal. The column is an enum
+    # in MySQL and still carries four more values the app has never offered,
+    # so anything written here has to be one of the eight in migration 159.
+    contact_type = Column(String(50), default='Progress Update')
     brief_notes = Column(Text, comment='Quick summary of what was discussed')
     follow_up_needed = Column(Boolean, default=False, nullable=True)  # Allow NULL for legacy data
     follow_up_date = Column(Date, comment='When follow-up is needed by')

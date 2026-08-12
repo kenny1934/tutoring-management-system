@@ -15,6 +15,8 @@ from models import ParentCommunication, Student, Tutor, Enrollment, LocationSett
 from routers.enrollments import calculate_effective_end_date_bulk, get_holidays_in_range
 from schemas import (
     ParentCommunicationCreate,
+    ParentCommunicationBulkCreate,
+    ParentCommunicationBulkResponse,
     ParentCommunicationUpdate,
     ParentCommunicationResponse,
     StudentContactStatus,
@@ -586,29 +588,18 @@ async def get_communication_stats(
         base_filters.append(ParentCommunication.student_id.in_(location_student_ids))
 
     # Combined query: type distribution (30d) + weekly activity (saves 2 round-trips)
+    #
+    # Grouped by type rather than counting three named types in three CASE
+    # expressions, so a type added to the vocabulary is reported without this
+    # query knowing it exists. It used to name 'Progress Update', 'Concern' and
+    # 'General', and anything else was simply absent from the figures.
     thirty_days_ago = today - timedelta(days=30)
     week_start = today - timedelta(days=today.weekday())  # Monday
     last_week_start = week_start - timedelta(days=7)
 
-    combined = db.query(
-        func.count(case(
-            (and_(
-                ParentCommunication.contact_date >= thirty_days_ago,
-                ParentCommunication.contact_type == 'Progress Update'
-            ), ParentCommunication.id),
-        )).label('progress_count'),
-        func.count(case(
-            (and_(
-                ParentCommunication.contact_date >= thirty_days_ago,
-                ParentCommunication.contact_type == 'Concern'
-            ), ParentCommunication.id),
-        )).label('concern_count'),
-        func.count(case(
-            (and_(
-                ParentCommunication.contact_date >= thirty_days_ago,
-                ParentCommunication.contact_type == 'General'
-            ), ParentCommunication.id),
-        )).label('general_count'),
+    by_type = db.query(
+        ParentCommunication.contact_type,
+        func.count(ParentCommunication.id).label('in_30_days'),
         func.count(case(
             (ParentCommunication.contact_date >= week_start, ParentCommunication.id),
         )).label('this_week'),
@@ -621,7 +612,13 @@ async def get_communication_stats(
     ).filter(
         ParentCommunication.contact_date >= thirty_days_ago,
         *base_filters
-    ).first()
+    ).group_by(ParentCommunication.contact_type).all()
+
+    # The weekly figures are every contact, typed or not, which is why they are
+    # summed back up rather than read off one row.
+    type_counts = {r.contact_type: r.in_30_days for r in by_type if r.contact_type}
+    contacts_this_week = sum(r.this_week for r in by_type)
+    contacts_last_week = sum(r.last_week for r in by_type)
 
     # Average days since last contact (for contacted students only)
     last_contact_subq = db.query(
@@ -648,11 +645,9 @@ async def get_communication_stats(
         total_active_students=total_active,
         students_contacted_recently=students_contacted,
         contact_coverage_percent=coverage,
-        progress_update_count=combined.progress_count if combined else 0,
-        concern_count=combined.concern_count if combined else 0,
-        general_count=combined.general_count if combined else 0,
-        contacts_this_week=combined.this_week if combined else 0,
-        contacts_last_week=combined.last_week if combined else 0,
+        type_counts=type_counts,
+        contacts_this_week=contacts_this_week,
+        contacts_last_week=contacts_last_week,
         average_days_since_contact=avg_days,
         pending_followups_count=followup_count,
     )
@@ -753,6 +748,55 @@ async def create_communication(
         follow_up_date=comm.follow_up_date,
         created_at=comm.created_at,
         created_by=comm.created_by
+    )
+
+
+@router.post("/parent-communications/bulk", response_model=ParentCommunicationBulkResponse)
+async def create_communications_bulk(
+    data: ParentCommunicationBulkCreate,
+    tutor_id: int = Query(..., description="Tutor ID creating these records"),
+    created_by: str = Query(..., description="Email of user creating these records"),
+    db: Session = Depends(get_db),
+    _: Tutor = Depends(reject_read_only),
+):
+    """Log one contact against several students in a single write.
+
+    Chasing a renewal is a round of calls or one broadcast message, so the
+    alternative was the same form filled in twenty times. Written as one
+    transaction: a database error leaves nothing behind rather than half a
+    round, and the only partial outcome is an id whose student has since been
+    deleted, which comes back in `skipped`."""
+    tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
+    if not tutor:
+        raise HTTPException(status_code=404, detail="Tutor not found")
+
+    wanted = list(dict.fromkeys(data.student_ids))
+    found = {
+        student_id
+        for (student_id,) in db.query(Student.id).filter(Student.id.in_(wanted))
+    }
+    when = data.contact_date or hk_now()
+
+    db.add_all([
+        ParentCommunication(
+            student_id=student_id,
+            tutor_id=tutor_id,
+            contact_date=when,
+            contact_method=data.contact_method,
+            contact_type=data.contact_type,
+            brief_notes=data.brief_notes,
+            follow_up_needed=data.follow_up_needed,
+            follow_up_date=data.follow_up_date,
+            created_by=created_by,
+        )
+        for student_id in wanted
+        if student_id in found
+    ])
+    db.commit()
+
+    return ParentCommunicationBulkResponse(
+        created=len(found),
+        skipped=[student_id for student_id in wanted if student_id not in found],
     )
 
 

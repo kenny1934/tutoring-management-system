@@ -10,6 +10,7 @@ import {
   Loader2
 } from "lucide-react";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { CONTACT_TYPES, CONTACT_TYPE_META, getContactTypeDot } from "./contact-utils";
 
 interface ContactCalendarProps {
   events: ParentCommunication[];
@@ -225,19 +226,6 @@ export function ContactCalendar({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [expandedDay]);
 
-  // Get contact type color
-  const getContactTypeColor = (type: string) => {
-    switch (type) {
-      case 'Progress Update':
-        return 'bg-blue-500';
-      case 'Concern':
-        return 'bg-orange-500';
-      case 'General':
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
   return (
     <div className={cn(
       "flex flex-col h-full",
@@ -363,7 +351,7 @@ export function ContactCalendar({
                           onClick={() => onEventClick(event)}
                           className={cn(
                             "w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-all",
-                            getContactTypeColor(event.contact_type),
+                            getContactTypeDot(event.contact_type),
                             "text-white hover:brightness-110",
                             selectedContactId === event.id && "ring-2 ring-offset-1 ring-[#a0704b]"
                           )}
@@ -399,7 +387,7 @@ export function ContactCalendar({
                     onClick={() => onEventClick(event)}
                     className={cn(
                       "w-full text-left px-1.5 py-0.5 rounded text-[10px] truncate transition-all",
-                      getContactTypeColor(event.contact_type),
+                      getContactTypeDot(event.contact_type),
                       "text-white hover:brightness-110",
                       selectedContactId === event.id && "ring-2 ring-offset-1 ring-[#a0704b]"
                     )}
@@ -456,7 +444,7 @@ export function ContactCalendar({
                           onClick={() => onEventClick(event)}
                           className={cn(
                             "w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-all",
-                            getContactTypeColor(event.contact_type),
+                            getContactTypeDot(event.contact_type),
                             "text-white hover:brightness-110",
                             selectedContactId === event.id && "ring-2 ring-offset-1 ring-[#a0704b]"
                           )}
@@ -501,7 +489,7 @@ export function ContactCalendar({
                   )}
                 >
                   <div className="flex items-start gap-2">
-                    <span className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", getContactTypeColor(event.contact_type))} />
+                    <span className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", getContactTypeDot(event.contact_type))} />
                     <div className="flex-1 min-w-0 space-y-0.5">
                       <StudentInfoBadges
                         student={{
@@ -533,11 +521,8 @@ export function ContactCalendar({
       {/* Legend / Filters */}
       <div className="px-3 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
         <div className="flex items-center justify-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-          {[
-            { type: 'Progress Update', label: 'Progress', color: 'bg-blue-500' },
-            { type: 'Concern', label: 'Concern', color: 'bg-orange-500' },
-            { type: 'General', label: 'General', color: 'bg-gray-500' },
-          ].map(({ type, label, color }) => {
+          {CONTACT_TYPES.map((type) => {
+            const { short: label, dot: color } = CONTACT_TYPE_META[type];
             const isActive = activeContactTypes?.has(type) ?? true;
             return onToggleContactType ? (
               <button

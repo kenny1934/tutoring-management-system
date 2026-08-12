@@ -1094,6 +1094,33 @@ class ParentCommunicationCreate(BaseModel):
     contact_date: Optional[datetime] = None  # Defaults to now if not provided
 
 
+class ParentCommunicationBulkCreate(BaseModel):
+    """One contact, logged against several students at once.
+
+    Same fields as a single record minus the student, because the point is
+    that one round of calls or one broadcast message covered all of them. The
+    cap is a guard against a mis-click on a select-all: nobody rings 200
+    families in a sitting, and a note that claims they did is worse than no
+    note."""
+    student_ids: List[int] = Field(..., min_length=1, max_length=200)
+    contact_method: str = Field(default='WeChat', max_length=50)
+    contact_type: str = Field(default='Progress Update', max_length=50)
+    brief_notes: Optional[str] = Field(None, max_length=500)
+    follow_up_needed: bool = Field(default=False)
+    follow_up_date: Optional[date] = None
+    contact_date: Optional[datetime] = None
+
+
+class ParentCommunicationBulkResponse(BaseModel):
+    """What actually got written.
+
+    `skipped` holds ids with no student behind them any more, which is the
+    only way part of a batch can fail: everything else is written in one
+    transaction and either all lands or none does."""
+    created: int = 0
+    skipped: List[int] = []
+
+
 class ParentCommunicationUpdate(BaseModel):
     """Schema for updating a parent communication record"""
     contact_method: Optional[str] = Field(None, max_length=50)
@@ -1152,9 +1179,10 @@ class ParentCommunicationStats(BaseModel):
     total_active_students: int = Field(default=0, ge=0)
     students_contacted_recently: int = Field(default=0, ge=0)
     contact_coverage_percent: float = Field(default=0, ge=0, le=100)
-    progress_update_count: int = Field(default=0, ge=0)
-    concern_count: int = Field(default=0, ge=0)
-    general_count: int = Field(default=0, ge=0)
+    # Contacts of each type in the last 30 days, keyed by the type itself so a
+    # new one is reported without this schema being taught its name. Types with
+    # nothing against them are absent rather than present as a zero.
+    type_counts: Dict[str, int] = Field(default_factory=dict)
     contacts_this_week: int = Field(default=0, ge=0)
     contacts_last_week: int = Field(default=0, ge=0)
     average_days_since_contact: Optional[float] = None
@@ -3623,6 +3651,278 @@ class RegularConversionResponse(BaseModel):
     by_school: List[RegularConversionSchoolRow] = []
     branch_movement: List[RegularConversionMovementRow] = []
     lost_prospects: List[RegularConversionLostRow] = []
+
+
+# ---- Regular Course Retention (did last year's students come back?) ----
+
+# Where a cohort member came from. Conversion answers "did new blood arrive";
+# retention answers "did the people we already had stay", so the two boards
+# never share a denominator.
+RetentionSource = Literal["regular_and_summer", "regular_only", "summer_only"]
+
+# What happened to them this intake. Ordered by how settled the answer is:
+# everything before "no_response" is a resolved outcome, and only no_response
+# earns a place on the chase list.
+RetentionState = Literal["enrolled", "applied", "declined", "not_churn", "no_response"]
+
+# Whether the grade they are entering is one the form actually offers.
+# `admin_only` rungs exist in the config but are hidden from parents, so those
+# families cannot self-serve even when chased.
+RetentionRung = Literal["open", "admin_only", "none"]
+
+
+class RegularRetentionRow(BaseModel):
+    """One slice of the retention funnel, keyed by whatever axis built it.
+
+    Every axis counts the same measures, so they share a row shape rather than
+    growing a class each: `key` is the branch code, entering grade, source tag,
+    tutor name, or decline reason depending on which list the row came from.
+
+    `cohort` is the denominator and holds declines — a family who said no is a
+    retention failure, not an exclusion. Only `not_churn` (transferred away,
+    graduated) leaves the denominator, which is why it has no column here."""
+    key: str
+    # What to show instead of `key` when the key is an identifier rather than a
+    # name. Tutors are keyed by id so two tutors sharing a name stay two rows.
+    label: Optional[str] = None
+    cohort: int = 0
+    applied: int = 0
+    enrolled: int = 0
+    declined: int = 0
+    # Someone logged a parent contact inside the application window. Independent
+    # of state: a contacted family can still be sitting at no_response.
+    contacted: int = 0
+    no_response: int = 0
+    # Of the unresponsive, how many have already been contacted. Cohort-wide
+    # `contacted` answers a different question and reads as this one when it
+    # sits under a "no response" heading, so both are counted.
+    no_response_contacted: int = 0
+
+
+class RegularProspectJourney(BaseModel):
+    """P6 prospect journey attached to a linked regular application.
+
+    Batched onto the application response (like is_new_student) to feed the
+    journey chip and the applications-page filter. attended_summer is true when
+    a summer enrollment row exists and the summer application was not withdrawn.
+    """
+    prospect_id: int
+    source_branch: Optional[str] = None
+    # Their id at the primary branch, as the branch tutor submitted it
+    # ("MCP1112"). The chip renders it through formatProspectCode, the same
+    # helper every other prospect-code display already uses.
+    primary_student_id: Optional[str] = None
+    attended_summer: bool = False
+
+
+class RegularRetentionChaseRow(BaseModel):
+    """One cohort member, with everything needed to chase them in one row.
+
+    Carries contact details and the last-contact date so staff can work the
+    list without opening each student, matching how the conversion board's
+    chase list behaves."""
+    student_id: int
+    student_name: str
+    student_code: Optional[str] = None
+    branch: Optional[str] = None
+    # The grade on the student record — last school year's, until the Sept 1
+    # promotion job runs.
+    grade: Optional[str] = None
+    # The grade they are entering, which is what an application carries. Equal
+    # to `grade` only after promotion.
+    expected_grade: Optional[str] = None
+    rung: RetentionRung = "none"
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    phone: Optional[str] = None
+    tutor_name: Optional[str] = None
+    source: RetentionSource = "regular_only"
+    # Where a student who came up from a primary branch this summer came from.
+    # Set for the ones a primary tutor put forward on the P6 prospect list,
+    # which is the same block the applications page reads, so one chip renders
+    # it in both places. Absent for everyone else.
+    prospect_journey: Optional[RegularProspectJourney] = None
+    state: RetentionState = "no_response"
+    reference_code: Optional[str] = None
+    # Where the application has got to on the ladder the parent also sees on
+    # the status page: Submitted, Placement Offered, Fee Sent and so on. Only
+    # set for a student who has one, since it is the application's own state.
+    application_status: Optional[str] = None
+    last_contact_date: Optional[datetime] = None
+    # What was said on that call. Clipped to a couple of lines: it rides on
+    # every row and the list has room for one of them.
+    last_contact_note: Optional[str] = None
+    days_since_contact: Optional[int] = None
+    follow_up_needed: bool = False
+    follow_up_date: Optional[date] = None
+    # The category only. The free-text reason a member of staff typed is on the
+    # termination record and reads in full on the student's own page; carrying
+    # it on all 800 rows of a list that never shows it was only weight.
+    decline_reason_category: Optional[str] = None
+
+
+class RegularRetentionOutsideRow(BaseModel):
+    """One student who applied without being in this year's group.
+
+    Named rather than counted because every one of them is a different
+    situation: a family who lapsed a year ago and came back, a primary
+    student the conversion board owns, somebody whose enrollment ended early.
+    A number cannot tell those apart and a name can."""
+    student_id: int
+    student_name: str
+    student_code: Optional[str] = None
+    branch: Optional[str] = None
+    # The grade on their record, and the grade the application asks for.
+    grade: Optional[str] = None
+    applied_grade: Optional[str] = None
+    reference_code: Optional[str] = None
+
+
+class RegularRetentionReconciliation(BaseModel):
+    """Applications claiming to be existing students but carrying no student
+    link. Where a record here might be theirs, their family reads as "no
+    response" and would be chased in error, so the board surfaces that count
+    and offers the existing auto-match."""
+    unlinked_count: int = 0
+    # Split by claimed centre, since only the Secondary Academy ones are this
+    # board's cohort — the rest feed the conversion board.
+    unlinked_secondary: int = 0
+    unlinked_primary: int = 0
+    # Of the secondary ones, those with a student record at the branch they
+    # named that might be the same person. The rest are mostly P6 students
+    # coming up from a primary branch, who have never studied at the secondary
+    # academy and so are not in the cohort and cannot be miscounted. Only this
+    # number is worth putting in front of staff, and it is the count of rows
+    # the matching tool will show them.
+    unlinked_matchable: int = 0
+    # Applications linked to a student who is not in this cohort: they lapsed
+    # earlier, or never had a qualifying enrollment. Counted so they read as
+    # excluded rather than as missing, and listed so staff can see who.
+    applied_outside_cohort: int = 0
+    applied_outside: List[RegularRetentionOutsideRow] = []
+
+
+class RegularRetentionTrendPoint(BaseModel):
+    """One day of the intake window, as counts on that date and running totals.
+
+    Derived from the timestamps the events already carry — when an application
+    was submitted, when a termination was filed, when a parent was called —
+    rather than from a stored snapshot. That gives the whole window from the
+    day the feature ships instead of starting flat, and the last point equals
+    the headline figures by construction, because both are built from the same
+    rows.
+
+    The denominator is deliberately fixed: every point measures against the
+    cohort as it stands today, so a moving line means the chasing moved and
+    not that the cohort was recounted."""
+    date: date
+    # New that day.
+    applied: int = 0
+    declined: int = 0
+    contacted: int = 0
+    # Running totals to the end of that day.
+    applied_total: int = 0
+    declined_total: int = 0
+    contacted_total: int = 0
+
+
+class RegularRetentionResponse(BaseModel):
+    """Did last year's students apply for this year's regular course?
+
+    The mirror of the conversion report for existing customers: conversion
+    tracks P6 prospects arriving, this tracks the students already here
+    staying. `totals` sums only the rungs the form offers; `no_rung` holds the
+    students whose entering grade the config has no place for (F5 and up), who
+    are reported separately and never counted as unresponsive.
+
+    `not_churn` holds the students who left for a reason that was never a
+    retention failure — moved to another branch, finished school. They are out
+    of the denominator but still reported, because "where did they go" is the
+    first question asked of a cohort that shrank."""
+    year: int
+    # Bounds the board reads from the config, echoed so the UI can explain
+    # itself without recomputing them.
+    window_start: Optional[datetime] = None
+    active_from: Optional[date] = None
+    # The reporting quarter a decline is written into. The application window
+    # falls inside a single quarter, which is what lets a decline ride on
+    # termination_records instead of needing its own table.
+    intake_year: int
+    intake_quarter: int
+    totals: RegularRetentionRow
+    by_branch: List[RegularRetentionRow] = []
+    by_expected_grade: List[RegularRetentionRow] = []
+    by_source: List[RegularRetentionRow] = []
+    by_tutor: List[RegularRetentionRow] = []
+    by_decline_reason: List[RegularRetentionRow] = []
+    no_rung: RegularRetentionRow
+    not_churn: RegularRetentionRow
+    chase: List[RegularRetentionChaseRow] = []
+    reconciliation: RegularRetentionReconciliation
+    # One point per day of the window so far, counting only the students in
+    # `totals` — the same filters, so the chart and the headline never disagree.
+    trend: List[RegularRetentionTrendPoint] = []
+
+
+class RegularRetentionMineResponse(BaseModel):
+    """One tutor's own students and whether they have come back.
+
+    Deliberately narrower than the admin report: no branch rows, no tutor
+    comparison, no reconciliation. `totals` counts only this tutor's own
+    students, which is their worklist size rather than a measure of how the
+    centre is performing."""
+    year: int
+    # Echoed so the "not returning" action can name the quarter it writes to.
+    intake_year: int
+    intake_quarter: int
+    totals: RegularRetentionRow
+    students: List[RegularRetentionChaseRow] = []
+
+
+class RegularMyClassStudent(BaseModel):
+    """One applicant placed in a tutor's September slot.
+
+    An application, not a student record: about a third of them are families
+    the centre has never taught, so there is no student id to hang anything on
+    and the name on the form is the only name there is."""
+    application_id: int
+    student_name: str
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    application_status: str
+    # Set when the application is matched to a student we already have, which
+    # is what lets the row link to their record and show their code.
+    student_id: Optional[int] = None
+    student_code: Optional[str] = None
+    # True when this tutor taught them last school year, so a class list can
+    # say which faces are already familiar.
+    taught_by_me_last_year: bool = False
+
+
+class RegularMyClassSlot(BaseModel):
+    """One weekly slot a tutor is down to teach, and who is in it."""
+    slot_id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    max_students: int
+    # Placed applicants who are still in the intake. Withdrawn and rejected
+    # applications keep their slot in the database but are not coming, so they
+    # are neither listed nor counted.
+    students: List[RegularMyClassStudent] = []
+
+
+class RegularMyClassResponse(BaseModel):
+    """A tutor's own September classes, as far as arrangement has got.
+
+    Empty for most tutors until the office assigns tutors to slots."""
+    year: int
+    slots: List[RegularMyClassSlot] = []
+
+
 class SavedReportDetailResponse(BaseModel):
     id: int
     student_id: int
@@ -4074,22 +4374,6 @@ class RegularAssignedSlotInfo(BaseModel):
     tutor_id: Optional[int] = None
     tutor_name: Optional[str] = None
     max_students: int
-
-
-class RegularProspectJourney(BaseModel):
-    """P6 prospect journey attached to a linked regular application.
-
-    Batched onto the application response (like is_new_student) to feed the
-    journey chip and the applications-page filter. attended_summer is true when
-    a summer enrollment row exists and the summer application was not withdrawn.
-    """
-    prospect_id: int
-    source_branch: Optional[str] = None
-    # Their id at the primary branch, as the branch tutor submitted it
-    # ("MCP1112"). The chip renders it through formatProspectCode, the same
-    # helper every other prospect-code display already uses.
-    primary_student_id: Optional[str] = None
-    attended_summer: bool = False
 
 
 class RegularApplicationResponse(BaseModel):
