@@ -473,3 +473,53 @@ class TestRoleBasedAccess:
         # Try to access admin endpoint (debug panel)
         response = client.get("/api/debug/tables")
         assert response.status_code == 200
+
+
+# ============================================================================
+# Impersonation: who a request counts as
+# ============================================================================
+
+class TestEffectiveRole:
+    """A Super Admin can view the app as somebody else, and the gates have to
+    believe it. The role rides on a header, so the server decides who is
+    allowed to send one rather than trusting what arrives."""
+
+    @staticmethod
+    def _request(**headers):
+        from starlette.requests import Request
+        raw = [(k.lower().encode(), v.encode()) for k, v in headers.items()]
+        return Request({"type": "http", "method": "GET", "path": "/", "headers": raw})
+
+    def test_a_super_admin_becomes_whoever_the_header_says(self):
+        from auth.dependencies import get_effective_role
+        boss = Tutor(id=1, role="Super Admin")
+        assert get_effective_role(self._request(**{"X-Effective-Role": "Tutor"}), boss) == "Tutor"
+
+    def test_everybody_else_stays_themselves(self):
+        """Without this an ordinary tutor could send the header and read the
+        admin pages."""
+        from auth.dependencies import get_effective_role
+        tutor = Tutor(id=2, role="Tutor")
+        assert get_effective_role(self._request(**{"X-Effective-Role": "Admin"}), tutor) == "Tutor"
+
+    def test_a_role_nobody_has_is_ignored(self):
+        from auth.dependencies import get_effective_role
+        boss = Tutor(id=1, role="Super Admin")
+        assert get_effective_role(self._request(**{"X-Effective-Role": "Owner"}), boss) == "Super Admin"
+
+    def test_viewing_as_a_tutor_closes_the_admin_pages(self):
+        """What makes the prospect board testable: impersonate a tutor and the
+        endpoints behind it refuse, exactly as they would for that tutor."""
+        from fastapi import HTTPException
+        from auth.dependencies import require_admin_view
+        boss = Tutor(id=1, role="Super Admin")
+        with pytest.raises(HTTPException) as refused:
+            require_admin_view(self._request(**{"X-Effective-Role": "Tutor"}), boss)
+        assert refused.value.status_code == 403
+
+    def test_a_supervisor_still_reads_the_admin_pages(self):
+        """The read-only admin role, which is why the page gate is
+        canViewAdminPages rather than an Admin-only check."""
+        from auth.dependencies import require_admin_view
+        boss = Tutor(id=1, role="Super Admin")
+        assert require_admin_view(self._request(**{"X-Effective-Role": "Supervisor"}), boss) is boss

@@ -140,7 +140,9 @@ function compareValues(a: string | number | null | undefined, b: string | number
 export default function AdminProspectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isReadOnly: readOnly } = useAuth();
+  // canViewAdminPages is the effective role, so a Super Admin impersonating a
+  // tutor gets the refusal a tutor would get rather than the page.
+  const { isReadOnly: readOnly, canViewAdminPages } = useAuth();
 
   // URL-backed state
   const [year, setYear] = useState<number | null>(() => {
@@ -209,8 +211,14 @@ export default function AdminProspectsPage() {
   const [autoMatchPreview, setAutoMatchPreview] = useState<import("@/types").AutoMatchResult | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  // Fetch available years from summer configs
-  const { data: configs } = useSWR("summer-configs", () => summerAPI.getConfigs(), { revalidateOnFocus: false });
+  // Fetch available years from summer configs. Every key on this page is gated
+  // on the same flag as the page itself: the hooks still run above the refusal
+  // below, and firing three calls the API is going to refuse helps nobody.
+  const { data: configs } = useSWR(
+    canViewAdminPages ? "summer-configs" : null,
+    () => summerAPI.getConfigs(),
+    { revalidateOnFocus: false },
+  );
   const availableYears = useMemo(() => configs?.map((c) => c.year).sort((a, b) => b - a) ?? [], [configs]);
 
   // Default to active config's year
@@ -228,7 +236,7 @@ export default function AdminProspectsPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const swrKey = tab === "list" && year
+  const swrKey = canViewAdminPages && tab === "list" && year
     ? ["admin-prospects", year, filters.branch, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search]
     : null;
   const { data: prospects, isLoading } = useSWR(
@@ -342,7 +350,7 @@ export default function AdminProspectsPage() {
 
   // Stats key includes all filters except `branch` — the pills themselves
   // are the branch axis, so including it would zero every other pill.
-  const statsKey = year
+  const statsKey = canViewAdminPages && year
     ? ["admin-prospect-stats", year, filters.status, filters.outreach_status, filters.wants_summer, filters.wants_regular, filters.summer_state, filters.regular_state, filters.has_wechat, filters.search]
     : null;
   const { data: stats } = useSWR(
@@ -536,6 +544,19 @@ export default function AdminProspectsPage() {
       document.removeEventListener("keydown", onKey);
     };
   }, [showFilterDrawer]);
+
+  // Every other page under /admin says this and this one did not, so a tutor
+  // who found the address got the furniture of a page they cannot read. The
+  // API refused them all along, which is why it never leaked anything.
+  if (!canViewAdminPages) {
+    return (
+      <DeskSurface fullHeight>
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          You do not have access to this page.
+        </div>
+      </DeskSurface>
+    );
+  }
 
   return (
     <DeskSurface fullHeight>
