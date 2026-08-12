@@ -91,6 +91,9 @@ from schemas import (
     RegularRetentionChaseRow,
     RegularRetentionReconciliation,
     RegularRetentionMineResponse,
+    RegularMyClassResponse,
+    RegularMyClassSlot,
+    RegularMyClassStudent,
     RegularRetentionOutsideRow,
     RegularRetentionTrendPoint,
     ProspectIntention,
@@ -100,6 +103,7 @@ from auth.dependencies import (
     require_admin_view,
     require_admin_write,
     require_super_admin,
+    resolve_viewed_tutor_id,
 )
 from routers.students import find_duplicate_students
 from routers.primary_prospects import enrollment_backed_students
@@ -2412,6 +2416,7 @@ def _build_retention(
             on_prospect_board=student_id in on_prospect_board,
             state=state,
             reference_code=app.reference_code if app else None,
+            application_status=app.application_status if app else None,
             last_contact_date=last_contact,
             last_contact_note=contact.get("note"),
             days_since_contact=(today - last_contact.date()).days if last_contact else None,
@@ -2637,25 +2642,9 @@ def get_retention(
     return _cached_retention(db, config, branch=branch)
 
 
-@router.get(
-    "/regular/retention/mine",
-    response_model=RegularRetentionMineResponse,
-    response_model_exclude_none=True,
-)
-def get_my_retention(
-    year: Optional[int] = None,
-    current_user: Tutor = Depends(reject_guest),
-    db: Session = Depends(get_db),
-):
-    """A tutor's own students and whether they have come back.
-
-    The same cohort logic as the admin report, scoped to the caller's own
-    students and stripped of everything that would read as a scoreboard: no
-    branch rows, no comparison against other tutors, no reconciliation. Admins
-    calling this see their own students too — the admin board is where the
-    whole picture lives.
-
-    Defaults to the active intake, since a tutor chases the one that is open."""
+def _intake_config(db: Session, year: Optional[int]) -> RegularCourseConfig:
+    """The intake a tutor-facing page is about: the one they name, or the one
+    that is open, since that is the only one they can do anything about."""
     query = db.query(RegularCourseConfig)
     config = (
         query.filter(RegularCourseConfig.year == year).first()
@@ -2667,8 +2656,36 @@ def get_my_retention(
             status_code=404,
             detail=f"No regular course config for {year}" if year else "No active regular intake",
         )
+    return config
+
+
+@router.get(
+    "/regular/retention/mine",
+    response_model=RegularRetentionMineResponse,
+    response_model_exclude_none=True,
+)
+def get_my_retention(
+    year: Optional[int] = None,
+    tutor_id: Optional[int] = None,
+    current_user: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """A tutor's own students and whether they have come back.
+
+    The same cohort logic as the admin report, scoped to the caller's own
+    students and stripped of everything that would read as a scoreboard: no
+    branch rows, no comparison against other tutors, no reconciliation. Admins
+    calling this see their own students too — the admin board is where the
+    whole picture lives.
+
+    `tutor_id` is for viewing the page as somebody else, which only an admin
+    may do. See `resolve_viewed_tutor_id`.
+
+    Defaults to the active intake, since a tutor chases the one that is open."""
+    viewed_tutor_id = resolve_viewed_tutor_id(current_user, tutor_id)
+    config = _intake_config(db, year)
     report = _cached_retention(
-        db, config, tutor_id=current_user.id, include_reconciliation=False
+        db, config, tutor_id=viewed_tutor_id, include_reconciliation=False
     )
     return RegularRetentionMineResponse(
         year=report.year,
@@ -2676,6 +2693,136 @@ def get_my_retention(
         intake_quarter=report.intake_quarter,
         totals=report.totals,
         students=report.chase,
+    )
+
+
+@router.get(
+    "/regular/class/mine",
+    response_model=RegularMyClassResponse,
+    response_model_exclude_none=True,
+)
+def get_my_class(
+    year: Optional[int] = None,
+    tutor_id: Optional[int] = None,
+    current_user: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """Who is coming to this tutor's classes in September.
+
+    The forward-looking half of renewal. `/regular/retention/mine` looks back
+    at the students they taught last year and asks who has not come back; this
+    looks at the slots they are down to teach and says who has been placed in
+    them. The two populations differ on purpose, because a class fills up with
+    families the tutor has never met and some of last year's students end up
+    with somebody else.
+
+    `tutor_id` is for viewing the page as somebody else, which only an admin
+    may do. See `resolve_viewed_tutor_id`."""
+    viewed_tutor_id = resolve_viewed_tutor_id(current_user, tutor_id)
+    config = _intake_config(db, year)
+
+    slots = (
+        db.query(RegularCourseSlot)
+        .filter(
+            RegularCourseSlot.config_id == config.id,
+            RegularCourseSlot.tutor_id == viewed_tutor_id,
+        )
+        .order_by(RegularCourseSlot.slot_day, RegularCourseSlot.time_slot)
+        .all()
+    )
+
+    # Everyone placed in those slots who is still in the intake. A withdrawn
+    # application keeps its slot in the database but is not coming, so it is
+    # neither listed nor counted against the places.
+    apps: list[RegularApplication] = []
+    if slots:
+        apps = (
+            db.query(RegularApplication)
+            .options(joinedload(RegularApplication.existing_student))
+            .filter(
+                RegularApplication.assigned_slot_id.in_([s.id for s in slots]),
+                RegularApplication.application_status.not_in(REGULAR_EXIT_STATUSES),
+            )
+            .order_by(RegularApplication.student_name)
+            .all()
+        )
+
+    # Which of them this tutor already teaches. Anyone who started a regular
+    # course with them on or after last September, which is the school year
+    # ending as this intake opens.
+    taught: set[int] = set()
+    student_ids = [a.existing_student_id for a in apps if a.existing_student_id]
+    if student_ids:
+        taught = {
+            row[0]
+            for row in db.query(Enrollment.student_id).filter(
+                Enrollment.student_id.in_(student_ids),
+                Enrollment.tutor_id == viewed_tutor_id,
+                Enrollment.enrollment_type != "Summer",
+                Enrollment.first_lesson_date >= date_type(config.year - 1, 9, 1),
+            )
+        }
+
+    by_slot: dict[int, list[RegularMyClassStudent]] = {}
+    for app in apps:
+        student = app.existing_student
+        by_slot.setdefault(app.assigned_slot_id, []).append(RegularMyClassStudent(
+            application_id=app.id,
+            student_name=(student.student_name if student else app.student_name),
+            grade=app.grade,
+            lang_stream=app.lang_stream,
+            school=app.school,
+            application_status=app.application_status,
+            student_id=app.existing_student_id,
+            student_code=(
+                format_student_code(student.home_location, student.school_student_id)
+                if student else None
+            ),
+            taught_by_me_last_year=app.existing_student_id in taught,
+        ))
+
+    # Why the page is empty, for the tutors it is empty for. Most slots have
+    # nobody down to teach them yet, and a tutor who reads "no classes" wants
+    # to know whether that is a decision or a decision not yet made. Counted
+    # at the branches this tutor is on duty at, falling back to the branch on
+    # their record, so it is their own arrangement being described.
+    my_branches = {
+        normalize_secondary_location(loc)
+        for (loc,) in db.query(RegularTutorDuty.location).filter(
+            RegularTutorDuty.config_id == config.id,
+            RegularTutorDuty.tutor_id == viewed_tutor_id,
+        ).distinct()
+    }
+    if not my_branches:
+        viewed = db.query(Tutor).filter(Tutor.id == viewed_tutor_id).first()
+        my_branches = {normalize_secondary_location(viewed.default_location)} if viewed else set()
+    awaiting = 0
+    if my_branches:
+        awaiting = sum(
+            1
+            for (loc,) in db.query(RegularCourseSlot.location).filter(
+                RegularCourseSlot.config_id == config.id,
+                RegularCourseSlot.tutor_id.is_(None),
+            )
+            if normalize_secondary_location(loc) in my_branches
+        )
+
+    return RegularMyClassResponse(
+        year=config.year,
+        slots=[
+            RegularMyClassSlot(
+                slot_id=s.id,
+                slot_day=s.slot_day,
+                time_slot=s.time_slot,
+                location=s.location,
+                grade=s.grade,
+                lang_stream=s.lang_stream,
+                max_students=s.max_students,
+                students=by_slot.get(s.id, []),
+            )
+            for s in slots
+        ],
+        slots_awaiting_a_tutor=awaiting,
     )
 
 

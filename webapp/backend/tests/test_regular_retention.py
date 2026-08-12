@@ -21,6 +21,8 @@ from models import (
     PrimaryProspect,
     RegularApplication,
     RegularCourseConfig,
+    RegularCourseSlot,
+    RegularTutorDuty,
     Student,
     SummerApplication,
     SummerCourseConfig,
@@ -32,6 +34,7 @@ from routers.regular_course import (
     _build_retention,
     _cached_retention,
     _retention_trend,
+    get_my_class,
     get_my_retention,
     get_retention,
 )
@@ -181,7 +184,7 @@ def _summer_enrollment(db_session, student, tutor, sum_cfg, *, status="Enrolled"
 
 
 def _application(db_session, reg_cfg, student=None, *, grade="F2", status="Submitted",
-                 name="Chan Tai Man"):
+                 name="Chan Tai Man", slot=None):
     a = RegularApplication(
         config_id=reg_cfg.id,
         reference_code=f"RC2026-R{next(_SEQ)}",
@@ -192,10 +195,29 @@ def _application(db_session, reg_cfg, student=None, *, grade="F2", status="Submi
         application_status=status,
         existing_student_id=student.id if student else None,
         is_existing_student="MathConcept Secondary Academy",
+        assigned_slot_id=slot.id if slot else None,
     )
     db_session.add(a)
     db_session.commit()
     return a
+
+
+def _slot(db_session, reg_cfg, tutor, *, day="Tuesday", time="16:45 - 18:15",
+          location="華士古分校", grade="F2"):
+    """One weekly slot in the September timetable. `tutor` may be None, which
+    is the state most slots are in until the office decides who teaches."""
+    s = RegularCourseSlot(
+        config_id=reg_cfg.id,
+        slot_day=day,
+        time_slot=time,
+        location=location,
+        grade=grade,
+        tutor_id=tutor.id if tutor else None,
+        max_students=8,
+    )
+    db_session.add(s)
+    db_session.commit()
+    return s
 
 
 def _termination(db_session, student, *, year, quarter, counted=True, reason=None, category=None):
@@ -1104,6 +1126,199 @@ class TestTutorView:
         with pytest.raises(HTTPException) as exc:
             get_my_retention(year=None, current_user=tutor, db=db_session)
         assert exc.value.status_code == 404
+
+    def test_an_applied_student_carries_the_rung_they_are_on(
+        self, db_session, reg_cfg, tutor
+    ):
+        """"Applied" covers everything from Submitted to Fee Sent, which is
+        the difference between a family who filled the form in last night and
+        one waiting to pay."""
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+        _application(db_session, reg_cfg, s, status="Fee Sent")
+
+        result = get_my_retention(year=YEAR, current_user=tutor, db=db_session)
+
+        assert [r.application_status for r in result.students] == ["Fee Sent"]
+
+    def test_a_student_with_no_application_carries_no_rung(
+        self, db_session, reg_cfg, tutor
+    ):
+        s = _student(db_session)
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+
+        result = get_my_retention(year=YEAR, current_user=tutor, db=db_session)
+
+        assert result.students[0].application_status is None
+
+
+# ---------------------------------------------------------------------------
+# Viewing the page as somebody else
+# ---------------------------------------------------------------------------
+
+class TestViewingAsAnotherTutor:
+    """Impersonation has to reach the data or it only tests the layout.
+
+    The catch is that impersonating turns the caller's effective role down to
+    Tutor, so the permission has to be read off the token instead. These pin
+    down that an admin can look and a tutor cannot.
+    """
+
+    @pytest.fixture
+    def other(self, db_session):
+        t = Tutor(user_email="other@test.com", tutor_name="Mr Lei", role="Tutor",
+                  is_active_tutor=True)
+        db_session.add(t)
+        db_session.commit()
+        return t
+
+    @pytest.fixture
+    def admin(self, db_session):
+        t = Tutor(user_email="admin@test.com", tutor_name="Ms Boss", role="Super Admin",
+                  is_active_tutor=True)
+        db_session.add(t)
+        db_session.commit()
+        return t
+
+    def test_an_admin_sees_the_chosen_tutors_list(self, db_session, reg_cfg, admin, other):
+        theirs = _student(db_session, name="Theirs")
+        _regular_enrollment(db_session, theirs, other, first_lesson=date(2026, 4, 7))
+
+        result = get_my_retention(
+            year=YEAR, tutor_id=other.id, current_user=admin, db=db_session
+        )
+
+        assert [r.student_name for r in result.students] == ["Theirs"]
+
+    def test_a_tutor_cannot_ask_for_somebody_elses(self, db_session, reg_cfg, tutor, other):
+        with pytest.raises(HTTPException) as exc:
+            get_my_retention(
+                year=YEAR, tutor_id=other.id, current_user=tutor, db=db_session
+            )
+        assert exc.value.status_code == 403
+
+    def test_asking_for_your_own_id_is_always_allowed(self, db_session, reg_cfg, tutor):
+        s = _student(db_session, name="Mine")
+        _regular_enrollment(db_session, s, tutor, first_lesson=date(2026, 4, 7))
+
+        result = get_my_retention(
+            year=YEAR, tutor_id=tutor.id, current_user=tutor, db=db_session
+        )
+
+        assert [r.student_name for r in result.students] == ["Mine"]
+
+    def test_the_class_list_follows_the_same_rule(self, db_session, reg_cfg, tutor, other):
+        with pytest.raises(HTTPException) as exc:
+            get_my_class(year=YEAR, tutor_id=other.id, current_user=tutor, db=db_session)
+        assert exc.value.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# September classes
+# ---------------------------------------------------------------------------
+
+class TestMyClass:
+    """The forward-looking half: who has been placed into this tutor's slots.
+
+    A different population from the chase list on purpose. Some of the class
+    are families the tutor has never taught, and some of last year's students
+    end up with somebody else.
+    """
+
+    def test_only_the_slots_this_tutor_is_down_to_teach(
+        self, db_session, reg_cfg, tutor
+    ):
+        other = Tutor(user_email="o3@test.com", tutor_name="Mr Lei", role="Tutor",
+                      is_active_tutor=True)
+        db_session.add(other)
+        db_session.commit()
+        mine = _slot(db_session, reg_cfg, tutor, day="Tuesday")
+        theirs = _slot(db_session, reg_cfg, other, day="Friday")
+        _application(db_session, reg_cfg, name="In mine", slot=mine)
+        _application(db_session, reg_cfg, name="In theirs", slot=theirs)
+
+        result = get_my_class(year=YEAR, current_user=tutor, db=db_session)
+
+        assert [s.slot_day for s in result.slots] == ["Tuesday"]
+        assert [s.student_name for s in result.slots[0].students] == ["In mine"]
+
+    def test_a_withdrawn_applicant_is_neither_listed_nor_counted(
+        self, db_session, reg_cfg, tutor
+    ):
+        """They keep their slot in the database but they are not coming."""
+        slot = _slot(db_session, reg_cfg, tutor)
+        _application(db_session, reg_cfg, name="Coming", slot=slot)
+        _application(db_session, reg_cfg, name="Gone", slot=slot, status="Withdrawn")
+
+        result = get_my_class(year=YEAR, current_user=tutor, db=db_session)
+
+        assert [s.student_name for s in result.slots[0].students] == ["Coming"]
+
+    def test_a_returning_student_is_marked_as_already_taught(
+        self, db_session, reg_cfg, tutor
+    ):
+        slot = _slot(db_session, reg_cfg, tutor)
+        known = _student(db_session, name="Known face")
+        _regular_enrollment(db_session, known, tutor, first_lesson=date(2025, 9, 6))
+        _application(db_session, reg_cfg, known, name="Known face", slot=slot)
+        _application(db_session, reg_cfg, name="New family", slot=slot)
+
+        result = get_my_class(year=YEAR, current_user=tutor, db=db_session)
+        by_name = {s.student_name: s for s in result.slots[0].students}
+
+        assert by_name["Known face"].taught_by_me_last_year is True
+        assert by_name["Known face"].student_id == known.id
+        assert by_name["New family"].taught_by_me_last_year is False
+        assert by_name["New family"].student_id is None
+
+    def test_somebody_elses_student_is_not_marked_as_taught(
+        self, db_session, reg_cfg, tutor
+    ):
+        other = Tutor(user_email="o4@test.com", tutor_name="Mr Lei", role="Tutor",
+                      is_active_tutor=True)
+        db_session.add(other)
+        db_session.commit()
+        slot = _slot(db_session, reg_cfg, tutor)
+        s = _student(db_session, name="Taught by Mr Lei")
+        _regular_enrollment(db_session, s, other, first_lesson=date(2025, 9, 6))
+        _application(db_session, reg_cfg, s, name="Taught by Mr Lei", slot=slot)
+
+        result = get_my_class(year=YEAR, current_user=tutor, db=db_session)
+
+        assert result.slots[0].students[0].taught_by_me_last_year is False
+
+    def test_an_empty_page_says_how_many_slots_are_undecided(
+        self, db_session, reg_cfg, tutor
+    ):
+        """Most tutors see nothing until the office assigns slots, and nothing
+        is ambiguous between "not mine" and "not decided yet"."""
+        db_session.add(RegularTutorDuty(
+            config_id=reg_cfg.id, tutor_id=tutor.id, location="華士古分校",
+            duty_day="Tuesday", time_slot="16:45 - 18:15",
+        ))
+        _slot(db_session, reg_cfg, None)
+        _slot(db_session, reg_cfg, None, day="Friday")
+        db_session.commit()
+
+        result = get_my_class(year=YEAR, current_user=tutor, db=db_session)
+
+        assert result.slots == []
+        assert result.slots_awaiting_a_tutor == 2
+
+    def test_another_branchs_undecided_slots_are_not_counted(
+        self, db_session, reg_cfg, tutor
+    ):
+        db_session.add(RegularTutorDuty(
+            config_id=reg_cfg.id, tutor_id=tutor.id, location="華士古分校",
+            duty_day="Tuesday", time_slot="16:45 - 18:15",
+        ))
+        _slot(db_session, reg_cfg, None)
+        _slot(db_session, reg_cfg, None, location="二龍喉分校")
+        db_session.commit()
+
+        result = get_my_class(year=YEAR, current_user=tutor, db=db_session)
+
+        assert result.slots_awaiting_a_tutor == 1
 
 
 # ---------------------------------------------------------------------------

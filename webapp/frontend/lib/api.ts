@@ -3207,10 +3207,20 @@ export const regularAPI = {
       `/regular/retention?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
     ),
 
-  /** The caller's own students only. Defaults to the open intake. */
-  getMyRetention: (year?: number | null) =>
+  /** The caller's own students only. Defaults to the open intake.
+   *
+   *  `tutorId` asks for somebody else's list, which only an admin may do. It
+   *  is what makes impersonation reach the data: the sidebar picks a tutor and
+   *  the page has to answer as them rather than as the person logged in. */
+  getMyRetention: (year?: number | null, tutorId?: number | null) =>
     fetchAPI<import("@/types").RegularRetentionMineResponse>(
-      `/regular/retention/mine${year ? `?year=${year}` : ""}`
+      `/regular/retention/mine${buildLocationQuery({ year }, undefined, tutorId ?? undefined)}`
+    ),
+
+  /** The caller's own September classes and who has been placed in them. */
+  getMyClass: (year?: number | null, tutorId?: number | null) =>
+    fetchAPI<import("@/types").RegularMyClassResponse>(
+      `/regular/class/mine${buildLocationQuery({ year }, undefined, tutorId ?? undefined)}`
     ),
 
   publishApplication: (id: number, data: RegularPublishRequest) =>

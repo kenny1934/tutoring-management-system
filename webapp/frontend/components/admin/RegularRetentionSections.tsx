@@ -872,7 +872,7 @@ const STATE_BUTTON_LABEL: Record<RetentionState | "all", string> = {
  *
  *  `wrapped` is for chips inside the phone's filter menu, where the menu sets
  *  the width and there is nowhere sideways to scroll to. */
-function ChipRail({
+export function ChipRail({
   children,
   bleed,
   wrapped,
@@ -901,7 +901,7 @@ function ChipRail({
 }
 
 /** One filter button: what it selects, and how many students are behind it. */
-function FilterChip({
+export function FilterChip({
   active,
   count,
   onClick,

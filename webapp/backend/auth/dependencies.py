@@ -285,6 +285,30 @@ def can_write_data(role: str) -> bool:
     return role in ADMIN_WRITE_ROLES
 
 
+def resolve_viewed_tutor_id(current_user: Tutor, tutor_id: Optional[int]) -> int:
+    """Whose list a "my students" endpoint should build.
+
+    Normally the caller's own. An admin may ask for somebody else's, which is
+    what makes impersonation work: the Super Admin picks a tutor in the sidebar
+    and every scoped page has to answer as that tutor rather than as them.
+
+    Authorised on the role in the token rather than the effective one. The
+    whole point of impersonation is that the effective role has been turned
+    down to Tutor, so checking that would refuse in exactly the case it exists
+    for. The token cannot be edited by the browser, so this is still the
+    server deciding. Anyone who may ask this may already see every tutor's
+    students on the admin pages, so it hands over nothing new.
+    """
+    if tutor_id is None or tutor_id == current_user.id:
+        return current_user.id
+    if current_user.role not in ADMIN_VIEW_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only see your own students.",
+        )
+    return tutor_id
+
+
 def require_admin_write(
     request: Request,
     current_user: Tutor = Depends(get_current_user),

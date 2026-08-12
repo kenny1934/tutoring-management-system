@@ -3726,6 +3726,10 @@ class RegularRetentionChaseRow(BaseModel):
     on_prospect_board: bool = False
     state: RetentionState = "no_response"
     reference_code: Optional[str] = None
+    # Where the application has got to on the ladder the parent also sees on
+    # the status page: Submitted, Placement Offered, Fee Sent and so on. Only
+    # set for a student who has one, since it is the application's own state.
+    application_status: Optional[str] = None
     last_contact_date: Optional[datetime] = None
     # What was said on that call. Clipped to a couple of lines: it rides on
     # every row and the list has room for one of them.
@@ -3847,6 +3851,54 @@ class RegularRetentionMineResponse(BaseModel):
     intake_quarter: int
     totals: RegularRetentionRow
     students: List[RegularRetentionChaseRow] = []
+
+
+class RegularMyClassStudent(BaseModel):
+    """One applicant placed in a tutor's September slot.
+
+    An application, not a student record: about a third of them are families
+    the centre has never taught, so there is no student id to hang anything on
+    and the name on the form is the only name there is."""
+    application_id: int
+    student_name: str
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    application_status: str
+    # Set when the application is matched to a student we already have, which
+    # is what lets the row link to their record and show their code.
+    student_id: Optional[int] = None
+    student_code: Optional[str] = None
+    # True when this tutor taught them last school year, so a class list can
+    # say which faces are already familiar.
+    taught_by_me_last_year: bool = False
+
+
+class RegularMyClassSlot(BaseModel):
+    """One weekly slot a tutor is down to teach, and who is in it."""
+    slot_id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    max_students: int
+    # Placed applicants who are still in the intake. Withdrawn and rejected
+    # applications keep their slot in the database but are not coming, so they
+    # are neither listed nor counted.
+    students: List[RegularMyClassStudent] = []
+
+
+class RegularMyClassResponse(BaseModel):
+    """A tutor's own September classes, as far as arrangement has got.
+
+    Empty for most tutors until the office assigns tutors to slots, which is
+    why `slots_awaiting_a_tutor` is here: a page that says nothing is very
+    different from a page that says nothing has been decided yet."""
+    year: int
+    slots: List[RegularMyClassSlot] = []
+    # Slots at the branches this tutor works at that nobody is down to teach.
+    slots_awaiting_a_tutor: int = 0
 
 
 class SavedReportDetailResponse(BaseModel):

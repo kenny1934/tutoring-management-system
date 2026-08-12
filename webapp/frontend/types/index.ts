@@ -4066,6 +4066,10 @@ export interface RegularRetentionChaseRow {
   on_prospect_board: boolean;
   state: RetentionState;
   reference_code?: string | null;
+  /** Where the application has got to on the ladder the parent also sees on
+   *  the status page: Submitted, Placement Offered, Fee Sent and so on. Only
+   *  set for a student who has one. */
+  application_status?: string | null;
   last_contact_date?: string | null;
   /** What was said on that call, clipped to a couple of lines. */
   last_contact_note?: string | null;
@@ -4157,6 +4161,46 @@ export interface RegularRetentionMineResponse {
   intake_quarter: number;
   totals: RegularRetentionRow;
   students: RegularRetentionChaseRow[];
+}
+
+/** One applicant placed in a tutor's September slot. An application rather
+ *  than a student record: about a third of them are families the centre has
+ *  never taught, so the name on the form is the only name there is. */
+export interface RegularMyClassStudent {
+  application_id: number;
+  student_name: string;
+  grade?: string | null;
+  lang_stream?: string | null;
+  school?: string | null;
+  application_status: string;
+  /** Set when the application is matched to a student we already have. */
+  student_id?: number | null;
+  student_code?: string | null;
+  /** This tutor taught them last school year, so the class list can say which
+   *  faces are already familiar. */
+  taught_by_me_last_year: boolean;
+}
+
+/** One weekly slot a tutor is down to teach, and who is in it. */
+export interface RegularMyClassSlot {
+  slot_id: number;
+  slot_day: string;
+  time_slot: string;
+  location: string;
+  grade?: string | null;
+  lang_stream?: string | null;
+  max_students: number;
+  students: RegularMyClassStudent[];
+}
+
+/** A tutor's own September classes, as far as arrangement has got. Empty for
+ *  most tutors until the office assigns tutors to slots, which is what
+ *  `slots_awaiting_a_tutor` is for: nothing decided reads very differently
+ *  from nothing coming. */
+export interface RegularMyClassResponse {
+  year: number;
+  slots: RegularMyClassSlot[];
+  slots_awaiting_a_tutor: number;
 }
 
 /** A weekly slot's own fields, with no assignment state. Inlined on the
