@@ -136,7 +136,8 @@ export function StudentChecktablesTab() {
       <div
         ref={toolbarRef}
         style={{ top: "var(--ct-stick, 0px)" }}
-        className="sticky z-20 space-y-2 bg-ink-50 px-4 py-2"
+        // z-30 beats the plan grid's sticky thead (z-20, later in the DOM).
+        className="sticky z-30 space-y-2 bg-ink-50 px-4 py-2"
       >
         {/* Context row: what you're looking at. The book switcher leads as the
             title; the view toggle, its Print action, and the legend sit right,

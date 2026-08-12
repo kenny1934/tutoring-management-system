@@ -298,7 +298,10 @@ export function CoursewareBrowser() {
 
           <div
             ref={toolbarRef}
-            className="sticky top-[52px] lg:top-0 z-20 -mx-4 flex flex-wrap items-center gap-2 bg-ink-50 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+            // z-30: must beat the plan grid's sticky thead (z-20), which sits
+            // later in the DOM and would otherwise paint over the toolbar if
+            // the two ever overlap by a pixel.
+            className="sticky top-[52px] lg:top-0 z-30 -mx-4 flex flex-wrap items-center gap-2 bg-ink-50 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
           >
             <div className="relative w-full sm:w-auto sm:max-w-md sm:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />

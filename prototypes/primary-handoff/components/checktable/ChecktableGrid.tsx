@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   AssignmentStatus,
   Checktable,
@@ -156,6 +156,34 @@ export function ChecktableGrid({
     }));
   }, [journey, visibleSections, table.series, statusByItemId, statusFilter]);
 
+  // Page content below the scrollbox (footer, page padding, the gap under
+  // the strand tabs) lets the page keep scrolling after the toolbar sticks,
+  // which used to shove the box - and its pinned header row - underneath the
+  // sticky toolbar. Subtracting that measured slack from the box height makes
+  // the page's maximum scroll land the box top exactly at the toolbar's
+  // stuck bottom. Measured once per table/resize (not on a ResizeObserver of
+  // the box itself, which would feed back into the height), and capped so a
+  // taller parallel column (the student tab's detail rail) can't starve the
+  // box of height.
+  const scrollBoxRef = useRef<HTMLDivElement>(null);
+  const [belowSlack, setBelowSlack] = useState(GRID_BOTTOM_GUTTER_PX);
+  useLayoutEffect(() => {
+    if (stickyTop <= 0) return;
+    const measure = () => {
+      const el = scrollBoxRef.current;
+      if (!el) return;
+      const below =
+        document.documentElement.scrollHeight -
+        (el.getBoundingClientRect().bottom + window.scrollY);
+      setBelowSlack(
+        Math.min(160, Math.max(GRID_BOTTOM_GUTTER_PX, Math.round(below)))
+      );
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [stickyTop, table]);
+
   // Nested walk over every cell; memoise so unrelated re-renders (sticky-offset
   // measurement, parent state) don't re-scan the whole table.
   const hasAnyRows = useMemo(
@@ -176,6 +204,7 @@ export function ChecktableGrid({
     <div className="surface overflow-hidden">
       {visibleSections.length > 0 && (
         <div
+          ref={scrollBoxRef}
           // On a page surface (stickyTop set) bound the height so the matrix
           // scrolls inside the box and its header row stays sticky; the
           // horizontal-scroll wrapper is itself a scroll container, so a plain
@@ -185,7 +214,7 @@ export function ChecktableGrid({
           style={
             stickyTop > 0
               ? {
-                  maxHeight: `calc(100vh - ${stickyTop + GRID_BOTTOM_GUTTER_PX}px)`,
+                  maxHeight: `calc(100vh - ${stickyTop + belowSlack}px)`,
                 }
               : undefined
           }
