@@ -378,6 +378,47 @@ class TestAdminApplications:
         ).all()
         assert [e.field_name for e in edits] == ["student_name"]
 
+    def test_student_link_answers_with_the_origin_it_derived(self, db_session, cfg, admin):
+        """Linking a student fills the origin in, and the response says so.
+
+        The detail modal seeds its form from what this returns. When the answer
+        did not come back the dropdown kept saying Unverified, the modal looked
+        permanently unsaved, and the next save sent the blank value and undid
+        the link's own work.
+        """
+        from routers.regular_course import update_application
+        from schemas import RegularApplicationUpdate
+        app = _make_app(db_session, cfg, ref="RC2026-ADM3", phone="85299991010")
+        student = Student(student_name="Alice", grade="F1", home_location="MSA")
+        db_session.add(student)
+        db_session.commit()
+
+        result = update_application(
+            app_id=app.id,
+            data=RegularApplicationUpdate(existing_student_id=student.id),
+            admin=admin, db=db_session,
+        )
+        assert result.verified_branch_origin == "MSA"
+
+    def test_an_origin_the_admin_picked_beats_the_link(self, db_session, cfg, admin):
+        """An explicit choice in the same request wins over the derived one."""
+        from routers.regular_course import update_application
+        from schemas import RegularApplicationUpdate
+        app = _make_app(db_session, cfg, ref="RC2026-ADM4", phone="85299991011")
+        student = Student(student_name="Bella", grade="F1", home_location="MSA")
+        db_session.add(student)
+        db_session.commit()
+
+        result = update_application(
+            app_id=app.id,
+            data=RegularApplicationUpdate(
+                existing_student_id=student.id,
+                verified_branch_origin="New",
+            ),
+            admin=admin, db=db_session,
+        )
+        assert result.verified_branch_origin == "New"
+
     def test_list_filters_and_published(self, db_session, cfg, admin):
         from routers.regular_course import list_applications
         _make_app(db_session, cfg, ref="RC2026-L1", phone="85299991002", name="A", grade="F1")

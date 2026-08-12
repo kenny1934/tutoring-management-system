@@ -13,7 +13,7 @@ import type {
   RegularPricingConfig,
   RegularPromo,
 } from "@/types";
-import { isPromoActive } from "@/lib/regular-promo";
+import { intakeChargesRegistrationFee, isPromoActive } from "@/lib/regular-promo";
 import { hkTodayIso } from "@/lib/regular-utils";
 import {
   ChevronDown,
@@ -47,6 +47,7 @@ import {
   ReorderableItem,
   DragHandle,
   TimeSlotAdder,
+  unrenderedKeys,
 } from "./config-editor-kit";
 import { RegularConfigPreview } from "./RegularConfigPreview";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -126,6 +127,15 @@ export function RegularConfigEditor({
   const [pricingBaseFee, setPricingBaseFee] = useState("");
   const [pricingLessons, setPricingLessons] = useState("");
   const [pricingRegFee, setPricingRegFee] = useState("");
+  // Whether the materials fee is collected at all. Absent in the stored config
+  // means it is, so an intake that opts out is the only one that differs.
+  const [chargesRegFee, setChargesRegFee] = useState(true);
+  // The pricing block exactly as it loaded. Saving replaces the whole JSON, so
+  // whatever this form has no field for is spread back underneath what it
+  // assembles. Without that the editor quietly deletes rules it does not know
+  // about, which is how the September 2026 intake started charging a materials
+  // fee it had been told to waive.
+  const [loadedPricing, setLoadedPricing] = useState<RegularPricingConfig | null>(null);
   // The seasonal offer is defined by a migration, not typed in here — it
   // carries bilingual names, a bullet list and a discounts row id, none of
   // which belong in a form. It is held in state purely so saving the pricing
@@ -140,13 +150,32 @@ export function RegularConfigEditor({
     const lessonsNum = parseInt(pricingLessons, 10);
     if (!(baseFeeNum > 0) || !(lessonsNum > 0)) return null;
     const regFeeNum = parseFloat(pricingRegFee);
-    return {
+    // Named so the keys this form owns come from the object it builds rather
+    // than a list kept in step by hand. The form half is spread last, so it
+    // wins over anything of the same name that loaded.
+    const formPricing = {
       base_fee: baseFeeNum,
       lessons_per_block: lessonsNum,
       registration_fee: regFeeNum > 0 ? regFeeNum : null,
-      ...(promo ? { promo } : {}),
+      registration_fee_charged: chargesRegFee,
+      promo,
     };
-  }, [pricingBaseFee, pricingLessons, pricingRegFee, promo]);
+    return {
+      ...unrenderedKeys(loadedPricing, Object.keys(formPricing)),
+      ...formPricing,
+    };
+  }, [pricingBaseFee, pricingLessons, pricingRegFee, chargesRegFee, promo, loadedPricing]);
+
+  // Seed the pricing section. Shared by the initial load and the draft restore
+  // so a new pricing field is added in one place rather than two.
+  const applyPricingConfig = useCallback((pc: RegularPricingConfig | null | undefined) => {
+    setPricingBaseFee(pc ? String(pc.base_fee) : "");
+    setPricingLessons(pc ? String(pc.lessons_per_block) : "");
+    setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
+    setChargesRegFee(intakeChargesRegistrationFee(pc));
+    setLoadedPricing(pc ?? null);
+    setPromo(pc?.promo || null);
+  }, []);
 
   // Drop the intro to null when every field is empty, so save payload / dirty
   // tracking stay clean. Memoized so the `assembledConfig` memo stabilizes.
@@ -282,11 +311,7 @@ export function RegularConfigEditor({
                 setLangStreamOptions(stampIds(parsed.lang_stream_options || [], "ls"));
                 setTextContent(parsed.text_content || {});
                 setCourseIntro(parsed.course_intro || null);
-                const pc = parsed.pricing_config;
-                setPricingBaseFee(pc ? String(pc.base_fee) : "");
-                setPricingLessons(pc ? String(pc.lessons_per_block) : "");
-                setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
-                setPromo(pc?.promo || null);
+                applyPricingConfig(parsed.pricing_config);
               },
             });
           } else {
@@ -337,11 +362,7 @@ export function RegularConfigEditor({
         setLangStreamOptions(stampIds(config.lang_stream_options || [], "ls"));
         setTextContent(config.text_content || {});
         setCourseIntro(config.course_intro || null);
-        const pc = config.pricing_config;
-        setPricingBaseFee(pc ? String(pc.base_fee) : "");
-        setPricingLessons(pc ? String(pc.lessons_per_block) : "");
-        setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
-        setPromo(pc?.promo || null);
+        applyPricingConfig(config.pricing_config);
       } catch {
         showToast("Failed to load config", "error");
         onCancel();
@@ -349,7 +370,7 @@ export function RegularConfigEditor({
         setLoading(false);
       }
     })();
-  }, [configId, isNew, showToast, onCancel]);
+  }, [configId, isNew, showToast, onCancel, applyPricingConfig]);
 
   // Validation helpers
   const setValidation = (key: string, error: string | null) =>
@@ -804,7 +825,21 @@ export function RegularConfigEditor({
               disabled={isReadOnly}
               placeholder="100"
             />
-            <p className="text-[10px] text-muted-foreground mt-1">Optional one-off fee for new students. A seasonal offer can waive it.</p>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={chargesRegFee}
+                onChange={(e) => setChargesRegFee(e.target.checked)}
+                disabled={isReadOnly}
+                className="rounded"
+              />
+              <span className="text-xs text-foreground">Collect it this intake</span>
+            </label>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              A one-off fee for new students. Untick to collect it from nobody this
+              intake, whatever their history. The amount above is still the standard
+              fee, so a seasonal offer can quote it as something it waived.
+            </p>
           </div>
         </div>
         <ValidationHint message={validationErrors.pricing ?? null} />

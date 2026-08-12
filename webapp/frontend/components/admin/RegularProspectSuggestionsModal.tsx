@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { AlertTriangle, Loader2, Users, Link2 } from "lucide-react";
 import { regularAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import type { RegularProspectSuggestion } from "@/types";
+import type { RegularApplication, RegularProspectSuggestion } from "@/types";
 
 /** Match-type badge copy — strongest signal first. */
 const MATCH_LABEL: Record<RegularProspectSuggestion["match_type"], string> = {
@@ -31,7 +31,10 @@ export function RegularProspectSuggestionsModal({
   isOpen: boolean;
   onClose: () => void;
   applicationId: number | null;
-  onLinked: () => void;
+  /** Handed the application as the link left it. Linking a prospect can fill
+   *  in the verified origin, so the caller's form has to read that back rather
+   *  than assume nothing else moved. */
+  onLinked: (application: RegularApplication) => void;
 }) {
   const { showToast } = useToast();
 
@@ -48,9 +51,9 @@ export function RegularProspectSuggestionsModal({
   const handleLink = async (prospectId: number) => {
     if (applicationId == null) return;
     try {
-      await regularAPI.linkProspect(applicationId, prospectId);
+      const updated = await regularAPI.linkProspect(applicationId, prospectId);
       showToast("Prospect linked", "success");
-      onLinked();
+      onLinked(updated);
       onClose();
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Link failed", "error");

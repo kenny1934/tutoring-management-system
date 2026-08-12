@@ -1278,8 +1278,14 @@ def update_config(
     updates = data.model_dump(exclude_unset=True)
     # pricing_config is a JSON blob with keys the editor UI doesn't render
     # (receipt_codes, academic_year_start/end, partial_per_lesson_rate, promo).
-    # Merge instead of replace so a partial payload from the editor doesn't
-    # silently wipe those keys.
+    # The editor now sends those back itself, so this is a backstop rather than
+    # the protection: it covers a browser still running an older bundle.
+    #
+    # Merging has a cost worth knowing about. The editor omits a key rather
+    # than sending an empty one, so deleting every discount tier, or setting
+    # the materials fee to zero, does not take effect here: the old value is
+    # merged straight back and the admin is told it saved. Dropping this block
+    # is what would fix that, once no old bundle is in play.
     if "pricing_config" in updates and updates["pricing_config"] is not None:
         merged = dict(config.pricing_config or {})
         merged.update(updates["pricing_config"])

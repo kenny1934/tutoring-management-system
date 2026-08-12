@@ -10,6 +10,7 @@ import type {
   SummerCourseIntroText,
   SummerLocation,
   SummerBilingualOption,
+  SummerPricingConfig,
 } from "@/types";
 import {
   ChevronDown,
@@ -43,6 +44,7 @@ import {
   ReorderableItem,
   DragHandle,
   TimeSlotAdder,
+  unrenderedKeys,
 } from "./config-editor-kit";
 import { SummerConfigPreview } from "./SummerConfigPreview";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -54,6 +56,15 @@ interface SummerConfigEditorProps {
   onSaved: () => void;
   onCancel: () => void;
 }
+
+/** A discount tier as the form holds it, before the drag keys are stripped. */
+type DiscountDraft = {
+  code: string;
+  name_zh: string;
+  name_en: string;
+  amount: number;
+  conditions: Record<string, unknown>;
+};
 
 const TEXT_CONTENT_GROUPS = [
   {
@@ -131,15 +142,33 @@ export function SummerConfigEditor({
   const [totalLessons, setTotalLessons] = useState(8);
   const [baseFee, setBaseFee] = useState(0);
   const [registrationFee, setRegistrationFee] = useState(0);
-  const [discounts, setDiscounts] = useState<
-    Array<WithId<{
-      code: string;
-      name_zh: string;
-      name_en: string;
-      amount: number;
-      conditions: Record<string, unknown>;
-    }>>
-  >([]);
+  const [discounts, setDiscounts] = useState<WithId<DiscountDraft>[]>([]);
+  // The pricing block exactly as it loaded. Saving replaces the whole JSON, so
+  // whatever this form has no field for is spread back underneath what it
+  // assembles. The summer config leans on that: the payment terms, the tier
+  // lock notes, the partial-plan rate, the receipt codes and the academic-year
+  // window all live in there with no field anywhere in this editor.
+  const [loadedPricing, setLoadedPricing] = useState<SummerPricingConfig | null>(null);
+
+  // One pricing shape for the preview and for the save payload, so what an
+  // admin sees is what gets written. They differ only in whether the discount
+  // list still carries its drag keys, so that is passed in. The keys this form
+  // owns come from the object it builds rather than a list kept in step by
+  // hand, and the form half is spread last so it wins over what loaded.
+  const buildPricing = useCallback(
+    (discountList: DiscountDraft[]): SummerPricingConfig => {
+      const formPricing = {
+        base_fee: baseFee,
+        registration_fee: registrationFee || undefined,
+        discounts: discountList.length > 0 ? discountList : undefined,
+      };
+      return {
+        ...unrenderedKeys(loadedPricing, Object.keys(formPricing)),
+        ...formPricing,
+      };
+    },
+    [baseFee, registrationFee, loadedPricing]
+  );
   const [locations, setLocations] = useState<WithId<SummerLocation>[]>([]);
   const [grades, setGrades] = useState<WithId<SummerBilingualOption>[]>([]);
   const [existingStudentOptions, setExistingStudentOptions] = useState<
@@ -227,11 +256,7 @@ export function SummerConfigEditor({
       pre_grade_window_start: preGradeStart || null,
       pre_grade_window_end: preGradeEnd || null,
       total_lessons: totalLessons,
-      pricing_config: {
-        base_fee: baseFee,
-        registration_fee: registrationFee || undefined,
-        discounts: discounts.length > 0 ? discounts : undefined,
-      },
+      pricing_config: buildPricing(discounts),
       locations,
       available_grades: grades,
       time_slots: [],
@@ -244,8 +269,8 @@ export function SummerConfigEditor({
     }),
     [
       year, title, appOpenDate, appCloseDate,
-      courseStartDate, courseEndDate, preGradeStart, preGradeEnd, totalLessons, baseFee,
-      registrationFee, discounts, locations, grades,
+      courseStartDate, courseEndDate, preGradeStart, preGradeEnd, totalLessons,
+      buildPricing, discounts, locations, grades,
       existingStudentOptions, centerOptions, langStreamOptions, textContent, normalizedCourseIntro, bannerImageUrl,
     ]
   );
@@ -290,6 +315,7 @@ export function SummerConfigEditor({
                 setBaseFee(parsed.pricing_config?.base_fee || 0);
                 setRegistrationFee(parsed.pricing_config?.registration_fee || 0);
                 setDiscounts(stampIds(parsed.pricing_config?.discounts || [], "d"));
+                setLoadedPricing(parsed.pricing_config ?? null);
                 setLocations(stampIds(parsed.locations || [], "l"));
                 setGrades(stampIds(parsed.available_grades || [], "g"));
                 setExistingStudentOptions(stampIds(parsed.existing_student_options || [], "o"));
@@ -354,6 +380,7 @@ export function SummerConfigEditor({
             conditions: d.conditions || {},
           }))
         );
+        setLoadedPricing(config.pricing_config ?? null);
         setLocations(stampIds(config.locations, "l"));
         setGrades(stampIds(config.available_grades, "g"));
         setExistingStudentOptions(stampIds(config.existing_student_options || [], "o"));
@@ -512,11 +539,7 @@ export function SummerConfigEditor({
       pre_grade_window_start: preGradeStart || null,
       pre_grade_window_end: preGradeEnd || null,
       total_lessons: totalLessons,
-      pricing_config: {
-        base_fee: baseFee,
-        registration_fee: registrationFee || undefined,
-        discounts: discounts.length > 0 ? stripIds(discounts) : undefined,
-      },
+      pricing_config: buildPricing(stripIds(discounts)),
       locations: stripIds(locations),
       available_grades: stripIds(grades),
       time_slots: [],
