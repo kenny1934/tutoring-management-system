@@ -855,6 +855,75 @@ const STATE_BUTTON_LABEL: Record<RetentionState | "all", string> = {
   all: "Everyone",
 };
 
+/** The row a set of filter buttons lives in.
+ *
+ *  One swipeable line on a phone rather than three wrapped ones. Ten buttons
+ *  carrying labels and counts wrap to five lines at that width, and the toolbar
+ *  was eating half the screen above a list that is the entire point of the
+ *  page. Same treatment the prospect board's branch chips use, including the
+ *  fade off the right edge, which is what says there is more to swipe to.
+ *
+ *  The negative margin lets the rail run to the card's edge, so a chip cut off
+ *  mid-scroll reads as scrolled rather than as broken. It only works where the
+ *  padding it cancels is the card's own 4, which is why `bleed` is a choice:
+ *  inside the filter row the rail sits in the padding like everything else. */
+function ChipRail({ children, bleed }: { children: React.ReactNode; bleed?: boolean }) {
+  return (
+    <div className={cn(bleed ? "-mx-4 sm:mx-0" : "w-full sm:w-auto")}>
+      <div
+        className={cn(
+          "flex sm:flex-wrap items-center gap-1.5 overflow-x-auto sm:overflow-visible touch-pan-x",
+          bleed && "px-4 sm:px-0",
+          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] sm:[mask-image:none]"
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** One filter button: what it selects, and how many students are behind it. */
+function FilterChip({
+  active,
+  count,
+  onClick,
+  title,
+  children,
+}: {
+  active: boolean;
+  count: number;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={title}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border transition-colors",
+        // Narrower and a point smaller on a phone, so less of the rail has to
+        // be swiped past. The height stays where it is: these are tapped, and
+        // a chip you have to aim at is worse than one more swipe.
+        "px-2 py-1 text-[11px] sm:gap-1.5 sm:px-2.5 sm:text-xs",
+        active
+          ? "border-primary/50 bg-primary/10 text-foreground font-medium"
+          : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
+        // An empty list is still worth being able to open, but it should not
+        // compete for the eye with the ones that have people in them.
+        !active && count === 0 && "opacity-60"
+      )}
+    >
+      {children}
+      <span className="tabular-nums opacity-60">{count}</span>
+    </button>
+  );
+}
+
 /** Which of the six lists is on screen.
  *
  *  A row of buttons rather than a dropdown, because this is not really a
@@ -872,37 +941,23 @@ function StateButtons({
   onChange: (next: RetentionState | "all") => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {CHASE_STATES.map((key) => {
-        const active = key === value;
-        const count = counts[key];
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChange(key)}
-            aria-pressed={active}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
-              active
-                ? "border-primary/50 bg-primary/10 text-foreground font-medium"
-                : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
-              // An empty list is still worth being able to open, but it should
-              // not compete for the eye with the ones that have people in them.
-              !active && count === 0 && "opacity-60"
-            )}
-          >
-            {key !== "all" && (
-              <span
-                className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATE_META[key].dot)}
-              />
-            )}
-            {STATE_BUTTON_LABEL[key]}
-            <span className="tabular-nums text-muted-foreground">{count}</span>
-          </button>
-        );
-      })}
-    </div>
+    <ChipRail bleed>
+      {CHASE_STATES.map((key) => (
+        <FilterChip
+          key={key}
+          active={key === value}
+          count={counts[key]}
+          onClick={() => onChange(key)}
+        >
+          {key !== "all" && (
+            // Kept at every width: it is the same dot the Status column and
+            // the cards put beside the same word, and it costs six pixels.
+            <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATE_META[key].dot)} />
+          )}
+          {STATE_BUTTON_LABEL[key]}
+        </FilterChip>
+      ))}
+    </ChipRail>
   );
 }
 
@@ -934,35 +989,21 @@ function ContactButtons({
   onChange: (next: ContactFilter) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {CONTACT_FILTERS.map((key) => {
-        const active = key === value;
-        const count = counts[key];
-        return (
-          <button
-            key={key}
-            type="button"
-            // Pressing the one that is already on clears it, so getting back
-            // to the whole list never means hunting for a reset.
-            onClick={() => onChange(active ? "" : key)}
-            aria-pressed={active}
-            title={CONTACT_HINT[key]}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
-              active
-                ? "border-primary/50 bg-primary/10 text-foreground font-medium"
-                : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
-              // An empty list is still worth being able to open, but it should
-              // not compete for the eye with the ones that have people in them.
-              !active && count === 0 && "opacity-60"
-            )}
-          >
-            {CONTACT_LABEL[key]}
-            <span className="tabular-nums text-muted-foreground">{count}</span>
-          </button>
-        );
-      })}
-    </div>
+    <ChipRail>
+      {CONTACT_FILTERS.map((key) => (
+        <FilterChip
+          key={key}
+          active={key === value}
+          count={counts[key]}
+          title={CONTACT_HINT[key]}
+          // Pressing the one that is already on clears it, so getting back to
+          // the whole list never means hunting for a reset.
+          onClick={() => onChange(key === value ? "" : key)}
+        >
+          {CONTACT_LABEL[key]}
+        </FilterChip>
+      ))}
+    </ChipRail>
   );
 }
 
