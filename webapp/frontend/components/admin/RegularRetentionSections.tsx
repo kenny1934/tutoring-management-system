@@ -1408,11 +1408,17 @@ export function RegularRetentionChaseList({
   const options = useMemo(() => {
     const grades = new Set<string>();
     const tutors = new Set<string>();
+    const branches = new Set<string>();
     for (const r of chaseable) {
       if (r.expected_grade) grades.add(r.expected_grade);
       if (r.tutor_name) tutors.add(r.tutor_name);
+      if (r.branch) branches.add(r.branch);
     }
-    return { grades: [...grades].sort(), tutors: [...tutors].sort() };
+    return {
+      grades: [...grades].sort(),
+      tutors: [...tutors].sort(),
+      branchCount: branches.size,
+    };
   }, [chaseable]);
 
   const rows = useMemo(
@@ -1434,6 +1440,19 @@ export function RegularRetentionChaseList({
   // Compared key by key rather than by stringifying the pair, which quietly
   // depended on both objects listing their keys in the same order.
   const filtersActive = CHASE_QUERY_KEYS.some((k) => filters[k] !== EMPTY_CHASE_FILTERS[k]);
+
+  // What the untouched order actually is, which depends on the list you are
+  // on. The server puts the unresponsive students first and then groups by
+  // branch, entering grade and name, so on every list except "Everyone" the
+  // first half of that has already been done by the filter and naming it
+  // describes nothing. What you are looking at there is one class at a time,
+  // and the branch only earns a mention when more than one is in the report.
+  const defaultOrderLabel =
+    filters.state === "all"
+      ? "Unresponsive first"
+      : options.branchCount > 1
+        ? "By branch and grade"
+        : "By entering grade";
 
   // What the Filters button is holding on a phone. The search box and the
   // state chips are not counted, because they are on screen either way, and a
@@ -1597,7 +1616,7 @@ export function RegularRetentionChaseList({
             className={cn(selectClass, "md:hidden")}
             aria-label="Sort the list"
           >
-            <option value="">Unresponsive first</option>
+            <option value="">{defaultOrderLabel}</option>
             <option value="days_since_contact:desc">Longest waiting first</option>
             <option value="student_name:asc">By name</option>
             <option value="expected_grade:asc">By entering grade</option>
