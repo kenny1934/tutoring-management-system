@@ -724,6 +724,53 @@ class TestContactAndScoping:
         assert _build_retention(db_session, reg_cfg).reconciliation.unlinked_count == 2
         assert _build_retention(db_session, reg_cfg, branch="MSB").reconciliation.unlinked_count == 1
 
+    def test_only_the_ones_with_a_student_to_match_are_worth_showing(
+        self, db_session, reg_cfg, tutor
+    ):
+        """Most unlinked applications belong to P6 students coming up from a
+        primary branch: they tick "I already study at MathConcept" and they are
+        right, but never at the secondary academy, so there is no record here to
+        link and they are not in the cohort to be miscounted either. The board
+        counts the ones a record might belong to and leaves the rest alone."""
+        here = _student(db_session, name="Already Here")
+        _regular_enrollment(db_session, here, tutor, first_lesson=date(2026, 4, 7))
+        theirs = _application(db_session, reg_cfg, None, name="Already Here")
+        theirs.current_centers = ["華士古分校"]
+        stranger = _application(db_session, reg_cfg, None, name="Never Heard Of Them")
+        stranger.current_centers = ["華士古分校"]
+        db_session.commit()
+
+        r = _build_retention(db_session, reg_cfg).reconciliation
+
+        assert r.unlinked_secondary == 2
+        assert r.unlinked_matchable == 1
+
+    def test_an_application_naming_no_branch_can_be_matched_to_nothing(
+        self, db_session, reg_cfg, tutor
+    ):
+        """Without a branch there is nowhere to look a student up, so it counts
+        as unlinked and never as matchable."""
+        here = _student(db_session, name="Already Here")
+        _regular_enrollment(db_session, here, tutor, first_lesson=date(2026, 4, 7))
+        _application(db_session, reg_cfg, None, name="Already Here")
+
+        r = _build_retention(db_session, reg_cfg).reconciliation
+
+        assert r.unlinked_secondary == 1
+        assert r.unlinked_matchable == 0
+
+    def test_matchable_follows_the_branch_filter(self, db_session, reg_cfg, tutor):
+        """The record to fix, where there is one, sits at the branch the family
+        says they attend."""
+        here = _student(db_session, name="Already Here")
+        _regular_enrollment(db_session, here, tutor, first_lesson=date(2026, 4, 7))
+        app = _application(db_session, reg_cfg, None, name="Already Here")
+        app.current_centers = ["華士古分校"]
+        db_session.commit()
+
+        assert _build_retention(db_session, reg_cfg, branch="MSA").reconciliation.unlinked_matchable == 1
+        assert _build_retention(db_session, reg_cfg, branch="MSB").reconciliation.unlinked_matchable == 0
+
     def test_applications_from_outside_the_cohort_are_counted(self, db_session, reg_cfg, tutor):
         """They applied but were never in the denominator. Reported so they read
         as excluded rather than as missing."""

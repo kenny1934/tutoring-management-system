@@ -105,7 +105,7 @@ from auth.dependencies import (
     require_super_admin,
     resolve_viewed_tutor_id,
 )
-from routers.students import find_duplicate_students
+from routers.students import find_duplicate_students, students_at
 from routers.primary_prospects import enrollment_backed_students
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.grades import GRADE_ORDER, grade_blocks_prospect_link, next_grade
@@ -908,6 +908,55 @@ def clone_config(
 _AUTO_LINK_REASON = "Same name and phone at this location"
 
 
+def _unlinked_secondary_apps(
+    db: Session, config_id: int
+) -> list[tuple[RegularApplication, str]]:
+    """Live applications that say the family already studies at the secondary
+    academy but carry no student link, each with the branch they named.
+
+    An application naming a centre we cannot resolve to MSA or MSB is left out:
+    there is no branch to look a student up at, so nothing can be suggested for
+    it either way."""
+    apps = (
+        db.query(RegularApplication)
+        .filter(
+            RegularApplication.config_id == config_id,
+            RegularApplication.application_status.notin_(REGULAR_EXIT_STATUSES),
+            RegularApplication.is_existing_student == "MathConcept Secondary Academy",
+            RegularApplication.existing_student_id.is_(None),
+        )
+        .all()
+    )
+    out: list[tuple[RegularApplication, str]] = []
+    for app in apps:
+        code = SECONDARY_CENTER_NAME_TO_CODE.get((app.current_centers or [None])[0] or "")
+        if code in SECONDARY_BRANCH_CODES:
+            out.append((app, code))
+    return out
+
+
+def _candidates_for(
+    db: Session, apps: list[tuple[RegularApplication, str]]
+) -> list[tuple[RegularApplication, str, list[dict]]]:
+    """Each application with the student rows that might be the same person.
+
+    The branch is loaded once and handed to every check against it. The fuzzy
+    pass reads every student at a branch, so doing it per application meant
+    sweeping the same few hundred rows twenty times over, which was nearly two
+    seconds on this intake."""
+    pools: dict[str, list] = {}
+    out = []
+    for app, code in apps:
+        if code not in pools:
+            pools[code] = students_at(db, code)
+        out.append(
+            (app, code, find_duplicate_students(
+                db, app.student_name, code, app.contact_phone, pool=pools[code],
+            ))
+        )
+    return out
+
+
 @router.get("/regular/admin/suggest-student-links")
 def admin_suggest_student_links(
     config_id: int = Query(...),
@@ -922,21 +971,7 @@ def admin_suggest_student_links(
     confidence 1:1 matches (same name AND phone at the branch) are linked
     automatically unless dry_run.
     """
-    candidate_apps = (
-        db.query(RegularApplication)
-        .filter(
-            RegularApplication.config_id == config_id,
-            RegularApplication.is_existing_student == "MathConcept Secondary Academy",
-            RegularApplication.existing_student_id.is_(None),
-        )
-        .all()
-    )
-    apps: list[tuple[RegularApplication, str]] = []
-    for app in candidate_apps:
-        center_name = (app.current_centers or [None])[0]
-        code = SECONDARY_CENTER_NAME_TO_CODE.get(center_name or "")
-        if code in SECONDARY_BRANCH_CODES:
-            apps.append((app, code))
+    apps = _unlinked_secondary_apps(db, config_id)
 
     def a_summary(a: RegularApplication, code: str) -> dict:
         return {
@@ -963,10 +998,7 @@ def admin_suggest_student_links(
         .all()
     ) if apps and not dry_run else {}
 
-    for app, code in apps:
-        candidates = find_duplicate_students(
-            db, app.student_name, code, app.contact_phone
-        )
+    for app, code, candidates in _candidates_for(db, apps):
         strong = [c for c in candidates if c["match_reason"] == _AUTO_LINK_REASON]
         if len(strong) == 1 and len(candidates) == 1:
             chosen = strong[0]
@@ -2192,14 +2224,28 @@ def _retention_reconciliation(
 ):
     """Applications that claim an existing student but carry no student link.
 
-    Their families read as "no response" and would be chased despite having
-    applied, so the board surfaces the count and offers the auto-match that
-    already exists.
+    Three counts, and only the last one is worth acting on.
 
-    With a branch selected, only the applications asking for that branch are
-    counted: an unmatched application has no student record to take a branch
-    from, so the branch it asked for is the only one it has. Counting all of
-    them against one branch's list would overstate what is wrong with it."""
+    Most of them are not a mistake at all. A P6 student coming up from a
+    primary branch ticks "I already study at MathConcept" because to a family
+    MathConcept is one place, and they are right: they have simply never
+    studied at the secondary academy, so there is no record here to link them
+    to and none of them is being counted as an unanswered student. Nothing can
+    be done about those, and asking staff to look at them wastes their time.
+
+    `unlinked_matchable` is the subset where a student record at the branch
+    they named might be theirs. Those are the ones that can distort the board,
+    because if the match is right then that student has applied and is being
+    read as no response. It is counted by running the same scan the matching
+    tool runs, so the headline and the list it opens can never disagree.
+
+    With a branch selected, only the applications naming that branch count: the
+    record to fix, if there is one, is at the branch they say they attend."""
+    apps = _unlinked_secondary_apps(db, config.id)
+    if branch:
+        apps = [(a, code) for a, code in apps if code == branch]
+    matchable = sum(1 for _a, _code, found in _candidates_for(db, apps) if found)
+
     rows = (
         db.query(RegularApplication.is_existing_student, RegularApplication.preferred_location)
         .filter(
@@ -2218,6 +2264,7 @@ def _retention_reconciliation(
         unlinked_count=len(rows),
         unlinked_secondary=secondary,
         unlinked_primary=len(rows) - secondary,
+        unlinked_matchable=matchable,
     )
 
 

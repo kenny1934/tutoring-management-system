@@ -4100,6 +4100,12 @@ export interface RegularRetentionReconciliation {
   unlinked_count: number;
   unlinked_secondary: number;
   unlinked_primary: number;
+  /** Of the secondary ones, those with a student record at the branch they
+   *  named that might be the same person, which is the only subset worth
+   *  showing: the rest are mostly P6 students coming up from a primary branch
+   *  who have never studied here, so nothing can be matched and nothing is
+   *  being miscounted. Equal to the number of rows the matching tool lists. */
+  unlinked_matchable: number;
   /** Applications linked to a student who is not in this year's group: they
    *  lapsed earlier, or never had a qualifying enrollment. */
   applied_outside_cohort: number;

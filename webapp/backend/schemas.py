@@ -3780,13 +3780,21 @@ class RegularRetentionOutsideRow(BaseModel):
 
 class RegularRetentionReconciliation(BaseModel):
     """Applications claiming to be existing students but carrying no student
-    link. Their families read as "no response" and would be chased in error,
-    so the board surfaces the count and offers the existing auto-match."""
+    link. Where a record here might be theirs, their family reads as "no
+    response" and would be chased in error, so the board surfaces that count
+    and offers the existing auto-match."""
     unlinked_count: int = 0
     # Split by claimed centre, since only the Secondary Academy ones are this
     # board's cohort — the rest feed the conversion board.
     unlinked_secondary: int = 0
     unlinked_primary: int = 0
+    # Of the secondary ones, those with a student record at the branch they
+    # named that might be the same person. The rest are mostly P6 students
+    # coming up from a primary branch, who have never studied at the secondary
+    # academy and so are not in the cohort and cannot be miscounted. Only this
+    # number is worth putting in front of staff, and it is the count of rows
+    # the matching tool will show them.
+    unlinked_matchable: int = 0
     # Applications linked to a student who is not in this cohort: they lapsed
     # earlier, or never had a qualifying enrollment. Counted so they read as
     # excluded rather than as missing, and listed so staff can see who.

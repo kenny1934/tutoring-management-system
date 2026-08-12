@@ -622,22 +622,25 @@ export default function RegularRetentionPage() {
                     />
                   </div>
 
-                  {/* Unlinked applications first: until these are cleared, some
-                      of the students below have applied and would be chased
-                      anyway. */}
-                  {data.reconciliation.unlinked_secondary > 0 && (
+                  {/* Only the applications with a record that might be theirs.
+                      Most unlinked ones are P6 students coming up from a
+                      primary branch, who have never studied here, so there is
+                      nothing to match them to and they are not in the count
+                      below either way. */}
+                  {data.reconciliation.unlinked_matchable > 0 && (
                     <div className="flex items-start gap-2 rounded-lg border border-sky-300/70 dark:border-sky-700/50 bg-sky-50/70 dark:bg-sky-900/15 px-3 py-2 text-xs text-sky-900 dark:text-sky-300">
                       <Link2 className="h-4 w-4 shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <span className="font-medium">
-                          {data.reconciliation.unlinked_secondary === 1
-                            ? "One application has not been matched to a student record."
-                            : `${data.reconciliation.unlinked_secondary} applications have not been matched to a student record.`}
+                          {data.reconciliation.unlinked_matchable === 1
+                            ? "One application may belong to a student we already have."
+                            : `${data.reconciliation.unlinked_matchable} applications may belong to students we already have.`}
                         </span>
                         <p className="text-sky-800/80 dark:text-sky-400/80 mt-0.5">
-                          Each of them says the student already studies here, so some of them
-                          are being counted below as having given us no answer. Matching them
-                          settles the numbers.
+                          Each says the family already studies at the secondary academy, and
+                          there is a record here that could be theirs. Until they are matched,
+                          a student who has applied may be counted below as having given us no
+                          answer.
                         </p>
                       </div>
                       {!isReadOnly && (
