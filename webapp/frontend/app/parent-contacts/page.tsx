@@ -17,6 +17,7 @@ import { ContactDetailPanel } from "@/components/parent-contacts/ContactDetailPa
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { PendingFollowupsSection } from "@/components/parent-contacts/PendingFollowupsSection";
 import { ContactStatsBar } from "@/components/parent-contacts/ContactStatsBar";
+import { CONTACT_TYPES } from "@/components/parent-contacts/contact-utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { parentCommunicationsAPI, type ParentCommunication, type StudentContactStatus } from "@/lib/api";
@@ -68,9 +69,11 @@ export default function ParentContactsPage() {
   const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('month');
 
-  // Contact type filter state
+  // Contact type filter state. Seeded from the shared list rather than written
+  // out again: a type missing from this set has its contacts filtered off the
+  // calendar, with nothing on screen to say that is what happened.
   const [activeContactTypes, setActiveContactTypes] = useState<Set<string>>(
-    new Set(['Progress Update', 'Concern', 'General'])
+    () => new Set<string>(CONTACT_TYPES)
   );
 
   // Search state (debounced for backend notes search)

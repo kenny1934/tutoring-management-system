@@ -1878,9 +1878,9 @@ export interface ParentCommunicationStats {
   total_active_students: number;
   students_contacted_recently: number;
   contact_coverage_percent: number;
-  progress_update_count: number;
-  concern_count: number;
-  general_count: number;
+  /** Contacts of each type in the last 30 days, keyed by the type. A type with
+   *  nothing against it is absent rather than zero. */
+  type_counts: Record<string, number>;
   contacts_this_week: number;
   contacts_last_week: number;
   average_days_since_contact: number | null;

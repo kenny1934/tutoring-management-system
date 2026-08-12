@@ -11,6 +11,7 @@ import { regularAPI } from "@/lib/api";
 import { CalendarCheck, Check, Loader2, MessageSquarePlus, Search, Undo2, UserMinus } from "lucide-react";
 import { StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
+import { RENEWAL_CONTACT_TYPE } from "@/components/parent-contacts/contact-utils";
 import {
   NotReturningDialog,
   PhoneCell,
@@ -380,6 +381,7 @@ export default function CourseRenewalPage() {
               }}
               editingContact={null}
               preselectedStudentId={contactFor.student_id}
+              defaultContactType={RENEWAL_CONTACT_TYPE}
             />
           )}
 

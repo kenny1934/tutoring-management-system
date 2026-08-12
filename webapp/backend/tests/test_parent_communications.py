@@ -4,21 +4,25 @@ Tests for parent communication helper functions.
 Covers:
 - calculate_contact_status() — classifies days since contact into status labels
 - the bulk create endpoint, which logs one contact against many students
+- the statistics endpoint's type distribution, which used to name the three
+  types it counted and is now blind to which types exist
 """
 import asyncio
 import pytest
 import sys
 import os
+from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException
 from pydantic import ValidationError
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from models import ParentCommunication, Student, Tutor
+from models import Enrollment, ParentCommunication, Student, Tutor
 from routers.parent_communications import (
     calculate_contact_status,
     create_communications_bulk,
+    get_communication_stats,
 )
 from schemas import ParentCommunicationBulkCreate
 
@@ -161,3 +165,70 @@ class TestBulkCreate:
             ParentCommunicationBulkCreate(student_ids=list(range(1, 202)))
         with pytest.raises(ValidationError):
             ParentCommunicationBulkCreate(student_ids=[])
+
+
+class TestTypeDistribution:
+    """The 30-day split by contact type on the parent-contacts dashboard.
+
+    It used to count 'Progress Update', 'Concern' and 'General' in three CASE
+    expressions that named them, so a fourth type was absent from the figures
+    however many contacts were logged under it. That is the thing being tested
+    here: the query is now blind to which types exist.
+    """
+
+    def _world(self, db_session, types):
+        """One active student per contact type, each with one contact logged
+        today, since the statistics only count students who are enrolled."""
+        tutor = Tutor(user_email="stats@test.com", tutor_name="Ms Ho", role="Tutor",
+                      is_active_tutor=True)
+        db_session.add(tutor)
+        db_session.commit()
+
+        for i, contact_type in enumerate(types):
+            student = Student(student_name=f"Student {i}", grade="F1", home_location="MSA")
+            db_session.add(student)
+            db_session.commit()
+            db_session.add(Enrollment(
+                student_id=student.id, tutor_id=tutor.id, location="MSA",
+                enrollment_type="Regular", first_lesson_date=date.today() - timedelta(days=7),
+                lessons_paid=20, payment_status="Paid",
+                assigned_day="Wednesday", assigned_time="16:45 - 18:15",
+            ))
+            db_session.add(ParentCommunication(
+                student_id=student.id, tutor_id=tutor.id,
+                contact_date=datetime.now(), contact_method="Phone",
+                contact_type=contact_type,
+            ))
+        db_session.commit()
+        return tutor
+
+    def _stats(self, db_session, tutor):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(get_communication_stats(
+                tutor_id=None, location=None, _=tutor, db=db_session,
+            ))
+        finally:
+            loop.close()
+
+    def test_a_type_nobody_named_is_still_counted(self, db_session):
+        tutor = self._world(db_session, ["Course Renewal", "Course Renewal", "Concern"])
+
+        stats = self._stats(db_session, tutor)
+
+        assert stats.type_counts == {"Course Renewal": 2, "Concern": 1}
+
+    def test_a_type_with_nothing_against_it_is_absent_rather_than_zero(self, db_session):
+        tutor = self._world(db_session, ["General"])
+
+        assert self._stats(db_session, tutor).type_counts == {"General": 1}
+
+    def test_the_weekly_totals_count_every_contact(self, db_session):
+        """The split is by type, but this week and last week are everybody, so
+        they are summed back across the groups rather than read off one row."""
+        tutor = self._world(db_session, ["Course Renewal", "Concern", "General"])
+
+        stats = self._stats(db_session, tutor)
+
+        assert stats.contacts_this_week == 3
+        assert sum(stats.type_counts.values()) == 3

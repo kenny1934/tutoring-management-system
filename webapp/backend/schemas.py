@@ -1179,9 +1179,10 @@ class ParentCommunicationStats(BaseModel):
     total_active_students: int = Field(default=0, ge=0)
     students_contacted_recently: int = Field(default=0, ge=0)
     contact_coverage_percent: float = Field(default=0, ge=0, le=100)
-    progress_update_count: int = Field(default=0, ge=0)
-    concern_count: int = Field(default=0, ge=0)
-    general_count: int = Field(default=0, ge=0)
+    # Contacts of each type in the last 30 days, keyed by the type itself so a
+    # new one is reported without this schema being taught its name. Types with
+    # nothing against them are absent rather than present as a zero.
+    type_counts: Dict[str, int] = Field(default_factory=dict)
     contacts_this_week: int = Field(default=0, ge=0)
     contacts_last_week: int = Field(default=0, ge=0)
     average_days_since_contact: Optional[float] = None

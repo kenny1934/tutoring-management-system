@@ -26,7 +26,11 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
-import { CONTACT_METHODS, CONTACT_TYPES } from "@/components/parent-contacts/contact-utils";
+import {
+  CONTACT_METHODS,
+  CONTACT_TYPES,
+  RENEWAL_CONTACT_TYPE,
+} from "@/components/parent-contacts/contact-utils";
 import {
   CHASE_QUERY_KEYS,
   CHASE_STATES,
@@ -652,7 +656,11 @@ export function BulkContactDialog({
   const [tutorId, setTutorId] = useState<number | null>(null);
   const [when, setWhen] = useState(() => new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<string>(CONTACT_METHODS[0]);
-  const [type, setType] = useState<string>("General");
+  // Everything logged from this board is a renewal chase, which is the whole
+  // reason that type exists. Leaving it on General would make this year's
+  // chasing indistinguishable from a routine call the moment a second intake
+  // is in the table.
+  const [type, setType] = useState<string>(RENEWAL_CONTACT_TYPE);
   const [notes, setNotes] = useState("");
   const [followUp, setFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState("");
@@ -1651,6 +1659,7 @@ export function RegularRetentionChaseList({
           }}
           editingContact={null}
           preselectedStudentId={contactFor.student_id}
+          defaultContactType={RENEWAL_CONTACT_TYPE}
         />
       )}
 
