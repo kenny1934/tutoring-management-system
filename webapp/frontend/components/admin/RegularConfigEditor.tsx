@@ -13,7 +13,7 @@ import type {
   RegularPricingConfig,
   RegularPromo,
 } from "@/types";
-import { isPromoActive } from "@/lib/regular-promo";
+import { isPromoActive, unrenderedPricing } from "@/lib/regular-promo";
 import { hkTodayIso } from "@/lib/regular-utils";
 import {
   ChevronDown,
@@ -126,6 +126,14 @@ export function RegularConfigEditor({
   const [pricingBaseFee, setPricingBaseFee] = useState("");
   const [pricingLessons, setPricingLessons] = useState("");
   const [pricingRegFee, setPricingRegFee] = useState("");
+  // Whether the materials fee is collected at all. Absent in the stored config
+  // means it is, so an intake that opts out is the only one that differs.
+  const [chargesRegFee, setChargesRegFee] = useState(true);
+  // Anything in pricing_config this form has no field for. Saving replaces the
+  // whole JSON, so without keeping these the editor quietly deletes rules it
+  // does not know about, which is how the September 2026 intake started
+  // charging a materials fee it had been told to waive.
+  const [pricingExtras, setPricingExtras] = useState<Record<string, unknown>>({});
   // The seasonal offer is defined by a migration, not typed in here — it
   // carries bilingual names, a bullet list and a discounts row id, none of
   // which belong in a form. It is held in state purely so saving the pricing
@@ -144,9 +152,11 @@ export function RegularConfigEditor({
       base_fee: baseFeeNum,
       lessons_per_block: lessonsNum,
       registration_fee: regFeeNum > 0 ? regFeeNum : null,
+      registration_fee_charged: chargesRegFee,
       ...(promo ? { promo } : {}),
+      ...pricingExtras,
     };
-  }, [pricingBaseFee, pricingLessons, pricingRegFee, promo]);
+  }, [pricingBaseFee, pricingLessons, pricingRegFee, chargesRegFee, promo, pricingExtras]);
 
   // Drop the intro to null when every field is empty, so save payload / dirty
   // tracking stay clean. Memoized so the `assembledConfig` memo stabilizes.
@@ -286,6 +296,8 @@ export function RegularConfigEditor({
                 setPricingBaseFee(pc ? String(pc.base_fee) : "");
                 setPricingLessons(pc ? String(pc.lessons_per_block) : "");
                 setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
+                setChargesRegFee(pc?.registration_fee_charged !== false);
+                setPricingExtras(unrenderedPricing(pc));
                 setPromo(pc?.promo || null);
               },
             });
@@ -341,6 +353,8 @@ export function RegularConfigEditor({
         setPricingBaseFee(pc ? String(pc.base_fee) : "");
         setPricingLessons(pc ? String(pc.lessons_per_block) : "");
         setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
+        setChargesRegFee(pc?.registration_fee_charged !== false);
+        setPricingExtras(unrenderedPricing(pc));
         setPromo(pc?.promo || null);
       } catch {
         showToast("Failed to load config", "error");
@@ -804,7 +818,21 @@ export function RegularConfigEditor({
               disabled={isReadOnly}
               placeholder="100"
             />
-            <p className="text-[10px] text-muted-foreground mt-1">Optional one-off fee for new students. A seasonal offer can waive it.</p>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={chargesRegFee}
+                onChange={(e) => setChargesRegFee(e.target.checked)}
+                disabled={isReadOnly}
+                className="rounded"
+              />
+              <span className="text-xs text-foreground">Collect it this intake</span>
+            </label>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              A one-off fee for new students. Untick to collect it from nobody this
+              intake, whatever their history. The amount above is still the standard
+              fee, so a seasonal offer can quote it as something it waived.
+            </p>
           </div>
         </div>
         <ValidationHint message={validationErrors.pricing ?? null} />

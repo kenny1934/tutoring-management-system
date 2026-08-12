@@ -6,6 +6,7 @@ import {
   promoItems,
   promoName,
   promoPricing,
+  unrenderedPricing,
 } from "./regular-promo";
 import type { RegularPricingConfig, RegularPromo } from "@/types";
 
@@ -168,5 +169,37 @@ describe("intakeChargesRegistrationFee", () => {
 
   it("is false only when the intake explicitly opts out", () => {
     expect(intakeChargesRegistrationFee(PRICING)).toBe(false);
+  });
+});
+
+describe("unrenderedPricing", () => {
+  it("keeps nothing when the config is only fields the editor renders", () => {
+    // Saving assembles those from the form, so carrying them across as well
+    // would just duplicate them.
+    expect(unrenderedPricing(PRICING)).toEqual({});
+  });
+
+  it("keeps a rule the editor has no field for", () => {
+    // The case that caused the bug: a pricing rule added by a migration must
+    // survive an admin saving the config from a form that never showed it.
+    const withExtra = { ...PRICING, sibling_discount: 150 } as RegularPricingConfig;
+    expect(unrenderedPricing(withExtra)).toEqual({ sibling_discount: 150 });
+  });
+
+  it("keeps a false or zero value rather than dropping it as empty", () => {
+    const withExtra = {
+      ...PRICING,
+      late_payment_fee: 0,
+      waives_late_fee: false,
+    } as RegularPricingConfig;
+    expect(unrenderedPricing(withExtra)).toEqual({
+      late_payment_fee: 0,
+      waives_late_fee: false,
+    });
+  });
+
+  it("has nothing to keep from an absent config", () => {
+    expect(unrenderedPricing(null)).toEqual({});
+    expect(unrenderedPricing(undefined)).toEqual({});
   });
 });
