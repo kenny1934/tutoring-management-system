@@ -8,31 +8,30 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDebouncedValue, usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
-import { CalendarCheck, Check, Loader2, MessageSquarePlus, Search, Undo2, UserMinus } from "lucide-react";
-import { StudentCodeBadge } from "@/components/summer/prospect-badges";
+import { CalendarCheck, Check, Loader2, Search } from "lucide-react";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { RENEWAL_CONTACT_TYPE } from "@/components/parent-contacts/contact-utils";
 import {
+  ChaseListBody,
   ChipRail,
   FilterChip,
   NotReturningDialog,
-  PhoneCell,
   STATE_META,
-  StudentLink,
   UndoNotReturningDialog,
-  isRecordedAsLeaving,
 } from "@/components/admin/RegularRetentionSections";
 import { SeptemberClasses } from "@/components/regular/SeptemberClasses";
-import { regularStatusLabel } from "@/lib/regular-utils";
 import {
   CHASE_STATES,
   EMPTY_CHASE_FILTERS,
   countChaseStates,
   filterChaseRows,
+  formatChaseSort,
   hasPhone,
+  parseChaseSort,
   sortChaseRows,
-  staleness,
   type ChaseFilters,
+  type ChaseSort,
+  type ChaseSortKey,
 } from "@/lib/retention-utils";
 import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularRetentionChaseRow, RetentionState } from "@/types";
@@ -40,11 +39,11 @@ import type { RegularRetentionChaseRow, RetentionState } from "@/types";
 const selectClass =
   "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
 
-/** How the list is ordered. Staleness is the default because the point of the
- *  page is a queue: whoever has been waiting longest goes first. */
-type RenewalOrder = "stale" | "name" | "grade";
-
-const RENEWAL_ORDERS: RenewalOrder[] = ["stale", "name", "grade"];
+/** How the list is ordered. Whoever has been waiting longest goes first,
+ *  because the point of the page is a queue. Same shape the admin board uses,
+ *  so a column header sorts the same way on both and a link carries the order
+ *  between them. */
+const RENEWAL_DEFAULT_SORT: ChaseSort = { key: "days_since_contact", dir: "desc" };
 
 /** The two questions a tutor has about September, which are different
  *  questions about different people. Looking back: which of last year's
@@ -92,7 +91,7 @@ export default function CourseRenewalPage() {
   const [state, setState] = useState<RetentionState | "all">("no_response");
   const [q, setQ] = useState("");
   const [grade, setGrade] = useState("");
-  const [order, setOrder] = useState<RenewalOrder>("stale");
+  const [sort, setSort] = useState<ChaseSort>(RENEWAL_DEFAULT_SORT);
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
@@ -121,8 +120,8 @@ export default function CourseRenewalPage() {
     }
     setQ(params.get("q") ?? "");
     setGrade(params.get("grade") ?? "");
-    const orderParam = params.get("order");
-    if (RENEWAL_ORDERS.includes(orderParam as RenewalOrder)) setOrder(orderParam as RenewalOrder);
+    const sortParam = params.get("sort");
+    if (sortParam) setSort(parseChaseSort(sortParam));
     setRestored(true);
   }, []);
 
@@ -135,7 +134,10 @@ export default function CourseRenewalPage() {
       list: state === "no_response" ? null : state,
       q: settledQuery.trim() || null,
       grade: grade || null,
-      order: order === "stale" ? null : order,
+      sort:
+        formatChaseSort(sort) === formatChaseSort(RENEWAL_DEFAULT_SORT)
+          ? null
+          : formatChaseSort(sort),
     },
     restored
   );
@@ -188,12 +190,26 @@ export default function CourseRenewalPage() {
   // The busiest tutor has over a hundred students, so a flat list means
   // scrolling to find anyone. Same filtering, counting and sorting the admin
   // chase list uses, minus the axes a tutor has no use for.
-  const rows = useMemo(() => {
-    const pool = filterChaseRows(chaseable, filters, today);
-    if (order === "name") return sortChaseRows(pool, "student_name", "asc");
-    if (order === "grade") return sortChaseRows(pool, "expected_grade", "asc");
-    return [...pool].sort((a, b) => staleness(b) - staleness(a));
-  }, [chaseable, filters, today, order]);
+  const rows = useMemo(
+    () => sortChaseRows(filterChaseRows(chaseable, filters, today), sort.key, sort.dir),
+    [chaseable, filters, today, sort]
+  );
+
+  // Clicking a column header the second time turns it round, and staleness
+  // opens with the most overdue rather than the least. Same rule as the board.
+  const onSort = (k: ChaseSortKey) =>
+    setSort((current) =>
+      current.key === k
+        ? { key: k, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { key: k, dir: k === "days_since_contact" ? "desc" : "asc" }
+    );
+
+  // The branch column earns its place only where a tutor has students at more
+  // than one, which is rare. Their own name never does.
+  const showBranch = useMemo(
+    () => new Set(chaseable.map((r) => r.branch).filter(Boolean)).size > 1,
+    [chaseable]
+  );
 
   const stateCounts = useMemo(
     () => countChaseStates(chaseable, filters, today),
@@ -330,14 +346,18 @@ export default function CourseRenewalPage() {
                       ))}
                     </select>
                   )}
+                  {/* Sorting lives in the column headers, and the cards a
+                      phone gets have no headers, so that width gets the same
+                      orders as a menu. */}
                   <select
-                    value={order}
-                    onChange={(e) => setOrder(e.target.value as RenewalOrder)}
-                    className={selectClass}
+                    value={formatChaseSort(sort)}
+                    onChange={(e) => setSort(parseChaseSort(e.target.value))}
+                    className={cn(selectClass, "md:hidden")}
+                    aria-label="Sort the list"
                   >
-                    <option value="stale">Longest waiting first</option>
-                    <option value="name">By name</option>
-                    <option value="grade">By entering grade</option>
+                    <option value="days_since_contact:desc">Longest waiting first</option>
+                    <option value="student_name:asc">By name</option>
+                    <option value="expected_grade:asc">By entering grade</option>
                   </select>
                 </div>
 
@@ -357,111 +377,32 @@ export default function CourseRenewalPage() {
                 </div>
               </div>
 
-              {rows.length === 0 ? (
+              {rows.length === 0 && !filtered ? (
+                // Worth a sentence of its own rather than an empty table: an
+                // empty list here is usually good news, and which good news it
+                // is depends on the list you are on.
                 <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground gap-2">
                   <Check className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-                  <p className="text-sm">
-                    {filtered
-                      ? "Nobody matches what you searched for."
-                      : EMPTY_LIST_TEXT[state]}
-                  </p>
+                  <p className="text-sm">{EMPTY_LIST_TEXT[state]}</p>
                 </div>
               ) : (
-                <div className="flex-1 min-h-0 overflow-auto space-y-2">
-                  {rows.map((s) => (
-                    <div
-                      key={s.student_id}
-                      className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-white/40 dark:bg-white/[0.02] px-3 py-2.5"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {/* Code first, the way it reads everywhere else on
-                                the board and on a class list. */}
-                            {s.student_code && <StudentCodeBadge code={s.student_code} />}
-                            <StudentLink
-                              row={s}
-                              className="text-sm font-medium text-foreground"
-                            />
-                            {s.expected_grade && (
-                              <span className="text-[11px] text-muted-foreground">
-                                entering {s.expected_grade}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                            <PhoneCell row={s} />
-                            {/* Never contacted is the front of the queue, so it
-                                reads as a state rather than as missing data. */}
-                            {s.days_since_contact == null ? (
-                              <span className="text-amber-700 dark:text-amber-400 font-medium">
-                                Never contacted
-                              </span>
-                            ) : (
-                              <span>last contacted {s.days_since_contact}d ago</span>
-                            )}
-                            {s.follow_up_needed && s.follow_up_date && (
-                              <span className="text-sky-700 dark:text-sky-400">
-                                follow up {s.follow_up_date}
-                              </span>
-                            )}
-                          </div>
-                          {/* What was said last time, so the next call opens
-                              with it rather than repeating the question. */}
-                          {s.last_contact_note && (
-                            <div className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
-                              {s.last_contact_note}
-                            </div>
-                          )}
-                          {/* An application says more than "applied": the same
-                              rung the parent reads on their own status page,
-                              so a tutor can tell a family who filled the form
-                              in last night from one waiting to pay. */}
-                          {s.state !== "no_response" && (
-                            <div className={cn("text-xs mt-1", STATE_META[s.state].tone)}>
-                              {s.state === "applied" && s.application_status
-                                ? regularStatusLabel(s.application_status, "en")
-                                : STATE_META[s.state].label}
-                              {s.decline_reason_category && ` · ${s.decline_reason_category}`}
-                            </div>
-                          )}
-                        </div>
-
-                        {!isReadOnly && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setContactFor(s)}
-                              title="Log a contact with this family"
-                              className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                            >
-                              <MessageSquarePlus className="h-4 w-4" />
-                            </button>
-                            {isRecordedAsLeaving(s.state) ? (
-                              <button
-                                type="button"
-                                onClick={() => setUndoFor(s)}
-                                title="Put this student back on the list"
-                                className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                              >
-                                <Undo2 className="h-4 w-4" />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setDeclineFor(s)}
-                                title="Mark this family as not returning"
-                                className="p-1.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
-                              >
-                                <UserMinus className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                // The board's own list, so a tutor and an admin reading the
+                // same student are reading the same row. No ticking, because
+                // logging a contact for a hundred families at once is the
+                // office's job, and no Tutor column, because they are it.
+                <ChaseListBody
+                  rows={rows}
+                  today={today}
+                  isReadOnly={isReadOnly}
+                  sort={sort}
+                  onSort={onSort}
+                  showBranch={showBranch}
+                  showTutor={false}
+                  emptyText="Nobody matches what you searched for."
+                  onContact={setContactFor}
+                  onDecline={setDeclineFor}
+                  onUndo={setUndoFor}
+                />
               )}
 
               {/* Nobody can be rung from a row with no number, so the page says

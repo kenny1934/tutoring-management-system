@@ -2781,32 +2781,6 @@ def get_my_class(
             taught_by_me_last_year=app.existing_student_id in taught,
         ))
 
-    # Why the page is empty, for the tutors it is empty for. Most slots have
-    # nobody down to teach them yet, and a tutor who reads "no classes" wants
-    # to know whether that is a decision or a decision not yet made. Counted
-    # at the branches this tutor is on duty at, falling back to the branch on
-    # their record, so it is their own arrangement being described.
-    my_branches = {
-        normalize_secondary_location(loc)
-        for (loc,) in db.query(RegularTutorDuty.location).filter(
-            RegularTutorDuty.config_id == config.id,
-            RegularTutorDuty.tutor_id == viewed_tutor_id,
-        ).distinct()
-    }
-    if not my_branches:
-        viewed = db.query(Tutor).filter(Tutor.id == viewed_tutor_id).first()
-        my_branches = {normalize_secondary_location(viewed.default_location)} if viewed else set()
-    awaiting = 0
-    if my_branches:
-        awaiting = sum(
-            1
-            for (loc,) in db.query(RegularCourseSlot.location).filter(
-                RegularCourseSlot.config_id == config.id,
-                RegularCourseSlot.tutor_id.is_(None),
-            )
-            if normalize_secondary_location(loc) in my_branches
-        )
-
     return RegularMyClassResponse(
         year=config.year,
         slots=[
@@ -2822,7 +2796,6 @@ def get_my_class(
             )
             for s in slots
         ],
-        slots_awaiting_a_tutor=awaiting,
     )
 
 

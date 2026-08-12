@@ -4194,13 +4194,10 @@ export interface RegularMyClassSlot {
 }
 
 /** A tutor's own September classes, as far as arrangement has got. Empty for
- *  most tutors until the office assigns tutors to slots, which is what
- *  `slots_awaiting_a_tutor` is for: nothing decided reads very differently
- *  from nothing coming. */
+ *  most tutors until the office assigns tutors to slots. */
 export interface RegularMyClassResponse {
   year: number;
   slots: RegularMyClassSlot[];
-  slots_awaiting_a_tutor: number;
 }
 
 /** A weekly slot's own fields, with no assignment state. Inlined on the

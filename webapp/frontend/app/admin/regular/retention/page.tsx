@@ -628,9 +628,9 @@ export default function RegularRetentionPage() {
                             : `${data.reconciliation.unlinked_secondary} applications have not been matched to a student record.`}
                         </span>
                         <p className="text-sky-800/80 dark:text-sky-400/80 mt-0.5">
-                          These families say they already study here, so some of them are being
-                          counted below as having given us no answer. Matching them settles the
-                          numbers.
+                          Each of them says the student already studies here, so some of them
+                          are being counted below as having given us no answer. Matching them
+                          settles the numbers.
                         </p>
                       </div>
                       {!isReadOnly && (

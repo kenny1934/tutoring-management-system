@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { parentCommunicationsAPI, terminationsAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveTutors, useDebouncedValue } from "@/lib/hooks";
-import { getGradeColor } from "@/lib/regular-utils";
+import { getGradeColor, regularStatusLabel } from "@/lib/regular-utils";
 import {
   CATEGORY_CONFIG,
   TERMINATION_REASON_CATEGORIES,
@@ -135,7 +135,7 @@ export function PhoneCell({ row }: { row: RegularRetentionChaseRow }) {
   return (
     <span
       className="text-[11px] text-amber-700 dark:text-amber-400"
-      title="We have no number for this family, so nobody can ring them from this list."
+      title="We have no number for this student, so nobody can ring them from this list."
     >
       No number
     </span>
@@ -380,7 +380,7 @@ export function RegularRetentionBreakdowns({ data }: { data: RegularRetentionRes
 
       <Section
         title="Why they are not returning"
-        hint="These are the reasons staff recorded for the families who told us they are leaving. The same reasons appear in the quarterly termination report."
+        hint="These are the reasons staff recorded for the students who told us they are leaving. The same reasons appear in the quarterly termination report."
       >
         <table className="w-full text-xs">
           <thead className={thead}>
@@ -989,10 +989,10 @@ const CONTACT_LABEL: Record<Exclude<ContactFilter, "">, string> = {
 };
 
 const CONTACT_HINT: Record<Exclude<ContactFilter, "">, string> = {
-  no: "Nobody has rung or messaged this family about September yet.",
+  no: "Nobody has rung or messaged these students' parents about September yet.",
   yes: "Somebody has already been in touch about September.",
   due: "Somebody promised to ring back, and the day has come.",
-  nophone: "We hold no number for these families, so nobody can ring them from this list.",
+  nophone: "We hold no number for these students, so nobody can ring them from this list.",
 };
 
 function ContactButtons({
@@ -1184,6 +1184,299 @@ function MoreFilters({
   );
 }
 
+/** The chase list itself: cards on a phone, the table from a tablet up.
+ *
+ *  Shared by the admin board and a tutor's own list, which used to be two
+ *  different renderings of the same rows. A tutor gets no ticking, because
+ *  bulk contact logging is the office's job, and no Tutor column, because
+ *  every row is theirs. Everything else is the same table, so the two of them
+ *  reading the same student are looking at the same thing.
+ */
+export function ChaseListBody({
+  rows,
+  today,
+  isReadOnly,
+  sort,
+  onSort,
+  emptyText,
+  showBranch = true,
+  showTutor = true,
+  selection,
+  onContact,
+  onDecline,
+  onUndo,
+}: {
+  rows: RegularRetentionChaseRow[];
+  today: string;
+  isReadOnly: boolean;
+  sort: ChaseSort;
+  onSort: (key: ChaseSortKey) => void;
+  emptyText: string;
+  showBranch?: boolean;
+  showTutor?: boolean;
+  /** Ticking, when the caller has something to do with a selection. Left out
+   *  entirely rather than switched off, so there is no half-built checkbox
+   *  column with nothing behind it. */
+  selection?: {
+    picked: Set<number>;
+    allShownPicked: boolean;
+    onToggle: (studentId: number) => void;
+    onToggleAll: () => void;
+  };
+  onContact: (row: RegularRetentionChaseRow) => void;
+  onDecline: (row: RegularRetentionChaseRow) => void;
+  onUndo: (row: RegularRetentionChaseRow) => void;
+}) {
+  // Code, student, entering, phone, last contacted, status and the actions
+  // column, plus whichever of the three optional ones are in play.
+  const columnCount =
+    7 + (selection ? 1 : 0) + (showBranch ? 1 : 0) + (showTutor ? 1 : 0);
+
+  const SortHeader = ({ k, children }: { k: ChaseSortKey; children: React.ReactNode }) => {
+    const active = sort.key === k;
+    const Arrow = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <th className={th}>
+        <button
+          type="button"
+          onClick={() => onSort(k)}
+          className={cn("inline-flex items-center gap-1 hover:text-primary", active && "text-primary")}
+        >
+          {children}
+          <Arrow className={cn("h-3 w-3", active ? "text-primary" : "text-muted-foreground/50")} />
+        </button>
+      </th>
+    );
+  };
+
+  return (
+    <>
+      {/* Cards on a phone, the table from a tablet up. The select-all sits
+          above them because on a table it lives in the header row. */}
+      {selection && rows.length > 0 && (
+        <label className="md:hidden flex items-center gap-2 mb-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={selection.allShownPicked}
+            onChange={selection.onToggleAll}
+          />
+          Select all {rows.length} shown
+        </label>
+      )}
+      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-2">
+        {rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground px-1 py-4 text-center">{emptyText}</p>
+        ) : (
+          rows.map((r) => (
+            <ChaseCard
+              key={r.student_id}
+              row={r}
+              today={today}
+              isReadOnly={isReadOnly}
+              showTutor={showTutor}
+              picked={selection?.picked.has(r.student_id) ?? false}
+              onPick={selection && (() => selection.onToggle(r.student_id))}
+              onContact={() => onContact(r)}
+              onDecline={() => onDecline(r)}
+              onUndo={() => onUndo(r)}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Table */}
+      <div className={cn(wrap, "hidden md:block flex-1 min-h-0 overflow-auto")}>
+        <table className="w-full text-xs">
+          <thead className={cn(thead, "sticky top-0 z-10")}>
+            <tr className={theadRow}>
+              {selection && (
+                <th className={cn(th, "w-8")}>
+                  <input
+                    type="checkbox"
+                    checked={selection.allShownPicked}
+                    onChange={selection.onToggleAll}
+                    disabled={rows.length === 0}
+                    aria-label={
+                      selection.allShownPicked ? "Clear every row shown" : "Select every row shown"
+                    }
+                    title={
+                      selection.allShownPicked ? "Clear every row shown" : "Select every row shown"
+                    }
+                  />
+                </th>
+              )}
+              <SortHeader k="student_code">Code</SortHeader>
+              <SortHeader k="student_name">Student</SortHeader>
+              <SortHeader k="expected_grade">Entering</SortHeader>
+              {showBranch && <SortHeader k="branch">Branch</SortHeader>}
+              {showTutor && <SortHeader k="tutor_name">Tutor</SortHeader>}
+              <th className={th}>Phone</th>
+              <SortHeader k="days_since_contact">Last contacted</SortHeader>
+              <th className={th}>Status</th>
+              <th className={th} />
+            </tr>
+          </thead>
+          <tbody className={rowDivide}>
+            {rows.length === 0 ? (
+              <EmptyRow span={columnCount}>{emptyText}</EmptyRow>
+            ) : (
+              rows.map((r) => {
+                const due = isFollowUpDue(r, today);
+                return (
+                  <tr key={r.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
+                    {selection && (
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={selection.picked.has(r.student_id)}
+                          onChange={() => selection.onToggle(r.student_id)}
+                          aria-label={`Select ${r.student_name}`}
+                        />
+                      </td>
+                    )}
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      {r.student_code ? (
+                        <StudentCodeBadge code={r.student_code} />
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <StudentLink row={r} className="text-foreground font-medium" />
+                      {r.on_prospect_board && (
+                        <span
+                          role="img"
+                          aria-label="Already being followed up by a primary branch"
+                          className="ml-1.5 text-[10px] text-sky-700 dark:text-sky-400 align-middle"
+                          title="A primary branch is already following this student up on the prospect board"
+                        >
+                          ◆
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 whitespace-nowrap"><GradeBadge row={r} /></td>
+                    {showBranch && (
+                      <td className="px-3 py-1.5 text-muted-foreground">{r.branch ?? "-"}</td>
+                    )}
+                    {showTutor && (
+                      <td className="px-3 py-1.5 text-muted-foreground whitespace-nowrap">
+                        {r.tutor_name ?? "-"}
+                      </td>
+                    )}
+                    <td className="px-3 py-1.5 whitespace-nowrap"><PhoneCell row={r} /></td>
+                    <td className="px-3 py-1.5 max-w-[13rem]">
+                      <div className="whitespace-nowrap">
+                        {/* Never contacted is the front of the queue, so it reads
+                            as a state rather than as missing data. */}
+                        {r.last_contact_date == null ? (
+                          <span className="text-amber-700 dark:text-amber-400 font-medium">Never</span>
+                        ) : (
+                          <span className="text-muted-foreground tabular-nums">
+                            {shortDate(r.last_contact_date)}
+                            <span className="text-muted-foreground/70"> · {r.days_since_contact}d</span>
+                          </span>
+                        )}
+                        {r.follow_up_needed && r.follow_up_date && (
+                          <span
+                            className={cn(
+                              "ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
+                              due
+                                ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                                : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                            )}
+                            title={`Someone promised to follow up on ${r.follow_up_date}`}
+                          >
+                            {due ? "due" : shortDate(r.follow_up_date)}
+                          </span>
+                        )}
+                      </div>
+                      {/* What was said, so the next caller opens with it
+                          instead of asking the family the same question. */}
+                      {r.last_contact_note && (
+                        <div
+                          className="text-[11px] text-muted-foreground/80 truncate"
+                          title={r.last_contact_note}
+                        >
+                          {r.last_contact_note}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      <StateBadge state={r.state} />
+                      <span className="ml-1.5"><LadderRung row={r} /></span>
+                      {r.decline_reason_category && r.state !== "declined" && (
+                        <span
+                          className="ml-1.5 text-[10px] text-rose-600 dark:text-rose-400"
+                          title="Somebody marked this student as not returning, but they have a live application. Worth checking."
+                        >
+                          conflict
+                        </span>
+                      )}
+                      {r.state === "declined" && r.decline_reason_category && (
+                        <span className="ml-1.5 text-[10px] text-muted-foreground">
+                          {r.decline_reason_category}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      {!isReadOnly && (
+                        <div className="flex items-center gap-1 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => onContact(r)}
+                            title="Log a contact about this student"
+                            className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                          >
+                            <MessageSquarePlus className="h-3.5 w-3.5" />
+                          </button>
+                          {isRecordedAsLeaving(r.state) ? (
+                            <button
+                              type="button"
+                              onClick={() => onUndo(r)}
+                              title="Put this student back on the list"
+                              className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                            >
+                              <Undo2 className="h-3.5 w-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onDecline(r)}
+                              title="Mark this student as not returning"
+                              className="p-1.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** Where an application has got to, next to the word "Applied".
+ *
+ *  "Applied" covers everything from a form filled in last night to a family
+ *  waiting to pay, and the rung is the same one the parent reads on their own
+ *  status page, so both sides of a phone call are looking at the same words.
+ *  Only for applications: an enrolled student's rung says "Enrolled" too. */
+export function LadderRung({ row }: { row: RegularRetentionChaseRow }) {
+  if (row.state !== "applied" || !row.application_status) return null;
+  return (
+    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+      {regularStatusLabel(row.application_status, "en")}
+    </span>
+  );
+}
+
 /** One student as a card, for phones.
  *
  *  The table is nine columns wide and a phone shows about three of them, so a
@@ -1195,7 +1488,8 @@ function ChaseCard({
   row,
   today,
   isReadOnly,
-  picked,
+  showTutor = true,
+  picked = false,
   onPick,
   onContact,
   onDecline,
@@ -1204,8 +1498,10 @@ function ChaseCard({
   row: RegularRetentionChaseRow;
   today: string;
   isReadOnly: boolean;
-  picked: boolean;
-  onPick: () => void;
+  showTutor?: boolean;
+  picked?: boolean;
+  /** Absent on a tutor's own list, which has nothing to do with a selection. */
+  onPick?: () => void;
   onContact: () => void;
   onDecline: () => void;
   onUndo: () => void;
@@ -1223,7 +1519,7 @@ function ChaseCard({
       )}
     >
       <div className="flex items-start gap-2.5">
-        {!isReadOnly && (
+        {!isReadOnly && onPick && (
           <input
             type="checkbox"
             checked={picked}
@@ -1241,12 +1537,13 @@ function ChaseCard({
                 role="img"
                 aria-label="Already being followed up by a primary branch"
                 className="text-[10px] text-sky-700 dark:text-sky-400"
-                title="A primary branch is already following this family up on the prospect board"
+                title="A primary branch is already following this student up on the prospect board"
               >
                 ◆
               </span>
             )}
-            <span className="ml-auto shrink-0">
+            <span className="ml-auto shrink-0 inline-flex items-center gap-1.5">
+              <LadderRung row={row} />
               <StateBadge state={row.state} />
             </span>
           </div>
@@ -1254,7 +1551,7 @@ function ChaseCard({
           <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-muted-foreground">
             <GradeBadge row={row} />
             {row.branch && <span>{row.branch}</span>}
-            {row.tutor_name && <span>{row.tutor_name}</span>}
+            {showTutor && row.tutor_name && <span>{row.tutor_name}</span>}
           </div>
 
           <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
@@ -1531,23 +1828,6 @@ export function RegularRetentionChaseList({
     URL.revokeObjectURL(url);
   };
 
-  const SortHeader = ({ k, children }: { k: ChaseSortKey; children: React.ReactNode }) => {
-    const active = sort.key === k;
-    const Arrow = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
-    return (
-      <th className={th}>
-        <button
-          type="button"
-          onClick={() => onSort(k)}
-          className={cn("inline-flex items-center gap-1 hover:text-primary", active && "text-primary")}
-        >
-          {children}
-          <Arrow className={cn("h-3 w-3", active ? "text-primary" : "text-muted-foreground/50")} />
-        </button>
-      </th>
-    );
-  };
-
   return (
     <div className="flex flex-col min-h-0 flex-1">
       {/* Which of the six lists is on screen. Its own row, because it is the
@@ -1690,199 +1970,27 @@ export function RegularRetentionChaseList({
         </p>
       )}
 
-      {/* Cards on a phone, the table from a tablet up. The select-all sits
-          above them because on a table it lives in the header row. */}
-      {!isReadOnly && rows.length > 0 && (
-        <label className="md:hidden flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-          <input type="checkbox" checked={allShownPicked} onChange={toggleAllShown} />
-          Select all {rows.length} shown
-        </label>
-      )}
-      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-2">
-        {rows.length === 0 ? (
-          <p className="text-xs text-muted-foreground px-1 py-4 text-center">
-            Nobody matches these filters.
-          </p>
-        ) : (
-          rows.map((r) => (
-            <ChaseCard
-              key={r.student_id}
-              row={r}
-              today={today}
-              isReadOnly={isReadOnly}
-              picked={picked.has(r.student_id)}
-              onPick={() => togglePicked(r.student_id)}
-              onContact={() => setContactFor(r)}
-              onDecline={() => setDeclineFor(r)}
-              onUndo={() => setUndoFor(r)}
-            />
-          ))
-        )}
-      </div>
-
-      {/* Table */}
-      <div className={cn(wrap, "hidden md:block flex-1 min-h-0 overflow-auto")}>
-        <table className="w-full text-xs">
-          <thead className={cn(thead, "sticky top-0 z-10")}>
-            <tr className={theadRow}>
-              {!isReadOnly && (
-                <th className={cn(th, "w-8")}>
-                  <input
-                    type="checkbox"
-                    checked={allShownPicked}
-                    onChange={toggleAllShown}
-                    disabled={rows.length === 0}
-                    aria-label={allShownPicked ? "Clear every row shown" : "Select every row shown"}
-                    title={allShownPicked ? "Clear every row shown" : "Select every row shown"}
-                  />
-                </th>
-              )}
-              <SortHeader k="student_code">Code</SortHeader>
-              <SortHeader k="student_name">Student</SortHeader>
-              <SortHeader k="expected_grade">Entering</SortHeader>
-              <SortHeader k="branch">Branch</SortHeader>
-              <SortHeader k="tutor_name">Tutor</SortHeader>
-              <th className={th}>Phone</th>
-              <SortHeader k="days_since_contact">Last contacted</SortHeader>
-              <th className={th}>Status</th>
-              <th className={th} />
-            </tr>
-          </thead>
-          <tbody className={rowDivide}>
-            {rows.length === 0 ? (
-              <EmptyRow span={isReadOnly ? 9 : 10}>Nobody matches these filters.</EmptyRow>
-            ) : (
-              rows.map((r) => {
-                const due = isFollowUpDue(r, today);
-                return (
-                  <tr key={r.student_id} className="hover:bg-[#f0e6d8]/30 dark:hover:bg-[#2a2520]/50">
-                    {!isReadOnly && (
-                      <td className="px-3 py-1.5">
-                        <input
-                          type="checkbox"
-                          checked={picked.has(r.student_id)}
-                          onChange={() => togglePicked(r.student_id)}
-                          aria-label={`Select ${r.student_name}`}
-                        />
-                      </td>
-                    )}
-                    <td className="px-3 py-1.5 whitespace-nowrap">
-                      {r.student_code ? (
-                        <StudentCodeBadge code={r.student_code} />
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <StudentLink row={r} className="text-foreground font-medium" />
-                      {r.on_prospect_board && (
-                        <span
-                          role="img"
-                          aria-label="Already being followed up by a primary branch"
-                          className="ml-1.5 text-[10px] text-sky-700 dark:text-sky-400 align-middle"
-                          title="A primary branch is already following this family up on the prospect board"
-                        >
-                          ◆
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5 whitespace-nowrap"><GradeBadge row={r} /></td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{r.branch ?? "-"}</td>
-                    <td className="px-3 py-1.5 text-muted-foreground whitespace-nowrap">{r.tutor_name ?? "-"}</td>
-                    <td className="px-3 py-1.5 whitespace-nowrap"><PhoneCell row={r} /></td>
-                    <td className="px-3 py-1.5 max-w-[13rem]">
-                      <div className="whitespace-nowrap">
-                        {/* Never contacted is the front of the queue, so it reads
-                            as a state rather than as missing data. */}
-                        {r.last_contact_date == null ? (
-                          <span className="text-amber-700 dark:text-amber-400 font-medium">Never</span>
-                        ) : (
-                          <span className="text-muted-foreground tabular-nums">
-                            {shortDate(r.last_contact_date)}
-                            <span className="text-muted-foreground/70"> · {r.days_since_contact}d</span>
-                          </span>
-                        )}
-                        {r.follow_up_needed && r.follow_up_date && (
-                          <span
-                            className={cn(
-                              "ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium whitespace-nowrap",
-                              due
-                                ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
-                                : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-                            )}
-                            title={`Someone promised to follow up on ${r.follow_up_date}`}
-                          >
-                            {due ? "due" : shortDate(r.follow_up_date)}
-                          </span>
-                        )}
-                      </div>
-                      {/* What was said, so the next caller opens with it
-                          instead of asking the family the same question. */}
-                      {r.last_contact_note && (
-                        <div
-                          className="text-[11px] text-muted-foreground/80 truncate"
-                          title={r.last_contact_note}
-                        >
-                          {r.last_contact_note}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5 whitespace-nowrap">
-                      <StateBadge state={r.state} />
-                      {r.decline_reason_category && r.state !== "declined" && (
-                        <span
-                          className="ml-1.5 text-[10px] text-rose-600 dark:text-rose-400"
-                          title="Somebody marked this family as not returning, but they have a live application. Worth checking."
-                        >
-                          conflict
-                        </span>
-                      )}
-                      {r.state === "declined" && r.decline_reason_category && (
-                        <span className="ml-1.5 text-[10px] text-muted-foreground">
-                          {r.decline_reason_category}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {!isReadOnly && (
-                        <div className="flex items-center gap-1 justify-end">
-                          <button
-                            type="button"
-                            onClick={() => setContactFor(r)}
-                            title="Log a contact with this family"
-                            className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                          >
-                            <MessageSquarePlus className="h-3.5 w-3.5" />
-                          </button>
-                          {isRecordedAsLeaving(r.state) ? (
-                            <button
-                              type="button"
-                              onClick={() => setUndoFor(r)}
-                              title="Put this student back on the list"
-                              className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                            >
-                              <Undo2 className="h-3.5 w-3.5" />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setDeclineFor(r)}
-                              title="Mark this family as not returning"
-                              className="p-1.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
-                            >
-                              <UserMinus className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ChaseListBody
+        rows={rows}
+        today={today}
+        isReadOnly={isReadOnly}
+        sort={sort}
+        onSort={onSort}
+        emptyText="Nobody matches these filters."
+        selection={
+          isReadOnly
+            ? undefined
+            : {
+                picked,
+                allShownPicked,
+                onToggle: togglePicked,
+                onToggleAll: toggleAllShown,
+              }
+        }
+        onContact={setContactFor}
+        onDecline={setDeclineFor}
+        onUndo={setUndoFor}
+      />
 
       {/* Said here as well as on the overview, because a list that quietly
           holds somebody back is worse than one that says who and why. */}

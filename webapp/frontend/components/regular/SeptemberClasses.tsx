@@ -40,9 +40,7 @@ export function SeptemberClasses({
     );
   }
 
-  if (data.slots.length === 0) {
-    return <NothingYet awaiting={data.slots_awaiting_a_tutor} />;
-  }
+  if (data.slots.length === 0) return <NothingYet />;
 
   const placed = data.slots.reduce((n, s) => n + s.students.length, 0);
   const returning = data.slots.reduce(
@@ -58,14 +56,6 @@ export function SeptemberClasses({
         {placed === 0
           ? `You are down to teach ${countText(data.slots.length, "class", "classes")} in September. Nobody has been placed in ${data.slots.length === 1 ? "it" : "them"} yet.`
           : `${countText(placed, "student has", "students have")} been placed in your ${countText(data.slots.length, "class", "classes")} for September${returning > 0 ? `, ${returning} of whom you taught last year` : ""}.`}
-        {data.slots_awaiting_a_tutor > 0 && (
-          <>
-            {" "}
-            {countText(data.slots_awaiting_a_tutor, "class", "classes")} at your branch
-            {data.slots_awaiting_a_tutor === 1 ? " has" : " have"} nobody down to teach
-            {data.slots_awaiting_a_tutor === 1 ? " it" : " them"} yet, so this can still change.
-          </>
-        )}
       </p>
 
       <div className="flex-1 min-h-0 overflow-auto space-y-4">
@@ -80,14 +70,13 @@ export function SeptemberClasses({
 /** What a tutor sees before the office has decided who teaches what, which is
  *  most of them for most of August. An empty page that does not explain itself
  *  reads as a page that is broken. */
-function NothingYet({ awaiting }: { awaiting: number }) {
+function NothingYet() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground gap-2 px-6">
       <CalendarDays className="h-6 w-6" />
       <p className="text-sm max-w-md">
-        {awaiting > 0
-          ? `You are not down to teach any of September's classes yet. ${countText(awaiting, "class", "classes")} at your branch ${awaiting === 1 ? "is" : "are"} still waiting for a tutor, so this page will fill in as the office arranges them.`
-          : "You are not down to teach any of September's classes yet. This page fills in once the office arranges the timetable."}
+        You are not down to teach any of September&apos;s classes yet. This page fills in once the
+        office has arranged the timetable.
       </p>
     </div>
   );

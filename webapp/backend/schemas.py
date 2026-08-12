@@ -3892,13 +3892,9 @@ class RegularMyClassSlot(BaseModel):
 class RegularMyClassResponse(BaseModel):
     """A tutor's own September classes, as far as arrangement has got.
 
-    Empty for most tutors until the office assigns tutors to slots, which is
-    why `slots_awaiting_a_tutor` is here: a page that says nothing is very
-    different from a page that says nothing has been decided yet."""
+    Empty for most tutors until the office assigns tutors to slots."""
     year: int
     slots: List[RegularMyClassSlot] = []
-    # Slots at the branches this tutor works at that nobody is down to teach.
-    slots_awaiting_a_tutor: int = 0
 
 
 class SavedReportDetailResponse(BaseModel):

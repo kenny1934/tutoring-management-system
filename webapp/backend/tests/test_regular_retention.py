@@ -22,7 +22,6 @@ from models import (
     RegularApplication,
     RegularCourseConfig,
     RegularCourseSlot,
-    RegularTutorDuty,
     Student,
     SummerApplication,
     SummerCourseConfig,
@@ -1287,38 +1286,17 @@ class TestMyClass:
 
         assert result.slots[0].students[0].taught_by_me_last_year is False
 
-    def test_an_empty_page_says_how_many_slots_are_undecided(
+    def test_a_tutor_with_no_slots_gets_an_empty_list(
         self, db_session, reg_cfg, tutor
     ):
-        """Most tutors see nothing until the office assigns slots, and nothing
-        is ambiguous between "not mine" and "not decided yet"."""
-        db_session.add(RegularTutorDuty(
-            config_id=reg_cfg.id, tutor_id=tutor.id, location="華士古分校",
-            duty_day="Tuesday", time_slot="16:45 - 18:15",
-        ))
+        """Most tutors, for most of August: the slots exist but nobody is down
+        to teach them yet."""
         _slot(db_session, reg_cfg, None)
         _slot(db_session, reg_cfg, None, day="Friday")
-        db_session.commit()
 
         result = get_my_class(year=YEAR, current_user=tutor, db=db_session)
 
         assert result.slots == []
-        assert result.slots_awaiting_a_tutor == 2
-
-    def test_another_branchs_undecided_slots_are_not_counted(
-        self, db_session, reg_cfg, tutor
-    ):
-        db_session.add(RegularTutorDuty(
-            config_id=reg_cfg.id, tutor_id=tutor.id, location="華士古分校",
-            duty_day="Tuesday", time_slot="16:45 - 18:15",
-        ))
-        _slot(db_session, reg_cfg, None)
-        _slot(db_session, reg_cfg, None, location="二龍喉分校")
-        db_session.commit()
-
-        result = get_my_class(year=YEAR, current_user=tutor, db=db_session)
-
-        assert result.slots_awaiting_a_tutor == 1
 
 
 # ---------------------------------------------------------------------------
