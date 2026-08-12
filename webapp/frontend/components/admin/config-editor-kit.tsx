@@ -51,6 +51,31 @@ export function reorderByIds<T extends { _id: string }>(items: T[], newOrder: st
   return newOrder.map(id => byId.get(id)!);
 }
 
+/**
+ * Everything in a stored JSON object that the editor has no field for.
+ *
+ * Both config editors assemble their JSON columns out of form state and save
+ * the whole object, so a key with no field is deleted the next time anyone
+ * saves. That is not hypothetical: the September 2026 regular intake lost the
+ * flag that stops it collecting the materials fee, and Back to School
+ * applicants were quoted $100 more than the offer promised. Hold the result in
+ * state on load and spread it back over what you assembled, and a rule the
+ * editor has never heard of survives a save it was not part of.
+ *
+ * Pass the keys the form does render. Anything else comes back, including
+ * values a truthiness check would drop, such as `false` and `0`.
+ */
+export function unrenderedKeys<T extends object>(
+  source: T | null | undefined,
+  rendered: Iterable<string>,
+): Record<string, unknown> {
+  if (!source) return {};
+  const known = new Set(rendered);
+  return Object.fromEntries(
+    Object.entries(source).filter(([key]) => !known.has(key))
+  );
+}
+
 // Collapsible section component with status indicator
 export function Section({
   title,

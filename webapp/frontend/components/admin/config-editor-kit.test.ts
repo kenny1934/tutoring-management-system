@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { reorderByIds, stampIds, stripIds } from "./config-editor-kit";
+import { reorderByIds, stampIds, stripIds, unrenderedKeys } from "./config-editor-kit";
 
 const LOCATIONS = [
   { name: "華士古分校", name_en: "Vasco Center", open_days: ["Sunday"] },
@@ -37,5 +37,53 @@ describe("stampIds / stripIds", () => {
 
   it("handles an empty list", () => {
     expect(stripIds(stampIds([], "l"))).toEqual([]);
+  });
+});
+
+describe("unrenderedKeys", () => {
+  // What the regular editor's pricing form actually has fields for.
+  const REGULAR = ["base_fee", "lessons_per_block", "registration_fee", "registration_fee_charged", "promo"];
+
+  it("keeps nothing when the object is only fields the form renders", () => {
+    // Those are reassembled from form state on save, so carrying them across
+    // as well would just duplicate them.
+    const pricing = { base_fee: 2400, lessons_per_block: 6, registration_fee: 100 };
+    expect(unrenderedKeys(pricing, REGULAR)).toEqual({});
+  });
+
+  it("keeps a rule the form has no field for", () => {
+    // The case that cost money: a pricing rule added by a migration has to
+    // survive an admin saving the config from a form that never showed it.
+    const pricing = { base_fee: 2400, lessons_per_block: 6, sibling_discount: 150 };
+    expect(unrenderedKeys(pricing, REGULAR)).toEqual({ sibling_discount: 150 });
+  });
+
+  it("keeps a false or zero value rather than dropping it as empty", () => {
+    // registration_fee_charged is exactly this shape, so a truthiness filter
+    // here would reintroduce the bug for any flag the form does not render.
+    const pricing = { base_fee: 2400, late_fee: 0, waives_late_fee: false };
+    expect(unrenderedKeys(pricing, REGULAR)).toEqual({ late_fee: 0, waives_late_fee: false });
+  });
+
+  it("keeps the summer config's unrendered half", () => {
+    // The summer editor renders three keys and the config carries several more.
+    const pricing = {
+      base_fee: 3200,
+      registration_fee: 100,
+      discounts: [],
+      payment_terms_zh: "請於首堂或之前繳費。",
+      partial_per_lesson_rate: 400,
+      receipt_codes: { partial: "P" },
+    };
+    expect(unrenderedKeys(pricing, ["base_fee", "registration_fee", "discounts"])).toEqual({
+      payment_terms_zh: "請於首堂或之前繳費。",
+      partial_per_lesson_rate: 400,
+      receipt_codes: { partial: "P" },
+    });
+  });
+
+  it("has nothing to keep from an absent config", () => {
+    expect(unrenderedKeys(null, REGULAR)).toEqual({});
+    expect(unrenderedKeys(undefined, REGULAR)).toEqual({});
   });
 });

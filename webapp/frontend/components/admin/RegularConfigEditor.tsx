@@ -13,7 +13,7 @@ import type {
   RegularPricingConfig,
   RegularPromo,
 } from "@/types";
-import { isPromoActive, unrenderedPricing } from "@/lib/regular-promo";
+import { isPromoActive } from "@/lib/regular-promo";
 import { hkTodayIso } from "@/lib/regular-utils";
 import {
   ChevronDown,
@@ -47,6 +47,7 @@ import {
   ReorderableItem,
   DragHandle,
   TimeSlotAdder,
+  unrenderedKeys,
 } from "./config-editor-kit";
 import { RegularConfigPreview } from "./RegularConfigPreview";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -89,6 +90,16 @@ const TEXT_CONTENT_GROUPS = [
       { key: "success_message", label: "Success Message", help: "Thank you message after submission" },
     ],
   },
+];
+
+// The pricing keys the form below has a field for. Everything else in
+// pricing_config rides through a save untouched, see `unrenderedKeys`.
+const RENDERED_PRICING_KEYS = [
+  "base_fee",
+  "lessons_per_block",
+  "registration_fee",
+  "registration_fee_charged",
+  "promo",
 ];
 
 export function RegularConfigEditor({
@@ -297,7 +308,7 @@ export function RegularConfigEditor({
                 setPricingLessons(pc ? String(pc.lessons_per_block) : "");
                 setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
                 setChargesRegFee(pc?.registration_fee_charged !== false);
-                setPricingExtras(unrenderedPricing(pc));
+                setPricingExtras(unrenderedKeys(pc, RENDERED_PRICING_KEYS));
                 setPromo(pc?.promo || null);
               },
             });
@@ -354,7 +365,7 @@ export function RegularConfigEditor({
         setPricingLessons(pc ? String(pc.lessons_per_block) : "");
         setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
         setChargesRegFee(pc?.registration_fee_charged !== false);
-        setPricingExtras(unrenderedPricing(pc));
+        setPricingExtras(unrenderedKeys(pc, RENDERED_PRICING_KEYS));
         setPromo(pc?.promo || null);
       } catch {
         showToast("Failed to load config", "error");

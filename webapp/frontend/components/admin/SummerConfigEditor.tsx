@@ -43,6 +43,7 @@ import {
   ReorderableItem,
   DragHandle,
   TimeSlotAdder,
+  unrenderedKeys,
 } from "./config-editor-kit";
 import { SummerConfigPreview } from "./SummerConfigPreview";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -54,6 +55,13 @@ interface SummerConfigEditorProps {
   onSaved: () => void;
   onCancel: () => void;
 }
+
+// The pricing keys the form below has a field for. Everything else in
+// pricing_config rides through a save untouched, see `unrenderedKeys`. The
+// summer config leans on this heavily: payment terms, tier lock notes, the
+// partial-plan rate, receipt codes and the academic-year window all live in
+// there with no field anywhere in this editor.
+const RENDERED_PRICING_KEYS = ["base_fee", "registration_fee", "discounts"];
 
 const TEXT_CONTENT_GROUPS = [
   {
@@ -140,6 +148,11 @@ export function SummerConfigEditor({
       conditions: Record<string, unknown>;
     }>>
   >([]);
+  // Everything else the stored pricing_config carries. Saving replaces the
+  // whole JSON, so without keeping these the editor deletes the payment terms,
+  // the tier lock notes, the partial-plan rate, the receipt codes and the
+  // academic-year window, none of which have a field here.
+  const [pricingExtras, setPricingExtras] = useState<Record<string, unknown>>({});
   const [locations, setLocations] = useState<WithId<SummerLocation>[]>([]);
   const [grades, setGrades] = useState<WithId<SummerBilingualOption>[]>([]);
   const [existingStudentOptions, setExistingStudentOptions] = useState<
@@ -231,6 +244,7 @@ export function SummerConfigEditor({
         base_fee: baseFee,
         registration_fee: registrationFee || undefined,
         discounts: discounts.length > 0 ? discounts : undefined,
+        ...pricingExtras,
       },
       locations,
       available_grades: grades,
@@ -245,7 +259,7 @@ export function SummerConfigEditor({
     [
       year, title, appOpenDate, appCloseDate,
       courseStartDate, courseEndDate, preGradeStart, preGradeEnd, totalLessons, baseFee,
-      registrationFee, discounts, locations, grades,
+      registrationFee, discounts, pricingExtras, locations, grades,
       existingStudentOptions, centerOptions, langStreamOptions, textContent, normalizedCourseIntro, bannerImageUrl,
     ]
   );
@@ -290,6 +304,7 @@ export function SummerConfigEditor({
                 setBaseFee(parsed.pricing_config?.base_fee || 0);
                 setRegistrationFee(parsed.pricing_config?.registration_fee || 0);
                 setDiscounts(stampIds(parsed.pricing_config?.discounts || [], "d"));
+                setPricingExtras(unrenderedKeys(parsed.pricing_config, RENDERED_PRICING_KEYS));
                 setLocations(stampIds(parsed.locations || [], "l"));
                 setGrades(stampIds(parsed.available_grades || [], "g"));
                 setExistingStudentOptions(stampIds(parsed.existing_student_options || [], "o"));
@@ -354,6 +369,7 @@ export function SummerConfigEditor({
             conditions: d.conditions || {},
           }))
         );
+        setPricingExtras(unrenderedKeys(config.pricing_config, RENDERED_PRICING_KEYS));
         setLocations(stampIds(config.locations, "l"));
         setGrades(stampIds(config.available_grades, "g"));
         setExistingStudentOptions(stampIds(config.existing_student_options || [], "o"));
@@ -516,6 +532,7 @@ export function SummerConfigEditor({
         base_fee: baseFee,
         registration_fee: registrationFee || undefined,
         discounts: discounts.length > 0 ? stripIds(discounts) : undefined,
+        ...pricingExtras,
       },
       locations: stripIds(locations),
       available_grades: stripIds(grades),

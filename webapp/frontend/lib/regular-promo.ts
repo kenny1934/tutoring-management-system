@@ -75,34 +75,6 @@ export function intakeChargesRegistrationFee(
   return pricing?.registration_fee_charged !== false;
 }
 
-/** The pricing keys the admin config editor has a form field for. */
-const RENDERED_PRICING_KEYS = new Set([
-  "base_fee",
-  "lessons_per_block",
-  "registration_fee",
-  "registration_fee_charged",
-  "promo",
-]);
-
-/**
- * Everything in a pricing config the editor has no field for.
- *
- * Saving a config writes the whole `pricing_config` JSON back, so a key with
- * no field is deleted unless it is carried across. That is not hypothetical:
- * the September 2026 intake lost its "collect no materials fee" flag that way
- * and started quoting parents $100 more than the Back to School offer promised.
- * The editor spreads this back over what it assembled, so a rule it has never
- * heard of survives a save it was not part of.
- */
-export function unrenderedPricing(
-  pricing: RegularPricingConfig | null | undefined,
-): Record<string, unknown> {
-  if (!pricing) return {};
-  return Object.fromEntries(
-    Object.entries(pricing).filter(([key]) => !RENDERED_PRICING_KEYS.has(key)),
-  );
-}
-
 /**
  * What a qualifying new student pays, and what they would have paid.
  *
