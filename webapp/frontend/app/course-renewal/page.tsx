@@ -331,7 +331,10 @@ export default function CourseRenewalPage() {
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Name, code or phone"
-                      className={cn(selectClass, "pl-8 w-full sm:w-48")}
+                      // Same width as the board's search, and for the same
+                      // reason: the hint needs 146px and the icon takes 32 of
+                      // the field, so w-48 cut it off at "Name, code or phon".
+                      className={cn(selectClass, "pl-8 w-full sm:w-56")}
                     />
                   </div>
                   {grades.length > 1 && (

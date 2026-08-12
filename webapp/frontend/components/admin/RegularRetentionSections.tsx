@@ -1864,7 +1864,10 @@ export function RegularRetentionChaseList({
               value={filters.q}
               onChange={(e) => set("q", e.target.value)}
               placeholder="Name, code or phone"
-              className={cn(selectClass, "pl-8 w-full sm:w-52")}
+              // w-56 rather than w-52: the hint is 146px wide and the search
+              // icon eats 32px of the field, so anything narrower cut it off
+              // at "Name, code or phon".
+              className={cn(selectClass, "pl-8 w-full sm:w-56")}
             />
           </div>
           <span className="sm:hidden">
