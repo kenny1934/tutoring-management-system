@@ -13,7 +13,7 @@ import type {
   RegularPricingConfig,
   RegularPromo,
 } from "@/types";
-import { isPromoActive } from "@/lib/regular-promo";
+import { intakeChargesRegistrationFee, isPromoActive } from "@/lib/regular-promo";
 import { hkTodayIso } from "@/lib/regular-utils";
 import {
   ChevronDown,
@@ -92,16 +92,6 @@ const TEXT_CONTENT_GROUPS = [
   },
 ];
 
-// The pricing keys the form below has a field for. Everything else in
-// pricing_config rides through a save untouched, see `unrenderedKeys`.
-const RENDERED_PRICING_KEYS = [
-  "base_fee",
-  "lessons_per_block",
-  "registration_fee",
-  "registration_fee_charged",
-  "promo",
-];
-
 export function RegularConfigEditor({
   configId,
   isNew,
@@ -140,11 +130,12 @@ export function RegularConfigEditor({
   // Whether the materials fee is collected at all. Absent in the stored config
   // means it is, so an intake that opts out is the only one that differs.
   const [chargesRegFee, setChargesRegFee] = useState(true);
-  // Anything in pricing_config this form has no field for. Saving replaces the
-  // whole JSON, so without keeping these the editor quietly deletes rules it
-  // does not know about, which is how the September 2026 intake started
-  // charging a materials fee it had been told to waive.
-  const [pricingExtras, setPricingExtras] = useState<Record<string, unknown>>({});
+  // The pricing block exactly as it loaded. Saving replaces the whole JSON, so
+  // whatever this form has no field for is spread back underneath what it
+  // assembles. Without that the editor quietly deletes rules it does not know
+  // about, which is how the September 2026 intake started charging a materials
+  // fee it had been told to waive.
+  const [loadedPricing, setLoadedPricing] = useState<RegularPricingConfig | null>(null);
   // The seasonal offer is defined by a migration, not typed in here — it
   // carries bilingual names, a bullet list and a discounts row id, none of
   // which belong in a form. It is held in state purely so saving the pricing
@@ -159,15 +150,32 @@ export function RegularConfigEditor({
     const lessonsNum = parseInt(pricingLessons, 10);
     if (!(baseFeeNum > 0) || !(lessonsNum > 0)) return null;
     const regFeeNum = parseFloat(pricingRegFee);
-    return {
+    // Named so the keys this form owns come from the object it builds rather
+    // than a list kept in step by hand. The form half is spread last, so it
+    // wins over anything of the same name that loaded.
+    const formPricing = {
       base_fee: baseFeeNum,
       lessons_per_block: lessonsNum,
       registration_fee: regFeeNum > 0 ? regFeeNum : null,
       registration_fee_charged: chargesRegFee,
-      ...(promo ? { promo } : {}),
-      ...pricingExtras,
+      promo,
     };
-  }, [pricingBaseFee, pricingLessons, pricingRegFee, chargesRegFee, promo, pricingExtras]);
+    return {
+      ...unrenderedKeys(loadedPricing, Object.keys(formPricing)),
+      ...formPricing,
+    };
+  }, [pricingBaseFee, pricingLessons, pricingRegFee, chargesRegFee, promo, loadedPricing]);
+
+  // Seed the pricing section. Shared by the initial load and the draft restore
+  // so a new pricing field is added in one place rather than two.
+  const applyPricingConfig = useCallback((pc: RegularPricingConfig | null | undefined) => {
+    setPricingBaseFee(pc ? String(pc.base_fee) : "");
+    setPricingLessons(pc ? String(pc.lessons_per_block) : "");
+    setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
+    setChargesRegFee(intakeChargesRegistrationFee(pc));
+    setLoadedPricing(pc ?? null);
+    setPromo(pc?.promo || null);
+  }, []);
 
   // Drop the intro to null when every field is empty, so save payload / dirty
   // tracking stay clean. Memoized so the `assembledConfig` memo stabilizes.
@@ -303,13 +311,7 @@ export function RegularConfigEditor({
                 setLangStreamOptions(stampIds(parsed.lang_stream_options || [], "ls"));
                 setTextContent(parsed.text_content || {});
                 setCourseIntro(parsed.course_intro || null);
-                const pc = parsed.pricing_config;
-                setPricingBaseFee(pc ? String(pc.base_fee) : "");
-                setPricingLessons(pc ? String(pc.lessons_per_block) : "");
-                setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
-                setChargesRegFee(pc?.registration_fee_charged !== false);
-                setPricingExtras(unrenderedKeys(pc, RENDERED_PRICING_KEYS));
-                setPromo(pc?.promo || null);
+                applyPricingConfig(parsed.pricing_config);
               },
             });
           } else {
@@ -360,13 +362,7 @@ export function RegularConfigEditor({
         setLangStreamOptions(stampIds(config.lang_stream_options || [], "ls"));
         setTextContent(config.text_content || {});
         setCourseIntro(config.course_intro || null);
-        const pc = config.pricing_config;
-        setPricingBaseFee(pc ? String(pc.base_fee) : "");
-        setPricingLessons(pc ? String(pc.lessons_per_block) : "");
-        setPricingRegFee(pc?.registration_fee != null ? String(pc.registration_fee) : "");
-        setChargesRegFee(pc?.registration_fee_charged !== false);
-        setPricingExtras(unrenderedKeys(pc, RENDERED_PRICING_KEYS));
-        setPromo(pc?.promo || null);
+        applyPricingConfig(config.pricing_config);
       } catch {
         showToast("Failed to load config", "error");
         onCancel();
@@ -374,7 +370,7 @@ export function RegularConfigEditor({
         setLoading(false);
       }
     })();
-  }, [configId, isNew, showToast, onCancel]);
+  }, [configId, isNew, showToast, onCancel, applyPricingConfig]);
 
   // Validation helpers
   const setValidation = (key: string, error: string | null) =>

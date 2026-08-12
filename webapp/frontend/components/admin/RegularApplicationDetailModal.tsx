@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
@@ -342,7 +342,7 @@ export function RegularApplicationDetailModal({
   // the verified origin. Without reading its answer back the dropdown would go
   // on showing Unverified, the modal would look permanently unsaved, and the
   // next save would send the empty value and undo the link's own work.
-  const seedFormFields = useCallback((a: RegularApplication) => {
+  function seedFormFields(a: RegularApplication) {
     setStatus(a.application_status);
     setStudentId(a.existing_student_id?.toString() || "");
     setBranchOrigin(a.verified_branch_origin || "");
@@ -357,7 +357,7 @@ export function RegularApplicationDetailModal({
     setDP1Time(a.preference_1_time || "");
     setDP2Day(a.preference_2_day || "");
     setDP2Time(a.preference_2_time || "");
-  }, []);
+  }
 
   // Reset all local state when the modal opens or moves to another application.
   useEffect(() => {

@@ -41,7 +41,8 @@ describe("stampIds / stripIds", () => {
 });
 
 describe("unrenderedKeys", () => {
-  // What the regular editor's pricing form actually has fields for.
+  // The editors pass Object.keys of the pricing object they assemble, so this
+  // is that list for the regular one.
   const REGULAR = ["base_fee", "lessons_per_block", "registration_fee", "registration_fee_charged", "promo"];
 
   it("keeps nothing when the object is only fields the form renders", () => {
