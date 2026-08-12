@@ -9,6 +9,7 @@ import {
   Loader2,
   MessageSquarePlus,
   Search,
+  SlidersHorizontal,
   Undo2,
   UserMinus,
   X,
@@ -24,6 +25,7 @@ import {
   getCategoryColor,
 } from "@/lib/termination-constants";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import {
@@ -866,8 +868,22 @@ const STATE_BUTTON_LABEL: Record<RetentionState | "all", string> = {
  *  The negative margin lets the rail run to the card's edge, so a chip cut off
  *  mid-scroll reads as scrolled rather than as broken. It only works where the
  *  padding it cancels is the card's own 4, which is why `bleed` is a choice:
- *  inside the filter row the rail sits in the padding like everything else. */
-function ChipRail({ children, bleed }: { children: React.ReactNode; bleed?: boolean }) {
+ *  inside the filter row the rail sits in the padding like everything else.
+ *
+ *  `wrapped` is for chips inside the phone's filter menu, where the menu sets
+ *  the width and there is nowhere sideways to scroll to. */
+function ChipRail({
+  children,
+  bleed,
+  wrapped,
+}: {
+  children: React.ReactNode;
+  bleed?: boolean;
+  wrapped?: boolean;
+}) {
+  if (wrapped) {
+    return <div className="flex flex-wrap items-center gap-1.5">{children}</div>;
+  }
   return (
     <div className={cn(bleed ? "-mx-4 sm:mx-0" : "w-full sm:w-auto")}>
       <div
@@ -983,13 +999,15 @@ function ContactButtons({
   counts,
   value,
   onChange,
+  wrapped,
 }: {
   counts: Record<Exclude<ContactFilter, "">, number>;
   value: ContactFilter;
   onChange: (next: ContactFilter) => void;
+  wrapped?: boolean;
 }) {
   return (
-    <ChipRail>
+    <ChipRail wrapped={wrapped}>
       {CONTACT_FILTERS.map((key) => (
         <FilterChip
           key={key}
@@ -1004,6 +1022,165 @@ function ContactButtons({
         </FilterChip>
       ))}
     </ChipRail>
+  );
+}
+
+/** The filters the phone hides behind a button, which is everything except the
+ *  search box and the state chips. */
+const NARROWING_KEYS = ["grade", "tutor", "source", "contact"] as const;
+
+/** A control in the phone's filter menu, where it needs saying what it is,
+ *  and the same control in the toolbar, where its own text already says. */
+function FilterField({
+  menu,
+  label,
+  children,
+}: {
+  menu: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  if (!menu) return <>{children}</>;
+  return (
+    <div>
+      <span className="block mb-1 text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/** Every way of narrowing the list, written once and rendered at two widths.
+ *
+ *  They run in the order the columns run in below: the entering grade, then
+ *  the tutor, then where the student came from, then how the chasing is going,
+ *  which is what the phone and last-contact columns show. The source moved up
+ *  out of the old arrangement, where it sat on the far side of the chips and
+ *  made the row read as a jumble of two kinds of control. Dropdowns together,
+ *  buttons together. */
+function NarrowFilters({
+  menu,
+  filters,
+  set,
+  options,
+  contactCounts,
+}: {
+  menu: boolean;
+  filters: ChaseFilters;
+  set: <K extends keyof ChaseFilters>(key: K, value: ChaseFilters[K]) => void;
+  options: { grades: string[]; tutors: string[] };
+  contactCounts: Record<Exclude<ContactFilter, "">, number>;
+}) {
+  const field = menu ? cn(selectClass, "w-full") : selectClass;
+  return (
+    <>
+      <FilterField menu={menu} label="Entering grade">
+        <select
+          aria-label="Entering grade"
+          value={filters.grade}
+          onChange={(e) => set("grade", e.target.value)}
+          className={field}
+        >
+          <option value="">All grades</option>
+          {options.grades.map((g) => <option key={g} value={g}>Entering {g}</option>)}
+        </select>
+      </FilterField>
+      {options.tutors.length > 1 && (
+        <FilterField menu={menu} label="Tutor">
+          <select
+            aria-label="Tutor"
+            value={filters.tutor}
+            onChange={(e) => set("tutor", e.target.value)}
+            className={field}
+          >
+            <option value="">All tutors</option>
+            {options.tutors.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </FilterField>
+      )}
+      <FilterField menu={menu} label="Where they came from">
+        <select
+          aria-label="Where they came from"
+          value={filters.source}
+          onChange={(e) => set("source", e.target.value)}
+          className={field}
+        >
+          <option value="">All sources</option>
+          {(Object.keys(SOURCE_LABELS) as RetentionSource[]).map((s) => (
+            <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
+          ))}
+        </select>
+      </FilterField>
+      <FilterField menu={menu} label="How the chasing is going">
+        <ContactButtons
+          counts={contactCounts}
+          value={filters.contact}
+          onChange={(contact) => set("contact", contact)}
+          wrapped={menu}
+        />
+      </FilterField>
+    </>
+  );
+}
+
+/** The same four filters behind one button, for phones.
+ *
+ *  Laid out in a row they wrap to four lines at 390px, and with the search box
+ *  and the state chips above them the toolbar was six lines deep before the
+ *  first student appeared, on a screen that fits about ten. Here they are one
+ *  tap away and the toolbar is three lines. On anything wider the button is
+ *  not rendered and the filters sit in the toolbar, where there is room to
+ *  read them at a glance. */
+function MoreFilters({
+  count,
+  onClear,
+  children,
+}: {
+  count: number;
+  onClear: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <DropdownMenu
+      // The menu is portalled to the body, so it needs hiding at the same
+      // width the button does. Turn a phone to landscape with it open and the
+      // filters it holds are already back in the toolbar behind it.
+      menuClassName="w-[16rem] p-3 space-y-3 sm:hidden"
+      trigger={({ open, triggerProps }) => (
+        <button
+          type="button"
+          {...triggerProps}
+          className={cn(
+            selectClass,
+            "inline-flex shrink-0 items-center gap-1.5",
+            count > 0 && "border-primary/50 bg-primary/10 font-medium",
+            open && "ring-1 ring-primary/30"
+          )}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Filters
+          {count > 0 && (
+            <span className="min-w-[1rem] rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground tabular-nums">
+              {count}
+            </span>
+          )}
+        </button>
+      )}
+    >
+      {() => (
+        <>
+          {children}
+          {count > 0 && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              Clear these filters
+            </button>
+          )}
+        </>
+      )}
+    </DropdownMenu>
   );
 }
 
@@ -1258,6 +1435,13 @@ export function RegularRetentionChaseList({
   // depended on both objects listing their keys in the same order.
   const filtersActive = CHASE_QUERY_KEYS.some((k) => filters[k] !== EMPTY_CHASE_FILTERS[k]);
 
+  // What the Filters button is holding on a phone. The search box and the
+  // state chips are not counted, because they are on screen either way, and a
+  // badge should only ever stand for something you cannot see.
+  const narrowCount = NARROWING_KEYS.filter((k) => filters[k] !== EMPTY_CHASE_FILTERS[k]).length;
+  const clearNarrowing = () =>
+    setFilters((f) => ({ ...f, grade: "", tutor: "", source: "", contact: "" }));
+
   // The selection is a set of ids, but the dialog wants the rows behind them,
   // and only rows that still exist in the report.
   const pickedRows = useMemo(
@@ -1355,19 +1539,19 @@ export function RegularRetentionChaseList({
         onChange={(state) => set("state", state)}
       />
 
-      {/* Who is on it. These run left to right in the order the columns below
-          run in — search covers the code, the name and the number, then the
-          entering grade, then the tutor, then how the chasing is going, which
-          is the phone and last-contact columns. Only the source has no column
-          of its own, so it comes last.
+      {/* Who is on it. Searching by name is the one thing done constantly, so
+          it stays in the toolbar at every width. The four ways of narrowing sit
+          beside it on a wide screen and behind the Filters button on a phone,
+          which is the difference between a three-line toolbar and a six-line
+          one.
 
           Two zones rather than one wrapping row: the count and the buttons on
           the right used to be pushed over by ml-auto, which meant they landed
           on whichever line happened to have room and moved as filters were
           added. */}
       <div className="flex flex-col gap-2 mt-2 mb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <div className="relative w-full sm:w-auto">
+        <div className="flex items-center gap-2 min-w-0 sm:flex-wrap">
+          <div className="relative flex-1 min-w-0 sm:flex-none sm:w-auto">
             <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               type="search"
@@ -1377,27 +1561,28 @@ export function RegularRetentionChaseList({
               className={cn(selectClass, "pl-8 w-full sm:w-52")}
             />
           </div>
-          <select value={filters.grade} onChange={(e) => set("grade", e.target.value)} className={selectClass}>
-            <option value="">All grades</option>
-            {options.grades.map((g) => <option key={g} value={g}>Entering {g}</option>)}
-          </select>
-          {options.tutors.length > 1 && (
-            <select value={filters.tutor} onChange={(e) => set("tutor", e.target.value)} className={selectClass}>
-              <option value="">All tutors</option>
-              {options.tutors.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          )}
-          <ContactButtons
-            counts={contactCounts}
-            value={filters.contact}
-            onChange={(contact) => set("contact", contact)}
-          />
-          <select value={filters.source} onChange={(e) => set("source", e.target.value)} className={selectClass}>
-            <option value="">All sources</option>
-            {(Object.keys(SOURCE_LABELS) as RetentionSource[]).map((s) => (
-              <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
-            ))}
-          </select>
+          <span className="sm:hidden">
+            <MoreFilters count={narrowCount} onClear={clearNarrowing}>
+              <NarrowFilters
+                menu
+                filters={filters}
+                set={set}
+                options={options}
+                contactCounts={contactCounts}
+              />
+            </MoreFilters>
+          </span>
+          {/* `contents` so the controls join the row above rather than sitting
+              in a box of their own, which is what would break the wrapping. */}
+          <div className="hidden sm:contents">
+            <NarrowFilters
+              menu={false}
+              filters={filters}
+              set={set}
+              options={options}
+              contactCounts={contactCounts}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
