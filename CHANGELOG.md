@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.110](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.109...v2.0.110) (2026-08-12)
+
+
+### Bug Fixes
+
+* **Back to School applicants were quoted MOP 100 too much**: the fee message for a new student on the offer asked for MOP 2,200 while telling the parent they had saved MOP 400 off MOP 2,500, which comes to MOP 2,100. The September intake collects the MOP 100 materials fee from nobody, and the setting that says so had been cleared from the course settings, so the fee was charged again. The setting is back and every fee message, total and preview now says MOP 2,100. No application had been published while this was wrong, so no enrolment and no revenue figure carried the higher price.
+* **Saving the course settings no longer drops rules the form does not show**: the summer and September settings pages rebuilt the whole pricing section from the boxes on screen each time they were saved, so anything set up behind the scenes with no box of its own was quietly removed. That is how the September intake came to charge a materials fee it had been told to waive. Both pages now keep what they do not show, and whether the materials fee is collected this intake has become a tick box on the September page, so the rule can be read and changed where it is decided.
+* **The application window keeps up with what it has just done**: linking a student record fills in where the applicant came from, but the window went on showing Unverified. Save Changes stayed lit, closing the window offered to discard edits nobody had made, and saving a second time cleared the origin that had just been worked out. The window now reads the application back after every change, including linking or unlinking a P6 prospect. Publishing had the same trouble with the status: the application moved to Enrolled while the window still showed the rung before it, and saving would have put it back.
+
 ## [2.0.109](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.108...v2.0.109) (2026-08-11)
 
 
