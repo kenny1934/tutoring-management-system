@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.112](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.111...v2.0.112) (2026-08-13)
+
+
+### New Features
+
+* **Finding one family on the list of prospects still to chase**: the still to chase list on the Conversion tab runs to a couple of hundred P6 prospects who have not applied for September yet, and there was no way to look one of them up. When a parent rang back, finding them meant scrolling. There is a search box on it now, and it reads the name, the code their primary branch knows them by, the summer student code, both phone numbers and the school, so whichever of those is in front of you will find the family. What the list is showing travels in the address as well now, together with the year, the branch and which tab is open, so a list narrowed down for one person is something you can send them, and it is still narrowed when you come back to it from another tab. The list also carried a branch dropdown of its own that did the same job as the one at the top of the page, and that has gone, so there is one place to choose a branch and no way for the two to disagree.
+
 ## [2.0.111](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.110...v2.0.111) (2026-08-12)
 
 
