@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.113](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.112...v2.0.113) (2026-08-13)
+
+
+### Bug Fixes
+
+* **The chase list on the Retention tab fits a folding phone's inner screen**: opened on a folding phone, or in a window narrow enough that the side menu takes a good part of it, the filters above the chase list broke into a column with one control on each line. That used most of the screen and pushed the students themselves off the bottom of the card, which is the one thing that page is for. The filters now fold into the same Filters button a phone gets whenever there is no room to lay them out in a row, so the list starts near the top of the card again at those sizes. Nothing changes on a full-sized screen.
+
 ## [2.0.112](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.111...v2.0.112) (2026-08-13)
 
 
