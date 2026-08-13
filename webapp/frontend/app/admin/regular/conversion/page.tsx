@@ -27,6 +27,16 @@ type ConversionTab = "overview" | "breakdowns" | "chase";
 
 const CONVERSION_TABS: ConversionTab[] = ["overview", "breakdowns", "chase"];
 
+/** What each tab is called. A Record keyed on the tab type rather than a second
+ *  list of the same three names, so adding a tab above without naming it here
+ *  will not compile. The chase tab's count is appended where it is rendered,
+ *  because it depends on the report rather than on the tab. */
+const TAB_LABELS: Record<ConversionTab, string> = {
+  overview: "Overview",
+  breakdowns: "Breakdowns",
+  chase: "Still to chase",
+};
+
 /** Columns of the per-branch funnel, in flow order. Colours ramp along each
  *  path (summer: teal -> emerald; regular: sky -> indigo -> purple) so no two
  *  stages read as the same tone. */
@@ -375,23 +385,20 @@ export default function RegularConversionPage() {
           {/* Tab bar: the intake at a glance, the analysis axes, and the chase list */}
           <div className="px-4 sm:px-6 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
             <div className="inline-flex bg-muted rounded-full p-0.5">
-              {([
-                { key: "overview", label: "Overview" },
-                { key: "breakdowns", label: "Breakdowns" },
-                { key: "chase", label: `Still to chase${data ? ` (${data.lost_prospects.length})` : ""}` },
-              ] as { key: ConversionTab; label: string }[]).map((t) => (
+              {CONVERSION_TABS.map((key) => (
                 <button
-                  key={t.key}
+                  key={key}
                   type="button"
-                  onClick={() => setTab(t.key)}
+                  onClick={() => setTab(key)}
                   className={cn(
                     "px-3 py-1 text-xs font-medium rounded-full transition-all duration-200",
-                    tab === t.key
+                    tab === key
                       ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {t.label}
+                  {TAB_LABELS[key]}
+                  {key === "chase" && data ? ` (${data.lost_prospects.length})` : ""}
                 </button>
               ))}
             </div>

@@ -11,7 +11,6 @@ import { useDebouncedValue } from "@/lib/hooks";
 import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import {
   CONVERSION_QUERY_KEYS,
-  DEFAULT_CONVERSION_SORT,
   EMPTY_CONVERSION_FILTERS,
   INTENTION_ORDER,
   NO_BRANCH_WANTED,
@@ -22,7 +21,6 @@ import {
   formatConversionSort,
   parseConversionSort,
   type ConversionChaseFilters,
-  type ConversionSort,
   type ConversionSortKey,
 } from "@/lib/conversion-utils";
 import {
@@ -30,7 +28,10 @@ import {
   INTENTION_LABELS, OUTREACH_OPTIONS,
 } from "@/components/summer/prospect-badges";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
-import type { PrimaryProspect, ProspectIntention, ProspectOutreachStatus, RegularConversionResponse } from "@/types";
+import type {
+  PrimaryProspect, ProspectIntention, ProspectOutreachStatus,
+  RegularConversionLostRow, RegularConversionResponse,
+} from "@/types";
 
 // Shared table styling, matching the funnel table already on the page.
 const wrap = "border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 rounded-lg overflow-hidden";
@@ -57,42 +58,45 @@ function EmptyRow({ span, children }: { span: number; children: React.ReactNode 
 
 type SortDir = "asc" | "desc";
 
-/** One column's worth of ordering, letting numbers and booleans sort as
- *  themselves instead of as strings. No column here is a count of days or
- *  anything else where a missing value means something loud, so a null simply
- *  sorts as an empty string and lands at one end.
- *
- *  Kept apart from the hook below because the chase list keeps its own sort
- *  state — it has to, since that state comes back out of a link — and both of
- *  them must order a table the same way. */
-function sortRowsBy<T>(rows: T[], key: string | null, dir: SortDir): T[] {
-  if (!key) return rows;
-  const get = (o: T) => (o as Record<string, unknown>)[key];
-  return [...rows].sort((a, b) => {
-    const av = get(a);
-    const bv = get(b);
-    let c: number;
-    if (typeof av === "number" && typeof bv === "number") c = av - bv;
-    else if (typeof av === "boolean" && typeof bv === "boolean") c = (av ? 1 : 0) - (bv ? 1 : 0);
-    else c = String(av ?? "").localeCompare(String(bv ?? ""));
-    return dir === "asc" ? c : -c;
-  });
-}
+/** Which column a table is ordered by, and which way. One value rather than two
+ *  pieces of state, because that is how it travels in a link. */
+type Sort<K extends string = string> = { key: K | null; dir: SortDir };
 
 /** Client-side column sort that keeps the server's curated order until the user
- *  clicks a header, then toggles asc/desc on repeat clicks of the same column. */
-function useSortable<T>(rows: T[]) {
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [dir, setDir] = useState<SortDir>("desc");
-  const sorted = useMemo(() => sortRowsBy(rows, sortKey, dir), [rows, sortKey, dir]);
-  const onSort = (k: string) => {
-    if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(k);
-      setDir("desc");
-    }
-  };
-  return { sorted, sortKey, dir, onSort };
+ *  clicks a header, then toggles asc/desc on repeat clicks of the same column.
+ *
+ *  `setSort` comes back out for the chase list, whose order arrives in the URL
+ *  and so has to be seeded once the component has mounted. It is the only
+ *  reason this is not a closed hook: the toggle rule itself lives here alone,
+ *  so the three tables on this page cannot drift apart on what a first click
+ *  does. */
+function useSortable<T, K extends string = string>(rows: T[]) {
+  const [sort, setSort] = useState<Sort<K>>({ key: null, dir: "desc" });
+  const sorted = useMemo(() => {
+    if (!sort.key) return rows;
+    // Numbers and booleans sort as themselves; everything else, including a
+    // missing value, goes through localeCompare as a string. No column here
+    // counts days or anything else where a null would mean something loud, so
+    // an empty string is a fair reading of "we do not know" and it lands at
+    // one end.
+    const get = (o: T) => (o as Record<string, unknown>)[sort.key as string];
+    return [...rows].sort((a, b) => {
+      const av = get(a);
+      const bv = get(b);
+      let c: number;
+      if (typeof av === "number" && typeof bv === "number") c = av - bv;
+      else if (typeof av === "boolean" && typeof bv === "boolean") c = (av ? 1 : 0) - (bv ? 1 : 0);
+      else c = String(av ?? "").localeCompare(String(bv ?? ""));
+      return sort.dir === "asc" ? c : -c;
+    });
+  }, [rows, sort]);
+  const onSort = (k: string) =>
+    setSort((s) =>
+      s.key === k
+        ? { key: s.key, dir: s.dir === "asc" ? "desc" : "asc" }
+        : { key: k as K, dir: "desc" }
+    );
+  return { sorted, sort, setSort, onSort };
 }
 
 /** A clickable, sort-aware table header cell. */
@@ -226,8 +230,8 @@ function IntentionTables({ data }: { data: RegularConversionResponse }) {
 }
 
 function SchoolTable({ data }: { data: RegularConversionResponse }) {
-  const { sorted, sortKey, dir, onSort } = useSortable(data.by_school);
-  const hp = { sortKey, dir, onSort };
+  const { sorted, sort, onSort } = useSortable(data.by_school);
+  const hp = { sortKey: sort.key, dir: sort.dir, onSort };
   return (
     <Section title="Feeder schools" subtitle="Which schools the prospects come from, and how far each school converts.">
       <div className={wrap}>
@@ -260,8 +264,8 @@ function SchoolTable({ data }: { data: RegularConversionResponse }) {
 }
 
 function TutorTable({ data }: { data: RegularConversionResponse }) {
-  const { sorted, sortKey, dir, onSort } = useSortable(data.by_tutor);
-  const hp = { sortKey, dir, onSort };
+  const { sorted, sort, onSort } = useSortable(data.by_tutor);
+  const hp = { sortKey: sort.key, dir: sort.dir, onSort };
   return (
     <Section title="By submitting tutor" subtitle="Which P6 tutors bring in prospects that go on to apply and enrol.">
       <div className={wrap}>
@@ -406,10 +410,19 @@ export function RegularConversionChaseList({
   );
 
   const [filters, setFilters] = useState<ConversionChaseFilters>(EMPTY_CONVERSION_FILTERS);
-  const [sort, setSort] = useState<ConversionSort>(DEFAULT_CONVERSION_SORT);
   const [restored, setRestored] = useState(false);
   const set = <K extends keyof ConversionChaseFilters>(key: K, value: ConversionChaseFilters[K]) =>
     setFilters((f) => ({ ...f, [key]: value }));
+
+  const rows = useMemo(
+    () => filterLostProspects(data.lost_prospects, filters),
+    [data.lost_prospects, filters]
+  );
+  const { sorted, sort, setSort, onSort } = useSortable<
+    RegularConversionLostRow,
+    ConversionSortKey
+  >(rows);
+  const hp = { sortKey: sort.key, dir: sort.dir, onSort };
 
   // Read on mount rather than in useState, so the server's HTML and the
   // browser's first paint agree and hydration stays quiet. Switching tabs
@@ -420,7 +433,7 @@ export function RegularConversionChaseList({
     setFilters(conversionFiltersFromQuery(params));
     setSort(parseConversionSort(params.get("sort")));
     setRestored(true);
-  }, []);
+  }, [setSort]);
 
   // A narrowed list is worth handing to whoever is making the calls, and the
   // way you hand over a browser view is to hand over its URL. Nothing is
@@ -466,19 +479,6 @@ export function RegularConversionChaseList({
       outreachOptions: OUTREACH_OPTIONS.filter((v) => outreach.has(v)),
     };
   }, [data.lost_prospects, filters.wantsBranch, filters.wantsRegular, filters.outreach]);
-
-  const rows = useMemo(
-    () => filterLostProspects(data.lost_prospects, filters),
-    [data.lost_prospects, filters]
-  );
-  const sorted = useMemo(() => sortRowsBy(rows, sort.key, sort.dir), [rows, sort]);
-  const onSort = (k: string) =>
-    setSort((s) =>
-      s.key === k
-        ? { key: s.key, dir: s.dir === "asc" ? "desc" : "asc" }
-        : { key: k as ConversionSortKey, dir: "desc" }
-    );
-  const hp = { sortKey: sort.key, dir: sort.dir, onSort };
 
   // In-place modal; prev/next walks the list in its displayed order. Only
   // the id is state — the record derives from the fetched list, so a save's
