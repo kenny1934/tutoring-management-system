@@ -1,12 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { ArrowRight, ArrowUpDown, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, ArrowUpDown, Check, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prospectsAPI } from "@/lib/api";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { STAGE_TONES } from "@/lib/regular-utils";
+import { useDebouncedValue } from "@/lib/hooks";
+import { currentQuery, useQuerySync } from "@/lib/url-filters";
+import {
+  CONVERSION_QUERY_KEYS,
+  DEFAULT_CONVERSION_SORT,
+  EMPTY_CONVERSION_FILTERS,
+  INTENTION_ORDER,
+  NO_BRANCH_WANTED,
+  UNKNOWN_INTENTION,
+  conversionFiltersFromQuery,
+  conversionFiltersToQuery,
+  filterLostProspects,
+  formatConversionSort,
+  parseConversionSort,
+  type ConversionChaseFilters,
+  type ConversionSort,
+  type ConversionSortKey,
+} from "@/lib/conversion-utils";
 import {
   BranchBadges, CopyableCell, IntentionBadge, OutreachBadge, StudentCodeBadge,
   INTENTION_LABELS, OUTREACH_OPTIONS,
@@ -39,24 +57,34 @@ function EmptyRow({ span, children }: { span: number; children: React.ReactNode 
 
 type SortDir = "asc" | "desc";
 
+/** One column's worth of ordering, letting numbers and booleans sort as
+ *  themselves instead of as strings. No column here is a count of days or
+ *  anything else where a missing value means something loud, so a null simply
+ *  sorts as an empty string and lands at one end.
+ *
+ *  Kept apart from the hook below because the chase list keeps its own sort
+ *  state — it has to, since that state comes back out of a link — and both of
+ *  them must order a table the same way. */
+function sortRowsBy<T>(rows: T[], key: string | null, dir: SortDir): T[] {
+  if (!key) return rows;
+  const get = (o: T) => (o as Record<string, unknown>)[key];
+  return [...rows].sort((a, b) => {
+    const av = get(a);
+    const bv = get(b);
+    let c: number;
+    if (typeof av === "number" && typeof bv === "number") c = av - bv;
+    else if (typeof av === "boolean" && typeof bv === "boolean") c = (av ? 1 : 0) - (bv ? 1 : 0);
+    else c = String(av ?? "").localeCompare(String(bv ?? ""));
+    return dir === "asc" ? c : -c;
+  });
+}
+
 /** Client-side column sort that keeps the server's curated order until the user
  *  clicks a header, then toggles asc/desc on repeat clicks of the same column. */
 function useSortable<T>(rows: T[]) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [dir, setDir] = useState<SortDir>("desc");
-  const sorted = useMemo(() => {
-    if (!sortKey) return rows;
-    const get = (o: T) => (o as Record<string, unknown>)[sortKey];
-    return [...rows].sort((a, b) => {
-      const av = get(a);
-      const bv = get(b);
-      let c: number;
-      if (typeof av === "number" && typeof bv === "number") c = av - bv;
-      else if (typeof av === "boolean" && typeof bv === "boolean") c = (av ? 1 : 0) - (bv ? 1 : 0);
-      else c = String(av ?? "").localeCompare(String(bv ?? ""));
-      return dir === "asc" ? c : -c;
-    });
-  }, [rows, sortKey, dir]);
+  const sorted = useMemo(() => sortRowsBy(rows, sortKey, dir), [rows, sortKey, dir]);
   const onSort = (k: string) => {
     if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -334,9 +362,6 @@ const filterSelect =
 // px-2 cells.
 const thTight = cn(th, "px-2");
 
-// The wants-regular ladder, for the filter's option order.
-const INTENTION_ORDER = ["Yes", "Considering", "No", "Unknown"];
-
 /** The analysis tab: stated intention vs outcome, branch preference vs where
  *  they landed, and the feeder-school / submitting-tutor pair side by side on
  *  wide screens. */
@@ -380,51 +405,80 @@ export function RegularConversionChaseList({
     [prospects]
   );
 
-  const [branchFilter, setBranchFilter] = useState("");
-  const [wantedFilter, setWantedFilter] = useState("");
-  const [wantsFilter, setWantsFilter] = useState("");
-  const [outreachFilter, setOutreachFilter] = useState("");
+  const [filters, setFilters] = useState<ConversionChaseFilters>(EMPTY_CONVERSION_FILTERS);
+  const [sort, setSort] = useState<ConversionSort>(DEFAULT_CONVERSION_SORT);
+  const [restored, setRestored] = useState(false);
+  const set = <K extends keyof ConversionChaseFilters>(key: K, value: ConversionChaseFilters[K]) =>
+    setFilters((f) => ({ ...f, [key]: value }));
 
-  // Filter options only offer values that actually occur in the list, each
-  // in its canonical order.
-  const { branchOptions, wantedOptions, hasNoWanted, wantsOptions, outreachOptions } = useMemo(() => {
-    const branches = new Set<string>();
+  // Read on mount rather than in useState, so the server's HTML and the
+  // browser's first paint agree and hydration stays quiet. Switching tabs
+  // unmounts this list, so this is also what brings a narrowed list back when
+  // you come to it from the overview.
+  useEffect(() => {
+    const params = currentQuery();
+    setFilters(conversionFiltersFromQuery(params));
+    setSort(parseConversionSort(params.get("sort")));
+    setRestored(true);
+  }, []);
+
+  // A narrowed list is worth handing to whoever is making the calls, and the
+  // way you hand over a browser view is to hand over its URL. Nothing is
+  // written until the read above has happened, or the defaults would wipe the
+  // link that was just followed. The search box waits for a pause in the
+  // typing, since every write is a navigation and a name is a dozen of them.
+  const settledQuery = useDebouncedValue(filters.q, 300);
+  useQuerySync(
+    {
+      ...conversionFiltersToQuery({ ...filters, q: settledQuery }),
+      sort: formatConversionSort(sort) || null,
+    },
+    restored
+  );
+
+  // Filter options only offer values that actually occur in the list, each in
+  // its canonical order.
+  const { wantedOptions, hasNoWanted, wantsOptions, outreachOptions } = useMemo(() => {
     const wanted = new Set<string>();
-    let noWanted = false;
+    let noWanted = filters.wantsBranch === NO_BRANCH_WANTED;
     const wants = new Set<string>();
     const outreach = new Set<string | null>();
     for (const r of data.lost_prospects) {
-      branches.add(r.source_branch);
       if (r.preferred_branches.length === 0) noWanted = true;
       for (const b of r.preferred_branches) wanted.add(b);
-      wants.add(r.wants_regular ?? "Unknown");
+      wants.add(r.wants_regular ?? UNKNOWN_INTENTION);
       outreach.add(r.outreach_status);
     }
+    // Whatever is being filtered by stays on its own dropdown even when this
+    // slice of the report holds nobody with that value, which is what a link
+    // from a colleague can easily arrive as. Without this the control would
+    // read "all" while the table sat empty underneath it, and the reason for
+    // the empty table would be nowhere on screen.
+    if (filters.wantsBranch && filters.wantsBranch !== NO_BRANCH_WANTED) {
+      wanted.add(filters.wantsBranch);
+    }
+    if (filters.wantsRegular) wants.add(filters.wantsRegular);
+    if (filters.outreach) outreach.add(filters.outreach);
     return {
-      branchOptions: [...branches].sort(),
       wantedOptions: [...wanted].sort(),
       hasNoWanted: noWanted,
       wantsOptions: INTENTION_ORDER.filter((v) => wants.has(v)),
       outreachOptions: OUTREACH_OPTIONS.filter((v) => outreach.has(v)),
     };
-  }, [data.lost_prospects]);
+  }, [data.lost_prospects, filters.wantsBranch, filters.wantsRegular, filters.outreach]);
 
   const rows = useMemo(
-    () =>
-      data.lost_prospects.filter(
-        (r) =>
-          (!branchFilter || r.source_branch === branchFilter) &&
-          (!wantedFilter ||
-            (wantedFilter === "none"
-              ? r.preferred_branches.length === 0
-              : r.preferred_branches.includes(wantedFilter))) &&
-          (!wantsFilter || (r.wants_regular ?? "Unknown") === wantsFilter) &&
-          (!outreachFilter || r.outreach_status === outreachFilter)
-      ),
-    [data.lost_prospects, branchFilter, wantedFilter, wantsFilter, outreachFilter]
+    () => filterLostProspects(data.lost_prospects, filters),
+    [data.lost_prospects, filters]
   );
-  const { sorted, sortKey, dir, onSort } = useSortable(rows);
-  const hp = { sortKey, dir, onSort };
+  const sorted = useMemo(() => sortRowsBy(rows, sort.key, sort.dir), [rows, sort]);
+  const onSort = (k: string) =>
+    setSort((s) =>
+      s.key === k
+        ? { key: s.key, dir: s.dir === "asc" ? "desc" : "asc" }
+        : { key: k as ConversionSortKey, dir: "desc" }
+    );
+  const hp = { sortKey: sort.key, dir: sort.dir, onSort };
 
   // In-place modal; prev/next walks the list in its displayed order. Only
   // the id is state — the record derives from the fetched list, so a save's
@@ -436,7 +490,7 @@ export function RegularConversionChaseList({
     [sorted, prospectById]
   );
 
-  const isFiltered = Boolean(branchFilter || wantedFilter || wantsFilter || outreachFilter);
+  const isFiltered = CONVERSION_QUERY_KEYS.some((k) => filters[k] !== EMPTY_CONVERSION_FILTERS[k]);
 
   return (
     <Section
@@ -445,28 +499,34 @@ export function RegularConversionChaseList({
       className="flex-1 min-h-0 flex flex-col"
     >
       <div className="flex flex-wrap items-center gap-2 mb-2">
+        {/* Looking one family up is the thing done constantly, so it leads the
+            row and takes the whole width on a phone. The field is w-56 rather
+            than w-52 because the hint runs to about 165px and the icon eats
+            another 28px, so anything narrower cut it off mid-word. */}
+        <div className="relative w-full sm:w-56">
+          <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="search"
+            value={filters.q}
+            onChange={(e) => set("q", e.target.value)}
+            placeholder="Name, code, phone or school"
+            aria-label="Search this list"
+            className={cn(filterSelect, "pl-7 w-full")}
+          />
+        </div>
         <select
-          value={branchFilter}
-          onChange={(e) => setBranchFilter(e.target.value)}
-          className={filterSelect}
-          aria-label="Filter by branch"
-        >
-          <option value="">All branches</option>
-          {branchOptions.map((b) => <option key={b} value={b}>{b}</option>)}
-        </select>
-        <select
-          value={wantedFilter}
-          onChange={(e) => setWantedFilter(e.target.value)}
+          value={filters.wantsBranch}
+          onChange={(e) => set("wantsBranch", e.target.value)}
           className={filterSelect}
           aria-label="Filter by the branch the prospect wants"
         >
           <option value="">Wants branch: all</option>
           {wantedOptions.map((b) => <option key={b} value={b}>{b}</option>)}
-          {hasNoWanted && <option value="none">Not specified</option>}
+          {hasNoWanted && <option value={NO_BRANCH_WANTED}>Not specified</option>}
         </select>
         <select
-          value={wantsFilter}
-          onChange={(e) => setWantsFilter(e.target.value)}
+          value={filters.wantsRegular}
+          onChange={(e) => set("wantsRegular", e.target.value)}
           className={filterSelect}
           aria-label="Filter by regular intention"
         >
@@ -478,8 +538,8 @@ export function RegularConversionChaseList({
           ))}
         </select>
         <select
-          value={outreachFilter}
-          onChange={(e) => setOutreachFilter(e.target.value)}
+          value={filters.outreach}
+          onChange={(e) => set("outreach", e.target.value)}
           className={filterSelect}
           aria-label="Filter by outreach status"
         >
@@ -487,9 +547,21 @@ export function RegularConversionChaseList({
           {outreachOptions.map((v) => <option key={v} value={v}>{v}</option>)}
         </select>
         {isFiltered && (
-          <span className="text-xs text-muted-foreground">
-            Showing {sorted.length} of {data.lost_prospects.length}
-          </span>
+          <>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Showing {sorted.length} of {data.lost_prospects.length}
+            </span>
+            {/* This list can now arrive already narrowed by somebody else's
+                link, so there has to be a way back to the whole of it that is
+                not clearing four controls one at a time. */}
+            <button
+              type="button"
+              onClick={() => setFilters(EMPTY_CONVERSION_FILTERS)}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              Reset
+            </button>
+          </>
         )}
       </div>
       <div className={cn(wrap, "flex-1 min-h-0 flex flex-col")}>

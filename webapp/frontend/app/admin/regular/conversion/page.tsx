@@ -16,6 +16,7 @@ import {
   RegularConversionBreakdowns,
   RegularConversionChaseList,
 } from "@/components/admin/RegularConversionSections";
+import { currentQuery, useQuerySync } from "@/lib/url-filters";
 import type { RegularConversionBranchRow, RegularConversionResponse } from "@/types";
 
 const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground";
@@ -23,6 +24,8 @@ const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-ca
 /** The three tabs the report splits into: the intake at a glance, the deeper
  *  analysis axes, and the actionable still-to-chase list. */
 type ConversionTab = "overview" | "breakdowns" | "chase";
+
+const CONVERSION_TABS: ConversionTab[] = ["overview", "breakdowns", "chase"];
 
 /** Columns of the per-branch funnel, in flow order. Colours ramp along each
  *  path (summer: teal -> emerald; regular: sky -> indigo -> purple) so no two
@@ -157,6 +160,33 @@ export default function RegularConversionPage() {
   // Branch options come from the unfiltered ("All") view and persist while a
   // single branch is selected, so the dropdown never collapses to one option.
   const [branchOptions, setBranchOptions] = useState<string[]>([]);
+  const [restored, setRestored] = useState(false);
+
+  // Which year, which branch and which tab all belong in the link, so that "the
+  // MAC list, for this September" is something you can send to somebody. The
+  // chase list writes its own filters into the same query string; each writer
+  // only ever touches the keys it owns. Read after mounting rather than during
+  // the first render, which keeps the server's HTML and the browser's first
+  // paint identical.
+  useEffect(() => {
+    const params = currentQuery();
+    const tabParam = params.get("tab");
+    if (CONVERSION_TABS.includes(tabParam as ConversionTab)) setTab(tabParam as ConversionTab);
+    const yearParam = Number(params.get("year"));
+    if (Number.isInteger(yearParam) && yearParam > 2000) setYear(yearParam);
+    const branchParam = params.get("branch");
+    if (branchParam) setBranch(branchParam);
+    setRestored(true);
+  }, []);
+
+  useQuerySync(
+    {
+      tab: tab === "overview" ? null : tab,
+      year: year == null ? null : String(year),
+      branch,
+    },
+    restored
+  );
 
   const { data: configs } = useSWR(
     canViewAdminPages ? "regular-configs" : null,
@@ -184,6 +214,15 @@ export default function RegularConversionPage() {
   useEffect(() => {
     if (data && branch === null) setBranchOptions(data.branches.map((b) => b.branch));
   }, [data, branch]);
+
+  // A link that arrives already narrowed to one branch has never seen the
+  // unfiltered report, so the only branch it knows about is its own. The chosen
+  // one is folded in and "All branches" is always on the menu, so whoever
+  // opened the link can always get back to the whole intake.
+  const branchChoices = useMemo(
+    () => [...new Set([...branchOptions, ...(branch ? [branch] : [])])].sort(),
+    [branchOptions, branch]
+  );
 
   const handleExport = () => {
     if (!data) return;
@@ -248,11 +287,16 @@ export default function RegularConversionPage() {
                 </p>
               </div>
               <div className="shrink-0 flex items-center gap-2">
-                {branchOptions.length > 1 && (
+                {(branchChoices.length > 1 || branch !== null) && (
                   <DropdownMenu
                     align="right"
                     trigger={({ triggerProps }) => (
-                      <button type="button" {...triggerProps} className={cn(selectClass, "inline-flex items-center gap-1.5")}>
+                      <button
+                        type="button"
+                        {...triggerProps}
+                        title="Every tab on this page, including the chase list, follows this"
+                        className={cn(selectClass, "inline-flex items-center gap-1.5")}
+                      >
                         <span className="font-medium">{branch ?? "All branches"}</span>
                         <ChevronDown className="h-3.5 w-3.5" />
                       </button>
@@ -270,7 +314,7 @@ export default function RegularConversionPage() {
                         >
                           All branches
                         </button>
-                        {branchOptions.map((b) => (
+                        {branchChoices.map((b) => (
                           <button
                             key={b}
                             type="button"
