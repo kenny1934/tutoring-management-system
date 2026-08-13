@@ -1131,14 +1131,15 @@ function NarrowFilters({
   );
 }
 
-/** The same four filters behind one button, for phones.
+/** The same four filters behind one button, for a toolbar with no room for
+ *  them.
  *
  *  Laid out in a row they wrap to four lines at 390px, and with the search box
  *  and the state chips above them the toolbar was six lines deep before the
  *  first student appeared, on a screen that fits about ten. Here they are one
- *  tap away and the toolbar is three lines. On anything wider the button is
- *  not rendered and the filters sit in the toolbar, where there is room to
- *  read them at a glance. */
+ *  tap away and the toolbar is three lines. Once the toolbar is wide enough the
+ *  button is not rendered and the filters sit in it instead, where there is
+ *  room to read them at a glance. */
 function MoreFilters({
   count,
   onClear,
@@ -1150,10 +1151,13 @@ function MoreFilters({
 }) {
   return (
     <DropdownMenu
-      // The menu is portalled to the body, so it needs hiding at the same
-      // width the button does. Turn a phone to landscape with it open and the
-      // filters it holds are already back in the toolbar behind it.
-      menuClassName="w-[16rem] p-3 space-y-3 sm:hidden"
+      // The menu is portalled to the body, so no class here can follow the
+      // width of the toolbar the button sits in: it is not inside the
+      // container being measured. DropdownMenu closes itself when its trigger
+      // stops being drawn instead, which is what happens to this button when
+      // the window is turned and the toolbar grows enough to hold the filters
+      // itself.
+      menuClassName="w-[16rem] p-3 space-y-3"
       trigger={({ open, triggerProps }) => (
         <button
           type="button"
@@ -1865,89 +1869,116 @@ export function RegularRetentionChaseList({
 
       {/* Who is on it. Searching by name is the one thing done constantly, so
           it stays in the toolbar at every width. The four ways of narrowing sit
-          beside it on a wide screen and behind the Filters button on a phone,
-          which is the difference between a three-line toolbar and a six-line
-          one.
+          beside it when the toolbar is wide and behind the Filters button when
+          it is not, which is the difference between a three-line toolbar and a
+          six-line one.
 
           Two zones rather than one wrapping row: the count and the buttons on
           the right used to be pushed over by ml-auto, which meant they landed
           on whichever line happened to have room and moved as filters were
-          added. */}
-      <div className="flex flex-col gap-2 mt-2 mb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex items-center gap-2 min-w-0 sm:flex-wrap">
-          <div className="relative flex-1 min-w-0 sm:flex-none sm:w-auto">
-            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <input
-              type="search"
-              value={filters.q}
-              onChange={(e) => set("q", e.target.value)}
-              placeholder="Name, code or phone"
-              // w-56 rather than w-52: the hint is 146px wide and the search
-              // icon eats 32px of the field, so anything narrower cut it off
-              // at "Name, code or phon".
-              className={cn(selectClass, "pl-8 w-full sm:w-56")}
-            />
-          </div>
-          <span className="sm:hidden">
-            <MoreFilters count={narrowCount} onClear={clearNarrowing}>
+          added.
+
+          The widths below are the toolbar's own, not the window's, which is why
+          this is a container rather than a run of sm: and lg: classes. Two
+          things made the window the wrong thing to measure. The sidebar takes
+          256px from md up, so a 1024px window leaves the toolbar about 670px
+          and a 768px one leaves it about 420px, and the toolbar cannot see that
+          from a media query. And a Z Fold's inner screen reports about 673px,
+          which is past sm, so it used to get the wide two-zone layout in a
+          space that had no room for it: the right-hand zone is shrink-0 and
+          takes about 356px there, the left-hand zone was squeezed to roughly
+          200px, and every filter fell onto a line of its own with the list
+          pushed off the bottom of the card. */}
+      <div className="@container/chase mt-2 mb-3">
+        <div className="flex flex-col gap-2 @2xl/chase:flex-row @2xl/chase:items-start @2xl/chase:justify-between @2xl/chase:gap-4">
+          <div className="flex items-center gap-2 min-w-0 @2xl/chase:flex-wrap">
+            <div className="relative flex-1 min-w-0 @2xl/chase:flex-none @2xl/chase:w-auto">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                type="search"
+                value={filters.q}
+                onChange={(e) => set("q", e.target.value)}
+                placeholder="Name, code or phone"
+                // w-56 rather than w-52: the hint is 146px wide and the search
+                // icon eats 32px of the field, so anything narrower cut it off
+                // at "Name, code or phon".
+                className={cn(selectClass, "pl-8 w-full @2xl/chase:w-56")}
+              />
+            </div>
+            {/* 56rem is where all four fit on one line beside the search box.
+                The search box and the three dropdowns need about 660px between
+                them, and the right-hand zone and the gap take about 194px of
+                the toolbar before they get any, so below that the button is
+                both shorter and easier to read than dropdowns stacked one to
+                a line. */}
+            <span className="@4xl/chase:hidden">
+              <MoreFilters count={narrowCount} onClear={clearNarrowing}>
+                <NarrowFilters
+                  menu
+                  filters={filters}
+                  set={set}
+                  options={options}
+                  contactCounts={contactCounts}
+                />
+              </MoreFilters>
+            </span>
+            {/* `contents` so the controls join the row above rather than
+                sitting in a box of their own, which is what would break the
+                wrapping. */}
+            <div className="hidden @4xl/chase:contents">
               <NarrowFilters
-                menu
+                menu={false}
                 filters={filters}
                 set={set}
                 options={options}
                 contactCounts={contactCounts}
               />
-            </MoreFilters>
-          </span>
-          {/* `contents` so the controls join the row above rather than sitting
-              in a box of their own, which is what would break the wrapping. */}
-          <div className="hidden sm:contents">
-            <NarrowFilters
-              menu={false}
-              filters={filters}
-              set={set}
-              options={options}
-              contactCounts={contactCounts}
-            />
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {rows.length} of {chaseable.length}
-          </span>
-          {/* Sorting lives in the column headers, and the cards a phone gets
-              have no headers, so that width gets the same orders as a menu. */}
-          <select
-            value={formatChaseSort(sort)}
-            onChange={(e) => setSort(parseChaseSort(e.target.value))}
-            className={cn(selectClass, "md:hidden")}
-            aria-label="Sort the list"
-          >
-            <option value="">{defaultOrderLabel}</option>
-            <option value="days_since_contact:desc">Longest waiting first</option>
-            <option value="student_name:asc">By name</option>
-            <option value="expected_grade:asc">By entering grade</option>
-          </select>
-          {filtersActive && (
+          {/* Wraps rather than overflowing: on a narrow toolbar this sits on a
+              line of its own under the search box, and the three of them only
+              just fit across a phone. */}
+          <div className="flex flex-wrap items-center gap-2 @2xl/chase:flex-nowrap @2xl/chase:shrink-0">
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {rows.length} of {chaseable.length}
+            </span>
+            {/* Sorting lives in the column headers, and the cards a narrow
+                screen gets have no headers, so that width gets the same orders
+                as a menu. It follows the window rather than the toolbar because
+                what it stands in for is the table, and that is still a media
+                query. */}
+            <select
+              value={formatChaseSort(sort)}
+              onChange={(e) => setSort(parseChaseSort(e.target.value))}
+              className={cn(selectClass, "md:hidden")}
+              aria-label="Sort the list"
+            >
+              <option value="">{defaultOrderLabel}</option>
+              <option value="days_since_contact:desc">Longest waiting first</option>
+              <option value="student_name:asc">By name</option>
+              <option value="expected_grade:asc">By entering grade</option>
+            </select>
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={() => setFilters(EMPTY_CHASE_FILTERS)}
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+              >
+                Reset
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setFilters(EMPTY_CHASE_FILTERS)}
-              className="text-xs text-muted-foreground hover:text-foreground underline"
+              onClick={exportView}
+              disabled={rows.length === 0}
+              title="Download the rows shown as a call sheet"
+              className={cn(selectClass, "inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed")}
             >
-              Reset
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export view</span>
             </button>
-          )}
-          <button
-            type="button"
-            onClick={exportView}
-            disabled={rows.length === 0}
-            title="Download the rows shown as a call sheet"
-            className={cn(selectClass, "inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed")}
-          >
-            <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Export view</span>
-          </button>
+          </div>
         </div>
       </div>
 

@@ -37,6 +37,16 @@ export function DropdownMenu({
     if (!open || !wrapperRef.current) return;
     const compute = () => {
       const rect = wrapperRef.current!.getBoundingClientRect();
+      // A trigger that has been hidden since the menu opened has no box at
+      // all, which is what a media or container query does to it when the
+      // window is resized. Close, rather than leave a menu floating over a
+      // button that is no longer there. Callers used to do this with a
+      // matching `sm:hidden` on the menu, which a portalled menu cannot do
+      // when the button follows the width of something other than the window.
+      if (rect.width === 0 && rect.height === 0) {
+        setOpen(false);
+        return;
+      }
       // Fall back to 220 on the first pass before the menu is in the DOM;
       // the rAF pass below corrects once the real width is measured.
       const menuWidth = menuRef.current?.offsetWidth ?? 220;
