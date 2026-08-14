@@ -120,20 +120,6 @@ export function getMismatchedStreams(
   );
 }
 
-/** Whether one application's effective stream clashes with a slot's stream. An
- *  unset slot stream (any) or unset application stream never clashes. */
-export function slotStreamMismatch(
-  slot: { lang_stream?: string | null },
-  app: {
-    lang_stream?: string | null;
-    linked_student?: { lang_stream?: string | null } | null;
-  },
-): boolean {
-  const slotStream = foldStream(slot.lang_stream);
-  const appStream = effectiveStream(app);
-  return !!slotStream && !!appStream && slotStream !== appStream;
-}
-
 /** Split a demand bucket key ("F1C") into grade + stream. Streams are single
  *  letters (C/E); a bare grade key ("F1") yields a null stream. */
 export function splitGradeStream(key: string): { grade: string; stream: string | null } {
