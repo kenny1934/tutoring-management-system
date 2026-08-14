@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.114](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.113...v2.0.114) (2026-08-14)
+
+
+### New Features
+
+* **Logging one call against a whole list of families on Course Renewal**: the Retention board let the office tick several students and write a single contact against all of them, and a tutor's own Course Renewal list had nothing of the kind, so ringing eight families meant opening eight students in turn. The list ticks the same way now and logs the lot in one go. A tutor's calls are always recorded as their own, so there is no way to put a call against a colleague by accident, while the office still chooses whose call it was. That menu of names runs in first name order with the Mr or Ms taken off, the way it does everywhere else, instead of listing every Mr before every Ms.
+* **September classes drawn as a week rather than a list**: the September tab on Course Renewal listed each class one after another, so working out which afternoons a tutor is teaching meant reading the whole thing and holding it in your head. It is a week now, laid out the way the sessions page lays out a week, with the times down the side and the days across the top, and each class showing everybody placed in it. Days with nothing on them collapse to a thin strip so a light week is not mostly empty space, and a button opens them again. On a phone it becomes a day by day agenda instead of a grid too small to read.
+
+
+### Bug Fixes
+
+* **The grade on the September timetable is the one the student is entering**: through the summer the app shows the grade a student is moving up to, so a record that says F4 reads as Pre-F5. That is right on a student's own page, and it was wrong on the September classes, where an F4 application already means F4 in September. Those classes and the students in them briefly read a year ahead of themselves. They now show the grade the family applied for, as the rest of the intake always has.
+* **When the September form and our records disagree about a student's language stream**: a family fills the form in for the year ahead, and the record we hold for that student can be a year old, so the two can say different things. The app used to quietly trust the record, and the same student could show one stream on the unassigned list and another once they were placed in a class. It now goes by the form, because that is the more recent answer, and both places agree. Where the two differ, the application says so in plain words, and an admin who decides the form is right can put the record on the same stream with one press. Nothing changes on its own, and publishing a place still leaves the record alone.
+
 ## [2.0.113](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.112...v2.0.113) (2026-08-13)
 
 
