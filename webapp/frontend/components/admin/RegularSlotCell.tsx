@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { splitGradeStream } from "@/lib/regular-utils";
 import { getGradeColor } from "@/lib/constants";
+import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import { RegularSlotCard, type RegularTutorOption } from "./RegularSlotCard";
 import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types";
 
@@ -63,6 +64,12 @@ interface RegularSlotCellProps {
 // Opacity the backup-choice half of a bar carries, so first and second choice
 // read as two weights of one colour rather than two colours.
 const BACKUP_BAR_OPACITY = 0.45;
+
+// The chip in front of a demand bar, at both its weights. No vertical padding:
+// the row is 7px and these have to stay inside it, or neighbouring rows overlap
+// visibly now that the label carries a background.
+const DEMAND_CHIP =
+  "text-[8px] font-bold w-[24px] shrink-0 text-center leading-none rounded px-0.5";
 
 function heatColor(count: number): string {
   if (count === 0) return "bg-white dark:bg-[#1a1a1a]";
@@ -256,19 +263,21 @@ export const RegularSlotCell = memo(function RegularSlotCell({
               className="flex items-center gap-0.5 h-[7px]"
               title={total > 0 ? `${gs}: ${gFirst} first choice, ${gSecond} backup` : `${gs}: no demand`}
             >
-              {/* The compact grade badge, same shape as StudentInfoBadges uses. */}
-              <span
-                className={cn(
-                  // No vertical padding: the row is 7px and these chips have to
-                  // stay inside it, or neighbouring rows overlap visibly now
-                  // that the label carries a background.
-                  "text-[8px] font-bold w-[24px] shrink-0 text-center leading-none rounded px-0.5",
-                  total > 0 ? "text-gray-800" : "text-muted-foreground/30",
-                )}
-                style={total > 0 ? { backgroundColor: gradeColor } : undefined}
-              >
-                {gs}
-              </span>
+              {/* The compact grade badge, the shared one, since a demand key
+                  is a class this intake will run and its grade is therefore
+                  already the grade being entered. With no demand behind it the
+                  chip is not a badge at all but a dimmed label, which is why
+                  the two states are written out rather than folded into one
+                  conditional background. */}
+              {total > 0 ? (
+                <EnteringGradeBadge
+                  className={cn(DEMAND_CHIP, "text-gray-800")}
+                  grade={grade}
+                  langStream={stream}
+                />
+              ) : (
+                <span className={cn(DEMAND_CHIP, "text-muted-foreground/30")}>{gs}</span>
+              )}
               <div className="flex-1 h-1.5 flex">
                 {barPct > 0 && (
                   <>

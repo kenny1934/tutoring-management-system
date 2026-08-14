@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { regularAPI, tutorsAPI, studentsAPI, discountsAPI, ApiError } from "@/lib/api";
-import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, getGradeColor, minLessonsForDiscount } from "@/lib/constants";
+import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, minLessonsForDiscount } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ import {
 } from "./RegularApplicationCard";
 import { LinkedStudentChip } from "@/components/admin/LinkedStudentChip";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { RegularMessagePanel, type RegularMessageMode } from "./RegularMessagePanel";
@@ -1100,14 +1101,13 @@ export function RegularApplicationDetailModal({
                   >
                     <div className="font-medium text-sm text-foreground">{app.student_name}</div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      {app.grade && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
-                          style={{ backgroundColor: getGradeColor(app.grade, effectiveStream(app) || undefined) }}
-                        >
-                          {app.grade}{effectiveStream(app) || ""}
-                        </span>
-                      )}
+                      {/* The grade on the form is the one being entered, so it
+                          is never put through the summer window's promotion. */}
+                      <EnteringGradeBadge
+                        className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
+                        grade={app.grade}
+                        langStream={effectiveStream(app) || undefined}
+                      />
                       {app.school && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
                           {app.school}

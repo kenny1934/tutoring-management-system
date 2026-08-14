@@ -8,7 +8,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
-import { getGradeColor, splitGradeStream, STAGE_TONES } from "@/lib/regular-utils";
+import { splitGradeStream, STAGE_TONES } from "@/lib/regular-utils";
+import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import { formatProspectCode } from "@/lib/summer-utils";
 import { TrendingUp, Loader2, ChevronDown, AlertTriangle, Download } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -548,12 +549,13 @@ export default function RegularConversionPage() {
                           key={gs}
                           className="rounded-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-3 py-2 min-w-[104px]"
                         >
-                          <span
+                          {/* The key is a class this intake will run, so the
+                              grade in it is already the one being entered. */}
+                          <EnteringGradeBadge
                             className="inline-block text-[11px] font-bold text-gray-800 px-1.5 py-0.5 rounded mb-1"
-                            style={{ backgroundColor: getGradeColor(grade, stream ?? undefined) }}
-                          >
-                            {gs}
-                          </span>
+                            grade={grade}
+                            langStream={stream}
+                          />
                           <div className="text-xs text-foreground tabular-nums">
                             <span className="font-semibold">{applied}</span> applied
                           </div>
