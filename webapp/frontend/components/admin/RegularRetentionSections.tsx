@@ -183,10 +183,7 @@ function GradeBadge({ row }: { row: RegularRetentionChaseRow }) {
       <EnteringGradeBadge
         className="px-1.5 py-0.5 rounded text-[11px] font-semibold text-gray-800"
         grade={row.expected_grade}
-        // Stored student streams are C or E, but five records hold an empty
-        // string, and an empty stream should read as no stream rather than as
-        // the letters of one.
-        langStream={row.lang_stream ? row.lang_stream.toUpperCase() : undefined}
+        langStream={row.lang_stream?.toUpperCase()}
       />
       {row.rung === "admin_only" && (
         <span
@@ -889,7 +886,11 @@ export function BulkContactDialog({
  *  between filters, so a student can stay ticked while off screen. */
 export function useChaseSelection(
   all: RegularRetentionChaseRow[],
-  shown: RegularRetentionChaseRow[]
+  shown: RegularRetentionChaseRow[],
+  /** False on a read-only account, which has nothing it could do with a
+   *  selection. The rule lives here rather than at each call site, so a list
+   *  cannot accidentally offer ticking it will not honour. */
+  enabled = true
 ) {
   // Ticked rows survive a filter change, because narrowing the list is how you
   // build a selection: filter to F2, tick them, filter to F3, tick those.
@@ -897,6 +898,9 @@ export function useChaseSelection(
   // How many the last round was logged for. Kept here so that touching the
   // ticks takes it away: it describes a selection that no longer exists.
   const [logged, setLogged] = useState<number | null>(null);
+  // Whether the dialog is open belongs with the ticks it acts on, so a list only
+  // has to render the bar and the round works.
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   // The selection is a set of ids, but the dialog wants the rows behind them,
   // and only rows that still exist in the report.
@@ -927,45 +931,52 @@ export function useChaseSelection(
     });
   };
 
-  /** A round has been logged: say how many it was, and start again empty, so
-   *  the same call cannot be logged twice by clicking the button again. */
+  /** A round has been logged: close the dialog, say how many it was, and start
+   *  again empty, so the same call cannot be logged twice by clicking again. */
   const finishLogging = (count: number) => {
+    setBulkOpen(false);
     setLogged(count);
     setPicked(new Set());
   };
 
   return {
-    picked,
     pickedRows,
-    shownPicked,
-    allShownPicked,
     logged,
+    bulkOpen,
+    /** How many are ticked, and how many of those the filters have hidden. */
+    selected: picked.size,
+    notShown: picked.size - shownPicked,
+    openBulk: () => setBulkOpen(true),
+    closeBulk: () => setBulkOpen(false),
     clear: () => setPicked(new Set()),
     finishLogging,
-    /** Everything the list needs to draw the tick column. */
-    selection: { picked, allShownPicked, onToggle, onToggleAll },
+    /** Everything the list needs to draw the tick column, and undefined where
+     *  ticking is not on offer. */
+    selection: enabled ? { picked, allShownPicked, onToggle, onToggleAll } : undefined,
   };
 }
 
-/** What the ticks can do, and what happened the last time they were used.
+export type ChaseSelection = ReturnType<typeof useChaseSelection>;
+
+/** What the ticks can do, what happened the last time they were used, and the
+ *  dialog they open.
  *
- *  Only on screen when something is ticked, so the toolbar above it stays the
- *  same height while somebody is working normally. */
+ *  The bar is only on screen when something is ticked, so the toolbar above it
+ *  stays the same height while somebody is working normally. It takes the whole
+ *  selection rather than a handful of numbers, because a list that can tick can
+ *  always log, and splitting the two left both call sites wiring up the same
+ *  dialog and the same after-the-round bookkeeping by hand. */
 export function ChaseSelectionBar({
-  selected,
-  notShown,
-  logged,
-  onLog,
-  onClear,
+  picks,
+  currentUserEmail,
+  onLogged,
 }: {
-  selected: number;
-  /** Ticked under an earlier filter and no longer on screen. Worth saying,
-   *  because the button is about to act on students the reader cannot see. */
-  notShown: number;
-  logged: number | null;
-  onLog: () => void;
-  onClear: () => void;
+  picks: ChaseSelection;
+  currentUserEmail: string;
+  /** The list has changed underneath: refetch it. */
+  onLogged: () => void;
 }) {
+  const { selected, notShown, logged } = picks;
   return (
     <>
       {selected > 0 && (
@@ -980,7 +991,7 @@ export function ChaseSelectionBar({
           </span>
           <button
             type="button"
-            onClick={onLog}
+            onClick={picks.openBulk}
             disabled={selected > BULK_CONTACT_LIMIT}
             className={cn(
               selectClass,
@@ -997,12 +1008,27 @@ export function ChaseSelectionBar({
           )}
           <button
             type="button"
-            onClick={onClear}
+            onClick={picks.clear}
             className="text-xs text-muted-foreground hover:text-foreground underline"
           >
             Clear
           </button>
         </div>
+      )}
+
+      {picks.bulkOpen && (
+        <BulkContactDialog
+          rows={picks.pickedRows}
+          currentUserEmail={currentUserEmail}
+          onClose={(count) => {
+            if (count > 0) {
+              picks.finishLogging(count);
+              onLogged();
+            } else {
+              picks.closeBulk();
+            }
+          }}
+        />
       )}
 
       {/* Said once, where the ticks were, rather than as a toast that is gone
@@ -1850,7 +1876,6 @@ export function RegularRetentionChaseList({
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
-  const [bulkOpen, setBulkOpen] = useState(false);
 
   // Read on mount rather than in useState, so the server and the first client
   // render agree and hydration stays quiet.
@@ -1949,7 +1974,7 @@ export function RegularRetentionChaseList({
 
   // The same ticking a tutor gets on their own list, so a round of calls is
   // logged the same way whoever is making it.
-  const picks = useChaseSelection(chaseable, rows);
+  const picks = useChaseSelection(chaseable, rows, !isReadOnly);
 
   const onSort = (k: ChaseSortKey) =>
     setSort((s) =>
@@ -2115,11 +2140,9 @@ export function RegularRetentionChaseList({
       </div>
 
       <ChaseSelectionBar
-        selected={picks.picked.size}
-        notShown={picks.picked.size - picks.shownPicked}
-        logged={picks.logged}
-        onLog={() => setBulkOpen(true)}
-        onClear={picks.clear}
+        picks={picks}
+        currentUserEmail={currentUserEmail}
+        onLogged={onChanged}
       />
 
       <ChaseListBody
@@ -2129,7 +2152,7 @@ export function RegularRetentionChaseList({
         sort={sort}
         onSort={onSort}
         emptyText="Nobody matches these filters."
-        selection={isReadOnly ? undefined : picks.selection}
+        selection={picks.selection}
         onContact={setContactFor}
         onDecline={setDeclineFor}
         onUndo={setUndoFor}
@@ -2156,20 +2179,6 @@ export function RegularRetentionChaseList({
           editingContact={null}
           preselectedStudentId={contactFor.student_id}
           defaultContactType={RENEWAL_CONTACT_TYPE}
-        />
-      )}
-
-      {bulkOpen && (
-        <BulkContactDialog
-          rows={picks.pickedRows}
-          currentUserEmail={currentUserEmail}
-          onClose={(count) => {
-            setBulkOpen(false);
-            if (count > 0) {
-              picks.finishLogging(count);
-              onChanged();
-            }
-          }}
         />
       )}
 

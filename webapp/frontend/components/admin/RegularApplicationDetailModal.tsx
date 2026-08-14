@@ -1106,7 +1106,7 @@ export function RegularApplicationDetailModal({
                       <EnteringGradeBadge
                         className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
                         grade={app.grade}
-                        langStream={effectiveStream(app) || undefined}
+                        langStream={effectiveStream(app)}
                       />
                       {app.school && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">

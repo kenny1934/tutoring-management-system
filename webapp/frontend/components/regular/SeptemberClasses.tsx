@@ -6,19 +6,30 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import { StudentLink } from "@/components/admin/RegularRetentionSections";
-import { REGULAR_STATUS_COLORS } from "@/components/admin/RegularApplicationCard";
-import { DAY_ABBREV, WEEK_DAY_ORDER, foldStream, regularStatusLabel } from "@/lib/regular-utils";
+import { parseTimeSlot, timeToMinutes } from "@/lib/calendar-utils";
+import { plural } from "@/lib/formatters";
+import {
+  DAY_ABBREV,
+  REGULAR_STATUS_COLORS,
+  WEEK_DAY_ORDER,
+  foldStream,
+  regularStatusLabel,
+  sortWeekDays,
+} from "@/lib/regular-utils";
 import type { RegularMyClassResponse, RegularMyClassSlot, RegularMyClassStudent } from "@/types";
 
-/** The week is drawn the way the sessions page draws it, on purpose.
+/** The week borrows its look from the sessions page and its structure from the
+ *  arrangement board, on purpose.
  *
  *  A tutor already reads one weekly grid in this app every day, so this one
- *  borrows its skeleton rather than inventing a second convention: the time
- *  column on the left at 60px, all seven days across the top in short capitals,
- *  the days with nothing on them collapsed to a strip you can click open, and
- *  one small card per student with the stage colour down its right edge. What
- *  differs is the row, which is a class rather than an hour, because these are
- *  weekly slots at fixed times and the roster has to fit inside the cell. */
+ *  takes that grid's skeleton rather than inventing a second convention: the
+ *  time column on the left at 60px, all seven days across the top in short
+ *  capitals, the days with nothing on them collapsed to a strip you can click
+ *  open, and one small card per student with the stage colour down its right
+ *  edge. The rows come from the arrangement board instead, which draws the same
+ *  slots: one row per class time rather than one per clock hour, because these
+ *  are weekly slots at a handful of fixed times and a row that grows to fit its
+ *  roster is what keeps the names inside the cell. */
 const TIME_COLUMN = 60;
 const DAY_COLUMN_MIN = 100;
 const COLLAPSED_DAY = 36;
@@ -51,8 +62,11 @@ export function SeptemberClasses({
   const [openedDays, setOpenedDays] = useState<Set<string>>(new Set());
   const [showEveryDay, setShowEveryDay] = useState(false);
 
+  // byDay holds one entry per day this tutor teaches, so it answers both "is
+  // there anything here" and "in what order", and there is no second set to
+  // keep in step with it.
   const collapsed = (day: string) =>
-    !showEveryDay && !week.teaching.has(day) && !openedDays.has(day);
+    !showEveryDay && !week.byDay.has(day) && !openedDays.has(day);
 
   const toggleDay = (day: string) =>
     setOpenedDays((current) => {
@@ -84,14 +98,18 @@ export function SeptemberClasses({
     (n, s) => n + s.students.filter((st) => st.taught_by_me_last_year).length,
     0
   );
-  const emptyDays = WEEK_DAY_ORDER.filter((d) => !week.teaching.has(d)).length;
+  const emptyDays = week.columns.length - week.byDay.size;
 
-  const gridColumns = `${TIME_COLUMN}px ${WEEK_DAY_ORDER.map((d) =>
-    collapsed(d) ? `${COLLAPSED_DAY}px` : `minmax(${DAY_COLUMN_MIN}px, 1fr)`
-  ).join(" ")}`;
-  const minGridWidth =
-    TIME_COLUMN +
-    WEEK_DAY_ORDER.reduce((sum, d) => sum + (collapsed(d) ? COLLAPSED_DAY : DAY_COLUMN_MIN), 0);
+  // Both the column template and the width the grid refuses to shrink below come
+  // out of one pass over the columns, since they are the same decision measured
+  // twice.
+  let minGridWidth = TIME_COLUMN;
+  const columnWidths = week.columns.map((day) => {
+    const width = collapsed(day) ? COLLAPSED_DAY : DAY_COLUMN_MIN;
+    minGridWidth += width;
+    return collapsed(day) ? `${width}px` : `minmax(${width}px, 1fr)`;
+  });
+  const gridColumns = `${TIME_COLUMN}px ${columnWidths.join(" ")}`;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -101,8 +119,8 @@ export function SeptemberClasses({
       <div className="flex items-start justify-between gap-3 mb-3 shrink-0">
         <p className="text-xs text-muted-foreground">
           {placed === 0
-            ? `You are down to teach ${countText(data.slots.length, "class", "classes")} in September. Nobody has been placed in ${data.slots.length === 1 ? "it" : "them"} yet.`
-            : `${countText(placed, "student has", "students have")} been placed in your ${countText(data.slots.length, "class", "classes")} for September${returning > 0 ? `, ${returning} of whom you taught last year` : ""}.`}
+            ? `You are down to teach ${plural(data.slots.length, "class", "classes")} in September. Nobody has been placed in ${data.slots.length === 1 ? "it" : "them"} yet.`
+            : `${plural(placed, "student has", "students have")} been placed in your ${plural(data.slots.length, "class", "classes")} for September${returning > 0 ? `, ${returning} of whom you taught last year` : ""}.`}
         </p>
         {emptyDays > 0 && (
           <Button
@@ -122,20 +140,20 @@ export function SeptemberClasses({
           and a phone has 390, so the grid there is a sideways scroll through
           cells too narrow to hold a name. The cards inside are the same. */}
       <div className="md:hidden min-h-0 overflow-auto space-y-4">
-        {week.days.map((day) => (
+        {[...week.byDay].map(([day, slots]) => (
           <div key={day}>
             <h2 className="text-xs font-bold uppercase text-gray-700 dark:text-gray-300 mb-1.5">
               {day}
             </h2>
             <div className="space-y-2">
-              {week.byDay.get(day)?.map((slot) => (
-                <div
+              {slots.map((slot) => (
+                <ClassBlock
                   key={slot.slot_id}
+                  slot={slot}
+                  showTime
+                  showBranch={week.manyBranches}
                   className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg px-2 py-1.5"
-                >
-                  <ClassHeading slot={slot} showTime showBranch={week.manyBranches} />
-                  <Roster slot={slot} />
-                </div>
+                />
               ))}
             </div>
           </div>
@@ -150,9 +168,9 @@ export function SeptemberClasses({
             <div className="sticky top-0 left-0 z-30 p-1.5 flex items-center bg-[#fef9f3] dark:bg-[#2d2618] border-b-2 border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
               <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
             </div>
-            {WEEK_DAY_ORDER.map((day, i) => {
+            {week.columns.map((day, i) => {
               const shut = collapsed(day);
-              const teaching = week.teaching.has(day);
+              const teaching = week.byDay.has(day);
               return (
                 <button
                   key={day}
@@ -165,7 +183,7 @@ export function SeptemberClasses({
                   className={cn(
                     "sticky top-0 z-20 py-1 bg-[#fef9f3] dark:bg-[#2d2618]",
                     "border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]",
-                    i < WEEK_DAY_ORDER.length - 1 && "border-r",
+                    i < week.columns.length - 1 && "border-r",
                     shut ? "px-0.5" : "px-1.5",
                     !teaching &&
                       "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]"
@@ -197,41 +215,45 @@ export function SeptemberClasses({
             {/* One row per class time, rather than per hour: these are weekly
                 slots at a handful of fixed times, and a row that sizes itself
                 to its roster is what lets the names stay in the cell. */}
-            {week.times.map((time) => (
-              <Fragment key={time}>
-                <div className="sticky left-0 z-10 px-2 py-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
-                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 tabular-nums">
-                    {startOf(time)}
-                  </div>
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">
-                    {endOf(time)}
-                  </div>
-                </div>
-                {WEEK_DAY_ORDER.map((day, i) => {
-                  const here = week.cells.get(cellKey(day, time));
-                  const shut = collapsed(day);
-                  return (
-                    <div
-                      key={day}
-                      onClick={shut ? () => toggleDay(day) : undefined}
-                      className={cn(
-                        "border-t border-[#e8d4b8] dark:border-[#6b5a4a] p-1 space-y-1.5",
-                        i < WEEK_DAY_ORDER.length - 1 && "border-r",
-                        shut && "bg-gray-50 dark:bg-gray-900/30 cursor-pointer"
-                      )}
-                    >
-                      {!shut &&
-                        here?.map((slot) => (
-                          <div key={slot.slot_id}>
-                            <ClassHeading slot={slot} showBranch={week.manyBranches} />
-                            <Roster slot={slot} />
-                          </div>
-                        ))}
+            {week.times.map((time) => {
+              const { start, end } = splitSlotTime(time);
+              return (
+                <Fragment key={time}>
+                  <div className="sticky left-0 z-10 px-2 py-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-t border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300 tabular-nums">
+                      {start}
                     </div>
-                  );
-                })}
-              </Fragment>
-            ))}
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">
+                      {end}
+                    </div>
+                  </div>
+                  {week.columns.map((day, i) => {
+                    const here = week.cells.get(cellKey(day, time));
+                    const shut = collapsed(day);
+                    return (
+                      <div
+                        key={day}
+                        onClick={shut ? () => toggleDay(day) : undefined}
+                        className={cn(
+                          "border-t border-[#e8d4b8] dark:border-[#6b5a4a] p-1 space-y-1.5",
+                          i < week.columns.length - 1 && "border-r",
+                          shut && "bg-gray-50 dark:bg-gray-900/30 cursor-pointer"
+                        )}
+                      >
+                        {!shut &&
+                          here?.map((slot) => (
+                            <ClassBlock
+                              key={slot.slot_id}
+                              slot={slot}
+                              showBranch={week.manyBranches}
+                            />
+                          ))}
+                      </div>
+                    );
+                  })}
+                </Fragment>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -276,23 +298,31 @@ function NothingYet() {
   );
 }
 
-/** The line above a class's students: what the class is and how full it is.
+/** One class: a line saying what it is and how full it is, then its students.
  *
- *  Sized like the meta line on a session card, because that is what it is. */
-function ClassHeading({
+ *  The heading is sized like the meta line on a session card, because that is
+ *  what it is. Heading and roster are one component because nothing ever wants
+ *  one without the other, and both the grid cell and the phone's agenda place
+ *  the pair as a unit. */
+function ClassBlock({
   slot,
   showTime,
   showBranch,
+  className,
 }: {
   slot: RegularMyClassSlot;
   /** The agenda has no time column, so the heading carries the time there. */
   showTime?: boolean;
   /** Only where a tutor teaches at more than one branch, which is rare. */
   showBranch?: boolean;
+  /** The agenda draws each class as its own card; in the grid the cell is the
+   *  card and the block just fills it. */
+  className?: string;
 }) {
   const full = slot.students.length >= slot.max_students;
   const stream = foldStream(slot.lang_stream);
   return (
+    <div className={className}>
     <div className="flex items-center gap-1 px-0.5 pb-1 flex-wrap">
       {showTime && (
         <span className="text-xs font-medium text-gray-700 dark:text-gray-300 tabular-nums">
@@ -305,7 +335,7 @@ function ClassHeading({
         <EnteringGradeBadge
           className="text-[9px] px-1 py-px rounded font-semibold text-gray-800 whitespace-nowrap"
           grade={slot.grade}
-          langStream={stream ?? undefined}
+          langStream={stream}
         />
       ) : (
         // Plenty of slots are still half described in August, so this says what
@@ -329,21 +359,17 @@ function ClassHeading({
       >
         {slot.students.length} of {slot.max_students}
       </span>
-    </div>
-  );
-}
+      </div>
 
-function Roster({ slot }: { slot: RegularMyClassSlot }) {
-  if (slot.students.length === 0) {
-    return (
-      <p className="text-[10px] text-gray-500 dark:text-gray-400 px-0.5">Nobody placed yet.</p>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-0.5">
-      {slot.students.map((student) => (
-        <StudentCard key={student.application_id} student={student} slotGrade={slot.grade} />
-      ))}
+      {slot.students.length === 0 ? (
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 px-0.5">Nobody placed yet.</p>
+      ) : (
+        <div className="flex flex-col gap-0.5">
+          {slot.students.map((student) => (
+            <StudentCard key={student.application_id} student={student} slotGrade={slot.grade} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -399,7 +425,7 @@ function StudentCard({
             <EnteringGradeBadge
               className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap shrink-0"
               grade={grade}
-              langStream={student.lang_stream ?? undefined}
+              langStream={student.lang_stream}
             />
           )}
         </p>
@@ -417,25 +443,32 @@ function StudentCard({
  *  that is how the sessions grid draws it and a week with days missing reads as
  *  a week with data missing. The database hands the slots back in alphabetical
  *  order of the day name, which puts Friday first and Wednesday last, so the
- *  ordering is done here where the week is drawn. */
+ *  ordering is done here where the week is drawn.
+ *
+ *  `byDay` is the ordered list of days this tutor actually teaches, so it also
+ *  answers whether a column has anything in it, and `columns` is every column
+ *  the grid draws. */
 function buildWeek(slots: RegularMyClassSlot[]) {
-  const teaching = new Set(slots.map((s) => s.slot_day));
-  const days: string[] = WEEK_DAY_ORDER.filter((d) => teaching.has(d));
-  // A day the office spelled some other way would otherwise vanish from a
-  // tutor's timetable without anybody noticing.
-  for (const s of slots) {
-    if (!days.includes(s.slot_day)) days.push(s.slot_day);
-  }
+  const teaching = sortWeekDays([...new Set(slots.map((s) => s.slot_day))]);
+  // A day the office spelled some other way sorts last out of sortWeekDays and
+  // gets a column of its own, rather than vanishing from a tutor's timetable
+  // without anybody noticing.
+  const columns = [
+    ...WEEK_DAY_ORDER,
+    ...teaching.filter((d) => !(WEEK_DAY_ORDER as readonly string[]).includes(d)),
+  ];
 
   const times = [...new Set(slots.map((s) => s.time_slot))].sort(
     (a, b) => startMinutes(a) - startMinutes(b) || a.localeCompare(b)
   );
 
   const cells = new Map<string, RegularMyClassSlot[]>();
-  const byDay = new Map<string, RegularMyClassSlot[]>();
+  // Seeded in week order, so iterating it gives the phone's agenda its days in
+  // the order they happen without a second list to keep in step.
+  const byDay = new Map<string, RegularMyClassSlot[]>(teaching.map((d) => [d, []]));
   for (const s of slots) {
     push(cells, cellKey(s.slot_day, s.time_slot), s);
-    push(byDay, s.slot_day, s);
+    byDay.get(s.slot_day)!.push(s);
   }
   // The agenda has no time column to read down, so each day's classes run in
   // the order they happen.
@@ -444,8 +477,7 @@ function buildWeek(slots: RegularMyClassSlot[]) {
   }
 
   return {
-    days,
-    teaching,
+    columns,
     times,
     cells,
     byDay,
@@ -461,28 +493,15 @@ function push<T>(map: Map<string, T[]>, key: string, value: T) {
 
 const cellKey = (day: string, time: string) => `${day}|${time}`;
 
-/** A slot label reads "16:45 - 18:15". The time column stacks the two halves
- *  the way an hour label sits in the sessions grid's 60px gutter, and anything
- *  that does not split keeps its label whole rather than losing half of it. */
-function startOf(timeSlot: string): string {
-  return timeSlot.split("-")[0]?.trim() || timeSlot;
+/** A slot label reads "16:45 - 18:15", which the time column stacks the way an
+ *  hour label sits in the sessions grid's 60px gutter. Anything the shared
+ *  parser cannot read keeps its label whole rather than losing half of it, and
+ *  sorts to the end of the day rather than to eight in the morning. */
+function splitSlotTime(timeSlot: string): { start: string; end: string } {
+  return parseTimeSlot(timeSlot) ?? { start: timeSlot, end: "" };
 }
 
-function endOf(timeSlot: string): string {
-  const parts = timeSlot.split("-");
-  return parts.length > 1 ? parts[1].trim() : "";
-}
-
-/** Where a slot sits in the day. Anything that does not parse sorts to the end
- *  rather than to eight in the morning. */
 function startMinutes(timeSlot: string): number {
-  const match = /(\d{1,2}):(\d{2})/.exec(timeSlot);
-  if (!match) return Number.MAX_SAFE_INTEGER;
-  return Number(match[1]) * 60 + Number(match[2]);
-}
-
-/** "1 student has" / "3 students have", so the sentences above read as
- *  sentences rather than as a count with a plural bolted on. */
-function countText(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
+  const parsed = parseTimeSlot(timeSlot);
+  return parsed ? timeToMinutes(parsed.start) : Number.MAX_SAFE_INTEGER;
 }

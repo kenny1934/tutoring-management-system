@@ -12,7 +12,6 @@ import { CalendarCheck, Check, Loader2, Search } from "lucide-react";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { RENEWAL_CONTACT_TYPE } from "@/components/parent-contacts/contact-utils";
 import {
-  BulkContactDialog,
   ChaseListBody,
   ChaseSelectionBar,
   ChipRail,
@@ -98,7 +97,6 @@ export default function CourseRenewalPage() {
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
-  const [bulkOpen, setBulkOpen] = useState(false);
   const [restored, setRestored] = useState(false);
 
   // Whose page this is. Picking a tutor in the sidebar has to reach the data
@@ -224,7 +222,7 @@ export default function CourseRenewalPage() {
   // typing the same note out twenty times afterwards is what stops it being
   // logged at all. Same ticking, same dialog and same limit the office's board
   // uses, so a tutor's records come out looking like everybody else's.
-  const picks = useChaseSelection(chaseable, rows);
+  const picks = useChaseSelection(chaseable, rows, !isReadOnly);
 
   const filtered = q.trim() !== "" || grade !== "";
 
@@ -391,11 +389,9 @@ export default function CourseRenewalPage() {
               </div>
 
               <ChaseSelectionBar
-                selected={picks.picked.size}
-                notShown={picks.picked.size - picks.shownPicked}
-                logged={picks.logged}
-                onLog={() => setBulkOpen(true)}
-                onClear={picks.clear}
+                picks={picks}
+                currentUserEmail={user?.email ?? ""}
+                onLogged={mutate}
               />
 
               {rows.length === 0 && !filtered ? (
@@ -418,7 +414,7 @@ export default function CourseRenewalPage() {
                   onSort={onSort}
                   showBranch={showBranch}
                   showTutor={false}
-                  selection={isReadOnly ? undefined : picks.selection}
+                  selection={picks.selection}
                   emptyText="Nobody matches what you searched for."
                   onContact={setContactFor}
                   onDecline={setDeclineFor}
@@ -460,20 +456,6 @@ export default function CourseRenewalPage() {
               editingContact={null}
               preselectedStudentId={contactFor.student_id}
               defaultContactType={RENEWAL_CONTACT_TYPE}
-            />
-          )}
-
-          {bulkOpen && (
-            <BulkContactDialog
-              rows={picks.pickedRows}
-              currentUserEmail={user?.email ?? ""}
-              onClose={(count) => {
-                setBulkOpen(false);
-                if (count > 0) {
-                  picks.finishLogging(count);
-                  mutate();
-                }
-              }}
             />
           )}
 

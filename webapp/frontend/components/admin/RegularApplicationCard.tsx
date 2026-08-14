@@ -11,7 +11,9 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
-import { displayLocation, DAY_ABBREV, REGULAR_EXIT_STATUSES, effectiveStream } from "@/lib/regular-utils";
+import {
+  displayLocation, DAY_ABBREV, REGULAR_EXIT_STATUSES, effectiveStream, REGULAR_STATUS_COLORS,
+} from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CopyableCell, BRANCH_COLORS } from "@/components/summer/prospect-badges";
 import { LinkedStudentChip } from "@/components/admin/LinkedStudentChip";
@@ -20,20 +22,10 @@ import { ProspectJourneyChip } from "@/components/admin/ProspectJourneyChip";
 import { AdminNoteLine } from "@/components/admin/AdminNoteLine";
 import type { RegularApplication } from "@/types";
 
-// Status pill colours, matching the summer card's dot/bg/text/borderL scheme
-// rung for rung — the two intakes share one ladder.
-export const REGULAR_STATUS_COLORS: Record<string, { dot: string; bg: string; text: string; borderL: string }> = {
-  "Submitted":           { dot: "bg-gray-400",    bg: "bg-gray-100 dark:bg-gray-800",         text: "text-gray-700 dark:text-gray-300",       borderL: "border-l-gray-400" },
-  "Under Review":        { dot: "bg-blue-500",    bg: "bg-blue-50 dark:bg-blue-900/20",       text: "text-blue-700 dark:text-blue-300",       borderL: "border-l-blue-500" },
-  "Placement Offered":   { dot: "bg-indigo-500",  bg: "bg-indigo-50 dark:bg-indigo-900/20",   text: "text-indigo-700 dark:text-indigo-300",   borderL: "border-l-indigo-500" },
-  "Placement Confirmed": { dot: "bg-purple-500",  bg: "bg-purple-50 dark:bg-purple-900/20",   text: "text-purple-700 dark:text-purple-300",   borderL: "border-l-purple-500" },
-  "Fee Sent":            { dot: "bg-amber-500",   bg: "bg-amber-50 dark:bg-amber-900/20",     text: "text-amber-700 dark:text-amber-300",     borderL: "border-l-amber-500" },
-  "Paid":                { dot: "bg-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20", text: "text-emerald-700 dark:text-emerald-300", borderL: "border-l-emerald-500" },
-  "Enrolled":            { dot: "bg-green-500",   bg: "bg-green-50 dark:bg-green-900/20",     text: "text-green-700 dark:text-green-300",     borderL: "border-l-green-500" },
-  "Waitlisted":          { dot: "bg-orange-500",  bg: "bg-orange-50 dark:bg-orange-900/20",   text: "text-orange-700 dark:text-orange-300",   borderL: "border-l-orange-500" },
-  "Withdrawn":           { dot: "bg-slate-400",   bg: "bg-slate-50 dark:bg-slate-800/50",     text: "text-slate-600 dark:text-slate-400",     borderL: "border-l-slate-400" },
-  "Rejected":            { dot: "bg-red-500",     bg: "bg-red-50 dark:bg-red-900/20",         text: "text-red-700 dark:text-red-300",         borderL: "border-l-red-500" },
-};
+// The colours moved to lib/regular-utils so a surface can read a stage's colour
+// without pulling this card in behind it. Re-exported because half a dozen files
+// already import them from this path.
+export { REGULAR_STATUS_COLORS };
 
 export const REGULAR_ALL_STATUSES = [
   "Submitted", "Under Review", "Placement Offered", "Placement Confirmed",

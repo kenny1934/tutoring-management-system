@@ -79,16 +79,25 @@ export function GradeBadge({ grade, langStream, className, title, showStream = t
  * Use GradeBadge only for a stored student grade on a surface that mixes
  * summer and non-summer students.
  */
-export function EnteringGradeBadge({ grade, langStream, className, title }: GradeBadgeProps) {
+export function EnteringGradeBadge({
+  grade,
+  langStream,
+  className,
+  title,
+  showStream = true,
+}: GradeBadgeProps) {
   if (!grade) return null;
   return (
     <span
       className={className}
       title={title}
+      // Coloured by grade and stream together even where the stream is not
+      // spelled out, the same way GradeBadge does it, so a dense badge showing
+      // "F1" alone still carries F1E's colour rather than a neutral one.
       style={{ backgroundColor: getGradeColor(grade, langStream ?? undefined) }}
     >
       {grade}
-      {langStream ?? ""}
+      {showStream ? langStream ?? "" : ""}
     </span>
   );
 }
