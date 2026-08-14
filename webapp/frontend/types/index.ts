@@ -4176,7 +4176,12 @@ export interface RegularRetentionMineResponse {
 export interface RegularMyClassStudent {
   application_id: number;
   student_name: string;
+  /** The grade being *entered*, off the application, so it is one rung above
+   *  what the student record says until the Sept 1 promotion runs. Render it
+   *  with EnteringGradeBadge: the shared GradeBadge would promote it again. */
   grade?: string | null;
+  /** The stream that governs placement, C or E, from the student's own record
+   *  where there is one. Never the raw "Int" off the form. */
   lang_stream?: string | null;
   school?: string | null;
   application_status: string;

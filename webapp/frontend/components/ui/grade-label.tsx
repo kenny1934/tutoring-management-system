@@ -56,3 +56,39 @@ export function GradeBadge({ grade, langStream, className, title, showStream = t
     </span>
   );
 }
+
+/**
+ * The badge for a grade that is already the grade a student is *entering*,
+ * which is what every application, slot and placement record holds, in both
+ * the summer and the regular intake.
+ *
+ * It looks identical to GradeBadge and deliberately does none of its work: no
+ * Pre- prefix, no promoted colour, ever. Promoting an entering grade moves it a
+ * year further on, so an F4 application (a student entering F4) renders
+ * "Pre-F5" through GradeBadge for as long as the summer window is open, and
+ * then quietly starts reading correctly on 1 September, which is how the bug
+ * survives being looked at.
+ *
+ * Pass the stream that governs placement rather than the raw submitted one:
+ * the linked student's record where there is one, and International folded
+ * into E otherwise, since a class is never International. `effective_stream`
+ * on the backend and `foldStream` in lib/regular-utils are the two ways to get
+ * it. An unrecognised grade-and-stream pair takes the neutral grade colour,
+ * which is what a half-configured class should look like.
+ *
+ * Use GradeBadge only for a stored student grade on a surface that mixes
+ * summer and non-summer students.
+ */
+export function EnteringGradeBadge({ grade, langStream, className, title }: GradeBadgeProps) {
+  if (!grade) return null;
+  return (
+    <span
+      className={className}
+      title={title}
+      style={{ backgroundColor: getGradeColor(grade, langStream ?? undefined) }}
+    >
+      {grade}
+      {langStream ?? ""}
+    </span>
+  );
+}

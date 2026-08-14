@@ -3887,7 +3887,13 @@ class RegularMyClassStudent(BaseModel):
     and the name on the form is the only name there is."""
     application_id: int
     student_name: str
+    # The grade the student is *entering*, straight off the application, which
+    # is one rung above whatever their student record still says until the Sept 1
+    # promotion runs. Display it raw: putting it through the summer window's
+    # Pre- transform would move it on a second year.
     grade: Optional[str] = None
+    # The stream that governs placement (C or E), taken from the student's own
+    # record where there is one. Never the raw "Int" off the form.
     lang_stream: Optional[str] = None
     school: Optional[str] = None
     application_status: str

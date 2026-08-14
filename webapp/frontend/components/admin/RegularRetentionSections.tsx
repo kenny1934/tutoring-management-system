@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
 import { parentCommunicationsAPI, terminationsAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveTutors, useDebouncedValue, useProspectPreview } from "@/lib/hooks";
-import { getGradeColor, regularStatusLabel } from "@/lib/regular-utils";
+import { regularStatusLabel } from "@/lib/regular-utils";
+import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import {
   CATEGORY_CONFIG,
   TERMINATION_REASON_CATEGORIES,
@@ -171,22 +172,22 @@ function StateBadge({ state }: { state: RetentionState }) {
  *  The grey does not follow the theme because the background does not either,
  *  so the badge reads the same in both.
  *
- *  This is deliberately not the shared GradeBadge from components/ui, which
- *  runs the grade through the summer pre-grade transform. The row already
- *  holds the grade the student is entering, so transforming it again would
- *  move it a year further on. */
+ *  EnteringGradeBadge rather than the shared GradeBadge, which runs a grade
+ *  through the summer pre-grade transform. The row already holds the grade the
+ *  student is entering, so transforming it again would move it a year further
+ *  on: an F4 would read Pre-F5 every August. */
 function GradeBadge({ row }: { row: RegularRetentionChaseRow }) {
   if (!row.expected_grade) return <span className="text-muted-foreground">-</span>;
-  const stream = row.lang_stream ? row.lang_stream.toUpperCase() : "";
-  const colour = getGradeColor(row.expected_grade, row.lang_stream ?? undefined);
   return (
     <span className="inline-flex items-center gap-1">
-      <span
+      <EnteringGradeBadge
         className="px-1.5 py-0.5 rounded text-[11px] font-semibold text-gray-800"
-        style={{ backgroundColor: colour }}
-      >
-        {row.expected_grade}{stream}
-      </span>
+        grade={row.expected_grade}
+        // Stored student streams are C or E, but five records hold an empty
+        // string, and an empty stream should read as no stream rather than as
+        // the letters of one.
+        langStream={row.lang_stream ? row.lang_stream.toUpperCase() : undefined}
+      />
       {row.rung === "admin_only" && (
         <span
           className="text-[10px] text-muted-foreground"

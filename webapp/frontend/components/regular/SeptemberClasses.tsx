@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 import { CalendarDays, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { GradeBadge } from "@/components/ui/grade-label";
+import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import { StudentLink } from "@/components/admin/RegularRetentionSections";
 import { REGULAR_STATUS_COLORS } from "@/components/admin/RegularApplicationCard";
 import { DAY_ABBREV, WEEK_DAY_ORDER, foldStream, regularStatusLabel } from "@/lib/regular-utils";
@@ -300,7 +300,9 @@ function ClassHeading({
         </span>
       )}
       {slot.grade ? (
-        <GradeBadge
+        // A slot's grade is the grade its class is for, so it is already the
+        // grade these students are entering and is never promoted for display.
+        <EnteringGradeBadge
           className="text-[9px] px-1 py-px rounded font-semibold text-gray-800 whitespace-nowrap"
           grade={slot.grade}
           langStream={stream ?? undefined}
@@ -391,10 +393,13 @@ function StudentCard({
             </span>
           )}
           {grade && (
-            <GradeBadge
+            // The application's own grade, which is the one they are entering:
+            // an F4 application is a student going into F4. The payload already
+            // carries the stream that governs their placement.
+            <EnteringGradeBadge
               className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap shrink-0"
               grade={grade}
-              langStream={foldStream(student.lang_stream) ?? undefined}
+              langStream={student.lang_stream ?? undefined}
             />
           )}
         </p>

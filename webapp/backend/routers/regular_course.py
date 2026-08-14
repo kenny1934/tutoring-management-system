@@ -2835,7 +2835,13 @@ def get_my_class(
             application_id=app.id,
             student_name=(student.student_name if student else app.student_name),
             grade=app.grade,
-            lang_stream=app.lang_stream,
+            # The stream that governs their placement rather than the one typed
+            # on the form, which is what the arrangement board reads too. Thirty
+            # applications say International, a stream no class runs in, and a
+            # handful disagree with the student's own record, which is the system
+            # of record. Sending the raw value put a tutor and the office one
+            # word apart about the same child.
+            lang_stream=effective_stream(app),
             school=app.school,
             application_status=app.application_status,
             student_id=app.existing_student_id,
