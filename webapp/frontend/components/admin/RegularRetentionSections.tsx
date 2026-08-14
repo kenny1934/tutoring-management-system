@@ -652,7 +652,12 @@ export const BULK_CONTACT_LIMIT = 200;
  *  Chasing a renewal is a round of calls or one broadcast message, so the
  *  alternative was this form filled in twenty times. Deliberately narrower
  *  than the single-student modal: no student picker, because the selection is
- *  the picker, and one note that is true of all of them. */
+ *  the picker, and one note that is true of all of them.
+ *
+ *  Used by the office on the admin board and by a tutor on their own list.
+ *  Who the contact is recorded as follows the same rule the single-student
+ *  modal already uses, so the two ways of logging a call cannot disagree about
+ *  whose call it was. */
 export function BulkContactDialog({
   rows,
   currentUserEmail,
@@ -663,7 +668,7 @@ export function BulkContactDialog({
   onClose: (logged: number) => void;
 }) {
   const { data: tutors = [] } = useActiveTutors();
-  const { user } = useAuth();
+  const { user, isAdmin, isImpersonating, effectiveRole, impersonatedTutor } = useAuth();
   const [tutorId, setTutorId] = useState<number | null>(null);
   const [when, setWhen] = useState(() => new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<string>(CONTACT_METHODS[0]);
@@ -679,13 +684,28 @@ export function BulkContactDialog({
   const [error, setError] = useState<string | null>(null);
 
   // Whoever is logged in did the calling, so their own name is the default.
-  // An admin who is not on the tutor list picks somebody, rather than the
-  // records landing on nobody.
-  useEffect(() => {
-    if (tutorId === null && tutors.length) {
-      setTutorId(tutors.find((t) => t.tutor_name === user?.name)?.id ?? null);
+  // A super admin looking at a tutor's page is standing in for that tutor, and
+  // the call belongs to them rather than to the person clicking, which is the
+  // same rule the single-student modal follows.
+  const ownTutorId = useMemo(() => {
+    if (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
     }
-  }, [tutors, user?.name, tutorId]);
+    return tutors.find((t) => t.tutor_name === user?.name)?.id ?? null;
+  }, [isImpersonating, effectiveRole, impersonatedTutor?.id, tutors, user?.name]);
+
+  // Filled in as soon as the tutor list arrives, and only when there is a name
+  // to fill it with. An admin who is not on that list chooses somebody instead,
+  // rather than the records landing on nobody.
+  useEffect(() => {
+    if (tutorId === null && ownTutorId !== null) setTutorId(ownTutorId);
+  }, [ownTutorId, tutorId]);
+
+  // A tutor logs their own calls, so the field says who it will be recorded as
+  // rather than offering them their colleagues. It stays open if we cannot work
+  // out which tutor they are, because a name we failed to match is not a reason
+  // to leave them unable to save anything.
+  const lockedToSelf = !isAdmin && ownTutorId !== null;
 
   const save = async () => {
     if (!tutorId) {
@@ -748,13 +768,17 @@ export function BulkContactDialog({
             <select
               value={tutorId ?? ""}
               onChange={(e) => setTutorId(e.target.value ? Number(e.target.value) : null)}
-              className={cn(selectClass, "w-full")}
+              disabled={lockedToSelf}
+              className={cn(selectClass, "w-full", lockedToSelf && "opacity-60 cursor-not-allowed")}
             >
               <option value="">Choose a name</option>
               {tutors.map((t) => (
                 <option key={t.id} value={t.id}>{t.tutor_name}</option>
               ))}
             </select>
+            {lockedToSelf && (
+              <p className="text-[11px] text-muted-foreground mt-1">Recording as yourself</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -850,6 +874,144 @@ export function BulkContactDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/** The ticks on a chase list, and everything that follows from them.
+ *
+ *  The office's board and a tutor's own list both work a round of calls the
+ *  same way, so the counting, the select-all and the message afterwards live
+ *  here once instead of being written twice and drifting apart.
+ *
+ *  `all` is everybody the list could work, and `shown` is what the filters have
+ *  left on screen. The two are separate because a selection is built by moving
+ *  between filters, so a student can stay ticked while off screen. */
+export function useChaseSelection(
+  all: RegularRetentionChaseRow[],
+  shown: RegularRetentionChaseRow[]
+) {
+  // Ticked rows survive a filter change, because narrowing the list is how you
+  // build a selection: filter to F2, tick them, filter to F3, tick those.
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  // How many the last round was logged for. Kept here so that touching the
+  // ticks takes it away: it describes a selection that no longer exists.
+  const [logged, setLogged] = useState<number | null>(null);
+
+  // The selection is a set of ids, but the dialog wants the rows behind them,
+  // and only rows that still exist in the report.
+  const pickedRows = useMemo(() => all.filter((r) => picked.has(r.student_id)), [all, picked]);
+  const shownPicked = shown.filter((r) => picked.has(r.student_id)).length;
+  const allShownPicked = shown.length > 0 && shownPicked === shown.length;
+
+  const onToggle = (studentId: number) => {
+    setLogged(null);
+    setPicked((current) => {
+      const next = new Set(current);
+      if (!next.delete(studentId)) next.add(studentId);
+      return next;
+    });
+  };
+
+  /** Ticks or clears every row currently on screen, leaving anything picked
+   *  under an earlier filter alone. */
+  const onToggleAll = () => {
+    setLogged(null);
+    setPicked((current) => {
+      const next = new Set(current);
+      for (const r of shown) {
+        if (allShownPicked) next.delete(r.student_id);
+        else next.add(r.student_id);
+      }
+      return next;
+    });
+  };
+
+  /** A round has been logged: say how many it was, and start again empty, so
+   *  the same call cannot be logged twice by clicking the button again. */
+  const finishLogging = (count: number) => {
+    setLogged(count);
+    setPicked(new Set());
+  };
+
+  return {
+    picked,
+    pickedRows,
+    shownPicked,
+    allShownPicked,
+    logged,
+    clear: () => setPicked(new Set()),
+    finishLogging,
+    /** Everything the list needs to draw the tick column. */
+    selection: { picked, allShownPicked, onToggle, onToggleAll },
+  };
+}
+
+/** What the ticks can do, and what happened the last time they were used.
+ *
+ *  Only on screen when something is ticked, so the toolbar above it stays the
+ *  same height while somebody is working normally. */
+export function ChaseSelectionBar({
+  selected,
+  notShown,
+  logged,
+  onLog,
+  onClear,
+}: {
+  selected: number;
+  /** Ticked under an earlier filter and no longer on screen. Worth saying,
+   *  because the button is about to act on students the reader cannot see. */
+  notShown: number;
+  logged: number | null;
+  onLog: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <>
+      {selected > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+          <span className="text-xs font-medium text-foreground tabular-nums">
+            {selected} selected
+            {notShown > 0 && (
+              <span className="text-muted-foreground font-normal">
+                {" "}({notShown} not in this view)
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={onLog}
+            disabled={selected > BULK_CONTACT_LIMIT}
+            className={cn(
+              selectClass,
+              "inline-flex items-center gap-1.5 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            Log a contact
+          </button>
+          {selected > BULK_CONTACT_LIMIT && (
+            <span className="text-xs text-amber-700 dark:text-amber-400">
+              A contact can be logged for {BULK_CONTACT_LIMIT} students at a time.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* Said once, where the ticks were, rather than as a toast that is gone
+          before the list finishes reloading. */}
+      {logged !== null && (
+        <p className="text-xs text-emerald-700 dark:text-emerald-400 mb-3">
+          Contact logged for {logged} student{logged === 1 ? "" : "s"}.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -1200,10 +1362,10 @@ function MoreFilters({
 /** The chase list itself: cards on a phone, the table from a tablet up.
  *
  *  Shared by the admin board and a tutor's own list, which used to be two
- *  different renderings of the same rows. A tutor gets no ticking, because
- *  bulk contact logging is the office's job, and no Tutor column, because
- *  every row is theirs. Everything else is the same table, so the two of them
- *  reading the same student are looking at the same thing.
+ *  different renderings of the same rows. A tutor gets no Tutor column, because
+ *  every row is theirs, and a read-only account gets no ticking, because there
+ *  is nothing it could do with a selection. Everything else is the same table,
+ *  so the two of them reading the same student are looking at the same thing.
  */
 export function ChaseListBody({
   rows,
@@ -1533,7 +1695,8 @@ function ChaseCard({
   isReadOnly: boolean;
   showTutor?: boolean;
   picked?: boolean;
-  /** Absent on a tutor's own list, which has nothing to do with a selection. */
+  /** Absent where there is nothing to do with a selection, which is a
+   *  read-only account looking at either list. */
   onPick?: () => void;
   onProspectClick: (prospectId: number) => void;
   onContact: () => void;
@@ -1686,11 +1849,7 @@ export function RegularRetentionChaseList({
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
-  // Ticked rows survive a filter change, because narrowing the list is how you
-  // build a selection: filter to F2, tick them, filter to F3, tick those.
-  const [picked, setPicked] = useState<Set<number>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [logged, setLogged] = useState<number | null>(null);
 
   // Read on mount rather than in useState, so the server and the first client
   // render agree and hydration stays quiet.
@@ -1787,37 +1946,9 @@ export function RegularRetentionChaseList({
   const clearNarrowing = () =>
     setFilters((f) => ({ ...f, grade: "", tutor: "", source: "", contact: "" }));
 
-  // The selection is a set of ids, but the dialog wants the rows behind them,
-  // and only rows that still exist in the report.
-  const pickedRows = useMemo(
-    () => chaseable.filter((r) => picked.has(r.student_id)),
-    [chaseable, picked]
-  );
-  const shownPicked = rows.filter((r) => picked.has(r.student_id)).length;
-  const allShownPicked = rows.length > 0 && shownPicked === rows.length;
-
-  const togglePicked = (studentId: number) => {
-    setLogged(null);
-    setPicked((current) => {
-      const next = new Set(current);
-      if (!next.delete(studentId)) next.add(studentId);
-      return next;
-    });
-  };
-
-  /** Ticks or clears every row currently on screen, leaving anything picked
-   *  under an earlier filter alone. */
-  const toggleAllShown = () => {
-    setLogged(null);
-    setPicked((current) => {
-      const next = new Set(current);
-      for (const r of rows) {
-        if (allShownPicked) next.delete(r.student_id);
-        else next.add(r.student_id);
-      }
-      return next;
-    });
-  };
+  // The same ticking a tutor gets on their own list, so a round of calls is
+  // logged the same way whoever is making it.
+  const picks = useChaseSelection(chaseable, rows);
 
   const onSort = (k: ChaseSortKey) =>
     setSort((s) =>
@@ -1982,52 +2113,13 @@ export function RegularRetentionChaseList({
         </div>
       </div>
 
-      {/* What the ticks can do. Only here when something is ticked, so the
-          toolbar above stays the same height while working normally. */}
-      {!isReadOnly && picked.size > 0 && (
-        <div className="flex items-center gap-3 mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
-          <span className="text-xs font-medium text-foreground tabular-nums">
-            {picked.size} selected
-            {shownPicked < picked.size && (
-              <span className="text-muted-foreground font-normal">
-                {" "}({picked.size - shownPicked} not in this view)
-              </span>
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => setBulkOpen(true)}
-            disabled={picked.size > BULK_CONTACT_LIMIT}
-            className={cn(
-              selectClass,
-              "inline-flex items-center gap-1.5 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
-          >
-            <MessageSquarePlus className="h-3.5 w-3.5" />
-            Log a contact
-          </button>
-          {picked.size > BULK_CONTACT_LIMIT && (
-            <span className="text-xs text-amber-700 dark:text-amber-400">
-              A contact can be logged for {BULK_CONTACT_LIMIT} students at a time.
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setPicked(new Set())}
-            className="text-xs text-muted-foreground hover:text-foreground underline"
-          >
-            Clear
-          </button>
-        </div>
-      )}
-
-      {/* Said once, where the ticks were, rather than as a toast that is gone
-          before the list finishes reloading. */}
-      {logged !== null && (
-        <p className="text-xs text-emerald-700 dark:text-emerald-400 mb-3">
-          Contact logged for {logged} student{logged === 1 ? "" : "s"}.
-        </p>
-      )}
+      <ChaseSelectionBar
+        selected={picks.picked.size}
+        notShown={picks.picked.size - picks.shownPicked}
+        logged={picks.logged}
+        onLog={() => setBulkOpen(true)}
+        onClear={picks.clear}
+      />
 
       <ChaseListBody
         rows={rows}
@@ -2036,16 +2128,7 @@ export function RegularRetentionChaseList({
         sort={sort}
         onSort={onSort}
         emptyText="Nobody matches these filters."
-        selection={
-          isReadOnly
-            ? undefined
-            : {
-                picked,
-                allShownPicked,
-                onToggle: togglePicked,
-                onToggleAll: toggleAllShown,
-              }
-        }
+        selection={isReadOnly ? undefined : picks.selection}
         onContact={setContactFor}
         onDecline={setDeclineFor}
         onUndo={setUndoFor}
@@ -2077,13 +2160,12 @@ export function RegularRetentionChaseList({
 
       {bulkOpen && (
         <BulkContactDialog
-          rows={pickedRows}
+          rows={picks.pickedRows}
           currentUserEmail={currentUserEmail}
           onClose={(count) => {
             setBulkOpen(false);
             if (count > 0) {
-              setLogged(count);
-              setPicked(new Set());
+              picks.finishLogging(count);
               onChanged();
             }
           }}

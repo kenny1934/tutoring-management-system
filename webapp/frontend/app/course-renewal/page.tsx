@@ -12,12 +12,15 @@ import { CalendarCheck, Check, Loader2, Search } from "lucide-react";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { RENEWAL_CONTACT_TYPE } from "@/components/parent-contacts/contact-utils";
 import {
+  BulkContactDialog,
   ChaseListBody,
+  ChaseSelectionBar,
   ChipRail,
   FilterChip,
   NotReturningDialog,
   STATE_META,
   UndoNotReturningDialog,
+  useChaseSelection,
 } from "@/components/admin/RegularRetentionSections";
 import { SeptemberClasses } from "@/components/regular/SeptemberClasses";
 import {
@@ -95,6 +98,7 @@ export default function CourseRenewalPage() {
   const [contactFor, setContactFor] = useState<RegularRetentionChaseRow | null>(null);
   const [declineFor, setDeclineFor] = useState<RegularRetentionChaseRow | null>(null);
   const [undoFor, setUndoFor] = useState<RegularRetentionChaseRow | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [restored, setRestored] = useState(false);
 
   // Whose page this is. Picking a tutor in the sidebar has to reach the data
@@ -215,6 +219,12 @@ export default function CourseRenewalPage() {
     () => countChaseStates(chaseable, filters, today),
     [chaseable, filters, today]
   );
+
+  // Chasing a renewal is a round of calls or one message to a class group, and
+  // typing the same note out twenty times afterwards is what stops it being
+  // logged at all. Same ticking, same dialog and same limit the office's board
+  // uses, so a tutor's records come out looking like everybody else's.
+  const picks = useChaseSelection(chaseable, rows);
 
   const filtered = q.trim() !== "" || grade !== "";
 
@@ -380,6 +390,14 @@ export default function CourseRenewalPage() {
                 </div>
               </div>
 
+              <ChaseSelectionBar
+                selected={picks.picked.size}
+                notShown={picks.picked.size - picks.shownPicked}
+                logged={picks.logged}
+                onLog={() => setBulkOpen(true)}
+                onClear={picks.clear}
+              />
+
               {rows.length === 0 && !filtered ? (
                 // Worth a sentence of its own rather than an empty table: an
                 // empty list here is usually good news, and which good news it
@@ -390,9 +408,8 @@ export default function CourseRenewalPage() {
                 </div>
               ) : (
                 // The board's own list, so a tutor and an admin reading the
-                // same student are reading the same row. No ticking, because
-                // logging a contact for a hundred families at once is the
-                // office's job, and no Tutor column, because they are it.
+                // same student are reading the same row. No Tutor column,
+                // because every row here is theirs.
                 <ChaseListBody
                   rows={rows}
                   today={today}
@@ -401,6 +418,7 @@ export default function CourseRenewalPage() {
                   onSort={onSort}
                   showBranch={showBranch}
                   showTutor={false}
+                  selection={isReadOnly ? undefined : picks.selection}
                   emptyText="Nobody matches what you searched for."
                   onContact={setContactFor}
                   onDecline={setDeclineFor}
@@ -442,6 +460,20 @@ export default function CourseRenewalPage() {
               editingContact={null}
               preselectedStudentId={contactFor.student_id}
               defaultContactType={RENEWAL_CONTACT_TYPE}
+            />
+          )}
+
+          {bulkOpen && (
+            <BulkContactDialog
+              rows={picks.pickedRows}
+              currentUserEmail={user?.email ?? ""}
+              onClose={(count) => {
+                setBulkOpen(false);
+                if (count > 0) {
+                  picks.finishLogging(count);
+                  mutate();
+                }
+              }}
             />
           )}
 
