@@ -344,16 +344,24 @@ def _application_search_clause(search: str):
 def effective_stream(app: RegularApplication) -> Optional[str]:
     """The language stream that governs placement for an application.
 
-    The linked student record wins when present — it is the system of record and
-    only ever holds C or E. Otherwise the submitted application value, with the
-    International stream folded into E for matching and colour (a class is never
-    International; a student sits in C or E). Returns None when nothing is set.
+    The application's own value wins. A family fills the form in for the year
+    they are applying for, so it is the most recent word we have, while the
+    student record can be a year stale and nothing in the intake writes back to
+    it. The International stream folds into E for matching and colour, because a
+    class is never International and a placed student sits in C or E.
+
+    The linked student record is only a fallback for an application that carries
+    no stream at all. Where the two disagree, the admin sees a warning on the
+    application and can copy the form's value onto the record deliberately; that
+    is the only thing that changes the record, and publishing never does it.
+
+    Returns None when neither side has anything.
     """
-    student = app.existing_student if app.existing_student_id else None
-    if student is not None and getattr(student, "lang_stream", None):
-        return student.lang_stream
     raw = (app.lang_stream or "").strip()
-    return "E" if raw == "Int" else (raw or None)
+    if raw:
+        return "E" if raw == "Int" else raw
+    student = app.existing_student if app.existing_student_id else None
+    return getattr(student, "lang_stream", None) or None
 
 
 def _get_linked_students_bulk(
@@ -1327,7 +1335,9 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             application_id=a.id,
             student_name=a.student_name,
             grade=a.grade,
-            lang_stream=a.lang_stream,
+            # The same stream the unassigned panel beside this board shows, so a
+            # student's badge cannot change colour just by being dragged in.
+            lang_stream=effective_stream(a),
             school=a.school,
             application_status=a.application_status,
             published=a.id in published,

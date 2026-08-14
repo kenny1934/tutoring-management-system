@@ -232,6 +232,20 @@ class TestSlotsCrud:
         # No linked student record, so no student code to show in the grid.
         assert slots[0].students[0].school_student_id is None
 
+    def test_list_sends_the_effective_stream_not_the_raw_one(self, db_session, config, admin, student):
+        # The board and the unassigned panel beside it have to agree, so the
+        # slot payload carries the same value the panel resolves: International
+        # already folded into E, and the form ahead of a stale record.
+        student.lang_stream = "C"
+        db_session.commit()
+        slot = _make_slot(db_session, config)
+        _make_app(db_session, config, name="Ivy", slot_id=slot.id, stream="Int")
+        _make_app(db_session, config, name="Zoe", slot_id=slot.id, stream="E",
+                  student_id=student.id)
+        slots = list_slots(config_id=config.id, location=None, _admin=None, db=db_session)
+        streams = {s.student_name: s.lang_stream for s in slots[0].students}
+        assert streams == {"Ivy": "E", "Zoe": "E"}
+
     def test_list_carries_linked_student_code(self, db_session, config, admin, student):
         student.school_student_id = "MSA-1024"
         db_session.commit()
@@ -647,14 +661,28 @@ class TestStreamPlacement:
         e_sug = next(s for s in resp.suggestions if s.slot_id == e_slot.id)
         assert "stream_match" in e_sug.reasons  # and earns the exact-match bonus
 
-    def test_linked_student_record_wins_over_submitted_stream(self, db_session, config, student):
-        # Submitted E, but the linked student record says C — the record wins.
+    def test_submitted_stream_wins_over_linked_student_record(self, db_session, config, student):
+        # The form says E and the stored record still says C. The form is the
+        # more recent word, so it is the one that places the student.
         student.lang_stream = "C"
         db_session.commit()
         c_slot = _make_slot(db_session, config, grade="F1", stream="C")
         e_slot = _make_slot(db_session, config, day="Saturday",
                             time="10:00 - 11:30", grade="F1", stream="E")
         app = _make_app(db_session, config, grade="F1", stream="E",
+                        student_id=student.id, p1=None, p2=None)
+        ids = {s.slot_id for s in _suggest(db_session, config, app).suggestions}
+        assert e_slot.id in ids
+        assert c_slot.id not in ids
+
+    def test_linked_student_record_fills_in_a_blank_form_stream(self, db_session, config, student):
+        # Nothing on the form, so the record is all there is to go on.
+        student.lang_stream = "C"
+        db_session.commit()
+        c_slot = _make_slot(db_session, config, grade="F1", stream="C")
+        e_slot = _make_slot(db_session, config, day="Saturday",
+                            time="10:00 - 11:30", grade="F1", stream="E")
+        app = _make_app(db_session, config, grade="F1", stream=None,
                         student_id=student.id, p1=None, p2=None)
         ids = {s.slot_id for s in _suggest(db_session, config, app).suggestions}
         assert c_slot.id in ids

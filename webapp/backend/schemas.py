@@ -4511,6 +4511,9 @@ class RegularSlotStudentInfo(BaseModel):
     application_id: int
     student_name: str
     grade: str
+    # The effective stream, never the raw form value: International is already
+    # folded into E, so the board can compare it against a slot's own stream
+    # without folding it again.
     lang_stream: Optional[str] = None
     school: Optional[str] = None
     application_status: str

@@ -68,15 +68,38 @@ export function foldStream(raw: string | null | undefined): string | null {
 }
 
 /** The stream that governs an application's placement and badge colour. The
- *  linked student record wins when present (it is the system of record and only
- *  ever holds C or E); otherwise the submitted value with Int folded into E. */
+ *  application's own value wins, because a family fills the form in for the year
+ *  they are applying for while the student record can be a year stale, and Int
+ *  folds into E. The record is only a fallback for a form with no stream at all.
+ *  Mirrors effective_stream in the backend's regular_course router; where the
+ *  two sides disagree the detail modal warns an admin and offers to copy the
+ *  form's value onto the record. */
 export function effectiveStream(app: {
   lang_stream?: string | null;
   linked_student?: { lang_stream?: string | null } | null;
 }): string | null {
-  const recordStream = app.linked_student?.lang_stream;
-  if (recordStream) return recordStream;
-  return foldStream(app.lang_stream);
+  return foldStream(app.lang_stream) ?? foldStream(app.linked_student?.lang_stream);
+}
+
+/** The stream written out for a sentence an admin reads. The names match the
+ *  English ones the application form itself uses for its three options, shortened
+ *  because "the record says Chinese Section" reads badly. An unrecognised value
+ *  comes back as it was stored. */
+export function streamName(raw: string | null | undefined): string {
+  const v = (raw ?? "").trim();
+  return v === "C" ? "Chinese" : v === "E" ? "English" : v === "Int" ? "International" : v;
+}
+
+/** The record's stream when it disagrees with the form's, otherwise null. Drives
+ *  the detail modal's warning: both sides must have a value and they must differ
+ *  after folding, so an Int form against an E record is not a disagreement. */
+export function divergentRecordStream(app: {
+  lang_stream?: string | null;
+  linked_student?: { lang_stream?: string | null } | null;
+}): string | null {
+  const form = foldStream(app.lang_stream);
+  const record = foldStream(app.linked_student?.lang_stream);
+  return form && record && form !== record ? record : null;
 }
 
 /** Distinct effective streams among `students` that clash with a slot's own

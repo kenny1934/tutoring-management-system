@@ -12,7 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, displayLocation, DAY_ABBREV,
-  getRegularTimeSlots, effectiveStream, BRANCH_INFO, hkTodayIso,
+  getRegularTimeSlots, effectiveStream, divergentRecordStream, streamName,
+  BRANCH_INFO, hkTodayIso,
 } from "@/lib/regular-utils";
 import { intakeChargesRegistrationFee, isPromoActive } from "@/lib/regular-promo";
 import { firstWeekdayOnOrAfter } from "@/lib/regular-publish-utils";
@@ -303,6 +304,10 @@ export function RegularApplicationDetailModal({
   // Prospect journey linking (Feature 2), a direct action outside Save Changes.
   const [prospectModalOpen, setProspectModalOpen] = useState(false);
   const [prospectBusy, setProspectBusy] = useState(false);
+  // Copying the form's stream onto the student record. It writes the student,
+  // not the application, so it is its own action rather than part of Save
+  // Changes, and it has its own busy flag.
+  const [streamSaving, setStreamSaving] = useState(false);
   // Admin-verified origin. Saved with the rest of the form rather than on
   // change, so a mis-click can be abandoned like any other edit.
   const [branchOrigin, setBranchOrigin] = useState("");
@@ -692,6 +697,30 @@ export function RegularApplicationDetailModal({
     setShowManualId(false);
     setManualIdInput("");
     setManualIdConfirmed("");
+  };
+
+  // The stream this application is being placed on, and the record's stream when
+  // it says something else. Both are null when there is nothing to warn about.
+  const formStream = effectiveStream(app);
+  const staleRecordStream = divergentRecordStream(app);
+
+  // Copy the form's stream onto the linked student record. Only ever runs from
+  // the warning's own button: an admin has read both values and decided the
+  // family's answer is the current one. Publishing deliberately does not do
+  // this, because it is a judgement rather than a side effect.
+  const handleAdoptFormStream = async () => {
+    const student = app.linked_student;
+    if (!student || !formStream || streamSaving) return;
+    setStreamSaving(true);
+    try {
+      await studentsAPI.update(student.id, { lang_stream: formStream });
+      showToast(`${student.student_name} is now on the ${streamName(formStream)} stream`, "success");
+      await onUpdated();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Could not update the student record", "error");
+    } finally {
+      setStreamSaving(false);
+    }
   };
 
   // Prospect linking writes the prospect row immediately (like the summer side),
@@ -1145,6 +1174,43 @@ export function RegularApplicationDetailModal({
                         <RegularOriginChip app={app} />
                       )}
                     </div>
+                    {/* The form and the student record disagree about the
+                        stream. Placement follows the form, so say which value
+                        is winning and offer to bring the record into line. */}
+                    {staleRecordStream && (
+                      <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-2">
+                        <div className="flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-300">
+                          <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                          <div className="min-w-0 leading-relaxed">
+                            <p>
+                              The form says {streamName(app.lang_stream)}, and this student&apos;s
+                              record says {streamName(staleRecordStream)}.{" "}
+                              {(app.lang_stream || "").trim() === "Int"
+                                ? `International sits with English, so this student is being placed and badged as ${streamName(formStream)}.`
+                                : `Placement and badges follow the form, so this student is being treated as ${streamName(formStream)}.`}
+                            </p>
+                            {!readOnly && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={handleAdoptFormStream}
+                                  disabled={streamSaving}
+                                  className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-gray-800 px-2 py-1 font-medium hover:bg-amber-100 dark:hover:bg-amber-900/40 disabled:opacity-50"
+                                >
+                                  {streamSaving && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  Put the record on {streamName(formStream)} too
+                                </button>
+                                <p className="mt-1 text-amber-800/80 dark:text-amber-300/70">
+                                  The record is what every session, enrolment and student page
+                                  colours this student&apos;s badge from, so their badge changes
+                                  outside the September intake as well.
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </InfoBlock>
 
                   {(app.wechat_id || app.contact_phone) && (

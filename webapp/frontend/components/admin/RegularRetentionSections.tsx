@@ -31,6 +31,7 @@ import { CopyableCell, StudentCodeBadge } from "@/components/summer/prospect-bad
 import { ProspectJourneyChip } from "@/components/admin/ProspectJourneyChip";
 import { ProspectDetailModal } from "@/components/summer/prospect-detail-modal";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import {
   CONTACT_METHODS,
   CONTACT_TYPES,
@@ -665,8 +666,16 @@ export function BulkContactDialog({
   currentUserEmail: string;
   onClose: (logged: number) => void;
 }) {
-  const { data: tutors = [] } = useActiveTutors();
+  const { data: allTutors = [] } = useActiveTutors();
   const { user, isAdmin, isImpersonating, effectiveRole, impersonatedTutor } = useAuth();
+  // Same order as the single-student modal: by first name, with the Mr or Ms
+  // stripped off first. Left in the API's order the menu reads as every Mr and
+  // then every Ms, which is nobody's idea of alphabetical.
+  const tutors = useMemo(
+    () => [...allTutors].sort((a, b) =>
+      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))),
+    [allTutors],
+  );
   const [tutorId, setTutorId] = useState<number | null>(null);
   const [when, setWhen] = useState(() => new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<string>(CONTACT_METHODS[0]);

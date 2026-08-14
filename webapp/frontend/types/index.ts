@@ -2543,8 +2543,9 @@ export interface LinkedSecondaryStudentInfo {
    *  window-aware badge as the student's own page. */
   grade?: string | null;
   has_current_year_regular_enrollment?: boolean | null;
-  /** The student record's language stream (C/E) — the system of record for
-   *  placement, so regular surfaces can resolve effective stream client-side. */
+  /** The student record's language stream (C/E). The application's own value
+   *  governs placement, so this is the fallback for a form with no stream, and
+   *  the value the detail modal warns about when the two disagree. */
   lang_stream?: string | null;
 }
 
