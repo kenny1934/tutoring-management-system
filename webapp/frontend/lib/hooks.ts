@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 're
 import useSWR, { mutate } from 'swr';
 import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
-import { assignableTutors } from './employment';
+import { pickableTutors } from './employment';
 import { isFileSystemAccessSupported } from './file-system';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun } from '@/types';
 
@@ -293,7 +293,7 @@ export function useTutor(id: number | null | undefined) {
 export function useActiveTutors() {
   const { data: tutors, ...rest } = useTutors();
   const activeTutors = useMemo(
-    () => assignableTutors(tutors?.filter(t => t.is_active_tutor !== false) ?? []),
+    () => pickableTutors(tutors ?? []),
     [tutors]
   );
   return { data: activeTutors, ...rest };
@@ -808,15 +808,16 @@ export function useAgedPendingMakeupsCount(tutorId: number | null | undefined) {
  * moves when somebody reassigns a lesson.
  */
 export function useEmploymentOverrun(enabled: boolean) {
+  const refreshInterval = useVisibilityAwareInterval(300000);
   return useSWR<EmploymentOverrun>(
     enabled ? 'employment-overrun' : null,
     () => employmentAPI.getOverrun(),
-    { refreshInterval: 300000, revalidateOnFocus: false }
+    { refreshInterval }
   );
 }
 
 /** Everything still assigned to one tutor, for the panel on their profile. */
-export function useDepartureLoad(tutorId: number | null | undefined, enabled = true) {
+export function useDepartureLoad(tutorId: number | null | undefined, enabled: boolean) {
   return useSWR<DepartureLoad>(
     tutorId && enabled ? ['departure-load', tutorId] : null,
     () => employmentAPI.getDepartureLoad(tutorId!)

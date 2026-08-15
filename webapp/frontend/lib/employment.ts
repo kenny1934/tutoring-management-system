@@ -8,6 +8,7 @@
  * screen: whoever is reassigning their lessons still has to see their name.
  */
 import { toDateString } from "@/lib/calendar-utils";
+import { formatDayFirstDate } from "@/lib/formatters";
 import type { DepartureLoad, Tutor } from "@/types";
 
 /** A last working day is on file, whether it has passed or not. */
@@ -30,28 +31,39 @@ export function hasDeparted(
   return Boolean(last && last < toDateString(today));
 }
 
-/** Whether this tutor can be given work happening on `workDate` (YYYY-MM-DD). */
-export function canHoldWorkOn(
-  tutor: Pick<Tutor, "departure_effective_on">,
-  workDate: string
-): boolean {
-  const last = tutor.departure_effective_on;
-  return !last || workDate <= last;
-}
-
 /**
  * The tutors a picker may offer.
  *
- * Excludes anyone who has already left. Anyone serving notice stays, because
- * they are still teaching and refusing to schedule them would be wrong. What
- * stops a lesson being booked past their last day is the server, which knows
- * the date of the lesson being booked and can therefore judge it.
+ * Both halves of the rule in one place: somebody who does not teach at all,
+ * which is every Supervisor and Guest, and somebody who has already left.
+ * Anyone serving notice stays, because they are still teaching and refusing to
+ * schedule them would be wrong. What stops a lesson being booked past their
+ * last day is the server, which knows the date of the lesson and can judge it.
+ *
+ * Both halves together on purpose. When this filtered on departure alone every
+ * call site had to remember to write the teaching half itself, and three of
+ * them did not.
  */
-export function assignableTutors<T extends Pick<Tutor, "departure_effective_on">>(
-  tutors: T[],
-  today: Date = new Date()
-): T[] {
-  return tutors.filter((tutor) => !hasDeparted(tutor, today));
+export function pickableTutors<
+  T extends Pick<Tutor, "departure_effective_on" | "is_active_tutor">
+>(tutors: T[], today: Date = new Date()): T[] {
+  return tutors.filter(
+    (tutor) => tutor.is_active_tutor !== false && !hasDeparted(tutor, today)
+  );
+}
+
+/**
+ * The tutors a picker may offer for work that has no end date.
+ *
+ * A regular slot or a waitlist preference carries on until somebody changes
+ * it, so the server refuses anyone with a leaving date at all, however far off
+ * (see NO_LEAVERS in services/departure_guard.py). Offering a name the save
+ * will reject is worse than not offering it.
+ */
+export function pickableForOpenEndedWork<
+  T extends Pick<Tutor, "departure_effective_on" | "is_active_tutor">
+>(tutors: T[], today: Date = new Date()): T[] {
+  return pickableTutors(tutors, today).filter((tutor) => !isLeaving(tutor));
 }
 
 /**
@@ -74,27 +86,26 @@ export function withCurrentTutor<T extends { id: number }>(
   return current ? [...options, current] : options;
 }
 
+/** "22 Aug 2026", or null for somebody who is not leaving. */
+export function departureDateLabel(
+  tutor: Pick<Tutor, "departure_effective_on">
+): string | null {
+  const last = tutor.departure_effective_on;
+  return last ? formatDayFirstDate(last) : null;
+}
+
 /** "Leaving 22 Aug 2026" or "Left 22 Aug 2026", or null for everybody else. */
 export function departureLabel(
   tutor: Pick<Tutor, "departure_effective_on">,
   today: Date = new Date()
 ): string | null {
-  const last = tutor.departure_effective_on;
-  if (!last) return null;
-  const when = new Date(`${last}T00:00:00`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const when = departureDateLabel(tutor);
+  if (!when) return null;
   return `${hasDeparted(tutor, today) ? "Left" : "Leaving"} ${when}`;
 }
 
 /**
  * Whether a departure has left anything behind that somebody has to move.
- *
- * Enrollments are counted for completeness on the profile panel but not here,
- * because an enrollment on its own schedules nothing: it is the sessions and
- * the slots that put a person in a room.
  */
 export function hasOutstandingWork(load: DepartureLoad): boolean {
   return (

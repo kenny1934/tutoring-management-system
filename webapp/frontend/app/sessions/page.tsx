@@ -3,7 +3,7 @@
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
-import { departureLabel, withCurrentTutor } from "@/lib/employment";
+import { departureLabel } from "@/lib/employment";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -146,11 +146,12 @@ const EMPTY_SELECTION: ReadonlySet<number> = new Set<number>();
  * so a grid would slice that window down to one week with nothing on screen
  * explaining the mode.
  */
+// Filters that fetch across dates of their own choosing. Neither has a week to
+// show, so both force the list view and both hide the date picker.
+const DATELESS_FILTERS = new Set(["pending-makeups", "after-last-day"]);
+
 function resolveViewMode(urlView: string | null, urlFilter: string | null): ViewMode {
-  if ((urlFilter || "") === "pending-makeups") return 'list';
-  // Sessions past a tutor's last working day span whatever dates the departure
-  // left behind, so there is no week to show them in either.
-  if ((urlFilter || "") === "after-last-day") return 'list';
+  if (DATELESS_FILTERS.has(urlFilter || "")) return 'list';
   return (urlView as ViewMode) || 'list';
 }
 
@@ -244,9 +245,7 @@ function SessionsPageContent() {
   const isAfterLastDayView = specialFilter === "after-last-day";
   const { data: overrun } = useEmploymentOverrun(isAfterLastDayView);
 
-  // Both modes fetch across dates of their own choosing, so the date picker
-  // and the week and month views have nothing to say in either.
-  const isDatelessView = isPendingMakeupsView || isAfterLastDayView;
+  const isDatelessView = DATELESS_FILTERS.has(specialFilter);
 
   // A filter this mode does not own is disarmed, not merely hidden. Hiding a
   // control while its value kept filtering is the defect this page already had

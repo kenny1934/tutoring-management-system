@@ -1,9 +1,9 @@
 """Turning ARK's employment records into a single date CSM can compare against.
 
-Two readings live in the sync rather than in ARK, and both are here: a departed
-status with no end date means gone right now, and an end date on an active
-record is stale and must be ignored. Getting either the wrong way round either
-locks somebody out who never left or lets somebody keep working who did.
+ARK answers both halves itself: `last_working_day` for the date, and `departed`
+for somebody already gone. The one decision left on this side is what to do
+with a departure that has no date, which is what an immediate termination looks
+like, and reading that as gone today is what these tests pin down.
 """
 from datetime import date
 
@@ -13,6 +13,7 @@ from services.ark_employment_sync import (
     resolve_last_working_day,
     tutors_missing_from_ark,
 )
+from utils.employment import sessions_after_last_day_clause
 
 SEEN_ON = date(2026, 8, 15)
 
@@ -31,36 +32,39 @@ def _tutor(db, name, tutor_id=None, departure=None, teaches=True):
     return tutor
 
 
-def _record(tutor_id, status="active", end_date=None, name="Someone"):
+def _record(tutor_id, last_working_day=None, departed=False, status="active", name="Someone"):
+    """One row as ARK's /integration/employment returns it."""
     return {
         "tutoring_system_id": tutor_id,
-        "staff_id": 100 + tutor_id,
         "staff_name": name,
         "employment_status": status,
-        "end_date": end_date,
+        "last_working_day": last_working_day,
+        "departed": departed,
     }
 
 
 class TestResolvingARKsRecord:
-    def test_active_staff_have_no_leaving_date(self):
-        assert resolve_last_working_day("active", None, SEEN_ON) is None
+    def test_staff_who_are_staying_have_no_leaving_date(self):
+        assert resolve_last_working_day(_record(7), SEEN_ON) is None
 
-    def test_a_resignation_uses_its_end_date(self):
-        assert resolve_last_working_day("resigned", date(2026, 8, 22), SEEN_ON) == date(2026, 8, 22)
+    def test_a_resignation_uses_the_date_ark_computed(self):
+        record = _record(7, last_working_day="2026-08-22", status="resigned")
 
-    def test_a_departure_with_no_end_date_means_today(self):
-        """An immediate termination has no notice period. Reading the blank as
-        "gone now" is the safe way round."""
-        assert resolve_last_working_day("terminated", None, SEEN_ON) == SEEN_ON
+        assert resolve_last_working_day(record, SEEN_ON) == date(2026, 8, 22)
 
-    def test_an_end_date_on_an_active_record_is_ignored(self):
-        """A withdrawn resignation leaves its date behind. Treating that as a
-        leaving date would lock out somebody who is still here."""
-        assert resolve_last_working_day("active", date(2026, 8, 22), SEEN_ON) is None
+    def test_a_departure_with_no_date_means_today(self):
+        """An immediate termination has no notice period, so ARK has no date to
+        send. Reading the blank as "gone now" is the safe way round."""
+        record = _record(7, departed=True, status="terminated")
 
-    def test_external_is_not_a_departure(self):
-        """The passport record behind a CSM Pro supervisor login."""
-        assert resolve_last_working_day("external", None, SEEN_ON) is None
+        assert resolve_last_working_day(record, SEEN_ON) == SEEN_ON
+
+    def test_a_date_already_parsed_is_accepted_too(self):
+        """Belt and braces for callers that hand over real dates rather than
+        the JSON strings the endpoint sends."""
+        record = _record(7, last_working_day=date(2026, 8, 22), status="resigned")
+
+        assert resolve_last_working_day(record, SEEN_ON) == date(2026, 8, 22)
 
 
 class TestApplyingTheSync:
@@ -68,7 +72,7 @@ class TestApplyingTheSync:
         tutor = _tutor(db_session, "Mr Ivan Chen", tutor_id=7)
 
         result = apply_employment(
-            db_session, [_record(7, "resigned", "2026-08-22")], seen_on=SEEN_ON
+            db_session, [_record(7, last_working_day="2026-08-22", status="resigned")], seen_on=SEEN_ON
         )
 
         db_session.refresh(tutor)
@@ -79,7 +83,7 @@ class TestApplyingTheSync:
     def test_a_withdrawn_resignation_clears_the_date(self, db_session):
         tutor = _tutor(db_session, "Mr Ivan Chen", tutor_id=7, departure=date(2026, 8, 22))
 
-        result = apply_employment(db_session, [_record(7, "active")], seen_on=SEEN_ON)
+        result = apply_employment(db_session, [_record(7)], seen_on=SEEN_ON)
 
         db_session.refresh(tutor)
         assert tutor.departure_effective_on is None
@@ -89,7 +93,7 @@ class TestApplyingTheSync:
         _tutor(db_session, "Mr Ivan Chen", tutor_id=7, departure=date(2026, 8, 22))
 
         result = apply_employment(
-            db_session, [_record(7, "resigned", "2026-08-22")], seen_on=SEEN_ON
+            db_session, [_record(7, last_working_day="2026-08-22", status="resigned")], seen_on=SEEN_ON
         )
 
         assert result.unchanged == 1
@@ -103,13 +107,13 @@ class TestApplyingTheSync:
             departure=date(2026, 7, 1), teaches=False,
         )
 
-        apply_employment(db_session, [_record(7, "active")], seen_on=SEEN_ON)
+        apply_employment(db_session, [_record(7)], seen_on=SEEN_ON)
 
         db_session.refresh(supervisor)
         assert supervisor.departure_effective_on == date(2026, 7, 1)
 
     def test_a_link_to_a_missing_tutor_is_reported_not_fatal(self, db_session):
-        result = apply_employment(db_session, [_record(999, "resigned", "2026-08-22")], seen_on=SEEN_ON)
+        result = apply_employment(db_session, [_record(999, last_working_day="2026-08-22", status="resigned")], seen_on=SEEN_ON)
 
         assert result.unlinked_tutor_ids == [999]
         assert result.checked == 0
@@ -156,8 +160,7 @@ class TestOverrunReport:
         rows = (
             db_session.query(SessionLog)
             .join(Tutor, SessionLog.tutor_id == Tutor.id)
-            .filter(Tutor.departure_effective_on.isnot(None))
-            .filter(SessionLog.session_date > Tutor.departure_effective_on)
+            .filter(sessions_after_last_day_clause())
             .all()
         )
 

@@ -12,6 +12,7 @@ from urllib.parse import urlparse, quote
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
+from utils.employment import sessions_after_last_day_clause
 from utils.query_helpers import session_with_relations, get_handover_prospect
 from sqlalchemy import func, or_, text, exists
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
@@ -134,10 +135,8 @@ async def get_sessions(
         # The cut-off is per tutor, which is why this cannot be expressed with
         # from_date, and it is deliberately not restricted to the future: work
         # left behind by a departure stays listed until somebody moves it.
-        query = (
-            query.join(Tutor, SessionLog.tutor_id == Tutor.id)
-            .filter(Tutor.departure_effective_on.isnot(None))
-            .filter(SessionLog.session_date > Tutor.departure_effective_on)
+        query = query.join(Tutor, SessionLog.tutor_id == Tutor.id).filter(
+            sessions_after_last_day_clause()
         )
 
     # Order by most recent first

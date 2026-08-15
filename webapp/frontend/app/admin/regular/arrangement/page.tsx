@@ -6,6 +6,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useVisibilityAwareInterval, useEscapeKey } from "@/lib/hooks";
+import { pickableForOpenEndedWork } from "@/lib/employment";
 import { useToast } from "@/contexts/ToastContext";
 import { useConfirmOpen } from "@/contexts/ConfirmContext";
 import { BarChart3, Grid3X3, Maximize2, RefreshCw, Users, Users2, UploadCloud, X } from "lucide-react";
@@ -213,8 +214,10 @@ export default function RegularArrangementPage() {
   // not be offered for a slot here, and the duty roster is per branch too.
   const tutorOptions = useMemo(() => {
     const branch = LOCATION_TO_CODE[location] || location;
-    return (tutors || [])
-      .filter((t) => t.is_active_tutor !== false && t.default_location === branch)
+    // Open-ended work: a regular slot runs until somebody changes it, so
+    // anybody with a leaving date is out rather than only those already gone.
+    return pickableForOpenEndedWork(tutors || [])
+      .filter((t) => t.default_location === branch)
       .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name))
       .map((t) => ({ id: t.id, name: t.tutor_name }));
   }, [tutors, location]);

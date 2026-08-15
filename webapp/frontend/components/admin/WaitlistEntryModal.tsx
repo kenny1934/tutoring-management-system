@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { X, Plus, Trash2, Search } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { waitlistAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useActiveTutors } from "@/lib/hooks";
+import { pickableForOpenEndedWork } from "@/lib/employment";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { GRADES, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
@@ -38,7 +39,11 @@ export function WaitlistEntryModal({
 }: WaitlistEntryModalProps) {
   const { selectedLocation, locations } = useLocation();
   const { showToast, showError } = useToast();
-  const { data: tutors = [] } = useActiveTutors();
+  // A waitlist preference has no end date, so the server refuses anybody
+  // with a leaving date at all. Offering them here would only produce a
+  // save that fails.
+  const { data: allTutors = [] } = useActiveTutors();
+  const tutors = useMemo(() => pickableForOpenEndedWork(allTutors), [allTutors]);
 
   const [studentName, setStudentName] = useState("");
   const [school, setSchool] = useState("");

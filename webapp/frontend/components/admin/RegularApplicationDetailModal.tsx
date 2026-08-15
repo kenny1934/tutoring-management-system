@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { regularAPI, tutorsAPI, studentsAPI, discountsAPI, ApiError } from "@/lib/api";
+import { pickableForOpenEndedWork } from "@/lib/employment";
 import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, minLessonsForDiscount } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -423,8 +424,8 @@ export function RegularApplicationDetailModal({
   // based at the other centre should not be offered for a lesson here.
   const tutorOptions = useMemo(
     () =>
-      (tutors || [])
-        .filter((t) => t.is_active_tutor !== false && t.default_location === pubLocation)
+      pickableForOpenEndedWork(tutors || [])
+        .filter((t) => t.default_location === pubLocation)
         .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name)),
     [tutors, pubLocation]
   );

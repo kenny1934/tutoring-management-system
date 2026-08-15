@@ -20,11 +20,7 @@ from models import (
     SummerCourseSlot,
     Tutor,
 )
-from services.departure_guard import (
-    DepartedTutorAssignment,
-    assert_assignment,
-    check_assignment,
-)
+from services.departure_guard import DepartedTutorAssignment, check_assignment
 from utils.employment import can_hold_work_on, has_departed, is_leaving
 
 TODAY = date(2026, 8, 15)
@@ -270,6 +266,84 @@ class TestAssignmentsAreRefused:
         assert row.id is not None
 
 
+class TestTheRegistryStaysHonest:
+    """The guard only covers what is listed in GUARDS.
+
+    The module says a new feature that assigns tutors belongs in that list on
+    the day it is written, which is the sort of comment nothing enforces. This
+    walks every foreign key onto tutors and makes somebody decide: either the
+    column assigns work, and it goes in GUARDS, or it records who did something,
+    and it goes in the exempt list below with a reason.
+    """
+
+    # Columns that name the person who acted, or who is being spoken to, rather
+    # than the person who will teach. None of these can name somebody who has
+    # left, because a leaver cannot log in to act, and the message tables must
+    # keep working for everybody on file.
+    AUTHORSHIP_COLUMNS = {
+        ("debug_audit_logs", "admin_id"),
+        ("document_folders", "created_by"),
+        ("document_versions", "created_by"),
+        ("documents", "created_by"),
+        ("documents", "locked_by"),
+        ("documents", "updated_by"),
+        ("extension_requests", "tutor_id"),
+        ("homework_completion", "assigned_by_tutor_id"),
+        ("homework_completion", "checked_by"),
+        ("makeup_proposal_slots", "resolved_by_tutor_id"),
+        ("makeup_proposals", "proposed_by_tutor_id"),
+        ("message_archives", "tutor_id"),
+        ("message_likes", "tutor_id"),
+        ("message_mentions", "mentioned_tutor_id"),
+        ("message_pins", "tutor_id"),
+        ("message_read_receipts", "tutor_id"),
+        ("message_recipients", "tutor_id"),
+        ("message_snoozes", "tutor_id"),
+        ("message_templates", "tutor_id"),
+        ("parent_communications", "tutor_id"),
+        ("push_subscriptions", "tutor_id"),
+        ("report_shares", "created_by"),
+        ("saved_reports", "created_by"),
+        ("student_radar_configs", "tutor_id"),
+        ("termination_records", "tutor_id"),
+        ("thread_mutes", "tutor_id"),
+        ("thread_pins", "tutor_id"),
+        ("tutor_memos", "tutor_id"),
+        ("tutor_messages", "from_tutor_id"),
+        ("waitlist_entries", "created_by"),
+    }
+
+    def test_every_tutor_foreign_key_is_guarded_or_named_as_authorship(self):
+        from database import Base
+        from services.departure_guard import GUARDS
+
+        guarded = {
+            (model.__tablename__, guard.column)
+            for model, guards in GUARDS.items()
+            for guard in guards
+        }
+
+        unaccounted = []
+        for mapper in Base.registry.mappers:
+            table = mapper.local_table
+            if table is None:
+                continue
+            for column in table.columns:
+                for fk in column.foreign_keys:
+                    if fk.column.table.name != "tutors":
+                        continue
+                    key = (table.name, column.name)
+                    if key not in guarded and key not in self.AUTHORSHIP_COLUMNS:
+                        unaccounted.append(key)
+
+        assert not unaccounted, (
+            "These columns point at a tutor and are neither guarded nor listed "
+            f"as authorship: {sorted(unaccounted)}. Decide which they are: if a "
+            "write to one decides who teaches something, add it to GUARDS in "
+            "services/departure_guard.py."
+        )
+
+
 class TestEarlyCheck:
     """The endpoint-level check, for refusing before anything is written."""
 
@@ -292,8 +366,13 @@ class TestEarlyCheck:
         assert check_assignment(db_session, tutor.id, date(2030, 1, 1)) is None
         assert check_assignment(db_session, None, date(2030, 1, 1)) is None
 
-    def test_assert_raises_the_same_message(self, db_session):
-        tutor = _tutor(db_session, departure=LAST_DAY)
+    def test_a_leaving_date_written_mid_request_is_not_missed(self, db_session):
+        """The leavers are cached per session, so the cache has to notice when
+        somebody's date is written in the same request that then assigns them."""
+        tutor = _tutor(db_session)
+        assert check_assignment(db_session, tutor.id, date(2027, 1, 1)) is None
 
-        with pytest.raises(DepartedTutorAssignment):
-            assert_assignment(db_session, tutor.id, LAST_DAY + timedelta(days=1))
+        tutor.departure_effective_on = LAST_DAY
+        db_session.commit()
+
+        assert check_assignment(db_session, tutor.id, date(2027, 1, 1)) is not None
