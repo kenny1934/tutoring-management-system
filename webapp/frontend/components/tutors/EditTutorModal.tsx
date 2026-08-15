@@ -24,7 +24,14 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
   const [defaultLocation, setDefaultLocation] = useState("");
   const [basicSalary, setBasicSalary] = useState("");
   const [isActiveTutor, setIsActiveTutor] = useState(true);
+  const [departureOn, setDepartureOn] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Teaching staff are the ones ARK keeps records for, so their leaving date
+  // arrives from the nightly sync and editing it here would be undone. The
+  // Supervisor and Guest accounts exist only in CSM, so theirs is set by hand.
+  // Same rule as tutors_missing_from_ark on the backend.
+  const arkManaged = tutor.is_active_tutor !== false;
 
   // Reset form whenever a new tutor is opened.
   useEffect(() => {
@@ -37,6 +44,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
         : ""
     );
     setIsActiveTutor(tutor.is_active_tutor ?? true);
+    setDepartureOn(tutor.departure_effective_on ?? "");
   }, [isOpen, tutor]);
 
   // Build the location options, making sure the tutor's current value is present
@@ -72,6 +80,8 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
       default_location: defaultLocation,
       basic_salary: salaryValue,
       is_active_tutor: isActiveTutor,
+      // Null clears it, which is what a withdrawn resignation needs.
+      departure_effective_on: departureOn.trim() === "" ? null : departureOn,
     };
 
     setIsSaving(true);
@@ -177,6 +187,26 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
             Active tutor (teaches students)
           </span>
         </label>
+
+        {/* Last working day. Separate from the toggle above because they answer
+            different questions: a Supervisor does not teach and is not leaving,
+            and a tutor on notice teaches right up to the date below. */}
+        <div>
+          <label className="block text-sm font-medium text-foreground/80 mb-1">
+            Last working day
+          </label>
+          <input
+            type="date"
+            value={departureOn}
+            onChange={(e) => setDepartureOn(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+          />
+          <p className="mt-1 text-xs text-foreground/60">
+            {arkManaged
+              ? "This comes from ARK and the nightly sync will put it back if you change it here. Record the resignation in ARK instead."
+              : "Leave blank unless they are leaving. From the day after this date they cannot log in, they drop out of the tutor pickers, and no lesson can be booked for them."}
+          </p>
+        </div>
       </div>
     </Modal>
   );

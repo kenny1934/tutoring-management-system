@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
+import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
+import { assignableTutors } from './employment';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -281,13 +282,18 @@ export function useTutor(id: number | null | undefined) {
 }
 
 /**
- * Hook for fetching only active tutors (those who teach students)
- * Filters out Supervisors and non-teaching admin staff
+ * Hook for fetching the tutors a picker may offer.
+ *
+ * Two separate exclusions. Supervisors and non-teaching admin staff never
+ * teach, which is what is_active_tutor records. Anyone whose last working day
+ * has passed is gone, which is what departure_effective_on records. Somebody
+ * serving notice is in neither group and stays in the list, because they are
+ * still teaching until the day they leave.
  */
 export function useActiveTutors() {
   const { data: tutors, ...rest } = useTutors();
   const activeTutors = useMemo(
-    () => tutors?.filter(t => t.is_active_tutor !== false) ?? [],
+    () => assignableTutors(tutors?.filter(t => t.is_active_tutor !== false) ?? []),
     [tutors]
   );
   return { data: activeTutors, ...rest };
@@ -790,6 +796,30 @@ export function useAgedPendingMakeupsCount(tutorId: number | null | undefined) {
     tutorId ? ['aged-pending-makeups-count', tutorId] : null,
     () => sessionsAPI.getAgedPendingMakeupsCount(tutorId!),
     { refreshInterval, revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Lessons booked past a leaver's last working day.
+ *
+ * Admin-only, and passed `enabled` rather than being called conditionally so
+ * the rule about who sees it stays at the call site. Refreshed rarely: a
+ * departure is not a thing that changes minute to minute, and the number only
+ * moves when somebody reassigns a lesson.
+ */
+export function useEmploymentOverrun(enabled: boolean) {
+  return useSWR<EmploymentOverrun>(
+    enabled ? 'employment-overrun' : null,
+    () => employmentAPI.getOverrun(),
+    { refreshInterval: 300000, revalidateOnFocus: false }
+  );
+}
+
+/** Everything still assigned to one tutor, for the panel on their profile. */
+export function useDepartureLoad(tutorId: number | null | undefined, enabled = true) {
+  return useSWR<DepartureLoad>(
+    tutorId && enabled ? ['departure-load', tutorId] : null,
+    () => employmentAPI.getDepartureLoad(tutorId!)
   );
 }
 

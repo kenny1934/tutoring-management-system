@@ -1,4 +1,6 @@
 import type {
+  DepartureLoad,
+  EmploymentOverrun,
   HomeworkCompletion,
   HomeworkCount,
   HomeworkStatus,
@@ -266,6 +268,7 @@ import type {
   SqlQueryResponse,
   RevertResponse,
 } from "@/types/debug";
+import { assignableTutors } from "./employment";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -753,6 +756,9 @@ export const sessionsAPI = {
     if (filters?.location) params.append("location", filters.location);
     // Map frontend 'status' to backend 'session_status'
     if (filters?.status) params.append("session_status", filters.status);
+    // Sessions dated past their own tutor's last working day. The cut-off is
+    // per tutor, so this cannot be expressed as a date range.
+    if (filters?.after_last_day) params.append("after_last_day", "true");
     if (filters?.limit) params.append("limit", filters.limit.toString());
     if (filters?.offset) params.append("offset", filters.offset.toString());
 
@@ -3247,8 +3253,7 @@ export const regularAPI = {
   // Off the general tutors endpoint rather than an intake-specific one: the
   // roster is the same list of people whichever intake is being staffed.
   getActiveTutors: async (): Promise<ActiveTutorOption[]> =>
-    (await tutorsAPI.getAll())
-      .filter((t) => t.is_active_tutor !== false)
+    assignableTutors((await tutorsAPI.getAll()).filter((t) => t.is_active_tutor !== false))
       .map((t) => ({
         id: t.id,
         tutor_name: t.tutor_name,
@@ -3269,6 +3274,26 @@ export const regularAPI = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+};
+
+export const employmentAPI = {
+  /** Lessons booked past a leaver's last working day, grouped by tutor. */
+  getOverrun: () => fetchAPI<EmploymentOverrun>("/admin/employment/overrun"),
+
+  /** Everything still pointing at one tutor: sessions, slots, duties, the lot. */
+  getDepartureLoad: (tutorId: number) =>
+    fetchAPI<DepartureLoad>(`/tutors/${tutorId}/departure-load`),
+
+  /** Pull leaving dates from ARK now instead of waiting for tonight's run. */
+  sync: () =>
+    fetchAPI<{
+      checked: number;
+      marked: number;
+      cleared: number;
+      unchanged: number;
+      changes: string[];
+      unlinked_tutor_ids: number[];
+    }>("/admin/employment/sync", { method: "POST" }),
 };
 
 export const homeworkAPI = {
@@ -3369,4 +3394,5 @@ export const api = {
   arkLeave: arkLeaveAPI,
   waitlist: waitlistAPI,
   homework: homeworkAPI,
+  employment: employmentAPI,
 };

@@ -74,6 +74,7 @@ async def get_sessions(
     financial_status: Optional[str] = Query(None, description="Filter by financial status"),
     from_date: Optional[date] = Query(None, description="Filter by session_date >= this date"),
     to_date: Optional[date] = Query(None, description="Filter by session_date <= this date"),
+    after_last_day: bool = Query(False, description="Only sessions dated after their tutor's last working day"),
     limit: int = Query(100, ge=1, le=2000, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     db: Session = Depends(get_db)
@@ -127,6 +128,17 @@ async def get_sessions(
 
     if to_date:
         query = query.filter(SessionLog.session_date <= to_date)
+
+    if after_last_day:
+        # Lessons standing in the diary for somebody who will not be there.
+        # The cut-off is per tutor, which is why this cannot be expressed with
+        # from_date, and it is deliberately not restricted to the future: work
+        # left behind by a departure stays listed until somebody moves it.
+        query = (
+            query.join(Tutor, SessionLog.tutor_id == Tutor.id)
+            .filter(Tutor.departure_effective_on.isnot(None))
+            .filter(SessionLog.session_date > Tutor.departure_effective_on)
+        )
 
     # Order by most recent first
     query = query.order_by(SessionLog.session_date.desc())

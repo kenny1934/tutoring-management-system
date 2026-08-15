@@ -43,6 +43,7 @@ PUBLIC_PATHS = frozenset({
     "/api/summer/pre-grade-window",
     # Cron-or-admin endpoints: self-validate X-Cron-Secret OR an admin cookie
     "/api/admin/promote-grades",
+    "/api/admin/employment/sync",
     "/api/summer/marketing/snapshot",
     "/api/summer/revenue/sheet-refresh",
 })

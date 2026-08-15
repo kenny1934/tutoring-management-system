@@ -111,6 +111,9 @@ class TutorBase(BaseModel):
     role: str = Field(..., max_length=50)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
     is_active_tutor: bool = Field(True, description="Whether this user teaches students")
+    departure_effective_on: Optional[date] = Field(
+        None, description="Last working day. Null means they are not leaving."
+    )
     profile_picture: Optional[str] = Field(None, max_length=2048)
 
 
@@ -130,6 +133,9 @@ class TutorResponsePublic(BaseModel):
     default_location: Optional[str] = Field(None, max_length=200)
     role: str = Field(..., max_length=50)
     is_active_tutor: bool = Field(True, description="Whether this user teaches students")
+    departure_effective_on: Optional[date] = Field(
+        None, description="Last working day. Null means they are not leaving."
+    )
     profile_picture: Optional[str] = Field(None, max_length=2048)
 
     model_config = ConfigDict(from_attributes=True)
@@ -141,11 +147,18 @@ class TutorUpdate(BaseModel):
     Intentionally limited to compensation and safe profile fields. ``user_email``
     and ``role`` are excluded (auth/privilege risk) and remain editable only
     through the Super Admin debug panel.
+
+    ``departure_effective_on`` is here despite ending somebody's access, because
+    it only ever takes access away and every change is written to the audit
+    trail. For anyone linked to ARK the nightly sync owns this field and will
+    overwrite whatever is set here, so in practice the editor is for the
+    Supervisor and Guest accounts that exist only in CSM.
     """
     nickname: Optional[str] = Field(None, max_length=100)
     default_location: Optional[str] = Field(None, max_length=200)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
     is_active_tutor: Optional[bool] = None
+    departure_effective_on: Optional[date] = None
 
 
 # ============================================

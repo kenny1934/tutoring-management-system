@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
-import { useActiveTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
+import { useActiveTutors, useTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
+import { withCurrentTutor } from "@/lib/employment";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { Plus, Trash2, PenTool, Home, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -86,6 +87,9 @@ export function EditSessionModal({
   onSave,
 }: EditSessionModalProps) {
   const { data: tutors } = useActiveTutors();
+  // The full roster, so a session already on a departed or off-branch tutor
+  // can still show whose it is.
+  const { data: allTutors = [] } = useTutors();
   const { data: locations } = useLocations();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
   const { effectiveRole } = useAuth();
@@ -219,10 +223,15 @@ export function EditSessionModal({
     const filtered = !form.location
       ? tutors
       : tutors.filter(t => t.default_location === form.location);
-    return [...filtered].sort((a, b) =>
+    // Whoever the session is already on stays in the list even when the
+    // narrowing would drop them, which happens for a tutor at another branch
+    // and for one who has left. Without this the select renders with nothing
+    // sensibly chosen and saving can write a tutor nobody picked.
+    const withCurrent = withCurrentTutor(filtered, session.tutor_id, allTutors);
+    return [...withCurrent].sort((a, b) =>
       getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
     );
-  }, [tutors, form.location]);
+  }, [tutors, allTutors, form.location, session.tutor_id]);
 
   // Helper to get day name from date string (abbreviated to match DB format)
   const getDayName = (dateStr: string) => {

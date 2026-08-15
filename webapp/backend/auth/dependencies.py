@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Tutor, SessionLog, OfficeIPWhitelist
+from utils.employment import has_departed
 from .jwt_handler import verify_token
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,17 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
+        )
+
+    # Somebody whose last working day has passed loses access on their next
+    # request rather than whenever their token happens to run out. The check
+    # lives here as well as at login because a cookie issued before they left
+    # stays cryptographically valid for hours and can be refreshed without ever
+    # touching the database.
+    if has_departed(tutor):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account is no longer active",
         )
 
     return tutor

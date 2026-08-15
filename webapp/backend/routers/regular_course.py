@@ -107,6 +107,7 @@ from auth.dependencies import (
 )
 from routers.students import find_duplicate_students, students_at
 from routers.primary_prospects import enrollment_backed_students
+from services.departure_guard import check_assignment
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.grades import GRADE_ORDER, grade_blocks_prospect_link, next_grade
 from quarters import get_quarter_dates, get_quarter_for_date
@@ -3220,6 +3221,17 @@ def _publish_application_inner(
             RegularApplicationStatus.ENROLLED.value,
         ) else 'Pending Payment'
     is_paid = payment_status == 'Paid'
+
+    # Nothing is written if the tutor will not be here for the lessons. A
+    # regular enrollment runs for a block of weeks, so the last lesson is the
+    # one that decides it, and that is the date quoted back.
+    last_lesson_date = max(
+        (p.session_date for p in sessions if not p.is_holiday), default=first_lesson_date
+    )
+    departure_problem = check_assignment(db, tutor_id, last_lesson_date, noun="lesson")
+    if departure_problem:
+        raise HTTPException(status_code=400, detail=departure_problem)
+
     enrollment = Enrollment(
         student_id=app.existing_student_id,
         tutor_id=tutor_id,

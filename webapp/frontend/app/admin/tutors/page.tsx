@@ -7,6 +7,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { useTutors, usePageTitle } from "@/lib/hooks";
+import { departureLabel, hasDeparted, isLeaving } from "@/lib/employment";
 import { getInitials } from "@/lib/avatar-utils";
 import { cn } from "@/lib/utils";
 import { Users, Search, MapPin } from "lucide-react";
@@ -45,9 +46,12 @@ function isActive(t: Tutor): boolean {
   return t.is_active_tutor !== false;
 }
 
-// Within a group: active tutors first, then alphabetical by name.
+// Within a group: people who have left sink to the bottom, then non-teaching
+// staff, then everybody else alphabetically. Somebody serving notice sorts
+// with the rest of the team, because that is still where they are.
 function sortTutors(list: Tutor[]): Tutor[] {
   return [...list].sort((a, b) => {
+    if (hasDeparted(a) !== hasDeparted(b)) return hasDeparted(a) ? 1 : -1;
     if (isActive(a) !== isActive(b)) return isActive(a) ? -1 : 1;
     return getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
   });
@@ -136,9 +140,24 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
           <span className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
             {tutor.tutor_name}
           </span>
-          {tutor.is_active_tutor === false && (
+          {/* Two different facts, so two different badges. "Inactive" means
+              they do not teach, which is true of every Supervisor. The
+              departure badge means they are going or gone. */}
+          {tutor.is_active_tutor === false && !isLeaving(tutor) && (
             <span className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
               Inactive
+            </span>
+          )}
+          {isLeaving(tutor) && (
+            <span
+              className={cn(
+                "flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                hasDeparted(tutor)
+                  ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+              )}
+            >
+              {departureLabel(tutor)}
             </span>
           )}
         </div>

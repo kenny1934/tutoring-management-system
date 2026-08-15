@@ -796,8 +796,13 @@ export function ScheduleMakeupModal({
   // Initialize form with original session's tutor
   useEffect(() => {
     if (isOpen) {
-      if (session.tutor_id) {
+      // Unless they have left. A make-up is a new lesson, so it needs somebody
+      // who will be here to teach it, and leaving the field empty makes that a
+      // choice the admin has to make rather than a default they might miss.
+      if (session.tutor_id && tutors?.some((t) => t.id === session.tutor_id)) {
         setSelectedTutorId(session.tutor_id);
+      } else if (session.tutor_id) {
+        setSelectedTutorId(null);
       }
       // Pre-fill date/time if provided (e.g., from extension request)
       if (initialDate) {
@@ -807,7 +812,7 @@ export function ScheduleMakeupModal({
         setSelectedTimeSlot(initialTimeSlot);
       }
     }
-  }, [isOpen, session.tutor_id, initialDate, initialTimeSlot]);
+  }, [isOpen, session.tutor_id, tutors, initialDate, initialTimeSlot]);
 
   // Reset form when modal closes
   useEffect(() => {

@@ -11,6 +11,12 @@ export interface Tutor {
   /** Monthly base salary. Only present for admin-level roles (Super Admin, Admin, Supervisor). */
   basic_salary?: number;
   is_active_tutor?: boolean;
+  /**
+   * Last working day, mirrored from ARK. Null or absent means they are not
+   * leaving. A date in the future means they are serving notice and still
+   * teaching, which is why this is not the same question as is_active_tutor.
+   */
+  departure_effective_on?: string | null;
   profile_picture?: string;
 }
 
@@ -21,6 +27,36 @@ export interface TutorUpdate {
   default_location?: string;
   basic_salary?: number;
   is_active_tutor?: boolean;
+  departure_effective_on?: string | null;
+}
+
+/** Work still pointing at a leaver that somebody has to move. */
+export interface DepartureLoad {
+  tutor_id: number;
+  departure_effective_on: string | null;
+  sessions_after_last_day: number;
+  first_session_on: string | null;
+  last_session_on: string | null;
+  summer_slots: number;
+  summer_duties: number;
+  regular_slots: number;
+  regular_duties: number;
+  waitlist_preferences: number;
+  open_enrollments: number;
+}
+
+export interface LeaverOverrun {
+  tutor_id: number;
+  tutor_name: string;
+  departure_effective_on: string;
+  sessions: number;
+  first_session_on: string | null;
+  last_session_on: string | null;
+}
+
+export interface EmploymentOverrun {
+  total_sessions: number;
+  leavers: LeaverOverrun[];
 }
 
 // Session Status constants
@@ -537,6 +573,8 @@ export interface SessionFilters {
   enrollment_id?: number;
   location?: string;
   status?: string;
+  /** Only sessions dated after their tutor's last working day. */
+  after_last_day?: boolean;
   limit?: number;
   offset?: number;
 }

@@ -60,6 +60,9 @@ function LoginContent() {
 
   const errorMessages: Record<string, string> = {
     unauthorized: "Your account is not authorised to access this system. Please contact an administrator.",
+    // Told apart from "unauthorised" on purpose. Somebody who worked here and
+    // has left should not be left wondering whether something is broken.
+    account_closed: "This account was closed when your employment ended. Please contact an administrator if you think that is wrong.",
     no_email: "Could not retrieve your email from Google. Please try again.",
     oauth_failed: "Authentication failed. Please try again.",
   };
