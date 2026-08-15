@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useEffect, useState, memo } from "react";
-import { useEnrollmentSessions, useLocations, useActiveTutors } from "@/lib/hooks";
+import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
+import { departureLabel, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import { enrollmentsAPI } from "@/lib/api";
 import Link from "next/link";
 import {
@@ -23,10 +24,13 @@ import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import type { Enrollment } from "@/types";
+import type { Enrollment, Tutor } from "@/types";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { GradeBadge } from "@/components/ui/grade-label";
+
+/** Stable empty list so a fetch in flight does not recompute the narrowing. */
+const EMPTY_TUTORS: Tutor[] = [];
 
 // Day options (short form)
 const DAY_OPTIONS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -107,7 +111,10 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
   // Fetch locations and tutors for editing
   const { data: allLocations = [] } = useLocations();
-  const { data: allTutors = [] } = useActiveTutors();
+  // The whole roster. The dropdown narrows it below, but this enrollment may
+  // already belong to somebody who has left, and their name has to come from
+  // somewhere.
+  const { data: allTutors = EMPTY_TUTORS } = useTutors();
   const { effectiveRole, isReadOnly } = useAuth();
   const isTutor = effectiveRole === "Tutor" || isReadOnly;
 
@@ -140,13 +147,18 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   const [copySuccess, setCopySuccess] = useState(false);
   const { showToast } = useToast();
 
-  // Filter tutors by selected location
+  // Filter tutors by selected location. Only people who can still be given work
+  // are offered, but whoever this enrollment is already assigned to is added
+  // back, so a tutor who has left does not leave the field looking empty when
+  // it is not.
   const filteredTutors = useMemo(() => {
     if (!editedLocation) return [];
-    return allTutors
-      .filter(t => t.default_location === editedLocation)
+    const offerable = pickableTutors(
+      allTutors.filter(t => t.default_location === editedLocation)
+    );
+    return [...withCurrentTutor(offerable, editedTutorId, allTutors)]
       .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
-  }, [allTutors, editedLocation]);
+  }, [allTutors, editedLocation, editedTutorId]);
 
   // Get time options based on current day
   const timeOptions = useMemo(() => getTimeOptions(editedDay), [editedDay]);
@@ -461,9 +473,14 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                   disabled={!editedLocation}
                 >
                   <option value="">{editedLocation ? 'Select tutor...' : 'Select location first'}</option>
-                  {filteredTutors.map(tutor => (
-                    <option key={tutor.id} value={tutor.id}>{tutor.tutor_name}</option>
-                  ))}
+                  {filteredTutors.map(tutor => {
+                    const departure = departureLabel(tutor);
+                    return (
+                      <option key={tutor.id} value={tutor.id}>
+                        {departure ? `${tutor.tutor_name} (${departure.toLowerCase()})` : tutor.tutor_name}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
