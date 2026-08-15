@@ -2,14 +2,15 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes } from "@/lib/hooks";
+import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
+import { departureLabel, withCurrentTutor } from "@/lib/employment";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check, UserMinus } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -147,6 +148,9 @@ const EMPTY_SELECTION: ReadonlySet<number> = new Set<number>();
  */
 function resolveViewMode(urlView: string | null, urlFilter: string | null): ViewMode {
   if ((urlFilter || "") === "pending-makeups") return 'list';
+  // Sessions past a tutor's last working day span whatever dates the departure
+  // left behind, so there is no week to show them in either.
+  if ((urlFilter || "") === "after-last-day") return 'list';
   return (urlView as ViewMode) || 'list';
 }
 
@@ -232,6 +236,18 @@ function SessionsPageContent() {
   // which still narrows the fetch.
   const isPendingMakeupsView = specialFilter === "pending-makeups";
 
+  // Lessons still booked for somebody past their last working day. Reached
+  // from the notification bell and from a leaver's profile. Unlike the
+  // make-ups view this keeps the status and summer filters and the bulk
+  // selection, because the job here is to work through the list and move
+  // sessions onto other tutors, which is exactly what those controls are for.
+  const isAfterLastDayView = specialFilter === "after-last-day";
+  const { data: overrun } = useEmploymentOverrun(isAfterLastDayView);
+
+  // Both modes fetch across dates of their own choosing, so the date picker
+  // and the week and month views have nothing to say in either.
+  const isDatelessView = isPendingMakeupsView || isAfterLastDayView;
+
   // A filter this mode does not own is disarmed, not merely hidden. Hiding a
   // control while its value kept filtering is the defect this page already had
   // once, so the effective values feed the fetch, the client-side passes and the
@@ -277,7 +293,7 @@ function SessionsPageContent() {
 
   // Build filters for SWR hook
   const sessionFilters = useMemo(() => {
-    const filters: Record<string, string | number | undefined> = {
+    const filters: Record<string, string | number | boolean | undefined> = {
       location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
       status: (statusFilter && statusFilter !== "__active") ? statusFilter : undefined,
       tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
@@ -292,6 +308,12 @@ function SessionsPageContent() {
       filters.from_date = toDateString(fetchWindow);
       filters.status = PENDING_MAKEUP_STATUSES.join(",");
       filters.limit = 2000;
+    } else if (isAfterLastDayView) {
+      // No date bounds at all: the cut-off is each tutor's own last working
+      // day, which only the server can apply, and work left behind by a
+      // departure stays listed until somebody moves it.
+      filters.after_last_day = true;
+      filters.limit = 2000;
     } else if (viewMode === "list" || viewMode === "daily") {
       filters.date = toDateString(selectedDate);
     } else if (viewMode === "weekly") {
@@ -305,7 +327,7 @@ function SessionsPageContent() {
     }
 
     return filters;
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView]);
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView, isAfterLastDayView]);
 
   // SWR hooks for data fetching with caching
   const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
@@ -365,8 +387,9 @@ function SessionsPageContent() {
 
   // Fetch proposals for the current date range (for showing proposed sessions)
   const proposalDateRange = useMemo(() => {
-    if (isPendingMakeupsView) {
-      // Don't show proposed sessions in pending makeups view
+    if (isDatelessView) {
+      // Neither focused view is anchored to a date range, so a proposal
+      // overlay has nothing to line up with.
       return { from: null, to: null };
     }
     if (viewMode === "list" || viewMode === "daily") {
@@ -379,7 +402,7 @@ function SessionsPageContent() {
       return { from: toDateString(start), to: toDateString(end) };
     }
     return { from: null, to: null };
-  }, [selectedDate, viewMode, isPendingMakeupsView]);
+  }, [selectedDate, viewMode, isDatelessView]);
 
   // Fetch proposals where PROPOSED SLOTS are in the date range (for ghost session display)
   const { data: proposalsForSlots = EMPTY_PROPOSALS } = useProposalsInDateRange(
@@ -739,7 +762,7 @@ function SessionsPageContent() {
   // the once-a-minute re-render of this heavy page.
   const selectedDateString = toDateString(selectedDate);
   const isTodaySelected = selectedDateString === toDateString(new Date());
-  const nowIndicatorLive = viewMode === "list" && !isPendingMakeupsView && isTodaySelected;
+  const nowIndicatorLive = viewMode === "list" && !isDatelessView && isTodaySelected;
   const nowMinutes = useNowMinutes(nowIndicatorLive ? 30000 : 0);
   const nowPosition = useMemo(() => {
     if (!nowIndicatorLive) return null;
@@ -1847,8 +1870,8 @@ function SessionsPageContent() {
         <h1 className="hidden sm:block text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
       </div>
 
-      {/* View switcher — hidden in the pending make-ups view, which is list-only */}
-      {!isPendingMakeupsView && (
+      {/* View switcher — hidden in the focused views, which are list-only */}
+      {!isDatelessView && (
         <>
           <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
           <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
@@ -1860,7 +1883,7 @@ function SessionsPageContent() {
 
       {/* Date Picker (list view only; the other views carry their own navigation).
           The pending make-ups window is fixed at 120 days, so no date to pick. */}
-      {viewMode === "list" && !isPendingMakeupsView && (
+      {viewMode === "list" && !isDatelessView && (
         <div className="flex items-center gap-2">
           <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
           {/* Today button - only show when not on today */}
@@ -2029,6 +2052,50 @@ function SessionsPageContent() {
                 {toolbarContent}
               </div>
             </div>
+
+            {/* Leavers with lessons still on them. The names are the point:
+                a count says how much is outstanding, but the reassigning is
+                done one tutor at a time, so each gets a row that filters the
+                list down to their own sessions. */}
+            {isAfterLastDayView && (
+              <div className="flex flex-col gap-2 px-3 py-2 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm text-rose-800 dark:text-rose-200">
+                    <UserMinus className="h-4 w-4" />
+                    <span className="font-medium">Sessions After a Tutor&apos;s Last Day</span>
+                    <span className="text-rose-600 dark:text-rose-400">({sessions.length} total)</span>
+                  </div>
+                  <button
+                    onClick={() => setSpecialFilter("")}
+                    className="text-xs font-medium px-2 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <p className="text-xs text-rose-700 dark:text-rose-300">
+                  These lessons are still assigned to someone who will not be here to teach them.
+                  Changing the tutor on each one clears it from this list.
+                </p>
+                {(overrun?.leavers.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {overrun!.leavers.map((leaver) => (
+                      <button
+                        key={leaver.tutor_id}
+                        onClick={() => setTutorFilter(String(leaver.tutor_id))}
+                        className={cn(
+                          "text-xs px-2 py-1 rounded border transition-colors",
+                          tutorFilter === String(leaver.tutor_id)
+                            ? "bg-rose-200 dark:bg-rose-900/60 border-rose-400 dark:border-rose-600 text-rose-900 dark:text-rose-100 font-medium"
+                            : "bg-white dark:bg-[#1a1a1a] border-rose-300 dark:border-rose-700 text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+                        )}
+                      >
+                        {leaver.tutor_name}, {departureLabel(leaver)?.toLowerCase()}, {leaver.sessions} to move
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Special Filter Banner */}
             {isPendingMakeupsView && (

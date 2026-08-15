@@ -10,7 +10,8 @@ import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EditTutorModal } from "@/components/tutors/EditTutorModal";
 import { TutorStatsCard } from "@/components/tutors/TutorStatsCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useTutor } from "@/lib/hooks";
+import { usePageTitle, useTutor, useDepartureLoad } from "@/lib/hooks";
+import { departureLabel, hasDeparted, hasOutstandingWork, isLeaving } from "@/lib/employment";
 import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
 import { getSessionStatusConfig, getMainGradeGroup, compareSessionsInSlot } from "@/lib/session-status";
@@ -35,6 +36,8 @@ import {
   Search,
   ArrowUpDown,
   X,
+  UserMinus,
+  ChevronRight,
 } from "lucide-react";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import {
@@ -198,6 +201,13 @@ function TutorProfileInner() {
     useTutor(tutorId);
 
   usePageTitle(tutor ? tutor.tutor_name : "Tutor");
+
+  // Only asked for when there is a departure to report on, so an ordinary
+  // profile page costs nothing extra.
+  const { data: departureLoad } = useDepartureLoad(
+    tutorId,
+    Boolean(tutor && isLeaving(tutor))
+  );
 
   const { data: comp } = useSWR(
     Number.isFinite(tutorId) ? ["tutor-comp", tutorId, period] : null,
@@ -406,6 +416,19 @@ function TutorProfileInner() {
                   />
                   {tutor.is_active_tutor === false ? "Inactive" : "Active"}
                 </span>
+                {isLeaving(tutor) && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 font-medium",
+                      hasDeparted(tutor)
+                        ? "text-foreground/50"
+                        : "text-rose-600 dark:text-rose-400"
+                    )}
+                  >
+                    <UserMinus className="h-3.5 w-3.5" />
+                    {departureLabel(tutor)}
+                  </span>
+                )}
               </div>
               <div className="mt-3 flex items-center gap-4 flex-wrap text-sm text-foreground/60">
                 {tutor.user_email && (
@@ -439,6 +462,68 @@ function TutorProfileInner() {
             )}
           </div>
         </div>
+
+        {/* What a departure leaves behind. Only on the page when there is a
+            leaving date, and only when something is still pointing at them.
+            The sessions can be worked through in the sessions list, but the
+            slots and duties cannot, and those are the ones that quietly
+            generate fresh sessions if nobody moves them. */}
+        {isLeaving(tutor) && departureLoad && hasOutstandingWork(departureLoad) && (
+          <div className="mb-4 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-rose-800 dark:text-rose-200">
+              <UserMinus className="h-4 w-4" />
+              Still assigned after {departureLabel(tutor)?.toLowerCase().replace(/^(left|leaving) /, "")}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {departureLoad.sessions_after_last_day > 0 && (
+                <Link
+                  href={`/sessions?filter=after-last-day&tutor=${tutor.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
+                >
+                  {departureLoad.sessions_after_last_day} session
+                  {departureLoad.sessions_after_last_day === 1 ? "" : "s"} to move
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              )}
+              {departureLoad.summer_slots > 0 && (
+                <Link
+                  href="/admin/summer/arrangement"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
+                >
+                  {departureLoad.summer_slots} summer slot
+                  {departureLoad.summer_slots === 1 ? "" : "s"}
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              )}
+              {departureLoad.regular_slots > 0 && (
+                <Link
+                  href="/admin/regular/arrangement"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
+                >
+                  {departureLoad.regular_slots} regular slot
+                  {departureLoad.regular_slots === 1 ? "" : "s"}
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              )}
+              {(departureLoad.summer_duties > 0 || departureLoad.regular_duties > 0) && (
+                <span className="inline-flex items-center rounded-lg border border-rose-200 dark:border-rose-800 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-300">
+                  {departureLoad.summer_duties + departureLoad.regular_duties} duty row
+                  {departureLoad.summer_duties + departureLoad.regular_duties === 1 ? "" : "s"}
+                </span>
+              )}
+              {departureLoad.waitlist_preferences > 0 && (
+                <span className="inline-flex items-center rounded-lg border border-rose-200 dark:border-rose-800 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-300">
+                  {departureLoad.waitlist_preferences} waitlist preference
+                  {departureLoad.waitlist_preferences === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+            <p className="mt-3 text-xs text-rose-700 dark:text-rose-300">
+              Slots keep producing lessons under this tutor until somebody else takes them
+              over, so those are worth changing before the sessions.
+            </p>
+          </div>
+        )}
 
         {/* Two-column body — fills the remaining viewport height; on desktop it's
             a flex row whose columns are height-bounded, so each scrolls on its

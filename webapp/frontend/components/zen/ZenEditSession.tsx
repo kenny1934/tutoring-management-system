@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Session } from "@/types";
 import { sessionsAPI } from "@/lib/api";
-import { useActiveTutors, useLocations } from "@/lib/hooks";
+import { useActiveTutors, useTutors, useLocations } from "@/lib/hooks";
+import { withCurrentTutor } from "@/lib/employment";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 
@@ -45,7 +46,15 @@ export function ZenEditSession({
   onClose,
   onSave,
 }: ZenEditSessionProps) {
-  const { data: tutors } = useActiveTutors();
+  const { data: assignable } = useActiveTutors();
+  const { data: everyone = [] } = useTutors();
+  // The tutor this session is already on stays pickable even after they
+  // leave, so the name still renders and reassigning it is possible here
+  // rather than only in the full editor.
+  const tutors = useMemo(
+    () => withCurrentTutor(assignable, session.tutor_id, everyone),
+    [assignable, everyone, session.tutor_id]
+  );
   const { data: locations } = useLocations();
 
   // Parse initial time slot

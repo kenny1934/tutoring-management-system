@@ -106,6 +106,8 @@ from services.summer_marketing_snapshot import (
     excluded_reference_codes_from_env,
     snapshot_to_row,
 )
+from services.departure_guard import check_assignment
+from utils.employment import still_here_clause
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
 from utils.branch_codes import SECONDARY_BRANCH_CODES, resolve_claimed_branch_code
@@ -3676,6 +3678,27 @@ def _publish_application_inner(
     # other enrollment/session_log row follows these conventions, so the
     # published Summer rows need to match or tutor views will get a mixed
     # display.
+    # Refuse before writing anything if a placement would land on somebody who
+    # has left by then. The flush guard would catch it either way, but a
+    # publish creates an enrollment and a session per lesson, so failing at the
+    # end reads as a mystery. This says which lessons and whose they are.
+    departure_problems = []
+    for p in publishable:
+        problem = check_assignment(
+            db, p.slot.tutor_id, p.lesson.lesson_date, noun="lesson"
+        )
+        if problem:
+            departure_problems.append(problem)
+    if departure_problems:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "This timetable puts lessons on a tutor who will not be here. "
+                + " ".join(dict.fromkeys(departure_problems))
+                + " Change the tutor on those slots first."
+            ),
+        )
+
     enrollment = Enrollment(
         student_id=student_id,
         tutor_id=majority.tutor_id,
@@ -4966,10 +4989,17 @@ def get_active_tutors(
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """Return active tutors for duty/slot assignment."""
+    """Return active tutors for duty/slot assignment.
+
+    Somebody serving notice is still on this list, because they are still
+    teaching. It is the session or slot date that decides whether they can take
+    a particular piece of work, and services/departure_guard.py judges that.
+    Only people whose last day has passed drop out here.
+    """
     tutors = (
         db.query(Tutor)
         .filter(Tutor.is_active_tutor == True)  # noqa: E712
+        .filter(still_here_clause())
         .order_by(Tutor.tutor_name)
         .all()
     )

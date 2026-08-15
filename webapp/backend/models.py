@@ -25,6 +25,11 @@ class Tutor(Base):
     profile_picture = Column(String(2048), comment='Google profile picture URL')
     basic_salary = Column(DECIMAL(10, 2), default=0.00, comment='Monthly base salary (before session revenue)')
     is_active_tutor = Column(Boolean, default=True, nullable=False, comment='Whether this user teaches students (false for Supervisors, non-teaching admins)')
+    # Last working day, mirrored from ARK by the nightly employment sync. NULL
+    # for everybody who is not leaving, which is nearly everybody. Note that
+    # this is a different question from is_active_tutor above: a Supervisor who
+    # never teaches is not leaving, and a tutor serving notice still does.
+    departure_effective_on = Column(Date, nullable=True, comment='Last working day, mirrored from ARK. NULL means not leaving.')
 
     # Relationships
     enrollments = relationship("Enrollment", back_populates="tutor", foreign_keys="[Enrollment.tutor_id]")

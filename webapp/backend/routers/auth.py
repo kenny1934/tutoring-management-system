@@ -15,6 +15,7 @@ from models import Tutor
 from auth.oauth import get_google_auth_url, exchange_code_for_user_info
 from auth.jwt_handler import create_access_token, create_refreshed_token, create_handoff_token, get_token_time_remaining, ACCESS_TOKEN_EXPIRE_HOURS
 from auth.dependencies import get_current_user
+from utils.employment import has_departed
 from utils.rate_limiter import check_ip_rate_limit
 
 router = APIRouter()
@@ -121,6 +122,18 @@ async def google_callback(
             # User not in system - reject login
             return RedirectResponse(
                 url=f"{redirect_base}/login?error=unauthorized",
+                status_code=status.HTTP_302_FOUND,
+            )
+
+        # Somebody whose last working day has passed keeps their row, because
+        # every session and enrollment they ever taught points at it, but they
+        # do not get a token. Their own error, rather than the one shown to a
+        # stranger, so the office can tell "no longer with us" apart from
+        # "never had an account".
+        if has_departed(tutor):
+            logger.info("Refused login for departed staff member %s", tutor.tutor_name)
+            return RedirectResponse(
+                url=f"{redirect_base}/login?error=account_closed",
                 status_code=status.HTTP_302_FOUND,
             )
 
