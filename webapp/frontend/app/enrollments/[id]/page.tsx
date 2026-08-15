@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions } from "@/lib/hooks";
-import { pickableTutors } from "@/lib/employment";
+import { departureLabel, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
 import useSWR from "swr";
@@ -98,13 +98,15 @@ export default function EnrollmentDetailPage() {
     base: Partial<Enrollment> & { acknowledge_discount_loss?: boolean };
   } | null>(null);
 
-  // For tutor dropdown (only active teaching staff)
+  // The whole roster, not just the people who can be given work. The dropdown
+  // narrows it below, but the enrollment in front of you may already belong to
+  // somebody who has left, and their name has to come from somewhere.
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
 
   // Fetch tutor for dropdown
   useEffect(() => {
     tutorsAPI.getAll()
-      .then(tutors => setAllTutors(pickableTutors(tutors)))
+      .then(setAllTutors)
       .catch(() => setAllTutors([]));
   }, []);
 
@@ -442,20 +444,20 @@ export default function EnrollmentDetailPage() {
     return effectiveEndStr;
   }, [enrollment?.first_lesson_date, enrollment?.lessons_paid, extensionForm.weeks, isEditingExtension, holidays]);
 
-  // Filter tutors by selected location and sort by first name (ignoring Mr/Ms)
+  // Filter tutors by selected location and sort by first name (ignoring Mr/Ms).
+  // Only people who can still be given work are offered, but whoever this
+  // enrollment is already assigned to is added back, so a tutor who has left
+  // does not leave the field looking empty when it is not.
   const filteredTutors = useMemo(() => {
     const selectedLocation = editForm.location || enrollment?.location;
-    if (!selectedLocation) {
-      return [...allTutors].sort((a, b) =>
-        getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
-      );
-    }
-    return allTutors
-      .filter(t => t.default_location === selectedLocation)
-      .sort((a, b) =>
-        getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
-      );
-  }, [allTutors, editForm.location, enrollment?.location]);
+    const atLocation = selectedLocation
+      ? allTutors.filter(t => t.default_location === selectedLocation)
+      : allTutors;
+    const offerable = pickableTutors(atLocation);
+    return [...withCurrentTutor(offerable, editForm.tutor_id ?? null, allTutors)].sort((a, b) =>
+      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
+    );
+  }, [allTutors, editForm.location, editForm.tutor_id, enrollment?.location]);
 
   // Day options
   const DAY_OPTIONS = [
@@ -900,9 +902,14 @@ export default function EnrollmentDetailPage() {
                         className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
                       >
                         <option value="">Select tutor...</option>
-                        {filteredTutors.map(tutor => (
-                          <option key={tutor.id} value={tutor.id}>{tutor.tutor_name}</option>
-                        ))}
+                        {filteredTutors.map(tutor => {
+                          const departure = departureLabel(tutor);
+                          return (
+                            <option key={tutor.id} value={tutor.id}>
+                              {departure ? `${tutor.tutor_name} (${departure.toLowerCase()})` : tutor.tutor_name}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 
