@@ -104,6 +104,26 @@ export function withCurrentTutor<T extends { id: number }>(
   return current ? [...options, current] : options;
 }
 
+/**
+ * Whether a filter set to this tutor should be moved off them.
+ *
+ * Pass everyone at the branch currently on screen, leavers included. Changing
+ * branch is a reason to move the filter, because that tutor's work is not on
+ * this screen at all while another branch is selected. A departure is not a
+ * reason: they are exactly who you came to look at, and quietly swapping in
+ * somebody else would show you a different tutor's data under a link you had
+ * shared as theirs.
+ *
+ * An empty list means the roster has not arrived yet, so nothing is released.
+ */
+export function shouldReleaseTutorFilter<T extends { id: number }>(
+  atBranch: T[],
+  currentId: number | null
+): boolean {
+  if (currentId == null || atBranch.length === 0) return false;
+  return !atBranch.some((tutor) => tutor.id === currentId);
+}
+
 /** "22 Aug 2026", or null for somebody who is not leaving. */
 export function departureDateLabel(
   tutor: Pick<Tutor, "departure_effective_on">

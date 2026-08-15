@@ -6,6 +6,7 @@ import {
   pickableForOpenEndedWork,
   pickableTutors,
   pickableWithLeavers,
+  shouldReleaseTutorFilter,
   withCurrentTutor,
 } from "./employment";
 
@@ -102,6 +103,30 @@ describe("keeping the current value in a picker", () => {
     const offered = [tutor(1)];
 
     expect(withCurrentTutor(offered, null, [tutor(1), tutor(2)])).toBe(offered);
+  });
+});
+
+describe("when a filter has to let go of its tutor", () => {
+  it("holds on to somebody who has left, because they are the subject", () => {
+    // The filter's value is the tutor you came to look at. Swapping in another
+    // name would show you their data under a link you had shared as this one's.
+    const atBranch = [tutor(1), tutor(2, "2026-01-31")];
+
+    expect(shouldReleaseTutorFilter(atBranch, 2)).toBe(false);
+  });
+
+  it("lets go when the tutor teaches at another branch", () => {
+    const atBranch = [tutor(1)];
+
+    expect(shouldReleaseTutorFilter(atBranch, 2)).toBe(true);
+  });
+
+  it("holds on while the roster has not arrived", () => {
+    expect(shouldReleaseTutorFilter([], 2)).toBe(false);
+  });
+
+  it("has nothing to let go of when no tutor is selected", () => {
+    expect(shouldReleaseTutorFilter([tutor(1)], null)).toBe(false);
   });
 });
 
