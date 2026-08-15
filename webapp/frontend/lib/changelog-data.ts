@@ -8,10 +8,10 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**Nobody gets booked for lessons after they have left**: the app had no way of knowing that somebody had left. The nearest thing to it marks whether a person teaches at all, which is also false for the supervisors and centre accounts who sign in every day, so it could not be used to close an account without locking those people out. A resignation therefore reached the timetable only when somebody remembered it, and lessons went on being booked for people who would not be there to teach them. Each night the app now reads everybody's last working day from ARK, where resignations are recorded, so the fact is entered once and both systems agree. Somebody working their notice carries on exactly as before, teaching, marking attendance and appearing in every list, because they are still here. What changes is that no lesson, class or duty can be put on them for a date after their last day, from the moment the resignation is recorded rather than the day they go, which is what gives the office weeks to arrange cover instead of hours. Once that day passes they can no longer sign in and they drop out of the lists of people a lesson can be given to. Everything already booked stays exactly as it is and stays fully editable, so their remaining lessons can be moved to other tutors one at a time, at whatever pace the term allows, and nothing is frozen or hidden while that happens. The office is told what a departure has left behind rather than having to go looking: a notice naming who is leaving and counting the lessons still sitting past their last day, a list of exactly those lessons to work through, and a panel on the person's own page counting the classes and duties still in their name, which are the ones that would otherwise carry on producing new lessons after everything else was tidied up."
+            "description": "**Nobody gets booked for lessons after they have left**: the app now reads everybody's last working day from ARK each night, so a resignation reaches the timetable as soon as it is recorded rather than when somebody remembers to pass it on. No lesson, class or duty can be placed on a tutor for a date after their last day, and once that day passes they can no longer sign in and drop out of the lists a lesson can be given to. Somebody working their notice carries on as before, and everything already booked stays where it is and can still be moved at whatever pace the term allows. The office also gets a notice naming who is leaving, a list of the lessons still sitting past their last day, and a count of the classes and duties still in their name."
           },
           {
-            "description": "**A record of everyone's last working day, kept without asking**: staff records live in ARK and the timetable lives here, and until now neither knew what the other had been told. A tutor's page shows whether they are leaving and when, the list of tutors marks them, and a button reads the latest from ARK straight away for anyone who does not want to wait for the overnight check. That check also names any teaching staff ARK has never heard of, because those are the people none of this can protect."
+            "description": "**A record of everyone's last working day, kept without asking**: a tutor's page now shows whether they are leaving and when, the tutor list marks them, and a button reads the latest from ARK straight away for anyone who does not want to wait for the overnight check. That check also names any teaching staff ARK has never heard of, because those are the people none of this can protect."
           }
         ]
       }
@@ -25,10 +25,10 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**Logging one call against a whole list of families on Course Renewal**: the Retention board let the office tick several students and write a single contact against all of them, and a tutor's own Course Renewal list had nothing of the kind, so ringing eight families meant opening eight students in turn. The list ticks the same way now and logs the lot in one go. A tutor's calls are always recorded as their own, so there is no way to put a call against a colleague by accident, while the office still chooses whose call it was. That menu of names runs in first name order with the Mr or Ms taken off, the way it does everywhere else, instead of listing every Mr before every Ms."
+            "description": "**Logging one call against a whole list of families on Course Renewal**: a tutor can now tick several students on their own Course Renewal list and log a single contact against all of them, the way the Retention board already allowed, so ringing eight families no longer means opening eight students in turn. A tutor's calls are always recorded as their own, while the office still chooses whose call it was. That menu of names runs in first name order with the Mr or Ms taken off, the way it does everywhere else."
           },
           {
-            "description": "**September classes drawn as a week rather than a list**: the September tab on Course Renewal listed each class one after another, so working out which afternoons a tutor is teaching meant reading the whole thing and holding it in your head. It is a week now, laid out the way the sessions page lays out a week, with the times down the side and the days across the top, and each class showing everybody placed in it. Days with nothing on them collapse to a thin strip so a light week is not mostly empty space, and a button opens them again. On a phone it becomes a day by day agenda instead of a grid too small to read."
+            "description": "**September classes drawn as a week rather than a list**: the September tab on Course Renewal now lays the classes out as a week, with the times down the side and the days across the top, so working out which afternoons a tutor is teaching no longer means reading the whole list. Days with nothing on them collapse to a thin strip and a button opens them again, and on a phone the week becomes a day by day agenda."
           }
         ]
       },
@@ -36,10 +36,10 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**The grade on the September timetable is the one the student is entering**: through the summer the app shows the grade a student is moving up to, so a record that says F4 reads as Pre-F5. That is right on a student's own page, and it was wrong on the September classes, where an F4 application already means F4 in September. Those classes and the students in them briefly read a year ahead of themselves. They now show the grade the family applied for, as the rest of the intake always has."
+            "description": "**The grade on the September timetable is the one the student is entering**: through the summer the app shows the grade a student is moving up to, so a record that says F4 reads as Pre-F5. That is right on a student's own page and wrong on the September classes, where an F4 application already means F4 in September. Those classes and the students in them now show the grade the family applied for."
           },
           {
-            "description": "**When the September form and our records disagree about a student's language stream**: a family fills the form in for the year ahead, and the record we hold for that student can be a year old, so the two can say different things. The app used to quietly trust the record, and the same student could show one stream on the unassigned list and another once they were placed in a class. It now goes by the form, because that is the more recent answer, and both places agree. Where the two differ, the application says so in plain words, and an admin who decides the form is right can put the record on the same stream with one press. Nothing changes on its own, and publishing a place still leaves the record alone."
+            "description": "**When the September form and our records disagree about a student's language stream**: a family fills the form in for the year ahead while the record we hold can be a year old, and the app used to quietly trust the record, so the same student could show one stream on the unassigned list and another once they were placed in a class. It now goes by the form, because that is the more recent answer, and says so in plain words where the two differ. An admin who decides the form is right can put the record on the same stream with one press, and nothing changes on its own."
           }
         ]
       }
@@ -53,7 +53,7 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**The chase list on the Retention tab fits a folding phone's inner screen**: opened on a folding phone, or in a window narrow enough that the side menu takes a good part of it, the filters above the chase list broke into a column with one control on each line. That used most of the screen and pushed the students themselves off the bottom of the card, which is the one thing that page is for. The filters now fold into the same Filters button a phone gets whenever there is no room to lay them out in a row, so the list starts near the top of the card again at those sizes. Nothing changes on a full-sized screen."
+            "description": "**The chase list on the Retention tab fits a folding phone's inner screen**: on a folding phone, or in a window narrow enough that the side menu takes a good part of it, the filters above the chase list broke into a column with one control on each line and pushed the students themselves off the bottom of the card. They now fold into the same Filters button a phone gets, so the list starts near the top of the card again. Nothing changes on a full-sized screen."
           }
         ]
       }
@@ -67,7 +67,7 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**Finding one family on the list of prospects still to chase**: the still to chase list on the Conversion tab runs to a couple of hundred P6 prospects who have not applied for September yet, and there was no way to look one of them up. When a parent rang back, finding them meant scrolling. There is a search box on it now, and it reads the name, the code their primary branch knows them by, the summer student code, both phone numbers and the school, so whichever of those is in front of you will find the family. What the list is showing travels in the address as well now, together with the year, the branch and which tab is open, so a list narrowed down for one person is something you can send them, and it is still narrowed when you come back to it from another tab. The list also carried a branch dropdown of its own that did the same job as the one at the top of the page, and that has gone, so there is one place to choose a branch and no way for the two to disagree."
+            "description": "**Finding one family on the list of prospects still to chase**: the still to chase list on the Conversion tab runs to a couple of hundred P6 prospects, so finding one when a parent rang back meant scrolling. There is a search box on it now, and it reads the name, the codes their primary branch and the summer course know them by, both phone numbers and the school. What the list is showing travels in the address as well, so a list narrowed down for one person is something you can send, and it is still narrowed when you come back to it. The list's own branch dropdown has gone, so there is one place to choose a branch."
           }
         ]
       }
@@ -81,10 +81,10 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**Who has not come back for September, and who to ring about it**: nothing in the app said which of last year's students had applied for the new school year and which had gone quiet, so the only way to find out was to read the application list against the class lists by hand. Regular Intake now has a Retention tab that takes everyone who studied with us last year, asks whether they have applied for September, and gives the answer as one figure with all the working behind it. The same students can be broken down by branch, by the grade they are entering, by tutor, or by where they came to us from, so a class that is quietly not coming back shows up before it becomes a surprise, and a chart shows how the intake has filled up day by day since the form opened. The chase list carries the phone number, what was said to that family last time and how long ago it was, and a call can be logged, a follow up booked, or a student marked as not returning without leaving the page, one at a time or for a whole selection at once. Marking somebody as not returning writes it where the quarterly leaver figures already come from, so the two can never disagree. The search, the filters and the ordering all live in the address, so a particular list is something you can send to somebody."
+            "description": "**Who has not come back for September, and who to ring about it**: Regular Intake has a new Retention tab that takes everyone who studied with us last year, asks whether they have applied for September, and gives the answer as one figure with all the working behind it. The same students break down by branch, by entering grade, by tutor or by where they came to us from, so a class that is quietly not coming back shows up before it becomes a surprise. The chase list carries the phone number and what was said to that family last time, and a call can be logged, a follow up booked, or a student marked as not returning without leaving the page, singly or for a whole selection. Marking somebody as not returning feeds the quarterly leaver figures, so the two can never disagree."
           },
           {
-            "description": "**Tutors have their own list of who has come back**: chasing was an office job because the retention board is an admin page, yet the person who knows the family is usually the tutor who taught them all year. A Course Renewal page now appears in the side menu for everybody while the September form is open, and disappears again when it closes. A tutor sees the students they taught last year, where each of them has got to, including whether the fee has been sent and paid, and can log what a parent said. A second tab lists the classes they are down to teach in September and who has been placed in them, marking the ones they taught last year and the ones who are new to the centre. Students who came up from a primary branch carry that branch's own code for them, and staff can open the full prospect record without leaving the list."
+            "description": "**Tutors have their own list of who has come back**: a Course Renewal page now appears in the side menu while the September form is open, so the person who knows the family can do the chasing instead of the office. A tutor sees the students they taught last year, where each of them has got to, including whether the fee has been sent and paid, and can log what a parent said. A second tab lists the classes they are down to teach in September and who has been placed in them, marking the ones they taught last year and the ones who are new to the centre."
           }
         ]
       },
@@ -92,10 +92,10 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
-            "description": "**The terminated students report opens in a few seconds**: it worked out the end date of every enrolment the centre has ever recorded before it could show a single quarter's leavers, which took about fifteen seconds every time somebody opened it. It now works out only the ones that could possibly fall in the quarter being asked for, and opens in about three."
+            "description": "**The terminated students report opens in a few seconds**: it used to work out the end date of every enrolment the centre has ever recorded before it could show a single quarter's leavers, which took about fifteen seconds. It now works out only the ones that could possibly fall in the quarter being asked for, and opens in about three."
           },
           {
-            "description": "**One list of contact types, and a type for course renewal**: the list of contact types offered when logging a parent contact had been copied into nine different places, so the wording drifted between them and adding a type meant finding all nine. There is one list now, and it has gained Course Renewal, so calls about September are recorded as what they are rather than as something else."
+            "description": "**One list of contact types, and a type for course renewal**: the contact types offered when logging a parent contact had been copied into nine different places, so the wording drifted between them and adding a type meant finding all nine. There is one list now, and it has gained Course Renewal."
           }
         ]
       },
@@ -103,7 +103,7 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**The P6 Prospects page now refuses people who cannot read it**: every other admin page tells somebody without access that they do not have it, and this one drew its heading, its filters and an empty table instead. None of the records were ever at risk, because the data behind that page has always been admin only, but the page looked broken rather than closed."
+            "description": "**The P6 Prospects page now refuses people who cannot read it**: somebody without access saw the heading, the filters and an empty table instead of being told they do not have it. None of the records were ever at risk, because the data behind that page has always been admin only, but the page looked broken rather than closed."
           }
         ]
       }
@@ -117,13 +117,13 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**Back to School applicants were quoted MOP 100 too much**: the fee message for a new student on the offer asked for MOP 2,200 while telling the parent they had saved MOP 400 off MOP 2,500, which comes to MOP 2,100. The September intake collects the MOP 100 materials fee from nobody, and the setting that says so had been cleared from the course settings, so the fee was charged again. The setting is back and every fee message, total and preview now says MOP 2,100. No application had been published while this was wrong, so no enrolment and no revenue figure carried the higher price."
+            "description": "**Back to School applicants were quoted MOP 100 too much**: the fee message asked a new student for MOP 2,200 while telling the parent they had saved MOP 400 off MOP 2,500, which comes to MOP 2,100. The September intake collects the materials fee from nobody, and the setting that says so had been cleared, so the fee was charged again. Every fee message, total and preview now says MOP 2,100, and no application had been published while this was wrong."
           },
           {
-            "description": "**Saving the course settings no longer drops rules the form does not show**: the summer and September settings pages rebuilt the whole pricing section from the boxes on screen each time they were saved, so anything set up behind the scenes with no box of its own was quietly removed. That is how the September intake came to charge a materials fee it had been told to waive. Both pages now keep what they do not show, and whether the materials fee is collected this intake has become a tick box on the September page, so the rule can be read and changed where it is decided."
+            "description": "**Saving the course settings no longer drops rules the form does not show**: the summer and September settings pages rebuilt the whole pricing section from the boxes on screen each time they were saved, so anything set up behind the scenes with no box of its own was quietly removed. That is how the September intake came to charge a materials fee it had been told to waive. Both pages now keep what they do not show, and whether the materials fee is collected has become a tick box on the September page."
           },
           {
-            "description": "**The application window keeps up with what it has just done**: linking a student record fills in where the applicant came from, but the window went on showing Unverified. Save Changes stayed lit, closing the window offered to discard edits nobody had made, and saving a second time cleared the origin that had just been worked out. The window now reads the application back after every change, including linking or unlinking a P6 prospect. Publishing had the same trouble with the status: the application moved to Enrolled while the window still showed the rung before it, and saving would have put it back."
+            "description": "**The application window keeps up with what it has just done**: linking a student record filled in where the applicant came from, but the window went on showing Unverified, Save Changes stayed lit, and saving a second time cleared the origin that had just been worked out. The window now reads the application back after every change, including publishing, so what is on screen matches what has been saved."
           }
         ]
       }
@@ -137,7 +137,7 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**Homework set in earlier lessons can be marked from lesson mode**: lesson mode listed the homework that had been set but offered no way to say how it went, so a tutor part way through a lesson, with the student sitting there and the book in front of them, had to come out of it to record anything. The homework still waiting from earlier lessons now sits at the top of the exercise list, with the same marking, star rating, comment and photographs offered everywhere else. The lesson header shows how many pieces have been checked out of the total, pressing H opens the list from anywhere in the lesson, and on a phone the exercise list button carries a count of what is still waiting. Zen lesson mode for a single student gains the same list, and the same marking keys it already had when a whole time slot was open."
+            "description": "**Homework set in earlier lessons can be marked from lesson mode**: lesson mode listed the homework that had been set but offered no way to say how it went, so a tutor part way through a lesson, with the student sitting there, had to come out of it to record anything. The homework still waiting now sits at the top of the exercise list, with the same marking, star rating, comment and photographs offered everywhere else. The lesson header shows how many pieces have been checked, pressing H opens the list from anywhere in the lesson, and zen lesson mode gains the same list."
           }
         ]
       },
@@ -145,7 +145,7 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**Homework marked in an earlier lesson no longer looks unmarked**: the mark beside a piece of homework in lesson mode was only drawn while that piece was still waiting to be checked, so it vanished the moment somebody marked it in an earlier lesson. A piece that was done then looked exactly like a piece nobody had seen. The mark now comes from the student's own record once the lesson no longer carries it, so it stays where it was put, and nothing shown means nothing has ever been recorded."
+            "description": "**Homework marked in an earlier lesson no longer looks unmarked**: the mark beside a piece of homework was only drawn while that piece was still waiting to be checked, so it vanished the moment somebody marked it in an earlier lesson, and a piece that was done looked exactly like a piece nobody had seen. The mark now comes from the student's own record, so it stays where it was put."
           }
         ]
       }
@@ -159,10 +159,10 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**A student's whole homework record, and marking, on their own page**: the Courseware tab on a student's page listed what had been set and said nothing about what came back, so the only way to see how a student was doing was to open the lessons one at a time. Every piece of homework in the list now shows how it went, and clicking that mark opens the piece where it stands, so the state, the star rating, the comment and the photographs can all be set or put right without leaving the page. A summary across the top gives the shape of the student's year at a glance, and the list can be narrowed to one state, so everything still waiting can be worked through in a single pass. This also reaches homework that nothing else could. A piece stays on a lesson's list for up to three lessons the student actually sat, and anything that passed that point without being marked could no longer be marked, corrected, or have what the student handed in looked at again, from anywhere in the app. A student's own page has no such window."
+            "description": "**A student's whole homework record, and marking, on their own page**: the Courseware tab listed what had been set and said nothing about what came back, so the only way to see how a student was doing was to open the lessons one at a time. Every piece of homework now shows how it went, and clicking that mark opens the piece where it stands, so the state, the star rating, the comment and the photographs can all be put right without leaving the page. A summary across the top gives the shape of the student's year, and the list can be narrowed to one state. This also reaches homework that had dropped off the lesson lists, which nothing else in the app could mark or correct."
           },
           {
-            "description": "**Homework that came back but has not been marked yet now has its own state**: the four states could say a piece was done, partly done or not done, but none of them could say it is here and nobody has looked at it. Work sitting in a tutor's bag was recorded exactly the same as work that never arrived. There is now a fifth state, Handed in, between not checked and the three ways of marking it. It counts as still waiting, so the piece stays on the lesson's list and goes on showing how many lessons it has been there, and every homework panel now says how many pieces are waiting to be marked rather than waiting to come in. Six older records that had been kept as handed in without ever being marked have been moved to the new state."
+            "description": "**Homework that came back but has not been marked yet now has its own state**: the four states could say a piece was done, partly done or not done, but work sitting in a tutor's bag was recorded exactly the same as work that never arrived. There is now a fifth state, Handed in, which counts as still waiting, so the piece stays on the lesson's list, and every homework panel now says how many pieces are waiting to be marked rather than waiting to come in."
           }
         ]
       },
@@ -170,7 +170,7 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
-            "description": "**The homework keys in lesson mode follow the order on screen**: the marking keys now run in the same order as the buttons, so 1 is handed in, 2 done, 3 partly done and 4 not done, with 0 still clearing. They previously started at done, which no longer matched what was on screen once the new state was added."
+            "description": "**The homework keys in lesson mode follow the order on screen**: the marking keys now run in the same order as the buttons, so 1 is handed in, 2 done, 3 partly done and 4 not done, with 0 still clearing."
           }
         ]
       }
@@ -184,10 +184,10 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**Homework set in an earlier lesson can be marked as done**: whether homework came back was only ever known to the tutor who asked for it, so nothing followed the student from one week to the next. Each piece of homework now carries one control with four states, not checked, done, partly done and not done, along with a star rating and a comment. A piece stays on the list for up to three lessons the student actually sat, and every row says which lesson it was set in, with the date and the tutor who set it. That last part matters in summer, when the lesson before was often somebody else's class. Marking is available wherever a lesson is being worked through: when rating a session, either singly or for a whole time slot at once, from a session's details, and in wide lesson mode alongside the exercises for every student in the slot. Sessions lists and today's lessons on the dashboard show how much is still waiting, and lesson mode shows the total for the slot."
+            "description": "**Homework set in an earlier lesson can be marked as done**: whether homework came back was only ever known to the tutor who asked for it, so nothing followed the student from one week to the next. Each piece of homework now carries one control with four states, not checked, done, partly done and not done, along with a star rating and a comment. A piece stays on the list for up to three lessons the student actually sat, and every row says which lesson it was set in and who set it, which matters in summer when the lesson before was often somebody else's class. Marking is available wherever a lesson is being worked through, and the sessions lists and the dashboard show how much is still waiting."
           },
           {
-            "description": "**What a student handed in can be kept with the record**: a tutor who wanted to keep a page of working, or a marked exercise, had nowhere to put it. Photographs and PDFs now attach to a piece of homework. On a phone the camera opens straight from the button, so a book on the desk can be photographed where it lies, and the photographs are shown against the homework they belong to. Opening one shows it full size, and anything attached by mistake can be taken off again."
+            "description": "**What a student handed in can be kept with the record**: photographs and PDFs now attach to a piece of homework, so a page of working or a marked exercise can be kept with it. On a phone the camera opens straight from the button, so a book on the desk can be photographed where it lies, and anything attached by mistake can be taken off again."
           }
         ]
       },
@@ -195,7 +195,7 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
-            "description": "**Regular Intake shows how many applications are waiting**: the Summer Course item in the side menu carries a count of the applications still to be worked through, and an Open pill while the form is taking submissions. Regular Intake carried nothing, so the only way to know whether anything had come in was to open the page. It now carries the same badge. The count follows the branch picked in the side menu and leaves out anyone enrolled, waitlisted, withdrawn or not arranged, so the number shown is the number still needing someone. When nothing is waiting and the form is still open, the Open pill takes its place, and with the menu collapsed both show as a dot on the icon."
+            "description": "**Regular Intake shows how many applications are waiting**: the Summer Course item in the side menu carries a count of the applications still to be worked through, and an Open pill while the form is taking submissions. Regular Intake carried nothing, so the only way to know whether anything had come in was to open the page. It now carries the same badge, following the branch picked in the side menu and leaving out anyone already dealt with."
           }
         ]
       },
@@ -203,7 +203,7 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**A category on the terminated students page can be cleared again**: picking None did nothing once a category had been set, because the choice was dropped the moment it was made and the previous category came straight back. A category picked by mistake could be swapped for another one but never taken off. None now clears it, both on screen and when the changes are saved. Emptying the reason box, or leaving only spaces in it, likewise now records no reason rather than blank text, so a record cleared either way is counted the same in the quarter's breakdown."
+            "description": "**A category on the terminated students page can be cleared again**: picking None did nothing once a category had been set, so a category picked by mistake could be swapped for another one but never taken off. None now clears it, and emptying the reason box records no reason rather than blank text."
           }
         ]
       }
@@ -217,7 +217,7 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**The prospect journey chip opens the prospect's record**: the chip on a September application card read like a label, so the primary tutor's remark behind it could only be reached by leaving the page and searching the prospects list. That remark is often the reason an application is worth a second look. Clicking the chip now opens the record over the page it was clicked from, both on the cards and inside an application's details. Where a page cannot hold a second record open, the chip links through to the prospects page with the row already picked out."
+            "description": "**The prospect journey chip opens the prospect's record**: the chip on a September application card read like a label, so the primary tutor's remark behind it, which is often the reason an application is worth a second look, could only be reached by leaving the page and searching the prospects list. Clicking the chip now opens the record over the page it was clicked from, both on the cards and inside an application's details."
           }
         ]
       },
@@ -225,13 +225,13 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**Link suggestions only offer applications the prospect could belong to**: a P6 prospect can only be entering F1, but suggestions were matched on name and phone alone, so a prospect named Jayden Wong was offered an F2 Jayden Long at 91% name similarity. Exact matches were worse, because an unrelated F2 student with the same name looked like a certainty. Every suggestion is now held to the grade the prospect is entering, on the prospects page, on both applications pages and in the auto-match preview. On this year's records that took the September review list from 15 rows to 1 and the summer list from 17 to 2, and each suggestion left is one a person could plausibly accept. No incorrect link had been saved, so nothing needed correcting."
+            "description": "**Link suggestions only offer applications the prospect could belong to**: a P6 prospect can only be entering F1, but suggestions were matched on name and phone alone, so a prospect named Jayden Wong was offered an F2 Jayden Long at 91% name similarity. Every suggestion is now held to the grade the prospect is entering, which took the September review list from 15 rows to 1 and the summer list from 17 to 2. No incorrect link had been saved, so nothing needed correcting."
           },
           {
-            "description": "**A prospect's grade reads the same on every page**: a prospect showed as P6 on some screens and Pre-F1 on others, depending on how the grade had been written when the list was pasted in. Every prospect is in P6, so there was never a difference to show. Grades are now put into one form as they are taken in, and the 113 records holding G6 or another spelling have been corrected."
+            "description": "**A prospect's grade reads the same on every page**: a prospect showed as P6 on some screens and Pre-F1 on others, depending on how the grade had been written when the list was pasted in, though every prospect is in P6 and there was never a difference to show. Grades are now put into one form as they are taken in, and the 113 records holding another spelling have been corrected."
           },
           {
-            "description": "**Esc closes one panel at a time**: opening a prospect's record from an application closed both at once, and answering a confirmation question closed the application behind it along with any unsaved edits. Whichever panel is on top now takes the key press and the one beneath waits its turn, which applies to clicking outside a panel as well. The page behind stays still until the last panel is closed, and a message about what just happened is no longer hidden behind a confirmation box. On the renewals and trials pages, where two panels sit side by side, Esc now closes the one on top rather than both."
+            "description": "**Esc closes one panel at a time**: opening a prospect's record from an application closed both at once, and answering a confirmation question closed the application behind it along with any unsaved edits. Whichever panel is on top now takes the key press and the one beneath waits its turn, which applies to clicking outside a panel as well."
           }
         ]
       }
@@ -245,7 +245,7 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**Link suggestions can now find P6 prospects for September applications**: the Link suggestions button on the September applications page used to match applications to existing student records only, so an applicant who came up from a primary branch was never recorded as having done so and the conversion page showed nothing for the September intake. It now works in two halves. The first matches P6 prospects to applications, by the student they enrolled as over the summer and then by phone, with anything less certain listed for you to pick from. The second matches student records as before. The two are not alternatives: an application normally ends up with both, a student record so it can be published, and a prospect so the funnel knows where the family came from."
+            "description": "**Link suggestions can now find P6 prospects for September applications**: the button on the September applications page used to match applications to existing student records only, so an applicant who came up from a primary branch was never recorded as having done so and the conversion page showed nothing for the September intake. It now matches P6 prospects as well, by the student they enrolled as over the summer and then by phone, with anything less certain listed for you to pick from. An application normally ends up with both, a student record so it can be published and a prospect so the funnel knows where the family came from."
           },
           {
             "description": "**The prospect journey shows the primary branch code**: the chip on a September application read \"MCP to summer to regular\", naming the branch but not the student. It now leads with the applicant's code at their primary branch, so a card reads \"MCP-1112 to summer to regular\" and can be checked against that branch's own records without opening anything."
@@ -273,7 +273,7 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "**Demand colours on the arrangement timetable match the rest of the app**: each demand row coloured its bar by grade and stream but its label by grade alone, from a separate set of colours, so an F1C bar was green while its F1C label was blue. Both now use the grade badge colour used everywhere else, and the label is that badge, so a demand row and a student card agree on what F1C looks like. First choice fills solid and a backup choice the same colour more faintly."
+            "description": "**Demand colours on the arrangement timetable match the rest of the app**: each demand row coloured its bar by grade and stream but its label by grade alone, from a separate set of colours, so an F1C bar was green while its F1C label was blue. Both now use the grade badge colour used everywhere else, so a demand row and a student card agree on what F1C looks like."
           },
           {
             "description": "**One branch badge instead of two**: a September application linked to a prospect showed both a \"from MCP\" badge and a journey chip already beginning with MCP. The card now drops the badge when the chip says the same thing, and keeps it when it does not, such as an origin that names a different branch."
