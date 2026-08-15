@@ -80,7 +80,7 @@ const MemoListDrawer = dynamic(
 );
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { toDateString, getWeekBounds, getWeekStartStr, getMonthBounds, getNowSlotPosition } from "@/lib/calendar-utils";
+import { toDateString, getWeekBounds, getMonthBounds, getNowSlotPosition } from "@/lib/calendar-utils";
 import { LessonNudge } from "@/components/sessions/LessonNudge";
 import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { sessionsAPI } from "@/lib/api";
@@ -724,14 +724,15 @@ function SessionsPageContent() {
     return counts;
   }, [sessions, listShowsDates]);
 
-  // Which week the after-a-last-day view opens on.
+  // Which day the after-a-last-day view opens on.
   //
   // A departure's leftovers can be weeks out, so the grid would otherwise open
-  // on the current week with nothing in it. This lands on the week holding the
-  // earliest lesson still to be moved. It fires once per tutor you look at
-  // rather than on every empty week, so paging through the weeks yourself is
-  // not fought. Null means it has not landed yet, which an empty tutor filter
-  // would otherwise be indistinguishable from.
+  // on today with nothing in it. This lands on the earliest lesson still to be
+  // moved. The week grid only cares which week that is, but the day grid needs
+  // the day itself, and landing on the exact date serves both. It fires once
+  // per tutor you look at rather than on every empty day, so paging through the
+  // dates yourself is not fought. Null means it has not landed yet, which an
+  // empty tutor filter would otherwise be indistinguishable from.
   const landedOnRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isAfterLastDayView) {
@@ -748,7 +749,7 @@ function SessionsPageContent() {
       (soonest, session) => (session.session_date < soonest ? session.session_date : soonest),
       sessions[0].session_date
     );
-    if (getWeekStartStr(earliest) !== getWeekStartStr(toDateString(selectedDate))) {
+    if (earliest !== toDateString(selectedDate)) {
       setSelectedDate(new Date(earliest + 'T00:00:00'));
     }
   }, [isAfterLastDayView, tutorFilter, loading, sessionsValidating, sessions, selectedDate]);
@@ -781,6 +782,23 @@ function SessionsPageContent() {
     const { timeSlot } = nowPosition;
     requestAnimationFrame(() => scrollToSlot(timeSlot));
   }, [viewMode, loading, sessions.length, nowPosition, searchParams, scrollToSlot]);
+
+  // What the day grid is allowed to draw.
+  //
+  // The week and month grids sort their sessions into dates themselves and draw
+  // only the dates they hold, so a wider set of sessions costs them nothing. The
+  // day grid takes its one day on trust, because the fetch has always bounded it
+  // to the date you picked. The two dateless views ask for every date at once,
+  // so the bound has to be applied here instead: without it a leaver's whole
+  // remaining term piles onto whichever day you happen to be standing on.
+  //
+  // The filter is deliberately not applied to the ordinary views. SWR keeps the
+  // previous day on screen while the next one loads, and filtering that away
+  // would empty the grid for a moment on every step through the days.
+  const sessionsForDay = useMemo(
+    () => (isDatelessView ? sessions.filter((s) => s.session_date === selectedDateString) : sessions),
+    [isDatelessView, sessions, selectedDateString]
+  );
 
   // Compute days old and urgency tier for a session
   const getSessionUrgency = useCallback((session: Session) => {
@@ -3170,7 +3188,7 @@ function SessionsPageContent() {
       {/* Daily View */}
       {viewMode === "daily" && (
         <DailyGridView
-          sessions={sessions}
+          sessions={sessionsForDay}
           tutors={filteredTutors}
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}
