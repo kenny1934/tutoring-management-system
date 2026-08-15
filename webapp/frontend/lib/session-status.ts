@@ -81,7 +81,7 @@ export const getStatusSortOrder = (status: string | undefined): number => {
   return 99;
 };
 
-type SlotSortSession = {
+export type SlotSortSession = {
   grade?: string;
   lang_stream?: string;
   session_status?: string;

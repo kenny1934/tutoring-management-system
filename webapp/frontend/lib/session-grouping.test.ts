@@ -21,11 +21,11 @@ const row = (id: number, date: string, timeSlot: string | null, extra: Partial<R
 const keys = (groups: { key: string }[]) => groups.map((g) => g.key)
 const ids = (groups: { sessions: Row[] }[]) => groups.map((g) => g.sessions.map((s) => s.id))
 
-describe('groupSessionsForList on a single day', () => {
+describe('groupSessionsForList grouped by slot alone', () => {
   it('keys groups by the bare time slot, as the list has always done', () => {
     const groups = groupSessionsForList(
       [row(1, '2026-08-25', '14:30 - 16:00'), row(2, '2026-08-25', '10:00 - 11:30')],
-      { spansDates: false }
+      { groupByDate: false }
     )
     expect(keys(groups)).toEqual(['10:00 - 11:30', '14:30 - 16:00'])
   })
@@ -33,7 +33,7 @@ describe('groupSessionsForList on a single day', () => {
   it('files a session with no time slot under Unscheduled, and sorts it last', () => {
     const groups = groupSessionsForList(
       [row(1, '2026-08-25', null), row(2, '2026-08-25', '16:15 - 17:45')],
-      { spansDates: false }
+      { groupByDate: false }
     )
     expect(keys(groups)).toEqual(['16:15 - 17:45', UNSCHEDULED])
   })
@@ -41,7 +41,7 @@ describe('groupSessionsForList on a single day', () => {
   it('merges the same slot across dates, because the list shows one day', () => {
     const groups = groupSessionsForList(
       [row(1, '2026-08-25', '10:00 - 11:30'), row(2, '2026-08-26', '10:00 - 11:30')],
-      { spansDates: false }
+      { groupByDate: false }
     )
     expect(groups).toHaveLength(1)
     expect(groups[0].sessions).toHaveLength(2)
@@ -49,7 +49,7 @@ describe('groupSessionsForList on a single day', () => {
 
   it('gives a proposed slot with no lessons in it a group to render into', () => {
     const groups = groupSessionsForList([row(1, '2026-08-25', '10:00 - 11:30')], {
-      spansDates: false,
+      groupByDate: false,
       placeholderSlots: [{ date: '2026-08-25', timeSlot: '18:00 - 19:30' }],
     })
     expect(keys(groups)).toEqual(['10:00 - 11:30', '18:00 - 19:30'])
@@ -57,11 +57,11 @@ describe('groupSessionsForList on a single day', () => {
   })
 })
 
-describe('groupSessionsForList across dates', () => {
+describe('groupSessionsForList grouped by date and slot', () => {
   it('keeps the same slot on different days apart', () => {
     const groups = groupSessionsForList(
       [row(1, '2026-08-26', '10:00 - 11:30'), row(2, '2026-08-25', '10:00 - 11:30')],
-      { spansDates: true }
+      { groupByDate: true }
     )
     expect(keys(groups)).toEqual(['2026-08-25|10:00 - 11:30', '2026-08-26|10:00 - 11:30'])
     expect(ids(groups)).toEqual([[2], [1]])
@@ -74,7 +74,7 @@ describe('groupSessionsForList across dates', () => {
         row(2, '2026-08-25', '16:15 - 17:45'),
         row(3, '2026-08-25', '10:00 - 11:30'),
       ],
-      { spansDates: true }
+      { groupByDate: true }
     )
     expect(groups.map((g) => `${g.date} ${g.timeSlot}`)).toEqual([
       '2026-08-25 10:00 - 11:30',
@@ -83,12 +83,24 @@ describe('groupSessionsForList across dates', () => {
     ])
   })
 
-  it('carries the date on each group, which is what the list labels it with', () => {
+  it('marks the first group of each day, which is where the heading goes', () => {
     const groups = groupSessionsForList(
-      [row(1, '2026-08-25', '10:00 - 11:30'), row(2, '2026-08-29', '10:00 - 11:30')],
-      { spansDates: true }
+      [
+        row(1, '2026-08-25', '10:00 - 11:30'),
+        row(2, '2026-08-25', '16:15 - 17:45'),
+        row(3, '2026-08-26', '10:00 - 11:30'),
+      ],
+      { groupByDate: true }
     )
-    expect(groups.map((g) => g.date)).toEqual(['2026-08-25', '2026-08-29'])
+    expect(groups.map((g) => g.isFirstOfDate)).toEqual([true, false, true])
+  })
+
+  it('marks only the very first group when the list is grouped by slot alone', () => {
+    const groups = groupSessionsForList(
+      [row(1, '2026-08-25', '10:00 - 11:30'), row(2, '2026-08-25', '16:15 - 17:45')],
+      { groupByDate: false }
+    )
+    expect(groups.map((g) => g.isFirstOfDate)).toEqual([true, false])
   })
 })
 
@@ -99,7 +111,7 @@ describe('order within a group', () => {
         row(1, '2026-08-25', '10:00 - 11:30', { tutor_name: 'Mr Ivan Chen' }),
         row(2, '2026-08-25', '10:00 - 11:30', { tutor_name: 'Ms Anna Wong' }),
       ],
-      { spansDates: false }
+      { groupByDate: false }
     )
     expect(ids(groups)).toEqual([[2, 1]])
   })
@@ -112,7 +124,7 @@ describe('order within a group', () => {
         row(3, '2026-08-25', '10:00 - 11:30', { grade: 'F1', school_student_id: 'S3' }),
         row(4, '2026-08-25', '10:00 - 11:30', { session_status: 'Trial Class', school_student_id: 'S4' }),
       ],
-      { spansDates: false }
+      { groupByDate: false }
     )
     expect(ids(groups)).toEqual([[4, 2, 3, 1]])
   })
@@ -124,7 +136,7 @@ describe('order within a group', () => {
         row(2, '2026-08-25', '10:00 - 11:30', { school: 'MSA', school_student_id: 'S9' }),
         row(3, '2026-08-25', '10:00 - 11:30', { school: 'MSA', school_student_id: 'S2' }),
       ],
-      { spansDates: false }
+      { groupByDate: false }
     )
     expect(ids(groups)).toEqual([[3, 2, 1]])
   })
