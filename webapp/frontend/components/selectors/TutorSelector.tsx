@@ -14,13 +14,25 @@ import {
 } from "@floating-ui/react";
 import { ChevronDown, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useActiveTutors } from "@/lib/hooks";
+import { useTutors } from "@/lib/hooks";
+import {
+  departureLabel,
+  pickableTutors,
+  shouldReleaseTutorFilter,
+  withCurrentTutor,
+} from "@/lib/employment";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Tutor } from "@/types";
 
 // Special value for "All Tutors" mode
 export const ALL_TUTORS = 'all' as const;
 export type TutorValue = number | typeof ALL_TUTORS | null;
+
+/** Stable empty list so a fetch in flight does not recompute the narrowing. */
+const NO_TUTORS: Tutor[] = [];
+
+const byTutorName = (a: Tutor, b: Tutor) =>
+  getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
 
 interface TutorSelectorProps {
   value: TutorValue;
@@ -42,7 +54,8 @@ export function TutorSelector({
   showAllTutors = false,
 }: TutorSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { data: allTutors = [] } = useActiveTutors();
+  const { data: roster = NO_TUTORS } = useTutors();
+  const currentId = typeof value === 'number' ? value : null;
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
@@ -60,41 +73,47 @@ export function TutorSelector({
   const dismiss = useDismiss(context);
   const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
 
-  // Filter tutors by location and sort by first name
-  const filteredTutors = useMemo(() => {
-    let tutors = allTutors;
+  // Everyone at the branch on screen, including people who have left. The
+  // selection is judged against this rather than against what the dropdown
+  // offers, so that a departure never moves the filter off the tutor it is set
+  // to. See shouldReleaseTutorFilter for why the two are not the same question.
+  const tutorsAtBranch = useMemo(() => {
+    if (!location || location === "All Locations") return roster;
+    return roster.filter(t => t.default_location === location);
+  }, [roster, location]);
 
-    // Filter by location if specified and not "All Locations"
-    if (location && location !== "All Locations") {
-      tutors = tutors.filter(t => t.default_location === location);
-    }
+  // Who the dropdown offers: the people who can still be given work, in the
+  // order every picker on the site shows them.
+  const offerableTutors = useMemo(
+    () => pickableTutors(tutorsAtBranch).sort(byTutorName),
+    [tutorsAtBranch]
+  );
 
-    // Sort by first name (stripping Mr/Ms/Mrs prefix)
-    return [...tutors].sort((a, b) =>
-      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
-    );
-  }, [allTutors, location]);
+  // What it renders: the same list with whoever is currently selected put back,
+  // so a control that is filtering by a departed tutor can still name them
+  // instead of sitting there blank.
+  const filteredTutors = useMemo(
+    () => [...withCurrentTutor(offerableTutors, currentId, roster)].sort(byTutorName),
+    [offerableTutors, currentId, roster]
+  );
 
   // Auto-select first tutor if none selected and tutors are loaded (unless allowClear or showAllTutors)
   useEffect(() => {
-    if (!allowClear && !showAllTutors && value === null && filteredTutors.length > 0) {
-      onChange(filteredTutors[0].id);
+    if (!allowClear && !showAllTutors && value === null && offerableTutors.length > 0) {
+      onChange(offerableTutors[0].id);
     }
-  }, [value, filteredTutors, onChange, allowClear, showAllTutors]);
+  }, [value, offerableTutors, onChange, allowClear, showAllTutors]);
 
-  // If current selection is no longer in filtered list, reset to first (or null if allowClear)
-  // Skip this check for 'all' value since it's always valid
+  // Let go of a tutor who belongs to another branch, and only for that reason.
+  // 'all' is always valid, so it is never released.
   useEffect(() => {
-    if (value !== null && value !== ALL_TUTORS && filteredTutors.length > 0) {
-      const stillValid = filteredTutors.some(t => t.id === value);
-      if (!stillValid) {
-        onChange(allowClear || showAllTutors ? null : filteredTutors[0].id);
-      }
-    }
-  }, [value, filteredTutors, onChange, allowClear, showAllTutors]);
+    if (value === ALL_TUTORS) return;
+    if (!shouldReleaseTutorFilter(tutorsAtBranch, currentId)) return;
+    onChange(allowClear || showAllTutors ? null : (offerableTutors[0]?.id ?? null));
+  }, [value, currentId, tutorsAtBranch, offerableTutors, onChange, allowClear, showAllTutors]);
 
   const isAllTutorsSelected = value === ALL_TUTORS;
-  const selectedTutor = typeof value === 'number' ? filteredTutors.find(t => t.id === value) : null;
+  const selectedTutor = currentId != null ? filteredTutors.find(t => t.id === currentId) : null;
 
   return (
     <>
@@ -195,6 +214,9 @@ export function TutorSelector({
             ) : (
               filteredTutors.map((tutor) => {
                 const isSelected = tutor.id === value;
+                // Only ever set on the current selection, since a leaver is in
+                // this list at all only because the filter is pointed at them.
+                const departure = departureLabel(tutor);
 
                 return (
                   <button
@@ -219,6 +241,11 @@ export function TutorSelector({
                     )}>
                       {tutor.tutor_name}
                     </span>
+                    {departure && (
+                      <span className="ml-auto text-[10px] text-rose-600 dark:text-rose-400 flex-shrink-0">
+                        {departure}
+                      </span>
+                    )}
                   </button>
                 );
               })
