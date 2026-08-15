@@ -35,14 +35,11 @@ export interface DepartureLoad {
   tutor_id: number;
   departure_effective_on: string | null;
   sessions_after_last_day: number;
-  first_session_on: string | null;
-  last_session_on: string | null;
   summer_slots: number;
   summer_duties: number;
   regular_slots: number;
   regular_duties: number;
   waitlist_preferences: number;
-  open_enrollments: number;
 }
 
 export interface LeaverOverrun {
@@ -50,12 +47,25 @@ export interface LeaverOverrun {
   tutor_name: string;
   departure_effective_on: string;
   sessions: number;
-  first_session_on: string | null;
-  last_session_on: string | null;
+}
+
+export interface EmploymentSyncResult {
+  checked: number;
+  marked: number;
+  cleared: number;
+  unchanged: number;
+  /** One line per tutor whose leaving date moved, ready to show as it is. */
+  changes: string[];
+  /** ARK points at these CSM tutor ids and CSM does not have them. */
+  unlinked_tutor_ids: number[];
+  /** Teaching staff ARK has never heard of, so nothing protects them. */
+  missing_from_ark: string[];
 }
 
 export interface EmploymentOverrun {
   total_sessions: number;
+  /** Of those, the ones belonging to somebody already gone or about to be. */
+  critical_sessions: number;
   leavers: LeaverOverrun[];
 }
 

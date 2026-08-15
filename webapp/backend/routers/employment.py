@@ -11,7 +11,8 @@ in services/departure_guard.py, where it applies to every endpoint at once.
 import logging
 import os
 import secrets
-from datetime import date
+from dataclasses import asdict
+from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -20,9 +21,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user, require_admin_view, require_admin_write
+from constants import today_hk
 from database import get_db
 from models import (
-    Enrollment,
     RegularCourseSlot,
     RegularTutorDuty,
     SessionLog,
@@ -31,7 +32,12 @@ from models import (
     Tutor,
     WaitlistSlotPreference,
 )
-from services.ark_employment_sync import sync_employment_from_ark
+from services.ark_employment_sync import (
+    apply_employment,
+    fetch_ark_employment,
+    tutors_missing_from_ark,
+)
+from utils.employment import sessions_after_last_day_clause
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +64,10 @@ class EmploymentSyncResponse(BaseModel):
     unchanged: int
     changes: list[str]
     unlinked_tutor_ids: list[int]
+    # Teaching staff ARK has never heard of. The guard only protects people ARK
+    # knows about, so this is the gap in the protection, and it belongs in front
+    # of whoever ran the sync rather than in a log nobody reads.
+    missing_from_ark: list[str]
 
 
 @router.post("/admin/employment/sync", response_model=EmploymentSyncResponse)
@@ -72,20 +82,18 @@ async def sync_employment(
     only something on a clock can catch that.
     """
     try:
-        result = await sync_employment_from_ark(db)
+        records = await fetch_ark_employment()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         logger.error("ARK employment sync failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=502, detail="Could not reach ARK")
 
+    result = apply_employment(db, records)
+
     return EmploymentSyncResponse(
-        checked=result.checked,
-        marked=result.marked,
-        cleared=result.cleared,
-        unchanged=result.unchanged,
-        changes=result.changes,
-        unlinked_tutor_ids=result.unlinked_tutor_ids,
+        **asdict(result),
+        missing_from_ark=[t.tutor_name for t in tutors_missing_from_ark(db, records)],
     )
 
 
@@ -94,13 +102,20 @@ class LeaverOverrun(BaseModel):
     tutor_name: str
     departure_effective_on: date
     sessions: int
-    first_session_on: Optional[date] = None
-    last_session_on: Optional[date] = None
 
 
 class OverrunResponse(BaseModel):
     total_sessions: int
+    # Sessions belonging to somebody already gone or about to be, which is what
+    # turns the notification red. Decided here rather than from dates in the
+    # component, so it matches how every other item in that dropdown works.
+    critical_sessions: int
     leavers: list[LeaverOverrun]
+
+
+# A departure stops being something to plan around and starts being a problem
+# this many days out, because by then there is no time to arrange cover calmly.
+CRITICAL_WINDOW_DAYS = 7
 
 
 @router.get("/admin/employment/overrun", response_model=OverrunResponse)
@@ -121,12 +136,9 @@ def employment_overrun(
             Tutor.tutor_name,
             Tutor.departure_effective_on,
             func.count(SessionLog.id),
-            func.min(SessionLog.session_date),
-            func.max(SessionLog.session_date),
         )
         .join(SessionLog, SessionLog.tutor_id == Tutor.id)
-        .filter(Tutor.departure_effective_on.isnot(None))
-        .filter(SessionLog.session_date > Tutor.departure_effective_on)
+        .filter(sessions_after_last_day_clause())
         .group_by(Tutor.id, Tutor.tutor_name, Tutor.departure_effective_on)
         .order_by(Tutor.departure_effective_on)
         .all()
@@ -138,13 +150,15 @@ def employment_overrun(
             tutor_name=row[1],
             departure_effective_on=row[2],
             sessions=row[3],
-            first_session_on=row[4],
-            last_session_on=row[5],
         )
         for row in rows
     ]
+    soon = today_hk() + timedelta(days=CRITICAL_WINDOW_DAYS)
     return OverrunResponse(
         total_sessions=sum(leaver.sessions for leaver in leavers),
+        critical_sessions=sum(
+            leaver.sessions for leaver in leavers if leaver.departure_effective_on <= soon
+        ),
         leavers=leavers,
     )
 
@@ -153,14 +167,11 @@ class DepartureLoad(BaseModel):
     tutor_id: int
     departure_effective_on: Optional[date] = None
     sessions_after_last_day: int = 0
-    first_session_on: Optional[date] = None
-    last_session_on: Optional[date] = None
     summer_slots: int = 0
     summer_duties: int = 0
     regular_slots: int = 0
     regular_duties: int = 0
     waitlist_preferences: int = 0
-    open_enrollments: int = 0
 
 
 @router.get("/tutors/{tutor_id}/departure-load", response_model=DepartureLoad)
@@ -187,40 +198,27 @@ def departure_load(
     if tutor.departure_effective_on is None:
         return load
 
-    cutoff = tutor.departure_effective_on
-    sessions = (
-        db.query(
-            func.count(SessionLog.id),
-            func.min(SessionLog.session_date),
-            func.max(SessionLog.session_date),
+    def _count(column):
+        return (
+            db.query(func.count())
+            .select_from(column.class_)
+            .filter(column == tutor_id)
+            .scalar()
+            or 0
         )
-        .filter(SessionLog.tutor_id == tutor_id, SessionLog.session_date > cutoff)
-        .one()
-    )
-    load.sessions_after_last_day = sessions[0] or 0
-    load.first_session_on = sessions[1]
-    load.last_session_on = sessions[2]
 
-    def _count(model, column):
-        return db.query(func.count()).select_from(model).filter(column == tutor_id).scalar() or 0
-
-    load.summer_slots = _count(SummerCourseSlot, SummerCourseSlot.tutor_id)
-    load.summer_duties = _count(SummerTutorDuty, SummerTutorDuty.tutor_id)
-    load.regular_slots = _count(RegularCourseSlot, RegularCourseSlot.tutor_id)
-    load.regular_duties = _count(RegularTutorDuty, RegularTutorDuty.tutor_id)
-    load.waitlist_preferences = _count(
-        WaitlistSlotPreference, WaitlistSlotPreference.preferred_tutor_id
-    )
-    # Enrollments whose lessons have not all been taught yet. An enrollment
-    # that finished before they left is history and needs nobody's attention.
-    load.open_enrollments = (
-        db.query(func.count(Enrollment.id))
+    load.sessions_after_last_day = (
+        db.query(func.count(SessionLog.id))
         .filter(
-            Enrollment.tutor_id == tutor_id,
-            Enrollment.first_lesson_date.isnot(None),
-            Enrollment.first_lesson_date >= cutoff,
+            SessionLog.tutor_id == tutor_id,
+            SessionLog.session_date > tutor.departure_effective_on,
         )
         .scalar()
         or 0
     )
+    load.summer_slots = _count(SummerCourseSlot.tutor_id)
+    load.summer_duties = _count(SummerTutorDuty.tutor_id)
+    load.regular_slots = _count(RegularCourseSlot.tutor_id)
+    load.regular_duties = _count(RegularTutorDuty.tutor_id)
+    load.waitlist_preferences = _count(WaitlistSlotPreference.preferred_tutor_id)
     return load

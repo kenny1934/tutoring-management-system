@@ -3682,19 +3682,27 @@ def _publish_application_inner(
     # has left by then. The flush guard would catch it either way, but a
     # publish creates an enrollment and a session per lesson, so failing at the
     # end reads as a mystery. This says which lessons and whose they are.
-    departure_problems = []
+    # One check per tutor rather than per lesson: what decides it is the last
+    # date each of them is asked to teach.
+    last_date_by_tutor: dict[int, date] = {}
     for p in publishable:
-        problem = check_assignment(
-            db, p.slot.tutor_id, p.lesson.lesson_date, noun="lesson"
-        )
-        if problem:
-            departure_problems.append(problem)
+        if p.slot.tutor_id is None:
+            continue
+        seen = last_date_by_tutor.get(p.slot.tutor_id)
+        if seen is None or p.lesson.lesson_date > seen:
+            last_date_by_tutor[p.slot.tutor_id] = p.lesson.lesson_date
+
+    departure_problems = [
+        problem
+        for tutor_id, last_date in last_date_by_tutor.items()
+        if (problem := check_assignment(db, tutor_id, last_date, noun="lesson"))
+    ]
     if departure_problems:
         raise HTTPException(
             status_code=400,
             detail=(
                 "This timetable puts lessons on a tutor who will not be here. "
-                + " ".join(dict.fromkeys(departure_problems))
+                + " ".join(departure_problems)
                 + " Change the tutor on those slots first."
             ),
         )

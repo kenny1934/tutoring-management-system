@@ -17,9 +17,9 @@ against, which differs per table.
 It hangs off ``before_flush`` rather than living in each endpoint because there
 are around forty places that write a tutor id and the ones worth worrying about
 are the ones nobody remembers to guard. Endpoints that want a friendlier error
-than a rolled-back flush can call ``assert_assignment`` early, and the
-publishing paths do exactly that so a bulk run refuses up front instead of
-dying halfway through.
+than a rolled-back flush can call ``check_assignment`` early, and the publishing
+paths do exactly that so a bulk run refuses up front instead of dying halfway
+through.
 
 Messages and notifications are deliberately not registered here. A broadcast
 writes a recipient row for every tutor on file, leavers included, and it should
@@ -34,6 +34,7 @@ from typing import Callable, Optional
 
 from sqlalchemy import event, inspect
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.base import PASSIVE_NO_INITIALIZE
 
 from models import (
     Enrollment,
@@ -49,7 +50,7 @@ from models import (
     Tutor,
     WaitlistSlotPreference,
 )
-from utils.employment import can_hold_work_on, has_departed, is_leaving
+from utils.employment import can_hold_work_on, has_departed, leaving_clause
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +121,49 @@ GUARDS: dict[type, tuple[Guard, ...]] = {
 }
 
 
+_LEAVERS_KEY = "departure_guard_leavers"
+
+
+def leavers(session: Session) -> dict[int, Tutor]:
+    """Everybody with a leaving date on file, keyed by tutor id.
+
+    Held on the session rather than looked up per row. The obvious spelling,
+    ``session.get(Tutor, id)`` per check, looks free because of the identity
+    map, but that map holds weak references: the tutor is collected as soon as
+    the check returns, so the next row queries again. Writing four hundred
+    sessions across a few tutors issued four hundred SELECTs. This dict holds
+    strong references for the life of the session, which is one request, so the
+    whole feature costs one query, and none at all once the answer is empty.
+    """
+    cache = session.info.get(_LEAVERS_KEY)
+    if cache is None:
+        cache = {
+            tutor.id: tutor
+            for tutor in session.query(Tutor).filter(leaving_clause()).all()
+        }
+        session.info[_LEAVERS_KEY] = cache
+    return cache
+
+
+def forget_leavers(session: Session) -> None:
+    """Drop the cached leavers, because somebody's leaving date just moved."""
+    session.info.pop(_LEAVERS_KEY, None)
+
+
+def _history(obj, column: str):
+    """The attribute's change history, without building one for every column.
+
+    ``inspect(obj).attrs[column]`` memoises an AttributeState for the object's
+    entire namespace to read one key, which is forty throwaway objects per
+    enrollment and thirty-two per session row. Every flushed row is a fresh
+    object, so none of that memoising is ever reused.
+    """
+    return inspect(obj).get_history(column, PASSIVE_NO_INITIALIZE)
+
+
 def _incoming_value(obj, column: str) -> Optional[int]:
     """The tutor id this flush is writing into ``column``, changed or not."""
-    history = inspect(obj).attrs[column].history
+    history = _history(obj, column)
     if not history.has_changes():
         return None
     added = [value for value in history.added if value is not None]
@@ -144,7 +185,7 @@ def _previous_value(session: Session, obj, column: str) -> Optional[int]:
     if state.pending or state.transient:
         return None
 
-    history = state.attrs[column].history
+    history = _history(obj, column)
     if history.deleted:
         return history.deleted[0]
     if history.unchanged:
@@ -206,8 +247,8 @@ def check_assignment(
     """
     if tutor_id is None:
         return None
-    tutor = db.get(Tutor, tutor_id)
-    if tutor is None or not is_leaving(tutor):
+    tutor = leavers(db).get(tutor_id)
+    if tutor is None:
         return None
     if work_date is not None and can_hold_work_on(tutor, work_date):
         return None
@@ -219,17 +260,21 @@ def check_assignment(
     )
 
 
-def assert_assignment(
-    db: Session, tutor_id: Optional[int], work_date: Optional[date], noun: str = "session"
-) -> None:
-    """``check_assignment``, raising instead of returning."""
-    problem = check_assignment(db, tutor_id, work_date, noun)
-    if problem:
-        raise DepartedTutorAssignment(problem)
-
-
 def _before_flush(session: Session, flush_context, instances) -> None:
-    for obj in list(session.new) + list(session.dirty):
+    changed = list(session.new) + list(session.dirty)
+
+    # A leaving date being written is the one thing that makes the cached
+    # answer wrong, so the guard notices it rather than asking every caller to
+    # remember. Cheap: only Tutor rows are inspected, and only when one is
+    # being written at all.
+    if any(
+        isinstance(obj, Tutor) and _history(obj, "departure_effective_on").has_changes()
+        for obj in changed
+    ):
+        forget_leavers(session)
+
+    known_leavers = None
+    for obj in changed:
         guards = GUARDS.get(type(obj))
         if not guards:
             continue
@@ -237,12 +282,14 @@ def _before_flush(session: Session, flush_context, instances) -> None:
             tutor_id = _incoming_value(obj, guard.column)
             if tutor_id is None:
                 continue
-            tutor = session.get(Tutor, tutor_id)
-            if tutor is None or not is_leaving(tutor):
+            # Loaded once per flush, and not at all unless something assigns a
+            # tutor. When nobody is leaving this is an empty dict and every
+            # check below is a dictionary miss.
+            if known_leavers is None:
+                known_leavers = leavers(session)
+            tutor = known_leavers.get(tutor_id)
+            if tutor is None:
                 continue
-            # Only now is it worth establishing whether the column actually
-            # moved. Leavers are rare, so the extra query this can cost is
-            # rarer still, and it keeps every ordinary write free of it.
             if _previous_value(session, obj, guard.column) == tutor_id:
                 continue
             problem = _refusal(guard, obj, tutor, session)

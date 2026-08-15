@@ -1,20 +1,21 @@
 import { describe, it, expect } from "vitest";
 import {
-  assignableTutors,
-  canHoldWorkOn,
   departureLabel,
   hasDeparted,
   isLeaving,
+  pickableForOpenEndedWork,
+  pickableTutors,
   withCurrentTutor,
 } from "./employment";
 
 const TODAY = new Date("2026-08-15T09:00:00");
 const LAST_DAY = "2026-08-22";
 
-const tutor = (id: number, departure: string | null = null) => ({
+const tutor = (id: number, departure: string | null = null, teaches = true) => ({
   id,
   tutor_name: `Tutor ${id}`,
   role: "Tutor" as const,
+  is_active_tutor: teaches,
   departure_effective_on: departure,
 });
 
@@ -22,21 +23,18 @@ describe("who is still here", () => {
   it("treats a tutor with no leaving date as staying", () => {
     expect(isLeaving(tutor(1))).toBe(false);
     expect(hasDeparted(tutor(1), TODAY)).toBe(false);
-    expect(canHoldWorkOn(tutor(1), "2030-01-01")).toBe(true);
   });
 
   it("counts the last working day itself as still here", () => {
     expect(hasDeparted(tutor(1, LAST_DAY), new Date("2026-08-22T23:00:00"))).toBe(false);
-    expect(canHoldWorkOn(tutor(1, LAST_DAY), LAST_DAY)).toBe(true);
   });
 
   it("counts the day after as gone", () => {
     expect(hasDeparted(tutor(1, LAST_DAY), new Date("2026-08-23T09:00:00"))).toBe(true);
   });
 
-  it("refuses work dated after the last day, notice period or not", () => {
+  it("still counts somebody serving notice as here", () => {
     expect(hasDeparted(tutor(1, LAST_DAY), TODAY)).toBe(false);
-    expect(canHoldWorkOn(tutor(1, LAST_DAY), "2026-08-23")).toBe(false);
   });
 });
 
@@ -44,13 +42,27 @@ describe("who a picker may offer", () => {
   it("keeps somebody serving notice, because they are still teaching", () => {
     const list = [tutor(1), tutor(2, LAST_DAY)];
 
-    expect(assignableTutors(list, TODAY).map((t) => t.id)).toEqual([1, 2]);
+    expect(pickableTutors(list, TODAY).map((t) => t.id)).toEqual([1, 2]);
   });
 
   it("drops somebody whose last day has passed", () => {
     const list = [tutor(1), tutor(2, "2026-01-31")];
 
-    expect(assignableTutors(list, TODAY).map((t) => t.id)).toEqual([1]);
+    expect(pickableTutors(list, TODAY).map((t) => t.id)).toEqual([1]);
+  });
+
+  it("drops staff who do not teach at all", () => {
+    const list = [tutor(1), tutor(2, null, false)];
+
+    expect(pickableTutors(list, TODAY).map((t) => t.id)).toEqual([1]);
+  });
+
+  it("drops anybody leaving at all from open-ended work", () => {
+    // A regular slot or waitlist preference runs until somebody changes it, so
+    // the server refuses a leaver however far off their last day is.
+    const list = [tutor(1), tutor(2, LAST_DAY), tutor(3, "2027-06-30")];
+
+    expect(pickableForOpenEndedWork(list, TODAY).map((t) => t.id)).toEqual([1]);
   });
 });
 

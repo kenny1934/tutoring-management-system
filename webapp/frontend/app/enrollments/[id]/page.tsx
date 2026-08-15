@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions } from "@/lib/hooks";
+import { pickableTutors } from "@/lib/employment";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
 import useSWR from "swr";
@@ -103,7 +104,7 @@ export default function EnrollmentDetailPage() {
   // Fetch tutor for dropdown
   useEffect(() => {
     tutorsAPI.getAll()
-      .then(tutors => setAllTutors(tutors.filter(t => t.is_active_tutor !== false)))
+      .then(tutors => setAllTutors(pickableTutors(tutors)))
       .catch(() => setAllTutors([]));
   }, []);
 

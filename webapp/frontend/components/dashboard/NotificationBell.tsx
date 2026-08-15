@@ -199,16 +199,6 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     // go, because a month of notice is a month to move the work.
     if (showOverduePayments && overrun?.total_sessions) {
       const [first, ...others] = overrun.leavers;
-      const soonest = overrun.leavers.reduce(
-        (earliest, leaver) =>
-          leaver.departure_effective_on < earliest ? leaver.departure_effective_on : earliest,
-        first.departure_effective_on
-      );
-      // Red once the last day is behind us or a week away, because by then
-      // there is no longer time to arrange cover calmly.
-      const daysLeft = Math.ceil(
-        (new Date(`${soonest}T00:00:00`).getTime() - Date.now()) / 86400000
-      );
       items.push({
         id: "after-last-day",
         icon: <UserMinus className="h-4 w-4" />,
@@ -217,7 +207,11 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
           ? `${first.tutor_name} and ${others.length === 1 ? "one other" : `${others.length} others`}`
           : `${first.tutor_name} ${departureLabel(first)?.toLowerCase() ?? ""}`.trim(),
         count: overrun.total_sessions,
-        severity: daysLeft <= 7 ? "danger" : "warning",
+        // Urgency comes from the server, the way it does for renewals,
+        // attendance and make-ups, rather than being recomputed from dates
+        // here. It turns red once somebody's last day is behind us or a week
+        // away, when there is no longer time to arrange cover calmly.
+        severity: overrun.critical_sessions > 0 ? "danger" : "warning",
         href: "/sessions?filter=after-last-day",
       });
     }

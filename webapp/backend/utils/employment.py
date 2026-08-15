@@ -22,15 +22,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import or_ as sa_or
+from sqlalchemy import and_ as sa_and, or_ as sa_or
 
-from constants import hk_now
-from models import Tutor
-
-
-def today_hk() -> date:
-    """The current date in Hong Kong, which is the only date the office uses."""
-    return hk_now().date()
+from constants import today_hk
+from models import SessionLog, Tutor
 
 
 def is_leaving(tutor: Tutor) -> bool:
@@ -66,9 +61,18 @@ def leaving_clause():
     return Tutor.departure_effective_on.isnot(None)
 
 
-def departed_clause(today: Optional[date] = None):
-    """`has_departed` as a filter over the Tutor table."""
-    return Tutor.departure_effective_on < (today or today_hk())
+def sessions_after_last_day_clause():
+    """Lessons booked for somebody past their own last working day.
+
+    Needs SessionLog joined to Tutor. It lives here because two places ask the
+    question, the notification count and the filtered sessions list, and the
+    banner on that list quotes the count as though they agree. Written twice
+    they would eventually not.
+    """
+    return sa_and(
+        leaving_clause(),
+        SessionLog.session_date > Tutor.departure_effective_on,
+    )
 
 
 def still_here_clause(today: Optional[date] = None):

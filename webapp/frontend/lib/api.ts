@@ -1,6 +1,7 @@
 import type {
   DepartureLoad,
   EmploymentOverrun,
+  EmploymentSyncResult,
   HomeworkCompletion,
   HomeworkCount,
   HomeworkStatus,
@@ -268,7 +269,7 @@ import type {
   SqlQueryResponse,
   RevertResponse,
 } from "@/types/debug";
-import { assignableTutors } from "./employment";
+import { pickableForOpenEndedWork } from "./employment";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -3253,7 +3254,9 @@ export const regularAPI = {
   // Off the general tutors endpoint rather than an intake-specific one: the
   // roster is the same list of people whichever intake is being staffed.
   getActiveTutors: async (): Promise<ActiveTutorOption[]> =>
-    assignableTutors((await tutorsAPI.getAll()).filter((t) => t.is_active_tutor !== false))
+    // Regular slots and duties have no end date, so anybody with a leaving
+    // date is out, not only those who have already gone.
+    pickableForOpenEndedWork(await tutorsAPI.getAll())
       .map((t) => ({
         id: t.id,
         tutor_name: t.tutor_name,
@@ -3285,15 +3288,7 @@ export const employmentAPI = {
     fetchAPI<DepartureLoad>(`/tutors/${tutorId}/departure-load`),
 
   /** Pull leaving dates from ARK now instead of waiting for tonight's run. */
-  sync: () =>
-    fetchAPI<{
-      checked: number;
-      marked: number;
-      cleared: number;
-      unchanged: number;
-      changes: string[];
-      unlinked_tutor_ids: number[];
-    }>("/admin/employment/sync", { method: "POST" }),
+  sync: () => fetchAPI<EmploymentSyncResult>("/admin/employment/sync", { method: "POST" }),
 };
 
 export const homeworkAPI = {

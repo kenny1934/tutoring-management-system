@@ -11,14 +11,14 @@ import { EditTutorModal } from "@/components/tutors/EditTutorModal";
 import { TutorStatsCard } from "@/components/tutors/TutorStatsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useTutor, useDepartureLoad } from "@/lib/hooks";
-import { departureLabel, hasDeparted, hasOutstandingWork, isLeaving } from "@/lib/employment";
+import { departureDateLabel, departureLabel, hasDeparted, hasOutstandingWork, isLeaving } from "@/lib/employment";
 import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
 import { getSessionStatusConfig, getMainGradeGroup, compareSessionsInSlot } from "@/lib/session-status";
 import { BONUS_TIERS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { getWeekBounds, toDateString, getDayName, getMonthName, isSameDay } from "@/lib/calendar-utils";
-import { formatMOP } from "@/lib/formatters";
+import { formatMOP, plural } from "@/lib/formatters";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import type { Session } from "@/types";
 import {
@@ -159,6 +159,40 @@ function ExpandableList<T>({
         </button>
       )}
     </div>
+  );
+}
+
+// One line of a leaver's outstanding work. Renders nothing at zero, so the
+// panel above can list every kind without guarding each one, and links where
+// there is somewhere useful to go.
+function LoadChip({
+  count,
+  noun,
+  suffix,
+  href,
+}: {
+  count: number;
+  noun: string;
+  suffix?: string;
+  href?: string;
+}) {
+  if (count <= 0) return null;
+  const label = suffix ? `${plural(count, noun)} ${suffix}` : plural(count, noun);
+  if (!href) {
+    return (
+      <span className="inline-flex items-center rounded-lg border border-rose-200 dark:border-rose-800 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-300">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
+    >
+      {label}
+      <ChevronRight className="h-3 w-3" />
+    </Link>
   );
 }
 
@@ -472,51 +506,33 @@ function TutorProfileInner() {
           <div className="mb-4 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-rose-800 dark:text-rose-200">
               <UserMinus className="h-4 w-4" />
-              Still assigned after {departureLabel(tutor)?.toLowerCase().replace(/^(left|leaving) /, "")}
+              Still assigned after {departureDateLabel(tutor)}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {departureLoad.sessions_after_last_day > 0 && (
-                <Link
-                  href={`/sessions?filter=after-last-day&tutor=${tutor.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
-                >
-                  {departureLoad.sessions_after_last_day} session
-                  {departureLoad.sessions_after_last_day === 1 ? "" : "s"} to move
-                  <ChevronRight className="h-3 w-3" />
-                </Link>
-              )}
-              {departureLoad.summer_slots > 0 && (
-                <Link
-                  href="/admin/summer/arrangement"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
-                >
-                  {departureLoad.summer_slots} summer slot
-                  {departureLoad.summer_slots === 1 ? "" : "s"}
-                  <ChevronRight className="h-3 w-3" />
-                </Link>
-              )}
-              {departureLoad.regular_slots > 0 && (
-                <Link
-                  href="/admin/regular/arrangement"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
-                >
-                  {departureLoad.regular_slots} regular slot
-                  {departureLoad.regular_slots === 1 ? "" : "s"}
-                  <ChevronRight className="h-3 w-3" />
-                </Link>
-              )}
-              {(departureLoad.summer_duties > 0 || departureLoad.regular_duties > 0) && (
-                <span className="inline-flex items-center rounded-lg border border-rose-200 dark:border-rose-800 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-300">
-                  {departureLoad.summer_duties + departureLoad.regular_duties} duty row
-                  {departureLoad.summer_duties + departureLoad.regular_duties === 1 ? "" : "s"}
-                </span>
-              )}
-              {departureLoad.waitlist_preferences > 0 && (
-                <span className="inline-flex items-center rounded-lg border border-rose-200 dark:border-rose-800 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-300">
-                  {departureLoad.waitlist_preferences} waitlist preference
-                  {departureLoad.waitlist_preferences === 1 ? "" : "s"}
-                </span>
-              )}
+              <LoadChip
+                count={departureLoad.sessions_after_last_day}
+                noun="session"
+                suffix="to move"
+                href={`/sessions?filter=after-last-day&tutor=${tutor.id}`}
+              />
+              <LoadChip
+                count={departureLoad.summer_slots}
+                noun="summer slot"
+                href="/admin/summer/arrangement"
+              />
+              <LoadChip
+                count={departureLoad.regular_slots}
+                noun="regular slot"
+                href="/admin/regular/arrangement"
+              />
+              <LoadChip
+                count={departureLoad.summer_duties + departureLoad.regular_duties}
+                noun="duty row"
+              />
+              <LoadChip
+                count={departureLoad.waitlist_preferences}
+                noun="waitlist preference"
+              />
             </div>
             <p className="mt-3 text-xs text-rose-700 dark:text-rose-300">
               Slots keep producing lessons under this tutor until somebody else takes them
