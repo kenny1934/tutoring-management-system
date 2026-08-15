@@ -2,16 +2,16 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
-import { departureLabel } from "@/lib/employment";
+import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
+import { isLeaving, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
-import type { Session, Tutor, MakeupProposal } from "@/types";
+import type { Session, Tutor, MakeupProposal, LeaverOverrun } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check, UserMinus } from "lucide-react";
-import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
+import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
@@ -97,6 +97,8 @@ import { HomeworkCheckBadge } from "@/components/homework/HomeworkCheckBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
 import { flattenSummerClusters } from "@/lib/summer-class-grouping";
+import { groupSessionsForList } from "@/lib/session-grouping";
+import { AfterLastDayBanner } from "@/components/sessions/AfterLastDayBanner";
 import { SummerFilterPopover } from "@/components/sessions/SummerFilterPopover";
 import {
   EMPTY_SUMMER_FILTER,
@@ -126,6 +128,8 @@ const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
 const EMPTY_PROPOSALS: MakeupProposal[] = [];
 const EMPTY_SESSIONS: Session[] = [];
 const EMPTY_PROPOSED_SESSIONS: ProposedSession[] = [];
+const EMPTY_TUTORS: Tutor[] = [];
+const EMPTY_LEAVERS: LeaverOverrun[] = [];
 
 // Number of session cards to show per tier before "Show more"
 const TIER_PAGE_SIZE = 20;
@@ -140,19 +144,47 @@ const PENDING_MAKEUP_STATUSES = [
 /** Stable empty selection so clearing an already-empty one bails out of a render. */
 const EMPTY_SELECTION: ReadonlySet<number> = new Set<number>();
 
-/**
- * Single source of truth for which view the URL asks for. The pending make-ups
- * view is list-only: its fetch spans 120 days and its banner lives in the list,
- * so a grid would slice that window down to one week with nothing on screen
- * explaining the mode.
- */
-// Filters that fetch across dates of their own choosing. Neither has a week to
-// show, so both force the list view and both hide the date picker.
+// Filters that choose their own dates to fetch. Neither has a single day to
+// point a date picker at, and neither has a window a proposal overlay could
+// line up with, so both of those controls stand down.
 const DATELESS_FILTERS = new Set(["pending-makeups", "after-last-day"]);
 
+// The pending make-ups view is the one that has to stay a list. Its urgency
+// tiers and its sort control only exist there, and a grid would slice its
+// 120-day window down to a week with nothing on screen explaining the mode.
+const LIST_ONLY_FILTERS = new Set(["pending-makeups"]);
+
+// A departure leaves whole days of lessons behind, so the week grid opens the
+// after-a-last-day view: it shows the days side by side, which is how somebody
+// reassigning the work has to think about it. The other views stay reachable.
+const DEFAULT_VIEW_BY_FILTER: Record<string, ViewMode> = {
+  "after-last-day": "weekly",
+};
+
+/** Single source of truth for which view the URL asks for. */
 function resolveViewMode(urlView: string | null, urlFilter: string | null): ViewMode {
-  if (DATELESS_FILTERS.has(urlFilter || "")) return 'list';
-  return (urlView as ViewMode) || 'list';
+  const filter = urlFilter || "";
+  if (LIST_ONLY_FILTERS.has(filter)) return 'list';
+  return (urlView as ViewMode) || DEFAULT_VIEW_BY_FILTER[filter] || 'list';
+}
+
+/** "Tue 25 Aug", for a slot header that has to say which day it belongs to. */
+function shortDayLabel(date: string): string {
+  return new Date(date + "T00:00:00").toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** "Tuesday 25 August 2026", for the bar that opens a day's sessions. */
+function fullDayLabel(date: string): string {
+  return new Date(date + "T00:00:00").toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 /**
@@ -172,7 +204,7 @@ function SessionsPageContent() {
 
   const { selectedLocation } = useLocation();
   const { viewMode: roleViewMode } = useRole();  // center-view or my-view
-  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest } = useAuth();
+  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest, isLoading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { isOpen: isCommandPaletteOpen } = useCommandPalette();
@@ -201,6 +233,11 @@ function SessionsPageContent() {
 
   // Sync tutor filter with center/my view mode
   useEffect(() => {
+    // Wait until we know who is signed in. This effect runs again the moment
+    // auth resolves, and until then its centre-view branch would clear a
+    // ?tutor= the page was opened with before it had ever been honoured. That
+    // is how a leaver's profile link could land on everybody's sessions.
+    if (authLoading) return;
     // On mount, respect explicit ?tutor= param (e.g., navigated from session popover)
     if (urlTutorOverride.current) {
       setTutorFilter(urlTutorOverride.current);
@@ -214,7 +251,7 @@ function SessionsPageContent() {
       // In center-view, show all tutors
       setTutorFilter("");
     }
-  }, [roleViewMode, effectiveUserId]);
+  }, [roleViewMode, effectiveUserId, authLoading]);
 
   // Special filter modes (e.g., "pending-makeups")
   const [specialFilter, setSpecialFilter] = useState(() => {
@@ -246,6 +283,7 @@ function SessionsPageContent() {
   const { data: overrun } = useEmploymentOverrun(isAfterLastDayView);
 
   const isDatelessView = DATELESS_FILTERS.has(specialFilter);
+  const isListOnlyView = LIST_ONLY_FILTERS.has(specialFilter);
 
   // A filter this mode does not own is disarmed, not merely hidden. Hiding a
   // control while its value kept filtering is the defect this page already had
@@ -329,8 +367,24 @@ function SessionsPageContent() {
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView, isAfterLastDayView]);
 
   // SWR hooks for data fetching with caching
-  const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
-  const { data: tutors = [] } = useActiveTutors();
+  const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, isValidating: sessionsValidating, mutate: mutateSessions } = useSessions(sessionFilters);
+  const { data: allTutors = EMPTY_TUTORS } = useTutors();
+
+  // Who the page's tutor controls may name.
+  //
+  // Normally that is whoever can still be given work, which is what every
+  // picker on the site shows. The after-a-last-day view needs more than that:
+  // its whole subject is people who have gone, and once a leaver's last day
+  // passes they drop out of the pickable list while their lessons stay in the
+  // view. A filter that cannot name the one tutor you came to look at is no
+  // filter at all, so leavers are added back here, and only here.
+  const tutors = useMemo(() => {
+    const pickable = pickableTutors(allTutors);
+    if (!isAfterLastDayView) return pickable;
+    const byId = new Map(pickable.map((tutor) => [tutor.id, tutor]));
+    allTutors.filter(isLeaving).forEach((tutor) => byId.set(tutor.id, tutor));
+    return [...byId.values()];
+  }, [allTutors, isAfterLastDayView]);
 
   // Client-side filtering for composite "Active" filter
   const statusFilteredSessions = useMemo(() => {
@@ -656,103 +710,63 @@ function SessionsPageContent() {
     setPopoverSession(session);
   };
 
-  // Group sessions by time slot (including proposed sessions' time slots)
+  // The groups the list renders, and what tells one from another.
+  //
+  // Every date-anchored view holds a single day, so a time slot is the whole
+  // identity of a group there. The after-a-last-day view holds as many days as
+  // it has to, and a slot alone put five separate dates into one pile, so there
+  // the date is part of the group as well. groupSessionsForList keeps the key
+  // unchanged in the single-day case, which is what the collapse state, the
+  // scroll anchors and the Now jump button all hang off.
   const groupedSessions = useMemo(() => {
-    const groups: Record<string, Session[]> = {};
-
-    sessions.forEach((session) => {
-      const timeSlot = session.time_slot || "Unscheduled";
-      if (!groups[timeSlot]) {
-        groups[timeSlot] = [];
-      }
-      groups[timeSlot].push(session);
-    });
-
-    // Add empty entries for proposed sessions' time slots (for selected date)
-    // so they have a place to render in the list view
     const selectedDateString = toDateString(selectedDate);
-    proposedSessions
-      .filter((ps) => ps.session_date === selectedDateString)
-      .forEach((ps) => {
-        const timeSlot = ps.time_slot;
-        if (timeSlot && !groups[timeSlot]) {
-          groups[timeSlot] = [];
-        }
-      });
-
-    // Sort sessions within each group using main group priority
-    Object.values(groups).forEach((groupSessions) => {
-      // Group by tutor first
-      const byTutor = new Map<string, Session[]>();
-      groupSessions.forEach(s => {
-        const tutor = s.tutor_name || '';
-        if (!byTutor.has(tutor)) byTutor.set(tutor, []);
-        byTutor.get(tutor)!.push(s);
-      });
-
-      // For each tutor, find main group and sort
-      const sortedSessions: Session[] = [];
-      const tutorNames = [...byTutor.keys()].sort((a, b) =>
-        getTutorSortName(a).localeCompare(getTutorSortName(b))
-      );
-
-      for (const tutor of tutorNames) {
-        const tutorSessions = byTutor.get(tutor)!;
-
-        // Find majority grade+lang_stream among Scheduled only
-        const scheduledSessions = tutorSessions.filter(s => s.session_status === 'Scheduled');
-        const gradeCounts = new Map<string, number>();
-        scheduledSessions.forEach(s => {
-          const key = `${s.grade || ''}${s.lang_stream || ''}`;
-          gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
-        });
-        const mainGroup = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
-
-        // Sort with main group priority
-        tutorSessions.sort((a, b) => {
-          const getPriority = (s: Session) => {
-            const gradeKey = `${s.grade || ''}${s.lang_stream || ''}`;
-            const isMainGroup = gradeKey === mainGroup && mainGroup !== '';
-            const status = s.session_status || '';
-
-            if (status === 'Trial Class' || status === 'Attended (Trial)') return 0;
-            if (isMainGroup && (status === 'Scheduled' || status === 'Attended' || status === 'No Show')) return 1;
-            if (status === 'Scheduled' || status === 'Attended' || status === 'No Show') return 3;
-            if (status === 'Make-up Class' || status === 'Attended (Make-up)') return 5;
-            return 10 + getStatusSortOrder(status);
-          };
-
-          const priorityA = getPriority(a);
-          const priorityB = getPriority(b);
-          if (priorityA !== priorityB) return priorityA - priorityB;
-
-          // Within same priority (especially main group), sort by school then student_id
-          if (priorityA <= 2) {
-            const schoolCompare = (a.school || '').localeCompare(b.school || '');
-            if (schoolCompare !== 0) return schoolCompare;
-          }
-          return (a.school_student_id || '').localeCompare(b.school_student_id || '');
-        });
-
-        sortedSessions.push(...tutorSessions);
-      }
-
-      // Replace original array contents
-      groupSessions.length = 0;
-      groupSessions.push(...sortedSessions);
+    return groupSessionsForList(sessions, {
+      spansDates: isAfterLastDayView,
+      // Proposed make-up slots render as ghost rows, and a ghost whose slot
+      // holds no real lessons still needs a group to appear in.
+      placeholderSlots: proposedSessions
+        .filter((ps) => ps.session_date === selectedDateString)
+        .map((ps) => ({ date: ps.session_date, timeSlot: ps.time_slot })),
     });
+  }, [sessions, selectedDate, proposedSessions, isAfterLastDayView]);
 
-    // Sort time slots chronologically
-    return Object.entries(groups).sort(([timeA], [timeB]) => {
-      // Handle "Unscheduled" to appear last
-      if (timeA === "Unscheduled") return 1;
-      if (timeB === "Unscheduled") return -1;
+  // This is the one list not anchored to a date the reader picked, so it is the
+  // one that has to name the day above each block of sessions. Everywhere else
+  // the toolbar's date picker has already said which day you are looking at.
+  // The test is the mode rather than a count of the dates on screen: a leaver
+  // whose leftovers all fall on one Thursday still needs to be told it is a
+  // Thursday.
+  const listShowsDates = isAfterLastDayView;
 
-      const startA = timeA.split("-")[0];
-      const startB = timeB.split("-")[0];
-      return startA.localeCompare(startB);
-    });
-  }, [sessions, selectedDate, proposedSessions]);
+  // Which week the after-a-last-day view opens on.
+  //
+  // A departure's leftovers can be weeks out, so the grid would otherwise open
+  // on the current week with nothing in it. This lands on the week holding the
+  // earliest lesson still to be moved. It fires once per tutor you look at
+  // rather than on every empty week, so paging through the weeks yourself is
+  // not fought.
+  const landedOnRef = useRef("");
+  useEffect(() => {
+    if (!isAfterLastDayView) {
+      landedOnRef.current = "";
+      return;
+    }
+    // SWR keeps the previous result on screen while it revalidates, so waiting
+    // for the fetch to settle is what stops this landing on the week belonging
+    // to the leaver you were looking at a moment ago.
+    const landing = `${specialFilter}|${tutorFilter}`;
+    if (landedOnRef.current === landing || loading || sessionsValidating || sessions.length === 0) return;
+    landedOnRef.current = landing;
+
+    const earliest = sessions.reduce(
+      (soonest, session) => (session.session_date < soonest ? session.session_date : soonest),
+      sessions[0].session_date
+    );
+    const target = new Date(earliest + 'T00:00:00');
+    if (toDateString(getWeekBounds(target).start) !== toDateString(getWeekBounds(selectedDate).start)) {
+      setSelectedDate(target);
+    }
+  }, [isAfterLastDayView, specialFilter, tutorFilter, loading, sessionsValidating, sessions, selectedDate]);
 
   // Current-time position among the listed slots (today + list view only):
   // drives the now divider, the header Now chip, the toolbar jump chip,
@@ -765,7 +779,7 @@ function SessionsPageContent() {
   const nowMinutes = useNowMinutes(nowIndicatorLive ? 30000 : 0);
   const nowPosition = useMemo(() => {
     if (!nowIndicatorLive) return null;
-    return getNowSlotPosition(groupedSessions.map(([timeSlot]) => timeSlot), nowMinutes);
+    return getNowSlotPosition(groupedSessions.map((group) => group.timeSlot), nowMinutes);
   }, [nowIndicatorLive, groupedSessions, nowMinutes]);
 
   const scrollToSlot = useCallback((timeSlot: string) => {
@@ -848,14 +862,30 @@ function SessionsPageContent() {
     );
   }, [tutors, selectedLocation]);
 
+  // What the toolbar's tutor dropdown offers. It is the location-narrowed list
+  // plus whoever the filter is currently set to, because a select whose value
+  // has no option renders blank and then tells you nothing about what you are
+  // looking at. The branch narrowing is the usual way to lose the option.
+  const tutorOptions = useMemo(() => {
+    const withSelected = withCurrentTutor(
+      filteredTutors,
+      tutorFilter ? parseInt(tutorFilter) : null,
+      allTutors
+    );
+    if (withSelected === filteredTutors) return filteredTutors;
+    return [...withSelected].sort((a, b) =>
+      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
+    );
+  }, [filteredTutors, tutorFilter, allTutors]);
+
   // Bulk selection computations - use grouped order to match visual display
   const allSessionIds = useMemo(() => {
     // For pending-makeups view, use groupedByUrgencyTier order
     if (groupedByUrgencyTier) {
       return groupedByUrgencyTier.flatMap(([_, tierSessions]) => tierSessions.map(s => s.id));
     }
-    // For normal view, use groupedSessions order (by time slot)
-    return groupedSessions.flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
+    // For normal view, use groupedSessions order (by date and time slot)
+    return groupedSessions.flatMap((group) => group.sessions.map(s => s.id));
   }, [groupedSessions, groupedByUrgencyTier]);
 
   // Visible session IDs - excludes sessions in collapsed time slots
@@ -867,8 +897,8 @@ function SessionsPageContent() {
         .flatMap(([_, tierSessions]) => tierSessions.map(s => s.id));
     }
     return groupedSessions
-      .filter(([timeSlot]) => !collapsedSlots.has(timeSlot))
-      .flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
+      .filter((group) => !collapsedSlots.has(group.key))
+      .flatMap((group) => group.sessions.map(s => s.id));
   }, [allSessionIds, groupedSessions, groupedByUrgencyTier, collapsedSlots]);
 
   const selectedSessions = useMemo(() => {
@@ -1553,9 +1583,9 @@ function SessionsPageContent() {
   // Mark visible time slots as "seen" after initial render (to skip stagger on re-expand)
   useEffect(() => {
     if (viewMode === "list" && !loading) {
-      groupedSessions.forEach(([timeSlot]) => {
-        if (!collapsedSlots.has(timeSlot)) {
-          seenSlotsRef.current.add(timeSlot);
+      groupedSessions.forEach((group) => {
+        if (!collapsedSlots.has(group.key)) {
+          seenSlotsRef.current.add(group.key);
         }
       });
     }
@@ -1869,8 +1899,10 @@ function SessionsPageContent() {
         <h1 className="hidden sm:block text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
       </div>
 
-      {/* View switcher — hidden in the focused views, which are list-only */}
-      {!isDatelessView && (
+      {/* View switcher. Hidden only in the pending make-ups view, which has to
+          stay a list. The after-a-last-day view opens on the week grid, and the
+          switcher is what says so and lets you move off it. */}
+      {!isListOnlyView && (
         <>
           <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
           <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
@@ -1928,7 +1960,7 @@ function SessionsPageContent() {
         }}
       >
         <option value="">Tutor</option>
-        {filteredTutors.map((tutor) => (
+        {tutorOptions.map((tutor) => (
           <option key={tutor.id} value={tutor.id.toString()}>
             {tutor.tutor_name}
           </option>
@@ -2052,48 +2084,14 @@ function SessionsPageContent() {
               </div>
             </div>
 
-            {/* Leavers with lessons still on them. The names are the point:
-                a count says how much is outstanding, but the reassigning is
-                done one tutor at a time, so each gets a row that filters the
-                list down to their own sessions. */}
             {isAfterLastDayView && (
-              <div className="flex flex-col gap-2 px-3 py-2 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-sm text-rose-800 dark:text-rose-200">
-                    <UserMinus className="h-4 w-4" />
-                    <span className="font-medium">Sessions After a Tutor&apos;s Last Day</span>
-                    <span className="text-rose-600 dark:text-rose-400">({sessions.length} total)</span>
-                  </div>
-                  <button
-                    onClick={() => setSpecialFilter("")}
-                    className="text-xs font-medium px-2 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
-                  >
-                    Clear
-                  </button>
-                </div>
-                <p className="text-xs text-rose-700 dark:text-rose-300">
-                  These lessons are still assigned to someone who will not be here to teach them.
-                  Changing the tutor on each one clears it from this list.
-                </p>
-                {(overrun?.leavers.length ?? 0) > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {overrun!.leavers.map((leaver) => (
-                      <button
-                        key={leaver.tutor_id}
-                        onClick={() => setTutorFilter(String(leaver.tutor_id))}
-                        className={cn(
-                          "text-xs px-2 py-1 rounded border transition-colors",
-                          tutorFilter === String(leaver.tutor_id)
-                            ? "bg-rose-200 dark:bg-rose-900/60 border-rose-400 dark:border-rose-600 text-rose-900 dark:text-rose-100 font-medium"
-                            : "bg-white dark:bg-[#1a1a1a] border-rose-300 dark:border-rose-700 text-rose-800 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30"
-                        )}
-                      >
-                        {leaver.tutor_name}, {departureLabel(leaver)?.toLowerCase()}, {leaver.sessions} to move
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <AfterLastDayBanner
+                total={sessions.length}
+                leavers={overrun?.leavers ?? EMPTY_LEAVERS}
+                selectedTutorId={tutorFilter}
+                onSelectTutor={setTutorFilter}
+                onClear={() => setSpecialFilter("")}
+              />
             )}
 
             {/* Special Filter Banner */}
@@ -2255,6 +2253,11 @@ function SessionsPageContent() {
                     {isPendingMakeupsView ? (
                       <p className="text-sm text-gray-700 dark:text-gray-300">
                         No pending make-ups in the last 60 days
+                      </p>
+                    ) : isAfterLastDayView ? (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Nothing on this list is still booked past a last working day.
+                        Clear the filter above to go back to the ordinary timetable.
                       </p>
                     ) : isSummerFilterActive(effectiveSummerFilter) ? (
                       <>
@@ -2554,28 +2557,52 @@ function SessionsPageContent() {
                 })}
               </>
             ) : (
-              /* Normal View: Grouped by Time Slot */
+              /* Normal View: grouped by time slot, and by date as well when the
+                 list covers more than one day */
               <>
-                {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => {
-                  const copyText = formatCompactDateTimeSlot(selectedDate, timeSlot);
+                {groupedSessions.map((group, groupIndex) => {
+                  const { key: slotKey, date: groupDate, timeSlot, sessions: sessionsInSlot } = group;
+                  const copyText = formatCompactDateTimeSlot(new Date(groupDate + 'T00:00:00'), timeSlot);
                   const isCurrentSlot = nowPosition?.kind === "during" && nowPosition.timeSlot === timeSlot;
+                  // The first group of a day carries that day's heading, and the
+                  // count beside it covers the whole day rather than this one slot.
+                  const isFirstOfDate = listShowsDates
+                    && (groupIndex === 0 || groupedSessions[groupIndex - 1].date !== groupDate);
+                  const sessionsOnDate = isFirstOfDate
+                    ? groupedSessions
+                        .filter((other) => other.date === groupDate)
+                        .reduce((count, other) => count + other.sessions.filter(isCountableSession).length, 0)
+                    : 0;
                   return (
-                  <React.Fragment key={timeSlot}>
+                  <React.Fragment key={slotKey}>
                     {/* Current-time divider (shown in the gap before the next slot) */}
                     {nowPosition?.kind === "before" && nowPosition.timeSlot === timeSlot && (
                       <NowDivider nowMinutes={nowMinutes} />
+                    )}
+
+                    {/* The day this block of sessions belongs to. Only a list that
+                        covers more than one day shows it, because everywhere else
+                        the date picker in the toolbar has already said it. */}
+                    {isFirstOfDate && (
+                      <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-[#a0704b] dark:bg-[#cd853f] text-white desk-shadow-low">
+                        <CalendarDays className="h-4 w-4" />
+                        <span className="text-sm font-bold">{fullDayLabel(groupDate)}</span>
+                        <span className="text-xs text-white/80">
+                          {sessionsOnDate} session{sessionsOnDate !== 1 ? "s" : ""}
+                        </span>
+                      </div>
                     )}
 
                     {/* Non-sticky wrapper carries the scroll anchor: a stuck header's
                         own rect already sits at the scroll target, which made
                         scrollIntoView a no-op when jumping back up to it.
                         scrollMarginTop keeps anchored scrolls clear of the sticky toolbar. */}
-                    <div id={`slot-${timeSlot}`} className="flex flex-col gap-2 sm:gap-3" style={{ scrollMarginTop: timeSlotStickyTop }}>
+                    <div id={`slot-${slotKey}`} className="flex flex-col gap-2 sm:gap-3" style={{ scrollMarginTop: timeSlotStickyTop }}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    <div className={cn("sticky mb-2", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
+                    <div className={cn("sticky mb-2", slotDropdownOpen === slotKey ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
                       <div
-                        onClick={() => toggleSlot(timeSlot)}
+                        onClick={() => toggleSlot(slotKey)}
                         className={cn(
                           "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg px-3 py-2 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
                           !isMobile && "paper-texture"
@@ -2598,13 +2625,13 @@ function SessionsPageContent() {
                               })()}
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === timeSlot ? null : timeSlot); }}
+                              onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === slotKey ? null : slotKey); }}
                               className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                               title="Selection options (Ctrl+Shift+A cycle markable/attended when focused)"
                             >
                               <ChevronDown className="h-3 w-3" />
                             </button>
-                            {slotDropdownOpen === timeSlot && (
+                            {slotDropdownOpen === slotKey && (
                               <div className="absolute top-full left-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-[100] py-1 min-w-[160px]">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
@@ -2634,27 +2661,27 @@ function SessionsPageContent() {
                               <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                             </div>
                             <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
-                              {timeSlot}
+                              {listShowsDates ? `${shortDayLabel(groupDate)}, ${timeSlot}` : timeSlot}
                             </h3>
                             {isCurrentSlot && <NowChip />}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigator.clipboard.writeText(copyText);
-                                setCopiedSlot(timeSlot);
+                                setCopiedSlot(slotKey);
                                 setTimeout(() => setCopiedSlot(null), 2000);
                               }}
                               className="p-1 hover:bg-[#a0704b]/10 dark:hover:bg-[#cd853f]/10 rounded transition-colors"
                               title={copyText}
                             >
-                              {copiedSlot === timeSlot ? (
+                              {copiedSlot === slotKey ? (
                                 <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                               ) : (
                                 <Copy className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
                               )}
                             </button>
                             <div>
-                              {collapsedSlots.has(timeSlot)
+                              {collapsedSlots.has(slotKey)
                                 ? <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                                 : <ChevronUp className="h-4 w-4 text-gray-500 dark:text-gray-400" />}
                             </div>
@@ -2665,7 +2692,7 @@ function SessionsPageContent() {
                             {tutorFilter && (
                               <LessonNudge
                                 active={tutorFilter === effectiveUserId && isCurrentSlot && sessionsInSlot.some(isCountableSession)}
-                                date={selectedDateString}
+                                date={groupDate}
                                 timeSlot={timeSlot}
                                 tutorId={tutorFilter}
                               >
@@ -2673,7 +2700,7 @@ function SessionsPageContent() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const params = new URLSearchParams({
-                                      date: toDateString(selectedDate),
+                                      date: groupDate,
                                       slot: timeSlot,
                                       tutor_id: tutorFilter,
                                     });
@@ -2692,7 +2719,7 @@ function SessionsPageContent() {
                             </div>
                             {(() => {
                               const proposedCount = proposedSessions.filter(
-                                (ps) => ps.time_slot === timeSlot && ps.session_date === toDateString(selectedDate)
+                                (ps) => ps.time_slot === timeSlot && ps.session_date === groupDate
                               ).length;
                               if (proposedCount > 0) {
                                 return (
@@ -2711,7 +2738,7 @@ function SessionsPageContent() {
 
                     {/* Session Cards (Collapsible) */}
                     <AnimatePresence initial={false}>
-                      {!collapsedSlots.has(timeSlot) && (
+                      {!collapsedSlots.has(slotKey) && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: "auto", opacity: 1 }}
@@ -2740,7 +2767,7 @@ function SessionsPageContent() {
                               }}
                               transition={{
                                 // Skip stagger delay on re-expand (only animate on first render)
-                                delay: isMobile || seenSlotsRef.current.has(timeSlot) ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
+                                delay: isMobile || seenSlotsRef.current.has(slotKey) ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
                                 duration: 0.35,
                                 ease: [0.38, 1.21, 0.22, 1.00]
                               }}
@@ -3143,6 +3170,16 @@ function SessionsPageContent() {
         >
           {toolbarContent}
         </motion.div>
+
+        {isAfterLastDayView && (
+          <AfterLastDayBanner
+            total={sessions.length}
+            leavers={overrun?.leavers ?? EMPTY_LEAVERS}
+            selectedTutorId={tutorFilter}
+            onSelectTutor={setTutorFilter}
+            onClear={() => setSpecialFilter("")}
+          />
+        )}
 
       {/* Weekly Calendar View */}
       {viewMode === "weekly" && (
