@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.115](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.114...v2.0.115) (2026-08-15)
+
+
+### New Features
+
+* **Nobody gets booked for lessons after they have left**: the app had no way of knowing that somebody had left. The nearest thing to it marks whether a person teaches at all, which is also false for the supervisors and centre accounts who sign in every day, so it could not be used to close an account without locking those people out. A resignation therefore reached the timetable only when somebody remembered it, and lessons went on being booked for people who would not be there to teach them. Each night the app now reads everybody's last working day from ARK, where resignations are recorded, so the fact is entered once and both systems agree. Somebody working their notice carries on exactly as before, teaching, marking attendance and appearing in every list, because they are still here. What changes is that no lesson, class or duty can be put on them for a date after their last day, from the moment the resignation is recorded rather than the day they go, which is what gives the office weeks to arrange cover instead of hours. Once that day passes they can no longer sign in and they drop out of the lists of people a lesson can be given to. Everything already booked stays exactly as it is and stays fully editable, so their remaining lessons can be moved to other tutors one at a time, at whatever pace the term allows, and nothing is frozen or hidden while that happens. The office is told what a departure has left behind rather than having to go looking: a notice naming who is leaving and counting the lessons still sitting past their last day, a list of exactly those lessons to work through, and a panel on the person's own page counting the classes and duties still in their name, which are the ones that would otherwise carry on producing new lessons after everything else was tidied up.
+* **A record of everyone's last working day, kept without asking**: staff records live in ARK and the timetable lives here, and until now neither knew what the other had been told. A tutor's page shows whether they are leaving and when, the list of tutors marks them, and a button reads the latest from ARK straight away for anyone who does not want to wait for the overnight check. That check also names any teaching staff ARK has never heard of, because those are the people none of this can protect.
+
 ## [2.0.114](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.113...v2.0.114) (2026-08-14)
 
 
