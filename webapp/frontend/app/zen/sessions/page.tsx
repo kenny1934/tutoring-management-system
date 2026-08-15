@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useSessions, useActiveTutors, usePageTitle } from "@/lib/hooks";
+import { useSessions, useTutors, usePageTitle } from "@/lib/hooks";
+import { departureLabel, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -28,13 +29,16 @@ import { callMarkApi } from "@/components/zen/utils/sessionActions";
 import { isCountableSession } from "@/lib/session-status";
 import { ZenLessonMode } from "@/components/zen/lesson/ZenLessonMode";
 import { ZenLessonWideMode } from "@/components/zen/lesson/ZenLessonWideMode";
-import type { Session, SessionFilters } from "@/types";
+import type { Session, SessionFilters, Tutor } from "@/types";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { GradeLabel } from "@/components/ui/grade-label";
 import { gradeColorKey } from "@/lib/grade-utils";
 import { useSummerPreGradeWindow } from "@/lib/hooks/useSummerPreGradeWindow";
 
 type ViewMode = "week" | "day";
+
+/** Stable empty list so a fetch in flight does not recompute the options. */
+const EMPTY_TUTORS: Tutor[] = [];
 
 // ── Helpers ──
 
@@ -52,7 +56,7 @@ export default function ZenSessionsPage() {
   const { selectedLocation } = useLocation();
   const { viewMode: roleViewMode } = useRole();
   const { setDisableSectionCycling } = useZenKeyboardFocus();
-  const { data: tutors } = useActiveTutors();
+  const { data: roster = EMPTY_TUTORS } = useTutors();
 
   // Disable global Tab section cycling
   useEffect(() => {
@@ -85,6 +89,15 @@ export default function ZenSessionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [tutorFilter, setTutorFilter] = useState<number | undefined>(undefined);
   const [filterFocused, setFilterFocused] = useState(false);
+
+  // What the tutor filter offers: whoever can still be given work, plus the
+  // tutor it is currently set to. Without that second half, filtering to
+  // somebody and then leaving the page open past their last day would blank the
+  // control while the list below stayed filtered to them.
+  const tutorOptions = useMemo(
+    () => withCurrentTutor(pickableTutors(roster), tutorFilter ?? null, roster),
+    [roster, tutorFilter]
+  );
 
   // Day view state
   const [sessionCursor, setSessionCursor] = useState(0);
@@ -662,7 +675,7 @@ export default function ZenSessionsPage() {
         </select>
 
         {/* Tutor filter (admin center-view only) */}
-        {!effectiveTutorId && tutors && tutors.length > 0 && (
+        {!effectiveTutorId && tutorOptions.length > 0 && (
           <select
             value={tutorFilter || ""}
             onChange={(e) => setTutorFilter(e.target.value ? Number(e.target.value) : undefined)}
@@ -678,11 +691,14 @@ export default function ZenSessionsPage() {
             onBlur={() => setFilterFocused(false)}
           >
             <option value="">Tutor: All</option>
-            {tutors.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.tutor_name}
-              </option>
-            ))}
+            {tutorOptions.map((t) => {
+              const departure = departureLabel(t);
+              return (
+                <option key={t.id} value={t.id}>
+                  {departure ? `${t.tutor_name} (${departure.toLowerCase()})` : t.tutor_name}
+                </option>
+              );
+            })}
           </select>
         )}
 

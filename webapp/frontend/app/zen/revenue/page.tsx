@@ -10,6 +10,7 @@ import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { getStatusChar, getStatusColor, getShortStatus } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
+import { departureLabel, withCurrentTutor } from "@/lib/employment";
 import type { SessionRevenueDetail } from "@/types";
 
 // ── Helpers ──
@@ -106,6 +107,16 @@ export default function ZenRevenuePage() {
       }
     }
   }, [canViewAdminPages, selectedTutorId, activeTutors, selectedLocation]);
+
+  // What the picker offers. This select has no "all tutors" entry, so its value
+  // is always meant to name somebody. Once a tutor's last day passes they drop
+  // out of activeTutors, and a select whose value has no option renders blank,
+  // which would leave a month of somebody's revenue on screen above an empty
+  // picker. Putting the selection back keeps the page able to say whose it is.
+  const tutorOptions = useMemo(
+    () => withCurrentTutor(activeTutors, selectedTutorId, tutors),
+    [activeTutors, selectedTutorId, tutors]
+  );
 
   // Data
   const { data: summary, isLoading: summaryLoading } = useMonthlyRevenueSummary(effectiveTutorId, selectedPeriod);
@@ -267,11 +278,14 @@ export default function ZenRevenuePage() {
                 fontFamily: "inherit",
               }}
             >
-              {activeTutors.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.tutor_name}
-                </option>
-              ))}
+              {tutorOptions.map((t) => {
+                const departure = departureLabel(t);
+                return (
+                  <option key={t.id} value={t.id}>
+                    {departure ? `${t.tutor_name} (${departure.toLowerCase()})` : t.tutor_name}
+                  </option>
+                );
+              })}
             </select>
           ) : (
             <span style={{ color: "var(--zen-accent)", fontSize: "12px" }}>{tutorDisplayName}</span>
