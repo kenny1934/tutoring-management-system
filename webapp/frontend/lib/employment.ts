@@ -67,6 +67,24 @@ export function pickableForOpenEndedWork<
 }
 
 /**
+ * The tutors a control may name when the subject is a departure.
+ *
+ * A filter that exists to work through somebody's leftovers has to be able to
+ * name them, and pickableTutors drops them the day after they go. So this is
+ * everyone who can still be given work, plus everyone with a last working day
+ * on file whether it has passed or not. It is for looking, never for assigning:
+ * the pickers that hand out work still use pickableTutors, and the server would
+ * refuse a departed tutor anyway.
+ */
+export function pickableWithLeavers<
+  T extends Pick<Tutor, "departure_effective_on" | "is_active_tutor">
+>(tutors: T[], today: Date = new Date()): T[] {
+  return tutors.filter(
+    (tutor) => isLeaving(tutor) || (tutor.is_active_tutor !== false && !hasDeparted(tutor, today))
+  );
+}
+
+/**
  * A picker's options with the tutor it is currently set to added back in.
  *
  * Without this a select whose value is a departed tutor renders with nothing

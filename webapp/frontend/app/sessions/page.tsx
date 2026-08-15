@@ -3,12 +3,12 @@
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
-import { isLeaving, pickableTutors, withCurrentTutor } from "@/lib/employment";
+import { pickableTutors, pickableWithLeavers, withCurrentTutor } from "@/lib/employment";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
-import type { Session, Tutor, MakeupProposal, LeaverOverrun } from "@/types";
+import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
 import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
@@ -80,12 +80,12 @@ const MemoListDrawer = dynamic(
 );
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { toDateString, getWeekBounds, getMonthBounds, getNowSlotPosition } from "@/lib/calendar-utils";
+import { toDateString, getWeekBounds, getWeekStartStr, getMonthBounds, getNowSlotPosition } from "@/lib/calendar-utils";
 import { LessonNudge } from "@/components/sessions/LessonNudge";
 import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { formatCompactDateTimeSlot } from "@/lib/formatters";
+import { formatCompactDateTimeSlot, formatWeekdayLong, formatWeekdayShort, plural } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
@@ -129,7 +129,6 @@ const EMPTY_PROPOSALS: MakeupProposal[] = [];
 const EMPTY_SESSIONS: Session[] = [];
 const EMPTY_PROPOSED_SESSIONS: ProposedSession[] = [];
 const EMPTY_TUTORS: Tutor[] = [];
-const EMPTY_LEAVERS: LeaverOverrun[] = [];
 
 // Number of session cards to show per tier before "Show more"
 const TIER_PAGE_SIZE = 20;
@@ -149,42 +148,25 @@ const EMPTY_SELECTION: ReadonlySet<number> = new Set<number>();
 // line up with, so both of those controls stand down.
 const DATELESS_FILTERS = new Set(["pending-makeups", "after-last-day"]);
 
-// The pending make-ups view is the one that has to stay a list. Its urgency
-// tiers and its sort control only exist there, and a grid would slice its
-// 120-day window down to a week with nothing on screen explaining the mode.
-const LIST_ONLY_FILTERS = new Set(["pending-makeups"]);
-
-// A departure leaves whole days of lessons behind, so the week grid opens the
-// after-a-last-day view: it shows the days side by side, which is how somebody
-// reassigning the work has to think about it. The other views stay reachable.
-const DEFAULT_VIEW_BY_FILTER: Record<string, ViewMode> = {
-  "after-last-day": "weekly",
-};
-
-/** Single source of truth for which view the URL asks for. */
+/**
+ * Single source of truth for which view the URL asks for.
+ *
+ * The pending make-ups view has to stay a list, because its urgency tiers and
+ * its sort control only exist there and a grid would slice its 120-day window
+ * down to a week with nothing on screen explaining the mode. A departure, on
+ * the other hand, leaves whole days of lessons behind, so the week grid opens
+ * that view: it shows the days side by side, which is how somebody reassigning
+ * the work has to think about it. The other views stay reachable from there.
+ */
 function resolveViewMode(urlView: string | null, urlFilter: string | null): ViewMode {
-  const filter = urlFilter || "";
-  if (LIST_ONLY_FILTERS.has(filter)) return 'list';
-  return (urlView as ViewMode) || DEFAULT_VIEW_BY_FILTER[filter] || 'list';
+  if (urlFilter === "pending-makeups") return 'list';
+  if (urlView) return urlView as ViewMode;
+  return urlFilter === "after-last-day" ? 'weekly' : 'list';
 }
 
-/** "Tue 25 Aug", for a slot header that has to say which day it belongs to. */
-function shortDayLabel(date: string): string {
-  return new Date(date + "T00:00:00").toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-}
-
-/** "Tuesday 25 August 2026", for the bar that opens a day's sessions. */
-function fullDayLabel(date: string): string {
-  return new Date(date + "T00:00:00").toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+/** Tutors in the order every picker on the site shows them, titles ignored. */
+function byTutorName(a: Tutor, b: Tutor): number {
+  return getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
 }
 
 /**
@@ -283,7 +265,6 @@ function SessionsPageContent() {
   const { data: overrun } = useEmploymentOverrun(isAfterLastDayView);
 
   const isDatelessView = DATELESS_FILTERS.has(specialFilter);
-  const isListOnlyView = LIST_ONLY_FILTERS.has(specialFilter);
 
   // A filter this mode does not own is disarmed, not merely hidden. Hiding a
   // control while its value kept filtering is the defect this page already had
@@ -370,21 +351,14 @@ function SessionsPageContent() {
   const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, isValidating: sessionsValidating, mutate: mutateSessions } = useSessions(sessionFilters);
   const { data: allTutors = EMPTY_TUTORS } = useTutors();
 
-  // Who the page's tutor controls may name.
-  //
-  // Normally that is whoever can still be given work, which is what every
-  // picker on the site shows. The after-a-last-day view needs more than that:
-  // its whole subject is people who have gone, and once a leaver's last day
-  // passes they drop out of the pickable list while their lessons stay in the
-  // view. A filter that cannot name the one tutor you came to look at is no
-  // filter at all, so leavers are added back here, and only here.
-  const tutors = useMemo(() => {
-    const pickable = pickableTutors(allTutors);
-    if (!isAfterLastDayView) return pickable;
-    const byId = new Map(pickable.map((tutor) => [tutor.id, tutor]));
-    allTutors.filter(isLeaving).forEach((tutor) => byId.set(tutor.id, tutor));
-    return [...byId.values()];
-  }, [allTutors, isAfterLastDayView]);
+  // Who the page's tutor controls may name. Normally that is whoever can still
+  // be given work. The after-a-last-day view needs the people who have gone as
+  // well, because they are its whole subject and a filter that cannot name the
+  // tutor you came to look at is no filter at all.
+  const tutors = useMemo(
+    () => (isAfterLastDayView ? pickableWithLeavers(allTutors) : pickableTutors(allTutors)),
+    [allTutors, isAfterLastDayView]
+  );
 
   // Client-side filtering for composite "Active" filter
   const statusFilteredSessions = useMemo(() => {
@@ -716,27 +690,39 @@ function SessionsPageContent() {
   // identity of a group there. The after-a-last-day view holds as many days as
   // it has to, and a slot alone put five separate dates into one pile, so there
   // the date is part of the group as well. groupSessionsForList keeps the key
-  // unchanged in the single-day case, which is what the collapse state, the
-  // scroll anchors and the Now jump button all hang off.
+  // unchanged when the list is grouped by slot alone, which is what the "Now"
+  // jump button relies on to find its anchor.
+  //
+  // It is also the one list not anchored to a date the reader picked, so it is
+  // the one that has to name the day above each block of sessions. Everywhere
+  // else the toolbar's date picker has already said which day you are looking
+  // at. The test is the mode rather than a count of the dates on screen: a
+  // leaver whose leftovers all fall on one Thursday still needs to be told it
+  // is a Thursday.
+  const listShowsDates = isAfterLastDayView;
   const groupedSessions = useMemo(() => {
     const selectedDateString = toDateString(selectedDate);
     return groupSessionsForList(sessions, {
-      spansDates: isAfterLastDayView,
+      groupByDate: listShowsDates,
       // Proposed make-up slots render as ghost rows, and a ghost whose slot
       // holds no real lessons still needs a group to appear in.
       placeholderSlots: proposedSessions
         .filter((ps) => ps.session_date === selectedDateString)
         .map((ps) => ({ date: ps.session_date, timeSlot: ps.time_slot })),
     });
-  }, [sessions, selectedDate, proposedSessions, isAfterLastDayView]);
+  }, [sessions, selectedDate, proposedSessions, listShowsDates]);
 
-  // This is the one list not anchored to a date the reader picked, so it is the
-  // one that has to name the day above each block of sessions. Everywhere else
-  // the toolbar's date picker has already said which day you are looking at.
-  // The test is the mode rather than a count of the dates on screen: a leaver
-  // whose leftovers all fall on one Thursday still needs to be told it is a
-  // Thursday.
-  const listShowsDates = isAfterLastDayView;
+  // How many countable sessions sit on each date, for the day headings. One
+  // pass here rather than a rescan of every group per heading.
+  const countableByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!listShowsDates) return counts;
+    for (const session of sessions) {
+      if (!isCountableSession(session)) continue;
+      counts.set(session.session_date, (counts.get(session.session_date) ?? 0) + 1);
+    }
+    return counts;
+  }, [sessions, listShowsDates]);
 
   // Which week the after-a-last-day view opens on.
   //
@@ -744,29 +730,28 @@ function SessionsPageContent() {
   // on the current week with nothing in it. This lands on the week holding the
   // earliest lesson still to be moved. It fires once per tutor you look at
   // rather than on every empty week, so paging through the weeks yourself is
-  // not fought.
-  const landedOnRef = useRef("");
+  // not fought. Null means it has not landed yet, which an empty tutor filter
+  // would otherwise be indistinguishable from.
+  const landedOnRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isAfterLastDayView) {
-      landedOnRef.current = "";
+      landedOnRef.current = null;
       return;
     }
     // SWR keeps the previous result on screen while it revalidates, so waiting
     // for the fetch to settle is what stops this landing on the week belonging
     // to the leaver you were looking at a moment ago.
-    const landing = `${specialFilter}|${tutorFilter}`;
-    if (landedOnRef.current === landing || loading || sessionsValidating || sessions.length === 0) return;
-    landedOnRef.current = landing;
+    if (landedOnRef.current === tutorFilter || loading || sessionsValidating || sessions.length === 0) return;
+    landedOnRef.current = tutorFilter;
 
     const earliest = sessions.reduce(
       (soonest, session) => (session.session_date < soonest ? session.session_date : soonest),
       sessions[0].session_date
     );
-    const target = new Date(earliest + 'T00:00:00');
-    if (toDateString(getWeekBounds(target).start) !== toDateString(getWeekBounds(selectedDate).start)) {
-      setSelectedDate(target);
+    if (getWeekStartStr(earliest) !== getWeekStartStr(toDateString(selectedDate))) {
+      setSelectedDate(new Date(earliest + 'T00:00:00'));
     }
-  }, [isAfterLastDayView, specialFilter, tutorFilter, loading, sessionsValidating, sessions, selectedDate]);
+  }, [isAfterLastDayView, tutorFilter, loading, sessionsValidating, sessions, selectedDate]);
 
   // Current-time position among the listed slots (today + list view only):
   // drives the now divider, the header Now chip, the toolbar jump chip,
@@ -857,26 +842,21 @@ function SessionsPageContent() {
     const filtered = selectedLocation === "All Locations"
       ? tutors
       : tutors.filter(t => t.default_location === selectedLocation);
-    return [...filtered].sort((a, b) =>
-      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
-    );
+    return [...filtered].sort(byTutorName);
   }, [tutors, selectedLocation]);
 
   // What the toolbar's tutor dropdown offers. It is the location-narrowed list
   // plus whoever the filter is currently set to, because a select whose value
   // has no option renders blank and then tells you nothing about what you are
   // looking at. The branch narrowing is the usual way to lose the option.
-  const tutorOptions = useMemo(() => {
-    const withSelected = withCurrentTutor(
+  const tutorOptions = useMemo(
+    () => [...withCurrentTutor(
       filteredTutors,
       tutorFilter ? parseInt(tutorFilter) : null,
       allTutors
-    );
-    if (withSelected === filteredTutors) return filteredTutors;
-    return [...withSelected].sort((a, b) =>
-      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
-    );
-  }, [filteredTutors, tutorFilter, allTutors]);
+    )].sort(byTutorName),
+    [filteredTutors, tutorFilter, allTutors]
+  );
 
   // Bulk selection computations - use grouped order to match visual display
   const allSessionIds = useMemo(() => {
@@ -1902,7 +1882,7 @@ function SessionsPageContent() {
       {/* View switcher. Hidden only in the pending make-ups view, which has to
           stay a list. The after-a-last-day view opens on the week grid, and the
           switcher is what says so and lets you move off it. */}
-      {!isListOnlyView && (
+      {!isPendingMakeupsView && (
         <>
           <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
           <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
@@ -2062,6 +2042,19 @@ function SessionsPageContent() {
     </>
   );
 
+  // Built once and rendered in both branches, like the toolbar above it: the
+  // banner belongs to the mode rather than to a view, so the week grid and the
+  // list have to show the same one.
+  const afterLastDayBanner = isAfterLastDayView ? (
+    <AfterLastDayBanner
+      total={sessions.length}
+      leavers={overrun?.leavers ?? []}
+      selectedTutorId={tutorFilter}
+      onSelectTutor={setTutorFilter}
+      onClear={() => setSpecialFilter("")}
+    />
+  ) : null;
+
   // Toolbar: outer div is clean sticky container, inner div has visual styling
   const toolbarStickyClasses = "sticky top-0 z-30";
   const toolbarInnerClasses = cn(
@@ -2084,15 +2077,7 @@ function SessionsPageContent() {
               </div>
             </div>
 
-            {isAfterLastDayView && (
-              <AfterLastDayBanner
-                total={sessions.length}
-                leavers={overrun?.leavers ?? EMPTY_LEAVERS}
-                selectedTutorId={tutorFilter}
-                onSelectTutor={setTutorFilter}
-                onClear={() => setSpecialFilter("")}
-              />
-            )}
+            {afterLastDayBanner}
 
             {/* Special Filter Banner */}
             {isPendingMakeupsView && (
@@ -2566,13 +2551,7 @@ function SessionsPageContent() {
                   const isCurrentSlot = nowPosition?.kind === "during" && nowPosition.timeSlot === timeSlot;
                   // The first group of a day carries that day's heading, and the
                   // count beside it covers the whole day rather than this one slot.
-                  const isFirstOfDate = listShowsDates
-                    && (groupIndex === 0 || groupedSessions[groupIndex - 1].date !== groupDate);
-                  const sessionsOnDate = isFirstOfDate
-                    ? groupedSessions
-                        .filter((other) => other.date === groupDate)
-                        .reduce((count, other) => count + other.sessions.filter(isCountableSession).length, 0)
-                    : 0;
+                  const showDayHeading = listShowsDates && group.isFirstOfDate;
                   return (
                   <React.Fragment key={slotKey}>
                     {/* Current-time divider (shown in the gap before the next slot) */}
@@ -2583,12 +2562,12 @@ function SessionsPageContent() {
                     {/* The day this block of sessions belongs to. Only a list that
                         covers more than one day shows it, because everywhere else
                         the date picker in the toolbar has already said it. */}
-                    {isFirstOfDate && (
+                    {showDayHeading && (
                       <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-[#a0704b] dark:bg-[#cd853f] text-white desk-shadow-low">
                         <CalendarDays className="h-4 w-4" />
-                        <span className="text-sm font-bold">{fullDayLabel(groupDate)}</span>
+                        <span className="text-sm font-bold">{formatWeekdayLong(groupDate)}</span>
                         <span className="text-xs text-white/80">
-                          {sessionsOnDate} session{sessionsOnDate !== 1 ? "s" : ""}
+                          {plural(countableByDate.get(groupDate) ?? 0, "session")}
                         </span>
                       </div>
                     )}
@@ -2661,7 +2640,7 @@ function SessionsPageContent() {
                               <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                             </div>
                             <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
-                              {listShowsDates ? `${shortDayLabel(groupDate)}, ${timeSlot}` : timeSlot}
+                              {listShowsDates ? `${formatWeekdayShort(groupDate)}, ${timeSlot}` : timeSlot}
                             </h3>
                             {isCurrentSlot && <NowChip />}
                             <button
@@ -3171,15 +3150,7 @@ function SessionsPageContent() {
           {toolbarContent}
         </motion.div>
 
-        {isAfterLastDayView && (
-          <AfterLastDayBanner
-            total={sessions.length}
-            leavers={overrun?.leavers ?? EMPTY_LEAVERS}
-            selectedTutorId={tutorFilter}
-            onSelectTutor={setTutorFilter}
-            onClear={() => setSpecialFilter("")}
-          />
-        )}
+        {afterLastDayBanner}
 
       {/* Weekly Calendar View */}
       {viewMode === "weekly" && (

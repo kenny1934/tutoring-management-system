@@ -9,23 +9,18 @@
  * a time slot together.
  *
  * The key each group carries is what the collapse state, the scroll anchors and
- * React all hang off. When the list covers one day that key is still the bare
- * time slot, exactly as it was, so none of that behaviour shifts underneath the
- * everyday list.
+ * React all hang off. When the list is grouped by slot alone that key is still
+ * the bare time slot, exactly as it was, which is what keeps the "Now" jump
+ * button finding its anchor by `slot-${timeSlot}`.
  */
-import { getStatusSortOrder } from "./session-status";
+import { compareSessionsInSlot, getMainGradeGroup, type SlotSortSession } from "./session-status";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
 /** The fields the grouping reads. Anything session-shaped satisfies it. */
-export interface GroupableSession {
+export interface GroupableSession extends SlotSortSession {
   session_date: string;
   time_slot?: string | null;
   tutor_name?: string | null;
-  grade?: string | null;
-  lang_stream?: string | null;
-  session_status?: string | null;
-  school?: string | null;
-  school_student_id?: string | null;
 }
 
 export interface SessionGroup<T extends GroupableSession> {
@@ -34,6 +29,8 @@ export interface SessionGroup<T extends GroupableSession> {
   /** The date every session in the group falls on, as YYYY-MM-DD. */
   date: string;
   timeSlot: string;
+  /** True on the first group of each date, which is where a day heading goes. */
+  isFirstOfDate: boolean;
   sessions: T[];
 }
 
@@ -57,7 +54,8 @@ export interface PlaceholderSlot {
  * Tutors come in name order. Within a tutor, the grade and language stream they
  * are scheduled to teach most of that hour is the main group, and it sits above
  * whoever else is in the room, so the register reads as the class first and the
- * visitors after. Trials lead because they are the ones somebody has to greet.
+ * visitors after. Both of those rules live in session-status.ts, which is where
+ * the other surfaces that show a slot's register read them from.
  */
 function sortWithinGroup<T extends GroupableSession>(groupSessions: T[]): T[] {
   const byTutor = new Map<string, T[]>();
@@ -74,42 +72,8 @@ function sortWithinGroup<T extends GroupableSession>(groupSessions: T[]): T[] {
 
   for (const tutor of tutorNames) {
     const tutorSessions = byTutor.get(tutor)!;
-
-    const gradeCounts = new Map<string, number>();
-    tutorSessions
-      .filter((s) => s.session_status === "Scheduled")
-      .forEach((s) => {
-        const key = `${s.grade || ""}${s.lang_stream || ""}`;
-        gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
-      });
-    const mainGroup = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-
-    tutorSessions.sort((a, b) => {
-      const getPriority = (s: T) => {
-        const gradeKey = `${s.grade || ""}${s.lang_stream || ""}`;
-        const isMainGroup = gradeKey === mainGroup && mainGroup !== "";
-        const status = s.session_status || "";
-
-        if (status === "Trial Class" || status === "Attended (Trial)") return 0;
-        if (isMainGroup && (status === "Scheduled" || status === "Attended" || status === "No Show")) return 1;
-        if (status === "Scheduled" || status === "Attended" || status === "No Show") return 3;
-        if (status === "Make-up Class" || status === "Attended (Make-up)") return 5;
-        return 10 + getStatusSortOrder(status);
-      };
-
-      const priorityA = getPriority(a);
-      const priorityB = getPriority(b);
-      if (priorityA !== priorityB) return priorityA - priorityB;
-
-      // Within the same priority, and especially within the main group, the
-      // register is easiest to read down by school and then by student number.
-      if (priorityA <= 2) {
-        const schoolCompare = (a.school || "").localeCompare(b.school || "");
-        if (schoolCompare !== 0) return schoolCompare;
-      }
-      return (a.school_student_id || "").localeCompare(b.school_student_id || "");
-    });
-
+    const mainGroup = getMainGradeGroup(tutorSessions);
+    tutorSessions.sort((a, b) => compareSessionsInSlot(a, b, mainGroup));
     sorted.push(...tutorSessions);
   }
 
@@ -127,28 +91,27 @@ function compareSlots(a: string, b: string): number {
 /**
  * Break a list of sessions into the groups the list view renders.
  *
- * Pass `spansDates` when the list can hold more than one day, which is true of
- * the after-a-last-day view and false of every date-anchored list. It decides
- * both the shape of the key and whether two identical time slots on different
- * days are one group or two.
+ * Pass `groupByDate` when the list can hold more than one day, which is true of
+ * the after-a-last-day view and false of every date-anchored list. It is a
+ * decision the caller makes rather than something to read off the data: a
+ * leaver whose lessons all fall on one Thursday is still that view, and letting
+ * the key shape flip with the data would move the collapse state and the DOM
+ * anchors underneath a filter change.
  */
 export function groupSessionsForList<T extends GroupableSession>(
   sessions: T[],
   {
-    spansDates,
+    groupByDate,
     placeholderSlots = [],
-  }: { spansDates: boolean; placeholderSlots?: PlaceholderSlot[] }
+  }: { groupByDate: boolean; placeholderSlots?: PlaceholderSlot[] }
 ): SessionGroup<T>[] {
   const groups = new Map<string, SessionGroup<T>>();
 
-  const keyFor = (date: string, timeSlot: string) =>
-    spansDates ? `${date}|${timeSlot}` : timeSlot;
-
   const ensure = (date: string, timeSlot: string) => {
-    const key = keyFor(date, timeSlot);
+    const key = groupByDate ? `${date}|${timeSlot}` : timeSlot;
     let group = groups.get(key);
     if (!group) {
-      group = { key, date, timeSlot, sessions: [] };
+      group = { key, date, timeSlot, isFirstOfDate: false, sessions: [] };
       groups.set(key, group);
     }
     return group;
@@ -162,13 +125,19 @@ export function groupSessionsForList<T extends GroupableSession>(
     if (timeSlot) ensure(date, timeSlot);
   });
 
-  return [...groups.values()]
+  const ordered = [...groups.values()]
     .map((group) => ({ ...group, sessions: sortWithinGroup(group.sessions) }))
     .sort((a, b) => {
-      // On a single-day list every date is the same, so this falls through to
+      // Grouped by slot alone every date is the same, so this falls through to
       // the slot comparison and the order is what it has always been.
       const dateCompare = a.date.localeCompare(b.date);
       if (dateCompare !== 0) return dateCompare;
       return compareSlots(a.timeSlot, b.timeSlot);
     });
+
+  ordered.forEach((group, index) => {
+    group.isFirstOfDate = index === 0 || ordered[index - 1].date !== group.date;
+  });
+
+  return ordered;
 }

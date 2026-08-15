@@ -5,6 +5,7 @@ import {
   isLeaving,
   pickableForOpenEndedWork,
   pickableTutors,
+  pickableWithLeavers,
   withCurrentTutor,
 } from "./employment";
 
@@ -55,6 +56,22 @@ describe("who a picker may offer", () => {
     const list = [tutor(1), tutor(2, null, false)];
 
     expect(pickableTutors(list, TODAY).map((t) => t.id)).toEqual([1]);
+  });
+
+  it("keeps somebody who has already gone when the subject is the departure", () => {
+    // The list of lessons left past a last working day has to be able to name
+    // the person whose lessons they are, and pickableTutors drops them.
+    const list = [tutor(1), tutor(2, "2026-01-31"), tutor(3, null, false)];
+
+    expect(pickableWithLeavers(list, TODAY).map((t) => t.id)).toEqual([1, 2]);
+  });
+
+  it("keeps a leaver who has already been marked as not teaching", () => {
+    // Suspending the account and recording the last day are two separate acts,
+    // and either order has to leave the name reachable.
+    const list = [tutor(1, LAST_DAY, false)];
+
+    expect(pickableWithLeavers(list, TODAY).map((t) => t.id)).toEqual([1]);
   });
 
   it("drops anybody leaving at all from open-ended work", () => {
