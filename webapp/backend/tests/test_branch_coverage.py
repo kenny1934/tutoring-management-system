@@ -19,6 +19,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
+from constants import WEEKDAY_NAMES
 from models import Tutor, TutorBranchCoverage
 from schemas import TutorBranchCoverage as TutorBranchCoverageSchema
 from utils.employment import covers_on, normalise_location, works_at
@@ -134,7 +135,7 @@ class TestWhatTheEditorCanSend:
         assert works_at(simon, "MSB", date(2026, 10, 6)) is False  # past the end
 
     def test_every_short_day_name_is_accepted(self):
-        for day in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"):
+        for day in WEEKDAY_NAMES:
             assert TutorBranchCoverageSchema(location="MSB", weekday=day).weekday == day
 
     def test_a_full_day_name_is_refused(self):

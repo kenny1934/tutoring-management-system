@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.engine import Row
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload, contains_eager
+from sqlalchemy.orm import Session, joinedload, contains_eager, selectinload
 
 from database import get_db
 from models import (
@@ -5007,6 +5007,7 @@ def get_active_tutors(
     """
     tutors = (
         db.query(Tutor)
+        .options(selectinload(Tutor.branch_coverage))
         .filter(Tutor.is_active_tutor == True)  # noqa: E712
         .filter(still_here_clause())
         .order_by(Tutor.tutor_name)

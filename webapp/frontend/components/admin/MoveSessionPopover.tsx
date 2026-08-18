@@ -13,7 +13,8 @@ import useSWR from "swr";
 import { Loader2, AlertCircle, ArrowRightLeft, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
-import { partitionByBranch, tutorOptionLabel, worksAt } from "@/lib/employment";
+import { worksAt } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { LOCATION_TO_CODE, formatShortDate } from "@/lib/summer-utils";
 import {
   TimeSlotPicker,
@@ -113,13 +114,6 @@ export function MoveSessionPopover({
       ? allTutors?.filter((t) => worksAt(t, locationCode, date || null)) ?? []
       : allTutors ?? []),
     [allTutors, locationCode, date],
-  );
-
-  // Split only for display, so a substitute is never mistaken for one of the
-  // branch's own tutors.
-  const { home: homeTutors, visiting: visitingTutors } = useMemo(
-    () => partitionByBranch(tutors, locationCode),
-    [tutors, locationCode],
   );
 
   const { refs, context } = useFloating({
@@ -232,16 +226,7 @@ export function MoveSessionPopover({
             className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
           >
             <option value="">— select tutor —</option>
-            {homeTutors.map((t) => (
-              <option key={t.id} value={t.id}>{t.tutor_name}</option>
-            ))}
-            {visitingTutors.length > 0 && (
-              <optgroup label="Covering from another branch">
-                {visitingTutors.map((t) => (
-                  <option key={t.id} value={t.id}>{tutorOptionLabel(t, locationCode)}</option>
-                ))}
-              </optgroup>
-            )}
+            <TutorOptions tutors={tutors} location={locationCode} />
           </select>
           {tutors.length === 0 && allTutors && (
             <p className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">

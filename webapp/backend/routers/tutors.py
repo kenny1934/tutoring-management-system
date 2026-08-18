@@ -4,7 +4,7 @@ Provides read access to tutor information and admin updates to safe profile
 fields (compensation, nickname, location, active flag).
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Union
 
 from database import get_db
@@ -102,7 +102,15 @@ def get_tutors(
         admin-level roles.
     """
     response.headers["Cache-Control"] = "private, max-age=300"
-    tutors = db.query(Tutor).order_by(Tutor.tutor_name).limit(100).all()
+    # Coverage is asked for by name because every one of these rows is about to
+    # be serialised with it. Left to itself it would be one query per tutor.
+    tutors = (
+        db.query(Tutor)
+        .options(selectinload(Tutor.branch_coverage))
+        .order_by(Tutor.tutor_name)
+        .limit(100)
+        .all()
+    )
 
     effective_role = get_effective_role(request, current_user)
     return [_serialize_tutor(t, effective_role) for t in tutors]

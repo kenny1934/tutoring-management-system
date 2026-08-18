@@ -2,13 +2,16 @@
  * Who is still here, where they work, and who may still be picked.
  *
  * The same questions the backend answers in utils/employment.py, asked on
- * this side so the pickers agree with what the server will accept. A tutor
- * serving notice is still here and still teaches, so they stay in every list.
+ * this side so the pickers agree with what the server will accept. The one
+ * place the two part company is the date window below, which only screens have
+ * a use for: no endpoint narrows a roster by a stretch of days, so the server
+ * keeps the simpler single-day form. A tutor serving notice is still here and
+ * still teaches, so they stay in every list.
  * Once their last working day has passed they leave the lists, but never the
  * screen: whoever is reassigning their lessons still has to see their name.
  */
 import { toDateString } from "@/lib/calendar-utils";
-import { DAY_NAMES } from "@/lib/constants";
+import { DAY_NAMES, LOCATION_TO_CODE } from "@/lib/constants";
 import { formatDayFirstDate } from "@/lib/formatters";
 import type { DepartureLoad, Tutor, TutorBranchCoverage } from "@/types";
 
@@ -173,7 +176,7 @@ export function hasOutstandingWork(load: DepartureLoad): boolean {
  * trimmed shape whose default_location is nullable, and both forms have to
  * work without a cast at the call site.
  */
-type TutorBranchFields = {
+export type TutorBranchFields = {
   default_location?: string | null;
   branch_coverage?: TutorBranchCoverage[] | null;
 };
@@ -191,16 +194,6 @@ export const COVERAGE_WEEKDAYS: readonly string[] = [
 const WEEK_ORDER = COVERAGE_WEEKDAYS;
 
 /**
- * The Chinese branch names summer and regular configs store, mapped to the
- * short codes tutors and sessions use. Mirrors LOCATION_TO_CODE in
- * lib/summer-utils, kept here so this module has no import into that one.
- */
-const LOCATION_CODES: Record<string, string> = {
-  "華士古分校": "MSA",
-  "二龍喉分校": "MSB",
-};
-
-/**
  * A branch name in the short-code form everything else compares against.
  *
  * Callers reach this helper holding whichever form their own screen works in,
@@ -209,7 +202,7 @@ const LOCATION_CODES: Record<string, string> = {
 export function normaliseLocation(location: string | null | undefined): string | null {
   if (!location) return null;
   const trimmed = location.trim();
-  return LOCATION_CODES[trimmed] ?? trimmed;
+  return LOCATION_TO_CODE[trimmed] ?? trimmed;
 }
 
 /**
@@ -278,7 +271,7 @@ function stretchHasWeekday(
  * on it. An empty bound is not a restriction: a row with nothing filled in
  * means they simply also work there.
  */
-export function coversOn(
+function coversOn(
   coverage: TutorBranchCoverage,
   when?: string | DateWindow | null,
   today: Date = new Date()
@@ -479,6 +472,12 @@ export function coverageDraftsFromRows(
   rows: TutorBranchCoverage[] | null | undefined
 ): Record<string, CoverageDraft> {
   const drafts: Record<string, CoverageDraft> = {};
+  // Branches that turned out to have a row with no weekday on them. Noted as
+  // the rows go past, because that is where the fact is visible: a row with no
+  // weekday says the arrangement runs on any day, which makes any named days
+  // beside it redundant.
+  const anyDay = new Set<string>();
+
   for (const row of rows ?? []) {
     const branch = normaliseLocation(row.location);
     if (!branch) continue;
@@ -487,17 +486,17 @@ export function coverageDraftsFromRows(
       from: row.effective_from ?? "",
       until: row.effective_until ?? "",
     };
-    if (row.weekday && !draft.weekdays.includes(row.weekday)) {
+    if (!row.weekday) {
+      anyDay.add(branch);
+    } else if (!draft.weekdays.includes(row.weekday)) {
       draft.weekdays.push(row.weekday);
     }
     drafts[branch] = draft;
   }
-  // An every-day row makes the named days beside it redundant.
+
   for (const [branch, draft] of Object.entries(drafts)) {
-    if ((rows ?? []).some((r) => normaliseLocation(r.location) === branch && !r.weekday)) {
-      draft.weekdays = [];
-    }
-    draft.weekdays.sort((a, b) => WEEK_ORDER.indexOf(a) - WEEK_ORDER.indexOf(b));
+    if (anyDay.has(branch)) draft.weekdays = [];
+    else draft.weekdays.sort((a, b) => WEEK_ORDER.indexOf(a) - WEEK_ORDER.indexOf(b));
   }
   return drafts;
 }

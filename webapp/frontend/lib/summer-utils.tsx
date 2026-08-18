@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SummerApplicationSessionInfo, SummerCourseConfig, SummerCourseFormConfig, SummerPricingConfig, SummerSiblingInfo } from "@/types";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
+import { LOCATION_TO_CODE } from "@/lib/constants";
 
 export type Lang = "zh" | "en";
 
@@ -525,11 +526,10 @@ export function PlacementDotStrip({
   );
 }
 
-/** Map summer config Chinese location names → internal system codes. */
-export const LOCATION_TO_CODE: Record<string, string> = {
-  "華士古分校": "MSA",
-  "二龍喉分校": "MSB",
-};
+/** Map summer config Chinese location names → internal system codes. Defined
+ *  in lib/constants.ts and re-exported here, because this is where the summer
+ *  and regular pages have always imported it from. */
+export { LOCATION_TO_CODE };
 
 /** Inverse of LOCATION_TO_CODE — for translating sidebar branch codes back
  *  into the Chinese names that summer applications store in preferred_location. */

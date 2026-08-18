@@ -35,11 +35,15 @@ class Tutor(Base):
     enrollments = relationship("Enrollment", back_populates="tutor", foreign_keys="[Enrollment.tutor_id]")
     sessions = relationship("SessionLog", back_populates="tutor")
     parent_communications = relationship("ParentCommunication", back_populates="tutor")
+    # Loaded on access, like every other relationship here. It was eager for a
+    # while, and that put a second query on every authenticated request: the
+    # auth dependency loads the signed-in tutor on its way through, and an
+    # eager collection is fetched whether or not anybody reads it. The two
+    # endpoints that serialise a whole roster ask for it explicitly instead.
     branch_coverage = relationship(
         "TutorBranchCoverage",
         back_populates="tutor",
         cascade="all, delete-orphan",
-        lazy="selectin",
     )
 
 

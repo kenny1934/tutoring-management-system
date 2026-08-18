@@ -5,7 +5,8 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { useActiveTutors, useTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
-import { partitionByBranch, tutorOptionLabel, withCurrentTutor, worksAt } from "@/lib/employment";
+import { withCurrentTutor, worksAt } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { Plus, Trash2, PenTool, Home, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -238,13 +239,6 @@ export function EditSessionModal({
       getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
     );
   }, [tutors, allTutors, form.location, form.session_date, session.tutor_id]);
-
-  // Split only for display. Whoever is covering this branch is offerable, but
-  // they should never sit unremarked among the branch's own people.
-  const { home: homeTutors, visiting: visitingTutors } = useMemo(
-    () => partitionByBranch(filteredTutors, form.location),
-    [filteredTutors, form.location]
-  );
 
   // Helper to get day name from date string (abbreviated to match DB format)
   const getDayName = (dateStr: string) => {
@@ -712,20 +706,7 @@ export function EditSessionModal({
               className={inputClass}
             >
               <option value="">Select tutor...</option>
-              {homeTutors.map((tutor) => (
-                <option key={tutor.id} value={tutor.id}>
-                  {tutor.tutor_name}
-                </option>
-              ))}
-              {visitingTutors.length > 0 && (
-                <optgroup label="Covering from another branch">
-                  {visitingTutors.map((tutor) => (
-                    <option key={tutor.id} value={tutor.id}>
-                      {tutorOptionLabel(tutor, form.location)}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
+              <TutorOptions tutors={filteredTutors} location={form.location} />
             </select>
           </div>
         </div>

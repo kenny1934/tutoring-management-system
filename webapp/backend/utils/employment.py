@@ -29,7 +29,7 @@ from typing import Optional
 
 from sqlalchemy import and_ as sa_and, or_ as sa_or
 
-from constants import WEEKDAY_NAMES, today_hk
+from constants import WEEKDAY_NAMES, normalize_secondary_location, today_hk
 from models import SessionLog, Tutor
 
 
@@ -97,26 +97,17 @@ def still_here_clause(today: Optional[date] = None):
 # tutor_branch_coverage. See migration 163 for why it is a table rather than a
 # column on the tutor.
 
-#: The Chinese branch names summer and regular configs store, mapped to the
-#: short codes that ``tutors.default_location`` and ``session_log.location``
-#: use. Mirrors LOCATION_TO_CODE on the frontend.
-_LOCATION_CODES = {
-    "華士古分校": "MSA",
-    "二龍喉分校": "MSB",
-}
-
-
 def normalise_location(location: Optional[str]) -> Optional[str]:
     """A branch name in the short-code form everything else compares against.
 
     Callers reach this helper holding whichever form their own screen works
     in, so both are accepted and anything unrecognised is passed through
-    untouched.
+    untouched. The map itself lives in ``constants`` and is shared with the
+    summer and regular intakes, so a new branch is one edit rather than three.
     """
     if not location:
         return None
-    trimmed = location.strip()
-    return _LOCATION_CODES.get(trimmed, trimmed)
+    return normalize_secondary_location(location.strip())
 
 
 def covers_on(coverage, work_date: Optional[date]) -> bool:

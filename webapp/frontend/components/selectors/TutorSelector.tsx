@@ -46,6 +46,9 @@ interface TutorSelectorProps {
    * sitting above one day's work should not offer somebody who is only there
    * on Saturdays. Leave it out on a screen with no dates in it, where the
    * answer is meant to be permissive.
+   *
+   * Pass a stable value. A window written inline is a new object on every
+   * render, which would re-narrow the roster every time for no reason.
    */
   when?: string | DateWindow | null;
   className?: string;

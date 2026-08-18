@@ -16,6 +16,17 @@ export const BONUS_TIERS: [string, string][] = [
 // Day names for calendar views
 export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
+/** The Chinese branch names summer and regular configs store, mapped to the
+ *  short codes that tutors, enrolments and session_log use. It lives in this
+ *  module, which imports nothing, so that both the summer page helpers and the
+ *  tutor predicates in lib/employment.ts can share the one copy. Mirror of
+ *  SECONDARY_LOCATION_TO_CODE in webapp/backend/constants.py, so a new branch
+ *  is two edits: this one and that one. */
+export const LOCATION_TO_CODE: Record<string, string> = {
+  "華士古分校": "MSA",
+  "二龍喉分校": "MSB",
+};
+
 // Map day names to day index (Sunday = 0)
 export const DAY_NAME_TO_INDEX: Record<string, number> = {
   'Sun': 0, 'Sunday': 0,

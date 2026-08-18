@@ -3,7 +3,8 @@
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
-import { partitionByBranch, pickableTutors, pickableWithLeavers, tutorOptionLabel, withCurrentTutor, worksAt, type DateWindow } from "@/lib/employment";
+import { pickableTutors, pickableWithLeavers, withCurrentTutor, worksAt, type DateWindow } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -309,6 +310,35 @@ function SessionsPageContent() {
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The stretch of days this view puts on screen. Worked out once and then
+  // used twice: the fetch below is built from it, and so is the tutor list the
+  // toolbar offers. Those two have to agree, because a tutor covering another
+  // branch for a few days belongs in the dropdown exactly when their work is
+  // on the page. Deriving both from one value is what keeps them in step when
+  // a new view is added.
+  const shownDates = useMemo<DateWindow>(() => {
+    // Back 120 days to catch overdue pending make-ups, with no end.
+    if (isPendingMakeupsView) {
+      const start = new Date();
+      start.setDate(start.getDate() - 120);
+      return { from: toDateString(start), until: null };
+    }
+    // No bounds at all: the cut-off is each tutor's own last working day, which
+    // only the server can apply, and work left behind by a departure stays
+    // listed until somebody moves it.
+    if (isAfterLastDayView) return { from: null, until: null };
+    if (viewMode === "weekly") {
+      const { start, end } = getWeekBounds(selectedDate);
+      return { from: toDateString(start), until: toDateString(end) };
+    }
+    if (viewMode === "monthly") {
+      const { start, end } = getMonthBounds(selectedDate);
+      return { from: toDateString(start), until: toDateString(end) };
+    }
+    const day = toDateString(selectedDate);
+    return { from: day, until: day };
+  }, [selectedDate, viewMode, isPendingMakeupsView, isAfterLastDayView]);
+
   // Build filters for SWR hook
   const sessionFilters = useMemo(() => {
     const filters: Record<string, string | number | boolean | undefined> = {
@@ -318,47 +348,24 @@ function SessionsPageContent() {
       limit: (viewMode === "monthly" || viewMode === "weekly") ? 2000 : 500,
     };
 
-    // Special filter: pending-makeups overrides date and status
+    // Both special views pin the status set or the cut-off as well as the
+    // dates, which is the only reason they are named here again.
     if (isPendingMakeupsView) {
-      // 120 days ago to catch overdue pending makeups
-      const fetchWindow = new Date();
-      fetchWindow.setDate(fetchWindow.getDate() - 120);
-      filters.from_date = toDateString(fetchWindow);
+      filters.from_date = shownDates.from ?? undefined;
       filters.status = PENDING_MAKEUP_STATUSES.join(",");
       filters.limit = 2000;
     } else if (isAfterLastDayView) {
-      // No date bounds at all: the cut-off is each tutor's own last working
-      // day, which only the server can apply, and work left behind by a
-      // departure stays listed until somebody moves it.
       filters.after_last_day = true;
       filters.limit = 2000;
-    } else if (viewMode === "list" || viewMode === "daily") {
-      filters.date = toDateString(selectedDate);
-    } else if (viewMode === "weekly") {
-      const { start, end } = getWeekBounds(selectedDate);
-      filters.from_date = toDateString(start);
-      filters.to_date = toDateString(end);
-    } else if (viewMode === "monthly") {
-      const { start, end } = getMonthBounds(selectedDate);
-      filters.from_date = toDateString(start);
-      filters.to_date = toDateString(end);
+    } else if (shownDates.from && shownDates.from === shownDates.until) {
+      filters.date = shownDates.from;
+    } else {
+      filters.from_date = shownDates.from ?? undefined;
+      filters.to_date = shownDates.until ?? undefined;
     }
 
     return filters;
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView, isAfterLastDayView]);
-
-  // The stretch of days on screen, read straight back off the fetch that was
-  // just built rather than worked out a second time from the view mode. The
-  // tutor list is narrowed to this window, so if the two ever disagreed the
-  // dropdown would offer somebody whose work is not on the page.
-  const shownDates = useMemo<DateWindow>(() => {
-    const oneDay = sessionFilters.date as string | undefined;
-    if (oneDay) return { from: oneDay, until: oneDay };
-    return {
-      from: (sessionFilters.from_date as string | undefined) ?? null,
-      until: (sessionFilters.to_date as string | undefined) ?? null,
-    };
-  }, [sessionFilters]);
+  }, [shownDates, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView, isAfterLastDayView]);
 
   // SWR hooks for data fetching with caching
   const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, isValidating: sessionsValidating, mutate: mutateSessions } = useSessions(sessionFilters);
@@ -890,14 +897,6 @@ function SessionsPageContent() {
       allTutors
     )].sort(byTutorName),
     [filteredTutors, tutorFilter, allTutors]
-  );
-
-  // Split for display only, so a tutor covering from the other branch is never
-  // read as one of this branch's own people. partitionByBranch does not change
-  // who is in the list, only how it is laid out.
-  const { home: homeTutorOptions, visiting: visitingTutorOptions } = useMemo(
-    () => partitionByBranch(tutorOptions, selectedLocation),
-    [tutorOptions, selectedLocation]
   );
 
   // Bulk selection computations - use grouped order to match visual display
@@ -1982,20 +1981,7 @@ function SessionsPageContent() {
         }}
       >
         <option value="">Tutor</option>
-        {homeTutorOptions.map((tutor) => (
-          <option key={tutor.id} value={tutor.id.toString()}>
-            {tutor.tutor_name}
-          </option>
-        ))}
-        {visitingTutorOptions.length > 0 && (
-          <optgroup label="Covering from another branch">
-            {visitingTutorOptions.map((tutor) => (
-              <option key={tutor.id} value={tutor.id.toString()}>
-                {tutorOptionLabel(tutor, selectedLocation)}
-              </option>
-            ))}
-          </optgroup>
-        )}
+        <TutorOptions tutors={tutorOptions} location={selectedLocation} />
       </select>
 
       {/* Summer class filter — every view; hides itself outside the course period */}
