@@ -16,7 +16,11 @@ somebody's Saturday cover offers them for a Tuesday.
 """
 from datetime import date
 
+import pytest
+from pydantic import ValidationError
+
 from models import Tutor, TutorBranchCoverage
+from schemas import TutorBranchCoverage as TutorBranchCoverageSchema
 from utils.employment import covers_on, normalise_location, works_at
 
 TODAY = date(2026, 8, 15)
@@ -106,3 +110,52 @@ class TestTheTwoWaysOfAsking:
         # next month should already be findable, and refusing them would leave
         # the filter unable to name them on the day they turn up.
         assert covers_on(_cover(start=date(2099, 1, 1)), None) is True
+
+
+class TestWhatTheEditorCanSend:
+    """The bounds the editor writes, and the two it is not allowed to write.
+
+    Both refusals exist because the failure they prevent is silent. A weekday
+    that is not one of the seven short names, or a range that ends before it
+    starts, stores perfectly happily and then matches nothing at all, so the
+    arrangement reads as set up while the tutor never appears in a picker.
+    """
+
+    def test_a_week_of_days_is_a_week_of_rows(self):
+        # Two days a week is two rows sharing one set of dates, which is how
+        # the editor sends "Tuesdays and Saturdays through September".
+        simon = _tutor(coverage=[
+            _cover(weekday="Tue", start=date(2026, 9, 1), until=date(2026, 9, 30)),
+            _cover(weekday="Sat", start=date(2026, 9, 1), until=date(2026, 9, 30)),
+        ])
+        assert works_at(simon, "MSB", date(2026, 9, 5)) is True   # a Saturday
+        assert works_at(simon, "MSB", date(2026, 9, 8)) is True   # a Tuesday
+        assert works_at(simon, "MSB", date(2026, 9, 9)) is False  # a Wednesday
+        assert works_at(simon, "MSB", date(2026, 10, 6)) is False  # past the end
+
+    def test_every_short_day_name_is_accepted(self):
+        for day in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"):
+            assert TutorBranchCoverageSchema(location="MSB", weekday=day).weekday == day
+
+    def test_a_full_day_name_is_refused(self):
+        with pytest.raises(ValidationError, match="weekday must be one of"):
+            TutorBranchCoverageSchema(location="MSB", weekday="Saturday")
+
+    def test_an_empty_weekday_means_any_day(self):
+        assert TutorBranchCoverageSchema(location="MSB", weekday="").weekday is None
+
+    def test_a_backwards_range_is_refused(self):
+        with pytest.raises(ValidationError, match="cannot be before"):
+            TutorBranchCoverageSchema(
+                location="MSB",
+                effective_from=date(2026, 10, 1),
+                effective_until=date(2026, 9, 1),
+            )
+
+    def test_a_single_day_is_not_a_backwards_range(self):
+        one_day = TutorBranchCoverageSchema(
+            location="MSB",
+            effective_from=date(2026, 8, 22),
+            effective_until=date(2026, 8, 22),
+        )
+        assert one_day.effective_from == one_day.effective_until

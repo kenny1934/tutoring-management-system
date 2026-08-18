@@ -7,7 +7,7 @@ from typing import Any, Literal, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
 
-from constants import SummerApplicationStatus, RegularApplicationStatus
+from constants import WEEKDAY_NAMES, SummerApplicationStatus, RegularApplicationStatus
 
 
 # ============================================
@@ -116,6 +116,35 @@ class TutorBranchCoverage(BaseModel):
     note: Optional[str] = Field(None, max_length=255)
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("weekday")
+    @classmethod
+    def weekday_must_be_a_real_day(cls, value: Optional[str]) -> Optional[str]:
+        """Reject anything works_at would never match.
+
+        The comparison is against the short day names, so a full "Saturday" or
+        a typo would store cleanly and then quietly cover nothing at all. That
+        is the worst way for this to fail, because the row looks right in the
+        editor while the tutor never appears in any picker.
+        """
+        if value is None or value == "":
+            return None
+        if value not in WEEKDAY_NAMES:
+            raise ValueError(f"weekday must be one of {', '.join(WEEKDAY_NAMES)}")
+        return value
+
+    @model_validator(mode="after")
+    def range_must_run_forwards(self):
+        """A range that ends before it starts covers nothing, so refuse it here
+        as well as in the editor. Same day at both ends is a single day, which
+        is a real arrangement and stays allowed."""
+        if (
+            self.effective_from is not None
+            and self.effective_until is not None
+            and self.effective_until < self.effective_from
+        ):
+            raise ValueError("effective_until cannot be before effective_from")
+        return self
 
 
 class TutorBase(BaseModel):

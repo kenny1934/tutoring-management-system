@@ -6,7 +6,11 @@ import {
   pickableForOpenEndedWork,
   pickableTutors,
   pickableWithLeavers,
+  coverageDraftLabel,
+  coverageDraftProblem,
+  coverageDraftsFromRows,
   coverageLabel,
+  coverageRowsFromDrafts,
   isHomeBranch,
   partitionByBranch,
   shouldReleaseTutorFilter,
@@ -335,5 +339,102 @@ describe("how a visiting tutor is presented", () => {
   it("names the home branch for a visitor and nothing extra for a local", () => {
     expect(tutorOptionLabel(visitor, "MSA")).toBe("Simon (MSB)");
     expect(tutorOptionLabel(local, "MSA")).toBe("Bella");
+  });
+});
+
+describe("turning coverage rows into something a person can edit", () => {
+  it("folds one branch's rows into a single arrangement", () => {
+    const drafts = coverageDraftsFromRows([
+      { location: "MSB", weekday: "Sat", effective_from: "2026-09-01", effective_until: "2026-10-31" },
+      { location: "MSB", weekday: "Tue", effective_from: "2026-09-01", effective_until: "2026-10-31" },
+    ]);
+    expect(drafts.MSB).toEqual({
+      weekdays: ["Tue", "Sat"],
+      from: "2026-09-01",
+      until: "2026-10-31",
+    });
+  });
+
+  it("puts the chosen days back in week order rather than the order they arrived", () => {
+    const drafts = coverageDraftsFromRows([
+      { location: "MSB", weekday: "Sun" },
+      { location: "MSB", weekday: "Wed" },
+      { location: "MSB", weekday: "Mon" },
+    ]);
+    expect(drafts.MSB.weekdays).toEqual(["Mon", "Wed", "Sun"]);
+  });
+
+  it("reads a row with no bounds as an arrangement with nothing set", () => {
+    expect(coverageDraftsFromRows([{ location: "MSB" }]).MSB).toEqual({
+      weekdays: [],
+      from: "",
+      until: "",
+    });
+  });
+
+  it("lets an every-day row swallow a named day sitting beside it", () => {
+    const drafts = coverageDraftsFromRows([
+      { location: "MSB", weekday: "Sat" },
+      { location: "MSB", weekday: null },
+    ]);
+    expect(drafts.MSB.weekdays).toEqual([]);
+  });
+
+  it("keeps separate branches apart", () => {
+    const drafts = coverageDraftsFromRows([
+      { location: "MSB", weekday: "Sat" },
+      { location: "MSC", weekday: "Sun" },
+    ]);
+    expect(Object.keys(drafts).sort()).toEqual(["MSB", "MSC"]);
+  });
+
+  it("writes one row per chosen day, all sharing the dates", () => {
+    const rows = coverageRowsFromDrafts({
+      MSB: { weekdays: ["Tue", "Sat"], from: "2026-09-01", until: "2026-10-31" },
+    });
+    expect(rows).toEqual([
+      { location: "MSB", weekday: "Tue", effective_from: "2026-09-01", effective_until: "2026-10-31" },
+      { location: "MSB", weekday: "Sat", effective_from: "2026-09-01", effective_until: "2026-10-31" },
+    ]);
+  });
+
+  it("writes a single dayless row when the arrangement runs on any day", () => {
+    expect(coverageRowsFromDrafts({ MSB: { weekdays: [], from: "", until: "" } })).toEqual([
+      { location: "MSB", weekday: null, effective_from: null, effective_until: null },
+    ]);
+  });
+
+  it("survives a round trip", () => {
+    const drafts = {
+      MSB: { weekdays: ["Mon", "Sat"], from: "2026-09-01", until: "2026-10-31" },
+    };
+    expect(coverageDraftsFromRows(coverageRowsFromDrafts(drafts))).toEqual(drafts);
+  });
+});
+
+describe("what the editor refuses and what it says", () => {
+  it("objects to a range that ends before it starts", () => {
+    expect(
+      coverageDraftProblem({ weekdays: [], from: "2026-10-01", until: "2026-09-01" })
+    ).toContain("before the start");
+  });
+
+  it("accepts an empty arrangement, a single day, and an open end", () => {
+    expect(coverageDraftProblem({ weekdays: [], from: "", until: "" })).toBeNull();
+    expect(
+      coverageDraftProblem({ weekdays: [], from: "2026-09-01", until: "2026-09-01" })
+    ).toBeNull();
+    expect(coverageDraftProblem({ weekdays: ["Sat"], from: "2026-09-01", until: "" })).toBeNull();
+  });
+
+  it("describes an arrangement the same way the tutor list will", () => {
+    expect(coverageDraftLabel("MSB", { weekdays: [], from: "", until: "" })).toBe("MSB");
+    expect(coverageDraftLabel("MSB", { weekdays: ["Sat"], from: "", until: "" })).toBe("MSB Sats");
+    expect(
+      coverageDraftLabel("MSB", { weekdays: ["Tue", "Sat"], from: "2026-09-01", until: "2026-10-31" })
+    ).toBe("MSB Tues, Sats, 1 Sept 2026 to 31 Oct 2026");
+    expect(
+      coverageDraftLabel("MSB", { weekdays: [], from: "2026-08-22", until: "2026-08-22" })
+    ).toBe("MSB on 22 Aug 2026");
   });
 });

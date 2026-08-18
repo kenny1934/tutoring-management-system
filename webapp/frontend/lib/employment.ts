@@ -8,6 +8,7 @@
  * screen: whoever is reassigning their lessons still has to see their name.
  */
 import { toDateString } from "@/lib/calendar-utils";
+import { DAY_NAMES } from "@/lib/constants";
 import { formatDayFirstDate } from "@/lib/formatters";
 import type { DepartureLoad, Tutor, TutorBranchCoverage } from "@/types";
 
@@ -177,8 +178,17 @@ type TutorBranchFields = {
   branch_coverage?: TutorBranchCoverage[] | null;
 };
 
-/** Short day names indexed to match `Date.getDay()`, which starts on Sunday. */
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/**
+ * The order a person reads a week in, which is not the order `Date.getDay()`
+ * counts it. DAY_NAMES is Sunday-first because it indexes that, so the editor
+ * needs its own list rather than reusing it and starting the week on a Sunday.
+ */
+export const COVERAGE_WEEKDAYS: readonly string[] = [
+  "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+];
+
+/** The same list, for sorting a set of chosen days back into week order. */
+const WEEK_ORDER = COVERAGE_WEEKDAYS;
 
 /**
  * The Chinese branch names summer and regular configs store, mapped to the
@@ -223,7 +233,7 @@ export function coversOn(
   if (coverage.effective_from && date < coverage.effective_from) return false;
   if (coverage.effective_until && date > coverage.effective_until) return false;
   if (coverage.weekday) {
-    const day = WEEKDAY_NAMES[new Date(`${date}T00:00:00`).getDay()];
+    const day = DAY_NAMES[new Date(`${date}T00:00:00`).getDay()];
     if (coverage.weekday !== day) return false;
   }
   return true;
@@ -339,6 +349,29 @@ export function tutorOptionLabel(
 }
 
 /**
+ * The dates of an arrangement in words, or null when it has none.
+ *
+ * Shared by the row label and the editor's summary line so a period never gets
+ * described two different ways on two different screens.
+ */
+function coveragePeriodPhrase(
+  from: string | null | undefined,
+  until: string | null | undefined
+): string | null {
+  if (from && until && from === until) return `on ${formatDayFirstDate(from)}`;
+  if (from && until) return `${formatDayFirstDate(from)} to ${formatDayFirstDate(until)}`;
+  if (from) return `from ${formatDayFirstDate(from)}`;
+  if (until) return `until ${formatDayFirstDate(until)}`;
+  return null;
+}
+
+/** "MSB", "MSB Sats", "MSB Sats, 1 Sep 2026 to 31 Oct 2026". */
+function describeCoverage(branch: string, weekdays: string[], period: string | null): string {
+  const when = [...weekdays.map((day) => `${day}s`), period].filter(Boolean);
+  return when.length ? `${branch} ${when.join(", ")}` : branch;
+}
+
+/**
  * How a coverage row reads on screen, for the tutor list and the editor.
  *
  * "MSB" on its own for a standing arrangement, and the bounds spelled out when
@@ -347,17 +380,120 @@ export function tutorOptionLabel(
  */
 export function coverageLabel(coverage: TutorBranchCoverage): string {
   const code = normaliseLocation(coverage.location) ?? coverage.location;
-  const { effective_from: from, effective_until: until, weekday } = coverage;
-  const when: string[] = [];
-  if (weekday) when.push(`${weekday}s`);
-  if (from && until && from === until) {
-    when.push(`on ${formatDayFirstDate(from)}`);
-  } else if (from && until) {
-    when.push(`${formatDayFirstDate(from)} to ${formatDayFirstDate(until)}`);
-  } else if (from) {
-    when.push(`from ${formatDayFirstDate(from)}`);
-  } else if (until) {
-    when.push(`until ${formatDayFirstDate(until)}`);
+  return describeCoverage(
+    code,
+    coverage.weekday ? [coverage.weekday] : [],
+    coveragePeriodPhrase(coverage.effective_from, coverage.effective_until)
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Editing coverage
+// ---------------------------------------------------------------------------
+// The table stores one row per weekday, matching the duty tables, but nobody
+// thinks in rows. Somebody setting this up thinks "Bella covers MSB on Tuesdays
+// and Saturdays until the end of October", which is one arrangement per branch.
+// These two functions translate between the two, so the editor can offer the
+// sentence and the table can keep the rows.
+
+/** One branch's arrangement as the editor holds it. Dates are "" when unset. */
+export type CoverageDraft = {
+  /** Empty means every day, stored as a single row with no weekday. */
+  weekdays: string[];
+  from: string;
+  until: string;
+};
+
+export const EMPTY_DRAFT: CoverageDraft = { weekdays: [], from: "", until: "" };
+
+/**
+ * Coverage rows as one draft per branch, for the editor to work on.
+ *
+ * Rows for a branch are folded together: the weekdays are collected and the
+ * dates come from the first row, because every row this editor writes for a
+ * branch carries the same dates. A row with no weekday means every day, and it
+ * wins over any named day sitting beside it, since it already includes them.
+ */
+export function coverageDraftsFromRows(
+  rows: TutorBranchCoverage[] | null | undefined
+): Record<string, CoverageDraft> {
+  const drafts: Record<string, CoverageDraft> = {};
+  for (const row of rows ?? []) {
+    const branch = normaliseLocation(row.location);
+    if (!branch) continue;
+    const draft = drafts[branch] ?? {
+      weekdays: [],
+      from: row.effective_from ?? "",
+      until: row.effective_until ?? "",
+    };
+    if (row.weekday && !draft.weekdays.includes(row.weekday)) {
+      draft.weekdays.push(row.weekday);
+    }
+    drafts[branch] = draft;
   }
-  return when.length ? `${code} ${when.join(", ")}` : code;
+  // An every-day row makes the named days beside it redundant.
+  for (const [branch, draft] of Object.entries(drafts)) {
+    if ((rows ?? []).some((r) => normaliseLocation(r.location) === branch && !r.weekday)) {
+      draft.weekdays = [];
+    }
+    draft.weekdays.sort((a, b) => WEEK_ORDER.indexOf(a) - WEEK_ORDER.indexOf(b));
+  }
+  return drafts;
+}
+
+/**
+ * Drafts back into rows to send to the server.
+ *
+ * One row per chosen weekday, all carrying the same dates, or a single row with
+ * no weekday when the arrangement runs on any day. An empty date is sent as
+ * null, which is what "no bound" means in the table.
+ */
+export function coverageRowsFromDrafts(
+  drafts: Record<string, CoverageDraft>
+): TutorBranchCoverage[] {
+  const rows: TutorBranchCoverage[] = [];
+  for (const [location, draft] of Object.entries(drafts)) {
+    const bounds = {
+      effective_from: draft.from || null,
+      effective_until: draft.until || null,
+    };
+    if (draft.weekdays.length === 0) {
+      rows.push({ location, weekday: null, ...bounds });
+      continue;
+    }
+    for (const weekday of draft.weekdays) {
+      rows.push({ location, weekday, ...bounds });
+    }
+  }
+  return rows;
+}
+
+/**
+ * What is wrong with a draft, or null when it is fine.
+ *
+ * Only one thing can be, which is a range that ends before it starts. Everything
+ * else the form can express is a legitimate arrangement, an empty one included.
+ */
+export function coverageDraftProblem(draft: CoverageDraft): string | null {
+  if (draft.from && draft.until && draft.until < draft.from) {
+    return "The end date is before the start date.";
+  }
+  return null;
+}
+
+/**
+ * A draft as a sentence, for the line under the controls.
+ *
+ * Built from the same pieces as coverageLabel, so what the editor says while
+ * you are setting it up matches what the tutor list says afterwards. The one
+ * difference is that several weekdays share a single set of dates here, rather
+ * than the dates being repeated once per row.
+ */
+export function coverageDraftLabel(branch: string, draft: CoverageDraft): string {
+  return describeCoverage(
+    normaliseLocation(branch) ?? branch,
+    draft.weekdays,
+    coveragePeriodPhrase(draft.from || null, draft.until || null)
+  );
 }

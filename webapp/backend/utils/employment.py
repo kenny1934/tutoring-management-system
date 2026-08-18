@@ -29,7 +29,7 @@ from typing import Optional
 
 from sqlalchemy import and_ as sa_and, or_ as sa_or
 
-from constants import today_hk
+from constants import WEEKDAY_NAMES, today_hk
 from models import SessionLog, Tutor
 
 
@@ -97,12 +97,6 @@ def still_here_clause(today: Optional[date] = None):
 # tutor_branch_coverage. See migration 163 for why it is a table rather than a
 # column on the tutor.
 
-#: Short day names, indexed by ``date.weekday()``. Written out rather than
-#: taken from strftime so the answer does not depend on the server's locale,
-#: and matching the abbreviations the rest of the app already compares against
-#: (``enrollments.assigned_day``, and the day names the session editor derives).
-_WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-
 #: The Chinese branch names summer and regular configs store, mapped to the
 #: short codes that ``tutors.default_location`` and ``session_log.location``
 #: use. Mirrors LOCATION_TO_CODE on the frontend.
@@ -142,7 +136,7 @@ def covers_on(coverage, work_date: Optional[date]) -> bool:
         return False
     if coverage.effective_until is not None and work_date > coverage.effective_until:
         return False
-    if coverage.weekday and coverage.weekday != _WEEKDAY_NAMES[work_date.weekday()]:
+    if coverage.weekday and coverage.weekday != WEEKDAY_NAMES[work_date.weekday()]:
         return False
     return True
 

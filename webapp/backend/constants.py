@@ -6,6 +6,18 @@ Centralizes session status lists and other constants used across routers.
 from datetime import date, datetime, timezone, timedelta
 from enum import Enum
 
+#: Short day names, indexed to match ``date.weekday()`` so Monday is 0.
+#:
+#: Written out rather than taken from strftime so the answer never depends on
+#: the server's locale, and matching the abbreviations the rest of the app
+#: already compares against: ``enrollments.assigned_day``, the day names the
+#: session editor derives, and ``tutor_branch_coverage.weekday``.
+#:
+#: Lives here rather than beside the code that uses it because both the
+#: schemas and utils.employment need it, and importing either from the other
+#: closes a cycle through utils/__init__.
+WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
 # Hong Kong timezone (UTC+8) — matches DB convention: CONVERT_TZ(NOW(), '+00:00', '+08:00')
 HK_TZ = timezone(timedelta(hours=8))
 
