@@ -3,7 +3,7 @@
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
-import { pickableTutors, pickableWithLeavers, withCurrentTutor, worksAt } from "@/lib/employment";
+import { partitionByBranch, pickableTutors, pickableWithLeavers, tutorOptionLabel, withCurrentTutor, worksAt, type DateWindow } from "@/lib/employment";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -346,6 +346,19 @@ function SessionsPageContent() {
 
     return filters;
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView, isAfterLastDayView]);
+
+  // The stretch of days on screen, read straight back off the fetch that was
+  // just built rather than worked out a second time from the view mode. The
+  // tutor list is narrowed to this window, so if the two ever disagreed the
+  // dropdown would offer somebody whose work is not on the page.
+  const shownDates = useMemo<DateWindow>(() => {
+    const oneDay = sessionFilters.date as string | undefined;
+    if (oneDay) return { from: oneDay, until: oneDay };
+    return {
+      from: (sessionFilters.from_date as string | undefined) ?? null,
+      until: (sessionFilters.to_date as string | undefined) ?? null,
+    };
+  }, [sessionFilters]);
 
   // SWR hooks for data fetching with caching
   const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, isValidating: sessionsValidating, mutate: mutateSessions } = useSessions(sessionFilters);
@@ -856,13 +869,15 @@ function SessionsPageContent() {
 
 
   // Filter and sort tutors by selected location, counting anybody covering the
-  // branch. No date is passed because this is a filter over a whole list: the
-  // question is whether a tutor has work at this branch at all, not what they
-  // are doing on one particular day.
+  // branch on the days being shown. The window matters: somebody covering MSB
+  // for one Saturday belongs in this dropdown on that Saturday, in the week and
+  // the month that contain it, and nowhere else. The pending make-ups and
+  // after-a-last-day views have no window, and there the answer falls back to
+  // whether the arrangement has run out.
   const filteredTutors = useMemo(() => {
-    const filtered = tutors.filter(t => worksAt(t, selectedLocation));
+    const filtered = tutors.filter(t => worksAt(t, selectedLocation, shownDates));
     return [...filtered].sort(byTutorName);
-  }, [tutors, selectedLocation]);
+  }, [tutors, selectedLocation, shownDates]);
 
   // What the toolbar's tutor dropdown offers. It is the location-narrowed list
   // plus whoever the filter is currently set to, because a select whose value
@@ -875,6 +890,14 @@ function SessionsPageContent() {
       allTutors
     )].sort(byTutorName),
     [filteredTutors, tutorFilter, allTutors]
+  );
+
+  // Split for display only, so a tutor covering from the other branch is never
+  // read as one of this branch's own people. partitionByBranch does not change
+  // who is in the list, only how it is laid out.
+  const { home: homeTutorOptions, visiting: visitingTutorOptions } = useMemo(
+    () => partitionByBranch(tutorOptions, selectedLocation),
+    [tutorOptions, selectedLocation]
   );
 
   // Bulk selection computations - use grouped order to match visual display
@@ -1959,11 +1982,20 @@ function SessionsPageContent() {
         }}
       >
         <option value="">Tutor</option>
-        {tutorOptions.map((tutor) => (
+        {homeTutorOptions.map((tutor) => (
           <option key={tutor.id} value={tutor.id.toString()}>
             {tutor.tutor_name}
           </option>
         ))}
+        {visitingTutorOptions.length > 0 && (
+          <optgroup label="Covering from another branch">
+            {visitingTutorOptions.map((tutor) => (
+              <option key={tutor.id} value={tutor.id.toString()}>
+                {tutorOptionLabel(tutor, selectedLocation)}
+              </option>
+            ))}
+          </optgroup>
+        )}
       </select>
 
       {/* Summer class filter — every view; hides itself outside the course period */}

@@ -460,7 +460,7 @@ export default function QuickAttendPage() {
             {/* Tutor selector — inside header card */}
             {isCenterView && (
               <div className="px-4 py-2 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
-                <TutorSelector value={selectedTutorId} onChange={setSelectedTutorId} location={effectiveLocation} showAllTutors />
+                <TutorSelector value={selectedTutorId} onChange={setSelectedTutorId} location={effectiveLocation} when={today} showAllTutors />
               </div>
             )}
           </div>

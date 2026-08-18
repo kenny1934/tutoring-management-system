@@ -243,6 +243,78 @@ describe("which branch a tutor works at", () => {
   });
 });
 
+describe("a screen showing a stretch of days", () => {
+  // The bug this answers: a tutor set to cover MSB for one day showed up in
+  // the sessions toolbar on every date you picked, because the filter asked
+  // permissively and a permissive answer ignores the dates entirely. A screen
+  // that is showing a week should offer whoever is covering during that week,
+  // and nobody else.
+  const oneDay = at("MSA", [
+    { location: "MSB", effective_from: SATURDAY, effective_until: SATURDAY },
+  ]);
+  const saturdays = at("MSA", [{ location: "MSB", weekday: "Sat" }]);
+
+  it("offers a one-day arrangement in the week that contains it", () => {
+    expect(worksAt(oneDay, "MSB", { from: "2026-08-17", until: "2026-08-23" })).toBe(true);
+  });
+
+  it("keeps it out of the week before and the week after", () => {
+    expect(worksAt(oneDay, "MSB", { from: "2026-08-10", until: "2026-08-16" })).toBe(false);
+    expect(worksAt(oneDay, "MSB", { from: "2026-08-24", until: "2026-08-30" })).toBe(false);
+  });
+
+  it("offers it in its own month and not the next", () => {
+    expect(worksAt(oneDay, "MSB", { from: "2026-08-01", until: "2026-08-31" })).toBe(true);
+    expect(worksAt(oneDay, "MSB", { from: "2026-09-01", until: "2026-09-30" })).toBe(false);
+  });
+
+  it("counts a window that only overlaps at one end", () => {
+    // The window starts on the day the arrangement ends, so they share exactly
+    // one day and that is enough.
+    expect(worksAt(oneDay, "MSB", { from: SATURDAY, until: "2026-09-30" })).toBe(true);
+    expect(worksAt(oneDay, "MSB", { from: "2026-07-01", until: SATURDAY })).toBe(true);
+  });
+
+  it("finds a weekday arrangement anywhere in a full week", () => {
+    expect(worksAt(saturdays, "MSB", { from: "2026-08-17", until: "2026-08-23" })).toBe(true);
+  });
+
+  it("does not find one in a stretch of days that misses it", () => {
+    // Monday to Friday contains no Saturday, so the week's own grid would
+    // offer them but a working-week stretch would not.
+    expect(worksAt(saturdays, "MSB", { from: "2026-08-17", until: "2026-08-21" })).toBe(false);
+  });
+
+  it("treats a window open at one end as running on", () => {
+    // The pending make-ups view fetches from 120 days ago with no end, so a
+    // weekday arrangement always comes round inside it.
+    expect(worksAt(saturdays, "MSB", { from: "2026-04-20", until: null })).toBe(true);
+    expect(worksAt(oneDay, "MSB", { from: "2026-04-20", until: null })).toBe(true);
+  });
+
+  it("treats a window open at both ends the same as asking with no date", () => {
+    // The after-a-last-day view has no date bounds at all, so the answer falls
+    // back to whether the arrangement has run out.
+    expect(worksAt(saturdays, "MSB", { from: null, until: null }, TODAY)).toBe(true);
+    const finished = at("MSA", [{ location: "MSB", effective_until: "2026-07-31" }]);
+    expect(worksAt(finished, "MSB", { from: null, until: null }, TODAY)).toBe(false);
+  });
+
+  it("reads a window of one day exactly as a single date does", () => {
+    for (const day of [SATURDAY, TUESDAY, "2026-08-23"]) {
+      expect(worksAt(oneDay, "MSB", { from: day, until: day })).toBe(worksAt(oneDay, "MSB", day));
+      expect(worksAt(saturdays, "MSB", { from: day, until: day })).toBe(worksAt(saturdays, "MSB", day));
+    }
+  });
+
+  it("still lets an open-ended arrangement through any window", () => {
+    const always = at("MSA", [{ location: "MSB" }]);
+    expect(always.branch_coverage).toHaveLength(1);
+    expect(worksAt(always, "MSB", { from: "2026-08-17", until: "2026-08-23" })).toBe(true);
+    expect(worksAt(always, "MSB", { from: "2030-01-01", until: "2030-01-31" })).toBe(true);
+  });
+});
+
 describe("the home branch question, which coverage does not answer", () => {
   it("stays false for somebody who is only covering", () => {
     const simon = at("MSA", [{ location: "MSB" }]);

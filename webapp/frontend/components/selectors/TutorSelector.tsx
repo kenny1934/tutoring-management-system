@@ -21,6 +21,7 @@ import {
   shouldReleaseTutorFilter,
   tutorsForLocation,
   worksAt,
+  type DateWindow,
 } from "@/lib/employment";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Tutor } from "@/types";
@@ -39,6 +40,14 @@ interface TutorSelectorProps {
   value: TutorValue;
   onChange: (tutorId: TutorValue) => void;
   location?: string; // Narrow to the tutors who work at this branch
+  /**
+   * The days the screen around this control is showing, when it shows any.
+   * Coverage of another branch can be limited to certain days, so a control
+   * sitting above one day's work should not offer somebody who is only there
+   * on Saturdays. Leave it out on a screen with no dates in it, where the
+   * answer is meant to be permissive.
+   */
+  when?: string | DateWindow | null;
   className?: string;
   placeholder?: string;
   allowClear?: boolean; // Show clear option in dropdown
@@ -49,6 +58,7 @@ export function TutorSelector({
   value,
   onChange,
   location,
+  when,
   className,
   placeholder = "Select tutor...",
   allowClear = false,
@@ -83,18 +93,25 @@ export function TutorSelector({
   // Coverage counts here as well as in the dropdown, and it has to. Switching
   // to MSB while the filter is set to a tutor covering MSB should keep them
   // selected, because their work really is on the screen you just moved to.
+  //
+  // Deliberately without the days on screen, unlike the dropdown below. Which
+  // days somebody covers decides what gets offered; whether they cover the
+  // branch at all decides whether a filter set to them is still meaningful.
+  // Narrowing here would throw your filter away every time you paged onto a
+  // day they happen not to work, which is not what changing the day means.
   const tutorsAtBranch = useMemo(
     () => roster.filter(t => worksAt(t, location)),
     [roster, location]
   );
 
   // Who the dropdown offers, split into the branch's own people and anybody
-  // covering from elsewhere. No date is passed: this control only ever filters
-  // a list, so the question is whether a tutor has anything at this branch at
-  // all rather than what they are doing on one particular day.
+  // covering from elsewhere. Narrowed to the days on screen when the caller
+  // knows them, and left permissive when it does not, which is the difference
+  // between a screen showing one day's work and a screen showing a backlog
+  // with no dates in it.
   const { home, visiting } = useMemo(
-    () => tutorsForLocation(roster, location),
-    [roster, location]
+    () => tutorsForLocation(roster, location, when),
+    [roster, location, when]
   );
 
   const homeTutors = useMemo(() => [...home].sort(byTutorName), [home]);

@@ -213,30 +213,89 @@ export function normaliseLocation(location: string | null | undefined): string |
 }
 
 /**
- * Whether one coverage row applies on a given day.
+ * The stretch of days a screen is showing. Either end may be left open.
  *
- * With no date in hand the row counts as long as it has not already run out.
- * That is what a filter wants, since it is asking whether this tutor has
- * anything at the branch at all rather than about one particular day.
+ * Screens ask this question in three different shapes and they are all the
+ * same shape underneath. A page sitting on one day is a window of one day, a
+ * week or month grid is a window with both ends set, and a page with no dates
+ * in it at all is a window with both ends open. Having one shape means the
+ * coverage rule below is written once instead of once per kind of screen.
+ */
+export type DateWindow = { from?: string | null; until?: string | null };
+
+/** Whichever of the three ways a caller asked, as a window. */
+function asWindow(when: string | DateWindow | null | undefined): DateWindow {
+  if (!when) return {};
+  if (typeof when === "string") return { from: when, until: when };
+  return when;
+}
+
+/** The later of two days, treating an open end as no answer at all. */
+function latest(a?: string | null, b?: string | null): string | null {
+  if (a && b) return a > b ? a : b;
+  return a || b || null;
+}
+
+/** The earlier of two days, on the same terms. */
+function earliest(a?: string | null, b?: string | null): string | null {
+  if (a && b) return a < b ? a : b;
+  return a || b || null;
+}
+
+/**
+ * Whether a stretch of days contains at least one of a given weekday.
  *
- * With a date, every bound that is set has to agree. An empty bound is not a
- * restriction: a row with nothing filled in means they simply also work there.
+ * Seven days in a row contain every day of the week, so the walk never takes
+ * more than seven steps and usually stops on the first. A stretch left open at
+ * either end runs on long enough to come round to any day, so it always does.
+ */
+function stretchHasWeekday(
+  from: string | null,
+  until: string | null,
+  weekday: string
+): boolean {
+  if (!from || !until) return true;
+  const day = new Date(`${from}T00:00:00`);
+  for (let step = 0; step < 7; step++) {
+    if (toDateString(day) > until) return false;
+    if (DAY_NAMES[day.getDay()] === weekday) return true;
+    day.setDate(day.getDate() + 1);
+  }
+  return true;
+}
+
+/**
+ * Whether one coverage row applies to the days a screen is showing.
+ *
+ * Ask with a day when you are about to assign a lesson, with a window when the
+ * screen is showing a week or a month, and with nothing when it has no dates
+ * in it at all. The last case is the permissive one: with no days to judge
+ * against, the only question left is whether the arrangement has already run
+ * out, which is what a filter over a whole list wants to know.
+ *
+ * Otherwise the arrangement and the screen have to share at least one day, and
+ * if the arrangement names a weekday then one of the shared days has to fall
+ * on it. An empty bound is not a restriction: a row with nothing filled in
+ * means they simply also work there.
  */
 export function coversOn(
   coverage: TutorBranchCoverage,
-  date: string | null | undefined,
+  when?: string | DateWindow | null,
   today: Date = new Date()
 ): boolean {
-  if (!date) {
+  const shown = asWindow(when);
+  if (!shown.from && !shown.until) {
     return !coverage.effective_until || coverage.effective_until >= toDateString(today);
   }
-  if (coverage.effective_from && date < coverage.effective_from) return false;
-  if (coverage.effective_until && date > coverage.effective_until) return false;
-  if (coverage.weekday) {
-    const day = DAY_NAMES[new Date(`${date}T00:00:00`).getDay()];
-    if (coverage.weekday !== day) return false;
-  }
-  return true;
+
+  // The days the arrangement and the screen have in common. An open end on
+  // either side never rules anything out, it just leaves that edge to the
+  // other one.
+  const from = latest(coverage.effective_from, shown.from);
+  const until = earliest(coverage.effective_until, shown.until);
+  if (from && until && from > until) return false;
+
+  return !coverage.weekday || stretchHasWeekday(from, until, coverage.weekday);
 }
 
 /**
@@ -246,9 +305,10 @@ export function coversOn(
  * applies, which is what lets an MSA tutor be put on an MSB lesson while they
  * are covering there.
  *
- * Pass the date when the control knows it, which every picker that assigns a
- * lesson does. Leave it out in a filter toolbar, where the question is about
- * the tutor rather than about one day, and the answer comes out permissive.
+ * Pass the day when the control knows it, which every picker that assigns a
+ * lesson does. Pass the window when the screen is showing a stretch of days,
+ * which the session grids are. Leave it out only when there are no dates on
+ * screen at all, and the answer comes out permissive.
  *
  * No location, or the "All Locations" sentinel, means no narrowing is being
  * applied at all, so everybody is offerable. That keeps the check out of every
@@ -257,14 +317,14 @@ export function coversOn(
 export function worksAt(
   tutor: TutorBranchFields,
   location: string | null | undefined,
-  date?: string | null,
+  when?: string | DateWindow | null,
   today: Date = new Date()
 ): boolean {
   if (!location || location === "All Locations") return true;
   const wanted = normaliseLocation(location);
   if (normaliseLocation(tutor.default_location) === wanted) return true;
   return (tutor.branch_coverage ?? []).some(
-    (row) => normaliseLocation(row.location) === wanted && coversOn(row, date, today)
+    (row) => normaliseLocation(row.location) === wanted && coversOn(row, when, today)
   );
 }
 
@@ -323,11 +383,11 @@ export function tutorsForLocation<
 >(
   tutors: T[],
   location: string | null | undefined,
-  date?: string | null,
+  when?: string | DateWindow | null,
   today: Date = new Date()
 ): { home: T[]; visiting: T[] } {
   const offerable = pickableTutors(tutors, today).filter((t) =>
-    worksAt(t, location, date, today)
+    worksAt(t, location, when, today)
   );
   return partitionByBranch(offerable, location);
 }
