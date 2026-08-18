@@ -22,6 +22,7 @@ import {
   AlertCircle,
   AlertTriangle,
 } from "lucide-react";
+import { isHomeBranch } from "@/lib/employment";
 
 interface CreateRevisionSlotModalProps {
   exam: ExamWithRevisionSlots;
@@ -129,7 +130,7 @@ export function CreateRevisionSlotModal({
     let filtered = [...tutors];
     // Filter by the modal's location selection, not the sidebar
     if (location) {
-      filtered = filtered.filter((t) => t.default_location === location);
+      filtered = filtered.filter((t) => isHomeBranch(t, location));
     }
     return filtered.sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
   }, [tutors, location]);

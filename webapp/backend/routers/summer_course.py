@@ -79,6 +79,7 @@ from schemas import (
     SummerSuggestionItem,
     SummerLessonAssignment,
     TutorDutyBulkSet,
+    TutorBranchCoverage,
     TutorDutyResponse,
     SummerApplicationSessionInfo,
     LinkedSecondaryStudentInfo,
@@ -5011,7 +5012,21 @@ def get_active_tutors(
         .order_by(Tutor.tutor_name)
         .all()
     )
-    return [{"id": t.id, "tutor_name": t.tutor_name, "default_location": t.default_location} for t in tutors]
+    # branch_coverage rides along because the make-up pickers on the session
+    # side narrow by branch and have to know who is covering one. Almost always
+    # an empty list, so it costs nothing to send.
+    return [
+        {
+            "id": t.id,
+            "tutor_name": t.tutor_name,
+            "default_location": t.default_location,
+            "branch_coverage": [
+                TutorBranchCoverage.model_validate(row).model_dump(mode="json")
+                for row in t.branch_coverage
+            ],
+        }
+        for t in tutors
+    ]
 
 
 @router.get("/summer/tutor-duties", response_model=list[TutorDutyResponse])

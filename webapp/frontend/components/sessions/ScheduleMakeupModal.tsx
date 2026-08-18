@@ -21,6 +21,7 @@ import {
   getMonthBounds,
 } from "@/lib/calendar-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { partitionByBranch, tutorOptionLabel, worksAt } from "@/lib/employment";
 import { DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
 import { plural, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
@@ -784,14 +785,23 @@ export function ScheduleMakeupModal({
     { revalidateOnFocus: false }
   );
 
-  // Filter tutors by location
+  // Filter tutors by location, including anybody covering the branch on the
+  // date being booked. The date is the one the form is on, so picking a
+  // different day re-asks the question.
   const filteredTutors = useMemo(() => {
     if (!tutors) return [];
-    const filtered = tutors.filter(t => t.default_location === location);
+    const filtered = tutors.filter(t => worksAt(t, location, selectedDate));
     return [...filtered].sort((a, b) =>
       getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
     );
-  }, [tutors, location]);
+  }, [tutors, location, selectedDate]);
+
+  // Split only for display, so somebody covering this branch is never mistaken
+  // for one of its own tutors.
+  const { home: homeTutors, visiting: visitingTutors } = useMemo(
+    () => partitionByBranch(filteredTutors, location),
+    [filteredTutors, location]
+  );
 
   // Initialize form with original session's tutor
   useEffect(() => {
@@ -2188,12 +2198,22 @@ export function ScheduleMakeupModal({
                 className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800"
               >
                 <option value="">Select tutor</option>
-                {filteredTutors.map((tutor) => (
+                {homeTutors.map((tutor) => (
                   <option key={tutor.id} value={tutor.id}>
                     {tutor.tutor_name}
                     {tutor.id === session.tutor_id ? " (Original)" : ""}
                   </option>
                 ))}
+                {visitingTutors.length > 0 && (
+                  <optgroup label="Covering from another branch">
+                    {visitingTutors.map((tutor) => (
+                      <option key={tutor.id} value={tutor.id}>
+                        {tutorOptionLabel(tutor, location)}
+                        {tutor.id === session.tutor_id ? " (Original)" : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 

@@ -12,7 +12,7 @@ from urllib.parse import urlparse, quote
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
-from utils.employment import sessions_after_last_day_clause
+from utils.employment import sessions_after_last_day_clause, works_at
 from utils.query_helpers import session_with_relations, get_handover_prospect
 from sqlalchemy import func, or_, text, exists
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
@@ -1495,11 +1495,19 @@ async def schedule_makeup(
         is_admin=is_admin,
     )
 
-    # Verify tutor exists and is at the location
+    # Verify the tutor exists and works at the branch. Their own branch counts,
+    # and so does one they are covering (see utils/employment.works_at).
+    #
+    # Asked without the date on purpose, even though the date is right there.
+    # Which Saturdays somebody covers is guidance for the picker, not a rule to
+    # enforce at save time: branches swap days around public holidays, and an
+    # admin who has already decided who is teaching should not be stopped by a
+    # roster detail. What is worth refusing is a tutor with no connection to the
+    # branch at all, which is the mistake this check was written for.
     tutor = db.query(Tutor).filter(Tutor.id == request.tutor_id).first()
     if not tutor:
         raise HTTPException(status_code=404, detail=f"Tutor with ID {request.tutor_id} not found")
-    if tutor.default_location != request.location:
+    if not works_at(tutor, request.location):
         raise HTTPException(
             status_code=400,
             detail=f"Tutor '{tutor.tutor_name}' is not at location '{request.location}'"

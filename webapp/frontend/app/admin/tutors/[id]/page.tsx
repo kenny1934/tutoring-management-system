@@ -11,7 +11,7 @@ import { EditTutorModal } from "@/components/tutors/EditTutorModal";
 import { TutorStatsCard } from "@/components/tutors/TutorStatsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useTutor, useDepartureLoad } from "@/lib/hooks";
-import { departureDateLabel, departureLabel, hasDeparted, hasOutstandingWork, isLeaving } from "@/lib/employment";
+import { coverageLabel, departureDateLabel, departureLabel, hasDeparted, hasOutstandingWork, isLeaving } from "@/lib/employment";
 import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
 import { getSessionStatusConfig, getMainGradeGroup, compareSessionsInSlot } from "@/lib/session-status";
@@ -38,6 +38,7 @@ import {
   X,
   UserMinus,
   ChevronRight,
+  Repeat,
 } from "lucide-react";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import {
@@ -479,6 +480,15 @@ function TutorProfileInner() {
                   <span className="inline-flex items-center gap-1.5">
                     <MapPin className="h-4 w-4" />
                     {tutor.default_location}
+                  </span>
+                )}
+                {/* The Edit button beside this is where covering another branch
+                    gets ticked, so the current answer belongs where somebody
+                    can see it before they open the form. */}
+                {(tutor.branch_coverage?.length ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-500">
+                    <Repeat className="h-4 w-4" />
+                    Also covers {tutor.branch_coverage!.map(coverageLabel).join(", ")}
                   </span>
                 )}
               </div>

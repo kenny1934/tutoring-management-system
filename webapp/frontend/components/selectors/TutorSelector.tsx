@@ -17,9 +17,10 @@ import { cn } from "@/lib/utils";
 import { useTutors } from "@/lib/hooks";
 import {
   departureLabel,
-  pickableTutors,
+  normaliseLocation,
   shouldReleaseTutorFilter,
-  withCurrentTutor,
+  tutorsForLocation,
+  worksAt,
 } from "@/lib/employment";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Tutor } from "@/types";
@@ -37,7 +38,7 @@ const byTutorName = (a: Tutor, b: Tutor) =>
 interface TutorSelectorProps {
   value: TutorValue;
   onChange: (tutorId: TutorValue) => void;
-  location?: string; // Filter tutors by default_location
+  location?: string; // Narrow to the tutors who work at this branch
   className?: string;
   placeholder?: string;
   allowClear?: boolean; // Show clear option in dropdown
@@ -73,29 +74,49 @@ export function TutorSelector({
   const dismiss = useDismiss(context);
   const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
 
-  // Everyone at the branch on screen, including people who have left. The
-  // selection is judged against this rather than against what the dropdown
-  // offers, so that a departure never moves the filter off the tutor it is set
-  // to. See shouldReleaseTutorFilter for why the two are not the same question.
-  const tutorsAtBranch = useMemo(() => {
-    if (!location || location === "All Locations") return roster;
-    return roster.filter(t => t.default_location === location);
-  }, [roster, location]);
+  // Everyone who works at the branch on screen, including people who have left
+  // and anybody covering from elsewhere. The selection is judged against this
+  // rather than against what the dropdown offers, so that a departure never
+  // moves the filter off the tutor it is set to. See shouldReleaseTutorFilter
+  // for why the two are not the same question.
+  //
+  // Coverage counts here as well as in the dropdown, and it has to. Switching
+  // to MSB while the filter is set to a tutor covering MSB should keep them
+  // selected, because their work really is on the screen you just moved to.
+  const tutorsAtBranch = useMemo(
+    () => roster.filter(t => worksAt(t, location)),
+    [roster, location]
+  );
 
-  // Who the dropdown offers: the people who can still be given work, in the
-  // order every picker on the site shows them.
+  // Who the dropdown offers, split into the branch's own people and anybody
+  // covering from elsewhere. No date is passed: this control only ever filters
+  // a list, so the question is whether a tutor has anything at this branch at
+  // all rather than what they are doing on one particular day.
+  const { home, visiting } = useMemo(
+    () => tutorsForLocation(roster, location),
+    [roster, location]
+  );
+
+  const homeTutors = useMemo(() => [...home].sort(byTutorName), [home]);
+  const visitingTutors = useMemo(() => [...visiting].sort(byTutorName), [visiting]);
+
+  // Flat, home branch first. Used for the auto-select below, which should land
+  // on one of the branch's own tutors rather than on a visitor.
   const offerableTutors = useMemo(
-    () => pickableTutors(tutorsAtBranch).sort(byTutorName),
-    [tutorsAtBranch]
+    () => [...homeTutors, ...visitingTutors],
+    [homeTutors, visitingTutors]
   );
 
-  // What it renders: the same list with whoever is currently selected put back,
-  // so a control that is filtering by a departed tutor can still name them
-  // instead of sitting there blank.
-  const filteredTutors = useMemo(
-    () => [...withCurrentTutor(offerableTutors, currentId, roster)].sort(byTutorName),
-    [offerableTutors, currentId, roster]
-  );
+  // Whoever is currently selected but in neither group, so a control filtering
+  // by a departed tutor can still name them instead of sitting there blank.
+  // Same purpose as withCurrentTutor, done here rather than through it because
+  // the list is rendered in groups and this one needs its own place at the end.
+  const orphanTutor = useMemo(() => {
+    if (currentId == null || offerableTutors.some(t => t.id === currentId)) return null;
+    return roster.find(t => t.id === currentId) ?? null;
+  }, [offerableTutors, currentId, roster]);
+
+  const hasAnyOption = offerableTutors.length > 0 || orphanTutor !== null;
 
   // Auto-select first tutor if none selected and tutors are loaded (unless allowClear or showAllTutors)
   useEffect(() => {
@@ -113,7 +134,60 @@ export function TutorSelector({
   }, [value, currentId, tutorsAtBranch, offerableTutors, onChange, allowClear, showAllTutors]);
 
   const isAllTutorsSelected = value === ALL_TUTORS;
-  const selectedTutor = currentId != null ? filteredTutors.find(t => t.id === currentId) : null;
+  const selectedTutor = currentId != null
+    ? (offerableTutors.find(t => t.id === currentId) ?? orphanTutor)
+    : null;
+
+  // One row, used by all three groups in the list below.
+  const renderTutor = (tutor: Tutor) => {
+    const isSelected = tutor.id === value;
+    // Only ever set on the current selection, since a leaver is in this list
+    // at all only because the filter is pointed at them.
+    const departure = departureLabel(tutor);
+    // Where a visiting tutor normally is, so the name is never ambiguous.
+    // Compares home branches only, since a tutor who is here on coverage is
+    // exactly the one whose own branch is worth naming.
+    const narrowed = Boolean(location) && location !== "All Locations";
+    const homeBranch =
+      narrowed && normaliseLocation(tutor.default_location) !== normaliseLocation(location)
+        ? normaliseLocation(tutor.default_location)
+        : null;
+
+    return (
+      <button
+        key={tutor.id}
+        onClick={() => {
+          onChange(tutor.id);
+          setIsOpen(false);
+        }}
+        className={cn(
+          "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left",
+          "hover:bg-gray-100 dark:hover:bg-gray-800",
+          isSelected && "bg-gray-100 dark:bg-gray-800"
+        )}
+      >
+        <User className={cn(
+          "h-3.5 w-3.5 flex-shrink-0",
+          isSelected ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 dark:text-gray-500"
+        )} />
+        <span className={cn(
+          "text-gray-900 dark:text-gray-100",
+          isSelected && "font-medium"
+        )}>
+          {tutor.tutor_name}
+        </span>
+        {departure ? (
+          <span className="ml-auto text-[10px] text-rose-600 dark:text-rose-400 flex-shrink-0">
+            {departure}
+          </span>
+        ) : homeBranch ? (
+          <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+            {homeBranch}
+          </span>
+        ) : null}
+      </button>
+    );
+  };
 
   return (
     <>
@@ -207,48 +281,36 @@ export function TutorSelector({
               </>
             )}
 
-            {filteredTutors.length === 0 ? (
+            {!hasAnyOption ? (
               <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                 No tutors available
               </div>
             ) : (
-              filteredTutors.map((tutor) => {
-                const isSelected = tutor.id === value;
-                // Only ever set on the current selection, since a leaver is in
-                // this list at all only because the filter is pointed at them.
-                const departure = departureLabel(tutor);
+              <>
+                {homeTutors.map(renderTutor)}
 
-                return (
-                  <button
-                    key={tutor.id}
-                    onClick={() => {
-                      onChange(tutor.id);
-                      setIsOpen(false);
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left",
-                      "hover:bg-gray-100 dark:hover:bg-gray-800",
-                      isSelected && "bg-gray-100 dark:bg-gray-800"
-                    )}
-                  >
-                    <User className={cn(
-                      "h-3.5 w-3.5 flex-shrink-0",
-                      isSelected ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 dark:text-gray-500"
-                    )} />
-                    <span className={cn(
-                      "text-gray-900 dark:text-gray-100",
-                      isSelected && "font-medium"
-                    )}>
-                      {tutor.tutor_name}
-                    </span>
-                    {departure && (
-                      <span className="ml-auto text-[10px] text-rose-600 dark:text-rose-400 flex-shrink-0">
-                        {departure}
-                      </span>
-                    )}
-                  </button>
-                );
-              })
+                {/* The branch's own people first, then anybody covering, under
+                    a heading that says where they normally are. Mixing the two
+                    is how somebody ends up picking a tutor who is usually at
+                    the other branch without noticing. */}
+                {visitingTutors.length > 0 && (
+                  <>
+                    <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+                      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                        Covering from another branch
+                      </div>
+                    </div>
+                    {visitingTutors.map(renderTutor)}
+                  </>
+                )}
+
+                {orphanTutor && (
+                  <>
+                    <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                    {renderTutor(orphanTutor)}
+                  </>
+                )}
+              </>
             )}
           </div>
         </FloatingPortal>

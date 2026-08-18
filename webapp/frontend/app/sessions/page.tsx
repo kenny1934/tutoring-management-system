@@ -3,7 +3,7 @@
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
-import { pickableTutors, pickableWithLeavers, withCurrentTutor } from "@/lib/employment";
+import { pickableTutors, pickableWithLeavers, withCurrentTutor, worksAt } from "@/lib/employment";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -855,11 +855,12 @@ function SessionsPageContent() {
   }, [sessions, isPendingMakeupsView, makeupSort, getSessionUrgency]);
 
 
-  // Filter and sort tutors by selected location
+  // Filter and sort tutors by selected location, counting anybody covering the
+  // branch. No date is passed because this is a filter over a whole list: the
+  // question is whether a tutor has work at this branch at all, not what they
+  // are doing on one particular day.
   const filteredTutors = useMemo(() => {
-    const filtered = selectedLocation === "All Locations"
-      ? tutors
-      : tutors.filter(t => t.default_location === selectedLocation);
+    const filtered = tutors.filter(t => worksAt(t, selectedLocation));
     return [...filtered].sort(byTutorName);
   }, [tutors, selectedLocation]);
 

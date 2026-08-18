@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { regularAPI, tutorsAPI, studentsAPI, discountsAPI, ApiError } from "@/lib/api";
-import { pickableForOpenEndedWork } from "@/lib/employment";
+import { isHomeBranch, pickableForOpenEndedWork } from "@/lib/employment";
 import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, minLessonsForDiscount } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -425,7 +425,7 @@ export function RegularApplicationDetailModal({
   const tutorOptions = useMemo(
     () =>
       pickableForOpenEndedWork(tutors || [])
-        .filter((t) => t.default_location === pubLocation)
+        .filter((t) => isHomeBranch(t, pubLocation))
         .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name)),
     [tutors, pubLocation]
   );

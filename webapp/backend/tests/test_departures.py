@@ -271,9 +271,11 @@ class TestTheRegistryStaysHonest:
 
     The module says a new feature that assigns tutors belongs in that list on
     the day it is written, which is the sort of comment nothing enforces. This
-    walks every foreign key onto tutors and makes somebody decide: either the
-    column assigns work, and it goes in GUARDS, or it records who did something,
-    and it goes in the exempt list below with a reason.
+    walks every foreign key onto tutors and makes somebody decide between three
+    answers. The column assigns work, and it goes in GUARDS. It records who did
+    something, and it is authorship. Or it says what somebody is allowed to do
+    rather than what they have been handed, and it is a capability. The last two
+    go in the lists below, each with the reason it belongs there.
     """
 
     # Columns that name the person who acted, or who is being spoken to, rather
@@ -313,6 +315,16 @@ class TestTheRegistryStaysHonest:
         ("waitlist_entries", "created_by"),
     }
 
+    # Columns that say something a tutor is allowed to do rather than something
+    # they have been given to teach. Nothing here needs moving when somebody
+    # leaves, because the pickers already drop anyone whose last day has passed
+    # before they ever consult these rows, and a stale one assigns no lesson to
+    # anybody. Guarding them would refuse an edit that is perfectly reasonable:
+    # a tutor serving notice can still be covering the other branch next week.
+    CAPABILITY_COLUMNS = {
+        ("tutor_branch_coverage", "tutor_id"),
+    }
+
     def test_every_tutor_foreign_key_is_guarded_or_named_as_authorship(self):
         from database import Base
         from services.departure_guard import GUARDS
@@ -333,14 +345,21 @@ class TestTheRegistryStaysHonest:
                     if fk.column.table.name != "tutors":
                         continue
                     key = (table.name, column.name)
-                    if key not in guarded and key not in self.AUTHORSHIP_COLUMNS:
+                    accounted = (
+                        key in guarded
+                        or key in self.AUTHORSHIP_COLUMNS
+                        or key in self.CAPABILITY_COLUMNS
+                    )
+                    if not accounted:
                         unaccounted.append(key)
 
         assert not unaccounted, (
-            "These columns point at a tutor and are neither guarded nor listed "
-            f"as authorship: {sorted(unaccounted)}. Decide which they are: if a "
-            "write to one decides who teaches something, add it to GUARDS in "
-            "services/departure_guard.py."
+            "These columns point at a tutor and are not accounted for: "
+            f"{sorted(unaccounted)}. Decide which they are. If a write to one "
+            "decides who teaches something, add it to GUARDS in "
+            "services/departure_guard.py. If it records who acted, it is "
+            "authorship. If it says what somebody is allowed to do rather than "
+            "what they have been given, it is a capability."
         )
 
 

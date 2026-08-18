@@ -6,7 +6,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useVisibilityAwareInterval, useEscapeKey } from "@/lib/hooks";
-import { pickableForOpenEndedWork } from "@/lib/employment";
+import { isHomeBranch, pickableForOpenEndedWork } from "@/lib/employment";
 import { useToast } from "@/contexts/ToastContext";
 import { useConfirmOpen } from "@/contexts/ConfirmContext";
 import { BarChart3, Grid3X3, Maximize2, RefreshCw, Users, Users2, UploadCloud, X } from "lucide-react";
@@ -217,7 +217,7 @@ export default function RegularArrangementPage() {
     // Open-ended work: a regular slot runs until somebody changes it, so
     // anybody with a leaving date is out rather than only those already gone.
     return pickableForOpenEndedWork(tutors || [])
-      .filter((t) => t.default_location === branch)
+      .filter((t) => isHomeBranch(t, branch))
       .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name))
       .map((t) => ({ id: t.id, name: t.tutor_name }));
   }, [tutors, location]);

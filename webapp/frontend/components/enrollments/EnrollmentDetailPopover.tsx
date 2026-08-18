@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, memo } from "react";
 import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
-import { departureLabel, pickableTutors, withCurrentTutor } from "@/lib/employment";
+import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import { enrollmentsAPI } from "@/lib/api";
 import Link from "next/link";
 import {
@@ -154,7 +154,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   const filteredTutors = useMemo(() => {
     if (!editedLocation) return [];
     const offerable = pickableTutors(
-      allTutors.filter(t => t.default_location === editedLocation)
+      allTutors.filter(t => isHomeBranch(t, editedLocation))
     );
     return [...withCurrentTutor(offerable, editedTutorId, allTutors)]
       .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));

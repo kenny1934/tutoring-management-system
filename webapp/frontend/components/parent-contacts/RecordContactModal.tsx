@@ -27,6 +27,7 @@ import {
   FloatingFocusManager,
 } from "@floating-ui/react";
 import useSWR from "swr";
+import { isHomeBranch } from "@/lib/employment";
 
 type UserRole = 'Tutor' | 'Admin' | 'Super Admin';
 
@@ -75,7 +76,7 @@ export function RecordContactModal({
   const tutors = useMemo(() => {
     let filtered = allTutors;
     if (location && location !== "All Locations") {
-      filtered = filtered.filter(t => t.default_location === location);
+      filtered = filtered.filter(t => isHomeBranch(t, location));
     }
     // Sort by first name (stripping Mr/Ms/Mrs prefix)
     return [...filtered].sort((a, b) =>

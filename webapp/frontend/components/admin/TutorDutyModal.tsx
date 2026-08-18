@@ -7,6 +7,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { DAY_ABBREV, LOCATION_TO_CODE, displayLocation } from "@/lib/summer-utils";
 import useSWR from "swr";
 import type { ActiveTutorOption, TutorDuty, TutorDutyItem } from "@/types";
+import { isHomeBranch } from "@/lib/employment";
 
 /** How the modal reaches one intake's roster. Both intakes keep their own
  *  duty table, so the caller supplies the three calls for its own. */
@@ -65,7 +66,7 @@ export function TutorDutyModal({
   // Filter tutors by selected location
   const locationCode = LOCATION_TO_CODE[location];
   const tutors = useMemo(
-    () => allTutors?.filter((t) => t.default_location === locationCode),
+    () => allTutors?.filter((t) => isHomeBranch(t, locationCode)),
     [allTutors, locationCode]
   );
 

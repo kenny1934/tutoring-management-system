@@ -27,6 +27,7 @@ import type { TerminatedStudent, TutorTerminationStats, StatDetailStudent, Summe
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { CategoryDropdown } from "@/components/terminations/CategoryDropdown";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { isHomeBranch } from "@/lib/employment";
 
 // Lazy load chart components to keep Recharts (~40KB) out of initial bundle
 const TerminationTrendChart = dynamic(
@@ -401,7 +402,7 @@ export default function TerminatedStudentsPage() {
   useEffect(() => {
     if (viewMode === 'my-view' && selectedTutorId === null && tutors.length > 0) {
       const filteredTutors = effectiveLocation
-        ? tutors.filter(t => t.default_location === effectiveLocation)
+        ? tutors.filter(t => isHomeBranch(t, effectiveLocation))
         : tutors;
       if (filteredTutors.length > 0) {
         setSelectedTutorId(filteredTutors[0].id);

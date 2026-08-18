@@ -35,6 +35,46 @@ class Tutor(Base):
     enrollments = relationship("Enrollment", back_populates="tutor", foreign_keys="[Enrollment.tutor_id]")
     sessions = relationship("SessionLog", back_populates="tutor")
     parent_communications = relationship("ParentCommunication", back_populates="tutor")
+    branch_coverage = relationship(
+        "TutorBranchCoverage",
+        back_populates="tutor",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class TutorBranchCoverage(Base):
+    """A branch this tutor works at besides their own.
+
+    One row per arrangement. A tutor who simply also works at the other branch
+    has a single row with every optional column empty. Somebody covering one
+    Saturday has a row whose two dates are that same day. Somebody covering
+    every Saturday in October has a row with the weekday set and the dates
+    bounding the month. Two days a week is two rows, which is how the duty
+    tables already handle the same question.
+
+    Deliberately no time_slot. Rostering somebody to a particular lesson is
+    what summer_tutor_duties and regular_tutor_duties are for. This table only
+    answers whether a tutor may be offered at a branch on a given date, and
+    growing it any further would be building the duty tables a second time.
+    """
+    __tablename__ = "tutor_branch_coverage"
+    __table_args__ = (
+        Index('idx_coverage_tutor', 'tutor_id'),
+        Index('idx_coverage_location', 'location'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="CASCADE"), nullable=False)
+    location = Column(String(255), nullable=False)
+    effective_from = Column(Date, nullable=True, comment='First day covered. NULL means no start bound.')
+    effective_until = Column(Date, nullable=True, comment='Last day covered. NULL means open ended.')
+    weekday = Column(String(20), nullable=True, comment='Short day name such as Sat. NULL means any day.')
+    note = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by = Column(String(255), nullable=True)
+
+    tutor = relationship("Tutor", back_populates="branch_coverage")
 
 
 class Student(Base):

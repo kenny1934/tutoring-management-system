@@ -102,6 +102,22 @@ class StudentBasic(BaseModel):
 # Tutor Schemas
 # ============================================
 
+class TutorBranchCoverage(BaseModel):
+    """A branch this tutor works at besides their own.
+
+    Every bound is optional and an empty one is not a restriction, so a row
+    with nothing but a location means they simply also work there. See
+    migration 163 for the three arrangements this one shape covers.
+    """
+    location: str = Field(..., min_length=1, max_length=200)
+    effective_from: Optional[date] = Field(None, description="First day covered. Null means no start bound.")
+    effective_until: Optional[date] = Field(None, description="Last day covered. Null means open ended.")
+    weekday: Optional[str] = Field(None, max_length=20, description="Short day name such as Sat. Null means any day.")
+    note: Optional[str] = Field(None, max_length=255)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TutorBase(BaseModel):
     """Base tutor schema"""
     user_email: str = Field(..., min_length=3, max_length=255)
@@ -115,6 +131,10 @@ class TutorBase(BaseModel):
         None, description="Last working day. Null means they are not leaving."
     )
     profile_picture: Optional[str] = Field(None, max_length=2048)
+    branch_coverage: List[TutorBranchCoverage] = Field(
+        default_factory=list,
+        description="Branches this tutor covers besides their own. Usually empty.",
+    )
 
 
 class TutorResponse(TutorBase):
@@ -137,6 +157,10 @@ class TutorResponsePublic(BaseModel):
         None, description="Last working day. Null means they are not leaving."
     )
     profile_picture: Optional[str] = Field(None, max_length=2048)
+    branch_coverage: List[TutorBranchCoverage] = Field(
+        default_factory=list,
+        description="Branches this tutor covers besides their own. Usually empty.",
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -159,6 +183,13 @@ class TutorUpdate(BaseModel):
     basic_salary: Optional[Decimal] = Field(None, ge=0)
     is_active_tutor: Optional[bool] = None
     departure_effective_on: Optional[date] = None
+    branch_coverage: Optional[List[TutorBranchCoverage]] = Field(
+        None,
+        description=(
+            "Replaces the whole coverage list. Omit to leave it alone, send an "
+            "empty list to clear it."
+        ),
+    )
 
 
 # ============================================

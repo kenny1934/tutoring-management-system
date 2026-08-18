@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { useActiveTutors, useTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
-import { withCurrentTutor } from "@/lib/employment";
+import { partitionByBranch, tutorOptionLabel, withCurrentTutor, worksAt } from "@/lib/employment";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { Plus, Trash2, PenTool, Home, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -218,11 +218,17 @@ export function EditSessionModal({
   }, [isOpen, session]);
 
   // Filter tutors by selected location and sort by first name (like sessions toolbar)
+  //
+  // Asked with the date the form is currently showing, not with today's, so
+  // moving a lesson to another day re-asks the question. A tutor covering the
+  // branch on Saturdays belongs in this list for a Saturday and not for a
+  // Tuesday. Changing the date can therefore drop somebody out of the list,
+  // which is why withCurrentTutor below matters as much as it does.
   const filteredTutors = useMemo(() => {
     if (!tutors) return [];
     const filtered = !form.location
       ? tutors
-      : tutors.filter(t => t.default_location === form.location);
+      : tutors.filter(t => worksAt(t, form.location, form.session_date));
     // Whoever the session is already on stays in the list even when the
     // narrowing would drop them, which happens for a tutor at another branch
     // and for one who has left. Without this the select renders with nothing
@@ -231,7 +237,14 @@ export function EditSessionModal({
     return [...withCurrent].sort((a, b) =>
       getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
     );
-  }, [tutors, allTutors, form.location, session.tutor_id]);
+  }, [tutors, allTutors, form.location, form.session_date, session.tutor_id]);
+
+  // Split only for display. Whoever is covering this branch is offerable, but
+  // they should never sit unremarked among the branch's own people.
+  const { home: homeTutors, visiting: visitingTutors } = useMemo(
+    () => partitionByBranch(filteredTutors, form.location),
+    [filteredTutors, form.location]
+  );
 
   // Helper to get day name from date string (abbreviated to match DB format)
   const getDayName = (dateStr: string) => {
@@ -699,11 +712,20 @@ export function EditSessionModal({
               className={inputClass}
             >
               <option value="">Select tutor...</option>
-              {filteredTutors.map((tutor) => (
+              {homeTutors.map((tutor) => (
                 <option key={tutor.id} value={tutor.id}>
                   {tutor.tutor_name}
                 </option>
               ))}
+              {visitingTutors.length > 0 && (
+                <optgroup label="Covering from another branch">
+                  {visitingTutors.map((tutor) => (
+                    <option key={tutor.id} value={tutor.id}>
+                      {tutorOptionLabel(tutor, form.location)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
         </div>

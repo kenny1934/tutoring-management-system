@@ -419,8 +419,13 @@ function buildLocationQuery(params: Record<string, unknown> = {}, location?: str
 
 // Tutors API
 export const tutorsAPI = {
-  getAll: () => {
-    return fetchAPI<Tutor[]>("/tutors");
+  // The roster is cached by the browser for five minutes (the endpoint sets
+  // Cache-Control itself), which is right for a list of eleven people that
+  // barely changes. Pass fresh when something has just been written to it and
+  // the next screen has to see the change now: that skips the cached copy and
+  // replaces it, so every other page picks the new roster up as well.
+  getAll: (opts?: { fresh?: boolean }) => {
+    return fetchAPI<Tutor[]>("/tutors", opts?.fresh ? { cache: "reload" } : undefined);
   },
 
   getById: (id: number) => {

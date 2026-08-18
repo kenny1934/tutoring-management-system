@@ -1,9 +1,14 @@
-"""Who still works here, and what they can still be given.
+"""Who still works here, where they work, and what they can still be given.
 
-CSM has one column for this, ``tutors.departure_effective_on``, holding a
-leaver's last working day. ARK is where the fact is recorded and the nightly
-sync copies it across, so the awkward cases are already resolved by the time
-the date lands here. See ``services/ark_employment_sync.py``.
+Two questions a tutor picker has to answer together before it can offer a name.
+The first half of this module is about employment and the second is about which
+branch somebody may be offered at. They are separate facts, but every picker
+asks both at once, so they live in one place and get imported together.
+
+Employment first. CSM has one column for it, ``tutors.departure_effective_on``,
+holding a leaver's last working day. ARK is where the fact is recorded and
+the nightly sync copies it across, so the awkward cases are already resolved by
+the time the date lands here. See ``services/ark_employment_sync.py``.
 
 The distinction that matters is between somebody who is leaving and somebody
 who has left, because they need opposite treatment. A tutor serving notice is
@@ -80,4 +85,89 @@ def still_here_clause(today: Optional[date] = None):
     return sa_or(
         Tutor.departure_effective_on.is_(None),
         Tutor.departure_effective_on >= (today or today_hk()),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Which branch a tutor may be offered at
+# ---------------------------------------------------------------------------
+# A separate question from employment, but the same practical one: which names
+# may this picker put in front of somebody. A tutor belongs to a branch through
+# tutors.default_location, and covering another one is recorded as rows in
+# tutor_branch_coverage. See migration 163 for why it is a table rather than a
+# column on the tutor.
+
+#: Short day names, indexed by ``date.weekday()``. Written out rather than
+#: taken from strftime so the answer does not depend on the server's locale,
+#: and matching the abbreviations the rest of the app already compares against
+#: (``enrollments.assigned_day``, and the day names the session editor derives).
+_WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+#: The Chinese branch names summer and regular configs store, mapped to the
+#: short codes that ``tutors.default_location`` and ``session_log.location``
+#: use. Mirrors LOCATION_TO_CODE on the frontend.
+_LOCATION_CODES = {
+    "華士古分校": "MSA",
+    "二龍喉分校": "MSB",
+}
+
+
+def normalise_location(location: Optional[str]) -> Optional[str]:
+    """A branch name in the short-code form everything else compares against.
+
+    Callers reach this helper holding whichever form their own screen works
+    in, so both are accepted and anything unrecognised is passed through
+    untouched.
+    """
+    if not location:
+        return None
+    trimmed = location.strip()
+    return _LOCATION_CODES.get(trimmed, trimmed)
+
+
+def covers_on(coverage, work_date: Optional[date]) -> bool:
+    """Whether one coverage row applies to ``work_date``.
+
+    With no date in hand the row counts as long as it has not already run out.
+    That is the right answer for a filter, which is asking whether this tutor
+    has anything at the branch at all rather than about one particular day.
+
+    With a date, every bound that is set has to agree. An empty bound is not a
+    restriction: a row with nothing filled in means they simply also work
+    there.
+    """
+    if work_date is None:
+        return coverage.effective_until is None or coverage.effective_until >= today_hk()
+    if coverage.effective_from is not None and work_date < coverage.effective_from:
+        return False
+    if coverage.effective_until is not None and work_date > coverage.effective_until:
+        return False
+    if coverage.weekday and coverage.weekday != _WEEKDAY_NAMES[work_date.weekday()]:
+        return False
+    return True
+
+
+def works_at(tutor: Tutor, location: Optional[str], work_date: Optional[date] = None) -> bool:
+    """Whether this tutor may be offered at ``location``.
+
+    Their own branch always counts. Beyond that it takes a coverage row that
+    applies, which is what lets an MSA tutor be put on an MSB lesson while they
+    are covering there.
+
+    Asking without a date is the permissive reading, and it is what the filter
+    toolbars want. Asking with one is the strict reading, and it is what the
+    pickers that actually assign a lesson want, since they know the day the
+    lesson falls on.
+
+    No location at all means no narrowing is being applied, so everybody is
+    offerable. That keeps the "All Locations" case out of every call site.
+    """
+    if not location:
+        return True
+    wanted = normalise_location(location)
+    if normalise_location(tutor.default_location) == wanted:
+        return True
+    return any(
+        normalise_location(row.location) == wanted and covers_on(row, work_date)
+        for row in (tutor.branch_coverage or [])
     )

@@ -11,10 +11,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { employmentAPI } from "@/lib/api";
 import { plural } from "@/lib/formatters";
-import { departureLabel, hasDeparted, isLeaving } from "@/lib/employment";
+import { coverageLabel, departureLabel, hasDeparted, isLeaving } from "@/lib/employment";
 import { getInitials } from "@/lib/avatar-utils";
 import { cn } from "@/lib/utils";
-import { Users, Search, MapPin, RefreshCw } from "lucide-react";
+import { Users, Search, MapPin, RefreshCw, Repeat } from "lucide-react";
 import type { Tutor, TutorRole } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
@@ -184,6 +184,18 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
             <span className="truncate">{tutor.default_location}</span>
           </div>
         )}
+        {/* Covering another branch is a temporary arrangement that somebody has
+            to remember to end, so it belongs on the card rather than behind the
+            edit modal. If it is still showing in November, that is the prompt
+            to go and untick it. */}
+        {(tutor.branch_coverage?.length ?? 0) > 0 && (
+          <div className="mt-1 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
+            <Repeat className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">
+              Also covers {tutor.branch_coverage!.map(coverageLabel).join(", ")}
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -233,7 +245,8 @@ function TutorsPageInner() {
           !q ||
           t.tutor_name.toLowerCase().includes(q) ||
           t.nickname?.toLowerCase().includes(q) ||
-          t.default_location?.toLowerCase().includes(q)
+          t.default_location?.toLowerCase().includes(q) ||
+          t.branch_coverage?.some((c) => coverageLabel(c).toLowerCase().includes(q))
       );
   }, [tutors, query]);
 

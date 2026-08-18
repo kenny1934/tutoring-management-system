@@ -1,6 +1,24 @@
 // Tutor types
 export type TutorRole = 'Tutor' | 'Admin' | 'Super Admin' | 'Supervisor' | 'Guest';
 
+/**
+ * A branch this tutor works at besides their own.
+ *
+ * Every bound is optional and an empty one is not a restriction, so a row with
+ * nothing but a location means they simply also work there. Two days a week is
+ * two rows. See migration 163 for why this is a list rather than a flag.
+ */
+export interface TutorBranchCoverage {
+  location: string;
+  /** First day covered. Null means no start bound. */
+  effective_from?: string | null;
+  /** Last day covered. Null means open ended. */
+  effective_until?: string | null;
+  /** Short day name such as 'Sat'. Null means any day. */
+  weekday?: string | null;
+  note?: string | null;
+}
+
 export interface Tutor {
   id: number;
   user_email?: string;
@@ -18,6 +36,8 @@ export interface Tutor {
    */
   departure_effective_on?: string | null;
   profile_picture?: string;
+  /** Branches covered besides their own. Empty for almost everybody. */
+  branch_coverage?: TutorBranchCoverage[];
 }
 
 // Fields an admin may edit via the tutor profile page. Excludes email + role
@@ -28,6 +48,8 @@ export interface TutorUpdate {
   basic_salary?: number;
   is_active_tutor?: boolean;
   departure_effective_on?: string | null;
+  /** Replaces the whole list. Omit to leave it alone, send [] to clear it. */
+  branch_coverage?: TutorBranchCoverage[];
 }
 
 /** Work still pointing at a leaver that somebody has to move. */
@@ -3020,6 +3042,8 @@ export interface ActiveTutorOption {
   id: number;
   tutor_name: string;
   default_location: string | null;
+  /** Branches covered besides their own. Empty for almost everybody. */
+  branch_coverage?: TutorBranchCoverage[];
 }
 
 export interface AvailableTutor {

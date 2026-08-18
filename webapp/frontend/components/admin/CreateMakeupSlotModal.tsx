@@ -13,6 +13,7 @@ import { CalendarPlus, Loader2, AlertCircle } from "lucide-react";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
+import { partitionByBranch, tutorOptionLabel, worksAt } from "@/lib/employment";
 import { LOCATION_TO_CODE } from "@/lib/summer-utils";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -74,9 +75,18 @@ export function CreateMakeupSlotModal({
   );
 
   const locationCode = LOCATION_TO_CODE[location] ?? location;
+  // Anybody covering the branch on the slot's date belongs here too, so a
+  // one-off lesson can be given to a substitute.
   const tutors = useMemo(
-    () => allTutors?.filter((t) => t.default_location === locationCode) ?? [],
-    [allTutors, locationCode]
+    () => allTutors?.filter((t) => worksAt(t, locationCode, date || null)) ?? [],
+    [allTutors, locationCode, date]
+  );
+
+  // Split only for display, so a substitute is never mistaken for one of the
+  // branch's own tutors.
+  const { home: homeTutors, visiting: visitingTutors } = useMemo(
+    () => partitionByBranch(tutors, locationCode),
+    [tutors, locationCode]
   );
 
   const { refs, context } = useFloating({
@@ -185,11 +195,20 @@ export function CreateMakeupSlotModal({
                     className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
                   >
                     <option value="">— select tutor —</option>
-                    {tutors.map((t) => (
+                    {homeTutors.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.tutor_name}
                       </option>
                     ))}
+                    {visitingTutors.length > 0 && (
+                      <optgroup label="Covering from another branch">
+                        {visitingTutors.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {tutorOptionLabel(t, locationCode)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   {tutors.length === 0 && allTutors && (
                     <p className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">

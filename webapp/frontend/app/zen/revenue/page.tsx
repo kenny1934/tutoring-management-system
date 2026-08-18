@@ -10,7 +10,7 @@ import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { ZenSpinner } from "@/components/zen/ZenSpinner";
 import { getStatusChar, getStatusColor, getShortStatus } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
-import { departureLabel, withCurrentTutor } from "@/lib/employment";
+import { departureLabel, isHomeBranch, withCurrentTutor } from "@/lib/employment";
 import type { SessionRevenueDetail } from "@/types";
 
 // ── Helpers ──
@@ -100,7 +100,7 @@ export default function ZenRevenuePage() {
     if (canViewAdminPages && selectedTutorId === null && activeTutors.length > 0) {
       const locationFilter = selectedLocation === "All Locations" ? undefined : selectedLocation;
       const filtered = locationFilter
-        ? activeTutors.filter((t) => t.default_location === locationFilter)
+        ? activeTutors.filter((t) => isHomeBranch(t, locationFilter))
         : activeTutors;
       if (filtered.length > 0) {
         setSelectedTutorId(filtered[0].id);

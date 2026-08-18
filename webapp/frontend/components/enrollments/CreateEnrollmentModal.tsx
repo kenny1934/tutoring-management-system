@@ -35,6 +35,7 @@ import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISC
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Student } from "@/types";
+import { isHomeBranch } from "@/lib/employment";
 
 const ENROLLMENT_TYPES = ["Regular", "Trial", "One-Time"] as const;
 
@@ -360,7 +361,7 @@ export function CreateEnrollmentModal({
   // Auto-select first tutor from location (only if not renewing/converting/prefilling and no tutor selected)
   useEffect(() => {
     if (!renewFromId && !convertFromTrial && !prefillTutorId && !tutorId && tutors.length > 0 && location && isOpen) {
-      const newLocationTutors = tutors.filter((t) => t.default_location === location);
+      const newLocationTutors = tutors.filter((t) => isHomeBranch(t, location));
       if (newLocationTutors.length > 0) {
         setTutorId(newLocationTutors[0].id);
       }
@@ -428,9 +429,9 @@ export function CreateEnrollmentModal({
   useEffect(() => {
     if (tutorId && tutors.length > 0 && location) {
       const selectedTutor = tutors.find((t) => t.id === tutorId);
-      if (selectedTutor && selectedTutor.default_location !== location) {
+      if (selectedTutor && !isHomeBranch(selectedTutor, location)) {
         // Current tutor is from different location, reset to first tutor from new location
-        const newLocationTutors = tutors.filter((t) => t.default_location === location);
+        const newLocationTutors = tutors.filter((t) => isHomeBranch(t, location));
         setTutorId(newLocationTutors.length > 0 ? newLocationTutors[0].id : null);
       }
     }
@@ -513,7 +514,7 @@ export function CreateEnrollmentModal({
   };
 
   const locationTutors = tutors
-    .filter((t) => t.default_location === location)
+    .filter((t) => isHomeBranch(t, location))
     .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
   const hasConflicts = preview?.conflicts && preview.conflicts.length > 0;
   const hasWarnings = preview?.warnings && preview.warnings.length > 0;

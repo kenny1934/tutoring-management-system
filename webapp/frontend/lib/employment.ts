@@ -1,7 +1,7 @@
 /**
- * Who is still here, and who may still be picked.
+ * Who is still here, where they work, and who may still be picked.
  *
- * The same two questions the backend answers in utils/employment.py, asked on
+ * The same questions the backend answers in utils/employment.py, asked on
  * this side so the pickers agree with what the server will accept. A tutor
  * serving notice is still here and still teaches, so they stay in every list.
  * Once their last working day has passed they leave the lists, but never the
@@ -9,7 +9,7 @@
  */
 import { toDateString } from "@/lib/calendar-utils";
 import { formatDayFirstDate } from "@/lib/formatters";
-import type { DepartureLoad, Tutor } from "@/types";
+import type { DepartureLoad, Tutor, TutorBranchCoverage } from "@/types";
 
 /** A last working day is on file, whether it has passed or not. */
 export function isLeaving(tutor: Pick<Tutor, "departure_effective_on">): boolean {
@@ -154,4 +154,210 @@ export function hasOutstandingWork(load: DepartureLoad): boolean {
     load.regular_duties > 0 ||
     load.waitlist_preferences > 0
   );
+}
+
+// ---------------------------------------------------------------------------
+// Which branch a tutor may be offered at
+// ---------------------------------------------------------------------------
+// Until now every picker wrote this itself as `t.default_location === location`,
+// twenty times over, and not all of them agreed: some compared against a short
+// branch code and some against the Chinese name the summer and regular configs
+// store. One helper, asked the same way everywhere, replaces the lot.
+
+/**
+ * The two fields the branch questions below need.
+ *
+ * Written structurally rather than as `Pick<Tutor, ...>` because the callers
+ * do not all hold a full Tutor. The summer active-tutor endpoint returns a
+ * trimmed shape whose default_location is nullable, and both forms have to
+ * work without a cast at the call site.
+ */
+type TutorBranchFields = {
+  default_location?: string | null;
+  branch_coverage?: TutorBranchCoverage[] | null;
+};
+
+/** Short day names indexed to match `Date.getDay()`, which starts on Sunday. */
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * The Chinese branch names summer and regular configs store, mapped to the
+ * short codes tutors and sessions use. Mirrors LOCATION_TO_CODE in
+ * lib/summer-utils, kept here so this module has no import into that one.
+ */
+const LOCATION_CODES: Record<string, string> = {
+  "華士古分校": "MSA",
+  "二龍喉分校": "MSB",
+};
+
+/**
+ * A branch name in the short-code form everything else compares against.
+ *
+ * Callers reach this helper holding whichever form their own screen works in,
+ * so both are accepted and anything unrecognised is passed through untouched.
+ */
+export function normaliseLocation(location: string | null | undefined): string | null {
+  if (!location) return null;
+  const trimmed = location.trim();
+  return LOCATION_CODES[trimmed] ?? trimmed;
+}
+
+/**
+ * Whether one coverage row applies on a given day.
+ *
+ * With no date in hand the row counts as long as it has not already run out.
+ * That is what a filter wants, since it is asking whether this tutor has
+ * anything at the branch at all rather than about one particular day.
+ *
+ * With a date, every bound that is set has to agree. An empty bound is not a
+ * restriction: a row with nothing filled in means they simply also work there.
+ */
+export function coversOn(
+  coverage: TutorBranchCoverage,
+  date: string | null | undefined,
+  today: Date = new Date()
+): boolean {
+  if (!date) {
+    return !coverage.effective_until || coverage.effective_until >= toDateString(today);
+  }
+  if (coverage.effective_from && date < coverage.effective_from) return false;
+  if (coverage.effective_until && date > coverage.effective_until) return false;
+  if (coverage.weekday) {
+    const day = WEEKDAY_NAMES[new Date(`${date}T00:00:00`).getDay()];
+    if (coverage.weekday !== day) return false;
+  }
+  return true;
+}
+
+/**
+ * Whether this tutor may be offered at a branch.
+ *
+ * Their own branch always counts. Beyond that it takes a coverage row that
+ * applies, which is what lets an MSA tutor be put on an MSB lesson while they
+ * are covering there.
+ *
+ * Pass the date when the control knows it, which every picker that assigns a
+ * lesson does. Leave it out in a filter toolbar, where the question is about
+ * the tutor rather than about one day, and the answer comes out permissive.
+ *
+ * No location, or the "All Locations" sentinel, means no narrowing is being
+ * applied at all, so everybody is offerable. That keeps the check out of every
+ * call site.
+ */
+export function worksAt(
+  tutor: TutorBranchFields,
+  location: string | null | undefined,
+  date?: string | null,
+  today: Date = new Date()
+): boolean {
+  if (!location || location === "All Locations") return true;
+  const wanted = normaliseLocation(location);
+  if (normaliseLocation(tutor.default_location) === wanted) return true;
+  return (tutor.branch_coverage ?? []).some(
+    (row) => normaliseLocation(row.location) === wanted && coversOn(row, date, today)
+  );
+}
+
+/**
+ * Whether this branch is the tutor's own, ignoring any coverage.
+ *
+ * The narrower question, and the one the pickers outside the session and
+ * make-up screens still ask. Covering another branch lets somebody be put on a
+ * lesson there, but it deliberately does not make them assignable to a regular
+ * enrolment, a duty roster or an open-ended slot at that branch, because those
+ * are standing commitments rather than one person filling in.
+ *
+ * It exists as its own named function so that which policy a picker follows is
+ * visible at the call site. Widening one later is a one-word change.
+ */
+export function isHomeBranch(
+  tutor: TutorBranchFields,
+  location: string | null | undefined
+): boolean {
+  if (!location || location === "All Locations") return true;
+  return normaliseLocation(tutor.default_location) === normaliseLocation(location);
+}
+
+/**
+ * Split a list a picker is already going to offer into home and visiting.
+ *
+ * Takes whatever narrowing the caller has already done and only decides how to
+ * present it, so it never changes who is in the list. That matters, because the
+ * four session pickers each build their list slightly differently and none of
+ * them should start offering a different set of people just to get a heading.
+ *
+ * A dropdown that mixes the two is how somebody ends up handing a lesson to a
+ * tutor who is normally at the other branch without noticing, so every picker
+ * that can assign work renders them apart.
+ */
+export function partitionByBranch<T extends TutorBranchFields>(
+  tutors: T[],
+  location: string | null | undefined
+): { home: T[]; visiting: T[] } {
+  if (!location || location === "All Locations") return { home: tutors, visiting: [] };
+  return {
+    home: tutors.filter((t) => isHomeBranch(t, location)),
+    visiting: tutors.filter((t) => !isHomeBranch(t, location)),
+  };
+}
+
+/**
+ * The tutors a picker may offer at a branch, in the same two groups.
+ *
+ * Does the narrowing as well as the split: employment first, then the branch
+ * question. Every picker needs both answers and asking for them separately is
+ * how three call sites came to forget one of them.
+ */
+export function tutorsForLocation<
+  T extends TutorBranchFields & Pick<Tutor, "departure_effective_on" | "is_active_tutor">
+>(
+  tutors: T[],
+  location: string | null | undefined,
+  date?: string | null,
+  today: Date = new Date()
+): { home: T[]; visiting: T[] } {
+  const offerable = pickableTutors(tutors, today).filter((t) =>
+    worksAt(t, location, date, today)
+  );
+  return partitionByBranch(offerable, location);
+}
+
+/**
+ * How a visiting tutor reads in a plain option list.
+ *
+ * The four session pickers are native selects, where there is nowhere to hang
+ * a chip, so the branch goes in the text: "Ms Bella Chang (MSA)". Returns the
+ * name alone for the branch's own people, who need no explaining.
+ */
+export function tutorOptionLabel(
+  tutor: TutorBranchFields & { tutor_name: string },
+  location: string | null | undefined
+): string {
+  if (isHomeBranch(tutor, location)) return tutor.tutor_name;
+  const home = normaliseLocation(tutor.default_location);
+  return home ? `${tutor.tutor_name} (${home})` : tutor.tutor_name;
+}
+
+/**
+ * How a coverage row reads on screen, for the tutor list and the editor.
+ *
+ * "MSB" on its own for a standing arrangement, and the bounds spelled out when
+ * there are any, so nobody has to open the editor to find out whether somebody
+ * is there permanently or for one Saturday.
+ */
+export function coverageLabel(coverage: TutorBranchCoverage): string {
+  const code = normaliseLocation(coverage.location) ?? coverage.location;
+  const { effective_from: from, effective_until: until, weekday } = coverage;
+  const when: string[] = [];
+  if (weekday) when.push(`${weekday}s`);
+  if (from && until && from === until) {
+    when.push(`on ${formatDayFirstDate(from)}`);
+  } else if (from && until) {
+    when.push(`${formatDayFirstDate(from)} to ${formatDayFirstDate(until)}`);
+  } else if (from) {
+    when.push(`from ${formatDayFirstDate(from)}`);
+  } else if (until) {
+    when.push(`until ${formatDayFirstDate(until)}`);
+  }
+  return when.length ? `${code} ${when.join(", ")}` : code;
 }

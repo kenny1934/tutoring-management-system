@@ -20,6 +20,7 @@ import {
   AlertCircle,
   AlertTriangle,
 } from "lucide-react";
+import { isHomeBranch } from "@/lib/employment";
 
 interface EditRevisionSlotModalProps {
   slot: ExamRevisionSlot;
@@ -128,7 +129,7 @@ export function EditRevisionSlotModal({
   const availableTutors = useMemo(() => {
     let filtered = [...tutors];
     if (location) {
-      filtered = filtered.filter((t) => t.default_location === location);
+      filtered = filtered.filter((t) => isHomeBranch(t, location));
     }
     return filtered.sort((a, b) => a.tutor_name.localeCompare(b.tutor_name));
   }, [tutors, location]);

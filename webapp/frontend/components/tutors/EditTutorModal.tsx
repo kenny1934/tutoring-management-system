@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { mutate } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useLocations } from "@/lib/hooks";
 import { tutorsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import type { Tutor, TutorUpdate } from "@/types";
+import { coverageLabel, normaliseLocation } from "@/lib/employment";
+import type { Tutor, TutorBranchCoverage, TutorUpdate } from "@/types";
 
 interface EditTutorModalProps {
   tutor: Tutor;
@@ -25,6 +27,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
   const [basicSalary, setBasicSalary] = useState("");
   const [isActiveTutor, setIsActiveTutor] = useState(true);
   const [departureOn, setDepartureOn] = useState("");
+  const [coverage, setCoverage] = useState<TutorBranchCoverage[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Teaching staff are the ones ARK keeps records for, so their leaving date
@@ -45,6 +48,7 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
     );
     setIsActiveTutor(tutor.is_active_tutor ?? true);
     setDepartureOn(tutor.departure_effective_on ?? "");
+    setCoverage(tutor.branch_coverage ?? []);
   }, [isOpen, tutor]);
 
   // Build the location options, making sure the tutor's current value is present
@@ -60,6 +64,27 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
     }
     return opts;
   })();
+
+  // The branches somebody could be sent to cover, which is every branch except
+  // the one they already belong to.
+  const coverableLocations = locationOptions.filter(
+    (loc) => normaliseLocation(loc) !== normaliseLocation(defaultLocation)
+  );
+
+  const isCovering = (loc: string) =>
+    coverage.some((row) => normaliseLocation(row.location) === normaliseLocation(loc));
+
+  // Ticking writes an open-ended row, which is the arrangement almost every
+  // cover turns out to be. The dates and weekday the row can carry are set
+  // elsewhere for now, and a row that has them keeps them: unticking and
+  // reticking is the way to clear them deliberately.
+  const toggleCoverage = (loc: string) => {
+    setCoverage((rows) =>
+      isCovering(loc)
+        ? rows.filter((row) => normaliseLocation(row.location) !== normaliseLocation(loc))
+        : [...rows, { location: normaliseLocation(loc) ?? loc }]
+    );
+  };
 
   const handleSave = async () => {
     // Salary must be a non-negative number when provided.
@@ -82,11 +107,19 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
       is_active_tutor: isActiveTutor,
       // Null clears it, which is what a withdrawn resignation needs.
       departure_effective_on: departureOn.trim() === "" ? null : departureOn,
+      // The whole list every time. The server replaces what it holds, so an
+      // empty list is how a finished cover is cleared.
+      branch_coverage: coverage,
     };
 
     setIsSaving(true);
     try {
       const updated = await tutorsAPI.update(tutor.id, payload);
+      // Every tutor picker in the app reads the shared roster, and covering
+      // another branch is the sort of edit somebody makes on their way to
+      // assigning a lesson. Waiting out the browser's five-minute cache would
+      // look exactly like the tick not having worked, so force it now.
+      await mutate("tutors", () => tutorsAPI.getAll({ fresh: true }));
       showToast("Tutor updated", "success");
       onSaved?.(updated);
       onClose();
@@ -150,6 +183,50 @@ export function EditTutorModal({ tutor, isOpen, onClose, onSaved }: EditTutorMod
             ))}
           </select>
         </div>
+
+        {/* Also covers. Sits under the default location because it only makes
+            sense next to it: this is the list of other branches somebody can be
+            put on a lesson at, which is what happens when they go and cover for
+            a colleague. It does not make them assignable to a regular enrolment
+            or a duty roster there. */}
+        {coverableLocations.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-foreground/80 mb-1">
+              Also covers
+            </label>
+            <div className="space-y-2">
+              {coverableLocations.map((loc) => {
+                const row = coverage.find(
+                  (c) => normaliseLocation(c.location) === normaliseLocation(loc)
+                );
+                return (
+                  <label
+                    key={loc}
+                    className="flex items-center gap-3 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(row)}
+                      onChange={() => toggleCoverage(loc)}
+                      className="h-4 w-4 rounded border-foreground/30 text-primary focus:ring-primary/30"
+                    />
+                    <span className="text-sm text-foreground/80">{loc}</span>
+                    {row && (row.weekday || row.effective_from || row.effective_until) && (
+                      <span className="text-xs text-foreground/50">
+                        {coverageLabel(row)}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+            <p className="mt-1 text-xs text-foreground/50">
+              They appear in that branch&rsquo;s session and make-up pickers,
+              under their own name and marked with their home branch. Untick
+              when the cover ends.
+            </p>
+          </div>
+        )}
 
         {/* Basic salary */}
         <div>

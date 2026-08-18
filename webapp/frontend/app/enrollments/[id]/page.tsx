@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions } from "@/lib/hooks";
-import { departureLabel, pickableTutors, withCurrentTutor } from "@/lib/employment";
+import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
 import useSWR from "swr";
@@ -451,7 +451,7 @@ export default function EnrollmentDetailPage() {
   const filteredTutors = useMemo(() => {
     const selectedLocation = editForm.location || enrollment?.location;
     const atLocation = selectedLocation
-      ? allTutors.filter(t => t.default_location === selectedLocation)
+      ? allTutors.filter(t => isHomeBranch(t, selectedLocation))
       : allTutors;
     const offerable = pickableTutors(atLocation);
     return [...withCurrentTutor(offerable, editForm.tutor_id ?? null, allTutors)].sort((a, b) =>

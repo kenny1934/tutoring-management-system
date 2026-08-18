@@ -9,7 +9,7 @@ import { waitlistAPI, studentsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useActiveTutors } from "@/lib/hooks";
-import { pickableForOpenEndedWork } from "@/lib/employment";
+import { isHomeBranch, pickableForOpenEndedWork } from "@/lib/employment";
 import { formatTimeAgo } from "@/lib/formatters";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { GRADES, DAY_NAMES, DAY_NAME_TO_INDEX, getTimeSlotsForDay, ALL_TIME_SLOTS } from "@/lib/constants";
@@ -644,7 +644,7 @@ export function WaitlistEntryModal({
                     >
                       <option value="">Any tutor</option>
                       {[...tutors]
-                        .filter((t) => !t.default_location || t.default_location === sp.location)
+                        .filter((t) => !t.default_location || isHomeBranch(t, sp.location))
                         .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)))
                         .map((t) => (
                           <option key={t.id} value={t.id}>
