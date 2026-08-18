@@ -20,7 +20,8 @@ import {
   AlertCircle,
   AlertTriangle,
 } from "lucide-react";
-import { isHomeBranch } from "@/lib/employment";
+import { worksAt } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 
 interface EditRevisionSlotModalProps {
   slot: ExamRevisionSlot;
@@ -125,14 +126,14 @@ export function EditRevisionSlotModal({
   // Lock location dropdown when sidebar has specific location selected
   const isLocationLocked = selectedLocation && selectedLocation !== "All Locations";
 
-  // Get available tutors for selection
+  // Who can take this slot. A revision slot is a one-off booking on a known
+  // date, the same shape as a make-up, so anybody covering that branch on that
+  // date belongs here too. Re-asked when the date moves, since an arrangement
+  // can be limited to particular days.
   const availableTutors = useMemo(() => {
-    let filtered = [...tutors];
-    if (location) {
-      filtered = filtered.filter((t) => isHomeBranch(t, location));
-    }
+    const filtered = tutors.filter((t) => worksAt(t, location, sessionDate));
     return filtered.sort((a, b) => a.tutor_name.localeCompare(b.tutor_name));
-  }, [tutors, location]);
+  }, [tutors, location, sessionDate]);
 
   // Get current user's email for audit trail
   const currentUserEmail = useMemo(() => {
@@ -350,12 +351,11 @@ export function EditRevisionSlotModal({
               required
               aria-required="true"
             >
-              {availableTutors.map((tutor) => (
-                <option key={tutor.id} value={tutor.id}>
-                  {tutor.tutor_name}
-                  {tutor.id === currentTutorId ? " (you)" : ""}
-                </option>
-              ))}
+              <TutorOptions
+                tutors={availableTutors}
+                location={location}
+                suffix={(tutor) => (tutor.id === currentTutorId ? " (you)" : "")}
+              />
               {!availableTutors.find(t => t.id === slot.tutor_id) && (
                 <option value={slot.tutor_id}>
                   {slot.tutor_name} (current)
