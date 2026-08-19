@@ -8,10 +8,10 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**A tutor from one branch can now take lessons at the other**: when somebody went to the other branch to cover a colleague's lessons there was no way to record it, because every tutor list in the app was bounded by the branch that person belongs to. You can now say that a tutor also covers another branch, and from then on they can be put on a lesson, a make-up or an exam revision slot there. They are never quietly mixed in with that branch's own people. Wherever they appear they sit under a heading saying they are covering, with their own branch beside their name, so a substitute is never mistaken for one of the branch's regular tutors. The lesson still counts as theirs and still counts towards the branch that hosted it, so nobody's figures move."
+            "description": "**A tutor can now cover lessons at the other branch**: say on their record that they also cover another branch, and they can be given a lesson, a make-up or an exam revision slot there. They are marked as covering wherever they appear, with their own branch beside their name."
           },
           {
-            "description": "**Saying which days somebody covers, and until when**: covering is usually a few named dates or one weekday for part of a term rather than a standing arrangement, so a tutor's record takes the days of the week, a first day and a last day. Leaving all of it blank means they simply also work there with no end date, and whatever you pick reads itself back as a sentence before you save. The lists then follow it, so somebody covering for a single Saturday only appears in the tutor lists on that Saturday, and in the week and the month that contain it. The tutor list and each tutor's own page show who is currently covering where, because that is the sort of arrangement somebody has to remember to end."
+            "description": "**Cover can be limited to certain days or dates**: pick the weekdays and a first and last day, or leave it blank to run on. Somebody covering one Saturday only appears in the tutor lists that day. The tutor list shows who is covering where."
           }
         ]
       }
