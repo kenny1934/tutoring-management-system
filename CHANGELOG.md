@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.119](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.118...v2.0.119) (2026-08-19)
+
+
+### New Features
+
+* **Filter September applicants by the branch they come from**: the applications page in Regular Intake gains the branch origin filter the summer page already has, in the More menu. Pick a branch to see only the applicants who come from it, whether that origin was confirmed by staff, read from their linked record, or claimed on the form, and pick "New (no branch)" to see the applicants with no MathConcept history at all.
+* **Creating a student from an application starts with the school code**: when the school a family typed is one the app recognises, the create student form now opens with the matching school code already filled in, so the new record lines up with the rest of the student list without retyping. A spelling the app has not met before still comes through exactly as typed.
+
 ## [2.0.118](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.117...v2.0.118) (2026-08-19)
 
 
