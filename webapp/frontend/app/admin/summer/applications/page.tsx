@@ -24,6 +24,7 @@ import {
 } from "@/components/summer/EarlyBirdDeadlineDialog";
 import { SummerApplicationCard, STATUS_COLORS, ALL_STATUSES } from "@/components/admin/SummerApplicationCard";
 import { SummerApplicationStats } from "@/components/admin/SummerApplicationStats";
+import { ViewModeToggle } from "@/components/admin/ViewModeToggle";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
 import { ApplicationLinkSuggestionsModal } from "@/components/admin/ApplicationLinkSuggestionsModal";
 import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
@@ -1337,53 +1338,15 @@ export default function SummerApplicationsPage() {
                   )}
                 </DropdownMenu>
 
-                <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("list")}
-                    title="List view"
-                    aria-label="List view"
-                    aria-pressed={viewMode === "list"}
-                    className={cn(
-                      "px-2 py-1.5 transition-colors",
-                      viewMode === "list"
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800",
-                    )}
-                  >
-                    <LayoutList className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("board")}
-                    title="Buddy board"
-                    aria-label="Buddy board"
-                    aria-pressed={viewMode === "board"}
-                    className={cn(
-                      "px-2 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700",
-                      viewMode === "board"
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800",
-                    )}
-                  >
-                    <LayoutGrid className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("stats")}
-                    title="Stats"
-                    aria-label="Stats view"
-                    aria-pressed={viewMode === "stats"}
-                    className={cn(
-                      "px-2 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700",
-                      viewMode === "stats"
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800",
-                    )}
-                  >
-                    <BarChart3 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                <ViewModeToggle
+                  value={viewMode}
+                  onChange={setViewMode}
+                  modes={[
+                    { key: "list", icon: LayoutList, label: "List view" },
+                    { key: "board", icon: LayoutGrid, label: "Buddy board" },
+                    { key: "stats", icon: BarChart3, label: "Stats view" },
+                  ]}
+                />
 
                 <button
                   onClick={() => {

@@ -24,9 +24,9 @@ import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown"
 import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyModal";
 import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
 import type { RegularTutorOption } from "@/components/admin/RegularSlotCard";
-import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { compareTutorNames } from "@/components/zen/utils/sessionSorting";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV, effectiveStream, countSeatHolders, REGULAR_LEFT_INTAKE_STATUSES, schoolGroupKey } from "@/lib/regular-utils";
+import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV, effectiveStream, countSeatHolders, REGULAR_LEFT_INTAKE_STATUSES, schoolKeysOf } from "@/lib/regular-utils";
 import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
 import type { RegularApplication, RegularSlot, RegularSlotUpdate } from "@/types";
 
@@ -225,7 +225,7 @@ export default function RegularArrangementPage() {
       .filter((t) => isHomeBranch(t, branch))
       // By name, not by title: Mr and Ms strip off first, like every other
       // tutor list.
-      .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)))
+      .sort((a, b) => compareTutorNames(a.tutor_name, b.tutor_name))
       .map((t) => ({ id: t.id, name: t.tutor_name }));
   }, [tutors, location]);
 
@@ -322,20 +322,10 @@ export default function RegularArrangementPage() {
 
   // Schoolmate highlight options: every school present on the board or in the
   // panel, so the selector only offers schools that would light something up.
-  const schoolOptions = useMemo(() => {
-    const keys = new Set<string>();
-    for (const s of slots ?? []) {
-      for (const st of s.students) {
-        const k = schoolGroupKey(st);
-        if (k) keys.add(k);
-      }
-    }
-    for (const a of unassignedApps) {
-      const k = schoolGroupKey(a);
-      if (k) keys.add(k);
-    }
-    return Array.from(keys).sort();
-  }, [slots, unassignedApps]);
+  const schoolOptions = useMemo(
+    () => schoolKeysOf([...(slots ?? []).flatMap((s) => s.students), ...unassignedApps]),
+    [slots, unassignedApps]
+  );
 
   // A highlight carried across a branch switch would match nothing; drop it,
   // the same way the grid drops its tutor filter.

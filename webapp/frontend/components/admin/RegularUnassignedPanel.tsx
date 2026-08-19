@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import useSWR from "swr";
 import {
   Search, Users, PanelRightClose, PanelRightOpen, Loader2, X, Info, CheckCircle2,
   ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BORDER, DAY_ABBREV, effectiveStream, schoolGroupKey } from "@/lib/regular-utils";
+import { SUMMER_GRADE_BORDER, DAY_ABBREV, effectiveStream, schoolGroupKey, schoolKeysOf } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { AdminNoteLine } from "@/components/admin/AdminNoteLine";
 import {
@@ -151,6 +151,16 @@ function SuggestionList({
   );
 }
 
+/** The pill look shared by the panel's filter chips and its school select,
+ *  so the filter row's palette lives in one place. */
+const panelPillClass = (active: boolean) =>
+  cn(
+    "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+    active
+      ? "bg-primary text-primary-foreground"
+      : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+  );
+
 /** A pill toggle in the panel's grade/stream filter row. */
 function FilterChip({
   label,
@@ -164,16 +174,7 @@ function FilterChip({
   title?: string;
 }) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={cn(
-        "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
-      )}
-    >
+    <button onClick={onClick} title={title} className={panelPillClass(active)}>
       {label}
     </button>
   );
@@ -211,16 +212,16 @@ export function RegularUnassignedPanel({
   const [suggestForId, setSuggestForId] = useState<number | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Options for the school facet: every school in the loaded list, canonical
-  // codes first (they read as codes), then unrecognised spellings.
-  const schoolOptions = useMemo(() => {
-    const keys = new Set<string>();
-    for (const a of applications) {
-      const k = schoolGroupKey(a);
-      if (k) keys.add(k);
+  // Options for the school facet: every school in the loaded list.
+  const schoolOptions = useMemo(() => schoolKeysOf(applications), [applications]);
+
+  // The list changes under the filter (branch switch, refetch); a filter for
+  // a school no longer in it would silently empty the panel, so drop it.
+  useEffect(() => {
+    if (schoolFilter && !schoolOptions.includes(schoolFilter)) {
+      setSchoolFilter(null);
     }
-    return Array.from(keys).sort();
-  }, [applications]);
+  }, [schoolFilter, schoolOptions]);
 
   const filtered = useMemo(() => {
     let result = applications;
@@ -390,10 +391,8 @@ export function RegularUnassignedPanel({
                 value={schoolFilter ?? ""}
                 onChange={(e) => setSchoolFilter(e.target.value || null)}
                 className={cn(
-                  "px-1.5 py-0.5 rounded-full text-[10px] max-w-[7.5rem] cursor-pointer transition-colors [color-scheme:light] dark:[color-scheme:dark]",
-                  schoolFilter
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+                  panelPillClass(!!schoolFilter),
+                  "max-w-[7.5rem] cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
                 )}
                 aria-label="Filter by school"
                 title="Show only one school's applicants"

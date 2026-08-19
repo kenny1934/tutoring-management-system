@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { BRANCH_INFO, EXIT_STATUSES, SUMMER_GRADE_BG, displayLocation, MIN_GROUP_SIZE, isPlaced } from "@/lib/summer-utils";
-import { parseHKTimestamp } from "@/lib/formatters";
+import { BRANCH_INFO, EXIT_STATUSES, displayLocation, MIN_GROUP_SIZE, isPlaced } from "@/lib/summer-utils";
 import { STATUS_COLORS, ALL_STATUSES } from "./SummerApplicationCard";
 import {
   BarRow,
@@ -11,9 +10,14 @@ import {
   BreakdownStrip,
   ChartCard,
   DonutChart,
+  GRADE_STROKE_DEFAULT,
   StatCard,
+  StatsEmptyState,
+  StatusPipeline,
   TimelineChart,
   buildTimelineData,
+  gradeDonutSegments,
+  type StatsFilterHandler,
 } from "./application-stats-atoms";
 import { Users, User, Send, Loader2, ExternalLink } from "lucide-react";
 import { summerAPI } from "@/lib/api";
@@ -37,11 +41,6 @@ const EXTRA_PILL: Record<string, string> = {
 function branchBarColor(b: string) { return BRANCH_INFO[b]?.dot ?? EXTRA_BAR[b] ?? "bg-gray-300 dark:bg-gray-600"; }
 function branchPillColor(b: string) { return BRANCH_INFO[b]?.badge ?? EXTRA_PILL[b] ?? "bg-gray-100 dark:bg-gray-800 text-muted-foreground"; }
 
-const GRADE_STROKE: Record<string, string> = {
-  F1: "#3b82f6", F2: "#a855f7", F3: "#f97316",
-};
-const GRADE_STROKE_DEFAULT = "#9ca3af";
-
 const SESSIONS_STROKE: Record<string, string> = { "1": "#3b82f6", "2": "#f59e0b" };
 const SESSIONS_PILL: Record<string, string> = {
   "1": "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
@@ -49,16 +48,6 @@ const SESSIONS_PILL: Record<string, string> = {
 };
 
 // ── Main component ─────────────────────────────────────────────────────────
-
-interface StatsFilterHandler {
-  onStatusFilter?: (status: string) => void;
-  onGradeFilter?: (grade: string) => void;
-  onBranchFilter?: (branch: string) => void;
-  onUnverifiedFilter?: () => void;
-  onLocationFilter?: (code: string) => void;
-  onPlacementFilter?: (value: "placed" | "unplaced") => void;
-  onBuddyFilter?: (value: "solo" | "grouped" | "threshold" | "below") => void;
-}
 
 interface Props {
   applications: SummerApplication[];
@@ -106,19 +95,7 @@ export function SummerApplicationStats({ applications, filters, config, discount
   }, [activeApps]);
 
   // ── Grade distribution ──
-  const gradeSegments = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const app of activeApps) {
-      if (app.grade) counts[app.grade] = (counts[app.grade] || 0) + 1;
-    }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([grade, count]) => ({
-        label: grade, count,
-        color: GRADE_STROKE[grade] ?? GRADE_STROKE_DEFAULT,
-        pillClass: SUMMER_GRADE_BG[grade] || "bg-gray-100 dark:bg-gray-700 text-foreground",
-      }));
-  }, [activeApps]);
+  const gradeSegments = useMemo(() => gradeDonutSegments(activeApps), [activeApps]);
 
   // ── Sessions per week ──
   const sessionsSegments = useMemo(() => {
@@ -210,19 +187,14 @@ export function SummerApplicationStats({ applications, filters, config, discount
 
   // ── Submission timeline (daily, continuous) ──
   const timelineData = useMemo(
-    () => buildTimelineData(applications.map((a) => a.submitted_at), parseHKTimestamp),
+    () => buildTimelineData(applications.map((a) => a.submitted_at)),
     [applications],
   );
 
   const placedPct = placementData.total > 0 ? Math.round((placementData.placed / placementData.total) * 100) : 0;
 
   if (applications.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <Users className="h-10 w-10 text-muted-foreground/30 mb-3" />
-        <p className="text-sm text-muted-foreground">No applications match your filters</p>
-      </div>
-    );
+    return <StatsEmptyState />;
   }
 
   return (
@@ -233,42 +205,12 @@ export function SummerApplicationStats({ applications, filters, config, discount
       {/* Row 1: Status Pipeline + Placement (full width) */}
       <ChartCard title="Status Pipeline" badge={`${statusData.total} total`} className="lg:col-span-2">
         <div className="space-y-3">
-          <div className="flex h-8 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800">
-            {statusData.entries.map(([status, count]) => {
-              const pct = statusData.total > 0 ? (count / statusData.total) * 100 : 0;
-              if (pct === 0) return null;
-              const colors = STATUS_COLORS[status];
-              return (
-                <div
-                  key={status}
-                  className={cn(
-                    "h-full first:rounded-l-md last:rounded-r-md transition-opacity",
-                    colors?.dot ?? "bg-gray-400",
-                    filters?.onStatusFilter && "cursor-pointer hover:opacity-80",
-                  )}
-                  style={{ width: `${pct}%`, minWidth: pct > 0 ? "3px" : "0" }}
-                  title={`${status}: ${count} (${Math.round(pct)}%)`}
-                  onClick={filters?.onStatusFilter ? () => filters.onStatusFilter!(status) : undefined}
-                />
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {statusData.entries.map(([status, count]) => {
-              const colors = STATUS_COLORS[status];
-              return (
-                <div
-                  key={status}
-                  className={cn("flex items-center gap-1.5", filters?.onStatusFilter && "cursor-pointer hover:underline")}
-                  onClick={filters?.onStatusFilter ? () => filters.onStatusFilter!(status) : undefined}
-                >
-                  <span className={cn("w-2.5 h-2.5 rounded-sm shrink-0", colors?.dot ?? "bg-gray-400")} />
-                  <span className="text-[10px] text-muted-foreground">{status}</span>
-                  <span className="text-[10px] font-medium text-foreground tabular-nums">{count}</span>
-                </div>
-              );
-            })}
-          </div>
+          <StatusPipeline
+            entries={statusData.entries}
+            total={statusData.total}
+            colors={STATUS_COLORS}
+            onStatusFilter={filters?.onStatusFilter}
+          />
           <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Placement Progress</span>

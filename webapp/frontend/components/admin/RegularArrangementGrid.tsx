@@ -5,7 +5,7 @@ import { RegularSlotCell, type RegularDemandBarFilter } from "./RegularSlotCell"
 import type { RegularTutorOption } from "./RegularSlotCard";
 import { DAY_ABBREV, schoolGroupKey } from "@/lib/regular-utils";
 import { cn } from "@/lib/utils";
-import { FilterChip, TutorFilterSelect } from "./ArrangementFilters";
+import { FilterChip, FilterSelect, TutorFilterSelect } from "./ArrangementFilters";
 import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types";
 
 // Stable empty-slot array so cells with no slots keep a fixed `slots` prop
@@ -319,25 +319,15 @@ export function RegularArrangementGrid({
 
         {/* Schoolmate highlight — dims rather than hides, see the prop note. */}
         {onSchoolHighlightChange && schoolOptions.length > 0 && (
-          <select
-            value={schoolHighlight ?? ""}
-            onChange={(e) => onSchoolHighlightChange(e.target.value || null)}
-            className={cn(
-              "ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium max-w-[10rem] cursor-pointer transition-colors border [color-scheme:light] dark:[color-scheme:dark]",
-              // Solid active fill, matching the active FilterChip and the
-              // tutor select beside this one.
-              schoolHighlight
-                ? "border-[#a0704b] bg-[#a0704b] text-white"
-                : "border-transparent bg-gray-100 dark:bg-gray-800 text-foreground/60 hover:text-foreground/80"
-            )}
-            aria-label="Highlight schoolmates"
+          <FilterSelect
+            value={schoolHighlight}
+            onChange={onSchoolHighlightChange}
+            options={schoolOptions.map((s) => ({ value: s, label: s }))}
+            placeholder="School"
+            ariaLabel="Highlight schoolmates"
             title="Highlight every student from one school, on the board and in the panel"
-          >
-            <option value="">School</option>
-            {schoolOptions.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+            className="max-w-[10rem]"
+          />
         )}
 
         {/* Has-space toggle */}

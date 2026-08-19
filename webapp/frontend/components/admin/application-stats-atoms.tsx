@@ -12,8 +12,24 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { formatCompactDate } from "@/lib/summer-utils";
+import { formatCompactDate, SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { parseHKTimestamp } from "@/lib/formatters";
+import { Users } from "lucide-react";
 import type { User } from "lucide-react";
+
+/** Click-through handlers a stats view can offer; a chart is interactive only
+ *  when its handler is provided. One shape serves both intakes' views, each
+ *  wiring up the handlers its charts have. */
+export interface StatsFilterHandler {
+  onStatusFilter?: (status: string) => void;
+  onGradeFilter?: (grade: string) => void;
+  onBranchFilter?: (branch: string) => void;
+  onUnverifiedFilter?: () => void;
+  onLocationFilter?: (code: string) => void;
+  onPlacementFilter?: (value: "placed" | "unplaced") => void;
+  onBuddyFilter?: (value: "solo" | "grouped" | "threshold" | "below") => void;
+  onSchoolFilter?: (schoolKey: string) => void;
+}
 
 // ── Breakdown pills ─────────────────────────────────────────────────────────
 
@@ -114,6 +130,66 @@ export function BarRow({ label, labelClass, barColor, count, total, maxCount, la
   );
 }
 
+// ── Status pipeline ─────────────────────────────────────────────────────────
+
+/** The stacked status bar and its legend. The caller supplies its intake's
+ *  status colour table and wraps this in a spacing container, so summer can
+ *  append its placement-progress block underneath. */
+export function StatusPipeline({ entries, total, colors, onStatusFilter }: {
+  entries: (readonly [string, number])[];
+  total: number;
+  colors: Record<string, { dot: string }>;
+  onStatusFilter?: (status: string) => void;
+}) {
+  if (total === 0) return null;
+  return (
+    <>
+      <div className="flex h-8 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800">
+        {entries.map(([status, count]) => {
+          const pct = (count / total) * 100;
+          return (
+            <div
+              key={status}
+              className={cn(
+                "h-full first:rounded-l-md last:rounded-r-md transition-opacity",
+                colors[status]?.dot ?? "bg-gray-400",
+                onStatusFilter && "cursor-pointer hover:opacity-80",
+              )}
+              style={{ width: `${pct}%`, minWidth: "3px" }}
+              title={`${status}: ${count} (${Math.round(pct)}%)`}
+              onClick={onStatusFilter ? () => onStatusFilter(status) : undefined}
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {entries.map(([status, count]) => (
+          <div
+            key={status}
+            className={cn("flex items-center gap-1.5", onStatusFilter && "cursor-pointer hover:underline")}
+            onClick={onStatusFilter ? () => onStatusFilter(status) : undefined}
+          >
+            <span className={cn("w-2.5 h-2.5 rounded-sm shrink-0", colors[status]?.dot ?? "bg-gray-400")} />
+            <span className="text-[10px] text-muted-foreground">{status}</span>
+            <span className="text-[10px] font-medium text-foreground tabular-nums">{count}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── Empty state ─────────────────────────────────────────────────────────────
+
+export function StatsEmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <Users className="h-10 w-10 text-muted-foreground/30 mb-3" />
+      <p className="text-sm text-muted-foreground">No applications match your filters</p>
+    </div>
+  );
+}
+
 // ── Card shell ──────────────────────────────────────────────────────────────
 
 export function ChartCard({ title, badge, className: cls, children }: {
@@ -134,6 +210,29 @@ export function ChartCard({ title, badge, className: cls, children }: {
 }
 
 // ── Donut chart ─────────────────────────────────────────────────────────────
+
+// Grade donut colours, matching the grade badge palette the cards use.
+// Summer data stops at F3 and regular carries F4; one table covers both.
+export const GRADE_STROKE: Record<string, string> = {
+  F1: "#3b82f6", F2: "#a855f7", F3: "#f97316", F4: "#10b981",
+};
+export const GRADE_STROKE_DEFAULT = "#9ca3af";
+
+/** Donut segments for the grade distribution, biggest first, coloured from
+ *  the shared grade palette. */
+export function gradeDonutSegments(apps: { grade?: string | null }[]) {
+  const counts: Record<string, number> = {};
+  for (const app of apps) {
+    if (app.grade) counts[app.grade] = (counts[app.grade] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([grade, count]) => ({
+      label: grade, count,
+      color: GRADE_STROKE[grade] ?? GRADE_STROKE_DEFAULT,
+      pillClass: SUMMER_GRADE_BG[grade] || "bg-gray-100 dark:bg-gray-700 text-foreground",
+    }));
+}
 
 const DONUT_RADIUS = 34;
 const DONUT_STROKE = 10;
@@ -285,7 +384,6 @@ export function TimelineChart({ days, max }: { days: [string, number][]; max: nu
  */
 export function buildTimelineData(
   timestamps: (string | null | undefined)[],
-  parseHKTimestamp: (ts: string) => Date,
 ): { days: [string, number][]; max: number } {
   const dayCounts: Record<string, number> = {};
   for (const ts of timestamps) {

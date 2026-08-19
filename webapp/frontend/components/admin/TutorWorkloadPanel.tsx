@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 // The app-wide grade palette, keyed on grade + stream. It lives in
 // summer-utils but is what every intake's grade chips are coloured from.
 import { SUMMER_GRADE_BG } from "@/lib/summer-utils";
+import { compareTutorNames } from "@/components/zen/utils/sessionSorting";
 
 /** The little a slot has to expose to be counted into a tutor's workload.
  *  Both intakes' slot types satisfy this. */
@@ -83,7 +84,7 @@ export function TutorWorkloadPanel<T extends WorkloadSlot>({
       if (a.tutorId == null && b.tutorId != null) return 1;
       if (b.tutorId == null && a.tutorId != null) return -1;
       if (b.lessonCount !== a.lessonCount) return b.lessonCount - a.lessonCount;
-      return a.tutorName.localeCompare(b.tutorName);
+      return compareTutorNames(a.tutorName, b.tutorName);
     });
 
     const assignedCounts = allRows

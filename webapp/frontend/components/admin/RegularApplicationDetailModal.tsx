@@ -30,7 +30,7 @@ import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { RegularMessagePanel, type RegularMessageMode } from "./RegularMessagePanel";
 import { SchoolAliasAssign } from "./SchoolAliasAssign";
-import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { compareTutorNames } from "@/components/zen/utils/sessionSorting";
 import { ChecklistRow } from "./ChecklistRow";
 import { ProspectJourneyChip } from "./ProspectJourneyChip";
 import { RegularProspectSuggestionsModal } from "./RegularProspectSuggestionsModal";
@@ -429,7 +429,7 @@ export function RegularApplicationDetailModal({
     () =>
       pickableForOpenEndedWork(tutors || [])
         .filter((t) => isHomeBranch(t, pubLocation))
-        .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))),
+        .sort((a, b) => compareTutorNames(a.tutor_name, b.tutor_name)),
     [tutors, pubLocation]
   );
 

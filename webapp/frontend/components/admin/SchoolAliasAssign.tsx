@@ -1,11 +1,12 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { Check, Loader2 } from "lucide-react";
 import { regularAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
+import { Autocomplete } from "@/components/ui/autocomplete";
 
 /**
  * The control that teaches the system a school spelling: an input suggesting
@@ -23,7 +24,6 @@ export function SchoolAliasAssign({ raw, onAssigned, className }: {
   className?: string;
 }) {
   const { showToast } = useToast();
-  const listId = useId();
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   // One request shared by every instance on the page; SWR dedupes on the key.
@@ -46,18 +46,17 @@ export function SchoolAliasAssign({ raw, onAssigned, className }: {
 
   return (
     <span className={cn("inline-flex items-center gap-1.5", className)}>
-      <input
-        type="text"
-        list={listId}
+      <Autocomplete
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+        onChange={setValue}
+        suggestions={codes ?? []}
+        // Enter picks the highlighted code first; with nothing highlighted
+        // it saves what was typed, same as the button.
+        onEnterWithoutHighlight={save}
         placeholder="School code"
+        wrapperClassName="relative"
         className="w-36 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
       />
-      <datalist id={listId}>
-        {(codes ?? []).map((c) => <option key={c} value={c} />)}
-      </datalist>
       <button
         type="button"
         onClick={save}

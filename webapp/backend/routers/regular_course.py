@@ -121,6 +121,7 @@ from utils.school_alias import (
     clear_cache as clear_school_alias_cache,
     fold as fold_school,
     get_alias_map,
+    group_key as school_group_key,
     is_valid_target as is_valid_school_target,
     resolve as resolve_school,
 )
@@ -1269,7 +1270,16 @@ def create_school_alias(
     row = db.merge(SchoolAlias(alias_key=key, target=target))
     db.commit()
     clear_school_alias_cache()
+    _SCHOOL_CODES_CACHE.clear()
     return row
+
+
+# The vocabulary changes only when an alias is assigned or a student record
+# gains a new school, so a minute of staleness is fine and saves a DISTINCT
+# scan over students on every mount of an assign control. Same rules as the
+# alias map's own cache: the write path clears this process, others wait out
+# the TTL.
+_SCHOOL_CODES_CACHE = TTLCache(ttl_seconds=60, maxsize=1)
 
 
 @router.get("/regular/school-codes", response_model=list[str])
@@ -1282,11 +1292,16 @@ def get_school_codes(
     The union of every alias target already in use and every distinct school
     code on student records, sorted. Free entry stays possible in the UI, so
     a genuinely new school is typed rather than blocked."""
+    cached = _SCHOOL_CODES_CACHE.get("codes")
+    if cached is not None:
+        return cached
     targets = {t for (t,) in db.query(SchoolAlias.target).distinct()}
     student_codes = {
         s.strip() for (s,) in db.query(Student.school).distinct() if s and s.strip()
     }
-    return sorted(targets | student_codes)
+    codes = sorted(targets | student_codes)
+    _SCHOOL_CODES_CACHE.set("codes", codes)
+    return codes
 
 
 @router.get("/regular/demand", response_model=RegularDemandResponse)
@@ -1882,11 +1897,11 @@ def get_conversion(
         # folded-key grouping, with the display spelling resolved after the loop.
         raw_school = (p.school or "").strip()
         canonical = resolve_school(raw_school, None, school_aliases)
-        if canonical:
-            skey = display = canonical
-        else:
-            display = raw_school or "Unknown"
-            skey = fold_school(raw_school) or "unknown"
+        # school_alias.group_key's rule, opened up because this table needs
+        # its two halves separately: a row for prospects with no school, and
+        # the raw spelling as the display until the fixup after the loop.
+        skey = canonical or fold_school(raw_school) or "unknown"
+        display = canonical or raw_school or "Unknown"
         srow = school_rows.setdefault(skey, RegularConversionSchoolRow(school=display))
         srow.prospects += 1
         srow.applied_regular += ai
@@ -2950,17 +2965,6 @@ def get_my_class(
     )
 
 
-def _school_key(app: RegularApplication, aliases: dict[str, str]) -> Optional[str]:
-    """Grouping key for schoolmate matching.
-
-    The canonical code when the alias table recognises the spelling, so
-    variants of one school still count as schoolmates; the folded raw spelling
-    otherwise, which keeps two identically-typed unknown schools matching each
-    other. Resolution uses the form's own lang_stream because that is what
-    picks the section of a sectioned school."""
-    return resolve_school(app.school, app.lang_stream, aliases) or fold_school(app.school) or None
-
-
 @router.get("/regular/suggest", response_model=RegularSuggestResponse)
 def suggest_slots(
     config_id: int,
@@ -3003,7 +3007,7 @@ def suggest_slots(
     tutor_names = _get_tutor_names_bulk(db, slots)
 
     school_aliases = get_alias_map(db)
-    app_school = _school_key(app, school_aliases)
+    app_school = school_group_key(app.school, app.lang_stream, school_aliases)
     app_stream = effective_stream(app)
     suggestions: list[RegularSuggestion] = []
     for slot in slots:
@@ -3050,7 +3054,10 @@ def suggest_slots(
                 score += 30
                 reasons.append("stream_match")
         if app_school:
-            schoolmates = sum(1 for m in assigned if _school_key(m, school_aliases) == app_school)
+            schoolmates = sum(
+                1 for m in assigned
+                if school_group_key(m.school, m.lang_stream, school_aliases) == app_school
+            )
             if schoolmates:
                 score += 15 * schoolmates
                 reasons.append(f"schoolmates:{schoolmates}")

@@ -15,7 +15,14 @@ from fastapi import HTTPException
 from models import SchoolAlias, Student
 from routers.regular_course import create_school_alias, get_school_codes
 from schemas import SchoolAliasCreate
-from utils.school_alias import _cache, fold, get_alias_map, is_valid_target, resolve
+from utils.school_alias import (
+    clear_cache,
+    fold,
+    get_alias_map,
+    group_key,
+    is_valid_target,
+    resolve,
+)
 
 
 class TestFold:
@@ -90,6 +97,24 @@ class TestResolve:
         assert resolve("聖羅撒", "C", {"聖羅撒": "SRL|section"}) == "SRL"
 
 
+class TestGroupKey:
+    """group_key is the composite rule the suggest ranking and the frontend's
+    schoolGroupKey both follow: canonical code, else folded spelling, else
+    None."""
+
+    ALIASES = {"聖羅撒": "SRL|stream"}
+
+    def test_recognised_spelling_gives_the_code(self):
+        assert group_key(" 聖羅撒 ", "C", self.ALIASES) == "SRL-C"
+
+    def test_unmapped_spelling_gives_its_folded_form(self):
+        assert group_key("  Mystery   Academy ", "C", self.ALIASES) == "mystery academy"
+
+    def test_empty_gives_none(self):
+        assert group_key("", "C", self.ALIASES) is None
+        assert group_key(None, None, self.ALIASES) is None
+
+
 class TestGetAliasMap:
     def test_reads_the_table(self, db_session):
         db_session.add(SchoolAlias(alias_key="培正中學", target="PCMS"))
@@ -104,7 +129,7 @@ class TestGetAliasMap:
         db_session.commit()
         # A minute of staleness is by design; the same map comes back.
         assert get_alias_map(db_session) is first
-        _cache.clear()
+        clear_cache()
         assert "tis" in get_alias_map(db_session)
 
 
@@ -148,6 +173,16 @@ class TestAliasEndpoints:
         assert get_school_codes(_admin=None, db=db_session) == [
             "KYIS", "PCMS", "SRL|stream",
         ]
+
+    def test_assigning_an_alias_refreshes_the_codes_vocabulary(self, db_session):
+        # The codes list is cached for a minute; a new assignment must show
+        # its target straight away in the same process.
+        assert get_school_codes(_admin=None, db=db_session) == []
+        create_school_alias(
+            SchoolAliasCreate(raw="Mystery Academy", target="MYS"),
+            _admin=None, db=db_session,
+        )
+        assert get_school_codes(_admin=None, db=db_session) == ["MYS"]
 
 
 class TestSeedMigration:

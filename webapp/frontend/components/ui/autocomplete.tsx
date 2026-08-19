@@ -12,6 +12,9 @@ interface AutocompleteProps {
   suggestions: string[];
   /** Called when an option is chosen. Defaults to `onChange`. */
   onSelect?: (value: string) => void;
+  /** Called when Enter is pressed with no option highlighted, for inputs
+   *  where Enter also submits (e.g. save the typed value). */
+  onEnterWithoutHighlight?: () => void;
   className?: string;
   placeholder?: string;
   /** Cap the number of options shown (no cap by default). */
@@ -44,6 +47,7 @@ export function Autocomplete({
   onChange,
   suggestions,
   onSelect,
+  onEnterWithoutHighlight,
   className,
   placeholder,
   maxSuggestions,
@@ -70,6 +74,7 @@ export function Autocomplete({
       isOpen: showSuggestions,
       setOpen: setShowSuggestions,
       onSelect: onSelect ?? onChange,
+      onEnterWithoutHighlight,
       resetKey: value,
     });
 

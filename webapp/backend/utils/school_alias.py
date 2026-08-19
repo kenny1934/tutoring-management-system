@@ -54,20 +54,32 @@ def fold(s: Optional[str]) -> str:
     return " ".join((s or "").split()).casefold()
 
 
+def _parse_target(target: str) -> Optional[tuple[str, Optional[str]]]:
+    """(base, modifier) when the target parses under the grammar above,
+    None when it does not. The modifier is the raw text after the bar
+    ("stream" or "int:OTHER") or None for a plain code. The validator and
+    the resolver both read the grammar through here, so a new target form
+    is a one-place change.
+    """
+    if not target or len(target) > 64:
+        return None
+    if "|" not in target:
+        return target, None
+    base, mod = target.split("|", 1)
+    if not base or "|" in mod:
+        return None
+    if mod == "stream" or (mod.startswith("int:") and mod[4:]):
+        return base, mod
+    return None
+
+
 def is_valid_target(target: str) -> bool:
     """Whether a target string parses under the grammar above.
 
     Used by the seed sanity test and by the endpoint that lets staff add
     aliases, so a typo cannot put an uninterpretable row in the table.
     """
-    if not target or len(target) > 64:
-        return False
-    if "|" not in target:
-        return True
-    base, mod = target.split("|", 1)
-    if not base or "|" in mod:
-        return False
-    return mod == "stream" or (mod.startswith("int:") and bool(mod[4:]))
+    return _parse_target(target) is not None
 
 
 def clear_cache() -> None:
@@ -104,9 +116,16 @@ def resolve(
     if not key:
         return None
     target = aliases.get(key)
-    if target is None or "|" not in target:
-        return target
-    base, mod = target.split("|", 1)
+    if target is None:
+        return None
+    parsed = _parse_target(target)
+    if parsed is None:
+        # Rows arrive through is_valid_target, so an unparseable one was
+        # edited by hand; whatever sits before the bar is still the school.
+        return target.split("|", 1)[0]
+    base, mod = parsed
+    if mod is None:
+        return base
     stream = (lang_stream or "").strip()
     if mod == "stream":
         if stream == "C":
@@ -114,8 +133,22 @@ def resolve(
         if stream in ("E", "Int"):
             return f"{base}-E"
         return base
-    if mod.startswith("int:") and mod[4:]:
-        return mod[4:] if stream == "Int" else base
-    # An uninterpretable modifier cannot reach the table through the seed or
-    # the endpoint, but if one ever does, the family code is still the school.
-    return base
+    return mod[4:] if stream == "Int" else base
+
+
+def group_key(
+    raw_school: Optional[str],
+    lang_stream: Optional[str],
+    aliases: dict[str, str],
+) -> Optional[str]:
+    """The grouping key every school-aware surface shares.
+
+    The canonical code when the alias table recognises the spelling, so
+    variants of one school group (and count as schoolmates) together; the
+    folded raw spelling otherwise, which keeps two identically-typed unknown
+    schools matching each other; None when the field is empty. Resolution
+    uses the form's own lang_stream because that is what picks the section
+    of a sectioned school. The frontend's schoolGroupKey applies the same
+    rule using the school_canonical the wire carries.
+    """
+    return resolve(raw_school, lang_stream, aliases) or fold(raw_school) or None

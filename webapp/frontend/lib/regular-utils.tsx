@@ -80,6 +80,21 @@ export function schoolGroupKey(app: {
   return app.school_canonical ?? (foldSchoolName(app.school) || null);
 }
 
+/** The distinct school keys across a list, sorted, for a school select's
+ *  options. A plain sort happens to read well here: canonical codes are
+ *  uppercase so they come first, folded spellings (lowercase and Chinese)
+ *  follow. */
+export function schoolKeysOf(
+  items: { school?: string | null; school_canonical?: string | null }[],
+): string[] {
+  const keys = new Set<string>();
+  for (const item of items) {
+    const k = schoolGroupKey(item);
+    if (k) keys.add(k);
+  }
+  return Array.from(keys).sort();
+}
+
 /** Fold a raw stream value to the one that governs placement and colour: the
  *  International stream sits with English (a class, and a placed student, is
  *  only ever Chinese or English). Returns null when nothing is set. */

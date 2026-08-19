@@ -8,7 +8,7 @@ import { splitGradeStream } from "@/lib/regular-utils";
 import { getGradeColor } from "@/lib/constants";
 import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import { RegularSlotCard, type RegularTutorOption } from "./RegularSlotCard";
-import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { compareTutorNames } from "@/components/zen/utils/sessionSorting";
 import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types";
 
 export interface RegularDemandBarFilter {
@@ -86,9 +86,7 @@ function compareRegularSlots(a: RegularSlot, b: RegularSlot): number {
   const gradeCmp = (a.grade ?? "").localeCompare(b.grade ?? "");
   if (gradeCmp !== 0) return gradeCmp;
   // By name with the Mr and Ms stripped, like every tutor list.
-  const tutorCmp = getTutorSortName(a.tutor_name ?? "").localeCompare(
-    getTutorSortName(b.tutor_name ?? "")
-  );
+  const tutorCmp = compareTutorNames(a.tutor_name ?? "", b.tutor_name ?? "");
   if (tutorCmp !== 0) return tutorCmp;
   return a.id - b.id;
 }
