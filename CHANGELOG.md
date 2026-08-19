@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.118](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.117...v2.0.118) (2026-08-19)
+
+
+### New Features
+
+* **Which schools the September intake comes from**: the Applications page in Regular Intake gains a stats view beside the list, and its headline chart counts applicants by school even though every family types the school name their own way. Around 260 known spellings are read as the school they mean, so 聖羅撒 and 聖羅撒英文中學 count as one school, and a spelling the app has not met before is shown apart rather than guessed at. The view also carries the status pipeline, grades, preferred branch and a day by day chart of submissions, and clicking a bar narrows the list to those applicants.
+* **Teaching the app a new school spelling**: when an application names a school the app cannot place, the stats view and the application's own page both offer a box to say which school it means. The answer takes effect at once and every chart regroups, while the family's own wording stays exactly as they typed it.
+* **Schoolmates on the arrangement board**: pick a school while arranging September classes and every student from it lights up across the board and the unassigned list, so friends can be placed together on purpose. Each class card can say who it holds by school, the unassigned list can be narrowed to one school, and the placement suggestions now spot schoolmates across different spellings of the same school.
+
 ## [2.0.117](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.116...v2.0.117) (2026-08-19)
 
 
