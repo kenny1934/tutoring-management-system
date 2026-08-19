@@ -59,6 +59,8 @@ interface RegularSlotCellProps {
   /** Mobile tap-to-place: when set, the cell + each inner slot card become
    * tap targets that fire onDropStudent with this appId. */
   pendingPlacementAppId?: number | null;
+  /** Schoolmate highlight key, threaded to each slot card. */
+  schoolHighlight?: string | null;
 }
 
 // Opacity the backup-choice half of a bar carries, so first and second choice
@@ -111,6 +113,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   onDemandBarClick,
   slotHighlightTarget,
   pendingPlacementAppId,
+  schoolHighlight,
 }: RegularSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -346,6 +349,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
               highlightTarget={slotHighlightTarget}
               pendingPlacementAppId={pendingPlacementAppId}
               onTapPlaceFailed={onDropFailed}
+              schoolHighlight={schoolHighlight}
             />
           </motion.div>
         ))}

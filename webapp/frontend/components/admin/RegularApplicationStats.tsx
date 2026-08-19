@@ -1,11 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import useSWR from "swr";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { regularAPI } from "@/lib/api";
-import { useToast } from "@/contexts/ToastContext";
 import { parseHKTimestamp } from "@/lib/formatters";
 import {
   BRANCH_INFO, LOCATION_TO_CODE, SUMMER_GRADE_BG,
@@ -19,7 +16,8 @@ import {
   TimelineChart,
   buildTimelineData,
 } from "./application-stats-atoms";
-import { Users, Check, Loader2, ArrowRight } from "lucide-react";
+import { SchoolAliasAssign } from "./SchoolAliasAssign";
+import { Users, ArrowRight } from "lucide-react";
 import type { RegularApplication } from "@/types";
 
 // Grade donut colours, matching the grade badge palette the cards use.
@@ -151,12 +149,6 @@ export function RegularApplicationStats({ applications, filters, readOnly = fals
     [applications],
   );
 
-  // The assign inputs suggest from one shared datalist, fetched only while
-  // there is something to assign.
-  const { data: schoolCodes } = useSWR(
-    !readOnly && unrecognised.length > 0 ? "regular-school-codes" : null,
-    () => regularAPI.getSchoolCodes(),
-  );
 
   if (applications.length === 0) {
     return (
@@ -304,19 +296,14 @@ export function RegularApplicationStats({ applications, filters, readOnly = fals
               These school names are not recognised yet, so they group by their own
               spelling. Assign each one a school code and every chart here regroups.
             </p>
-            {!readOnly && (
-              <datalist id="school-code-options">
-                {(schoolCodes ?? []).map((c) => <option key={c} value={c} />)}
-              </datalist>
-            )}
             {unrecognised.map(([spelling, count]) => (
-              <UnrecognisedRow
-                key={spelling}
-                spelling={spelling}
-                count={count}
-                readOnly={readOnly}
-                onAssigned={onAliasCreated}
-              />
+              <div key={spelling} className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-foreground">{spelling}</span>
+                <span className="text-[10px] text-muted-foreground tabular-nums">×{count}</span>
+                {!readOnly && (
+                  <SchoolAliasAssign raw={spelling} onAssigned={onAliasCreated} className="ml-auto" />
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -325,62 +312,3 @@ export function RegularApplicationStats({ applications, filters, readOnly = fals
   );
 }
 
-/** One unmapped spelling with its count and, unless read-only, the control
- *  that assigns it a school code. The input suggests the known vocabulary
- *  (through the card's shared datalist) but accepts free text, so a genuinely
- *  new school can still be entered. */
-function UnrecognisedRow({ spelling, count, readOnly, onAssigned }: {
-  spelling: string;
-  count: number;
-  readOnly: boolean;
-  onAssigned?: () => void;
-}) {
-  const { showToast } = useToast();
-  const [value, setValue] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const save = async () => {
-    const target = value.trim();
-    if (!target || saving) return;
-    setSaving(true);
-    try {
-      await regularAPI.createSchoolAlias(spelling, target);
-      showToast(`"${spelling}" now counts as ${target}`, "success");
-      onAssigned?.();
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "Could not save the school code", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs text-foreground">{spelling}</span>
-      <span className="text-[10px] text-muted-foreground tabular-nums">×{count}</span>
-      {!readOnly && (
-        <span className="ml-auto flex items-center gap-1.5">
-          <input
-            type="text"
-            list="school-code-options"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-            placeholder="School code"
-            className="w-36 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-foreground placeholder:text-muted-foreground/60"
-          />
-          <button
-            type="button"
-            onClick={save}
-            disabled={!value.trim() || saving}
-            className="p-1 rounded-md text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
-            title="Save this school code"
-            aria-label={`Assign a school code to ${spelling}`}
-          >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-          </button>
-        </span>
-      )}
-    </div>
-  );
-}

@@ -25,7 +25,7 @@ import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyM
 import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
 import type { RegularTutorOption } from "@/components/admin/RegularSlotCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV, effectiveStream, countSeatHolders, REGULAR_LEFT_INTAKE_STATUSES } from "@/lib/regular-utils";
+import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV, effectiveStream, countSeatHolders, REGULAR_LEFT_INTAKE_STATUSES, schoolGroupKey } from "@/lib/regular-utils";
 import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
 import type { RegularApplication, RegularSlot, RegularSlotUpdate } from "@/types";
 
@@ -112,6 +112,10 @@ export default function RegularArrangementPage() {
   const [demandFilter, setDemandFilter] = useState<RegularDemandBarFilter | null>(null);
   // Set by a header status chip: narrows the panel to that rung of the ladder.
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  // Schoolmate highlight, picked in the grid's filter row. Dims rather than
+  // filters: matching students ring on the board and in the panel, everything
+  // else recedes. Holds a school key (canonical code or folded spelling).
+  const [schoolHighlight, setSchoolHighlight] = useState<string | null>(null);
   const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(null);
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
   const [workloadOpen, setWorkloadOpen] = useState(false);
@@ -312,6 +316,29 @@ export default function RegularArrangementPage() {
       ),
     [applications]
   );
+
+  // Schoolmate highlight options: every school present on the board or in the
+  // panel, so the selector only offers schools that would light something up.
+  const schoolOptions = useMemo(() => {
+    const keys = new Set<string>();
+    for (const s of slots ?? []) {
+      for (const st of s.students) {
+        const k = schoolGroupKey(st);
+        if (k) keys.add(k);
+      }
+    }
+    for (const a of unassignedApps) {
+      const k = schoolGroupKey(a);
+      if (k) keys.add(k);
+    }
+    return Array.from(keys).sort();
+  }, [slots, unassignedApps]);
+
+  // A highlight carried across a branch switch would match nothing; drop it,
+  // the same way the grid drops its tutor filter.
+  useEffect(() => {
+    setSchoolHighlight(null);
+  }, [location]);
 
   // Panel cohort while a demand bar is selected: everyone behind that bar,
   // assigned or not, so the list length matches the number on the bar.
@@ -939,6 +966,9 @@ export default function RegularArrangementPage() {
                     slotHighlightTarget={slotTarget}
                     dragPrefs={dragPrefs}
                     pendingPlacementAppId={pendingPlacementAppId}
+                    schoolOptions={schoolOptions}
+                    schoolHighlight={schoolHighlight}
+                    onSchoolHighlightChange={setSchoolHighlight}
                   />
                 </div>
                 {/* Desktop: always visible */}
@@ -958,6 +988,7 @@ export default function RegularArrangementPage() {
                     onClearDemandFilter={() => setDemandFilter(null)}
                     statusFilter={statusFilter}
                     onClearStatusFilter={() => setStatusFilter(null)}
+                    schoolHighlight={schoolHighlight}
                   />
                 </div>
               </div>
@@ -1029,6 +1060,7 @@ export default function RegularArrangementPage() {
                       onClearDemandFilter={() => setDemandFilter(null)}
                       statusFilter={statusFilter}
                       onClearStatusFilter={() => setStatusFilter(null)}
+                      schoolHighlight={schoolHighlight}
                       onSelectStudent={(id) => {
                         setPendingPlacementAppId(id);
                         setMobilePanelOpen(false);

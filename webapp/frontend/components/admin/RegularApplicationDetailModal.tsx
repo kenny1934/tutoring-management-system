@@ -29,6 +29,7 @@ import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { RegularMessagePanel, type RegularMessageMode } from "./RegularMessagePanel";
+import { SchoolAliasAssign } from "./SchoolAliasAssign";
 import { ChecklistRow } from "./ChecklistRow";
 import { ProspectJourneyChip } from "./ProspectJourneyChip";
 import { RegularProspectSuggestionsModal } from "./RegularProspectSuggestionsModal";
@@ -1143,6 +1144,18 @@ export function RegularApplicationDetailModal({
                           {app.school}
                         </span>
                       )}
+                      {/* The school code the typed name resolved to. When it
+                          did not resolve, staff can teach the system right
+                          here, since intake means opening every application
+                          anyway. */}
+                      {app.school_canonical && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium"
+                          title={`"${app.school}" is recognised as this school code`}
+                        >
+                          {app.school_canonical}
+                        </span>
+                      )}
                       {/* The linked record stays visible while editing: it is
                           the student id and the link to their profile, which
                           the origin dropdown does not replace. The dropdown
@@ -1175,6 +1188,16 @@ export function RegularApplicationDetailModal({
                         <RegularOriginChip app={app} />
                       )}
                     </div>
+                    {/* This spelling is not in the school vocabulary yet, so
+                        it groups by itself everywhere schools are counted.
+                        Assigning a code here fixes every application that
+                        typed the school this way, not just this one. */}
+                    {app.school && !app.school_canonical && !readOnly && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <span>School not recognised yet.</span>
+                        <SchoolAliasAssign raw={app.school} onAssigned={onUpdated} />
+                      </div>
+                    )}
                     {/* The form and the student record disagree about the
                         stream. Placement follows the form, so say which value
                         is winning and offer to bring the record into line. */}
