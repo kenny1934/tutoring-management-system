@@ -288,7 +288,9 @@ export function RegularApplicationStats({ applications, filters, readOnly = fals
       >
         {unrecognised.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Every spelling in the current list is recognised.
+            Every school name typed on these applications matches a known school.
+            When someone types a school name the system cannot match, it will
+            appear here so you can assign it to the right school code.
           </p>
         ) : (
           <div className="space-y-2">

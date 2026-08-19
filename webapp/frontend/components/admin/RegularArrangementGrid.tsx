@@ -324,8 +324,10 @@ export function RegularArrangementGrid({
             onChange={(e) => onSchoolHighlightChange(e.target.value || null)}
             className={cn(
               "ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium max-w-[10rem] cursor-pointer transition-colors border [color-scheme:light] dark:[color-scheme:dark]",
+              // Solid active fill, matching the active FilterChip and the
+              // tutor select beside this one.
               schoolHighlight
-                ? "border-[#a0704b] bg-[#a0704b]/10 dark:bg-[#a0704b]/25 text-[#a0704b] dark:text-[#d9a978]"
+                ? "border-[#a0704b] bg-[#a0704b] text-white"
                 : "border-transparent bg-gray-100 dark:bg-gray-800 text-foreground/60 hover:text-foreground/80"
             )}
             aria-label="Highlight schoolmates"

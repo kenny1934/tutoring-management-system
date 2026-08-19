@@ -41,7 +41,9 @@ export function FilterChip({
 // Compact tutor filter dropdown. Renders nothing when there are no tutors to
 // pick from. `color-scheme` is flipped in dark mode because :root forces
 // `light`, which would otherwise render the native control and its option popup
-// on a white base (the translucent active fill then looks white).
+// on a white base. The active fill is solid, matching the active FilterChip:
+// a translucent fill sits on the native control's own base, which browsers
+// paint light regardless of the page behind it.
 export function TutorFilterSelect({
   value,
   onChange,
@@ -59,7 +61,7 @@ export function TutorFilterSelect({
       className={cn(
         "ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium max-w-[9rem] cursor-pointer transition-colors border [color-scheme:light] dark:[color-scheme:dark]",
         value !== null
-          ? "border-[#a0704b] bg-[#a0704b]/10 dark:bg-[#a0704b]/25 text-[#a0704b] dark:text-[#d9a978]"
+          ? "border-[#a0704b] bg-[#a0704b] text-white"
           : "border-transparent bg-gray-100 dark:bg-gray-800 text-foreground/60 hover:text-foreground/80"
       )}
       aria-label="Filter by tutor"

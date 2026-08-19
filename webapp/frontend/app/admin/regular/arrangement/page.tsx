@@ -24,6 +24,7 @@ import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown"
 import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyModal";
 import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
 import type { RegularTutorOption } from "@/components/admin/RegularSlotCard";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LOCATION_TO_CODE, WEEK_DAY_ORDER, DAY_ABBREV, effectiveStream, countSeatHolders, REGULAR_LEFT_INTAKE_STATUSES, schoolGroupKey } from "@/lib/regular-utils";
 import type { RegularDemandBarFilter } from "@/components/admin/RegularSlotCell";
@@ -222,7 +223,9 @@ export default function RegularArrangementPage() {
     // anybody with a leaving date is out rather than only those already gone.
     return pickableForOpenEndedWork(tutors || [])
       .filter((t) => isHomeBranch(t, branch))
-      .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name))
+      // By name, not by title: Mr and Ms strip off first, like every other
+      // tutor list.
+      .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)))
       .map((t) => ({ id: t.id, name: t.tutor_name }));
   }, [tutors, location]);
 

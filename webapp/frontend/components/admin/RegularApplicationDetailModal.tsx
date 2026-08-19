@@ -30,6 +30,7 @@ import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { RegularMessagePanel, type RegularMessageMode } from "./RegularMessagePanel";
 import { SchoolAliasAssign } from "./SchoolAliasAssign";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ChecklistRow } from "./ChecklistRow";
 import { ProspectJourneyChip } from "./ProspectJourneyChip";
 import { RegularProspectSuggestionsModal } from "./RegularProspectSuggestionsModal";
@@ -422,12 +423,13 @@ export function RegularApplicationDetailModal({
     () => tutorsAPI.getAll()
   );
   // Scoped to the selected branch, like the arrangement page's list: a tutor
-  // based at the other centre should not be offered for a lesson here.
+  // based at the other centre should not be offered for a lesson here. Sorted
+  // by name with the Mr and Ms stripped, like every other tutor list.
   const tutorOptions = useMemo(
     () =>
       pickableForOpenEndedWork(tutors || [])
         .filter((t) => isHomeBranch(t, pubLocation))
-        .sort((a, b) => a.tutor_name.localeCompare(b.tutor_name)),
+        .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))),
     [tutors, pubLocation]
   );
 
