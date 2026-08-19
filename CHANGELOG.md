@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.120](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.119...v2.0.120) (2026-08-19)
+
+
+### New Features
+
+* **Summer applications recognise school spellings too**: opening a summer application now shows the school code the typed name is recognised as, beside the family's own wording, and when the app cannot place a spelling the same box the Regular Intake pages have is there to say which school it means. A spelling taught on either side counts for both, so by next summer the intake arrives already understood instead of as free text to untangle. Creating a student from a summer application also fills the form with the school code rather than the family's spelling.
+
 ## [2.0.119](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.118...v2.0.119) (2026-08-19)
 
 
