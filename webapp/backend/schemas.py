@@ -2683,6 +2683,10 @@ class SummerApplicationResponse(BaseModel):
     reference_code: str
     student_name: str
     school: Optional[str] = None
+    # The typed school resolved to a canonical staff school code through the
+    # alias table; null when the spelling is not recognised. The detail modal
+    # shows it and seeds the create-student form with it.
+    school_canonical: Optional[str] = None
     grade: str
     lang_stream: Optional[str] = None
     is_existing_student: Optional[str] = None

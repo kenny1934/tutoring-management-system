@@ -112,6 +112,7 @@ from utils.employment import still_here_clause
 from utils.rate_limiter import check_ip_rate_limit
 from utils.tutor_duties import list_duties, replace_duties
 from utils.branch_codes import SECONDARY_BRANCH_CODES, resolve_claimed_branch_code
+from utils.school_alias import get_alias_map, resolve as resolve_school
 from constants import (
     hk_now,
     SummerApplicationStatus,
@@ -1576,6 +1577,7 @@ def _build_application_response(
     slot_counts: Optional[dict[int, int]] = None,
     published_info: Optional[dict[int, Row]] = None,
     live_by_summer_id: Optional[dict[int, SessionLog]] = None,
+    school_aliases: Optional[dict[str, str]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
@@ -1679,6 +1681,9 @@ def _build_application_response(
             original_tutor_name=original_tutor,
         ))
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
+    data["school_canonical"] = resolve_school(
+        app.school, app.lang_stream, school_aliases or {}
+    )
     data["sessions"] = sessions
     data["placed_count"] = sum(
         1 for s in sessions if s.session_status not in SUMMER_INACTIVE_PLACEMENT_STATUSES
@@ -1797,6 +1802,7 @@ def _build_application_responses(
     live_by_summer_id = _live_sessions_by_summer_id(
         db, [s.id for a in apps for s in (a.sessions or [])]
     )
+    school_aliases = get_alias_map(db)
     return [
         _build_application_response(
             a,
@@ -1807,6 +1813,7 @@ def _build_application_responses(
             slot_counts=slot_counts,
             published_info=published_info,
             live_by_summer_id=live_by_summer_id,
+            school_aliases=school_aliases,
         )
         for a in apps
     ]

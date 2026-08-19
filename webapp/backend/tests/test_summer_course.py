@@ -1514,3 +1514,31 @@ class TestAutoSuggest:
         app_ids = {p.application_id for p in result.proposals}
         assert application_2x.id in app_ids
         assert second.id in app_ids
+
+
+class TestSchoolCanonical:
+    """Summer application responses resolve the typed school through the
+    shared alias table, exactly as the regular side does, so the detail
+    modal can show the code and seed the create-student form with it."""
+
+    def test_response_carries_the_canonical_code(self, db_session, summer_config, application):
+        from models import SchoolAlias
+        from routers.summer_course import get_application
+
+        db_session.add(SchoolAlias(alias_key="聖羅撒", target="SRL|stream"))
+        application.school = "聖羅撒"
+        application.lang_stream = "C"
+        db_session.commit()
+
+        detail = get_application(app_id=application.id, _admin=None, db=db_session)
+        assert detail.school_canonical == "SRL-C"
+        assert detail.school == "聖羅撒"  # the raw spelling stays
+
+    def test_unrecognised_spelling_resolves_to_none(self, db_session, summer_config, application):
+        from routers.summer_course import get_application
+
+        application.school = "Mystery Academy"
+        db_session.commit()
+
+        detail = get_application(app_id=application.id, _admin=None, db=db_session)
+        assert detail.school_canonical is None

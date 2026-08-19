@@ -2547,6 +2547,9 @@ export interface SummerApplication {
   reference_code: string;
   student_name: string;
   school?: string | null;
+  /** The typed school resolved to a canonical staff school code through the
+   *  backend's alias table; null when the spelling is not recognised. */
+  school_canonical?: string | null;
   grade: string;
   lang_stream?: string | null;
   is_existing_student?: string | null;

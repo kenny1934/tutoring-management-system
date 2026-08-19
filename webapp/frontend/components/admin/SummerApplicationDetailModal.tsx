@@ -50,6 +50,7 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { SchoolAliasAssign } from "./SchoolAliasAssign";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { MoveSessionPopover } from "@/components/admin/MoveSessionPopover";
 import { UserPlus, ArrowRightLeft } from "lucide-react";
@@ -1750,6 +1751,16 @@ export function SummerApplicationDetailModal({
                     {app.school}
                   </span>
                 )}
+                {/* The school code the typed name resolved to. When it did
+                    not resolve, staff can teach the system below. */}
+                {app.school_canonical && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium"
+                    title={`"${app.school}" is recognised as this school code`}
+                  >
+                    {app.school_canonical}
+                  </span>
+                )}
                 <PrimaryBranchChip app={app} />
                 {/* Show original claim when verified result overrides it */}
                 {(() => {
@@ -1797,6 +1808,17 @@ export function SummerApplicationDetailModal({
                   </select>
                 )}
               </div>
+              {/* This spelling is not in the school vocabulary yet, so it
+                  groups by itself everywhere schools are counted. Assigning a
+                  code here fixes every application that typed the school this
+                  way, on the summer and regular sides alike, and next year's
+                  intake inherits it. */}
+              {app.school && !app.school_canonical && !readOnly && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span>School not recognised yet.</span>
+                  <SchoolAliasAssign raw={app.school} onAssigned={onUpdated} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -3047,7 +3069,10 @@ export function SummerApplicationDetailModal({
         }}
         initialData={{
           student_name: app.student_name,
-          school: app.school ?? undefined,
+          // The student record wants the internal school code, which is also
+          // what this form's autocomplete offers. A recognised spelling seeds
+          // as its code; an unrecognised one seeds as typed.
+          school: app.school_canonical ?? app.school ?? undefined,
           // app.grade is the *target* grade (post-summer). Before Sept 1 of
           // the config year, store the current grade one step below so the
           // Sept 1 promotion lifts them to the target. After promotion the
