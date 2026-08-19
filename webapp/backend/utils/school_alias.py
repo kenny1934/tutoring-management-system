@@ -70,6 +70,16 @@ def is_valid_target(target: str) -> bool:
     return mod == "stream" or (mod.startswith("int:") and bool(mod[4:]))
 
 
+def clear_cache() -> None:
+    """Forget the cached map in this process.
+
+    The write path calls it so the instance that served an assignment shows
+    the spelling as recognised straight away; other instances wait out the
+    TTL, which is the designed behaviour rather than something to fix.
+    """
+    _cache.clear()
+
+
 def get_alias_map(db: Session) -> dict[str, str]:
     """The full alias table as {alias_key: target}, cached for a minute."""
     cached = _cache.get(_CACHE_KEY)

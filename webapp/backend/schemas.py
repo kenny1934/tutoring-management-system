@@ -4462,6 +4462,10 @@ class RegularApplicationResponse(BaseModel):
     reference_code: str
     student_name: str
     school: Optional[str] = None
+    # The typed school resolved to a canonical staff school code through the
+    # alias table; null when the spelling is not recognised. The frontend
+    # groups and filters on this and never re-implements the mapping.
+    school_canonical: Optional[str] = None
     grade: str
     lang_stream: Optional[str] = None
     is_existing_student: Optional[str] = None
@@ -4528,6 +4532,24 @@ class RegularApplicationUpdate(BaseModel):
     preference_2_time: Optional[str] = Field(None, max_length=50)
 
 
+class SchoolAliasCreate(BaseModel):
+    """Assign a canonical school code to one typed spelling.
+
+    `raw` is the spelling as staff saw it; the backend folds it into the
+    stored key. `target` is a canonical code or one of the modified target
+    forms, checked against the grammar in utils/school_alias.py."""
+    raw: str = Field(..., max_length=255)
+    target: str = Field(..., max_length=64)
+
+
+class SchoolAliasResponse(BaseModel):
+    """The stored alias row, key already folded."""
+    alias_key: str
+    target: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class RegularApplicationStats(BaseModel):
     """Aggregate stats for admin dashboard."""
     total: int = 0
@@ -4589,6 +4611,10 @@ class RegularSlotStudentInfo(BaseModel):
     # without folding it again.
     lang_stream: Optional[str] = None
     school: Optional[str] = None
+    # Canonical staff school code from the alias table, resolved against the
+    # application's own form stream (not the folded one above); null when the
+    # spelling is not recognised.
+    school_canonical: Optional[str] = None
     application_status: str
     published: bool = False
     # From the linked student record, when the application has one — the grid

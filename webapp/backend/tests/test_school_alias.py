@@ -9,7 +9,12 @@ than a guess.
 import os
 import re
 
-from models import SchoolAlias
+import pytest
+from fastapi import HTTPException
+
+from models import SchoolAlias, Student
+from routers.regular_course import create_school_alias, get_school_codes
+from schemas import SchoolAliasCreate
 from utils.school_alias import _cache, fold, get_alias_map, is_valid_target, resolve
 
 
@@ -101,6 +106,48 @@ class TestGetAliasMap:
         assert get_alias_map(db_session) is first
         _cache.clear()
         assert "tis" in get_alias_map(db_session)
+
+
+class TestAliasEndpoints:
+    def test_create_folds_the_key_and_overwrites_on_repeat(self, db_session):
+        row = create_school_alias(
+            SchoolAliasCreate(raw="  Mystery   Academy ", target="MYS"),
+            _admin=None, db=db_session,
+        )
+        assert row.alias_key == "mystery academy"
+        assert row.target == "MYS"
+        # Assigning the same spelling again corrects the target in place.
+        create_school_alias(
+            SchoolAliasCreate(raw="mystery ACADEMY", target="MYS-E"),
+            _admin=None, db=db_session,
+        )
+        stored = db_session.query(SchoolAlias).all()
+        assert [(r.alias_key, r.target) for r in stored] == [("mystery academy", "MYS-E")]
+        # The writing process sees its own assignment without waiting out the TTL.
+        assert get_alias_map(db_session) == {"mystery academy": "MYS-E"}
+
+    def test_create_rejects_empty_raw_and_bad_target(self, db_session):
+        with pytest.raises(HTTPException) as e:
+            create_school_alias(SchoolAliasCreate(raw="   ", target="MYS"),
+                                _admin=None, db=db_session)
+        assert e.value.status_code == 422
+        with pytest.raises(HTTPException) as e:
+            create_school_alias(SchoolAliasCreate(raw="Mystery", target="MYS|section"),
+                                _admin=None, db=db_session)
+        assert e.value.status_code == 422
+
+    def test_school_codes_union_of_targets_and_student_records(self, db_session):
+        db_session.add_all([
+            SchoolAlias(alias_key="聖羅撒", target="SRL|stream"),
+            SchoolAlias(alias_key="培正中學", target="PCMS"),
+            Student(student_name="A", school="PCMS"),
+            Student(student_name="B", school="  KYIS "),
+            Student(student_name="C", school=None),
+        ])
+        db_session.commit()
+        assert get_school_codes(_admin=None, db=db_session) == [
+            "KYIS", "PCMS", "SRL|stream",
+        ]
 
 
 class TestSeedMigration:

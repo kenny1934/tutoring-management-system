@@ -3197,6 +3197,20 @@ export const regularAPI = {
       `/regular/suggest?config_id=${configId}&application_id=${applicationId}`
     ),
 
+  // ---- School aliases ----
+  /** Assign a canonical school code to one typed spelling. The backend folds
+   *  the raw spelling into its stored key; the application itself is never
+   *  modified. Re-assigning a spelling overwrites its target. */
+  createSchoolAlias: (raw: string, target: string) =>
+    fetchAPI<{ alias_key: string; target: string }>(`/regular/school-aliases`, {
+      method: "POST",
+      body: JSON.stringify({ raw, target }),
+    }),
+
+  /** The known school-code vocabulary for assign dropdowns: every alias
+   *  target in use plus every distinct code on student records, sorted. */
+  getSchoolCodes: () => fetchAPI<string[]>(`/regular/school-codes`),
+
   // ---- Prospect journey ----
   linkProspect: (applicationId: number, prospectId: number | null) =>
     fetchAPI<RegularApplication>(`/regular/applications/${applicationId}/prospect`, {

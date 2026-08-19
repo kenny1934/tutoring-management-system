@@ -36,6 +36,7 @@ from models import (
     PrimaryProspect,
     SummerApplication,
     SummerCourseConfig,
+    SchoolAlias,
     SessionLog,
     Student,
     TerminationRecord,
@@ -97,6 +98,8 @@ from schemas import (
     RegularRetentionOutsideRow,
     RegularRetentionTrendPoint,
     ProspectIntention,
+    SchoolAliasCreate,
+    SchoolAliasResponse,
 )
 from auth.dependencies import (
     reject_guest,
@@ -114,7 +117,13 @@ from quarters import get_quarter_dates, get_quarter_for_date
 from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.effective_end import reaches_clause
-from utils.school_alias import fold as fold_school, get_alias_map, resolve as resolve_school
+from utils.school_alias import (
+    clear_cache as clear_school_alias_cache,
+    fold as fold_school,
+    get_alias_map,
+    is_valid_target as is_valid_school_target,
+    resolve as resolve_school,
+)
 from utils.ttl_cache import TTLCache
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
@@ -552,9 +561,11 @@ def _build_application_responses(
         candidate = parse_promo(apps[0].config)
         if promo_active(candidate, hk_now().date()):
             active_promo = candidate
+    school_aliases = get_alias_map(db)
     responses = []
     for app in apps:
         data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
+        data["school_canonical"] = resolve_school(app.school, app.lang_stream, school_aliases)
         data["linked_student"] = (
             linked_students.get(app.existing_student_id) if app.existing_student_id else None
         )
@@ -1236,6 +1247,48 @@ def update_application(
 
 # ---- Demand summary ----
 
+@router.post("/regular/school-aliases", response_model=SchoolAliasResponse, status_code=201)
+def create_school_alias(
+    data: SchoolAliasCreate,
+    _admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Assign a canonical school code to a typed spelling.
+
+    Called from the assign controls on the stats view and the application
+    detail modal when staff recognise an unmapped spelling. Assigning an
+    already-mapped spelling overwrites its target, which is also how a wrong
+    assignment gets corrected. The raw spelling on the application itself is
+    never touched."""
+    key = fold_school(data.raw)
+    if not key:
+        raise HTTPException(status_code=422, detail="School name is empty")
+    target = data.target.strip()
+    if not is_valid_school_target(target):
+        raise HTTPException(status_code=422, detail="School code is not in a recognised form")
+    row = db.merge(SchoolAlias(alias_key=key, target=target))
+    db.commit()
+    clear_school_alias_cache()
+    return row
+
+
+@router.get("/regular/school-codes", response_model=list[str])
+def get_school_codes(
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """The known school-code vocabulary for the assign dropdown.
+
+    The union of every alias target already in use and every distinct school
+    code on student records, sorted. Free entry stays possible in the UI, so
+    a genuinely new school is typed rather than blocked."""
+    targets = {t for (t,) in db.query(SchoolAlias.target).distinct()}
+    student_codes = {
+        s.strip() for (s,) in db.query(Student.school).distinct() if s and s.strip()
+    }
+    return sorted(targets | student_codes)
+
+
 @router.get("/regular/demand", response_model=RegularDemandResponse)
 def get_demand(
     config_id: int,
@@ -1325,6 +1378,7 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             .filter(Student.id.in_(student_ids))
             .all()
         )
+    school_aliases = get_alias_map(db)
     by_slot: dict[int, list[RegularSlotStudentInfo]] = {}
     # Seats held, counted separately from the row list: an exit-status student
     # still shows on the slot (so the admin can see the placement they gave up)
@@ -1341,6 +1395,10 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             # student's badge cannot change colour just by being dragged in.
             lang_stream=effective_stream(a),
             school=a.school,
+            # Resolved on the form's own stream value, because Int picks the
+            # international campus where one exists and effective_stream has
+            # already folded Int into E.
+            school_canonical=resolve_school(a.school, a.lang_stream, school_aliases),
             application_status=a.application_status,
             published=a.id in published,
             school_student_id=student_codes.get(a.existing_student_id),
