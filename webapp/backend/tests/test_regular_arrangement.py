@@ -17,6 +17,7 @@ from models import (
     RegularCourseSlot,
     RegularTutorDuty,
     Enrollment,
+    SchoolAlias,
 )
 from schemas import (
     RegularPublishRequest,
@@ -627,6 +628,25 @@ class TestSuggest:
         app = _make_app(db_session, config, slot_id=slot.id)
         resp = _suggest(db_session, config, app)
         assert all(s.slot_id != slot.id for s in resp.suggestions)
+
+    def test_schoolmates_match_across_alias_spellings(self, db_session, config):
+        # Different spellings of one school resolve to the same canonical code
+        # (here both to SRL-E via the E stream), so the schoolmate bonus fires
+        # where a raw string comparison never would.
+        db_session.add_all([
+            SchoolAlias(alias_key="聖羅撒", target="SRL|stream"),
+            SchoolAlias(alias_key="聖羅撒英文中學", target="SRL-E"),
+        ])
+        db_session.commit()
+        plain = _make_slot(db_session, config, day="Saturday", time="10:00 - 11:30", grade="F1")
+        social = _make_slot(db_session, config, day="Saturday", time="11:45 - 13:15", grade="F1")
+        _make_app(db_session, config, name="Peer", slot_id=social.id,
+                  stream="E", school="聖羅撒")
+        app = _make_app(db_session, config, stream="E", school="聖羅撒英文中學",
+                        p1=None, p2=None)
+        resp = _suggest(db_session, config, app)
+        assert resp.suggestions[0].slot_id == social.id
+        assert "schoolmates:1" in resp.suggestions[0].reasons
 
 
 # ---------------------------------------------------------------------------

@@ -114,6 +114,7 @@ from quarters import get_quarter_dates, get_quarter_for_date
 from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.effective_end import reaches_clause
+from utils.school_alias import fold as fold_school, get_alias_map, resolve as resolve_school
 from utils.ttl_cache import TTLCache
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
@@ -1751,9 +1752,11 @@ def get_conversion(
     reg_intent: dict[str, RegularConversionIntentionRow] = {}
     sum_intent: dict[str, RegularConversionIntentionRow] = {}
     school_rows: dict[str, RegularConversionSchoolRow] = {}
-    # School is free-text: group case- and spacing-insensitively so variants of
-    # one school don't split into separate rows, and remember how often each
-    # original spelling appeared so the row can show the most common one.
+    # School is free-text. Spellings the alias table recognises group under
+    # their canonical staff code; the rest group case- and spacing-insensitively
+    # on the folded spelling, remembering how often each original appeared so an
+    # unmapped row can still show the most common one.
+    school_aliases = get_alias_map(db)
     school_display: dict[str, dict[str, int]] = {}
     movement: dict[tuple[str, str], RegularConversionMovementRow] = {}
     lost: list[RegularConversionLostRow] = []
@@ -1815,17 +1818,24 @@ def get_conversion(
         _bump_intent(reg_intent, _intent(p.wants_regular), ai, ei, si)
         _bump_intent(sum_intent, _intent(p.wants_summer), ai, ei, si)
 
-        # Axis 3: feeder school, grouped on a normalised key (whitespace runs
-        # collapsed, lower-cased); the display spelling is resolved after the loop.
+        # Axis 3: feeder school. Prospects carry no language stream, so a
+        # sectioned-school spelling resolves to its bare family code, which
+        # still groups the school as one row. Unmapped spellings keep the old
+        # folded-key grouping, with the display spelling resolved after the loop.
         raw_school = (p.school or "").strip()
-        display = raw_school or "Unknown"
-        skey = " ".join(raw_school.split()).lower() or "unknown"
+        canonical = resolve_school(raw_school, None, school_aliases)
+        if canonical:
+            skey = display = canonical
+        else:
+            display = raw_school or "Unknown"
+            skey = fold_school(raw_school) or "unknown"
         srow = school_rows.setdefault(skey, RegularConversionSchoolRow(school=display))
         srow.prospects += 1
         srow.applied_regular += ai
         srow.enrolled_regular += ei
-        counts = school_display.setdefault(skey, {})
-        counts[display] = counts.get(display, 0) + 1
+        if not canonical:
+            counts = school_display.setdefault(skey, {})
+            counts[display] = counts.get(display, 0) + 1
 
         # Axis 4: wanted branch vs where they enrolled (enrolled prospects only).
         if enrolled:
@@ -1883,10 +1893,11 @@ def get_conversion(
     )
     by_regular_intention = sorted(reg_intent.values(), key=lambda r: intent_order.get(r.intention, 9))
     by_summer_intention = sorted(sum_intent.values(), key=lambda r: intent_order.get(r.intention, 9))
-    for skey, srow in school_rows.items():
-        # Most common original spelling wins; ties break alphabetically.
-        srow.school = sorted(
-            school_display[skey].items(), key=lambda kv: (-kv[1], kv[0])
+    for skey, counts in school_display.items():
+        # Unmapped rows show their most common original spelling; ties break
+        # alphabetically. Canonical rows already carry their code.
+        school_rows[skey].school = sorted(
+            counts.items(), key=lambda kv: (-kv[1], kv[0])
         )[0][0]
     by_school = sorted(
         school_rows.values(),
@@ -2881,9 +2892,15 @@ def get_my_class(
     )
 
 
-def _norm_school(school: Optional[str]) -> Optional[str]:
-    s = (school or "").strip().lower()
-    return s or None
+def _school_key(app: RegularApplication, aliases: dict[str, str]) -> Optional[str]:
+    """Grouping key for schoolmate matching.
+
+    The canonical code when the alias table recognises the spelling, so
+    variants of one school still count as schoolmates; the folded raw spelling
+    otherwise, which keeps two identically-typed unknown schools matching each
+    other. Resolution uses the form's own lang_stream because that is what
+    picks the section of a sectioned school."""
+    return resolve_school(app.school, app.lang_stream, aliases) or fold_school(app.school) or None
 
 
 @router.get("/regular/suggest", response_model=RegularSuggestResponse)
@@ -2927,7 +2944,8 @@ def suggest_slots(
 
     tutor_names = _get_tutor_names_bulk(db, slots)
 
-    app_school = _norm_school(app.school)
+    school_aliases = get_alias_map(db)
+    app_school = _school_key(app, school_aliases)
     app_stream = effective_stream(app)
     suggestions: list[RegularSuggestion] = []
     for slot in slots:
@@ -2974,7 +2992,7 @@ def suggest_slots(
                 score += 30
                 reasons.append("stream_match")
         if app_school:
-            schoolmates = sum(1 for m in assigned if _norm_school(m.school) == app_school)
+            schoolmates = sum(1 for m in assigned if _school_key(m, school_aliases) == app_school)
             if schoolmates:
                 score += 15 * schoolmates
                 reasons.append(f"schoolmates:{schoolmates}")

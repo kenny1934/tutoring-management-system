@@ -21,6 +21,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-testing-only")
 
 from database import Base, get_db
 from main import app
+from utils import school_alias
 
 
 # In-memory SQLite for fast tests (no external DB dependency)
@@ -89,6 +90,21 @@ def db_session() -> Generator[Session, None, None]:
         session.close()
         # Drop all tables after test
         Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture(autouse=True)
+def _empty_school_alias_cache():
+    """Start every test with a cold school-alias cache.
+
+    The alias map is cached in-process for a minute, and several test files
+    read it through code paths that group by school. Without this, a test that
+    seeds alias rows would hand its map to whichever test runs next. It lives
+    in conftest rather than one file because the resolver is called from the
+    conversion report, the suggest ranking and the alias tests alike.
+    """
+    school_alias._cache.clear()
+    yield
+    school_alias._cache.clear()
 
 
 @pytest.fixture(scope="function")
