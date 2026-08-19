@@ -2114,7 +2114,10 @@ export function RegularApplicationDetailModal({
         }}
         initialData={{
           student_name: app.student_name,
-          school: app.school ?? undefined,
+          // The student record wants the internal school code, which is also
+          // what this form's autocomplete offers. A recognised spelling seeds
+          // as its code; an unrecognised one seeds as typed.
+          school: app.school_canonical ?? app.school ?? undefined,
           // app.grade is the grade the student will be in from September. Until
           // the Sept 1 promotion of the config year fires, the record should
           // hold the grade below, which that promotion then lifts.

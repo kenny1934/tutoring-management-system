@@ -40,6 +40,18 @@ const selectClass = "px-2.5 py-1.5 text-sm border border-border rounded-lg bg-ca
 const PIPELINE_STATUSES: readonly string[] = REGULAR_STATUS_STEPS;
 const EXIT_STATUSES_LIST = REGULAR_ALL_STATUSES.filter((s) => REGULAR_EXIT_STATUSES.has(s));
 
+// The branch an applicant comes from, in the same priority order the summer
+// page uses: a confirmed link first (student record, then prospect), then the
+// applicant's own claim. Null means no signal at all.
+function getAppBranchCode(a: RegularApplication): string | null {
+  return (
+    a.linked_student?.home_location ||
+    a.prospect_journey?.source_branch ||
+    a.claimed_branch_code ||
+    null
+  );
+}
+
 export default function RegularApplicationsPage() {
   usePageTitle("Regular Applications");
   const { canViewAdminPages, isReadOnly } = useAuth();
@@ -56,6 +68,9 @@ export default function RegularApplicationsPage() {
   // Client-side journey filter: the prospect block rides on each application.
   const [prospectFilter, setProspectFilter] = useState<"skipped" | "did" | "none" | null>(null);
   const [unverifiedOriginOnly, setUnverifiedOriginOnly] = useState(false);
+  // Branch origin: null = all, "new" = no branch signal or a verified New,
+  // or a branch code (MAC, MSB, ...).
+  const [branchFilter, setBranchFilter] = useState<string | null>(null);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [publishedFilter, setPublishedFilter] = useState<"published" | "unpublished" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -143,17 +158,25 @@ export default function RegularApplicationsPage() {
   // the fetched list rather than changing the SWR key.
   const displayedApps = useMemo(() => {
     if (!applications) return applications;
-    if (!prospectFilter && !unverifiedOriginOnly && !schoolFilter) return applications;
+    if (!prospectFilter && !unverifiedOriginOnly && !schoolFilter && !branchFilter) return applications;
     return applications.filter((a) => {
       if (unverifiedOriginOnly && !!a.verified_branch_origin) return false;
       if (schoolFilter && schoolGroupKey(a) !== schoolFilter) return false;
+      if (branchFilter) {
+        // An admin-verified origin beats the linked/claimed signal, and a
+        // verified "New" is an answer in its own right, so it joins the
+        // applications with no signal under the "new" option.
+        const origin = a.verified_branch_origin || getAppBranchCode(a);
+        const isNew = !origin || origin === "New";
+        if (branchFilter === "new" ? !isNew : origin !== branchFilter) return false;
+      }
       if (!prospectFilter) return true;
       const j = a.prospect_journey;
       if (prospectFilter === "none") return !j;
       if (prospectFilter === "skipped") return !!j && !j.attended_summer;
       return !!j && j.attended_summer; // "did"
     });
-  }, [applications, prospectFilter, unverifiedOriginOnly, schoolFilter]);
+  }, [applications, prospectFilter, unverifiedOriginOnly, schoolFilter, branchFilter]);
 
   const selectedApp: RegularApplication | null =
     applications?.find((a) => a.id === selectedId) ?? null;
@@ -203,13 +226,14 @@ export default function RegularApplicationsPage() {
 
   const hasFilters =
     !!statusFilter || !!gradeFilter || !!locationFilter || !!publishedFilter || !!debouncedSearch
-    || !!prospectFilter || unverifiedOriginOnly || !!schoolFilter;
+    || !!prospectFilter || unverifiedOriginOnly || !!schoolFilter || !!branchFilter;
 
   const clearFilters = () => {
     setStatusFilter(null);
     setGradeFilter(null);
     setProspectFilter(null);
     setUnverifiedOriginOnly(false);
+    setBranchFilter(null);
     setLocationFilter(null);
     setPublishedFilter(null);
     setSchoolFilter(null);
@@ -224,8 +248,19 @@ export default function RegularApplicationsPage() {
     () => (activeConfig?.locations || []).map((l) => LOCATION_TO_CODE[l.name] || l.name),
     [activeConfig]
   );
+  // Only codes that actually appear in the current applications, so the
+  // dropdown never shows empty branches. Verified "New" answers belong to the
+  // dedicated "new" option, not the code list.
+  const branchOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const a of applications ?? []) {
+      const origin = a.verified_branch_origin || getAppBranchCode(a);
+      if (origin && origin !== "New") seen.add(origin);
+    }
+    return [...seen].sort();
+  }, [applications]);
   const moreFilterCount =
-    (gradeFilter ? 1 : 0) + (prospectFilter ? 1 : 0) + (unverifiedOriginOnly ? 1 : 0);
+    (gradeFilter ? 1 : 0) + (branchFilter ? 1 : 0) + (prospectFilter ? 1 : 0) + (unverifiedOriginOnly ? 1 : 0);
 
   // --- Batch selection ---
 
@@ -622,6 +657,20 @@ export default function RegularApplicationsPage() {
                       </select>
                     </div>
                     <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Branch origin</label>
+                      <select
+                        value={branchFilter || ""}
+                        onChange={(e) => setBranchFilter(e.target.value || null)}
+                        className={cn(selectClass, "w-full")}
+                      >
+                        <option value="">All branches</option>
+                        <option value="new">New (no branch)</option>
+                        {branchOptions.map((code) => (
+                          <option key={code} value={code}>{code}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
                       <label className="text-xs font-medium text-muted-foreground mb-1 block">Prospect journey</label>
                       <select
                         value={prospectFilter || ""}
@@ -647,6 +696,7 @@ export default function RegularApplicationsPage() {
                       <button
                         onClick={() => {
                           setGradeFilter(null);
+                          setBranchFilter(null);
                           setProspectFilter(null);
                           setUnverifiedOriginOnly(false);
                         }}
