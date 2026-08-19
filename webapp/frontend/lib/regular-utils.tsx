@@ -47,6 +47,7 @@ export {
   // Grade chip colours (admin surfaces)
   SUMMER_GRADE_BORDER,
   SUMMER_GRADE_TEXT,
+  SUMMER_GRADE_BG,
   // Arrangement helpers that carry no summer-specific semantics
   getMismatchedSessionGrades,
 } from "@/lib/summer-utils";
@@ -58,6 +59,41 @@ import type { RegularCourseFormConfig } from "@/types";
 // Grade badge colours are keyed on grade + stream (F1C, F2E, ...); regular
 // surfaces feed effectiveStream into this so Int applicants colour as English.
 export { getGradeColor };
+
+/** Fold a typed school name the way the backend's alias layer does: trim,
+ *  collapse whitespace runs (including full-width spaces), lower-case. Only a
+ *  grouping fallback — the real mapping lives in the backend's alias table and
+ *  arrives as school_canonical; this keys the spellings that table does not
+ *  recognise yet. */
+export function foldSchoolName(raw: string | null | undefined): string {
+  return (raw ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/** The grouping key every school-aware surface shares: the canonical code when
+ *  the backend recognised the spelling, the folded raw spelling otherwise, null
+ *  when the field is empty. Two students group together exactly when the
+ *  backend's schoolmate matching would count them together. */
+export function schoolGroupKey(app: {
+  school?: string | null;
+  school_canonical?: string | null;
+}): string | null {
+  return app.school_canonical ?? (foldSchoolName(app.school) || null);
+}
+
+/** The distinct school keys across a list, sorted, for a school select's
+ *  options. A plain sort happens to read well here: canonical codes are
+ *  uppercase so they come first, folded spellings (lowercase and Chinese)
+ *  follow. */
+export function schoolKeysOf(
+  items: { school?: string | null; school_canonical?: string | null }[],
+): string[] {
+  const keys = new Set<string>();
+  for (const item of items) {
+    const k = schoolGroupKey(item);
+    if (k) keys.add(k);
+  }
+  return Array.from(keys).sort();
+}
 
 /** Fold a raw stream value to the one that governs placement and colour: the
  *  International stream sits with English (a class, and a placed student, is

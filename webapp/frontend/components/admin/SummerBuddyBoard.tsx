@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Users, User, Copy, Check, BadgePercent, Flame } from "lucide-react";
 import { StatusBadge } from "./SummerApplicationCard";
-import { StatCard } from "./SummerApplicationStats";
+import { StatCard } from "./application-stats-atoms";
 import { SummerBuddyMeter } from "./SummerBuddyMeter";
 import { PrimaryBranchChip } from "./PrimaryBranchChip";
 import { displayLocation, nonRejectedSiblings } from "@/lib/summer-utils";

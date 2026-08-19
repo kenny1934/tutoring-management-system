@@ -36,6 +36,7 @@ from models import (
     PrimaryProspect,
     SummerApplication,
     SummerCourseConfig,
+    SchoolAlias,
     SessionLog,
     Student,
     TerminationRecord,
@@ -97,6 +98,8 @@ from schemas import (
     RegularRetentionOutsideRow,
     RegularRetentionTrendPoint,
     ProspectIntention,
+    SchoolAliasCreate,
+    SchoolAliasResponse,
 )
 from auth.dependencies import (
     reject_guest,
@@ -114,6 +117,14 @@ from quarters import get_quarter_dates, get_quarter_for_date
 from utils.phone_matching import normalize_phone
 from utils.rate_limiter import check_ip_rate_limit
 from utils.effective_end import reaches_clause
+from utils.school_alias import (
+    clear_cache as clear_school_alias_cache,
+    fold as fold_school,
+    get_alias_map,
+    group_key as school_group_key,
+    is_valid_target as is_valid_school_target,
+    resolve as resolve_school,
+)
 from utils.ttl_cache import TTLCache
 from utils.tutor_duties import list_duties, replace_duties
 from utils.regular_messages import format_schedule_message, strip_blank_student_id
@@ -551,9 +562,11 @@ def _build_application_responses(
         candidate = parse_promo(apps[0].config)
         if promo_active(candidate, hk_now().date()):
             active_promo = candidate
+    school_aliases = get_alias_map(db)
     responses = []
     for app in apps:
         data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
+        data["school_canonical"] = resolve_school(app.school, app.lang_stream, school_aliases)
         data["linked_student"] = (
             linked_students.get(app.existing_student_id) if app.existing_student_id else None
         )
@@ -1235,6 +1248,62 @@ def update_application(
 
 # ---- Demand summary ----
 
+@router.post("/regular/school-aliases", response_model=SchoolAliasResponse, status_code=201)
+def create_school_alias(
+    data: SchoolAliasCreate,
+    _admin: Tutor = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    """Assign a canonical school code to a typed spelling.
+
+    Called from the assign controls on the stats view and the application
+    detail modal when staff recognise an unmapped spelling. Assigning an
+    already-mapped spelling overwrites its target, which is also how a wrong
+    assignment gets corrected. The raw spelling on the application itself is
+    never touched."""
+    key = fold_school(data.raw)
+    if not key:
+        raise HTTPException(status_code=422, detail="School name is empty")
+    target = data.target.strip()
+    if not is_valid_school_target(target):
+        raise HTTPException(status_code=422, detail="School code is not in a recognised form")
+    row = db.merge(SchoolAlias(alias_key=key, target=target))
+    db.commit()
+    clear_school_alias_cache()
+    _SCHOOL_CODES_CACHE.clear()
+    return row
+
+
+# The vocabulary changes only when an alias is assigned or a student record
+# gains a new school, so a minute of staleness is fine and saves a DISTINCT
+# scan over students on every mount of an assign control. Same rules as the
+# alias map's own cache: the write path clears this process, others wait out
+# the TTL.
+_SCHOOL_CODES_CACHE = TTLCache(ttl_seconds=60, maxsize=1)
+
+
+@router.get("/regular/school-codes", response_model=list[str])
+def get_school_codes(
+    _admin: None = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """The known school-code vocabulary for the assign dropdown.
+
+    The union of every alias target already in use and every distinct school
+    code on student records, sorted. Free entry stays possible in the UI, so
+    a genuinely new school is typed rather than blocked."""
+    cached = _SCHOOL_CODES_CACHE.get("codes")
+    if cached is not None:
+        return cached
+    targets = {t for (t,) in db.query(SchoolAlias.target).distinct()}
+    student_codes = {
+        s.strip() for (s,) in db.query(Student.school).distinct() if s and s.strip()
+    }
+    codes = sorted(targets | student_codes)
+    _SCHOOL_CODES_CACHE.set("codes", codes)
+    return codes
+
+
 @router.get("/regular/demand", response_model=RegularDemandResponse)
 def get_demand(
     config_id: int,
@@ -1324,6 +1393,7 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             .filter(Student.id.in_(student_ids))
             .all()
         )
+    school_aliases = get_alias_map(db)
     by_slot: dict[int, list[RegularSlotStudentInfo]] = {}
     # Seats held, counted separately from the row list: an exit-status student
     # still shows on the slot (so the admin can see the placement they gave up)
@@ -1340,6 +1410,10 @@ def _slot_responses(db: Session, slots: list[RegularCourseSlot]) -> list[Regular
             # student's badge cannot change colour just by being dragged in.
             lang_stream=effective_stream(a),
             school=a.school,
+            # Resolved on the form's own stream value, because Int picks the
+            # international campus where one exists and effective_stream has
+            # already folded Int into E.
+            school_canonical=resolve_school(a.school, a.lang_stream, school_aliases),
             application_status=a.application_status,
             published=a.id in published,
             school_student_id=student_codes.get(a.existing_student_id),
@@ -1751,9 +1825,11 @@ def get_conversion(
     reg_intent: dict[str, RegularConversionIntentionRow] = {}
     sum_intent: dict[str, RegularConversionIntentionRow] = {}
     school_rows: dict[str, RegularConversionSchoolRow] = {}
-    # School is free-text: group case- and spacing-insensitively so variants of
-    # one school don't split into separate rows, and remember how often each
-    # original spelling appeared so the row can show the most common one.
+    # School is free-text. Spellings the alias table recognises group under
+    # their canonical staff code; the rest group case- and spacing-insensitively
+    # on the folded spelling, remembering how often each original appeared so an
+    # unmapped row can still show the most common one.
+    school_aliases = get_alias_map(db)
     school_display: dict[str, dict[str, int]] = {}
     movement: dict[tuple[str, str], RegularConversionMovementRow] = {}
     lost: list[RegularConversionLostRow] = []
@@ -1815,17 +1891,24 @@ def get_conversion(
         _bump_intent(reg_intent, _intent(p.wants_regular), ai, ei, si)
         _bump_intent(sum_intent, _intent(p.wants_summer), ai, ei, si)
 
-        # Axis 3: feeder school, grouped on a normalised key (whitespace runs
-        # collapsed, lower-cased); the display spelling is resolved after the loop.
+        # Axis 3: feeder school. Prospects carry no language stream, so a
+        # sectioned-school spelling resolves to its bare family code, which
+        # still groups the school as one row. Unmapped spellings keep the old
+        # folded-key grouping, with the display spelling resolved after the loop.
         raw_school = (p.school or "").strip()
-        display = raw_school or "Unknown"
-        skey = " ".join(raw_school.split()).lower() or "unknown"
+        canonical = resolve_school(raw_school, None, school_aliases)
+        # school_alias.group_key's rule, opened up because this table needs
+        # its two halves separately: a row for prospects with no school, and
+        # the raw spelling as the display until the fixup after the loop.
+        skey = canonical or fold_school(raw_school) or "unknown"
+        display = canonical or raw_school or "Unknown"
         srow = school_rows.setdefault(skey, RegularConversionSchoolRow(school=display))
         srow.prospects += 1
         srow.applied_regular += ai
         srow.enrolled_regular += ei
-        counts = school_display.setdefault(skey, {})
-        counts[display] = counts.get(display, 0) + 1
+        if not canonical:
+            counts = school_display.setdefault(skey, {})
+            counts[display] = counts.get(display, 0) + 1
 
         # Axis 4: wanted branch vs where they enrolled (enrolled prospects only).
         if enrolled:
@@ -1883,10 +1966,11 @@ def get_conversion(
     )
     by_regular_intention = sorted(reg_intent.values(), key=lambda r: intent_order.get(r.intention, 9))
     by_summer_intention = sorted(sum_intent.values(), key=lambda r: intent_order.get(r.intention, 9))
-    for skey, srow in school_rows.items():
-        # Most common original spelling wins; ties break alphabetically.
-        srow.school = sorted(
-            school_display[skey].items(), key=lambda kv: (-kv[1], kv[0])
+    for skey, counts in school_display.items():
+        # Unmapped rows show their most common original spelling; ties break
+        # alphabetically. Canonical rows already carry their code.
+        school_rows[skey].school = sorted(
+            counts.items(), key=lambda kv: (-kv[1], kv[0])
         )[0][0]
     by_school = sorted(
         school_rows.values(),
@@ -2881,11 +2965,6 @@ def get_my_class(
     )
 
 
-def _norm_school(school: Optional[str]) -> Optional[str]:
-    s = (school or "").strip().lower()
-    return s or None
-
-
 @router.get("/regular/suggest", response_model=RegularSuggestResponse)
 def suggest_slots(
     config_id: int,
@@ -2927,7 +3006,8 @@ def suggest_slots(
 
     tutor_names = _get_tutor_names_bulk(db, slots)
 
-    app_school = _norm_school(app.school)
+    school_aliases = get_alias_map(db)
+    app_school = school_group_key(app.school, app.lang_stream, school_aliases)
     app_stream = effective_stream(app)
     suggestions: list[RegularSuggestion] = []
     for slot in slots:
@@ -2974,7 +3054,10 @@ def suggest_slots(
                 score += 30
                 reasons.append("stream_match")
         if app_school:
-            schoolmates = sum(1 for m in assigned if _norm_school(m.school) == app_school)
+            schoolmates = sum(
+                1 for m in assigned
+                if school_group_key(m.school, m.lang_stream, school_aliases) == app_school
+            )
             if schoolmates:
                 score += 15 * schoolmates
                 reasons.append(f"schoolmates:{schoolmates}")

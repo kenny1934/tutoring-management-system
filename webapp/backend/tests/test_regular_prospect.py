@@ -16,6 +16,7 @@ from models import (
     RegularApplication,
     RegularApplicationEdit,
     RegularCourseConfig,
+    SchoolAlias,
     SummerApplication,
     SummerCourseConfig,
     Student,
@@ -578,6 +579,26 @@ class TestConversionAxes:
         paul = [r for r in resp.by_school if r.prospects == 4]
         assert len(paul) == 1
         assert paul[0].school == "St Paul"  # the spelling seen most often
+
+    def test_by_school_groups_alias_variants_under_the_code(self, db_session, reg_cfg, tutor):
+        # Two recognised spellings of one school land in a single row shown
+        # under the staff code. Prospects carry no language stream, so the
+        # sectioned school groups as its bare family. Unrecognised spellings
+        # keep their own folded-key rows.
+        db_session.add_all([
+            SchoolAlias(alias_key="聖羅撒", target="SRL|stream"),
+            SchoolAlias(alias_key="聖羅撒女子中學", target="SRL|stream"),
+        ])
+        db_session.commit()
+        _prospect(db_session, branch="MAC", phone_1="85236370001", school="聖羅撒")
+        _prospect(db_session, branch="MAC", phone_1="85236370002", school="聖羅撒女子中學")
+        _prospect(db_session, branch="MAC", phone_1="85236370003", school="Mystery Academy")
+
+        resp = get_conversion(year=2026, _admin=None, db=db_session)
+        srl = next(r for r in resp.by_school if r.school == "SRL")
+        assert srl.prospects == 2
+        mystery = next(r for r in resp.by_school if r.school == "Mystery Academy")
+        assert mystery.prospects == 1
 
     def test_branch_filter_scopes_whole_report(self, db_session, reg_cfg, tutor):
         # Two source branches; filtering to one scopes every axis, not just the funnel.

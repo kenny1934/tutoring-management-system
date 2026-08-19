@@ -13,6 +13,10 @@ export { GRADE_COLORS, getGradeColor };
 export const getTutorSortName = (name: string): string =>
   name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
+// Comparator for the above, so sort callbacks don't re-spell the rule
+export const compareTutorNames = (a: string, b: string): number =>
+  getTutorSortName(a).localeCompare(getTutorSortName(b));
+
 // Get first name only (without honorific) for compact display
 export const getTutorFirstName = (name: string): string => {
   const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
@@ -122,9 +126,7 @@ export function groupAndSortSessions(sessions: Session[]): GroupedSessionsResult
 
     // For each tutor, find main group and sort
     const sortedSessions: Session[] = [];
-    const tutorNames = [...byTutor.keys()].sort((a, b) =>
-      getTutorSortName(a).localeCompare(getTutorSortName(b))
-    );
+    const tutorNames = [...byTutor.keys()].sort(compareTutorNames);
 
     for (const tutor of tutorNames) {
       const tutorSessions = byTutor.get(tutor)!;

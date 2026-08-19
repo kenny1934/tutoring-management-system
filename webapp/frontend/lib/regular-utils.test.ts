@@ -3,9 +3,34 @@ import {
   effectiveStream,
   divergentRecordStream,
   foldStream,
+  foldSchoolName,
+  schoolGroupKey,
   streamName,
   getMismatchedStreams,
 } from "./regular-utils";
+
+/** The rule these cover: school-aware surfaces group on the backend's
+ *  canonical code when it recognised the spelling, and on the folded raw
+ *  spelling otherwise, so the frontend never re-implements the alias mapping
+ *  yet unrecognised spellings still group with themselves. */
+describe("schoolGroupKey and foldSchoolName", () => {
+  it("prefers the canonical code from the backend", () => {
+    expect(schoolGroupKey({ school: "聖羅撒女子中學", school_canonical: "SRL-C" })).toBe("SRL-C");
+  });
+
+  it("falls back to the folded spelling when unrecognised", () => {
+    expect(schoolGroupKey({ school: " Mystery  Academy ", school_canonical: null })).toBe("mystery academy");
+  });
+
+  it("is null when no school was given", () => {
+    expect(schoolGroupKey({ school: "   ", school_canonical: null })).toBeNull();
+    expect(schoolGroupKey({})).toBeNull();
+  });
+
+  it("folds full-width spaces like the backend does", () => {
+    expect(foldSchoolName("培正中學　（路環校部）")).toBe(foldSchoolName("培正中學 （路環校部）"));
+  });
+});
 
 /** The rule these cover: an application's own stream governs placement, because
  *  a family fills the form in for the year they are applying for while the

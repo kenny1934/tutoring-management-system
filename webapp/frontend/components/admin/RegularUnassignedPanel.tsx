@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import useSWR from "swr";
 import {
   Search, Users, PanelRightClose, PanelRightOpen, Loader2, X, Info, CheckCircle2,
   ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUMMER_GRADE_BORDER, DAY_ABBREV, effectiveStream } from "@/lib/regular-utils";
+import { SUMMER_GRADE_BORDER, DAY_ABBREV, effectiveStream, schoolGroupKey, schoolKeysOf } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { AdminNoteLine } from "@/components/admin/AdminNoteLine";
 import {
@@ -46,6 +46,10 @@ interface RegularUnassignedPanelProps {
    * heading and its icon follow the chip. */
   statusFilter?: string | null;
   onClearStatusFilter?: () => void;
+  /** Schoolmate highlight from the board: cards from this school ring, the
+   * rest recede, matching the grid's treatment. Independent of the panel's
+   * own school facet, which narrows the list instead. */
+  schoolHighlight?: string | null;
 }
 
 type SortMode = "grade" | "pref" | "status" | "name";
@@ -147,6 +151,16 @@ function SuggestionList({
   );
 }
 
+/** The pill look shared by the panel's filter chips and its school select,
+ *  so the filter row's palette lives in one place. */
+const panelPillClass = (active: boolean) =>
+  cn(
+    "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
+    active
+      ? "bg-primary text-primary-foreground"
+      : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+  );
+
 /** A pill toggle in the panel's grade/stream filter row. */
 function FilterChip({
   label,
@@ -160,16 +174,7 @@ function FilterChip({
   title?: string;
 }) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={cn(
-        "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
-      )}
-    >
+    <button onClick={onClick} title={title} className={panelPillClass(active)}>
       {label}
     </button>
   );
@@ -194,14 +199,29 @@ export function RegularUnassignedPanel({
   onClearDemandFilter,
   statusFilter,
   onClearStatusFilter,
+  schoolHighlight,
 }: RegularUnassignedPanelProps) {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
   const [streamFilter, setStreamFilter] = useState<string | null>(null);
+  // School facet, panel-local like grade and stream. Holds a school key
+  // (canonical code or folded spelling); options come from the loaded list.
+  const [schoolFilter, setSchoolFilter] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [sort, setSort] = useState<SortMode>("grade");
   const [suggestForId, setSuggestForId] = useState<number | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Options for the school facet: every school in the loaded list.
+  const schoolOptions = useMemo(() => schoolKeysOf(applications), [applications]);
+
+  // The list changes under the filter (branch switch, refetch); a filter for
+  // a school no longer in it would silently empty the panel, so drop it.
+  useEffect(() => {
+    if (schoolFilter && !schoolOptions.includes(schoolFilter)) {
+      setSchoolFilter(null);
+    }
+  }, [schoolFilter, schoolOptions]);
 
   const filtered = useMemo(() => {
     let result = applications;
@@ -212,6 +232,9 @@ export function RegularUnassignedPanel({
       // Effective stream so an Int applicant filters under English, matching
       // the badge colour and how the grid buckets demand.
       result = result.filter((a) => effectiveStream(a) === streamFilter);
+    }
+    if (schoolFilter) {
+      result = result.filter((a) => schoolGroupKey(a) === schoolFilter);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -249,7 +272,7 @@ export function RegularUnassignedPanel({
       }
       return byName(a, b);
     });
-  }, [applications, gradeFilter, streamFilter, search, sort]);
+  }, [applications, gradeFilter, streamFilter, schoolFilter, search, sort]);
 
   const nextSort = SORT_CYCLE[(SORT_CYCLE.indexOf(sort) + 1) % SORT_CYCLE.length];
   const StatusHeaderIcon = statusFilter ? REGULAR_STATUS_ICONS[statusFilter] : null;
@@ -361,6 +384,25 @@ export function RegularUnassignedPanel({
                 title={s === "C" ? "Chinese stream" : s === "E" ? "English stream" : s}
               />
             ))}
+            {/* School facet — a select, because there are far too many schools
+                for chips. */}
+            {schoolOptions.length > 0 && (
+              <select
+                value={schoolFilter ?? ""}
+                onChange={(e) => setSchoolFilter(e.target.value || null)}
+                className={cn(
+                  panelPillClass(!!schoolFilter),
+                  "max-w-[7.5rem] cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                )}
+                aria-label="Filter by school"
+                title="Show only one school's applicants"
+              >
+                <option value="">School</option>
+                {schoolOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            )}
             <button
               onClick={() => setSort(nextSort)}
               className="ml-auto p-0.5 text-muted-foreground hover:text-foreground"
@@ -413,6 +455,9 @@ export function RegularUnassignedPanel({
                 const suggestOpen = suggestForId === app.id;
                 const statusColors =
                   REGULAR_STATUS_COLORS[app.application_status] || REGULAR_STATUS_COLORS["Submitted"];
+                // Board-driven schoolmate highlight, mirroring the slot rows.
+                const isSchoolmate =
+                  !!schoolHighlight && schoolGroupKey(app) === schoolHighlight;
                 return (
                   <div
                     key={app.id}
@@ -451,7 +496,9 @@ export function RegularUnassignedPanel({
                       tapMode === "select"
                         ? "cursor-pointer"
                         : readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
-                      SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300"
+                      SUMMER_GRADE_BORDER[app.grade] || "border-l-gray-300",
+                      isSchoolmate && "ring-2 ring-primary/60 ring-offset-1",
+                      !!schoolHighlight && !isSchoolmate && "opacity-40"
                     )}
                   >
                     {/* Row 1: identity — same renderer as every other student surface */}

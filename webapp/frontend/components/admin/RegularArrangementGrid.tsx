@@ -3,9 +3,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { RegularSlotCell, type RegularDemandBarFilter } from "./RegularSlotCell";
 import type { RegularTutorOption } from "./RegularSlotCard";
-import { DAY_ABBREV } from "@/lib/regular-utils";
+import { DAY_ABBREV, schoolGroupKey } from "@/lib/regular-utils";
 import { cn } from "@/lib/utils";
-import { FilterChip, TutorFilterSelect } from "./ArrangementFilters";
+import { FilterChip, FilterSelect, TutorFilterSelect } from "./ArrangementFilters";
 import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types";
 
 // Stable empty-slot array so cells with no slots keep a fixed `slots` prop
@@ -57,6 +57,14 @@ interface RegularArrangementGridProps {
   } | null;
   dragPrefs?: DragPrefs | null;
   pendingPlacementAppId?: number | null;
+  /** Schoolmate highlight, owned by the page so the unassigned panel dims in
+   * step with the board. Options come from every school present in the loaded
+   * slots and panel; the value is a school key (canonical code or folded
+   * spelling). Unlike the slot filters above, this hides nothing: cards with a
+   * matching student open and ring the match, everything else recedes. */
+  schoolOptions?: string[];
+  schoolHighlight?: string | null;
+  onSchoolHighlightChange?: (key: string | null) => void;
 }
 
 export function RegularArrangementGrid({
@@ -83,6 +91,9 @@ export function RegularArrangementGrid({
   slotHighlightTarget,
   dragPrefs,
   pendingPlacementAppId,
+  schoolOptions = [],
+  schoolHighlight = null,
+  onSchoolHighlightChange,
 }: RegularArrangementGridProps) {
   // Index demand by (day, timeSlot)
   const demandMap = useMemo(() => {
@@ -306,6 +317,19 @@ export function RegularArrangementGrid({
         {/* Tutor filter */}
         <TutorFilterSelect value={tutorFilter} onChange={setTutorFilter} tutors={tutors} />
 
+        {/* Schoolmate highlight — dims rather than hides, see the prop note. */}
+        {onSchoolHighlightChange && schoolOptions.length > 0 && (
+          <FilterSelect
+            value={schoolHighlight}
+            onChange={onSchoolHighlightChange}
+            options={schoolOptions.map((s) => ({ value: s, label: s }))}
+            placeholder="School"
+            ariaLabel="Highlight schoolmates"
+            title="Highlight every student from one school, on the board and in the panel"
+            className="max-w-[10rem]"
+          />
+        )}
+
         {/* Has-space toggle */}
         <FilterChip
           label="Has space"
@@ -378,7 +402,14 @@ export function RegularArrangementGrid({
                 const cellSlots = slotsMap.get(key) ?? EMPTY_SLOTS;
                 // With a slot filter on, cells holding no match recede so the
                 // matching slots pop; demand stays faintly visible underneath.
-                const dimmed = slotFilterActive && cellSlots.length === 0;
+                // A schoolmate highlight recedes every cell without a matching
+                // student the same way.
+                const dimmed =
+                  (slotFilterActive && cellSlots.length === 0) ||
+                  (!!schoolHighlight &&
+                    !cellSlots.some((s) =>
+                      s.students.some((st) => schoolGroupKey(st) === schoolHighlight)
+                    ));
                 const closed = openCells ? !openCells.has(key) : false;
                 return (
                   <RegularSlotCell
@@ -406,6 +437,7 @@ export function RegularArrangementGrid({
                     onDemandBarClick={onDemandBarClick}
                     slotHighlightTarget={slotHighlightTarget}
                     pendingPlacementAppId={pendingPlacementAppId}
+                    schoolHighlight={schoolHighlight}
                   />
                 );
               })}

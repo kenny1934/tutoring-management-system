@@ -11,7 +11,10 @@ import { cn } from "@/lib/utils";
 import { regularAPI } from "@/lib/api";
 import {
   LOCATION_TO_CODE, CODE_TO_LOCATION, REGULAR_STATUS_STEPS, REGULAR_EXIT_STATUSES,
+  schoolGroupKey,
 } from "@/lib/regular-utils";
+import { RegularApplicationStats } from "@/components/admin/RegularApplicationStats";
+import { ViewModeToggle } from "@/components/admin/ViewModeToggle";
 import {
   RegularApplicationCard, REGULAR_ALL_STATUSES, REGULAR_STATUS_COLORS,
 } from "@/components/admin/RegularApplicationCard";
@@ -25,7 +28,7 @@ import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { TimeAgo } from "@/components/ui/time-ago";
 import {
   ClipboardList, Search, X, Loader2, RefreshCw, ExternalLink, Sparkles,
-  ChevronDown, Check, CheckSquare, SlidersHorizontal,
+  ChevronDown, Check, CheckSquare, SlidersHorizontal, LayoutList, BarChart3,
 } from "lucide-react";
 import type { RegularApplication, RegularPublishResult } from "@/types";
 
@@ -43,8 +46,13 @@ export default function RegularApplicationsPage() {
   const { showToast } = useToast();
 
   const [configId, setConfigId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "stats">("list");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  // Client-side school filter, set by clicking a bar on the stats view. Holds
+  // the shared school key: a canonical code, or a folded spelling for schools
+  // the alias table does not recognise yet.
+  const [schoolFilter, setSchoolFilter] = useState<string | null>(null);
   // Client-side journey filter: the prospect block rides on each application.
   const [prospectFilter, setProspectFilter] = useState<"skipped" | "did" | "none" | null>(null);
   const [unverifiedOriginOnly, setUnverifiedOriginOnly] = useState(false);
@@ -131,20 +139,21 @@ export default function RegularApplicationsPage() {
     [mutateApps, mutateStats]
   );
 
-  // Journey and origin filters are applied client-side, so they refine the
-  // fetched list rather than changing the SWR key.
+  // Journey, origin and school filters are applied client-side, so they refine
+  // the fetched list rather than changing the SWR key.
   const displayedApps = useMemo(() => {
     if (!applications) return applications;
-    if (!prospectFilter && !unverifiedOriginOnly) return applications;
+    if (!prospectFilter && !unverifiedOriginOnly && !schoolFilter) return applications;
     return applications.filter((a) => {
       if (unverifiedOriginOnly && !!a.verified_branch_origin) return false;
+      if (schoolFilter && schoolGroupKey(a) !== schoolFilter) return false;
       if (!prospectFilter) return true;
       const j = a.prospect_journey;
       if (prospectFilter === "none") return !j;
       if (prospectFilter === "skipped") return !!j && !j.attended_summer;
       return !!j && j.attended_summer; // "did"
     });
-  }, [applications, prospectFilter, unverifiedOriginOnly]);
+  }, [applications, prospectFilter, unverifiedOriginOnly, schoolFilter]);
 
   const selectedApp: RegularApplication | null =
     applications?.find((a) => a.id === selectedId) ?? null;
@@ -194,7 +203,7 @@ export default function RegularApplicationsPage() {
 
   const hasFilters =
     !!statusFilter || !!gradeFilter || !!locationFilter || !!publishedFilter || !!debouncedSearch
-    || !!prospectFilter || unverifiedOriginOnly;
+    || !!prospectFilter || unverifiedOriginOnly || !!schoolFilter;
 
   const clearFilters = () => {
     setStatusFilter(null);
@@ -203,6 +212,7 @@ export default function RegularApplicationsPage() {
     setUnverifiedOriginOnly(false);
     setLocationFilter(null);
     setPublishedFilter(null);
+    setSchoolFilter(null);
     setSearchQuery("");
   };
 
@@ -556,6 +566,18 @@ export default function RegularApplicationsPage() {
                 onChangeStatus={setStatusFilter}
               />
 
+              {schoolFilter && (
+                <button
+                  type="button"
+                  onClick={() => setSchoolFilter(null)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 transition-colors"
+                  title="Showing one school. Click to clear."
+                >
+                  <span className="font-medium">{schoolFilter}</span>
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+
               <div className="flex-1" />
 
               <DropdownMenu
@@ -637,7 +659,16 @@ export default function RegularApplicationsPage() {
                 )}
               </DropdownMenu>
 
-              {!isReadOnly && (
+              <ViewModeToggle
+                value={viewMode}
+                onChange={setViewMode}
+                modes={[
+                  { key: "list", icon: LayoutList, label: "List view" },
+                  { key: "stats", icon: BarChart3, label: "Stats view" },
+                ]}
+              />
+
+              {!isReadOnly && viewMode === "list" && (
                 <button
                   onClick={() => {
                     if (showCheckboxes) {
@@ -659,7 +690,7 @@ export default function RegularApplicationsPage() {
                   <CheckSquare className="h-3.5 w-3.5" />
                 </button>
               )}
-              {showCheckboxes && (
+              {showCheckboxes && viewMode === "list" && (
                 <input
                   ref={selectAllRef}
                   type="checkbox"
@@ -678,6 +709,18 @@ export default function RegularApplicationsPage() {
               <div className="flex items-center justify-center h-32 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
+            ) : viewMode === "stats" ? (
+              <RegularApplicationStats
+                applications={displayedApps ?? []}
+                readOnly={isReadOnly}
+                onAliasCreated={handleRefresh}
+                filters={{
+                  onStatusFilter: (status) => { setStatusFilter(status); setViewMode("list"); },
+                  onGradeFilter: (grade) => { setGradeFilter(grade); setViewMode("list"); },
+                  onLocationFilter: (code) => { setLocationFilter(code); setViewMode("list"); },
+                  onSchoolFilter: (key) => { setSchoolFilter(key); setViewMode("list"); },
+                }}
+              />
             ) : !displayedApps || displayedApps.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
                 {hasFilters ? "No applications match the current filters." : "No applications yet."}

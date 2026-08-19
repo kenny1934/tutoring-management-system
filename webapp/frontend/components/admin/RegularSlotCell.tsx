@@ -8,6 +8,7 @@ import { splitGradeStream } from "@/lib/regular-utils";
 import { getGradeColor } from "@/lib/constants";
 import { EnteringGradeBadge } from "@/components/ui/grade-label";
 import { RegularSlotCard, type RegularTutorOption } from "./RegularSlotCard";
+import { compareTutorNames } from "@/components/zen/utils/sessionSorting";
 import type { RegularDemandCell, RegularSlot, RegularSlotUpdate } from "@/types";
 
 export interface RegularDemandBarFilter {
@@ -59,6 +60,8 @@ interface RegularSlotCellProps {
   /** Mobile tap-to-place: when set, the cell + each inner slot card become
    * tap targets that fire onDropStudent with this appId. */
   pendingPlacementAppId?: number | null;
+  /** Schoolmate highlight key, threaded to each slot card. */
+  schoolHighlight?: string | null;
 }
 
 // Opacity the backup-choice half of a bar carries, so first and second choice
@@ -82,7 +85,8 @@ function heatColor(count: number): string {
 function compareRegularSlots(a: RegularSlot, b: RegularSlot): number {
   const gradeCmp = (a.grade ?? "").localeCompare(b.grade ?? "");
   if (gradeCmp !== 0) return gradeCmp;
-  const tutorCmp = (a.tutor_name ?? "").localeCompare(b.tutor_name ?? "");
+  // By name with the Mr and Ms stripped, like every tutor list.
+  const tutorCmp = compareTutorNames(a.tutor_name ?? "", b.tutor_name ?? "");
   if (tutorCmp !== 0) return tutorCmp;
   return a.id - b.id;
 }
@@ -111,6 +115,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
   onDemandBarClick,
   slotHighlightTarget,
   pendingPlacementAppId,
+  schoolHighlight,
 }: RegularSlotCellProps) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -346,6 +351,7 @@ export const RegularSlotCell = memo(function RegularSlotCell({
               highlightTarget={slotHighlightTarget}
               pendingPlacementAppId={pendingPlacementAppId}
               onTapPlaceFailed={onDropFailed}
+              schoolHighlight={schoolHighlight}
             />
           </motion.div>
         ))}

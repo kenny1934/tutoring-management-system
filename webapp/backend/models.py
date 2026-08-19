@@ -1942,3 +1942,22 @@ class RegularApplicationEdit(Base):
     __table_args__ = (
         Index("idx_regular_edit_app_time", "application_id", "edited_at"),
     )
+
+
+class SchoolAlias(Base):
+    """One folded spelling of a school name mapped to a canonical staff code.
+
+    Applications carry school as free text and the same school arrives under
+    many spellings. This table gives each folded spelling (see
+    utils/school_alias.py fold) a target in the code vocabulary the students
+    table already uses. The raw spelling on the application is never changed;
+    the alias only adds a grouping key. The target can carry a modifier that
+    the resolver interprets against the application's language stream — the
+    grammar is documented in utils/school_alias.py.
+    """
+    __tablename__ = "school_aliases"
+
+    alias_key = Column(String(255), primary_key=True)
+    target = Column(String(64), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -5,7 +5,7 @@ import { Trash2, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle } from "
 import { cn } from "@/lib/utils";
 import {
   SUMMER_GRADE_TEXT, SUMMER_GRADE_BORDER, getMismatchedSessionGrades,
-  getMismatchedStreams, foldStream,
+  getMismatchedStreams, foldStream, schoolGroupKey,
 } from "@/lib/regular-utils";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { RegularWorkflowStatusIcon, regularStatusRowBg } from "./RegularApplicationCard";
@@ -49,6 +49,10 @@ interface RegularSlotCardProps {
     scrollSlotId: number | null;
     seq: number;
   } | null;
+  /** Schoolmate highlight: the selected school key (canonical code or folded
+   * spelling). Cards holding a matching student open to show them and ring the
+   * matching rows; cards with none recede. */
+  schoolHighlight?: string | null;
 }
 
 function fillBarColor(pct: number): string {
@@ -71,6 +75,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
   pendingPlacementAppId,
   onTapPlaceFailed,
   highlightTarget,
+  schoolHighlight,
 }: RegularSlotCardProps) {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -103,6 +108,27 @@ export const RegularSlotCard = memo(function RegularSlotCard({
 
   // Only rostered tutors can staff a slot, same rule as summer.
   const onDutyTutors = useMemo(() => tutors.filter((t) => t.onDuty), [tutors]);
+
+  // Schoolmate highlight: a card holding a match opens so the matching rows
+  // are visible; a card holding none recedes the way filtered-out cells do.
+  const hasSchoolMatch =
+    !!schoolHighlight && slot.students.some((s) => schoolGroupKey(s) === schoolHighlight);
+  const schoolDimmed = !!schoolHighlight && !hasSchoolMatch;
+
+  // One line summarising who is in the class by school, e.g. "PCMS ×3 ·
+  // SRL-E ×2". Recognised schools show their code; unrecognised spellings
+  // count under their folded form. Students with no school are left out.
+  const schoolComposition = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of slot.students) {
+      const key = schoolGroupKey(s);
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([key, n]) => (n > 1 ? `${key} ×${n}` : key))
+      .join(" · ");
+  }, [slot.students]);
 
   // Search-jump highlight. Deps exclude slot.students on purpose: SWR
   // revalidates every 30s and returns a fresh array, which would re-fire the
@@ -187,6 +213,7 @@ export const RegularSlotCard = memo(function RegularSlotCard({
           : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]",
         !dragOver && (SUMMER_GRADE_BORDER[slot.grade ?? ""] || "border-l-gray-300"),
         isFull && "opacity-80",
+        schoolDimmed && "opacity-40",
         isHighlighted && "ring-2 ring-primary ring-offset-1 shadow-lg",
         tapPlaceActive && !isFull && "ring-2 ring-primary/60 ring-offset-1 cursor-pointer",
         tapPlaceActive && isFull && "ring-2 ring-red-300/60 ring-offset-1 cursor-not-allowed"
@@ -341,12 +368,21 @@ export const RegularSlotCard = memo(function RegularSlotCard({
         )}
       </div>
 
-      {/* Expanded: assigned student list */}
-      {expanded && (
+      {/* Expanded: assigned student list. A schoolmate match forces the list
+          open so the highlighted rows are actually visible. */}
+      {(expanded || hasSchoolMatch) && (
         <div className="px-1.5 pb-1 space-y-0.5">
           {slot.students.length === 0 && (
             <div className="text-[9px] text-muted-foreground italic py-1">
               {readOnly ? "No students assigned." : "No students assigned yet. Drag here to assign."}
+            </div>
+          )}
+          {schoolComposition && (
+            <div
+              className="text-[9px] text-muted-foreground truncate"
+              title={`Schools in this class: ${schoolComposition}`}
+            >
+              {schoolComposition}
             </div>
           )}
           {slot.students.map((s) => {
@@ -358,13 +394,16 @@ export const RegularSlotCard = memo(function RegularSlotCard({
               gradeMismatch ? `${s.grade} student in a ${slot.grade} slot` : null,
               streamMismatch ? `${studentStream}-stream student in a ${slotStream} slot` : null,
             ].filter(Boolean).join(". ");
+            const isSchoolmate = !!schoolHighlight && schoolGroupKey(s) === schoolHighlight;
             return (
               <div
                 key={s.application_id}
                 className={cn(
                   "flex items-center gap-1 rounded px-1 py-0.5 min-w-0",
                   regularStatusRowBg(s.application_status),
-                  highlightedAppId === s.application_id && "ring-2 ring-primary/60 ring-offset-1",
+                  (highlightedAppId === s.application_id || isSchoolmate) &&
+                    "ring-2 ring-primary/60 ring-offset-1",
+                  !!schoolHighlight && !isSchoolmate && "opacity-40",
                 )}
               >
                 <div className="flex-1 min-w-0">
