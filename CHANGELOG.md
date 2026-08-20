@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.121](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.120...v2.0.121) (2026-08-20)
+
+
+### Bug Fixes
+
+* **regular:** dark background on the unassigned panel's school select ([cd92341](https://github.com/kenny1934/tutoring-management-system/commit/cd92341679215d264f085f28624f64f3a6c08ace))
+
 ## [2.0.120](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.119...v2.0.120) (2026-08-19)
 
 
