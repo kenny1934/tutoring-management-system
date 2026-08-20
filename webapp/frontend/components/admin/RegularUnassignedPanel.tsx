@@ -152,13 +152,23 @@ function SuggestionList({
 }
 
 /** The pill look shared by the panel's filter chips and its school select,
- *  so the filter row's palette lives in one place. */
-const panelPillClass = (active: boolean) =>
+ *  so the filter row's palette lives in one place.
+ *
+ *  The chips take a translucent fill that picks up the panel behind them.
+ *  The school select cannot use that fill: browsers paint a native select's
+ *  own base colour under whatever background you give it, and that base is
+ *  light even in dark mode, so the translucent dark overlay came out as a
+ *  pale pill. Passing `solid` swaps in the same colours pre-blended against
+ *  the panel background (#fef9f3 light, #1a1a1a dark), which is what the
+ *  chips' translucent fills resolve to on screen. */
+const panelPillClass = (active: boolean, solid = false) =>
   cn(
     "px-1.5 py-0.5 text-[10px] rounded-full transition-colors",
     active
       ? "bg-primary text-primary-foreground"
-      : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
+      : solid
+        ? "bg-[#faf2e7] dark:bg-[#2a2724] text-muted-foreground hover:bg-[#f5eadb] dark:hover:bg-[#3a342d]"
+        : "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40"
   );
 
 /** A pill toggle in the panel's grade/stream filter row. */
@@ -391,7 +401,7 @@ export function RegularUnassignedPanel({
                 value={schoolFilter ?? ""}
                 onChange={(e) => setSchoolFilter(e.target.value || null)}
                 className={cn(
-                  panelPillClass(!!schoolFilter),
+                  panelPillClass(!!schoolFilter, true),
                   "max-w-[7.5rem] cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
                 )}
                 aria-label="Filter by school"
