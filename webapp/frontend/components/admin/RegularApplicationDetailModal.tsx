@@ -7,7 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { regularAPI, tutorsAPI, studentsAPI, discountsAPI, ApiError } from "@/lib/api";
 import { isHomeBranch, pickableForOpenEndedWork } from "@/lib/employment";
-import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, minLessonsForDiscount } from "@/lib/constants";
+import { MIN_LESSONS_FOR_DISCOUNT, REGISTRATION_FEE, minLessonsForDiscount, findStaffReferralDiscount, findDiscountByValue } from "@/lib/constants";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,7 @@ import {
   Loader2, Pencil, History, UserCheck, Unlink, ExternalLink, Send,
   CheckCircle2, AlertTriangle, Trash2, Copy, Check, ChevronLeft, ChevronRight,
   User, Phone, MapPin, Clock, Grid3X3, Search, UserPlus, ArrowRight, FileText,
-  DollarSign, Link2, Ticket,
+  DollarSign, Link2, Ticket, Users,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { useDebouncedValue } from "@/lib/hooks";
@@ -506,13 +506,14 @@ export function RegularApplicationDetailModal({
     isOpen && app?.existing_student_id ? ["student-coupon", app.existing_student_id] : null,
     () => studentsAPI.getCoupon(app!.existing_student_id!)
   );
-  // Keyed on the saved link, not the pending pick, because the publish
-  // discount below spends it and publishing uses whatever is stored. The chip
-  // is therefore only shown while the panel is displaying that same student.
-  const couponAvailable =
-    coupon && (coupon.available ?? 0) > 0 && pickedStudentId === app?.existing_student_id
-      ? coupon
-      : null;
+  // The coupon chip, the staff referral chip and the discount preselect all
+  // follow the saved link rather than the pending pick, because publishing
+  // charges whatever is stored. They are therefore only shown while the panel
+  // is displaying that same student.
+  const showingSavedLink = pickedStudentId === app?.existing_student_id;
+  const couponAvailable = showingSavedLink && coupon && (coupon.available ?? 0) > 0 ? coupon : null;
+  // The staff referral flag rides on the full student record fetched above.
+  const staffReferral = showingSavedLink && linkedStudent?.is_staff_referral ? linkedStudent : null;
 
   const { data: discounts = [] } = useSWR(
     isOpen && app && !isPublished ? "discounts" : null,
@@ -561,32 +562,26 @@ export function RegularApplicationDetailModal({
     if (computed) setPubFirstLesson(computed);
   }, [pubEffectiveDay, courseStart, pubFirstLessonTouched]);
 
-  // Auto-suggest a coupon discount: when the linked student has coupons
-  // available, preselect the active discount matching the coupon value.
-  // Mirrors CreateEnrollmentModal's coupon auto-select (regular publish has
-  // no staff-referral flow).
+  // Preselect a discount for the linked student, ranked staff referral, then
+  // the seasonal offer, then a coupon. The staff discount is the largest and
+  // is not drawn from any inventory, and the offer beats a coupon because a
+  // verified new student has no coupon history to spend. This only
+  // preselects: the admin can still change the dropdown, and the fee message
+  // and the publish call both read whatever is selected.
+  const promoDiscountId = config?.pricing_config?.promo?.discount_id;
   useEffect(() => {
     if (!isOpen || isPublished || discounts.length === 0) return;
     if (pubLessons < MIN_LESSONS_FOR_DISCOUNT) return;
-    if (!coupon?.has_coupon || !coupon.value || !(coupon.available ?? 0)) return;
-    const matching = discounts.find(
-      (d) => d.discount_value && Math.abs(Number(d.discount_value) - Number(coupon.value)) < 0.01
-    );
-    if (matching) setPubDiscountId(matching.id);
-  }, [isOpen, isPublished, discounts, coupon, pubLessons]);
-
-  // Auto-select the seasonal offer's discount row for an eligible applicant.
-  // Runs after the coupon effect and wins, because a verified new student has
-  // no coupon history to spend and the offer is the reason they applied. The
-  // admin can still change it: this preselects, it does not lock.
-  useEffect(() => {
-    if (!isOpen || isPublished || discounts.length === 0) return;
-    if (pubLessons < MIN_LESSONS_FOR_DISCOUNT) return;
-    if (!app?.promo_eligible) return;
-    const promoDiscountId = config?.pricing_config?.promo?.discount_id;
-    if (!promoDiscountId) return;
-    if (discounts.some((d) => d.id === promoDiscountId)) setPubDiscountId(promoDiscountId);
-  }, [isOpen, isPublished, discounts, pubLessons, app?.promo_eligible, config?.pricing_config?.promo?.discount_id]);
+    const pick =
+      (staffReferral ? findStaffReferralDiscount(discounts)?.id : undefined) ??
+      (app?.promo_eligible && promoDiscountId && discounts.some((d) => d.id === promoDiscountId)
+        ? promoDiscountId
+        : undefined) ??
+      (coupon?.has_coupon && coupon.value && (coupon.available ?? 0) > 0
+        ? findDiscountByValue(discounts, coupon.value)?.id
+        : undefined);
+    if (pick) setPubDiscountId(pick);
+  }, [isOpen, isPublished, discounts, pubLessons, staffReferral, app?.promo_eligible, promoDiscountId, coupon]);
 
   // Clear the selected discount if the lesson count drops below its minimum.
   useEffect(() => {
@@ -1518,6 +1513,19 @@ export function RegularApplicationDetailModal({
                           title="Coupons available for this student"
                         >
                           🎟 {couponAvailable.available} coupon{(couponAvailable.available ?? 0) > 1 ? "s" : ""} (${couponAvailable.value})
+                        </span>
+                      )}
+                      {staffReferral && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs"
+                          title={`${
+                            staffReferral.staff_referral_notes
+                              ? `Staff referral (${staffReferral.staff_referral_notes})`
+                              : "This student is marked as a staff referral"
+                          }. The staff discount is preselected in the publish step.`}
+                        >
+                          <Users className="h-3 w-3" />
+                          Staff referral
                         </span>
                       )}
                       {canEdit && (

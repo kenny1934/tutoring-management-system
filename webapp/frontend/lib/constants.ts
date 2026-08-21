@@ -83,6 +83,34 @@ export function minLessonsForDiscount(
     : MIN_LESSONS_FOR_DISCOUNT;
 }
 
+// The fields the discount lookups below read. The API serialises the decimal
+// value as a string ("300.00"), so callers always coerce before comparing.
+type DiscountLike = { discount_name: string; discount_value?: number | string | null };
+
+// The discount row worth exactly this amount, if there is one. Coupons are
+// matched this way because a coupon only records its value, not a row id.
+export function findDiscountByValue<T extends DiscountLike>(
+  discounts: T[],
+  value: number | string
+): T | undefined {
+  const wanted = Number(value);
+  return discounts.find((d) => Math.abs(Number(d.discount_value) - wanted) < 0.01);
+}
+
+// A student whose record is flagged as a staff referral gets this amount off
+// every enrollment, and it wins over a coupon or a seasonal offer wherever a
+// discount is preselected.
+const STAFF_REFERRAL_DISCOUNT_VALUE = 500;
+
+// The staff referral discount row: matched by name ("Staff Referral Coupon
+// $500" in production), or by its value when the row has been renamed.
+export function findStaffReferralDiscount<T extends DiscountLike>(discounts: T[]): T | undefined {
+  return (
+    discounts.find((d) => d.discount_name.toLowerCase().includes("staff")) ??
+    findDiscountByValue(discounts, STAFF_REFERRAL_DISCOUNT_VALUE)
+  );
+}
+
 // Grade levels (regular). P6 is admin-only (summer create-student flow);
 // Graduated is the auto-promotion target for F6 students.
 export const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6", "Graduated"] as const;

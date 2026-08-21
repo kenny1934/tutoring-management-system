@@ -31,7 +31,7 @@ import {
 import type { Discount } from "@/types";
 import { useActiveTutors, useCacheInvalidation } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
-import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
+import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount, findStaffReferralDiscount, findDiscountByValue } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Student } from "@/types";
@@ -376,10 +376,7 @@ export function CreateEnrollmentModal({
 
     // Priority 1: Staff Referral ($500 discount)
     if (student.is_staff_referral) {
-      const staffDiscount = discounts.find(
-        (d) => d.discount_name.toLowerCase().includes('staff') ||
-          (d.discount_value && Math.abs(Number(d.discount_value) - 500) < 0.01)
-      );
+      const staffDiscount = findStaffReferralDiscount(discounts);
       if (staffDiscount) {
         setDiscountId(staffDiscount.id);
         return; // Staff referral takes priority, don't check coupons
@@ -390,9 +387,7 @@ export function CreateEnrollmentModal({
     studentsAPI.getCoupon(student.id).then((couponData) => {
       if (couponData.has_coupon && couponData.value) {
         // Find a discount matching the coupon value
-        const matchingDiscount = discounts.find(
-          (d) => d.discount_value && Math.abs(Number(d.discount_value) - Number(couponData.value)) < 0.01
-        );
+        const matchingDiscount = findDiscountByValue(discounts, couponData.value);
         if (matchingDiscount) {
           setDiscountId(matchingDiscount.id);
         }
