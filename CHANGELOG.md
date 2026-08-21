@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.121](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.120...v2.0.121) (2026-08-21)
+
+
+### Bug Fixes
+
+* **Staff referral discount on September applications**: when the student linked to a Regular Intake application is marked as a staff referral, the application's page now shows a Staff referral badge beside the student and preselects the $500 staff discount in the publish step, so the fee message quotes the staff price and the enrolment is created at it. The staff discount takes precedence over a coupon or the seasonal offer, matching how new enrolments and renewals already behave, and it can still be changed before publishing.
+
 ## [2.0.120](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.119...v2.0.120) (2026-08-19)
 
 
