@@ -9,6 +9,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Staff referral discount on September applications**: when the student linked to a Regular Intake application is marked as a staff referral, the application's page now shows a Staff referral badge beside the student and preselects the $500 staff discount in the publish step, so the fee message quotes the staff price and the enrolment is created at it. The staff discount takes precedence over a coupon or the seasonal offer, matching how new enrolments and renewals already behave, and it can still be changed before publishing."
+          },
+          {
+            "description": "**School filter readable in dark mode**: the school select on the arrangement board's unassigned panel came out as a pale pill in dark mode. It now takes the same colours as the filter chips beside it in both themes."
           }
         ]
       }
