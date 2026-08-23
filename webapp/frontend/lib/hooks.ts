@@ -232,11 +232,16 @@ export function useHomeworkToCheck(sessionIds: number[] | null | undefined) {
  * Unlike useHomeworkToCheck this is not a backlog: it covers everything ever
  * set, including items no session can still reach, which is what lets the
  * student page mark and correct them.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: while the
+ * new student's record loads, the marks you were just looking at would show
+ * under their name, and this is the data the student page marks against.
  */
 export function useStudentHomework(studentId: number | null | undefined) {
   const { data, error, isLoading, mutate } = useSWR<HomeworkCompletion[]>(
     studentId ? ['student-homework', studentId] : null,
-    () => homeworkAPI.getForStudent(studentId!)
+    () => homeworkAPI.getForStudent(studentId!),
+    { keepPreviousData: false }
   );
 
   const byExercise = useMemo(() => {
@@ -253,11 +258,16 @@ export function useStudentHomework(studentId: number | null | undefined) {
 /**
  * Hook for fetching a single session by ID
  * Returns null key when id is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: the
+ * popovers and the session page stay mounted while the id changes underneath
+ * them, so they would otherwise show the session you had open a moment ago.
  */
 export function useSession(id: number | null | undefined) {
   return useSWR<Session>(
     id ? ['session', id] : null,
-    () => sessionsAPI.getById(id!)
+    () => sessionsAPI.getById(id!),
+    { keepPreviousData: false }
   );
 }
 
@@ -273,11 +283,16 @@ export function useTutors() {
 
 /**
  * Hook for fetching a single tutor by id (admin-level roles also get compensation).
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent, and this
+ * payload carries pay: the tutor page keeps the same component across ids, so
+ * it would otherwise show one tutor's compensation under another's name.
  */
 export function useTutor(id: number | null | undefined) {
   return useSWR<Tutor>(
     id != null && Number.isFinite(id) ? ['tutor', id] : null,
-    () => tutorsAPI.getById(id as number)
+    () => tutorsAPI.getById(id as number),
+    { keepPreviousData: false }
   );
 }
 
@@ -365,6 +380,10 @@ export function useProspectPreview() {
   const { data: prospect, mutate: mutateProspect } = useSWR<PrimaryProspect>(
     prospectId ? ['prospect-preview', prospectId] : null,
     () => prospectsAPI.adminGet(prospectId!),
+    // Opts out of keepPreviousData for the same reason as useStudent. The
+    // guard on the way out only proves a chip is open, not that the record
+    // that loaded is the one that chip points at.
+    { keepPreviousData: false },
   );
   const open = useCallback((id: number) => setProspectId(id), []);
   const close = useCallback(() => setProspectId(null), []);
@@ -419,12 +438,16 @@ export function useStudentCoupon(studentId: number | null | undefined) {
  * Hook for fetching enrollments for a student
  * Returns null key when studentId is falsy to skip fetching
  * Note: revalidateOnFocus disabled to prevent N+1 API calls when switching view modes
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: fees, end
+ * dates and payment status all hang off these, and the session modals read
+ * them to work out a make-up deadline for whoever they were handed.
  */
 export function useStudentEnrollments(studentId: number | null | undefined) {
   return useSWR<Enrollment[]>(
     studentId ? ['enrollments', studentId] : null,
     () => enrollmentsAPI.getAll(studentId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
@@ -457,17 +480,25 @@ export function useAllStudents(location?: string, tutorId?: number) {
 /**
  * Hook for fetching sessions for a specific student
  * Returns null key when studentId is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: an
+ * attendance list has to belong to the student whose page it sits on.
  */
 export function useStudentSessions(studentId: number | null | undefined, limit: number = 100) {
   return useSWR<Session[]>(
     studentId ? ['student-sessions', studentId, limit] : null,
-    () => sessionsAPI.getAll({ student_id: studentId!, limit })  );
+    () => sessionsAPI.getAll({ student_id: studentId!, limit }),
+    { keepPreviousData: false }
+  );
 }
 
 /**
  * Hook for fetching parent communications for a specific student
  * Returns null key when studentId is falsy to skip fetching
  * Results are sorted by contact_date descending (most recent first)
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: what was
+ * said to one family must never be read as the history of another.
  */
 export function useStudentParentContacts(studentId: number | null | undefined) {
   return useSWR<ParentCommunication[]>(
@@ -476,38 +507,55 @@ export function useStudentParentContacts(studentId: number | null | undefined) {
       .then(contacts => contacts.sort((a, b) =>
         new Date(b.contact_date).getTime() - new Date(a.contact_date).getTime()
       )),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
+/**
+ * Hook for fetching one student's progress figures.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: the
+ * progress drawer would otherwise chart the student you opened before this
+ * one, and the two look identical on screen.
+ */
 export function useStudentProgress(studentId: number | null | undefined) {
   return useSWR<StudentProgress>(
     studentId ? ['student-progress', studentId] : null,
     () => studentsAPI.getProgress(studentId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching a single enrollment by ID
  * Returns null key when id is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent, and here it
+ * decides money: the fee and the payment status belong to one enrollment, and
+ * the detail modals swap the id while they stay mounted.
  */
 export function useEnrollment(id: number | null | undefined) {
   return useSWR<Enrollment>(
     id ? ['enrollment', id] : null,
     () => enrollmentsAPI.getById(id!),
-    { revalidateOnFocus: false, revalidateIfStale: false }  // Only fetch when modal opens, not on page load
+    // Only fetch when modal opens, not on page load
+    { revalidateOnFocus: false, revalidateIfStale: false, keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching sessions for a specific enrollment
  * Returns null key when enrollmentId is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: the lessons
+ * listed have to belong to the enrollment named above them.
  */
 export function useEnrollmentSessions(enrollmentId: number | null | undefined) {
   return useSWR<Session[]>(
     enrollmentId ? ['enrollment-sessions', enrollmentId] : null,
-    () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 })  );
+    () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 }),
+    { keepPreviousData: false }
+  );
 }
 
 /**
@@ -1036,6 +1084,10 @@ export function useUnreadCategoryCounts(tutorId: number | null | undefined) {
 
 /**
  * Hook for fetching a specific message thread
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: opening one
+ * thread straight after another would otherwise show the conversation you had
+ * just closed.
  */
 export function useMessageThread(
   messageId: number | null | undefined,
@@ -1043,7 +1095,8 @@ export function useMessageThread(
 ) {
   return useSWR<MessageThread>(
     messageId && tutorId ? ['message-thread', messageId, tutorId] : null,
-    () => messagesAPI.getThread(messageId!, tutorId!)
+    () => messagesAPI.getThread(messageId!, tutorId!),
+    { keepPreviousData: false }
   );
 }
 
@@ -1271,21 +1324,31 @@ export function usePendingExtensionCount(isAdmin: boolean, location?: string) {
 
 /**
  * Hook for fetching a single proposal by ID
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: a proposal
+ * is accepted or declined from where it is shown, so the one on screen has to
+ * be the one the buttons act on.
  */
 export function useProposal(proposalId: number | null | undefined) {
   return useSWR<MakeupProposal>(
     proposalId ? ['proposal', proposalId] : null,
-    () => proposalsAPI.getById(proposalId!)
+    () => proposalsAPI.getById(proposalId!),
+    { keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching the active proposal for a specific session
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: this answers
+ * whether one session already has a proposal, and the answer for the session
+ * before it is not an answer at all.
  */
 export function useProposalForSession(sessionId: number | null | undefined) {
   return useSWR<MakeupProposal | null>(
     sessionId ? ['proposal-for-session', sessionId] : null,
-    () => proposalsAPI.getForSession(sessionId!)
+    () => proposalsAPI.getForSession(sessionId!),
+    { keepPreviousData: false }
   );
 }
 
@@ -1612,35 +1675,46 @@ export function useRevisionSlots(params?: {
 
 /**
  * Hook for fetching a single revision slot with enrolled students
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: the card
+ * would otherwise list the students enrolled in the slot you opened before
+ * this one.
  */
 export function useRevisionSlotDetail(slotId: number | null | undefined) {
   return useSWR<ExamRevisionSlotDetail>(
     slotId ? ['revision-slot-detail', slotId] : null,
     () => examRevisionAPI.getSlotDetails(slotId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching eligible students for a revision slot
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: you enroll
+ * students straight from this list, so it has to be the list for the slot in
+ * front of you.
  */
 export function useEligibleStudents(slotId: number | null | undefined) {
   return useSWR<EligibleStudent[]>(
     slotId ? ['eligible-students', slotId] : null,
     () => examRevisionAPI.getEligibleStudents(slotId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching eligible students by exam (calendar event)
  * This doesn't require a slot to exist - useful for showing eligible students before creating slots
+ *
+ * Opts out of keepPreviousData for the same reason as useEligibleStudents:
+ * the exam card offers this list to act on, so it has to be this exam's.
  */
 export function useEligibleStudentsByExam(eventId: number | null | undefined, locations?: string[] | null) {
   return useSWR<EligibleStudent[]>(
     eventId ? ['eligible-students-by-exam', eventId, locations?.join(',') || 'all'] : null,
     () => examRevisionAPI.getEligibleStudentsByExam(eventId!, locations),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
@@ -1816,11 +1890,16 @@ export function useMemos(params?: {
 
 /**
  * Hook for fetching memo associated with a specific session.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: a memo is
+ * written about one lesson, and the session page renders it without waiting
+ * on a loading flag.
  */
 export function useMemoForSession(sessionId: number | null | undefined) {
   return useSWR<TutorMemo | null>(
     sessionId ? ['session-memo', sessionId] : null,
-    () => memosAPI.getForSession(sessionId!)
+    () => memosAPI.getForSession(sessionId!),
+    { keepPreviousData: false }
   );
 }
 
