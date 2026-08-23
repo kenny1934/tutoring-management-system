@@ -12,7 +12,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
 import { applyTargetToPreGrade } from "@/lib/grade-utils";
 import { useToast } from "@/contexts/ToastContext";
-import { useDebouncedValue } from "@/lib/hooks";
+import { useDebouncedValue, useStudent } from "@/lib/hooks";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES, isNonAttending, getSummerTimeSlots } from "@/lib/summer-utils";
@@ -540,12 +540,7 @@ export function SummerApplicationDetailModal({
 
   // 5. Linked student detail
   const parsedStudentId = studentId ? parseInt(studentId, 10) : NaN;
-  const { data: linkedStudent } = useSWR(
-    !isNaN(parsedStudentId) && parsedStudentId > 0
-      ? ["student-detail", parsedStudentId]
-      : null,
-    () => studentsAPI.getById(parsedStudentId)
-  );
+  const { data: linkedStudent } = useStudent(parsedStudentId > 0 ? parsedStudentId : null);
 
   // Auto-fill lang stream from linked student (once per linked student, so manual clear sticks)
   useEffect(() => {
@@ -595,11 +590,18 @@ export function SummerApplicationDetailModal({
 
   // Fetch by group id, not the page's applications list — that list may be
   // filtered, which would silently drop members and skew the discount math.
+  //
+  // The same care is why the global keepPreviousData default is off here. The
+  // members decide the tier, and stepping from one grouped application to the
+  // next used to price the new one against the previous group until the fetch
+  // landed. That reached the fee box and the fee message the admin copies,
+  // because the discount below reads the members with no loading gate.
   const { data: fetchedBuddyMembers } = useSWR(
     app?.buddy_group_id
       ? ["summer-buddy-group", app.buddy_group_id]
       : null,
-    () => summerAPI.getApplications({ buddy_group_id: app!.buddy_group_id! })
+    () => summerAPI.getApplications({ buddy_group_id: app!.buddy_group_id! }),
+    { keepPreviousData: false }
   );
 
   const buddyMembers = useMemo(() => {

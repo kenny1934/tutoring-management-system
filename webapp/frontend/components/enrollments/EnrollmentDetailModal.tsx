@@ -55,13 +55,20 @@ export function EnrollmentDetailModal({
   const haptic = useHaptic();
   const isTutor = effectiveRole === "Tutor" || isReadOnly;
 
-  // Use SWR for caching
+  // Use SWR for caching.
+  //
+  // keepPreviousData is on globally and is wrong here. Every host mounts this
+  // with isOpen fixed true and swaps enrollmentId underneath it, so the laggy
+  // data showed the enrollment you were just looking at: its fee, its payment
+  // status and its dates, under the newly picked student's name. Nothing below
+  // gates on `loading`, so opting out is what makes the loading state appear.
   const { data: detail, isLoading: loading, error, mutate } = useSWR<EnrollmentDetailResponse>(
     isOpen && enrollmentId ? ['enrollment-detail', enrollmentId] : null,
     () => enrollmentsAPI.getDetail(enrollmentId!),
     {
       revalidateOnFocus: false,
       dedupingInterval: 5000,
+      keepPreviousData: false,
     }
   );
 
