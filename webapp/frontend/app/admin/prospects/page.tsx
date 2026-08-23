@@ -1048,10 +1048,12 @@ function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number;
 
   // Lazy + cached via SWR. Fetches only when the popover opens; the key is
   // shared with the detail modal so either surface reuses the other's fetch.
+  // Opts out of the global keepPreviousData, because a match is linked with
+  // one click and the list has to be this prospect's.
   const { data, error, isLoading } = useSWR(
     open ? ["prospect-matches", course, prospectId] : null,
     () => prospectsAPI.findCourseMatches(prospectId, course),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
   const matches = data?.matches;
 

@@ -38,10 +38,13 @@ export function RegularProspectSuggestionsModal({
 }) {
   const { showToast } = useToast();
 
+  // Opts out of the global keepPreviousData. Linking is one click from this
+  // list, so a suggestion left over from the previous application would tie a
+  // prospect to the wrong applicant.
   const { data, error, isLoading } = useSWR(
     isOpen && applicationId != null ? ["regular-prospect-suggest", applicationId] : null,
     () => regularAPI.getProspectSuggestions(applicationId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 
   if (!isOpen) return null;

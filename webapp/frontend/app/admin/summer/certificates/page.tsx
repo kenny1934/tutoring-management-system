@@ -149,10 +149,14 @@ export default function SummerCertificatesPage() {
   );
 
   // The detail modal fetches its own application, same key as the
-  // arrangement page so the two share the cache.
+  // arrangement page so the two share the cache. It opts out of the global
+  // keepPreviousData for the same reason too: the modal stays mounted while
+  // selectedAppId changes, and stale data would put one applicant's details
+  // under another applicant's name.
   const { data: selectedApp, mutate: mutateSelectedApp } = useSWR(
     selectedAppId ? ["summer-app", selectedAppId] : null,
-    () => summerAPI.getApplication(selectedAppId!)
+    () => summerAPI.getApplication(selectedAppId!),
+    { keepPreviousData: false }
   );
 
   const threshold = config ? officialThreshold(config.total_lessons) : null;
@@ -412,7 +416,7 @@ export default function SummerCertificatesPage() {
         </div>
 
         <SummerApplicationDetailModal
-          application={selectedApp?.id === selectedAppId ? selectedApp : null}
+          application={selectedApp ?? null}
           isOpen={selectedAppId !== null}
           onClose={() => setSelectedAppId(null)}
           onUpdated={() => {

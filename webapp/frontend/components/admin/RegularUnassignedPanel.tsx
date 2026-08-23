@@ -83,9 +83,13 @@ function SuggestionList({
   readOnly: boolean;
   onPick: (slotId: number) => void;
 }) {
+  // Opts out of the global keepPreviousData. A suggestion is placed with one
+  // click, so the list has to belong to the applicant whose panel is open now
+  // and not to the one whose panel was open before it.
   const { data, error } = useSWR(
     ["regular-suggestions", configId, applicationId],
-    () => regularAPI.getSuggestions(configId, applicationId)
+    () => regularAPI.getSuggestions(configId, applicationId),
+    { keepPreviousData: false }
   );
 
   if (error) {

@@ -109,15 +109,20 @@ export function ProspectDetailModal({
 
   // Keys shared with the list's quick-link popover so either surface reuses
   // the other's fetch.
+  //
+  // Both opt out of the global keepPreviousData. This modal stays mounted as
+  // prospect.id changes, which is what the reset effect above is for, and a
+  // match is linked with one click, so a leftover list would attach the wrong
+  // prospect to an application.
   const { data: matchResult } = useSWR(
     !prospect.summer_application_id ? ["prospect-matches", "summer", prospect.id] : null,
     () => prospectsAPI.findCourseMatches(prospect.id, "summer"),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
   const { data: regularMatchResult } = useSWR(
     !prospect.regular_application_id ? ["prospect-matches", "regular", prospect.id] : null,
     () => prospectsAPI.findCourseMatches(prospect.id, "regular"),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 
   const handleSave = async () => {

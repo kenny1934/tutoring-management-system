@@ -423,10 +423,15 @@ export default function SummerArrangementPage() {
     return m;
   }, [activeTutors, dutyMap, openDays, timeSlots]);
 
-  // Fetch selected application for detail modal
+  // Fetch selected application for detail modal.
+  //
+  // keepPreviousData is on globally, so without the opt-out this hands back
+  // the application you had open before this one while the new one loads, and
+  // the modal below stays mounted across that swap.
   const { data: selectedApp, mutate: mutateSelectedApp } = useSWR(
     selectedAppId ? ["summer-app", selectedAppId] : null,
-    () => summerAPI.getApplication(selectedAppId!)
+    () => summerAPI.getApplication(selectedAppId!),
+    { keepPreviousData: false }
   );
 
   // SWR invalidation helpers
@@ -1453,7 +1458,7 @@ export default function SummerArrangementPage() {
 
         {/* Application detail modal */}
         <SummerApplicationDetailModal
-          application={selectedApp?.id === selectedAppId ? selectedApp : null}
+          application={selectedApp ?? null}
           isOpen={selectedAppId !== null}
           onClose={() => setSelectedAppId(null)}
           onUpdated={refreshAll}

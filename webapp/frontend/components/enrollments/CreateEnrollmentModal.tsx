@@ -230,10 +230,17 @@ export function CreateEnrollmentModal({
     () => discountsAPI.getAll()
   );
 
-  // Fetch renewal data if renewing
+  // Fetch renewal data if renewing.
+  //
+  // keepPreviousData is on globally, and this response fills the whole form:
+  // the student, the tutor, the day, the time, the location, the first lesson
+  // date and the lessons paid. /admin/renewals swaps renewFromId from its
+  // quick-renew handler without unmounting the modal, so a stale read would
+  // prefill the enrollment you renewed a moment ago.
   const { data: renewalData, isLoading: renewalLoading } = useSWR<RenewalDataResponse>(
     isOpen && renewFromId ? ["renewal-data", renewFromId] : null,
-    () => enrollmentsAPI.getRenewalData(renewFromId!)
+    () => enrollmentsAPI.getRenewalData(renewFromId!),
+    { keepPreviousData: false }
   );
 
   // Type for day names from DAY_NAMES constant

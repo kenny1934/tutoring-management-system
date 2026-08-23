@@ -308,6 +308,10 @@ export default function ParentContactsPage() {
 
   // Fetch student contact history via API (not filtered from calendar)
   // Keep fetching even when viewing a contact detail so we can find historical contacts
+  //
+  // Opts out of the global keepPreviousData. Picking one student after
+  // another in the list keeps this panel mounted, and what was said to one
+  // family must never be read as the history of another.
   const { data: studentContactHistory = [], isLoading: loadingHistory } = useSWR(
     selectedStudentId
       ? ['student-contact-history', selectedStudentId]
@@ -316,7 +320,7 @@ export default function ParentContactsPage() {
       .then(contacts => contacts.sort((a, b) =>
         new Date(b.contact_date).getTime() - new Date(a.contact_date).getTime()
       )),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 
   // Selected contact details - search both calendar events and student history

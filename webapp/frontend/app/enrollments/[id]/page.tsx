@@ -371,14 +371,21 @@ export default function EnrollmentDetailPage() {
   // the backlink chip is a navigation aid, not an auth gate.
   // Uses the shared ["summer-app", id] key so mutations from the summer
   // detail modal (appCachesMatcher) invalidate this cache too.
+  //
+  // These three opt out of the global keepPreviousData. This is a route page,
+  // so Next reuses the component when only the id changes, and all three feed
+  // the fee shown on it. A stale read would price one enrollment against the
+  // application, config or buddy group of the one you were just looking at.
   const summerAppId = enrollment?.summer_application_id ?? null;
   const { data: summerApp } = useSWR<SummerApplication>(
     summerAppId ? ['summer-app', summerAppId] : null,
-    () => summerAPI.getApplication(summerAppId!)
+    () => summerAPI.getApplication(summerAppId!),
+    { keepPreviousData: false }
   );
   const { data: summerConfig } = useSWR<SummerCourseConfig>(
     summerApp?.config_id ? ['summer-config', summerApp.config_id] : null,
-    () => summerAPI.getConfig(summerApp!.config_id)
+    () => summerAPI.getConfig(summerApp!.config_id),
+    { keepPreviousData: false }
   );
   // Buddy group members drive group-discount tier qualification. Without them,
   // resolveEffectiveDiscount recomputes from a solo group and silently drops a
@@ -387,7 +394,8 @@ export default function EnrollmentDetailPage() {
   const summerBuddyGroupId = summerApp?.buddy_group_id ?? null;
   const { data: summerBuddyMembers } = useSWR<SummerApplication[]>(
     summerBuddyGroupId ? ['summer-buddy-group', summerBuddyGroupId] : null,
-    () => summerAPI.getApplications({ buddy_group_id: summerBuddyGroupId! })
+    () => summerAPI.getApplications({ buddy_group_id: summerBuddyGroupId! }),
+    { keepPreviousData: false }
   );
   const summerDiscount = useMemo(() => {
     if (!summerApp || !summerConfig) return null;
