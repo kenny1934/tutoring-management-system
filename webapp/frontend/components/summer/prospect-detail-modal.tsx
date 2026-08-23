@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import useSWR from "swr";
+import { useProspectMatches } from "@/lib/hooks";
 import type { LucideIcon } from "lucide-react";
 import {
   Link2,
@@ -107,22 +107,18 @@ export function ProspectDetailModal({
     || status !== prospect.status
     || (contactNotes || "") !== (prospect.contact_notes || "");
 
-  // Keys shared with the list's quick-link popover so either surface reuses
-  // the other's fetch.
-  //
-  // Both opt out of the global keepPreviousData. This modal stays mounted as
-  // prospect.id changes, which is what the reset effect above is for, and a
-  // match is linked with one click, so a leftover list would attach the wrong
-  // prospect to an application.
-  const { data: matchResult } = useSWR(
-    !prospect.summer_application_id ? ["prospect-matches", "summer", prospect.id] : null,
-    () => prospectsAPI.findCourseMatches(prospect.id, "summer"),
-    { revalidateOnFocus: false, keepPreviousData: false }
+  // Both go through the shared hook, so the list's quick-link popover reuses
+  // whichever of these has already loaded. Neither fetches for a course the
+  // prospect is already linked to.
+  const { data: matchResult } = useProspectMatches(
+    prospect.id,
+    "summer",
+    !prospect.summer_application_id,
   );
-  const { data: regularMatchResult } = useSWR(
-    !prospect.regular_application_id ? ["prospect-matches", "regular", prospect.id] : null,
-    () => prospectsAPI.findCourseMatches(prospect.id, "regular"),
-    { revalidateOnFocus: false, keepPreviousData: false }
+  const { data: regularMatchResult } = useProspectMatches(
+    prospect.id,
+    "regular",
+    !prospect.regular_application_id,
   );
 
   const handleSave = async () => {

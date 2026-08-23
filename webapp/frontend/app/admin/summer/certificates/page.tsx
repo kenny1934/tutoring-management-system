@@ -6,7 +6,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { usePageTitle } from "@/lib/hooks";
+import { usePageTitle, useSummerApplication } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
 import { getLinkedStudentId, LOCATION_TO_CODE } from "@/lib/summer-utils";
@@ -148,16 +148,9 @@ export default function SummerCertificatesPage() {
     () => summerAPI.getStudentLessons(configId!)
   );
 
-  // The detail modal fetches its own application, same key as the
-  // arrangement page so the two share the cache. It opts out of the global
-  // keepPreviousData for the same reason too: the modal stays mounted while
-  // selectedAppId changes, and stale data would put one applicant's details
-  // under another applicant's name.
-  const { data: selectedApp, mutate: mutateSelectedApp } = useSWR(
-    selectedAppId ? ["summer-app", selectedAppId] : null,
-    () => summerAPI.getApplication(selectedAppId!),
-    { keepPreviousData: false }
-  );
+  // The detail modal fetches its own application through the shared hook, so
+  // this page and the arrangement board read one cache entry between them.
+  const { data: selectedApp, mutate: mutateSelectedApp } = useSummerApplication(selectedAppId);
 
   const threshold = config ? officialThreshold(config.total_lessons) : null;
 

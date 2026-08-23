@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useVisibilityAwareInterval, useEscapeKey } from "@/lib/hooks";
+import { usePageTitle, useVisibilityAwareInterval, useEscapeKey, useSummerApplication } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { useConfirm, useConfirmOpen } from "@/contexts/ConfirmContext";
 import { Grid3X3, CalendarDays, Maximize2, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3, X } from "lucide-react";
@@ -423,16 +423,11 @@ export default function SummerArrangementPage() {
     return m;
   }, [activeTutors, dutyMap, openDays, timeSlots]);
 
-  // Fetch selected application for detail modal.
-  //
-  // keepPreviousData is on globally, so without the opt-out this hands back
-  // the application you had open before this one while the new one loads, and
-  // the modal below stays mounted across that swap.
-  const { data: selectedApp, mutate: mutateSelectedApp } = useSWR(
-    selectedAppId ? ["summer-app", selectedAppId] : null,
-    () => summerAPI.getApplication(selectedAppId!),
-    { keepPreviousData: false }
-  );
+  // Fetch selected application for detail modal. The shared hook owns the
+  // ["summer-app", id] key that the modal's invalidation matcher looks for by
+  // name, and it is what stops this showing the application you had open
+  // before this one while the new one loads.
+  const { data: selectedApp, mutate: mutateSelectedApp } = useSummerApplication(selectedAppId);
 
   // SWR invalidation helpers
   const mutateCalendar = useCallback(() => globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar"), [globalMutate]);

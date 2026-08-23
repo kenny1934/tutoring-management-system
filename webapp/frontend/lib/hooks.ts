@@ -4,10 +4,17 @@ import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studen
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { pickableTutors } from './employment';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
+//
+// The one rule the global config cannot express: a hook keyed on a single
+// record's id has to pass { keepPreviousData: false }. The global default is
+// right for a filtered list, which should hold its content while the filter
+// changes, and wrong here, because SWR would otherwise hand back the record
+// for the id you were looking at a moment ago and the caller would render it
+// under the new one's name. useStudent below has the long version.
 
 /**
  * Hook to detect unseen app updates.
@@ -380,9 +387,10 @@ export function useProspectPreview() {
   const { data: prospect, mutate: mutateProspect } = useSWR<PrimaryProspect>(
     prospectId ? ['prospect-preview', prospectId] : null,
     () => prospectsAPI.adminGet(prospectId!),
-    // Opts out of keepPreviousData for the same reason as useStudent. The
-    // guard on the way out only proves a chip is open, not that the record
-    // that loaded is the one that chip points at.
+    // Opts out of keepPreviousData for the same reason as useStudent, and it
+    // is what lets the return below be a plain null check: with the option
+    // off, closing the panel drops the record instead of leaving the last one
+    // this hook saw.
     { keepPreviousData: false },
   );
   const open = useCallback((id: number) => setProspectId(id), []);
@@ -394,7 +402,31 @@ export function useProspectPreview() {
     () => mutateProspect(undefined, { revalidate: false }),
     [mutateProspect],
   );
-  return { prospect: prospectId && prospect ? prospect : null, open, close, invalidate };
+  return { prospect: prospect ?? null, open, close, invalidate };
+}
+
+/**
+ * The applications a P6 prospect might turn out to be, for one course.
+ *
+ * The list page's quick-link popover and the prospect detail modal both offer
+ * these matches and both link one with a single click, so they share the key
+ * and read one another's fetch. `enabled` is how each surface holds the fetch
+ * back: the popover waits until it is open, and the modal skips a course the
+ * prospect is already linked to.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: a list left
+ * over from the last prospect would attach the wrong one to an application.
+ */
+export function useProspectMatches(
+  prospectId: number | null | undefined,
+  course: ProspectCourse,
+  enabled: boolean,
+) {
+  return useSWR<PrimaryProspectMatchResult>(
+    enabled && prospectId ? ['prospect-matches', course, prospectId] : null,
+    () => prospectsAPI.findCourseMatches(prospectId!, course),
+    { revalidateOnFocus: false, keepPreviousData: false }
+  );
 }
 
 /**
@@ -554,6 +586,27 @@ export function useEnrollmentSessions(enrollmentId: number | null | undefined) {
   return useSWR<Session[]>(
     enrollmentId ? ['enrollment-sessions', enrollmentId] : null,
     () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 }),
+    { keepPreviousData: false }
+  );
+}
+
+/**
+ * One summer application, on the ['summer-app', id] key.
+ *
+ * That key is load-bearing well beyond this hook. The summer detail modal's
+ * invalidation matcher looks for it by name, and the enrollment page mutates
+ * it directly after a publish, so the three surfaces that read the record
+ * (the arrangement board, the certificates page and the enrollment page) go
+ * through one definition here instead of repeating the key and the fetcher.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: all three
+ * of those surfaces stay mounted while the id changes underneath them, and
+ * this record carries the fee.
+ */
+export function useSummerApplication(id: number | null | undefined) {
+  return useSWR<SummerApplication>(
+    id ? ['summer-app', id] : null,
+    () => summerAPI.getApplication(id!),
     { keepPreviousData: false }
   );
 }

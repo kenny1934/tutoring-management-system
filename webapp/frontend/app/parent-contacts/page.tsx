@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTutors, usePageTitle } from "@/lib/hooks";
+import { useTutors, usePageTitle, useStudentParentContacts } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -216,7 +216,7 @@ export default function ParentContactsPage() {
     mutate(['parent-communications-followups', effectiveTutorId, effectiveLocation]);
     mutate(['parent-communications-stats', effectiveTutorId, effectiveLocation]);
     if (selectedStudentId) {
-      mutate(['student-contact-history', selectedStudentId]);
+      mutate(['student-parent-contacts', selectedStudentId]);
     }
   };
 
@@ -306,22 +306,12 @@ export default function ParentContactsPage() {
     return studentStatuses.find(s => s.student_id === selectedStudentId);
   }, [studentStatuses, selectedStudentId]);
 
-  // Fetch student contact history via API (not filtered from calendar)
-  // Keep fetching even when viewing a contact detail so we can find historical contacts
-  //
-  // Opts out of the global keepPreviousData. Picking one student after
-  // another in the list keeps this panel mounted, and what was said to one
-  // family must never be read as the history of another.
-  const { data: studentContactHistory = [], isLoading: loadingHistory } = useSWR(
-    selectedStudentId
-      ? ['student-contact-history', selectedStudentId]
-      : null,
-    () => parentCommunicationsAPI.getAll({ student_id: selectedStudentId! })
-      .then(contacts => contacts.sort((a, b) =>
-        new Date(b.contact_date).getTime() - new Date(a.contact_date).getTime()
-      )),
-    { revalidateOnFocus: false, keepPreviousData: false }
-  );
+  // The shared hook fetches a student's contacts newest first and keeps them
+  // loaded while you read one, so a historical contact can still be found.
+  // Going through it means this panel and the student page read one cache
+  // entry rather than two copies of the same list under different keys.
+  const { data: studentContactHistory = [], isLoading: loadingHistory } =
+    useStudentParentContacts(selectedStudentId);
 
   // Selected contact details - search both calendar events and student history
   const selectedContact = useMemo(() => {

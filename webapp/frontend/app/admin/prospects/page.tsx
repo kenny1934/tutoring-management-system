@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
+import { useProspectMatches } from "@/lib/hooks";
 import {
   Search,
   Sparkles,
@@ -1046,15 +1047,9 @@ function QuickLinkButton({ prospectId, course, onLinked }: { prospectId: number;
   // to the trigger's right edge so it grows leftward instead of overflowing.
   const { triggerRef, menuRef, pos } = usePortalPopover(open, close, { align: "right" });
 
-  // Lazy + cached via SWR. Fetches only when the popover opens; the key is
-  // shared with the detail modal so either surface reuses the other's fetch.
-  // Opts out of the global keepPreviousData, because a match is linked with
-  // one click and the list has to be this prospect's.
-  const { data, error, isLoading } = useSWR(
-    open ? ["prospect-matches", course, prospectId] : null,
-    () => prospectsAPI.findCourseMatches(prospectId, course),
-    { revalidateOnFocus: false, keepPreviousData: false }
-  );
+  // Lazy + cached through the shared hook: it fetches only once the popover
+  // opens, and the detail modal reads the same cache entry.
+  const { data, error, isLoading } = useProspectMatches(prospectId, course, open);
   const matches = data?.matches;
 
   const handleLink = async (applicationId: number) => {

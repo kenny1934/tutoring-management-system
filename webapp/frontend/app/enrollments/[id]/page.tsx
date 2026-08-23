@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions } from "@/lib/hooks";
+import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions, useSummerApplication } from "@/lib/hooks";
 import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
@@ -372,16 +372,12 @@ export default function EnrollmentDetailPage() {
   // Uses the shared ["summer-app", id] key so mutations from the summer
   // detail modal (appCachesMatcher) invalidate this cache too.
   //
-  // These three opt out of the global keepPreviousData. This is a route page,
-  // so Next reuses the component when only the id changes, and all three feed
-  // the fee shown on it. A stale read would price one enrollment against the
+  // None of these three keeps previous data. This is a route page, so Next
+  // reuses the component when only the id changes, and all three feed the fee
+  // shown on it. A stale read would price one enrollment against the
   // application, config or buddy group of the one you were just looking at.
   const summerAppId = enrollment?.summer_application_id ?? null;
-  const { data: summerApp } = useSWR<SummerApplication>(
-    summerAppId ? ['summer-app', summerAppId] : null,
-    () => summerAPI.getApplication(summerAppId!),
-    { keepPreviousData: false }
-  );
+  const { data: summerApp } = useSummerApplication(summerAppId);
   const { data: summerConfig } = useSWR<SummerCourseConfig>(
     summerApp?.config_id ? ['summer-config', summerApp.config_id] : null,
     () => summerAPI.getConfig(summerApp!.config_id),
