@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.122](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.121...v2.0.122) (2026-08-23)
+
+
+### Bug Fixes
+
+* **A coupon stays with the student it belongs to**: stepping from one September applicant to the next sometimes showed the previous student's coupon on the new one, and the fee message then quoted a discount that family was never owed. Each applicant's coupon, staff referral badge and preselected discount are now their own, and the page waits for their record rather than showing the one before it. The discount it suggests is also withdrawn again if it turns out the student does not qualify, so a suggestion can no longer be quoted by accident.
+* **Buddy group fees are priced against the right group**: opening one grouped summer application straight after another could price the new applicant against the previous group for a moment, both in the fee box and in the fee message. The tier is now always worked out from the group the application in front of you actually belongs to. The same page could also fill in the previous student's language stream when a record was linked, which is fixed.
+* **Enrolment details belong to the enrolment you opened**: opening one enrolment after another from the renewals and trials pages could briefly show the earlier enrolment's fee, payment status and dates under the new student's name. The panel now waits for the enrolment you picked.
+
 ## [2.0.121](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.120...v2.0.121) (2026-08-21)
 
 
