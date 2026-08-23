@@ -4,7 +4,7 @@ import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studen
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { pickableTutors } from './employment';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -337,11 +337,19 @@ export function useStudents(filters?: StudentFilters) {
 /**
  * Hook for fetching a single student by ID
  * Returns null key when id is falsy to skip fetching
+ *
+ * keepPreviousData is on globally, which is wrong for a record keyed on one
+ * person: while the new id loads, the hook would hand back the student you
+ * were looking at a moment ago, and every caller here renders that record
+ * under the new student's name. Opting out means callers see their loading
+ * state instead, which is what they already handle.
  */
 export function useStudent(id: number | null | undefined) {
   return useSWR<Student>(
     id ? ['student', id] : null,
-    () => studentsAPI.getById(id!)  );
+    () => studentsAPI.getById(id!),
+    { keepPreviousData: false }
+  );
 }
 
 /**
@@ -387,6 +395,23 @@ export function useActiveStudents(location?: string, tutorId?: number, enabled: 
     enabled ? ['active-students', location || 'all', tutorId || 'all'] : null,
     () => api.stats.getActiveStudents(location, tutorId),
     { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching a student's coupon availability
+ * Returns null key when studentId is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent, and here it
+ * decides money: a panel that showed one student's coupons under the next
+ * student's name once preselected a discount nobody was owed, and the fee
+ * message quoted it to the parent.
+ */
+export function useStudentCoupon(studentId: number | null | undefined) {
+  return useSWR<StudentCouponResponse>(
+    studentId ? ['student-coupon', studentId] : null,
+    () => studentsAPI.getCoupon(studentId!),
+    { keepPreviousData: false }
   );
 }
 

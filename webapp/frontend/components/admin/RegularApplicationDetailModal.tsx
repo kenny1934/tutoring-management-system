@@ -41,7 +41,7 @@ import {
   DollarSign, Link2, Ticket, Users,
 } from "lucide-react";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
-import { useDebouncedValue } from "@/lib/hooks";
+import { useDebouncedValue, useStudent, useStudentCoupon } from "@/lib/hooks";
 import { applyTargetToPreGrade } from "@/lib/grade-utils";
 import type {
   RegularApplication,
@@ -327,6 +327,9 @@ export function RegularApplicationDetailModal({
   const [pubTutorId, setPubTutorId] = useState("");
   const [pubLessons, setPubLessons] = useState(6);
   const [pubDiscountId, setPubDiscountId] = useState<number | null>(null);
+  // True once the admin has chosen from the Discount dropdown themselves,
+  // which stops the preselect below from touching it again.
+  const [pubDiscountTouched, setPubDiscountTouched] = useState(false);
   const [overrideSchedule, setOverrideSchedule] = useState(false);
   const [pubFirstLesson, setPubFirstLesson] = useState("");
   const [pubFirstLessonTouched, setPubFirstLessonTouched] = useState(false);
@@ -390,6 +393,7 @@ export function RegularApplicationDetailModal({
     setPubTutorId("");
     setPubLessons(6);
     setPubDiscountId(null);
+    setPubDiscountTouched(false);
     setOverrideSchedule(false);
     setPubFirstLesson("");
     setPubFirstLessonTouched(false);
@@ -474,10 +478,7 @@ export function RegularApplicationDetailModal({
 
   // Full record for the linked student: the application only carries a name
   // and code, and the panel wants grade, school and enrollment count.
-  const { data: linkedStudent } = useSWR(
-    isOpen && pickedStudentId ? ["student-detail", pickedStudentId] : null,
-    () => studentsAPI.getById(pickedStudentId!)
-  );
+  const { data: linkedStudent } = useStudent(isOpen ? pickedStudentId : null);
 
   // Duplicates first (they carry a match reason), then name matches that the
   // duplicate check did not already surface.
@@ -502,10 +503,7 @@ export function RegularApplicationDetailModal({
 
   // Coupon availability for the linked student. Failures stay silent: SWR
   // simply leaves `coupon` undefined and no chip is shown.
-  const { data: coupon } = useSWR(
-    isOpen && app?.existing_student_id ? ["student-coupon", app.existing_student_id] : null,
-    () => studentsAPI.getCoupon(app!.existing_student_id!)
-  );
+  const { data: coupon } = useStudentCoupon(isOpen ? app?.existing_student_id : null);
   // The coupon chip, the staff referral chip and the discount preselect all
   // follow the saved link rather than the pending pick, because publishing
   // charges whatever is stored. They are therefore only shown while the panel
@@ -568,20 +566,29 @@ export function RegularApplicationDetailModal({
   // verified new student has no coupon history to spend. This only
   // preselects: the admin can still change the dropdown, and the fee message
   // and the publish call both read whatever is selected.
+  //
+  // The write is two-way on purpose. An earlier version only ever set a
+  // discount, so a guess made from data that later turned out to be wrong sat
+  // in the dropdown until someone noticed, and publish charged it. Writing
+  // null when nothing qualifies means the guess is taken back as soon as the
+  // real answer arrives.
   const promoDiscountId = config?.pricing_config?.promo?.discount_id;
   useEffect(() => {
+    // The empty-discounts guard is load-bearing now that the write clears as
+    // well as sets: without it a revalidation blip would null a good pick.
     if (!isOpen || isPublished || discounts.length === 0) return;
+    if (pubDiscountTouched) return;
     if (pubLessons < MIN_LESSONS_FOR_DISCOUNT) return;
     const pick =
       (staffReferral ? findStaffReferralDiscount(discounts)?.id : undefined) ??
       (app?.promo_eligible && promoDiscountId && discounts.some((d) => d.id === promoDiscountId)
         ? promoDiscountId
         : undefined) ??
-      (coupon?.has_coupon && coupon.value && (coupon.available ?? 0) > 0
-        ? findDiscountByValue(discounts, coupon.value)?.id
+      (couponAvailable?.value
+        ? findDiscountByValue(discounts, couponAvailable.value)?.id
         : undefined);
-    if (pick) setPubDiscountId(pick);
-  }, [isOpen, isPublished, discounts, pubLessons, staffReferral, app?.promo_eligible, promoDiscountId, coupon]);
+    setPubDiscountId(pick ?? null);
+  }, [isOpen, isPublished, discounts, pubLessons, pubDiscountTouched, staffReferral, app?.promo_eligible, promoDiscountId, couponAvailable]);
 
   // Clear the selected discount if the lesson count drops below its minimum.
   useEffect(() => {
@@ -1992,7 +1999,10 @@ export function RegularApplicationDetailModal({
                       <label className={smallLabelClass}>Discount</label>
                       <select
                         value={pubDiscountId ?? ""}
-                        onChange={(e) => setPubDiscountId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                        onChange={(e) => {
+                          setPubDiscountId(e.target.value ? parseInt(e.target.value, 10) : null);
+                          setPubDiscountTouched(true);
+                        }}
                         className={inputClass}
                       >
                         <option value="">None</option>

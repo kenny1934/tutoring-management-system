@@ -2,12 +2,11 @@
 
 import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions, useStudentHomework } from "@/lib/hooks";
+import { useStudent, useStudentCoupon, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions, useStudentHomework } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect, HomeworkCompletion, HomeworkStatus } from "@/types";
 import { SessionStatus, ATTENDABLE_STATUSES } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
-import useSWR from "swr";
 import { mutate } from "swr";
 import Link from "next/link";
 import {
@@ -141,16 +140,14 @@ export default function StudentDetailPage() {
   const { data: enrollments = [], isLoading: enrollmentsLoading } = useStudentEnrollments(studentId);
 
   // Fetch student coupon info
-  const { data: couponInfo, isLoading: couponLoading } = useSWR<StudentCouponResponse>(
-    studentId ? ['student-coupon', studentId] : null,
-    () => studentsAPI.getCoupon(studentId!)
-  );
+  const { data: couponInfo, isLoading: couponLoading, mutate: mutateCoupon } =
+    useStudentCoupon(studentId);
 
   // Shared callback to refresh enrollment-related data after status changes
   const handleEnrollmentStatusChange = useCallback(() => {
     mutate(['enrollments', studentId]);
-    mutate(['student-coupon', studentId]);
-  }, [studentId]);
+    void mutateCoupon();
+  }, [studentId, mutateCoupon]);
 
   // Fetch all schools for autocomplete
   useEffect(() => {
