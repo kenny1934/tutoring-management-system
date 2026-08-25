@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.124](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.123...v2.0.124) (2026-08-26)
+
+
+### New Features
+
+* **Mark a free class as waived**: the enrolment page's payment status now has a Waived option for a class given free of charge, such as a goodwill make-up lesson. A waived enrolment owes nothing and is never chased for payment, none of it counts towards tutor revenue, and its lessons carry a quiet grey Waived marker instead of the red unpaid flag on every page that shows payment. Moving it back to Pending Payment restores the real fee and marks the lessons unpaid again.
+
 ## [2.0.123](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.122...v2.0.123) (2026-08-25)
 
 
