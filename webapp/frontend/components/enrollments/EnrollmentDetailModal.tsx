@@ -561,14 +561,17 @@ export function EnrollmentDetailModal({
             {/* Renewal workflow actions */}
             {showRenewalActions && (
               <>
-                {/* Copy Fee - subtle icon button */}
-                <button
-                  onClick={handleCopyFee}
-                  className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
-                  title="Copy fee message"
-                >
-                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
-                </button>
+                {/* Copy Fee - subtle icon button. Hidden for waived
+                    enrollments, which have no fee to ask for. */}
+                {detail.payment_status !== 'Waived' && (
+                  <button
+                    onClick={handleCopyFee}
+                    className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
+                    title="Copy fee message"
+                  >
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
+                  </button>
+                )}
 
                 {/* Mark/Unmark Sent toggle - Admin only */}
                 {!isTutor && (detail.fee_message_sent ? (

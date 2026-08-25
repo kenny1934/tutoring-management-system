@@ -178,6 +178,10 @@ export default function EnrollmentDetailPage() {
     try {
       const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, updateData);
       mutate(['enrollment', enrollment.id], { ...enrollment, ...updatedEnrollment }, false);
+      // A payment-status change cascades onto the sessions server-side
+      // (Paid/Waived settle them, Pending Payment flags them unpaid again),
+      // so the list on this page has to refetch to show it.
+      mutate(['enrollment-sessions', enrollment.id]);
       // The summer application response snapshots the enrollment's coupon
       // (coupon_discount_value), so refresh it after a save that may have
       // changed the discount — the fee message reads the snapshot.
@@ -535,6 +539,8 @@ export default function EnrollmentDetailPage() {
   useEffect(() => {
     if (!showFeePanel || !enrollment?.id) return;
     if (summerAppId) return;
+    // A waived enrollment has no fee message — the panel shows a note instead.
+    if (enrollment.payment_status === 'Waived') return;
 
     let cancelled = false;
     setFeeMessageLoading(true);
@@ -558,7 +564,7 @@ export default function EnrollmentDetailPage() {
       });
 
     return () => { cancelled = true; };
-  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid, enrollment?.is_new_student]);
+  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid, enrollment?.is_new_student, enrollment?.payment_status]);
 
   // Calculate session stats
   const sessionStats = useMemo(() => {
@@ -1360,7 +1366,13 @@ export default function EnrollmentDetailPage() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        {summerApp && summerConfig ? (
+                        {enrollment.payment_status === 'Waived' ? (
+                          <div className="pt-4">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              This enrollment is waived, so no fee is due and there is no fee message to send.
+                            </p>
+                          </div>
+                        ) : summerApp && summerConfig ? (
                           <>
                             <div className="pt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                               <SummerMessagePanel

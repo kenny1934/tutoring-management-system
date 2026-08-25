@@ -609,15 +609,23 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             </div>
           )}
 
-          {/* Fee — total tuition from the fee message */}
-          {enrollment.total_fee != null && (
+          {/* Fee — total tuition from the fee message. A waived enrollment
+              owes nothing, so the nominal figure would mislead here. */}
+          {enrollment.payment_status === 'Waived' ? (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Fee:</span>
+              <span className="text-gray-500 dark:text-gray-400 font-medium">
+                Waived (no fee due)
+              </span>
+            </div>
+          ) : enrollment.total_fee != null ? (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Fee:</span>
               <span className="text-gray-900 dark:text-gray-100 font-medium">
                 ${enrollment.total_fee.toLocaleString()}
               </span>
             </div>
-          )}
+          ) : null}
 
           {/* First Lesson Date */}
           {enrollment.first_lesson_date && (
@@ -768,7 +776,9 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             </button>
           )}
 
-          {/* Copy Fee Message button */}
+          {/* Copy Fee Message button — hidden for waived enrollments, which
+              have no fee to ask for */}
+          {enrollment.payment_status !== 'Waived' && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -793,6 +803,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             )}
             {isCopying ? 'Copying...' : copySuccess ? 'Copied!' : 'Copy Fee Message'}
           </button>
+          )}
 
           {/* View Details link */}
           <Link
