@@ -8,7 +8,15 @@ const changelogData = [
         "title": "New Features",
         "items": [
           {
-            "description": "**Mark a free class as waived**: the enrolment page's payment status now has a Waived option for a class given free of charge, such as a goodwill make-up lesson. A waived enrolment owes nothing and is never chased for payment, none of it counts towards tutor revenue, and its lessons carry a quiet grey Waived marker instead of the red unpaid flag on every page that shows payment. Moving it back to Pending Payment restores the real fee and marks the lessons unpaid again."
+            "description": "**Mark a free class as waived**: the enrolment page's payment status now has a Waived option for a class given free of charge, such as a goodwill make-up lesson. A waived enrolment owes nothing and is never chased for payment, none of it counts towards tutor revenue, and its lessons carry a quiet grey Waived marker instead of the red unpaid flag on every page that shows payment. Moving it back to Pending Payment restores the real fee and marks the lessons unpaid again. A waived enrolment also asks for no money anywhere: its fee panel explains that no fee is due instead of writing a fee message, the fee in its details reads Waived rather than the usual amount, and the copy fee message buttons are put away."
+          }
+        ]
+      },
+      {
+        "title": "Bug Fixes",
+        "items": [
+          {
+            "description": "**Payment changes show on the lessons straight away**: after an enrolment is marked paid or waived, or moved back to pending, the lesson list on its page now updates the payment markers immediately. Before this, the old markers stayed until the page was reloaded."
           }
         ]
       }
