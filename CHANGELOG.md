@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.123](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.122...v2.0.123) (2026-08-25)
+
+
+### Bug Fixes
+
+* **Every page shows the record you opened, not the one before it**: moving straight from one student, lesson, enrolment or application to the next could briefly show the previous one's details under the new name, on any page or panel that stays open while you move between records. The last release fixed the three places where that reached a family. This one settles it everywhere else. Fees and payment status, homework, attendance and progress, parent contact history, message threads, exam revision slots and their eligible students, the renewal form that fills itself in from the last enrolment, and the placement and prospect suggestion lists all wait for the record you picked. Where a page used to fill the gap with the last thing it had, it shows its loading state for a moment instead.
+
 ## [2.0.122](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.121...v2.0.122) (2026-08-23)
 
 
