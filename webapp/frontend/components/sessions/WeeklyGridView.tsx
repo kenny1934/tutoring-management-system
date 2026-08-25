@@ -649,7 +649,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                                             <span className="text-[7px] px-1 py-px rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">
                                               Cancelled
                                             </span>
-                                          ) : session.financial_status !== "Paid" && (
+                                          ) : session.financial_status === "Unpaid" && (
                                             <HandCoins className="h-2.5 w-2.5 text-red-500" />
                                           )}
                                         </span>
@@ -661,7 +661,7 @@ export const WeeklyGridView = memo(function WeeklyGridView({
                                         "font-semibold text-[10px] leading-tight flex items-center gap-0.5 overflow-hidden",
                                         isCancelledEnrollment
                                           ? "text-gray-400 dark:text-gray-500"
-                                          : session.financial_status !== "Paid"
+                                          : session.financial_status === "Unpaid"
                                             ? "text-red-600 dark:text-red-400"
                                             : statusConfig.strikethrough
                                               ? "text-gray-400 dark:text-gray-500"

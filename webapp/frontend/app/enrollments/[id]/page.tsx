@@ -481,7 +481,7 @@ export default function EnrollmentDetailPage() {
   const timeOptions = isWeekend ? WEEKEND_TIME_OPTIONS : WEEKDAY_TIME_OPTIONS;
 
   // Other options
-  const PAYMENT_STATUS_OPTIONS = ["Pending Payment", "Paid", "Cancelled"];
+  const PAYMENT_STATUS_OPTIONS = ["Pending Payment", "Paid", "Waived", "Cancelled"];
   const ENROLLMENT_TYPE_OPTIONS = ["Regular", "One-Time", "Trial", "Summer"];
 
 
@@ -1755,6 +1755,11 @@ export default function EnrollmentDetailPage() {
                                 <span className="flex items-center gap-0.5 text-xs text-green-600">
                                   <CheckCircle2 className="h-3 w-3" />
                                   <span className="hidden sm:inline">Paid</span>
+                                </span>
+                              ) : session.financial_status === "Waived" ? (
+                                <span className="flex items-center gap-0.5 text-xs text-gray-500">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  <span className="hidden sm:inline">Waived</span>
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-0.5 text-xs text-red-600">

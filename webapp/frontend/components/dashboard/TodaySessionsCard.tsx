@@ -657,7 +657,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
   const { selectedLocation } = useLocation();
   const displayStatus = getDisplayStatus(session);
   const config = getSessionStatusConfig(displayStatus);
-  const isUnpaid = session.financial_status !== 'Paid';
+  const isUnpaid = session.financial_status === 'Unpaid';
   const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
 
   return (

@@ -2180,6 +2180,11 @@ function SessionsTab({
                     <CheckCircle2 className="h-3 w-3" />
                     <span className="hidden sm:inline">Paid</span>
                   </span>
+                ) : session.financial_status === "Waived" ? (
+                  <span className="flex items-center gap-0.5 text-xs text-gray-500">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span className="hidden sm:inline">Waived</span>
+                  </span>
                 ) : (
                   <span className="flex items-center gap-0.5 text-xs text-red-600">
                     <HandCoins className="h-3 w-3" />

@@ -1148,3 +1148,87 @@ class TestComputeDiscountValue:
     def test_none_discount(self):
         assert compute_discount_value(None, 10) == 0
         assert discount_requires_min_lessons(None) is False
+
+
+# ============================================================================
+# Test Waived enrollments (free classes, e.g. goodwill make-ups)
+# ============================================================================
+
+from routers.enrollments import compute_enrollment_revenue_total
+
+
+class TestWaivedEnrollment:
+    """A Waived enrollment is a free class: zero revenue, no chasing."""
+
+    @pytest.fixture(autouse=True)
+    def _override_auth(self):
+        admin = Tutor(id=99, user_email="admin@test.com", tutor_name="Mr Admin", role="Admin")
+        app.dependency_overrides[require_admin_write] = lambda: admin
+        app.dependency_overrides[get_current_user] = lambda: admin
+        yield
+        app.dependency_overrides.pop(require_admin_write, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+    def _seed(self, db_session):
+        tutor = Tutor(user_email="t@test.com", tutor_name="Tutor A", role="Tutor")
+        db_session.add(tutor)
+        db_session.flush()
+        student = Student(student_name="Student A", home_location="MSA", school_student_id="1001")
+        db_session.add(student)
+        db_session.flush()
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=tutor.id, first_lesson_date=date(2026, 3, 2),
+            assigned_day="Monday", assigned_time="15:00 - 16:30", location="MSA",
+            lessons_paid=1, enrollment_type="One-Time",
+            payment_status="Pending Payment", revenue_total=400,
+        )
+        db_session.add(enrollment)
+        db_session.flush()
+        session = SessionLog(
+            enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
+            session_date=date(2026, 3, 2), time_slot="15:00 - 16:30", location="MSA",
+            session_status="Scheduled", financial_status="Unpaid",
+        )
+        db_session.add(session)
+        db_session.commit()
+        return enrollment, session
+
+    def test_waiving_cascades_to_sessions_and_zeroes_revenue(self, client, db_session):
+        enrollment, session = self._seed(db_session)
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"payment_status": "Waived"},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+
+        db_session.refresh(enrollment)
+        db_session.refresh(session)
+        assert enrollment.payment_status == "Waived"
+        assert float(enrollment.revenue_total) == 0.0
+        assert session.financial_status == "Waived"
+        # Nothing was paid, so waiving must not stamp a payment date.
+        assert enrollment.payment_date is None
+
+    def test_unwaiving_restores_real_pricing(self, client, db_session):
+        enrollment, session = self._seed(db_session)
+        enrollment.payment_status = "Waived"
+        enrollment.revenue_total = 0
+        db_session.commit()
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"payment_status": "Pending Payment"},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+
+        db_session.refresh(enrollment)
+        assert float(enrollment.revenue_total) == 400.0
+
+    def test_compute_revenue_total_is_zero_for_waived(self, db_session):
+        enrollment, _ = self._seed(db_session)
+        assert compute_enrollment_revenue_total(enrollment, db_session) == 400.0
+        enrollment.payment_status = "Waived"
+        assert compute_enrollment_revenue_total(enrollment, db_session) == 0.0

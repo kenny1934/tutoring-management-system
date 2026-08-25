@@ -394,7 +394,9 @@ export function EnrollmentDetailModal({
                   "text-xs px-1.5 py-0.5 rounded",
                   detail.payment_status === "Paid"
                     ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                    : detail.payment_status === "Waived"
+                      ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                      : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                 )}>
                   {detail.payment_status}
                 </span>

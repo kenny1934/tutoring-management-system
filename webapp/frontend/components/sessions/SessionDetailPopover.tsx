@@ -891,6 +891,11 @@ export function SessionDetailPopover({
                     <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                     <span className="text-sm font-medium text-green-600">Paid</span>
                   </>
+                ) : session.financial_status === "Waived" ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-500">Waived</span>
+                  </>
                 ) : (
                   <>
                     <HandCoins className="h-3.5 w-3.5 text-red-500" />

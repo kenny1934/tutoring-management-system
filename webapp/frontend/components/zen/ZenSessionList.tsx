@@ -457,7 +457,7 @@ export function ZenSessionList({
                 >
                   {session.student_name || "Unknown"}
                   <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" className="ml-1" />
-                  {session.financial_status && session.financial_status !== "Paid" && (
+                  {session.financial_status && session.financial_status === "Unpaid" && (
                     <span
                       style={{
                         color: "var(--zen-error)",

@@ -359,7 +359,7 @@ function EnrollmentTimelineList({ data, onViewAll }: { data: StudentProgress["en
                 "w-2.5 h-2.5 rounded-full mt-1.5 shrink-0",
                 e.payment_status === "Paid" || e.payment_status === "Active"
                   ? "bg-[#a0704b]"
-                  : e.payment_status === "Cancelled"
+                  : e.payment_status === "Cancelled" || e.payment_status === "Waived"
                     ? "bg-gray-400"
                     : "bg-amber-500"
               )}
@@ -390,7 +390,7 @@ function EnrollmentTimelineList({ data, onViewAll }: { data: StudentProgress["en
                 "text-[10px] px-1.5 py-0.5 rounded font-medium",
                 e.payment_status === "Paid"
                   ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
-                  : e.payment_status === "Cancelled"
+                  : e.payment_status === "Cancelled" || e.payment_status === "Waived"
                     ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
                     : e.payment_status === "Overdue"
                       ? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"

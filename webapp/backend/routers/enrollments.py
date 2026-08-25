@@ -291,6 +291,12 @@ def compute_enrollment_revenue_total(enrollment, db: Session) -> Optional[float]
     changes a price input (lessons_paid, discount, new-student flag, Summer tier
     or override) so the stored snapshot never goes stale.
     """
+    # A waived enrollment is a free class (e.g. a goodwill make-up), so its
+    # revenue is zero by definition. Snapshotting 0 here — rather than relying
+    # on the revenue views' payment-status filter alone — keeps the stored
+    # figure truthful through every later recompute.
+    if enrollment.payment_status == 'Waived':
+        return 0.0
     total = resolve_enrollment_total_fee(enrollment, db)
     if total is None:
         return None
@@ -2316,6 +2322,11 @@ async def update_enrollment(
         update_data['payment_status'] == 'Paid' and
         enrollment.payment_status != 'Paid'
     )
+    updating_to_waived = (
+        'payment_status' in update_data and
+        update_data['payment_status'] == 'Waived' and
+        enrollment.payment_status != 'Waived'
+    )
 
     prev_payment_date = enrollment.payment_date
 
@@ -2373,6 +2384,13 @@ async def update_enrollment(
             ).first()
             if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
                 student_coupon.available_coupons -= 1
+
+    # Waiving mirrors the Paid cascade: the whole enrollment is free, so every
+    # session stops being chased. No payment date — nothing was paid.
+    if updating_to_waived:
+        db.query(SessionLog).filter(
+            SessionLog.enrollment_id == enrollment_id
+        ).update({'financial_status': 'Waived'})
 
     # For Summer enrollments, keep the linked application's paid_at in sync
     # when payment_date changes on this side. paid_at is the canonical input

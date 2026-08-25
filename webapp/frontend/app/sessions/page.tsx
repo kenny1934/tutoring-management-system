@@ -2844,7 +2844,7 @@ function SessionsPageContent() {
                                           "font-bold text-base truncate",
                                           session.enrollment_payment_status === 'Cancelled'
                                             ? "text-gray-500 dark:text-gray-400"
-                                            : session.financial_status !== "Paid"
+                                            : session.financial_status === "Unpaid"
                                               ? "text-red-600 dark:text-red-400"
                                               : statusConfig.strikethrough
                                                 ? "text-gray-500 dark:text-gray-400"
@@ -2853,7 +2853,7 @@ function SessionsPageContent() {
                                           {session.student_name}
                                         </span>
                                         <SessionLessonBadge session={session} size="xs" />
-                                        {session.enrollment_payment_status !== 'Cancelled' && session.financial_status !== "Paid" && (
+                                        {session.enrollment_payment_status !== 'Cancelled' && session.financial_status === "Unpaid" && (
                                           <HandCoins className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                                         )}
                                       </p>
