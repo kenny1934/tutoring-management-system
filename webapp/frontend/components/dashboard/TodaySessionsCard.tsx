@@ -7,7 +7,7 @@ import { useSessions, useProposalsInDateRange, usePendingMemoCount, useNowMinute
 import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeSlotGroup } from "@/lib/hooks/index";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
-import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
 import { Calendar, Clock, ChevronRight, ChevronDown, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck, Presentation } from "lucide-react";
@@ -657,7 +657,7 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
   const { selectedLocation } = useLocation();
   const displayStatus = getDisplayStatus(session);
   const config = getSessionStatusConfig(displayStatus);
-  const isUnpaid = session.financial_status === 'Unpaid';
+  const isUnpaid = isSessionUnpaid(session);
   const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
 
   return (

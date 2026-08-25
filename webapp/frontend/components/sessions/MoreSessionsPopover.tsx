@@ -14,7 +14,7 @@ import {
 import { X, HandCoins, GraduationCap, Clock } from "lucide-react";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import type { Session } from "@/types";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -126,7 +126,7 @@ export function MoreSessionsPopover({
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                             Cancelled
                           </span>
-                        ) : session.financial_status === "Unpaid" && (
+                        ) : isSessionUnpaid(session) && (
                           <HandCoins className="h-3 w-3 text-red-500" />
                         )}
                       </span>
@@ -138,7 +138,7 @@ export function MoreSessionsPopover({
                       "text-sm font-semibold flex items-center gap-1 overflow-hidden",
                       isCancelledEnrollment
                         ? "text-gray-400 dark:text-gray-500"
-                        : session.financial_status === "Unpaid"
+                        : isSessionUnpaid(session)
                           ? "text-red-600 dark:text-red-400"
                           : statusConfig.strikethrough
                             ? "text-gray-400 dark:text-gray-500"

@@ -26,7 +26,7 @@ import {
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
 import { formatCompactDateTimeSlot } from "@/lib/formatters";
-import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { getTutorSortName, getTutorFirstName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import type { MakeupProposal } from "@/types";
@@ -157,7 +157,7 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
         const status = getDisplayStatus(session) || "Unknown";
         statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
         // Unpaid count
-        if (session.financial_status === "Unpaid") {
+        if (isSessionUnpaid(session)) {
           unpaidCount++;
         }
       });
@@ -1230,7 +1230,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                             <span className="text-[6px] px-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">
                               Cancelled
                             </span>
-                          ) : session.financial_status === "Unpaid" && (
+                          ) : isSessionUnpaid(session) && (
                             <HandCoins className="h-2 w-2 text-red-500 flex-shrink-0" />
                           )}
                         </div>
@@ -1239,7 +1239,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                           "truncate",
                           isCancelledEnrollment
                             ? "text-gray-400 dark:text-gray-500"
-                            : session.financial_status === "Unpaid"
+                            : isSessionUnpaid(session)
                               ? "text-red-600 dark:text-red-400"
                               : config.strikethrough
                                 ? "text-gray-400 dark:text-gray-500"
@@ -1344,7 +1344,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
               <span className="text-[8px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                 Cancelled
               </span>
-            ) : session.financial_status === "Unpaid" && (
+            ) : isSessionUnpaid(session) && (
               <HandCoins className="h-2.5 w-2.5 text-red-500" />
             )}
           </span>
@@ -1356,7 +1356,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
           "flex items-center gap-1 text-xs font-semibold",
           isCancelledEnrollment
             ? "text-gray-400 dark:text-gray-500"
-            : session.financial_status === "Unpaid"
+            : isSessionUnpaid(session)
               ? "text-red-600 dark:text-red-400"
               : config.strikethrough
                 ? "text-gray-400 dark:text-gray-500"

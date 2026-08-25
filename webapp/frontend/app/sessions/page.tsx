@@ -12,7 +12,7 @@ import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
 import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
-import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
@@ -2844,7 +2844,7 @@ function SessionsPageContent() {
                                           "font-bold text-base truncate",
                                           session.enrollment_payment_status === 'Cancelled'
                                             ? "text-gray-500 dark:text-gray-400"
-                                            : session.financial_status === "Unpaid"
+                                            : isSessionUnpaid(session)
                                               ? "text-red-600 dark:text-red-400"
                                               : statusConfig.strikethrough
                                                 ? "text-gray-500 dark:text-gray-400"
@@ -2853,7 +2853,7 @@ function SessionsPageContent() {
                                           {session.student_name}
                                         </span>
                                         <SessionLessonBadge session={session} size="xs" />
-                                        {session.enrollment_payment_status !== 'Cancelled' && session.financial_status === "Unpaid" && (
+                                        {session.enrollment_payment_status !== 'Cancelled' && isSessionUnpaid(session) && (
                                           <HandCoins className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                                         )}
                                       </p>

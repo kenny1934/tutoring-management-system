@@ -30,6 +30,7 @@ from routers.enrollments import (
     check_student_conflicts,
     format_fee_message,
     compute_discount_value,
+    compute_enrollment_revenue_total,
     discount_requires_min_lessons,
 )
 from constants import PER_TWO_LESSONS_DISCOUNT_TYPE
@@ -1153,9 +1154,6 @@ class TestComputeDiscountValue:
 # ============================================================================
 # Test Waived enrollments (free classes, e.g. goodwill make-ups)
 # ============================================================================
-
-from routers.enrollments import compute_enrollment_revenue_total
-
 
 class TestWaivedEnrollment:
     """A Waived enrollment is a free class: zero revenue, no chasing."""

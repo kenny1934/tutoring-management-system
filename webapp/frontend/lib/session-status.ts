@@ -203,6 +203,16 @@ export function isCountableSession(session: { session_status: string }): boolean
 }
 
 /**
+ * Whether a session still owes money and should carry the red unpaid marker.
+ * Only an explicit Unpaid status counts: Paid is settled and Waived means the
+ * class is free. Shared so every view agrees on what gets chased instead of
+ * re-deriving it from the raw string.
+ */
+export function isSessionUnpaid(session: { financial_status?: string | null }): boolean {
+  return session.financial_status === "Unpaid";
+}
+
+/**
  * Sessions whose lesson number no longer lives on the row: cancelled outright,
  * or rescheduled with the make-up already booked (the lesson number moved to
  * the make-up session). Pending make-ups are NOT superseded — the original row

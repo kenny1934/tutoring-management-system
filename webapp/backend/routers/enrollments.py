@@ -294,7 +294,9 @@ def compute_enrollment_revenue_total(enrollment, db: Session) -> Optional[float]
     # A waived enrollment is a free class (e.g. a goodwill make-up), so its
     # revenue is zero by definition. Snapshotting 0 here — rather than relying
     # on the revenue views' payment-status filter alone — keeps the stored
-    # figure truthful through every later recompute.
+    # figure truthful through every later recompute. Deliberately NOT pushed
+    # down into resolve_enrollment_total_fee: the nominal fee still reports
+    # what the class would have cost; only the revenue is zero.
     if enrollment.payment_status == 'Waived':
         return 0.0
     total = resolve_enrollment_total_fee(enrollment, db)
@@ -305,6 +307,18 @@ def compute_enrollment_revenue_total(enrollment, db: Session) -> Optional[float]
     # fee is never subtracted twice — a promo student's whole payment is
     # tuition, and their revenue is correspondingly higher.
     return float(total - enrollment_registration_fee(enrollment, db))
+
+
+# When an enrollment's payment status changes, its sessions' financial status
+# follows it: Paid and Waived settle every session, and moving back to Pending
+# Payment reverses either so the sessions are chased again. Cancelled is
+# deliberately absent — cancelling keeps whatever financial history the
+# sessions already carry.
+PAYMENT_STATUS_SESSION_CASCADE = {
+    'Paid': 'Paid',
+    'Waived': 'Waived',
+    'Pending Payment': 'Unpaid',
+}
 
 
 def check_student_conflicts(
@@ -2316,22 +2330,15 @@ async def update_enrollment(
                     detail=f"Discounts are not available for enrollments of fewer than {MIN_LESSONS_FOR_DISCOUNT} lessons.",
                 )
 
-    # Check if payment_status is being changed to "Paid"
-    updating_to_paid = (
-        'payment_status' in update_data and
-        update_data['payment_status'] == 'Paid' and
-        enrollment.payment_status != 'Paid'
+    # Payment-status transition, captured before the setattr loop mutates the
+    # enrollment. The Paid flag stays named because it also gates the payment
+    # date default and the coupon decrement below.
+    new_payment_status = update_data.get('payment_status')
+    payment_status_changed = (
+        'payment_status' in update_data
+        and new_payment_status != enrollment.payment_status
     )
-    updating_to_waived = (
-        'payment_status' in update_data and
-        update_data['payment_status'] == 'Waived' and
-        enrollment.payment_status != 'Waived'
-    )
-    updating_to_pending = (
-        'payment_status' in update_data and
-        update_data['payment_status'] == 'Pending Payment' and
-        enrollment.payment_status != 'Pending Payment'
-    )
+    updating_to_paid = payment_status_changed and new_payment_status == 'Paid'
 
     prev_payment_date = enrollment.payment_date
 
@@ -2376,9 +2383,6 @@ async def update_enrollment(
     if updating_to_paid:
         if "payment_date" not in update_data:
             enrollment.payment_date = hk_now().date()
-        db.query(SessionLog).filter(
-            SessionLog.enrollment_id == enrollment_id
-        ).update({'financial_status': 'Paid'})
 
         # Decrement student's available coupons if enrollment used a coupon discount ($200 or $300)
         if (enrollment.discount and
@@ -2390,19 +2394,15 @@ async def update_enrollment(
             if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
                 student_coupon.available_coupons -= 1
 
-    # Waiving mirrors the Paid cascade: the whole enrollment is free, so every
-    # session stops being chased. No payment date — nothing was paid.
-    if updating_to_waived:
+    # One cascade for every payment transition — the policy lives in
+    # PAYMENT_STATUS_SESSION_CASCADE next to the pricing helpers.
+    if payment_status_changed and new_payment_status in PAYMENT_STATUS_SESSION_CASCADE:
         db.query(SessionLog).filter(
             SessionLog.enrollment_id == enrollment_id
-        ).update({'financial_status': 'Waived'})
-
-    # Moving back to Pending Payment reverses those cascades so the sessions
-    # are chased again.
-    if updating_to_pending:
-        db.query(SessionLog).filter(
-            SessionLog.enrollment_id == enrollment_id
-        ).update({'financial_status': 'Unpaid'})
+        ).update(
+            {'financial_status': PAYMENT_STATUS_SESSION_CASCADE[new_payment_status]},
+            synchronize_session=False,
+        )
 
     # For Summer enrollments, keep the linked application's paid_at in sync
     # when payment_date changes on this side. paid_at is the canonical input

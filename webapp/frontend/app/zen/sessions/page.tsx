@@ -26,7 +26,7 @@ import {
   QUICK_MARK_STATUS_MAP,
 } from "@/components/zen/utils/sessionSorting";
 import { callMarkApi } from "@/components/zen/utils/sessionActions";
-import { isCountableSession } from "@/lib/session-status";
+import { isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { ZenLessonMode } from "@/components/zen/lesson/ZenLessonMode";
 import { ZenLessonWideMode } from "@/components/zen/lesson/ZenLessonWideMode";
 import type { Session, SessionFilters, Tutor } from "@/types";
@@ -1086,7 +1086,7 @@ function DayDetailView({
                   <span style={{ minWidth: "160px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--zen-fg)" }}>
                     {session.student_name || "Unknown"}
                     <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" className="ml-1 align-middle" />
-                    {session.financial_status && session.financial_status === "Unpaid" && (
+                    {isSessionUnpaid(session) && (
                       <span
                         style={{
                           color: "var(--zen-error)",

@@ -17,7 +17,7 @@ import {
 import { ZenSessionDetail } from "./ZenSessionDetail";
 import { ZenConfirmDialog } from "./ZenConfirmDialog";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
-import { isCountableSession } from "@/lib/session-status";
+import { isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { setZenStatus } from "./ZenStatusBar";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { GradeLabel } from "@/components/ui/grade-label";
@@ -457,7 +457,7 @@ export function ZenSessionList({
                 >
                   {session.student_name || "Unknown"}
                   <LessonNumberBadge lessonNumber={session.lesson_number} size="xs" className="ml-1" />
-                  {session.financial_status && session.financial_status === "Unpaid" && (
+                  {isSessionUnpaid(session) && (
                     <span
                       style={{
                         color: "var(--zen-error)",
