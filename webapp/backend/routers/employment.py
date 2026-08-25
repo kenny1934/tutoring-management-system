@@ -207,12 +207,13 @@ def departure_load(
             or 0
         )
 
+    # Through the shared clause rather than its own date test, so this number
+    # and the one in the notification bell cannot disagree about which lessons
+    # still need somebody.
     load.sessions_after_last_day = (
         db.query(func.count(SessionLog.id))
-        .filter(
-            SessionLog.tutor_id == tutor_id,
-            SessionLog.session_date > tutor.departure_effective_on,
-        )
+        .join(Tutor, SessionLog.tutor_id == Tutor.id)
+        .filter(SessionLog.tutor_id == tutor_id, sessions_after_last_day_clause())
         .scalar()
         or 0
     )

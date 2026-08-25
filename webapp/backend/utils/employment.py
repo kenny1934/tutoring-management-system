@@ -29,7 +29,12 @@ from typing import Optional
 
 from sqlalchemy import and_ as sa_and, or_ as sa_or
 
-from constants import WEEKDAY_NAMES, normalize_secondary_location, today_hk
+from constants import (
+    NON_ACTIVE_SESSION_STATUSES,
+    WEEKDAY_NAMES,
+    normalize_secondary_location,
+    today_hk,
+)
 from models import SessionLog, Tutor
 
 
@@ -69,14 +74,28 @@ def leaving_clause():
 def sessions_after_last_day_clause():
     """Lessons booked for somebody past their own last working day.
 
-    Needs SessionLog joined to Tutor. It lives here because two places ask the
-    question, the notification count and the filtered sessions list, and the
-    banner on that list quotes the count as though they agree. Written twice
-    they would eventually not.
+    Needs SessionLog joined to Tutor. It lives here because three places ask
+    the question: the notification count, the filtered sessions list, and the
+    departure load on a leaver's profile. The banner on that list quotes the
+    count as though all three agree, and written out three times they would
+    eventually not.
+
+    Only work somebody actually has to turn up for counts. A cancelled lesson
+    needs nobody, and neither does a make-up origin row: once a lesson has been
+    moved, whether the make-up is already booked or still owed to the student,
+    the row keeps its original date but nobody is teaching in that slot any
+    more. Leaving those in sends an admin hunting for cover that does not need
+    arranging, which is how the list stops being read at all. A row with no
+    status at all is treated as real work, because the mistake worth avoiding
+    here is the lesson nobody notices.
     """
     return sa_and(
         leaving_clause(),
         SessionLog.session_date > Tutor.departure_effective_on,
+        sa_or(
+            SessionLog.session_status.is_(None),
+            SessionLog.session_status.notin_(NON_ACTIVE_SESSION_STATUSES),
+        ),
     )
 
 

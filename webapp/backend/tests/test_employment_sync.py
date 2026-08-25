@@ -5,7 +5,7 @@ for somebody already gone. The one decision left on this side is what to do
 with a departure that has no date, which is what an immediate termination looks
 like, and reading that as gone today is what these tests pin down.
 """
-from datetime import date
+from datetime import date, timedelta
 
 from models import SessionLog, Student, Tutor
 from services.ark_employment_sync import (
@@ -165,3 +165,40 @@ class TestOverrunReport:
         )
 
         assert len(rows) == 3
+
+    def test_it_leaves_out_lessons_nobody_has_to_teach(self, db_session):
+        """A lesson that has been moved or cancelled keeps its original date,
+        so it lands in this window looking like work when there is nothing
+        left to cover."""
+        tutor = _tutor(db_session, "Ms Bella Chang", tutor_id=3)
+        student = Student(student_name="A Student", grade="F2")
+        db_session.add(student)
+        db_session.commit()
+        statuses = [
+            "Scheduled",
+            "Cancelled",
+            "Rescheduled - Make-up Booked",
+            "Sick Leave - Pending Make-up",
+            "Weather Cancelled - Make-up Booked",
+        ]
+        for offset, status in enumerate(statuses):
+            db_session.add(SessionLog(
+                student_id=student.id,
+                tutor_id=tutor.id,
+                session_date=date(2026, 8, 25) + timedelta(days=offset),
+                time_slot="10:00 - 11:30",
+                location="MSB",
+                session_status=status,
+            ))
+        db_session.commit()
+        tutor.departure_effective_on = date(2026, 8, 22)
+        db_session.commit()
+
+        rows = (
+            db_session.query(SessionLog)
+            .join(Tutor, SessionLog.tutor_id == Tutor.id)
+            .filter(sessions_after_last_day_clause())
+            .all()
+        )
+
+        assert [row.session_status for row in rows] == ["Scheduled"]

@@ -9,6 +9,9 @@ const changelogData = [
         "items": [
           {
             "description": "**Every page shows the record you opened, not the one before it**: moving straight from one student, lesson, enrolment or application to the next could briefly show the previous one's details under the new name, on any page or panel that stays open while you move between records. The last release fixed the three places where that reached a family. This one settles it everywhere else. Fees and payment status, homework, attendance and progress, parent contact history, message threads, exam revision slots and their eligible students, the renewal form that fills itself in from the last enrolment, and the placement and prospect suggestion lists all wait for the record you picked. Where a page used to fill the gap with the last thing it had, it shows its loading state for a moment instead."
+          },
+          {
+            "description": "**Sessions after a tutor's last day only counts the lessons that still need somebody**: rescheduled, sick leave, weather cancelled and cancelled lessons were being listed there, and on the leaving tutor's own page, even though nobody is teaching those slots and any make-up already sits on its own date. They are left out now, so the count is the work that actually has to be moved onto somebody else."
           }
         ]
       }
