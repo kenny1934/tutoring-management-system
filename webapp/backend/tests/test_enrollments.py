@@ -1211,10 +1211,11 @@ class TestWaivedEnrollment:
         # Nothing was paid, so waiving must not stamp a payment date.
         assert enrollment.payment_date is None
 
-    def test_unwaiving_restores_real_pricing(self, client, db_session):
+    def test_unwaiving_restores_real_pricing_and_unpaid_sessions(self, client, db_session):
         enrollment, session = self._seed(db_session)
         enrollment.payment_status = "Waived"
         enrollment.revenue_total = 0
+        session.financial_status = "Waived"
         db_session.commit()
 
         resp = client.patch(
@@ -1225,7 +1226,30 @@ class TestWaivedEnrollment:
         assert resp.status_code == 200
 
         db_session.refresh(enrollment)
+        db_session.refresh(session)
         assert float(enrollment.revenue_total) == 400.0
+        assert session.financial_status == "Unpaid"
+
+    def test_unpaying_resets_sessions_to_unpaid(self, client, db_session):
+        enrollment, session = self._seed(db_session)
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"payment_status": "Paid"},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.financial_status == "Paid"
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"payment_status": "Pending Payment"},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.financial_status == "Unpaid"
 
     def test_compute_revenue_total_is_zero_for_waived(self, db_session):
         enrollment, _ = self._seed(db_session)

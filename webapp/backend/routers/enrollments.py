@@ -2327,6 +2327,11 @@ async def update_enrollment(
         update_data['payment_status'] == 'Waived' and
         enrollment.payment_status != 'Waived'
     )
+    updating_to_pending = (
+        'payment_status' in update_data and
+        update_data['payment_status'] == 'Pending Payment' and
+        enrollment.payment_status != 'Pending Payment'
+    )
 
     prev_payment_date = enrollment.payment_date
 
@@ -2391,6 +2396,13 @@ async def update_enrollment(
         db.query(SessionLog).filter(
             SessionLog.enrollment_id == enrollment_id
         ).update({'financial_status': 'Waived'})
+
+    # Moving back to Pending Payment reverses those cascades so the sessions
+    # are chased again.
+    if updating_to_pending:
+        db.query(SessionLog).filter(
+            SessionLog.enrollment_id == enrollment_id
+        ).update({'financial_status': 'Unpaid'})
 
     # For Summer enrollments, keep the linked application's paid_at in sync
     # when payment_date changes on this side. paid_at is the canonical input
