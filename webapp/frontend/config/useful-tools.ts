@@ -57,8 +57,14 @@ export const usefulTools: UsefulTool[] = [
   },
   {
     name: "School Curriculum 2025-2026",
-    description: "Current academic year curriculum tracking with collaborative editing",
+    description: "Last academic year's curriculum topics by week, grade, and school",
     url: "https://docs.google.com/spreadsheets/d/1l9CBqVqqp0zVU4YbRAKND_cwSu2TrLmspHFqY4SJEZo/",
+    iconUrl: "https://cdn.prod.website-files.com/655b60964be1a1b36c746790/655b60964be1a1b36c746d61_646e04919c3fa7c2380ae837_Google_Sheets_logo_(2014-2020).svg.png",
+  },
+  {
+    name: "School Curriculum 2026-2027",
+    description: "Current academic year curriculum tracking with collaborative editing",
+    url: "https://docs.google.com/spreadsheets/d/1Yx_g1FeT72u6Nex-VNvAdixMKvgO4vutrWvO4Sd4wl8",
     iconUrl: "https://cdn.prod.website-files.com/655b60964be1a1b36c746790/655b60964be1a1b36c746d61_646e04919c3fa7c2380ae837_Google_Sheets_logo_(2014-2020).svg.png",
   },
   {
