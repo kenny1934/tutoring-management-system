@@ -12,6 +12,12 @@ const changelogData = [
           },
           {
             "description": "**The handover note also shows on the lesson page**: the first lesson a tutor teaches a former P6 student has always carried the handover note when you open the lesson from a list. The full lesson page now shows it too, and because there is more room there, it also carries the sibling note and the family's preferred tutor and time where the primary branch left them."
+          },
+          {
+            "description": "**F5 and F6 grade badges have their own colours**: grade badges were only coloured up to F4, so every F5 and F6 student came out in the same neutral grey wherever a grade appears. Both years now have their own colours in each language stream, on all of the pages that colour a grade."
+          },
+          {
+            "description": "**The 2026-2027 school curriculum sheet is in the tools menu**: the new academic year's curriculum sheet sits with the others under Useful Tools. Last year's 2025-2026 sheet stays where it was and now says so in its description, so it is clear at a glance which of the two is the current one."
           }
         ]
       }

@@ -7,6 +7,8 @@
 
 * **Handover notes now reach the students who skipped summer**: a P6 student who came straight to the September intake without taking a summer course was not showing the note their primary branch tutor wrote about them, even though the note was sitting there all along. Those notes now appear exactly as they already did for the students who came through summer, on the Profile tab of the student's page and on the first lesson their new tutor teaches them. This brings in 53 students who had a handover waiting that nobody could see.
 * **The handover note also shows on the lesson page**: the first lesson a tutor teaches a former P6 student has always carried the handover note when you open the lesson from a list. The full lesson page now shows it too, and because there is more room there, it also carries the sibling note and the family's preferred tutor and time where the primary branch left them.
+* **F5 and F6 grade badges have their own colours**: grade badges were only coloured up to F4, so every F5 and F6 student came out in the same neutral grey wherever a grade appears. Both years now have their own colours in each language stream, on all of the pages that colour a grade.
+* **The 2026-2027 school curriculum sheet is in the tools menu**: the new academic year's curriculum sheet sits with the others under Useful Tools. Last year's 2025-2026 sheet stays where it was and now says so in its description, so it is clear at a glance which of the two is the current one.
 
 ## [2.0.124](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.123...v2.0.124) (2026-08-26)
 
