@@ -36,6 +36,7 @@ import { BookmarkTab } from "@/components/session/BookmarkTab";
 import { CurriculumTab } from "@/components/session/CurriculumTab";
 import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { TestAlertBanner } from "@/components/session/TestAlertBanner";
+import { HandoverBanner } from "@/components/session/HandoverBanner";
 import { MemoBanner } from "@/components/sessions/MemoBanner";
 import { MemoModal } from "@/components/sessions/MemoModal";
 import { MemoImportModal } from "@/components/sessions/MemoImportModal";
@@ -545,6 +546,13 @@ export default function SessionDetailPage() {
           <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={() => setLessonMode(true)} loadingActionId={loadingActionId} />
         </div>
       </div>
+
+      {/* Handover note from the primary branch, on the first lesson with this tutor */}
+      {session.show_handover_first_lesson && session.handover_prospect && (
+        <div className="pl-0 sm:pl-8 lg:pl-14">
+          <HandoverBanner prospect={session.handover_prospect} />
+        </div>
+      )}
 
       {/* Upcoming Tests Alert Banner */}
       <div className="pl-0 sm:pl-8 lg:pl-14">
