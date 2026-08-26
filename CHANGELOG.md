@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.125](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.124...v2.0.125) (2026-08-26)
+
+
+### New Features
+
+* **Handover notes now reach the students who skipped summer**: a P6 student who came straight to the September intake without taking a summer course was not showing the note their primary branch tutor wrote about them, even though the note was sitting there all along. Those notes now appear exactly as they already did for the students who came through summer, on the Profile tab of the student's page and on the first lesson their new tutor teaches them. This brings in 53 students who had a handover waiting that nobody could see.
+* **The handover note also shows on the lesson page**: the first lesson a tutor teaches a former P6 student has always carried the handover note when you open the lesson from a list. The full lesson page now shows it too, and because there is more room there, it also carries the sibling note and the family's preferred tutor and time where the primary branch left them.
+
 ## [2.0.124](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.123...v2.0.124) (2026-08-26)
 
 
