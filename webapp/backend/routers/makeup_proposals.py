@@ -516,10 +516,14 @@ async def approve_slot(
 
     if is_summer_session(original_session):
         # Summer sessions swap the enrollment-deadline and 60-day checks for a
-        # single rule: the make-up must land on or before 31 August.
+        # single rule: the make-up must land on or before 31 August. Admins and
+        # Super Admins can override that date, and as with the holiday block it
+        # counts if either the approver or the admin who proposed the slot has
+        # that authority. Without the proposer arm, an admin's September
+        # proposal would fail the moment the target tutor accepted it.
         assert_summer_reschedule_deadline(
             original_session, slot.proposed_date,
-            is_super_admin=current_user.role == "Super Admin",
+            can_override=(is_admin or proposer_is_admin),
         )
     else:
         # Validate: enrollment deadline - ONLY for regular slot

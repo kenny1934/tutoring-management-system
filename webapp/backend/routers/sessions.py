@@ -1487,12 +1487,13 @@ async def schedule_makeup(
 
     # Shared validation: 60-day window, holiday, enrollment deadline, student conflict
     is_super_admin = current_user.role == "Super Admin"
-    is_admin = current_user.role in ("Super Admin", "Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     validate_makeup_constraints(
         db, original_session.student_id, original_session,
         request.session_date, request.time_slot, request.location,
         is_super_admin=is_super_admin,
         is_admin=is_admin,
+        can_override_summer_deadline=is_admin,
     )
 
     # Verify the tutor exists and works at the branch. Their own branch counts,
@@ -1899,7 +1900,7 @@ async def update_session(
                 # window. Their single rule: land on or before 31 August.
                 _assert_summer_reschedule_deadline(
                     session, request.session_date,
-                    is_super_admin=current_user.role == "Super Admin",
+                    can_override=current_user.role in ADMIN_WRITE_ROLES,
                 )
             else:
                 current_enrollment = db.query(Enrollment).filter(

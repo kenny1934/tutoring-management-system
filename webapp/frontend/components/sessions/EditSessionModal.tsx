@@ -19,6 +19,7 @@ import { ratingToEmoji } from "@/lib/formatters";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { sessionSummerYear } from "@/lib/summer-courseware-session";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
 import { GradeBadge } from "@/components/ui/grade-label";
 
@@ -93,7 +94,7 @@ export function EditSessionModal({
   const { data: allTutors = [] } = useTutors();
   const { data: locations } = useLocations();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
-  const { effectiveRole } = useAuth();
+  const { effectiveRole, isAdmin } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
 
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
@@ -121,13 +122,19 @@ export function EditSessionModal({
   const rootOriginalDate = session.root_original_session_date || session.session_date;
   const isMakeupSession = !!session.make_up_for_id;
 
+  // A summer session answers to one date rule instead of the 60-day window:
+  // it has to stay on or before 31 August of its own summer, which is how the
+  // backend reads it too.
+  const isSummerSession = enrollment?.enrollment_type === 'Summer';
+  const summerDeadline = isSummerSession ? `${sessionSummerYear(session)}-08-31` : null;
+
   // Calculate the last allowed date (60 days from original)
   const lastAllowedDate60Day = useMemo(() => {
-    if (!isMakeupSession || !rootOriginalDate) return null;
+    if (isSummerSession || !isMakeupSession || !rootOriginalDate) return null;
     const d = new Date(rootOriginalDate + 'T00:00:00');
     d.setDate(d.getDate() + 60);
     return d.toISOString().split('T')[0];
-  }, [isMakeupSession, rootOriginalDate]);
+  }, [isSummerSession, isMakeupSession, rootOriginalDate]);
 
   const { showToast } = useToast();
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -274,6 +281,14 @@ export function EditSessionModal({
     if (form.session_date === session.session_date) return false; // No change
     return form.session_date > lastAllowedDate60Day;
   }, [isMakeupSession, lastAllowedDate60Day, form.session_date, session.session_date]);
+
+  // Summer 31 August cap. Admins and Super Admins can move a summer session
+  // into September anyway, so for them this is a warning rather than a block.
+  const isSummerDeadlineExceeded = useMemo(() => {
+    if (!summerDeadline || !form.session_date) return false;
+    if (form.session_date === session.session_date) return false; // No change
+    return form.session_date > summerDeadline;
+  }, [summerDeadline, form.session_date, session.session_date]);
 
   // Check if session is pending makeup
   const isPendingMakeup = session.session_status.includes("Pending Make-up");
@@ -500,7 +515,7 @@ export function EditSessionModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)}>
+          <Button onClick={handleSave} disabled={isSaving || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin) || (isSummerDeadlineExceeded && !isAdmin)}>
             Save Changes
           </Button>
         </div>
@@ -535,10 +550,11 @@ export function EditSessionModal({
               onChange={(e) => updateField("session_date", e.target.value)}
               aria-describedby={
                 is60DayExceeded ? "session-60day-warning" :
+                isSummerDeadlineExceeded ? "session-summer-deadline-warning" :
                 showEarlyDeadlineWarning ? "session-deadline-warning" :
                 deadlineError ? "session-deadline-error" : undefined
               }
-              aria-invalid={is60DayExceeded || showEarlyDeadlineWarning || deadlineError ? "true" : undefined}
+              aria-invalid={is60DayExceeded || isSummerDeadlineExceeded || showEarlyDeadlineWarning || deadlineError ? "true" : undefined}
               className={inputClass}
             />
           </div>
@@ -590,6 +606,40 @@ export function EditSessionModal({
                 variant="ghost"
                 onClick={() => updateField("session_date", session.session_date)}
                 className={`text-xs ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
+              >
+                Revert Date
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Summer 31 August deadline: a warning admins can act on, a block for everyone else */}
+        {isSummerDeadlineExceeded && (
+          <div id="session-summer-deadline-warning" role="alert" className={`p-3 ${isAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'} border rounded-lg`}>
+            <div className="flex items-start gap-2">
+              <AlertTriangle className={`h-4 w-4 ${isAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} aria-hidden="true" />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm ${isAdmin ? 'text-orange-800 dark:text-orange-200' : 'text-red-800 dark:text-red-200'}`}>
+                  {isAdmin
+                    ? 'This date is past the summer deadline (override available)'
+                    : 'This date is past the summer deadline'}
+                </p>
+                <p className={`text-xs ${isAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5`}>
+                  Summer sessions must be scheduled on or before 31 August {sessionSummerYear(session)}.
+                </p>
+                {isAdmin && (
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-medium">
+                    You may proceed with this override.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => updateField("session_date", session.session_date)}
+                className={`text-xs ${isAdmin ? 'text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
               >
                 Revert Date
               </Button>
