@@ -5,7 +5,7 @@
 
 ### New Features
 
-* **Admins can move a summer lesson into September**: a summer lesson had to land on or before 31 August, and only a Super Admin could place one after that, so an admin arranging a late make-up had to go and find one. Admins can now set those dates themselves, whether they are booking a make-up or changing a lesson's date directly. The date is still refused for everyone else, and anyone who can override it sees a warning explaining what they are about to do before it saves.
+* **Admins can move a summer lesson past 31 August**: placing a summer lesson or make-up after the summer cut-off no longer needs a Super Admin.
 
 ## [2.0.125](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.124...v2.0.125) (2026-08-26)
 
