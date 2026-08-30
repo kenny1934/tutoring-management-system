@@ -12,308 +12,308 @@
 
 ### New Features
 
-* **Handover notes now reach the students who skipped summer**: a P6 student who came straight to the September intake without taking a summer course was not showing the note their primary branch tutor wrote about them, even though the note was sitting there all along. Those notes now appear exactly as they already did for the students who came through summer, on the Profile tab of the student's page and on the first lesson their new tutor teaches them. This brings in 53 students who had a handover waiting that nobody could see.
-* **The handover note also shows on the lesson page**: the first lesson a tutor teaches a former P6 student has always carried the handover note when you open the lesson from a list. The full lesson page now shows it too, and because there is more room there, it also carries the sibling note and the family's preferred tutor and time where the primary branch left them.
-* **F5 and F6 grade badges have their own colours**: grade badges were only coloured up to F4, so every F5 and F6 student came out in the same neutral grey wherever a grade appears. Both years now have their own colours in each language stream, on all of the pages that colour a grade.
-* **The 2026-2027 school curriculum sheet is in the tools menu**: the new academic year's curriculum sheet sits with the others under Useful Tools. Last year's 2025-2026 sheet stays where it was and now says so in its description, so it is clear at a glance which of the two is the current one.
+* **Handover notes now reach the students who skipped summer**: a P6 student who came straight to the September intake without a summer course now shows the note their primary branch tutor wrote, bringing in 53 students whose note nobody could see.
+* **The handover note also shows on the lesson page**: the full lesson page now carries it, along with the sibling note and the family's preferred tutor and time.
+* **F5 and F6 grade badges have their own colours**: both years are coloured by language stream now instead of coming out grey.
+* **The 2026-2027 school curriculum sheet is in the tools menu**: it sits with the others under Useful Tools, and last year's sheet now says 2025-2026 in its description.
 
 ## [2.0.124](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.123...v2.0.124) (2026-08-26)
 
 
 ### New Features
 
-* **Mark a free class as waived**: the enrolment page's payment status now has a Waived option for a class given free of charge, such as a goodwill make-up lesson. A waived enrolment owes nothing and is never chased for payment, none of it counts towards tutor revenue, and its lessons carry a quiet grey Waived marker instead of the red unpaid flag on every page that shows payment. Moving it back to Pending Payment restores the real fee and marks the lessons unpaid again. A waived enrolment also asks for no money anywhere: its fee panel explains that no fee is due instead of writing a fee message, the fee in its details reads Waived rather than the usual amount, and the copy fee message buttons are put away.
+* **Mark a free class as waived**: the enrolment page's payment status has a Waived option for a class given free of charge, which owes nothing, is never chased for payment, and counts nothing towards tutor revenue. Moving it back to Pending Payment restores the real fee.
 
 
 ### Bug Fixes
 
-* **Payment changes show on the lessons straight away**: after an enrolment is marked paid or waived, or moved back to pending, the lesson list on its page now updates the payment markers immediately. Before this, the old markers stayed until the page was reloaded.
+* **Payment changes show on the lessons straight away**: marking an enrolment paid or waived now updates the payment markers on its lesson list without a reload.
 
 ## [2.0.123](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.122...v2.0.123) (2026-08-25)
 
 
 ### Bug Fixes
 
-* **Every page shows the record you opened, not the one before it**: moving straight from one student, lesson, enrolment or application to the next could briefly show the previous one's details under the new name, on any page or panel that stays open while you move between records. The last release fixed the three places where that reached a family. This one settles it everywhere else. Fees and payment status, homework, attendance and progress, parent contact history, message threads, exam revision slots and their eligible students, the renewal form that fills itself in from the last enrolment, and the placement and prospect suggestion lists all wait for the record you picked. Where a page used to fill the gap with the last thing it had, it shows its loading state for a moment instead.
-* **Sessions after a tutor's last day only counts the lessons that still need somebody**: rescheduled, sick leave, weather cancelled and cancelled lessons were being listed there, and on the leaving tutor's own page, even though nobody is teaching those slots and any make-up already sits on its own date. They are left out now, so the count is the work that actually has to be moved onto somebody else.
+* **Every page shows the record you opened, not the one before it**: moving straight from one student, lesson, enrolment or application to the next no longer shows the previous one's details under the new name, on every page and panel where that could still happen.
+* **Sessions after a tutor's last day only counts the lessons that still need somebody**: rescheduled, cancelled, sick leave and weather cancelled lessons are left out, so the count is the work that has to move onto someone else.
 
 ## [2.0.122](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.121...v2.0.122) (2026-08-23)
 
 
 ### Bug Fixes
 
-* **A coupon stays with the student it belongs to**: stepping from one September applicant to the next sometimes showed the previous student's coupon on the new one, and the fee message then quoted a discount that family was never owed. Each applicant's coupon, staff referral badge and preselected discount are now their own, and the page waits for their record rather than showing the one before it. The discount it suggests is also withdrawn again if it turns out the student does not qualify, so a suggestion can no longer be quoted by accident.
-* **Buddy group fees are priced against the right group**: opening one grouped summer application straight after another could price the new applicant against the previous group for a moment, both in the fee box and in the fee message. The tier is now always worked out from the group the application in front of you actually belongs to. The same page could also fill in the previous student's language stream when a record was linked, which is fixed.
-* **Enrolment details belong to the enrolment you opened**: opening one enrolment after another from the renewals and trials pages could briefly show the earlier enrolment's fee, payment status and dates under the new student's name. The panel now waits for the enrolment you picked.
+* **A coupon stays with the student it belongs to**: stepping from one September applicant to the next no longer carries the previous student's coupon, staff referral badge or discount onto the new one.
+* **Buddy group fees are priced against the right group**: a grouped summer application is priced against its own group rather than the one opened before it, in both the fee box and the fee message.
+* **Enrolment details belong to the enrolment you opened**: opening one enrolment after another from the renewals and trials pages no longer shows the earlier one's fee, payment status and dates.
 
 ## [2.0.121](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.120...v2.0.121) (2026-08-21)
 
 
 ### Bug Fixes
 
-* **Staff referral discount on September applications**: when the student linked to a Regular Intake application is marked as a staff referral, the application's page now shows a Staff referral badge beside the student and preselects the $500 staff discount in the publish step, so the fee message quotes the staff price and the enrolment is created at it. The staff discount takes precedence over a coupon or the seasonal offer, matching how new enrolments and renewals already behave, and it can still be changed before publishing.
-* **School filter readable in dark mode**: the school select on the arrangement board's unassigned panel came out as a pale pill in dark mode. It now takes the same colours as the filter chips beside it in both themes.
+* **Staff referral discount on September applications**: a Regular Intake application whose student is marked as a staff referral now shows the badge and preselects the $500 staff discount at the publish step, ahead of any coupon or seasonal offer.
+* **School filter readable in dark mode**: the school select on the arrangement board's unassigned panel now takes the same colours as the filter chips beside it.
 
 ## [2.0.120](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.119...v2.0.120) (2026-08-19)
 
 
 ### New Features
 
-* **Summer applications recognise school spellings too**: opening a summer application now shows the school code the typed name is recognised as, beside the family's own wording, and when the app cannot place a spelling the same box the Regular Intake pages have is there to say which school it means. A spelling taught on either side counts for both, so by next summer the intake arrives already understood instead of as free text to untangle. Creating a student from a summer application also fills the form with the school code rather than the family's spelling.
+* **Summer applications recognise school spellings too**: a summer application now shows the school code its typed name is recognised as, with the same box the Regular Intake pages have for saying which school an unfamiliar spelling means.
 
 ## [2.0.119](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.118...v2.0.119) (2026-08-19)
 
 
 ### New Features
 
-* **Filter September applicants by the branch they come from**: the applications page in Regular Intake gains the branch origin filter the summer page already has, in the More menu. Pick a branch to see only the applicants who come from it, whether that origin was confirmed by staff, read from their linked record, or claimed on the form, and pick "New (no branch)" to see the applicants with no MathConcept history at all.
-* **Creating a student from an application starts with the school code**: when the school a family typed is one the app recognises, the create student form now opens with the matching school code already filled in, so the new record lines up with the rest of the student list without retyping. A spelling the app has not met before still comes through exactly as typed.
+* **Filter September applicants by the branch they come from**: the applications page in Regular Intake gains the branch origin filter the summer page already has, including New (no branch) for applicants with no MathConcept history.
+* **Creating a student from an application starts with the school code**: the create student form opens with the matching school code filled in when the app recognises the school a family typed.
 
 ## [2.0.118](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.117...v2.0.118) (2026-08-19)
 
 
 ### New Features
 
-* **Which schools the September intake comes from**: the Applications page in Regular Intake gains a stats view beside the list, and its headline chart counts applicants by school even though every family types the school name their own way. Around 260 known spellings are read as the school they mean, so 聖羅撒 and 聖羅撒英文中學 count as one school, and a spelling the app has not met before is shown apart rather than guessed at. The view also carries the status pipeline, grades, preferred branch and a day by day chart of submissions, and clicking a bar narrows the list to those applicants.
-* **Teaching the app a new school spelling**: when an application names a school the app cannot place, the stats view and the application's own page both offer a box to say which school it means. The answer takes effect at once and every chart regroups, while the family's own wording stays exactly as they typed it.
-* **Schoolmates on the arrangement board**: pick a school while arranging September classes and every student from it lights up across the board and the unassigned list, so friends can be placed together on purpose. Each class card can say who it holds by school, the unassigned list can be narrowed to one school, and the placement suggestions now spot schoolmates across different spellings of the same school.
+* **Which schools the September intake comes from**: the Applications page in Regular Intake gains a stats view whose headline chart counts applicants by school, reading around 260 known spellings as the school they mean. It also carries the status pipeline, grades, preferred branch and submissions by day.
+* **Teaching the app a new school spelling**: when an application names a school the app cannot place, the stats view and the application's own page both offer a box to say which school it means.
+* **Schoolmates on the arrangement board**: pick a school while arranging September classes and every student from it lights up across the board and the unassigned list, so friends can be placed together.
 
 ## [2.0.117](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.116...v2.0.117) (2026-08-19)
 
 
 ### New Features
 
-* **A tutor can now cover lessons at the other branch**: say on their record that they also cover another branch, and they can be given a lesson, a make-up or an exam revision slot there. They are marked as covering wherever they appear, with their own branch beside their name.
-* **Cover can be limited to certain days or dates**: pick the weekdays and a first and last day, or leave it blank to run on. Somebody covering one Saturday only appears in the tutor lists that day. The tutor list shows who is covering where.
+* **A tutor can now cover lessons at the other branch**: say on their record that they also cover another branch, and they can be given a lesson, a make-up or an exam revision slot there.
+* **Cover can be limited to certain days or dates**: pick the weekdays and a first and last day, or leave it blank to run on, and somebody covering one Saturday only appears in the tutor lists that day.
 
 ## [2.0.116](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.115...v2.0.116) (2026-08-15)
 
 
 ### Bug Fixes
 
-* **A tutor filter no longer moves itself to somebody else after a departure**: every filter that names a tutor built its list from the people who can still be given work, so the day somebody left, a filter pointed at them decided its own value was invalid and moved to whoever came first. A link shared as one tutor's would open showing another tutor's figures under that other tutor's name, which looked like an answer rather than a mistake. Those filters now only move when you change branch, which is the case that rule was written for, and whoever a filter or a form is set to stays named on screen with the date they left beside it. This covers the dashboard, quick attendance, unchecked attendance, terminated students, revenue, parent contacts, overdue payments, the student list, the enrollment pages and the zen pages.
-* **Lessons still booked past a tutor's last day now open as a week**: that list grouped by time of day and nothing else, so twenty-six lessons spread across five separate dates piled up under a single "10:00 - 11:30" heading with no way to tell which day any of them was. It opens as a week instead, on the first week that actually holds lessons to move, and the view buttons are back on the toolbar so you can switch to the list, the day or the month. In the list every day now has its own heading and every time carries its date.
+* **A tutor filter no longer moves itself to somebody else after a departure**: a filter pointed at a tutor who has left now stays on them, with their leaving date beside the name, instead of jumping to whoever comes first in the list.
+* **Lessons still booked past a tutor's last day now open as a week**: that list opens as a week on the first week holding lessons to move, and every day and time in the list view now carries its date.
 
 ## [2.0.115](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.114...v2.0.115) (2026-08-15)
 
 
 ### New Features
 
-* **Nobody gets booked for lessons after they have left**: the app now reads everybody's last working day from ARK each night, so a resignation reaches the timetable as soon as it is recorded rather than when somebody remembers to pass it on. No lesson, class or duty can be placed on a tutor for a date after their last day, and once that day passes they can no longer sign in and drop out of the lists a lesson can be given to. Somebody working their notice carries on as before, and everything already booked stays where it is and can still be moved at whatever pace the term allows. The office also gets a notice naming who is leaving, a list of the lessons still sitting past their last day, and a count of the classes and duties still in their name.
-* **A record of everyone's last working day, kept without asking**: a tutor's page now shows whether they are leaving and when, the tutor list marks them, and a button reads the latest from ARK straight away for anyone who does not want to wait for the overnight check. That check also names any teaching staff ARK has never heard of, because those are the people none of this can protect.
+* **Nobody gets booked for lessons after they have left**: the app reads everybody's last working day from ARK each night, and no lesson, class or duty can be placed on a tutor after that day. The office gets a notice naming who is leaving and what is still booked past their last day.
+* **A record of everyone's last working day, kept without asking**: a tutor's page shows whether they are leaving and when, and a button reads the latest from ARK straight away.
 
 ## [2.0.114](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.113...v2.0.114) (2026-08-14)
 
 
 ### New Features
 
-* **Logging one call against a whole list of families on Course Renewal**: a tutor can now tick several students on their own Course Renewal list and log a single contact against all of them, the way the Retention board already allowed, so ringing eight families no longer means opening eight students in turn. A tutor's calls are always recorded as their own, while the office still chooses whose call it was. That menu of names runs in first name order with the Mr or Ms taken off, the way it does everywhere else.
-* **September classes drawn as a week rather than a list**: the September tab on Course Renewal now lays the classes out as a week, with the times down the side and the days across the top, so working out which afternoons a tutor is teaching no longer means reading the whole list. Days with nothing on them collapse to a thin strip and a button opens them again, and on a phone the week becomes a day by day agenda.
+* **Logging one call against a whole list of families on Course Renewal**: a tutor can tick several students on their Course Renewal list and log a single contact against all of them, the way the Retention board already allowed.
+* **September classes drawn as a week rather than a list**: the September tab on Course Renewal lays the classes out as a week, with the times down the side and the days across the top, and becomes a day by day agenda on a phone.
 
 
 ### Bug Fixes
 
-* **The grade on the September timetable is the one the student is entering**: through the summer the app shows the grade a student is moving up to, so a record that says F4 reads as Pre-F5. That is right on a student's own page and wrong on the September classes, where an F4 application already means F4 in September. Those classes and the students in them now show the grade the family applied for.
-* **When the September form and our records disagree about a student's language stream**: a family fills the form in for the year ahead while the record we hold can be a year old, and the app used to quietly trust the record, so the same student could show one stream on the unassigned list and another once they were placed in a class. It now goes by the form, because that is the more recent answer, and says so in plain words where the two differ. An admin who decides the form is right can put the record on the same stream with one press, and nothing changes on its own.
+* **The grade on the September timetable is the one the student is entering**: September classes and the students in them now show the grade the family applied for, not the Pre-F5 style grade used through the summer.
+* **When the September form and our records disagree about a student's language stream**: the app now goes by the form, because it is the more recent answer, and says where the two differ so an admin can put the record on the same stream with one press.
 
 ## [2.0.113](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.112...v2.0.113) (2026-08-13)
 
 
 ### Bug Fixes
 
-* **The chase list on the Retention tab fits a folding phone's inner screen**: on a folding phone, or in a window narrow enough that the side menu takes a good part of it, the filters above the chase list broke into a column with one control on each line and pushed the students themselves off the bottom of the card. They now fold into the same Filters button a phone gets, so the list starts near the top of the card again. Nothing changes on a full-sized screen.
+* **The chase list on the Retention tab fits a folding phone's inner screen**: the filters above the chase list now fold into the same Filters button a phone gets, so the students are no longer pushed off the bottom of the card.
 
 ## [2.0.112](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.111...v2.0.112) (2026-08-13)
 
 
 ### New Features
 
-* **Finding one family on the list of prospects still to chase**: the still to chase list on the Conversion tab runs to a couple of hundred P6 prospects, so finding one when a parent rang back meant scrolling. There is a search box on it now, and it reads the name, the codes their primary branch and the summer course know them by, both phone numbers and the school. What the list is showing travels in the address as well, so a list narrowed down for one person is something you can send, and it is still narrowed when you come back to it. The list's own branch dropdown has gone, so there is one place to choose a branch.
+* **Finding one family on the list of prospects still to chase**: the still to chase list has a search box reading the name, both phone numbers, the school and the codes their primary branch and summer course know them by, and what the list is showing travels in the address so it can be shared.
 
 ## [2.0.111](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.110...v2.0.111) (2026-08-12)
 
 
 ### New Features
 
-* **Who has not come back for September, and who to ring about it**: Regular Intake has a new Retention tab that takes everyone who studied with us last year, asks whether they have applied for September, and gives the answer as one figure with all the working behind it. The same students break down by branch, by entering grade, by tutor or by where they came to us from, so a class that is quietly not coming back shows up before it becomes a surprise. The chase list carries the phone number and what was said to that family last time, and a call can be logged, a follow up booked, or a student marked as not returning without leaving the page, singly or for a whole selection. Marking somebody as not returning feeds the quarterly leaver figures, so the two can never disagree.
-* **Tutors have their own list of who has come back**: a Course Renewal page now appears in the side menu while the September form is open, so the person who knows the family can do the chasing instead of the office. A tutor sees the students they taught last year, where each of them has got to, including whether the fee has been sent and paid, and can log what a parent said. A second tab lists the classes they are down to teach in September and who has been placed in them, marking the ones they taught last year and the ones who are new to the centre.
+* **Who has not come back for September, and who to ring about it**: Regular Intake has a new Retention tab that takes everyone who studied with us last year and says whether they have applied for September, broken down by branch, grade, tutor and origin. Its chase list carries the phone number and the last thing said to that family, and a call can be logged without leaving the page.
+* **Tutors have their own list of who has come back**: a Course Renewal page in the side menu shows a tutor the students they taught last year and where each of them has got to, so the person who knows the family can do the chasing.
 
 
 ### Improvements
 
-* **The terminated students report opens in a few seconds**: it used to work out the end date of every enrolment the centre has ever recorded before it could show a single quarter's leavers, which took about fifteen seconds. It now works out only the ones that could possibly fall in the quarter being asked for, and opens in about three.
-* **One list of contact types, and a type for course renewal**: the contact types offered when logging a parent contact had been copied into nine different places, so the wording drifted between them and adding a type meant finding all nine. There is one list now, and it has gained Course Renewal.
+* **The terminated students report opens in a few seconds**: it now works out only the enrolments that could fall in the quarter being asked for, so it opens in about three seconds rather than fifteen.
+* **One list of contact types, and a type for course renewal**: the contact types offered when logging a parent contact come from one list now, and it has gained Course Renewal.
 
 
 ### Bug Fixes
 
-* **The P6 Prospects page now refuses people who cannot read it**: somebody without access saw the heading, the filters and an empty table instead of being told they do not have it. None of the records were ever at risk, because the data behind that page has always been admin only, but the page looked broken rather than closed.
+* **The P6 Prospects page now refuses people who cannot read it**: somebody without access is told so instead of seeing an empty table. The records behind that page were always admin only.
 
 ## [2.0.110](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.109...v2.0.110) (2026-08-12)
 
 
 ### Bug Fixes
 
-* **Back to School applicants were quoted MOP 100 too much**: the fee message asked a new student for MOP 2,200 while telling the parent they had saved MOP 400 off MOP 2,500, which comes to MOP 2,100. The September intake collects the materials fee from nobody, and the setting that says so had been cleared, so the fee was charged again. Every fee message, total and preview now says MOP 2,100, and no application had been published while this was wrong.
-* **Saving the course settings no longer drops rules the form does not show**: the summer and September settings pages rebuilt the whole pricing section from the boxes on screen each time they were saved, so anything set up behind the scenes with no box of its own was quietly removed. That is how the September intake came to charge a materials fee it had been told to waive. Both pages now keep what they do not show, and whether the materials fee is collected has become a tick box on the September page.
-* **The application window keeps up with what it has just done**: linking a student record filled in where the applicant came from, but the window went on showing Unverified, Save Changes stayed lit, and saving a second time cleared the origin that had just been worked out. The window now reads the application back after every change, including publishing, so what is on screen matches what has been saved.
+* **Back to School applicants were quoted MOP 100 too much**: the fee message asked for MOP 2,200 when the September intake collects no materials fee, so every fee message, total and preview now says MOP 2,100. No application had been published while this was wrong.
+* **Saving the course settings no longer drops rules the form does not show**: the summer and September settings pages now keep pricing rules that have no box of their own, and whether the materials fee is collected has become a tick box on the September page.
+* **The application window keeps up with what it has just done**: the window now reads the application back after every change, including publishing, so what is on screen matches what has been saved.
 
 ## [2.0.109](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.108...v2.0.109) (2026-08-11)
 
 
 ### New Features
 
-* **Homework set in earlier lessons can be marked from lesson mode**: lesson mode listed the homework that had been set but offered no way to say how it went, so a tutor part way through a lesson, with the student sitting there, had to come out of it to record anything. The homework still waiting now sits at the top of the exercise list, with the same marking, star rating, comment and photographs offered everywhere else. The lesson header shows how many pieces have been checked, pressing H opens the list from anywhere in the lesson, and zen lesson mode gains the same list.
+* **Homework set in earlier lessons can be marked from lesson mode**: the homework still waiting sits at the top of the exercise list, with the same marking, star rating, comment and photographs offered everywhere else, and pressing H opens it from anywhere in the lesson.
 
 
 ### Bug Fixes
 
-* **Homework marked in an earlier lesson no longer looks unmarked**: the mark beside a piece of homework was only drawn while that piece was still waiting to be checked, so it vanished the moment somebody marked it in an earlier lesson, and a piece that was done looked exactly like a piece nobody had seen. The mark now comes from the student's own record, so it stays where it was put.
+* **Homework marked in an earlier lesson no longer looks unmarked**: the mark now comes from the student's own record, so it stays where it was put.
 
 ## [2.0.108](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.107...v2.0.108) (2026-08-11)
 
 
 ### New Features
 
-* **A student's whole homework record, and marking, on their own page**: the Courseware tab listed what had been set and said nothing about what came back, so the only way to see how a student was doing was to open the lessons one at a time. Every piece of homework now shows how it went, and clicking that mark opens the piece where it stands, so the state, the star rating, the comment and the photographs can all be put right without leaving the page. A summary across the top gives the shape of the student's year, and the list can be narrowed to one state. This also reaches homework that had dropped off the lesson lists, which nothing else in the app could mark or correct.
-* **Homework that came back but has not been marked yet now has its own state**: the four states could say a piece was done, partly done or not done, but work sitting in a tutor's bag was recorded exactly the same as work that never arrived. There is now a fifth state, Handed in, which counts as still waiting, so the piece stays on the lesson's list, and every homework panel now says how many pieces are waiting to be marked rather than waiting to come in.
+* **A student's whole homework record, and marking, on their own page**: every piece of homework on the Courseware tab now shows how it went, and clicking that mark opens the piece so the state, star rating, comment and photographs can be put right without leaving the page.
+* **Homework that came back but has not been marked yet now has its own state**: a fifth state, Handed in, counts as still waiting, so work sitting in a tutor's bag is no longer recorded the same as work that never arrived.
 
 
 ### Improvements
 
-* **The homework keys in lesson mode follow the order on screen**: the marking keys now run in the same order as the buttons, so 1 is handed in, 2 done, 3 partly done and 4 not done, with 0 still clearing.
+* **The homework keys in lesson mode follow the order on screen**: 1 is handed in, 2 done, 3 partly done and 4 not done, with 0 still clearing.
 
 ## [2.0.107](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.106...v2.0.107) (2026-08-10)
 
 
 ### New Features
 
-* **Homework set in an earlier lesson can be marked as done**: whether homework came back was only ever known to the tutor who asked for it, so nothing followed the student from one week to the next. Each piece of homework now carries one control with four states, not checked, done, partly done and not done, along with a star rating and a comment. A piece stays on the list for up to three lessons the student actually sat, and every row says which lesson it was set in and who set it, which matters in summer when the lesson before was often somebody else's class. Marking is available wherever a lesson is being worked through, and the sessions lists and the dashboard show how much is still waiting.
-* **What a student handed in can be kept with the record**: photographs and PDFs now attach to a piece of homework, so a page of working or a marked exercise can be kept with it. On a phone the camera opens straight from the button, so a book on the desk can be photographed where it lies, and anything attached by mistake can be taken off again.
+* **Homework set in an earlier lesson can be marked as done**: each piece of homework carries four states, not checked, done, partly done and not done, with a star rating and a comment, and stays on the list for up to three lessons the student actually sat.
+* **What a student handed in can be kept with the record**: photographs and PDFs attach to a piece of homework, and on a phone the camera opens straight from the button.
 
 
 ### Improvements
 
-* **Regular Intake shows how many applications are waiting**: the Summer Course item in the side menu carries a count of the applications still to be worked through, and an Open pill while the form is taking submissions. Regular Intake carried nothing, so the only way to know whether anything had come in was to open the page. It now carries the same badge, following the branch picked in the side menu and leaving out anyone already dealt with.
+* **Regular Intake shows how many applications are waiting**: the side menu item now carries the same count of applications still to work through that Summer Course has, following the branch picked in the menu.
 
 
 ### Bug Fixes
 
-* **A category on the terminated students page can be cleared again**: picking None did nothing once a category had been set, so a category picked by mistake could be swapped for another one but never taken off. None now clears it, and emptying the reason box records no reason rather than blank text.
+* **A category on the terminated students page can be cleared again**: picking None now clears a category set by mistake, and emptying the reason box records no reason.
 
 ## [2.0.105](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.104...v2.0.105) (2026-08-07)
 
 
 ### New Features
 
-* **The prospect journey chip opens the prospect's record**: the chip on a September application card read like a label, so the primary tutor's remark behind it, which is often the reason an application is worth a second look, could only be reached by leaving the page and searching the prospects list. Clicking the chip now opens the record over the page it was clicked from, both on the cards and inside an application's details.
+* **The prospect journey chip opens the prospect's record**: clicking the chip on a September application now opens the prospect's record over the page, including the primary tutor's remark behind it.
 
 
 ### Bug Fixes
 
-* **Link suggestions only offer applications the prospect could belong to**: a P6 prospect can only be entering F1, but suggestions were matched on name and phone alone, so a prospect named Jayden Wong was offered an F2 Jayden Long at 91% name similarity. Every suggestion is now held to the grade the prospect is entering, which took the September review list from 15 rows to 1 and the summer list from 17 to 2. No incorrect link had been saved, so nothing needed correcting.
-* **A prospect's grade reads the same on every page**: a prospect showed as P6 on some screens and Pre-F1 on others, depending on how the grade had been written when the list was pasted in, though every prospect is in P6 and there was never a difference to show. Grades are now put into one form as they are taken in, and the 113 records holding another spelling have been corrected.
-* **Esc closes one panel at a time**: opening a prospect's record from an application closed both at once, and answering a confirmation question closed the application behind it along with any unsaved edits. Whichever panel is on top now takes the key press and the one beneath waits its turn, which applies to clicking outside a panel as well.
+* **Link suggestions only offer applications the prospect could belong to**: every suggestion is now held to the grade the prospect is entering, which took the September review list from 15 rows to 1 and the summer list from 17 to 2.
+* **A prospect's grade reads the same on every page**: grades are put into one form as they are taken in, and the 113 records holding another spelling have been corrected.
+* **Esc closes one panel at a time**: whichever panel is on top now takes the key press and the one beneath waits its turn, which applies to clicking outside a panel as well.
 
 ## [2.0.104](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.103...v2.0.104) (2026-08-05)
 
 
 ### New Features
 
-* **Link suggestions can now find P6 prospects for September applications**: the button on the September applications page used to match applications to existing student records only, so an applicant who came up from a primary branch was never recorded as having done so and the conversion page showed nothing for the September intake. It now matches P6 prospects as well, by the student they enrolled as over the summer and then by phone, with anything less certain listed for you to pick from. An application normally ends up with both, a student record so it can be published and a prospect so the funnel knows where the family came from.
-* **The prospect journey shows the primary branch code**: the chip on a September application read "MCP to summer to regular", naming the branch but not the student. It now leads with the applicant's code at their primary branch, so a card reads "MCP-1112 to summer to regular" and can be checked against that branch's own records without opening anything.
-* **The claim badge names the branch**: an application from someone who says they already study with us showed "Claims: existing", which told you a check was owed but not where to look. It now names the centre they picked, for example "Claims: MTR".
+* **Link suggestions can now find P6 prospects for September applications**: the button on the September applications page now matches P6 prospects as well as student records, by the student they enrolled as over the summer and then by phone.
+* **The prospect journey shows the primary branch code**: the chip now leads with the applicant's code at their primary branch, so a card reads MCP-1112 to summer to regular and can be checked against that branch's records.
+* **The claim badge names the branch**: an application from somebody who says they already study with us now names the centre they picked, for example Claims: MTR.
 
 
 ### Improvements
 
-* **The branch a student came from fills itself in**: linking a P6 prospect to a September application now records that prospect's branch as the applicant's verified origin, the way the summer course has always done. Where the origin already read MSA or MSB it is corrected to the primary branch, because that is where the family came from rather than where they landed. A branch chosen by hand is never overwritten.
-* **Applications with no branch origin can be filtered**: the More filters menu on the September applications page gained an Unverified branch origin tick box, matching the summer page, so the applications still awaiting a check can be listed on their own.
-* **Notes show on the cards you drag**: the September arrangement page now shows an application's internal note on its card in the unassigned list, shortened to one line with the whole note on hover. A note that could only be found by opening the application was a note nobody read while placing students.
+* **The branch a student came from fills itself in**: linking a P6 prospect to a September application records that prospect's branch as the applicant's verified origin, and a branch chosen by hand is never overwritten.
+* **Applications with no branch origin can be filtered**: the More filters menu on the September applications page gained an Unverified branch origin tick box, matching the summer page.
+* **Notes show on the cards you drag**: the September arrangement page shows an application's internal note on its card in the unassigned list, shortened to one line with the whole note on hover.
 
 
 ### Bug Fixes
 
-* **Demand colours on the arrangement timetable match the rest of the app**: each demand row coloured its bar by grade and stream but its label by grade alone, from a separate set of colours, so an F1C bar was green while its F1C label was blue. Both now use the grade badge colour used everywhere else, so a demand row and a student card agree on what F1C looks like.
-* **One branch badge instead of two**: a September application linked to a prospect showed both a "from MCP" badge and a journey chip already beginning with MCP. The card now drops the badge when the chip says the same thing, and keeps it when it does not, such as an origin that names a different branch.
+* **Demand colours on the arrangement timetable match the rest of the app**: a demand row's bar and its label now both use the grade badge colour used everywhere else.
+* **One branch badge instead of two**: a card drops the from MCP badge when the journey chip already says the same thing, and keeps it when it does not.
 
 ## [2.0.103](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.102...v2.0.103) (2026-08-05)
 
 
 ### New Features
 
-* **A certificate list for the summer course**: a new Certificates tab under Summer Course lists every enrolled summer student with the branch where they sat the course, their student code, and the sessions they attended out of the lessons they paid for. Students who attended at least 7 of the 8 lessons carry an Eligible badge for the official 80% rule, and everyone else keeps their figures visible so borderline cases can still be judged by hand. The list can be narrowed by branch, searched by name or code, cut down to eligible students only, and exported as a CSV file. Clicking a row opens the application's details.
+* **A certificate list for the summer course**: a new Certificates tab lists every enrolled summer student with their branch, code and sessions attended, badges the ones who met the official 80% rule, and exports as a CSV file.
 
 ## [2.0.102](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.101...v2.0.102) (2026-08-05)
 
 
 ### New Features
 
-* **The arrangement timetable can go full screen**: a new button on the summer and September arrangement pages collapses the header into one slim strip so the timetable takes almost the whole window. The strip keeps the student search, the branch selector and refresh, and on the summer page the Slot Setup, Calendar and Students views turn into icons there as well. The panel of unassigned students stays in place, and pressing Esc or the button at the far right returns the page to normal.
+* **The arrangement timetable can go full screen**: a new button on the summer and September arrangement pages collapses the header into a slim strip so the timetable takes almost the whole window, and Esc returns it.
 
 
 ### Improvements
 
-* **A tidier toolbar above the timetable**: the Tutor Duties, Workload and full screen buttons are now compact icons with hover hints, so the status counts and filters have more room before the row wraps. The main action keeps its wording: Publish ready on the September page and Auto-Suggest on the summer page.
+* **A tidier toolbar above the timetable**: the Tutor Duties, Workload and full screen buttons are now compact icons with hover hints, leaving more room for the status counts and filters.
 
 
 ### Bug Fixes
 
-* **Shorter summer plans finish at their own length**: a student who arranged fewer than the full course of lessons used to stay in the incomplete list even after every lesson in their plan was placed. The incomplete list, the ordering on the Students tab and its summary figures now measure each student against their own plan, so a finished shorter plan counts as finished.
+* **Shorter summer plans finish at their own length**: a student who arranged fewer than the full course of lessons now counts as finished once every lesson in their own plan is placed.
 
 ## [2.0.101](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.100...v2.0.101) (2026-08-04)
 
 
 ### New Features
 
-* **Every prospect carries a journey for each course**: the prospects page now shows where each P6 prospect stands with the summer course and with the September intake separately. Applied, enrolled and withdrawn are read straight from the prospect's linked applications, so a journey can no longer disagree with the applications it describes. The status field itself keeps only the relationship (new, contacted, interested or declined), and both journeys can be filtered on.
-* **The conversion page reads in three tabs**: Overview holds the headline figures, the funnel chart and the per-branch table. Breakdowns holds stated intention against outcome, branch movement, feeder schools and submitting tutors. Still to chase became a proper working list: each row shows the prospect's code, phone numbers and WeChat ID ready to copy, the MSA or MSB student code they earned if they enrolled in summer, which branch they want and how outreach stands. The list can be narrowed by source branch, wanted branch, stated intention and outreach status, and clicking a row opens the prospect to record outreach without leaving the page. The exported file carries the new columns as well.
-* **Student codes on linked applications**: when a prospect's application has published an enrolment, the prospect window shows the student's MSA or MSB code beside that application, and the code opens the student's page in a new tab.
-* **The arrangement grid keeps to each branch's timetable**: cells for day and time combinations the branch does not offer are shaded and closed, so a weekday class can no longer be created at a weekend-only time or students dropped into one by accident. The tutor duty grid hides those columns entirely, so each day offers only its own times. A class already sitting at an unusual time stays visible and fully manageable.
-* **Super Admins can delete a regular application**: a delete button in the application window permanently removes an application and its edit history, for clearing test submissions. An application with a published enrolment cannot be deleted until the enrolment is unpublished, so a live enrolment never loses the application it came from.
+* **Every prospect carries a journey for each course**: the prospects page shows where each P6 prospect stands with the summer course and with the September intake separately, read straight from their linked applications, and both journeys can be filtered on.
+* **The conversion page reads in three tabs**: Overview holds the headline figures, Breakdowns holds stated intention against outcome and the feeder tables, and Still to chase is a working list with phone numbers and WeChat IDs ready to copy.
+* **Student codes on linked applications**: where a prospect's application has published an enrolment, the prospect window shows the student's MSA or MSB code and opens their page from it.
+* **The arrangement grid keeps to each branch's timetable**: day and time combinations the branch does not offer are shaded and closed, so a class can no longer be created at a weekend-only time by accident.
+* **Super Admins can delete a regular application**: a delete button permanently removes an application and its edit history, for clearing test submissions, unless it has a published enrolment.
 
 
 ### Improvements
 
-* **Plainer English on the September application form**: the introduction, the final-step notice and the make-up lesson note now read naturally in English instead of following the Chinese word for word, and the Chinese notice flows as one sentence with the confirmation date.
+* **Plainer English on the September application form**: the introduction, the final-step notice and the make-up lesson note now read naturally in English instead of following the Chinese word for word.
 
 
 ### Bug Fixes
 
-* **A waived materials fee stays waived everywhere**: some September enrolment surfaces quietly added the MOP 100 materials fee back into the displayed fee even though the intake does not collect it. Every fee display now gives the same answer.
-* **Publishing offers only the branch's own tutors**: the tutor list when publishing a September enrolment offered tutors from both branches. It now offers only tutors based at the selected branch.
-* **The conversion page is readable in dark mode**: the coloured stage counts and the names in the chase list used tones that sank into the dark background. They now brighten in dark mode.
+* **A waived materials fee stays waived everywhere**: the September surfaces that quietly added the MOP 100 materials fee back into the displayed fee now give the same answer as the rest.
+* **Publishing offers only the branch's own tutors**: the tutor list when publishing a September enrolment now offers only tutors based at the selected branch.
+* **The conversion page is readable in dark mode**: the coloured stage counts and the names in the chase list now brighten in dark mode.
 
 ## [2.0.100](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.99...v2.0.100) (2026-08-01)
 
 
 ### New Features
 
-* **The session lists follow the clock**: the Today's Sessions card on the dashboard and the list view of the sessions page now mark the current time. The time slot being taught shows a pulsing red Now marker on its heading, and in the gap between slots a red line shows where the current time falls. Both lists open at the current slot when viewing today, so the sessions waiting for attendance are on screen straight away. On the sessions page a red Now button sits beside the date picker and brings the current slot back into view after scrolling elsewhere. The marker disappears once the last lesson of the day has finished.
-* **A gentle prompt towards lesson mode**: while one of a tutor's own lessons is running, the Lesson button on that time slot carries a small pulsing dot. The first time this happens for a slot, a short hint appears under the button suggesting lesson mode for a full-class view, and it fades away on its own. Opening lesson mode from the button switches the dot off for that slot for the rest of the day. The prompt only appears on slots that still have classes to teach.
+* **The session lists follow the clock**: the dashboard's Today's Sessions card and the sessions list now mark the current time, open at the current slot when viewing today, and offer a Now button to come back to it.
+* **A gentle prompt towards lesson mode**: while one of a tutor's own lessons is running, the Lesson button on that slot carries a pulsing dot, with a one-off hint suggesting lesson mode.
 
 
 ### Bug Fixes
 
-* **Jumping to a time slot lands properly**: following a link that points at a particular time slot on the sessions page used to leave the slot heading hidden underneath the toolbar, and jumping back up to a slot that had already been scrolled past did nothing at all. Both now bring the slot fully into view. A slot heading also slides away once its own sessions have been scrolled past instead of staying stacked beneath the next heading.
-* **The September application form no longer spins forever**: a parent who was not signed in and opened the September regular course application saw an amber spinner that never went away, because the page treated the form as a staff page and kept trying to send the visitor to the staff sign-in. The form and its status page now open directly, in the same way as the summer form.
+* **Jumping to a time slot lands properly**: a link pointing at a time slot now brings the heading fully into view instead of leaving it under the toolbar.
+* **The September application form no longer spins forever**: a parent who is not signed in now opens the September form and its status page directly, the same way as the summer form.
 
 ## [2.0.99](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.98...v2.0.99) (2026-08-01)
 
 
 ### New Features
 
-* **A September regular course application form**: parents can now apply for the September regular course online, in the same way as for the summer course. The form asks for the student's grade and language stream, their preferred branch and up to two class times, and whether they already study at a MathConcept centre. It opens on 3 August and closes on 30 September, and outside those dates it says when applications open instead of taking a submission. Class times that are already full are shown as full, so a parent does not pick one that cannot be given. After submitting, a status page shows how the application is progressing. The form reads in Chinese or English and is built for the phone.
-* **The 2026 Back to School new student offer**: a student who has never attended any MathConcept centre saves MOP 400 on their first September enrolment. MOP 300 comes off the tuition, the MOP 100 materials fee is waived, and a limited edition MathConcept desk calendar is included. The offer appears on the application form and in the fee message from 12 August, the day the campaign begins, and nothing about it is shown before then. An application is marked as a new student while it is being processed, and the offer applies to that student once it is set.
-* **September enrolments do not collect the materials fee**: nobody joining in the September intake is charged the MOP 100 materials fee, whether they are new or moving up from a primary centre. A student who is genuinely new to MathConcept still sees a note in the fee message that the fee normally applies, so the saving is clear. Enrolments outside the September intake are unchanged.
-* **Arranging the September intake**: a new arrangement page places applications into class times for each branch. Every time slot shows how many seats are left, applications can be narrowed by grade, language stream, tutor and whether a time still has space, and a student can be searched for and linked to their existing record before their enrolment is published. Tutor duties for the intake are set on the same page and each tutor's workload is shown beside them. Applications can be worked through in bulk, and the fee message and any coupon for a published enrolment are prepared from the same place.
-* **Following P6 students into the September intake**: the prospects page tracks students finishing primary through to their September application and matches them to that application once it arrives. A conversion page shows how many prospects went on to apply, broken down by branch and by centre, which class times are worth opening, and which prospects have been lost along the way. The figures can be exported.
-* **Filters on the summer arrangement grid**: the summer arrangement page can now be narrowed by grade, course type, tutor and whether a class still has space, so a crowded grid can be brought down to the classes being worked on. The session calendar tab can be narrowed by what each slot holds as well.
+* **A September regular course application form**: parents can apply for the September regular course online the same way as for the summer course, in Chinese or English, with full class times shown as full and a status page after submitting. It opens on 3 August 2026 and closes on 30 September 2026.
+* **The 2026 Back to School new student offer**: a student who has never attended any MathConcept centre saves MOP 400 on their first September enrolment, MOP 300 off the tuition and the MOP 100 materials fee waived, with a desk calendar included. It appears from 12 August, the day the campaign begins.
+* **September enrolments do not collect the materials fee**: nobody joining in the September intake is charged the MOP 100 materials fee, and enrolments outside the intake are unchanged.
+* **Arranging the September intake**: a new arrangement page places applications into class times for each branch, showing the seats left on every slot, with filters by grade, language stream, tutor and space, bulk handling, and the fee message prepared from the same place.
+* **Following P6 students into the September intake**: the prospects page tracks students finishing primary through to their September application, and a conversion page shows how many went on to apply, by branch and by centre.
+* **Filters on the summer arrangement grid**: the summer arrangement page can be narrowed by grade, course type, tutor and whether a class still has space.
 
 
 ### Improvements
 
-* **A tidier course settings editor**: the summer course settings no longer offer an open days caption for each branch. Nothing ever displayed the caption and it could quietly disagree with the days actually set, which is what had happened. The open days themselves are unchanged and still appear on the application form.
+* **A tidier course settings editor**: the summer course settings no longer offer an open days caption for each branch, which nothing ever displayed and which could disagree with the days actually set.
 
 ## [2.0.98](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.97...v2.0.98) (2026-07-30)
 
