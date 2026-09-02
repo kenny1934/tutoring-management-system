@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTutors, usePageTitle } from "@/lib/hooks";
+import { useTutors, usePageTitle, useStudentParentContacts } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -17,6 +17,7 @@ import { ContactDetailPanel } from "@/components/parent-contacts/ContactDetailPa
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { PendingFollowupsSection } from "@/components/parent-contacts/PendingFollowupsSection";
 import { ContactStatsBar } from "@/components/parent-contacts/ContactStatsBar";
+import { CONTACT_TYPES } from "@/components/parent-contacts/contact-utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { parentCommunicationsAPI, type ParentCommunication, type StudentContactStatus } from "@/lib/api";
@@ -68,9 +69,11 @@ export default function ParentContactsPage() {
   const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('month');
 
-  // Contact type filter state
+  // Contact type filter state. Seeded from the shared list rather than written
+  // out again: a type missing from this set has its contacts filtered off the
+  // calendar, with nothing on screen to say that is what happened.
   const [activeContactTypes, setActiveContactTypes] = useState<Set<string>>(
-    new Set(['Progress Update', 'Concern', 'General'])
+    () => new Set<string>(CONTACT_TYPES)
   );
 
   // Search state (debounced for backend notes search)
@@ -213,7 +216,7 @@ export default function ParentContactsPage() {
     mutate(['parent-communications-followups', effectiveTutorId, effectiveLocation]);
     mutate(['parent-communications-stats', effectiveTutorId, effectiveLocation]);
     if (selectedStudentId) {
-      mutate(['student-contact-history', selectedStudentId]);
+      mutate(['student-parent-contacts', selectedStudentId]);
     }
   };
 
@@ -303,18 +306,12 @@ export default function ParentContactsPage() {
     return studentStatuses.find(s => s.student_id === selectedStudentId);
   }, [studentStatuses, selectedStudentId]);
 
-  // Fetch student contact history via API (not filtered from calendar)
-  // Keep fetching even when viewing a contact detail so we can find historical contacts
-  const { data: studentContactHistory = [], isLoading: loadingHistory } = useSWR(
-    selectedStudentId
-      ? ['student-contact-history', selectedStudentId]
-      : null,
-    () => parentCommunicationsAPI.getAll({ student_id: selectedStudentId! })
-      .then(contacts => contacts.sort((a, b) =>
-        new Date(b.contact_date).getTime() - new Date(a.contact_date).getTime()
-      )),
-    { revalidateOnFocus: false }
-  );
+  // The shared hook fetches a student's contacts newest first and keeps them
+  // loaded while you read one, so a historical contact can still be found.
+  // Going through it means this panel and the student page read one cache
+  // entry rather than two copies of the same list under different keys.
+  const { data: studentContactHistory = [], isLoading: loadingHistory } =
+    useStudentParentContacts(selectedStudentId);
 
   // Selected contact details - search both calendar events and student history
   const selectedContact = useMemo(() => {

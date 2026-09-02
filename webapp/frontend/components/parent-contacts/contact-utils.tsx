@@ -5,15 +5,79 @@ import {
   Phone,
   MessageCircle,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  CalendarCheck
 } from "lucide-react";
 
 // Contact method and type constants
 export const CONTACT_METHODS = ['WeChat', 'Phone', 'In-Person'] as const;
-export const CONTACT_TYPES = ['Progress Update', 'Concern', 'General'] as const;
 
 export type ContactMethod = typeof CONTACT_METHODS[number];
-export type ContactType = typeof CONTACT_TYPES[number];
+
+/**
+ * Everything the app knows about a kind of contact, in one place.
+ *
+ * This list used to be written out by hand in seven: the dropdown, the icon
+ * lookup, the badge colours, the calendar's legend, the calendar filter's
+ * starting state, the statistics bar and a query in the backend. Adding a type
+ * meant finding all seven, and missing the calendar filter was the quiet one,
+ * because a type left out of that starting set has its contacts filtered off
+ * the calendar with nothing on screen to say why.
+ *
+ * Declaration order is the order the dropdown and the legend read in.
+ */
+export const CONTACT_TYPE_META = {
+  'Progress Update': {
+    short: 'Progress',
+    dot: 'bg-blue-500',
+    badge: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+    Icon: TrendingUp,
+  },
+  'Concern': {
+    short: 'Concern',
+    dot: 'bg-orange-500',
+    badge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+    Icon: AlertTriangle,
+  },
+  'General': {
+    short: 'General',
+    dot: 'bg-gray-500',
+    badge: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400',
+    Icon: MessageCircle,
+  },
+  // Chasing a family about the next intake. Its own type because the retention
+  // board has to tell a renewal chase from a call about homework, and once two
+  // intakes of contacts are in the table that cannot be worked out afterwards.
+  'Course Renewal': {
+    short: 'Renewal',
+    dot: 'bg-sky-500',
+    badge: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400',
+    Icon: CalendarCheck,
+  },
+} as const;
+
+export type ContactType = keyof typeof CONTACT_TYPE_META;
+
+/** Named rather than spelled out at each call site, because the retention
+ *  board, the tutor's own renewal list and the bulk dialog all have to agree
+ *  on it for the records to be worth anything. */
+export const RENEWAL_CONTACT_TYPE: ContactType = 'Course Renewal';
+
+export const CONTACT_TYPES = Object.keys(CONTACT_TYPE_META) as ContactType[];
+
+/** The three types the database still carries but the app has never offered
+ *  can arrive on an old row, so everything here falls back rather than
+ *  rendering blank. */
+const UNKNOWN_TYPE = {
+  short: 'Other',
+  dot: 'bg-gray-500',
+  badge: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400',
+  Icon: MessageCircle,
+} as const;
+
+export function contactTypeMeta(type: string) {
+  return CONTACT_TYPE_META[type as ContactType] ?? UNKNOWN_TYPE;
+}
 
 // Custom WeChat icon SVG
 export const WeChatIcon = ({ className }: { className?: string }) => (
@@ -48,26 +112,16 @@ export function getMethodIcon(method: string, size: string = "h-4 w-4") {
 
 // Get icon for contact type
 export function getContactTypeIcon(type: string, size: string = "h-3 w-3") {
-  switch (type) {
-    case 'Progress Update':
-      return <TrendingUp className={size} />;
-    case 'Concern':
-      return <AlertTriangle className={size} />;
-    case 'General':
-    default:
-      return <MessageCircle className={size} />;
-  }
+  const { Icon } = contactTypeMeta(type);
+  return <Icon className={size} />;
 }
 
 // Get color classes for contact type badge
 export function getContactTypeColor(type: string) {
-  switch (type) {
-    case 'Progress Update':
-      return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
-    case 'Concern':
-      return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400';
-    case 'General':
-    default:
-      return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400';
-  }
+  return contactTypeMeta(type).badge;
+}
+
+/** The filled dot the calendar and the statistics bar identify a type by. */
+export function getContactTypeDot(type: string) {
+  return contactTypeMeta(type).dot;
 }

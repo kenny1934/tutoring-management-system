@@ -21,7 +21,7 @@ import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { cn } from "@/lib/utils";
-import type { Session, UpcomingTestAlert, MakeupProposal } from "@/types";
+import type { Session, UpcomingTestAlert, MakeupProposal, HomeworkCompletion } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { sessionsAPI, api, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -46,6 +46,9 @@ import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-uti
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "./EditableLessonNumberBadge";
+import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { uncheckedCount } from "@/lib/homework-utils";
 import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import type { ExtensionRequestDetail } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -457,6 +460,8 @@ export function SessionDetailPopover({
   // Fetch detailed session with SWR caching (for previous_session and homework_completion)
   const { data: detailedSession, isLoading: isLoadingDetails } = useSession(isOpen ? session?.id : null);
 
+  const handleHomeworkMarked = useHomeworkMarked();
+
   // Stamp for individual exercise printing in recap section
   const printStamp = useMemo((): PrintStampInfo => ({
     location: session?.location,
@@ -680,9 +685,7 @@ export function SessionDetailPopover({
   const parsed = parseTimeSlot(session.time_slot);
 
   // Computed values for Recap section (using detailedSession from API)
-  const uncheckedHwCount = detailedSession?.homework_completion?.filter(
-    hw => !hw.completion_status || hw.completion_status === "Not Checked"
-  ).length || 0;
+  const uncheckedHwCount = uncheckedCount(detailedSession?.homework_completion || []);
 
   const starCount = detailedSession?.previous_session?.performance_rating
     ? (detailedSession.previous_session.performance_rating.match(/⭐/g) || []).length
@@ -887,6 +890,11 @@ export function SessionDetailPopover({
                   <>
                     <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                     <span className="text-sm font-medium text-green-600">Paid</span>
+                  </>
+                ) : session.financial_status === "Waived" ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-500">Waived</span>
                   </>
                 ) : (
                   <>
@@ -1187,27 +1195,21 @@ export function SessionDetailPopover({
                       )}
                     </div>
                   )}
-                  {/* Homework to Check */}
+                  {/* Homework to check, markable in place */}
                   {detailedSession?.homework_completion && detailedSession.homework_completion.length > 0 && (
-                    <div className="text-xs space-y-0.5">
+                    <div className="text-xs">
                       <span className="text-gray-500 text-[10px]">HW to check:</span>
-                      {detailedSession.homework_completion.map((hw, i) => (
-                        <div key={i} className="flex items-center gap-1.5">
-                          <span className={cn(
-                            "text-[9px] px-1 rounded flex-shrink-0",
-                            hw.completion_status === 'Completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                            hw.completion_status === 'Partially Completed' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                          )}>
-                            {hw.completion_status === 'Completed' ? '✓' : hw.completion_status === 'Partially Completed' ? '~' : '○'}
-                          </span>
-                          {(hw.pdf_name || hw.url) ? (
-                            <ExerciseItem exercise={{ pdf_name: hw.pdf_name, url: hw.url, url_title: hw.url_title }} stamp={printStamp} />
-                          ) : (
-                            <span className="text-gray-500 italic">No file</span>
-                          )}
-                        </div>
-                      ))}
+                      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {detailedSession.homework_completion.map((hw) => (
+                          <HomeworkCheckRow
+                            key={hw.session_exercise_id}
+                            homework={hw}
+                            sessionId={session.id}
+                            readOnly={isReadOnly}
+                            onMarked={handleHomeworkMarked}
+                          />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

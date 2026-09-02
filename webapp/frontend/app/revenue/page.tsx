@@ -22,6 +22,7 @@ import Link from "next/link";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import type { Session } from "@/types";
+import { isHomeBranch } from "@/lib/employment";
 
 // Helper to get current month in YYYY-MM format
 function getCurrentPeriod(): string {
@@ -156,7 +157,7 @@ export default function RevenuePage() {
     if (canViewAdminPages && selectedTutorId === null && tutors.length > 0) {
       // Filter tutors by location if needed
       const filteredTutors = selectedLocation && selectedLocation !== "All Locations"
-        ? tutors.filter(t => t.default_location === selectedLocation)
+        ? tutors.filter(t => isHomeBranch(t, selectedLocation))
         : tutors;
       if (filteredTutors.length > 0) {
         setSelectedTutorId(filteredTutors[0].id);

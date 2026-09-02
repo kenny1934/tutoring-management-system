@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown, Sigma,
   Maximize2, Minimize2, PencilLine, Users,
-  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink,
+  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
@@ -14,6 +14,9 @@ import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonWideSidebar } from "./LessonWideSidebar";
+import { useHomeworkToCheck } from "@/lib/hooks";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
 import { StudentSwitcher } from "./StudentSwitcher";
 import { PdfPageViewer } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -238,6 +241,24 @@ export function LessonWideMode({
 
   // Tutor name from first session
   const tutorName = sessions[0]?.tutor_name || "";
+
+  // --- Homework carried in from earlier lessons ---
+  // One request covers the whole slot, so the sidebar can offer marking per
+  // student without a fetch each.
+  const homeworkSessionIds = useMemo(() => sessions.map(s => s.id), [sessions]);
+  const { bySession: homeworkBySession } = useHomeworkToCheck(homeworkSessionIds);
+  const handleHomeworkMarked = useHomeworkMarked();
+
+  // Slot-wide progress, so a tutor can see at a glance what is left to check.
+  const homeworkProgress = useMemo(() => {
+    let total = 0;
+    let checked = 0;
+    for (const items of homeworkBySession.values()) {
+      total += items.length;
+      checked += checkedCount(items);
+    }
+    return { total, checked };
+  }, [homeworkBySession]);
 
   // --- Stamp for current selection ---
   // Ephemeral previews (parallel versions) are class-wide, so no
@@ -1003,6 +1024,20 @@ export function LessonWideMode({
           <span className="hidden sm:inline text-xs text-white/50">
             ({sessions.length} student{sessions.length !== 1 ? "s" : ""})
           </span>
+          {homeworkProgress.total > 0 && (
+            <span
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums flex-shrink-0",
+                homeworkProgress.checked >= homeworkProgress.total
+                  ? "bg-white/15 text-white/80"
+                  : "bg-amber-400/20 text-amber-200"
+              )}
+              title={homeworkCountLabel(homeworkProgress.checked, homeworkProgress.total)}
+            >
+              <Home className="h-2.5 w-2.5" />
+              HW {homeworkProgress.checked}/{homeworkProgress.total}
+            </span>
+          )}
         </div>
 
         {/* Current student info */}
@@ -1169,6 +1204,8 @@ export function LessonWideMode({
     onBulkPrintStudent: handleBulkPrintStudent,
     onBulkAssign: handleBulkAssign,
     printing,
+    homeworkBySession,
+    onHomeworkMarked: handleHomeworkMarked,
   };
 
   return (

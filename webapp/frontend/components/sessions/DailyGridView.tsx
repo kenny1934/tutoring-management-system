@@ -16,7 +16,7 @@ import {
   timeToMinutes,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
@@ -703,7 +703,7 @@ export const DailyGridView = memo(function DailyGridView({
                                             <span className="text-[7px] px-1 py-px rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">
                                               Cancelled
                                             </span>
-                                          ) : session.financial_status !== "Paid" && (
+                                          ) : isSessionUnpaid(session) && (
                                             <HandCoins className="h-2.5 w-2.5 text-red-500" />
                                           )}
                                         </span>
@@ -713,7 +713,7 @@ export const DailyGridView = memo(function DailyGridView({
                                         "font-semibold text-[10px] leading-tight flex items-center gap-0.5 overflow-hidden",
                                         isCancelledEnrollment
                                           ? "text-gray-400 dark:text-gray-500"
-                                          : session.financial_status !== "Paid"
+                                          : isSessionUnpaid(session)
                                             ? "text-red-600 dark:text-red-400"
                                             : statusConfig.strikethrough
                                               ? "text-gray-400 dark:text-gray-500"

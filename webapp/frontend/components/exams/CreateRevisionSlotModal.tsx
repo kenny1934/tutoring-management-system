@@ -22,6 +22,8 @@ import {
   AlertCircle,
   AlertTriangle,
 } from "lucide-react";
+import { worksAt } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 
 interface CreateRevisionSlotModalProps {
   exam: ExamWithRevisionSlots;
@@ -124,15 +126,15 @@ export function CreateRevisionSlotModal({
   // Lock location dropdown when sidebar has specific location selected
   const isLocationLocked = selectedLocation && selectedLocation !== "All Locations";
 
-  // Get available tutors for selection (filtered by modal's location dropdown)
+  // Who can take this slot, narrowed by the modal's own location dropdown
+  // rather than the sidebar. A revision slot is a one-off booking on a known
+  // date, the same shape as a make-up, so anybody covering that branch on that
+  // date belongs here too. Re-asked when the date moves, since an arrangement
+  // can be limited to particular days.
   const availableTutors = useMemo(() => {
-    let filtered = [...tutors];
-    // Filter by the modal's location selection, not the sidebar
-    if (location) {
-      filtered = filtered.filter((t) => t.default_location === location);
-    }
+    const filtered = tutors.filter((t) => worksAt(t, location, sessionDate));
     return filtered.sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
-  }, [tutors, location]);
+  }, [tutors, location, sessionDate]);
 
   // Get current user's email for audit trail
   const currentUserEmail = useMemo(() => {
@@ -353,12 +355,11 @@ export function CreateRevisionSlotModal({
               required
               aria-required="true"
             >
-              {availableTutors.map((tutor) => (
-                <option key={tutor.id} value={tutor.id}>
-                  {tutor.tutor_name}
-                  {tutor.id === currentTutorId ? " (you)" : ""}
-                </option>
-              ))}
+              <TutorOptions
+                tutors={availableTutors}
+                location={location}
+                suffix={(tutor) => (tutor.id === currentTutorId ? " (you)" : "")}
+              />
             </select>
           </div>
 

@@ -4,7 +4,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
-import { useActiveTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
+import { useActiveTutors, useTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
+import { withCurrentTutor, worksAt } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { Plus, Trash2, PenTool, Home, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +19,7 @@ import { ratingToEmoji } from "@/lib/formatters";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { sessionSummerYear } from "@/lib/summer-courseware-session";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
 import { GradeBadge } from "@/components/ui/grade-label";
 
@@ -86,9 +89,12 @@ export function EditSessionModal({
   onSave,
 }: EditSessionModalProps) {
   const { data: tutors } = useActiveTutors();
+  // The full roster, so a session already on a departed or off-branch tutor
+  // can still show whose it is.
+  const { data: allTutors = [] } = useTutors();
   const { data: locations } = useLocations();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
-  const { effectiveRole } = useAuth();
+  const { effectiveRole, isAdmin } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
 
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
@@ -116,13 +122,19 @@ export function EditSessionModal({
   const rootOriginalDate = session.root_original_session_date || session.session_date;
   const isMakeupSession = !!session.make_up_for_id;
 
+  // A summer session answers to one date rule instead of the 60-day window:
+  // it has to stay on or before 31 August of its own summer, which is how the
+  // backend reads it too.
+  const isSummerSession = enrollment?.enrollment_type === 'Summer';
+  const summerDeadline = isSummerSession ? `${sessionSummerYear(session)}-08-31` : null;
+
   // Calculate the last allowed date (60 days from original)
   const lastAllowedDate60Day = useMemo(() => {
-    if (!isMakeupSession || !rootOriginalDate) return null;
+    if (isSummerSession || !isMakeupSession || !rootOriginalDate) return null;
     const d = new Date(rootOriginalDate + 'T00:00:00');
     d.setDate(d.getDate() + 60);
     return d.toISOString().split('T')[0];
-  }, [isMakeupSession, rootOriginalDate]);
+  }, [isSummerSession, isMakeupSession, rootOriginalDate]);
 
   const { showToast } = useToast();
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -214,15 +226,26 @@ export function EditSessionModal({
   }, [isOpen, session]);
 
   // Filter tutors by selected location and sort by first name (like sessions toolbar)
+  //
+  // Asked with the date the form is currently showing, not with today's, so
+  // moving a lesson to another day re-asks the question. A tutor covering the
+  // branch on Saturdays belongs in this list for a Saturday and not for a
+  // Tuesday. Changing the date can therefore drop somebody out of the list,
+  // which is why withCurrentTutor below matters as much as it does.
   const filteredTutors = useMemo(() => {
     if (!tutors) return [];
     const filtered = !form.location
       ? tutors
-      : tutors.filter(t => t.default_location === form.location);
-    return [...filtered].sort((a, b) =>
+      : tutors.filter(t => worksAt(t, form.location, form.session_date));
+    // Whoever the session is already on stays in the list even when the
+    // narrowing would drop them, which happens for a tutor at another branch
+    // and for one who has left. Without this the select renders with nothing
+    // sensibly chosen and saving can write a tutor nobody picked.
+    const withCurrent = withCurrentTutor(filtered, session.tutor_id, allTutors);
+    return [...withCurrent].sort((a, b) =>
       getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
     );
-  }, [tutors, form.location]);
+  }, [tutors, allTutors, form.location, form.session_date, session.tutor_id]);
 
   // Helper to get day name from date string (abbreviated to match DB format)
   const getDayName = (dateStr: string) => {
@@ -258,6 +281,14 @@ export function EditSessionModal({
     if (form.session_date === session.session_date) return false; // No change
     return form.session_date > lastAllowedDate60Day;
   }, [isMakeupSession, lastAllowedDate60Day, form.session_date, session.session_date]);
+
+  // Summer 31 August cap. Admins and Super Admins can move a summer session
+  // into September anyway, so for them this is a warning rather than a block.
+  const isSummerDeadlineExceeded = useMemo(() => {
+    if (!summerDeadline || !form.session_date) return false;
+    if (form.session_date === session.session_date) return false; // No change
+    return form.session_date > summerDeadline;
+  }, [summerDeadline, form.session_date, session.session_date]);
 
   // Check if session is pending makeup
   const isPendingMakeup = session.session_status.includes("Pending Make-up");
@@ -484,7 +515,7 @@ export function EditSessionModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)}>
+          <Button onClick={handleSave} disabled={isSaving || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin) || (isSummerDeadlineExceeded && !isAdmin)}>
             Save Changes
           </Button>
         </div>
@@ -519,10 +550,11 @@ export function EditSessionModal({
               onChange={(e) => updateField("session_date", e.target.value)}
               aria-describedby={
                 is60DayExceeded ? "session-60day-warning" :
+                isSummerDeadlineExceeded ? "session-summer-deadline-warning" :
                 showEarlyDeadlineWarning ? "session-deadline-warning" :
                 deadlineError ? "session-deadline-error" : undefined
               }
-              aria-invalid={is60DayExceeded || showEarlyDeadlineWarning || deadlineError ? "true" : undefined}
+              aria-invalid={is60DayExceeded || isSummerDeadlineExceeded || showEarlyDeadlineWarning || deadlineError ? "true" : undefined}
               className={inputClass}
             />
           </div>
@@ -574,6 +606,40 @@ export function EditSessionModal({
                 variant="ghost"
                 onClick={() => updateField("session_date", session.session_date)}
                 className={`text-xs ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
+              >
+                Revert Date
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Summer 31 August deadline: a warning admins can act on, a block for everyone else */}
+        {isSummerDeadlineExceeded && (
+          <div id="session-summer-deadline-warning" role="alert" className={`p-3 ${isAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'} border rounded-lg`}>
+            <div className="flex items-start gap-2">
+              <AlertTriangle className={`h-4 w-4 ${isAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} aria-hidden="true" />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm ${isAdmin ? 'text-orange-800 dark:text-orange-200' : 'text-red-800 dark:text-red-200'}`}>
+                  {isAdmin
+                    ? 'This date is past the summer deadline (override available)'
+                    : 'This date is past the summer deadline'}
+                </p>
+                <p className={`text-xs ${isAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5`}>
+                  Summer sessions must be scheduled on or before 31 August {sessionSummerYear(session)}.
+                </p>
+                {isAdmin && (
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-medium">
+                    You may proceed with this override.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => updateField("session_date", session.session_date)}
+                className={`text-xs ${isAdmin ? 'text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
               >
                 Revert Date
               </Button>
@@ -690,11 +756,7 @@ export function EditSessionModal({
               className={inputClass}
             >
               <option value="">Select tutor...</option>
-              {filteredTutors.map((tutor) => (
-                <option key={tutor.id} value={tutor.id}>
-                  {tutor.tutor_name}
-                </option>
-              ))}
+              <TutorOptions tutors={filteredTutors} location={form.location} />
             </select>
           </div>
         </div>

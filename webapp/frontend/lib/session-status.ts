@@ -81,7 +81,7 @@ export const getStatusSortOrder = (status: string | undefined): number => {
   return 99;
 };
 
-type SlotSortSession = {
+export type SlotSortSession = {
   grade?: string;
   lang_stream?: string;
   session_status?: string;
@@ -203,6 +203,16 @@ export function isCountableSession(session: { session_status: string }): boolean
 }
 
 /**
+ * Whether a session still owes money and should carry the red unpaid marker.
+ * Only an explicit Unpaid status counts: Paid is settled and Waived means the
+ * class is free. Shared so every view agrees on what gets chased instead of
+ * re-deriving it from the raw string.
+ */
+export function isSessionUnpaid(session: { financial_status?: string | null }): boolean {
+  return session.financial_status === "Unpaid";
+}
+
+/**
  * Sessions whose lesson number no longer lives on the row: cancelled outright,
  * or rescheduled with the make-up already booked (the lesson number moved to
  * the make-up session). Pending make-ups are NOT superseded — the original row
@@ -211,4 +221,17 @@ export function isCountableSession(session: { session_status: string }): boolean
 export function isSupersededSession(session: { session_status: string }): boolean {
   const status = session.session_status;
   return status === 'Cancelled' || status.endsWith('- Make-up Booked');
+}
+
+/**
+ * The lesson number a row shows: its own, or the one borrowed back from a
+ * booked make-up successor (make-up origins hand theirs over, and the DB keeps
+ * the origin NULL). Shared so anything filtering or grouping by lesson number
+ * agrees with the badge instead of re-deriving the fallback.
+ */
+export function displayedLessonNumber(session: {
+  lesson_number?: number | null;
+  moved_lesson_number?: number | null;
+}): number | null {
+  return session.lesson_number ?? session.moved_lesson_number ?? null;
 }

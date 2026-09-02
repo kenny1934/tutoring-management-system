@@ -13,6 +13,8 @@ import { CalendarPlus, Loader2, AlertCircle } from "lucide-react";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
+import { worksAt } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { LOCATION_TO_CODE } from "@/lib/summer-utils";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -74,9 +76,11 @@ export function CreateMakeupSlotModal({
   );
 
   const locationCode = LOCATION_TO_CODE[location] ?? location;
+  // Anybody covering the branch on the slot's date belongs here too, so a
+  // one-off lesson can be given to a substitute.
   const tutors = useMemo(
-    () => allTutors?.filter((t) => t.default_location === locationCode) ?? [],
-    [allTutors, locationCode]
+    () => allTutors?.filter((t) => worksAt(t, locationCode, date || null)) ?? [],
+    [allTutors, locationCode, date]
   );
 
   const { refs, context } = useFloating({
@@ -185,11 +189,7 @@ export function CreateMakeupSlotModal({
                     className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
                   >
                     <option value="">— select tutor —</option>
-                    {tutors.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.tutor_name}
-                      </option>
-                    ))}
+                    <TutorOptions tutors={tutors} location={locationCode} />
                   </select>
                   {tutors.length === 0 && allTutors && (
                     <p className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">

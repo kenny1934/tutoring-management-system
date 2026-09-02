@@ -12,7 +12,7 @@ from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, Stude
 from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role, ADMIN_WRITE_ROLES
 from utils.name_matching import NAME_CANDIDATE_THRESHOLD, name_similarity
 from utils.query_helpers import get_handover_prospect
-from routers.enrollments import get_active_enrollment_objects
+from routers.enrollments import get_active_enrollment_objects, enrollment_registration_fee
 
 router = APIRouter()
 
@@ -68,11 +68,24 @@ async def get_next_student_id(
     return {"next_id": _get_next_student_id(db, location)}
 
 
+def students_at(db: Session, location: str) -> list[Student]:
+    """Every student whose home branch is this one.
+
+    For callers checking a whole list of applications against the same branch.
+    The fuzzy pass below reads all of them anyway, so loading the branch once
+    and handing it back turns one sweep per application into one sweep."""
+    return db.query(Student).filter(
+        Student.home_location == location,
+        Student.student_name.isnot(None),
+    ).all()
+
+
 def find_duplicate_students(
     db: Session,
     student_name: str,
     location: str,
     phone: Optional[str],
+    pool: Optional[list[Student]] = None,
 ) -> list[dict]:
     """Find potential duplicate students at a location by name and/or phone.
 
@@ -81,6 +94,11 @@ def find_duplicate_students(
     exact name AND phone is strongest confidence — the
     admin_suggest_student_links auto-link path keys on that exact reason
     string, so fuzzy hits always stay in the suggestion bucket.
+
+    Pass `pool` (from students_at) when checking many names against one branch:
+    the same three signals are then read out of that list instead of out of
+    three queries each time. Names are compared stripped, because MySQL ignores
+    trailing spaces in a comparison and a fair few stored names carry one.
     """
     # id -> (Student, set of signals, fuzzy score if any)
     candidates: dict[int, tuple[Student, set[str], int]] = {}
@@ -95,32 +113,45 @@ def find_duplicate_students(
             candidates[s.id] = (s, {signal}, score)
 
     # Signal 1: exact name match at same location (case-insensitive)
-    name_matches = db.query(Student).filter(
-        Student.student_name.ilike(student_name),
-        Student.home_location == location
-    ).limit(3).all()
+    if pool is None:
+        name_matches = db.query(Student).filter(
+            Student.student_name.ilike(student_name),
+            Student.home_location == location
+        ).limit(3).all()
+    else:
+        wanted = (student_name or "").strip().casefold()
+        name_matches = [
+            s for s in pool if (s.student_name or "").strip().casefold() == wanted
+        ][:3] if wanted else []
     for s in name_matches:
         add_signal(s, "name")
 
     # Signal 2: phone match at same location (if provided and has at least 8 digits)
     if phone and len(phone) >= 8:
-        phone_matches = db.query(Student).filter(
-            or_(
-                Student.phone == phone,
-                func.json_search(Student.contacts, 'one', phone, None, '$[*].phone').isnot(None)
-            ),
-            Student.home_location == location
-        ).limit(3).all()
+        if pool is None:
+            phone_matches = db.query(Student).filter(
+                or_(
+                    Student.phone == phone,
+                    func.json_search(Student.contacts, 'one', phone, None, '$[*].phone').isnot(None)
+                ),
+                Student.home_location == location
+            ).limit(3).all()
+        else:
+            phone_matches = [
+                s for s in pool
+                if s.phone == phone
+                or any(
+                    isinstance(c, dict) and c.get("phone") == phone
+                    for c in (s.contacts or [])
+                )
+            ][:3]
         for s in phone_matches:
             add_signal(s, "phone")
 
     # Signal 3: fuzzy name match at same location. Broader sweep catches
     # Romanized word-order flips and typos that exact ilike misses.
     if student_name:
-        location_students = db.query(Student).filter(
-            Student.home_location == location,
-            Student.student_name.isnot(None),
-        ).all()
+        location_students = pool if pool is not None else students_at(db, location)
         fuzzy_hits = []
         for s in location_students:
             if s.id in candidates and "name" in candidates[s.id][1]:
@@ -344,6 +375,9 @@ async def get_student_detail(
     response = StudentDetailResponse.model_validate(student)
     for i, enrollment in enumerate(student.enrollments):
         response.enrollments[i].tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+        # These rows feed the enrollment detail popover, whose new-student
+        # badge only claims the materials fee when it was actually charged.
+        response.enrollments[i].registration_fee = enrollment_registration_fee(enrollment, db)
 
     prospect = get_handover_prospect(db, student_id)
     if prospect:

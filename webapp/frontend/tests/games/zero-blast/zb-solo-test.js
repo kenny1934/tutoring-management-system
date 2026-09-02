@@ -1,6 +1,6 @@
-/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (166 assertions)
+/* zb-solo-test.js — 歸零爆破 Zero Blast, SOLO-mode Playwright suite (174 assertions)
  *
- * Drives a full seeded solo run (12 buildings) plus a restart run and a set
+ * Drives a full seeded solo run (14 buildings) plus a restart run and a set
  * of config pages against the live game, asserting the demolition grammar,
  * the camera, the scoring maths (incl. the 1.5x double-hit rule), pillar
  * root-rank ordering, the opt-in kind-6 hint contract and the report
@@ -11,7 +11,7 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-solo-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Prints "  ✓ <name>" per assertion (166 of them), unchecked diagnostic
+ * Prints "  ✓ <name>" per assertion (174 of them), unchecked diagnostic
  * lines for each building, and "ALL PASS" when green; any failure prints
  * its detail and the process exits non-zero.
  *
@@ -35,6 +35,9 @@ const { chromium } = require("playwright");
 const RAW_BASE = process.env.ZB_BASE || "http://localhost:8000/games/zero-blast/";
 const BASE = RAW_BASE.endsWith("/") ? RAW_BASE : RAW_BASE + "/";
 const SEED = 7;
+/* DEFAULT_PLAN's fuse per stage kind, mirrored so the config tests can
+ * assert the multipliers applied to it */
+const DEFAULT_FUSES = { 1: 20000, 2: 20000, 3: 35000, 4: 35000, 5: 35000, 6: 45000, 7: 60000, 8: 60000 };
 
 /* ---------------- tiny harness ---------------- */
 
@@ -392,14 +395,14 @@ async function main() {
       () => window.__turnSeen || document.getElementById("gameScreen").classList.contains("zb-turnin"));
     check("page turn-in on screen change", turnSeen, "zb-turnin never latched on #gameScreen");
 
-    check("std plan: 13 buildings", pc.count === 13, `count ${pc.count}`);
-    check("std plan: kind order (the gate closes the run)",
-      JSON.stringify(pc.stageKinds) === "[1,2,3,4,5,6,7]" &&
-      JSON.stringify(pc.kinds) === "[1,2,2,3,3,4,4,5,5,6,6,6,7]",
+    check("std plan: 14 buildings", pc.count === 14, `count ${pc.count}`);
+    check("std plan: kind order (the two gates close the run)",
+      JSON.stringify(pc.stageKinds) === "[1,2,3,4,5,6,7,8]" &&
+      JSON.stringify(pc.kinds) === "[1,2,2,3,3,4,4,5,5,6,6,6,7,8]",
       JSON.stringify(pc.kinds));
     check("std plan: round 2+ is hard", pc.hardOk, "hard flag mismatch");
-    check("std plan: ~22 codes", pc.codes >= 20 && pc.codes <= 24, `codes ${pc.codes}`);
-    check("std plan: fuse budget 7.75 min", pc.fuseTotal === 465000, `total ${pc.fuseTotal}ms`);
+    check("std plan: ~24 codes", pc.codes >= 22 && pc.codes <= 26, `codes ${pc.codes}`);
+    check("std plan: fuse budget 8.75 min", pc.fuseTotal === 525000, `total ${pc.fuseTotal}ms`);
     check("all roots fit the keypad", pc.keypadOk, "root outside -9..9 across 60 seeds");
     check("finale flag on the last street only", pc.finaleOk, "finale flag mismatch");
 
@@ -431,7 +434,7 @@ async function main() {
       JSON.stringify({ wait: card.boardWait, vis: card.inkVis, staged: card.staged }));
     check("pad shut during the level card", card.padDisabled, "keys enabled under the card");
     check("level card is a blueprint title block",
-      card.cardShown && /PLAN 01\/13/.test(card.plan) && card.n.includes("第 1 關") &&
+      card.cardShown && /PLAN 01\/14/.test(card.plan) && card.n.includes("第 1 關") &&
       card.sub.includes("拆卸目標") && card.meta.includes("MathConcept"),
       JSON.stringify({ plan: card.plan, n: card.n, meta: card.meta }));
 
@@ -883,17 +886,12 @@ async function main() {
       ptsCheck(seq, rb, false);
     }
 
-    /* ══ building #13 — the general-form gate, the true finale ══ */
+    /* ══ building #13 — the general-form gate (no longer the finale:
+     * kind 8 took the crown, §19 Batch AB) ══ */
     await untilSeq(page, 13);
-    const fin = await page.evaluate(() => ({
-      finaleClass: document.getElementById("levelCardBlock").classList.contains("finale"),
-      chopShown: document.getElementById("levelCardChop").style.display !== "none",
-      chopText: document.getElementById("levelCardChop").textContent.trim(),
-      finShown: document.getElementById("levelCardFin").style.display !== "none",
-    }));
-    check("finale card (double border + 加倍 chop) moved to the gate",
-      fin.finaleClass && fin.chopShown && fin.chopText === "加倍" && fin.finShown,
-      JSON.stringify(fin));
+    const gateFin = await page.evaluate(() =>
+      document.getElementById("levelCardBlock").classList.contains("finale"));
+    check("the gate no longer wears the finale card (#14 does)", !gateFin, "finale class on #13");
     const info13 = await levelInfo(page);
     diag(diagLine(info13));
     check("the gate is scripted: x² + 5x + 6 = 2, roots −1 and −4",
@@ -920,7 +918,7 @@ async function main() {
       () => ![...document.querySelectorAll("#pad .zb-key")].every((k) => k.disabled),
       null, { timeout: 6000 });
     const r13a = await submit(page, -1, 0.85);
-    ptsCheck(13, r13a, true);
+    ptsCheck(13, r13a, false); // the gate pays single now
     const gatePlq = await page.evaluate(() => ({
       mark: document.getElementById("markZone").textContent,
       fact: window.ZBLevels.factorisation(window.G.level),
@@ -929,13 +927,61 @@ async function main() {
       gatePlq.fact === "x² + 5x + 4 = (x+1)(x+4)" && gatePlq.mark.includes("x² + 5x + 4 = 0"),
       JSON.stringify(gatePlq));
     const r13b = await submit(page, -4, 0.8);
-    ptsCheck(13, r13b, true);
+    ptsCheck(13, r13b, false);
+
+    /* ══ building #14 — the factored-but-nonzero gate, the true finale
+     * (x−6)(x+4) = 39, §19 Batch AB ══ */
+    await untilSeq(page, 14);
+    const fin = await page.evaluate(() => ({
+      finaleClass: document.getElementById("levelCardBlock").classList.contains("finale"),
+      chopShown: document.getElementById("levelCardChop").style.display !== "none",
+      chopText: document.getElementById("levelCardChop").textContent.trim(),
+      finShown: document.getElementById("levelCardFin").style.display !== "none",
+    }));
+    check("finale card (double border + 加倍 chop) sits on the 39 gate",
+      fin.finaleClass && fin.chopShown && fin.chopText === "加倍" && fin.finShown,
+      JSON.stringify(fin));
+    const info14 = await levelInfo(page);
+    diag(diagLine(info14));
+    check("the 39 gate is scripted: (x−6)(x+4) = 39, roots 9 and −7",
+      info14.n === 8 && info14.expr === "(x−6)(x+4) = 39" &&
+      info14.roots.join(",") === "-7,9",
+      JSON.stringify({ expr: info14.expr, roots: info14.roots }));
+    await untilStaged(page);
+    records.push(await camRecord(page));
+    const prodBoard = await page.evaluate(() =>
+      document.getElementById("exprBoard").innerHTML);
+    check("the 39 gate's board carries no red 0 (the tell)",
+      prodBoard.includes("= 39") && !prodBoard.includes("zb-zero"), prodBoard.slice(0, 120));
+    // the read-off trap: x = 6 zeroes the shown (x−6) bracket, but the
+    // product is 39, not 0 - the bespoke nudge toward general form
+    const trap8 = await submit(page, 6, 0.9);
+    check("39 gate trap: reading off x=6 scores nothing", trap8.after.score === trap8.before.score,
+      JSON.stringify(trap8.after));
+    const trap8Mark = await page.evaluate(() => document.getElementById("markZone").textContent);
+    check("39 gate trap: the nudge names the move to general form",
+      trap8Mark.includes("≠ 39") && trap8Mark.includes("唔係 0") && trap8Mark.includes("x² − 2x − 63 = 0"),
+      trap8Mark);
+    await page.waitForFunction(
+      () => ![...document.querySelectorAll("#pad .zb-key")].every((k) => k.disabled),
+      null, { timeout: 6000 });
+    const r14a = await submit(page, 9, 0.85);
+    ptsCheck(14, r14a, true); // the finale pays double
+    const prodPlq = await page.evaluate(() => ({
+      mark: document.getElementById("markZone").textContent,
+      fact: window.ZBLevels.factorisation(window.G.level),
+    }));
+    check("39 gate: the working shows expand → move-over → factorise",
+      prodPlq.fact === "x² − 2x − 63 = (x−9)(x+7)" && prodPlq.mark.includes("x² − 2x − 63 = 0"),
+      JSON.stringify(prodPlq));
+    const r14b = await submit(page, -7, 0.8);
+    ptsCheck(14, r14b, true);
 
     /* ══ the camera + dressing over the whole run ══ */
-    check("dressing varies across the 13 buildings",
+    check("dressing varies across the 14 buildings",
       new Set(records.map((r) => r.dress)).size >= 2, records.map((r) => r.dress).join(","));
     check("every building carries a dressing pick",
-      records.length === 13 && records.every((r) => ["0", "1", "2"].includes(r.dress)),
+      records.length === 14 && records.every((r) => ["0", "1", "2"].includes(r.dress)),
       records.map((r) => r.dress).join(","));
     check("hint chip only on the factorise buildings",
       records.every((r) => r.hintChip === (r.n === 6)),
@@ -951,7 +997,7 @@ async function main() {
     const tighter = records.filter((r) => r.rest.w < 399.5 && r.rest.h < 239.5).length;
     check("the camera frames tighter than the full sheet",
       tighter >= 8 && records.every((r) => Math.abs(r.rest.w - 400) > 0.5 || Math.abs(r.rest.h - 240) > 0.5),
-      `tighter ${tighter}/13 frames ${records.map((r) => `${r.rest.w.toFixed(0)}x${r.rest.h.toFixed(0)}`).join(" ")}`);
+      `tighter ${tighter}/14 frames ${records.map((r) => `${r.rest.w.toFixed(0)}x${r.rest.h.toFixed(0)}`).join(" ")}`);
 
     /* ══ the demolition report ══ */
     await page.waitForFunction(
@@ -982,12 +1028,12 @@ async function main() {
       end.chopText.includes("檢定完成") && /^\d{4}-\d{2}-\d{2}$/.test(end.chopDate),
       JSON.stringify({ chop: end.chopText, date: end.chopDate }));
     check("report rows staggered + checks draw themselves",
-      end.rows.length === 13 && end.rows.every((r, i) => r.ri === String(i) && r.draw),
+      end.rows.length === 14 && end.rows.every((r, i) => r.ri === String(i) && r.draw),
       JSON.stringify(end.rows.slice(0, 3)));
     check("inspector beside the chop, clipboard in hand",
       end.inspector && end.clipboard, JSON.stringify({ insp: end.inspector, clip: end.clipboard }));
     check("end score > 0", end.score > 0, `score ${end.score}`);
-    check("record rows = 13", end.recs.length === 13 && end.rows.length === 13,
+    check("record rows = 14", end.recs.length === 14 && end.rows.length === 14,
       `records ${end.recs.length} rows ${end.rows.length}`);
     check("all buildings cleared ticks",
       end.recs.every((r) => r.cleared) && end.rows.every((r) => r.ok && !r.no),
@@ -1108,44 +1154,46 @@ async function main() {
     const pB = await gamePage(ctx, "fuse=0.5&seed=3", errsCfg);
     await pB.click("#btnSolo");
     await pB.waitForFunction(() => !!(window.G && window.G.levels), null, { timeout: 10000 });
-    const cfgB = await pB.evaluate(() => {
-      const def = { 1: 20000, 2: 20000, 3: 35000, 4: 35000, 5: 35000, 6: 45000, 7: 60000 };
+    const cfgB = await pB.evaluate((def) => {
       return {
         ok: window.G.levels.every((l) => l.fuseMs === Math.round(def[l.stageKind] * 0.5)),
         fuses: window.G.levels.map((l) => l.fuseMs),
       };
-    });
+    }, DEFAULT_FUSES);
     check("?fuse=0.5 halves fuses", cfgB.ok, JSON.stringify(cfgB.fuses));
     await pB.close();
 
     const pC = await gamePage(ctx, "diff=hard&seed=3", errsCfg);
     await pC.click("#btnSolo");
     await pC.waitForFunction(() => !!(window.G && window.G.levels), null, { timeout: 10000 });
-    const cfgC = await pC.evaluate(() => ({
-      len: window.G.levels.length,
-      mixTail: window.G.levels.slice(-4, -1).every((l) => l.stageKind === "mix"),
-      // MIX_KINDS = [3,4,6]: kind 5's one-tap double hit sits the mixed street out
-      mixKinds: window.G.levels.slice(-4, -1).every((l) => [3, 4, 6].includes(l.n) && l.hard),
-      gateLast: window.G.levels[window.G.levels.length - 1].n === 7 &&
-        window.G.levels[window.G.levels.length - 1].finale,
-    }));
-    check("diff=hard: 16 buildings, mixed street BEFORE the gate finale",
-      cfgC.len === 16 && cfgC.mixTail && cfgC.mixKinds && cfgC.gateLast, JSON.stringify(cfgC));
+    const cfgC = await pC.evaluate(() => {
+      const lv = window.G.levels, n = lv.length;
+      return {
+        len: n,
+        // the 3-building mixed street sits just before the two gates (7, 8)
+        mixTail: lv.slice(-5, -2).every((l) => l.stageKind === "mix"),
+        // MIX_KINDS = [3,4,6]: kind 5's one-tap double hit sits the mixed street out
+        mixKinds: lv.slice(-5, -2).every((l) => [3, 4, 6].includes(l.n) && l.hard),
+        // kind 8 is the finale, kind 7 the penultimate gate
+        gateLast: lv[n - 1].n === 8 && lv[n - 1].finale && lv[n - 2].n === 7,
+      };
+    });
+    check("diff=hard: 17 buildings, mixed street BEFORE the two gates",
+      cfgC.len === 17 && cfgC.mixTail && cfgC.mixKinds && cfgC.gateLast, JSON.stringify(cfgC));
     await pC.close();
 
     const pD = await gamePage(ctx, "diff=easy&seed=3", errsCfg);
     await pD.click("#btnSolo");
     await pD.waitForFunction(() => !!(window.G && window.G.levels), null, { timeout: 10000 });
-    const cfgD = await pD.evaluate(() => {
-      const def = { 1: 20000, 2: 20000, 3: 35000, 4: 35000, 5: 35000, 6: 45000, 7: 60000 };
+    const cfgD = await pD.evaluate((def) => {
       return {
         len: window.G.levels.length,
         oneRound: window.G.levels.every((l) => l.round === 1),
         longer: window.G.levels.every((l) => l.fuseMs === Math.round(def[l.stageKind] * 1.25)),
       };
-    });
-    check("diff=easy: 7 buildings, longer fuses",
-      cfgD.len === 7 && cfgD.oneRound && cfgD.longer, JSON.stringify(cfgD));
+    }, DEFAULT_FUSES);
+    check("diff=easy: 8 buildings, longer fuses",
+      cfgD.len === 8 && cfgD.oneRound && cfgD.longer, JSON.stringify(cfgD));
     await pD.close();
 
     /* graph-orientation probe + commit window (one page) */
@@ -1492,8 +1540,8 @@ main()
   .then(() => {
     clearTimeout(watchdog);
     const total = passCount + failures.length;
-    if (total !== 166) {
-      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 166`);
+    if (total !== 174) {
+      console.error(`\nASSERTION COUNT MISMATCH: ran ${total}, expected 174`);
       process.exit(1);
     }
     if (failures.length) {

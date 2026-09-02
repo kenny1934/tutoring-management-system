@@ -13,6 +13,7 @@ import os
 from dotenv import load_dotenv
 
 from auth.gate import AuthGateMiddleware
+from services.departure_guard import DepartedTutorAssignment, install as install_departure_guard
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +344,7 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications, student_progress, report_shares, saved_reports, summer_course, primary_prospects, buddy_tracker, ark_proxy, waitlist, grade_progression, summer_courseware, summer_revenue, curriculum
+from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications, student_progress, report_shares, saved_reports, summer_course, primary_prospects, buddy_tracker, ark_proxy, waitlist, grade_progression, summer_courseware, summer_revenue, regular_course, homework, employment, curriculum
 
 # Register routers
 app.include_router(auth.router, prefix="/api", tags=["auth"])
@@ -381,7 +382,26 @@ app.include_router(ark_proxy.router, prefix="/api", tags=["ark"])
 app.include_router(waitlist.router, prefix="/api", tags=["waitlist"])
 app.include_router(grade_progression.router, prefix="/api", tags=["grade-progression"])
 app.include_router(summer_revenue.router, prefix="/api", tags=["summer-revenue"])
+app.include_router(regular_course.router, prefix="/api", tags=["regular-course"])
+app.include_router(homework.router, prefix="/api", tags=["homework"])
+app.include_router(employment.router, prefix="/api", tags=["employment"])
 app.include_router(curriculum.router, prefix="/api", tags=["curriculum"])
+
+
+# Refuse assignments to staff who have left, or who leave before the work
+# happens. Importing the module installs the hook, and this call makes the
+# wiring visible from main.py where people look for it.
+install_departure_guard()
+
+
+@app.exception_handler(DepartedTutorAssignment)
+async def departed_tutor_handler(request: Request, exc: DepartedTutorAssignment):
+    """A refused assignment is a bad request, not a server error.
+
+    The message is written for whoever is on the screen, so it goes straight
+    into `detail` the way an HTTPException's would.
+    """
+    return JSONResponse(status_code=400, content={"detail": exc.message})
 
 
 @app.on_event("shutdown")

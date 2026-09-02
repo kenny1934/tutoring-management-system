@@ -22,6 +22,9 @@ def test_protected_paths_are_not_public():
         "/api/revenue/tutor-year-matrix",
         "/api/paperless/search",
         "/api/path-aliases",
+        "/api/regular/applications",
+        "/api/regular/configs",
+        "/api/regular/demand",
     ):
         assert is_public_path(path) is False, path
 
@@ -36,6 +39,8 @@ def test_allowlisted_paths_are_public():
         "/api/admin/promote-grades",
         "/api/summer/marketing/snapshot",
         "/api/summer/public/config",
+        "/api/regular/public/config",
+        "/api/regular/public/apply",
         "/api/report-shares/some-token",
         "/api/prospects",
         "/api/prospects/verify-pin",

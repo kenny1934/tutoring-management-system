@@ -138,13 +138,75 @@ def discount_requires_min_lessons(discount) -> bool:
     return bool(discount) and discount.discount_type != PER_TWO_LESSONS_DISCOUNT_TYPE
 
 
+def regular_intake_config(enrollment, db: Session):
+    """The seasonal-intake config an enrollment was published from, or None.
+
+    Only enrollments created by publishing a regular application carry
+    ``regular_application_id``; ones added through the normal enrollment flow
+    or as renewals do not. That is the seam that keeps an intake's pricing
+    rules from reaching ordinary Regular enrollments once the intake is over.
+    """
+    if not enrollment.regular_application_id:
+        return None
+    from models import RegularApplication
+
+    app = (
+        db.query(RegularApplication)
+        .options(joinedload(RegularApplication.config))
+        .filter(RegularApplication.id == enrollment.regular_application_id)
+        .first()
+    )
+    return app.config if app else None
+
+
+def enrollment_promo(enrollment, db: Session):
+    """Seasonal promo snapshotted on a published regular enrollment, or None.
+
+    Publishing stores only the promo's code, so the offer is re-resolved from
+    the application's config. That keeps a re-copied fee message naming the
+    same offer months later, while a config that has moved on to a different
+    promo simply stops matching and the message falls back to plain wording.
+
+    Returns None immediately when no code is stored, so enrollments outside a
+    promotion never pay for the lookup.
+    """
+    code = getattr(enrollment, "promo_code", None)
+    if not code:
+        return None
+    from utils.regular_promo import promo_for_code
+
+    return promo_for_code(regular_intake_config(enrollment, db), code)
+
+
+def enrollment_registration_fee(enrollment, db: Session) -> int:
+    """The one-off materials fee actually charged on this enrollment.
+
+    Sole owner of the rule, so the fee message, the displayed total and the
+    revenue snapshot can never disagree about whether it was collected.
+
+    Normally it falls on new, non-Trial, non-Summer enrollments. A seasonal
+    intake may decline to collect it from anyone, which is a property of that
+    intake's config and so cannot affect an ordinary Regular enrollment: those
+    carry no application link and never reach the lookup.
+    """
+    is_new = bool(enrollment.is_new_student) and enrollment.enrollment_type not in ('Trial', 'Summer')
+    if not is_new:
+        return 0
+    from utils.regular_promo import intake_charges_registration_fee
+
+    config = regular_intake_config(enrollment, db)
+    if config is not None and not intake_charges_registration_fee(config):
+        return 0
+    return REGISTRATION_FEE
+
+
 def compute_enrollment_total_fee(enrollment, db: Session) -> Optional[int]:
-    """Total tuition shown in the fee message: base − discount + registration fee.
+    """Total tuition shown in the fee message: base − discount + materials fee.
 
     Mirrors the resolution in ``get_fee_message`` so the displayed amount matches
     the message a parent receives: the enrollment's explicit discount (scaled for
-    a per-2-lessons promo and floor-aware), plus the $100 registration fee for new
-    students.
+    a per-2-lessons promo and floor-aware), plus the $100 materials fee for new
+    students unless a seasonal promo waives it.
 
     A discount applies ONLY when the enrollment carries an explicit ``discount_id``.
     A student's ``available_coupons`` is just inventory — how many coupons they
@@ -160,9 +222,7 @@ def compute_enrollment_total_fee(enrollment, db: Session) -> Optional[int]:
 
     lessons = enrollment.lessons_paid or 0
     base_fee = BASE_FEE_PER_LESSON * lessons
-    # Trial enrollments never carry the registration fee.
-    is_new = bool(enrollment.is_new_student) and enrollment.enrollment_type != 'Trial'
-    reg_fee = REGISTRATION_FEE if is_new else 0
+    reg_fee = enrollment_registration_fee(enrollment, db)
 
     # compute_discount_value returns 0 for a None discount, so this also covers
     # enrollments with no discount attached.
@@ -231,15 +291,34 @@ def compute_enrollment_revenue_total(enrollment, db: Session) -> Optional[float]
     changes a price input (lessons_paid, discount, new-student flag, Summer tier
     or override) so the stored snapshot never goes stale.
     """
+    # A waived enrollment is a free class (e.g. a goodwill make-up), so its
+    # revenue is zero by definition. Snapshotting 0 here — rather than relying
+    # on the revenue views' payment-status filter alone — keeps the stored
+    # figure truthful through every later recompute. Deliberately NOT pushed
+    # down into resolve_enrollment_total_fee: the nominal fee still reports
+    # what the class would have cost; only the revenue is zero.
+    if enrollment.payment_status == 'Waived':
+        return 0.0
     total = resolve_enrollment_total_fee(enrollment, db)
     if total is None:
         return None
-    # Mirror compute_enrollment_total_fee's reg-fee rule: only new, non-Trial,
-    # non-Summer enrollments carry the $100 registration fee, which is excluded
-    # from tutor revenue.
-    is_new = bool(enrollment.is_new_student) and enrollment.enrollment_type not in ('Trial', 'Summer')
-    reg_fee = REGISTRATION_FEE if is_new else 0
-    return float(total - reg_fee)
+    # The materials fee is not tutor revenue, so it comes back out of the total
+    # a parent pays. Shared with the fee message via one helper, so a waived
+    # fee is never subtracted twice — a promo student's whole payment is
+    # tuition, and their revenue is correspondingly higher.
+    return float(total - enrollment_registration_fee(enrollment, db))
+
+
+# When an enrollment's payment status changes, its sessions' financial status
+# follows it: Paid and Waived settle every session, and moving back to Pending
+# Payment reverses either so the sessions are chased again. Cancelled is
+# deliberately absent — cancelling keeps whatever financial history the
+# sessions already carry.
+PAYMENT_STATUS_SESSION_CASCADE = {
+    'Paid': 'Paid',
+    'Waived': 'Waived',
+    'Pending Payment': 'Unpaid',
+}
 
 
 def check_student_conflicts(
@@ -1218,6 +1297,10 @@ async def get_enrollments(
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
         enrollment_data.summer_unavailability_notes = summer_unavailability.get(enrollment.summer_application_id)
+        # Rows reach the enrollment detail popover, whose new-student badge
+        # only claims the materials fee when it was actually charged. Costs a
+        # lookup only for new students published from an application.
+        enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
     return result
@@ -1331,6 +1414,9 @@ async def get_active_enrollments(
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
+        # Same badge rule as the main list: only claim the materials fee when
+        # it was actually charged.
+        enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
     return result
@@ -1490,6 +1576,7 @@ async def get_overdue_enrollments(
             discount_override_code=enrollment.discount_override_code,
             discount_override_reason=enrollment.discount_override_reason,
             total_fee=total_fee,
+            registration_fee=enrollment_registration_fee(enrollment, db),
         ))
 
     result.sort(key=lambda x: x.days_overdue, reverse=True)
@@ -1590,6 +1677,9 @@ async def get_my_students(
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays, summer_end_dates)
+        # Same badge rule as the main list: only claim the materials fee when
+        # it was actually charged.
+        enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
         result.append(enrollment_data)
 
     return result
@@ -1786,6 +1876,7 @@ async def get_enrollment_detail(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 
@@ -1900,7 +1991,8 @@ async def get_enrollment_detail_for_modal(
         phone=enrollment.student.phone if enrollment.student else None,
         contacts=enrollment.student.contacts if enrollment.student else None,
         fee_message_sent=enrollment.fee_message_sent or False,
-        is_new_student=enrollment.is_new_student or False
+        is_new_student=enrollment.is_new_student or False,
+        registration_fee=enrollment_registration_fee(enrollment, db)
     )
 
 
@@ -1986,11 +2078,29 @@ async def get_fee_message(
     # is no availability-based fallback here.
     discount_value = compute_discount_value(enrollment.discount, lessons_paid)
 
-    # Determine new student status: use override if provided, otherwise use enrollment value
-    # Trial enrollments never have reg fee
-    effective_is_new_student = is_new_student if is_new_student is not None else (enrollment.is_new_student or False)
+    # Whether this message charges the materials fee. An explicit override wins;
+    # otherwise the shared rule decides, which also covers a seasonal intake
+    # that collects it from nobody. Trial enrollments never carry it.
+    from utils.regular_promo import intake_registration_fee, promo_message_fields
+
+    if is_new_student is not None:
+        effective_is_new_student = is_new_student
+    else:
+        effective_is_new_student = enrollment_registration_fee(enrollment, db) > 0
     if enrollment.enrollment_type == 'Trial':
         effective_is_new_student = False
+
+    # A seasonal offer the enrollment was published under is quoted by name, so
+    # re-copying this message reproduces what the parent was originally sent.
+    # Dropped when the caller overrides the new-student flag: the offer's value
+    # is stated against the standard price, so quoting it beside a hand-set
+    # price would misstate the saving.
+    promo_fields = None
+    if is_new_student is None:
+        promo = enrollment_promo(enrollment, db)
+        promo_fields = promo_message_fields(
+            promo, intake_registration_fee(regular_intake_config(enrollment, db))
+        )
 
     # Format the fee message
     message = format_fee_message(
@@ -2006,6 +2116,7 @@ async def get_fee_message(
         is_new_student=effective_is_new_student,
         is_adhoc=is_adhoc,
         session_times=session_times,
+        promo=promo_fields,
     )
 
     return {"message": message, "lessons_paid": lessons_paid, "first_lesson_date": str(first_lesson_date)}
@@ -2024,12 +2135,24 @@ def format_fee_message(
     is_new_student: bool = False,
     is_adhoc: bool = False,
     session_times: Optional[list] = None,
+    promo: Optional[dict] = None,
 ) -> str:
     """Format a fee message in Chinese or English.
 
     When ``is_adhoc`` is set (One-Time enrollments), each lesson is listed with
     its own date and time and the recurring "every weekday" schedule line is
     dropped, since the lessons are individual off-cadence sessions.
+
+    ``promo`` names a seasonal offer the student qualifies for, as
+    ``{name_zh, name_en, total_value, waived_fee}`` (see
+    ``utils.regular_promo.promo_message_fields``). It replaces the itemised
+    discount wording with the offer's own name and headline value.
+
+    ``waived_fee`` is wording, not arithmetic: it is added to the quoted
+    original price so a parent can see the materials fee among what the offer
+    spared them. What is actually charged is the caller's decision, expressed
+    through ``is_new_student`` as it always has been, which keeps this function
+    a pure formatter with no view on who owes what.
     """
     day_map_zh = {'Mon': '一', 'Tue': '二', 'Wed': '三', 'Thu': '四', 'Fri': '五', 'Sat': '六', 'Sun': '日',
                   'Monday': '一', 'Tuesday': '二', 'Wednesday': '三', 'Thursday': '四',
@@ -2044,6 +2167,8 @@ def format_fee_message(
 
     base_fee = BASE_FEE_PER_LESSON * lessons_paid
     reg_fee = REGISTRATION_FEE if is_new_student else 0
+    # Quoted in the offer's original-price clause only. Never charged here.
+    waived_fee = int((promo or {}).get("waived_fee") or 0)
     discount_value = int(discount_value)  # Ensure no decimals
     total_fee = base_fee - discount_value + reg_fee
     if is_adhoc and session_times:
@@ -2066,14 +2191,21 @@ def format_fee_message(
 上課日期：
                   {lesson_dates_str}
                   (共{lessons_paid}堂)"""
-        # Build fee description parts
+        # Build fee description parts. A promo speaks for itself: it is quoted
+        # by name with its headline value, so the itemised discount wording is
+        # replaced rather than added to.
         fee_parts = []
-        if discount_value > 0 and reg_fee > 0:
-            fee_parts.append(f'已折扣${discount_value}學費禮劵，含$100報名費，原價為${base_fee}+$100報名費')
+        if promo:
+            original = f'${base_fee:,}'
+            if waived_fee > 0:
+                original += f'+${waived_fee}教材費'
+            fee_parts.append(f'已享 {promo["name_zh"]} ${promo["total_value"]}，原價為{original}')
+        elif discount_value > 0 and reg_fee > 0:
+            fee_parts.append(f'已折扣${discount_value}學費禮劵，含${reg_fee}教材費，原價為${base_fee}+${reg_fee}教材費')
         elif discount_value > 0:
             fee_parts.append(f'已折扣${discount_value}學費禮劵，原價為${base_fee}')
         elif reg_fee > 0:
-            fee_parts.append(f'含$100報名費')
+            fee_parts.append(f'含${reg_fee}教材費')
 
         discount_text = f' ({", ".join(fee_parts)})' if fee_parts else ''
 
@@ -2108,14 +2240,23 @@ MathConcept 中學教室 ({location_map_zh.get(location, location)})"""
 Lesson Dates:
                   {lesson_dates_str}
                   ({lessons_paid} lessons total)"""
-        # Build fee description parts
+        # Build fee description parts. A promo speaks for itself: it is quoted
+        # by name with its headline value, so the itemised discount wording is
+        # replaced rather than added to.
         fee_parts = []
-        if discount_value > 0 and reg_fee > 0:
-            fee_parts.append(f'Discounted ${discount_value}, includes $100 registration fee, original price ${base_fee} + $100 registration fee')
+        if promo:
+            original = f'${base_fee:,}'
+            if waived_fee > 0:
+                original += f' + ${waived_fee} materials fee'
+            fee_parts.append(
+                f'{promo["name_en"]} ${promo["total_value"]} applied, original price {original}'
+            )
+        elif discount_value > 0 and reg_fee > 0:
+            fee_parts.append(f'Discounted ${discount_value}, includes ${reg_fee} materials fee, original price ${base_fee} + ${reg_fee} materials fee')
         elif discount_value > 0:
             fee_parts.append(f'Discounted ${discount_value}, original price ${base_fee}')
         elif reg_fee > 0:
-            fee_parts.append(f'includes $100 registration fee')
+            fee_parts.append(f'includes ${reg_fee} materials fee')
 
         discount_text = f' ({", ".join(fee_parts)})' if fee_parts else ''
 
@@ -2189,12 +2330,15 @@ async def update_enrollment(
                     detail=f"Discounts are not available for enrollments of fewer than {MIN_LESSONS_FOR_DISCOUNT} lessons.",
                 )
 
-    # Check if payment_status is being changed to "Paid"
-    updating_to_paid = (
-        'payment_status' in update_data and
-        update_data['payment_status'] == 'Paid' and
-        enrollment.payment_status != 'Paid'
+    # Payment-status transition, captured before the setattr loop mutates the
+    # enrollment. The Paid flag stays named because it also gates the payment
+    # date default and the coupon decrement below.
+    new_payment_status = update_data.get('payment_status')
+    payment_status_changed = (
+        'payment_status' in update_data
+        and new_payment_status != enrollment.payment_status
     )
+    updating_to_paid = payment_status_changed and new_payment_status == 'Paid'
 
     prev_payment_date = enrollment.payment_date
 
@@ -2239,9 +2383,6 @@ async def update_enrollment(
     if updating_to_paid:
         if "payment_date" not in update_data:
             enrollment.payment_date = hk_now().date()
-        db.query(SessionLog).filter(
-            SessionLog.enrollment_id == enrollment_id
-        ).update({'financial_status': 'Paid'})
 
         # Decrement student's available coupons if enrollment used a coupon discount ($200 or $300)
         if (enrollment.discount and
@@ -2252,6 +2393,16 @@ async def update_enrollment(
             ).first()
             if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
                 student_coupon.available_coupons -= 1
+
+    # One cascade for every payment transition — the policy lives in
+    # PAYMENT_STATUS_SESSION_CASCADE next to the pricing helpers.
+    if payment_status_changed and new_payment_status in PAYMENT_STATUS_SESSION_CASCADE:
+        db.query(SessionLog).filter(
+            SessionLog.enrollment_id == enrollment_id
+        ).update(
+            {'financial_status': PAYMENT_STATUS_SESSION_CASCADE[new_payment_status]},
+            synchronize_session=False,
+        )
 
     # For Summer enrollments, keep the linked application's paid_at in sync
     # when payment_date changes on this side. paid_at is the canonical input
@@ -2306,6 +2457,7 @@ async def update_enrollment(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2374,6 +2526,7 @@ async def update_enrollment_extension(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2447,6 +2600,7 @@ async def set_discount_override(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 
@@ -2502,6 +2656,7 @@ async def clear_discount_override(
         db, [enrollment]
     ).get(enrollment.summer_application_id)
     enrollment_data.total_fee = resolve_enrollment_total_fee(enrollment, db)
+    enrollment_data.registration_fee = enrollment_registration_fee(enrollment, db)
 
     return enrollment_data
 

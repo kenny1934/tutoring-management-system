@@ -3,32 +3,54 @@
 import { useState, useEffect, useMemo } from "react";
 import { Users2, Loader2, Save, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { summerAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { DAY_ABBREV, LOCATION_TO_CODE, displayLocation } from "@/lib/summer-utils";
 import useSWR from "swr";
-import type { SummerTutorDutyItem } from "@/types";
+import type { ActiveTutorOption, TutorDuty, TutorDutyItem } from "@/types";
+import { isHomeBranch } from "@/lib/employment";
 
-interface SummerTutorDutyModalProps {
+/** How the modal reaches one intake's roster. Both intakes keep their own
+ *  duty table, so the caller supplies the three calls for its own. */
+export interface TutorDutyApi {
+  getActiveTutors: () => Promise<ActiveTutorOption[]>;
+  getDuties: (configId: number, location: string) => Promise<TutorDuty[]>;
+  bulkSetDuties: (data: {
+    config_id: number;
+    location: string;
+    duties: TutorDutyItem[];
+  }) => Promise<unknown>;
+}
+
+interface TutorDutyModalProps {
   isOpen: boolean;
   onClose: () => void;
   configId: number;
   location: string;
   days: string[];
   timeSlots: string[];
+  /** Open "day|time" pairs from the branch's per-day ladder. Days keep only
+   *  their own columns, so a weekday never offers weekend-only times. Omit
+   *  (or pass null) to show the full day x time grid. */
+  openCells?: Set<string> | null;
   onSaved: () => void;
+  api: TutorDutyApi;
+  /** Distinguishes the two intakes' entries in the SWR cache. */
+  intakeKey: string;
 }
 
 
-export function SummerTutorDutyModal({
+export function TutorDutyModal({
   isOpen,
   onClose,
   configId,
   location,
   days,
   timeSlots,
+  openCells,
   onSaved,
-}: SummerTutorDutyModalProps) {
+  api,
+  intakeKey,
+}: TutorDutyModalProps) {
   const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
   // Set of "tutorId|day|timeSlot" keys
@@ -37,21 +59,21 @@ export function SummerTutorDutyModal({
 
   // Fetch active tutors
   const { data: allTutors } = useSWR(
-    isOpen ? "summer-active-tutors" : null,
-    () => summerAPI.getActiveTutors()
+    isOpen ? ["duty-active-tutors", intakeKey] : null,
+    () => api.getActiveTutors()
   );
 
   // Filter tutors by selected location
   const locationCode = LOCATION_TO_CODE[location];
   const tutors = useMemo(
-    () => allTutors?.filter((t) => t.default_location === locationCode),
+    () => allTutors?.filter((t) => isHomeBranch(t, locationCode)),
     [allTutors, locationCode]
   );
 
   // Fetch existing duties
   const { data: duties } = useSWR(
-    isOpen ? ["summer-duties", configId, location] : null,
-    () => summerAPI.getTutorDuties(configId, location)
+    isOpen ? ["tutor-duties", intakeKey, configId, location] : null,
+    () => api.getDuties(configId, location)
   );
 
   // Initialize checked set from existing duties
@@ -72,6 +94,28 @@ export function SummerTutorDutyModal({
     }
   }, [isOpen]);
 
+  // Each day keeps only its own open time slots when a ladder is provided;
+  // a day with none left disappears entirely. A duty recorded at a
+  // combination that is no longer open stays in `checked` unseen and
+  // re-saves untouched, so hiding a column never deletes data.
+  const openByDay = useMemo(
+    () =>
+      days
+        .map((day) => ({
+          day,
+          slots: timeSlots.filter((ts) => !openCells || openCells.has(`${day}|${ts}`)),
+        }))
+        .filter((g) => g.slots.length > 0),
+    [days, timeSlots, openCells]
+  );
+  const columns = useMemo(
+    () =>
+      openByDay.flatMap(({ day, slots }) =>
+        slots.map((ts, i) => ({ day, ts, firstOfDay: i === 0 }))
+      ),
+    [openByDay]
+  );
+
   const toggle = (tutorId: number, day: string, ts: string) => {
     const key = `${tutorId}|${day}|${ts}`;
     setChecked((prev) => {
@@ -85,9 +129,7 @@ export function SummerTutorDutyModal({
   const toggleTutorRow = (tutorId: number) => {
     setChecked((prev) => {
       const next = new Set(prev);
-      const allKeys = days.flatMap((d) =>
-        timeSlots.map((ts) => `${tutorId}|${d}|${ts}`)
-      );
+      const allKeys = columns.map(({ day, ts }) => `${tutorId}|${day}|${ts}`);
       const allChecked = allKeys.every((k) => next.has(k));
       for (const k of allKeys) {
         if (allChecked) next.delete(k);
@@ -114,7 +156,7 @@ export function SummerTutorDutyModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const dutyItems: SummerTutorDutyItem[] = [];
+      const dutyItems: TutorDutyItem[] = [];
       for (const key of checked) {
         const [tutorId, day, ts] = key.split("|");
         dutyItems.push({
@@ -123,7 +165,7 @@ export function SummerTutorDutyModal({
           time_slot: ts,
         });
       }
-      await summerAPI.bulkSetTutorDuties({
+      await api.bulkSetDuties({
         config_id: configId,
         location,
         duties: dutyItems,
@@ -137,12 +179,6 @@ export function SummerTutorDutyModal({
       setSaving(false);
     }
   };
-
-  // Columns: grouped by day, each day has its time slots
-  const columns = useMemo(
-    () => days.flatMap((d) => timeSlots.map((ts) => ({ day: d, ts }))),
-    [days, timeSlots]
-  );
 
   if (!isOpen) return null;
 
@@ -187,10 +223,10 @@ export function SummerTutorDutyModal({
                   {/* Day header row */}
                   <tr className="bg-secondary">
                     <th className="sticky left-0 z-10 bg-secondary text-left px-3 py-2 border-b border-border" />
-                    {days.map((day) => (
+                    {openByDay.map(({ day, slots }) => (
                       <th
                         key={day}
-                        colSpan={timeSlots.length}
+                        colSpan={slots.length}
                         className="text-center px-1 py-2 font-semibold text-foreground border-b border-border border-l-2 border-l-primary/15"
                       >
                         {DAY_ABBREV[day] || day}
@@ -202,13 +238,12 @@ export function SummerTutorDutyModal({
                     <th className="sticky left-0 z-10 bg-secondary/50 text-left px-3 py-1.5 border-b border-border font-medium text-muted-foreground">
                       Tutor
                     </th>
-                    {columns.map(({ day, ts }, i) => (
+                    {columns.map(({ day, ts, firstOfDay }) => (
                       <th
                         key={`${day}-${ts}`}
                         className={cn(
                           "text-center px-2 py-1.5 font-normal text-muted-foreground border-b border-border border-r border-border/30 cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors",
-                          i % timeSlots.length === 0 &&
-                            "border-l-2 border-l-primary/15"
+                          firstOfDay && "border-l-2 border-l-primary/15"
                         )}
                         onClick={() => toggleColumn(day, ts)}
                         title={`Toggle all tutors for ${DAY_ABBREV[day] || day} ${ts}`}
@@ -236,7 +271,7 @@ export function SummerTutorDutyModal({
                       >
                         {tutor.tutor_name}
                       </td>
-                      {columns.map(({ day, ts }, i) => {
+                      {columns.map(({ day, ts, firstOfDay }) => {
                         const key = `${tutor.id}|${day}|${ts}`;
                         const isChecked = checked.has(key);
                         return (
@@ -244,8 +279,7 @@ export function SummerTutorDutyModal({
                             key={key}
                             className={cn(
                               "text-center px-2 py-2 border-b border-border/50 border-r border-border/30 cursor-pointer transition-colors",
-                              i % timeSlots.length === 0 &&
-                                "border-l-2 border-l-primary/15",
+                              firstOfDay && "border-l-2 border-l-primary/15",
                               isChecked
                                 ? "bg-primary/20 hover:bg-primary/30"
                                 : "hover:bg-primary/8"

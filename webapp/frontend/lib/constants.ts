@@ -16,6 +16,17 @@ export const BONUS_TIERS: [string, string][] = [
 // Day names for calendar views
 export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
+/** The Chinese branch names summer and regular configs store, mapped to the
+ *  short codes that tutors, enrolments and session_log use. It lives in this
+ *  module, which imports nothing, so that both the summer page helpers and the
+ *  tutor predicates in lib/employment.ts can share the one copy. Mirror of
+ *  SECONDARY_LOCATION_TO_CODE in webapp/backend/constants.py, so a new branch
+ *  is two edits: this one and that one. */
+export const LOCATION_TO_CODE: Record<string, string> = {
+  "華士古分校": "MSA",
+  "二龍喉分校": "MSB",
+};
+
 // Map day names to day index (Sunday = 0)
 export const DAY_NAME_TO_INDEX: Record<string, number> = {
   'Sun': 0, 'Sunday': 0,
@@ -40,6 +51,10 @@ export const GRADE_COLORS: Record<string, string> = {
   "F3E": "#ebb26e",
   "F4C": "#7dc347",
   "F4E": "#a590e6",
+  "F5C": "#6fb0dd",
+  "F5E": "#bf9878",
+  "F6C": "#6cc5c0",
+  "F6E": "#c2c261",
   "Graduated": "#cbd5e1",
   "GraduatedC": "#cbd5e1",
   "GraduatedE": "#cbd5e1",
@@ -51,6 +66,11 @@ export const DEFAULT_GRADE_COLOR = "#e5e7eb";
 // Discounts (coupons, staff referral, trial conversion) only apply to
 // enrollments of at least this many lessons. Mirrors the backend constant.
 export const MIN_LESSONS_FOR_DISCOUNT = 6;
+
+// One-off fee charged on a student's first non-Trial enrollment. Mirrors the
+// backend constant; whether it applies to a given student is the backend's
+// call, surfaced as is_new_student.
+export const REGISTRATION_FEE = 100;
 
 // Promo discount type whose value scales per 2 lessons (e.g. $100 off every
 // 2 extra lessons) and which is exempt from MIN_LESSONS_FOR_DISCOUNT.
@@ -65,6 +85,34 @@ export function minLessonsForDiscount(
   return discount?.discount_type === PER_TWO_LESSONS_DISCOUNT_TYPE
     ? 2
     : MIN_LESSONS_FOR_DISCOUNT;
+}
+
+// The fields the discount lookups below read. The API serialises the decimal
+// value as a string ("300.00"), so callers always coerce before comparing.
+type DiscountLike = { discount_name: string; discount_value?: number | string | null };
+
+// The discount row worth exactly this amount, if there is one. Coupons are
+// matched this way because a coupon only records its value, not a row id.
+export function findDiscountByValue<T extends DiscountLike>(
+  discounts: T[],
+  value: number | string
+): T | undefined {
+  const wanted = Number(value);
+  return discounts.find((d) => Math.abs(Number(d.discount_value) - wanted) < 0.01);
+}
+
+// A student whose record is flagged as a staff referral gets this amount off
+// every enrollment, and it wins over a coupon or a seasonal offer wherever a
+// discount is preselected.
+const STAFF_REFERRAL_DISCOUNT_VALUE = 500;
+
+// The staff referral discount row: matched by name ("Staff Referral Coupon
+// $500" in production), or by its value when the row has been renamed.
+export function findStaffReferralDiscount<T extends DiscountLike>(discounts: T[]): T | undefined {
+  return (
+    discounts.find((d) => d.discount_name.toLowerCase().includes("staff")) ??
+    findDiscountByValue(discounts, STAFF_REFERRAL_DISCOUNT_VALUE)
+  );
 }
 
 // Grade levels (regular). P6 is admin-only (summer create-student flow);

@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount } from "@/lib/hooks";
+import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount, useAgedPendingMakeupsCount, useEmploymentOverrun } from "@/lib/hooks";
+import { departureLabel } from "@/lib/employment";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { parentCommunicationsAPI, arkLeaveAPI } from "@/lib/api";
@@ -31,6 +32,8 @@ interface NotificationItem {
   id: string;
   icon: React.ReactNode;
   label: string;
+  /** Optional second line, for when a count alone does not say enough. */
+  detail?: string;
   count: number;
   severity: "danger" | "warning";
   href: string;
@@ -70,6 +73,11 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
 
   // Fetch aged pending makeups count (all users with tutorId)
   const { data: agedMakeups } = useAgedPendingMakeupsCount(tutorId);
+
+  // Work booked past a leaver's last working day (admin only — tutors cannot
+  // reassign anything, and a colleague's leaving date is not theirs to learn
+  // from a badge)
+  const { data: overrun } = useEmploymentOverrun(showOverduePayments);
 
   // Fetch ARK pending leave count (admin only)
   const { data: pendingLeave } = useSWR(
@@ -186,6 +194,28 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       });
     }
 
+    // Lessons standing in the diary for somebody who is leaving (admin only).
+    // It appears as soon as ARK reports the date rather than on the day they
+    // go, because a month of notice is a month to move the work.
+    if (showOverduePayments && overrun?.total_sessions) {
+      const [first, ...others] = overrun.leavers;
+      items.push({
+        id: "after-last-day",
+        icon: <UserMinus className="h-4 w-4" />,
+        label: "Sessions After a Tutor's Last Day",
+        detail: others.length
+          ? `${first.tutor_name} and ${others.length === 1 ? "one other" : `${others.length} others`}`
+          : `${first.tutor_name} ${departureLabel(first)?.toLowerCase() ?? ""}`.trim(),
+        count: overrun.total_sessions,
+        // Urgency comes from the server, the way it does for renewals,
+        // attendance and make-ups, rather than being recomputed from dates
+        // here. It turns red once somebody's last day is behind us or a week
+        // away, when there is no longer time to arrange cover calmly.
+        severity: overrun.critical_sessions > 0 ? "danger" : "warning",
+        href: "/sessions?filter=after-last-day",
+      });
+    }
+
     if (reviewCount?.in_review_period && reviewCount.count > 0) {
       items.push({
         id: "termination-review",
@@ -198,7 +228,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount, pendingLeave]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance, agedMakeups, reviewCount, pendingLeave, overrun]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 
@@ -302,9 +332,16 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
                       {item.icon}
                     </div>
                     <span
-                      className={cn("flex-1 text-sm font-medium", styles.text)}
+                      className={cn("flex-1 min-w-0 text-sm font-medium", styles.text)}
                     >
                       {item.label}
+                      {/* A count on its own says how much but not who, and for
+                          a departure the name is the part you act on. */}
+                      {item.detail && (
+                        <span className={cn("block text-xs font-normal opacity-80 truncate")}>
+                          {item.detail}
+                        </span>
+                      )}
                     </span>
                     <span
                       className={cn(

@@ -11,6 +11,7 @@ import {
 } from "@floating-ui/react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { ReactNode, useEffect, useRef } from "react";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { useHaptic } from "@/lib/useHaptic";
 
 interface ConfirmDialogProps {
@@ -39,6 +40,12 @@ export function ConfirmDialog({
   variant = 'default',
   loading = false,
 }: ConfirmDialogProps) {
+  // A confirm dialog is nearly always raised from a modal, which listens for
+  // Escape on its own. Joining the stack is what tells that modal to sit the
+  // keypress out, so one Escape dismisses the question and not the work
+  // behind it. Scroll stays with FloatingOverlay's own lock.
+  const { isTopmost, zIndex } = useOverlayLayer(isOpen);
+
   const { refs, context } = useFloating({
     open: isOpen,
     onOpenChange: (open) => {
@@ -48,7 +55,7 @@ export function ConfirmDialog({
 
   const dismiss = useDismiss(context, {
     outsidePressEvent: "mousedown",
-    enabled: !loading,
+    enabled: !loading && isTopmost,
   });
   const { getFloatingProps } = useInteractions([dismiss]);
 
@@ -81,7 +88,8 @@ export function ConfirmDialog({
   return (
     <FloatingPortal>
       <FloatingOverlay
-        className="z-[10000] bg-black/50 flex items-center justify-center p-4"
+        style={{ zIndex }}
+        className="bg-black/50 flex items-center justify-center p-4"
         lockScroll
       >
         <FloatingFocusManager context={context}>

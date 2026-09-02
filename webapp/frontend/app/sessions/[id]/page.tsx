@@ -13,6 +13,7 @@ import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, 
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Session, UpcomingTestAlert } from "@/types";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import {
   ArrowLeft,
@@ -35,6 +36,7 @@ import { BookmarkTab } from "@/components/session/BookmarkTab";
 import { CurriculumTab } from "@/components/session/CurriculumTab";
 import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { TestAlertBanner } from "@/components/session/TestAlertBanner";
+import { HandoverBanner } from "@/components/session/HandoverBanner";
 import { MemoBanner } from "@/components/sessions/MemoBanner";
 import { MemoModal } from "@/components/sessions/MemoModal";
 import { MemoImportModal } from "@/components/sessions/MemoImportModal";
@@ -257,6 +259,7 @@ export default function SessionDetailPage() {
   const { data: session, error, isLoading: loading, mutate } = useSession(sessionId);
   const { isReadOnly } = useAuth();
 
+  const handleHomeworkMarked = useHomeworkMarked();
   const { data: upcomingTests = [] } = useSWR<UpcomingTestAlert[]>(
     sessionId ? ['upcoming-tests', sessionId] : null,
     () => api.sessions.getUpcomingTests(sessionId)
@@ -492,6 +495,9 @@ export default function SessionDetailPage() {
         <BookmarkTab
           previousSession={session.previous_session}
           homeworkToCheck={session.homework_completion}
+          sessionId={session.id}
+          readOnly={isReadOnly}
+          onHomeworkMarked={handleHomeworkMarked}
         />
 
         {/* Curriculum Tab for School Progress (fixed position) */}
@@ -523,6 +529,13 @@ export default function SessionDetailPage() {
           <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={() => setLessonMode(true)} loadingActionId={loadingActionId} />
         </div>
       </div>
+
+      {/* Handover note from the primary branch, on the first lesson with this tutor */}
+      {session.show_handover_first_lesson && session.handover_prospect && (
+        <div className="pl-0 sm:pl-8 lg:pl-14">
+          <HandoverBanner prospect={session.handover_prospect} />
+        </div>
+      )}
 
       {/* Upcoming Tests Alert Banner */}
       <div className="pl-0 sm:pl-8 lg:pl-14">

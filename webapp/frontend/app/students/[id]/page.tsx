@@ -2,12 +2,11 @@
 
 import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions } from "@/lib/hooks";
-import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect } from "@/types";
+import { useStudent, useStudentCoupon, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions, useStudentHomework } from "@/lib/hooks";
+import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect, HomeworkCompletion, HomeworkStatus } from "@/types";
 import { SessionStatus, ATTENDABLE_STATUSES } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
-import useSWR from "swr";
 import { mutate } from "swr";
 import Link from "next/link";
 import {
@@ -49,6 +48,10 @@ import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBa
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import { StudentProgressDrawer } from "@/components/students/StudentProgressTab";
+import { HomeworkCheckRow } from "@/components/homework/HomeworkCheckRow";
+import { HOMEWORK_STATES, HomeworkStatusGlyph, homeworkState } from "@/components/homework/homework-status";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { isChecked } from "@/lib/homework-utils";
 import {
   useFloating,
   autoUpdate,
@@ -137,16 +140,14 @@ export default function StudentDetailPage() {
   const { data: enrollments = [], isLoading: enrollmentsLoading } = useStudentEnrollments(studentId);
 
   // Fetch student coupon info
-  const { data: couponInfo, isLoading: couponLoading } = useSWR<StudentCouponResponse>(
-    studentId ? ['student-coupon', studentId] : null,
-    () => studentsAPI.getCoupon(studentId!)
-  );
+  const { data: couponInfo, isLoading: couponLoading, mutate: mutateCoupon } =
+    useStudentCoupon(studentId);
 
   // Shared callback to refresh enrollment-related data after status changes
   const handleEnrollmentStatusChange = useCallback(() => {
     mutate(['enrollments', studentId]);
-    mutate(['student-coupon', studentId]);
-  }, [studentId]);
+    void mutateCoupon();
+  }, [studentId, mutateCoupon]);
 
   // Fetch all schools for autocomplete
   useEffect(() => {
@@ -697,6 +698,7 @@ export default function StudentDetailPage() {
                 <CoursewareTab
                   coursewareHistory={coursewareHistory}
                   sessions={sessions}
+                  studentId={studentId}
                   loading={sessionsLoading}
                   isMobile={isMobile}
                   isReadOnly={isReadOnly}
@@ -2178,6 +2180,11 @@ function SessionsTab({
                     <CheckCircle2 className="h-3 w-3" />
                     <span className="hidden sm:inline">Paid</span>
                   </span>
+                ) : session.financial_status === "Waived" ? (
+                  <span className="flex items-center gap-0.5 text-xs text-gray-500">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span className="hidden sm:inline">Waived</span>
+                  </span>
                 ) : (
                   <span className="flex items-center gap-0.5 text-xs text-red-600">
                     <HandCoins className="h-3 w-3" />
@@ -2801,6 +2808,160 @@ const BulkExerciseActions = memo(function BulkExerciseActions({
   );
 });
 
+// The homework layer on the courseware tab.
+//
+// Every lesson surface works off homework_to_check, which only reaches back
+// three sat sessions. Anything that fell out of that window unmarked is
+// unreachable from all of them, so this is where it gets seen and fixed.
+
+/**
+ * Counts per state, in ladder order, over the homework actually listed.
+ *
+ * An assignment with no record counts as Not Checked rather than being left
+ * out, so the totals here always add up to the HW count beside them.
+ */
+function homeworkTally(items: (HomeworkCompletion | undefined)[]) {
+  const counts = new Map<HomeworkStatus, number>(
+    HOMEWORK_STATES.map((state) => [state.status, 0])
+  );
+
+  items.forEach((hw) => {
+    const status = hw?.completion_status || "Not Checked";
+    counts.set(status, (counts.get(status) || 0) + 1);
+  });
+  const total = items.length;
+
+  const openCount = HOMEWORK_STATES.filter(
+    (state) => !isChecked({ completion_status: state.status })
+  ).reduce((sum, state) => sum + (counts.get(state.status) || 0), 0);
+
+  return { counts, total, openCount };
+}
+
+/** Proportion bar and counts, for the tab's summary strip. */
+function HomeworkSummary({ tally }: { tally: ReturnType<typeof homeworkTally> }) {
+  const { counts, total, openCount } = tally;
+  if (total === 0) return null;
+
+  return (
+    <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap">
+      <div
+        className="flex h-2 w-32 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+        role="img"
+        aria-label={`Homework: ${HOMEWORK_STATES.map(
+          (s) => `${counts.get(s.status) || 0} ${s.longLabel.toLowerCase()}`
+        ).join(", ")}`}
+      >
+        {HOMEWORK_STATES.map((state) => {
+          const count = counts.get(state.status) || 0;
+          if (count === 0) return null;
+          return (
+            <div
+              key={state.status}
+              className={state.barClass}
+              style={{ width: `${(count / total) * 100}%` }}
+              title={`${state.longLabel}: ${count}`}
+            />
+          );
+        })}
+      </div>
+
+      {/* Words as well as colour, so the bar is never the only way to read it. */}
+      {HOMEWORK_STATES.map((state) => {
+        const count = counts.get(state.status) || 0;
+        if (count === 0) return null;
+        return (
+          <span key={state.status} className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+            <HomeworkStatusGlyph status={state.status} className="h-3 w-3" />
+            <span className="font-medium text-gray-900 dark:text-gray-100">{count}</span>
+            {state.longLabel.toLowerCase()}
+          </span>
+        );
+      })}
+
+      {openCount > 0 && (
+        <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+          {openCount} still to check
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Filter chips, one per state. Clicking the active one clears the filter. */
+function HomeworkStatusChips({
+  tally,
+  value,
+  onChange,
+}: {
+  tally: ReturnType<typeof homeworkTally>;
+  value: HomeworkStatus | null;
+  onChange: (status: HomeworkStatus | null) => void;
+}) {
+  if (tally.total === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs text-gray-500 dark:text-gray-400">Homework status</span>
+      {HOMEWORK_STATES.map((state) => {
+        const count = tally.counts.get(state.status) || 0;
+        const active = value === state.status;
+        return (
+          <button
+            key={state.status}
+            type="button"
+            onClick={() => onChange(active ? null : state.status)}
+            disabled={count === 0 && !active}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border transition-colors",
+              active
+                ? "bg-[#f5ede3] dark:bg-[#3a342a] border-[#a0704b] text-gray-900 dark:text-gray-100"
+                : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-600 dark:text-gray-400 hover:border-[#a0704b]",
+              count === 0 && !active && "opacity-40 cursor-not-allowed"
+            )}
+          >
+            <HomeworkStatusGlyph status={state.status} className="h-3 w-3" />
+            {state.longLabel}
+            <span className="tabular-nums">{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** One assignment's state, and the way in to changing it. */
+function HomeworkStatusButton({
+  homework,
+  expanded,
+  onToggle,
+}: {
+  homework: HomeworkCompletion;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const state = homeworkState(homework.completion_status);
+  const checkedOn = homework.checked_at
+    ? new Date(homework.checked_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      title={checkedOn ? `${state.longLabel} · recorded ${checkedOn}` : state.longLabel}
+      className={cn(
+        "flex items-center justify-center h-5 w-5 rounded flex-shrink-0 transition-colors",
+        "hover:bg-gray-200 dark:hover:bg-gray-700",
+        expanded && "bg-gray-200 dark:bg-gray-700"
+      )}
+    >
+      <HomeworkStatusGlyph status={homework.completion_status} />
+    </button>
+  );
+}
+
 // Courseware Tab Component
 interface CoursewareExercise {
   id?: number;
@@ -2822,12 +2983,14 @@ interface CoursewareExercise {
 function CoursewareTab({
   coursewareHistory,
   sessions,
+  studentId,
   loading,
   isMobile,
   isReadOnly,
 }: {
   coursewareHistory: CoursewareExercise[];
   sessions: Session[];
+  studentId: number | null;
   loading: boolean;
   isMobile: boolean;
   isReadOnly: boolean;
@@ -2837,6 +3000,20 @@ function CoursewareTab({
   const [showCW, setShowCW] = useState(true);
   const [showHW, setShowHW] = useState(true);
   const [groupBy, setGroupBy] = useState<"session" | "pdf">("session");
+  const [statusFilter, setStatusFilter] = useState<HomeworkStatus | null>(null);
+  // One assignment open for marking at a time, keyed by session exercise.
+  const [markingId, setMarkingId] = useState<number | null>(null);
+
+  const { homework, byExercise, error: homeworkError } = useStudentHomework(studentId);
+  const onMarked = useHomeworkMarked();
+  // Nothing loaded means nothing known. Showing the summary before the record
+  // arrives, or after it failed, would read every assignment as unchecked.
+  const homeworkLoaded = homework !== undefined;
+
+  const homeworkFor = useCallback(
+    (ex: CoursewareExercise) => (ex.id ? byExercise.get(ex.id) : undefined),
+    [byExercise]
+  );
 
   // ExerciseModal state
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
@@ -2877,12 +3054,50 @@ function CoursewareTab({
     return { total: coursewareHistory.length, cwCount, hwCount, uniquePdfs };
   }, [coursewareHistory]);
 
+  // Counted over the homework this tab lists, not the student's whole record,
+  // so the summary and the rows below it can never show different numbers.
+  const tally = useMemo(
+    () => homeworkTally(
+      coursewareHistory
+        .filter(ex => ex.exercise_type !== "CW" && ex.exercise_type !== "Classwork")
+        .map(homeworkFor)
+    ),
+    [coursewareHistory, homeworkFor]
+  );
+
+  // The chips are controls, so their counts have to promise what clicking one
+  // actually shows. That means honouring the search but not the status filter,
+  // which would otherwise leave every other chip reading zero once one is on.
+  const chipTally = useMemo(() => {
+    if (!searchQuery) return tally;
+    const query = searchQuery.toLowerCase();
+    return homeworkTally(
+      coursewareHistory
+        .filter(ex => ex.exercise_type !== "CW" && ex.exercise_type !== "Classwork")
+        .filter(ex =>
+          getExerciseDisplayName(ex).toLowerCase().includes(query) ||
+          !!ex.remarks?.toLowerCase().includes(query)
+        )
+        .map(homeworkFor)
+    );
+  }, [coursewareHistory, homeworkFor, searchQuery, tally]);
+
   // Filter and search exercises
   const filteredExercises = useMemo(() => {
     return coursewareHistory.filter(ex => {
       const isCW = ex.exercise_type === "CW" || ex.exercise_type === "Classwork";
       if (isCW && !showCW) return false;
       if (!isCW && !showHW) return false;
+      // A status only exists for homework, so filtering by one hides classwork.
+      // The row being marked is exempt: marking changes the status, and a row
+      // that vanished from under the tutor mid-edit would take its open panel
+      // with it, which is exactly the pass this filter exists to support. It
+      // drops out once they close it.
+      if (statusFilter && ex.id !== markingId) {
+        if (isCW) return false;
+        const status = homeworkFor(ex)?.completion_status || "Not Checked";
+        if (status !== statusFilter) return false;
+      }
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const displayName = getExerciseDisplayName(ex).toLowerCase();
@@ -2892,7 +3107,7 @@ function CoursewareTab({
       }
       return true;
     });
-  }, [coursewareHistory, showCW, showHW, searchQuery]);
+  }, [coursewareHistory, showCW, showHW, searchQuery, statusFilter, homeworkFor, markingId]);
 
   // Group by session
   const exercisesBySession = useMemo(() => {
@@ -2978,23 +3193,30 @@ function CoursewareTab({
   return (
     <div className="space-y-4">
       {/* Progress Summary */}
-      <div className="flex items-center gap-x-4 gap-y-1 flex-wrap px-4 py-2.5 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg">
-        <BarChart3 className="h-5 w-5 text-[#a0704b]" />
-        <span className="text-sm">
-          <span className="font-semibold">{stats.total}</span> exercises
-        </span>
-        <span className="text-gray-400">•</span>
-        <span className="text-sm text-red-600 dark:text-red-400">
-          CW: {stats.cwCount}
-        </span>
-        <span className="text-gray-400">•</span>
-        <span className="text-sm text-blue-600 dark:text-blue-400">
-          HW: {stats.hwCount}
-        </span>
-        <span className="text-gray-400">•</span>
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {stats.uniquePdfs} unique PDF{stats.uniquePdfs !== 1 ? 's' : ''}
-        </span>
+      <div className="px-4 py-2.5 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg space-y-2">
+        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap">
+          <BarChart3 className="h-5 w-5 text-[#a0704b]" />
+          <span className="text-sm">
+            <span className="font-semibold">{stats.total}</span> exercises
+          </span>
+          <span className="text-gray-400">•</span>
+          <span className="text-sm text-red-600 dark:text-red-400">
+            CW: {stats.cwCount}
+          </span>
+          <span className="text-gray-400">•</span>
+          <span className="text-sm text-blue-600 dark:text-blue-400">
+            HW: {stats.hwCount}
+          </span>
+          <span className="text-gray-400">•</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {stats.uniquePdfs} unique PDF{stats.uniquePdfs !== 1 ? 's' : ''}
+          </span>
+        </div>
+        {homeworkLoaded && tally.total > 0 && (
+          <div className="pt-2 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60">
+            <HomeworkSummary tally={tally} />
+          </div>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -3012,19 +3234,29 @@ function CoursewareTab({
         </div>
 
         {/* Type filters */}
+        {/* Classwork has no completion state, so filtering by one rules it out.
+            Saying so on the button beats a list that silently comes back empty. */}
         <button
           onClick={() => setShowCW(!showCW)}
+          disabled={!!statusFilter}
+          title={statusFilter ? "Only homework has a status" : undefined}
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
-            showCW
+            showCW && !statusFilter
               ? "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
-              : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+              : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400",
+            statusFilter && "opacity-40 cursor-not-allowed"
           )}
         >
           CW ({stats.cwCount})
         </button>
         <button
-          onClick={() => setShowHW(!showHW)}
+          onClick={() => {
+            // Hiding homework would hide the status chips too, stranding an
+            // active filter with no way back to a non-empty list.
+            if (showHW) setStatusFilter(null);
+            setShowHW(!showHW);
+          }}
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
             showHW
@@ -3061,6 +3293,20 @@ function CoursewareTab({
           </button>
         </div>
       </div>
+
+      {/* Homework status filter. Picking one is how a tutor finds the backlog
+          that no lesson can still reach. */}
+      {showHW && homeworkLoaded && (
+        <HomeworkStatusChips tally={chipTally} value={statusFilter} onChange={setStatusFilter} />
+      )}
+
+      {/* Without this the tab looks exactly like a student who has never been
+          set homework, rather than one whose record failed to load. */}
+      {homeworkError && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          Homework status could not be loaded, so this list shows what was set but not whether it came back.
+        </p>
+      )}
 
       {/* Filtered results count */}
       {filteredExercises.length !== coursewareHistory.length && (
@@ -3181,30 +3427,50 @@ function CoursewareTab({
                               <BulkExerciseActions exercises={hwExercises} stamp={buildStamp(sessionId)} sessionDate={sessionMap.get(sessionId)!.session_date} schoolStudentId={sessionMap.get(sessionId)!.school_student_id} studentName={sessionMap.get(sessionId)!.student_name} exerciseType="HW" />
                             )}
                           </div>
-                          {hwExercises.map((exercise, index) => (
-                            <div
-                              key={`${exercise.session_id}-hw-${exercise.id || index}`}
-                              className="flex items-center gap-2 py-1.5 px-2 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
-                            >
-                              <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
-                                {getExerciseDisplayName(exercise)}
-                                <UrlBadge url={exercise.url} />
-                              </span>
-                              {exercise.page_start && (
-                                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                                  p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                          {hwExercises.map((exercise, index) => {
+                            const homework = homeworkFor(exercise);
+                            const marking = !!homework && markingId === exercise.id;
+                            return (
+                            <div key={`${exercise.session_id}-hw-${exercise.id || index}`}>
+                              <div className="flex items-center gap-2 py-1.5 px-2 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
+                                {homework && (
+                                  <HomeworkStatusButton
+                                    homework={homework}
+                                    expanded={marking}
+                                    onToggle={() => setMarkingId(marking ? null : exercise.id!)}
+                                  />
+                                )}
+                                <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">
+                                  {getExerciseDisplayName(exercise)}
+                                  <UrlBadge url={exercise.url} />
                                 </span>
-                              )}
-                              {exercise.remarks && (
-                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px] sm:max-w-[200px]" title={exercise.remarks}>
-                                  &ldquo;{exercise.remarks}&rdquo;
-                                </span>
-                              )}
-                              <div className="ml-auto flex-shrink-0">
-                                <CoursewareExerciseActions pdfName={exercise.pdf_name} url={exercise.url} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
+                                {exercise.page_start && (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                    p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                                  </span>
+                                )}
+                                {exercise.remarks && (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px] sm:max-w-[200px]" title={exercise.remarks}>
+                                    &ldquo;{exercise.remarks}&rdquo;
+                                  </span>
+                                )}
+                                <div className="ml-auto flex-shrink-0">
+                                  <CoursewareExerciseActions pdfName={exercise.pdf_name} url={exercise.url} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
+                                </div>
                               </div>
+                              {marking && homework && (
+                                <div className="ml-7 mr-2 mb-1 px-2 rounded border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10">
+                                  <HomeworkCheckRow
+                                    homework={homework}
+                                    sessionId={homework.current_session_id}
+                                    readOnly={isReadOnly}
+                                    onMarked={onMarked}
+                                  />
+                                </div>
+                              )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -3236,35 +3502,53 @@ function CoursewareTab({
               <div className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30">
                 {exercises.map((exercise, index) => {
                   const sessionDate = new Date(exercise.session_date + 'T00:00:00');
+                  const homework = homeworkFor(exercise);
+                  const marking = !!homework && markingId === exercise.id;
 
                   return (
-                    <div
-                      key={`${exercise.session_id}-${exercise.id || index}`}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2820]/50 transition-colors"
-                    >
-                      <span className="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">
-                        {sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                      {renderTypeBadge(exercise.exercise_type, true)}
-                      {exercise.page_start && (
-                        <span className="text-xs text-gray-600 dark:text-gray-400">
-                          p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                    <div key={`${exercise.session_id}-${exercise.id || index}`}>
+                      <div className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2820]/50 transition-colors">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">
+                          {sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
-                      )}
-                      {exercise.tutor_name && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {exercise.tutor_name}
-                        </span>
-                      )}
-                      <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-                        <Link
-                          href={`/sessions/${exercise.session_id}`}
-                          className="text-xs text-[#a0704b] hover:underline font-mono"
-                        >
-                          #{exercise.session_id}
-                        </Link>
-                        <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
+                        {renderTypeBadge(exercise.exercise_type, true)}
+                        {homework && (
+                          <HomeworkStatusButton
+                            homework={homework}
+                            expanded={marking}
+                            onToggle={() => setMarkingId(marking ? null : exercise.id!)}
+                          />
+                        )}
+                        {exercise.page_start && (
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                          </span>
+                        )}
+                        {exercise.tutor_name && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {exercise.tutor_name}
+                          </span>
+                        )}
+                        <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+                          <Link
+                            href={`/sessions/${exercise.session_id}`}
+                            className="text-xs text-[#a0704b] hover:underline font-mono"
+                          >
+                            #{exercise.session_id}
+                          </Link>
+                          <CoursewareExerciseActions pdfName={exercise.pdf_name} pageStart={exercise.page_start} pageEnd={exercise.page_end} stamp={buildStamp(exercise.session_id)} />
+                        </div>
                       </div>
+                      {marking && homework && (
+                        <div className="mx-3 mb-2 px-2 rounded border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10">
+                          <HomeworkCheckRow
+                            homework={homework}
+                            sessionId={homework.current_session_id}
+                            readOnly={isReadOnly}
+                            onMarked={onMarked}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}

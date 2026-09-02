@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useEffect, useState, memo } from "react";
-import { useEnrollmentSessions, useLocations, useActiveTutors } from "@/lib/hooks";
+import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
+import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import { enrollmentsAPI } from "@/lib/api";
 import Link from "next/link";
 import {
@@ -16,7 +17,6 @@ import {
 } from "@floating-ui/react";
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
-import { getIsNewStudentParam } from "@/lib/enrollment-utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { useToast } from "@/contexts/ToastContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -24,10 +24,13 @@ import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import type { Enrollment } from "@/types";
+import type { Enrollment, Tutor } from "@/types";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { GradeBadge } from "@/components/ui/grade-label";
+
+/** Stable empty list so a fetch in flight does not recompute the narrowing. */
+const EMPTY_TUTORS: Tutor[] = [];
 
 // Day options (short form)
 const DAY_OPTIONS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -108,7 +111,10 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
   // Fetch locations and tutors for editing
   const { data: allLocations = [] } = useLocations();
-  const { data: allTutors = [] } = useActiveTutors();
+  // The whole roster. The dropdown narrows it below, but this enrollment may
+  // already belong to somebody who has left, and their name has to come from
+  // somewhere.
+  const { data: allTutors = EMPTY_TUTORS } = useTutors();
   const { effectiveRole, isReadOnly } = useAuth();
   const isTutor = effectiveRole === "Tutor" || isReadOnly;
 
@@ -141,13 +147,18 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   const [copySuccess, setCopySuccess] = useState(false);
   const { showToast } = useToast();
 
-  // Filter tutors by selected location
+  // Filter tutors by selected location. Only people who can still be given work
+  // are offered, but whoever this enrollment is already assigned to is added
+  // back, so a tutor who has left does not leave the field looking empty when
+  // it is not.
   const filteredTutors = useMemo(() => {
     if (!editedLocation) return [];
-    return allTutors
-      .filter(t => t.default_location === editedLocation)
+    const offerable = pickableTutors(
+      allTutors.filter(t => isHomeBranch(t, editedLocation))
+    );
+    return [...withCurrentTutor(offerable, editedTutorId, allTutors)]
       .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
-  }, [allTutors, editedLocation]);
+  }, [allTutors, editedLocation, editedTutorId]);
 
   // Get time options based on current day
   const timeOptions = useMemo(() => getTimeOptions(editedDay), [editedDay]);
@@ -299,7 +310,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
       const message =
         enrollment.enrollment_type === 'Summer' && enrollment.summer_application_id
           ? await fetchSummerFeeMessage(enrollment.summer_application_id)
-          : (await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid, getIsNewStudentParam(enrollment))).message;
+          : (await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid)).message;
       await navigator.clipboard.writeText(message);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
@@ -462,9 +473,14 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
                   disabled={!editedLocation}
                 >
                   <option value="">{editedLocation ? 'Select tutor...' : 'Select location first'}</option>
-                  {filteredTutors.map(tutor => (
-                    <option key={tutor.id} value={tutor.id}>{tutor.tutor_name}</option>
-                  ))}
+                  {filteredTutors.map(tutor => {
+                    const departure = departureLabel(tutor);
+                    return (
+                      <option key={tutor.id} value={tutor.id}>
+                        {departure ? `${tutor.tutor_name} (${departure.toLowerCase()})` : tutor.tutor_name}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -561,7 +577,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
               "px-2 py-0.5 rounded text-xs font-medium",
               markedAsPaid || enrollment.payment_status === 'Paid'
                 ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
-                : enrollment.payment_status === 'Cancelled'
+                : enrollment.payment_status === 'Cancelled' || enrollment.payment_status === 'Waived'
                   ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
                   : enrollment.payment_status === 'Overdue'
                     ? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
@@ -571,12 +587,14 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             </span>
           </div>
 
-          {/* New Student - not applicable to Trial */}
+          {/* New Student - not applicable to Trial. The fee is only claimed
+              when it was actually charged: a seasonal intake may collect it
+              from nobody. */}
           {enrollment.is_new_student && enrollment.enrollment_type !== 'Trial' && (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">New Student:</span>
               <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
-                +$100 Reg Fee
+                {enrollment.registration_fee === 0 ? "Yes" : "+$100 Reg Fee"}
               </span>
             </div>
           )}
@@ -591,15 +609,23 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             </div>
           )}
 
-          {/* Fee — total tuition from the fee message */}
-          {enrollment.total_fee != null && (
+          {/* Fee — total tuition from the fee message. A waived enrollment
+              owes nothing, so the nominal figure would mislead here. */}
+          {enrollment.payment_status === 'Waived' ? (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Fee:</span>
+              <span className="text-gray-500 dark:text-gray-400 font-medium">
+                Waived (no fee due)
+              </span>
+            </div>
+          ) : enrollment.total_fee != null ? (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Fee:</span>
               <span className="text-gray-900 dark:text-gray-100 font-medium">
                 ${enrollment.total_fee.toLocaleString()}
               </span>
             </div>
-          )}
+          ) : null}
 
           {/* First Lesson Date */}
           {enrollment.first_lesson_date && (
@@ -750,7 +776,9 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             </button>
           )}
 
-          {/* Copy Fee Message button */}
+          {/* Copy Fee Message button — hidden for waived enrollments, which
+              have no fee to ask for */}
+          {enrollment.payment_status !== 'Waived' && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -775,6 +803,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
             )}
             {isCopying ? 'Copying...' : copySuccess ? 'Copied!' : 'Copy Fee Message'}
           </button>
+          )}
 
           {/* View Details link */}
           <Link

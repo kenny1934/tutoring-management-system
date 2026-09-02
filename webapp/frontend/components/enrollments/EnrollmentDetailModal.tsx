@@ -4,7 +4,6 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, Loader2, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getIsNewStudentParam } from "@/lib/enrollment-utils";
 import { fetchSummerFeeMessage } from "@/lib/summer-fee-message-fetch";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
 import Link from "next/link";
@@ -56,13 +55,20 @@ export function EnrollmentDetailModal({
   const haptic = useHaptic();
   const isTutor = effectiveRole === "Tutor" || isReadOnly;
 
-  // Use SWR for caching
+  // Use SWR for caching.
+  //
+  // keepPreviousData is on globally and is wrong here. Every host mounts this
+  // with isOpen fixed true and swaps enrollmentId underneath it, so the laggy
+  // data showed the enrollment you were just looking at: its fee, its payment
+  // status and its dates, under the newly picked student's name. Nothing below
+  // gates on `loading`, so opting out is what makes the loading state appear.
   const { data: detail, isLoading: loading, error, mutate } = useSWR<EnrollmentDetailResponse>(
     isOpen && enrollmentId ? ['enrollment-detail', enrollmentId] : null,
     () => enrollmentsAPI.getDetail(enrollmentId!),
     {
       revalidateOnFocus: false,
       dedupingInterval: 5000,
+      keepPreviousData: false,
     }
   );
 
@@ -145,7 +151,7 @@ export function EnrollmentDetailModal({
       const message =
         detail.enrollment_type === 'Summer' && detail.summer_application_id
           ? await fetchSummerFeeMessage(detail.summer_application_id)
-          : (await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid, getIsNewStudentParam(detail))).message;
+          : (await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid)).message;
       await navigator.clipboard.writeText(message);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -388,7 +394,9 @@ export function EnrollmentDetailModal({
                   "text-xs px-1.5 py-0.5 rounded",
                   detail.payment_status === "Paid"
                     ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                    : detail.payment_status === "Waived"
+                      ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                      : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                 )}>
                   {detail.payment_status}
                 </span>
@@ -397,7 +405,7 @@ export function EnrollmentDetailModal({
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-600 dark:text-gray-400">New Student</span>
                   <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                    +$100 Reg Fee
+                    {detail.registration_fee === 0 ? "Yes" : "+$100 Reg Fee"}
                   </span>
                 </div>
               )}
@@ -553,14 +561,17 @@ export function EnrollmentDetailModal({
             {/* Renewal workflow actions */}
             {showRenewalActions && (
               <>
-                {/* Copy Fee - subtle icon button */}
-                <button
-                  onClick={handleCopyFee}
-                  className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
-                  title="Copy fee message"
-                >
-                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
-                </button>
+                {/* Copy Fee - subtle icon button. Hidden for waived
+                    enrollments, which have no fee to ask for. */}
+                {detail.payment_status !== 'Waived' && (
+                  <button
+                    onClick={handleCopyFee}
+                    className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
+                    title="Copy fee message"
+                  >
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
+                  </button>
+                )}
 
                 {/* Mark/Unmark Sent toggle - Admin only */}
                 {!isTutor && (detail.fee_message_sent ? (

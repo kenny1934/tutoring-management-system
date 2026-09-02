@@ -30,6 +30,7 @@ from routers.enrollments import (
     check_student_conflicts,
     format_fee_message,
     compute_discount_value,
+    compute_enrollment_revenue_total,
     discount_requires_min_lessons,
 )
 from constants import PER_TWO_LESSONS_DISCOUNT_TYPE
@@ -580,20 +581,96 @@ class TestFormatFeeMessage:
         assert "Discounted $500" in msg
 
     def test_new_student_registration_fee(self):
-        """New student should have $100 registration fee added."""
+        """New student should have the $100 materials fee added."""
         msg = format_fee_message(**self._base_args(is_new_student=True))
         # 400*10 + 100 = 4100
         assert "$4,100" in msg
-        assert "$100 registration fee" in msg
+        assert "$100 materials fee" in msg
 
     def test_discount_and_registration_combined(self):
-        """Both discount and registration fee should be reflected."""
+        """Both discount and materials fee should be reflected."""
         msg = format_fee_message(**self._base_args(
             discount_value=200,
             is_new_student=True,
         ))
         # 400*10 - 200 + 100 = 3900
         assert "$3,900" in msg
+
+    # --- Seasonal offer (e.g. 26BTSSA) --------------------------------------
+
+    def _promo(self, **overrides):
+        promo = {
+            "name_zh": "2026 Back to School 新生優惠",
+            "name_en": "2026 Back to School new student offer",
+            "total_value": 400,
+            "waived_fee": 100,
+        }
+        promo.update(overrides)
+        return promo
+
+    def test_waived_fee_is_wording_and_never_arithmetic(self):
+        """`waived_fee` must not move the total.
+
+        What is charged stays the caller's decision via is_new_student, so an
+        intake that collects the fee from nobody passes False and pays
+        400*10 - 300 = 3700, while the offer still names the $100 it spared.
+        """
+        msg = format_fee_message(**self._base_args(
+            discount_value=300,
+            is_new_student=False,
+            promo=self._promo(),
+        ))
+        assert "$3,700" in msg
+        assert "$100 materials fee" in msg
+
+    def test_promo_quotes_offer_by_name_over_the_sticker_price(self):
+        """The offer replaces the itemised discount wording and states the
+        original price including the fee it waived, so the parent can see
+        where the saving landed."""
+        msg = format_fee_message(**self._base_args(
+            discount_value=300,
+            is_new_student=False,
+            promo=self._promo(),
+        ))
+        assert "2026 Back to School new student offer $400 applied" in msg
+        assert "original price $4,000 + $100 materials fee" in msg
+        # The generic coupon wording must not also appear.
+        assert "Discounted $300" not in msg
+
+    def test_offer_alongside_a_charged_fee_still_charges_it(self):
+        """An intake that does collect the fee keeps charging it even while an
+        offer runs: the two decisions are independent."""
+        msg = format_fee_message(**self._base_args(
+            discount_value=300,
+            is_new_student=True,
+            promo=self._promo(waived_fee=0, total_value=300),
+        ))
+        # 400*10 - 300 + 100 = 3800
+        assert "$3,800" in msg
+
+    def test_offer_without_a_waived_fee_omits_the_fee_clause(self):
+        """No fee claimed as waived means none mentioned in the original
+        price, rather than a stray '+ $0'."""
+        msg = format_fee_message(**self._base_args(
+            discount_value=300,
+            is_new_student=False,
+            promo=self._promo(waived_fee=0),
+        ))
+        assert "$3,700" in msg
+        assert "materials fee" not in msg
+
+    def test_promo_chinese_wording(self):
+        """Chinese message names the offer and renames the fee to 教材費."""
+        msg = format_fee_message(**self._base_args(
+            lang="zh",
+            discount_value=300,
+            is_new_student=False,
+            promo=self._promo(),
+        ))
+        assert "已享 2026 Back to School 新生優惠 $400" in msg
+        assert "原價為$4,000+$100教材費" in msg
+        assert "報名費" not in msg
+        assert "學費禮劵" not in msg
 
     def test_chinese_language(self):
         """Chinese message should use Chinese day names and location."""
@@ -1072,3 +1149,108 @@ class TestComputeDiscountValue:
     def test_none_discount(self):
         assert compute_discount_value(None, 10) == 0
         assert discount_requires_min_lessons(None) is False
+
+
+# ============================================================================
+# Test Waived enrollments (free classes, e.g. goodwill make-ups)
+# ============================================================================
+
+class TestWaivedEnrollment:
+    """A Waived enrollment is a free class: zero revenue, no chasing."""
+
+    @pytest.fixture(autouse=True)
+    def _override_auth(self):
+        admin = Tutor(id=99, user_email="admin@test.com", tutor_name="Mr Admin", role="Admin")
+        app.dependency_overrides[require_admin_write] = lambda: admin
+        app.dependency_overrides[get_current_user] = lambda: admin
+        yield
+        app.dependency_overrides.pop(require_admin_write, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+    def _seed(self, db_session):
+        tutor = Tutor(user_email="t@test.com", tutor_name="Tutor A", role="Tutor")
+        db_session.add(tutor)
+        db_session.flush()
+        student = Student(student_name="Student A", home_location="MSA", school_student_id="1001")
+        db_session.add(student)
+        db_session.flush()
+        enrollment = Enrollment(
+            student_id=student.id, tutor_id=tutor.id, first_lesson_date=date(2026, 3, 2),
+            assigned_day="Monday", assigned_time="15:00 - 16:30", location="MSA",
+            lessons_paid=1, enrollment_type="One-Time",
+            payment_status="Pending Payment", revenue_total=400,
+        )
+        db_session.add(enrollment)
+        db_session.flush()
+        session = SessionLog(
+            enrollment_id=enrollment.id, student_id=student.id, tutor_id=tutor.id,
+            session_date=date(2026, 3, 2), time_slot="15:00 - 16:30", location="MSA",
+            session_status="Scheduled", financial_status="Unpaid",
+        )
+        db_session.add(session)
+        db_session.commit()
+        return enrollment, session
+
+    def test_waiving_cascades_to_sessions_and_zeroes_revenue(self, client, db_session):
+        enrollment, session = self._seed(db_session)
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"payment_status": "Waived"},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+
+        db_session.refresh(enrollment)
+        db_session.refresh(session)
+        assert enrollment.payment_status == "Waived"
+        assert float(enrollment.revenue_total) == 0.0
+        assert session.financial_status == "Waived"
+        # Nothing was paid, so waiving must not stamp a payment date.
+        assert enrollment.payment_date is None
+
+    def test_unwaiving_restores_real_pricing_and_unpaid_sessions(self, client, db_session):
+        enrollment, session = self._seed(db_session)
+        enrollment.payment_status = "Waived"
+        enrollment.revenue_total = 0
+        session.financial_status = "Waived"
+        db_session.commit()
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"payment_status": "Pending Payment"},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+
+        db_session.refresh(enrollment)
+        db_session.refresh(session)
+        assert float(enrollment.revenue_total) == 400.0
+        assert session.financial_status == "Unpaid"
+
+    def test_unpaying_resets_sessions_to_unpaid(self, client, db_session):
+        enrollment, session = self._seed(db_session)
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"payment_status": "Paid"},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.financial_status == "Paid"
+
+        resp = client.patch(
+            f"/api/enrollments/{enrollment.id}",
+            json={"payment_status": "Pending Payment"},
+            cookies=AUTH_COOKIE,
+        )
+        assert resp.status_code == 200
+        db_session.refresh(session)
+        assert session.financial_status == "Unpaid"
+
+    def test_compute_revenue_total_is_zero_for_waived(self, db_session):
+        enrollment, _ = self._seed(db_session)
+        assert compute_enrollment_revenue_total(enrollment, db_session) == 400.0
+        enrollment.payment_status = "Waived"
+        assert compute_enrollment_revenue_total(enrollment, db_session) == 0.0

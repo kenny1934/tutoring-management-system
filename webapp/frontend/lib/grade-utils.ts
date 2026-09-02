@@ -9,6 +9,17 @@
 
 export const GRADE_ORDER = ["P6", "F1", "F2", "F3", "F4", "F5", "F6", "Graduated"] as const;
 
+/** Ladder position of a grade; anything unrecognised sorts after the ladder. */
+export function gradeRank(grade: string): number {
+  const i = (GRADE_ORDER as readonly string[]).indexOf(grade);
+  return i === -1 ? GRADE_ORDER.length : i;
+}
+
+/** Sort grades up the ladder (P6 → F6), unrecognised values last, alphabetically. */
+export function sortGrades(grades: string[]): string[] {
+  return [...grades].sort((a, b) => gradeRank(a) - gradeRank(b) || a.localeCompare(b));
+}
+
 export const PROMOTE_MAP: Record<string, string> = {
   P6: "F1",
   F1: "F2",
@@ -18,6 +29,40 @@ export const PROMOTE_MAP: Record<string, string> = {
   F5: "F6",
   F6: "Graduated",
 };
+
+/**
+ * A primary prospect is by definition a P6 student heading for secondary, but
+ * the grade arrives as free text from a branch tutor's pasted spreadsheet, so
+ * the column holds "P6", "P6/G6", "小六" and friends. Every spelling a token
+ * can take; a value made only of these folds to the canonical "P6".
+ */
+const P6_TOKENS = new Set([
+  "p6", "g6", "6",
+  "primary6", "grade6",
+  "小六", "六年級", "小學六年級",
+]);
+
+/**
+ * Fold the many spellings of P6 to the canonical "P6". Only recognised P6
+ * forms are rewritten; anything else is returned as typed, so a genuinely odd
+ * value stays visible for a human to fix. Mirrors normalize_prospect_grade in
+ * webapp/backend/utils/grades.py.
+ *
+ * Used on the paste path so a pasted column previews as it will be stored.
+ * The Grade field in the row editor is deliberately NOT folded as you type —
+ * a lone "6" would jump to "P6" mid-keystroke — so a hand-typed spelling
+ * previews raw and is canonicalised by the backend on submit. Storage is
+ * correct either way; this only buys the paste preview.
+ */
+export function normalizeProspectGrade(grade: string): string {
+  const text = grade.trim();
+  if (!text) return text;
+  const tokens = text.toLowerCase().split(/[^0-9a-z一-鿿]+/).filter(Boolean);
+  if (!tokens.length) return text;
+  // "primary 6" arrives as two tokens; rejoin so spelled-out forms match too.
+  if (P6_TOKENS.has(tokens.join("")) || tokens.every((t) => P6_TOKENS.has(t))) return "P6";
+  return text;
+}
 
 export const TARGET_TO_PRE_GRADE: Record<string, string> = {
   F1: "P6",

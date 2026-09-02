@@ -688,11 +688,54 @@ class TestSummerRescheduleDeadline:
         assert exc_info.value.detail["error"] == "SUMMER_DEADLINE_EXCEEDED"
         assert exc_info.value.detail["summer_deadline"] == "2026-08-31"
 
-    def test_super_admin_overrides_summer_deadline(self, db_session, summer_enrollment, sample_tutor):
-        """Super Admin can move a summer session past 31 August, like the 60-day rule."""
+    def test_override_allows_september(self, db_session, summer_enrollment, sample_tutor):
+        """
+        Admins and Super Admins can move a summer session into September. The
+        validator does not know about roles, so the routers decide who
+        qualifies and pass can_override.
+        """
         session = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 7, 6))
         # No exception with the override
-        assert_summer_reschedule_deadline(session, date(2026, 9, 1), is_super_admin=True)
+        assert_summer_reschedule_deadline(session, date(2026, 9, 1), can_override=True)
+
+    def test_makeup_constraints_override_allows_september(
+        self, db_session, summer_enrollment, sample_tutor
+    ):
+        """
+        The override reaches the summer deadline through the shared validator,
+        which is the path the make-up modal takes.
+        """
+        origin = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 8, 20))
+        validate_makeup_constraints(
+            db=db_session,
+            student_id=summer_enrollment.student_id,
+            consume_session=origin,
+            target_date=date(2026, 9, 5),
+            target_time_slot="15:00-16:00",
+            target_location="Main Center",
+            can_override_summer_deadline=True,
+        )
+
+    def test_holiday_override_does_not_unlock_summer_deadline(
+        self, db_session, summer_enrollment, sample_tutor
+    ):
+        """
+        is_admin only authorizes a holiday booking. Exam revision passes it as
+        True for every enroller, so it must not carry the summer override with
+        it.
+        """
+        origin = self._summer_session(db_session, summer_enrollment, sample_tutor, date(2026, 8, 20))
+        with pytest.raises(HTTPException) as exc_info:
+            validate_makeup_constraints(
+                db=db_session,
+                student_id=summer_enrollment.student_id,
+                consume_session=origin,
+                target_date=date(2026, 9, 5),
+                target_time_slot="15:00-16:00",
+                target_location="Main Center",
+                is_admin=True,
+            )
+        assert exc_info.value.detail["error"] == "SUMMER_DEADLINE_EXCEEDED"
 
     def test_makeup_constraints_allow_summer_past_60_days(
         self, db_session, summer_enrollment, sample_enrollment, sample_tutor

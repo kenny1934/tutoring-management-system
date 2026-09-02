@@ -37,7 +37,7 @@ from utils.response_builders import build_session_response as _build_session_res
 from utils.makeup_validators import validate_makeup_constraints, assert_not_holiday
 from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES, hk_now
 from services.google_calendar_service import sync_calendar_events
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, ADMIN_WRITE_ROLES
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1014,6 +1014,7 @@ async def enroll_student(
         slot.session_date, slot.time_slot, slot.location,
         is_super_admin=current_user.role == "Super Admin",
         is_admin=True,  # holiday already authorized at slot creation
+        can_override_summer_deadline=current_user.role in ADMIN_WRITE_ROLES,
         exclude_session_id=request.consume_session_id,
     )
 

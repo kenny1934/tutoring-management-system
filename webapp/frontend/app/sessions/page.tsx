@@ -2,15 +2,17 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount } from "@/lib/hooks";
+import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
+import { pickableTutors, pickableWithLeavers, withCurrentTutor, worksAt, type DateWindow } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
-import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
+import { Calendar, CalendarDays, Clock, ChevronRight, ChevronDown, ChevronUp, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck, ArrowUpDown, AlertTriangle, AlertCircle, XCircle, MessageSquarePlus, Copy, Check } from "lucide-react";
+import { getSessionStatusConfig, getDisplayStatus, isCountableSession, isSessionUnpaid } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
@@ -79,19 +81,36 @@ const MemoListDrawer = dynamic(
 );
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
+import { toDateString, getWeekBounds, getMonthBounds, getNowSlotPosition } from "@/lib/calendar-utils";
+import { LessonNudge } from "@/components/sessions/LessonNudge";
+import { NowChip, NowDivider } from "@/components/sessions/NowIndicator";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { formatCompactDateTimeSlot } from "@/lib/formatters";
+import { formatCompactDateTimeSlot, formatWeekdayLong, formatWeekdayShort, plural } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { getTutorSortName, canBeMarked, isAttended } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { TutorLink } from "@/components/tutors/TutorLink";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
+import { HomeworkCountsProvider } from "@/components/homework/HomeworkCountsProvider";
+import { HomeworkCheckBadge } from "@/components/homework/HomeworkCheckBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
 import { SummerClassHeader } from "@/components/sessions/SummerClassHeader";
 import { flattenSummerClusters } from "@/lib/summer-class-grouping";
+import { groupSessionsForList } from "@/lib/session-grouping";
+import { AfterLastDayBanner } from "@/components/sessions/AfterLastDayBanner";
+import { SummerFilterPopover } from "@/components/sessions/SummerFilterPopover";
+import {
+  EMPTY_SUMMER_FILTER,
+  applySummerFilter,
+  decodeSummerFilter,
+  deriveSummerFilterOptions,
+  encodeSummerFilter,
+  isSummerFilterActive,
+  summerFiltersEqual,
+  type SummerFilterState,
+} from "@/lib/summer-session-filter";
 const ProposalDetailModal = dynamic(
   () => import("@/components/sessions/ProposalDetailModal").then(m => m.ProposalDetailModal),
   { ssr: false }
@@ -109,6 +128,8 @@ const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
 // Stable empty arrays to avoid new references on each render when SWR returns undefined
 const EMPTY_PROPOSALS: MakeupProposal[] = [];
 const EMPTY_SESSIONS: Session[] = [];
+const EMPTY_PROPOSED_SESSIONS: ProposedSession[] = [];
+const EMPTY_TUTORS: Tutor[] = [];
 
 // Number of session cards to show per tier before "Show more"
 const TIER_PAGE_SIZE = 20;
@@ -120,12 +141,53 @@ const PENDING_MAKEUP_STATUSES = [
   "Weather Cancelled - Pending Make-up",
 ];
 
+/** Stable empty selection so clearing an already-empty one bails out of a render. */
+const EMPTY_SELECTION: ReadonlySet<number> = new Set<number>();
+
+// Filters that choose their own dates to fetch. Neither has a single day to
+// point a date picker at, and neither has a window a proposal overlay could
+// line up with, so both of those controls stand down.
+const DATELESS_FILTERS = new Set(["pending-makeups", "after-last-day"]);
+
+/**
+ * Single source of truth for which view the URL asks for.
+ *
+ * The pending make-ups view has to stay a list, because its urgency tiers and
+ * its sort control only exist there and a grid would slice its 120-day window
+ * down to a week with nothing on screen explaining the mode. A departure, on
+ * the other hand, leaves whole days of lessons behind, so the week grid opens
+ * that view: it shows the days side by side, which is how somebody reassigning
+ * the work has to think about it. The other views stay reachable from there.
+ */
+function resolveViewMode(urlView: string | null, urlFilter: string | null): ViewMode {
+  if (urlFilter === "pending-makeups") return 'list';
+  if (urlView) return urlView as ViewMode;
+  return urlFilter === "after-last-day" ? 'weekly' : 'list';
+}
+
+/** Tutors in the order every picker on the site shows them, titles ignored. */
+function byTutorName(a: Tutor, b: Tutor): number {
+  return getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
+}
+
+/**
+ * One provider above the view-mode branch, so homework badges get their counts
+ * whichever view renders them.
+ */
 export default function SessionsPage() {
+  return (
+    <HomeworkCountsProvider>
+      <SessionsPageContent />
+    </HomeworkCountsProvider>
+  );
+}
+
+function SessionsPageContent() {
   usePageTitle("Sessions");
 
   const { selectedLocation } = useLocation();
   const { viewMode: roleViewMode } = useRole();  // center-view or my-view
-  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest } = useAuth();
+  const { user, isImpersonating, impersonatedTutor, effectiveRole, isGuest, isLoading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { isOpen: isCommandPaletteOpen } = useCommandPalette();
@@ -154,6 +216,11 @@ export default function SessionsPage() {
 
   // Sync tutor filter with center/my view mode
   useEffect(() => {
+    // Wait until we know who is signed in. This effect runs again the moment
+    // auth resolves, and until then its centre-view branch would clear a
+    // ?tutor= the page was opened with before it had ever been honoured. That
+    // is how a leaver's profile link could land on everybody's sessions.
+    if (authLoading) return;
     // On mount, respect explicit ?tutor= param (e.g., navigated from session popover)
     if (urlTutorOverride.current) {
       setTutorFilter(urlTutorOverride.current);
@@ -167,7 +234,7 @@ export default function SessionsPage() {
       // In center-view, show all tutors
       setTutorFilter("");
     }
-  }, [roleViewMode, effectiveUserId]);
+  }, [roleViewMode, effectiveUserId, authLoading]);
 
   // Special filter modes (e.g., "pending-makeups")
   const [specialFilter, setSpecialFilter] = useState(() => {
@@ -175,10 +242,38 @@ export default function SessionsPage() {
   });
   const [makeupSort, setMakeupSort] = useState<"most" | "least">("most");
   const [isMobile, setIsMobile] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const param = searchParams.get('view');
-    return (param as ViewMode) || 'list';
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    resolveViewMode(searchParams.get('view'), searchParams.get('filter'))
+  );
+
+  // Summer class filter (grade / type / lesson), applies in every view
+  const [summerFilter, setSummerFilter] = useState<SummerFilterState>(() =>
+    decodeSummerFilter(searchParams)
+  );
+
+  // Reached only from the notification bell and the command palette, so it is a
+  // focused destination rather than a view the user assembles: the toolbar drops
+  // everything the mode overrides or cannot act on and keeps the tutor filter,
+  // which still narrows the fetch.
+  const isPendingMakeupsView = specialFilter === "pending-makeups";
+
+  // Lessons still booked for somebody past their last working day. Reached
+  // from the notification bell and from a leaver's profile. Unlike the
+  // make-ups view this keeps the status and summer filters and the bulk
+  // selection, because the job here is to work through the list and move
+  // sessions onto other tutors, which is exactly what those controls are for.
+  const isAfterLastDayView = specialFilter === "after-last-day";
+  const { data: overrun } = useEmploymentOverrun(isAfterLastDayView);
+
+  const isDatelessView = DATELESS_FILTERS.has(specialFilter);
+
+  // A filter this mode does not own is disarmed, not merely hidden. Hiding a
+  // control while its value kept filtering is the defect this page already had
+  // once, so the effective values feed the fetch, the client-side passes and the
+  // URL alike — a saved ?filter=pending-makeups&sgrade=F1 link cannot silently
+  // drop rows with the control that would explain it out of reach.
+  const effectiveStatusFilter = isPendingMakeupsView ? "" : statusFilter;
+  const effectiveSummerFilter = isPendingMakeupsView ? EMPTY_SUMMER_FILTER : summerFilter;
 
   // Sync state from URL when searchParams change (for client-side navigation)
   useEffect(() => {
@@ -186,15 +281,16 @@ export default function SessionsPage() {
     const urlView = searchParams.get('view') as ViewMode | null;
     const urlDate = searchParams.get('date');
     const urlStatus = searchParams.get('status') || "";
+    const urlSummer = decodeSummerFilter(searchParams);
+
+    setSummerFilter(prev => summerFiltersEqual(prev, urlSummer) ? prev : urlSummer);
 
     if (urlFilter !== specialFilter) {
       setSpecialFilter(urlFilter);
     }
-    if (urlView && urlView !== viewMode) {
-      setViewMode(urlView);
-    } else if (!urlView && viewMode !== 'list') {
-      // Reset to list if no view param in URL
-      setViewMode('list');
+    const nextView = resolveViewMode(urlView, urlFilter);
+    if (nextView !== viewMode) {
+      setViewMode(nextView);
     }
     if (urlDate) {
       const parsed = new Date(urlDate + 'T00:00:00');
@@ -214,51 +310,103 @@ export default function SessionsPage() {
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The stretch of days this view puts on screen. Worked out once and then
+  // used twice: the fetch below is built from it, and so is the tutor list the
+  // toolbar offers. Those two have to agree, because a tutor covering another
+  // branch for a few days belongs in the dropdown exactly when their work is
+  // on the page. Deriving both from one value is what keeps them in step when
+  // a new view is added.
+  const shownDates = useMemo<DateWindow>(() => {
+    // Back 120 days to catch overdue pending make-ups, with no end.
+    if (isPendingMakeupsView) {
+      const start = new Date();
+      start.setDate(start.getDate() - 120);
+      return { from: toDateString(start), until: null };
+    }
+    // No bounds at all: the cut-off is each tutor's own last working day, which
+    // only the server can apply, and work left behind by a departure stays
+    // listed until somebody moves it.
+    if (isAfterLastDayView) return { from: null, until: null };
+    if (viewMode === "weekly") {
+      const { start, end } = getWeekBounds(selectedDate);
+      return { from: toDateString(start), until: toDateString(end) };
+    }
+    if (viewMode === "monthly") {
+      const { start, end } = getMonthBounds(selectedDate);
+      return { from: toDateString(start), until: toDateString(end) };
+    }
+    const day = toDateString(selectedDate);
+    return { from: day, until: day };
+  }, [selectedDate, viewMode, isPendingMakeupsView, isAfterLastDayView]);
+
   // Build filters for SWR hook
   const sessionFilters = useMemo(() => {
-    const filters: Record<string, string | number | undefined> = {
+    const filters: Record<string, string | number | boolean | undefined> = {
       location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
       status: (statusFilter && statusFilter !== "__active") ? statusFilter : undefined,
       tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
       limit: (viewMode === "monthly" || viewMode === "weekly") ? 2000 : 500,
     };
 
-    // Special filter: pending-makeups overrides date and status
-    if (specialFilter === "pending-makeups") {
-      // 120 days ago to catch overdue pending makeups
-      const fetchWindow = new Date();
-      fetchWindow.setDate(fetchWindow.getDate() - 120);
-      filters.from_date = toDateString(fetchWindow);
+    // Both special views pin the status set or the cut-off as well as the
+    // dates, which is the only reason they are named here again.
+    if (isPendingMakeupsView) {
+      filters.from_date = shownDates.from ?? undefined;
       filters.status = PENDING_MAKEUP_STATUSES.join(",");
       filters.limit = 2000;
-    } else if (viewMode === "list" || viewMode === "daily") {
-      filters.date = toDateString(selectedDate);
-    } else if (viewMode === "weekly") {
-      const { start, end } = getWeekBounds(selectedDate);
-      filters.from_date = toDateString(start);
-      filters.to_date = toDateString(end);
-    } else if (viewMode === "monthly") {
-      const { start, end } = getMonthBounds(selectedDate);
-      filters.from_date = toDateString(start);
-      filters.to_date = toDateString(end);
+    } else if (isAfterLastDayView) {
+      filters.after_last_day = true;
+      filters.limit = 2000;
+    } else if (shownDates.from && shownDates.from === shownDates.until) {
+      filters.date = shownDates.from;
+    } else {
+      filters.from_date = shownDates.from ?? undefined;
+      filters.to_date = shownDates.until ?? undefined;
     }
 
     return filters;
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, specialFilter]);
+  }, [shownDates, statusFilter, tutorFilter, selectedLocation, viewMode, isPendingMakeupsView, isAfterLastDayView]);
 
   // SWR hooks for data fetching with caching
-  const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
-  const { data: tutors = [] } = useActiveTutors();
+  const { data: rawSessions = EMPTY_SESSIONS, error, isLoading: loading, isValidating: sessionsValidating, mutate: mutateSessions } = useSessions(sessionFilters);
+  const { data: allTutors = EMPTY_TUTORS } = useTutors();
+
+  // Who the page's tutor controls may name. Normally that is whoever can still
+  // be given work. The after-a-last-day view needs the people who have gone as
+  // well, because they are its whole subject and a filter that cannot name the
+  // tutor you came to look at is no filter at all.
+  const tutors = useMemo(
+    () => (isAfterLastDayView ? pickableWithLeavers(allTutors) : pickableTutors(allTutors)),
+    [allTutors, isAfterLastDayView]
+  );
 
   // Client-side filtering for composite "Active" filter
-  const sessions = useMemo(() => {
-    if (statusFilter !== "__active") return rawSessions;
+  const statusFilteredSessions = useMemo(() => {
+    if (effectiveStatusFilter !== "__active") return rawSessions;
     return rawSessions.filter(s =>
       !s.session_status.includes('Pending Make-up') &&
       !s.session_status.includes('Make-up Booked') &&
       s.session_status !== 'Cancelled'
     );
-  }, [rawSessions, statusFilter]);
+  }, [rawSessions, effectiveStatusFilter]);
+
+  // Summer class facets, derived from what is loaded rather than the course
+  // config: the control only offers values that would return something, and
+  // it disappears on its own outside the summer course period.
+  const summerFilterOptions = useMemo(
+    () => deriveSummerFilterOptions(statusFilteredSessions),
+    [statusFilteredSessions]
+  );
+
+  const sessions = useMemo(
+    () => applySummerFilter(statusFilteredSessions, effectiveSummerFilter),
+    [statusFilteredSessions, effectiveSummerFilter]
+  );
+
+  const countableSessionCount = useMemo(
+    () => sessions.filter(isCountableSession).length,
+    [sessions]
+  );
 
   // Scroll to time slot specified in URL ?slot= param (once per navigation)
   const lastScrolledSlot = useRef('');
@@ -286,8 +434,9 @@ export default function SessionsPage() {
 
   // Fetch proposals for the current date range (for showing proposed sessions)
   const proposalDateRange = useMemo(() => {
-    if (specialFilter === "pending-makeups") {
-      // Don't show proposed sessions in pending makeups view
+    if (isDatelessView) {
+      // Neither focused view is anchored to a date range, so a proposal
+      // overlay has nothing to line up with.
       return { from: null, to: null };
     }
     if (viewMode === "list" || viewMode === "daily") {
@@ -300,7 +449,7 @@ export default function SessionsPage() {
       return { from: toDateString(start), to: toDateString(end) };
     }
     return { from: null, to: null };
-  }, [selectedDate, viewMode, specialFilter]);
+  }, [selectedDate, viewMode, isDatelessView]);
 
   // Fetch proposals where PROPOSED SLOTS are in the date range (for ghost session display)
   const { data: proposalsForSlots = EMPTY_PROPOSALS } = useProposalsInDateRange(
@@ -322,13 +471,18 @@ export default function SessionsPage() {
 
   // Convert proposal slots to session-like objects for display
   // Uses proposals fetched by slot date so ghost sessions appear on correct dates
+  // Ghost rows carry no summer class of their own, so they drop out with every
+  // other non-summer row once a facet is set — they reach the views as their own
+  // prop rather than through the sessions memo, so they need saying explicitly.
   const proposedSessions = useMemo(
-    () => filterProposedSessions(
-      proposalSlotsToSessions(proposalsForSlots),
-      tutorFilter ? parseInt(tutorFilter) : null,
-      selectedLocation
-    ),
-    [proposalsForSlots, tutorFilter, selectedLocation]
+    () => isSummerFilterActive(effectiveSummerFilter)
+      ? EMPTY_PROPOSED_SESSIONS
+      : filterProposedSessions(
+          proposalSlotsToSessions(proposalsForSlots),
+          tutorFilter ? parseInt(tutorFilter) : null,
+          selectedLocation
+        ),
+    [proposalsForSlots, tutorFilter, selectedLocation, effectiveSummerFilter]
   );
 
   // Popover state for list view
@@ -494,6 +648,9 @@ export default function SessionsPage() {
       if (statusFilter) params.set('status', statusFilter);
     }
     if (tutorFilter) params.set('tutor', tutorFilter);
+    for (const [key, value] of Object.entries(encodeSummerFilter(effectiveSummerFilter))) {
+      params.set(key, value);
+    }
 
     const newUrl = `/sessions?${params.toString()}`;
     // Only call replaceState if URL actually changed — Next.js 15 patches
@@ -501,7 +658,7 @@ export default function SessionsPage() {
     if (newUrl !== `${window.location.pathname}${window.location.search}`) {
       window.history.replaceState(null, '', newUrl);
     }
-  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter]);
+  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter, effectiveSummerFilter]);
 
   // Restore scroll position when returning to list view (after data loads)
   useEffect(() => {
@@ -547,103 +704,121 @@ export default function SessionsPage() {
     setPopoverSession(session);
   };
 
-  // Group sessions by time slot (including proposed sessions' time slots)
+  // The groups the list renders, and what tells one from another.
+  //
+  // Every date-anchored view holds a single day, so a time slot is the whole
+  // identity of a group there. The after-a-last-day view holds as many days as
+  // it has to, and a slot alone put five separate dates into one pile, so there
+  // the date is part of the group as well. groupSessionsForList keeps the key
+  // unchanged when the list is grouped by slot alone, which is what the "Now"
+  // jump button relies on to find its anchor.
+  //
+  // It is also the one list not anchored to a date the reader picked, so it is
+  // the one that has to name the day above each block of sessions. Everywhere
+  // else the toolbar's date picker has already said which day you are looking
+  // at. The test is the mode rather than a count of the dates on screen: a
+  // leaver whose leftovers all fall on one Thursday still needs to be told it
+  // is a Thursday.
+  const listShowsDates = isAfterLastDayView;
   const groupedSessions = useMemo(() => {
-    const groups: Record<string, Session[]> = {};
-
-    sessions.forEach((session) => {
-      const timeSlot = session.time_slot || "Unscheduled";
-      if (!groups[timeSlot]) {
-        groups[timeSlot] = [];
-      }
-      groups[timeSlot].push(session);
-    });
-
-    // Add empty entries for proposed sessions' time slots (for selected date)
-    // so they have a place to render in the list view
     const selectedDateString = toDateString(selectedDate);
-    proposedSessions
-      .filter((ps) => ps.session_date === selectedDateString)
-      .forEach((ps) => {
-        const timeSlot = ps.time_slot;
-        if (timeSlot && !groups[timeSlot]) {
-          groups[timeSlot] = [];
-        }
-      });
-
-    // Sort sessions within each group using main group priority
-    Object.values(groups).forEach((groupSessions) => {
-      // Group by tutor first
-      const byTutor = new Map<string, Session[]>();
-      groupSessions.forEach(s => {
-        const tutor = s.tutor_name || '';
-        if (!byTutor.has(tutor)) byTutor.set(tutor, []);
-        byTutor.get(tutor)!.push(s);
-      });
-
-      // For each tutor, find main group and sort
-      const sortedSessions: Session[] = [];
-      const tutorNames = [...byTutor.keys()].sort((a, b) =>
-        getTutorSortName(a).localeCompare(getTutorSortName(b))
-      );
-
-      for (const tutor of tutorNames) {
-        const tutorSessions = byTutor.get(tutor)!;
-
-        // Find majority grade+lang_stream among Scheduled only
-        const scheduledSessions = tutorSessions.filter(s => s.session_status === 'Scheduled');
-        const gradeCounts = new Map<string, number>();
-        scheduledSessions.forEach(s => {
-          const key = `${s.grade || ''}${s.lang_stream || ''}`;
-          gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
-        });
-        const mainGroup = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
-
-        // Sort with main group priority
-        tutorSessions.sort((a, b) => {
-          const getPriority = (s: Session) => {
-            const gradeKey = `${s.grade || ''}${s.lang_stream || ''}`;
-            const isMainGroup = gradeKey === mainGroup && mainGroup !== '';
-            const status = s.session_status || '';
-
-            if (status === 'Trial Class' || status === 'Attended (Trial)') return 0;
-            if (isMainGroup && (status === 'Scheduled' || status === 'Attended' || status === 'No Show')) return 1;
-            if (status === 'Scheduled' || status === 'Attended' || status === 'No Show') return 3;
-            if (status === 'Make-up Class' || status === 'Attended (Make-up)') return 5;
-            return 10 + getStatusSortOrder(status);
-          };
-
-          const priorityA = getPriority(a);
-          const priorityB = getPriority(b);
-          if (priorityA !== priorityB) return priorityA - priorityB;
-
-          // Within same priority (especially main group), sort by school then student_id
-          if (priorityA <= 2) {
-            const schoolCompare = (a.school || '').localeCompare(b.school || '');
-            if (schoolCompare !== 0) return schoolCompare;
-          }
-          return (a.school_student_id || '').localeCompare(b.school_student_id || '');
-        });
-
-        sortedSessions.push(...tutorSessions);
-      }
-
-      // Replace original array contents
-      groupSessions.length = 0;
-      groupSessions.push(...sortedSessions);
+    return groupSessionsForList(sessions, {
+      groupByDate: listShowsDates,
+      // Proposed make-up slots render as ghost rows, and a ghost whose slot
+      // holds no real lessons still needs a group to appear in.
+      placeholderSlots: proposedSessions
+        .filter((ps) => ps.session_date === selectedDateString)
+        .map((ps) => ({ date: ps.session_date, timeSlot: ps.time_slot })),
     });
+  }, [sessions, selectedDate, proposedSessions, listShowsDates]);
 
-    // Sort time slots chronologically
-    return Object.entries(groups).sort(([timeA], [timeB]) => {
-      // Handle "Unscheduled" to appear last
-      if (timeA === "Unscheduled") return 1;
-      if (timeB === "Unscheduled") return -1;
+  // How many countable sessions sit on each date, for the day headings. One
+  // pass here rather than a rescan of every group per heading.
+  const countableByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!listShowsDates) return counts;
+    for (const session of sessions) {
+      if (!isCountableSession(session)) continue;
+      counts.set(session.session_date, (counts.get(session.session_date) ?? 0) + 1);
+    }
+    return counts;
+  }, [sessions, listShowsDates]);
 
-      const startA = timeA.split("-")[0];
-      const startB = timeB.split("-")[0];
-      return startA.localeCompare(startB);
-    });
-  }, [sessions, selectedDate, proposedSessions]);
+  // Which day the after-a-last-day view opens on.
+  //
+  // A departure's leftovers can be weeks out, so the grid would otherwise open
+  // on today with nothing in it. This lands on the earliest lesson still to be
+  // moved. The week grid only cares which week that is, but the day grid needs
+  // the day itself, and landing on the exact date serves both. It fires once
+  // per tutor you look at rather than on every empty day, so paging through the
+  // dates yourself is not fought. Null means it has not landed yet, which an
+  // empty tutor filter would otherwise be indistinguishable from.
+  const landedOnRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAfterLastDayView) {
+      landedOnRef.current = null;
+      return;
+    }
+    // SWR keeps the previous result on screen while it revalidates, so waiting
+    // for the fetch to settle is what stops this landing on the week belonging
+    // to the leaver you were looking at a moment ago.
+    if (landedOnRef.current === tutorFilter || loading || sessionsValidating || sessions.length === 0) return;
+    landedOnRef.current = tutorFilter;
+
+    const earliest = sessions.reduce(
+      (soonest, session) => (session.session_date < soonest ? session.session_date : soonest),
+      sessions[0].session_date
+    );
+    if (earliest !== toDateString(selectedDate)) {
+      setSelectedDate(new Date(earliest + 'T00:00:00'));
+    }
+  }, [isAfterLastDayView, tutorFilter, loading, sessionsValidating, sessions, selectedDate]);
+
+  // Current-time position among the listed slots (today + list view only):
+  // drives the now divider, the header Now chip, the toolbar jump chip,
+  // the one-shot autoscroll and the lesson-mode nudge. The tick is disabled
+  // in states where no indicator can render, so other views and dates skip
+  // the once-a-minute re-render of this heavy page.
+  const selectedDateString = toDateString(selectedDate);
+  const isTodaySelected = selectedDateString === toDateString(new Date());
+  const nowIndicatorLive = viewMode === "list" && !isDatelessView && isTodaySelected;
+  const nowMinutes = useNowMinutes(nowIndicatorLive ? 30000 : 0);
+  const nowPosition = useMemo(() => {
+    if (!nowIndicatorLive) return null;
+    return getNowSlotPosition(groupedSessions.map((group) => group.timeSlot), nowMinutes);
+  }, [nowIndicatorLive, groupedSessions, nowMinutes]);
+
+  const scrollToSlot = useCallback((timeSlot: string) => {
+    document.getElementById(`slot-${timeSlot}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // Jump the list to the current time slot once per visit, on today only.
+  // Explicit ?slot= links and restored scroll positions take precedence.
+  const autoScrollDecidedRef = useRef(false);
+  useEffect(() => {
+    if (autoScrollDecidedRef.current || viewMode !== "list" || loading || sessions.length === 0) return;
+    autoScrollDecidedRef.current = true;
+    if (!nowPosition || searchParams.get('slot') || sessionStorage.getItem(SCROLL_POSITION_KEY)) return;
+    const { timeSlot } = nowPosition;
+    requestAnimationFrame(() => scrollToSlot(timeSlot));
+  }, [viewMode, loading, sessions.length, nowPosition, searchParams, scrollToSlot]);
+
+  // What the day grid is allowed to draw.
+  //
+  // The week and month grids sort their sessions into dates themselves and draw
+  // only the dates they hold, so a wider set of sessions costs them nothing. The
+  // day grid takes its one day on trust, because the fetch has always bounded it
+  // to the date you picked. The two dateless views ask for every date at once,
+  // so the bound has to be applied here instead: without it a leaver's whole
+  // remaining term piles onto whichever day you happen to be standing on.
+  //
+  // The filter is deliberately not applied to the ordinary views. SWR keeps the
+  // previous day on screen while the next one loads, and filtering that away
+  // would empty the grid for a moment on every step through the days.
+  const sessionsForDay = useMemo(
+    () => (isDatelessView ? sessions.filter((s) => s.session_date === selectedDateString) : sessions),
+    [isDatelessView, sessions, selectedDateString]
+  );
 
   // Compute days old and urgency tier for a session
   const getSessionUrgency = useCallback((session: Session) => {
@@ -661,7 +836,7 @@ export default function SessionsPage() {
 
   // Group sessions by urgency tier for pending-makeups view
   const groupedByUrgencyTier = useMemo(() => {
-    if (specialFilter !== "pending-makeups") return null;
+    if (!isPendingMakeupsView) return null;
 
     const tiers: Record<'overdue' | 'critical' | 'warning' | 'ok', Session[]> = {
       overdue: [],
@@ -697,18 +872,32 @@ export default function SessionsPage() {
     if (tiers.ok.length > 0) result.push(['ok', tiers.ok]);
     if (tiers.overdue.length > 0) result.push(['overdue', tiers.overdue]);
     return result;
-  }, [sessions, specialFilter, makeupSort, getSessionUrgency]);
+  }, [sessions, isPendingMakeupsView, makeupSort, getSessionUrgency]);
 
 
-  // Filter and sort tutors by selected location
+  // Filter and sort tutors by selected location, counting anybody covering the
+  // branch on the days being shown. The window matters: somebody covering MSB
+  // for one Saturday belongs in this dropdown on that Saturday, in the week and
+  // the month that contain it, and nowhere else. The pending make-ups and
+  // after-a-last-day views have no window, and there the answer falls back to
+  // whether the arrangement has run out.
   const filteredTutors = useMemo(() => {
-    const filtered = selectedLocation === "All Locations"
-      ? tutors
-      : tutors.filter(t => t.default_location === selectedLocation);
-    return [...filtered].sort((a, b) =>
-      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
-    );
-  }, [tutors, selectedLocation]);
+    const filtered = tutors.filter(t => worksAt(t, selectedLocation, shownDates));
+    return [...filtered].sort(byTutorName);
+  }, [tutors, selectedLocation, shownDates]);
+
+  // What the toolbar's tutor dropdown offers. It is the location-narrowed list
+  // plus whoever the filter is currently set to, because a select whose value
+  // has no option renders blank and then tells you nothing about what you are
+  // looking at. The branch narrowing is the usual way to lose the option.
+  const tutorOptions = useMemo(
+    () => [...withCurrentTutor(
+      filteredTutors,
+      tutorFilter ? parseInt(tutorFilter) : null,
+      allTutors
+    )].sort(byTutorName),
+    [filteredTutors, tutorFilter, allTutors]
+  );
 
   // Bulk selection computations - use grouped order to match visual display
   const allSessionIds = useMemo(() => {
@@ -716,8 +905,8 @@ export default function SessionsPage() {
     if (groupedByUrgencyTier) {
       return groupedByUrgencyTier.flatMap(([_, tierSessions]) => tierSessions.map(s => s.id));
     }
-    // For normal view, use groupedSessions order (by time slot)
-    return groupedSessions.flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
+    // For normal view, use groupedSessions order (by date and time slot)
+    return groupedSessions.flatMap((group) => group.sessions.map(s => s.id));
   }, [groupedSessions, groupedByUrgencyTier]);
 
   // Visible session IDs - excludes sessions in collapsed time slots
@@ -729,8 +918,8 @@ export default function SessionsPage() {
         .flatMap(([_, tierSessions]) => tierSessions.map(s => s.id));
     }
     return groupedSessions
-      .filter(([timeSlot]) => !collapsedSlots.has(timeSlot))
-      .flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
+      .filter((group) => !collapsedSlots.has(group.key))
+      .flatMap((group) => group.sessions.map(s => s.id));
   }, [allSessionIds, groupedSessions, groupedByUrgencyTier, collapsedSlots]);
 
   const selectedSessions = useMemo(() => {
@@ -1144,10 +1333,13 @@ export default function SessionsPage() {
   // Calculate sticky top for time slot headers (accounts for bulk action bar when visible)
   const timeSlotStickyTop = toolbarHeight + (hasSelection ? bulkActionBarHeight : 0);
 
-  // Clear selection when filters change
+  // Clear selection when filters change. specialFilter is in here so rows
+  // selected in the normal list do not survive a jump to the pending make-ups
+  // view, which has no selection UI to clear them with. Bails when nothing is
+  // selected, which is the common case — a fresh Set would re-render every row.
   useEffect(() => {
-    setSelectedIds(new Set());
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
+    setSelectedIds(prev => (prev.size === 0 ? prev : new Set(EMPTY_SELECTION)));
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, summerFilter, specialFilter]);
 
   // Close select dropdowns on outside click
   useEffect(() => {
@@ -1182,7 +1374,9 @@ export default function SessionsPage() {
 
       // Cmd/Ctrl+Shift+A - Cycle: markable → attended → clear
       // If a session is focused, scope to that timeslot; otherwise scope to visible (non-collapsed) sessions
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+      // Selection shortcuts are off in the pending make-ups view, which offers no
+      // selection at all. J/K navigation and the per-row shortcuts still work.
+      if (!isPendingMakeupsView && (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         const visibleSet = new Set(visibleSessionIds);
         const scopeSessions = focusedSessionId
@@ -1213,7 +1407,7 @@ export default function SessionsPage() {
       }
 
       // Cmd/Ctrl+A - Select all visible (non-collapsed) sessions
-      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+      if (!isPendingMakeupsView && (e.metaKey || e.ctrlKey) && e.key === 'a') {
         e.preventDefault();
         setSelectedIds(new Set(visibleSessionIds));
         return;
@@ -1275,7 +1469,7 @@ export default function SessionsPage() {
         }
       }
       // Space - toggle selection on focused card
-      else if (key === ' ' && focusedSessionId) {
+      else if (!isPendingMakeupsView && key === ' ' && focusedSessionId) {
         e.preventDefault();
         toggleSelect(focusedSessionId);
         return;
@@ -1380,7 +1574,7 @@ export default function SessionsPage() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewMode, isPendingMakeupsView, visibleSessionIds, focusedSessionId, popoverSession, bulkExerciseType, bulkRateModalOpen, quickActionSession, isCommandPaletteOpen, clearSelection, toggleSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll focused card into view
   useEffect(() => {
@@ -1405,14 +1599,14 @@ export default function SessionsPage() {
   // Clear focus when filters change
   useEffect(() => {
     setFocusedSessionId(null);
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation]);
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, summerFilter]);
 
   // Mark visible time slots as "seen" after initial render (to skip stagger on re-expand)
   useEffect(() => {
     if (viewMode === "list" && !loading) {
-      groupedSessions.forEach(([timeSlot]) => {
-        if (!collapsedSlots.has(timeSlot)) {
-          seenSlotsRef.current.add(timeSlot);
+      groupedSessions.forEach((group) => {
+        if (!collapsedSlots.has(group.key)) {
+          seenSlotsRef.current.add(group.key);
         }
       });
     }
@@ -1717,84 +1911,114 @@ export default function SessionsPage() {
       <div className="flex items-center gap-2">
         <div className="relative mr-1.5">
           <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-          {sessions.filter(isCountableSession).length > 0 && (
+          {countableSessionCount > 0 && (
             <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-[#a0704b] dark:bg-[#cd853f] text-white">
-              {sessions.filter(isCountableSession).length}
+              {countableSessionCount}
             </span>
           )}
         </div>
         <h1 className="hidden sm:block text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
       </div>
 
-      <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-
-      {/* Inline View Switcher */}
-      <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
-
-      {/* Show filters for list and weekly views */}
-      {(viewMode === "list" || viewMode === "weekly") && (
+      {/* View switcher. Hidden only in the pending make-ups view, which has to
+          stay a list. The after-a-last-day view opens on the week grid, and the
+          switcher is what says so and lets you move off it. */}
+      {!isPendingMakeupsView && (
         <>
           <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-
-          {/* Date Picker (only for list view) */}
-          {viewMode === "list" && (
-            <div className="flex items-center gap-2">
-              <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
-              {/* Today button - only show when not on today */}
-              {toDateString(selectedDate) !== toDateString(new Date()) && (
-                <button
-                  onClick={() => setSelectedDate(new Date())}
-                  className="px-2 py-1 text-xs font-medium rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
-                >
-                  Today
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Compact Status Filter with color indicators */}
-          <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
-
-          {/* Compact Tutor Filter */}
-          <select
-            value={tutorFilter}
-            onChange={(e) => setTutorFilter(e.target.value)}
-            className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 0.5rem center',
-            }}
-          >
-            <option value="">Tutor</option>
-            {filteredTutors.map((tutor) => (
-              <option key={tutor.id} value={tutor.id.toString()}>
-                {tutor.tutor_name}
-              </option>
-            ))}
-          </select>
+          <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
         </>
       )}
 
-      {/* Record Memo button */}
-      <button
-        onClick={() => setMemoDrawerOpen(true)}
-        className="relative flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
-        title="Record a session memo (for sessions not yet in system)"
+      {/* Filters — status and tutor apply in every view */}
+      <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+
+      {/* Date Picker (list view only; the other views carry their own navigation).
+          The pending make-ups window is fixed at 120 days, so no date to pick. */}
+      {viewMode === "list" && !isDatelessView && (
+        <div className="flex items-center gap-2">
+          <DatePickerPopover selectedDate={selectedDate} onSelect={setSelectedDate} />
+          {/* Today button - only show when not on today */}
+          {!isTodaySelected && (
+            <button
+              onClick={() => setSelectedDate(new Date())}
+              className="px-2 py-1 text-xs font-medium rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
+            >
+              Today
+            </button>
+          )}
+          {/* Jump to the current time slot - today only, while lessons remain */}
+          {nowPosition && (
+            <button
+              onClick={() => scrollToSlot(nowPosition.timeSlot)}
+              className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
+              title="Jump to the current time slot"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              Now
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Compact Status Filter with color indicators. Hidden in the pending
+          make-ups view, where the mode pins the status set and the dropdown
+          would sit there inert. */}
+      {!isPendingMakeupsView && (
+        <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
+      )}
+
+      {/* Compact Tutor Filter — kept everywhere, including the pending make-ups
+          view, where it still narrows the fetch */}
+      <select
+        value={tutorFilter}
+        onChange={(e) => setTutorFilter(e.target.value)}
+        className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7 max-w-[100px] sm:max-w-none truncate"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'right 0.5rem center',
+        }}
       >
-        <StickyNoteIcon className="h-3 w-3" />
-        <span className="hidden sm:inline">Memo</span>
-        {(pendingMemoData?.count ?? 0) > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white">
-            {pendingMemoData!.count}
-          </span>
-        )}
-      </button>
+        <option value="">Tutor</option>
+        <TutorOptions tutors={tutorOptions} location={selectedLocation} />
+      </select>
+
+      {/* Summer class filter — every view; hides itself outside the course period */}
+      {!isPendingMakeupsView && (
+        <SummerFilterPopover
+          value={summerFilter}
+          onChange={setSummerFilter}
+          options={summerFilterOptions}
+          matchCount={sessions.length}
+          totalCount={statusFilteredSessions.length}
+        />
+      )}
+
+      {/* Record Memo button — unrelated to chasing make-ups, so it stays out of
+          that view */}
+      {!isPendingMakeupsView && (
+        <button
+          onClick={() => setMemoDrawerOpen(true)}
+          className="relative flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
+          title="Record a session memo (for sessions not yet in system)"
+        >
+          <StickyNoteIcon className="h-3 w-3" />
+          <span className="hidden sm:inline">Memo</span>
+          {(pendingMemoData?.count ?? 0) > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white">
+              {pendingMemoData!.count}
+            </span>
+          )}
+        </button>
+      )}
 
       <div className="flex-1" />
 
-      {/* Select All checkbox with dropdown (only in list view) */}
-      {viewMode === "list" && sessions.length > 0 && (
+      {/* Select All checkbox with dropdown (list view only). Every attendance
+          bulk action needs a Scheduled, Trial or Make-up Class row, which no
+          pending make-up is, so the control has nothing to offer there. */}
+      {viewMode === "list" && !isPendingMakeupsView && sessions.length > 0 && (
         <div className="relative">
           <div className="flex items-center">
             <button
@@ -1855,6 +2079,19 @@ export default function SessionsPage() {
     </>
   );
 
+  // Built once and rendered in both branches, like the toolbar above it: the
+  // banner belongs to the mode rather than to a view, so the week grid and the
+  // list have to show the same one.
+  const afterLastDayBanner = isAfterLastDayView ? (
+    <AfterLastDayBanner
+      total={sessions.length}
+      leavers={overrun?.leavers ?? []}
+      selectedTutorId={tutorFilter}
+      onSelectTutor={setTutorFilter}
+      onClear={() => setSpecialFilter("")}
+    />
+  ) : null;
+
   // Toolbar: outer div is clean sticky container, inner div has visual styling
   const toolbarStickyClasses = "sticky top-0 z-30";
   const toolbarInnerClasses = cn(
@@ -1877,8 +2114,10 @@ export default function SessionsPage() {
               </div>
             </div>
 
+            {afterLastDayBanner}
+
             {/* Special Filter Banner */}
-            {specialFilter === "pending-makeups" && (
+            {isPendingMakeupsView && (
               <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
                   <RefreshCw className="h-4 w-4" />
@@ -2033,11 +2272,33 @@ export default function SessionsPage() {
                   <div className="text-center">
                     <Clock className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
                     <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No sessions found</p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {specialFilter === "pending-makeups"
-                        ? "No pending make-ups in the last 60 days"
-                        : "Try selecting a different date or adjusting your filters"}
-                    </p>
+                    {isPendingMakeupsView ? (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        No pending make-ups in the last 60 days
+                      </p>
+                    ) : isAfterLastDayView ? (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Nothing on this list is still booked past a last working day.
+                        Clear the filter above to go back to the ordinary timetable.
+                      </p>
+                    ) : isSummerFilterActive(effectiveSummerFilter) ? (
+                      <>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          No summer classes match the grade, type and lesson you picked
+                        </p>
+                        <button
+                          onClick={() => setSummerFilter(EMPTY_SUMMER_FILTER)}
+                          className="mt-3 inline-flex items-center gap-1 rounded-md border border-amber-400 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
+                        >
+                          <X className="h-3 w-3" />
+                          Clear summer filter
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Try selecting a different date or adjusting your filters
+                      </p>
+                    )}
                   </div>
                 </StickyNote>
               </div>
@@ -2185,27 +2446,15 @@ export default function SessionsPage() {
                                       "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                       statusConfig.bgTint,
                                       !isMobile && "paper-texture",
-                                      selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                      focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                      focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                      // Only the keyboard focus outline: nothing in this
+                                      // view can be selected.
+                                      focusedSessionId === session.id && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
                                     )}
                                     style={{
                                       transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
                                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                                     }}
                                   >
-                                    {/* Checkbox for bulk selection */}
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
-                                      className="flex-shrink-0 p-1.5 sm:p-2 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                    >
-                                      {selectedIds.has(session.id) ? (
-                                        <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />
-                                      ) : (
-                                        <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
-                                      )}
-                                    </button>
-
                                     {/* Main content */}
                                     <div className="flex-1 p-2 sm:p-3 min-w-0">
                                       <div className="flex items-start justify-between gap-2">
@@ -2283,6 +2532,13 @@ export default function SessionsPage() {
                                               <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                             </p>
                                           )}
+                                          <HomeworkCheckBadge
+                                            sessionId={session.id}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleCardClick(session, e);
+                                            }}
+                                          />
                                         </div>
                                       </div>
                                     </div>
@@ -2323,17 +2579,46 @@ export default function SessionsPage() {
                 })}
               </>
             ) : (
-              /* Normal View: Grouped by Time Slot */
+              /* Normal View: grouped by time slot, and by date as well when the
+                 list covers more than one day */
               <>
-                {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => {
-                  const copyText = formatCompactDateTimeSlot(selectedDate, timeSlot);
+                {groupedSessions.map((group, groupIndex) => {
+                  const { key: slotKey, date: groupDate, timeSlot, sessions: sessionsInSlot } = group;
+                  const copyText = formatCompactDateTimeSlot(new Date(groupDate + 'T00:00:00'), timeSlot);
+                  const isCurrentSlot = nowPosition?.kind === "during" && nowPosition.timeSlot === timeSlot;
+                  // The first group of a day carries that day's heading, and the
+                  // count beside it covers the whole day rather than this one slot.
+                  const showDayHeading = listShowsDates && group.isFirstOfDate;
                   return (
-                  <React.Fragment key={timeSlot}>
+                  <React.Fragment key={slotKey}>
+                    {/* Current-time divider (shown in the gap before the next slot) */}
+                    {nowPosition?.kind === "before" && nowPosition.timeSlot === timeSlot && (
+                      <NowDivider nowMinutes={nowMinutes} />
+                    )}
+
+                    {/* The day this block of sessions belongs to. Only a list that
+                        covers more than one day shows it, because everywhere else
+                        the date picker in the toolbar has already said it. */}
+                    {showDayHeading && (
+                      <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-[#a0704b] dark:bg-[#cd853f] text-white desk-shadow-low">
+                        <CalendarDays className="h-4 w-4" />
+                        <span className="text-sm font-bold">{formatWeekdayLong(groupDate)}</span>
+                        <span className="text-xs text-white/80">
+                          {plural(countableByDate.get(groupDate) ?? 0, "session")}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Non-sticky wrapper carries the scroll anchor: a stuck header's
+                        own rect already sits at the scroll target, which made
+                        scrollIntoView a no-op when jumping back up to it.
+                        scrollMarginTop keeps anchored scrolls clear of the sticky toolbar. */}
+                    <div id={`slot-${slotKey}`} className="flex flex-col gap-2 sm:gap-3" style={{ scrollMarginTop: timeSlotStickyTop }}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    <div id={`slot-${timeSlot}`} className={cn("sticky mb-2", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
+                    <div className={cn("sticky mb-2", slotDropdownOpen === slotKey ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
                       <div
-                        onClick={() => toggleSlot(timeSlot)}
+                        onClick={() => toggleSlot(slotKey)}
                         className={cn(
                           "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg px-3 py-2 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
                           !isMobile && "paper-texture"
@@ -2356,13 +2641,13 @@ export default function SessionsPage() {
                               })()}
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === timeSlot ? null : timeSlot); }}
+                              onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === slotKey ? null : slotKey); }}
                               className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                               title="Selection options (Ctrl+Shift+A cycle markable/attended when focused)"
                             >
                               <ChevronDown className="h-3 w-3" />
                             </button>
-                            {slotDropdownOpen === timeSlot && (
+                            {slotDropdownOpen === slotKey && (
                               <div className="absolute top-full left-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-[100] py-1 min-w-[160px]">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
@@ -2392,26 +2677,27 @@ export default function SessionsPage() {
                               <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                             </div>
                             <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">
-                              {timeSlot}
+                              {listShowsDates ? `${formatWeekdayShort(groupDate)}, ${timeSlot}` : timeSlot}
                             </h3>
+                            {isCurrentSlot && <NowChip />}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigator.clipboard.writeText(copyText);
-                                setCopiedSlot(timeSlot);
+                                setCopiedSlot(slotKey);
                                 setTimeout(() => setCopiedSlot(null), 2000);
                               }}
                               className="p-1 hover:bg-[#a0704b]/10 dark:hover:bg-[#cd853f]/10 rounded transition-colors"
                               title={copyText}
                             >
-                              {copiedSlot === timeSlot ? (
+                              {copiedSlot === slotKey ? (
                                 <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                               ) : (
                                 <Copy className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
                               )}
                             </button>
                             <div>
-                              {collapsedSlots.has(timeSlot)
+                              {collapsedSlots.has(slotKey)
                                 ? <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                                 : <ChevronUp className="h-4 w-4 text-gray-500 dark:text-gray-400" />}
                             </div>
@@ -2420,29 +2706,36 @@ export default function SessionsPage() {
                           {/* Right: lesson button + counts */}
                           <div className="flex items-center gap-2">
                             {tutorFilter && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const params = new URLSearchParams({
-                                    date: toDateString(selectedDate),
-                                    slot: timeSlot,
-                                    tutor_id: tutorFilter,
-                                  });
-                                  window.open(`/sessions/lesson?${params.toString()}`, '_blank');
-                                }}
-                                className="flex items-center gap-1 px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
-                                title="Open lesson mode for this time slot"
+                              <LessonNudge
+                                active={tutorFilter === effectiveUserId && isCurrentSlot && sessionsInSlot.some(isCountableSession)}
+                                date={groupDate}
+                                timeSlot={timeSlot}
+                                tutorId={tutorFilter}
                               >
-                                <Presentation className="h-3.5 w-3.5" />
-                                Lesson
-                              </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const params = new URLSearchParams({
+                                      date: groupDate,
+                                      slot: timeSlot,
+                                      tutor_id: tutorFilter,
+                                    });
+                                    window.open(`/sessions/lesson?${params.toString()}`, '_blank');
+                                  }}
+                                  className="flex items-center gap-1 px-1.5 py-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] text-xs font-bold transition-colors"
+                                  title="Open lesson mode for this time slot"
+                                >
+                                  <Presentation className="h-3.5 w-3.5" />
+                                  Lesson
+                                </button>
+                              </LessonNudge>
                             )}
                             <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs">
                               {sessionsInSlot.filter(isCountableSession).length} session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}
                             </div>
                             {(() => {
                               const proposedCount = proposedSessions.filter(
-                                (ps) => ps.time_slot === timeSlot && ps.session_date === toDateString(selectedDate)
+                                (ps) => ps.time_slot === timeSlot && ps.session_date === groupDate
                               ).length;
                               if (proposedCount > 0) {
                                 return (
@@ -2461,7 +2754,7 @@ export default function SessionsPage() {
 
                     {/* Session Cards (Collapsible) */}
                     <AnimatePresence initial={false}>
-                      {!collapsedSlots.has(timeSlot) && (
+                      {!collapsedSlots.has(slotKey) && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: "auto", opacity: 1 }}
@@ -2490,7 +2783,7 @@ export default function SessionsPage() {
                               }}
                               transition={{
                                 // Skip stagger delay on re-expand (only animate on first render)
-                                delay: isMobile || seenSlotsRef.current.has(timeSlot) ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
+                                delay: isMobile || seenSlotsRef.current.has(slotKey) ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
                                 duration: 0.35,
                                 ease: [0.38, 1.21, 0.22, 1.00]
                               }}
@@ -2551,7 +2844,7 @@ export default function SessionsPage() {
                                           "font-bold text-base truncate",
                                           session.enrollment_payment_status === 'Cancelled'
                                             ? "text-gray-500 dark:text-gray-400"
-                                            : session.financial_status !== "Paid"
+                                            : isSessionUnpaid(session)
                                               ? "text-red-600 dark:text-red-400"
                                               : statusConfig.strikethrough
                                                 ? "text-gray-500 dark:text-gray-400"
@@ -2560,7 +2853,7 @@ export default function SessionsPage() {
                                           {session.student_name}
                                         </span>
                                         <SessionLessonBadge session={session} size="xs" />
-                                        {session.enrollment_payment_status !== 'Cancelled' && session.financial_status !== "Paid" && (
+                                        {session.enrollment_payment_status !== 'Cancelled' && isSessionUnpaid(session) && (
                                           <HandCoins className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                                         )}
                                       </p>
@@ -2620,6 +2913,13 @@ export default function SessionsPage() {
                                         <TutorLink tutorId={session.tutor_id} tutorName={session.tutor_name} />
                                       </p>
                                     )}
+                                    <HomeworkCheckBadge
+                                      sessionId={session.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCardClick(session, e);
+                                      }}
+                                    />
                                     {/* Show proposal indicator if session has pending proposal */}
                                     {sessionProposalMap.has(session.id) && (
                                       <ProposalIndicatorBadge
@@ -2678,6 +2978,7 @@ export default function SessionsPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+                    </div>
                   </React.Fragment>
                   );
                 })}
@@ -2886,6 +3187,8 @@ export default function SessionsPage() {
           {toolbarContent}
         </motion.div>
 
+        {afterLastDayBanner}
+
       {/* Weekly Calendar View */}
       {viewMode === "weekly" && (
         <WeeklyGridView
@@ -2904,7 +3207,7 @@ export default function SessionsPage() {
       {/* Daily View */}
       {viewMode === "daily" && (
         <DailyGridView
-          sessions={sessions}
+          sessions={sessionsForDay}
           tutors={filteredTutors}
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}

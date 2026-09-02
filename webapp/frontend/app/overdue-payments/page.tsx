@@ -26,6 +26,7 @@ import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { useAuth } from "@/contexts/AuthContext";
 import SendToWecomModal from "@/components/wecom/SendToWecomModal";
+import { isHomeBranch } from "@/lib/employment";
 
 // Urgency levels
 type UrgencyLevel = 'critical' | 'high' | 'medium' | 'new' | 'dueSoon';
@@ -155,7 +156,7 @@ export default function OverduePaymentsPage() {
   const effectiveTutorId = useMemo(() => {
     if (viewMode === 'my-view' && tutors.length > 0) {
       const filteredTutors = effectiveLocation
-        ? tutors.filter(t => t.default_location === effectiveLocation)
+        ? tutors.filter(t => isHomeBranch(t, effectiveLocation))
         : tutors;
       if (typeof selectedTutorId === 'number') return selectedTutorId;
       if (filteredTutors.length > 0) return filteredTutors[0].id;
@@ -175,7 +176,7 @@ export default function OverduePaymentsPage() {
   useEffect(() => {
     if (viewMode === 'my-view' && tutors.length > 0) {
       const filteredTutors = effectiveLocation
-        ? tutors.filter(t => t.default_location === effectiveLocation)
+        ? tutors.filter(t => isHomeBranch(t, effectiveLocation))
         : tutors;
       if (filteredTutors.length > 0 && selectedTutorId === ALL_TUTORS) {
         setSelectedTutorId(filteredTutors[0].id);

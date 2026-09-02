@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Tutor, SessionLog, OfficeIPWhitelist
+from utils.employment import has_departed
 from .jwt_handler import verify_token
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,17 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
+        )
+
+    # Somebody whose last working day has passed loses access on their next
+    # request rather than whenever their token happens to run out. The check
+    # lives here as well as at login because a cookie issued before they left
+    # stays cryptographically valid for hours and can be refreshed without ever
+    # touching the database.
+    if has_departed(tutor):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account is no longer active",
         )
 
     return tutor
@@ -283,6 +295,30 @@ def can_view_admin_data(role: str) -> bool:
 def can_write_data(role: str) -> bool:
     """Check if a role can perform write operations."""
     return role in ADMIN_WRITE_ROLES
+
+
+def resolve_viewed_tutor_id(current_user: Tutor, tutor_id: Optional[int]) -> int:
+    """Whose list a "my students" endpoint should build.
+
+    Normally the caller's own. An admin may ask for somebody else's, which is
+    what makes impersonation work: the Super Admin picks a tutor in the sidebar
+    and every scoped page has to answer as that tutor rather than as them.
+
+    Authorised on the role in the token rather than the effective one. The
+    whole point of impersonation is that the effective role has been turned
+    down to Tutor, so checking that would refuse in exactly the case it exists
+    for. The token cannot be edited by the browser, so this is still the
+    server deciding. Anyone who may ask this may already see every tutor's
+    students on the admin pages, so it hands over nothing new.
+    """
+    if tutor_id is None or tutor_id == current_user.id:
+        return current_user.id
+    if current_user.role not in ADMIN_VIEW_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only see your own students.",
+        )
+    return tutor_id
 
 
 def require_admin_write(

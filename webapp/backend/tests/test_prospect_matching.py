@@ -34,12 +34,12 @@ def config(db_session):
     return cfg
 
 
-def _make_app(db_session, config, *, ref, name, phone, status="Submitted"):
+def _make_app(db_session, config, *, ref, name, phone, status="Submitted", grade="F1"):
     app = SummerApplication(
         config_id=config.id,
         reference_code=ref,
         student_name=name,
-        grade="F1",
+        grade=grade,
         contact_phone=phone,
         preferred_location="MSA",
         application_status=status,
@@ -50,13 +50,14 @@ def _make_app(db_session, config, *, ref, name, phone, status="Submitted"):
     return app
 
 
-def _make_prospect(db_session, *, name, phone_1=None, phone_2=None, year=2026):
+def _make_prospect(db_session, *, name, phone_1=None, phone_2=None, year=2026, grade=None):
     p = PrimaryProspect(
         year=year,
         source_branch="MAC",
         student_name=name,
         phone_1=phone_1,
         phone_2=phone_2,
+        grade=grade,
     )
     db_session.add(p)
     db_session.commit()
@@ -142,3 +143,77 @@ class TestNormalizedPhoneMatching:
         assert result["matches"][0]["application"]["id"] == app.id
         db_session.refresh(prospect)
         assert prospect.summer_application_id == app.id
+
+
+class TestGradeGuard:
+    """A prospect is a P6 student, so only an F1 application can be theirs.
+    Phone and name are both fallible — siblings share a number and HK given
+    names collide — so the grade is the one hard constraint available."""
+
+    def test_phone_match_into_the_wrong_grade_is_not_linked(self, db_session, config):
+        """The sibling case: the parent's number sits on both children."""
+        app = _make_app(db_session, config, ref="S1", name="Wong Siu Ming",
+                        phone="66001122", grade="F3")
+        prospect = _make_prospect(db_session, name="Wong Siu Fong",
+                                  phone_1="66001122", grade="P6")
+
+        result = admin_auto_match(year=2026, dry_run=False, db=db_session, _admin=None)
+
+        assert result["matches"] == []
+        assert [s["reason"] for s in result["skipped"]] == ["grade_mismatch"]
+        assert result["skipped"][0]["conflicting_apps"][0]["id"] == app.id
+        db_session.refresh(prospect)
+        assert prospect.summer_application_id is None
+
+    def test_phone_match_into_the_right_grade_still_links(self, db_session, config):
+        app = _make_app(db_session, config, ref="S2", name="Wong Siu Fong",
+                        phone="66001133", grade="F1")
+        prospect = _make_prospect(db_session, name="Wong Siu Fong",
+                                  phone_1="66001133", grade="P6")
+
+        result = admin_auto_match(year=2026, dry_run=False, db=db_session, _admin=None)
+
+        assert len(result["matches"]) == 1
+        db_session.refresh(prospect)
+        assert prospect.summer_application_id == app.id
+
+    def test_wrong_grade_is_not_suggested_by_name(self, db_session, config):
+        """An exact name match on the wrong grade is a different child."""
+        _make_app(db_session, config, ref="S3", name="Chloe Wong",
+                  phone="55110000", grade="F2")
+        _make_prospect(db_session, name="Chloe Wong", phone_1="99887766", grade="P6")
+
+        result = admin_auto_match(year=2026, dry_run=True, db=db_session, _admin=None)
+
+        assert result["matches"] == []
+        assert result["skipped"] == []
+
+    def test_unnormalized_prospect_grade_still_guards(self, db_session, config):
+        """Rows predating the canonical spelling are guarded all the same."""
+        _make_app(db_session, config, ref="S4", name="Chloe Wong",
+                  phone="55110001", grade="F2")
+        _make_prospect(db_session, name="Chloe Wong", phone_1="99887767", grade="P6/G6")
+
+        result = admin_auto_match(year=2026, dry_run=True, db=db_session, _admin=None)
+
+        assert result["skipped"] == []
+
+    def test_prospect_without_a_grade_is_unguarded(self, db_session, config):
+        """No grade means no information, not a mismatch."""
+        _make_app(db_session, config, ref="S5", name="Chloe Wong",
+                  phone="55110002", grade="F2")
+        _make_prospect(db_session, name="Chloe Wong", phone_1="99887768")
+
+        result = admin_auto_match(year=2026, dry_run=True, db=db_session, _admin=None)
+
+        assert [s["reason"] for s in result["skipped"]] == ["name_similarity"]
+
+    def test_find_matches_hides_the_wrong_grade(self, db_session, config):
+        _make_app(db_session, config, ref="S6", name="Chloe Wong",
+                  phone="55110003", grade="F2")
+        prospect = _make_prospect(db_session, name="Chloe Wong",
+                                  phone_1="55110003", grade="P6")
+
+        result = admin_find_matches(prospect_id=prospect.id, db=db_session, _admin=None)
+
+        assert result.matches == []

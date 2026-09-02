@@ -1,4 +1,11 @@
 import type {
+  DepartureLoad,
+  EmploymentOverrun,
+  EmploymentSyncResult,
+  HomeworkCompletion,
+  HomeworkCount,
+  HomeworkStatus,
+  SessionHomework,
   Tutor,
   TutorUpdate,
   Student,
@@ -139,6 +146,26 @@ import type {
   SummerApplicationStatusResponse,
   SummerApplicationEditRequest,
   SummerApplicationEditEntry,
+  RegularCourseFormConfig,
+  RegularApplicationCreate,
+  RegularApplicationSubmitResponse,
+  RegularApplicationStatusResponse,
+  RegularApplicationEditRequest,
+  RegularApplicationEditEntry,
+  RegularCourseConfig,
+  RegularApplication,
+  RegularApplicationUpdate,
+  RegularApplicationStats,
+  RegularApplicationMessages,
+  RegularDemandResponse,
+  RegularSlot,
+  RegularSlotCreate,
+  RegularSlotUpdate,
+  RegularSuggestResponse,
+  RegularPublishRequest,
+  RegularPublishResponse,
+  RegularPublishBatchResponse,
+  RegularUnpublishResponse,
   SummerSiblingInfo,
   SiblingVerificationStatus,
   SummerCourseConfig,
@@ -161,9 +188,9 @@ import type {
   SummerDemandResponse,
   SummerSuggestRequest,
   SummerSuggestResponse,
-  SummerTutorDuty,
-  SummerTutorDutyItem,
-  SummerActiveTutor,
+  TutorDuty,
+  TutorDutyItem,
+  ActiveTutorOption,
   SummerLesson,
   SummerLessonUpdate,
   SummerLessonCalendarResponse,
@@ -174,6 +201,7 @@ import type {
   PrimaryProspectBulkCreate,
   PrimaryProspectStats,
   PrimaryProspectMatchResult,
+  ProspectCourse,
   BuddyMember,
   BuddyMemberCreate,
   BuddyMemberUpdate,
@@ -248,6 +276,7 @@ import type {
   SqlQueryResponse,
   RevertResponse,
 } from "@/types/debug";
+import { pickableForOpenEndedWork } from "./employment";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -311,10 +340,13 @@ export class ApiError extends Error {
 // Generic fetch wrapper with error handling and automatic token refresh
 async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
   try {
-    // Build headers with optional impersonation role
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    // Build headers with optional impersonation role. A multipart body has to
+    // set its own Content-Type, boundary included, so leave it to the browser.
+    const isMultipart =
+      typeof FormData !== "undefined" && options?.body instanceof FormData;
+    const headers: Record<string, string> = isMultipart
+      ? {}
+      : { "Content-Type": "application/json" };
 
     // Add impersonation header if Super Admin is impersonating another role
     if (typeof window !== "undefined") {
@@ -394,8 +426,13 @@ function buildLocationQuery(params: Record<string, unknown> = {}, location?: str
 
 // Tutors API
 export const tutorsAPI = {
-  getAll: () => {
-    return fetchAPI<Tutor[]>("/tutors");
+  // The roster is cached by the browser for five minutes (the endpoint sets
+  // Cache-Control itself), which is right for a list of eleven people that
+  // barely changes. Pass fresh when something has just been written to it and
+  // the next screen has to see the change now: that skips the cached copy and
+  // replaces it, so every other page picks the new roster up as well.
+  getAll: (opts?: { fresh?: boolean }) => {
+    return fetchAPI<Tutor[]>("/tutors", opts?.fresh ? { cache: "reload" } : undefined);
   },
 
   getById: (id: number) => {
@@ -644,9 +681,11 @@ export const enrollmentsAPI = {
     return fetchAPI<EnrollmentDetailResponse>(`/enrollments/${id}/detail`);
   },
 
-  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6, isNewStudent?: boolean) => {
+  // The backend decides the new-student flag from the enrollment itself, which
+  // also honours an intake that charges the materials fee to nobody. Its
+  // is_new_student override query param exists but no UI passes it.
+  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6) => {
     const params = new URLSearchParams({ lang, lessons_paid: lessonsPaid.toString() });
-    if (isNewStudent !== undefined) params.set('is_new_student', String(isNewStudent));
     return fetchAPI<FeeMessageResponse>(`/enrollments/${id}/fee-message?${params}`);
   },
 
@@ -730,6 +769,9 @@ export const sessionsAPI = {
     if (filters?.location) params.append("location", filters.location);
     // Map frontend 'status' to backend 'session_status'
     if (filters?.status) params.append("session_status", filters.status);
+    // Sessions dated past their own tutor's last working day. The cut-off is
+    // per tutor, so this cannot be expressed as a date range.
+    if (filters?.after_last_day) params.append("after_last_day", "true");
     if (filters?.limit) params.append("limit", filters.limit.toString());
     if (filters?.offset) params.append("offset", filters.offset.toString());
 
@@ -1329,6 +1371,22 @@ export const parentCommunicationsAPI = {
     });
   },
 
+  // One contact against several students, written in a single transaction.
+  createBulk: (
+    data: Omit<ParentCommunicationCreate, "student_id"> & { student_ids: number[] },
+    tutor_id: number,
+    created_by: string
+  ) => {
+    const params = new URLSearchParams({
+      tutor_id: tutor_id.toString(),
+      created_by,
+    });
+    return fetchAPI<{ created: number; skipped: number[] }>(
+      `/parent-communications/bulk?${params}`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+  },
+
   // Update communication
   update: (id: number, data: Partial<ParentCommunicationCreate>) => {
     return fetchAPI<ParentCommunication>(`/parent-communications/${id}`, {
@@ -1401,6 +1459,16 @@ export const terminationsAPI = {
       method: "PUT",
       body: JSON.stringify(data),
     });
+  },
+
+  // Remove a quarter's record entirely. Flipping count_as_terminated is not an
+  // undo — it says "left, but not churn", which is a different claim.
+  deleteRecord: (studentId: number, year: number, quarter: number) => {
+    const params = new URLSearchParams({
+      year: year.toString(),
+      quarter: quarter.toString(),
+    });
+    return fetchAPI<void>(`/terminations/${studentId}?${params}`, { method: "DELETE" });
   },
 
   // Get termination stats for a quarter
@@ -2719,17 +2787,17 @@ export const summerAPI = {
   // ---- Tutor Duty endpoints ----
 
   getActiveTutors: () =>
-    fetchAPI<SummerActiveTutor[]>("/summer/tutors/active"),
+    fetchAPI<ActiveTutorOption[]>("/summer/tutors/active"),
 
   getTutorDuties: (configId: number, location: string) =>
-    fetchAPI<SummerTutorDuty[]>(
+    fetchAPI<TutorDuty[]>(
       `/summer/tutor-duties?config_id=${configId}&location=${encodeURIComponent(location)}`
     ),
 
   bulkSetTutorDuties: (data: {
     config_id: number;
     location: string;
-    duties: SummerTutorDutyItem[];
+    duties: TutorDutyItem[];
   }) =>
     fetchAPI<{ success: boolean; count: number }>("/summer/tutor-duties/bulk-set", {
       method: "POST",
@@ -2780,9 +2848,9 @@ export const summerAPI = {
     return fetchAPI<SummerFindSlotResult[]>(`/summer/lessons/find-slot?${qs}`);
   },
 
-  getStudentLessons: (configId: number, location: string) =>
+  getStudentLessons: (configId: number, location?: string) =>
     fetchAPI<SummerStudentLessonsResponse>(
-      `/summer/students/lessons?config_id=${configId}&location=${encodeURIComponent(location)}`
+      `/summer/students/lessons?config_id=${configId}${location ? `&location=${encodeURIComponent(location)}` : ""}`
     ),
 };
 
@@ -2843,7 +2911,8 @@ export const prospectsAPI = {
     outreach_status?: string;
     wants_summer?: string;
     wants_regular?: string;
-    linked?: string;
+    summer_state?: string;
+    regular_state?: string;
     has_wechat?: string;
     search?: string;
   }) => {
@@ -2853,7 +2922,8 @@ export const prospectsAPI = {
     if (params.outreach_status) qs.set("outreach_status", params.outreach_status);
     if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
     if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
-    if (params.linked) qs.set("linked", params.linked);
+    if (params.summer_state) qs.set("summer_state", params.summer_state);
+    if (params.regular_state) qs.set("regular_state", params.regular_state);
     if (params.has_wechat) qs.set("has_wechat", params.has_wechat);
     if (params.search) qs.set("search", params.search);
     return fetchAPI<PrimaryProspect[]>(`/prospects/admin?${qs}`);
@@ -2862,7 +2932,7 @@ export const prospectsAPI = {
   adminGet: (id: number) =>
     fetchAPI<PrimaryProspect>(`/prospects/admin/${id}`),
 
-  adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null }) =>
+  adminUpdate: (id: number, data: { outreach_status?: string; contact_notes?: string; status?: string; summer_application_id?: number | null; regular_application_id?: number | null }) =>
     fetchAPI<PrimaryProspect>(`/prospects/${id}/admin`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -2880,7 +2950,8 @@ export const prospectsAPI = {
     outreach_status?: string;
     wants_summer?: string;
     wants_regular?: string;
-    linked?: string;
+    summer_state?: string;
+    regular_state?: string;
     has_wechat?: string;
     search?: string;
   }) => {
@@ -2889,7 +2960,8 @@ export const prospectsAPI = {
     if (params.outreach_status) qs.set("outreach_status", params.outreach_status);
     if (params.wants_summer) qs.set("wants_summer", params.wants_summer);
     if (params.wants_regular) qs.set("wants_regular", params.wants_regular);
-    if (params.linked) qs.set("linked", params.linked);
+    if (params.summer_state) qs.set("summer_state", params.summer_state);
+    if (params.regular_state) qs.set("regular_state", params.regular_state);
     if (params.has_wechat) qs.set("has_wechat", params.has_wechat);
     if (params.search) qs.set("search", params.search);
     return fetchAPI<PrimaryProspectStats[]>(`/prospects/admin/stats?${qs}`);
@@ -2903,7 +2975,33 @@ export const prospectsAPI = {
       `/prospects/admin/auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
       { method: "POST" },
     ),
+
+  findRegularMatches: (id: number) =>
+    fetchAPI<PrimaryProspectMatchResult>(`/prospects/admin/regular-match/${id}`),
+
+  regularAutoMatch: (year: number, options: { dryRun?: boolean } = {}) =>
+    fetchAPI<import("@/types").AutoMatchResult>(
+      `/prospects/admin/regular-auto-match?year=${year}&dry_run=${options.dryRun ? "true" : "false"}`,
+      { method: "POST" },
+    ),
+
+  // Course-parameterized wrappers so components pass a course through instead
+  // of branching on which endpoint or link field belongs to which course.
+  findCourseMatches: (id: number, course: ProspectCourse) =>
+    course === "summer" ? prospectsAPI.findMatches(id) : prospectsAPI.findRegularMatches(id),
+
+  linkCourseApplication: (id: number, course: ProspectCourse, applicationId: number | null) =>
+    prospectsAPI.adminUpdate(
+      id,
+      course === "summer" ? { summer_application_id: applicationId } : { regular_application_id: applicationId },
+    ),
 };
+
+// Deep link into an applications page with its search box prefilled. Both
+// pages read the ?q= param — this helper owns that contract for every link
+// from the prospects surfaces.
+export const applicationSearchHref = (course: ProspectCourse, ref: string | null | undefined) =>
+  `/admin/${course}/applications?q=${encodeURIComponent(ref || "")}`;
 
 export const buddyTrackerAPI = {
   verifyPin: (branch: string, pin: string) =>
@@ -3010,6 +3108,351 @@ export const waitlistAPI = {
 };
 
 // Export all APIs as a single object
+export const regularAPI = {
+  // Public endpoints (no auth)
+  getFormConfig: () =>
+    fetchAPI<RegularCourseFormConfig>("/regular/public/config"),
+
+  submitApplication: (data: RegularApplicationCreate) =>
+    fetchAPI<RegularApplicationSubmitResponse>("/regular/public/apply", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  checkStatus: (referenceCode: string, phone: string) =>
+    fetchAPI<RegularApplicationStatusResponse>(
+      `/regular/public/status/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`
+    ),
+
+  editApplication: (
+    referenceCode: string,
+    phone: string,
+    data: RegularApplicationEditRequest
+  ) =>
+    fetchAPI<RegularApplicationStatusResponse>(
+      `/regular/public/application/${encodeURIComponent(referenceCode)}?phone=${encodeURIComponent(phone)}`,
+      { method: "PATCH", body: JSON.stringify(data) }
+    ),
+
+  // Admin endpoints
+  getConfigs: () =>
+    fetchAPI<RegularCourseConfig[]>("/regular/configs"),
+
+  createConfig: (data: Partial<RegularCourseConfig>) =>
+    fetchAPI<RegularCourseConfig>("/regular/configs", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getConfig: (id: number) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}`),
+
+  updateConfig: (id: number, data: Partial<RegularCourseConfig>) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteConfig: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/regular/configs/${id}`, { method: "DELETE" }),
+
+  cloneConfig: (id: number, targetYear: number) =>
+    fetchAPI<RegularCourseConfig>(`/regular/configs/${id}/clone?target_year=${targetYear}`, {
+      method: "POST",
+    }),
+
+  getApplications: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    published?: "published" | "unpublished";
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<RegularApplication[]>(`/regular/applications${qs ? `?${qs}` : ""}`);
+  },
+
+  getApplicationStats: (params?: {
+    config_id?: number;
+    application_status?: string;
+    grade?: string;
+    location?: string;
+    search?: string;
+    published?: "published" | "unpublished";
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+      });
+    }
+    const qs = searchParams.toString();
+    return fetchAPI<RegularApplicationStats>(`/regular/applications/stats${qs ? `?${qs}` : ""}`);
+  },
+
+  getApplication: (id: number) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${id}`),
+
+  updateApplication: (id: number, data: RegularApplicationUpdate) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getApplicationEdits: (id: number) =>
+    fetchAPI<RegularApplicationEditEntry[]>(`/regular/applications/${id}/edits`),
+
+  // Super Admin cleanup for test submissions. The backend refuses (409) while
+  // a published enrollment still references the application.
+  deleteApplication: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/regular/applications/${id}`, { method: "DELETE" }),
+
+  // Same response shape as the summer endpoint, so both link-suggestion
+  // modals read one set of types.
+  suggestStudentLinks: (configId: number, dryRun: boolean) =>
+    fetchAPI<import("@/types").StudentLinkSuggestResult>(
+      `/regular/admin/suggest-student-links?config_id=${configId}&dry_run=${dryRun}`
+    ),
+
+  /** Parent-facing schedule + fee messages, generated from the schedule and
+   *  fee inputs the publish flow will use. */
+  getApplicationMessages: (
+    id: number,
+    params: { lessons_paid?: number; discount_id?: number | null; first_lesson_date?: string | null } = {}
+  ) => {
+    const qs = new URLSearchParams();
+    if (params.lessons_paid != null) qs.set("lessons_paid", String(params.lessons_paid));
+    if (params.discount_id != null) qs.set("discount_id", String(params.discount_id));
+    if (params.first_lesson_date) qs.set("first_lesson_date", params.first_lesson_date);
+    const q = qs.toString();
+    return fetchAPI<RegularApplicationMessages>(
+      `/regular/applications/${id}/messages${q ? `?${q}` : ""}`
+    );
+  },
+
+  getDemand: (configId: number, location: string) =>
+    fetchAPI<RegularDemandResponse>(
+      `/regular/demand?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+
+  // Arrangement: weekly slots + assignment + suggestions
+  getSlots: (configId: number, location?: string) =>
+    fetchAPI<RegularSlot[]>(
+      `/regular/slots?config_id=${configId}${location ? `&location=${encodeURIComponent(location)}` : ""}`
+    ),
+
+  createSlot: (data: RegularSlotCreate) =>
+    fetchAPI<RegularSlot>("/regular/slots", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateSlot: (id: number, data: RegularSlotUpdate) =>
+    fetchAPI<RegularSlot>(`/regular/slots/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteSlot: (id: number) =>
+    fetchAPI<{ success: boolean }>(`/regular/slots/${id}`, { method: "DELETE" }),
+
+  assignSlot: (applicationId: number, slotId: number | null) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${applicationId}/slot`, {
+      method: "PATCH",
+      body: JSON.stringify({ slot_id: slotId }),
+    }),
+
+  getSuggestions: (configId: number, applicationId: number) =>
+    fetchAPI<RegularSuggestResponse>(
+      `/regular/suggest?config_id=${configId}&application_id=${applicationId}`
+    ),
+
+  // ---- School aliases ----
+  /** Assign a canonical school code to one typed spelling. The backend folds
+   *  the raw spelling into its stored key; the application itself is never
+   *  modified. Re-assigning a spelling overwrites its target. */
+  createSchoolAlias: (raw: string, target: string) =>
+    fetchAPI<{ alias_key: string; target: string }>(`/regular/school-aliases`, {
+      method: "POST",
+      body: JSON.stringify({ raw, target }),
+    }),
+
+  /** The known school-code vocabulary for assign dropdowns: every alias
+   *  target in use plus every distinct code on student records, sorted. */
+  getSchoolCodes: () => fetchAPI<string[]>(`/regular/school-codes`),
+
+  // ---- Prospect journey ----
+  linkProspect: (applicationId: number, prospectId: number | null) =>
+    fetchAPI<RegularApplication>(`/regular/applications/${applicationId}/prospect`, {
+      method: "PATCH",
+      body: JSON.stringify({ prospect_id: prospectId }),
+    }),
+
+  getProspectSuggestions: (applicationId: number) =>
+    fetchAPI<import("@/types").RegularProspectSuggestResponse>(
+      `/regular/applications/${applicationId}/prospect-suggestions`
+    ),
+
+  getConversion: (year: number, branch?: string | null) =>
+    fetchAPI<import("@/types").RegularConversionResponse>(
+      `/regular/conversion?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
+    ),
+
+  getRetention: (year: number, branch?: string | null) =>
+    fetchAPI<import("@/types").RegularRetentionResponse>(
+      `/regular/retention?year=${year}${branch ? `&branch=${encodeURIComponent(branch)}` : ""}`
+    ),
+
+  /** The caller's own students only. Defaults to the open intake.
+   *
+   *  `tutorId` asks for somebody else's list, which only an admin may do. It
+   *  is what makes impersonation reach the data: the sidebar picks a tutor and
+   *  the page has to answer as them rather than as the person logged in. */
+  getMyRetention: (year?: number | null, tutorId?: number | null) =>
+    fetchAPI<import("@/types").RegularRetentionMineResponse>(
+      `/regular/retention/mine${buildLocationQuery({ year }, undefined, tutorId ?? undefined)}`
+    ),
+
+  /** The caller's own September classes and who has been placed in them. */
+  getMyClass: (year?: number | null, tutorId?: number | null) =>
+    fetchAPI<import("@/types").RegularMyClassResponse>(
+      `/regular/class/mine${buildLocationQuery({ year }, undefined, tutorId ?? undefined)}`
+    ),
+
+  publishApplication: (id: number, data: RegularPublishRequest) =>
+    fetchAPI<RegularPublishResponse>(`/regular/applications/${id}/publish`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  unpublishApplication: (id: number) =>
+    fetchAPI<RegularUnpublishResponse>(`/regular/applications/${id}/publish`, {
+      method: "DELETE",
+    }),
+
+  publishApplicationsBatch: (
+    items: Array<{ application_id: number } & RegularPublishRequest>
+  ) =>
+    fetchAPI<RegularPublishBatchResponse>("/regular/applications/publish-batch", {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    }),
+
+  // ---- Tutor Duty endpoints ----
+
+  // Off the general tutors endpoint rather than an intake-specific one: the
+  // roster is the same list of people whichever intake is being staffed.
+  getActiveTutors: async (): Promise<ActiveTutorOption[]> =>
+    // Regular slots and duties have no end date, so anybody with a leaving
+    // date is out, not only those who have already gone.
+    pickableForOpenEndedWork(await tutorsAPI.getAll())
+      .map((t) => ({
+        id: t.id,
+        tutor_name: t.tutor_name,
+        default_location: t.default_location ?? null,
+      })),
+
+  getTutorDuties: (configId: number, location: string) =>
+    fetchAPI<TutorDuty[]>(
+      `/regular/tutor-duties?config_id=${configId}&location=${encodeURIComponent(location)}`
+    ),
+
+  bulkSetTutorDuties: (data: {
+    config_id: number;
+    location: string;
+    duties: TutorDutyItem[];
+  }) =>
+    fetchAPI<{ success: boolean; count: number }>("/regular/tutor-duties/bulk-set", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+export const employmentAPI = {
+  /** Lessons booked past a leaver's last working day, grouped by tutor. */
+  getOverrun: () => fetchAPI<EmploymentOverrun>("/admin/employment/overrun"),
+
+  /** Everything still pointing at one tutor: sessions, slots, duties, the lot. */
+  getDepartureLoad: (tutorId: number) =>
+    fetchAPI<DepartureLoad>(`/tutors/${tutorId}/departure-load`),
+
+  /** Pull leaving dates from ARK now instead of waiting for tonight's run. */
+  sync: () => fetchAPI<EmploymentSyncResult>("/admin/employment/sync", { method: "POST" }),
+};
+
+export const homeworkAPI = {
+  /** Homework still open for each of the given sessions, keyed by session id. */
+  getToCheck: (sessionIds: number[]) => {
+    return fetchAPI<SessionHomework[]>(
+      `/homework/to-check?session_ids=${sessionIds.join(",")}`
+    );
+  },
+
+  /**
+   * Every homework assignment a student has been set, with its check state.
+   *
+   * The whole record rather than the rolling backlog, so the student page can
+   * show and mark homework the lesson surfaces have already let go of.
+   */
+  getForStudent: (studentId: number, limit = 500) => {
+    return fetchAPI<HomeworkCompletion[]>(
+      `/students/${studentId}/homework?limit=${limit}`
+    );
+  },
+
+  /** Open homework counts per session, for list badges. */
+  getCounts: (sessionIds: number[]) => {
+    return fetchAPI<HomeworkCount[]>(
+      `/homework/counts?session_ids=${sessionIds.join(",")}`
+    );
+  },
+
+  /** Attach a photo or PDF of what the student handed in. */
+  uploadFile: (sessionId: number, sessionExerciseId: number, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}/files`,
+      { method: "POST", body: formData }
+    );
+  },
+
+  /** Remove one attachment. Returns the homework with its remaining files. */
+  deleteFile: (sessionId: number, sessionExerciseId: number, fileId: number) => {
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}/files/${fileId}`,
+      { method: "DELETE" }
+    );
+  },
+
+  /** Mark one homework assignment as checked in this session. */
+  mark: (
+    sessionId: number,
+    sessionExerciseId: number,
+    updates: {
+      completion_status?: HomeworkStatus;
+      homework_rating?: string | null;
+      tutor_comments?: string | null;
+    }
+  ) => {
+    return fetchAPI<HomeworkCompletion>(
+      `/sessions/${sessionId}/homework/${sessionExerciseId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }
+    );
+  },
+};
+
 export const api = {
   tutors: tutorsAPI,
   students: studentsAPI,
@@ -3036,9 +3479,12 @@ export const api = {
   wecom: wecomAPI,
   memos: memosAPI,
   summer: summerAPI,
+  regular: regularAPI,
   prospects: prospectsAPI,
   buddyTracker: buddyTrackerAPI,
   auth: authAPI,
   arkLeave: arkLeaveAPI,
   waitlist: waitlistAPI,
+  homework: homeworkAPI,
+  employment: employmentAPI,
 };

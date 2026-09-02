@@ -1,4 +1,4 @@
-/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (243 assertions)
+/* 歸零爆破 Zero Blast — MULTI-DEVICE test suite (253 assertions)
  *
  * One HOST (projector, 1280x800) page plus two PHONE (controller,
  * 390x844) pages, all in ONE browser context (shared localStorage +
@@ -18,14 +18,15 @@
  *   node webapp/frontend/tests/games/zero-blast/zb-multi-test.js
  *
  * ZB_BASE overrides the target (default http://localhost:8000/games/zero-blast/).
- * Exit code 0 + "ALL PASS" when all 243 assertions hold; first failing
+ * Exit code 0 + "ALL PASS" when all 253 assertions hold; first failing
  * assertion prints "  ✗ name — detail" and exits non-zero.
  *
  * The run uses ?rounds=1&seed=7&grace=8 on the host, so the plan is
- * one building per stage, kinds 1..6 in order, deterministic:
+ * one building per stage, kinds 1..8 in order, deterministic:
  *   1: 2 × ▢ = 0 (root 0)      2: (x−2) = 0 (root 2)
  *   3: (x−9)(x−7) = 0 (9, 7)   4: (x+5)(x−4) = 0 (−5, 4)
  *   5: (x−3)² = 0 (double 3)   6: x² + 4x − 5 = 0 (−5, 1)
+ *   7: x² + 5x + 6 = 2 (gate, −1, −4)   8: (x−6)(x+4) = 39 (finale, 9, −7)
  *
  * After the original run the suite exercises the fix batches: 再拆一次
  * restart (phones must come back to life — the audit's #1 finding),
@@ -1192,6 +1193,29 @@ async function main() {
   );
   check("host refresh: tutor bar back", tutorVis1);
 
+  /* the phone's arc face: the pad's state, the margin note, and the
+   * lives strip (marks still standing + the respawn pop) */
+  const inqFace = async (page) =>
+    page.evaluate(() => ({
+      pad: getComputedStyle(document.getElementById("ctrlInqPadWrap")).display,
+      note: document.getElementById("ctrlInqMark").textContent,
+      live: document.querySelectorAll("#ctrlInqLives .mc-tries__dot:not(.used)").length,
+      pop: document.getElementById("ctrlInqLives").classList.contains("zb-liveback"),
+    }));
+  /* the projector roster's chips wearing a given tag (輪空 / 復活中 share
+   * one class, 復活 has its own) */
+  const rosterTagged = async (page, tagCls) =>
+    page.evaluate((cls) => {
+      const chips = [...document.querySelectorAll("#inqRoster .zb-inqroster__chip")]
+        .filter((c) => c.querySelector("." + cls));
+      return {
+        n: chips.length,
+        text: chips[0] ? chips[0].textContent : "",
+        out: chips[0] ? chips[0].classList.contains("out") : null,
+        live: chips[0] ? chips[0].querySelectorAll(".mc-tries__dot:not(.used)").length : -1,
+      };
+    }, tagCls);
+
   const phonesLive = async (page) =>
     page.evaluate(() => C.phase === "playing" && parseFloat(document.getElementById("ctrlTimerText").textContent) > 0);
   await until(async () => (await phonesLive(phoneA)) && (await phonesLive(phoneB)), {
@@ -1459,15 +1483,15 @@ async function main() {
   await submitVerdict(phoneA, l6[1]); // clear the street
   await fastForwardGrace(host);
 
-  /* ════════ level 7 — the general-form gate (§19 Batch AA) ════════ */
+  /* ════════ level 7 — the general-form gate (now penultimate, §19 AB) ════════ */
   await waitHostLevel(host, 7);
   const gateFace = await host.evaluate(() => ({
     expr: G.level.expr, finale: !!G.level.finale,
     hintHid: getComputedStyle(document.getElementById("btnHint")).display === "none",
   }));
   check(
-    "the gate is the finale and offers no hint (general form IS the test)",
-    gateFace.expr === "x² + 5x + 6 = 2" && gateFace.finale && gateFace.hintHid,
+    "the gate offers no hint and is no longer the finale (kind 8 is)",
+    gateFace.expr === "x² + 5x + 6 = 2" && !gateFace.finale && gateFace.hintHid,
     JSON.stringify(gateFace)
   );
   const vdTrap = await submitVerdict(phoneA, -2);
@@ -1479,14 +1503,47 @@ async function main() {
     trapPhone
   );
   // padSubmit waits out the 3s wrong-lock; streak is 0 after the trap,
-  // so a correct claim pays base(f) × 1.0 × 2 - the finale double
+  // so a correct claim pays base(f) × 1.0 × 1 - the gate is single now
   const fEst7 = await host.evaluate(() => (G.deadline - performance.now()) / G.duration);
   const vdGate = await submitVerdict(phoneA, -1);
-  const expGate = (100 + Math.round(100 * fEst7)) * 2;
+  const expGate = 100 + Math.round(100 * fEst7);
   check(
-    "the gate pays the finale double",
+    "the gate pays single now (the finale double moved to kind 8)",
     vdGate.ok === true && Math.abs(vdGate.pts - expGate) <= 12,
     "pts=" + vdGate.pts + " expected≈" + Math.round(expGate)
+  );
+  await submitVerdict(phoneA, -4); // clear the gate's second root
+  await fastForwardGrace(host);
+
+  /* ════════ level 8 — the factored-but-nonzero gate, the true finale
+   * (x−6)(x+4) = 39 (§19 Batch AB) ════════ */
+  await waitHostLevel(host, 8);
+  const prodFace = await host.evaluate(() => ({
+    expr: G.level.expr, finale: !!G.level.finale,
+    hintHid: getComputedStyle(document.getElementById("btnHint")).display === "none",
+  }));
+  check(
+    "the 39 gate is the finale and offers no hint",
+    prodFace.expr === "(x−6)(x+4) = 39" && prodFace.finale && prodFace.hintHid,
+    JSON.stringify(prodFace)
+  );
+  const vdTrap8 = await submitVerdict(phoneA, 6);
+  check("39 gate trap: reading off x=6 zeroes one bracket but is rejected",
+    vdTrap8.ok === false, JSON.stringify(vdTrap8));
+  const trapPhone8 = await phoneA.evaluate(() => document.getElementById("ctrlMark").textContent);
+  check(
+    "39 gate trap: the phone nudge names the move to general form",
+    trapPhone8.includes("≠ 39") && trapPhone8.includes("唔係 0") && trapPhone8.includes("x² − 2x − 63 = 0"),
+    trapPhone8
+  );
+  // streak 0 after the trap, so the finale pays base(f) × 1.0 × 2
+  const fEst8 = await host.evaluate(() => (G.deadline - performance.now()) / G.duration);
+  const vdProd = await submitVerdict(phoneA, 9);
+  const expProd = (100 + Math.round(100 * fEst8)) * 2;
+  check(
+    "the 39 gate pays the finale double",
+    vdProd.ok === true && Math.abs(vdProd.pts - expProd) <= 12,
+    "pts=" + vdProd.pts + " expected≈" + Math.round(expProd)
   );
 
   await host.click("#btnEndGame");
@@ -1511,7 +1568,7 @@ async function main() {
     JSON.stringify(endLapsed)
   );
 
-  await submitVerdict(phoneA, -4); // the gate's second root: the run's last code
+  await submitVerdict(phoneA, -7); // the finale's second root: the run's last code
   await fastForwardGrace(host);
   await until(() => host.evaluate(() => document.getElementById("endScreen").classList.contains("active")), {
     label: "host end screen",
@@ -1524,7 +1581,11 @@ async function main() {
   check("host leaderboard has 2 rows", rows === 2, "rows=" + rows);
 
   const bgmEnd = await host.evaluate(() => ZBFX.bgm.state());
-  check("bgm: stopped on the end screen", !bgmEnd.playing && bgmEnd.tier === null, JSON.stringify(bgmEnd));
+  check(
+    "bgm: the report winds down on its own groove",
+    bgmEnd.playing === true && bgmEnd.tier === "report",
+    JSON.stringify(bgmEnd)
+  );
 
   await until(
     async () =>
@@ -1778,7 +1839,10 @@ async function main() {
     });
   }
 
-  const INQ_URL = BASE + "?rounds=1&seed=" + SEED + "&grace=8&inqrounds=2";
+  // inqrounds2=2 pins 探究二 to two rounds for the deterministic boom
+  // test; its real default is 3 (one shorter than 探究一's 5), covered
+  // by the audit suite where a default-config page is loaded
+  const INQ_URL = BASE + "?rounds=1&seed=" + SEED + "&grace=8&inqrounds=2&inqrounds2=2";
   await host.goto(INQ_URL, { waitUntil: "load" });
   await host.click("#btnHost");
   const code2 = await until(
@@ -1869,8 +1933,10 @@ async function main() {
     signOut.gone && signOut.offCentre <= 1 && signOut.zeroSpansRow,
     JSON.stringify(signOut)
   );
-  const targetShown = await phoneA2.evaluate(() => document.getElementById("ctrlInqTarget").textContent.trim());
-  check("探究一: phone shows the target 12", targetShown.includes("12"), targetShown);
+  const targetShown = await phoneA2.evaluate(() =>
+    document.getElementById("ctrlInqTarget").textContent.replace(/\s+/g, " ").trim());
+  check("探究一: phone shows the ▢ × ▢ = 12 frame",
+    targetShown.includes("12") && targetShown.includes("▢ × ▢"), targetShown);
   await inqSubmit(phoneA2, 3);
   await inqSubmit(phoneB, 4);
   const subShape = (await roomData(host)).subs[adaId];
@@ -1988,13 +2054,15 @@ async function main() {
   );
   await inqAdvanceTo("intro");
   const lockFace = await host.evaluate(() => ({
-    n: document.getElementById("inqN").textContent,
+    // the RHS lives in #inqNVal now; ▢ × ▢ = stays in the frame
+    val: document.getElementById("inqNVal").textContent,
+    frame: document.getElementById("inqN").textContent.replace(/\s+/g, " ").trim(),
     badge: getComputedStyle(document.getElementById("inqLockBadge")).display !== "none",
-    zeroInk: document.getElementById("inqN").classList.contains("zb-inqn--zero"),
+    zeroInk: document.getElementById("inqNVal").classList.contains("zb-inqn--zero"),
   }));
   check(
-    "探究二 intro: the 0 lands stamped with the lock badge",
-    lockFace.n === "0" && lockFace.badge && lockFace.zeroInk,
+    "探究二 intro: ▢ × ▢ = 0 lands stamped with the lock badge",
+    lockFace.val === "0" && lockFace.frame.includes("▢ × ▢") && lockFace.badge && lockFace.zeroInk,
     JSON.stringify(lockFace)
   );
   // §19 Batch W: ONE hearts pool for the whole arc - the old per-stage
@@ -2283,7 +2351,7 @@ async function main() {
   }));
   check(
     "x(x−7) round 3: the naked-x equation served",
-    dealX.seq === 1303 && dealX.roots.join() === "0,7" && dealX.exprA === "(x)",
+    dealX.seq === 1303 && dealX.roots.join() === "0,7" && dealX.exprA === "x",
     JSON.stringify(dealX)
   );
   check(
@@ -2301,7 +2369,7 @@ async function main() {
   }));
   check(
     "x(x−7): the phone face wears the naked x underlined",
-    xFace.text.includes("(x)(x−7)") && xFace.hint === "(x)",
+    xFace.text.includes("x(x−7)") && xFace.hint === "x",
     JSON.stringify(xFace)
   );
   // the trap: the (x) holder plays the PARTNER's root 7 - a true root
@@ -2317,7 +2385,7 @@ async function main() {
   const heartsX = (await roomData(host)).state.inqHearts;
   check(
     "x(x−7): a partner's root does NOT pass the 分工 - the pair fails",
-    rvX.pairs["0"].ok === false && rvX.expr === "(x)(x−7) = 0" && heartsX[xHolder] === 0,
+    rvX.pairs["0"].ok === false && rvX.expr === "x(x−7) = 0" && heartsX[xHolder] === 0,
     JSON.stringify({ row: rvX.pairs["0"], heartsX })
   );
   const hostRevealX = await host.evaluate(() => ({
@@ -2336,7 +2404,7 @@ async function main() {
   const xMark = await pages[xHolder].evaluate(() => document.getElementById("ctrlInqMark").textContent);
   check(
     "x(x−7): the partner's-root verdict credits the maths, shows the own-factor miss, then the KO beat",
-    xMark.includes("真係方程嘅解") && xMark.includes("(x)") &&
+    xMark.includes("真係方程嘅解") && xMark.includes("因式係 x") &&
       xMark.includes("唔係 0") && xMark.includes("復活返嚟"),
     xMark
   );
@@ -2354,21 +2422,29 @@ async function main() {
     JSON.stringify({ dealC, xHolder })
   );
   const stateRb = (await roomData(host)).state;
-  check("重建: the bench credits the fallen back to 2 hearts", stateRb.inqHearts[xHolder] === 2, JSON.stringify(stateRb.inqHearts));
+  // §19 Batch AC: the credit waits for the comeback round - a benched
+  // phone showing 2 lives while it says "you are out" read as a bug
+  check("重建: the fallen sit the round out at 0 - no credit yet", stateRb.inqHearts[xHolder] === 0, JSON.stringify(stateRb.inqHearts));
   check("重建: the bench is published for the phone", stateRb.inq.rebuild === xHolder, JSON.stringify(stateRb.inq.rebuild));
+  check("重建: nobody is marked as back on the bench round", !stateRb.inq.reborn, JSON.stringify(stateRb.inq.reborn || null));
   await until(
     () => pages[xHolder].evaluate(() => C.inq && C.inq.seq === 1304 &&
       document.getElementById("ctrlInqTarget").textContent.includes("本回合等緊復活")),
     { label: "rebuild face shown" }
   );
-  const rbFace = await pages[xHolder].evaluate(() => ({
-    pad: getComputedStyle(document.getElementById("ctrlInqPadWrap")).display,
-    note: document.getElementById("ctrlInqMark").textContent,
-  }));
+  const rbFace = await inqFace(pages[xHolder]);
   check(
-    "重建: the benched phone observes - pad closed, the note sells the comeback",
-    rbFace.pad === "none" && rbFace.note.includes("等緊復活") && rbFace.note.includes("2 個生命值"),
+    "重建: the benched phone observes - pad closed, strip empty, the note promises the comeback",
+    rbFace.pad === "none" && rbFace.live === 0 &&
+      rbFace.note.includes("等緊復活") && rbFace.note.includes("下一回合復活返嚟") &&
+      rbFace.note.includes("2 個生命值"),
     JSON.stringify(rbFace)
+  );
+  const rosterOut = await rosterTagged(host, "zb-inqroster__bye");
+  check(
+    "重建: the roster shows the benched building struck out with an empty strip",
+    rosterOut.n === 1 && rosterOut.text.includes("復活中") && rosterOut.out && rosterOut.live === 0,
+    JSON.stringify(rosterOut)
   );
   const s3c = (await roomData(host)).state;
   check("重根: no hint cards dealt for identical factors", !s3c.inqCards, JSON.stringify(s3c.inqCards || null));
@@ -2465,6 +2541,14 @@ async function main() {
   await inqAdvanceTo("summary");
   const mainLabel = await host.evaluate(() => document.getElementById("btnInqPrimary").textContent);
   check("概念轉化 summary: the primary button hands over to the main game", mainLabel.includes("歸零爆破"), mainLabel);
+  // the recap is standings, not a seating plan: 輪空 named a round that
+  // is over, while 復活中 still says why one strip is empty
+  const rosterRecap = await rosterTagged(host, "zb-inqroster__bye");
+  check(
+    "重建: the recap drops the round's 輪空 seat and keeps the standing 復活中",
+    rosterRecap.n === 1 && rosterRecap.text.includes("復活中") && !rosterRecap.text.includes("輪空"),
+    JSON.stringify(rosterRecap)
+  );
   const primaryChip = await host.evaluate(() => getComputedStyle(document.getElementById("btnInqPrimary"), "::after").content);
   check("探究: the primary button wears its n shortcut chip", primaryChip === '"n"', "chip=" + primaryChip);
   const recap = await host.evaluate(() => ({
@@ -2493,6 +2577,26 @@ async function main() {
     "探究: the rebuilt player stands again - the bye rotates among three",
     !!extraR.bye && extraR.bye !== dealX.bye,
     JSON.stringify({ prev: dealX.bye, next: extraR.bye })
+  );
+  /* ── the comeback beat: the credit lands on the way back in ── */
+  const stateBack = (await roomData(host)).state;
+  check(
+    "復活: the comeback round credits the fallen back to 2 lives and names them",
+    stateBack.inqHearts[xHolder] === 2 && stateBack.inq.reborn === xHolder && !stateBack.inq.rebuild,
+    JSON.stringify({ hearts: stateBack.inqHearts, reborn: stateBack.inq.reborn, rebuild: stateBack.inq.rebuild })
+  );
+  const rosterBack = await rosterTagged(host, "zb-inqroster__back");
+  check(
+    "復活: the projector tags the one comeback, back on its feet with two marks",
+    rosterBack.n === 1 && rosterBack.out === false && rosterBack.live === 2,
+    JSON.stringify(rosterBack)
+  );
+  await until(() => pages[xHolder].evaluate(() => C.inq && C.inq.seq === 1305), { label: "comeback face shown" });
+  const backFace = await inqFace(pages[xHolder]);
+  check(
+    "復活: the phone's strip fills back to 2 with the refill spelled out",
+    backFace.live === 2 && backFace.pop && backFace.note.includes("復活返嚟") && backFace.note.includes("2 個生命值"),
+    JSON.stringify(backFace)
   );
   // round 5 cycles back to (x−3)(x+2): the tightening in person - BOTH
   // partners land true roots, but one plays the other's bracket. Under
@@ -2529,14 +2633,24 @@ async function main() {
   });
   await inqAdvanceTo("round"); // the queued extra round starts
   const pity = await host.evaluate(() => ({
-    rebuild: G.inq.rebuild.length, pairs: G.inq.pairs.length,
+    rebuild: G.inq.rebuild.length, pairs: G.inq.pairs.length, reborn: G.inq.reborn.length,
     hearts: Object.keys(G.inq.hearts).map((pid) => G.inq.hearts[pid]).join(),
-    bye: !!G.inq.bye, seq: G.inq.seq,
+    bye: G.inq.bye, seq: G.inq.seq,
   }));
   check(
-    "重建 pity: with everyone at 0 nobody is benched - all rebuild on the spot",
-    pity.rebuild === 0 && pity.hearts === "2,2,2" && pity.pairs === 1 && pity.bye && pity.seq === 1306,
+    "重建 pity: with everyone at 0 nobody is benched - all rebuild on the spot, all tagged back",
+    pity.rebuild === 0 && pity.reborn === 3 && pity.hearts === "2,2,2" && pity.pairs === 1 && !!pity.bye && pity.seq === 1306,
     JSON.stringify(pity)
+  );
+  // a comeback that comes with a turn says so - the bye's own face
+  // carries the wait instead (§19 Batch AC)
+  const pityPlayer = [adaId, benId, calId].filter((id) => id !== pity.bye)[0];
+  await until(() => pages[pityPlayer].evaluate(() => C.inq && C.inq.seq === 1306), { label: "pity round on the phones" });
+  const pityFace = await inqFace(pages[pityPlayer]);
+  check(
+    "復活: a rebuilt player who is dealt in reads the refill AND the turn",
+    pityFace.live === 2 && pityFace.note.includes("復活返嚟") && pityFace.note.includes("再出手"),
+    JSON.stringify(pityFace)
   );
   // burn the round down unanswered: the pair loses 1, the bye is safe
   await host.evaluate(() => { G.inqDeadline = performance.now() + 200; });
@@ -2550,6 +2664,14 @@ async function main() {
     "探究: 跳去探究二 lands on the lock intro",
     jumpState.stage === 2 && jumpState.step === "intro" && jumpState.seq === 1200,
     JSON.stringify(jumpState)
+  );
+  // all three came back on the pity round; the intro is a fresh stage,
+  // so the comeback tag goes with the round that earned it
+  const rosterJump = await rosterTagged(host, "zb-inqroster__back");
+  check(
+    "復活: the tag belongs to its round - gone by the next stage's intro",
+    rosterJump.n === 0,
+    JSON.stringify(rosterJump)
   );
   await until(() => phoneA2.evaluate(() => C.inq && C.inq.stage === 2 && C.inq.step === "intro"), { label: "phones follow the jump" });
   check("探究: the phones follow the jump", true);

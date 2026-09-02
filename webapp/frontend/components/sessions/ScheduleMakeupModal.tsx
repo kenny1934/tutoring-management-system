@@ -21,6 +21,8 @@ import {
   getMonthBounds,
 } from "@/lib/calendar-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { worksAt } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
 import { plural, formatCompactDateTimeSlot } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
@@ -227,7 +229,7 @@ interface SuggestionCardProps {
   isSaving: boolean;
   isPastDeadline?: boolean;
   isPastLimit?: boolean;
-  isSuperAdmin?: boolean;
+  canOverrideLimit?: boolean;
   hasApprovedExtension?: boolean;
   onRequestExtension?: () => void;
   isSummerMakeup?: boolean;
@@ -246,7 +248,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
   isSaving,
   isPastDeadline,
   isPastLimit,
-  isSuperAdmin,
+  canOverrideLimit,
   hasApprovedExtension,
   onRequestExtension,
   isSummerMakeup,
@@ -361,10 +363,10 @@ const SuggestionCard = React.memo(function SuggestionCard({
           {mode === "propose" ? (
             <>
               {isPastLimit && (
-                <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
-                  <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
+                <div className={`mb-2 p-2 ${canOverrideLimit ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
+                  <div className={`flex items-center gap-1.5 ${canOverrideLimit ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                    <span>{isSuperAdmin ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
+                    <span>{canOverrideLimit ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
                   </div>
                 </div>
               )}
@@ -382,11 +384,11 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onAddToProposal?.();
                 }}
-                disabled={!canAddMore || (isPastLimit && !isSuperAdmin && !hasApprovedExtension) || isPastDeadline}
+                disabled={!canAddMore || (isPastLimit && !canOverrideLimit && !hasApprovedExtension) || isPastDeadline}
                 className="w-full h-8 text-xs"
-                variant={canAddMore && !(isPastLimit && !isSuperAdmin && !hasApprovedExtension) && !isPastDeadline ? "default" : "outline"}
+                variant={canAddMore && !(isPastLimit && !canOverrideLimit && !hasApprovedExtension) && !isPastDeadline ? "default" : "outline"}
               >
-                {isPastLimit && !isSuperAdmin && !hasApprovedExtension ? (
+                {isPastLimit && !canOverrideLimit && !hasApprovedExtension ? (
                   limitCopy.short
                 ) : isPastDeadline ? (
                   "Past deadline"
@@ -411,14 +413,14 @@ const SuggestionCard = React.memo(function SuggestionCard({
                 </div>
               )}
               {isPastLimit && !hasApprovedExtension && (
-                <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
-                  <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
+                <div className={`mb-2 p-2 ${canOverrideLimit ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
+                  <div className={`flex items-center gap-1.5 ${canOverrideLimit ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                    <span>{isSuperAdmin ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
+                    <span>{canOverrideLimit ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
                   </div>
-                  <div className={`mt-1 ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[10px]`}>
-                    {isSuperAdmin
-                      ? `Super Admin can proceed despite the ${limitCopy.noun}.`
+                  <div className={`mt-1 ${canOverrideLimit ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[10px]`}>
+                    {canOverrideLimit
+                      ? `You can proceed despite the ${limitCopy.noun}.`
                       : limitCopy.explanation()}
                   </div>
                 </div>
@@ -448,7 +450,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onBook();
                 }}
-                disabled={isSaving || isPastDeadline || (isPastLimit && !isSuperAdmin && !hasApprovedExtension)}
+                disabled={isSaving || isPastDeadline || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)}
                 className="w-full h-8 text-xs"
               >
                 {isSaving ? (
@@ -519,6 +521,12 @@ export function ScheduleMakeupModal({
   // teaching the lesson the student missed, via the SUMMER_WEIGHTS preset.
   const isSummerMakeup = enrollment?.enrollment_type === 'Summer';
   const baseWeights = isSummerMakeup ? SUMMER_WEIGHTS : DEFAULT_WEIGHTS;
+
+  // Who may schedule past the limit this modal is showing. The summer cap of
+  // 31 August is open to Admins and Super Admins, while the 60-day make-up
+  // window stays with Super Admins alone. Every banner and every "book it
+  // anyway" button on this screen reads this one flag.
+  const canOverrideLimit = isSummerMakeup ? isAdmin : isSuperAdmin;
 
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
   // This is needed for cross-enrollment makeups: when a session from old enrollment A needs
@@ -784,20 +792,27 @@ export function ScheduleMakeupModal({
     { revalidateOnFocus: false }
   );
 
-  // Filter tutors by location
+  // Filter tutors by location, including anybody covering the branch on the
+  // date being booked. The date is the one the form is on, so picking a
+  // different day re-asks the question.
   const filteredTutors = useMemo(() => {
     if (!tutors) return [];
-    const filtered = tutors.filter(t => t.default_location === location);
+    const filtered = tutors.filter(t => worksAt(t, location, selectedDate));
     return [...filtered].sort((a, b) =>
       getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
     );
-  }, [tutors, location]);
+  }, [tutors, location, selectedDate]);
 
   // Initialize form with original session's tutor
   useEffect(() => {
     if (isOpen) {
-      if (session.tutor_id) {
+      // Unless they have left. A make-up is a new lesson, so it needs somebody
+      // who will be here to teach it, and leaving the field empty makes that a
+      // choice the admin has to make rather than a default they might miss.
+      if (session.tutor_id && tutors?.some((t) => t.id === session.tutor_id)) {
         setSelectedTutorId(session.tutor_id);
+      } else if (session.tutor_id) {
+        setSelectedTutorId(null);
       }
       // Pre-fill date/time if provided (e.g., from extension request)
       if (initialDate) {
@@ -807,7 +822,7 @@ export function ScheduleMakeupModal({
         setSelectedTimeSlot(initialTimeSlot);
       }
     }
-  }, [isOpen, session.tutor_id, initialDate, initialTimeSlot]);
+  }, [isOpen, session.tutor_id, tutors, initialDate, initialTimeSlot]);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -1355,7 +1370,7 @@ export function ScheduleMakeupModal({
               )}
             </Button>
           ) : (
-            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (isPastLimit && !isSuperAdmin && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
+            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (isPastLimit && !canOverrideLimit && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1735,7 +1750,7 @@ export function ScheduleMakeupModal({
                         isSaving={isSaving}
                         isPastDeadline={isSuggestionPastDeadline(suggestion)}
                         isPastLimit={isSuggestionPastLimit(suggestion)}
-                        isSuperAdmin={isSuperAdmin}
+                        canOverrideLimit={canOverrideLimit}
                         hasApprovedExtension={hasApprovedExtension}
                         onRequestExtension={() => setShowExtensionModal(true)}
                         isSummerMakeup={isSummerMakeup}
@@ -1981,31 +1996,31 @@ export function ScheduleMakeupModal({
             {isPastLimit && !hasApprovedExtension && (
               <div id="makeup-60day-warning" role="alert" className={cn(
                 "p-3 border rounded-lg",
-                isSuperAdmin
+                canOverrideLimit
                   ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700"
                   : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700"
               )}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle className={cn(
                     "h-4 w-4 mt-0.5 flex-shrink-0",
-                    isSuperAdmin ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
+                    canOverrideLimit ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
                   )} aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <p className={cn(
                       "text-sm",
-                      isSuperAdmin ? "text-orange-800 dark:text-orange-200" : "text-red-800 dark:text-red-200"
+                      canOverrideLimit ? "text-orange-800 dark:text-orange-200" : "text-red-800 dark:text-red-200"
                     )}>
-                      {isSuperAdmin
-                        ? `Super Admin Override: ${limitCopy.overrideHeadline}`
+                      {canOverrideLimit
+                        ? `Override: ${limitCopy.overrideHeadline}`
                         : limitCopy.headline}
                     </p>
                     <p className={cn(
                       "text-xs mt-0.5",
-                      isSuperAdmin ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
+                      canOverrideLimit ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
                     )}>
                       {limitCopy.explanation(rootOriginalDate)}
                       {" "}Last allowed date: {lastAllowedDate}
-                      {isSuperAdmin && " — You can proceed as Super Admin."}
+                      {canOverrideLimit && " You can proceed with this override."}
                     </p>
                   </div>
                 </div>
@@ -2016,7 +2031,7 @@ export function ScheduleMakeupModal({
                     onClick={() => setSelectedDate("")}
                     className={cn(
                       "text-xs",
-                      isSuperAdmin
+                      canOverrideLimit
                         ? "text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
                         : "text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800"
                     )}
@@ -2183,12 +2198,11 @@ export function ScheduleMakeupModal({
                 className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800"
               >
                 <option value="">Select tutor</option>
-                {filteredTutors.map((tutor) => (
-                  <option key={tutor.id} value={tutor.id}>
-                    {tutor.tutor_name}
-                    {tutor.id === session.tutor_id ? " (Original)" : ""}
-                  </option>
-                ))}
+                <TutorOptions
+                  tutors={filteredTutors}
+                  location={location}
+                  suffix={(tutor) => (tutor.id === session.tutor_id ? " (Original)" : "")}
+                />
               </select>
             </div>
 
@@ -2238,11 +2252,11 @@ export function ScheduleMakeupModal({
                     location,
                   });
                 }}
-                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (isPastLimit && !isSuperAdmin && !hasApprovedExtension) || earlyDeadlineWarning}
+                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (isPastLimit && !canOverrideLimit && !hasApprovedExtension) || earlyDeadlineWarning}
                 className="w-full"
-                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(isPastLimit && !isSuperAdmin && !hasApprovedExtension) && !earlyDeadlineWarning ? "default" : "outline"}
+                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(isPastLimit && !canOverrideLimit && !hasApprovedExtension) && !earlyDeadlineWarning ? "default" : "outline"}
               >
-                {isPastLimit && !isSuperAdmin && !hasApprovedExtension ? (
+                {isPastLimit && !canOverrideLimit && !hasApprovedExtension ? (
                   limitCopy.short
                 ) : earlyDeadlineWarning ? (
                   "Past deadline"
@@ -2421,10 +2435,10 @@ export function ScheduleMakeupModal({
                                 <div className="px-2.5 pb-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
                                   {/* Warning banners */}
                                   {slotBlockStatus.exceedsLimit && (
-                                    <div className={`mt-2 mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
-                                      <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
+                                    <div className={`mt-2 mb-2 p-2 ${canOverrideLimit ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
+                                      <div className={`flex items-center gap-1.5 ${canOverrideLimit ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                                         <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                                        <span>{isSuperAdmin ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
+                                        <span>{canOverrideLimit ? `Override: ${limitCopy.short}` : limitCopy.label}</span>
                                       </div>
                                     </div>
                                   )}
@@ -2449,11 +2463,11 @@ export function ScheduleMakeupModal({
                                           location,
                                         });
                                       }}
-                                      disabled={proposalSlots.length >= 3 || isFull || (slotBlockStatus.exceedsLimit && !isSuperAdmin) || slotBlockStatus.pastDeadline}
+                                      disabled={proposalSlots.length >= 3 || isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline}
                                       className="w-full mt-2 h-8 text-xs"
-                                      variant={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceedsLimit && !isSuperAdmin) && !slotBlockStatus.pastDeadline ? "default" : "outline"}
+                                      variant={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceedsLimit && !canOverrideLimit) && !slotBlockStatus.pastDeadline ? "default" : "outline"}
                                     >
-                                      {slotBlockStatus.exceedsLimit && !isSuperAdmin ? (
+                                      {slotBlockStatus.exceedsLimit && !canOverrideLimit ? (
                                         limitCopy.short
                                       ) : slotBlockStatus.pastDeadline ? (
                                         "Past deadline"
@@ -2475,7 +2489,7 @@ export function ScheduleMakeupModal({
                                         e.stopPropagation();
                                         setConfirmBooking({ timeSlot, tutorId, tutorName });
                                       }}
-                                      disabled={isSaving || isFull || (slotBlockStatus.exceedsLimit && !isSuperAdmin) || slotBlockStatus.pastDeadline}
+                                      disabled={isSaving || isFull || (slotBlockStatus.exceedsLimit && !canOverrideLimit) || slotBlockStatus.pastDeadline}
                                       className="w-full mt-2 h-8 text-xs"
                                     >
                                       {isSaving ? (
@@ -2483,7 +2497,7 @@ export function ScheduleMakeupModal({
                                       ) : (
                                         <Check className="h-3 w-3 mr-1" />
                                       )}
-                                      {slotBlockStatus.exceedsLimit && !isSuperAdmin ? limitCopy.short : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is Full" : "Book This Slot"}
+                                      {slotBlockStatus.exceedsLimit && !canOverrideLimit ? limitCopy.short : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is Full" : "Book This Slot"}
                                     </Button>
                                   )}
                                 </div>

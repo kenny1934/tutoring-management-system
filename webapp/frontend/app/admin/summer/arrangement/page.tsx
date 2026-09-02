@@ -5,26 +5,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useVisibilityAwareInterval } from "@/lib/hooks";
+import { usePageTitle, useVisibilityAwareInterval, useEscapeKey, useSummerApplication } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
-import { useConfirm } from "@/contexts/ConfirmContext";
-import { Grid3X3, CalendarDays, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3, X } from "lucide-react";
+import { useConfirm, useConfirmOpen } from "@/contexts/ConfirmContext";
+import { Grid3X3, CalendarDays, Maximize2, Wand2, Users2, Users, TableProperties, RefreshCw, BarChart3, X } from "lucide-react";
 import { cn, formatError } from "@/lib/utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
 import { confirmDuplicateOrRetry, DUPLICATE_CANCELLED } from "@/lib/lesson-duplicate";
+import { ArrangementFullScreenStrip } from "@/components/admin/ArrangementFullScreenStrip";
 import { SummerArrangementGrid } from "@/components/admin/SummerArrangementGrid";
 import { SummerSessionCalendar } from "@/components/admin/SummerSessionCalendar";
 import { SummerUnassignedPanel } from "@/components/admin/SummerUnassignedPanel";
 import type { DemandBarFilter } from "@/components/admin/SummerSlotCell";
 import { SummerAutoSuggestModal } from "@/components/admin/SummerAutoSuggestModal";
 import { SummerApplicationDetailModal } from "@/components/admin/SummerApplicationDetailModal";
-import { SummerTutorDutyModal } from "@/components/admin/SummerTutorDutyModal";
+import { TutorDutyModal, type TutorDutyApi } from "@/components/admin/TutorDutyModal";
 import { PublishFilterDropdown } from "@/components/admin/PublishFilterDropdown";
-import { SummerTutorWorkloadPanel } from "@/components/admin/SummerTutorWorkloadPanel";
+import { TutorWorkloadPanel } from "@/components/admin/TutorWorkloadPanel";
 import { SummerPlacementModeModal } from "@/components/admin/SummerPlacementModeModal";
 import { SummerStudentLessonsTable } from "@/components/admin/SummerStudentLessonsTable";
-import { SummerStudentSearch, type SummerStudentSearchEntry } from "@/components/admin/SummerStudentSearch";
+import { StudentJumpSearch, type StudentJumpSearchEntry } from "@/components/ui/student-jump-search";
 import { SummerFindSlotDialog } from "@/components/admin/SummerFindSlotDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { STATUS_COLORS, STATUS_ICONS } from "@/components/admin/SummerApplicationCard";
@@ -46,6 +47,24 @@ const ARRANGEMENT_STATUSES = [
   ...PRE_ARRANGEMENT_STATUSES,
   ...POST_ARRANGEMENT_STATUSES,
 ];
+
+/** Summer's side of the shared tutor-duty modal. */
+const SUMMER_DUTY_API: TutorDutyApi = {
+  getActiveTutors: summerAPI.getActiveTutors,
+  getDuties: summerAPI.getTutorDuties,
+  bulkSetDuties: summerAPI.bulkSetTutorDuties,
+};
+
+/** A summer slot's students are its booked sessions. */
+const summerStudentsIn = (slot: SummerSlot) => slot.session_count ?? 0;
+
+/** The three arrangement views. The tab row renders them labelled; the
+ *  full-screen strip renders them as icon toggles. */
+const VIEW_TABS = [
+  { tab: "slots", icon: Grid3X3, label: "Slot Setup" },
+  { tab: "calendar", icon: CalendarDays, label: "Calendar" },
+  { tab: "students", icon: TableProperties, label: "Students" },
+] as const;
 
 function StatusFilterChip({
   status,
@@ -87,6 +106,7 @@ export default function SummerArrangementPage() {
   const { canViewAdminPages: canView, isReadOnly: readOnly } = useAuth();
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const confirmDialogOpen = useConfirmOpen();
 
   const { mutate: globalMutate } = useSWRConfig();
   const router = useRouter();
@@ -109,6 +129,9 @@ export default function SummerArrangementPage() {
   const [suggestForStudent, setSuggestForStudent] = useState<{ id: number; name: string } | null>(null);
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
   const [workloadOpen, setWorkloadOpen] = useState(false);
+  // Full screen: the page chrome collapses to a slim strip so the timetable
+  // takes the height. The app sidebar and the unassigned panel stay.
+  const [fullScreen, setFullScreen] = useState(false);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   // Defer the first mount of the mobile unassigned panel so desktop sessions
   // don't pay for a never-visible second copy. The outer slide container stays
@@ -338,6 +361,21 @@ export default function SummerArrangementPage() {
     [slots],
   );
 
+  // Tutors actually present on this board's slots, for the grid's tutor filter.
+  // Deriving from the slots keeps the list location-scoped and free of tutors
+  // who have nothing to filter to.
+  const slotTutorOptions = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const s of regularSlots) {
+      if (s.tutor_id != null && !seen.has(s.tutor_id)) {
+        seen.set(s.tutor_id, s.tutor_name ?? `Tutor ${s.tutor_id}`);
+      }
+    }
+    return [...seen.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [regularSlots]);
+
   // Fetch active tutors and duties
   const { data: activeTutors } = useSWR(
     canView ? "summer-active-tutors" : null,
@@ -348,7 +386,7 @@ export default function SummerArrangementPage() {
     data: tutorDuties,
     mutate: mutateDuties,
   } = useSWR(
-    configId && location ? ["summer-duties", configId, location] : null,
+    configId && location ? ["tutor-duties", "summer", configId, location] : null,
     () => summerAPI.getTutorDuties(configId!, location)
   );
 
@@ -385,11 +423,11 @@ export default function SummerArrangementPage() {
     return m;
   }, [activeTutors, dutyMap, openDays, timeSlots]);
 
-  // Fetch selected application for detail modal
-  const { data: selectedApp, mutate: mutateSelectedApp } = useSWR(
-    selectedAppId ? ["summer-app", selectedAppId] : null,
-    () => summerAPI.getApplication(selectedAppId!)
-  );
+  // Fetch selected application for detail modal. The shared hook owns the
+  // ["summer-app", id] key that the modal's invalidation matcher looks for by
+  // name, and it is what stops this showing the application you had open
+  // before this one while the new one loads.
+  const { data: selectedApp, mutate: mutateSelectedApp } = useSummerApplication(selectedAppId);
 
   // SWR invalidation helpers
   const mutateCalendar = useCallback(() => globalMutate((key) => Array.isArray(key) && key[0] === "summer-calendar"), [globalMutate]);
@@ -772,6 +810,15 @@ export default function SummerArrangementPage() {
   // Drag preference highlighting — classifyPrefs owns the tier split.
   const [dragBuddySlots, setDragBuddySlots] = useState<Set<string> | null>(null);
 
+  // Esc exits full screen unless an overlay above the board should get the
+  // key first. Form-control focus is handled inside useEscapeKey.
+  const overlayOpen =
+    dutyModalOpen || autoSuggestOpen || suggestForStudent !== null ||
+    selectedAppId !== null || pendingDrop !== null || pendingGradeMismatch !== null ||
+    findSlotTarget !== null || pendingDelete !== null || bulkConfirmPending !== null ||
+    mobilePanelOpen || confirmDialogOpen;
+  useEscapeKey(fullScreen && !overlayOpen, () => setFullScreen(false));
+
   // Fetch all applications for demand bar filter (only when filter active)
   const { data: demandFilterApps } = useSWR(
     demandPrefFilter && configId && location
@@ -879,7 +926,7 @@ export default function SummerArrangementPage() {
   // date + session id — so selecting them routes straight to the calendar with
   // a ring highlight. Haystack folds phone digits + school/primary student id
   // so admins can paste any of those from a parent message and find the row.
-  const searchEntries = useMemo<SummerStudentSearchEntry[]>(() => {
+  const searchEntries = useMemo<StudentJumpSearchEntry[]>(() => {
     const digits = (s?: string | null) => (s ? s.replace(/\D+/g, "") : "");
     const makeEntry = (source: {
       application_id: number;
@@ -889,7 +936,7 @@ export default function SummerArrangementPage() {
       contact_phone?: string | null;
       linked_student?: { school_student_id?: string | null } | null;
       linked_prospect?: { primary_student_id?: string | null } | null;
-    }, firstLesson: SummerStudentSearchEntry["firstLesson"]): SummerStudentSearchEntry => {
+    }, firstLesson: StudentJumpSearchEntry["firstLesson"]): StudentJumpSearchEntry => {
       const studentId = getLinkedStudentId(source);
       return {
         applicationId: source.application_id,
@@ -903,7 +950,7 @@ export default function SummerArrangementPage() {
       };
     };
 
-    const out: SummerStudentSearchEntry[] = [];
+    const out: StudentJumpSearchEntry[] = [];
     const seen = new Set<number>();
     for (const s of studentLessonsData?.students ?? []) {
       const first = s.lessons
@@ -922,7 +969,7 @@ export default function SummerArrangementPage() {
     return out;
   }, [studentLessonsData, unassigned]);
 
-  const handleSearchSelect = useCallback((entry: SummerStudentSearchEntry) => {
+  const handleSearchSelect = useCallback((entry: StudentJumpSearchEntry) => {
     // Students tab already shows every row (placed + unplaced), so when the
     // user searches from that context, stay put and just ring the match
     // instead of yanking them to Slot Setup / Calendar.
@@ -995,182 +1042,206 @@ export default function SummerArrangementPage() {
 
   return (
     <DeskSurface fullHeight>
-      <PageTransition className="flex flex-col h-full p-2 sm:p-6">
+      <PageTransition className={cn("flex flex-col h-full", fullScreen ? "p-1 sm:p-2" : "p-2 sm:p-6")}>
         <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm paper-texture overflow-hidden">
-        {/* Header */}
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
-          {/* Row 1: Title + search + location + refresh. On mobile the search
-              wraps to its own full-width row via order-last + w-full; on sm+
-              it sits inline between the title and the location select. */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-              <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
-                <span>Timetable Arrangement</span>
-                {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
-              </h1>
-              <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
-            </div>
-            <SummerStudentSearch
-              entries={searchEntries}
-              onSelect={handleSearchSelect}
-              className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
-            />
-            <select
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
-            >
-              {locations.map((loc) => (
-                <option key={loc.name} value={loc.name}>
-                  {LOCATION_TO_CODE[loc.name] || loc.name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={refreshAll}
-              disabled={isValidating}
-              className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-              title="Refresh"
-              aria-label="Refresh arrangement data"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
-            </button>
-          </div>
-
-          {/* Row 2: Stats + actions */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span>{totalIncomplete} incomplete</span>
-              {totalTentative > 0 && !readOnly ? (
+        {/* Header. Full screen swaps the rows and the view-tab strip for the
+            shared slim strip so the timetable keeps the height. */}
+        {fullScreen ? (
+          <ArrangementFullScreenStrip
+            entries={searchEntries}
+            onSearchSelect={handleSearchSelect}
+            locations={locations}
+            location={location}
+            onLocationChange={setLocation}
+            refreshing={isValidating}
+            onRefresh={refreshAll}
+            onExit={() => setFullScreen(false)}
+          >
+            <div className="flex items-center gap-0.5 shrink-0" role="group" aria-label="View">
+              {VIEW_TABS.map(({ tab, icon: Icon, label }) => (
                 <button
-                  onClick={() => setBulkConfirmPending({ label: `${LOCATION_TO_CODE[location] || location}` })}
-                  className="text-yellow-600 dark:text-yellow-400 hover:underline cursor-pointer"
-                  title="Click to confirm all tentative sessions"
-                >
-                  {totalTentative} tentative
-                </button>
-              ) : (
-                <span className="text-yellow-600 dark:text-yellow-400">{totalTentative} tentative</span>
-              )}
-              <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
-            </div>
-
-            <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
-
-            <div className="flex items-center gap-1 flex-wrap" role="group" aria-label="Filter by application status">
-              {ARRANGEMENT_STATUSES.map((status, i) => (
-                <Fragment key={status}>
-                  {i === PRE_ARRANGEMENT_STATUSES.length && (
-                    <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  title={label}
+                  aria-pressed={activeTab === tab}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors",
+                    activeTab === tab
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
                   )}
-                  <StatusFilterChip
-                    status={status}
-                    count={appStats?.by_status?.[status] ?? 0}
-                    active={statusFilter === status}
-                    onToggle={() => setStatusFilter(statusFilter === status ? null : status)}
-                  />
-                </Fragment>
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
               ))}
             </div>
-
-            <span className="hidden sm:block h-5 w-px bg-border" aria-hidden />
-
-            <PublishFilterDropdown
-              publishedFilter={publishedFilter}
-              onChangePublished={setPublishedFilter}
-              statusFilter={statusFilter}
-              onChangeStatus={setStatusFilter}
-            />
-
-            <div className="flex-1" />
-            {!readOnly && (
-              <button
-                onClick={() => setDutyModalOpen(true)}
-                disabled={!location}
-                title="Tutor Duties"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          </ArrangementFullScreenStrip>
+        ) : (
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+            {/* Row 1: Title + search + location + refresh. On mobile the search
+                wraps to its own full-width row via order-last + w-full; on sm+
+                it sits inline between the title and the location select. */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                <Grid3X3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-lg font-semibold text-foreground flex items-center gap-1.5">
+                  <span>Timetable Arrangement</span>
+                  {readOnly && <span className="shrink-0 text-[10px] font-normal text-amber-600">(Read-only)</span>}
+                </h1>
+                <p className="hidden sm:block text-xs text-muted-foreground">Manage slots, sessions, and lesson scheduling</p>
+              </div>
+              <StudentJumpSearch
+                entries={searchEntries}
+                onSelect={handleSearchSelect}
+                className="order-last w-full sm:order-none sm:w-56 md:w-72 sm:shrink-0"
+              />
+              <select
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="px-2.5 py-1.5 text-sm border border-border rounded-lg bg-card text-foreground max-w-[7rem] sm:max-w-none"
               >
-                <Users2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Tutor Duties</span>
-              </button>
-            )}
-            {activeTab === "slots" && (
+                {locations.map((loc) => (
+                  <option key={loc.name} value={loc.name}>
+                    {LOCATION_TO_CODE[loc.name] || loc.name}
+                  </option>
+                ))}
+              </select>
               <button
-                onClick={() => setWorkloadOpen((v) => !v)}
-                title={workloadOpen ? "Hide workload summary" : "Show workload summary"}
-                aria-pressed={workloadOpen}
+                onClick={refreshAll}
+                disabled={isValidating}
+                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                title="Refresh"
+                aria-label="Refresh arrangement data"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", isValidating && "animate-spin")} />
+              </button>
+            </div>
+
+            {/* Row 2: Stats + actions */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>{totalIncomplete} incomplete</span>
+                {totalTentative > 0 && !readOnly ? (
+                  <button
+                    onClick={() => setBulkConfirmPending({ label: `${LOCATION_TO_CODE[location] || location}` })}
+                    className="text-yellow-600 dark:text-yellow-400 hover:underline cursor-pointer"
+                    title="Click to confirm all tentative sessions"
+                  >
+                    {totalTentative} tentative
+                  </button>
+                ) : (
+                  <span className="text-yellow-600 dark:text-yellow-400">{totalTentative} tentative</span>
+                )}
+                <span className="text-green-600 dark:text-green-400">{totalConfirmed} confirmed</span>
+              </div>
+
+              <div className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+              <div className="flex items-center gap-1 flex-wrap" role="group" aria-label="Filter by application status">
+                {ARRANGEMENT_STATUSES.map((status, i) => (
+                  <Fragment key={status}>
+                    {i === PRE_ARRANGEMENT_STATUSES.length && (
+                      <span className="h-4 w-px bg-border/70 mx-0.5" aria-hidden />
+                    )}
+                    <StatusFilterChip
+                      status={status}
+                      count={appStats?.by_status?.[status] ?? 0}
+                      active={statusFilter === status}
+                      onToggle={() => setStatusFilter(statusFilter === status ? null : status)}
+                    />
+                  </Fragment>
+                ))}
+              </div>
+
+              <span className="hidden sm:block h-5 w-px bg-border" aria-hidden />
+
+              <PublishFilterDropdown
+                publishedFilter={publishedFilter}
+                onChangePublished={setPublishedFilter}
+                statusFilter={statusFilter}
+                onChangeStatus={setStatusFilter}
+              />
+
+              <div className="flex-1" />
+              {/* Secondary actions stay icon-only; only Auto-Suggest, which
+                  proposes data changes, keeps its label. */}
+              {!readOnly && (
+                <button
+                  onClick={() => setDutyModalOpen(true)}
+                  disabled={!location}
+                  title="Tutor duties"
+                  aria-label="Tutor duties"
+                  className="p-1.5 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Users2 className="h-4 w-4" />
+                </button>
+              )}
+              {activeTab === "slots" && (
+                <button
+                  onClick={() => setWorkloadOpen((v) => !v)}
+                  title={workloadOpen ? "Hide workload summary" : "Show workload summary"}
+                  aria-pressed={workloadOpen}
+                  className={cn(
+                    "p-1.5 rounded-lg border transition-colors",
+                    workloadOpen
+                      ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                      : "border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800",
+                  )}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                onClick={() => setFullScreen(true)}
+                title="Full screen (Esc to exit)"
+                aria-label="Full screen"
+                className="p-1.5 rounded-lg border border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => setAutoSuggestOpen(true)}
+                  disabled={!unassigned?.length || !slots?.length}
+                  title="Auto-Suggest"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Wand2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Auto-Suggest</span>
+                </button>
+              )}
+            </div>
+
+            <TutorWorkloadPanel
+              slots={regularSlots}
+              open={workloadOpen && activeTab === "slots"}
+              studentsIn={summerStudentsIn}
+            />
+          </div>
+        )}
+
+        {/* View tabs — full screen folds these into the strip above. */}
+        {!fullScreen && (
+          <div className="flex items-center gap-1 px-4 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+            {VIEW_TABS.map(({ tab, icon: Icon, label }) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors",
-                  workloadOpen
-                    ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
-                    : "border-border text-foreground hover:bg-gray-50 dark:hover:bg-gray-800",
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+                  activeTab === tab
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
-                <BarChart3 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Workload</span>
+                <Icon className="h-3.5 w-3.5" />
+                {label}
               </button>
-            )}
-            {!readOnly && (
-              <button
-                onClick={() => setAutoSuggestOpen(true)}
-                disabled={!unassigned?.length || !slots?.length}
-                title="Auto-Suggest"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Wand2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Auto-Suggest</span>
-              </button>
-            )}
+            ))}
           </div>
-
-          <SummerTutorWorkloadPanel
-            slots={regularSlots}
-            open={workloadOpen && activeTab === "slots"}
-          />
-        </div>
-
-        {/* View tabs */}
-        <div className="flex items-center gap-1 px-4 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
-          <button
-            onClick={() => setActiveTab("slots")}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-              activeTab === "slots"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Grid3X3 className="h-3.5 w-3.5" />
-            Slot Setup
-          </button>
-          <button
-            onClick={() => setActiveTab("calendar")}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-              activeTab === "calendar"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            Calendar
-          </button>
-          <button
-            onClick={() => setActiveTab("students")}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-              activeTab === "students"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <TableProperties className="h-3.5 w-3.5" />
-            Students
-          </button>
-        </div>
+        )}
 
         {/* Main content: grid/calendar + unassigned panel */}
         {isLoading ? (
@@ -1179,16 +1250,18 @@ export default function SummerArrangementPage() {
           </div>
         ) : (
           <>
-            <div className="flex gap-4 flex-1 min-h-0 p-2 sm:p-4">
+            <div className={cn("flex gap-4 flex-1 min-h-0", fullScreen ? "p-2" : "p-2 sm:p-4")}>
               <div className="flex-1 min-w-0 min-h-0 flex flex-col">
                 {activeTab === "slots" ? (
                   <SummerArrangementGrid
                     days={openDays}
+                    branchKey={location}
                     timeSlots={timeSlots}
                     demand={demand?.cells ?? []}
                     slots={regularSlots}
                     loading={slots === undefined || demand === undefined}
                     grades={grades}
+                    tutors={slotTutorOptions}
                     readOnly={readOnly}
                     onCreateSlot={handleCreateSlot}
                     onUpdateSlot={handleUpdateSlot}
@@ -1213,6 +1286,8 @@ export default function SummerArrangementPage() {
                     courseEndDate={activeConfig!.course_end_date}
                     openDays={openDays}
                     timeSlots={timeSlots}
+                    grades={grades}
+                    tutors={slotTutorOptions}
                     totalLessons={activeConfig!.total_lessons}
                     readOnly={readOnly}
                     onDropStudent={handleDropStudentCalendar}
@@ -1363,7 +1438,7 @@ export default function SummerArrangementPage() {
 
         {/* Tutor duty modal */}
         {dutyModalOpen && configId && (
-          <SummerTutorDutyModal
+          <TutorDutyModal
             isOpen={dutyModalOpen}
             onClose={() => setDutyModalOpen(false)}
             configId={configId}
@@ -1371,12 +1446,14 @@ export default function SummerArrangementPage() {
             days={openDays}
             timeSlots={timeSlots}
             onSaved={() => mutateDuties()}
+            api={SUMMER_DUTY_API}
+            intakeKey="summer"
           />
         )}
 
         {/* Application detail modal */}
         <SummerApplicationDetailModal
-          application={selectedApp?.id === selectedAppId ? selectedApp : null}
+          application={selectedApp ?? null}
           isOpen={selectedAppId !== null}
           onClose={() => setSelectedAppId(null)}
           onUpdated={refreshAll}

@@ -1,15 +1,24 @@
-"""Grade progression and pre-grade display helpers.
+"""Grade vocabulary: progression, pre-grade display, and prospect matching.
 
 The school year in HK starts on Sept 1. A student stored as F1 today should
 become F2 once the new year begins. During the summer course window between
 the academic year ending and Sept 1 the badge should display "Pre-F2" so
 tutors know what curriculum to assign, but the stored grade stays F1 until
 the promotion job runs.
+
+The last section reads the same ladder as a matching signal, alongside
+utils/name_matching.py and utils/phone_matching.py: a prospect can only belong
+to an application for the grade they are entering. It lives here rather than in
+its own module because it is three lines over PROMOTE_MAP, mirroring how
+utils/branch_codes.py keeps its link-time policy beside the vocabulary it
+reasons about.
 """
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
+from functools import lru_cache
 from typing import Optional, Tuple
 
 GRADE_ORDER = ["P6", "F1", "F2", "F3", "F4", "F5", "F6", "Graduated"]
@@ -42,6 +51,81 @@ def next_grade(grade: Optional[str]) -> Optional[str]:
     if not grade:
         return None
     return PROMOTE_MAP.get(grade)
+
+
+# A primary prospect is by definition a P6 student heading for secondary, but
+# the grade arrives as free text from a branch tutor's pasted spreadsheet, so
+# the column holds "P6", "P6/G6", "小六" and friends. Every spelling a token
+# can take; a value made only of these folds to the canonical "P6".
+_P6_TOKENS = frozenset({
+    "p6", "g6", "6",
+    "primary6", "grade6",
+    "小六", "六年級", "小學六年級",
+})
+
+_GRADE_TOKEN_SPLIT = re.compile(r"[^0-9a-z一-鿿]+")
+
+
+@lru_cache(maxsize=256)
+def normalize_prospect_grade(grade: Optional[str]) -> Optional[str]:
+    """Fold the many spellings of P6 to the canonical "P6".
+
+    Only recognised P6 forms are rewritten. Anything else is returned as
+    typed, so a genuinely odd value stays visible for a human to fix rather
+    than being silently coerced into a grade nobody entered.
+
+    Cached because the matchers call this once per prospect-application pair
+    — tens of thousands of times per auto-match run over a handful of distinct
+    values. Pure function of its argument, so the cache can never go stale.
+    """
+    if grade is None:
+        return None
+    text = grade.strip()
+    if not text:
+        return text
+    tokens = [t for t in _GRADE_TOKEN_SPLIT.split(text.lower()) if t]
+    if not tokens:
+        return text
+    # Two ways to be P6, because punctuation means both things here. Rejoined,
+    # it catches a separator *within* one spelling ("P.6", "Primary 6"). Token
+    # by token, it catches two spellings of the same fact ("P6/G6").
+    #
+    # Adding a token affects both readings: a bare "primary" added for the
+    # first would also make "primary" alone fold via the second. Add whole
+    # compacted spellings ("primary6"), not fragments.
+    if "".join(tokens) in _P6_TOKENS or all(t in _P6_TOKENS for t in tokens):
+        return "P6"
+    return text
+
+
+def prospect_entering_grade(prospect_grade: Optional[str]) -> Optional[str]:
+    """The secondary grade a prospect is heading into ("P6/G6" -> "F1").
+
+    None when the stored grade isn't a form we recognise, which callers read
+    as "no information" rather than "no match".
+    """
+    return next_grade(normalize_prospect_grade(prospect_grade))
+
+
+def grade_blocks_prospect_link(
+    prospect_grade: Optional[str],
+    application_grade: Optional[str],
+) -> bool:
+    """True when an application's grade rules it out as this prospect's.
+
+    Applications carry the grade the student is *entering*, so a P6 prospect
+    can only ever belong to an F1 application. Name and phone signals are both
+    fallible — siblings share a phone, and common HK given names collide — so
+    this is the one hard constraint available to rule a candidate out.
+
+    Returns False whenever either side is unknown: absence of a grade is not
+    evidence of a mismatch.
+    """
+    entering = prospect_entering_grade(prospect_grade)
+    candidate = (application_grade or "").strip()
+    if not entering or not candidate:
+        return False
+    return candidate.upper() != entering.upper()
 
 
 def is_in_pre_grade_window(today: date, window: Optional[Tuple[date, date]]) -> bool:

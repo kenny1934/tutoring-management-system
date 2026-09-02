@@ -1,41 +1,376 @@
 # Changelog
 
+## [2.0.126](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.125...v2.0.126) (2026-08-30)
+
+
+### New Features
+
+* **Admins can move a summer lesson past 31 August**: placing a summer lesson or make-up after the summer cut-off no longer needs a Super Admin.
+
+## [2.0.125](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.124...v2.0.125) (2026-08-26)
+
+
+### New Features
+
+* **Handover notes now reach the students who skipped summer**: a P6 student who came straight to the September intake without a summer course now shows the note their primary branch tutor wrote, bringing in 53 students whose note nobody could see.
+* **The handover note also shows on the lesson page**: the full lesson page now carries it, along with the sibling note and the family's preferred tutor and time.
+* **F5 and F6 grade badges have their own colours**: both years are coloured by language stream now instead of coming out grey.
+* **The 2026-2027 school curriculum sheet is in the tools menu**: it sits with the others under Useful Tools, and last year's sheet now says 2025-2026 in its description.
+
+## [2.0.124](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.123...v2.0.124) (2026-08-26)
+
+
+### New Features
+
+* **Mark a free class as waived**: the enrolment page's payment status has a Waived option for a class given free of charge, which owes nothing, is never chased for payment, and counts nothing towards tutor revenue. Moving it back to Pending Payment restores the real fee.
+
+
+### Bug Fixes
+
+* **Payment changes show on the lessons straight away**: marking an enrolment paid or waived now updates the payment markers on its lesson list without a reload.
+
+## [2.0.123](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.122...v2.0.123) (2026-08-25)
+
+
+### Bug Fixes
+
+* **Every page shows the record you opened, not the one before it**: moving straight from one student, lesson, enrolment or application to the next no longer shows the previous one's details under the new name, on every page and panel where that could still happen.
+* **Sessions after a tutor's last day only counts the lessons that still need somebody**: rescheduled, cancelled, sick leave and weather cancelled lessons are left out, so the count is the work that has to move onto someone else.
+
+## [2.0.122](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.121...v2.0.122) (2026-08-23)
+
+
+### Bug Fixes
+
+* **A coupon stays with the student it belongs to**: stepping from one September applicant to the next no longer carries the previous student's coupon, staff referral badge or discount onto the new one.
+* **Buddy group fees are priced against the right group**: a grouped summer application is priced against its own group rather than the one opened before it, in both the fee box and the fee message.
+* **Enrolment details belong to the enrolment you opened**: opening one enrolment after another from the renewals and trials pages no longer shows the earlier one's fee, payment status and dates.
+
+## [2.0.121](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.120...v2.0.121) (2026-08-21)
+
+
+### Bug Fixes
+
+* **Staff referral discount on September applications**: a Regular Intake application whose student is marked as a staff referral now shows the badge and preselects the $500 staff discount at the publish step, ahead of any coupon or seasonal offer.
+* **School filter readable in dark mode**: the school select on the arrangement board's unassigned panel now takes the same colours as the filter chips beside it.
+
+## [2.0.120](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.119...v2.0.120) (2026-08-19)
+
+
+### New Features
+
+* **Summer applications recognise school spellings too**: a summer application now shows the school code its typed name is recognised as, with the same box the Regular Intake pages have for saying which school an unfamiliar spelling means.
+
+## [2.0.119](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.118...v2.0.119) (2026-08-19)
+
+
+### New Features
+
+* **Filter September applicants by the branch they come from**: the applications page in Regular Intake gains the branch origin filter the summer page already has, including New (no branch) for applicants with no MathConcept history.
+* **Creating a student from an application starts with the school code**: the create student form opens with the matching school code filled in when the app recognises the school a family typed.
+
+## [2.0.118](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.117...v2.0.118) (2026-08-19)
+
+
+### New Features
+
+* **Which schools the September intake comes from**: the Applications page in Regular Intake gains a stats view whose headline chart counts applicants by school, reading around 260 known spellings as the school they mean. It also carries the status pipeline, grades, preferred branch and submissions by day.
+* **Teaching the app a new school spelling**: when an application names a school the app cannot place, the stats view and the application's own page both offer a box to say which school it means.
+* **Schoolmates on the arrangement board**: pick a school while arranging September classes and every student from it lights up across the board and the unassigned list, so friends can be placed together.
+
+## [2.0.117](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.116...v2.0.117) (2026-08-19)
+
+
+### New Features
+
+* **A tutor can now cover lessons at the other branch**: say on their record that they also cover another branch, and they can be given a lesson, a make-up or an exam revision slot there.
+* **Cover can be limited to certain days or dates**: pick the weekdays and a first and last day, or leave it blank to run on, and somebody covering one Saturday only appears in the tutor lists that day.
+
+## [2.0.116](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.115...v2.0.116) (2026-08-15)
+
+
+### Bug Fixes
+
+* **A tutor filter no longer moves itself to somebody else after a departure**: a filter pointed at a tutor who has left now stays on them, with their leaving date beside the name, instead of jumping to whoever comes first in the list.
+* **Lessons still booked past a tutor's last day now open as a week**: that list opens as a week on the first week holding lessons to move, and every day and time in the list view now carries its date.
+
+## [2.0.115](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.114...v2.0.115) (2026-08-15)
+
+
+### New Features
+
+* **Nobody gets booked for lessons after they have left**: the app reads everybody's last working day from ARK each night, and no lesson, class or duty can be placed on a tutor after that day. The office gets a notice naming who is leaving and what is still booked past their last day.
+* **A record of everyone's last working day, kept without asking**: a tutor's page shows whether they are leaving and when, and a button reads the latest from ARK straight away.
+
+## [2.0.114](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.113...v2.0.114) (2026-08-14)
+
+
+### New Features
+
+* **Logging one call against a whole list of families on Course Renewal**: a tutor can tick several students on their Course Renewal list and log a single contact against all of them, the way the Retention board already allowed.
+* **September classes drawn as a week rather than a list**: the September tab on Course Renewal lays the classes out as a week, with the times down the side and the days across the top, and becomes a day by day agenda on a phone.
+
+
+### Bug Fixes
+
+* **The grade on the September timetable is the one the student is entering**: September classes and the students in them now show the grade the family applied for, not the Pre-F5 style grade used through the summer.
+* **When the September form and our records disagree about a student's language stream**: the app now goes by the form, because it is the more recent answer, and says where the two differ so an admin can put the record on the same stream with one press.
+
+## [2.0.113](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.112...v2.0.113) (2026-08-13)
+
+
+### Bug Fixes
+
+* **The chase list on the Retention tab fits a folding phone's inner screen**: the filters above the chase list now fold into the same Filters button a phone gets, so the students are no longer pushed off the bottom of the card.
+
+## [2.0.112](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.111...v2.0.112) (2026-08-13)
+
+
+### New Features
+
+* **Finding one family on the list of prospects still to chase**: the still to chase list has a search box reading the name, both phone numbers, the school and the codes their primary branch and summer course know them by, and what the list is showing travels in the address so it can be shared.
+
+## [2.0.111](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.110...v2.0.111) (2026-08-12)
+
+
+### New Features
+
+* **Who has not come back for September, and who to ring about it**: Regular Intake has a new Retention tab that takes everyone who studied with us last year and says whether they have applied for September, broken down by branch, grade, tutor and origin. Its chase list carries the phone number and the last thing said to that family, and a call can be logged without leaving the page.
+* **Tutors have their own list of who has come back**: a Course Renewal page in the side menu shows a tutor the students they taught last year and where each of them has got to, so the person who knows the family can do the chasing.
+
+
+### Improvements
+
+* **The terminated students report opens in a few seconds**: it now works out only the enrolments that could fall in the quarter being asked for, so it opens in about three seconds rather than fifteen.
+* **One list of contact types, and a type for course renewal**: the contact types offered when logging a parent contact come from one list now, and it has gained Course Renewal.
+
+
+### Bug Fixes
+
+* **The P6 Prospects page now refuses people who cannot read it**: somebody without access is told so instead of seeing an empty table. The records behind that page were always admin only.
+
+## [2.0.110](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.109...v2.0.110) (2026-08-12)
+
+
+### Bug Fixes
+
+* **Back to School applicants were quoted MOP 100 too much**: the fee message asked for MOP 2,200 when the September intake collects no materials fee, so every fee message, total and preview now says MOP 2,100. No application had been published while this was wrong.
+* **Saving the course settings no longer drops rules the form does not show**: the summer and September settings pages now keep pricing rules that have no box of their own, and whether the materials fee is collected has become a tick box on the September page.
+* **The application window keeps up with what it has just done**: the window now reads the application back after every change, including publishing, so what is on screen matches what has been saved.
+
+## [2.0.109](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.108...v2.0.109) (2026-08-11)
+
+
+### New Features
+
+* **Homework set in earlier lessons can be marked from lesson mode**: the homework still waiting sits at the top of the exercise list, with the same marking, star rating, comment and photographs offered everywhere else, and pressing H opens it from anywhere in the lesson.
+
+
+### Bug Fixes
+
+* **Homework marked in an earlier lesson no longer looks unmarked**: the mark now comes from the student's own record, so it stays where it was put.
+
+## [2.0.108](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.107...v2.0.108) (2026-08-11)
+
+
+### New Features
+
+* **A student's whole homework record, and marking, on their own page**: every piece of homework on the Courseware tab now shows how it went, and clicking that mark opens the piece so the state, star rating, comment and photographs can be put right without leaving the page.
+* **Homework that came back but has not been marked yet now has its own state**: a fifth state, Handed in, counts as still waiting, so work sitting in a tutor's bag is no longer recorded the same as work that never arrived.
+
+
+### Improvements
+
+* **The homework keys in lesson mode follow the order on screen**: 1 is handed in, 2 done, 3 partly done and 4 not done, with 0 still clearing.
+
+## [2.0.107](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.106...v2.0.107) (2026-08-10)
+
+
+### New Features
+
+* **Homework set in an earlier lesson can be marked as done**: each piece of homework carries four states, not checked, done, partly done and not done, with a star rating and a comment, and stays on the list for up to three lessons the student actually sat.
+* **What a student handed in can be kept with the record**: photographs and PDFs attach to a piece of homework, and on a phone the camera opens straight from the button.
+
+
+### Improvements
+
+* **Regular Intake shows how many applications are waiting**: the side menu item now carries the same count of applications still to work through that Summer Course has, following the branch picked in the menu.
+
+
+### Bug Fixes
+
+* **A category on the terminated students page can be cleared again**: picking None now clears a category set by mistake, and emptying the reason box records no reason.
+
+## [2.0.105](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.104...v2.0.105) (2026-08-07)
+
+
+### New Features
+
+* **The prospect journey chip opens the prospect's record**: clicking the chip on a September application now opens the prospect's record over the page, including the primary tutor's remark behind it.
+
+
+### Bug Fixes
+
+* **Link suggestions only offer applications the prospect could belong to**: every suggestion is now held to the grade the prospect is entering, which took the September review list from 15 rows to 1 and the summer list from 17 to 2.
+* **A prospect's grade reads the same on every page**: grades are put into one form as they are taken in, and the 113 records holding another spelling have been corrected.
+* **Esc closes one panel at a time**: whichever panel is on top now takes the key press and the one beneath waits its turn, which applies to clicking outside a panel as well.
+
+## [2.0.104](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.103...v2.0.104) (2026-08-05)
+
+
+### New Features
+
+* **Link suggestions can now find P6 prospects for September applications**: the button on the September applications page now matches P6 prospects as well as student records, by the student they enrolled as over the summer and then by phone.
+* **The prospect journey shows the primary branch code**: the chip now leads with the applicant's code at their primary branch, so a card reads MCP-1112 to summer to regular and can be checked against that branch's records.
+* **The claim badge names the branch**: an application from somebody who says they already study with us now names the centre they picked, for example Claims: MTR.
+
+
+### Improvements
+
+* **The branch a student came from fills itself in**: linking a P6 prospect to a September application records that prospect's branch as the applicant's verified origin, and a branch chosen by hand is never overwritten.
+* **Applications with no branch origin can be filtered**: the More filters menu on the September applications page gained an Unverified branch origin tick box, matching the summer page.
+* **Notes show on the cards you drag**: the September arrangement page shows an application's internal note on its card in the unassigned list, shortened to one line with the whole note on hover.
+
+
+### Bug Fixes
+
+* **Demand colours on the arrangement timetable match the rest of the app**: a demand row's bar and its label now both use the grade badge colour used everywhere else.
+* **One branch badge instead of two**: a card drops the from MCP badge when the journey chip already says the same thing, and keeps it when it does not.
+
+## [2.0.103](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.102...v2.0.103) (2026-08-05)
+
+
+### New Features
+
+* **A certificate list for the summer course**: a new Certificates tab lists every enrolled summer student with their branch, code and sessions attended, badges the ones who met the official 80% rule, and exports as a CSV file.
+
+## [2.0.102](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.101...v2.0.102) (2026-08-05)
+
+
+### New Features
+
+* **The arrangement timetable can go full screen**: a new button on the summer and September arrangement pages collapses the header into a slim strip so the timetable takes almost the whole window, and Esc returns it.
+
+
+### Improvements
+
+* **A tidier toolbar above the timetable**: the Tutor Duties, Workload and full screen buttons are now compact icons with hover hints, leaving more room for the status counts and filters.
+
+
+### Bug Fixes
+
+* **Shorter summer plans finish at their own length**: a student who arranged fewer than the full course of lessons now counts as finished once every lesson in their own plan is placed.
+
+## [2.0.101](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.100...v2.0.101) (2026-08-04)
+
+
+### New Features
+
+* **Every prospect carries a journey for each course**: the prospects page shows where each P6 prospect stands with the summer course and with the September intake separately, read straight from their linked applications, and both journeys can be filtered on.
+* **The conversion page reads in three tabs**: Overview holds the headline figures, Breakdowns holds stated intention against outcome and the feeder tables, and Still to chase is a working list with phone numbers and WeChat IDs ready to copy.
+* **Student codes on linked applications**: where a prospect's application has published an enrolment, the prospect window shows the student's MSA or MSB code and opens their page from it.
+* **The arrangement grid keeps to each branch's timetable**: day and time combinations the branch does not offer are shaded and closed, so a class can no longer be created at a weekend-only time by accident.
+* **Super Admins can delete a regular application**: a delete button permanently removes an application and its edit history, for clearing test submissions, unless it has a published enrolment.
+
+
+### Improvements
+
+* **Plainer English on the September application form**: the introduction, the final-step notice and the make-up lesson note now read naturally in English instead of following the Chinese word for word.
+
+
+### Bug Fixes
+
+* **A waived materials fee stays waived everywhere**: the September surfaces that quietly added the MOP 100 materials fee back into the displayed fee now give the same answer as the rest.
+* **Publishing offers only the branch's own tutors**: the tutor list when publishing a September enrolment now offers only tutors based at the selected branch.
+* **The conversion page is readable in dark mode**: the coloured stage counts and the names in the chase list now brighten in dark mode.
+
+## [2.0.100](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.99...v2.0.100) (2026-08-01)
+
+
+### New Features
+
+* **The session lists follow the clock**: the dashboard's Today's Sessions card and the sessions list now mark the current time, open at the current slot when viewing today, and offer a Now button to come back to it.
+* **A gentle prompt towards lesson mode**: while one of a tutor's own lessons is running, the Lesson button on that slot carries a pulsing dot, with a one-off hint suggesting lesson mode.
+
+
+### Bug Fixes
+
+* **Jumping to a time slot lands properly**: a link pointing at a time slot now brings the heading fully into view instead of leaving it under the toolbar.
+* **The September application form no longer spins forever**: a parent who is not signed in now opens the September form and its status page directly, the same way as the summer form.
+
+## [2.0.99](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.98...v2.0.99) (2026-08-01)
+
+
+### New Features
+
+* **A September regular course application form**: parents can apply for the September regular course online the same way as for the summer course, in Chinese or English, with full class times shown as full and a status page after submitting. It opens on 3 August 2026 and closes on 30 September 2026.
+* **The 2026 Back to School new student offer**: a student who has never attended any MathConcept centre saves MOP 400 on their first September enrolment, MOP 300 off the tuition and the MOP 100 materials fee waived, with a desk calendar included. It appears from 12 August, the day the campaign begins.
+* **September enrolments do not collect the materials fee**: nobody joining in the September intake is charged the MOP 100 materials fee, and enrolments outside the intake are unchanged.
+* **Arranging the September intake**: a new arrangement page places applications into class times for each branch, showing the seats left on every slot, with filters by grade, language stream, tutor and space, bulk handling, and the fee message prepared from the same place.
+* **Following P6 students into the September intake**: the prospects page tracks students finishing primary through to their September application, and a conversion page shows how many went on to apply, by branch and by centre.
+* **Filters on the summer arrangement grid**: the summer arrangement page can be narrowed by grade, course type, tutor and whether a class still has space.
+
+
+### Improvements
+
+* **A tidier course settings editor**: the summer course settings no longer offer an open days caption for each branch, which nothing ever displayed and which could disagree with the days actually set.
+
+## [2.0.98](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.97...v2.0.98) (2026-07-30)
+
+
+### New Features
+
+* **Filter sessions by summer class**: during the summer course the session pages gain a Summer button that narrows every view by class grade, by Type A or Type B, and by lesson number, offering only the values actually on screen.
+
+
+### Bug Fixes
+
+* **Status and tutor filters now appear in the day and month views**: both filters now show in all four views, so sessions can no longer be hidden with nothing on screen to explain why.
+* **A tidier Aged Pending Make-ups view**: opening it from the notification bell now shows only the controls that list can use, keeping the tutor filter and dropping the rest.
+
+## [2.0.97](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.96...v2.0.97) (2026-07-28)
+
+
+### Bug Fixes
+
+* **Terminated students no longer treats the summer break as leaving**: the quarter running into the summer course is now measured up to the day regular lessons pause, and students who finished in the four weeks before it are reviewed in the following quarter instead.
+
 ## [2.0.96](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.95...v2.0.96) (2026-07-17)
 
 
 ### Bug Fixes
 
-* **Copy Fee Message works for summer enrolments**: the Copy Fee Message button in the enrolment detail popover, the enrolment detail window and zen mode previously did nothing for published summer enrolments. It now copies the proper summer fee message and includes the discount tier and any attached coupon. Copy failures in the popover also show an error message instead of failing silently.
+* **Copy Fee Message works for summer enrolments**: the button in the popover, the detail window and zen mode now copies a proper summer fee message, including the discount tier and any attached coupon.
 
 ## [2.0.95](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.94...v2.0.95) (2026-07-17)
 
 
 ### New Features
 
-* **Tidier session lists on student and enrolment pages**: the Sessions tab on the student page and the Session History list on the enrolment page have a new Hide Cancelled & Make-up Booked button. It hides cancelled sessions and sessions whose make-up has already been booked, so the planned lesson numbers are easier to read. Sessions still waiting for a make-up stay visible because they still carry their lesson number. On the student page the button also hides sessions of cancelled enrolments. While the button is on it shows how many sessions are hidden, and the setting is remembered across both pages.
+* **Tidier session lists on student and enrolment pages**: a new Hide Cancelled & Make-up Booked button puts away the lessons that already have a make-up booked, so the planned lesson numbers read cleanly, and it remembers being on.
 
 
 ### Bug Fixes
 
-* **Summer fee messages include discount coupons**: when a discount coupon is attached to a summer enrolment, the fee message now deducts it from the total in the same way as a regular enrolment. The fee shown in the application details and on the overdue payments page matches the message, and revenue figures account for the coupon as well.
-* **Mark Sent and Confirm Payment on summer enrolment pages**: the enrolment page of a published summer enrolment now shows the Mark Sent and Confirm Payment buttons under the fee message. These quick actions were previously missing for summer enrolments and payment could only be recorded through the edit form.
-* **Summer sessions with the same tutor and time group under one divider**: on the session pages, a summer make-up and another summer session taught by the same tutor at the same time could appear under two separate class divider lines. One of the dividers could also show the name of a class from a different day or time. Such sessions now sit together under a single Summer class divider. A summer session that was moved to a different tutor also stays in that tutor's group instead of appearing under the class's original tutor.
-* **Tutors can change lesson numbers on other tutors' sessions**: changing or clearing the lesson number of a session that belongs to another tutor now saves instead of failing with a message that only your own sessions can be modified. This lets tutors set the correct lesson number when helping to arrange make-up classes for another tutor's students. Other session details still require the owning tutor or an admin.
+* **Summer fee messages include discount coupons**: a coupon attached to a summer enrolment now comes off the total in the fee message, the application details, the overdue payments page and the revenue figures.
+* **Mark Sent and Confirm Payment on summer enrolment pages**: a published summer enrolment now offers both buttons under its fee message, so payment no longer has to go through the edit form.
+* **Summer sessions with the same tutor and time group under one divider**: a summer make-up and another summer session with the same tutor and time now sit under a single class divider instead of two.
+* **Tutors can change lesson numbers on other tutors' sessions**: changing or clearing the lesson number on another tutor's session now saves, which helps when arranging make-ups for their students. Other session details still need the owning tutor or an admin.
 
 ## [2.0.94](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.93...v2.0.94) (2026-07-15)
 
 
 ### Bug Fixes
 
-* **Summer deadlines on the overdue payments page**: the Deadline column now shows the payment deadline for the discount tier each summer enrolment is currently on, so it no longer keeps pointing at an earlier deadline that has already passed. When the deadline falls on the same day as the first lesson, the column shows the date once instead of repeating it.
+* **Summer deadlines on the overdue payments page**: the Deadline column now shows the deadline for the discount tier each summer enrolment is currently on, instead of one that has already passed.
 
 ## [2.0.93](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.92...v2.0.93) (2026-07-15)
 
 
 ### New Features
 
-* **Bulk assign follows each student's own lesson**: when a class has students on different lessons, the summer materials panel in lesson mode now assigns each student the materials for their own lesson instead of giving everyone the majority lesson's chapter. A confirmation shows how the class splits by lesson before anything is saved, and students whose lesson has no materials are reported instead of receiving the wrong file. Picking a specific chapter from the list still assigns that chapter to every selected student. The same behaviour applies to the summer section when bulk assigning exercises.
-* **Lesson number badges in lesson mode**: the student list in lesson mode now shows each student's lesson number badge, which can be edited in place just like on the session pages. The Files view and the student picker show the badge as well, and grade badges in the Files view now include the language stream.
+* **Bulk assign follows each student's own lesson**: the summer materials panel now gives each student the materials for their own lesson rather than the majority lesson's chapter, and shows how the class splits before anything is saved.
+* **Lesson number badges in lesson mode**: the student list, the Files view and the student picker all show each student's lesson number badge, editable in place.
 
 ## [2.0.92](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.91...v2.0.92) (2026-07-14)
 
@@ -47,7 +382,7 @@
 
 ### Bug Fixes
 
-* **Duplicate lesson number warnings can be answered**: changing a session's lesson number to one the student already holds now opens a confirmation dialog that offers to save anyway or cancel. Previously the warning appeared as an error message that could not be acted on, so the change was blocked even when the duplicate was intentional. Cancelling leaves the lesson number unchanged without repeating the warning.
+* **Duplicate lesson number warnings can be answered**: changing a lesson number to one the student already holds now opens a dialog offering to save anyway, instead of blocking with an error.
 
 ## [2.0.91](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.90...v2.0.91) (2026-07-12)
 
@@ -60,7 +395,7 @@
 ### Bug Fixes
 
 * **Worksheet OCR and progress insights work again**: the AI model behind worksheet imports and progress insights was retired by its provider, which stopped both features from working. They now run on its replacement.
-* **Rescheduled summer sessions can be reverted after publish**: a summer session marked Rescheduled - Pending Make-up before publish could not be changed back to Scheduled afterwards. The Undo action only appears when a session has a previous status to return to, and these sessions were created without one. Publishing now records Scheduled as the status to return to, and sessions already published have been repaired.
+* **Rescheduled summer sessions can be reverted after publish**: publishing now records Scheduled as the status to return to, so Undo works on these sessions, and the ones already published have been repaired.
 
 ## [2.0.90](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.89...v2.0.90) (2026-07-05)
 
@@ -68,23 +403,23 @@
 ### Bug Fixes
 
 * **Extension requests page shows recent requests again**: the Approved, Rejected and All tabs were quietly cutting off the newest entries once a tab held more than 200 requests, so recent requests never appeared. The latest requests are now always included.
-* **Debug panel pages for Extension Requests and Planned Reschedules open again**: both pages failed to load because they tried to sort by a field that does not exist. The panel now falls back to a safe sort order if a page is misconfigured, and the Homework To Check page has been removed since its data is read-only and cannot be edited there.
+* **Debug panel pages for Extension Requests and Planned Reschedules open again**: both pages failed on a sort field that does not exist, and the panel now falls back to a safe order.
 
 ## [2.0.89](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.88...v2.0.89) (2026-07-05)
 
 
 ### Bug Fixes
 
-* **Summer sessions can be rescheduled without a deadline extension**: moving a summer session or booking a summer make-up no longer asks for an approved deadline extension. Previously, students whose summer class kept the same weekly slot as their regular lessons were blocked, because the check looked at the regular enrolment that had already ended.
+* **Summer sessions can be rescheduled without a deadline extension**: moving a summer session or booking a summer make-up no longer asks for an approved extension against a regular enrolment that has already ended.
 * **Summer scheduling runs to 31 August**: summer sessions and make-ups can be placed on any date up to 31 August. Dates from 1 September onwards are blocked with a clear message, and Super Admins can still override when needed.
-* **Make-up calendar warnings now follow the summer rules**: when scheduling a summer make-up, the calendar no longer shows amber "past enrolment deadline" warnings on the student's regular weekdays. Dates past 31 August are highlighted in red instead, with wording that explains the summer deadline.
+* **Make-up calendar warnings now follow the summer rules**: the calendar no longer shows amber enrolment deadline warnings on a summer make-up, and marks dates past 31 August in red instead.
 
 ## [2.0.88](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.87...v2.0.88) (2026-07-05)
 
 
 ### Bug Fixes
 
-* **Grades show correctly now the summer course has started**: students are shown at their new level across the app, such as "Pre-F1E" for a student entering F1, on the sessions pages, dashboard cards, popovers, student pages and elsewhere. Previously these still showed the previous year's grade.
+* **Grades show correctly now the summer course has started**: students show at their new level across the app, such as Pre-F1E for a student entering F1, instead of the previous year's grade.
 * **Summer pages no longer overshoot the grade**: summer application and arrangement pages show the grade the student is preparing for, such as "F1E", without any "Pre-" prefix. Previously some badges showed one grade too high.
 * **Badge colours follow the shown grade**: a badge reading "Pre-F1E" now uses the same colour as F1E, so grade colours stay consistent wherever the new level appears.
 
@@ -93,17 +428,17 @@
 
 ### New Features
 
-* **Summer classes are grouped under class headings on the sessions page**: sessions belonging to the same summer class now sit together under a heading showing the class's grade and type, such as "F1 · Type A", in the main list and in the dashboard's today card. Day and week views mark each class with a compact chip such as "F1·A". Make-up slots without a set grade show their label instead.
-* **Make-up students appear with the class they join**: a summer make-up is grouped under the class actually being taught at that day and time rather than the student's own class, so each class reads as one group. A make-up at a time with no class running keeps showing the student's own class details.
-* **Rescheduled summer sessions keep their lesson number**: once a make-up is booked, the original session shows its lesson number in a faded badge borrowed from the booked make-up, in the sessions list, calendar views, the session popover, and the student and enrolment pages.
+* **Summer classes are grouped under class headings on the sessions page**: sessions from the same summer class now sit under a heading naming its grade and type, such as F1 · Type A, with a compact chip in the day and week views.
+* **Make-up students appear with the class they join**: a summer make-up is grouped under the class actually being taught at that day and time, so each class reads as one group.
+* **Rescheduled summer sessions keep their lesson number**: once a make-up is booked, the original session shows its lesson number in a faded badge borrowed from the make-up.
 
 ## [2.0.86](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.85...v2.0.86) (2026-07-02)
 
 
 ### New Features
 
-* **Summer make-up suggestions now match by lesson number**: when scheduling a make-up for a summer course session, smart suggestions favour classes teaching the lesson the student missed. Each suggested slot shows which lesson most of its class is on and how many classmates are on it, with a "Same lesson" tag when it matches. The scoring switches to a summer profile automatically, with a tunable "Same Lesson" weight, school matching switched off and language stream counting for less. If the missed session has no lesson number assigned yet, a notice explains that suggestions are ranked without lesson matching.
-* **Lesson numbers are shown throughout make-up scheduling**: the summer lesson number now appears on the session summary at the top of the scheduling window, next to each student in suggested slots, in the day picker and in the slot preview, so it is always clear which lesson each class is covering.
+* **Summer make-up suggestions now match by lesson number**: suggestions favour classes teaching the lesson the student missed, each slot showing which lesson its class is on and how many classmates are on it.
+* **Lesson numbers are shown throughout make-up scheduling**: the lesson number now appears on the session summary, beside each student in a suggested slot, in the day picker and in the slot preview.
 * **Copy a time slot to share with parents**: suggested slots and the day picker time headings now have a copy button that copies the slot as text such as "6/7 (Mon) 18:00-19:30", ready to paste into a message to parents before confirming a booking.
 
 ## [2.0.85](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.84...v2.0.85) (2026-06-28)
@@ -111,42 +446,42 @@
 
 ### New Features
 
-* **Enrolment fee shown on the overdue payments list and detail views**: each row on the overdue payments page now shows the enrolment's total fee, and its View button opens the enrolment detail in a popover instead of navigating away. The same fee total also appears on the enrolment detail page and popover, just under the lessons paid.
+* **Enrolment fee shown on the overdue payments list and detail views**: each row now shows the enrolment's total fee, and its View button opens the details in a popover instead of navigating away.
 
 
 ### Bug Fixes
 
-* **Each session's revenue now reflects the real enrolment fee for every type**: the per-session amount counted towards tutor revenue is worked out from the actual fee paid, after any discount, divided by the number of lessons. Summer enrolments, multi-lesson promotions that scale with the lesson count, and discounts on shorter enrolments are now all valued correctly, instead of assuming a flat per-lesson rate.
-* **Summer fees match the fee message for pinned tiers and buddy groups**: when an admin pins a specific discount tier on a summer enrolment, the fee shown now uses that tier's amount, and the detail page takes the whole buddy group into account when working out a group discount, so the displayed fee no longer differs from the fee message.
-* **Coupons only reduce a fee once added to an enrolment**: a fee is reduced by a coupon only when that coupon has been applied to the enrolment as its discount. Simply holding unused coupons no longer takes money off a quoted fee, which previously made some fees and fee messages show lower than the amount actually due.
+* **Each session's revenue now reflects the real enrolment fee for every type**: the amount counted towards tutor revenue is the fee actually paid after discount, divided by the lessons, so summer enrolments and promotions that scale with the lesson count are valued correctly.
+* **Summer fees match the fee message for pinned tiers and buddy groups**: a pinned discount tier and the whole buddy group are now taken into account, so the displayed fee agrees with the fee message.
+* **Coupons only reduce a fee once added to an enrolment**: holding an unused coupon no longer takes money off a quoted fee. Only a coupon applied to the enrolment as its discount does.
 
 ## [2.0.84](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.83...v2.0.84) (2026-06-26)
 
 
 ### Bug Fixes
 
-* **Published summer applications are counted again in the revenue analytics**: once a summer application was published into an enrolment, it stopped being included in the branch revenue figures, so the receivable and collected totals were undercounted. Published applications are now counted using their enrolment's payment status, so a published application that has been paid shows as collected and one still awaiting payment shows as outstanding.
+* **Published summer applications are counted again in the revenue analytics**: a published application is now counted through its enrolment's payment status, so the branch receivable and collected totals are no longer undercounted.
 
 ## [2.0.83](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.82...v2.0.83) (2026-06-25)
 
 
 ### Bug Fixes
 
-* **One-time enrolment fee messages list the right sessions**: the fee message and last lesson date for a one-time enrolment are built from its actual sessions, so they now leave out cancelled sessions and any session whose make-up has already been booked (that make-up is listed separately on its own date), which stops those lessons being counted and charged twice. Sessions still waiting for a make-up are kept, since that lesson is still owed.
+* **One-time enrolment fee messages list the right sessions**: the fee message and last lesson date are built from the enrolment's actual sessions, leaving out cancelled ones and any lesson whose make-up is already booked, so nothing is charged twice.
 
 ## [2.0.82](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.81...v2.0.82) (2026-06-20)
 
 
 ### Bug Fixes
 
-* **Exam revision make-ups keep the original lesson's enrolment and payment status**: enrolling a student into an exam revision slot creates a make-up for the lesson it replaces. That make-up now keeps the same enrolment and paid or unpaid status as the original lesson, instead of sometimes being linked to a different enrolment for the student or showing as unpaid when the original lesson had already been paid for. Existing exam revision make-ups affected by this have been corrected.
+* **Exam revision make-ups keep the original lesson's enrolment and payment status**: the make-up created for an exam revision slot now inherits the original lesson's enrolment and paid status, and the ones already affected have been corrected.
 
 ## [2.0.81](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.80...v2.0.81) (2026-06-18)
 
 
 ### Bug Fixes
 
-* **Enrolment preview no longer flags rescheduled slots as conflicts**: creating an enrolment on a date where the student had a session that was rescheduled with its make-up already booked no longer shows a false conflict warning. That original slot is free — the student attends the make-up on another day — so only genuine bookings (Scheduled, Make-up, Trial, Attended, and No Show) now count as conflicts.
+* **Enrolment preview no longer flags rescheduled slots as conflicts**: a slot the student has already rescheduled away from no longer counts as a conflict, because they are attending the make-up on another day.
 
 ## [2.0.80](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.79...v2.0.80) (2026-06-18)
 
@@ -166,17 +501,17 @@
 
 ### New Features
 
-* **Adjust a summer discount tier before sending the fee message**: the office can now pin a discount tier on a summer application from its detail panel, before the application is published. Because the fee message goes out beforehand, this makes it possible to correct a tier (for example, when a buddy group member drops out and is replaced after the deadline) and quote the right fee the first time. The pinned tier shows in the fee message and the detail panel, carries forward when the application is published, and stays in step if it is later changed on the enrolment.
+* **Adjust a summer discount tier before sending the fee message**: the office can pin a discount tier on a summer application before it is published, so the fee message quotes the right amount the first time.
 
 ### Bug Fixes
 
-* **Clearer "discount forfeited" notices on summer applications**: the panel no longer warns that a higher discount tier was lost when the applicant could never have qualified for it, either because they applied after that tier's deadline or because their buddy group never reached the size it needs. The notice now appears only when a tier the applicant genuinely held was lost, so an on-time Early Bird applicant is no longer told they forfeited the three-person Early Bird tier.
+* **Clearer "discount forfeited" notices on summer applications**: the notice now appears only when a tier the applicant genuinely held was lost, not one they could never have qualified for.
 
 ## [2.0.77](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.77) (2026-06-15)
 
 ### New Features
 
-* **"Extra Lessons" discount for one-off sessions**: a new Extra Lessons (per 2) discount takes $100 off for every two extra lessons, so two one-off sessions are $100 off, four are $200, and so on. It applies to One-Time enrolments without the usual six-lesson minimum, so the office can pick it from the discount dropdown after setting the number of lessons. One-Time enrolments can now hold more than one lesson, and their fee message lists each lesson's actual date and time instead of a weekly schedule, so it stays correct once the lessons are moved to their real days.
+* **"Extra Lessons" discount for one-off sessions**: a new Extra Lessons (per 2) discount takes $100 off every two extra lessons and applies to One-Time enrolments without the usual six-lesson minimum. Those enrolments can now hold more than one lesson, and their fee message lists each lesson's own date and time.
 
 ### Bug Fixes
 
@@ -187,44 +522,44 @@
 
 ### Bug Fixes
 
-* **Early Bird protection now covers recording payments too**: the safeguard added in 2.0.75 now also applies when you record a payment on the Overdue Payments page or on an enrolment's own page, not just when updating a summer application. Recording a summer payment after the Early Bird deadline pauses and asks before removing the discount, so you can enter the date the family actually paid to keep it, or confirm they paid late. Recording the payment date you choose is now honoured (it was previously always saved as today), and marking several paid at once lists anyone affected so you can decide together.
+* **Early Bird protection now covers recording payments too**: recording a summer payment after the Early Bird deadline now pauses and asks on the Overdue Payments page and on the enrolment itself, and the payment date you enter is the one saved.
 
 ## [2.0.75](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.75) (2026-06-14)
 
 ### New Features
 
-* **Branch revenue report on the Summer stats panel**: a new card shows summer fee collection for each branch, broken down by discount and by application stage, alongside the value of July and August regular sessions. A button refreshes the shared revenue spreadsheet on demand.
+* **Branch revenue report on the Summer stats panel**: a new card shows summer fee collection for each branch by discount and by stage, alongside the value of July and August regular sessions.
 
 ### Bug Fixes
 
-* **Early Bird discount is no longer dropped when a payment is recorded late**: marking a summer application as paid after the Early Bird deadline used to quietly remove the discount, so a family who paid on time could be charged the full fee if the office logged their payment a day or two afterwards. The system now pauses and asks first: enter the date the family actually paid to keep the discount, or confirm they paid late to drop it. The same check applies whether you mark one application paid or update several together.
+* **Early Bird discount is no longer dropped when a payment is recorded late**: marking a summer application paid after the deadline now asks first, so a family who paid on time keeps the discount when the office logs it a day or two later.
 
 ## [2.0.74](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.74) (2026-06-07)
 
 ### Bug Fixes
 
-* **Make-up slots stay off the weekly slot grid**: one-off make-up slots were appearing in the Slot Setup grid on the summer arrangement page as if they repeated every week, sometimes looking like duplicates of the regular class beside them. They now show only on the Calendar tab, and the tutor workload summary no longer counts them as weekly classes.
-* **Summer courseware tables line up across grades**: the lesson column on the Summer Courseware page now has the same width in every grade's table, and chapters beyond the scheduled lessons show their lesson number in violet (with a tooltip explaining they are extra material) instead of an "Extra chapter" label, matching the numbering on the courseware Browse tab.
+* **Make-up slots stay off the weekly slot grid**: one-off make-up slots now show only on the Calendar tab, instead of appearing in the weekly Slot Setup grid as if they repeated.
+* **Summer courseware tables line up across grades**: the lesson column is the same width in every grade's table, and chapters beyond the scheduled lessons show their number in violet rather than an Extra chapter label.
 
 ## [2.0.73](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.73) (2026-06-07)
 
 ### New Features
 
-* **Summer courseware at a glance for admins**: a new Summer Courseware page under Admin maps the summer teaching materials on the shared drive into a per-grade chapter table, showing which classwork, homework, and extra worksheets exist in each language and whether their answer keys are on the drive. Files that don't follow the naming convention are flagged so they can be fixed at the source, and a rescan picks up changes in moments.
-* **Summer materials built into lesson mode**: summer sessions now show their chapter's materials right in the lesson view, preselected by the slot's lesson number. Assigning classwork or homework gives each picked student their own language version with the answer key linked automatically, and tutors can switch to a different chapter when a class is ahead or behind.
-* **Bilingual side-by-side worksheets without the manual merge**: the parallel version of a worksheet is now composed on the fly from the Chinese and English PDFs and shown side by side in the lesson view, with the pre-made parallel file from the drive as a backup when one language's file is missing. The answer key shortcut works on these previews like any other exercise.
-* **Summer course folder in the courseware browser**: the Browse tab on the Courseware page now pins a Summer Course entry at the top while summer materials are available, opening the same chapter table for every tutor. Clicking a worksheet previews it in the side pane, where Assign and Import work just like for any other PDF, and the entry is ready the moment the page opens.
+* **Summer courseware at a glance for admins**: a new Summer Courseware page maps the teaching materials on the shared drive into a per-grade chapter table, flagging the files that do not follow the naming convention.
+* **Summer materials built into lesson mode**: summer sessions show their chapter's materials in the lesson view, preselected by lesson number, and assigning gives each student their own language version with the answer key linked.
+* **Bilingual side-by-side worksheets without the manual merge**: the parallel version of a worksheet is composed on the fly from the Chinese and English PDFs, with the pre-made file from the drive as a backup.
+* **Summer course folder in the courseware browser**: the Browse tab pins a Summer Course entry at the top while summer materials are available, where Assign and Import work as they do for any other PDF.
 
 ### Bug Fixes
 
-* **Courseware pages fit phone screens properly**: the summer chapter table adapts to narrow spaces and keeps the lesson number in view while scrolling sideways, the PDF preview takes over the screen on phones instead of squeezing beside the file list, and pages now respect the visible screen height so bottom buttons are no longer hidden behind the browser bar. Touch devices always show the selection and copy buttons that previously only appeared on hover, and small pop-up panels stay fully on screen near the edges.
+* **Courseware pages fit phone screens properly**: the chapter table keeps the lesson number in view while scrolling sideways, the PDF preview takes over the screen on phones, and buttons no longer hide behind the browser bar.
 * **Chapter dropdowns are readable again**: the chapter pickers in lesson mode and the exercise dialogs showed light text on a grey list; the options now use a solid background in both light and dark mode.
 
 ## [2.0.72](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.72) (2026-06-06)
 
 ### New Features
 
-* **Summer unavailable dates show up when arranging make-ups**: the dates a parent flagged as unavailable on their summer application now appear on the matching summer enrollment, so a tutor can avoid booking a make-up class on a day the student already said they can't attend. The note shows in the enrollment popover and at the top of the Schedule Make-up dialog, with a small flag on the student's enrollment list for a quick heads-up.
+* **Summer unavailable dates show up when arranging make-ups**: the dates a parent flagged on their summer application now show on the enrollment and at the top of the Schedule Make-up dialog.
 
 ### Bug Fixes
 
@@ -234,7 +569,7 @@
 
 ### Bug Fixes
 
-* **School suggestions can be picked with the keyboard**: the school field's suggestion list on the students page and the student profile edit form now responds to the up and down arrow keys, with Enter to choose the highlighted school and Escape to dismiss. The highlighted option scrolls into view in longer lists, and the Add Student dialog's school field gained the same keyboard support.
+* **School suggestions can be picked with the keyboard**: the school field's suggestion list now takes the arrow keys, Enter to choose and Escape to dismiss, on the students page, the profile edit form and the Add Student dialog.
 * **Tutor profile reads better on phones**: the tutor detail page is more responsive on small screens, and the tutor header stays on a single row so a long email address truncates cleanly instead of stretching the card taller.
 * **Command palette stays closed on the login page**: the quick command palette no longer opens before you have signed in.
 * **Filter toolbars stay pinned while scrolling**: the toolbar holding the search and filters at the top of the Students and Courseware pages now stays fixed in place as you scroll the list, instead of scrolling out of view.
@@ -243,12 +578,12 @@
 
 ### New Features
 
-* **Tutor management page with detailed profiles**: a new Tutors page under Admin lists every tutor grouped by location, role, and active status, with inactive tutors sorted to the bottom. Each tutor opens a profile showing their photo, contact details, this month's salary (basic plus bonus, with the bonus tiers explained), and an Edit dialog for admins.
-* **Searchable roster, quick stats, and a weekly agenda on each profile**: the profile lists the tutor's active students with search and sorting, alongside a quick-stats panel showing grade mix, schools, locations, and a clickable weekly schedule heatmap you can use to filter the roster. A This Week card groups the tutor's sessions by day, anchored on today, and clicking any session opens its detail popover.
-* **Admins can schedule make-ups on holidays**: holidays are normally blocked when scheduling a make-up class, but admins can now pick a holiday in the Schedule Make-up dialog and book on it. An override notice shows the holiday name and a reminder to confirm the class will actually run that day. The same override applies when proposing slots to a tutor: a holiday slot an admin set up can be approved. Tutors and read-only roles stay blocked as before.
-* **Admins can create exam revision slots on holidays**: the Create Revision Slot dialog now flags when the chosen date is a holiday. Admins see an override notice and can proceed, while everyone else is blocked with a clear message. Once an admin has created a revision slot on a holiday, anyone can enroll students into it without hitting the holiday block.
-* **Handover banner now shows the primary student's branch id and name**: the P6 handover banner on a student's profile, and the first-lesson note on the session popover, now show the originating branch student id and name (for example MCP-1023 with the student's name) instead of just the branch code. The banner also stays visible when no handover notes were left, so you can still see which primary branch and tutor the student came from, with a clear "no handover notes" message in place of an empty box.
-* **Jump to a tutor's profile from anywhere their name appears**: for admins, tutor names are now clickable across the app (sessions, enrollments, the dashboard, proposals, trials, exam revision slots, the waitlist, summer slots, and parent contacts) and open that tutor's profile. Read-only and tutor accounts keep seeing plain names.
+* **Tutor management page with detailed profiles**: a new Tutors page under Admin lists every tutor by location, role and status, and each profile shows their photo, contact details and this month's salary.
+* **Searchable roster, quick stats, and a weekly agenda on each profile**: the profile lists the tutor's active students with search and sorting, a quick-stats panel, a clickable weekly heatmap that filters the roster, and a This Week card grouping their sessions by day.
+* **Admins can schedule make-ups on holidays**: an admin can pick a holiday in the Schedule Make-up dialog and book on it, with an override notice naming the holiday. Tutors and read-only roles stay blocked.
+* **Admins can create exam revision slots on holidays**: the Create Revision Slot dialog flags a holiday and lets an admin proceed, after which anyone can enroll students into that slot.
+* **Handover banner now shows the primary student's branch id and name**: the banner and the first-lesson note now name the originating student, such as MCP-1023, and stay visible even when no handover notes were left.
+* **Jump to a tutor's profile from anywhere their name appears**: for admins, tutor names are clickable across the app and open that tutor's profile. Read-only and tutor accounts keep seeing plain names.
 
 ### Bug Fixes
 
@@ -259,40 +594,40 @@
 
 ### Bug Fixes
 
-* **Discounts no longer apply to enrollments under 6 lessons**: any discount or coupon (loyalty coupon, staff referral, trial conversion) now requires an enrollment of at least 6 lessons. The discount picker is disabled with a short note when fewer than 6 lessons are entered, saving a discount on a shorter enrollment is refused, and the fee message never shows a discount below 6 lessons.
-* **Number of Lessons field can be cleared and retyped**: in the create enrollment dialog, backspacing the lesson count used to snap straight back to 1 and trap you there. You can now clear the field and type the number you want; an empty field falls back to 1 only when you click away.
+* **Discounts no longer apply to enrollments under 6 lessons**: any discount or coupon now requires at least 6 lessons, so the picker is disabled below that and the fee message never shows one.
+* **Number of Lessons field can be cleared and retyped**: the lesson count no longer snaps back to 1 while you are typing. An empty field falls back to 1 only when you click away.
 
 ## [2.0.68](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.68) (2026-05-16)
 
 ### Bug Fixes
 
-* **Editing both info cards on a student profile no longer loses one of the edits**: opening edit mode on the second card used to reset the first card's draft to the original values, so saving silently discarded the edits you'd just made. Personal Info and Academic Info now each keep their own draft, saving flag, and error message. Save on one card persists only that card and leaves the other card's in-progress edits intact, and Cancel only closes the card you clicked.
+* **Editing both info cards on a student profile no longer loses one of the edits**: Personal Info and Academic Info each keep their own draft now, so saving one no longer discards the edits in progress on the other.
 
 ## [2.0.67](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.67) (2026-05-12)
 
 ### New Features
 
-* **Confirm placement and move lessons from the application detail modal**: a new Confirm placement button appears when this student's sessions are still tentative, scoped to just this one application so you don't have to confirm a whole slot. Setting the status to Placement Confirmed now flips the tentative sessions to Confirmed in the same save. Each session row gets a Move action that opens a small popover where you pick a new date, time, and tutor; a matching existing slot is reused when one is found, otherwise a Make-up Slot is created for that tutor. The modal now shows a confirmation step before grade-mismatch reuse or new Make-up Slot creation, so the side effect is never a surprise.
-* **Time inputs use the summer config's preset slots**: the Move popover and the Create Make-up Slot modal now show the summer time slots from your config as a dropdown, with a "Use custom time" toggle for one-off times. The dropdown shows the same options on every day (no weekday/weekend split), matching summer scheduling.
-* **Publish-status filter on Applications and Arrangement**: a compact filter dropdown on both pages narrows the list to Published, Unpublished, or All applications. A built-in "Ready to publish" preset is one click and surfaces paid customers who still need to be published, the cohort that needs admin action before tutors can mark attendance.
-* **Persistent hint under the Publish button**: the application detail modal now spells out what publishing actually does (live enrollment created, student appears in the tutor's calendar, attendance opens up, placements lock) so admins know what to expect before clicking.
+* **Confirm placement and move lessons from the application detail modal**: a Confirm placement button scoped to one application flips its tentative sessions to Confirmed, and each session row gains a Move action for picking a new date, time and tutor.
+* **Time inputs use the summer config's preset slots**: the Move popover and the Create Make-up Slot modal now offer the summer time slots as a dropdown, with a toggle for a one-off custom time.
+* **Publish-status filter on Applications and Arrangement**: a filter on both pages narrows the list to Published, Unpublished or All, with a Ready to publish preset for the paid applicants still waiting.
+* **Persistent hint under the Publish button**: the application detail modal now spells out what publishing actually does before you click it.
 
 ### Bug Fixes
 
-* **Rescheduled lessons no longer falsely block publish**: applications with a Rescheduled - Pending Make-up placement could not be published because the gate counted "active placements" instead of "non-cancelled placements". Publish now accepts these and carries the Rescheduled status forward into the live enrollment, where the regular make-up booking flow can resolve it.
-* **Publish refuses when a placement has no tutor**: publishing a student whose slot had no tutor assigned previously produced an enrollment with no tutor, which then broke the student detail page and the enrollment view. Publish now refuses up front with a clear message pointing to the Arrangement page's Slot Setup tab to assign a tutor first.
+* **Rescheduled lessons no longer falsely block publish**: an application with a Rescheduled - Pending Make-up placement can now be published, carrying that status into the live enrollment.
+* **Publish refuses when a placement has no tutor**: publishing now refuses up front and points to the Arrangement page's Slot Setup tab, instead of creating an enrollment with no tutor.
 * **Move preserves the lesson number on a new Make-up Slot**: moving L6 onto a freshly-created Make-up Slot used to render as "L-" because the new slot's lesson had no default number. The session now keeps the original lesson number through the move.
 
 ## [2.0.66](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.66) (2026-05-09)
 
 ### New Features
 
-* **Annual grade auto-progression**: stored grades now advance one step on Sept 1 each year (F1 to F2, F6 to Graduated). During the summer transition window the grade badge shows "Pre-Fx" so tutors see next term's curriculum without flipping the underlying value early. Creating a CSM Student from a summer application before Sept 1 stores the pre-promotion grade so the upcoming auto-promotion lifts them to the target.
-* **Copy past and all session dates from a student page**: the Copy pill in the Sessions tab now offers Past and All scopes in the dropdown alongside Upcoming, so you can hand a parent a full attendance history. Past rows include the session status next to each date so attended classes and absences read at a glance. The same scope picker is available on each enrollment header.
+* **Annual grade auto-progression**: stored grades advance one step every 1 September, and through the transition window the badge shows Pre-Fx so tutors see next term's curriculum without the value changing early.
+* **Copy past and all session dates from a student page**: the Copy pill in the Sessions tab now offers Past and All alongside Upcoming, with the session status beside each past date.
 
 ### Bug Fixes
 
-* **Tutor-scoped features now follow the logged-in user**: proposals, memos, exam enrollment audit trails, and the exam revision slot default tutor were resolving against a hardcoded tutor lookup. They now read the actually-logged-in user (and respect Super-Admin impersonation), so every account sees its own data.
+* **Tutor-scoped features now follow the logged-in user**: proposals, memos, exam enrollment audit trails and the revision slot's default tutor now read the logged-in user rather than a hardcoded lookup.
 * **Create student from a summer application prefills the right branch**: the Create new student dialog now seeds the home location from the application's preferred branch (MSA or MSB) instead of the sidebar's current filter. The dropdown stays editable.
 * **Courseware tab no longer crashes when grouped by PDF**: the student detail Courseware tab's "Group by PDF" view was throwing a ReferenceError on render. The shared display-name helper is now wired up correctly.
 
@@ -300,16 +635,16 @@
 
 ### New Features
 
-* **P6 handover note follows the student**: when a former P6 prospect walks into their first lesson with a tutor, the session popover now shows the handover note that the primary-branch tutor wrote, with the author and source branch. The same note (plus sibling info and parent preferences) lives permanently on the Profile tab of the student detail page so it stays accessible later.
-* **Admin-only grades on summer config**: a new admin-only checkbox in the Summer Config editor lets you hide a grade option from the public application form while keeping it selectable inside admin UIs (slot card dropdown, application detail modal). F4 ships marked admin-only, so the public landing page still advertises 升中一 至 升中三 while admins can still place F4 students.
-* **Linked prospect badge on summer applications**: the application card and detail modal now show a "from P6 prospect" badge alongside the linked CSM Student badge when both exist, so the primary-branch origin is visible without bouncing to the prospects page.
+* **P6 handover note follows the student**: the note the primary branch tutor wrote now shows on the session popover at the student's first lesson, and lives permanently on their Profile tab.
+* **Admin-only grades on summer config**: a grade can be hidden from the public application form while staying selectable inside the admin pages. F4 ships that way.
+* **Linked prospect badge on summer applications**: the card and the detail modal show a from P6 prospect badge beside the linked student badge, so the primary branch origin is visible without leaving the page.
 * **Added-at timestamp on waitlist entries**: opening a waitlist entry now shows when (and by whom) it was added, right under the modal title.
-* **Exited buddy members sink to the bottom**: the buddy member list in the application detail modal now sorts Withdrawn and Rejected members to the bottom, separated by a thin divider and rendered with a line-through. Click-through to those applications still works.
+* **Exited buddy members sink to the bottom**: Withdrawn and Rejected members now sort to the bottom of the buddy list, below a divider and struck through.
 
 ### Bug Fixes
 
-* **Receipt code stays attached after linking a P6 prospect**: linking a CSM Student to an F1 application that came from a P6 prospect no longer overwrites the verified branch origin with the destination branch, so the 26SummerMC receipt code remains valid. A one-shot repair script restores rows already affected by the prior behavior.
-* **Summer config save no longer wipes receipt codes and pricing extras**: saving the Summer Config now merges pricing keys instead of replacing the whole JSON, so receipt codes, academic year dates, partial per-lesson rate, and promo settings survive a Discounts edit.
+* **Receipt code stays attached after linking a P6 prospect**: linking a student no longer overwrites the verified branch origin, so the 26SummerMC receipt code stays valid, and the rows already affected have been repaired.
+* **Summer config save no longer wipes receipt codes and pricing extras**: saving the Summer Config now merges the pricing keys instead of replacing the whole block, so receipt codes, academic year dates and promo settings survive a Discounts edit.
 * **Buddy people-meter ignores closed applications**: the buddy count on the application card now excludes Withdrawn and Rejected entries, matching the discount math and the buddy tracker.
 * **Sidebar nav no longer shows a literal "0"**: nav items with a zero count (Waitlist, Extensions, etc.) stop rendering "0" next to the label.
 
@@ -317,26 +652,26 @@
 
 ### New Features
 
-* **Tutor x month revenue table**: a new Table view on the Revenue page (admins, center mode) shows every tutor as a row and the year's months as columns, shaded as a heatmap by session revenue. Click a cell to drill into the detail, hover for a breakdown, and watch for the crown that marks each month's top earner.
+* **Tutor x month revenue table**: a new Table view on the Revenue page shows every tutor as a row and the year's months as columns, shaded by session revenue, with a crown on each month's top earner.
 * **Sort and filter the matrix**: click any column header to sort by that month, by year total, or by tutor first name; the sort persists in the URL. A small filter box narrows the rows to a tutor name search.
 * **Tutor filter for the dashboard charts**: admins, super admins, and supervisors get a tutor selector above the Grade and School distribution charts that narrows both to one tutor at a time. Tutors in My View see only their own students automatically.
-* **Grade chart split by language stream**: a new Languages toggle next to the chart view buttons breaks each grade into C and E parts. Bar view stacks them, donut and radial show separate slices, and each grade keeps its own colour so you can still tell F1 from F2 at a glance.
-* **Click a chart slice to jump to the matching students**: clicking a grade, school, or stream segment opens the students list filtered to that selection and carries any active tutor and stream filter into the URL. The students page surfaces those filters as clearable chips in the toolbar.
-* **Copy chart data as a table**: a new copy button on each chart header puts the rows on your clipboard as a tab-separated table, ready to paste into Sheets or Excel. The Grade copy adapts to the language-stream toggle, and the School copy expands the "Others" bucket into the full ranked list.
-* **Session plan cap on summer placements**: dragging a student into a slot or calendar lesson now refuses to overshoot their paid lesson count. The application detail modal shows a Placed N/N badge that turns green when full and red when over plan. The slot placement dialog previews each option's resulting total, disables choices that would overshoot, and explains when there's no room left. Rescheduled and made-up sessions free their original spot, so the count stays accurate after a reschedule.
-* **Summer Course sidebar status**: the Summer Course nav loses its Beta tag and gains a live status indicator. While applications are open the icon shows a green "Open" pill (or a small green dot when the sidebar is collapsed). When there are applications still in the active workflow at your selected branch (Submitted through Paid, excluding closed and Enrolled), the pill is replaced by an orange count badge so the triage queue is visible at a glance.
+* **Grade chart split by language stream**: a Languages toggle breaks each grade into its C and E parts, stacked in the bar view and as separate slices in the donut and radial views.
+* **Click a chart slice to jump to the matching students**: clicking a grade, school or stream segment opens the students list filtered to it, with the filters shown as clearable chips.
+* **Copy chart data as a table**: a copy button on each chart header puts the rows on the clipboard as a tab-separated table, ready to paste into Sheets or Excel.
+* **Session plan cap on summer placements**: dragging a student into a slot now refuses to overshoot their paid lesson count, with a Placed N/N badge on the application and each option's resulting total previewed.
+* **Summer Course sidebar status**: the Summer Course nav shows a green Open pill while applications are being taken, replaced by an orange count of the ones still to work through.
 
 ### Bug Fixes
 
-* **Supervisors can browse all summer admin tabs**: Applications, Arrangement, Prospects, and Config now open in read-only mode for Supervisors instead of denying access. Write controls (status changes, drag-drop placement, link/unlink, save buttons) are hidden, and a "(Read-only)" badge sits in the header.
-* **Readable section labels on the dashboard and Progress drawer**: the "Filter charts:" tag on the dashboard and the Overview / History row in the Student detail Progress drawer now sit on a paper card, so the text no longer washes into the wooden desk background in light mode.
+* **Supervisors can browse all summer admin tabs**: Applications, Arrangement, Prospects and Config open read-only for Supervisors instead of denying access, with the write controls hidden.
+* **Readable section labels on the dashboard and Progress drawer**: the Filter charts tag and the Overview / History row now sit on a paper card, so the text no longer washes into the background in light mode.
 * **Half-placement option label no longer assumes Type A**: the slot placement dialog's half option now reads "4 lessons" instead of "First 4 lessons", since slot type A or B determines whether those four sessions fall in the early or late half of the term.
 
 ## [2.0.63](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.63) (2026-04-26)
 
 ### New Features
 
-* **Smarter leave day calculation**: the dashboard leave calendar now tints public holidays and shows their names. Filing leave automatically excludes holidays and your own regular days off from the requested days, so a 5-day request that overlaps Labour Day plus a Sunday off submits as 3 days instead of 5. The approve and detail modals list the non-working days inside the range, and warn when the filed days exceed working days.
+* **Smarter leave day calculation**: the leave calendar tints public holidays and names them, and filing leave now excludes holidays and your own days off, so a 5-day request over Labour Day and a Sunday submits as 3.
 
 ## [2.0.62](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.62) (2026-04-25)
 
@@ -348,16 +683,16 @@
 
 ### Performance
 
-* **Snappier arrangement page**: skeleton placeholders now cover the loading windows on the slot grid and calendar, polling pauses on tabs you aren't viewing, and the grid only re-renders cells whose state actually changed during drag or edit. Large timetables feel noticeably faster during active edits.
+* **Snappier arrangement page**: skeleton placeholders cover the loading windows, polling pauses on tabs you are not viewing, and the grid only redraws the cells whose state actually changed.
 
 ## [2.0.61](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.61) (2026-04-24)
 
 ### New Features
 
-* **Slot cards auto-sort**: slot cards inside each day/time cell now follow a consistent order (grade, then course type, then tutor) on the arrangement grid and calendar. Ordering freezes while the pointer is over a cell so cards don't shuffle under your edits, and the card you just edited briefly rings so you can see where it landed.
+* **Slot cards auto-sort**: slot cards in each cell follow one order, grade then course type then tutor, and freeze while the pointer is over a cell so nothing shuffles under your edits.
 * **Withdrawn and Rejected applications fade back**: closed applications render at reduced opacity in the applications list so they recede in the default view, and their detail modal shows a sticky banner at the top announcing the closed state.
 * **Sticky toolbar and headers on arrangement tabs**: the filter/toolbar row stays pinned while scrolling on the slot grid, calendar, and students table; the calendar gets sticky date headers and the students table gets a sticky header row.
-* **Quarterly report totals match the Terminated Students page**: Opening/Closing/Termination/Enrollment-Transfer now use the same SQL as the web page (21-day grace window, quarter-scoped tutor attribution), and the Reasons tab exports Category, Reason, and Count-as-Term with working sheet checkboxes.
+* **Quarterly report totals match the Terminated Students page**: the opening, closing, termination and transfer figures now come from the same query as the web page, and the Reasons tab exports the category, reason and count.
 * **Location totals on the Term Rate tab**: the quarterly report writes location-wide Opening and Terminated counts de-duplicated across tutors, so a student placed with two tutors counts twice per-tutor but only once at the location.
 
 ### Bug Fixes
@@ -423,511 +758,511 @@
 
 ### New Features
 
-* **Lesson number editing on published summer sessions** — inline edit via badge on session detail and popover, per-student overrides that survive reschedules, a duplicate-number guard that returns a clear error, and duplicate L# highlighting on the students table
-* **Ad-hoc Make-up Slots** — admins can spin up one-off slots off the weekly grid for rescheduled lessons; off-grid dates render as make-up cards on the arrangement calendar
-* **Live session data on published applications** — the arrangement grid and application modal now read live session state after publish, so rescheduled, edited, and cancelled lessons show their current details instead of the frozen plan
-* **Divergence cues + eye icon on placement rows** — an icon-only orange pill marks rows that have drifted from the original plan, with a tooltip showing the original schedule; an eye icon on post-publish rows opens the session detail popover directly, so admins can reschedule, edit, or cancel without leaving the calendar
-* **Placement rows jump to calendar** — clicking a placement row in the application modal navigates to the matching week and branch, expands the card, and rings the target student row
-* **Delete placement post-publish** — remove a single published session from an application while keeping notes intact
-* **Auto-suggest modal reorg** — cards collapsed by default with attention icons, sticky filter bar (search + quality chips + select-visible), a Ready-to-place section pre-selected up top, and a Needs-review section that auto-expands without pre-selection
-* **Calendar density controls** — toggle day columns on slot setup and the arrangement grid to hide empty or unneeded days and reclaim horizontal space
-* **Mixed-lesson indicators** — slot cards show a dot when students are on different lesson materials, and rows with divergent lesson numbers render their own L# badge
-* **Linked CSM student chip on arrangement rows** — slot rows and calendar cards surface the matched CSM student identity alongside the applicant name
+* **Lesson number editing on published summer sessions**: a lesson number can be edited in place from its badge on the session detail and popover, with per-student overrides that survive a reschedule and a guard against duplicates.
+* **Ad-hoc Make-up Slots**: admins can spin up one-off slots off the weekly grid for rescheduled lessons; off-grid dates render as make-up cards on the arrangement calendar
+* **Live session data on published applications**: the arrangement grid and application modal now read live session state after publish, so rescheduled, edited, and cancelled lessons show their current details instead of the frozen plan
+* **Divergence cues and an eye icon on placement rows**: an orange pill marks the rows that have drifted from the original plan, and an eye icon opens the session detail popover so admins can act without leaving the calendar.
+* **Placement rows jump to calendar**: clicking a placement row in the application modal navigates to the matching week and branch, expands the card, and rings the target student row
+* **Delete placement post-publish**: remove a single published session from an application while keeping notes intact
+* **Auto-suggest modal reorg**: cards collapsed by default with attention icons, sticky filter bar (search + quality chips + select-visible), a Ready-to-place section pre-selected up top, and a Needs-review section that auto-expands without pre-selection
+* **Calendar density controls**: toggle day columns on slot setup and the arrangement grid to hide empty or unneeded days and reclaim horizontal space
+* **Mixed-lesson indicators**: slot cards show a dot when students are on different lesson materials, and rows with divergent lesson numbers render their own L# badge
+* **Linked CSM student chip on arrangement rows**: slot rows and calendar cards surface the matched CSM student identity alongside the applicant name
 
 ### Bug Fixes
 
-* **Lesson-number cache staleness** — post-publish lesson number edits now propagate immediately across views instead of waiting for a refresh
-* **Unpublished placement lookup** — calendar navigation now routes via the SummerLesson FK to avoid stale lookups
-* **Auto-suggest sticky filter bar** — filter bar now sits flush at the top of the scroll area when scrolled
+* **Lesson-number cache staleness**: post-publish lesson number edits now propagate immediately across views instead of waiting for a refresh
+* **Unpublished placement lookup**: calendar navigation now routes via the SummerLesson FK to avoid stale lookups
+* **Auto-suggest sticky filter bar**: filter bar now sits flush at the top of the scroll area when scrolled
 
 ## [2.0.56](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.56) (2026-04-11)
 
 ### New Features
 
-* **Arrangement page revamp** — enriched incomplete panel cards (branch chips, buddy dots, status indicators, placement dot strip), bulk session confirm (per-slot and per-location), student table to calendar navigation, buddy co-placement hints during drag
-* **Demand sparklines** — slot grid cells show per-grade mini stacked bars (solid = 1st pref, light = 2nd pref) with global max relative sizing for cross-cell comparison
-* **Clickable demand bars** — click a grade bar to filter the side panel to students who chose that slot as their 1st or 2nd preference, fetching all applications (not just unplaced)
-* **Auto-suggest partial placement** — algorithm now tolerates up to 2 date-excluded lessons, creating them as "Rescheduled - Pending Make-up" on the original date. Offers an "Option B" with make-ups when non-preferred slots would otherwise be used
-* **Calendar overlay in auto-suggest** — the date constraint panel now shows colored dots on suggested lesson dates, with hollow circles for pending make-up lessons
-* **Rescheduled session styling** — sessions with "Rescheduled - Pending Make-up" status display with orange tint, AlertTriangle icon, and strikethrough across calendar, slot cards, and detail modal (matching the sessions page convention)
+* **Arrangement page revamp**: enriched incomplete panel cards (branch chips, buddy dots, status indicators, placement dot strip), bulk session confirm (per-slot and per-location), student table to calendar navigation, buddy co-placement hints during drag
+* **Demand sparklines**: slot grid cells show per-grade mini stacked bars (solid = 1st pref, light = 2nd pref) with global max relative sizing for cross-cell comparison
+* **Clickable demand bars**: click a grade bar to filter the side panel to students who chose that slot as their 1st or 2nd preference, fetching all applications (not just unplaced)
+* **Auto-suggest partial placement**: algorithm now tolerates up to 2 date-excluded lessons, creating them as "Rescheduled - Pending Make-up" on the original date. Offers an "Option B" with make-ups when non-preferred slots would otherwise be used
+* **Calendar overlay in auto-suggest**: the date constraint panel now shows colored dots on suggested lesson dates, with hollow circles for pending make-up lessons
+* **Rescheduled session styling**: sessions with "Rescheduled - Pending Make-up" status display with orange tint, AlertTriangle icon, and strikethrough across calendar, slot cards, and detail modal (matching the sessions page convention)
 
 ### Bug Fixes
 
-* **Status flow correction** — placing sessions now bumps application status from Submitted to Under Review (not Placement Offered). Placement Offered and Confirmed are reserved for when fee messages are sent to parents
-* **Auto-suggest for MSB** — fixed auto-suggest returning no results for MSB location by generating lessons before running the algorithm
-* **Rescheduled sessions excluded from capacity** — sessions marked as rescheduled no longer count towards slot or lesson capacity, freeing seats for other students
+* **Status flow correction**: placing sessions now bumps application status from Submitted to Under Review (not Placement Offered). Placement Offered and Confirmed are reserved for when fee messages are sent to parents
+* **Auto-suggest for MSB**: fixed auto-suggest returning no results for MSB location by generating lessons before running the algorithm
+* **Rescheduled sessions excluded from capacity**: sessions marked as rescheduled no longer count towards slot or lesson capacity, freeing seats for other students
 
 ## [2.0.55](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.55) (2026-04-11)
 
 ### New Features
 
-* **Wolfram Alpha query panel** — tutors can query Wolfram Alpha directly during lessons via a slide-in panel (press W or click the Sigma button in the header). Results display as a zoomable image with click-to-zoom via the existing lightbox
-* **Math keyboard input** — toggle the f(x) button to switch from plain text to a MathLive math keyboard for structured input. LaTeX is automatically converted to Wolfram-compatible syntax
-* **Query caching** — repeated queries return instantly from a 24-hour backend cache (200 entry cap), saving API quota. Cached results show a green "Cached result" badge
-* **Persistent query history** — past queries are saved in localStorage (up to 30) and persist across sessions. A collapsible history panel lets tutors browse and re-run previous queries
-* **Cross-user Google Drive title fetch** — URL exercise titles now fetch correctly for Google Docs stored in any workspace user's Drive, not just the admin's. Uses service account delegation to impersonate the current tutor, with session tutor and admin fallback
-* **Google Docs sharing hint** — lesson mode shows a "Can't see the file? Ask the owner to share it with you" hint below Google Docs iframes
+* **Wolfram Alpha query panel**: tutors can query Wolfram Alpha directly during lessons via a slide-in panel (press W or click the Sigma button in the header). Results display as a zoomable image with click-to-zoom via the existing lightbox
+* **Math keyboard input**: toggle the f(x) button to switch from plain text to a MathLive math keyboard for structured input. LaTeX is automatically converted to Wolfram-compatible syntax
+* **Query caching**: repeated queries return instantly from a 24-hour backend cache (200 entry cap), saving API quota. Cached results show a green "Cached result" badge
+* **Persistent query history**: past queries are saved in localStorage (up to 30) and persist across sessions. A collapsible history panel lets tutors browse and re-run previous queries
+* **Cross-user Google Drive title fetch**: URL exercise titles now fetch for Google Docs stored in any workspace user's Drive, not only the admin's.
+* **Google Docs sharing hint**: lesson mode shows a "Can't see the file? Ask the owner to share it with you" hint below Google Docs iframes
 
 ## [2.0.54](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.54) (2026-04-11)
 
 ### New Features
 
-* **Expanded URL exercise support** — embed YouTube videos, Desmos graphs, GeoGebra tools, PhET simulations, Kahoot quizzes, and Polypad manipulatives directly in lesson mode. Wayground and Mathigon links open in a new tab
-* **Type badges** — URL exercises now show colored badges (Video, Math, Sim, Quiz, Slides, Doc, Link) in lesson sidebars, student courseware tab, recap items, and exercise history
-* **Resource directory** — a new "Browse Resources" dropdown in the exercise editor helps tutors discover educational platforms with link format guidance and embed behavior hints
-* **Editable URL titles** — the auto-fetched title field is now an editable input, so tutors can manually name exercises when auto-fetch fails or returns a bad name
-* **Title fetch for any URL** — pasting a YouTube, Desmos, PhET, or any HTTPS link auto-fetches the page title. YouTube uses the oEmbed API for reliability
-* **YouTube thumbnail preview** — hovering over the YouTube icon in lesson sidebars and exercise modals shows a thumbnail preview of the video
-* **Iframe embed code paste** — pasting an iframe embed code (e.g., from Polypad) automatically extracts the URL
+* **Expanded URL exercise support**: embed YouTube videos, Desmos graphs, GeoGebra tools, PhET simulations, Kahoot quizzes, and Polypad manipulatives directly in lesson mode. Wayground and Mathigon links open in a new tab
+* **Type badges**: URL exercises now show colored badges (Video, Math, Sim, Quiz, Slides, Doc, Link) in lesson sidebars, student courseware tab, recap items, and exercise history
+* **Resource directory**: a new "Browse Resources" dropdown in the exercise editor helps tutors discover educational platforms with link format guidance and embed behavior hints
+* **Editable URL titles**: the auto-fetched title field is now an editable input, so tutors can manually name exercises when auto-fetch fails or returns a bad name
+* **Title fetch for any URL**: pasting a YouTube, Desmos, PhET, or any HTTPS link auto-fetches the page title. YouTube uses the oEmbed API for reliability
+* **YouTube thumbnail preview**: hovering over the YouTube icon in lesson sidebars and exercise modals shows a thumbnail preview of the video
+* **Iframe embed code paste**: pasting an iframe embed code (e.g., from Polypad) automatically extracts the URL
 
 ### Bug Fixes
 
-* **Duplicate key warning** — fixed React key collision in SessionDetailPopover when URL exercises have no PDF name
+* **Duplicate key warning**: fixed React key collision in SessionDetailPopover when URL exercises have no PDF name
 
 ## [2.0.53](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.53) (2026-04-11)
 
 ### New Features
 
-* **URL exercises** — tutors can now paste Google Slides, Docs, or Sheets URLs as classwork or homework alongside regular PDFs. The URL auto-detects on paste, shows an embedded iframe in lesson mode, and gracefully skips URL exercises during print/download operations
-* **Auto-fetch URL titles** — when a Google Docs/Slides/Sheets link is pasted, the presentation title is automatically fetched via the Drive API and displayed everywhere: exercise modals, lesson sidebars, session detail, student courseware tab, reports, and exercise history
+* **URL exercises**: tutors can paste Google Slides, Docs or Sheets links as classwork or homework alongside PDFs, and they show as an embedded frame in lesson mode.
+* **Auto-fetch URL titles**: a pasted Google link now shows its real title everywhere, in the exercise modals, lesson sidebars, session detail, the courseware tab, reports and history.
 
 ## [2.0.52](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.52) (2026-04-10)
 
 ### Bug Fixes
 
-* **Ghost sessions respect tutor filter** — proposed make-up sessions on the Sessions page and Today's Sessions card now correctly hide when a tutor filter is active, instead of showing every pending proposal regardless of tutor
+* **Ghost sessions respect tutor filter**: proposed make-up sessions on the Sessions page and Today's Sessions card now correctly hide when a tutor filter is active, instead of showing every pending proposal regardless of tutor
 
 ### New Features
 
-* **Kahoot! in Tools quicklinks** — added a direct link to Kahoot in the dashboard Tools dropdown for quick access during lessons
+* **Kahoot! in Tools quicklinks**: added a direct link to Kahoot in the dashboard Tools dropdown for quick access during lessons
 
 ## [2.0.51](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.51) (2026-04-10)
 
 ### Improvements
 
-* **Placement details in the application card** — placed students now show a progress strip with date range, colored status dots (green = confirmed, amber = tentative), and a placed/total count alongside their preferences, instead of repeating the same day and time for every lesson
-* **Placement details in the detail modal** — each session row now shows the actual lesson date, day, start time, class grade, tutor name, and current slot capacity, matching the information density of the arrangements page
-* **Consistent section icons** — the card and detail modal now use the same icons for schedule preferences and placement sections
+* **Placement details in the application card**: a placed student now shows a progress strip with the date range, coloured status dots and a placed out of total count, instead of repeating the same day and time for every lesson.
+* **Placement details in the detail modal**: each session row now shows the actual lesson date, day, start time, class grade, tutor name, and current slot capacity, matching the information density of the arrangements page
+* **Consistent section icons**: the card and detail modal now use the same icons for schedule preferences and placement sections
 
 ## [2.0.50](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.50) (2026-04-10)
 
 ### New Features
 
-* **Summer applications — unified toolbar** — stats, filters, and count strips collapsed into a single row with Status, Arrange, and More menus; location now lives as a scope in the page header with the same All/branch semantics as other admin pages
-* **Buddy board view** — alternate view for the applications page that groups members by buddy code and buckets groups by how close they are to the next discount tier (config-driven), so the "one more buddy to unlock Early Bird Group of 3" cohort surfaces at a glance
-* **Branch origin filter** — new More-menu filter that scopes the list to a specific branch (MAC, MSA, …) or shows only "New" applicants with no linked student or claim
-* **Link suggestions modal** — single admin modal that surfaces both auto-match candidates (Primary prospects) and duplicate-student candidates (Secondary branches) in one place, with per-row "Link this" inline actions and strict auto-link thresholds
-* **Fee breakdown in the detail modal** — shows the applicable discount code, amount, and final fee for each applicant, plus a "one more buddy to unlock {tier}" nudge when the group is near the next tier. Group-size discounts now honour the moment the group actually reached N members, including admin reassignments and post-submission joins
-* **Prospects auto-match preview** — clicking Auto-Match now opens a dry-run preview showing exactly which prospects would link and which would be skipped (with reason and conflicting rows); ambiguous cases can be resolved inline
-* **Prospects WeChat filter** — filter the admin prospects list by whether the imported contact data already has a WeChat handle, so "who can I message right now" is one click
-* **Filter-aware branch pills** — the top branch pills on the prospects page now re-count themselves against the active filters, so selecting "Has WeChat" (or any other filter) shows the per-branch counts for that slice
+* **A unified toolbar on summer applications**: the stats, filters and count strips collapse into one row with Status, Arrange and More menus, and location moves to the page header as a scope like the other admin pages.
+* **Buddy board view**: an alternate view of the applications page groups members by buddy code and buckets the groups by how close they are to the next discount tier.
+* **Branch origin filter**: new More-menu filter that scopes the list to a specific branch (MAC, MSA, …) or shows only "New" applicants with no linked student or claim
+* **Link suggestions modal**: single admin modal that surfaces both auto-match candidates (Primary prospects) and duplicate-student candidates (Secondary branches) in one place, with per-row "Link this" inline actions and strict auto-link thresholds
+* **Fee breakdown in the detail modal**: each applicant shows the discount code, the amount and the final fee, with a nudge when the group is one member short of the next tier.
+* **Prospects auto-match preview**: clicking Auto-Match now opens a dry-run preview showing exactly which prospects would link and which would be skipped (with reason and conflicting rows); ambiguous cases can be resolved inline
+* **Prospects WeChat filter**: filter the admin prospects list by whether the imported contact data already has a WeChat handle, so "who can I message right now" is one click
+* **Filter-aware branch pills**: the top branch pills on the prospects page now re-count themselves against the active filters, so selecting "Has WeChat" (or any other filter) shows the per-branch counts for that slice
 
 ### Improvements
 
-* **Applications list — redesigned card** — clearer hierarchy, inline status editing, buddy meter that counts actual group members plus declared siblings, originating-center chip, unavailability notes truncation, reference-code copy on hover, placed-slots tooltip, pending-sibling signal, reviewed-at timestamp
-* **Applications list — virtualized rendering** — large lists no longer jank while scrolling
-* **URL-synced filters** — toolbar state (filters, sort, view, preset) round-trips through the URL so links and page reloads restore the exact view
-* **Unsaved-changes guard** — the detail modal now prompts before discarding edits when cancelling, closing, hitting Escape, or navigating prev/next
-* **More dropdown on narrow screens** — portal-based positioning clamps the menu to the viewport so it no longer overflows on small screens
-* **Duplicate-check hints in student search** — combined name/phone match reasons into a single row so the strongest signal is always visible
+* **A redesigned card on the applications list**: the card now has a clearer hierarchy, inline status editing, a buddy meter that counts real group members plus declared siblings, and the originating centre on a chip.
+* **Smoother scrolling on the applications list**: a long list no longer stutters as you scroll it.
+* **URL-synced filters**: toolbar state (filters, sort, view, preset) round-trips through the URL so links and page reloads restore the exact view
+* **Unsaved-changes guard**: the detail modal now prompts before discarding edits when cancelling, closing, hitting Escape, or navigating prev/next
+* **More dropdown on narrow screens**: portal-based positioning clamps the menu to the viewport so it no longer overflows on small screens
+* **Duplicate-check hints in student search**: combined name/phone match reasons into a single row so the strongest signal is always visible
 
 ### Fixes
 
-* **Prospects branch-count pills missing totals** — the admin stats endpoint was being shadowed by the single-prospect fetch route and silently returning 422, so pill counts went blank. Route order fixed
-* **Applications — stale linked-student flash** — the detail modal no longer flashes the previous applicant's linked-student warning when navigating prev/next
-* **Prospects — modal close button** — close now gives visual feedback and the linked-application status badge reflects the correct state
+* **Prospects branch-count pills missing totals**: the admin stats endpoint was being shadowed by the single-prospect fetch route and silently returning 422, so pill counts went blank. Route order fixed
+* **The linked-student warning belongs to the applicant you opened**: stepping through applications no longer flashes the previous applicant's warning on the new one.
+* **The prospect window's close button**: it now gives visual feedback, and the linked application's status badge shows the right state.
 
 ## [2.0.49](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.49) (2026-04-08)
 
 ### Fixes
 
-* **Summer apply — confirmation step skipped** — clicking Next on step 4 could occasionally jump straight to the success page, bypassing the step 5 review and confirmation checkbox; the navigation buttons now fully unmount between steps so the submit action can never fire by accident
-* **Dashboard leave quicklink — impersonation scope** — when an admin impersonates a tutor, the leave quicklink now reflects the impersonated tutor's balance instead of the admin's own
+* **The summer form no longer skips its confirmation step**: clicking Next on step 4 could occasionally jump straight to the success page, so the navigation buttons now unmount fully between steps and submit can never fire by accident.
+* **The dashboard leave quicklink follows impersonation**: an admin impersonating a tutor now sees that tutor's balance rather than their own.
 
 ## [2.0.48](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.48) (2026-04-07)
 
 ### New Features
 
-* **Summer application self-edit** — applicants can now edit their submitted form from the status page (time slots, location, school, grade, language stream, WeChat) as long as the application is still in Submitted state; once admin moves it to Under Review the form locks and a banner directs them to contact staff
-* **Summer edit audit trail** — every change (applicant or admin) is captured in a per-field history visible in the admin detail modal, with timestamps, editor name, and old → new values
-* **Admin application detail editing** — new "Edit details" toggle in the admin modal swaps identity, schedule, and preference fields into inline editors; moving an application out of Submitted now prompts a confirmation so admins know the applicant will lose self-service access
-* **Sibling declaration on buddy groups** — secondary applicants with a younger sibling applying at a Primary branch (or KidsConcept) can declare them on the buddy group; admin confirms against the proprietary system and the sibling counts toward the 3-person discount threshold
-* **Draft autosave** — apply form now saves in-progress data to the browser so a reload or accidental close doesn't wipe half-filled applications; a "Resume draft?" banner offers to restore it
-* **Unload warning** — the browser now asks for confirmation before leaving the apply page with unsaved changes
+* **Summer application self-edit**: an applicant can edit their submitted form from the status page while it is still in Submitted, after which it locks with a banner asking them to contact staff.
+* **Summer edit audit trail**: every change (applicant or admin) is captured in a per-field history visible in the admin detail modal, with timestamps, editor name, and old → new values
+* **Admin application detail editing**: an Edit details toggle in the admin modal turns the identity, schedule and preference fields into inline editors, and moving an application out of Submitted now asks for confirmation.
+* **Sibling declaration on buddy groups**: a secondary applicant with a younger sibling applying at a Primary branch can declare them on the buddy group, and once an admin confirms it the sibling counts towards the 3-person discount.
+* **Draft autosave**: apply form now saves in-progress data to the browser so a reload or accidental close doesn't wipe half-filled applications; a "Resume draft?" banner offers to restore it
+* **Unload warning**: the browser now asks for confirmation before leaving the apply page with unsaved changes
 
 ### Improvements
 
-* **Summer form — merged student-background question** — "Are you a current student?" and "Which center?" collapsed into one chip selector grouped by organisation, saving a tap
-* **Summer form — tap-a-slot grid** — class time selection replaced the four cascading dropdowns with a visual day-by-time grid; tap once for 1st preference, again for 2nd
-* **Summer form — pill selection** — center, grade, session frequency, and buddy mode chips no longer shift layout when selected; selection is signalled by colour alone following modern pill conventions
-* **Summer form — brand WeChat icon** — WeChat ID field now uses the brand icon on the apply form, status page, and admin modal
-* **Phone format tolerance** — summer applicants can now enter their number with spaces, hyphens, or parentheses without issue; the status page accepts any format on lookup
-* **Duplicate detection** — same parent can now submit multiple siblings (same phone, different student name); the duplicate check correctly blocks same-student resubmissions only
-* **Capacity headroom** — raised submission, status, and self-edit rate limits to tolerate shared school or office wifi; Cloud Run backend and frontend now scale up to 3 instances for failover and burst capacity
-* **Admin modal — sibling verification UX** — pending sibling chips, confirm/reject buttons, and branch-tagged rows for cleaner verification workflow
+* **One question about the student's background on the summer form**: whether they already study with us and which centre are now a single chip selector grouped by organisation, saving a tap.
+* **A tap-a-slot grid on the summer form**: class times are picked from a day-by-time grid instead of four cascading dropdowns, tapping once for first preference and again for second.
+* **Pill selection on the summer form**: the centre, grade, frequency and buddy chips no longer shift the layout when picked, since selection now shows in colour alone.
+* **The WeChat brand icon on the summer form**: the WeChat ID field carries it on the apply form, the status page and the admin window.
+* **Phone format tolerance**: summer applicants can now enter their number with spaces, hyphens, or parentheses without issue; the status page accepts any format on lookup
+* **Duplicate detection**: same parent can now submit multiple siblings (same phone, different student name); the duplicate check correctly blocks same-student resubmissions only
+* **Capacity headroom**: raised submission, status, and self-edit rate limits to tolerate shared school or office wifi; Cloud Run backend and frontend now scale up to 3 instances for failover and burst capacity
+* **Sibling verification in the admin window**: pending siblings show as chips with confirm and reject buttons, and each row is tagged with its branch.
 
 ### Fixes
 
-* **Buddy cap race** — submitting with both a buddy code and a declared sibling now pre-flights capacity so the user gets the cap error before anything commits, instead of leaving the application saved with a confusing sibling error
-* **Status page translation** — grade, language stream, and location now show their proper Chinese or English label based on the selected language, instead of the raw stored value
-* **Admin config preview drift** — the admin form preview now stays automatically in sync with the real apply form as fields evolve
+* **Buddy cap race**: submitting with both a buddy code and a declared sibling now pre-flights capacity so the user gets the cap error before anything commits, instead of leaving the application saved with a confusing sibling error
+* **Status page translation**: grade, language stream, and location now show their proper Chinese or English label based on the selected language, instead of the raw stored value
+* **Admin config preview drift**: the admin form preview now stays automatically in sync with the real apply form as fields evolve
 
 ## [2.0.47](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.47) (2026-04-05)
 
 ### New Features
 
-* **Waitlist** — track prospective students (New) and slot change requests with a searchable list view, bulk paste import, and filters by grade, type, and location
-* **Waitlist timetable** — weekly grid overlay showing waitlist demand alongside enrolled students, with day-filter chips, cell heat tinting by occupancy, and collapsible tutor cards with capacity bars
-* **Preferred tutor** — optional tutor preference per slot; entries appear inside the preferred tutor's timetable card with a "Waiting" section
-* **Slot Change highlight** — collapsible card strip above the timetable showing current → preferred slot details; selecting an entry highlights the relevant tutor cards
-* **Enrollment workflow** — link waitlist entries to students, schedule trials with a one-click prompt after student creation, and view enrollment details from the timetable
+* **Waitlist**: track prospective students (New) and slot change requests with a searchable list view, bulk paste import, and filters by grade, type, and location
+* **Waitlist timetable**: weekly grid overlay showing waitlist demand alongside enrolled students, with day-filter chips, cell heat tinting by occupancy, and collapsible tutor cards with capacity bars
+* **Preferred tutor**: optional tutor preference per slot; entries appear inside the preferred tutor's timetable card with a "Waiting" section
+* **Slot Change highlight**: collapsible card strip above the timetable showing current → preferred slot details; selecting an entry highlights the relevant tutor cards
+* **Enrollment workflow**: link waitlist entries to students, schedule trials with a one-click prompt after student creation, and view enrollment details from the timetable
 
 ## [2.0.46](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.46) (2026-04-03)
 
 ### New Features
 
-* **Copy All** — new toolbar button in the document editor copies all content (text, LaTeX math codes, and geometry diagram images) to the clipboard for easy export to other apps
-* **Dual-format clipboard** — rich text targets (Google Docs, Word) receive formatted HTML with embedded images; plain text targets get text with `$LaTeX$` codes preserved
+* **Copy All**: new toolbar button in the document editor copies all content (text, LaTeX math codes, and geometry diagram images) to the clipboard for easy export to other apps
+* **Dual-format clipboard**: rich text targets (Google Docs, Word) receive formatted HTML with embedded images; plain text targets get text with `$LaTeX$` codes preserved
 
 ### Improvements
 
-* **Responsive document toolbar** — History, Layout, and Copy All buttons collapse into an overflow menu on smaller screens to reduce crowding
+* **Responsive document toolbar**: History, Layout, and Copy All buttons collapse into an overflow menu on smaller screens to reduce crowding
 
 ## [2.0.45](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.45) (2026-04-02)
 
 ### New Features
 
-* **ARK leave integration** — inline leave management dropdown on the dashboard with balances, request filing, and admin review — no more switching to ARK for common tasks
-* **Leave balances** — expandable rows showing entitlement, carry-over, adjustments, and remaining days with a visual bar
-* **File leave & overtime** — compact forms for submitting leave requests (with time range for partial days) and overtime records directly from the dropdown
-* **Admin leave review** — approve or reject pending leave requests inline with optional reviewer notes
-* **Team leave calendar** — month-view calendar for admins showing who's on approved leave with colored dots per leave type
+* **ARK leave integration**: a leave dropdown on the dashboard carries balances, request filing and admin review, so the common tasks no longer mean switching to ARK.
+* **Leave balances**: expandable rows showing entitlement, carry-over, adjustments, and remaining days with a visual bar
+* **File leave & overtime**: compact forms for submitting leave requests (with time range for partial days) and overtime records directly from the dropdown
+* **Admin leave review**: approve or reject pending leave requests inline with optional reviewer notes
+* **Team leave calendar**: month-view calendar for admins showing who's on approved leave with colored dots per leave type
 
 ### Improvements
 
-* **Dashboard dropdown styling** — warm paper-cream background with texture, stronger shadows, and darker borders across all quick-link dropdowns
-* **Compact request cards** — two-line leave request cards with expandable detail (reason, reviewer, filed date)
-* **Upcoming/History filter** — My Requests tab defaults to upcoming leave, with a toggle to view past and cancelled requests
-* **Cancel approved leave** — cancel button available on both pending and approved requests (approved cancellation restores balance)
-* **Notification bell** — pending leave request count shown for admins alongside other notification items
+* **Dashboard dropdown styling**: warm paper-cream background with texture, stronger shadows, and darker borders across all quick-link dropdowns
+* **Compact request cards**: two-line leave request cards with expandable detail (reason, reviewer, filed date)
+* **Upcoming/History filter**: My Requests tab defaults to upcoming leave, with a toggle to view past and cancelled requests
+* **Cancel approved leave**: cancel button available on both pending and approved requests (approved cancellation restores balance)
+* **Notification bell**: pending leave request count shown for admins alongside other notification items
 
 ### Bug Fixes
 
-* **Leave day count** — now counts all calendar days instead of skipping weekends
-* **Dark mode contrast** — fixed approve/reject button text, select dropdown background, and footer divider visibility
-* **Dropdown corner bleed** — hover states on footers and form headers no longer poke outside rounded containers
-* **Proposed sessions location filter** — makeup proposal ghost sessions now correctly filter by branch location
+* **Leave day count**: now counts all calendar days instead of skipping weekends
+* **Dark mode contrast**: fixed approve/reject button text, select dropdown background, and footer divider visibility
+* **Dropdown corner bleed**: hover states on footers and form headers no longer poke outside rounded containers
+* **Proposed sessions location filter**: makeup proposal ghost sessions now correctly filter by branch location
 
 ## [2.0.44](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.44) (2026-04-01)
 
 ### New Features
 
-* **Worksheet OCR import** — upload scanned PDF worksheets and automatically extract content into the document editor with math, tables, and bilingual support
-* **Question extraction & AI processing** — split worksheets into individual questions, generate step-by-step solutions and variant questions with one click
-* **Documents page redesign** — table view with variant tree, folder sidebar with drag-and-drop, preview pane, bulk operations, tag management, and keyboard navigation
-* **Answer sections** — collapsible inline answers in the editor with a printable answer key page
+* **Worksheet OCR import**: upload scanned PDF worksheets and automatically extract content into the document editor with math, tables, and bilingual support
+* **Question extraction & AI processing**: split worksheets into individual questions, generate step-by-step solutions and variant questions with one click
+* **Documents page redesign**: table view with variant tree, folder sidebar with drag-and-drop, preview pane, bulk operations, tag management, and keyboard navigation
+* **Answer sections**: collapsible inline answers in the editor with a printable answer key page
 
 ### Improvements
 
-* **Math editor LaTeX source mode** — toggle between the visual editor and raw LaTeX for direct source editing
-* **Editor mobile responsiveness** — toolbar collapses on small screens with touch-friendly targets
-* **Smart question detection** — works with both OCR-imported and manually created worksheets
-* **Print answer key** — shows document name, clean text over watermark, avoids splitting entries across pages
-* **Print reliability** — page layout recalculates after fonts load to prevent content overlapping footers
+* **Math editor LaTeX source mode**: toggle between the visual editor and raw LaTeX for direct source editing
+* **Editor mobile responsiveness**: toolbar collapses on small screens with touch-friendly targets
+* **Smart question detection**: works with both OCR-imported and manually created worksheets
+* **Print answer key**: shows document name, clean text over watermark, avoids splitting entries across pages
+* **Print reliability**: page layout recalculates after fonts load to prevent content overlapping footers
 
 ### Bug Fixes
 
-* **Page layout sometimes got out of sync** — content near page boundaries could overlap footers until a browser refresh
-* **Watermark too dark in print** — appeared much darker than the editor due to duplicate elements stacking
-* **Security fixes** — stricter permission checks on write endpoints and safer handling of special characters in tag filters
+* **Page layout sometimes got out of sync**: content near page boundaries could overlap footers until a browser refresh
+* **Watermark too dark in print**: appeared much darker than the editor due to duplicate elements stacking
+* **Security fixes**: stricter permission checks on write endpoints and safer handling of special characters in tag filters
 
 ## [2.0.43](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.43) (2026-03-27)
 
 ### New Features
 
-* **PDF page navigation bar** — bottom bar with prev/next buttons and a page number input for jumping directly to any page in multi-page exercises
+* **PDF page navigation bar**: bottom bar with prev/next buttons and a page number input for jumping directly to any page in multi-page exercises
 
 ### Bug Fixes
 
-* **PDF preview flickering** — reduced unnecessary re-renders in lesson mode PDF viewers that could cause both exercise and answer panes to flash on high-DPI displays or slower devices
+* **PDF preview flickering**: reduced unnecessary re-renders in lesson mode PDF viewers that could cause both exercise and answer panes to flash on high-DPI displays or slower devices
 
 ## [2.0.42](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.42) (2026-03-26)
 
 ### New Features
 
-* **Prospect page overhaul** — floating action button with direct-submit drawer, paste-to-table form with field validation, arrow key navigation in school autocomplete, urgency highlights on submitted table, and bulk operations
+* **Prospect page overhaul**: floating action button with direct-submit drawer, paste-to-table form with field validation, arrow key navigation in school autocomplete, urgency highlights on submitted table, and bulk operations
 
 ### Improvements
 
-* **Rate limits increased** — higher thresholds for shared WiFi environments where multiple staff connect from the same IP
+* **Rate limits increased**: higher thresholds for shared WiFi environments where multiple staff connect from the same IP
 
 ### Bug Fixes
 
-* **Keyboard shortcuts after bulk rating** — shortcuts on the sessions page stopped responding after closing the bulk rate modal until clicking something with the mouse
-* **Prospect drawer name** — fixed the drawer capturing a stale student name after edits
+* **Keyboard shortcuts after bulk rating**: shortcuts on the sessions page stopped responding after closing the bulk rate modal until clicking something with the mouse
+* **Prospect drawer name**: fixed the drawer capturing a stale student name after edits
 
 ## [2.0.41](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.41) (2026-03-25)
 
 ### New Features
 
-* **Bulk attendance actions** — the unchecked attendance page now supports selecting multiple sessions with checkboxes and marking them all as attended or no-show in one click
+* **Bulk attendance actions**: the unchecked attendance page now supports selecting multiple sessions with checkboxes and marking them all as attended or no-show in one click
 
 ### Bug Fixes
 
-* **Printing .doc files now works** — print buttons across the app (session detail, exercise modal, lesson mode) were silently failing for `.doc`/`.docx` exercises; they now correctly fetch the converted PDF from Shelv before printing
-* **Tutors can now add CW/HW and rate any session** — previously, tutors could only assign exercises and rate sessions under their own name; now any tutor can collaborate on any session
+* **Printing .doc files now works**: print buttons across the app (session detail, exercise modal, lesson mode) were silently failing for `.doc`/`.docx` exercises; they now correctly fetch the converted PDF from Shelv before printing
+* **Tutors can now add CW/HW and rate any session**: previously, tutors could only assign exercises and rate sessions under their own name; now any tutor can collaborate on any session
 
 ## [2.0.40](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.40) (2026-03-23)
 
 ### New Features
 
-* **Summer course system** — full application workflow: public bilingual apply form, admin config editor with drag-and-drop slot management, application review dashboard, and timetable arrangement grid
-* **Session-based scheduling** — calendar view with week navigation, lesson capacity tracking, student lesson tables, and find-slot dialog for manual placement
-* **Auto-suggest placement** — lesson-level algorithm with pair ordering, date constraints, tutor preferences, and single-student suggest from the unassigned panel
-* **P6 prospect module** — primary-to-secondary student feeder list with smart paste-to-table input, bulk operations (select, delete, set intentions, CSV export), and PIN-gated branch access
-* **Prospect subdomain** — `prospect.` subdomain routing via middleware for branch-specific access
-* **Admin auto-match** — automatically links P6 prospects to summer applications by phone number and year
+* **Summer course system**: full application workflow: public bilingual apply form, admin config editor with drag-and-drop slot management, application review dashboard, and timetable arrangement grid
+* **Session-based scheduling**: calendar view with week navigation, lesson capacity tracking, student lesson tables, and find-slot dialog for manual placement
+* **Auto-suggest placement**: lesson-level algorithm with pair ordering, date constraints, tutor preferences, and single-student suggest from the unassigned panel
+* **P6 prospect module**: primary-to-secondary student feeder list with smart paste-to-table input, bulk operations (select, delete, set intentions, CSV export), and PIN-gated branch access
+* **Prospect subdomain**: `prospect.` subdomain routing via middleware for branch-specific access
+* **Admin auto-match**: automatically links P6 prospects to summer applications by phone number and year
 
 ### Improvements
 
-* **Security hardening** — rate limiting on all public endpoints, Pydantic Literal validation for enums, year-scoped queries, PIN brute-force protection
+* **Security hardening**: rate limiting on all public endpoints, Pydantic Literal validation for enums, year-scoped queries, PIN brute-force protection
 
 ## [2.0.39](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.39) (2026-03-23)
 
 ### Bug Fixes
 
-* **Answer path paste now auto-converts drive letters** — pasting a Windows path like `V:\folder\file.pdf` into the answer field now auto-converts it to the correct alias format, matching the behaviour of the exercise path input
-* **Answer download shows missing count** — the bulk answer download button now shows how many answers were found vs missing, instead of silently skipping unfound files
-* **Per-exercise answer open/download Shelv fallback** — the open and download buttons on individual answer rows now fall back to Shelv when the file isn't found locally
-* **HK timezone for date calculations** — all backend date operations now use Hong Kong timezone consistently, preventing date mismatches around midnight
-* **Legacy renewal check** — candidate enrollments are now included when checking legacy renewal status
-* **Calendar sync crash** — fixed crash when detecting orphaned calendar events with exam revision slots, which caused "Failed to load calendar events" on the dashboard
-* **Make-up button colour** — the Schedule Make-up button on the Pending Make-up page now uses teal to match the session detail page
+* **Answer path paste now auto-converts drive letters**: pasting a Windows path like `V:\folder\file.pdf` into the answer field now auto-converts it to the correct alias format, matching the behaviour of the exercise path input
+* **Answer download shows missing count**: the bulk answer download button now shows how many answers were found vs missing, instead of silently skipping unfound files
+* **Per-exercise answer open/download Shelv fallback**: the open and download buttons on individual answer rows now fall back to Shelv when the file isn't found locally
+* **HK timezone for date calculations**: all backend date operations now use Hong Kong timezone consistently, preventing date mismatches around midnight
+* **Legacy renewal check**: candidate enrollments are now included when checking legacy renewal status
+* **Calendar sync crash**: fixed crash when detecting orphaned calendar events with exam revision slots, which caused "Failed to load calendar events" on the dashboard
+* **Make-up button colour**: the Schedule Make-up button on the Pending Make-up page now uses teal to match the session detail page
 
 ### Improvements
 
-* **Answer open/download shows progress** — the answer open and download buttons now show a spinner with progress text (e.g. "Trying local file…", "Searching Shelv…") instead of appearing to do nothing
-* **"Download Answers" shows live status** — the bulk download answers button now shows what it's doing (e.g. "Searching 1/3…", "Downloading 2 answer(s)…")
-* **Raw drive letter paths now resolve** — file paths like `V:\folder\file.pdf` can now be opened, downloaded, and printed directly without needing alias conversion first
+* **Answer open/download shows progress**: the answer open and download buttons now show a spinner with progress text (e.g. "Trying local file…", "Searching Shelv…") instead of appearing to do nothing
+* **"Download Answers" shows live status**: the bulk download answers button now shows what it's doing (e.g. "Searching 1/3…", "Downloading 2 answer(s)…")
+* **Raw drive letter paths now resolve**: file paths like `V:\folder\file.pdf` can now be opened, downloaded, and printed directly without needing alias conversion first
 
 ## [2.0.38](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.38) (2026-03-20)
 
 ### Bug Fixes
 
-* **Layout fix for modals and error pages** — fixed an issue where modals, dialogs, and full-page error messages appeared extremely narrow instead of their intended width
-* **Extension deadline preview** — the "New Effective End Date" shown when adjusting extension weeks now matches the actual calculated date, including holiday adjustments
-* **Sessions tab popover crash** — fixed an error when opening the enrollment detail popover from the sessions tab on a student page
-* **Guest dashboard** — guests no longer see failed network requests for admin-only data on the dashboard
-* **Notification bell** — notification icon stays properly aligned when dashboard stats are hidden for guests
-* **Dropdown on mobile** — fixed dropdown menus going off-screen when opening upward on small screens
+* **Layout fix for modals and error pages**: fixed an issue where modals, dialogs, and full-page error messages appeared extremely narrow instead of their intended width
+* **Extension deadline preview**: the "New Effective End Date" shown when adjusting extension weeks now matches the actual calculated date, including holiday adjustments
+* **Sessions tab popover crash**: fixed an error when opening the enrollment detail popover from the sessions tab on a student page
+* **Guest dashboard**: guests no longer see failed network requests for admin-only data on the dashboard
+* **Notification bell**: notification icon stays properly aligned when dashboard stats are hidden for guests
+* **Dropdown on mobile**: fixed dropdown menus going off-screen when opening upward on small screens
 
 ### Improvements
 
-* **Answer search copies page range** — the answer search button now copies the exercise's page range (simple or complex) into the answer fields, instead of only filling the PDF path
+* **Answer search copies page range**: the answer search button now copies the exercise's page range (simple or complex) into the answer fields, instead of only filling the PDF path
 
 ## [2.0.37](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.37) (2026-03-19)
 
 ### New Features
 
-* **ARK leave quick link** — dashboard "Leave Record" now links to ARK's leave management with the ARK brand icon, Google Sheet links kept as fallback during transition
-* **Cross-app SSO** — clicking the ARK leave link passes a handoff token so you're automatically logged in without needing to re-authenticate
+* **ARK leave quick link**: dashboard "Leave Record" now links to ARK's leave management with the ARK brand icon, Google Sheet links kept as fallback during transition
+* **Cross-app SSO**: clicking the ARK leave link passes a handoff token so you're automatically logged in without needing to re-authenticate
 
 ## [2.0.36](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.36) (2026-03-19)
 
 ### Bug Fixes
 
-* **Custom page order preserved** — entering page ranges like "8-15,5-6,16-18" now keeps pages in that exact order when viewing, printing, and downloading, instead of sorting them numerically
-* **Rate & Comment modal cancel button** — fixed confirmation dialog appearing behind the modal when discarding unsaved changes
+* **Custom page order preserved**: entering page ranges like "8-15,5-6,16-18" now keeps pages in that exact order when viewing, printing, and downloading, instead of sorting them numerically
+* **Rate & Comment modal cancel button**: fixed confirmation dialog appearing behind the modal when discarding unsaved changes
 
 ## [2.0.35](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.35) (2026-03-18)
 
 ### Bug Fixes
 
-* **Reschedule & make-up for other tutors** — tutors can now reschedule sessions, schedule make-ups, and cancel make-ups for any student, not just their own sessions
-* **Sick leave & weather cancellation** — same fix applied to sick leave and weather cancelled actions
-* **Undo/redo across tutors** — undo and redo status changes now work regardless of which tutor owns the session
+* **Reschedule & make-up for other tutors**: tutors can now reschedule sessions, schedule make-ups, and cancel make-ups for any student, not just their own sessions
+* **Sick leave & weather cancellation**: same fix applied to sick leave and weather cancelled actions
+* **Undo/redo across tutors**: undo and redo status changes now work regardless of which tutor owns the session
 
 ### Improvements
 
-* **Read-only role enforcement** — Guest and Supervisor accounts are now properly blocked from all session changes on the server side, not just hidden in the interface
+* **Read-only role enforcement**: Guest and Supervisor accounts are now properly blocked from all session changes on the server side, not just hidden in the interface
 * **11 new backend tests** covering cross-tutor actions, ownership restrictions on attendance, and read-only role access control
 
 ## [2.0.34](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.34) (2026-03-17)
 
 ### New Features
 
-* **Skills radar chart** — add a configurable spider chart to progress reports showing 4-8 custom skill attributes scored 1-5; choose between numerical or labeled display; saved per student so scores carry over to future reports
-* **Save & view reports** — save progress reports internally with a single click; access past reports from a new "History" button next to "Generate Report" with auto-generated labels and one-click open or delete
-* **Reorderable report sections** — drag-and-drop section order in the report config modal; the custom order applies to the generated report, shared links, and saved reports
-* **Date range moved to top** — date range is now the first option in the report config modal for faster access
+* **Skills radar chart**: add a configurable spider chart to progress reports showing 4-8 custom skill attributes scored 1-5; choose between numerical or labeled display; saved per student so scores carry over to future reports
+* **Save & view reports**: save progress reports internally with a single click; access past reports from a new "History" button next to "Generate Report" with auto-generated labels and one-click open or delete
+* **Reorderable report sections**: drag-and-drop section order in the report config modal; the custom order applies to the generated report, shared links, and saved reports
+* **Date range moved to top**: date range is now the first option in the report config modal for faster access
 
 ### Bug Fixes
 
-* **Share link creation** — fixed "Failed to create share link" error after deployment
-* **Radar chart on mobile** — fixed chart not appearing on small screens
-* **Report print timing** — fixed reports occasionally printing before all data finished loading
-* **Radar chart display mode** — fixed score display preference (numerical vs labels) not being remembered between sessions
-* **Concept map error feedback** — concept map now shows a message when AI generation fails instead of silently disappearing
-* **Delete and revoke feedback** — fixed false "failed" error messages when deleting saved reports or revoking share links
-* **Share link revoke** — revoke button now shows proper error feedback instead of failing silently
+* **Share link creation**: fixed "Failed to create share link" error after deployment
+* **Radar chart on mobile**: fixed chart not appearing on small screens
+* **Report print timing**: fixed reports occasionally printing before all data finished loading
+* **Radar chart display mode**: fixed score display preference (numerical vs labels) not being remembered between sessions
+* **Concept map error feedback**: concept map now shows a message when AI generation fails instead of silently disappearing
+* **Delete and revoke feedback**: fixed false "failed" error messages when deleting saved reports or revoking share links
+* **Share link revoke**: revoke button now shows proper error feedback instead of failing silently
 
 ### Improvements
 
-* **Faster report history loading** — optimized database query for listing saved reports
-* **Instant delete** — deleting a saved report removes it from the list immediately without waiting for a server response
-* **Radar label limits** — attribute names are capped to prevent layout overflow in print/PDF
+* **Faster report history loading**: optimized database query for listing saved reports
+* **Instant delete**: deleting a saved report removes it from the list immediately without waiting for a server response
+* **Radar label limits**: attribute names are capped to prevent layout overflow in print/PDF
 * **28 new backend tests** covering radar chart configuration and saved reports
 
 ## [2.0.33](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.33) (2026-03-14)
 
 ### New Features
 
-* **Shareable parent reports** — tutors can generate a secure link to share progress reports with parents; parents open the link in any browser without login, seeing the same HTML report with full charts and formatting
-* **Reports subdomain** — shared reports are served from `reports.mathconceptsecondary.academy`, keeping the internal tool domain hidden from parents
-* **Share link deduplication** — clicking "Share Link" multiple times within 5 minutes reuses the same link instead of creating duplicates
+* **Shareable parent reports**: tutors can generate a secure link to share progress reports with parents; parents open the link in any browser without login, seeing the same HTML report with full charts and formatting
+* **Reports subdomain**: shared reports are served from `reports.mathconceptsecondary.academy`, keeping the internal tool domain hidden from parents
+* **Share link deduplication**: clicking "Share Link" multiple times within 5 minutes reuses the same link instead of creating duplicates
 
 ### Bug Fixes
 
-* **Share link creation** — fixed "Failed to create share link" error caused by a missing database column; added migration for `student_id` on `report_shares`
-* **Server stability** — fixed an issue where heavy usage could temporarily make the app unresponsive; the server now auto-recovers without manual intervention
-* **AI insights reliability** — fixed an error that could occur when generating AI learning summaries under heavy load
-* **Shared report date** — shared report links now show the original generation date instead of the date the parent opens it
-* **Print charts** — charts in reports no longer collapse to blank when printing or saving as PDF
-* **Expired share cleanup** — expired report links are automatically cleaned up, keeping the database tidy
-* **Topic chip overflow** — long topic names in report chips are now truncated to prevent layout overflow
-* **Share link revoke** — revoke button now surfaces errors and only clears the URL on success
+* **Share link creation**: fixed "Failed to create share link" error caused by a missing database column; added migration for `student_id` on `report_shares`
+* **Server stability**: fixed an issue where heavy usage could temporarily make the app unresponsive; the server now auto-recovers without manual intervention
+* **AI insights reliability**: fixed an error that could occur when generating AI learning summaries under heavy load
+* **Shared report date**: shared report links now show the original generation date instead of the date the parent opens it
+* **Print charts**: charts in reports no longer collapse to blank when printing or saving as PDF
+* **Expired share cleanup**: expired report links are automatically cleaned up, keeping the database tidy
+* **Topic chip overflow**: long topic names in report chips are now truncated to prevent layout overflow
+* **Share link revoke**: revoke button now surfaces errors and only clears the URL on success
 
 ### Improvements
 
-* **Mobile-friendly reports** — shared report links now display properly on phones with responsive layout, stacked sections, and scrollable tables
-* **Share link refresh** — re-sharing a report within the dedup window now updates the link with the latest report settings
-* **Rate limiting** — public share links are rate-limited to prevent abuse
-* **Test coverage** — added 37 new backend tests covering report shares and student progress endpoints
+* **Mobile-friendly reports**: shared report links now display properly on phones with responsive layout, stacked sections, and scrollable tables
+* **Share link refresh**: re-sharing a report within the dedup window now updates the link with the latest report settings
+* **Rate limiting**: public share links are rate-limited to prevent abuse
+* **Test coverage**: added 37 new backend tests covering report shares and student progress endpoints
 
 ## [2.0.32](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.32) (2026-03-14)
 
 ### New Features
 
-* **Student progress report** — printable progress report accessible from the student detail page's progress drawer; configurable date range (presets: 1 month, 3 months, 6 months, 12 months, all time) with two modes: internal (full data) and parent (shareable summary)
-* **AI learning summary** — generate a natural-language summary of student progress using Gemini, with concept map visualization; supports English and Traditional Chinese
-* **Concept map** — interactive treemap of math concepts extracted from exercise filenames, categorized by topic (Algebra, Geometry, Trigonometry, etc.)
-* **Report section toggles** — choose which sections to include in the report (attendance, rating, topics, tests, activity, enrollment, contacts); mode-aware toggles show/hide sections relevant to each report type
-* **Test & exam timeline** — shows upcoming and past tests/exams matching the student's school and grade within the report period, with syllabus details
+* **Student progress report**: a printable progress report opens from the student's progress drawer, with a configurable date range and two modes, internal for the full data and parent for a shareable summary.
+* **AI learning summary**: generate a natural-language summary of student progress using Gemini, with concept map visualization; supports English and Traditional Chinese
+* **Concept map**: interactive treemap of math concepts extracted from exercise filenames, categorized by topic (Algebra, Geometry, Trigonometry, etc.)
+* **Report section toggles**: choose which sections to include in the report (attendance, rating, topics, tests, activity, enrollment, contacts); mode-aware toggles show/hide sections relevant to each report type
+* **Test & exam timeline**: shows upcoming and past tests/exams matching the student's school and grade within the report period, with syllabus details
 
 ### Bug Fixes
 
-* **Bulk print custom pages** — printing CW/HW in bulk now correctly uses custom page ranges (e.g. "pages 1,3,5-7") instead of ignoring them
-* **Print fallback** — print buttons in lesson modes now properly search Shelv when a file isn't found locally
-* **Session popover print** — individual and bulk print from the session detail popover now respects custom page ranges
-* **Report print clipping** — fixed right-edge content being cut off when printing reports
-* **Chinese proper nouns** — AI summaries in Traditional Chinese now preserve student and school names in their original form instead of transliterating
+* **Bulk print custom pages**: printing CW/HW in bulk now correctly uses custom page ranges (e.g. "pages 1,3,5-7") instead of ignoring them
+* **Print fallback**: print buttons in lesson modes now properly search Shelv when a file isn't found locally
+* **Session popover print**: individual and bulk print from the session detail popover now respects custom page ranges
+* **Report print clipping**: fixed right-edge content being cut off when printing reports
+* **Chinese proper nouns**: AI summaries in Traditional Chinese now preserve student and school names in their original form instead of transliterating
 
 ### Improvements
 
-* **Print button feedback** — print buttons now show a spinner while working and display what's happening in the tooltip (e.g. "Searching by filename...")
-* **Student ID layout** — student IDs (MSA-XXXX) in the lesson sidebar no longer wrap to a second line
-* **File tab sorting** — students in the "by file" tab are now sorted to match the "by student" tab order
-* **AI cost safeguards** — 30-second cooldown between AI generations, backend rate limit (5 calls/minute), and in-memory result caching (1-hour TTL) to prevent accidental overuse
-* **AI context filtering** — unchecked report sections are excluded from the AI prompt context, so narratives only reference data the user chose to include
-* **Report config modal** — report configuration moved from inline panel to a dedicated modal for cleaner UX; AI content section clearly separated from report sections
+* **Print button feedback**: print buttons now show a spinner while working and display what's happening in the tooltip (e.g. "Searching by filename...")
+* **Student ID layout**: student IDs (MSA-XXXX) in the lesson sidebar no longer wrap to a second line
+* **File tab sorting**: students in the "by file" tab are now sorted to match the "by student" tab order
+* **AI cost safeguards**: 30-second cooldown between AI generations, backend rate limit (5 calls/minute), and in-memory result caching (1-hour TTL) to prevent accidental overuse
+* **AI context filtering**: unchecked report sections are excluded from the AI prompt context, so narratives only reference data the user chose to include
+* **Report config modal**: report configuration moved from inline panel to a dedicated modal for cleaner UX; AI content section clearly separated from report sections
 
 ## [2.0.31](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.31) (2026-03-13)
 
 ### New Features
 
-* **Student progress drawer** — expandable analytics panel in the student detail header showing attendance summary, performance rating trends, exercise breakdown, enrollment timeline, parent contact summary, and monthly activity charts
-* **Trend delta badges** — 30-day vs previous 30-day attendance comparison and recent vs overall rating comparison with arrow indicators and tooltips explaining each metric
-* **Clickable summary cards** — each metric card in the progress drawer navigates to the relevant tab (sessions, ratings, courseware, profile)
+* **Student progress drawer**: expandable analytics panel in the student detail header showing attendance summary, performance rating trends, exercise breakdown, enrollment timeline, parent contact summary, and monthly activity charts
+* **Trend delta badges**: 30-day vs previous 30-day attendance comparison and recent vs overall rating comparison with arrow indicators and tooltips explaining each metric
+* **Clickable summary cards**: each metric card in the progress drawer navigates to the relevant tab (sessions, ratings, courseware, profile)
 
 ### Improvements
 
-* **Optimized progress queries** — merged attendance trend calculation into a single SQL query instead of two separate round trips
-* **Consistent badge colors** — enrollment type and contact method/type badges in the progress drawer now match the colors used in the Profile and Parent Contacts tabs
-* **Enrollment timeline trimming** — shows 2 most recent enrollments with a "View all" link to the Profile tab
+* **Optimized progress queries**: merged attendance trend calculation into a single SQL query instead of two separate round trips
+* **Consistent badge colors**: enrollment type and contact method/type badges in the progress drawer now match the colors used in the Profile and Parent Contacts tabs
+* **Enrollment timeline trimming**: shows 2 most recent enrollments with a "View all" link to the Profile tab
 
 ### Bug Fixes
 
-* **Total sessions count** — progress drawer now correctly excludes rescheduled and cancelled sessions from the total
-* **Recharts tooltip collision** — resolved build error from duplicate Tooltip import between Recharts and UI tooltip component
-* **Loading skeleton** — added progress button placeholder and corrected tab count in the student detail loading state
+* **Total sessions count**: progress drawer now correctly excludes rescheduled and cancelled sessions from the total
+* **Recharts tooltip collision**: resolved build error from duplicate Tooltip import between Recharts and UI tooltip component
+* **Loading skeleton**: added progress button placeholder and corrected tab count in the student detail loading state
 
 ## [2.0.30](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.30) (2026-03-12)
 
 ### Bug Fixes
 
-* **Frontend version display** — fixed version number not updating in settings modal and "What's New" notifications
-* **Health check** — endpoint now returns HTTP 503 when database is unreachable, so Cloud Run can route traffic away from unhealthy instances
+* **Frontend version display**: fixed version number not updating in settings modal and "What's New" notifications
+* **Health check**: endpoint now returns HTTP 503 when database is unreachable, so Cloud Run can route traffic away from unhealthy instances
 
 ### Improvements
 
-* **Code cleanup** — consolidated duplicate logic, hardcoded values, and repeated database query patterns across backend and frontend
-* **Batch operation performance** — batch mark-paid and mark-sent now load all enrollments in a single query instead of one per enrollment
-* **Exam revision performance** — batch-resolve makeup session chain lookups instead of querying one-by-one
-* **Zen mode performance** — memoized context providers to prevent unnecessary re-renders
-* **Renewal check performance** — batch-query renewal and schedule overlap lookups instead of per-enrollment queries
-* **Reduced unnecessary API calls** — disabled automatic refetch on window focus globally
-* **Accessibility** — added screen reader labels to icon buttons and dialog attributes to modals
-* **Dashboard & session list performance** — memoized attention card and proposed session components to reduce re-renders
-* **Crash resilience** — added error boundaries around dashboard charts, document editor, inbox thread panel, courseware PDF preview, and termination charts so a crash in one component doesn't take down the whole page
-* **Template delete safety** — added confirmation prompt before deleting message templates
-* **Smaller Docker image** — replaced dev headers with runtime-only library in backend production image
-* **Test coverage 5x increase** — grew from ~134 to 646 tests (326 backend, 320 frontend) across 5 batches covering fee calculation, session scheduling, quarter boundaries, exam revision, rate limiting, HTML sanitization, SQL safety validation, revenue bonus tiers, LaTeX-to-JS conversion, makeup proposals, and 20+ utility modules
+* **Code cleanup**: consolidated duplicate logic, hardcoded values, and repeated database query patterns across backend and frontend
+* **Batch operation performance**: batch mark-paid and mark-sent now load all enrollments in a single query instead of one per enrollment
+* **Exam revision performance**: batch-resolve makeup session chain lookups instead of querying one-by-one
+* **Zen mode performance**: memoized context providers to prevent unnecessary re-renders
+* **Renewal check performance**: batch-query renewal and schedule overlap lookups instead of per-enrollment queries
+* **Reduced unnecessary API calls**: disabled automatic refetch on window focus globally
+* **Accessibility**: added screen reader labels to icon buttons and dialog attributes to modals
+* **Dashboard & session list performance**: memoized attention card and proposed session components to reduce re-renders
+* **Crash resilience**: added error boundaries around dashboard charts, document editor, inbox thread panel, courseware PDF preview, and termination charts so a crash in one component doesn't take down the whole page
+* **Template delete safety**: added confirmation prompt before deleting message templates
+* **Smaller Docker image**: replaced dev headers with runtime-only library in backend production image
+* **Test coverage 5x increase**: the test suite grew from about 134 to 646 tests, covering fee calculation, scheduling, quarter boundaries, exam revision, revenue tiers and twenty more modules.
 
 ### Security
 
-* **Messages router authentication** — all 39 messaging endpoints now require JWT authentication with tutor ownership verification, preventing unauthorized access via spoofed tutor_id parameters
-* **Parent communications write protection** — POST, PUT, and DELETE endpoints now require authenticated non-read-only users
-* **Exam revision slot protection** — slot update and delete endpoints now require JWT authentication
-* **Document processing authentication** — PDF handwriting removal endpoints now require JWT authentication
-* **Dashboard data protection** — stats, locations, active students, and activity feed endpoints now require authenticated users
-* **Backend URL hardening** — moved Cloud Run backend URL from source code to environment variable
-* **Security headers** — added Permissions-Policy (restricts camera, geolocation, payment) and Cross-Origin-Opener-Policy (Spectre protection)
-* **Request logging** — all API requests now log method, path, status code, and duration for observability
-* **Explicit Cloud Run settings** — memory, CPU, concurrency, and ingress now set explicitly in deploy config
+* **Messages router authentication**: all 39 messaging endpoints now require JWT authentication with tutor ownership verification, preventing unauthorized access via spoofed tutor_id parameters
+* **Parent communications write protection**: POST, PUT, and DELETE endpoints now require authenticated non-read-only users
+* **Exam revision slot protection**: slot update and delete endpoints now require JWT authentication
+* **Document processing authentication**: PDF handwriting removal endpoints now require JWT authentication
+* **Dashboard data protection**: stats, locations, active students, and activity feed endpoints now require authenticated users
+* **Backend URL hardening**: moved Cloud Run backend URL from source code to environment variable
+* **Security headers**: added Permissions-Policy (restricts camera, geolocation, payment) and Cross-Origin-Opener-Policy (Spectre protection)
+* **Request logging**: all API requests now log method, path, status code, and duration for observability
+* **Explicit Cloud Run settings**: memory, CPU, concurrency, and ingress now set explicitly in deploy config
 
 ## [2.0.29](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.29) (2026-03-12)
 
 ### New Features
 
-* **Bulk exercise assignment in wide mode** — assign CW/HW to multiple students at once via student picker popover in the lesson wide mode sidebar (both by-student and by-file views)
-* **Clipboard paste in bulk modal** — exercises copied from ExerciseModal (Ctrl+C) can now be pasted into BulkExerciseModal (Ctrl+V) with confirmation dialog and source student info
-* **Multi-select bulk delete** — select multiple exercises via checkboxes and delete them all at once with an inline red confirmation banner; Alt+Backspace shortcut support
-* **PDF dark mode** — toggle button on all PDF viewers inverts page colors for comfortable dark reading; persisted via localStorage across PdfPageViewer, PdfPreviewModal, and Zen viewers
+* **Bulk exercise assignment in wide mode**: assign CW/HW to multiple students at once via student picker popover in the lesson wide mode sidebar (both by-student and by-file views)
+* **Clipboard paste in bulk modal**: exercises copied from ExerciseModal (Ctrl+C) can now be pasted into BulkExerciseModal (Ctrl+V) with confirmation dialog and source student info
+* **Multi-select bulk delete**: select multiple exercises via checkboxes and delete them all at once with an inline red confirmation banner; Alt+Backspace shortcut support
+* **PDF dark mode**: toggle button on all PDF viewers inverts page colors for comfortable dark reading; persisted via localStorage across PdfPageViewer, PdfPreviewModal, and Zen viewers
 
 ### Bug Fixes
 
-* **Nested button hydration error** — fixed Next.js hydration warning caused by a print button nested inside the exercise item button in the lesson sidebar
+* **Nested button hydration error**: fixed Next.js hydration warning caused by a print button nested inside the exercise item button in the lesson sidebar
 
 ## [2.0.28](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.28) (2026-03-11)
 
 ### New Features
 
-* **Select Attended sessions** — bulk-select attended sessions for CW/HW assignment and rating via new dropdown menus on both the sessions page and dashboard card; Ctrl+Shift+A now cycles through markable → attended → clear with toast feedback on each press
-* **Lesson mode print buttons** — single lesson mode now has bulk CW/HW print dropdown and per-exercise print buttons in sidebar; wide lesson mode adds per-student CW/HW print buttons in Students grouping
+* **Select Attended sessions**: bulk-select attended sessions for CW/HW assignment and rating via new dropdown menus on both the sessions page and dashboard card; Ctrl+Shift+A now cycles through markable → attended → clear with toast feedback on each press
+* **Lesson mode print buttons**: single lesson mode now has bulk CW/HW print dropdown and per-exercise print buttons in sidebar; wide lesson mode adds per-student CW/HW print buttons in Students grouping
 
 ### Improvements
 
-* **Toast feedback on selection** — all select actions (markable, attended, per-slot) now show info toasts with count or "none found" message instead of failing silently
-* **J/K navigation respects collapsed sections** — keyboard navigation now skips over collapsed time slot sections; Ctrl+A and Ctrl+Shift+A also only operate on visible (non-collapsed) sessions
+* **Toast feedback on selection**: all select actions (markable, attended, per-slot) now show info toasts with count or "none found" message instead of failing silently
+* **J/K navigation respects collapsed sections**: keyboard navigation now skips over collapsed time slot sections; Ctrl+A and Ctrl+Shift+A also only operate on visible (non-collapsed) sessions
 
 ### Bug Fixes
 
-* **Student detail popover** — now shows all contact phone numbers with labels instead of only the single legacy phone field
+* **Student detail popover**: now shows all contact phone numbers with labels instead of only the single legacy phone field
 
 ## [2.0.27](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.27) (2026-03-11)
 
 ### New Features
 
-* **Bulk rate & comment** — rate and comment on multiple sessions at once from any timeslot header; copy timeslot info to clipboard
-* **Bulk exercise actions** — Print All, Download All, and Download Answers buttons on CW/HW section headers in both session detail and student courseware tab
-* **Courseware tab redesign** — consolidated layout with one card per session, CW/HW sub-grouping with colored accents, inline open/print buttons per exercise, and styled filter toggle
-* **Clickable test alerts** — upcoming assessment entries on the session detail page now link directly to the exam revision page
-* **Esc keyboard shortcut** — press Escape on session detail page to navigate back
+* **Bulk rate & comment**: rate and comment on multiple sessions at once from any timeslot header; copy timeslot info to clipboard
+* **Bulk exercise actions**: Print All, Download All, and Download Answers buttons on CW/HW section headers in both session detail and student courseware tab
+* **Courseware tab redesign**: consolidated layout with one card per session, CW/HW sub-grouping with colored accents, inline open/print buttons per exercise, and styled filter toggle
+* **Clickable test alerts**: upcoming assessment entries on the session detail page now link directly to the exam revision page
+* **Esc keyboard shortcut**: press Escape on session detail page to navigate back
 
 ### Improvements
 
-* **Courseware tab readability** — darker text, opaque backgrounds, and StickyNote empty states for wooden desk theme in both courseware and tests tabs
-* **Print stamps on exercises** — open/print actions now include student info stamps
+* **Courseware tab readability**: darker text, opaque backgrounds, and StickyNote empty states for wooden desk theme in both courseware and tests tabs
+* **Print stamps on exercises**: open/print actions now include student info stamps
 
 ### Bug Fixes
 
@@ -938,24 +1273,24 @@
 
 ### New Features
 
-* **Multiple contact numbers** — students can now have multiple phone numbers with relationship labels (Mother, Father, Grandparent, Student, Guardian, or custom free text); contacts are editable on the student detail page and add student modal
-* **Contact search** — search by any contact phone number across the student list, command palette, and duplicate detection
+* **Multiple contact numbers**: students can now have multiple phone numbers with relationship labels (Mother, Father, Grandparent, Student, Guardian, or custom free text); contacts are editable on the student detail page and add student modal
+* **Contact search**: search by any contact phone number across the student list, command palette, and duplicate detection
 
 ### Improvements
 
-* **Contacts displayed everywhere** — enrollment detail modal, command palette preview, zen student page, and command palette subtitle all show full contact details with labels
+* **Contacts displayed everywhere**: enrollment detail modal, command palette preview, zen student page, and command palette subtitle all show full contact details with labels
 
 ## [2.0.25](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.25) (2026-03-10)
 
 ### New Features
 
-* **Haptic feedback** — tactile vibration on mobile for toasts, confirm dialogs, star ratings, action buttons, inbox reactions, voice recording, swipe gestures, and more via web-haptics with Android-optimized raw vibration patterns
-* **Tests & exams in command palette** — search tests and exams directly from the command palette with preview panel
-* **Feedback email notifications** — superadmin receives a Gmail email when tutors submit bug reports, feature requests, or suggestions via the feedback panel
+* **Haptic feedback**: tactile vibration on mobile for toasts, confirm dialogs, star ratings, action buttons, inbox reactions, voice recording, swipe gestures, and more via web-haptics with Android-optimized raw vibration patterns
+* **Tests & exams in command palette**: search tests and exams directly from the command palette with preview panel
+* **Feedback email notifications**: superadmin receives a Gmail email when tutors submit bug reports, feature requests, or suggestions via the feedback panel
 
 ### Improvements
 
-* **Documents read-only for supervisors** — supervisors can view documents but cannot create, edit, delete, duplicate, lock, or manage folders; backend write endpoints return 403 for read-only roles
+* **Documents read-only for supervisors**: supervisors can view documents but cannot create, edit, delete, duplicate, lock, or manage folders; backend write endpoints return 403 for read-only roles
 
 ### Bug Fixes
 
@@ -968,8 +1303,8 @@
 
 ### New Features
 
-* **GIF messaging** — search and send GIFs via GIPHY in inbox replies and compose, with trending browse and debounced search
-* **Supervisor broadcast inbox** — supervisors can now view broadcast messages in a read-only inbox (no compose, reply, react, or archive)
+* **GIF messaging**: search and send GIFs via GIPHY in inbox replies and compose, with trending browse and debounced search
+* **Supervisor broadcast inbox**: supervisors can now view broadcast messages in a read-only inbox (no compose, reply, react, or archive)
 
 ### Bug Fixes
 
@@ -979,8 +1314,8 @@
 
 ### Improvements
 
-* **Eligible students based on slot locations** — eligible student count and list now reflect only the locations where revision slots exist, since cross-location revision is not allowed
-* **Discard warning on calendar event modal** — closing the event editor with unsaved changes now shows a confirmation prompt
+* **Eligible students based on slot locations**: eligible student count and list now reflect only the locations where revision slots exist, since cross-location revision is not allowed
+* **Discard warning on calendar event modal**: closing the event editor with unsaved changes now shows a confirmation prompt
 
 ### Bug Fixes
 
@@ -992,10 +1327,10 @@
 
 ### New Features
 
-* **Zen inbox** — full inbox page in zen mode with thread viewing, media attachments, emoji reactions, and reply composer with file upload
-* **Unsaved annotation warning (lesson wide mode)** — exit confirmation dialog with "Download All & Exit" batch ZIP download, browser tab close warning, and `s` shortcut for saving current exercise
-* **Unsaved annotation warning (zen lesson mode)** — exit dialog now offers three options: Download All (ZIP), Download Current, and Exit; plus browser tab close warning
-* **Non-PDF fallback to Shelv** — local .doc/.docx files in lesson mode now fall through to Shelv search instead of failing
+* **Zen inbox**: full inbox page in zen mode with thread viewing, media attachments, emoji reactions, and reply composer with file upload
+* **Unsaved annotation warning (lesson wide mode)**: exit confirmation dialog with "Download All & Exit" batch ZIP download, browser tab close warning, and `s` shortcut for saving current exercise
+* **Unsaved annotation warning (zen lesson mode)**: exit dialog now offers three options: Download All (ZIP), Download Current, and Exit; plus browser tab close warning
+* **Non-PDF fallback to Shelv**: local .doc/.docx files in lesson mode now fall through to Shelv search instead of failing
 
 ### Improvements
 
@@ -1013,11 +1348,11 @@
 
 ### New Features
 
-* **Web Push notifications** — receive OS-level notifications for new inbox messages even when the browser tab is closed, using free browser Push API with VAPID keys (no third-party service cost)
-* **Favicon unread badge** — red circle with unread message count overlaid on the browser tab icon, visible app-wide across all pages
-* **New message banner** — in-app toast showing sender name and preview when a message arrives for another thread, with click-to-jump and auto-dismiss
-* **Connection status indicator** — amber "Reconnecting..." or red "Disconnected" bar when the real-time SSE connection drops
-* **Differentiated urgent alerts** — urgent/high priority messages play a distinct two-tone sound and show red-accented notifications
+* **Web Push notifications**: receive OS-level notifications for new inbox messages even when the browser tab is closed, using free browser Push API with VAPID keys (no third-party service cost)
+* **Favicon unread badge**: red circle with unread message count overlaid on the browser tab icon, visible app-wide across all pages
+* **New message banner**: in-app toast showing sender name and preview when a message arrives for another thread, with click-to-jump and auto-dismiss
+* **Connection status indicator**: amber "Reconnecting..." or red "Disconnected" bar when the real-time SSE connection drops
+* **Differentiated urgent alerts**: urgent/high priority messages play a distinct two-tone sound and show red-accented notifications
 
 ### Improvements
 
@@ -1038,13 +1373,13 @@
 
 ### New Features
 
-* **Shared content panel in chat** — browse all media, files, links, audio, math, and graphs shared in a conversation thread with jump-to-message, sender filter, and tab navigation
-* **Chat quality-of-life** — message copy, reply banner, image zoom, loading skeleton, and accessibility improvements
-* **Zen lesson mode** — per-session and lesson-wide PDF viewing with keyboard-driven exercise navigation, page browsing, zoom, answer key toggle, open, and print
-* **Zen lesson mode exercise editing** — inline CW/HW assignment with pre-populated existing exercises, direct path input, search/browse, multi-select, and editable page ranges
-* **Zen lesson mode access everywhere** — `[L]esson` button on time slot headers and session detail panel across zen dashboard and sessions page. `L` opens single-student lesson mode, `Shift+L` opens lesson-wide mode
-* **Zen lesson-wide two-digit student keys** — student switcher supports numbers 1–99 with buffered input
-* **Zen courseware assign redesign** — tabbed date picker showing session details for clearer context when assigning exercises
+* **Shared content panel in chat**: browse all media, files, links, audio, math, and graphs shared in a conversation thread with jump-to-message, sender filter, and tab navigation
+* **Chat quality-of-life**: message copy, reply banner, image zoom, loading skeleton, and accessibility improvements
+* **Zen lesson mode**: per-session and lesson-wide PDF viewing with keyboard-driven exercise navigation, page browsing, zoom, answer key toggle, open, and print
+* **Zen lesson mode exercise editing**: inline CW/HW assignment with pre-populated existing exercises, direct path input, search/browse, multi-select, and editable page ranges
+* **Zen lesson mode access everywhere**: `[L]esson` button on time slot headers and session detail panel across zen dashboard and sessions page. `L` opens single-student lesson mode, `Shift+L` opens lesson-wide mode
+* **Zen lesson-wide two-digit student keys**: student switcher supports numbers 1–99 with buffered input
+* **Zen courseware assign redesign**: tabbed date picker showing session details for clearer context when assigning exercises
 
 ### Improvements
 
@@ -1066,18 +1401,18 @@
 
 ### Known Issues
 
-* **Lesson mode Escape handling** — when editing CW/HW exercises, pressing Escape may close the entire lesson mode instead of just the assignment panel
-* **Sessions page missing navigation shortcuts** — day view lacks shortcuts like `gg` (jump to first) that exist on the dashboard
-* **Session count ignores filters** — the completed/total count does not update when status or tutor filters are applied
-* **Filtered list navigation broken** — cursor up/down navigates the full list instead of only visible filtered sessions
-* **Lesson mode feature gaps** — annotation tools, bulk CW/HW download, and other main app lesson features are not yet available in zen lesson mode
+* **Lesson mode Escape handling**: when editing CW/HW exercises, pressing Escape may close the entire lesson mode instead of just the assignment panel
+* **Sessions page missing navigation shortcuts**: day view lacks shortcuts like `gg` (jump to first) that exist on the dashboard
+* **Session count ignores filters**: the completed/total count does not update when status or tutor filters are applied
+* **Filtered list navigation broken**: cursor up/down navigates the full list instead of only visible filtered sessions
+* **Lesson mode feature gaps**: annotation tools, bulk CW/HW download, and other main app lesson features are not yet available in zen lesson mode
 
 ## [2.0.19](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.19) (2026-03-07)
 
 ### New Features
 
-* **Zen courseware page** — new courseware tab in zen mode with browse, search, and assignment capabilities
-* **Zen trending podium** — redesigned zen courseware trending section as a medal ceremony podium with sparkle animation and stats labels
+* **Zen courseware page**: new courseware tab in zen mode with browse, search, and assignment capabilities
+* **Zen trending podium**: redesigned zen courseware trending section as a medal ceremony podium with sparkle animation and stats labels
 
 ### Bug Fixes
 
@@ -1091,10 +1426,10 @@
 
 ### New Features
 
-* **Lesson-wide mode** — new multi-student lesson view accessible from the time slot header. Aggregates all students in a time slot into a single view with by-student and by-file sidebar modes, student switcher bar for shared exercises, per-exercise print buttons, and full annotation support
-* **Bulk print dropdown** — added CW/HW bulk print and download buttons to lesson-wide mode header for quick access
-* **Copy make-up message** — new "Msg" action button on make-up sessions generates a bilingual (中文/English) parent notification message with editable modal, language toggle, and one-tap copy. On mobile, copies directly to clipboard with visual feedback
-* **Dashboard lesson button** — added lesson-wide mode button to TodaySessionsCard time slot headers for quick access from the dashboard
+* **Lesson-wide mode**: a multi-student lesson view opens from the time slot header, gathering everyone in the slot into one view with by-student and by-file sidebars and full annotation support.
+* **Bulk print dropdown**: added CW/HW bulk print and download buttons to lesson-wide mode header for quick access
+* **Copy make-up message**: new "Msg" action button on make-up sessions generates a bilingual (中文/English) parent notification message with editable modal, language toggle, and one-tap copy. On mobile, copies directly to clipboard with visual feedback
+* **Dashboard lesson button**: added lesson-wide mode button to TodaySessionsCard time slot headers for quick access from the dashboard
 
 ### Bug Fixes
 
@@ -1105,11 +1440,11 @@
 
 ### New Features
 
-* **Exercise history panel** — side panel in exercise modal showing past exercises for each student, with duplicate detection warnings when assigning previously-used exercises
-* **"All" proposals tab** — admin and super admin users can now see all proposals across tutors in the proposals view
-* **Proposals loading skeletons** — replaced spinner with shimmer skeleton cards matching the proposal card layout
-* **Document editor list improvements** — nested list style cycling (1→a→i for ordered, disc→circle→square for bullets), task/checklist support with toolbar button and `Ctrl+Shift+9` shortcut, arbitrary start number input rule (e.g. type `3. ` to start at 3), start number dropdown on toolbar, right-click context menu for ordered lists (restart numbering, set value, convert types), and plain text paste detection for list patterns
-* **Zen mode view toggle & impersonation** — added view mode toggle (My View/Center View) and role impersonation support to zen mode
+* **Exercise history panel**: side panel in exercise modal showing past exercises for each student, with duplicate detection warnings when assigning previously-used exercises
+* **"All" proposals tab**: admin and super admin users can now see all proposals across tutors in the proposals view
+* **Proposals loading skeletons**: replaced spinner with shimmer skeleton cards matching the proposal card layout
+* **Document editor list improvements**: nested lists cycle through their styles, checklists have a toolbar button and a shortcut, an ordered list can start at any number, and right-clicking one offers restart numbering and type changes.
+* **Zen mode view toggle & impersonation**: added view mode toggle (My View/Center View) and role impersonation support to zen mode
 
 ### Bug Fixes
 
@@ -1130,8 +1465,8 @@
 
 ### New Features
 
-* **Zen enrollments** — added inline enrollment detail within zen student view
-* **Zen student detail** — expanded to 7 tabs with full feature parity, copy lesson dates, and makeup proposal indicators
+* **Zen enrollments**: added inline enrollment detail within zen student view
+* **Zen student detail**: expanded to 7 tabs with full feature parity, copy lesson dates, and makeup proposal indicators
 
 ### Improvements
 
@@ -1151,9 +1486,9 @@
 
 ### New Features
 
-* **Zen mode pages** — added Students, Sessions, Revenue, and Courseware pages with full keyboard navigation
-* **Zen sessions week/day views** — redesigned with week summary + day detail layout, bulk-aware quick mark with confirmation dialog
-* **Shared zen components** — extracted ZenSpinner and ZenProgressBar for consistent loading states across all zen pages
+* **Zen mode pages**: added Students, Sessions, Revenue, and Courseware pages with full keyboard navigation
+* **Zen sessions week/day views**: redesigned with week summary + day detail layout, bulk-aware quick mark with confirmation dialog
+* **Shared zen components**: extracted ZenSpinner and ZenProgressBar for consistent loading states across all zen pages
 
 ### Improvements
 
@@ -1182,9 +1517,9 @@
 
 ### New Features
 
-* **Bulk Confirm Payment on overdue-payments page** — multi-select with checkboxes, section-level select all, and animated batch action bar with optimistic updates
-* **Implicit & parametric curves in geometry editor** — curve mode selector (f(x), f(x,y)=0, x(t),y(t)) with MathLive input, t-range controls, and full serialization for save/restore
-* **Click-to-edit plotted curves** — select any plotted curve to load its equation back into the input field; Update replaces the curve, Cancel returns to select mode
+* **Bulk Confirm Payment on overdue-payments page**: multi-select with checkboxes, section-level select all, and animated batch action bar with optimistic updates
+* **Implicit & parametric curves in geometry editor**: curve mode selector (f(x), f(x,y)=0, x(t),y(t)) with MathLive input, t-range controls, and full serialization for save/restore
+* **Click-to-edit plotted curves**: select any plotted curve to load its equation back into the input field; Update replaces the curve, Cancel returns to select mode
 
 ### Improvements
 
@@ -1204,9 +1539,9 @@
 
 ### New Features
 
-* **Custom date picker popover** — replaced native date inputs with a calendar popover across sessions list, weekly, and daily grid views for better month navigation without triggering date changes
-* **"Active" status filter** — new composite filter option that hides resolved sessions (Pending Make-up, Make-up Booked, Cancelled) in one click
-* **Button restyling** — action buttons and View/Lesson links now have borders and shadows to visually distinguish them from info badges
+* **Custom date picker popover**: replaced native date inputs with a calendar popover across sessions list, weekly, and daily grid views for better month navigation without triggering date changes
+* **"Active" status filter**: new composite filter option that hides resolved sessions (Pending Make-up, Make-up Booked, Cancelled) in one click
+* **Button restyling**: action buttons and View/Lesson links now have borders and shadows to visually distinguish them from info badges
 
 ### Improvements
 
@@ -1231,7 +1566,7 @@
 
 ### New Features
 
-* **Geometry editor drag-to-pan** — middle-click or right-click drag to pan the board in any tool mode; two-finger touch pan on mobile devices
+* **Geometry editor drag-to-pan**: middle-click or right-click drag to pan the board in any tool mode; two-finger touch pan on mobile devices
 
 ### Bug Fixes
 
@@ -1242,10 +1577,10 @@
 
 ### New Features
 
-* **Document preview pane** — toggle a side panel to preview documents without leaving the list; includes print buttons (Questions Only / With Answers) and keyboard shortcuts (Enter to open, Escape to close)
-* **My Docs & Recent tabs** — unified tab bar (All Docs | My Docs | Recent | Templates) replaces separate tabs and scope filters; My Docs shows documents you created or edited, Recent tracks documents you opened via localStorage
-* **Pending make-ups view** — urgency-tier grouping (Critical / Warning / OK / Overdue) with collapsible tiers, lazy-loading pagination, 2-state sort toggle, root original date display, schedule make-up button integration, and aged pending make-ups notification bell item
-* **Sort tiebreakers** — sessions with the same pending days now sort by location, then school student ID
+* **Document preview pane**: toggle a side panel to preview documents without leaving the list; includes print buttons (Questions Only / With Answers) and keyboard shortcuts (Enter to open, Escape to close)
+* **My Docs & Recent tabs**: unified tab bar (All Docs | My Docs | Recent | Templates) replaces separate tabs and scope filters; My Docs shows documents you created or edited, Recent tracks documents you opened via localStorage
+* **Pending make-ups view**: the pending make-ups view groups by urgency into collapsible tiers, with lazy loading, a sort toggle, the root original date and a notification bell item for the aged ones.
+* **Sort tiebreakers**: sessions with the same pending days now sort by location, then school student ID
 
 ### Performance
 
@@ -1261,9 +1596,9 @@
 
 ### New Features
 
-* **Editable templates** — create, edit, and delete document templates from the frontend
-* **Auto-delete empty docs** — untitled documents with no content are automatically deleted on exit; folder-scoped unique title enforcement
-* **Last editor tracking** — display who last edited a document, separate from the original author
+* **Editable templates**: create, edit, and delete document templates from the frontend
+* **Auto-delete empty docs**: untitled documents with no content are automatically deleted on exit; folder-scoped unique title enforcement
+* **Last editor tracking**: display who last edited a document, separate from the original author
 
 ### Improvements
 
@@ -1287,8 +1622,8 @@
 
 ### New Features
 
-* **Version history** — side-by-side version diff with rich formatting, dynamic zoom, and layout comparison
-* **Pagination architecture** — migrated from Widget Decorations to Node Decorations + React overlay for stable page division, headers, footers, and watermarks
+* **Version history**: side-by-side version diff with rich formatting, dynamic zoom, and layout comparison
+* **Pagination architecture**: migrated from Widget Decorations to Node Decorations + React overlay for stable page division, headers, footers, and watermarks
 
 ### Improvements
 
@@ -1306,15 +1641,15 @@
 
 ### New Features
 
-* **Tags & folders** — organize documents with color-coded tags and a nested folder sidebar; tag search popover and inline editor tag dropdown
-* **Table enhancements** — column resize, cell background color picker, and merge/split cells
-* **Line spacing** — configurable line spacing for paragraphs and headings (1.0–3.0)
-* **Page count** — status bar shows total pages when document has more than one page
-* **{total} placeholder** — use `{total}` in headers/footers for "Page 1 of 3" style numbering
-* **Justify alignment** — fourth text alignment option in toolbar and bubble menu
-* **Link popover** — inline popover for inserting and editing links (replaces browser prompt)
-* **Code blocks** — supported in document editor
-* **8×8 table grid** — expanded table size picker for larger tables
+* **Tags & folders**: organize documents with color-coded tags and a nested folder sidebar; tag search popover and inline editor tag dropdown
+* **Table enhancements**: column resize, cell background color picker, and merge/split cells
+* **Line spacing**: configurable line spacing for paragraphs and headings (1.0–3.0)
+* **Page count**: status bar shows total pages when document has more than one page
+* **{total} placeholder**: use `{total}` in headers/footers for "Page 1 of 3" style numbering
+* **Justify alignment**: fourth text alignment option in toolbar and bubble menu
+* **Link popover**: inline popover for inserting and editing links (replaces browser prompt)
+* **Code blocks**: supported in document editor
+* **8×8 table grid**: expanded table size picker for larger tables
 
 ### Improvements
 
@@ -1342,19 +1677,19 @@
 
 ### New Features
 
-* **Document Builder** — full A4 document editor with TipTap: rich text formatting, tables with grid picker, resizable images with alignment/text wrapping, math equations (KaTeX), and geometry diagrams (JSXGraph)
-* **Page layout settings** — configurable margins, headers/footers with text templates ({title}, {page}, {date}), image logos, and separate English/Chinese font selection
-* **Pagination system** — accurate page break calculation with visual page gaps, headers/footers rendered in decorations, and zoom-independent measurement
-* **Print support** — browser-native print with correct page breaks, headers, footers, and watermarks; "Questions Only" and "With Answers" print modes
-* **Answer Key section** — floating, collapsible answer overlay with drag-to-reposition and per-question labeling
-* **Find & Replace** — search with highlight decorations, navigate between matches, replace current or all occurrences
-* **Keyboard shortcuts modal** — categorized reference for all editor shortcuts (Ctrl+/)
-* **Zoom controls** — zoom in/out with fit-to-width default on mobile; page breaks remain accurate at any zoom level
-* **Paper mode** — document always displays in light/print colors regardless of global dark mode, with toggle in status bar
-* **Document management** — create, duplicate, archive, restore, and permanently delete documents; mobile-responsive list view
-* **Document templates** — create documents from templates (e.g. MathConcept) with pre-configured margins, footer, watermark, and body font
-* **Body font settings** — new Fonts tab in Page Layout modal to set default font family (English + CJK) and font size for the document
-* **Block indent/outdent** — Tab/Shift+Tab to indent or outdent paragraphs and headings (up to 8 levels); toolbar buttons in Format tab
+* **Document Builder**: full A4 document editor with TipTap: rich text formatting, tables with grid picker, resizable images with alignment/text wrapping, math equations (KaTeX), and geometry diagrams (JSXGraph)
+* **Page layout settings**: configurable margins, headers/footers with text templates ({title}, {page}, {date}), image logos, and separate English/Chinese font selection
+* **Pagination system**: accurate page break calculation with visual page gaps, headers/footers rendered in decorations, and zoom-independent measurement
+* **Print support**: browser-native print with correct page breaks, headers, footers, and watermarks; "Questions Only" and "With Answers" print modes
+* **Answer Key section**: floating, collapsible answer overlay with drag-to-reposition and per-question labeling
+* **Find & Replace**: search with highlight decorations, navigate between matches, replace current or all occurrences
+* **Keyboard shortcuts modal**: categorized reference for all editor shortcuts (Ctrl+/)
+* **Zoom controls**: zoom in/out with fit-to-width default on mobile; page breaks remain accurate at any zoom level
+* **Paper mode**: document always displays in light/print colors regardless of global dark mode, with toggle in status bar
+* **Document management**: create, duplicate, archive, restore, and permanently delete documents; mobile-responsive list view
+* **Document templates**: create documents from templates (e.g. MathConcept) with pre-configured margins, footer, watermark, and body font
+* **Body font settings**: new Fonts tab in Page Layout modal to set default font family (English + CJK) and font size for the document
+* **Block indent/outdent**: Tab/Shift+Tab to indent or outdent paragraphs and headings (up to 8 levels); toolbar buttons in Format tab
 
 ### Improvements
 
@@ -1374,8 +1709,8 @@
 
 ### New Features
 
-* **Code blocks with syntax highlighting** — toggle via toolbar button or type ``` in the editor; ~35 common languages auto-detected with Catppuccin Mocha color theme; highlighting preserved in sent messages
-* **Drag-and-drop attachment reordering** — drag images horizontally or files vertically (with grip handle) to reorder before sending, in both reply composer and compose modal
+* **Code blocks with syntax highlighting**: toggle via toolbar button or type ``` in the editor; ~35 common languages auto-detected with Catppuccin Mocha color theme; highlighting preserved in sent messages
+* **Drag-and-drop attachment reordering**: drag images horizontally or files vertically (with grip handle) to reorder before sending, in both reply composer and compose modal
 
 ### Improvements
 
@@ -1392,16 +1727,16 @@
 
 ### New Features
 
-* **Interactive geometry editor** — draw points, lines, segments, circles, polygons, function graphs, text labels, and angles on an interactive JSXGraph board; hexagon toolbar button in the inbox editor
-* **Geometry viewer** — click sent diagram thumbnails to open an interactive read-only viewer with zoom in/out/reset controls and drag-to-pan
-* **Function graphing** — plot mathematical functions via LaTeX input with MathLive virtual keyboard, converted to JS and rendered as curves on the geometry board
-* **Theme-reactive geometry boards** — boards re-render with correct colors when switching between light and dark mode
-* **Grid snapping** — toggle snap-to-grid in the geometry editor toolbar (on by default) for precise point placement at integer coordinates
-* **Auto-named points** — points are automatically labeled A, B, C, ...; click a point in select mode to rename it
-* **Touch support** — geometry editor and viewer optimized for touch devices with larger hit targets and no browser gesture interference
-* **Area-select & group movement** — drag a selection rectangle over compound elements (angles, polygons, circles, segments) then drag any defining point to move the entire shape as a unit
-* **Polygon interior dragging** — click inside any polygon to drag it by its interior
-* **Exact angle input** — type a degree value in the text field when placing an angle to auto-compute the third point at the exact angle
+* **Interactive geometry editor**: draw points, lines, segments, circles, polygons, function graphs, text labels, and angles on an interactive JSXGraph board; hexagon toolbar button in the inbox editor
+* **Geometry viewer**: click sent diagram thumbnails to open an interactive read-only viewer with zoom in/out/reset controls and drag-to-pan
+* **Function graphing**: plot mathematical functions via LaTeX input with MathLive virtual keyboard, converted to JS and rendered as curves on the geometry board
+* **Theme-reactive geometry boards**: boards re-render with correct colors when switching between light and dark mode
+* **Grid snapping**: toggle snap-to-grid in the geometry editor toolbar (on by default) for precise point placement at integer coordinates
+* **Auto-named points**: points are automatically labeled A, B, C, ...; click a point in select mode to rename it
+* **Touch support**: geometry editor and viewer optimized for touch devices with larger hit targets and no browser gesture interference
+* **Area-select & group movement**: drag a selection rectangle over compound elements (angles, polygons, circles, segments) then drag any defining point to move the entire shape as a unit
+* **Polygon interior dragging**: click inside any polygon to drag it by its interior
+* **Exact angle input**: type a degree value in the text field when placing an angle to auto-compute the third point at the exact angle
 
 ### Improvements
 
@@ -1419,9 +1754,9 @@
 
 ### New Features
 
-* **Math equations in inbox** — type `$...$` for inline or `$$...$$` for block math, rendered with KaTeX; Sigma toolbar button converts selected text to equations; click to edit existing equations
-* **Math equation editor modal** — dedicated editor with MathLive mathfield and virtual keyboard for visual equation input; supports inline/block mode toggle with descriptions, edit/delete existing equations, and Ctrl/⌘+Enter shortcut to insert
-* **Themed virtual keyboard** — MathLive keyboard styled with warm brown palette matching app design, with full dark mode support
+* **Math equations in inbox**: type `$...$` for inline or `$$...$$` for block math, rendered with KaTeX; Sigma toolbar button converts selected text to equations; click to edit existing equations
+* **Math equation editor modal**: dedicated editor with MathLive mathfield and virtual keyboard for visual equation input; supports inline/block mode toggle with descriptions, edit/delete existing equations, and Ctrl/⌘+Enter shortcut to insert
+* **Themed virtual keyboard**: MathLive keyboard styled with warm brown palette matching app design, with full dark mode support
 
 ### Bug Fixes
 
@@ -1435,30 +1770,30 @@
 
 ### New Features
 
-* **Chat-style thread view** — redesigned inbox thread detail with message bubbles, avatars, date separators, and typing indicators
-* **Scheduled send** — compose messages with schedule picker (preset times or custom datetime), inline edit before send, delivery timestamp updated on send
-* **@Mentions** — type `@` in the editor for autocomplete, mentions stored and surfaced in dedicated Mentions sidebar with unread badge and priority notifications that bypass thread mute
-* **Snooze** — snooze messages with preset or custom times, background task automatically marks as unread when snooze expires via SSE
-* **Voice messages** — record audio via microphone, upload to cloud storage, inline AudioPlayer with waveform visualization
-* **Message templates** — quick-insert reusable message templates from a picker
-* **Link previews** — automatic Open Graph previews for URLs in messages
-* **Emoji reactions** — react to messages with emoji, displayed as pills below message bubbles
+* **Chat-style thread view**: redesigned inbox thread detail with message bubbles, avatars, date separators, and typing indicators
+* **Scheduled send**: compose messages with schedule picker (preset times or custom datetime), inline edit before send, delivery timestamp updated on send
+* **@Mentions**: type `@` in the editor for autocomplete, mentions stored and surfaced in dedicated Mentions sidebar with unread badge and priority notifications that bypass thread mute
+* **Snooze**: snooze messages with preset or custom times, background task automatically marks as unread when snooze expires via SSE
+* **Voice messages**: record audio via microphone, upload to cloud storage, inline AudioPlayer with waveform visualization
+* **Message templates**: quick-insert reusable message templates from a picker
+* **Link previews**: automatic Open Graph previews for URLs in messages
+* **Emoji reactions**: react to messages with emoji, displayed as pills below message bubbles
 
 ### Improvements
 
-* **Sidebar reorganization** — 3 sections: primary mailboxes, smart views (Starred, Mentions, Send Later, Snoozed), and collapsible Tags
-* **Rich interactions** — quote-reply, message forwarding, swipe actions, keyboard shortcuts
-* **Paste/drag image uploads** — supports multiple images at once
-* **Search highlighting** — across thread list and message content
-* **Draft auto-save** — with thread list preview indicator
-* **Dark mode polish** — across all new components
-* **Performance** — faster navigation and smoother category switching
-* **Video & GIF attachments** — send and preview video/GIF files inline in messages
-* **Message forwarding with attachments** — forwarded messages now include all original attachments (images, files, voice recordings)
-* **Categorized attachment menu** — attachment button opens a popover with Photos & Videos / Document sections
-* **File attachments in replies** — attach files when replying, with thumbnail previews and remove button
-* **Improved toolbar dropdowns** — emoji, color picker, attachments, and template menus no longer get clipped on mobile or in edit mode
-* **Slide animations** — smooth expand/collapse on search filters panel and collapsible sections
+* **Sidebar reorganization**: 3 sections: primary mailboxes, smart views (Starred, Mentions, Send Later, Snoozed), and collapsible Tags
+* **Rich interactions**: quote-reply, message forwarding, swipe actions, keyboard shortcuts
+* **Paste/drag image uploads**: supports multiple images at once
+* **Search highlighting**: across thread list and message content
+* **Draft auto-save**: with thread list preview indicator
+* **Dark mode polish**: across all new components
+* **Performance**: faster navigation and smoother category switching
+* **Video & GIF attachments**: send and preview video/GIF files inline in messages
+* **Message forwarding with attachments**: forwarded messages now include all original attachments (images, files, voice recordings)
+* **Categorized attachment menu**: attachment button opens a popover with Photos & Videos / Document sections
+* **File attachments in replies**: attach files when replying, with thumbnail previews and remove button
+* **Improved toolbar dropdowns**: emoji, color picker, attachments, and template menus no longer get clipped on mobile or in edit mode
+* **Slide animations**: smooth expand/collapse on search filters panel and collapsible sections
 
 ### Bug Fixes
 

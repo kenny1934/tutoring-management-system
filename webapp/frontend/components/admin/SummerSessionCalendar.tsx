@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ChevronLeft, ChevronRight, CalendarPlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DAY_ABBREV, compareSummerSlots } from "@/lib/summer-utils";
+import { DAY_ABBREV, compareSummerSlots, isNonAttending } from "@/lib/summer-utils";
 import {
   getWeekStartStr,
   getWeekDateStrings,
@@ -11,12 +11,16 @@ import {
 } from "@/lib/calendar-utils";
 import useSWR, { useSWRConfig } from "swr";
 import { summerAPI } from "@/lib/api";
+import { FilterChip, TutorFilterSelect } from "@/components/admin/ArrangementFilters";
 import { SummerLessonCard } from "@/components/admin/SummerLessonCard";
 import { CreateMakeupSlotModal } from "@/components/admin/CreateMakeupSlotModal";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { useSession } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import type { SummerLessonUpdate, SummerLessonCalendarEntry } from "@/types";
+
+// Summer lessons carry a course type (A/B) rather than a language stream.
+const COURSE_TYPES = ["A", "B"] as const;
 
 interface SummerSessionCalendarProps {
   configId: number;
@@ -25,6 +29,10 @@ interface SummerSessionCalendarProps {
   courseEndDate: string;
   openDays: string[];
   timeSlots: string[];
+  /** Grade options for the grade filter chips (from config). */
+  grades?: string[];
+  /** Tutors for the tutor filter dropdown (location-scoped). */
+  tutors?: { id: number; name: string }[];
   /** Upper bound for the lesson-number UIs, sourced from config.total_lessons. */
   totalLessons?: number;
   readOnly?: boolean;
@@ -83,6 +91,8 @@ export function SummerSessionCalendar({
   courseEndDate,
   openDays,
   timeSlots,
+  grades = [],
+  tutors = [],
   totalLessons = 8,
   readOnly = false,
   onDropStudent,
@@ -190,12 +200,58 @@ export function SummerSessionCalendar({
 
   const lessons = calendarData?.lessons ?? [];
 
-  // Index lessons by "date|timeSlot", with each group sorted by
+  // ---- Slot-content filters (grade / course type / tutor / has-space) ----
+  // Mirror the Slot-Setup grid's filters so admins can pick out one combination
+  // at a glance, e.g. "A-type F3 lessons with space". They narrow the lesson
+  // CARDS per cell (not day columns, which the day chips already handle). A
+  // lesson from an unconfigured slot (grade/course type/tutor unset) never
+  // matches a specific filter.
+  const [gradeFilter, setGradeFilter] = useState<string | null>(null);
+  const [courseTypeFilter, setCourseTypeFilter] = useState<string | null>(null);
+  const [tutorFilter, setTutorFilter] = useState<number | null>(null);
+  const [spaceOnly, setSpaceOnly] = useState(false);
+
+  // Tutor ids are location-scoped; drop a selection when the branch changes.
+  useEffect(() => {
+    setTutorFilter(null);
+  }, [location]);
+
+  const slotFilterActive =
+    gradeFilter !== null || courseTypeFilter !== null || tutorFilter !== null || spaceOnly;
+
+  const clearSlotFilters = useCallback(() => {
+    setGradeFilter(null);
+    setCourseTypeFilter(null);
+    setTutorFilter(null);
+    setSpaceOnly(false);
+  }, []);
+
+  const visibleLessons = useMemo(() => {
+    if (!slotFilterActive) return lessons;
+    return lessons.filter((l) => {
+      if (gradeFilter !== null && l.grade !== gradeFilter) return false;
+      if (courseTypeFilter !== null && l.course_type !== courseTypeFilter) return false;
+      if (tutorFilter !== null && l.tutor_id !== tutorFilter) return false;
+      if (spaceOnly) {
+        // A cancelled lesson has empty seats but refuses every one of them:
+        // placement, find-slot and the make-up suggester all skip it, so the
+        // chip would only surface a dead end.
+        if (l.lesson_status === "Cancelled") return false;
+        // "Full" matches the lesson card's own rule: only attending sessions
+        // count against capacity.
+        const attending = l.sessions.filter((s) => !isNonAttending(s.session_status)).length;
+        if (attending >= l.max_students) return false;
+      }
+      return true;
+    });
+  }, [lessons, slotFilterActive, gradeFilter, courseTypeFilter, tutorFilter, spaceOnly]);
+
+  // Index the (filtered) lessons by "date|timeSlot", with each group sorted by
   // (grade, course_type, tutor first name, slot_id) so the calendar grid
   // mirrors the arrangement grid's visual order.
   const lessonIndex = useMemo(() => {
     const m = new Map<string, SummerLessonCalendarEntry[]>();
-    for (const l of lessons) {
+    for (const l of visibleLessons) {
       const key = `${l.date}|${l.time_slot}`;
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(l);
@@ -204,7 +260,7 @@ export function SummerSessionCalendar({
       group.sort(compareSummerSlots);
     }
     return m;
-  }, [lessons]);
+  }, [visibleLessons]);
 
   // Merge in any lesson times that fall outside the configured timeSlots
   // (typically ad-hoc Make-up Slots at non-standard times). Extension rows
@@ -350,6 +406,66 @@ export function SummerSessionCalendar({
           )}
         </div>
 
+        {/* Slot-content filters — grade / course type / tutor / has-space */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[9px] text-muted-foreground mr-0.5">Grade:</span>
+          <FilterChip
+            label="All"
+            active={gradeFilter === null}
+            onClick={() => setGradeFilter(null)}
+            title="All grades"
+          />
+          {grades.map((g) => (
+            <FilterChip
+              key={g}
+              label={g}
+              active={gradeFilter === g}
+              onClick={() => setGradeFilter((prev) => (prev === g ? null : g))}
+              title={gradeFilter === g ? `Clear ${g} filter` : `Show only ${g} lessons`}
+            />
+          ))}
+
+          <span className="text-[9px] text-muted-foreground ml-1 mr-0.5">Type:</span>
+          <FilterChip
+            label="All"
+            active={courseTypeFilter === null}
+            onClick={() => setCourseTypeFilter(null)}
+            title="All course types"
+          />
+          {COURSE_TYPES.map((ct) => (
+            <FilterChip
+              key={ct}
+              label={ct}
+              active={courseTypeFilter === ct}
+              onClick={() => setCourseTypeFilter((prev) => (prev === ct ? null : ct))}
+              title={courseTypeFilter === ct ? `Clear type ${ct} filter` : `Show only type ${ct} lessons`}
+            />
+          ))}
+
+          <TutorFilterSelect value={tutorFilter} onChange={setTutorFilter} tutors={tutors} />
+
+          <FilterChip
+            label="Has space"
+            active={spaceOnly}
+            onClick={() => setSpaceOnly((v) => !v)}
+            title="Show only lessons with room for more students"
+          />
+
+          {slotFilterActive && (
+            <>
+              <span className="text-[10px] text-muted-foreground ml-1 tabular-nums">
+                {visibleLessons.length} of {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}
+              </span>
+              <button
+                onClick={clearSlotFilters}
+                className="text-[10px] text-[#a0704b] hover:underline ml-0.5"
+              >
+                Clear
+              </button>
+            </>
+          )}
+        </div>
+
         {!readOnly && (
           <button
             onClick={() => setMakeupModal({})}
@@ -431,7 +547,10 @@ export function SummerSessionCalendar({
                     <div
                       key={key}
                       className={cn(
-                        "group relative bg-white dark:bg-[#1a1a1a] p-0.5 min-h-[60px] space-y-0.5",
+                        "group relative bg-white dark:bg-[#1a1a1a] p-0.5 min-h-[60px] space-y-0.5 transition-opacity",
+                        // With a filter on, cells holding no match recede so the
+                        // matching lessons pop.
+                        slotFilterActive && isEmptyCell && "opacity-40 hover:opacity-100",
                         pref === "pref1" && "ring-2 ring-inset ring-primary/40 bg-primary/5",
                         pref === "pref2" && "ring-2 ring-inset ring-orange-400/40 bg-orange-50/50 dark:bg-orange-900/10"
                       )}

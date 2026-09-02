@@ -6,9 +6,12 @@ import type { ParentCommunication } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useZenKeyboardFocus, type ZenFocusSection } from "@/contexts/ZenKeyboardFocusContext";
 import { setZenStatus } from "./ZenStatusBar";
+import { CONTACT_TYPES, type ContactType } from "@/components/parent-contacts/contact-utils";
 
 const METHODS = ["WeChat", "Phone", "In-Person"] as const;
-const TYPES = ["Progress Update", "Concern", "General"] as const;
+// The shared list rather than a copy: a tutor logging a renewal chase from zen
+// mode should be able to say so, the same as everywhere else.
+const TYPES = CONTACT_TYPES;
 
 interface ZenContactFormProps {
   studentId: number;
@@ -147,7 +150,7 @@ export function ZenContactForm({
           } else if (activeField === 1) {
             e.preventDefault();
             e.stopImmediatePropagation();
-            const idx = TYPES.indexOf(type as typeof TYPES[number]);
+            const idx = TYPES.indexOf(type as ContactType);
             setType(TYPES[(idx - 1 + TYPES.length) % TYPES.length]);
           }
           break;
@@ -162,7 +165,7 @@ export function ZenContactForm({
           } else if (activeField === 1) {
             e.preventDefault();
             e.stopImmediatePropagation();
-            const idx = TYPES.indexOf(type as typeof TYPES[number]);
+            const idx = TYPES.indexOf(type as ContactType);
             setType(TYPES[(idx + 1) % TYPES.length]);
           }
           break;

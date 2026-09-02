@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import useSWR from "swr";
+import { useProspectMatches } from "@/lib/hooks";
 import type { LucideIcon } from "lucide-react";
 import {
   Link2,
@@ -19,8 +19,9 @@ import {
   X,
   Clock,
 } from "lucide-react";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
-import { prospectsAPI } from "@/lib/api";
+import { applicationSearchHref, prospectsAPI } from "@/lib/api";
 import { parseHKTimestamp } from "@/lib/formatters";
 import { BRANCH_INFO } from "@/lib/summer-utils";
 import {
@@ -28,12 +29,16 @@ import {
   BranchBadges,
   OutreachBadge,
   ProspectStatusBadge,
+  CourseStateBadge,
+  StudentCodeBadge,
   OUTREACH_OPTIONS,
   STATUS_OPTIONS,
 } from "@/components/summer/prospect-badges";
 import { StatusBadge as ApplicationStatusBadge } from "@/components/admin/SummerApplicationCard";
 import type {
   PrimaryProspect,
+  PrimaryProspectMatchResult,
+  ProspectCourse,
   ProspectOutreachStatus,
   ProspectStatus,
 } from "@/types";
@@ -62,15 +67,22 @@ export function ProspectDetailModal({
   const goPrev = canNavigate && idx > 0 ? () => onNavigate!(siblings![idx - 1]) : null;
   const goNext = canNavigate && idx < siblings!.length - 1 ? () => onNavigate!(siblings![idx + 1]) : null;
 
+  // Mounting is opening here, so the layer lasts as long as the component.
+  // The application modals stack this one on top of themselves, and only the
+  // stack can tell either of them apart from the other's keypresses. Scroll is
+  // already frozen by whatever opened this.
+  const { isTopmost, zIndex } = useOverlayLayer(true);
+
   // Keyboard navigation: ← / → to flip prospects, Escape to close.
   // Arrow keys are ignored while focus is in an input/textarea/select.
+  // Suspended whenever something is stacked above, so the keys reach it alone.
   useStableKeyboardHandler((e) => {
     const target = e.target as HTMLElement | null;
     if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
     if (e.key === "ArrowLeft" && goPrev) { e.preventDefault(); goPrev(); }
     else if (e.key === "ArrowRight" && goNext) { e.preventDefault(); goNext(); }
     else if (e.key === "Escape") onClose();
-  });
+  }, isTopmost);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -81,8 +93,6 @@ export function ProspectDetailModal({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
-  const unlinkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Reset local form state when navigating to a different prospect (no remount).
   useEffect(() => {
@@ -91,17 +101,24 @@ export function ProspectDetailModal({
     setContactNotes(prospect.contact_notes || "");
     setSaveError(null);
     setShowHistory(false);
-    setConfirmingUnlink(false);
   }, [prospect.id]);
 
   const hasChanges = outreachStatus !== prospect.outreach_status
     || status !== prospect.status
     || (contactNotes || "") !== (prospect.contact_notes || "");
 
-  const { data: matchResult } = useSWR(
-    !prospect.summer_application_id ? `prospect-match-${prospect.id}` : null,
-    () => prospectsAPI.findMatches(prospect.id),
-    { revalidateOnFocus: false }
+  // Both go through the shared hook, so the list's quick-link popover reuses
+  // whichever of these has already loaded. Neither fetches for a course the
+  // prospect is already linked to.
+  const { data: matchResult } = useProspectMatches(
+    prospect.id,
+    "summer",
+    !prospect.summer_application_id,
+  );
+  const { data: regularMatchResult } = useProspectMatches(
+    prospect.id,
+    "regular",
+    !prospect.regular_application_id,
   );
 
   const handleSave = async () => {
@@ -122,17 +139,15 @@ export function ProspectDetailModal({
     }
   };
 
-  const handleLink = async (applicationId: number) => {
+  // Link (applicationId) and unlink (null) share one save flow.
+  const handleLink = async (course: ProspectCourse, applicationId: number | null) => {
     setSaveError(null);
     try {
-      await prospectsAPI.adminUpdate(prospect.id, {
-        summer_application_id: applicationId,
-        status: "Applied",
-      });
+      await prospectsAPI.linkCourseApplication(prospect.id, course, applicationId);
       onSave();
       onClose();
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Link failed");
+      setSaveError(err instanceof Error ? err.message : "Update failed");
     }
   };
 
@@ -145,8 +160,9 @@ export function ProspectDetailModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        style={{ zIndex }}
+        className="fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+        onClick={() => { if (isTopmost) onClose(); }}
         role="dialog"
         aria-modal="true"
         aria-label={`Prospect details: ${prospect.student_name}`}
@@ -225,7 +241,7 @@ export function ProspectDetailModal({
             </div>
           )}
 
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Wants Summer?</span>
               <IntentionBadge value={prospect.wants_summer} />
@@ -233,6 +249,17 @@ export function ProspectDetailModal({
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Wants Regular (Sept)?</span>
               <IntentionBadge value={prospect.wants_regular} />
+            </div>
+          </div>
+
+          <div className="flex gap-4 flex-wrap">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Summer</span>
+              <CourseStateBadge state={prospect.summer_state} />
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Regular (Sept)</span>
+              <CourseStateBadge state={prospect.regular_state} />
             </div>
           </div>
 
@@ -316,81 +343,45 @@ export function ProspectDetailModal({
           </div>
 
           {prospect.summer_application_id ? (
-            <div className="border-t border-border pt-5">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Linked Summer Application</div>
-              <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Link2 className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium">{prospect.matched_application_ref}</span>
-                  {prospect.matched_application_status && (
-                    <ApplicationStatusBadge status={prospect.matched_application_status} />
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <a
-                    href={`/admin/summer/applications?search=${prospect.matched_application_ref}`}
-                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                  >
-                    View &rarr;
-                  </a>
-                  {!readOnly && (
-                    <button
-                      onClick={async () => {
-                        if (!confirmingUnlink) {
-                          setConfirmingUnlink(true);
-                          clearTimeout(unlinkTimerRef.current);
-                          unlinkTimerRef.current = setTimeout(() => setConfirmingUnlink(false), 3000);
-                          return;
-                        }
-                        clearTimeout(unlinkTimerRef.current);
-                        setConfirmingUnlink(false);
-                        setSaveError(null);
-                        try {
-                          await prospectsAPI.adminUpdate(prospect.id, { summer_application_id: null });
-                          onSave();
-                          onClose();
-                        } catch (err) {
-                          setSaveError(err instanceof Error ? err.message : "Unlink failed");
-                        }
-                      }}
-                      className={`text-xs font-medium transition-colors ${confirmingUnlink ? "bg-red-500 text-white px-2 py-0.5 rounded" : "text-red-600 hover:text-red-700"}`}
-                    >
-                      {confirmingUnlink ? "Sure? Click again" : "Unlink"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+            <LinkedAppBlock
+              key={`summer-link-${prospect.id}`}
+              title="Linked Summer Application"
+              refCode={prospect.matched_application_ref}
+              appStatus={prospect.matched_application_status}
+              studentCode={prospect.matched_student_code}
+              studentId={prospect.matched_student_id}
+              viewHref={applicationSearchHref("summer", prospect.matched_application_ref)}
+              onUnlink={() => handleLink("summer", null)}
+              readOnly={readOnly}
+            />
           ) : matchResult && matchResult.matches.length > 0 ? (
-            <div className="border-t border-border pt-5">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Potential Matches ({matchResult.matches.length})
-              </div>
-              <div className="space-y-2">
-                {matchResult.matches.map((m) => (
-                  <div
-                    key={m.application_id}
-                    className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-xl p-4 flex items-center justify-between"
-                  >
-                    <div>
-                      <span className="text-sm font-medium">{m.student_name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {m.reference_code} &middot; {m.contact_phone} &middot; {m.match_type}
-                      </span>
-                    </div>
-                    {!readOnly && (
-                      <button
-                        onClick={() => handleLink(m.application_id)}
-                        className="inline-flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 font-medium transition-colors"
-                      >
-                        <Link2 className="h-3 w-3" />
-                        Link
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <MatchList
+              title={`Potential Summer Matches (${matchResult.matches.length})`}
+              matches={matchResult.matches}
+              onLink={(id) => handleLink("summer", id)}
+              readOnly={readOnly}
+            />
+          ) : null}
+
+          {prospect.regular_application_id ? (
+            <LinkedAppBlock
+              key={`regular-link-${prospect.id}`}
+              title="Linked Regular Application"
+              refCode={prospect.matched_regular_ref}
+              appStatus={prospect.matched_regular_status}
+              studentCode={prospect.matched_regular_student_code}
+              studentId={prospect.matched_regular_student_id}
+              viewHref={applicationSearchHref("regular", prospect.matched_regular_ref)}
+              onUnlink={() => handleLink("regular", null)}
+              readOnly={readOnly}
+            />
+          ) : regularMatchResult && regularMatchResult.matches.length > 0 ? (
+            <MatchList
+              title={`Potential Regular Matches (${regularMatchResult.matches.length})`}
+              matches={regularMatchResult.matches}
+              onLink={(id) => handleLink("regular", id)}
+              readOnly={readOnly}
+            />
           ) : null}
 
           {prospect.edit_history && prospect.edit_history.length > 0 && (
@@ -418,6 +409,122 @@ export function ProspectDetailModal({
     </motion.div>
     </AnimatePresence>,
     document.body
+  );
+}
+
+function LinkedAppBlock({
+  title,
+  refCode,
+  appStatus,
+  studentCode,
+  studentId,
+  viewHref,
+  onUnlink,
+  readOnly,
+}: {
+  title: string;
+  refCode: string | null;
+  appStatus: string | null;
+  /** The enrolled student's MSA/MSB code + id; unset until an enrollment
+   *  publishes. The badge deep-links to the student page. */
+  studentCode?: string | null;
+  studentId?: number | null;
+  viewHref: string;
+  onUnlink: () => void;
+  readOnly: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  return (
+    <div className="border-t border-border pt-5">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{title}</div>
+      <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-medium">{refCode}</span>
+          {appStatus && <ApplicationStatusBadge status={appStatus} />}
+          {studentCode && studentId && (
+            <a
+              href={`/students/${studentId}?tab=profile`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Open student page"
+              className="hover:opacity-80 transition-opacity"
+            >
+              <StudentCodeBadge code={studentCode} />
+            </a>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <a href={viewHref} className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+            View &rarr;
+          </a>
+          {!readOnly && (
+            <button
+              onClick={() => {
+                if (!confirming) {
+                  setConfirming(true);
+                  clearTimeout(timerRef.current);
+                  timerRef.current = setTimeout(() => setConfirming(false), 3000);
+                  return;
+                }
+                clearTimeout(timerRef.current);
+                setConfirming(false);
+                onUnlink();
+              }}
+              className={`text-xs font-medium transition-colors ${confirming ? "bg-red-500 text-white px-2 py-0.5 rounded" : "text-red-600 hover:text-red-700"}`}
+            >
+              {confirming ? "Sure? Click again" : "Unlink"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MatchList({
+  title,
+  matches,
+  onLink,
+  readOnly,
+}: {
+  title: string;
+  matches: PrimaryProspectMatchResult["matches"];
+  onLink: (applicationId: number) => void;
+  readOnly: boolean;
+}) {
+  return (
+    <div className="border-t border-border pt-5">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{title}</div>
+      <div className="space-y-2">
+        {matches.map((m) => (
+          <div
+            key={m.application_id}
+            className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-xl p-4 flex items-center justify-between"
+          >
+            <div>
+              <span className="text-sm font-medium">{m.student_name}</span>
+              <span className="text-xs text-muted-foreground ml-2">
+                {m.reference_code} &middot; {m.contact_phone} &middot; {m.match_type}
+              </span>
+            </div>
+            {!readOnly && (
+              <button
+                onClick={() => onLink(m.application_id)}
+                className="inline-flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 font-medium transition-colors"
+              >
+                <Link2 className="h-3 w-3" />
+                Link
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

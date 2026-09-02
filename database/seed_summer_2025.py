@@ -57,8 +57,6 @@ CONFIG_2025 = {
             "address": "澳門若翰亞美打街10號東輝閣地下B座",
             "address_en": "Rua de João de Almeida No 10, Tung Fai Kock, B R/C, Macau",
             "open_days": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-            "open_days_label": "一星期開七日",
-            "open_days_label_en": "Open 7 days a week",
             "time_slots": {d: DEFAULT_TIME_SLOTS for d in ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]},
         },
         {
@@ -67,8 +65,6 @@ CONFIG_2025 = {
             "address": "澳門士多紐拜斯大馬路47B號楹峯疊翠地下A座",
             "address_en": "Avenida de Sidonio Pais No. 47B, The Paramount, A R/C, Macau",
             "open_days": ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-            "open_days_label": "星期日一休息",
-            "open_days_label_en": "Closed on Sun & Mon",
             "time_slots": {d: DEFAULT_TIME_SLOTS for d in ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]},
         },
     ]),
@@ -90,10 +86,13 @@ CONFIG_2025 = {
         {"name": "MathConcept中學教室", "name_en": "MathConcept Secondary Academy"},
         {"name": "以上皆非", "name_en": "None"},
     ]),
+    # Values must stay C / E / Int: the grade badge colour is keyed on
+    # grade + stream (F1C, F1E), so any other code renders uncoloured. The
+    # live configs were migrated off the older CMI / EMI / IS in 137.
     "lang_stream_options": json.dumps([
-        {"name": "中文部", "name_en": "Chinese-medium", "value": "CMI"},
-        {"name": "英文部", "name_en": "English-medium", "value": "EMI"},
-        {"name": "國際學校", "name_en": "International School", "value": "IS"},
+        {"name": "中文部", "name_en": "Chinese Section", "value": "C"},
+        {"name": "英文部", "name_en": "English Section", "value": "E"},
+        {"name": "國際學校", "name_en": "International", "value": "Int"},
     ]),
     "center_options": json.dumps([
         {"name": "高士德分校", "name_en": "Costa Center"},

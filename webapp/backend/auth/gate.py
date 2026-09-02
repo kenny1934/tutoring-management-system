@@ -43,6 +43,7 @@ PUBLIC_PATHS = frozenset({
     "/api/summer/pre-grade-window",
     # Cron-or-admin endpoints: self-validate X-Cron-Secret OR an admin cookie
     "/api/admin/promote-grades",
+    "/api/admin/employment/sync",
     "/api/summer/marketing/snapshot",
     "/api/summer/revenue/sheet-refresh",
 })
@@ -51,6 +52,7 @@ PUBLIC_PATHS = frozenset({
 # that need auth still enforce it via their own dependencies.
 PUBLIC_PREFIXES = (
     "/api/summer/public/",   # public application + buddy-group forms
+    "/api/regular/public/",  # public regular-course application form
     "/api/report-shares/",   # token-gated parent report links (POST/DELETE self-auth)
     "/api/prospects",        # X-Branch-Pin gated primary-prospect pages
     "/api/buddy-tracker",    # X-Branch-Pin gated buddy tracker

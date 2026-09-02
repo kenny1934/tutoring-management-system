@@ -151,6 +151,47 @@ export function formatShortDate(dateStr: string | null | undefined): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+/**
+ * Weekday-first date labels, for headings in a list that covers several days.
+ *
+ * Both formatters are built once and reused. Calling toLocaleDateString with an
+ * options object builds a fresh Intl.DateTimeFormat every time, which costs
+ * around 38 microseconds a call, and these run once per group in a list that
+ * re-renders on every click.
+ */
+const SHORT_WEEKDAY_DATE = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+const LONG_WEEKDAY_DATE = new Intl.DateTimeFormat("en-GB", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+/** "Tue 25 Aug", for a heading that sits beside something else. */
+export function formatWeekdayShort(dateStr: string): string {
+  return SHORT_WEEKDAY_DATE.format(new Date(dateStr + "T00:00:00"));
+}
+
+/** "Tuesday 25 August 2026", for a heading that opens a day. */
+export function formatWeekdayLong(dateStr: string): string {
+  return LONG_WEEKDAY_DATE.format(new Date(dateStr + "T00:00:00"));
+}
+
+/**
+ * Format date day first, for prose where the date is read as part of a sentence
+ * Example: "4 Jul 2026"
+ */
+export function formatDayFirstDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  const date = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T00:00:00');
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 /** Parse a datetime string, treating naive (no timezone) strings as HK time (UTC+8).
  *  Our DB stores all timestamps in HK time via hk_now() / MySQL func.now(). */
 export function parseHKTimestamp(timestamp: string): Date {

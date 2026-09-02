@@ -27,6 +27,7 @@ import {
   FloatingFocusManager,
 } from "@floating-ui/react";
 import useSWR from "swr";
+import { isHomeBranch } from "@/lib/employment";
 
 type UserRole = 'Tutor' | 'Admin' | 'Super Admin';
 
@@ -37,6 +38,10 @@ interface RecordContactModalProps {
   preselectedStudentId: number | null;
   tutorId?: number;
   location?: string;
+  /** What the type starts on for a new contact. The pages built around one
+   *  kind of call pass their own, so a caller does not have to remember to
+   *  change it every time and the records come out consistent. */
+  defaultContactType?: string;
   // OAuth-ready props (for future integration)
   currentUserTutorId?: number;  // The tutor ID associated with the logged-in user
   currentUserRole?: UserRole;   // The role of the logged-in user
@@ -49,6 +54,7 @@ export function RecordContactModal({
   preselectedStudentId,
   tutorId,
   location,
+  defaultContactType = 'Progress Update',
   currentUserTutorId,
   currentUserRole,
 }: RecordContactModalProps) {
@@ -70,7 +76,7 @@ export function RecordContactModal({
   const tutors = useMemo(() => {
     let filtered = allTutors;
     if (location && location !== "All Locations") {
-      filtered = filtered.filter(t => t.default_location === location);
+      filtered = filtered.filter(t => isHomeBranch(t, location));
     }
     // Sort by first name (stripping Mr/Ms/Mrs prefix)
     return [...filtered].sort((a, b) =>
@@ -112,7 +118,7 @@ export function RecordContactModal({
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [contactMethod, setContactMethod] = useState('WeChat');
-  const [contactType, setContactType] = useState('Progress Update');
+  const [contactType, setContactType] = useState(defaultContactType);
   const [contactDate, setContactDate] = useState('');
   const [contactTime, setContactTime] = useState('');
   const [briefNotes, setBriefNotes] = useState('');
@@ -155,7 +161,7 @@ export function RecordContactModal({
         setSelectedStudentId(preselectedStudentId);
         setSelectedTutorId(currentTutorId);
         setContactMethod('WeChat');
-        setContactType('Progress Update');
+        setContactType(defaultContactType);
         const now = new Date();
         setContactDate(now.toISOString().split('T')[0]);
         setContactTime(now.toTimeString().slice(0, 5));
@@ -166,7 +172,7 @@ export function RecordContactModal({
       setStudentSearch('');
       setError(null);
     }
-  }, [isOpen, editingContact, preselectedStudentId, currentTutorId]);
+  }, [isOpen, editingContact, preselectedStudentId, currentTutorId, defaultContactType]);
 
   // Floating UI
   const { refs, context } = useFloating({

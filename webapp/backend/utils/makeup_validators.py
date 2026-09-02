@@ -52,7 +52,7 @@ def is_summer_session(session: SessionLog) -> bool:
     return bool(enrollment and enrollment.enrollment_type == 'Summer')
 
 
-def assert_summer_reschedule_deadline(session: SessionLog, target_date: date, is_super_admin: bool = False):
+def assert_summer_reschedule_deadline(session: SessionLog, target_date: date, can_override: bool = False):
     """
     Summer sessions may move freely within the summer but must land on or
     before 31 August of their summer year. This replaces the regular-slot
@@ -60,9 +60,12 @@ def assert_summer_reschedule_deadline(session: SessionLog, target_date: date, is
     anchored to the student's (typically already-ended) Regular enrollment and
     would otherwise block every summer reschedule.
 
-    Super Admin can override, mirroring the 60-day rule.
+    Admins and Super Admins can override the deadline, the same way they can
+    override the holiday block. Who qualifies is decided by the caller and
+    handed over as can_override, so this function never has to know about
+    roles.
     """
-    if is_super_admin:
+    if can_override:
         return
     deadline = date(session.session_date.year, 8, 31)
     if target_date > deadline:
@@ -104,6 +107,7 @@ def validate_makeup_constraints(
     target_location: str,
     is_super_admin: bool = False,
     is_admin: bool = False,
+    can_override_summer_deadline: bool = False,
     exclude_session_id: Optional[int] = None,
 ):
     """
@@ -117,15 +121,25 @@ def validate_makeup_constraints(
     4. Student time conflict
 
     Summer sessions swap checks 1 and 3 for a single rule: the make-up must
-    land on or before 31 August of the summer year.
+    land on or before 31 August of the summer year, which Admins and Super
+    Admins can override.
+
+    That override has its own flag rather than reading is_admin, because
+    is_admin only ever means "this caller may book onto a holiday" and exam
+    revision passes it as True for everybody (the holiday question is settled
+    when the slot is created). Sharing the flag would quietly hand every tutor
+    the summer override as well.
     """
     summer = is_summer_session(consume_session)
 
-    # 1. Scheduling window: summer sessions must land on or before 31 August;
-    # everything else gets the 60-day makeup restriction (Super Admin can
-    # override; approved extension bypasses).
+    # 1. Scheduling window: summer sessions must land on or before 31 August
+    # (Admin / Super Admin can override); everything else gets the 60-day
+    # makeup restriction (Super Admin can override; approved extension
+    # bypasses).
     if summer:
-        assert_summer_reschedule_deadline(consume_session, target_date, is_super_admin=is_super_admin)
+        assert_summer_reschedule_deadline(
+            consume_session, target_date, can_override=can_override_summer_deadline
+        )
     else:
         root_original = find_root_original_session(consume_session, db)
         days_since_original = (target_date - root_original.session_date).days

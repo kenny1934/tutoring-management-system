@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SummerApplicationSessionInfo, SummerCourseConfig, SummerCourseFormConfig, SummerPricingConfig, SummerSiblingInfo } from "@/types";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
+import { LOCATION_TO_CODE } from "@/lib/constants";
 
 export type Lang = "zh" | "en";
 
@@ -88,9 +89,29 @@ export const WEEK_DAY_ORDER = [
   "Saturday",
 ] as const;
 
+/**
+ * Put weekdays in calendar order regardless of how they arrived.
+ *
+ * `open_days` is stored as a plain array, so its order is whatever wrote the
+ * config last. Anything rendering a week to a parent should sort here rather
+ * than trust that, otherwise the picker silently starts on a different day
+ * than the strip above it. Unknown days sort last, in their original order.
+ */
+export function sortWeekDays(days: readonly string[]): string[] {
+  const order = WEEK_DAY_ORDER as readonly string[];
+  const rank = (d: string) => {
+    const i = order.indexOf(d);
+    return i === -1 ? order.length : i;
+  };
+  return [...days].sort((a, b) => rank(a) - rank(b));
+}
+
 /** Fallback branch photos, keyed by location name_en — overridden by
- *  `loc.image_url` in config when present. */
+ *  `loc.image_url` in config when present. The Vasco branch appears under two
+ *  English names because each intake's config names it independently: the
+ *  regular form shortened it, the 2025 summer config has not. */
 export const BRANCH_IMAGES_FALLBACK: Record<string, string> = {
+  "Vasco Center": "/summer/vasco-center.jpg",
   "Jardim de Vasco Center": "/summer/vasco-center.jpg",
   "Flora Garden Center": "/summer/flora-center.jpg",
 };
@@ -169,9 +190,11 @@ export function formatProspectCode(
   sourceBranch: string,
   primaryStudentId?: string | null,
 ): string {
-  const raw = primaryStudentId ?? "";
-  const stripped = raw.startsWith(sourceBranch)
-    ? raw.slice(sourceBranch.length)
+  const raw = (primaryStudentId ?? "").trim();
+  // Case-insensitive: branch tutors paste ids in whatever case their own sheet
+  // holds, and "mcp1023" must not render as "MCP-mcp1023".
+  const stripped = raw.toUpperCase().startsWith(sourceBranch.toUpperCase())
+    ? raw.slice(sourceBranch.length).replace(/^-/, "")
     : raw;
   return stripped ? `${sourceBranch}-${stripped}` : sourceBranch;
 }
@@ -503,11 +526,10 @@ export function PlacementDotStrip({
   );
 }
 
-/** Map summer config Chinese location names → internal system codes. */
-export const LOCATION_TO_CODE: Record<string, string> = {
-  "華士古分校": "MSA",
-  "二龍喉分校": "MSB",
-};
+/** Map summer config Chinese location names → internal system codes. Defined
+ *  in lib/constants.ts and re-exported here, because this is where the summer
+ *  and regular pages have always imported it from. */
+export { LOCATION_TO_CODE };
 
 /** Inverse of LOCATION_TO_CODE — for translating sidebar branch codes back
  *  into the Chinese names that summer applications store in preferred_location. */

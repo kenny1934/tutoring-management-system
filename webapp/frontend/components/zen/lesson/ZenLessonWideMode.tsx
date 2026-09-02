@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { getDisplayName } from "@/lib/exercise-utils";
+import { getDisplayName, getExerciseDisplayName } from "@/lib/exercise-utils";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import { ZenLessonStudentTabs } from "./ZenLessonStudentTabs";
@@ -10,12 +10,17 @@ import { ZenLessonPdfViewer } from "./ZenLessonPdfViewer";
 import { useZenLessonState, handleLessonKeyDown, type ZenLessonState } from "./useZenLessonState";
 import { ZenExerciseAssign } from "@/components/zen/ZenExerciseAssign";
 import { ZenLessonHelp } from "./ZenLessonHelp";
+import { ZenHomeworkCheck } from "./ZenHomeworkCheck";
+import { statusForKey } from "./zen-homework";
 import { ZenExitConfirmDialog } from "./ZenExitConfirmDialog";
+import { useHomeworkToCheck } from "@/lib/hooks";
+import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
+import { homeworkAPI } from "@/lib/api";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useZenAnnotationHandlers } from "./useZenAnnotationHandlers";
-import type { Session } from "@/types";
+import type { Session, HomeworkCompletion, HomeworkStatus } from "@/types";
 import { GradeLabel } from "@/components/ui/grade-label";
 
 const zenHeaderBtn: React.CSSProperties = {
@@ -81,6 +86,55 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const showPrintMenuRef = useRef(showPrintMenu);
   showPrintMenuRef.current = showPrintMenu;
+
+  // --- Homework carried in from earlier lessons ---
+  // One request covers the slot, so switching student costs nothing.
+  const homeworkSessionIds = useMemo(() => sessions.map(s => s.id), [sessions]);
+  const { bySession: homeworkBySession } = useHomeworkToCheck(homeworkSessionIds);
+  const applyHomeworkMark = useHomeworkMarked();
+
+  const homework = useMemo(
+    () => (activeSession ? homeworkBySession.get(activeSession.id) ?? [] : []),
+    [homeworkBySession, activeSession]
+  );
+
+  const [homeworkOpen, setHomeworkOpen] = useState(false);
+  const [homeworkCursor, setHomeworkCursor] = useState(0);
+  const [homeworkSaving, setHomeworkSaving] = useState(false);
+
+  // Marking is per student, so the cursor restarts when the student changes.
+  useEffect(() => {
+    setHomeworkCursor(0);
+  }, [studentIndex]);
+
+  const markHomework = useCallback(async (status: HomeworkStatus) => {
+    const target = homework[homeworkCursor];
+    if (!target || !activeSession) return;
+
+    setHomeworkSaving(true);
+    try {
+      const saved = await homeworkAPI.mark(activeSession.id, target.session_exercise_id, {
+        completion_status: status,
+      });
+      applyHomeworkMark(saved);
+      setZenStatus(`${getExerciseDisplayName(saved)}: ${status.toLowerCase()}`, "success");
+      // Move on, so marking a stack is one key per item.
+      setHomeworkCursor((prev) => Math.min(prev + 1, homework.length - 1));
+    } catch {
+      setZenStatus("Could not save homework check", "error");
+    } finally {
+      setHomeworkSaving(false);
+    }
+  }, [homework, homeworkCursor, activeSession, applyHomeworkMark]);
+
+  // Mirrored once, like every other handler here: the keyboard listener is
+  // registered a single time and must not tear down as homework changes.
+  const homeworkRef = useRef<HomeworkCompletion[]>(homework);
+  homeworkRef.current = homework;
+  const homeworkOpenRef = useRef(homeworkOpen);
+  homeworkOpenRef.current = homeworkOpen;
+  const markHomeworkRef = useRef(markHomework);
+  markHomeworkRef.current = markHomework;
 
   const handleBulkPrint = useCallback(async (type: "CW" | "HW") => {
     setShowPrintMenu(false);
@@ -155,6 +209,25 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         return;
       }
 
+      // Homework marking — cursor keys move, 0-4 mark, anything else closes
+      if (homeworkOpenRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const items = homeworkRef.current;
+
+        const status = statusForKey(e.key);
+        if (e.key === "j" || e.key === "ArrowDown") {
+          setHomeworkCursor((prev) => Math.min(prev + 1, items.length - 1));
+        } else if (e.key === "k" || e.key === "ArrowUp") {
+          setHomeworkCursor((prev) => Math.max(prev - 1, 0));
+        } else if (status) {
+          void markHomeworkRef.current(status);
+        } else {
+          setHomeworkOpen(false);
+        }
+        return;
+      }
+
       // Print menu — Escape or any non-1/2 key dismisses
       if (showPrintMenuRef.current) {
         e.preventDefault();
@@ -221,6 +294,19 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
         e.preventDefault();
         e.stopImmediatePropagation();
         setShowPrintMenu(true);
+        return;
+      }
+
+      // Mark homework (Shift+H), next to lowercase h for editing it
+      if (e.key === "H" && e.shiftKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (homeworkRef.current.length === 0) {
+          setZenStatus("No homework to check for this student", "info");
+        } else {
+          setHomeworkCursor(0);
+          setHomeworkOpen(true);
+        }
         return;
       }
 
@@ -334,6 +420,8 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
             onSelect={state.setExerciseCursor}
             answerAvailable={answerAvailable}
             onEditExercises={handleEditExercises}
+            homework={homework}
+            onCheckHomework={homework.length > 0 ? () => { setHomeworkCursor(0); setHomeworkOpen(true); } : undefined}
           />
         </div>
 
@@ -455,6 +543,15 @@ export function ZenLessonWideMode({ timeSlot, sessions, onClose }: ZenLessonWide
 
       {showHelp && (
         <ZenLessonHelp mode="wide" onClose={() => setShowHelp(false)} />
+      )}
+
+      {homeworkOpen && (
+        <ZenHomeworkCheck
+          studentName={activeSession?.student_name || "Unknown"}
+          items={homework}
+          cursor={homeworkCursor}
+          saving={homeworkSaving}
+        />
       )}
 
       {ann.showExitConfirm && (

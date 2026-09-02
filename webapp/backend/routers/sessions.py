@@ -12,16 +12,18 @@ from urllib.parse import urlparse, quote
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
+from utils.employment import sessions_after_last_day_clause, works_at
 from utils.query_helpers import session_with_relations, get_handover_prospect
 from sqlalchemy import func, or_, text, exists
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
+from models import SessionLog, Student, Tutor, SessionExercise, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest, SummerSession
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, ExerciseHistorySession, ExerciseHistoryResponse, HandoverProspectInfo
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now, PENDING_MAKEUP_STATUSES, COMPLETED_STATUSES, ATTENDABLE_STATUSES
+from routers.homework import load_homework_to_check
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info, batch_find_root_original_session_dates, batch_load_summer_slots, borrowed_lesson_number
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import (
@@ -73,6 +75,7 @@ async def get_sessions(
     financial_status: Optional[str] = Query(None, description="Filter by financial status"),
     from_date: Optional[date] = Query(None, description="Filter by session_date >= this date"),
     to_date: Optional[date] = Query(None, description="Filter by session_date <= this date"),
+    after_last_day: bool = Query(False, description="Only sessions dated after their tutor's last working day"),
     limit: int = Query(100, ge=1, le=2000, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     db: Session = Depends(get_db)
@@ -126,6 +129,15 @@ async def get_sessions(
 
     if to_date:
         query = query.filter(SessionLog.session_date <= to_date)
+
+    if after_last_day:
+        # Lessons standing in the diary for somebody who will not be there.
+        # The cut-off is per tutor, which is why this cannot be expressed with
+        # from_date, and it is deliberately not restricted to the future: work
+        # left behind by a departure stays listed until somebody moves it.
+        query = query.join(Tutor, SessionLog.tutor_id == Tutor.id).filter(
+            sessions_after_last_day_clause()
+        )
 
     # Order by most recent first
     query = query.order_by(SessionLog.session_date.desc())
@@ -713,46 +725,8 @@ async def get_session_detail(
         for exercise in exercises_by_session.get(session_id, [])
     ]
 
-    # Load homework to check from previous session (using homework_to_check view)
-    homework_to_check = db.query(HomeworkToCheck).filter(
-        HomeworkToCheck.current_session_id == session_id
-    ).all()
-
-    # Convert homework_to_check view data to HomeworkCompletionResponse format
-    homework_completion_list = []
-    for hw in homework_to_check:
-        # Parse pages field (e.g., "p.1-3" or "p.5") into page_start and page_end
-        page_start = None
-        page_end = None
-        if hw.pages:
-            pages_str = hw.pages.replace('p.', '')
-            if '-' in pages_str:
-                parts = pages_str.split('-')
-                page_start = int(parts[0]) if parts[0].isdigit() else None
-                page_end = int(parts[1]) if parts[1].isdigit() else None
-            elif pages_str.isdigit():
-                page_start = int(pages_str)
-
-        homework_completion_list.append(HomeworkCompletionResponse(
-            id=hw.session_exercise_id,  # Use exercise ID as identifier
-            current_session_id=hw.current_session_id,
-            session_exercise_id=hw.session_exercise_id,
-            student_id=hw.student_id,
-            completion_status=hw.completion_status,
-            submitted=hw.submitted or False,
-            tutor_comments=hw.tutor_comments,
-            checked_by=hw.checked_by,
-            checked_at=hw.checked_at,
-            pdf_name=hw.pdf_name,
-            page_start=page_start,
-            page_end=page_end,
-            url=hw.url,
-            homework_assigned_date=hw.homework_assigned_date,
-            assigned_by_tutor_id=hw.assigned_by_tutor_id,
-            assigned_by_tutor=hw.assigned_by_tutor
-        ))
-
-    session_data.homework_completion = homework_completion_list
+    # Homework still open for this session, going back up to three sat sessions
+    session_data.homework_completion = load_homework_to_check(db, [session_id]).get(session_id, [])
 
     # Build previous session data with pre-loaded exercises
     if previous_session:
@@ -1513,19 +1487,28 @@ async def schedule_makeup(
 
     # Shared validation: 60-day window, holiday, enrollment deadline, student conflict
     is_super_admin = current_user.role == "Super Admin"
-    is_admin = current_user.role in ("Super Admin", "Admin")
+    is_admin = current_user.role in ADMIN_WRITE_ROLES
     validate_makeup_constraints(
         db, original_session.student_id, original_session,
         request.session_date, request.time_slot, request.location,
         is_super_admin=is_super_admin,
         is_admin=is_admin,
+        can_override_summer_deadline=is_admin,
     )
 
-    # Verify tutor exists and is at the location
+    # Verify the tutor exists and works at the branch. Their own branch counts,
+    # and so does one they are covering (see utils/employment.works_at).
+    #
+    # Asked without the date on purpose, even though the date is right there.
+    # Which Saturdays somebody covers is guidance for the picker, not a rule to
+    # enforce at save time: branches swap days around public holidays, and an
+    # admin who has already decided who is teaching should not be stopped by a
+    # roster detail. What is worth refusing is a tutor with no connection to the
+    # branch at all, which is the mistake this check was written for.
     tutor = db.query(Tutor).filter(Tutor.id == request.tutor_id).first()
     if not tutor:
         raise HTTPException(status_code=404, detail=f"Tutor with ID {request.tutor_id} not found")
-    if tutor.default_location != request.location:
+    if not works_at(tutor, request.location):
         raise HTTPException(
             status_code=400,
             detail=f"Tutor '{tutor.tutor_name}' is not at location '{request.location}'"
@@ -1917,7 +1900,7 @@ async def update_session(
                 # window. Their single rule: land on or before 31 August.
                 _assert_summer_reschedule_deadline(
                     session, request.session_date,
-                    is_super_admin=current_user.role == "Super Admin",
+                    can_override=current_user.role in ADMIN_WRITE_ROLES,
                 )
             else:
                 current_enrollment = db.query(Enrollment).filter(

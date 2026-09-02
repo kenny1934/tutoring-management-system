@@ -3,16 +3,18 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
-  Check, X, Printer, Loader2, ExternalLink,
+  Printer, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import { UrlBadge, YouTubeThumbnail } from "@/components/ui/url-badge";
 import { getPageLabel, getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 import { formatShortDate } from "@/lib/formatters";
-import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
+import type { Session, SessionExercise, HomeworkCompletion, HomeworkStatus } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { SummerCoursewarePanel } from "./SummerCoursewarePanel";
+import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
+import { HomeworkStatusGlyph, homeworkState } from "@/components/homework/homework-status";
 
 interface LessonExerciseSidebarProps {
   currentSession: Session | null;
@@ -23,8 +25,27 @@ interface LessonExerciseSidebarProps {
   isReadOnly?: boolean;
   /** Check if an exercise has annotation strokes. */
   hasAnnotations?: (exerciseId: number) => boolean;
-  /** Homework completion data for previous session's HW exercises. */
-  homeworkCompletion?: HomeworkCompletion[];
+  /**
+   * Homework from earlier lessons still open against this session, which is
+   * what the "To check" block marks. Same list every other marking surface
+   * uses, so a mark made here reaches all of them.
+   */
+  homeworkToCheck?: HomeworkCompletion[];
+  /**
+   * State of one homework assignment, for the tick on its row.
+   *
+   * A lookup rather than a list because it answers from two sources: the open
+   * backlog above, and the student's whole record for work checked in some
+   * earlier lesson. Undefined means no record at all, which is the only case
+   * that should draw nothing.
+   */
+  homeworkStatusFor?: (exerciseId: number) => HomeworkStatus | undefined;
+  /** Session a mark is recorded against. */
+  sessionId?: number;
+  onHomeworkMarked?: (updated: HomeworkCompletion) => void;
+  /** Drives the "To check" block from outside, for the keyboard shortcut. */
+  homeworkExpanded?: boolean;
+  onHomeworkExpandedChange?: (expanded: boolean) => void;
   /** Print a single exercise. */
   onPrint?: (exercise: SessionExercise) => void;
   /** Bundled printing state: which exercise ID is printing + progress message. */
@@ -45,7 +66,7 @@ function ExerciseItem({
   isSelected: boolean;
   onClick: () => void;
   hasAnnotations?: boolean;
-  completionStatus?: "submitted" | "not_submitted";
+  completionStatus?: HomeworkStatus;
   onPrint?: (exercise: SessionExercise) => void;
   isPrinting?: boolean;
   printProgress?: string | null;
@@ -111,11 +132,10 @@ function ExerciseItem({
               )}
             </div>
           )}
-          {completionStatus === "submitted" && (
-            <span title="Submitted"><Check className="h-3 w-3 text-green-500" /></span>
-          )}
-          {completionStatus === "not_submitted" && (
-            <span title="Not submitted"><X className="h-3 w-3 text-red-400" /></span>
+          {completionStatus && (
+            <span title={homeworkState(completionStatus).longLabel}>
+              <HomeworkStatusGlyph status={completionStatus} className="h-3 w-3" />
+            </span>
           )}
           {hasAnnotations && (
             <span className="w-2 h-2 rounded-full bg-[#a0704b]" title="Has annotations" />
@@ -137,7 +157,7 @@ function ExerciseSection({
   isReadOnly,
   session,
   hasAnnotations,
-  homeworkCompletion,
+  homeworkStatusFor,
   onPrint,
   printing,
 }: {
@@ -151,7 +171,7 @@ function ExerciseSection({
   isReadOnly?: boolean;
   session: Session;
   hasAnnotations?: (exerciseId: number) => boolean;
-  homeworkCompletion?: HomeworkCompletion[];
+  homeworkStatusFor?: (exerciseId: number) => HomeworkStatus | undefined;
   onPrint?: (exercise: SessionExercise) => void;
   printing?: PrintingState;
 }) {
@@ -180,22 +200,19 @@ function ExerciseSection({
 
       {exercises.length > 0 ? (
         <div className="flex flex-col gap-0.5">
-          {exercises.map((ex) => {
-            const hwc = homeworkCompletion?.find(c => c.session_exercise_id === ex.id);
-            return (
-              <ExerciseItem
-                key={ex.id}
-                exercise={ex}
-                isSelected={ex.id === selectedExerciseId}
-                onClick={() => onExerciseSelect(ex)}
-                hasAnnotations={hasAnnotations?.(ex.id)}
-                completionStatus={hwc ? (hwc.submitted ? "submitted" : "not_submitted") : undefined}
-                onPrint={onPrint}
-                isPrinting={printing?.id === ex.id}
-                printProgress={printing?.id === ex.id ? printing.progress : undefined}
-              />
-            );
-          })}
+          {exercises.map((ex) => (
+            <ExerciseItem
+              key={ex.id}
+              exercise={ex}
+              isSelected={ex.id === selectedExerciseId}
+              onClick={() => onExerciseSelect(ex)}
+              hasAnnotations={hasAnnotations?.(ex.id)}
+              completionStatus={homeworkStatusFor?.(ex.id)}
+              onPrint={onPrint}
+              isPrinting={printing?.id === ex.id}
+              printProgress={printing?.id === ex.id ? printing.progress : undefined}
+            />
+          ))}
         </div>
       ) : (
         <div className="px-2 py-2">
@@ -227,7 +244,7 @@ function SessionBlock({
   isReadOnly,
   defaultExpanded,
   hasAnnotations,
-  homeworkCompletion,
+  homeworkStatusFor,
   onPrint,
   printing,
 }: {
@@ -239,7 +256,7 @@ function SessionBlock({
   isReadOnly?: boolean;
   defaultExpanded: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
-  homeworkCompletion?: HomeworkCompletion[];
+  homeworkStatusFor?: (exerciseId: number) => HomeworkStatus | undefined;
   onPrint?: (exercise: SessionExercise) => void;
   printing?: PrintingState;
 }) {
@@ -324,7 +341,7 @@ function SessionBlock({
                 isReadOnly={isReadOnly}
                 session={session}
                 hasAnnotations={hasAnnotations}
-                homeworkCompletion={homeworkCompletion}
+                homeworkStatusFor={homeworkStatusFor}
                 onPrint={onPrint}
                 printing={printing}
               />
@@ -344,7 +361,12 @@ export function LessonExerciseSidebar({
   onEditExercises,
   isReadOnly,
   hasAnnotations,
-  homeworkCompletion,
+  homeworkToCheck,
+  homeworkStatusFor,
+  sessionId,
+  onHomeworkMarked,
+  homeworkExpanded,
+  onHomeworkExpandedChange,
   onPrint,
   printing,
 }: LessonExerciseSidebarProps) {
@@ -366,6 +388,21 @@ export function LessonExerciseSidebar({
 
   return (
     <div className="flex flex-col gap-1 py-2 px-1 overflow-y-auto">
+      {/* Last lessons' homework leads: settling it comes before starting on
+          today's work, the same order the wide sidebar uses. */}
+      {sessionId != null && homeworkToCheck && homeworkToCheck.length > 0 && (
+        <div className="px-1 pb-1">
+          <HomeworkCheckSection
+            sessionId={sessionId}
+            items={homeworkToCheck}
+            isReadOnly={isReadOnly}
+            onMarked={onHomeworkMarked}
+            expanded={homeworkExpanded}
+            onExpandedChange={onHomeworkExpandedChange}
+          />
+        </div>
+      )}
+
       {/* Summer sessions: lesson materials resolved from the courseware index */}
       {currentSession && currentSession.lesson_number != null && (
         <SummerCoursewarePanel
@@ -386,6 +423,7 @@ export function LessonExerciseSidebar({
           isReadOnly={isReadOnly}
           defaultExpanded
           hasAnnotations={hasAnnotations}
+          homeworkStatusFor={homeworkStatusFor}
           onPrint={onPrint}
           printing={printing}
         />
@@ -404,7 +442,7 @@ export function LessonExerciseSidebar({
             isReadOnly={isReadOnly}
             defaultExpanded={false}
             hasAnnotations={hasAnnotations}
-            homeworkCompletion={homeworkCompletion}
+            homeworkStatusFor={homeworkStatusFor}
             onPrint={onPrint}
             printing={printing}
           />

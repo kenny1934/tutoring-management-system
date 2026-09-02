@@ -1,0 +1,727 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { regularAPI } from "@/lib/api";
+import type {
+  RegularCourseFormConfig,
+  RegularApplicationCreate,
+} from "@/types";
+import { useRegularApplyFormState } from "@/hooks/useRegularApplyFormState";
+import { CheckCircle2, Copy, Check, Pencil, Phone } from "lucide-react";
+import { type Lang, t, REGULAR_STEP_LABELS, REGULAR_COURSE_PAGE_URL } from "@/lib/regular-utils";
+import { getBranchContact } from "@/lib/branch-contacts";
+import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
+import {
+  FormProgressBar,
+  type StepStatus,
+} from "@/components/summer/FormProgressBar";
+import { FormNavButtons } from "@/components/summer/FormNavButtons";
+import { StudentInfoStep } from "@/components/regular/steps/StudentInfoStep";
+import { StudentBackgroundStep } from "@/components/regular/steps/StudentBackgroundStep";
+import { SchedulePreferenceStep } from "@/components/regular/steps/SchedulePreferenceStep";
+import { ContactConfirmStep } from "@/components/regular/steps/ContactConfirmStep";
+
+const TOTAL_STEPS = 4;
+
+/** Standing-in-for-the-form screen. The status link is only offered once an
+ *  intake has actually run: before the window opens nobody has an application
+ *  to look up, so the link would send the parent to a form that can only tell
+ *  them there is no such reference code. */
+function ApplyNotice({
+  heading,
+  body,
+  statusLink,
+  children,
+}: {
+  heading: string;
+  body: string;
+  statusLink?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="text-center py-20">
+      <h2 className="text-xl font-semibold text-foreground">{heading}</h2>
+      <p className="mt-2 text-muted-foreground">{body}</p>
+      {children}
+      {statusLink && (
+        <a
+          href="/regular/status"
+          className="inline-block mt-6 text-sm text-primary hover:text-primary-hover underline"
+        >
+          {statusLink}
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** Branch phone and WeChat, shown on the screen whose copy asks the parent to
+ *  get in touch. Branches come from the config, so a new one appears here as
+ *  soon as it has a contact entry. */
+function BranchContacts({
+  locations,
+  lang,
+}: {
+  locations: RegularCourseFormConfig["locations"];
+  lang: Lang;
+}) {
+  const branches = locations.flatMap((loc) => {
+    const contact = getBranchContact(loc.name);
+    return contact ? [{ loc, contact }] : [];
+  });
+  if (branches.length === 0) return null;
+  return (
+    <div className="mt-6 flex flex-wrap justify-center gap-3">
+      {branches.map(({ loc, contact }) => (
+        <div
+          key={loc.name}
+          className="rounded-xl border border-border bg-card px-4 py-3 text-left"
+        >
+          <div className="text-sm font-semibold text-foreground">
+            {lang === "zh" ? loc.name : loc.name_en || loc.name}
+          </div>
+          <div className="mt-1.5 flex items-center gap-4">
+            <a
+              href={`tel:${contact.phone.replace(/\s+/g, "")}`}
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-hover transition-colors"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              <span className="tabular-nums tracking-wider">{contact.phone}</span>
+            </a>
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+              <WeChatIcon className="h-3.5 w-3.5 text-green-600" />
+              <span className="tracking-wider">{contact.wechat}</span>
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function RegularApplyPage() {
+  const [lang, setLang] = useState<Lang>("zh");
+  const [config, setConfig] = useState<RegularCourseFormConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState<{
+    reference_code: string;
+  } | null>(null);
+  const [currentStep, setCurrentStep] = useState(1);
+
+  // Form data state lives in a shared hook so the admin config preview stays
+  // structurally in sync — adding a field forces both consumers to handle it.
+  const form = useRegularApplyFormState();
+  const {
+    studentName, setStudentName,
+    school, setSchool,
+    grade, setGrade,
+    langStream, setLangStream,
+    isExistingStudent, setIsExistingStudent,
+    currentCenters, setCurrentCenters,
+    selectedLocation, setSelectedLocation,
+    pref1Day, setPref1Day,
+    pref1Time, setPref1Time,
+    pref2Day, setPref2Day,
+    pref2Time, setPref2Time,
+    wechatId, setWechatId,
+    contactPhone, setContactPhone,
+  } = form;
+
+  // UI / interactive state that isn't persisted to draft stays local.
+  const [confirmed, setConfirmed] = useState(false);
+  const [makeupConfirmed, setMakeupConfirmed] = useState(false);
+  const [refCopied, setRefCopied] = useState(false);
+  const refCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (refCopyTimer.current) clearTimeout(refCopyTimer.current); }, []);
+  const [stepErrors, setStepErrors] = useState<string[]>([]);
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(
+    () => new Set([1])
+  );
+
+  // Draft persistence: stash form state to localStorage so a reload / accidental
+  // close doesn't lose half-filled data. Restored only after explicit Resume to
+  // avoid surprising users on shared devices.
+  const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
+  const draftHydrated = useRef(false);
+
+  // Load config
+  useEffect(() => {
+    regularAPI
+      .getFormConfig()
+      .then(setConfig)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Title used to live as a prominent <h1> inside Step 1. We demoted that
+  // zone and now surface it as the browser tab title instead, so the form
+  // layout stays calm while the brand/year is still visible in the tab bar.
+  useEffect(() => {
+    if (!config) return;
+    const zhTitle = config.text_content?.title_zh || config.title;
+    const enTitle = config.text_content?.title_en || config.title;
+    document.title = `${lang === "zh" ? zhTitle : enTitle} | MathConcept`;
+  }, [config, lang]);
+
+  const draftKey = config ? `regular-apply-draft-${config.year}` : null;
+
+  // Read any saved draft once per year-scoped key. The parsed payload is held
+  // in state so resume can rehydrate without re-parsing localStorage.
+  useEffect(() => {
+    if (!draftKey || draftHydrated.current) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.savedAt === "number") {
+        setPendingDraft(parsed);
+      }
+    } catch {
+      localStorage.removeItem(draftKey);
+    }
+  }, [draftKey]);
+
+  const resumeDraft = () => {
+    const d = pendingDraft;
+    if (d) {
+      form.hydrate(d);
+      if (typeof d.currentStep === "number" && d.currentStep >= 1 && d.currentStep <= TOTAL_STEPS) {
+        setCurrentStep(d.currentStep);
+        setVisitedSteps(new Set(Array.from({ length: d.currentStep }, (_, i) => i + 1)));
+      }
+    }
+    draftHydrated.current = true;
+    setPendingDraft(null);
+  };
+
+  const discardDraft = () => {
+    if (draftKey) localStorage.removeItem(draftKey);
+    draftHydrated.current = true;
+    setPendingDraft(null);
+  };
+
+  const formIsDirty =
+    !!studentName || !!school || !!grade || !!langStream || !!isExistingStudent ||
+    currentCenters.length > 0 || !!selectedLocation ||
+    !!pref1Day || !!pref1Time || !!pref2Day || !!pref2Time ||
+    !!wechatId || !!contactPhone;
+
+  // Native browser confirmation on refresh/close. The localStorage draft is a
+  // safety net, but most users won't notice the resume banner if they just hit
+  // reload — this catches the slip before it happens.
+  useEffect(() => {
+    if (!formIsDirty || submitted) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [formIsDirty, submitted]);
+
+  useEffect(() => {
+    if (!draftKey || pendingDraft || submitted) return;
+    // Skip until the user has actually touched the form — otherwise the very
+    // first render with empty fields would overwrite the saved draft before
+    // the user could resume it.
+    if (!draftHydrated.current) {
+      if (!formIsDirty) return;
+      draftHydrated.current = true;
+    }
+    const handle = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({ savedAt: Date.now(), currentStep, ...form.snapshot() }),
+        );
+      } catch {
+        // Quota exceeded or storage disabled — fail silently, draft is best-effort.
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [
+    draftKey, pendingDraft, submitted, formIsDirty,
+    currentStep,
+    studentName, school, grade, langStream,
+    isExistingStudent, currentCenters,
+    selectedLocation,
+    pref1Day, pref1Time, pref2Day, pref2Time,
+    wechatId, contactPhone,
+  ]);
+
+  // Per-step validation — returns error messages for missing required fields
+  const getStepErrors = (step: number): string[] => {
+    const errors: string[] = [];
+    switch (step) {
+      case 1:
+        if (!studentName.trim())
+          errors.push(
+            t("請填寫學生英文姓名", "Please enter the student's English name", lang)
+          );
+        if (!school.trim())
+          errors.push(
+            t("請填寫學生就讀學校", "Please enter the student's current school", lang)
+          );
+        if (!grade)
+          errors.push(t("請選擇年級", "Please select a grade", lang));
+        if (
+          config?.lang_stream_options &&
+          config.lang_stream_options.length > 0 &&
+          !langStream
+        )
+          errors.push(
+            t("請選擇教學語言", "Please select a language stream", lang)
+          );
+        break;
+      case 2:
+        if (
+          config?.existing_student_options &&
+          config.existing_student_options.length > 0 &&
+          !(isExistingStudent === "None" || currentCenters.length > 0)
+        )
+          errors.push(
+            t(
+              "請選擇現時就讀的分校或表示非MathConcept學生",
+              "Please select your current center or indicate you are not a MathConcept student",
+              lang
+            )
+          );
+        break;
+      case 3:
+        if (!selectedLocation)
+          errors.push(t("請選擇分校", "Please select a branch", lang));
+        if (!pref1Day || !pref1Time)
+          errors.push(
+            t("請選擇上課時段", "Please select a class time", lang)
+          );
+        // The backup slot (pref2) is optional — no check.
+        break;
+      case 4:
+        if (!wechatId.trim())
+          errors.push(t("請提供微信號", "Please provide your WeChat ID", lang));
+        if (!contactPhone.trim())
+          errors.push(
+            t("請填寫聯絡電話", "Please enter a contact phone number", lang)
+          );
+        break;
+    }
+    return errors;
+  };
+
+  // Step navigation
+  const goToStep = (step: number) => {
+    setStepErrors([]);
+    setCurrentStep(step);
+    setVisitedSteps((prev) => {
+      if (prev.has(step)) return prev;
+      const next = new Set(prev);
+      next.add(step);
+      return next;
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleNext = () => {
+    if (currentStep >= TOTAL_STEPS) return;
+    const errors = getStepErrors(currentStep);
+    if (errors.length > 0) {
+      setStepErrors(errors);
+      return;
+    }
+    goToStep(currentStep + 1);
+  };
+
+  const handlePrev = () => {
+    if (currentStep > 1) goToStep(currentStep - 1);
+  };
+
+  const handleStepClick = (step: number) => {
+    if (step !== currentStep) goToStep(step);
+  };
+
+  // Submit form
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmed || !makeupConfirmed || submitting) return;
+
+    // Validate ALL steps before submitting — the contact fields live on the
+    // final step, so the loop must include TOTAL_STEPS itself.
+    const allErrors: string[] = [];
+    for (let step = 1; step <= TOTAL_STEPS; step++) {
+      allErrors.push(...getStepErrors(step));
+    }
+    if (allErrors.length > 0) {
+      setStepErrors(allErrors);
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    const data: RegularApplicationCreate = {
+      student_name: studentName,
+      school: school || null,
+      grade,
+      lang_stream: langStream || null,
+      is_existing_student: isExistingStudent || null,
+      current_centers: currentCenters.length > 0 ? currentCenters : null,
+      wechat_id: wechatId || null,
+      contact_phone: contactPhone,
+      preferred_location: selectedLocation || null,
+      preference_1_day: pref1Day || null,
+      preference_1_time: pref1Time || null,
+      preference_2_day: pref2Day || null,
+      preference_2_time: pref2Time || null,
+      form_language: lang,
+    };
+
+    try {
+      const result = await regularAPI.submitApplication(data);
+      setSubmitted({ reference_code: result.reference_code });
+      if (draftKey) localStorage.removeItem(draftKey);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "";
+      // Only show known user-facing messages; hide raw server errors
+      const knownErrors = ["Application period is not open", "already submitted", "This phone number has already submitted"];
+      setError(knownErrors.some(k => msg.includes(k)) ? msg : "Submission failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  // No active intake configured, or the config failed to load.
+  if (!config) {
+    return error ? (
+      <div className="text-center py-20">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+          {error}
+        </div>
+      </div>
+    ) : (
+      <ApplyNotice
+        heading={t(
+          "常規課程報名尚未開放",
+          "Regular course registration is not yet open",
+          lang
+        )}
+        body={t("請稍後再試", "Please check back later", lang)}
+      />
+    );
+  }
+
+  // Outside the application window the form is not offered at all. Submission
+  // is refused server-side either way, so showing four steps of fields would
+  // only invite typing that gets thrown away.
+  if (config.application_window !== "open") {
+    const closed = config.application_window === "closed";
+    return (
+      <ApplyNotice
+        heading={
+          closed
+            ? t("報名期已結束", "The application period has ended", lang)
+            : t(
+                "常規課程報名尚未開放",
+                "Regular course registration is not yet open",
+                lang
+              )
+        }
+        body={
+          closed
+            ? t(
+                "如仍希望為子女報名，請與我們聯絡。",
+                "Please contact us if you would still like to enrol your child.",
+                lang
+              )
+            : t("請稍後再試", "Please check back later", lang)
+        }
+        statusLink={
+          closed
+            ? t("已遞交申請？查看報名狀態 →", "Already applied? Check your status →", lang)
+            : undefined
+        }
+      >
+        {closed && <BranchContacts locations={config.locations} lang={lang} />}
+        {/* The only way onward from here. The subdomain root lands on this
+            page, so without the course page a parent arriving out of season
+            would hit a dead end. */}
+        <div className="mt-6">
+          <a
+            href={REGULAR_COURSE_PAGE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:text-primary-hover underline"
+          >
+            {t("查看課程詳情 →", "View course details →", lang)}
+          </a>
+        </div>
+      </ApplyNotice>
+    );
+  }
+
+  // Success state
+  if (submitted) {
+    return (
+      <div className="bg-card rounded-2xl shadow-sm border border-border p-8 text-center space-y-4">
+        <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" strokeWidth={2} />
+        <h2 className="text-xl font-bold text-foreground">
+          {t("留位意向已提交！", "Application Submitted!", lang)}
+        </h2>
+        <div className="bg-primary/10 rounded-xl p-4 space-y-2">
+          <div className="text-sm text-muted-foreground">
+            {t("參考編號", "Reference Code", lang)}
+          </div>
+          <div className="text-2xl font-mono font-bold text-primary">
+            {submitted.reference_code}
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(submitted.reference_code);
+                if (refCopyTimer.current) clearTimeout(refCopyTimer.current);
+                setRefCopied(true);
+                refCopyTimer.current = setTimeout(() => setRefCopied(false), 2000);
+              } catch {
+                // clipboard denied
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/15 transition-colors mx-auto"
+          >
+            {refCopied ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-green-600" />
+                {t("已複製", "Copied", lang)}
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5 text-primary" />
+                {t("複製編號", "Copy Code", lang)}
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-3">
+          <div className="flex items-start gap-2.5">
+            <Pencil className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <div className="text-sm text-foreground leading-relaxed">
+              <div className="font-semibold mb-0.5">
+                {t("請保存您的參考編號", "Save your reference code", lang)}
+              </div>
+              <div className="text-muted-foreground text-xs leading-relaxed">
+                {t(
+                  "用參考編號及聯絡電話即可在狀態查詢頁面隨時查看報名進度。",
+                  "Use your reference code and contact phone anytime on the status page to check your application progress.",
+                  lang
+                )}
+              </div>
+            </div>
+          </div>
+          <a
+            href="/regular/status"
+            className="block w-full text-center px-6 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover transition-colors font-medium text-sm"
+          >
+            {t("前往狀態查詢頁面 →", "Go to Status Page →", lang)}
+          </a>
+        </div>
+
+        <p className="text-sm text-foreground">
+          {t(
+            config?.text_content?.success_message_zh || "再次感謝家長和學生對MathConcept「中學教室」的支持！",
+            config?.text_content?.success_message_en || "Thank you again for your support of MathConcept Secondary Academy!",
+            lang
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  // Compute step validation statuses for progress bar. Unlike summer there is
+  // no fieldless review step — the final step carries the contact fields — so
+  // every step gets real validation status.
+  const stepStatuses: StepStatus[] = Array.from(
+    { length: TOTAL_STEPS },
+    (_, i) => {
+      const step = i + 1;
+      const errors = getStepErrors(step);
+      if (errors.length === 0) return "complete";
+      if (visitedSteps.has(step)) return "warning";
+      return "default";
+    }
+  );
+
+  // Render current step
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <StudentInfoStep
+            config={config}
+            lang={lang}
+            studentName={studentName}
+            setStudentName={setStudentName}
+            school={school}
+            setSchool={setSchool}
+            grade={grade}
+            setGrade={setGrade}
+            langStream={langStream}
+            setLangStream={setLangStream}
+          />
+        );
+      case 2:
+        return (
+          <StudentBackgroundStep
+            config={config}
+            lang={lang}
+            isExistingStudent={isExistingStudent}
+            setIsExistingStudent={setIsExistingStudent}
+            currentCenters={currentCenters}
+            setCurrentCenters={setCurrentCenters}
+          />
+        );
+      case 3:
+        return (
+          <SchedulePreferenceStep
+            config={config}
+            lang={lang}
+            selectedLocation={selectedLocation}
+            setSelectedLocation={setSelectedLocation}
+            pref1Day={pref1Day}
+            setPref1Day={setPref1Day}
+            pref1Time={pref1Time}
+            setPref1Time={setPref1Time}
+            pref2Day={pref2Day}
+            setPref2Day={setPref2Day}
+            pref2Time={pref2Time}
+            setPref2Time={setPref2Time}
+          />
+        );
+      case 4:
+        return (
+          <ContactConfirmStep
+            config={config}
+            lang={lang}
+            wechatId={wechatId}
+            setWechatId={setWechatId}
+            contactPhone={contactPhone}
+            setContactPhone={setContactPhone}
+            studentName={studentName}
+            school={school}
+            grade={grade}
+            langStream={langStream}
+            isExistingStudent={isExistingStudent}
+            currentCenters={currentCenters}
+            selectedLocation={selectedLocation}
+            pref1Day={pref1Day}
+            pref1Time={pref1Time}
+            pref2Day={pref2Day}
+            pref2Time={pref2Time}
+            makeupConfirmed={makeupConfirmed}
+            setMakeupConfirmed={setMakeupConfirmed}
+            confirmed={confirmed}
+            setConfirmed={setConfirmed}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="no-image-save space-y-6 max-w-2xl mx-auto"
+      onContextMenu={(e) => {
+        if (e.target instanceof HTMLImageElement) e.preventDefault();
+      }}
+    >
+      {pendingDraft && typeof pendingDraft.savedAt === "number" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-center gap-2 flex-wrap">
+          <span>
+            {t(
+              `偵測到上次未完成的留位意向草稿（${new Date(pendingDraft.savedAt).toLocaleString()}）。要繼續填寫嗎？`,
+              `Found an unfinished draft from ${new Date(pendingDraft.savedAt).toLocaleString()}. Resume?`,
+              lang,
+            )}
+          </span>
+          <span className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={resumeDraft}
+              className="px-2 py-0.5 rounded bg-amber-600 text-white font-medium hover:bg-amber-700"
+            >
+              {t("繼續填寫", "Resume", lang)}
+            </button>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="px-2 py-0.5 rounded text-amber-900 hover:bg-amber-100"
+            >
+              {t("放棄", "Discard", lang)}
+            </button>
+          </span>
+        </div>
+      )}
+
+      {/* Progress bar with language toggle */}
+      <FormProgressBar
+        currentStep={currentStep}
+        totalSteps={TOTAL_STEPS}
+        lang={lang}
+        stepStatuses={stepStatuses}
+        labels={REGULAR_STEP_LABELS}
+        onLangToggle={() => {
+          setLang(lang === "zh" ? "en" : "zh");
+          setStepErrors([]);
+        }}
+        onStepClick={handleStepClick}
+      />
+
+      {currentStep === 1 && (
+        <div className="text-center">
+          <a
+            href="/regular/status"
+            className="text-xs text-muted-foreground hover:text-primary transition-colors underline"
+          >
+            {t("已遞交申請？查看報名狀態 →", "Already applied? Check your status →", lang)}
+          </a>
+        </div>
+      )}
+
+      {/* Error banner */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* Step content with fade-in animation */}
+      <div key={currentStep} className="animate-fade-in">
+        {renderStep()}
+      </div>
+
+      {/* Navigation buttons */}
+      <FormNavButtons
+        currentStep={currentStep}
+        totalSteps={TOTAL_STEPS}
+        submitting={submitting}
+        confirmed={confirmed && makeupConfirmed}
+        lang={lang}
+        onNext={handleNext}
+        onPrev={handlePrev}
+        errors={stepErrors}
+      />
+    </form>
+  );
+}

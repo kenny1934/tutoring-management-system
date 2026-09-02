@@ -31,10 +31,11 @@ import {
 import type { Discount } from "@/types";
 import { useActiveTutors, useCacheInvalidation } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
-import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
+import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES, MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount, findStaffReferralDiscount, findDiscountByValue } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Student } from "@/types";
+import { isHomeBranch } from "@/lib/employment";
 
 const ENROLLMENT_TYPES = ["Regular", "Trial", "One-Time"] as const;
 
@@ -229,10 +230,17 @@ export function CreateEnrollmentModal({
     () => discountsAPI.getAll()
   );
 
-  // Fetch renewal data if renewing
+  // Fetch renewal data if renewing.
+  //
+  // keepPreviousData is on globally, and this response fills the whole form:
+  // the student, the tutor, the day, the time, the location, the first lesson
+  // date and the lessons paid. /admin/renewals swaps renewFromId from its
+  // quick-renew handler without unmounting the modal, so a stale read would
+  // prefill the enrollment you renewed a moment ago.
   const { data: renewalData, isLoading: renewalLoading } = useSWR<RenewalDataResponse>(
     isOpen && renewFromId ? ["renewal-data", renewFromId] : null,
-    () => enrollmentsAPI.getRenewalData(renewFromId!)
+    () => enrollmentsAPI.getRenewalData(renewFromId!),
+    { keepPreviousData: false }
   );
 
   // Type for day names from DAY_NAMES constant
@@ -360,7 +368,7 @@ export function CreateEnrollmentModal({
   // Auto-select first tutor from location (only if not renewing/converting/prefilling and no tutor selected)
   useEffect(() => {
     if (!renewFromId && !convertFromTrial && !prefillTutorId && !tutorId && tutors.length > 0 && location && isOpen) {
-      const newLocationTutors = tutors.filter((t) => t.default_location === location);
+      const newLocationTutors = tutors.filter((t) => isHomeBranch(t, location));
       if (newLocationTutors.length > 0) {
         setTutorId(newLocationTutors[0].id);
       }
@@ -375,10 +383,7 @@ export function CreateEnrollmentModal({
 
     // Priority 1: Staff Referral ($500 discount)
     if (student.is_staff_referral) {
-      const staffDiscount = discounts.find(
-        (d) => d.discount_name.toLowerCase().includes('staff') ||
-          (d.discount_value && Math.abs(Number(d.discount_value) - 500) < 0.01)
-      );
+      const staffDiscount = findStaffReferralDiscount(discounts);
       if (staffDiscount) {
         setDiscountId(staffDiscount.id);
         return; // Staff referral takes priority, don't check coupons
@@ -389,9 +394,7 @@ export function CreateEnrollmentModal({
     studentsAPI.getCoupon(student.id).then((couponData) => {
       if (couponData.has_coupon && couponData.value) {
         // Find a discount matching the coupon value
-        const matchingDiscount = discounts.find(
-          (d) => d.discount_value && Math.abs(Number(d.discount_value) - Number(couponData.value)) < 0.01
-        );
+        const matchingDiscount = findDiscountByValue(discounts, couponData.value);
         if (matchingDiscount) {
           setDiscountId(matchingDiscount.id);
         }
@@ -428,9 +431,9 @@ export function CreateEnrollmentModal({
   useEffect(() => {
     if (tutorId && tutors.length > 0 && location) {
       const selectedTutor = tutors.find((t) => t.id === tutorId);
-      if (selectedTutor && selectedTutor.default_location !== location) {
+      if (selectedTutor && !isHomeBranch(selectedTutor, location)) {
         // Current tutor is from different location, reset to first tutor from new location
-        const newLocationTutors = tutors.filter((t) => t.default_location === location);
+        const newLocationTutors = tutors.filter((t) => isHomeBranch(t, location));
         setTutorId(newLocationTutors.length > 0 ? newLocationTutors[0].id : null);
       }
     }
@@ -513,7 +516,7 @@ export function CreateEnrollmentModal({
   };
 
   const locationTutors = tutors
-    .filter((t) => t.default_location === location)
+    .filter((t) => isHomeBranch(t, location))
     .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
   const hasConflicts = preview?.conflicts && preview.conflicts.length > 0;
   const hasWarnings = preview?.warnings && preview.warnings.length > 0;

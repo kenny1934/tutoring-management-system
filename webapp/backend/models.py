@@ -6,6 +6,7 @@ from sqlalchemy import Column, Integer, BigInteger, String, Date, DateTime, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
+from constants import hk_now
 
 
 class Tutor(Base):
@@ -24,11 +25,60 @@ class Tutor(Base):
     profile_picture = Column(String(2048), comment='Google profile picture URL')
     basic_salary = Column(DECIMAL(10, 2), default=0.00, comment='Monthly base salary (before session revenue)')
     is_active_tutor = Column(Boolean, default=True, nullable=False, comment='Whether this user teaches students (false for Supervisors, non-teaching admins)')
+    # Last working day, mirrored from ARK by the nightly employment sync. NULL
+    # for everybody who is not leaving, which is nearly everybody. Note that
+    # this is a different question from is_active_tutor above: a Supervisor who
+    # never teaches is not leaving, and a tutor serving notice still does.
+    departure_effective_on = Column(Date, nullable=True, comment='Last working day, mirrored from ARK. NULL means not leaving.')
 
     # Relationships
     enrollments = relationship("Enrollment", back_populates="tutor", foreign_keys="[Enrollment.tutor_id]")
     sessions = relationship("SessionLog", back_populates="tutor")
     parent_communications = relationship("ParentCommunication", back_populates="tutor")
+    # Loaded on access, like every other relationship here. It was eager for a
+    # while, and that put a second query on every authenticated request: the
+    # auth dependency loads the signed-in tutor on its way through, and an
+    # eager collection is fetched whether or not anybody reads it. The two
+    # endpoints that serialise a whole roster ask for it explicitly instead.
+    branch_coverage = relationship(
+        "TutorBranchCoverage",
+        back_populates="tutor",
+        cascade="all, delete-orphan",
+    )
+
+
+class TutorBranchCoverage(Base):
+    """A branch this tutor works at besides their own.
+
+    One row per arrangement. A tutor who simply also works at the other branch
+    has a single row with every optional column empty. Somebody covering one
+    Saturday has a row whose two dates are that same day. Somebody covering
+    every Saturday in October has a row with the weekday set and the dates
+    bounding the month. Two days a week is two rows, which is how the duty
+    tables already handle the same question.
+
+    Deliberately no time_slot. Rostering somebody to a particular lesson is
+    what summer_tutor_duties and regular_tutor_duties are for. This table only
+    answers whether a tutor may be offered at a branch on a given date, and
+    growing it any further would be building the duty tables a second time.
+    """
+    __tablename__ = "tutor_branch_coverage"
+    __table_args__ = (
+        Index('idx_coverage_tutor', 'tutor_id'),
+        Index('idx_coverage_location', 'location'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="CASCADE"), nullable=False)
+    location = Column(String(255), nullable=False)
+    effective_from = Column(Date, nullable=True, comment='First day covered. NULL means no start bound.')
+    effective_until = Column(Date, nullable=True, comment='Last day covered. NULL means open ended.')
+    weekday = Column(String(20), nullable=True, comment='Short day name such as Sat. NULL means any day.')
+    note = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by = Column(String(255), nullable=True)
+
+    tutor = relationship("Tutor", back_populates="branch_coverage")
 
 
 class Student(Base):
@@ -129,7 +179,11 @@ class Enrollment(Base):
 
     # Notes
     remark = Column(Text)
-    is_new_student = Column(Boolean, default=False, comment='TRUE if student is new (adds $100 reg fee)')
+    is_new_student = Column(Boolean, default=False, comment='TRUE if student is new (adds $100 materials fee)')
+    promo_code = Column(
+        String(32), nullable=True,
+        comment='Seasonal offer this was published under, e.g. 26BTSSA. Names the offer in the fee message and can waive the materials fee.'
+    )
 
     # Extension tracking (from migration 017)
     deadline_extension_weeks = Column(Integer, default=0, comment='Number of weeks deadline extended')
@@ -151,6 +205,15 @@ class Enrollment(Base):
         ForeignKey("summer_applications.id", ondelete="SET NULL"),
         nullable=True, unique=True,
         comment='Source summer application if this is a published Summer enrollment'
+    )
+
+    # Unique → one enrollment per regular application (migration 132). Set when
+    # a September-intake regular application is published into this enrollment.
+    regular_application_id = Column(
+        Integer,
+        ForeignKey("regular_applications.id", ondelete="SET NULL"),
+        nullable=True, unique=True,
+        comment='Source regular application if published from one'
     )
 
     # Summer discount tier snapshot (migration 113). For Summer enrollments the
@@ -186,6 +249,7 @@ class Enrollment(Base):
     sessions = relationship("SessionLog", back_populates="enrollment")
     renewed_from = relationship("Enrollment", remote_side=[id], foreign_keys=[renewed_from_enrollment_id])
     summer_application = relationship("SummerApplication", foreign_keys=[summer_application_id])
+    regular_application = relationship("RegularApplication", foreign_keys=[regular_application_id])
 
 
 class SessionLog(Base):
@@ -386,40 +450,87 @@ class SessionExercise(Base):
 class HomeworkCompletion(Base):
     """
     Tracks homework completion status for each assignment.
-    Links session exercises to student completion records.
+
+    One row per homework assignment, not per checking session: an assignment
+    stays open across sessions until someone marks it, and the row records
+    which session it was finally checked in.
     """
     __tablename__ = "homework_completion"
 
     id = Column(Integer, primary_key=True, index=True)
-    current_session_id = Column(Integer, ForeignKey("session_log.id"), nullable=False)
-    session_exercise_id = Column(Integer, ForeignKey("session_exercises.id"), nullable=False)
+    current_session_id = Column(Integer, ForeignKey("session_log.id"), nullable=False,
+                                comment='Session in which the homework was checked')
+    session_exercise_id = Column(Integer, ForeignKey("session_exercises.id", ondelete="SET NULL"), nullable=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    # A ladder, not a set of peers: nothing recorded, handed in but unmarked,
+    # then the three verdicts. 'Submitted' counts as unchecked everywhere, so
+    # it stays in the backlog and keeps ageing until someone assesses it.
     completion_status = Column(
-        Enum('Not Checked', 'Completed', 'Partially Completed', 'Not Completed', name='completion_status_enum'),
+        Enum('Not Checked', 'Submitted', 'Completed', 'Partially Completed', 'Not Completed',
+             name='completion_status_enum'),
         nullable=True
     )
+    homework_rating = Column(String(10), nullable=True, comment='Star rating as emojis, NULL = not rated')
+    # Legacy AppSheet flag, kept in sync with completion_status so the older
+    # reporting queries keep working. completion_status is the source of truth.
     submitted = Column(Boolean, default=False)
     tutor_comments = Column(Text)
     checked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     checked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=True)
 
-    # Denormalized homework details from session_exercises
+    # Snapshot of the assignment, so history survives the exercise being edited
     pdf_name = Column(String(255))
     page_start = Column(Integer)
     page_end = Column(Integer)
     url = Column(String(2048), nullable=True)
+    exercise_remarks = Column(Text)
+    assigned_date = Column(Date, nullable=True)
+    assigned_by_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=True)
 
     # Relationships
     session = relationship("SessionLog", foreign_keys=[current_session_id])
     exercise = relationship("SessionExercise", foreign_keys=[session_exercise_id])
     student = relationship("Student", foreign_keys=[student_id])
     checked_by_tutor = relationship("Tutor", foreign_keys=[checked_by])
+    files = relationship(
+        "HomeworkFile",
+        back_populates="completion",
+        cascade="all, delete-orphan",
+        order_by="HomeworkFile.file_order",
+    )
+
+
+class HomeworkFile(Base):
+    """
+    Files a tutor uploaded for a homework check: photos of the work handed in,
+    scanned pages, or a PDF.
+    """
+    __tablename__ = "homework_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    homework_completion_id = Column(
+        Integer, ForeignKey("homework_completion.id", ondelete="CASCADE"), nullable=False
+    )
+    file_path = Column(String(500), nullable=False, comment='Public storage URL')
+    # Small derivative for list previews. NULL on rows written before
+    # thumbnails existed, and on anything that is not an image.
+    thumbnail_path = Column(String(500), nullable=True)
+    file_type = Column(Enum('image', 'pdf', 'document', name='homework_file_type_enum'), nullable=False)
+    file_name = Column(String(255))
+    file_size_kb = Column(Integer)
+    file_order = Column(Integer, default=1)
+    uploaded_at = Column(DateTime, nullable=True)
+    uploaded_by = Column(String(255))
+
+    completion = relationship("HomeworkCompletion", back_populates="files")
 
 
 class HomeworkToCheck(Base):
     """
-    View that shows homework from previous session that needs checking in current session.
-    Read-only view - combines data from session_exercises and homework_completion.
+    View of homework still open for a session: assignments from up to three
+    sat sessions back that nobody has marked yet, plus anything marked in this
+    session. Read-only.
     """
     __tablename__ = "homework_to_check"
     __table_args__ = {'info': {'is_view': True}}  # Mark as view for SQLAlchemy
@@ -435,24 +546,32 @@ class HomeworkToCheck(Base):
     student_name = Column(String(255))
     current_tutor_name = Column(String(255))
 
-    # Previous session info
-    previous_session_id = Column(Integer)
+    # Where the homework was assigned, which may be several sessions back
+    assigned_session_id = Column(Integer)
     homework_assigned_date = Column(Date)
+    assigned_time_slot = Column(String(100))
     assigned_by_tutor_id = Column(Integer)
     assigned_by_tutor = Column(String(255))
+    sessions_ago = Column(Integer)
 
     # Homework details from session_exercises
     pdf_name = Column(String(255))
     url = Column(String(2048))
+    url_title = Column(String(500))
+    page_start = Column(Integer)
+    page_end = Column(Integer)
     pages = Column(String(50))
     assignment_remarks = Column(Text)
 
     # Completion status from homework_completion (if checked)
+    completion_id = Column(Integer)
     completion_status = Column(String(50))
-    submitted = Column(Boolean)
+    homework_rating = Column(String(10))
     tutor_comments = Column(Text)
     checked_at = Column(DateTime)
     checked_by = Column(Integer)
+    checked_in_session_id = Column(Integer)
+    attachment_count = Column(Integer)
     check_status = Column(String(20))  # 'Checked' or 'Pending'
 
 
@@ -506,7 +625,10 @@ class ParentCommunication(Base):
     tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
     contact_date = Column(DateTime, nullable=False)
     contact_method = Column(String(50), default='WeChat')  # WeChat, Phone, In-Person
-    contact_type = Column(String(50), default='Progress Update')  # Progress Update, Concern, General
+    # Progress Update, Concern, General, Course Renewal. The column is an enum
+    # in MySQL and still carries four more values the app has never offered,
+    # so anything written here has to be one of the eight in migration 159.
+    contact_type = Column(String(50), default='Progress Update')
     brief_notes = Column(Text, comment='Quick summary of what was discussed')
     follow_up_needed = Column(Boolean, default=False, nullable=True)  # Allow NULL for legacy data
     follow_up_date = Column(Date, comment='When follow-up is needed by')
@@ -1182,7 +1304,9 @@ class SummerApplicationEdit(Base):
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
     application_id = Column(Integer, ForeignKey("summer_applications.id", ondelete="CASCADE"), nullable=False)
-    edited_at = Column(DateTime, server_default=func.now(), nullable=False)
+    # Python-side default as well as the server one: the live table was created
+    # without a DEFAULT, so an insert that omits this column fails under strict mode.
+    edited_at = Column(DateTime, default=hk_now, server_default=func.now(), nullable=False)
     field_name = Column(String(64), nullable=False)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
@@ -1437,6 +1561,7 @@ class PrimaryProspect(Base):
 
     # Linking
     summer_application_id = Column(Integer, ForeignKey("summer_applications.id"), nullable=True)
+    regular_application_id = Column(Integer, ForeignKey("regular_applications.id", ondelete="SET NULL"), nullable=True)
 
     # Audit
     submitted_at = Column(DateTime, server_default=func.now())
@@ -1444,6 +1569,7 @@ class PrimaryProspect(Base):
     edit_history = Column(JSON, default=list)
 
     summer_application = relationship("SummerApplication")
+    regular_application = relationship("RegularApplication")
 class ReportShare(Base):
     """Shareable parent report snapshots with token-based access."""
     __tablename__ = "report_shares"
@@ -1589,3 +1715,194 @@ class SavedReport(Base):
     created_at = Column(DateTime, default=func.now())
 
     creator = relationship("Tutor")
+
+
+# ============================================
+# Regular Course Application Models
+# ============================================
+# Stripped-down mirror of the summer application system for the September
+# intake: no buddy groups, no discount tiers, no placement subsystem. A
+# published application becomes a native Regular-typed Enrollment.
+
+class RegularCourseConfig(Base):
+    """Admin-defined regular course (September intake) parameters per year."""
+    __tablename__ = "regular_course_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False, unique=True)
+    title = Column(String(500), nullable=False)
+    description = Column(Text)
+    application_open_date = Column(DateTime, nullable=False)
+    application_close_date = Column(DateTime, nullable=False)
+    course_start_date = Column(Date, nullable=False, comment='Earliest first-lesson date; lessons start the first occurrence of the chosen weekday on/after this')
+    locations = Column(JSON, nullable=False, default=list)
+    available_grades = Column(JSON, nullable=False, default=list)
+    time_slots = Column(JSON, nullable=False, default=list)
+    existing_student_options = Column(JSON, default=list)
+    center_options = Column(JSON, default=list)
+    lang_stream_options = Column(JSON, default=list)
+    text_content = Column(JSON, default=dict)
+    course_intro = Column(JSON, nullable=True)
+    pricing_config = Column(JSON, nullable=True, comment='{base_fee, lessons_per_block, registration_fee}')
+    banner_image_url = Column(String(500))
+    is_active = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    applications = relationship("RegularApplication", back_populates="config")
+    slots = relationship("RegularCourseSlot", back_populates="config")
+
+
+class RegularApplication(Base):
+    """Public regular course application submitted via form."""
+    __tablename__ = "regular_applications"
+    __table_args__ = (
+        Index('idx_rapp_config', 'config_id'),
+        Index('idx_rapp_status', 'application_status'),
+        Index('idx_rapp_phone', 'contact_phone'),
+        Index('idx_rapp_grade', 'grade'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("regular_course_configs.id"), nullable=False)
+    reference_code = Column(String(20), nullable=False, unique=True)
+    # Student info
+    student_name = Column(String(255), nullable=False)
+    school = Column(String(255))
+    grade = Column(String(50), nullable=False)
+    lang_stream = Column(String(10))
+    is_existing_student = Column(String(100))
+    current_centers = Column(JSON, default=None)
+    # Admin-verified origin: a primary/secondary branch code, or 'New' for a
+    # student who has attended no MathConcept centre. The form's own
+    # is_existing_student answer only covers who they attend *now*, so seasonal
+    # new-student offers key off this instead. Mirrors summer_applications.
+    verified_branch_origin = Column(String(20), nullable=True)
+    # Contact
+    wechat_id = Column(String(100))
+    contact_phone = Column(String(50))
+    # Location & single weekly slot: preference 1 = first choice, 2 = backup
+    preferred_location = Column(String(255))
+    preference_1_day = Column(String(20))
+    preference_1_time = Column(String(50))
+    preference_2_day = Column(String(20))
+    preference_2_time = Column(String(50))
+    # Existing student link
+    existing_student_id = Column(Integer, ForeignKey("students.id"), nullable=True)
+    # Arrangement: assigned weekly slot (drives one-click publish)
+    assigned_slot_id = Column(Integer, ForeignKey("regular_course_slots.id", ondelete="SET NULL"), nullable=True)
+    # Status
+    application_status = Column(
+        Enum('Submitted', 'Under Review', 'Placement Offered', 'Placement Confirmed',
+             'Fee Sent', 'Paid', 'Enrolled',
+             'Waitlisted', 'Withdrawn', 'Rejected',
+             name='regular_application_status_enum'),
+        nullable=False, default='Submitted'
+    )
+    admin_notes = Column(Text)
+    # Metadata
+    submitted_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    reviewed_by = Column(String(255))
+    reviewed_at = Column(DateTime)
+    form_language = Column(String(10), default='zh')
+
+    config = relationship("RegularCourseConfig", back_populates="applications")
+    existing_student = relationship("Student")
+    assigned_slot = relationship("RegularCourseSlot", back_populates="assigned_applications")
+
+
+class RegularCourseSlot(Base):
+    """Weekly slot for regular course arrangement.
+
+    Stripped-down mirror of SummerCourseSlot: no course_type, no lesson
+    materialization, no ad-hoc make-up slots. Applications are assigned via
+    RegularApplication.assigned_slot_id; publishing derives the confirmed
+    day/time/location/tutor from the assigned slot when the request omits them.
+    """
+    __tablename__ = "regular_course_slots"
+    __table_args__ = (
+        Index('idx_rslot_config', 'config_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("regular_course_configs.id", ondelete="CASCADE"), nullable=False)
+    slot_day = Column(String(20), nullable=False)  # full day name, e.g. Saturday
+    time_slot = Column(String(50), nullable=False)  # display band, e.g. 10:00 - 11:30
+    location = Column(String(255), nullable=False)  # branch display name
+    grade = Column(String(50), nullable=True)  # optional target grade label
+    lang_stream = Column(String(20), nullable=True)  # optional stream (C/E); unset = any
+    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="SET NULL"), nullable=True)
+    max_students = Column(Integer, nullable=False, default=8)
+    created_at = Column(DateTime, server_default=func.now())
+
+    config = relationship("RegularCourseConfig", back_populates="slots")
+    tutor = relationship("Tutor")
+    assigned_applications = relationship("RegularApplication", back_populates="assigned_slot")
+
+
+class RegularTutorDuty(Base):
+    """Which tutors are on duty for a day+time_slot+location in a regular cycle.
+
+    Mirrors SummerTutorDuty. Kept as its own table so each intake keeps a real
+    foreign key onto its own config table.
+    """
+    __tablename__ = "regular_tutor_duties"
+    __table_args__ = (
+        UniqueConstraint('config_id', 'tutor_id', 'location', 'duty_day', 'time_slot', name='uq_rduty'),
+        Index('idx_rduty_lookup', 'config_id', 'location', 'duty_day', 'time_slot'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_id = Column(Integer, ForeignKey("regular_course_configs.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="CASCADE"), nullable=False)
+    location = Column(String(255), nullable=False)
+    duty_day = Column(String(20), nullable=False)
+    time_slot = Column(String(50), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    config = relationship("RegularCourseConfig")
+    tutor = relationship("Tutor")
+
+
+class RegularApplicationEdit(Base):
+    """Audit trail row for a single field change on a regular application.
+
+    Written by both applicant self-service edits (via the status page) and
+    admin edits (via the application detail modal). One row per changed
+    field per save. Mirrors SummerApplicationEdit.
+    """
+    __tablename__ = "regular_application_edits"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
+    application_id = Column(Integer, ForeignKey("regular_applications.id", ondelete="CASCADE"), nullable=False)
+    # See SummerApplicationEdit.edited_at — same missing DB default.
+    edited_at = Column(DateTime, default=hk_now, server_default=func.now(), nullable=False)
+    field_name = Column(String(64), nullable=False)
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    edited_via = Column(String(16), nullable=False)  # 'applicant' | 'admin'
+    edited_by = Column(String(255), nullable=True)  # admin email; NULL for applicant edits
+
+    __table_args__ = (
+        Index("idx_regular_edit_app_time", "application_id", "edited_at"),
+    )
+
+
+class SchoolAlias(Base):
+    """One folded spelling of a school name mapped to a canonical staff code.
+
+    Applications carry school as free text and the same school arrives under
+    many spellings. This table gives each folded spelling (see
+    utils/school_alias.py fold) a target in the code vocabulary the students
+    table already uses. The raw spelling on the application is never changed;
+    the alias only adds a grouping key. The target can carry a modifier that
+    the resolver interprets against the application's language stream — the
+    grammar is documented in utils/school_alias.py.
+    """
+    __tablename__ = "school_aliases"
+
+    alias_key = Column(String(255), primary_key=True)
+    target = Column(String(64), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

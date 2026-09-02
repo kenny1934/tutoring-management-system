@@ -3,14 +3,15 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { isPublicPath, isPublicSubdomain } from "@/lib/public-routes";
 
 interface AuthGuardProps {
   children: React.ReactNode;
 }
 
-// Routes that don't require authentication
+// Parent-facing pages come from lib/public-routes. /login is public too but is
+// only ever a staff destination, so it stays local to the guard.
 const PUBLIC_ROUTES = ["/login"];
-const PUBLIC_ROUTE_PREFIXES = ["/summer"];
 
 /**
  * AuthGuard component that redirects unauthenticated users to /login.
@@ -21,13 +22,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const isSubdomainPublic = typeof window !== 'undefined' &&
-    (window.location.hostname.startsWith('prospect.') || window.location.hostname.startsWith('summer.') || window.location.hostname.startsWith('buddy.'));
-
   const isPublicRoute =
-    isSubdomainPublic ||
-    PUBLIC_ROUTES.includes(pathname) ||
-    PUBLIC_ROUTE_PREFIXES.some((p) => pathname.startsWith(p));
+    isPublicSubdomain() || PUBLIC_ROUTES.includes(pathname) || isPublicPath(pathname);
 
   useEffect(() => {
     // Don't redirect while loading or on public routes

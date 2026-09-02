@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText, Sun, ClipboardList, GraduationCap, Map } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -18,7 +18,7 @@ import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
-import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge } from "@/lib/hooks";
+import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates, useFaviconBadge, useSummerSidebarBadge, useRegularSidebarBadge, useRegularIntakeOpen } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -38,6 +38,7 @@ const adminNavigation = [
   { name: "Waitlist", href: "/admin/waitlist", icon: ClipboardList },
   { name: "Tutors", href: "/admin/tutors", icon: GraduationCap },
   { name: "Summer Course", href: "/admin/summer", icon: Sun },
+  { name: "Regular Intake", href: "/admin/regular", icon: CalendarCheck },
 ];
 
 interface SidebarProps {
@@ -82,23 +83,48 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     isAdminOrAbove,
     selectedLocation,
   );
+  const { isOpen: regularIsOpen, actionableCount: regularActionable } = useRegularSidebarBadge(
+    isAdminOrAbove,
+    selectedLocation,
+  );
+
+  // Course Renewal is a seasonal surface: it only means anything while the
+  // September intake is taking applications, so it appears for the window and
+  // then goes away rather than sitting empty for ten months. The dates come
+  // from the intake config, so moving the window in the config editor moves
+  // this too.
+  const intakeOpen = useRegularIntakeOpen(!isGuest);
+  // It goes in above Inbox rather than at the end. For the weeks it is here it
+  // is a job somebody has to finish, and the end of the list is where an item
+  // goes to be missed.
+  const mainNavigation = useMemo(() => {
+    if (!intakeOpen) return navigation;
+    const renewal = { name: "Course Renewal", href: "/course-renewal", icon: CalendarCheck, color: "bg-sky-500" };
+    const inboxAt = navigation.findIndex((item) => item.name === "Inbox");
+    if (inboxAt === -1) return [...navigation, renewal];
+    return [...navigation.slice(0, inboxAt), renewal, ...navigation.slice(inboxAt)];
+  }, [intakeOpen]);
 
   // Per-item badge state for the admin nav. Renewals turns red when any
-  // enrollment has expired; Overdue Payments is always red. Summer Course
-  // shows an "Open" pill (or a dot when collapsed) during the application
-  // window when there's nothing to triage.
+  // enrollment has expired; Overdue Payments is always red. Summer Course and
+  // Regular Intake show an "Open" pill (or a dot when collapsed) during their
+  // application window when there's nothing to triage.
   const adminBadgeFor = (name: string) => {
     const count =
       name === "Renewals" ? renewalCounts?.total
       : name === "Overdue Payments" ? pendingPayments
       : name === "Extensions" ? extensionCount?.count
       : name === "Summer Course" ? summerActionable
+      : name === "Regular Intake" ? regularActionable
       : 0;
     const color =
       name === "Overdue Payments" ? "bg-red-500"
       : name === "Renewals" && (renewalCounts?.expired ?? 0) > 0 ? "bg-red-500"
       : "bg-orange-500";
-    const showOpen = name === "Summer Course" && summerIsOpen && (count ?? 0) <= 0;
+    const isIntakeOpen =
+      (name === "Summer Course" && summerIsOpen) ||
+      (name === "Regular Intake" && regularIsOpen);
+    const showOpen = isIntakeOpen && (count ?? 0) <= 0;
     return { count, color, showOpen };
   };
 
@@ -308,7 +334,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           className="h-full overflow-y-auto scrollbar-hide"
         >
         <nav className="space-y-2 px-3 py-4">
-        {navigation
+        {mainNavigation
           // Filter out Inbox for Guest (read-only role; Supervisors get broadcast-only view)
           .filter((item) => !(item.name === "Inbox" && isGuest))
           .map((item) => {
@@ -374,6 +400,20 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     <span className="absolute -top-2 -right-3 text-[7px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
                       Beta
                     </span>
+                  )}
+
+                  {/* Course Renewal only appears at all while the intake is
+                      taking applications, and the dot is there to catch the eye
+                      on the way past. It sits on the icon rather than beside
+                      the label because "Course Renewal" needs 115px of the
+                      148px a row gives a label, which is not enough left over
+                      for the "Open" pill the admin nav uses: the label wrapped
+                      onto a second line. */}
+                  {item.name === "Course Renewal" && (
+                    <span
+                      className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500"
+                      title="The September intake is taking applications"
+                    />
                   )}
                 </div>
 

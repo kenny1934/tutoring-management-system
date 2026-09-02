@@ -10,14 +10,15 @@ import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { EditTutorModal } from "@/components/tutors/EditTutorModal";
 import { TutorStatsCard } from "@/components/tutors/TutorStatsCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useTutor } from "@/lib/hooks";
+import { usePageTitle, useTutor, useDepartureLoad } from "@/lib/hooks";
+import { coverageLabel, departureDateLabel, departureLabel, hasDeparted, hasOutstandingWork, isLeaving } from "@/lib/employment";
 import { revenueAPI, enrollmentsAPI, sessionsAPI } from "@/lib/api";
 import { getInitials } from "@/lib/avatar-utils";
 import { getSessionStatusConfig, getMainGradeGroup, compareSessionsInSlot } from "@/lib/session-status";
 import { BONUS_TIERS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { getWeekBounds, toDateString, getDayName, getMonthName, isSameDay } from "@/lib/calendar-utils";
-import { formatMOP } from "@/lib/formatters";
+import { formatMOP, plural } from "@/lib/formatters";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import type { Session } from "@/types";
 import {
@@ -35,6 +36,9 @@ import {
   Search,
   ArrowUpDown,
   X,
+  UserMinus,
+  ChevronRight,
+  Repeat,
 } from "lucide-react";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import {
@@ -159,6 +163,40 @@ function ExpandableList<T>({
   );
 }
 
+// One line of a leaver's outstanding work. Renders nothing at zero, so the
+// panel above can list every kind without guarding each one, and links where
+// there is somewhere useful to go.
+function LoadChip({
+  count,
+  noun,
+  suffix,
+  href,
+}: {
+  count: number;
+  noun: string;
+  suffix?: string;
+  href?: string;
+}) {
+  if (count <= 0) return null;
+  const label = suffix ? `${plural(count, noun)} ${suffix}` : plural(count, noun);
+  if (!href) {
+    return (
+      <span className="inline-flex items-center rounded-lg border border-rose-200 dark:border-rose-800 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-300">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
+    >
+      {label}
+      <ChevronRight className="h-3 w-3" />
+    </Link>
+  );
+}
+
 // A removable chip representing one active roster facet.
 function FacetChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
@@ -198,6 +236,13 @@ function TutorProfileInner() {
     useTutor(tutorId);
 
   usePageTitle(tutor ? tutor.tutor_name : "Tutor");
+
+  // Only asked for when there is a departure to report on, so an ordinary
+  // profile page costs nothing extra.
+  const { data: departureLoad } = useDepartureLoad(
+    tutorId,
+    Boolean(tutor && isLeaving(tutor))
+  );
 
   const { data: comp } = useSWR(
     Number.isFinite(tutorId) ? ["tutor-comp", tutorId, period] : null,
@@ -406,6 +451,19 @@ function TutorProfileInner() {
                   />
                   {tutor.is_active_tutor === false ? "Inactive" : "Active"}
                 </span>
+                {isLeaving(tutor) && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 font-medium",
+                      hasDeparted(tutor)
+                        ? "text-foreground/50"
+                        : "text-rose-600 dark:text-rose-400"
+                    )}
+                  >
+                    <UserMinus className="h-3.5 w-3.5" />
+                    {departureLabel(tutor)}
+                  </span>
+                )}
               </div>
               <div className="mt-3 flex items-center gap-4 flex-wrap text-sm text-foreground/60">
                 {tutor.user_email && (
@@ -424,6 +482,15 @@ function TutorProfileInner() {
                     {tutor.default_location}
                   </span>
                 )}
+                {/* The Edit button beside this is where covering another branch
+                    gets ticked, so the current answer belongs where somebody
+                    can see it before they open the form. */}
+                {(tutor.branch_coverage?.length ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-500">
+                    <Repeat className="h-4 w-4" />
+                    Also covers {tutor.branch_coverage!.map(coverageLabel).join(", ")}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -439,6 +506,50 @@ function TutorProfileInner() {
             )}
           </div>
         </div>
+
+        {/* What a departure leaves behind. Only on the page when there is a
+            leaving date, and only when something is still pointing at them.
+            The sessions can be worked through in the sessions list, but the
+            slots and duties cannot, and those are the ones that quietly
+            generate fresh sessions if nobody moves them. */}
+        {isLeaving(tutor) && departureLoad && hasOutstandingWork(departureLoad) && (
+          <div className="mb-4 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-rose-800 dark:text-rose-200">
+              <UserMinus className="h-4 w-4" />
+              Still assigned after {departureDateLabel(tutor)}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <LoadChip
+                count={departureLoad.sessions_after_last_day}
+                noun="session"
+                suffix="to move"
+                href={`/sessions?filter=after-last-day&tutor=${tutor.id}`}
+              />
+              <LoadChip
+                count={departureLoad.summer_slots}
+                noun="summer slot"
+                href="/admin/summer/arrangement"
+              />
+              <LoadChip
+                count={departureLoad.regular_slots}
+                noun="regular slot"
+                href="/admin/regular/arrangement"
+              />
+              <LoadChip
+                count={departureLoad.summer_duties + departureLoad.regular_duties}
+                noun="duty row"
+              />
+              <LoadChip
+                count={departureLoad.waitlist_preferences}
+                noun="waitlist preference"
+              />
+            </div>
+            <p className="mt-3 text-xs text-rose-700 dark:text-rose-300">
+              Slots keep producing lessons under this tutor until somebody else takes them
+              over, so those are worth changing before the sessions.
+            </p>
+          </div>
+        )}
 
         {/* Two-column body — fills the remaining viewport height; on desktop it's
             a flex row whose columns are height-bounded, so each scrolls on its

@@ -2,12 +2,26 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+// The app-wide grade palette, keyed on grade + stream. It lives in
+// summer-utils but is what every intake's grade chips are coloured from.
 import { SUMMER_GRADE_BG } from "@/lib/summer-utils";
-import type { SummerSlot } from "@/types";
+import { compareTutorNames } from "@/components/zen/utils/sessionSorting";
 
-interface Props {
-  slots: SummerSlot[];
+/** The little a slot has to expose to be counted into a tutor's workload.
+ *  Both intakes' slot types satisfy this. */
+export interface WorkloadSlot {
+  tutor_id?: number | null;
+  tutor_name?: string | null;
+  grade?: string | null;
+  max_students?: number | null;
+}
+
+interface Props<T extends WorkloadSlot> {
+  slots: T[];
   open: boolean;
+  /** Students placed in a slot. Summer counts booked sessions, regular counts
+   *  assigned applications, so the caller names its own field. */
+  studentsIn: (slot: T) => number;
 }
 
 type TutorRow = {
@@ -35,7 +49,11 @@ function fillTone(pct: number, hasCapacity: boolean): string {
   return "text-red-600 dark:text-red-400";
 }
 
-export function SummerTutorWorkloadPanel({ slots, open }: Props) {
+export function TutorWorkloadPanel<T extends WorkloadSlot>({
+  slots,
+  open,
+  studentsIn,
+}: Props<T>) {
   const { rows, summary } = useMemo(() => {
     if (!open) return { rows: [] as TutorRow[], summary: null };
 
@@ -55,7 +73,7 @@ export function SummerTutorWorkloadPanel({ slots, open }: Props) {
         byTutor.set(key, row);
       }
       row.lessonCount += 1;
-      row.students += s.session_count ?? 0;
+      row.students += studentsIn(s);
       row.capacity += s.max_students ?? 0;
       const g = s.grade ?? "—";
       row.gradeCounts.set(g, (row.gradeCounts.get(g) ?? 0) + 1);
@@ -66,7 +84,7 @@ export function SummerTutorWorkloadPanel({ slots, open }: Props) {
       if (a.tutorId == null && b.tutorId != null) return 1;
       if (b.tutorId == null && a.tutorId != null) return -1;
       if (b.lessonCount !== a.lessonCount) return b.lessonCount - a.lessonCount;
-      return a.tutorName.localeCompare(b.tutorName);
+      return compareTutorNames(a.tutorName, b.tutorName);
     });
 
     const assignedCounts = allRows
@@ -82,7 +100,7 @@ export function SummerTutorWorkloadPanel({ slots, open }: Props) {
       : null;
 
     return { rows: allRows, summary };
-  }, [slots, open]);
+  }, [slots, open, studentsIn]);
 
   if (!open) return null;
 

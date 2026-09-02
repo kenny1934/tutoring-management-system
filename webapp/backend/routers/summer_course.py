@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.engine import Row
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload, contains_eager
+from sqlalchemy.orm import Session, joinedload, contains_eager, selectinload
 
 from database import get_db
 from models import (
@@ -78,8 +78,9 @@ from schemas import (
     SummerSuggestResponse,
     SummerSuggestionItem,
     SummerLessonAssignment,
-    SummerTutorDutyBulkSet,
-    SummerTutorDutyResponse,
+    TutorDutyBulkSet,
+    TutorBranchCoverage,
+    TutorDutyResponse,
     SummerApplicationSessionInfo,
     LinkedSecondaryStudentInfo,
     LinkedPrimaryProspectInfo,
@@ -106,7 +107,12 @@ from services.summer_marketing_snapshot import (
     excluded_reference_codes_from_env,
     snapshot_to_row,
 )
+from services.departure_guard import check_assignment
+from utils.employment import still_here_clause
 from utils.rate_limiter import check_ip_rate_limit
+from utils.tutor_duties import list_duties, replace_duties
+from utils.branch_codes import SECONDARY_BRANCH_CODES, resolve_claimed_branch_code
+from utils.school_alias import get_alias_map, resolve as resolve_school
 from constants import (
     hk_now,
     SummerApplicationStatus,
@@ -194,6 +200,11 @@ def _effective_lesson_number(
     return None
 
 
+def _effective_status(ss: "SummerSession", live: "SessionLog | None") -> str:
+    """Post-publish the live session_log status wins over the frozen snapshot."""
+    return live.session_status if live else ss.session_status
+
+
 def _build_student_lesson_entry(
     ln: int,
     ss: "SummerSession",
@@ -202,7 +213,7 @@ def _build_student_lesson_entry(
     """Resolve effective date/time/status from live vs. frozen snapshot."""
     effective_date = live.session_date if live else (ss.lesson.lesson_date if ss.lesson else None)
     effective_time_slot = live.time_slot if live else (ss.slot.time_slot if ss.slot else None)
-    effective_status = live.session_status if live else ss.session_status
+    effective_status = _effective_status(ss, live)
     return SummerStudentLessonEntry(
         lesson_number=ln,
         placed=True,
@@ -1271,8 +1282,14 @@ def update_config(
     updates = data.model_dump(exclude_unset=True)
     # pricing_config is a JSON blob with keys the editor UI doesn't render
     # (receipt_codes, academic_year_start/end, partial_per_lesson_rate, promo).
-    # Merge instead of replace so a partial payload from the editor doesn't
-    # silently wipe those keys.
+    # The editor now sends those back itself, so this is a backstop rather than
+    # the protection: it covers a browser still running an older bundle.
+    #
+    # Merging has a cost worth knowing about. The editor omits a key rather
+    # than sending an empty one, so deleting every discount tier, or setting
+    # the materials fee to zero, does not take effect here: the old value is
+    # merged straight back and the admin is told it saved. Dropping this block
+    # is what would fix that, once no old bundle is in play.
     if "pricing_config" in updates and updates["pricing_config"] is not None:
         merged = dict(config.pricing_config or {})
         merged.update(updates["pricing_config"])
@@ -1375,44 +1392,6 @@ def clone_config(
 # and MSB (Secondary Academy) — disambiguate via is_existing_student. Kept
 # here rather than on the config JSON because the code isn't stored there.
 # Update alongside any seed_summer_*.py changes.
-_PRIMARY_CENTER_NAME_TO_CODE: dict[str, str] = {
-    "高士德分校": "MAC",
-    "水坑尾分校": "MCP",
-    "東方明珠分校": "MNT",
-    "林茂塘分校": "MLT",
-    "二龍喉分校": "MOT",
-    "氹仔美景I分校": "MTA",
-    "氹仔美景II分校": "MTR",
-}
-
-_SECONDARY_CENTER_NAME_TO_CODE: dict[str, str] = {
-    "華士古分校": "MSA",
-    "二龍喉分校": "MSB",
-    # Full-name fallback in case an older config stored the unshortened form.
-    "MathConcept中學教室 (華士古分校)": "MSA",
-    "MathConcept中學教室 (二龍喉分校)": "MSB",
-}
-
-
-def _resolve_claimed_branch_code(
-    center_name: Optional[str], is_existing: Optional[str]
-) -> Optional[str]:
-    """Map a stored center name to a branch code, using the existing-student
-    category to disambiguate centers that exist on both Primary and Secondary
-    sides (currently only 二龍喉分校)."""
-    if not center_name:
-        return None
-    if is_existing == "MathConcept Secondary Academy":
-        return _SECONDARY_CENTER_NAME_TO_CODE.get(center_name)
-    if is_existing == "MathConcept Education":
-        return _PRIMARY_CENTER_NAME_TO_CODE.get(center_name)
-    # No category hint — try primary, then fall through to secondary.
-    return (
-        _PRIMARY_CENTER_NAME_TO_CODE.get(center_name)
-        or _SECONDARY_CENTER_NAME_TO_CODE.get(center_name)
-    )
-
-
 def _published_filter_clause(db: Session, published: Optional[str]):
     """Build a clause that filters SummerApplication by publish state, or None
     when the argument isn't a recognized choice. `"published"` keeps apps with
@@ -1491,6 +1470,8 @@ def _get_linked_students_bulk(
             Student.student_name,
             Student.school_student_id,
             Student.home_location,
+            Student.grade,
+            Student.lang_stream,
         )
         .filter(Student.id.in_(student_ids))
         .all()
@@ -1516,6 +1497,8 @@ def _get_linked_students_bulk(
             student_name=r.student_name,
             school_student_id=r.school_student_id,
             home_location=r.home_location,
+            grade=r.grade,
+            lang_stream=r.lang_stream,
             has_current_year_regular_enrollment=(
                 (r.id in has_current) if academic_year_window else None
             ),
@@ -1594,6 +1577,7 @@ def _build_application_response(
     slot_counts: Optional[dict[int, int]] = None,
     published_info: Optional[dict[int, Row]] = None,
     live_by_summer_id: Optional[dict[int, SessionLog]] = None,
+    school_aliases: Optional[dict[str, str]] = None,
 ) -> SummerApplicationResponse:
     """Build application response with embedded session and sibling info.
 
@@ -1697,6 +1681,9 @@ def _build_application_response(
             original_tutor_name=original_tutor,
         ))
     data = {col.key: getattr(app, col.key) for col in app.__table__.columns}
+    data["school_canonical"] = resolve_school(
+        app.school, app.lang_stream, school_aliases or {}
+    )
     data["sessions"] = sessions
     data["placed_count"] = sum(
         1 for s in sessions if s.session_status not in SUMMER_INACTIVE_PLACEMENT_STATUSES
@@ -1725,7 +1712,7 @@ def _build_application_response(
 
     claimed_center = (app.current_centers or [None])[0]
     if claimed_center:
-        data["claimed_branch_code"] = _resolve_claimed_branch_code(
+        data["claimed_branch_code"] = resolve_claimed_branch_code(
             claimed_center, app.is_existing_student
         )
 
@@ -1815,6 +1802,7 @@ def _build_application_responses(
     live_by_summer_id = _live_sessions_by_summer_id(
         db, [s.id for a in apps for s in (a.sessions or [])]
     )
+    school_aliases = get_alias_map(db)
     return [
         _build_application_response(
             a,
@@ -1825,12 +1813,12 @@ def _build_application_responses(
             slot_counts=slot_counts,
             published_info=published_info,
             live_by_summer_id=live_by_summer_id,
+            school_aliases=school_aliases,
         )
         for a in apps
     ]
 
 
-_SECONDARY_BRANCH_CODES = frozenset({"MSA", "MSB"})
 
 # Strict auto-link threshold: only a candidate whose reason combines both name
 # and phone is high-confidence enough to link without human review.
@@ -1880,8 +1868,8 @@ def admin_suggest_student_links(
         if app.id in prospect_claimed_ids:
             continue
         center_name = (app.current_centers or [None])[0]
-        code = _resolve_claimed_branch_code(center_name, app.is_existing_student)
-        if code in _SECONDARY_BRANCH_CODES:
+        code = resolve_claimed_branch_code(center_name, app.is_existing_student)
+        if code in SECONDARY_BRANCH_CODES:
             apps.append((app, code))
 
     def a_summary(a: SummerApplication, code: str) -> dict:
@@ -3698,6 +3686,35 @@ def _publish_application_inner(
     # other enrollment/session_log row follows these conventions, so the
     # published Summer rows need to match or tutor views will get a mixed
     # display.
+    # Refuse before writing anything if a placement would land on somebody who
+    # has left by then. The flush guard would catch it either way, but a
+    # publish creates an enrollment and a session per lesson, so failing at the
+    # end reads as a mystery. This says which lessons and whose they are.
+    # One check per tutor rather than per lesson: what decides it is the last
+    # date each of them is asked to teach.
+    last_date_by_tutor: dict[int, date] = {}
+    for p in publishable:
+        if p.slot.tutor_id is None:
+            continue
+        seen = last_date_by_tutor.get(p.slot.tutor_id)
+        if seen is None or p.lesson.lesson_date > seen:
+            last_date_by_tutor[p.slot.tutor_id] = p.lesson.lesson_date
+
+    departure_problems = [
+        problem
+        for tutor_id, last_date in last_date_by_tutor.items()
+        if (problem := check_assignment(db, tutor_id, last_date, noun="lesson"))
+    ]
+    if departure_problems:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "This timetable puts lessons on a tutor who will not be here. "
+                + " ".join(departure_problems)
+                + " Change the tutor on those slots first."
+            ),
+        )
+
     enrollment = Enrollment(
         student_id=student_id,
         tutor_id=majority.tutor_id,
@@ -4008,7 +4025,9 @@ def list_unassigned(
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """List applications with fewer than total_lessons active sessions (includes partially placed)."""
+    """List applications with fewer active sessions than their own plan
+    (includes partially placed). A partial plan completes at its lessons_paid,
+    not the config's total_lessons."""
     config = db.query(SummerCourseConfig).filter(SummerCourseConfig.id == config_id).first()
     total_lessons = config.total_lessons if config else 8
 
@@ -4037,7 +4056,8 @@ def list_unassigned(
         .filter(
             SummerApplication.config_id == config_id,
             SummerApplication.application_status.not_in(["Withdrawn", "Rejected"]),
-            placed_count_sub < total_lessons,
+            # lessons_paid is NOT NULL (migration 111 backfilled full plans).
+            placed_count_sub < SummerApplication.lessons_paid,
         )
     )
     if location:
@@ -4142,17 +4162,36 @@ def get_student_lessons(
             1
             for bucket in placed_by_lesson.values()
             for (s, live) in bucket
-            if (live.session_status if live else s.session_status) in SUMMER_NON_ATTENDING_STATUSES
+            if _effective_status(s, live) in SUMMER_NON_ATTENDING_STATUSES
         )
+        # A lesson counts as attended once, even when a redo duplicates its
+        # lesson_number — so this counts lessons, while placed_count and
+        # rescheduled_count count sessions.
+        attended_count = sum(
+            1
+            for bucket in placed_by_lesson.values()
+            if any(_effective_status(s, live) in COMPLETED_STATUSES for (s, live) in bucket)
+        )
+        # Branch by booked slot locations, falling back to preference — the
+        # same rule as the branch revenue report's _branch_of_app.
+        slot_locs = {
+            normalize_secondary_location(s.slot.location)
+            for s in app.sessions
+            if s.session_status != "Cancelled" and s.slot and s.slot.location
+        }
+        branch_code = (
+            "/".join(sorted(slot_locs)) if len(slot_locs) > 1 else next(iter(slot_locs))
+        ) if slot_locs else normalize_secondary_location(app.preferred_location)
         claimed_center = (app.current_centers or [None])[0]
         rows.append(SummerStudentLessonsRow(
             application_id=app.id,
             student_name=app.student_name,
             grade=app.grade,
             lang_stream=app.lang_stream,
+            branch_code=branch_code,
             application_status=app.application_status,
             is_existing_student=app.is_existing_student,
-            claimed_branch_code=_resolve_claimed_branch_code(claimed_center, app.is_existing_student) if claimed_center else None,
+            claimed_branch_code=resolve_claimed_branch_code(claimed_center, app.is_existing_student) if claimed_center else None,
             verified_branch_origin=app.verified_branch_origin,
             contact_phone=app.contact_phone,
             linked_student=linked_students.get(app.existing_student_id) if app.existing_student_id else None,
@@ -4160,13 +4199,15 @@ def get_student_lessons(
             sessions_per_week=app.sessions_per_week,
             lessons_paid=app.lessons_paid,
             placed_count=placed_count,
+            attended_count=attended_count,
             rescheduled_count=rescheduled_count,
             total_lessons=total,
             lessons=entries,
         ))
 
-    # Sort: least complete first
-    rows.sort(key=lambda r: r.placed_count / r.total_lessons if r.total_lessons else 0)
+    # Sort: least complete first. A partial plan completes at its own
+    # lessons_paid, not the config total (`or 1` only guards division by zero).
+    rows.sort(key=lambda r: r.placed_count / (r.lessons_paid or 1))
     return SummerStudentLessonsResponse(students=rows)
 
 
@@ -4964,17 +5005,39 @@ def get_active_tutors(
     _admin: None = Depends(require_admin_view),
     db: Session = Depends(get_db),
 ):
-    """Return active tutors for duty/slot assignment."""
+    """Return active tutors for duty/slot assignment.
+
+    Somebody serving notice is still on this list, because they are still
+    teaching. It is the session or slot date that decides whether they can take
+    a particular piece of work, and services/departure_guard.py judges that.
+    Only people whose last day has passed drop out here.
+    """
     tutors = (
         db.query(Tutor)
+        .options(selectinload(Tutor.branch_coverage))
         .filter(Tutor.is_active_tutor == True)  # noqa: E712
+        .filter(still_here_clause())
         .order_by(Tutor.tutor_name)
         .all()
     )
-    return [{"id": t.id, "tutor_name": t.tutor_name, "default_location": t.default_location} for t in tutors]
+    # branch_coverage rides along because the make-up pickers on the session
+    # side narrow by branch and have to know who is covering one. Almost always
+    # an empty list, so it costs nothing to send.
+    return [
+        {
+            "id": t.id,
+            "tutor_name": t.tutor_name,
+            "default_location": t.default_location,
+            "branch_coverage": [
+                TutorBranchCoverage.model_validate(row).model_dump(mode="json")
+                for row in t.branch_coverage
+            ],
+        }
+        for t in tutors
+    ]
 
 
-@router.get("/summer/tutor-duties", response_model=list[SummerTutorDutyResponse])
+@router.get("/summer/tutor-duties", response_model=list[TutorDutyResponse])
 def get_tutor_duties(
     config_id: int,
     location: str,
@@ -4982,54 +5045,17 @@ def get_tutor_duties(
     db: Session = Depends(get_db),
 ):
     """Get all tutor duties for a config+location."""
-    duties = (
-        db.query(SummerTutorDuty)
-        .options(joinedload(SummerTutorDuty.tutor))
-        .filter(
-            SummerTutorDuty.config_id == config_id,
-            SummerTutorDuty.location == location,
-        )
-        .all()
-    )
-    return [
-        SummerTutorDutyResponse(
-            id=d.id,
-            config_id=d.config_id,
-            tutor_id=d.tutor_id,
-            tutor_name=d.tutor.tutor_name if d.tutor else "",
-            location=d.location,
-            duty_day=d.duty_day,
-            time_slot=d.time_slot,
-        )
-        for d in duties
-    ]
+    return list_duties(db, SummerTutorDuty, config_id, location)
 
 
 @router.post("/summer/tutor-duties/bulk-set")
 def bulk_set_tutor_duties(
-    data: SummerTutorDutyBulkSet,
+    data: TutorDutyBulkSet,
     admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db),
 ):
     """Replace all tutor duties for a config+location with the given set."""
-    # Delete existing
-    db.query(SummerTutorDuty).filter(
-        SummerTutorDuty.config_id == data.config_id,
-        SummerTutorDuty.location == data.location,
-    ).delete()
-
-    # Insert new
-    for item in data.duties:
-        db.add(SummerTutorDuty(
-            config_id=data.config_id,
-            tutor_id=item.tutor_id,
-            location=data.location,
-            duty_day=item.duty_day,
-            time_slot=item.time_slot,
-        ))
-
-    db.commit()
-    return {"success": True, "count": len(data.duties)}
+    return replace_duties(db, SummerTutorDuty, data)
 
 
 # ─── Lesson Helpers ──────────────────────────────────────────────────────────

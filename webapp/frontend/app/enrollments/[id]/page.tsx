@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions } from "@/lib/hooks";
+import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations, useHolidays, useHideSupersededSessions, useSummerApplication } from "@/lib/hooks";
+import { departureLabel, isHomeBranch, pickableTutors, withCurrentTutor } from "@/lib/employment";
 import type { Session, Enrollment, Tutor, Discount, SummerApplication, SummerCourseConfig } from "@/types";
 import Link from "next/link";
 import useSWR from "swr";
@@ -36,7 +37,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
 import { MIN_LESSONS_FOR_DISCOUNT, minLessonsForDiscount } from "@/lib/constants";
-import { getDisplayPaymentStatus, getIsNewStudentParam } from "@/lib/enrollment-utils";
+import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
@@ -97,13 +98,15 @@ export default function EnrollmentDetailPage() {
     base: Partial<Enrollment> & { acknowledge_discount_loss?: boolean };
   } | null>(null);
 
-  // For tutor dropdown (only active teaching staff)
+  // The whole roster, not just the people who can be given work. The dropdown
+  // narrows it below, but the enrollment in front of you may already belong to
+  // somebody who has left, and their name has to come from somewhere.
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
 
   // Fetch tutor for dropdown
   useEffect(() => {
     tutorsAPI.getAll()
-      .then(tutors => setAllTutors(tutors.filter(t => t.is_active_tutor !== false)))
+      .then(setAllTutors)
       .catch(() => setAllTutors([]));
   }, []);
 
@@ -175,6 +178,10 @@ export default function EnrollmentDetailPage() {
     try {
       const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, updateData);
       mutate(['enrollment', enrollment.id], { ...enrollment, ...updatedEnrollment }, false);
+      // A payment-status change cascades onto the sessions server-side
+      // (Paid/Waived settle them, Pending Payment flags them unpaid again),
+      // so the list on this page has to refetch to show it.
+      mutate(['enrollment-sessions', enrollment.id]);
       // The summer application response snapshots the enrollment's coupon
       // (coupon_discount_value), so refresh it after a save that may have
       // changed the discount — the fee message reads the snapshot.
@@ -368,14 +375,17 @@ export default function EnrollmentDetailPage() {
   // the backlink chip is a navigation aid, not an auth gate.
   // Uses the shared ["summer-app", id] key so mutations from the summer
   // detail modal (appCachesMatcher) invalidate this cache too.
+  //
+  // None of these three keeps previous data. This is a route page, so Next
+  // reuses the component when only the id changes, and all three feed the fee
+  // shown on it. A stale read would price one enrollment against the
+  // application, config or buddy group of the one you were just looking at.
   const summerAppId = enrollment?.summer_application_id ?? null;
-  const { data: summerApp } = useSWR<SummerApplication>(
-    summerAppId ? ['summer-app', summerAppId] : null,
-    () => summerAPI.getApplication(summerAppId!)
-  );
+  const { data: summerApp } = useSummerApplication(summerAppId);
   const { data: summerConfig } = useSWR<SummerCourseConfig>(
     summerApp?.config_id ? ['summer-config', summerApp.config_id] : null,
-    () => summerAPI.getConfig(summerApp!.config_id)
+    () => summerAPI.getConfig(summerApp!.config_id),
+    { keepPreviousData: false }
   );
   // Buddy group members drive group-discount tier qualification. Without them,
   // resolveEffectiveDiscount recomputes from a solo group and silently drops a
@@ -384,7 +394,8 @@ export default function EnrollmentDetailPage() {
   const summerBuddyGroupId = summerApp?.buddy_group_id ?? null;
   const { data: summerBuddyMembers } = useSWR<SummerApplication[]>(
     summerBuddyGroupId ? ['summer-buddy-group', summerBuddyGroupId] : null,
-    () => summerAPI.getApplications({ buddy_group_id: summerBuddyGroupId! })
+    () => summerAPI.getApplications({ buddy_group_id: summerBuddyGroupId! }),
+    { keepPreviousData: false }
   );
   const summerDiscount = useMemo(() => {
     if (!summerApp || !summerConfig) return null;
@@ -441,20 +452,20 @@ export default function EnrollmentDetailPage() {
     return effectiveEndStr;
   }, [enrollment?.first_lesson_date, enrollment?.lessons_paid, extensionForm.weeks, isEditingExtension, holidays]);
 
-  // Filter tutors by selected location and sort by first name (ignoring Mr/Ms)
+  // Filter tutors by selected location and sort by first name (ignoring Mr/Ms).
+  // Only people who can still be given work are offered, but whoever this
+  // enrollment is already assigned to is added back, so a tutor who has left
+  // does not leave the field looking empty when it is not.
   const filteredTutors = useMemo(() => {
     const selectedLocation = editForm.location || enrollment?.location;
-    if (!selectedLocation) {
-      return [...allTutors].sort((a, b) =>
-        getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
-      );
-    }
-    return allTutors
-      .filter(t => t.default_location === selectedLocation)
-      .sort((a, b) =>
-        getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
-      );
-  }, [allTutors, editForm.location, enrollment?.location]);
+    const atLocation = selectedLocation
+      ? allTutors.filter(t => isHomeBranch(t, selectedLocation))
+      : allTutors;
+    const offerable = pickableTutors(atLocation);
+    return [...withCurrentTutor(offerable, editForm.tutor_id ?? null, allTutors)].sort((a, b) =>
+      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
+    );
+  }, [allTutors, editForm.location, editForm.tutor_id, enrollment?.location]);
 
   // Day options
   const DAY_OPTIONS = [
@@ -474,7 +485,7 @@ export default function EnrollmentDetailPage() {
   const timeOptions = isWeekend ? WEEKEND_TIME_OPTIONS : WEEKDAY_TIME_OPTIONS;
 
   // Other options
-  const PAYMENT_STATUS_OPTIONS = ["Pending Payment", "Paid", "Cancelled"];
+  const PAYMENT_STATUS_OPTIONS = ["Pending Payment", "Paid", "Waived", "Cancelled"];
   const ENROLLMENT_TYPE_OPTIONS = ["Regular", "One-Time", "Trial", "Summer"];
 
 
@@ -528,11 +539,15 @@ export default function EnrollmentDetailPage() {
   useEffect(() => {
     if (!showFeePanel || !enrollment?.id) return;
     if (summerAppId) return;
+    // A waived enrollment has no fee message — the panel shows a note instead.
+    if (enrollment.payment_status === 'Waived') return;
 
     let cancelled = false;
     setFeeMessageLoading(true);
 
-    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6, getIsNewStudentParam(enrollment))
+    // No is_new_student override: the backend derives it from the enrollment
+    // and applies the intake rule (an intake may charge the fee to nobody).
+    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6)
       .then(response => {
         if (!cancelled) {
           setFeeMessage(response.message);
@@ -549,7 +564,7 @@ export default function EnrollmentDetailPage() {
       });
 
     return () => { cancelled = true; };
-  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid, enrollment?.is_new_student]);
+  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid, enrollment?.is_new_student, enrollment?.payment_status]);
 
   // Calculate session stats
   const sessionStats = useMemo(() => {
@@ -897,9 +912,14 @@ export default function EnrollmentDetailPage() {
                         className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
                       >
                         <option value="">Select tutor...</option>
-                        {filteredTutors.map(tutor => (
-                          <option key={tutor.id} value={tutor.id}>{tutor.tutor_name}</option>
-                        ))}
+                        {filteredTutors.map(tutor => {
+                          const departure = departureLabel(tutor);
+                          return (
+                            <option key={tutor.id} value={tutor.id}>
+                              {departure ? `${tutor.tutor_name} (${departure.toLowerCase()})` : tutor.tutor_name}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 
@@ -1265,12 +1285,14 @@ export default function EnrollmentDetailPage() {
                       </div>
                     )}
 
-                    {/* New Student - not applicable to Trial */}
+                    {/* New Student - not applicable to Trial. The fee is only
+                        claimed when it was actually charged: a seasonal intake
+                        may collect it from nobody. */}
                     {enrollment.is_new_student && enrollment.enrollment_type !== 'Trial' && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500 dark:text-gray-400">New Student</span>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-medium">
-                          +$100 Reg Fee
+                          {enrollment.registration_fee === 0 ? "Yes" : "+$100 Reg Fee"}
                         </span>
                       </div>
                     )}
@@ -1344,7 +1366,13 @@ export default function EnrollmentDetailPage() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        {summerApp && summerConfig ? (
+                        {enrollment.payment_status === 'Waived' ? (
+                          <div className="pt-4">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              This enrollment is waived, so no fee is due and there is no fee message to send.
+                            </p>
+                          </div>
+                        ) : summerApp && summerConfig ? (
                           <>
                             <div className="pt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                               <SummerMessagePanel
@@ -1739,6 +1767,11 @@ export default function EnrollmentDetailPage() {
                                 <span className="flex items-center gap-0.5 text-xs text-green-600">
                                   <CheckCircle2 className="h-3 w-3" />
                                   <span className="hidden sm:inline">Paid</span>
+                                </span>
+                              ) : session.financial_status === "Waived" ? (
+                                <span className="flex items-center gap-0.5 text-xs text-gray-500">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  <span className="hidden sm:inline">Waived</span>
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-0.5 text-xs text-red-600">

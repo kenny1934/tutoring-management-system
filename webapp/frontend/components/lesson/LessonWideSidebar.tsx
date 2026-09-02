@@ -14,9 +14,10 @@ import { SummerCoursewareWidePanel } from "./SummerCoursewareWidePanel";
 import { StudentPickerPopover } from "./StudentPickerPopover";
 import { EditableLessonNumberBadge, useSaveLessonNumber } from "@/components/sessions/EditableLessonNumberBadge";
 import { SessionLessonBadge } from "@/components/sessions/LessonNumberBadge";
-import type { Session } from "@/types";
+import type { Session, HomeworkCompletion } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
+import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -37,6 +38,9 @@ interface LessonWideSidebarProps {
   onBulkAssign?: (type: "CW" | "HW", sessionIds?: number[]) => void;
   /** Bundled printing state: which exercise ID is printing + progress message. */
   printing?: PrintingState;
+  /** Homework carried in from earlier lessons, keyed by session. */
+  homeworkBySession?: Map<number, HomeworkCompletion[]>;
+  onHomeworkMarked?: (updated: HomeworkCompletion) => void;
 }
 
 // --- By-Student mode components ---
@@ -126,6 +130,8 @@ function StudentBlock({
   onPrint,
   onBulkPrintStudent,
   printing,
+  homework,
+  onHomeworkMarked,
 }: {
   session: Session;
   entries: StudentExerciseEntry[];
@@ -139,6 +145,8 @@ function StudentBlock({
   onPrint?: (entry: StudentExerciseEntry) => void;
   onBulkPrintStudent?: (session: Session, type: 'CW' | 'HW') => void;
   printing?: PrintingState;
+  homework: HomeworkCompletion[];
+  onHomeworkMarked?: (updated: HomeworkCompletion) => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
@@ -251,6 +259,16 @@ function StudentBlock({
             className="overflow-hidden"
           >
             <div className="pl-3 pr-1 pt-1 pb-2 flex flex-col gap-3 border-l-2 border-[#e8d4b8] dark:border-[#3a3228] ml-4">
+              {/* Last lesson's homework comes first: it is the thing to settle
+                  before starting on today's work. */}
+              {homework.length > 0 && (
+                <HomeworkCheckSection
+                  sessionId={session.id}
+                  items={homework}
+                  isReadOnly={isReadOnly}
+                  onMarked={onHomeworkMarked}
+                />
+              )}
               {cwEntries.length > 0 && (
                 <ExerciseTypeSection
                   label="Classwork"
@@ -281,7 +299,7 @@ function StudentBlock({
                   printing={printing}
                 />
               )}
-              {cwEntries.length === 0 && hwEntries.length === 0 && (
+              {cwEntries.length === 0 && hwEntries.length === 0 && homework.length === 0 && (
                 <p className="text-xs text-[#b0a090] dark:text-[#706050] italic text-center py-2">
                   No exercises assigned
                 </p>
@@ -535,6 +553,8 @@ export function LessonWideSidebar({
   onBulkPrintStudent,
   onBulkAssign,
   printing,
+  homeworkBySession,
+  onHomeworkMarked,
 }: LessonWideSidebarProps) {
   // Student picker popover state (both modes)
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
@@ -641,6 +661,8 @@ export function LessonWideSidebar({
                   onPrint={onPrint}
                   onBulkPrintStudent={onBulkPrintStudent}
                   printing={printing}
+                  homework={homeworkBySession?.get(session.id) ?? []}
+                  onHomeworkMarked={onHomeworkMarked}
                 />
               );
             })}

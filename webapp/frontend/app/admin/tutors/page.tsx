@@ -7,9 +7,14 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { useTutors, usePageTitle } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
+import { employmentAPI } from "@/lib/api";
+import { plural } from "@/lib/formatters";
+import { coverageLabel, departureLabel, hasDeparted, isLeaving } from "@/lib/employment";
 import { getInitials } from "@/lib/avatar-utils";
 import { cn } from "@/lib/utils";
-import { Users, Search, MapPin } from "lucide-react";
+import { Users, Search, MapPin, RefreshCw, Repeat } from "lucide-react";
 import type { Tutor, TutorRole } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
@@ -45,9 +50,12 @@ function isActive(t: Tutor): boolean {
   return t.is_active_tutor !== false;
 }
 
-// Within a group: active tutors first, then alphabetical by name.
+// Within a group: people who have left sink to the bottom, then non-teaching
+// staff, then everybody else alphabetically. Somebody serving notice sorts
+// with the rest of the team, because that is still where they are.
 function sortTutors(list: Tutor[]): Tutor[] {
   return [...list].sort((a, b) => {
+    if (hasDeparted(a) !== hasDeparted(b)) return hasDeparted(a) ? 1 : -1;
     if (isActive(a) !== isActive(b)) return isActive(a) ? -1 : 1;
     return getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
   });
@@ -136,9 +144,24 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
           <span className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
             {tutor.tutor_name}
           </span>
-          {tutor.is_active_tutor === false && (
+          {/* Two different facts, so two different badges. "Inactive" means
+              they do not teach, which is true of every Supervisor. The
+              departure badge means they are going or gone. */}
+          {tutor.is_active_tutor === false && !isLeaving(tutor) && (
             <span className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
               Inactive
+            </span>
+          )}
+          {isLeaving(tutor) && (
+            <span
+              className={cn(
+                "flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                hasDeparted(tutor)
+                  ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+              )}
+            >
+              {departureLabel(tutor)}
             </span>
           )}
         </div>
@@ -161,6 +184,18 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
             <span className="truncate">{tutor.default_location}</span>
           </div>
         )}
+        {/* Covering another branch is a temporary arrangement that somebody has
+            to remember to end, so it belongs on the card rather than behind the
+            edit modal. If it is still showing in November, that is the prompt
+            to go and untick it. */}
+        {(tutor.branch_coverage?.length ?? 0) > 0 && (
+          <div className="mt-1 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
+            <Repeat className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">
+              Also covers {tutor.branch_coverage!.map(coverageLabel).join(", ")}
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -169,9 +204,37 @@ function TutorCard({ tutor, onOpen }: { tutor: Tutor; onOpen: () => void }) {
 function TutorsPageInner() {
   usePageTitle("Tutors");
   const router = useRouter();
-  const { data: tutors, isLoading } = useTutors();
+  const { data: tutors, isLoading, mutate } = useTutors();
+  const { isAdmin } = useAuth();
+  const { showToast } = useToast();
   const [query, setQuery] = useState("");
   const [groupBy, setGroupBy] = useState<GroupBy>("location");
+  const [syncing, setSyncing] = useState(false);
+
+  // Pull leaving dates from ARK now rather than waiting for the nightly run.
+  // The result is worth showing rather than logging: whoever presses this wants
+  // to know what moved, and teaching staff ARK has never heard of are the gap
+  // in the protection, because nothing can stop lessons being booked for
+  // somebody the two systems have not been introduced to.
+  const syncFromArk = async () => {
+    setSyncing(true);
+    try {
+      const result = await employmentAPI.sync();
+      await mutate();
+      const moved = result.marked + result.cleared;
+      const summary = moved
+        ? result.changes.join(". ")
+        : `No changes. ${plural(result.checked, "record")} checked.`;
+      const gap = result.missing_from_ark.length
+        ? ` Not in ARK: ${result.missing_from_ark.join(", ")}.`
+        : "";
+      showToast(`${summary}${gap}`, moved || gap ? "success" : "info");
+    } catch {
+      showToast("Could not reach ARK", "error");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const visibleTutors = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -182,7 +245,8 @@ function TutorsPageInner() {
           !q ||
           t.tutor_name.toLowerCase().includes(q) ||
           t.nickname?.toLowerCase().includes(q) ||
-          t.default_location?.toLowerCase().includes(q)
+          t.default_location?.toLowerCase().includes(q) ||
+          t.branch_coverage?.some((c) => coverageLabel(c).toLowerCase().includes(q))
       );
   }, [tutors, query]);
 
@@ -215,6 +279,17 @@ function TutorsPageInner() {
                 </p>
               </div>
             </div>
+            {isAdmin && (
+              <button
+                onClick={syncFromArk}
+                disabled={syncing}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-[#d4a574] text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-60"
+                title="Read leaving dates from ARK now instead of waiting for tonight's run"
+              >
+                <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
+                {syncing ? "Checking ARK…" : "Sync from ARK"}
+              </button>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
               <input

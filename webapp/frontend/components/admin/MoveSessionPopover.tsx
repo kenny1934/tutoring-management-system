@@ -13,6 +13,8 @@ import useSWR from "swr";
 import { Loader2, AlertCircle, ArrowRightLeft, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { summerAPI } from "@/lib/api";
+import { worksAt } from "@/lib/employment";
+import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { LOCATION_TO_CODE, formatShortDate } from "@/lib/summer-utils";
 import {
   TimeSlotPicker,
@@ -104,11 +106,14 @@ export function MoveSessionPopover({
   const locationCode = source.location
     ? LOCATION_TO_CODE[source.location] ?? source.location
     : null;
+  // Anybody covering the branch on the target date belongs here too, so a
+  // lesson can be moved onto a substitute. Re-asked whenever the date changes,
+  // since coverage can be limited to particular days.
   const tutors = useMemo(
     () => (locationCode
-      ? allTutors?.filter((t) => t.default_location === locationCode) ?? []
+      ? allTutors?.filter((t) => worksAt(t, locationCode, date || null)) ?? []
       : allTutors ?? []),
-    [allTutors, locationCode],
+    [allTutors, locationCode, date],
   );
 
   const { refs, context } = useFloating({
@@ -221,9 +226,7 @@ export function MoveSessionPopover({
             className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
           >
             <option value="">— select tutor —</option>
-            {tutors.map((t) => (
-              <option key={t.id} value={t.id}>{t.tutor_name}</option>
-            ))}
+            <TutorOptions tutors={tutors} location={locationCode} />
           </select>
           {tutors.length === 0 && allTutors && (
             <p className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">

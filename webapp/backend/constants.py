@@ -3,8 +3,20 @@ Shared constants for the backend.
 
 Centralizes session status lists and other constants used across routers.
 """
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from enum import Enum
+
+#: Short day names, indexed to match ``date.weekday()`` so Monday is 0.
+#:
+#: Written out rather than taken from strftime so the answer never depends on
+#: the server's locale, and matching the abbreviations the rest of the app
+#: already compares against: ``enrollments.assigned_day``, the day names the
+#: session editor derives, and ``tutor_branch_coverage.weekday``.
+#:
+#: Lives here rather than beside the code that uses it because both the
+#: schemas and utils.employment need it, and importing either from the other
+#: closes a cycle through utils/__init__.
+WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 # Hong Kong timezone (UTC+8) — matches DB convention: CONVERT_TZ(NOW(), '+00:00', '+08:00')
 HK_TZ = timezone(timedelta(hours=8))
@@ -13,6 +25,11 @@ HK_TZ = timezone(timedelta(hours=8))
 def hk_now() -> datetime:
     """Current time in Hong Kong (UTC+8) as naive datetime, matching DB convention."""
     return datetime.now(HK_TZ).replace(tzinfo=None)
+
+
+def today_hk() -> date:
+    """Today's date in Hong Kong, which is the only date the office uses."""
+    return hk_now().date()
 
 
 class SessionStatus(str, Enum):
@@ -187,6 +204,43 @@ class SummerApplicationStatus(str, Enum):
     REJECTED = 'Rejected'
 
 
+class RegularApplicationStatus(str, Enum):
+    """Application statuses for regular course (September intake) applications.
+
+    Same ladder as SummerApplicationStatus, deliberately: admins work both
+    intakes from the same mental model. 'Placement Offered' = the weekly slot
+    has been offered to the parent, 'Placement Confirmed' = they agreed to it.
+    (Regular has a single weekly slot rather than summer's per-lesson
+    placements, but the rungs mean the same thing.)
+    """
+    SUBMITTED = 'Submitted'
+    UNDER_REVIEW = 'Under Review'
+    PLACEMENT_OFFERED = 'Placement Offered'
+    PLACEMENT_CONFIRMED = 'Placement Confirmed'
+    FEE_SENT = 'Fee Sent'
+    PAID = 'Paid'
+    ENROLLED = 'Enrolled'
+    # Side exits
+    WAITLISTED = 'Waitlisted'
+    WITHDRAWN = 'Withdrawn'
+    REJECTED = 'Rejected'
+
+
+# Applications on these rungs have left the intake. The summer and regular
+# status ladders share these exit rungs by design, so one constant serves
+# both courses: match pools and prospect journey states skip these apps, and
+# regular capacity checks and slot fill counts skip them the same way summer
+# skips non-attending sessions (the row stays on the slot so an admin can
+# still see the placement that was given up).
+# Waitlisted is deliberately absent — those applicants are still being worked.
+APPLICATION_EXIT_STATUSES = (
+    RegularApplicationStatus.WITHDRAWN.value,
+    RegularApplicationStatus.REJECTED.value,
+)
+# Name used by the regular-course router's seat/capacity logic.
+REGULAR_EXIT_STATUSES = APPLICATION_EXIT_STATUSES
+
+
 class SummerPlacementStatus(str, Enum):
     """Placement statuses for summer course slot assignments."""
     TENTATIVE = 'Tentative'
@@ -255,6 +309,15 @@ def normalize_secondary_location(location: str | None) -> str | None:
     if not location:
         return location
     return SECONDARY_LOCATION_TO_CODE.get(location, location)
+
+
+def format_student_code(home_location: str | None, school_student_id: str | None) -> str | None:
+    """A student's display code, e.g. "MSA-1001". school_student_id is a bare
+    per-location number, so the branch prefix comes from home_location —
+    the same composition the frontend's student-info badges use."""
+    if not school_student_id:
+        return None
+    return f"{home_location}-{school_student_id}" if home_location else school_student_id
 
 
 # Day-of-week short forms used throughout the enrollments / session_log

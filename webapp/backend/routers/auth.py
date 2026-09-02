@@ -13,8 +13,9 @@ from pydantic import BaseModel
 from database import get_db
 from models import Tutor
 from auth.oauth import get_google_auth_url, exchange_code_for_user_info
-from auth.jwt_handler import create_access_token, create_refreshed_token, create_handoff_token, get_token_time_remaining, ACCESS_TOKEN_EXPIRE_HOURS
+from auth.jwt_handler import create_access_token, create_refreshed_token, create_handoff_token, get_token_time_remaining, verify_token, ACCESS_TOKEN_EXPIRE_HOURS
 from auth.dependencies import get_current_user
+from utils.employment import has_departed
 from utils.rate_limiter import check_ip_rate_limit
 
 router = APIRouter()
@@ -124,6 +125,18 @@ async def google_callback(
                 status_code=status.HTTP_302_FOUND,
             )
 
+        # Somebody whose last working day has passed keeps their row, because
+        # every session and enrollment they ever taught points at it, but they
+        # do not get a token. Their own error, rather than the one shown to a
+        # stranger, so the office can tell "no longer with us" apart from
+        # "never had an account".
+        if has_departed(tutor):
+            logger.info("Refused login for departed staff member %s", tutor.tutor_name)
+            return RedirectResponse(
+                url=f"{redirect_base}/login?error=account_closed",
+                status_code=status.HTTP_302_FOUND,
+            )
+
         # Persist Google profile picture on the tutor record (non-blocking)
         google_picture = user_info.get("picture")
         if google_picture and tutor.profile_picture != google_picture:
@@ -183,8 +196,6 @@ async def get_current_user_info(
 
     Returns user details including id, email, name, role, default location, and profile picture.
     """
-    from auth.jwt_handler import verify_token
-
     # Get picture from JWT token (stored during OAuth)
     token = request.cookies.get("access_token")
     picture = None
@@ -225,13 +236,13 @@ class TokenRefreshResponse(BaseModel):
 
 
 @router.post("/auth/refresh", response_model=TokenRefreshResponse)
-async def refresh_token(request: Request, response: Response):
+async def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
     """
     Refresh the authentication token.
 
-    Extends the token expiry if the current token is valid and
-    within the refresh window (expires within 30 minutes or
-    recently expired within 5 minute grace period).
+    Extends the token expiry if the current token is still valid,
+    or expired within the 15-minute grace period
+    (REFRESH_GRACE_PERIOD_MINUTES in auth/jwt_handler.py).
 
     Returns a new token as an HTTP-only cookie.
     """
@@ -242,6 +253,20 @@ async def refresh_token(request: Request, response: Response):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No token provided"
         )
+
+    # The third way to get a token, and it has to know about departures like
+    # the other two. Without this, somebody whose last day passes while their
+    # tab is open renews their cookie indefinitely: every call 401s, the client
+    # refreshes successfully, and the retry 401s again.
+    payload = verify_token(token) or {}
+    tutor_id = payload.get("sub")
+    if tutor_id:
+        tutor = db.query(Tutor).filter(Tutor.id == int(tutor_id)).first()
+        if tutor and has_departed(tutor):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="This account is no longer active",
+            )
 
     # Try to create a refreshed token
     new_token = create_refreshed_token(token)

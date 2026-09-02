@@ -32,6 +32,9 @@ interface SummerSlotCellProps {
   onDropFailed?: (reason: string) => void;
   prefHighlight?: boolean;
   buddyHighlight?: boolean;
+  /** A slot filter is on and this cell holds no matching slot, so it recedes to
+   * let the matching cells stand out. */
+  dimmed?: boolean;
   gradeMaxDemand?: number;
   availableTutors?: AvailableTutor[];
   onConfirmSlot?: (slotId: number) => void;
@@ -78,6 +81,7 @@ export const SummerSlotCell = memo(function SummerSlotCell({
   onDropFailed,
   prefHighlight,
   buddyHighlight,
+  dimmed = false,
   gradeMaxDemand = 1,
   availableTutors,
   onConfirmSlot,
@@ -192,8 +196,9 @@ export const SummerSlotCell = memo(function SummerSlotCell({
   return (
     <div
       className={cn(
-        "min-h-[80px] p-1.5 transition-colors relative",
+        "min-h-[80px] p-1.5 transition relative",
         heatColor(remainingDemand),
+        dimmed && "opacity-40 hover:opacity-100",
         dragOver && "ring-2 ring-inset ring-primary",
         prefHighlight && !dragOver && "ring-2 ring-inset ring-primary/40 bg-primary/5",
         buddyHighlight && !dragOver && !prefHighlight && "ring-1 ring-inset ring-violet-400/50 bg-violet-50/30 dark:bg-violet-900/10"

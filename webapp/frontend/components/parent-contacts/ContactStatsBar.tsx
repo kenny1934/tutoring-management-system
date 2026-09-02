@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import type { ParentCommunicationStats } from "@/lib/api";
 import { Users, TrendingUp, TrendingDown, Minus, Calendar, BarChart3 } from "lucide-react";
+import { CONTACT_TYPES, contactTypeMeta } from "./contact-utils";
 
 interface ContactStatsBarProps {
   stats?: ParentCommunicationStats;
@@ -26,7 +27,16 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
   if (!stats) return null;
 
   const weekTrend = stats.contacts_this_week - stats.contacts_last_week;
-  const totalTypeContacts = stats.progress_update_count + stats.concern_count + stats.general_count;
+
+  // The known types first, in the order they read everywhere else, then
+  // anything the database still holds that the app no longer offers, so an old
+  // row is never silently left out of the total.
+  const counts = stats.type_counts ?? {};
+  const shownTypes = [
+    ...CONTACT_TYPES.filter((t) => counts[t] > 0),
+    ...Object.keys(counts).filter((t) => !CONTACT_TYPES.includes(t as never) && counts[t] > 0),
+  ];
+  const totalTypeContacts = shownTypes.reduce((sum, t) => sum + counts[t], 0);
 
   return (
     <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -81,24 +91,19 @@ export function ContactStatsBar({ stats, loading = false }: ContactStatsBarProps
         )}>
           <BarChart3 className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
           <div className="flex items-center gap-2 text-xs">
-            {stats.progress_update_count > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                <span className="text-gray-600 dark:text-gray-300">{stats.progress_update_count}</span>
+            {shownTypes.map((type) => (
+              // A coloured dot and a number said nothing about which type it
+              // stood for unless you already knew the code, so each one now
+              // names itself on hover.
+              <span
+                key={type}
+                className="flex items-center gap-1"
+                title={`${type}: ${counts[type]} in the last 30 days`}
+              >
+                <span className={cn("w-1.5 h-1.5 rounded-full", contactTypeMeta(type).dot)} />
+                <span className="text-gray-600 dark:text-gray-300">{counts[type]}</span>
               </span>
-            )}
-            {stats.concern_count > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                <span className="text-gray-600 dark:text-gray-300">{stats.concern_count}</span>
-              </span>
-            )}
-            {stats.general_count > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
-                <span className="text-gray-600 dark:text-gray-300">{stats.general_count}</span>
-              </span>
-            )}
+            ))}
             <span className="text-gray-400 dark:text-gray-500 hidden sm:inline">30d</span>
           </div>
         </div>

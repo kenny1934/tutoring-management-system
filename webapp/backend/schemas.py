@@ -7,7 +7,7 @@ from typing import Any, Literal, Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
 
-from constants import SummerApplicationStatus
+from constants import WEEKDAY_NAMES, SummerApplicationStatus, RegularApplicationStatus
 
 
 # ============================================
@@ -102,6 +102,51 @@ class StudentBasic(BaseModel):
 # Tutor Schemas
 # ============================================
 
+class TutorBranchCoverage(BaseModel):
+    """A branch this tutor works at besides their own.
+
+    Every bound is optional and an empty one is not a restriction, so a row
+    with nothing but a location means they simply also work there. See
+    migration 163 for the three arrangements this one shape covers.
+    """
+    location: str = Field(..., min_length=1, max_length=200)
+    effective_from: Optional[date] = Field(None, description="First day covered. Null means no start bound.")
+    effective_until: Optional[date] = Field(None, description="Last day covered. Null means open ended.")
+    weekday: Optional[str] = Field(None, max_length=20, description="Short day name such as Sat. Null means any day.")
+    note: Optional[str] = Field(None, max_length=255)
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("weekday")
+    @classmethod
+    def weekday_must_be_a_real_day(cls, value: Optional[str]) -> Optional[str]:
+        """Reject anything works_at would never match.
+
+        The comparison is against the short day names, so a full "Saturday" or
+        a typo would store cleanly and then quietly cover nothing at all. That
+        is the worst way for this to fail, because the row looks right in the
+        editor while the tutor never appears in any picker.
+        """
+        if value is None or value == "":
+            return None
+        if value not in WEEKDAY_NAMES:
+            raise ValueError(f"weekday must be one of {', '.join(WEEKDAY_NAMES)}")
+        return value
+
+    @model_validator(mode="after")
+    def range_must_run_forwards(self):
+        """A range that ends before it starts covers nothing, so refuse it here
+        as well as in the editor. Same day at both ends is a single day, which
+        is a real arrangement and stays allowed."""
+        if (
+            self.effective_from is not None
+            and self.effective_until is not None
+            and self.effective_until < self.effective_from
+        ):
+            raise ValueError("effective_until cannot be before effective_from")
+        return self
+
+
 class TutorBase(BaseModel):
     """Base tutor schema"""
     user_email: str = Field(..., min_length=3, max_length=255)
@@ -111,7 +156,14 @@ class TutorBase(BaseModel):
     role: str = Field(..., max_length=50)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
     is_active_tutor: bool = Field(True, description="Whether this user teaches students")
+    departure_effective_on: Optional[date] = Field(
+        None, description="Last working day. Null means they are not leaving."
+    )
     profile_picture: Optional[str] = Field(None, max_length=2048)
+    branch_coverage: List[TutorBranchCoverage] = Field(
+        default_factory=list,
+        description="Branches this tutor covers besides their own. Usually empty.",
+    )
 
 
 class TutorResponse(TutorBase):
@@ -130,7 +182,14 @@ class TutorResponsePublic(BaseModel):
     default_location: Optional[str] = Field(None, max_length=200)
     role: str = Field(..., max_length=50)
     is_active_tutor: bool = Field(True, description="Whether this user teaches students")
+    departure_effective_on: Optional[date] = Field(
+        None, description="Last working day. Null means they are not leaving."
+    )
     profile_picture: Optional[str] = Field(None, max_length=2048)
+    branch_coverage: List[TutorBranchCoverage] = Field(
+        default_factory=list,
+        description="Branches this tutor covers besides their own. Usually empty.",
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -141,11 +200,25 @@ class TutorUpdate(BaseModel):
     Intentionally limited to compensation and safe profile fields. ``user_email``
     and ``role`` are excluded (auth/privilege risk) and remain editable only
     through the Super Admin debug panel.
+
+    ``departure_effective_on`` is here despite ending somebody's access, because
+    it only ever takes access away and every change is written to the audit
+    trail. For anyone linked to ARK the nightly sync owns this field and will
+    overwrite whatever is set here, so in practice the editor is for the
+    Supervisor and Guest accounts that exist only in CSM.
     """
     nickname: Optional[str] = Field(None, max_length=100)
     default_location: Optional[str] = Field(None, max_length=200)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
     is_active_tutor: Optional[bool] = None
+    departure_effective_on: Optional[date] = None
+    branch_coverage: Optional[List[TutorBranchCoverage]] = Field(
+        None,
+        description=(
+            "Replaces the whole coverage list. Omit to leave it alone, send an "
+            "empty list to clear it."
+        ),
+    )
 
 
 # ============================================
@@ -208,6 +281,7 @@ class EnrollmentResponse(EnrollmentBase):
     fee_message_sent: bool = False
     is_new_student: bool = False
     summer_application_id: Optional[int] = Field(None, description="Source summer application id if this is a published Summer enrollment")
+    regular_application_id: Optional[int] = Field(None, description="Source regular application id if published from the September-intake form")
     summer_unavailability_notes: Optional[str] = Field(None, description="Dates the student can't attend, from the source summer application (for arranging make-ups)")
     payment_deadline: Optional[date] = Field(None, description="Summer: discount deadline or first_lesson_date, whichever is earlier")
     locked_discount_code: Optional[str] = Field(None, max_length=32, description="Summer tier code currently in effect: EB / EB3P / 3P / NONE")
@@ -217,6 +291,7 @@ class EnrollmentResponse(EnrollmentBase):
     discount_override_by: Optional[str] = Field(None, max_length=255)
     discount_override_at: Optional[datetime] = None
     total_fee: Optional[int] = Field(None, description="Total tuition shown in the fee message (base - discount + reg fee). None for Summer when no priceable config is linked.")
+    registration_fee: Optional[int] = Field(None, description="One-off materials fee actually charged on this enrollment. 0 for a new student whose intake collects it from nobody; None when the endpoint did not compute it.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -289,6 +364,7 @@ class OverdueEnrollment(BaseModel):
     discount_override_code: Optional[str] = Field(None, max_length=32)
     discount_override_reason: Optional[str] = None
     total_fee: Optional[int] = Field(None, description="Total tuition shown in the fee message; None for Summer rows with no priceable config")
+    registration_fee: Optional[int] = Field(None, description="One-off materials fee actually charged on this enrollment; 0 when waived or not applicable")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -509,8 +585,12 @@ class EnrollmentDetailResponse(BaseModel):
     contacts: Optional[List[StudentContact]] = None
     fee_message_sent: bool = False
     is_new_student: bool = False
+    # One-off materials fee actually charged, from the shared rule — 0 for a
+    # new student whose intake collects it from nobody. Drives the badge copy.
+    registration_fee: Optional[int] = None
     enrollment_type: Optional[str] = None
     summer_application_id: Optional[int] = None
+    regular_application_id: Optional[int] = None
     payment_date: Optional[date] = None
     payment_deadline: Optional[date] = None
     locked_discount_code: Optional[str] = None
@@ -717,24 +797,98 @@ class SessionUpdate(BaseModel):
     clear_lesson_number: bool = False
 
 
-class HomeworkCompletionResponse(BaseModel):
-    """Homework completion tracking response"""
+HOMEWORK_STATUSES = ('Not Checked', 'Submitted', 'Completed', 'Partially Completed', 'Not Completed')
+
+
+class HomeworkFileResponse(BaseModel):
+    """A file uploaded against a homework check"""
     id: int = Field(..., gt=0)
-    current_session_id: int = Field(..., gt=0)
+    file_path: str = Field(..., max_length=500)
+    # Small derivative for previews. Null means show file_path instead.
+    thumbnail_path: Optional[str] = Field(None, max_length=500)
+    file_type: str = Field(..., max_length=20)
+    file_name: Optional[str] = Field(None, max_length=255)
+    file_size_kb: Optional[int] = None
+    file_order: Optional[int] = None
+    uploaded_at: Optional[datetime] = None
+    uploaded_by: Optional[str] = Field(None, max_length=255)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkCompletionResponse(BaseModel):
+    """One homework assignment still open for a session, with its check state"""
     session_exercise_id: int = Field(..., gt=0)
+    current_session_id: int = Field(..., gt=0)
     student_id: int = Field(..., gt=0)
-    completion_status: Optional[str] = Field(None, max_length=50)
-    submitted: bool = False
-    tutor_comments: Optional[str] = Field(None, max_length=1000)
-    checked_by: Optional[int] = Field(None, gt=0)
-    checked_at: Optional[datetime] = None
+
+    # Where it came from. sessions_ago is 1 for last session, 2 for the one before.
+    assigned_session_id: Optional[int] = Field(None, gt=0)
+    homework_assigned_date: Optional[date] = None
+    assigned_time_slot: Optional[str] = Field(None, max_length=100)
+    assigned_by_tutor_id: Optional[int] = Field(None, gt=0)
+    assigned_by_tutor: Optional[str] = Field(None, max_length=200)
+    sessions_ago: Optional[int] = None
+
+    # The assignment
     pdf_name: Optional[str] = Field(None, max_length=500)
     page_start: Optional[int] = Field(None, gt=0)
     page_end: Optional[int] = Field(None, gt=0)
     url: Optional[str] = Field(None, max_length=2048)
-    homework_assigned_date: Optional[date] = None
-    assigned_by_tutor_id: Optional[int] = Field(None, gt=0)
-    assigned_by_tutor: Optional[str] = Field(None, max_length=200)
+    url_title: Optional[str] = Field(None, max_length=500)
+    assignment_remarks: Optional[str] = None
+
+    # Check state
+    completion_id: Optional[int] = Field(None, gt=0)
+    completion_status: Optional[str] = Field(None, max_length=50)
+    homework_rating: Optional[str] = Field(None, max_length=10)
+    tutor_comments: Optional[str] = Field(None, max_length=1000)
+    checked_by: Optional[int] = Field(None, gt=0)
+    checked_at: Optional[datetime] = None
+    checked_in_session_id: Optional[int] = Field(None, gt=0)
+
+    # What the student handed in. attachment_count comes from the view and is
+    # filled for list rows; files is populated wherever they are shown.
+    attachment_count: int = 0
+    files: List[HomeworkFileResponse] = []
+
+    @field_validator('attachment_count', mode='before')
+    @classmethod
+    def default_attachment_count(cls, v):
+        return v or 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkMarkRequest(BaseModel):
+    """Mark one homework assignment. Omitted fields are left untouched."""
+    completion_status: Optional[str] = None
+    homework_rating: Optional[str] = Field(None, max_length=10)
+    tutor_comments: Optional[str] = Field(None, max_length=1000)
+
+    @field_validator('completion_status')
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None and v not in HOMEWORK_STATUSES:
+            raise ValueError(f"completion_status must be one of {', '.join(HOMEWORK_STATUSES)}")
+        return v
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkCountResponse(BaseModel):
+    """How much homework is open for one session"""
+    session_id: int = Field(..., gt=0)
+    total: int = 0
+    checked: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SessionHomeworkResponse(BaseModel):
+    """Homework still open for one session"""
+    session_id: int = Field(..., gt=0)
+    homework: List[HomeworkCompletionResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -962,6 +1116,33 @@ class ParentCommunicationCreate(BaseModel):
     contact_date: Optional[datetime] = None  # Defaults to now if not provided
 
 
+class ParentCommunicationBulkCreate(BaseModel):
+    """One contact, logged against several students at once.
+
+    Same fields as a single record minus the student, because the point is
+    that one round of calls or one broadcast message covered all of them. The
+    cap is a guard against a mis-click on a select-all: nobody rings 200
+    families in a sitting, and a note that claims they did is worse than no
+    note."""
+    student_ids: List[int] = Field(..., min_length=1, max_length=200)
+    contact_method: str = Field(default='WeChat', max_length=50)
+    contact_type: str = Field(default='Progress Update', max_length=50)
+    brief_notes: Optional[str] = Field(None, max_length=500)
+    follow_up_needed: bool = Field(default=False)
+    follow_up_date: Optional[date] = None
+    contact_date: Optional[datetime] = None
+
+
+class ParentCommunicationBulkResponse(BaseModel):
+    """What actually got written.
+
+    `skipped` holds ids with no student behind them any more, which is the
+    only way part of a batch can fail: everything else is written in one
+    transaction and either all lands or none does."""
+    created: int = 0
+    skipped: List[int] = []
+
+
 class ParentCommunicationUpdate(BaseModel):
     """Schema for updating a parent communication record"""
     contact_method: Optional[str] = Field(None, max_length=50)
@@ -1020,9 +1201,10 @@ class ParentCommunicationStats(BaseModel):
     total_active_students: int = Field(default=0, ge=0)
     students_contacted_recently: int = Field(default=0, ge=0)
     contact_coverage_percent: float = Field(default=0, ge=0, le=100)
-    progress_update_count: int = Field(default=0, ge=0)
-    concern_count: int = Field(default=0, ge=0)
-    general_count: int = Field(default=0, ge=0)
+    # Contacts of each type in the last 30 days, keyed by the type itself so a
+    # new one is reported without this schema being taught its name. Types with
+    # nothing against them are absent rather than present as a zero.
+    type_counts: Dict[str, int] = Field(default_factory=dict)
     contacts_this_week: int = Field(default=0, ge=0)
     contacts_last_week: int = Field(default=0, ge=0)
     average_days_since_contact: Optional[float] = None
@@ -1112,10 +1294,20 @@ class LocationTerminationStats(BaseModel):
     term_rate: float = Field(default=0.0, ge=0)
 
 
+class SummerPauseScope(BaseModel):
+    """How the summer course period narrowed the quarter these figures cover"""
+    pause_start: date
+    pause_end: date
+    measured_from: date
+    measured_to: date
+    handover_from: date  # lessons ending on or after this date are judged in the next quarter
+
+
 class TerminationStatsResponse(BaseModel):
     """Full stats response with tutor and location breakdowns"""
     tutor_stats: List[TutorTerminationStats]
     location_stats: LocationTerminationStats
+    summer_scope: Optional[SummerPauseScope] = None
 
 
 class QuarterOption(BaseModel):
@@ -2408,6 +2600,12 @@ class LinkedSecondaryStudentInfo(BaseModel):
     student_name: str
     school_student_id: Optional[str] = None
     home_location: Optional[str] = None
+    # The student record's stored grade (pre-promotion), so surfaces can show
+    # the same window-aware badge as the student's own page.
+    grade: Optional[str] = None
+    # The student record's language stream (C/E), the system of record for
+    # placement — lets the regular surfaces resolve effective stream client-side.
+    lang_stream: Optional[str] = None
     # True if the student has any non-Summer enrollment whose first_lesson_date
     # falls within the summer config's academic-year window. Drives receipt-code
     # suggestion (RT(a) only fires when this is False). None = not computed.
@@ -2434,6 +2632,10 @@ class SummerApplicationResponse(BaseModel):
     reference_code: str
     student_name: str
     school: Optional[str] = None
+    # The typed school resolved to a canonical staff school code through the
+    # alias table; null when the spelling is not recognised. The detail modal
+    # shows it and seeds the create-student form with it.
+    school_canonical: Optional[str] = None
     grade: str
     lang_stream: Optional[str] = None
     is_existing_student: Optional[str] = None
@@ -2803,6 +3005,9 @@ class SummerStudentLessonsRow(BaseModel):
     student_name: str
     grade: str
     lang_stream: Optional[str] = None
+    # Branch the course is taken at (MSA/MSB), unlike claimed_branch_code
+    # which is the branch the student claims to originate from.
+    branch_code: Optional[str] = None
     application_status: Optional[str] = None
     is_existing_student: Optional[str] = None
     claimed_branch_code: Optional[str] = None
@@ -2813,6 +3018,9 @@ class SummerStudentLessonsRow(BaseModel):
     sessions_per_week: int
     lessons_paid: int
     placed_count: int
+    # Lessons attended, not sessions: a redo at the same lesson_number counts
+    # once, unlike placed_count/rescheduled_count which count session rows.
+    attended_count: int = 0
     rescheduled_count: int = 0
     total_lessons: int
     lessons: List[SummerStudentLessonEntry]
@@ -2898,23 +3106,23 @@ class SummerSuggestResponse(BaseModel):
     unplaceable: List[Dict[str, Any]] = []
 
 
-# ---- Summer Tutor Duty Schemas ----
+# ---- Tutor Duty Schemas (shared by both intakes) ----
 
-class SummerTutorDutyItem(BaseModel):
+class TutorDutyItem(BaseModel):
     """Single duty assignment for bulk-set."""
     tutor_id: int
     duty_day: str = Field(..., max_length=20)
     time_slot: str = Field(..., max_length=50)
 
 
-class SummerTutorDutyBulkSet(BaseModel):
+class TutorDutyBulkSet(BaseModel):
     """Bulk-set tutor duties for a config+location (replaces all existing)."""
     config_id: int
     location: str = Field(..., max_length=255)
-    duties: List[SummerTutorDutyItem]
+    duties: List[TutorDutyItem]
 
 
-class SummerTutorDutyResponse(BaseModel):
+class TutorDutyResponse(BaseModel):
     """Tutor duty with joined tutor name."""
     id: int
     config_id: int
@@ -3022,6 +3230,17 @@ class SummerPublishBatchResponse(BaseModel):
 ProspectIntention = Literal["Yes", "No", "Considering"]
 
 
+def _canonical_prospect_grade(v):
+    """Fold the pasted spellings of P6 to the canonical value.
+
+    utils.grades is imported inside the call because utils/__init__ pulls in
+    response_builders, which imports this module — a module-level import here
+    is circular.
+    """
+    from utils.grades import normalize_prospect_grade
+    return normalize_prospect_grade(v) if isinstance(v, str) else v
+
+
 class PrimaryProspectBulkItem(BaseModel):
     """Single row from paste (used in bulk create)."""
     primary_student_id: Optional[str] = Field(None, max_length=50)
@@ -3041,6 +3260,11 @@ class PrimaryProspectBulkItem(BaseModel):
     preferred_time_note: Optional[str] = None
     preferred_tutor_note: Optional[str] = None
     sibling_info: Optional[str] = None
+
+    @field_validator('grade', mode='before')
+    @classmethod
+    def canonicalize_grade(cls, v):
+        return _canonical_prospect_grade(v)
 
 
 class PrimaryProspectBulkCreate(BaseModel):
@@ -3070,6 +3294,11 @@ class PrimaryProspectUpdate(BaseModel):
     preferred_tutor_note: Optional[str] = None
     sibling_info: Optional[str] = None
 
+    @field_validator('grade', mode='before')
+    @classmethod
+    def canonicalize_grade(cls, v):
+        return _canonical_prospect_grade(v)
+
 
 class PrimaryProspectAdminUpdate(BaseModel):
     """For admin updates (outreach, status, linking)."""
@@ -3077,6 +3306,7 @@ class PrimaryProspectAdminUpdate(BaseModel):
     contact_notes: Optional[str] = None
     status: Optional[str] = Field(None, max_length=20)
     summer_application_id: Optional[int] = None
+    regular_application_id: Optional[int] = None
 
 
 class PrimaryProspectResponse(BaseModel):
@@ -3105,12 +3335,20 @@ class PrimaryProspectResponse(BaseModel):
     contact_notes: Optional[str] = None
     status: str = 'New'
     summer_application_id: Optional[int] = None
+    regular_application_id: Optional[int] = None
     submitted_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     edit_history: Optional[List[Dict[str, Any]]] = None
     # Joined from summer_application when matched
     matched_application_ref: Optional[str] = None
     matched_application_status: Optional[str] = None
+    # Joined from regular_application when matched
+    matched_regular_ref: Optional[str] = None
+    matched_regular_status: Optional[str] = None
+    # Derived course journey states (never stored): None when unlinked,
+    # else applied | enrolled | withdrawn.
+    summer_state: Optional[str] = None
+    regular_state: Optional[str] = None
 # Student Progress Schemas
 # ============================================
 
@@ -3301,14 +3539,19 @@ class PrimaryProspectBulkOutreach(BaseModel):
 
 
 class PrimaryProspectStats(BaseModel):
-    """Funnel stats per branch."""
+    """Funnel stats per branch. Applied and Enrolled are exclusive states
+    (applied = live application, no enrollment yet), so each dashboard cell
+    equals the filtered list it jumps to."""
     branch: str
     total: int = 0
     wants_summer_yes: int = 0
     wants_summer_considering: int = 0
     wants_regular_yes: int = 0
     wants_regular_considering: int = 0
-    matched_to_application: int = 0
+    applied_summer: int = 0
+    enrolled_summer: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
     outreach_not_started: int = 0
     outreach_wechat_added: int = 0
     outreach_wechat_not_found: int = 0
@@ -3321,6 +3564,397 @@ class PrimaryProspectMatchResult(BaseModel):
     """Result of matching a prospect to summer applications."""
     prospect_id: int
     matches: List[Dict[str, Any]]  # [{application_id, reference_code, student_name, contact_phone, match_type}]
+
+
+class RegularProspectSuggestion(BaseModel):
+    """One ranked prospect candidate for a regular application (reverse match)."""
+    prospect_id: int
+    student_name: str
+    source_branch: str
+    grade: Optional[str] = None
+    phone_1: Optional[str] = None
+    match_type: str  # student | phone | name | phone+name
+    similarity: Optional[int] = None
+    already_linked: bool = False  # already tied to a different regular application
+
+
+class RegularProspectSuggestResponse(BaseModel):
+    """Ranked prospect candidates for one regular application."""
+    application_id: int
+    suggestions: List[RegularProspectSuggestion]
+
+
+class RegularConversionBranchRow(BaseModel):
+    """One branch's slice of the prospect -> regular funnel."""
+    branch: str
+    prospects: int = 0
+    wants_summer_yes: int = 0
+    wants_regular_yes: int = 0
+    attended_summer: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
+
+
+class RegularConversionTutorRow(BaseModel):
+    """One submitting-tutor slice within a source branch: which P6 tutors bring
+    in prospects that go on to apply and enrol for regular."""
+    branch: str
+    tutor_name: str
+    prospects: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
+
+
+class RegularConversionIntentionRow(BaseModel):
+    """One stated-intention bucket (Yes / Considering / No / Unknown) against
+    what actually happened. Populated for both the regular-intention and the
+    summer-intention tables; each table reads the columns it cares about."""
+    intention: str
+    prospects: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
+    attended_summer: int = 0
+
+
+class RegularConversionSchoolRow(BaseModel):
+    """One feeder school's slice of the funnel."""
+    school: str
+    prospects: int = 0
+    applied_regular: int = 0
+    enrolled_regular: int = 0
+
+
+class RegularConversionMovementRow(BaseModel):
+    """For enrolled prospects: the branch(es) they said they wanted vs the
+    branch they actually enrolled at, so crossings are visible."""
+    wanted_branch: str
+    enrolled_branch: str
+    count: int = 0
+
+
+class RegularConversionLostRow(BaseModel):
+    """A prospect with no regular application yet — the still-to-chase list.
+
+    Carries the contact fields (phones, WeChat, the branch's own student id)
+    so the chase list is workable without opening each prospect."""
+    prospect_id: int
+    student_name: str
+    source_branch: str
+    primary_student_id: Optional[str] = None
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    phone_1: Optional[str] = None
+    phone_2: Optional[str] = None
+    wechat_id: Optional[str] = None
+    wants_regular: Optional[str] = None
+    # Ordered MSA/MSB choices from the prospect form; empty when the parent
+    # named no branch.
+    preferred_branches: List[str] = []
+    outreach_status: Optional[str] = None
+    attended_summer: bool = False
+    # The enrolled summer student's MSA/MSB code, set only while
+    # attended_summer holds.
+    summer_student_code: Optional[str] = None
+
+
+class RegularConversionResponse(BaseModel):
+    """Prospect -> summer -> regular conversion funnel for one year.
+
+    Rows are per source branch; `totals` is the same shape summed across
+    branches; `by_grade_stream` counts regular applicants by grade + effective
+    stream (F1C, F1E, ...) to feed 'how many F1C vs F1E classes to open'. The
+    remaining axes slice the same funnel by submitting tutor, stated intention,
+    feeder school, and wanted-vs-enrolled branch; `lost_prospects` lists the
+    prospects with no regular application yet."""
+    year: int
+    branches: List[RegularConversionBranchRow]
+    totals: RegularConversionBranchRow
+    by_grade_stream_applied: Dict[str, int] = {}
+    by_grade_stream_enrolled: Dict[str, int] = {}
+    by_tutor: List[RegularConversionTutorRow] = []
+    by_regular_intention: List[RegularConversionIntentionRow] = []
+    by_summer_intention: List[RegularConversionIntentionRow] = []
+    by_school: List[RegularConversionSchoolRow] = []
+    branch_movement: List[RegularConversionMovementRow] = []
+    lost_prospects: List[RegularConversionLostRow] = []
+
+
+# ---- Regular Course Retention (did last year's students come back?) ----
+
+# Where a cohort member came from. Conversion answers "did new blood arrive";
+# retention answers "did the people we already had stay", so the two boards
+# never share a denominator.
+RetentionSource = Literal["regular_and_summer", "regular_only", "summer_only"]
+
+# What happened to them this intake. Ordered by how settled the answer is:
+# everything before "no_response" is a resolved outcome, and only no_response
+# earns a place on the chase list.
+RetentionState = Literal["enrolled", "applied", "declined", "not_churn", "no_response"]
+
+# Whether the grade they are entering is one the form actually offers.
+# `admin_only` rungs exist in the config but are hidden from parents, so those
+# families cannot self-serve even when chased.
+RetentionRung = Literal["open", "admin_only", "none"]
+
+
+class RegularRetentionRow(BaseModel):
+    """One slice of the retention funnel, keyed by whatever axis built it.
+
+    Every axis counts the same measures, so they share a row shape rather than
+    growing a class each: `key` is the branch code, entering grade, source tag,
+    tutor name, or decline reason depending on which list the row came from.
+
+    `cohort` is the denominator and holds declines — a family who said no is a
+    retention failure, not an exclusion. Only `not_churn` (transferred away,
+    graduated) leaves the denominator, which is why it has no column here."""
+    key: str
+    # What to show instead of `key` when the key is an identifier rather than a
+    # name. Tutors are keyed by id so two tutors sharing a name stay two rows.
+    label: Optional[str] = None
+    cohort: int = 0
+    applied: int = 0
+    enrolled: int = 0
+    declined: int = 0
+    # Someone logged a parent contact inside the application window. Independent
+    # of state: a contacted family can still be sitting at no_response.
+    contacted: int = 0
+    no_response: int = 0
+    # Of the unresponsive, how many have already been contacted. Cohort-wide
+    # `contacted` answers a different question and reads as this one when it
+    # sits under a "no response" heading, so both are counted.
+    no_response_contacted: int = 0
+
+
+class RegularProspectJourney(BaseModel):
+    """P6 prospect journey attached to a linked regular application.
+
+    Batched onto the application response (like is_new_student) to feed the
+    journey chip and the applications-page filter. attended_summer is true when
+    a summer enrollment row exists and the summer application was not withdrawn.
+    """
+    prospect_id: int
+    source_branch: Optional[str] = None
+    # Their id at the primary branch, as the branch tutor submitted it
+    # ("MCP1112"). The chip renders it through formatProspectCode, the same
+    # helper every other prospect-code display already uses.
+    primary_student_id: Optional[str] = None
+    attended_summer: bool = False
+
+
+class RegularRetentionChaseRow(BaseModel):
+    """One cohort member, with everything needed to chase them in one row.
+
+    Carries contact details and the last-contact date so staff can work the
+    list without opening each student, matching how the conversion board's
+    chase list behaves."""
+    student_id: int
+    student_name: str
+    student_code: Optional[str] = None
+    branch: Optional[str] = None
+    # The grade on the student record — last school year's, until the Sept 1
+    # promotion job runs.
+    grade: Optional[str] = None
+    # The grade they are entering, which is what an application carries. Equal
+    # to `grade` only after promotion.
+    expected_grade: Optional[str] = None
+    rung: RetentionRung = "none"
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    phone: Optional[str] = None
+    tutor_name: Optional[str] = None
+    source: RetentionSource = "regular_only"
+    # Where a student who came up from a primary branch this summer came from.
+    # Set for the ones a primary tutor put forward on the P6 prospect list,
+    # which is the same block the applications page reads, so one chip renders
+    # it in both places. Absent for everyone else.
+    prospect_journey: Optional[RegularProspectJourney] = None
+    state: RetentionState = "no_response"
+    reference_code: Optional[str] = None
+    # Where the application has got to on the ladder the parent also sees on
+    # the status page: Submitted, Placement Offered, Fee Sent and so on. Only
+    # set for a student who has one, since it is the application's own state.
+    application_status: Optional[str] = None
+    last_contact_date: Optional[datetime] = None
+    # What was said on that call. Clipped to a couple of lines: it rides on
+    # every row and the list has room for one of them.
+    last_contact_note: Optional[str] = None
+    days_since_contact: Optional[int] = None
+    follow_up_needed: bool = False
+    follow_up_date: Optional[date] = None
+    # The category only. The free-text reason a member of staff typed is on the
+    # termination record and reads in full on the student's own page; carrying
+    # it on all 800 rows of a list that never shows it was only weight.
+    decline_reason_category: Optional[str] = None
+
+
+class RegularRetentionOutsideRow(BaseModel):
+    """One student who applied without being in this year's group.
+
+    Named rather than counted because every one of them is a different
+    situation: a family who lapsed a year ago and came back, a primary
+    student the conversion board owns, somebody whose enrollment ended early.
+    A number cannot tell those apart and a name can."""
+    student_id: int
+    student_name: str
+    student_code: Optional[str] = None
+    branch: Optional[str] = None
+    # The grade on their record, and the grade the application asks for.
+    grade: Optional[str] = None
+    applied_grade: Optional[str] = None
+    reference_code: Optional[str] = None
+
+
+class RegularRetentionReconciliation(BaseModel):
+    """Applications claiming to be existing students but carrying no student
+    link. Where a record here might be theirs, their family reads as "no
+    response" and would be chased in error, so the board surfaces that count
+    and offers the existing auto-match."""
+    unlinked_count: int = 0
+    # Split by claimed centre, since only the Secondary Academy ones are this
+    # board's cohort — the rest feed the conversion board.
+    unlinked_secondary: int = 0
+    unlinked_primary: int = 0
+    # Of the secondary ones, those with a student record at the branch they
+    # named that might be the same person. The rest are mostly P6 students
+    # coming up from a primary branch, who have never studied at the secondary
+    # academy and so are not in the cohort and cannot be miscounted. Only this
+    # number is worth putting in front of staff, and it is the count of rows
+    # the matching tool will show them.
+    unlinked_matchable: int = 0
+    # Applications linked to a student who is not in this cohort: they lapsed
+    # earlier, or never had a qualifying enrollment. Counted so they read as
+    # excluded rather than as missing, and listed so staff can see who.
+    applied_outside_cohort: int = 0
+    applied_outside: List[RegularRetentionOutsideRow] = []
+
+
+class RegularRetentionTrendPoint(BaseModel):
+    """One day of the intake window, as counts on that date and running totals.
+
+    Derived from the timestamps the events already carry — when an application
+    was submitted, when a termination was filed, when a parent was called —
+    rather than from a stored snapshot. That gives the whole window from the
+    day the feature ships instead of starting flat, and the last point equals
+    the headline figures by construction, because both are built from the same
+    rows.
+
+    The denominator is deliberately fixed: every point measures against the
+    cohort as it stands today, so a moving line means the chasing moved and
+    not that the cohort was recounted."""
+    date: date
+    # New that day.
+    applied: int = 0
+    declined: int = 0
+    contacted: int = 0
+    # Running totals to the end of that day.
+    applied_total: int = 0
+    declined_total: int = 0
+    contacted_total: int = 0
+
+
+class RegularRetentionResponse(BaseModel):
+    """Did last year's students apply for this year's regular course?
+
+    The mirror of the conversion report for existing customers: conversion
+    tracks P6 prospects arriving, this tracks the students already here
+    staying. `totals` sums only the rungs the form offers; `no_rung` holds the
+    students whose entering grade the config has no place for (F5 and up), who
+    are reported separately and never counted as unresponsive.
+
+    `not_churn` holds the students who left for a reason that was never a
+    retention failure — moved to another branch, finished school. They are out
+    of the denominator but still reported, because "where did they go" is the
+    first question asked of a cohort that shrank."""
+    year: int
+    # Bounds the board reads from the config, echoed so the UI can explain
+    # itself without recomputing them.
+    window_start: Optional[datetime] = None
+    active_from: Optional[date] = None
+    # The reporting quarter a decline is written into. The application window
+    # falls inside a single quarter, which is what lets a decline ride on
+    # termination_records instead of needing its own table.
+    intake_year: int
+    intake_quarter: int
+    totals: RegularRetentionRow
+    by_branch: List[RegularRetentionRow] = []
+    by_expected_grade: List[RegularRetentionRow] = []
+    by_source: List[RegularRetentionRow] = []
+    by_tutor: List[RegularRetentionRow] = []
+    by_decline_reason: List[RegularRetentionRow] = []
+    no_rung: RegularRetentionRow
+    not_churn: RegularRetentionRow
+    chase: List[RegularRetentionChaseRow] = []
+    reconciliation: RegularRetentionReconciliation
+    # One point per day of the window so far, counting only the students in
+    # `totals` — the same filters, so the chart and the headline never disagree.
+    trend: List[RegularRetentionTrendPoint] = []
+
+
+class RegularRetentionMineResponse(BaseModel):
+    """One tutor's own students and whether they have come back.
+
+    Deliberately narrower than the admin report: no branch rows, no tutor
+    comparison, no reconciliation. `totals` counts only this tutor's own
+    students, which is their worklist size rather than a measure of how the
+    centre is performing."""
+    year: int
+    # Echoed so the "not returning" action can name the quarter it writes to.
+    intake_year: int
+    intake_quarter: int
+    totals: RegularRetentionRow
+    students: List[RegularRetentionChaseRow] = []
+
+
+class RegularMyClassStudent(BaseModel):
+    """One applicant placed in a tutor's September slot.
+
+    An application, not a student record: about a third of them are families
+    the centre has never taught, so there is no student id to hang anything on
+    and the name on the form is the only name there is."""
+    application_id: int
+    student_name: str
+    # The grade the student is *entering*, straight off the application, which
+    # is one rung above whatever their student record still says until the Sept 1
+    # promotion runs. Display it raw: putting it through the summer window's
+    # Pre- transform would move it on a second year.
+    grade: Optional[str] = None
+    # The stream that governs placement (C or E), taken from the student's own
+    # record where there is one. Never the raw "Int" off the form.
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    application_status: str
+    # Set when the application is matched to a student we already have, which
+    # is what lets the row link to their record and show their code.
+    student_id: Optional[int] = None
+    student_code: Optional[str] = None
+    # True when this tutor taught them last school year, so a class list can
+    # say which faces are already familiar.
+    taught_by_me_last_year: bool = False
+
+
+class RegularMyClassSlot(BaseModel):
+    """One weekly slot a tutor is down to teach, and who is in it."""
+    slot_id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    max_students: int
+    # Placed applicants who are still in the intake. Withdrawn and rejected
+    # applications keep their slot in the database but are not coming, so they
+    # are neither listed nor counted.
+    students: List[RegularMyClassStudent] = []
+
+
+class RegularMyClassResponse(BaseModel):
+    """A tutor's own September classes, as far as arrangement has got.
+
+    Empty for most tutors until the office assigns tutors to slots."""
+    year: int
+    slots: List[RegularMyClassSlot] = []
+
+
 class SavedReportDetailResponse(BaseModel):
     id: int
     student_id: int
@@ -3579,6 +4213,520 @@ class RevenueSheetRefreshResponse(BaseModel):
     spreadsheet_id: str
     sheet_name: Optional[str] = None
     modified_time: Optional[str] = None
+
+
+# ============================================
+# Regular Course Application Schemas
+# ============================================
+# Stripped-down mirrors of the summer schemas: no buddy/sibling, no discount
+# tiers, single weekly slot (preference 1 = first choice, 2 = backup).
+
+class RegularCourseFormConfig(BaseModel):
+    """Config data exposed to the public regular application form."""
+    year: int
+    title: str
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    # 'before' | 'open' | 'closed' — resolved server-side against Hong Kong
+    # time so the form does not depend on the visitor's device clock. The
+    # config still ships in every state: the status page needs it after the
+    # window has closed.
+    application_window: str
+    course_start_date: date
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
+    pricing_config: Optional[Dict[str, Any]] = None
+    banner_image_url: Optional[str] = None
+
+
+class RegularApplicationCreate(BaseModel):
+    """Form submission from public applicant."""
+    student_name: str = Field(..., min_length=1, max_length=255)
+    school: Optional[str] = Field(None, max_length=255)
+    grade: str = Field(..., max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    is_existing_student: Optional[str] = Field(None, max_length=100)
+    current_centers: Optional[List[str]] = None
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    contact_phone: str = Field(..., min_length=1, max_length=50)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+    form_language: Optional[Literal["zh", "en"]] = "zh"
+
+
+class RegularApplicationSubmitResponse(BaseModel):
+    """Response after successful application submission."""
+    reference_code: str
+    message: str
+
+
+class RegularApplicationStatusResponse(BaseModel):
+    """Public status check response."""
+    reference_code: str
+    student_name: str
+    application_status: str
+    submitted_at: Optional[datetime] = None
+    # Editable fields exposed so the status page can render and edit them
+    # without a second admin-style fetch.
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    lang_stream: Optional[str] = None
+    wechat_id: Optional[str] = None
+    preferred_location: Optional[str] = None
+    preference_1_day: Optional[str] = None
+    preference_1_time: Optional[str] = None
+    preference_2_day: Optional[str] = None
+    preference_2_time: Optional[str] = None
+
+
+class RegularApplicationEditRequest(BaseModel):
+    """Partial update of an in-Submitted-state application.
+
+    Used by the public status-page edit flow (auth via ref code + phone).
+    All fields optional; the server enforces the editable whitelist and
+    ignores anything outside it.
+    """
+    grade: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=255)
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+
+
+class RegularApplicationEditEntry(BaseModel):
+    """One audit-trail row for the admin edit history view."""
+    id: int
+    edited_at: datetime
+    field_name: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    edited_via: str  # 'applicant' | 'admin'
+    edited_by: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# -- Admin schemas --
+
+class RegularCourseConfigCreate(BaseModel):
+    """Create a new regular course config."""
+    year: int
+    title: str = Field(..., min_length=1, max_length=500)
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
+    pricing_config: Optional[Dict[str, Any]] = None
+    banner_image_url: Optional[str] = None
+    is_active: bool = False
+
+
+class RegularCourseConfigUpdate(BaseModel):
+    """Update an existing regular course config. All fields optional."""
+    title: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = None
+    application_open_date: Optional[datetime] = None
+    application_close_date: Optional[datetime] = None
+    course_start_date: Optional[date] = None
+    locations: Optional[List[Dict[str, Any]]] = None
+    available_grades: Optional[List[Dict[str, Any]]] = None
+    time_slots: Optional[List[str]] = None
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
+    pricing_config: Optional[Dict[str, Any]] = None
+    banner_image_url: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class RegularCourseConfigResponse(BaseModel):
+    """Full config response for admin."""
+    id: int
+    year: int
+    title: str
+    description: Optional[str] = None
+    application_open_date: datetime
+    application_close_date: datetime
+    course_start_date: date
+    locations: List[Dict[str, Any]]
+    available_grades: List[Dict[str, Any]]
+    time_slots: List[str]
+    existing_student_options: Optional[List[Dict[str, Any]]] = None
+    center_options: Optional[List[Dict[str, Any]]] = None
+    lang_stream_options: Optional[List[Dict[str, Any]]] = None
+    text_content: Optional[Dict[str, str]] = None
+    course_intro: Optional[Dict[str, Any]] = None
+    pricing_config: Optional[Dict[str, Any]] = None
+    banner_image_url: Optional[str] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RegularAssignedSlotInfo(BaseModel):
+    """A weekly slot's own fields, with no assignment state.
+
+    Denormalised onto the application response so lists and the detail modal
+    can show the placement without a second round trip (summer's equivalent is
+    the `sessions` array), and the base of `RegularSlotResponse` so the two
+    cannot drift.
+    """
+    id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    tutor_id: Optional[int] = None
+    tutor_name: Optional[str] = None
+    max_students: int
+
+
+class RegularApplicationResponse(BaseModel):
+    """Full application response for admin."""
+    id: int
+    config_id: int
+    reference_code: str
+    student_name: str
+    school: Optional[str] = None
+    # The typed school resolved to a canonical staff school code through the
+    # alias table; null when the spelling is not recognised. The frontend
+    # groups and filters on this and never re-implements the mapping.
+    school_canonical: Optional[str] = None
+    grade: str
+    lang_stream: Optional[str] = None
+    is_existing_student: Optional[str] = None
+    current_centers: Optional[List[str]] = None
+    # The claimed centre resolved to a branch code (MAC, MSB, ...). Derived,
+    # not a column: current_centers holds the Chinese display name, and which
+    # side 二龍喉分校 belongs to depends on is_existing_student.
+    claimed_branch_code: Optional[str] = None
+    verified_branch_origin: Optional[str] = None
+    wechat_id: Optional[str] = None
+    contact_phone: Optional[str] = None
+    preferred_location: Optional[str] = None
+    preference_1_day: Optional[str] = None
+    preference_1_time: Optional[str] = None
+    preference_2_day: Optional[str] = None
+    preference_2_time: Optional[str] = None
+    existing_student_id: Optional[int] = None
+    assigned_slot_id: Optional[int] = None
+    assigned_slot: Optional[RegularAssignedSlotInfo] = None
+    application_status: str
+    admin_notes: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    form_language: Optional[str] = None
+    linked_student: Optional[LinkedSecondaryStudentInfo] = None
+    # Publish bridge: set when application has been published into a native
+    # Regular enrollment. Drives the Publish/Unpublish button state.
+    published_enrollment_id: Optional[int] = None
+    # Whether the one-off materials fee still applies, decided by the same
+    # rule publishing uses. Lets the admin fee preview quote the real total.
+    is_new_student: bool = True
+    # P6 prospect journey, when a prospect row links to this application. Batched
+    # like is_new_student; null when the applicant was never a tracked prospect.
+    prospect_journey: Optional[RegularProspectJourney] = None
+    # Whether a seasonal offer is running AND this applicant is verified new.
+    # False while the offer is out of window or the origin is still unverified,
+    # so the admin surfaces can prompt for the verification that unlocks it.
+    promo_eligible: bool = False
+    # Code of the offer they qualify for, e.g. 26BTSSA. Null when not eligible.
+    promo_code: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RegularApplicationUpdate(BaseModel):
+    """Admin update for an application."""
+    application_status: Optional[RegularApplicationStatus] = None
+    admin_notes: Optional[str] = None
+    existing_student_id: Optional[int] = None
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    verified_branch_origin: Optional[str] = Field(None, max_length=20)
+    # Detail fields admin can edit (mirrors RegularApplicationEditRequest +
+    # identity fields locked for self-service)
+    student_name: Optional[str] = Field(None, max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=255)
+    wechat_id: Optional[str] = Field(None, max_length=100)
+    preferred_location: Optional[str] = Field(None, max_length=255)
+    preference_1_day: Optional[str] = Field(None, max_length=20)
+    preference_1_time: Optional[str] = Field(None, max_length=50)
+    preference_2_day: Optional[str] = Field(None, max_length=20)
+    preference_2_time: Optional[str] = Field(None, max_length=50)
+
+
+class SchoolAliasCreate(BaseModel):
+    """Assign a canonical school code to one typed spelling.
+
+    `raw` is the spelling as staff saw it; the backend folds it into the
+    stored key. `target` is a canonical code or one of the modified target
+    forms, checked against the grammar in utils/school_alias.py."""
+    raw: str = Field(..., max_length=255)
+    target: str = Field(..., max_length=64)
+
+
+class SchoolAliasResponse(BaseModel):
+    """The stored alias row, key already folded."""
+    alias_key: str
+    target: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RegularApplicationStats(BaseModel):
+    """Aggregate stats for admin dashboard."""
+    total: int = 0
+    by_status: Dict[str, int] = {}
+    by_grade: Dict[str, int] = {}
+    by_location: Dict[str, int] = {}
+
+
+class RegularDemandCell(BaseModel):
+    """Demand counts for a single day x time_slot cell.
+
+    Keyed by grade + effective stream (F1C, F1E, ...) so the grid separates the
+    Chinese and English streams; an application with no resolvable stream keys on
+    the bare grade (F1)."""
+    day: str
+    time_slot: str
+    total_first_pref: int = 0
+    total_second_pref: int = 0
+    by_grade_stream_first: Dict[str, int] = {}
+    by_grade_stream_second: Dict[str, int] = {}
+
+
+class RegularDemandResponse(BaseModel):
+    """Full demand summary for one location."""
+    location: str
+    cells: List[RegularDemandCell]
+
+
+class RegularSlotCreate(BaseModel):
+    """Create a weekly arrangement slot."""
+    config_id: int
+    slot_day: str = Field(..., max_length=20)
+    time_slot: str = Field(..., max_length=50)
+    location: str = Field(..., max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=20)
+    tutor_id: Optional[int] = None
+    max_students: int = Field(8, ge=1, le=20)
+
+
+class RegularSlotUpdate(BaseModel):
+    """Update a slot. All fields optional; tutor/grade/stream clear via explicit null."""
+    slot_day: Optional[str] = Field(None, max_length=20)
+    time_slot: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=255)
+    grade: Optional[str] = Field(None, max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=20)
+    tutor_id: Optional[int] = None
+    max_students: Optional[int] = Field(None, ge=1, le=20)
+
+
+class RegularSlotStudentInfo(BaseModel):
+    """One assigned application inside a slot response."""
+    application_id: int
+    student_name: str
+    grade: str
+    # The effective stream, never the raw form value: International is already
+    # folded into E, so the board can compare it against a slot's own stream
+    # without folding it again.
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    # Canonical staff school code from the alias table, resolved against the
+    # application's own form stream (not the folded one above); null when the
+    # spelling is not recognised.
+    school_canonical: Optional[str] = None
+    application_status: str
+    published: bool = False
+    # From the linked student record, when the application has one — the grid
+    # shows it alongside the name like every other student surface.
+    school_student_id: Optional[str] = None
+
+
+class RegularSlotResponse(RegularAssignedSlotInfo):
+    """Slot with assignment state for the arrangement grid."""
+    config_id: int
+    assigned_count: int = 0
+    students: List[RegularSlotStudentInfo] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RegularSlotAssignRequest(BaseModel):
+    """Assign (or unassign with null) an application to a slot."""
+    slot_id: Optional[int] = None
+
+
+class RegularProspectLinkRequest(BaseModel):
+    """Link (or unlink with null) a P6 prospect to a regular application."""
+    prospect_id: Optional[int] = None
+
+
+class RegularSuggestion(BaseModel):
+    """One ranked slot suggestion for an unassigned application."""
+    slot_id: int
+    slot_day: str
+    time_slot: str
+    location: str
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    tutor_name: Optional[str] = None
+    assigned_count: int
+    max_students: int
+    score: int
+    reasons: List[str] = Field(default_factory=list)
+
+
+class RegularSuggestResponse(BaseModel):
+    """Ranked slot suggestions for one application (capacity-strict)."""
+    application_id: int
+    suggestions: List[RegularSuggestion]
+
+
+class RegularPublishRequest(BaseModel):
+    """Admin-confirmed schedule for publishing an application as an Enrollment.
+
+    Schedule fields are optional: when omitted they resolve from the
+    application's assigned arrangement slot (error no_schedule if neither
+    supplies a value, slot_no_tutor if the slot lacks a tutor).
+    """
+    confirmed_day: Optional[str] = Field(None, max_length=20, description="Weekday, full or short form")
+    confirmed_time: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=255, description="Branch display name or MSA/MSB code")
+    tutor_id: Optional[int] = None
+    lessons_paid: int = Field(6, ge=1, le=24, description="6 = standard regular enrollment block")
+    first_lesson_date: Optional[date] = Field(
+        None, description="None → first occurrence of confirmed_day on/after course_start_date"
+    )
+    payment_status: Optional[Literal['Pending Payment', 'Paid']] = Field(
+        None,
+        description="None → derived from the application status (Paid/Enrolled → Paid)",
+    )
+    discount_id: Optional[int] = Field(
+        None, description="Applied to the enrollment before revenue calc, e.g. a coupon discount"
+    )
+
+
+class RegularPublishConflictSession(BaseModel):
+    """Existing session that collides with a proposed lesson at the same datetime."""
+    session_date: date
+    time_slot: Optional[str] = None
+    existing_tutor_name: Optional[str] = None
+    session_status: Optional[str] = None
+    enrollment_id: Optional[int] = None
+
+
+class RegularPublishResponse(BaseModel):
+    """Result of publishing one regular application."""
+    application_id: int
+    enrollment_id: int
+    sessions_created: int
+    first_lesson_date: date
+    skipped_holidays: List[Dict[str, str]] = Field(default_factory=list)
+    # Publishing moves the application to Enrolled, so it is reported back the
+    # way the unpublish response reports the status it restored. The detail
+    # modal holds the status as a pending edit and would otherwise keep the
+    # rung the application was on before, then offer to save it and demote the
+    # application it just enrolled.
+    application_status: str
+
+
+class RegularUnpublishResponse(BaseModel):
+    """Result of unpublishing one regular application."""
+    application_id: int
+    enrollment_id: int
+    sessions_deleted: int
+    application_status: str
+
+
+class RegularPublishItem(RegularPublishRequest):
+    """Per-application schedule payload inside a batch publish request."""
+    application_id: int
+
+
+class RegularPublishBatchRequest(BaseModel):
+    """Bulk-publish a set of applications. Each runs independently."""
+    items: List[RegularPublishItem] = Field(..., min_length=1, max_length=100)
+
+
+class RegularPublishResult(BaseModel):
+    """Per-application result inside a batch publish response."""
+    application_id: int
+    success: bool
+    enrollment_id: Optional[int] = None
+    sessions_created: Optional[int] = None
+    error_code: Optional[str] = None
+    error: Optional[str] = None
+
+
+class RegularPublishBatchResponse(BaseModel):
+    """Aggregate response for batch publish — one result per requested app."""
+    results: List[RegularPublishResult]
+    published_count: int
+    failed_count: int
+
+
+class RegularApplicationMessages(BaseModel):
+    """Ready-to-send parent messages for one application, both languages.
+
+    Generated from the same schedule and fee inputs the publish flow will use,
+    so what the parent is told matches the enrollment that follows.
+    """
+    application_id: int
+    schedule_zh: str
+    schedule_en: str
+    fee_zh: str
+    fee_en: str
+    # 'slot' when the schedule came from the assigned arrangement slot,
+    # 'preference' when it fell back to the applicant's first choice.
+    schedule_source: Literal['slot', 'preference']
+    assigned_day: str
+    assigned_time: str
+    location: str
+    lessons_paid: int
+    first_lesson_date: date
+    total_fee: int
+    discount_value: int
+    is_new_student: bool
+    has_student_link: bool
+    # Offer quoted in the message, when the applicant is verified new and it is
+    # running. Null otherwise. The fee preview reads these to explain why the
+    # materials fee vanished from the total.
+    promo_code: Optional[str] = None
+    promo_name_en: Optional[str] = None
+    promo_waives_registration_fee: bool = False
 
 
 # Enable forward references for nested models

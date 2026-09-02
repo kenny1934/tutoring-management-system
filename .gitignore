@@ -141,3 +141,15 @@ docs/tutor-revenue-calculation.html
 # private symlink (worktrees) — anchored so only the repo-root entry is
 # ignored, not any future file or folder that happens to be named "private"
 /private
+
+# Coupon sync output. The generated SQL lists student IDs against coupon counts,
+# and this repository is public, so it stays local.
+coupon-sync/
+coupon_updates_*.sql
+
+# Claude Code local working files (private plan docs, session data, worktrees).
+# agents/ and skills/ stay shared; everything else under .claude/ is local-only.
+# Files already tracked under .claude/ remain tracked regardless of these rules.
+.claude/*
+!.claude/agents/
+!.claude/skills/

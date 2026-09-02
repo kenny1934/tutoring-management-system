@@ -939,7 +939,7 @@ export default function BuddyTrackerPage() {
         <div className="relative max-w-sm w-full mx-4 bg-card border-2 border-border rounded-2xl shadow-xl overflow-hidden">
           <div className="p-8 text-center space-y-5">
             <Image
-              src="/summer/buddy/icon.png"
+              src="/logo-mathconcept-mark.png"
               alt="MathConcept"
               width={48}
               height={48}

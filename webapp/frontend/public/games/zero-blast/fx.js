@@ -27,17 +27,49 @@
    * to the round. Big stage only: the solo sheet and the host
    * projector run it; the 30 student phones never do (initController
    * never calls allow). It sits low under the one-shot bus and ducks
-   * hard when a building drops: the collapse must own the room. */
+   * hard when a building drops: the collapse must own the room.
+   *
+   * Two layers: the dry construction percussion (wood/tom/grit/tink)
+   * and, under it, a melodic bed — a bass pulse and a pentatonic riff
+   * over a I–V–vi–IV vamp — so the room is driven, not just ticking
+   * (the arc and the main game were reading as silence-plus-sfx). The
+   * riff stays in C major pentatonic across all four chords, so it
+   * never crowds the maths with a moving tune. Both layers ride the
+   * one bus, so the boom duck pulls the whole thing down together. */
+  // the vamp: C2 G2 A2 F2 (I–V–vi–IV), one chord root per bar, cycling
+  // every four bars. Low, so the bass sits under the site percussion.
+  var BGM_ROOTS = [65.41, 98.0, 110.0, 87.31];
+  // the pentatonic hook over a 4-bar (64-step) loop: step → frequency,
+  // C major pentatonic (C5 D5 E5 G5 A5), sparse enough not to tire over
+  // a full lesson. Consonant over every chord in the vamp.
+  var BGM_RIFF = {
+    2: 659.25, 8: 783.99,      // bar 0: E5 G5
+    18: 880.0, 26: 783.99,     // bar 1: A5 G5
+    34: 659.25, 42: 587.33,    // bar 2: E5 D5
+    50: 523.25, 58: 659.25,    // bar 3: C5 E5
+  };
+  // which tiers are melodic, and how present the riff is in each: the
+  // title screen and the waiting room sit back, a live fuse leans in,
+  // the report lets the bed carry the wind-down under the ceremony.
+  // grace (the 3·2·1 count-in) is percussion only.
+  var BGM_BED = { cover: 0.2, lobby: 0.22, idle: 0.22, base: 0.3, warn: 0.3, report: 0.26 };
+  // the sparse groove's tiers. They share one pattern today but each
+  // owns its name, so tuning the waiting room never silently retunes
+  // the title screen, the post-fizzle reveal or the end report.
+  var BGM_SPARSE = { cover: 1, lobby: 1, idle: 1, report: 1 };
+
   var bgm = window.MCFXCore.createBgm({
     audio: core,
     bpm: 78,
-    busGain: 0.14,
-    /* voices: dry little strokes, nothing sustained, nothing tonal
-     * enough to fight the maths. Deliberate forks from the one-shot
-     * helpers (thump/noiseburst): these route to the bgm bus, take
-     * absolute audio time, and split the pitch chirp from the gain
-     * decay — folding them in would put sequencer knobs on helpers
-     * every one-shot shares */
+    busGain: 0.17,
+    /* voices: the site percussion is dry little strokes, nothing that
+     * fights the maths; under it sits the melodic bed's bass and pluck
+     * (§20). Deliberate forks from the one-shot helpers (thump/
+     * noiseburst): these route to the bgm bus, take absolute audio time,
+     * and split the pitch chirp from the gain decay — folding them in
+     * would put sequencer knobs on helpers every one-shot shares. The
+     * bus sits a little hotter than the percussion alone was tuned for,
+     * so the bed has room without every voice needing its own trim. */
     setup: function (n, bus) {
       var ac = n.ac;
       var gritHP = ac.createBiquadFilter(); // one shared highpass: grit fires ~3x/s
@@ -78,24 +110,57 @@
         src.start(t, Math.random() * 0.4);
         src.stop(t + 0.07);
       }
-      function tink(t, v) { // a pipe struck somewhere across the site
+      /* one struck-and-ringing voice: the site's high pipe (tink) and the
+       * bed's pentatonic pluck are the same stroke at different pitches */
+      function ping(t, freq, v, decay) {
         var o = ac.createOscillator(), g = ac.createGain();
         o.type = "triangle";
-        o.frequency.setValueAtTime(2794, t);
+        o.frequency.setValueAtTime(freq, t);
         g.gain.setValueAtTime(v, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        g.gain.exponentialRampToValueAtTime(0.001, t + decay);
         o.connect(g).connect(bus);
         o.start(t);
-        o.stop(t + 0.4);
+        o.stop(t + decay + 0.05);
       }
-      return { wood: wood, tom: tom, grit: grit, tink: tink };
+      function tink(t, v) { // a pipe struck somewhere across the site
+        ping(t, 2794, v, 0.35);
+      }
+      var bassLP = ac.createBiquadFilter(); // one shared lowpass keeps the
+      bassLP.type = "lowpass";               // bass round, not buzzy
+      bassLP.frequency.value = 440;
+      bassLP.connect(bus);
+      function bass(t, freq, v) { // the melodic bed's low pulse
+        var o = ac.createOscillator(), g = ac.createGain();
+        o.type = "triangle";
+        o.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(v, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        o.connect(g).connect(bassLP);
+        o.start(t);
+        o.stop(t + 0.55);
+      }
+      function pluck(t, freq, v) { // the pentatonic riff riding on top
+        ping(t, freq, v, 0.28);
+      }
+      return { wood: wood, tom: tom, grit: grit, tink: tink, bass: bass, pluck: pluck };
     },
     schedule: function (v, tier, s, t) {
       var bar = Math.floor(s / 16), i = s % 16;
-      // "idle" is the fizzle cooldown: it shares the lobby pattern
-      // today but owns its own name, so tuning the waiting room never
-      // silently retunes the post-fizzle reveal
-      if (tier === "lobby" || tier === "idle") {
+      // the melodic bed: bass on the down- and mid-bar, a fifth pickup,
+      // and the sparse riff over the 4-bar loop. Opt-in per tier like the
+      // percussion below, so a new tier can never inherit a melody nobody
+      // chose for it - grace is the count-in roll and keeps the floor.
+      var mel = BGM_BED[tier];
+      if (mel) {
+        var root = BGM_ROOTS[bar % 4];
+        if (i === 0) v.bass(t, root, 0.5);
+        if (i === 8) v.bass(t, root, 0.38);
+        if (i === 11) v.bass(t, root * 1.5, 0.24);
+        var note = BGM_RIFF[s % 64];
+        if (note) v.pluck(t, note, mel);
+      }
+      if (BGM_SPARSE[tier]) {
         if (i % 4 === 0) v.grit(t, 0.5);
         if (i === 8) v.wood(t, false, 0.35);
         if (i === 14 && bar % 4 === 3) v.tink(t, 0.12);

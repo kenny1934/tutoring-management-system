@@ -1,5 +1,7 @@
 "use client";
 
+import { MARK_KEYS } from "./zen-homework";
+
 interface ShortcutEntry {
   key: string;
   description: string;
@@ -63,6 +65,20 @@ const SHARED_SHORTCUTS: ShortcutGroup[] = [
   },
 ];
 
+// Both modes mark homework, so this group belongs to neither on its own.
+const HOMEWORK_SHORTCUTS: ShortcutGroup = {
+  title: "Homework",
+  shortcuts: [
+    { key: "H", description: "Check homework from earlier lessons" },
+    // Built from the same table the keys are bound to, so this cannot
+    // describe a shortcut that does something else.
+    ...MARK_KEYS.map(({ key, label }) => ({
+      key,
+      description: `Mark as ${label}`,
+    })),
+  ],
+};
+
 const WIDE_SHORTCUTS: ShortcutGroup[] = [
   {
     title: "Students",
@@ -72,6 +88,7 @@ const WIDE_SHORTCUTS: ShortcutGroup[] = [
       { key: "1-99", description: "Jump to student by number" },
     ],
   },
+  HOMEWORK_SHORTCUTS,
   {
     title: "Bulk Print",
     shortcuts: [
@@ -81,9 +98,10 @@ const WIDE_SHORTCUTS: ShortcutGroup[] = [
 ];
 
 const WIDE_ALL_SHORTCUTS: ShortcutGroup[] = [...WIDE_SHORTCUTS, ...SHARED_SHORTCUTS];
+const SINGLE_ALL_SHORTCUTS: ShortcutGroup[] = [HOMEWORK_SHORTCUTS, ...SHARED_SHORTCUTS];
 
 export function ZenLessonHelp({ mode, onClose }: ZenLessonHelpProps) {
-  const groups = mode === "wide" ? WIDE_ALL_SHORTCUTS : SHARED_SHORTCUTS;
+  const groups = mode === "wide" ? WIDE_ALL_SHORTCUTS : SINGLE_ALL_SHORTCUTS;
 
   return (
     <div

@@ -111,6 +111,63 @@ describe("games.* subdomain routing", () => {
   });
 });
 
+describe("regular.* subdomain routing", () => {
+  const REGULAR = "regular.mathconceptsecondary.academy";
+
+  it("sends the bare root to the form, as a redirect not a rewrite", () => {
+    // A rewrite would leave the visible path at "/", which LayoutShell cannot
+    // recognise as public during SSR — the admin shell would flash first.
+    expect(run(REGULAR, "/")).toEqual({
+      status: 308,
+      rewrite: null,
+      redirect: "/apply",
+    });
+  });
+
+  it("serves the form and the status check at clean URLs", () => {
+    expect(run(REGULAR, "/apply").rewrite).toBe("/regular/apply");
+    expect(run(REGULAR, "/status").rewrite).toBe("/regular/status");
+  });
+
+  it("keeps the query string through a rewrite", () => {
+    expect(run(REGULAR, "/status?ref=RC2026-K7X3M").rewrite).toBe(
+      "/regular/status?ref=RC2026-K7X3M"
+    );
+  });
+
+  it("converges the internal /regular/* paths on the clean URLs", () => {
+    expect(run(REGULAR, "/regular").redirect).toBe("/apply");
+    expect(run(REGULAR, "/regular/apply").redirect).toBe("/apply");
+    expect(run(REGULAR, "/regular/status").redirect).toBe("/status");
+  });
+
+  it("sends an unknown path to the form rather than a 404", () => {
+    expect(run(REGULAR, "/enrol")).toEqual({
+      status: 308,
+      rewrite: null,
+      redirect: "/apply",
+    });
+  });
+
+  it("passes app internals through untouched", () => {
+    expect(run(REGULAR, "/api/regular/public/config")).toEqual({
+      status: 200,
+      rewrite: null,
+      redirect: null,
+    });
+    expect(run(REGULAR, "/logo-secondary.png").rewrite).toBeNull();
+    expect(run(REGULAR, "/_next/static/x.js").rewrite).toBeNull();
+  });
+
+  it("branches on x-forwarded-host (Cloudflare in front of Cloud Run)", () => {
+    expect(run("run-url.a.run.app", "/apply", REGULAR).rewrite).toBe("/regular/apply");
+  });
+
+  it("does not disturb the summer host's own clean URLs", () => {
+    expect(run("summer.mathconceptsecondary.academy", "/apply").rewrite).toBe("/summer/apply");
+  });
+});
+
 describe("other hosts are untouched", () => {
   it("leaves /games/* alone on the main csm host", () => {
     expect(run("csm.mathconceptsecondary.academy", "/games/zero-blast/index.html")).toEqual({

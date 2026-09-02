@@ -1,44 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { AdminTabBar } from "@/components/admin/AdminTabBar";
 
 const tabs = [
   { name: "Applications", href: "/admin/summer/applications" },
   { name: "Arrangement", href: "/admin/summer/arrangement" },
   { name: "Courseware", href: "/admin/summer/courseware" },
-  { name: "Prospects", href: "/admin/summer/prospects" },
+  { name: "Certificates", href: "/admin/summer/certificates" },
+  { name: "Prospects", href: "/admin/prospects" },
   { name: "Config", href: "/admin/summer/config" },
 ];
 
 export default function SummerAdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 overflow-x-auto overflow-y-hidden">
-        <nav className="flex items-center gap-1 -mb-px whitespace-nowrap">
-          {tabs.map((tab) => {
-            const isActive = pathname.startsWith(tab.href);
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  "px-3 py-2 text-sm font-medium border-b-2 transition-colors",
-                  isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"
-                )}
-              >
-                {tab.name}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-      <div className="flex-1 min-h-0">{children}</div>
-    </div>
-  );
+  return <AdminTabBar tabs={tabs}>{children}</AdminTabBar>;
 }

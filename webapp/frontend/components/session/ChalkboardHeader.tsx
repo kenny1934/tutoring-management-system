@@ -913,6 +913,11 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
                       <span className="text-green-300 font-semibold">Paid</span>
                     </>
+                  ) : session.financial_status === "Waived" ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-white/40" />
+                      <span className="text-white/60 font-semibold">Waived</span>
+                    </>
                   ) : (
                     <>
                       <HandCoins className="h-3.5 w-3.5 text-red-400" />

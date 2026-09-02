@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useCallback, useState, type ReactNode } from "react";
+import { useEffect, useCallback, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { cn } from "@/lib/utils";
 
 const sizeClasses = {
@@ -21,7 +22,9 @@ export interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   size?: keyof typeof sizeClasses;
-  /** If true, clicking backdrop won't close the modal */
+  /** Hold the modal open through backdrop clicks and Escape, for work in
+   *  flight that must not be interrupted. Being stacked under another overlay
+   *  is handled by the overlay stack and needs no help from this. */
   persistent?: boolean;
   className?: string;
   /** If false, renders without backdrop (for use in side-by-side layouts). Default: true */
@@ -50,34 +53,40 @@ export function Modal({
     setMounted(true);
   }, []);
 
-  // Handle escape key
+  // Stacked modals are separate portals, so only the shared stack can say
+  // which one a keypress belongs to. It owns the body scroll lock as well:
+  // an inner modal closing must not hand the page back while this one is
+  // still open.
+  const { isTopmost, zIndex } = useOverlayLayer(isOpen, { lockScroll: true });
+
+  // Escape belongs to the topmost modal alone.
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !persistent) {
+      if (e.key === "Escape" && !persistent && isTopmost) {
         onClose();
       }
     },
-    [onClose, persistent]
+    [onClose, persistent, isTopmost]
   );
 
   useEffect(() => {
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = "hidden";
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
-    };
+    if (!isOpen) return;
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, handleEscape]);
 
   const handleBackdropClick = () => {
-    if (!persistent) {
+    // Only ever reachable on the topmost modal, but a stacked overlay that
+    // paints its own backdrop short of full-screen shouldn't be able to leak
+    // a click through to this one.
+    if (!persistent && isTopmost) {
       onClose();
     }
   };
+
+  // Unique per instance: two stacked modals would otherwise both claim the
+  // id their aria-labelledby points at.
+  const titleId = useId();
 
   // Don't render on server or before mount
   if (!mounted) return null;
@@ -86,7 +95,7 @@ export function Modal({
     <motion.div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -110,7 +119,7 @@ export function Modal({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-        <h2 id="modal-title" className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate min-w-0">
+        <h2 id={titleId} className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate min-w-0">
           {title}
         </h2>
         <button
@@ -147,7 +156,10 @@ export function Modal({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-[9999] flex items-center justify-center p-4 transition-[left] duration-350">
+        <div
+          style={{ zIndex }}
+          className="fixed inset-0 md:left-[var(--sidebar-width,72px)] flex items-center justify-center p-4 transition-[left] duration-350"
+        >
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}

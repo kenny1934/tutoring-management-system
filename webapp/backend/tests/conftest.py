@@ -6,12 +6,12 @@ Usage:
 """
 import os
 import pytest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Generator
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
@@ -21,6 +21,8 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-testing-only")
 
 from database import Base, get_db
 from main import app
+from routers import regular_course
+from utils import school_alias
 
 
 # In-memory SQLite for fast tests (no external DB dependency)
@@ -32,6 +34,45 @@ test_engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+@event.listens_for(test_engine, "connect")
+def _register_sqlite_stand_ins(dbapi_connection, _connection_record):
+    """Stand-ins for the MySQL stored functions the app calls from SQL.
+
+    SQLite has no equivalent, so any query filtering on one of them raises
+    rather than returning a wrong answer — which is why the code paths that
+    use them had no test coverage before.
+
+    The real `calculate_effective_end_date` walks forward a week at a time from
+    the first lesson, skipping holidays, until it has counted
+    `lessons_paid + extension_weeks` lesson dates, and returns the last one.
+    This double reproduces the weekly cadence but not the holiday skipping:
+    tests that care about holidays exercise the Python twin in
+    routers/enrollments.py directly (see test_enrollments.py), and tests that
+    use this one only need the date to fall on the right side of a cutoff.
+    """
+    def calculate_effective_end_date(first_lesson_date, lessons_paid, extension_weeks):
+        if not first_lesson_date:
+            return None
+        total = (lessons_paid or 0) + (extension_weeks or 0)
+        start = date.fromisoformat(str(first_lesson_date)[:10])
+        if total <= 0:
+            return start.isoformat()
+        return (start + timedelta(weeks=total - 1)).isoformat()
+
+    def to_days(value):
+        """MySQL's TO_DAYS: a date as a day number, so date arithmetic can be
+        written as whole-day arithmetic and run on both engines. Only
+        differences matter to the callers, so the epoch need not match MySQL's."""
+        if not value:
+            return None
+        return date.fromisoformat(str(value)[:10]).toordinal()
+
+    dbapi_connection.create_function(
+        "calculate_effective_end_date", 3, calculate_effective_end_date
+    )
+    dbapi_connection.create_function("to_days", 1, to_days)
 
 
 @pytest.fixture(scope="function")
@@ -50,6 +91,24 @@ def db_session() -> Generator[Session, None, None]:
         session.close()
         # Drop all tables after test
         Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture(autouse=True)
+def _empty_school_alias_cache():
+    """Start every test with cold school caches.
+
+    The alias map and the school-codes vocabulary are cached in-process for a
+    minute, and several test files read them through code paths that group by
+    school. Without this, a test that seeds alias rows would hand its map to
+    whichever test runs next. It lives in conftest rather than one file
+    because the resolver is called from the conversion report, the suggest
+    ranking and the alias tests alike.
+    """
+    school_alias.clear_cache()
+    regular_course._SCHOOL_CODES_CACHE.clear()
+    yield
+    school_alias.clear_cache()
+    regular_course._SCHOOL_CODES_CACHE.clear()
 
 
 @pytest.fixture(scope="function")

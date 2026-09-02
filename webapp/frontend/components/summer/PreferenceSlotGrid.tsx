@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { dayLabel, type Lang, t } from "@/lib/summer-utils";
+import { dayLabel, type Lang, sortWeekDays, t } from "@/lib/summer-utils";
 
 export interface PreferenceSlot {
   day: string;
@@ -113,7 +113,7 @@ export function PreferenceSlotGrid({
       </div>
 
       <div className="space-y-5">
-        {openDays.map((day) => {
+        {sortWeekDays(openDays).map((day) => {
           const slots = slotsByDay[day] || [];
           if (slots.length === 0) return null;
           return (

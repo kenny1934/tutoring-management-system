@@ -1,18 +1,18 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge, ALL_STATUSES, STATUS_COLORS, STATUS_ICONS } from "./SummerApplicationCard";
 import { PrimaryBranchChip } from "./PrimaryBranchChip";
+import { ChecklistRow } from "./ChecklistRow";
 import { summerAPI, studentsAPI, enrollmentsAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { getGradeColor } from "@/lib/constants";
 import { applyTargetToPreGrade } from "@/lib/grade-utils";
 import { useToast } from "@/contexts/ToastContext";
-import { useDebouncedValue } from "@/lib/hooks";
+import { useDebouncedValue, useStudent } from "@/lib/hooks";
 import { useCopyToClipboard } from "@/lib/hooks/useCopyToClipboard";
 import { cn } from "@/lib/utils";
 import { formatPreferences, LOCATION_TO_CODE, BRANCH_INFO, displayLocation, formatCompactDate, sortSessionsByDate, getDayFromDate, getStartTime, sessionStatusBg, RESCHEDULED_STATUS, hasPlacementDiverged, nonRejectedSiblings, COURSE_TYPE_COLORS, SUMMER_GRADE_BG, EXIT_STATUSES, isNonAttending, getSummerTimeSlots } from "@/lib/summer-utils";
@@ -50,6 +50,7 @@ import {
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { SummerMessagePanel, type SummerMessageMode } from "./SummerMessagePanel";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
+import { SchoolAliasAssign } from "./SchoolAliasAssign";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { MoveSessionPopover } from "@/components/admin/MoveSessionPopover";
 import { UserPlus, ArrowRightLeft } from "lucide-react";
@@ -181,101 +182,6 @@ function StudentSuggestionRow({
         Link <ArrowRight className="h-3 w-3" />
       </span>
     </button>
-  );
-}
-
-/** Collapsible workflow-step row for the admin action pane. */
-function ChecklistRow({
-  index,
-  title,
-  done,
-  summary,
-  open,
-  onToggle,
-  disabled,
-  children,
-}: {
-  index: number;
-  title: string;
-  done: boolean;
-  summary?: React.ReactNode;
-  open: boolean;
-  onToggle: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border bg-white dark:bg-gray-900/40 overflow-hidden",
-        done
-          ? "border-green-200/70 dark:border-green-900/40"
-          : "border-gray-200 dark:border-gray-700",
-      )}
-    >
-      <button
-        type="button"
-        onClick={disabled ? undefined : onToggle}
-        disabled={disabled}
-        aria-expanded={open}
-        className={cn(
-          "w-full flex items-center gap-2.5 px-2.5 py-2 text-left",
-          disabled
-            ? "cursor-default"
-            : "hover:bg-gray-50 dark:hover:bg-gray-800/50",
-        )}
-      >
-        <span
-          className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
-            done
-              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-          )}
-        >
-          {done ? <Check className="h-3 w-3" /> : index + 1}
-        </span>
-        <span
-          className={cn(
-            "text-[11px] font-semibold uppercase tracking-wider",
-            done ? "text-muted-foreground" : "text-foreground",
-          )}
-        >
-          {title}
-        </span>
-        <span className="ml-auto flex items-center gap-2 min-w-0">
-          {!open && summary ? (
-            <span className="min-w-0 truncate text-xs text-muted-foreground">
-              {summary}
-            </span>
-          ) : null}
-          {!disabled && (
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-muted-foreground shrink-0 transition-transform",
-                open && "rotate-180",
-              )}
-            />
-          )}
-        </span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            style={{ overflow: "hidden" }}
-          >
-            <div className="border-t border-gray-100 dark:border-gray-800 p-3">
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }
 
@@ -634,12 +540,7 @@ export function SummerApplicationDetailModal({
 
   // 5. Linked student detail
   const parsedStudentId = studentId ? parseInt(studentId, 10) : NaN;
-  const { data: linkedStudent } = useSWR(
-    !isNaN(parsedStudentId) && parsedStudentId > 0
-      ? ["student-detail", parsedStudentId]
-      : null,
-    () => studentsAPI.getById(parsedStudentId)
-  );
+  const { data: linkedStudent } = useStudent(parsedStudentId > 0 ? parsedStudentId : null);
 
   // Auto-fill lang stream from linked student (once per linked student, so manual clear sticks)
   useEffect(() => {
@@ -689,11 +590,18 @@ export function SummerApplicationDetailModal({
 
   // Fetch by group id, not the page's applications list — that list may be
   // filtered, which would silently drop members and skew the discount math.
+  //
+  // The same care is why the global keepPreviousData default is off here. The
+  // members decide the tier, and stepping from one grouped application to the
+  // next used to price the new one against the previous group until the fetch
+  // landed. That reached the fee box and the fee message the admin copies,
+  // because the discount below reads the members with no loading gate.
   const { data: fetchedBuddyMembers } = useSWR(
     app?.buddy_group_id
       ? ["summer-buddy-group", app.buddy_group_id]
       : null,
-    () => summerAPI.getApplications({ buddy_group_id: app!.buddy_group_id! })
+    () => summerAPI.getApplications({ buddy_group_id: app!.buddy_group_id! }),
+    { keepPreviousData: false }
   );
 
   const buddyMembers = useMemo(() => {
@@ -1845,6 +1753,16 @@ export function SummerApplicationDetailModal({
                     {app.school}
                   </span>
                 )}
+                {/* The school code the typed name resolved to. When it did
+                    not resolve, staff can teach the system below. */}
+                {app.school_canonical && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium"
+                    title={`"${app.school}" is recognised as this school code`}
+                  >
+                    {app.school_canonical}
+                  </span>
+                )}
                 <PrimaryBranchChip app={app} />
                 {/* Show original claim when verified result overrides it */}
                 {(() => {
@@ -1892,6 +1810,17 @@ export function SummerApplicationDetailModal({
                   </select>
                 )}
               </div>
+              {/* This spelling is not in the school vocabulary yet, so it
+                  groups by itself everywhere schools are counted. Assigning a
+                  code here fixes every application that typed the school this
+                  way, on the summer and regular sides alike, and next year's
+                  intake inherits it. */}
+              {app.school && !app.school_canonical && !readOnly && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span>School not recognised yet.</span>
+                  <SchoolAliasAssign raw={app.school} onAssigned={onUpdated} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -3142,7 +3071,10 @@ export function SummerApplicationDetailModal({
         }}
         initialData={{
           student_name: app.student_name,
-          school: app.school ?? undefined,
+          // The student record wants the internal school code, which is also
+          // what this form's autocomplete offers. A recognised spelling seeds
+          // as its code; an unrecognised one seeds as typed.
+          school: app.school_canonical ?? app.school ?? undefined,
           // app.grade is the *target* grade (post-summer). Before Sept 1 of
           // the config year, store the current grade one step below so the
           // Sept 1 promotion lifts them to the target. After promotion the

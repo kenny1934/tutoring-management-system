@@ -51,8 +51,15 @@ const CHIP_INACTIVE =
   "bg-[#e8d4b8]/20 dark:bg-[#6b5a4a]/20 text-muted-foreground hover:bg-[#e8d4b8]/40 dark:hover:bg-[#6b5a4a]/40";
 const CHIP_ACTIVE = "bg-primary text-primary-foreground";
 
+/** A partial plan completes at its own lessons_paid; everyone else at the
+ *  config's total_lessons. Single owner of the target the buckets, row bars
+ *  and summary stats all measure against. */
+function planTarget(row: SummerStudentLessonsRow): number {
+  return row.lessons_paid || row.total_lessons;
+}
+
 function progressBucket(row: SummerStudentLessonsRow): ProgressBucket {
-  const target = row.lessons_paid || row.total_lessons;
+  const target = planTarget(row);
   if (row.placed_count === 0) return "not_started";
   if (target > 0 && row.placed_count >= target) return "fully_placed";
   return "in_progress";
@@ -234,14 +241,17 @@ export function SummerStudentLessonsTable({
     if (students.length === 0) return null;
     const total = students.length;
     const avgPct = Math.round(
-      (students.reduce(
-        (sum, s) => sum + (s.total_lessons > 0 ? s.placed_count / s.total_lessons : 0),
-        0,
-      ) /
+      (students.reduce((sum, s) => {
+        const target = planTarget(s);
+        return sum + (target > 0 ? s.placed_count / target : 0);
+      }, 0) /
         total) *
         100,
     );
-    const remaining = students.reduce((sum, s) => sum + (s.total_lessons - s.placed_count), 0);
+    const remaining = students.reduce(
+      (sum, s) => sum + Math.max(0, planTarget(s) - s.placed_count),
+      0,
+    );
     const rescheduled = students.reduce((sum, s) => sum + s.rescheduled_count, 0);
     return { total, avgPct, remaining, rescheduled };
   }, [students]);
@@ -464,7 +474,7 @@ export function SummerStudentLessonsTable({
               </tr>
             ) : (
               filtered.map((student, idx) => {
-                const target = student.lessons_paid || student.total_lessons;
+                const target = planTarget(student);
                 const attendingCount = student.placed_count - student.rescheduled_count;
                 const attendingPct =
                   target > 0 ? Math.round((attendingCount / target) * 100) : 0;

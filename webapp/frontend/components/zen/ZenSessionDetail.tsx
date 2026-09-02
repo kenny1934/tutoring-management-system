@@ -382,7 +382,9 @@ export function ZenSessionDetail({
             color:
               session.financial_status === "Paid"
                 ? "var(--zen-success)"
-                : "var(--zen-error)",
+                : session.financial_status === "Waived"
+                  ? "var(--zen-dim)"
+                  : "var(--zen-error)",
           }}
         >
           {session.financial_status || "Unknown"}

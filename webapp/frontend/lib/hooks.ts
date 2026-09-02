@@ -1,12 +1,20 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, api, type ParentCommunication } from './api';
+import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
+import { pickableTutors } from './employment';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
+//
+// The one rule the global config cannot express: a hook keyed on a single
+// record's id has to pass { keepPreviousData: false }. The global default is
+// right for a filtered list, which should hold its content while the filter
+// changes, and wrong here, because SWR would otherwise hand back the record
+// for the id you were looking at a moment ago and the caller would render it
+// under the new one's name. useStudent below has the long version.
 
 /**
  * Hook to detect unseen app updates.
@@ -122,6 +130,33 @@ export function useVisibilityAwareInterval(baseInterval: number): number {
   return isVisible ? baseInterval : 0;
 }
 
+function minutesNow(): number {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+/**
+ * Minutes since local midnight, kept fresh on an interval. Pass 0 to disable
+ * ticking entirely (surfaces in a state where no now indicator can render).
+ * Ticks pause while the tab is hidden and catch up when it becomes visible.
+ * State only moves when the minute value changes, so consumers re-render at
+ * most once a minute.
+ */
+export function useNowMinutes(intervalMs = 30000): number {
+  const interval = useVisibilityAwareInterval(intervalMs);
+  const [nowMinutes, setNowMinutes] = useState(minutesNow);
+
+  useEffect(() => {
+    if (!interval) return;
+    // Catch up immediately: the effect re-runs when the tab becomes visible.
+    setNowMinutes(minutesNow());
+    const id = setInterval(() => setNowMinutes(minutesNow()), interval);
+    return () => clearInterval(id);
+  }, [interval]);
+
+  return nowMinutes;
+}
+
 /**
  * Hook for debouncing a value
  * Useful for search inputs to avoid filtering on every keystroke
@@ -173,13 +208,73 @@ export function useSessions(filters?: SessionFilters) {
 }
 
 /**
+ * Homework still open across a set of sessions, keyed by session id.
+ *
+ * One request covers the whole set, so callers holding several sessions (the
+ * bulk rate modal, wide lesson mode) do not fan out per session.
+ */
+export function useHomeworkToCheck(sessionIds: number[] | null | undefined) {
+  const ids = useMemo(
+    () => (sessionIds?.length ? [...new Set(sessionIds)].sort((a, b) => a - b) : []),
+    [sessionIds]
+  );
+
+  const { data, isLoading } = useSWR(
+    ids.length ? ['homework-to-check', ids.join(',')] : null,
+    () => homeworkAPI.getToCheck(ids)
+  );
+
+  const bySession = useMemo(() => {
+    const map = new Map<number, HomeworkCompletion[]>();
+    data?.forEach((entry) => map.set(entry.session_id, entry.homework));
+    return map;
+  }, [data]);
+
+  return { bySession, isLoading };
+}
+
+/**
+ * A student's whole homework record, keyed by assignment.
+ *
+ * Unlike useHomeworkToCheck this is not a backlog: it covers everything ever
+ * set, including items no session can still reach, which is what lets the
+ * student page mark and correct them.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: while the
+ * new student's record loads, the marks you were just looking at would show
+ * under their name, and this is the data the student page marks against.
+ */
+export function useStudentHomework(studentId: number | null | undefined) {
+  const { data, error, isLoading, mutate } = useSWR<HomeworkCompletion[]>(
+    studentId ? ['student-homework', studentId] : null,
+    () => homeworkAPI.getForStudent(studentId!),
+    { keepPreviousData: false }
+  );
+
+  const byExercise = useMemo(() => {
+    const map = new Map<number, HomeworkCompletion>();
+    data?.forEach((hw) => map.set(hw.session_exercise_id, hw));
+    return map;
+  }, [data]);
+
+  // error is returned rather than swallowed: without it a failed fetch looks
+  // exactly like a student who has never been set any homework.
+  return { homework: data, byExercise, error, isLoading, mutate };
+}
+
+/**
  * Hook for fetching a single session by ID
  * Returns null key when id is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: the
+ * popovers and the session page stay mounted while the id changes underneath
+ * them, so they would otherwise show the session you had open a moment ago.
  */
 export function useSession(id: number | null | undefined) {
   return useSWR<Session>(
     id ? ['session', id] : null,
-    () => sessionsAPI.getById(id!)
+    () => sessionsAPI.getById(id!),
+    { keepPreviousData: false }
   );
 }
 
@@ -195,22 +290,32 @@ export function useTutors() {
 
 /**
  * Hook for fetching a single tutor by id (admin-level roles also get compensation).
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent, and this
+ * payload carries pay: the tutor page keeps the same component across ids, so
+ * it would otherwise show one tutor's compensation under another's name.
  */
 export function useTutor(id: number | null | undefined) {
   return useSWR<Tutor>(
     id != null && Number.isFinite(id) ? ['tutor', id] : null,
-    () => tutorsAPI.getById(id as number)
+    () => tutorsAPI.getById(id as number),
+    { keepPreviousData: false }
   );
 }
 
 /**
- * Hook for fetching only active tutors (those who teach students)
- * Filters out Supervisors and non-teaching admin staff
+ * Hook for fetching the tutors a picker may offer.
+ *
+ * Two separate exclusions. Supervisors and non-teaching admin staff never
+ * teach, which is what is_active_tutor records. Anyone whose last working day
+ * has passed is gone, which is what departure_effective_on records. Somebody
+ * serving notice is in neither group and stays in the list, because they are
+ * still teaching until the day they leave.
  */
 export function useActiveTutors() {
   const { data: tutors, ...rest } = useTutors();
   const activeTutors = useMemo(
-    () => tutors?.filter(t => t.is_active_tutor !== false) ?? [],
+    () => pickableTutors(tutors ?? []),
     [tutors]
   );
   return { data: activeTutors, ...rest };
@@ -254,11 +359,74 @@ export function useStudents(filters?: StudentFilters) {
 /**
  * Hook for fetching a single student by ID
  * Returns null key when id is falsy to skip fetching
+ *
+ * keepPreviousData is on globally, which is wrong for a record keyed on one
+ * person: while the new id loads, the hook would hand back the student you
+ * were looking at a moment ago, and every caller here renders that record
+ * under the new student's name. Opting out means callers see their loading
+ * state instead, which is what they already handle.
  */
 export function useStudent(id: number | null | undefined) {
   return useSWR<Student>(
     id ? ['student', id] : null,
-    () => studentsAPI.getById(id!)  );
+    () => studentsAPI.getById(id!),
+    { keepPreviousData: false }
+  );
+}
+
+/**
+ * P6 prospect record opened from an application surface — a chip on a card or
+ * inside a detail modal. Owns the id, the fetch and the close, so a page wires
+ * one of these and hands `open` to every chip it renders.
+ *
+ * The SWR key is shared with every other host of this hook, so two application
+ * pages reuse one another's cache for the same prospect.
+ */
+export function useProspectPreview() {
+  const [prospectId, setProspectId] = useState<number | null>(null);
+  const { data: prospect, mutate: mutateProspect } = useSWR<PrimaryProspect>(
+    prospectId ? ['prospect-preview', prospectId] : null,
+    () => prospectsAPI.adminGet(prospectId!),
+    // Opts out of keepPreviousData for the same reason as useStudent, and it
+    // is what lets the return below be a plain null check: with the option
+    // off, closing the panel drops the record instead of leaving the last one
+    // this hook saw.
+    { keepPreviousData: false },
+  );
+  const open = useCallback((id: number) => setProspectId(id), []);
+  const close = useCallback(() => setProspectId(null), []);
+  // Saving closes the record, so revalidating would land in a cache nobody is
+  // reading. Dropping the entry costs no request and still means a re-open
+  // shows the saved values rather than the ones from before the edit.
+  const invalidate = useCallback(
+    () => mutateProspect(undefined, { revalidate: false }),
+    [mutateProspect],
+  );
+  return { prospect: prospect ?? null, open, close, invalidate };
+}
+
+/**
+ * The applications a P6 prospect might turn out to be, for one course.
+ *
+ * The list page's quick-link popover and the prospect detail modal both offer
+ * these matches and both link one with a single click, so they share the key
+ * and read one another's fetch. `enabled` is how each surface holds the fetch
+ * back: the popover waits until it is open, and the modal skips a course the
+ * prospect is already linked to.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: a list left
+ * over from the last prospect would attach the wrong one to an application.
+ */
+export function useProspectMatches(
+  prospectId: number | null | undefined,
+  course: ProspectCourse,
+  enabled: boolean,
+) {
+  return useSWR<PrimaryProspectMatchResult>(
+    enabled && prospectId ? ['prospect-matches', course, prospectId] : null,
+    () => prospectsAPI.findCourseMatches(prospectId!, course),
+    { revalidateOnFocus: false, keepPreviousData: false }
+  );
 }
 
 /**
@@ -282,15 +450,36 @@ export function useActiveStudents(location?: string, tutorId?: number, enabled: 
 }
 
 /**
+ * Hook for fetching a student's coupon availability
+ * Returns null key when studentId is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent, and here it
+ * decides money: a panel that showed one student's coupons under the next
+ * student's name once preselected a discount nobody was owed, and the fee
+ * message quoted it to the parent.
+ */
+export function useStudentCoupon(studentId: number | null | undefined) {
+  return useSWR<StudentCouponResponse>(
+    studentId ? ['student-coupon', studentId] : null,
+    () => studentsAPI.getCoupon(studentId!),
+    { keepPreviousData: false }
+  );
+}
+
+/**
  * Hook for fetching enrollments for a student
  * Returns null key when studentId is falsy to skip fetching
  * Note: revalidateOnFocus disabled to prevent N+1 API calls when switching view modes
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: fees, end
+ * dates and payment status all hang off these, and the session modals read
+ * them to work out a make-up deadline for whoever they were handed.
  */
 export function useStudentEnrollments(studentId: number | null | undefined) {
   return useSWR<Enrollment[]>(
     studentId ? ['enrollments', studentId] : null,
     () => enrollmentsAPI.getAll(studentId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
@@ -323,17 +512,25 @@ export function useAllStudents(location?: string, tutorId?: number) {
 /**
  * Hook for fetching sessions for a specific student
  * Returns null key when studentId is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: an
+ * attendance list has to belong to the student whose page it sits on.
  */
 export function useStudentSessions(studentId: number | null | undefined, limit: number = 100) {
   return useSWR<Session[]>(
     studentId ? ['student-sessions', studentId, limit] : null,
-    () => sessionsAPI.getAll({ student_id: studentId!, limit })  );
+    () => sessionsAPI.getAll({ student_id: studentId!, limit }),
+    { keepPreviousData: false }
+  );
 }
 
 /**
  * Hook for fetching parent communications for a specific student
  * Returns null key when studentId is falsy to skip fetching
  * Results are sorted by contact_date descending (most recent first)
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: what was
+ * said to one family must never be read as the history of another.
  */
 export function useStudentParentContacts(studentId: number | null | undefined) {
   return useSWR<ParentCommunication[]>(
@@ -342,38 +539,76 @@ export function useStudentParentContacts(studentId: number | null | undefined) {
       .then(contacts => contacts.sort((a, b) =>
         new Date(b.contact_date).getTime() - new Date(a.contact_date).getTime()
       )),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
+/**
+ * Hook for fetching one student's progress figures.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: the
+ * progress drawer would otherwise chart the student you opened before this
+ * one, and the two look identical on screen.
+ */
 export function useStudentProgress(studentId: number | null | undefined) {
   return useSWR<StudentProgress>(
     studentId ? ['student-progress', studentId] : null,
     () => studentsAPI.getProgress(studentId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching a single enrollment by ID
  * Returns null key when id is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent, and here it
+ * decides money: the fee and the payment status belong to one enrollment, and
+ * the detail modals swap the id while they stay mounted.
  */
 export function useEnrollment(id: number | null | undefined) {
   return useSWR<Enrollment>(
     id ? ['enrollment', id] : null,
     () => enrollmentsAPI.getById(id!),
-    { revalidateOnFocus: false, revalidateIfStale: false }  // Only fetch when modal opens, not on page load
+    // Only fetch when modal opens, not on page load
+    { revalidateOnFocus: false, revalidateIfStale: false, keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching sessions for a specific enrollment
  * Returns null key when enrollmentId is falsy to skip fetching
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: the lessons
+ * listed have to belong to the enrollment named above them.
  */
 export function useEnrollmentSessions(enrollmentId: number | null | undefined) {
   return useSWR<Session[]>(
     enrollmentId ? ['enrollment-sessions', enrollmentId] : null,
-    () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 })  );
+    () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 }),
+    { keepPreviousData: false }
+  );
+}
+
+/**
+ * One summer application, on the ['summer-app', id] key.
+ *
+ * That key is load-bearing well beyond this hook. The summer detail modal's
+ * invalidation matcher looks for it by name, and the enrollment page mutates
+ * it directly after a publish, so the three surfaces that read the record
+ * (the arrangement board, the certificates page and the enrollment page) go
+ * through one definition here instead of repeating the key and the fetcher.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: all three
+ * of those surfaces stay mounted while the id changes underneath them, and
+ * this record carries the fee.
+ */
+export function useSummerApplication(id: number | null | undefined) {
+  return useSWR<SummerApplication>(
+    id ? ['summer-app', id] : null,
+    () => summerAPI.getApplication(id!),
+    { keepPreviousData: false }
+  );
 }
 
 /**
@@ -794,6 +1029,31 @@ export function useAgedPendingMakeupsCount(tutorId: number | null | undefined) {
 }
 
 /**
+ * Lessons booked past a leaver's last working day.
+ *
+ * Admin-only, and passed `enabled` rather than being called conditionally so
+ * the rule about who sees it stays at the call site. Refreshed rarely: a
+ * departure is not a thing that changes minute to minute, and the number only
+ * moves when somebody reassigns a lesson.
+ */
+export function useEmploymentOverrun(enabled: boolean) {
+  const refreshInterval = useVisibilityAwareInterval(300000);
+  return useSWR<EmploymentOverrun>(
+    enabled ? 'employment-overrun' : null,
+    () => employmentAPI.getOverrun(),
+    { refreshInterval }
+  );
+}
+
+/** Everything still assigned to one tutor, for the panel on their profile. */
+export function useDepartureLoad(tutorId: number | null | undefined, enabled: boolean) {
+  return useSWR<DepartureLoad>(
+    tutorId && enabled ? ['departure-load', tutorId] : null,
+    () => employmentAPI.getDepartureLoad(tutorId!)
+  );
+}
+
+/**
  * Hook for fetching message threads for a tutor
  * Returns threads grouped by root message with replies
  * Pauses polling when tab is hidden to save API calls
@@ -980,6 +1240,10 @@ export function useUnreadCategoryCounts(tutorId: number | null | undefined) {
 
 /**
  * Hook for fetching a specific message thread
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: opening one
+ * thread straight after another would otherwise show the conversation you had
+ * just closed.
  */
 export function useMessageThread(
   messageId: number | null | undefined,
@@ -987,7 +1251,8 @@ export function useMessageThread(
 ) {
   return useSWR<MessageThread>(
     messageId && tutorId ? ['message-thread', messageId, tutorId] : null,
-    () => messagesAPI.getThread(messageId!, tutorId!)
+    () => messagesAPI.getThread(messageId!, tutorId!),
+    { keepPreviousData: false }
   );
 }
 
@@ -1143,6 +1408,63 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
 }
 
 /**
+ * Sidebar Regular Intake badge state — the summer badge's counterpart.
+ * - `isOpen`: the public form is inside its application window. The regular
+ *   config resolves this server-side in Hong Kong time, so no date maths here.
+ * - `actionableCount`: applications still in the active workflow at the given
+ *   location. The regular status ladder has the same rungs as summer's, so the
+ *   same inactive set applies.
+ * The public form-config endpoint is unauthenticated; the stats call only fires
+ * for admins.
+ */
+/** Whether the regular intake is currently taking applications.
+ *
+ *  Reads the same public config the form itself does, under the same SWR key
+ *  as the admin sidebar badge so the two share one request. Unlike that badge
+ *  this is not admin-only: tutors need it to know whether they have anyone to
+ *  chase, and the surfaces built on it disappear the rest of the year. */
+export function useRegularIntakeOpen(enabled: boolean) {
+  const { data } = useSWR(
+    enabled ? "regular-public-config" : null,
+    () => regularAPI.getFormConfig(),
+    { revalidateOnFocus: false },
+  );
+  return data?.application_window === "open";
+}
+
+
+export function useRegularSidebarBadge(isAdmin: boolean, location?: string) {
+  const refreshInterval = useVisibilityAwareInterval(120000); // 2 min
+  // "All Locations" is the unscoped sentinel from LocationContext. Regular
+  // applications store the Chinese branch name in preferred_location, so
+  // translate the sidebar's short code (MSA/MSB) before querying.
+  const scopedLocation = location && location !== "All Locations"
+    ? (CODE_TO_LOCATION[location] ?? location)
+    : undefined;
+  const { data: formConfig } = useSWR(
+    isAdmin ? "regular-public-config" : null,
+    () => regularAPI.getFormConfig(),
+    { revalidateOnFocus: false },
+  );
+  const { data: stats } = useSWR(
+    isAdmin ? ["regular-app-stats-sidebar", scopedLocation ?? "all"] : null,
+    () => regularAPI.getApplicationStats({ location: scopedLocation }),
+    { refreshInterval, revalidateOnFocus: false },
+  );
+
+  const isOpen = formConfig?.application_window === "open";
+
+  const actionableCount = stats
+    ? Object.entries(stats.by_status).reduce(
+        (sum, [status, n]) => (INACTIVE_APP_STATUSES.has(status) ? sum : sum + n),
+        0,
+      )
+    : 0;
+
+  return { isOpen, actionableCount };
+}
+
+/**
  * Hook for fetching pending extension request count (for notification badge)
  * Only enabled for admins
  * Pauses polling when tab is hidden to save API calls
@@ -1158,21 +1480,31 @@ export function usePendingExtensionCount(isAdmin: boolean, location?: string) {
 
 /**
  * Hook for fetching a single proposal by ID
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: a proposal
+ * is accepted or declined from where it is shown, so the one on screen has to
+ * be the one the buttons act on.
  */
 export function useProposal(proposalId: number | null | undefined) {
   return useSWR<MakeupProposal>(
     proposalId ? ['proposal', proposalId] : null,
-    () => proposalsAPI.getById(proposalId!)
+    () => proposalsAPI.getById(proposalId!),
+    { keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching the active proposal for a specific session
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: this answers
+ * whether one session already has a proposal, and the answer for the session
+ * before it is not an answer at all.
  */
 export function useProposalForSession(sessionId: number | null | undefined) {
   return useSWR<MakeupProposal | null>(
     sessionId ? ['proposal-for-session', sessionId] : null,
-    () => proposalsAPI.getForSession(sessionId!)
+    () => proposalsAPI.getForSession(sessionId!),
+    { keepPreviousData: false }
   );
 }
 
@@ -1499,35 +1831,46 @@ export function useRevisionSlots(params?: {
 
 /**
  * Hook for fetching a single revision slot with enrolled students
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: the card
+ * would otherwise list the students enrolled in the slot you opened before
+ * this one.
  */
 export function useRevisionSlotDetail(slotId: number | null | undefined) {
   return useSWR<ExamRevisionSlotDetail>(
     slotId ? ['revision-slot-detail', slotId] : null,
     () => examRevisionAPI.getSlotDetails(slotId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching eligible students for a revision slot
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: you enroll
+ * students straight from this list, so it has to be the list for the slot in
+ * front of you.
  */
 export function useEligibleStudents(slotId: number | null | undefined) {
   return useSWR<EligibleStudent[]>(
     slotId ? ['eligible-students', slotId] : null,
     () => examRevisionAPI.getEligibleStudents(slotId!),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
 /**
  * Hook for fetching eligible students by exam (calendar event)
  * This doesn't require a slot to exist - useful for showing eligible students before creating slots
+ *
+ * Opts out of keepPreviousData for the same reason as useEligibleStudents:
+ * the exam card offers this list to act on, so it has to be this exam's.
  */
 export function useEligibleStudentsByExam(eventId: number | null | undefined, locations?: string[] | null) {
   return useSWR<EligibleStudent[]>(
     eventId ? ['eligible-students-by-exam', eventId, locations?.join(',') || 'all'] : null,
     () => examRevisionAPI.getEligibleStudentsByExam(eventId!, locations),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 }
 
@@ -1703,11 +2046,16 @@ export function useMemos(params?: {
 
 /**
  * Hook for fetching memo associated with a specific session.
+ *
+ * Opts out of keepPreviousData for the same reason as useStudent: a memo is
+ * written about one lesson, and the session page renders it without waiting
+ * on a loading flag.
  */
 export function useMemoForSession(sessionId: number | null | undefined) {
   return useSWR<TutorMemo | null>(
     sessionId ? ['session-memo', sessionId] : null,
-    () => memosAPI.getForSession(sessionId!)
+    () => memosAPI.getForSession(sessionId!),
+    { keepPreviousData: false }
   );
 }
 
@@ -1744,4 +2092,27 @@ export function usePresence() {
     { refreshInterval, revalidateOnFocus: false, dedupingInterval: 10000 }
   );
   return useMemo(() => new Set(data?.online || []), [data?.online]);
+}
+
+/**
+ * Exit-on-Escape for full-screen style surfaces. Listens on window only while
+ * `enabled`. Presses landing on a focused form control are ignored — inputs
+ * own their Escape (e.g. the student jump search closes its dropdown without
+ * stopping propagation). Callers fold "an overlay is open" into `enabled` so
+ * Esc keeps serving modals first.
+ */
+export function useEscapeKey(enabled: boolean, onEscape: () => void) {
+  const onEscapeRef = useRef(onEscape);
+  onEscapeRef.current = onEscape;
+  useEffect(() => {
+    if (!enabled) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      onEscapeRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [enabled]);
 }
