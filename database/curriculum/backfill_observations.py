@@ -29,10 +29,37 @@ from curriculum.parser import parse_pdf_name  # noqa: E402
 
 TREE_V = os.path.join(PRIV, "drive_trees", "tree_v_secondary.txt")
 
-YEAR_CONF = {"2025-2026": 0.90, "2024-2025": 0.80, "2023-2024": 0.70, "2022-2023": 0.60}
 ASSIGN_CONF = 0.70
 SHEET_CONF = 0.85
 AI_CONF = {"high": 0.75, "med": 0.65, "medium": 0.65, "low": 0.55}
+
+
+def _current_start_year(today=None):
+    """Calendar year in which the current school year began (1 September)."""
+    today = today or date.today()
+    return today.year if today.month >= 9 else today.year - 1
+
+
+def year_conf(academic_year, today=None):
+    """Confidence for a weekly prep folder observation, by how old the year is.
+
+    Newer years describe the school's present pace better than older ones, so
+    the current school year gets 0.90 and every year further back loses 0.10,
+    down to a floor of 0.60. This used to be a hand-written table that stopped
+    at 2025-2026, which meant the first folders of a new school year were
+    silently skipped until someone extended the table. Years that have not
+    started yet return None and are skipped: a folder named for a future year
+    is a filing mistake rather than evidence.
+    """
+    try:
+        start = int(academic_year.split("-")[0])
+    except (AttributeError, ValueError):
+        return None
+    age = _current_start_year(today) - start
+    if age < 0:
+        return None
+    return max(0.60, round(0.90 - 0.10 * age, 2))
+
 
 _school_data = json.load(open(os.path.join(PRIV, "school_aliases.json"), encoding="utf-8"))
 CANON_SET = set(_school_data["CANON"])
@@ -104,7 +131,8 @@ def main():
         year, week = p.get("wk_year"), p.get("week")
         if not (year and week and p.get("wk_grade") and p.get("wk_school")):
             continue
-        if year not in YEAR_CONF:
+        conf = year_conf(year)
+        if conf is None:
             continue
         code, space = p.get("code"), p.get("code_space")
         if not code or space in ("SM", "SS", None):
@@ -122,7 +150,7 @@ def main():
         for school in schools:
             for cid in cids:
                 add(school, p["wk_grade"], p.get("wk_stream"), year, week,
-                    cid, "prep_folder", YEAR_CONF[year], is_rev, line)
+                    cid, "prep_folder", conf, is_rev, line)
 
     # ---- channel 2: assignments (prod, F1-F3) --------------------------------
     cur.execute("SELECT academic_year, week_number, week_start_date, week_end_date FROM academic_weeks")
