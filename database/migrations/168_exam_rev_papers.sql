@@ -1,4 +1,9 @@
--- Migration 130: archive of tailor-made exam revision papers
+-- Migration 168: archive of tailor-made exam revision papers
+--
+-- This file was numbered 130 when it was applied to production on
+-- 15 July 2026. It was renumbered before merging because main had taken
+-- 130 for an unrelated summer backfill in the meantime. Nothing needs
+-- re-running.
 --
 -- Tutors build aggregated revision papers for one school's test or exam and
 -- file them in the weekly prep folders. Filenames rarely carry topics, so the
