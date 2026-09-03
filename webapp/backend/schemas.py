@@ -970,57 +970,6 @@ class ScheduleMakeupResponse(BaseModel):
 
 
 # ============================================
-# Curriculum Suggestion Schemas
-# ============================================
-
-class CurriculumSuggestionResponse(BaseModel):
-    """Curriculum suggestion from last year's curriculum for a session"""
-    id: int = Field(..., gt=0)
-    enrollment_id: Optional[int] = Field(None, gt=0)
-    student_id: Optional[int] = Field(None, gt=0)
-    tutor_id: Optional[int] = Field(None, gt=0)
-    session_date: Optional[date] = None
-    time_slot: Optional[str] = Field(None, max_length=50)
-    location: Optional[str] = Field(None, max_length=200)
-    session_status: Optional[str] = Field(None, max_length=50)
-    financial_status: Optional[str] = Field(None, max_length=50)
-
-    # Student info
-    school_student_id: Optional[str] = Field(None, max_length=50)
-    student_name: Optional[str] = Field(None, max_length=200)
-    grade: Optional[str] = Field(None, max_length=20)
-    school: Optional[str] = Field(None, max_length=200)
-    lang_stream: Optional[str] = Field(None, max_length=50)
-
-    # Tutor info
-    tutor_name: Optional[str] = Field(None, max_length=200)
-
-    # Current week info
-    current_week_number: Optional[int] = Field(None, ge=1, le=53)
-    current_academic_year: Optional[str] = Field(None, max_length=20)
-
-    # Last year's curriculum suggestions (3 weeks)
-    week_before_topic: Optional[str] = Field(None, max_length=500)
-    week_before_number: Optional[int] = Field(None, ge=1, le=53)
-    same_week_topic: Optional[str] = Field(None, max_length=500)
-    same_week_number: Optional[int] = Field(None, ge=1, le=53)
-    week_after_topic: Optional[str] = Field(None, max_length=500)
-    week_after_number: Optional[int] = Field(None, ge=1, le=53)
-
-    # Primary suggestion and formatted display
-    primary_suggestion: Optional[str] = Field(None, max_length=500)
-    suggestions_display: Optional[str] = Field(None, max_length=2000)
-    user_friendly_display: Optional[str] = Field(None, max_length=2000)
-    options_for_buttons: Optional[str] = Field(None, max_length=1000)
-
-    # Metadata
-    suggestion_count: Optional[int] = Field(None, ge=0)
-    coverage_status: Optional[str] = Field(None, max_length=100)
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ============================================
 # Dashboard Stats Schemas
 # ============================================
 

@@ -36,6 +36,7 @@ import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { uncheckedCount } from "@/lib/homework-utils";
 import { ExerciseHistoryPanel } from "./ExerciseHistoryPanel";
 import { SummerMaterialsSection } from "./SummerMaterialsSection";
+import { CurriculumSuggestionSection } from "./CurriculumSuggestionSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 import { GradeLabel, GradeBadge } from "@/components/ui/grade-label";
@@ -559,6 +560,16 @@ export function ExerciseModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // A curriculum overlay (PDF preview, revision pack, topic browser) is
+      // stacked above this modal. Its own capture-phase listener closes it;
+      // swallow Escape here so it cannot also close this modal, and keep the
+      // sessions page shielded as usual.
+      if (e.key === 'Escape' && document.querySelector('[data-curriculum-overlay]')) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       // Handle close confirmation with Escape - MUST be at TOP
       if (showCloseConfirm) {
         if (e.key === 'Escape') {
@@ -1411,6 +1422,20 @@ export function ExerciseModal({
               </div>
             )}
           </div>
+        )}
+
+        {/* School Progress - curriculum suggestions from the school timeline */}
+        {!readOnly && (
+          <CurriculumSuggestionSection
+            session={session}
+            onAdd={(path, answerPath) => {
+              setExercises((prev) => [
+                ...prev,
+                { ...createExercise(exerciseType, path), answer_pdf_name: answerPath ?? "" },
+              ]);
+              setIsDirty(true);
+            }}
+          />
         )}
 
         {/* Summer Materials - scan-based defaults for summer lessons */}

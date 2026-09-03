@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun } from "@/lib/hooks";
+import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount, useNowMinutes, useEmploymentOverrun, preloadCurriculumSuggestions } from "@/lib/hooks";
 import { pickableTutors, pickableWithLeavers, withCurrentTutor, worksAt, type DateWindow } from "@/lib/employment";
 import { TutorOptions } from "@/components/selectors/TutorOptions";
 import { useLocation } from "@/contexts/LocationContext";
@@ -572,6 +572,15 @@ function SessionsPageContent() {
   sessionsRef.current = sessions;
   const selectedIdsRef = useRef(selectedIds);
   selectedIdsRef.current = selectedIds;
+
+  // A card focused from the keyboard is one keystroke away from the exercise
+  // modal, so its School Progress suggestions start loading now. Mouse users
+  // get the same from hovering the CW/HW button itself.
+  useEffect(() => {
+    if (!focusedSessionId) return;
+    const focused = sessionsRef.current?.find((s) => s.id === focusedSessionId);
+    if (focused) preloadCurriculumSuggestions(focused);
+  }, [focusedSessionId]);
   const bulkActionsRef = useRef<Record<string, boolean>>({} as Record<string, boolean>);
   const handleBulkAttendedRef = useRef<() => void>(() => {});
   const handleBulkNoShowRef = useRef<() => void>(() => {});

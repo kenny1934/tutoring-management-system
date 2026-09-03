@@ -16,7 +16,6 @@ import type {
   EnrollmentCreate,
   Session,
   SessionUpdate,
-  CurriculumSuggestion,
   DashboardStats,
   StudentFilters,
   SessionFilters,
@@ -215,6 +214,14 @@ import type {
   WaitlistEntryCreate,
   WaitlistEntryBulkItem,
   WaitlistEntryUpdate,
+  CurriculumSuggestionsResponse,
+  CurriculumExamsResponse,
+  CurriculumRevisionPackResponse,
+  CurriculumObservationResult,
+  CurriculumTimelineResponse,
+  CurriculumCoverageRow,
+  CurriculumConceptVocab,
+  CurriculumSearchResponse,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -776,10 +783,6 @@ export const sessionsAPI = {
     return fetchAPI<Session>(`/sessions/${id}`);
   },
 
-  getCurriculumSuggestions: (sessionId: number) => {
-    return fetchAPI<CurriculumSuggestion>(`/sessions/${sessionId}/curriculum-suggestions`);
-  },
-
   getUpcomingTests: (sessionId: number) => {
     return fetchAPI<UpcomingTestAlert[]>(`/sessions/${sessionId}/upcoming-tests`);
   },
@@ -1090,6 +1093,80 @@ export const coursewareAPI = {
     if (grade) params.append('grade', grade);
     if (school) params.append('school', school);
     return fetchAPI<CoursewareUsageDetail[]>(`/courseware/usage-detail?${params}`);
+  },
+};
+
+// School-timeline curriculum API (suggestions, flywheel confirms, explorer)
+export const curriculumAPI = {
+  getSuggestions: (studentId: number, date?: string) => {
+    const params = new URLSearchParams({ student_id: studentId.toString() });
+    if (date) params.append('date', date);
+    return fetchAPI<CurriculumSuggestionsResponse>(`/curriculum/suggestions?${params}`);
+  },
+
+  confirmTopic: (data: {
+    student_id: number;
+    concept_id: number;
+    session_date: string;
+    is_revision?: boolean;
+    action?: 'confirm' | 'accept_suggestion';
+  }) =>
+    fetchAPI<CurriculumObservationResult>('/curriculum/observations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  undoConfirm: (observationId: number) =>
+    fetchAPI<{ deleted: boolean }>(`/curriculum/observations/${observationId}`, {
+      method: 'DELETE',
+    }),
+
+  getTimeline: (
+    school: string,
+    grade: string,
+    langStream?: string | null,
+    academicYear?: string | null
+  ) => {
+    const params = new URLSearchParams({ school, grade });
+    if (langStream) params.append('lang_stream', langStream);
+    if (academicYear) params.append('academic_year', academicYear);
+    return fetchAPI<CurriculumTimelineResponse>(`/curriculum/timeline?${params}`);
+  },
+
+  getCoverage: () => fetchAPI<CurriculumCoverageRow[]>('/curriculum/coverage'),
+
+  getConcepts: () => fetchAPI<CurriculumConceptVocab[]>('/curriculum/concepts'),
+
+  getExams: (school: string, grade: string) => {
+    const params = new URLSearchParams({ school, grade });
+    return fetchAPI<CurriculumExamsResponse>(`/curriculum/exams?${params}`);
+  },
+
+  getRevisionPack: (eventId: number, limit?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', String(limit));
+    const qs = params.toString();
+    return fetchAPI<CurriculumRevisionPackResponse>(
+      `/curriculum/revision-pack/${eventId}${qs ? `?${qs}` : ''}`
+    );
+  },
+
+  search: (query: {
+    q?: string;
+    concept_id?: number;
+    school?: string;
+    grade?: string;
+    lang_stream?: string;
+    academic_year?: string;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value));
+      }
+    });
+    return fetchAPI<CurriculumSearchResponse>(`/curriculum/search?${params}`);
   },
 };
 
@@ -3385,6 +3462,7 @@ export const api = {
   stats: statsAPI,
   revenue: revenueAPI,
   courseware: coursewareAPI,
+  curriculum: curriculumAPI,
   paperless: paperlessAPI,
   pathAliases: pathAliasesAPI,
   holidays: holidaysAPI,

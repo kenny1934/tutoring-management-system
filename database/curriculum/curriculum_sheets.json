@@ -1,0 +1,6 @@
+{
+  "_comment": "One entry per school year: the Google Sheet 'School Curriculum YYYY-YYYY' that import_curriculum_sheets.py reads. Each sheet must be shared (viewer) with the service account in the backend .env. Earlier years were imported once from Excel exports in July 2026 and are not listed here.",
+  "2026-2027": {
+    "spreadsheet_id": "1Yx_g1FeT72u6Nex-VNvAdixMKvgO4vutrWvO4Sd4wl8"
+  }
+}

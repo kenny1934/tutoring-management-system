@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText, Sun, ClipboardList, GraduationCap, CalendarCheck, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -25,6 +25,7 @@ const navigation = [
   { name: "Students", href: "/students", icon: Users, color: "bg-green-500" },
   { name: "Sessions", href: "/sessions", icon: Calendar, color: "bg-red-500" },
   { name: "Courseware", href: "/courseware", icon: BookOpen, color: "bg-orange-500" },
+  { name: "Curriculum", href: "/curriculum", icon: Map, color: "bg-teal-500" },
   { name: "Documents", href: "/documents", icon: FileText, color: "bg-amber-500" },
   { name: "Inbox", href: "/inbox", icon: Inbox, color: "bg-purple-500" },
 ];

@@ -7,12 +7,12 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { useSession, usePageTitle, useMemoForSession } from "@/lib/hooks";
+import { useSession, usePageTitle, useMemoForSession, preloadCurriculumSuggestions } from "@/lib/hooks";
 import { useBackNavigation } from "@/lib/ui-hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
+import type { Session, UpcomingTestAlert } from "@/types";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
 import {
@@ -259,9 +259,17 @@ export default function SessionDetailPage() {
   const { data: session, error, isLoading: loading, mutate } = useSession(sessionId);
   const { isReadOnly } = useAuth();
 
-  const handleHomeworkMarked = useHomeworkMarked();
+  // Warm the School Progress suggestions while the page is still settling, so
+  // the exercise modal's section is on screen the moment it opens. Keyed on
+  // the student and date rather than the session object, which changes
+  // identity on every revalidation. Read-only viewers never see the section.
+  const sessionStudentId = session?.student_id;
+  const sessionDate = session?.session_date;
+  useEffect(() => {
+    if (session && !isReadOnly) preloadCurriculumSuggestions(session);
+  }, [sessionStudentId, sessionDate, isReadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
+  const handleHomeworkMarked = useHomeworkMarked();
   const { data: upcomingTests = [] } = useSWR<UpcomingTestAlert[]>(
     sessionId ? ['upcoming-tests', sessionId] : null,
     () => api.sessions.getUpcomingTests(sessionId)
@@ -281,21 +289,6 @@ export default function SessionDetailPage() {
 
   // Check if a memo exists for this session
   const { data: sessionMemo } = useMemoForSession(sessionId);
-
-  useEffect(() => {
-    async function fetchCurriculumSuggestion() {
-      try {
-        const data = await api.sessions.getCurriculumSuggestions(sessionId);
-        setCurriculumSuggestion(data);
-      } catch (err) {
-        // Silently fail if no curriculum suggestions available
-        setCurriculumSuggestion(null);
-      }
-    }
-
-    fetchCurriculumSuggestion();
-  }, [sessionId]);
-
 
   // Helper to check if session can be marked
   const canBeMarked = (s: Session) =>
@@ -517,8 +510,8 @@ export default function SessionDetailPage() {
           onHomeworkMarked={handleHomeworkMarked}
         />
 
-        {/* Curriculum Tab for Curriculum Suggestions (fixed position) */}
-        <CurriculumTab suggestion={curriculumSuggestion} />
+        {/* Curriculum Tab for School Progress (fixed position) */}
+        <CurriculumTab session={session} />
 
       {/* Header with Chalkboard */}
       <div>

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Menu, Search } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
+import { MAIN_CONTENT_ID } from "@/lib/scroll";
 import { isPublicPath, isPublicSubdomain } from "@/lib/public-routes";
 
 interface LayoutShellProps {
@@ -67,7 +68,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         )}
 
         {/* Main Content */}
-        <main id="main-content" className="flex-1 overflow-auto bg-background" tabIndex={-1}>
+        <main id={MAIN_CONTENT_ID} className="flex-1 overflow-auto bg-background" tabIndex={-1}>
           {children}
         </main>
       </div>

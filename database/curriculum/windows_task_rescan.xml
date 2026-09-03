@@ -1,0 +1,71 @@
+<!--
+  Windows Task Scheduler definition for the nightly School Progress re-scan.
+  (No XML declaration on purpose: the file is UTF-8, and Task Scheduler's
+  parser rejects a declaration that names an encoding, so it is left to
+  assume UTF-8.)
+  It starts WSL and runs rescan_weekly_folders.sh, which scans the V: drive
+  and refreshes the timelines, the content map and the revision paper
+  archive (see rescan_weekly_folders.py for what happens and why).
+
+  Register or update it from WSL with:
+    /mnt/c/Windows/System32/schtasks.exe /Create /F /TN "CSM School Progress re-scan" \
+      /XML "\\wsl.localhost\Ubuntu-24.04\home\kenny\projects\tutoring-management-system\.claude\worktrees\rev-paper-archive\database\curriculum\windows_task_rescan.xml"
+  Run it by hand:      schtasks.exe /Run /TN "CSM School Progress re-scan"
+  See the last result: schtasks.exe /Query /TN "CSM School Progress re-scan" /V /FO LIST
+  Remove it:           schtasks.exe /Delete /F /TN "CSM School Progress re-scan"
+
+  Two things are deliberate. The task runs only while the user is logged on
+  (InteractiveToken), because a mapped drive letter exists only inside the
+  session that mapped it. And it is allowed to run late if the machine was
+  off at 23:30 (StartWhenAvailable), so a missed night is caught up at the
+  next logon rather than skipped.
+
+  After the branch is merged and the worktree removed, re-point the path in
+  <Arguments> at the main checkout and register again.
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Nightly refresh of CSM School Progress from the V: drive weekly prep folders.</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2026-09-02T23:30:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>DESKTOP-L4N51AO\asus</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Windows\System32\wsl.exe</Command>
+      <Arguments>-d Ubuntu-24.04 -- /home/kenny/projects/tutoring-management-system/.claude/worktrees/rev-paper-archive/database/curriculum/rescan_weekly_folders.sh</Arguments>
+    </Exec>
+  </Actions>
+</Task>

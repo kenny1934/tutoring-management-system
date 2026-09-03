@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentCoupon, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions, useStudentHomework } from "@/lib/hooks";
+import { useStudent, useStudentCoupon, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useExamsWithSlots, useHideSupersededSessions, useStudentHomework, preloadCurriculumSuggestions } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, StudentContact, MakeupProposal, StudentCouponResponse, HandoverProspect, HomeworkCompletion, HomeworkStatus } from "@/types";
 import { SessionStatus, ATTENDABLE_STATUSES } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
@@ -3034,6 +3034,14 @@ function CoursewareTab({
     }
   };
 
+  // Hovering or focusing a Classwork or Homework link is the earliest sign
+  // the exercise modal is about to open, so its School Progress section
+  // starts loading here. Read-only viewers never see that section.
+  const warmExerciseModal = (sessionId: number) => {
+    const session = sessionMap.get(sessionId);
+    if (session && !isReadOnly) preloadCurriculumSuggestions(session);
+  };
+
   const buildStamp = (sessionId: number): PrintStampInfo | undefined => {
     const s = sessionMap.get(sessionId);
     if (!s) return undefined;
@@ -3373,6 +3381,8 @@ function CoursewareTab({
                           <div className="flex items-center justify-between border-l-[3px] border-red-400 dark:border-red-500 pl-2 py-1 mb-1">
                             <button
                               onClick={() => openExerciseModal(sessionId, "CW")}
+                              onPointerEnter={() => warmExerciseModal(sessionId)}
+                              onFocus={() => warmExerciseModal(sessionId)}
                               className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 cursor-pointer py-0.5 px-1.5 -mx-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               title="Open Classwork editor"
                             >
@@ -3417,6 +3427,8 @@ function CoursewareTab({
                           <div className="flex items-center justify-between border-l-[3px] border-blue-400 dark:border-blue-500 pl-2 py-1 mb-1">
                             <button
                               onClick={() => openExerciseModal(sessionId, "HW")}
+                              onPointerEnter={() => warmExerciseModal(sessionId)}
+                              onFocus={() => warmExerciseModal(sessionId)}
                               className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer py-0.5 px-1.5 -mx-1.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                               title="Open Homework editor"
                             >

@@ -344,7 +344,7 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications, student_progress, report_shares, saved_reports, summer_course, primary_prospects, buddy_tracker, ark_proxy, waitlist, grade_progression, summer_courseware, summer_revenue, regular_course, homework, employment
+from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth, debug_admin, discounts, wecom, tutor_memos, documents, push_notifications, student_progress, report_shares, saved_reports, summer_course, primary_prospects, buddy_tracker, ark_proxy, waitlist, grade_progression, summer_courseware, summer_revenue, regular_course, homework, employment, curriculum
 
 # Register routers
 app.include_router(auth.router, prefix="/api", tags=["auth"])
@@ -385,6 +385,7 @@ app.include_router(summer_revenue.router, prefix="/api", tags=["summer-revenue"]
 app.include_router(regular_course.router, prefix="/api", tags=["regular-course"])
 app.include_router(homework.router, prefix="/api", tags=["homework"])
 app.include_router(employment.router, prefix="/api", tags=["employment"])
+app.include_router(curriculum.router, prefix="/api", tags=["curriculum"])
 
 
 # Refuse assignments to staff who have left, or who leave before the work

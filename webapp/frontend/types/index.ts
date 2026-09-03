@@ -418,51 +418,6 @@ export interface SessionHomework {
   homework: HomeworkCompletion[];
 }
 
-// Curriculum Suggestion types
-export interface CurriculumSuggestion {
-  id: number;
-  enrollment_id?: number;
-  student_id?: number;
-  tutor_id?: number;
-  session_date?: string;
-  time_slot?: string;
-  location?: string;
-  session_status?: string;
-  financial_status?: string;
-
-  // Student info
-  school_student_id?: string;
-  student_name?: string;
-  grade?: string;
-  school?: string;
-  lang_stream?: string;
-
-  // Tutor info
-  tutor_name?: string;
-
-  // Current week info
-  current_week_number?: number;
-  current_academic_year?: string;
-
-  // Last year's curriculum suggestions (3 weeks)
-  week_before_topic?: string;
-  week_before_number?: number;
-  same_week_topic?: string;
-  same_week_number?: number;
-  week_after_topic?: string;
-  week_after_number?: number;
-
-  // Primary suggestion and formatted display
-  primary_suggestion?: string;
-  suggestions_display?: string;
-  user_friendly_display?: string;
-  options_for_buttons?: string;
-
-  // Metadata
-  suggestion_count?: number;
-  coverage_status?: string;
-}
-
 // Linked session info for make-up/original session display
 export interface LinkedSessionInfo {
   id: number;
@@ -731,6 +686,253 @@ export interface CoursewareUsageDetail {
   school: string;
   tutor_id: number;
   tutor_name: string;
+}
+
+// School-timeline curriculum types (the concept-based system)
+export interface CurriculumFile {
+  file_path: string;
+  file_basename: string;
+  role: string | null;
+  lang: string | null;
+  confidence: number | null;
+  map_source: string;
+  // set for school-specific reference scans (中學參考教材 folder)
+  school_code?: string | null;
+  from_school?: boolean;
+  assignment_count: number;
+  unique_student_count: number;
+  // usage among the scope school's own students (0 when no school scope)
+  school_assignment_count?: number;
+  school_student_count?: number;
+  latest_use: string | null;
+  // this student's own history with the file (suggestions endpoint only)
+  student_assigned_count?: number;
+  student_last_assigned?: string | null;
+}
+
+export interface CurriculumConceptSuggestion {
+  concept_id: number;
+  name_en: string | null;
+  name_zh: string | null;
+  kind: string;
+  concept_grade: string | null;
+  why: {
+    tier: string;
+    // timeline tiers (this_year / last_year / pacing)
+    weight?: number;
+    sources?: string[];
+    weeks_observed?: number[];
+    mean_week?: number;
+    years_observed?: number;
+    // exam_scope tier: the line(s) of the test's scope this topic came from
+    confidence?: number;
+    scope_lines?: string[];
+  };
+  files: CurriculumFile[];
+}
+
+export interface CurriculumSuggestionsResponse {
+  student_id: number;
+  school: string | null;
+  grade: string | null;
+  lang_stream: string | null;
+  date: string;
+  academic_year: string | null;
+  week_number: number | null;
+  tier: string;
+  // What the timeline alone would say (this_year / last_year / pacing / none);
+  // differs from tier when a parsed exam scope takes over the suggestions.
+  timeline_tier?: string;
+  revision_mode: boolean;
+  upcoming_exam: {
+    id?: number;
+    title: string;
+    event_type: string | null;
+    start_date: string | null;
+    scope_concept_count?: number;
+  } | null;
+  // compact tailored-paper list for the upcoming exam (revision mode only)
+  past_papers?: CurriculumPastPaper[];
+  suggestions: CurriculumConceptSuggestion[];
+  reason: string | null;
+}
+
+export interface CurriculumExamScopeConcept {
+  concept_id: number;
+  name_en: string | null;
+  name_zh: string | null;
+  confidence: number;
+  channel: string;
+  scope_lines: string[];
+}
+
+export interface CurriculumExamEvent {
+  id: number;
+  title: string;
+  event_type: string | null;
+  start_date: string;
+  concepts: CurriculumExamScopeConcept[];
+  unmatched_lines: string[];
+}
+
+export interface CurriculumExamsResponse {
+  school: string;
+  grade: string;
+  events: CurriculumExamEvent[];
+}
+
+export interface CurriculumRevisionPackConcept extends CurriculumExamScopeConcept {
+  kind: string | null;
+  concept_grade: string | null;
+  files: CurriculumFile[];
+  file_count: number;
+}
+
+export interface CurriculumPastPaper {
+  id: number;
+  file_path: string;
+  file_basename: string;
+  variant_paths: string[];
+  // the variant recognised as the answer key, when the paper has one
+  answer_path: string | null;
+  school: string | null;
+  grade: string | null;
+  academic_year: string;
+  week_number: number;
+  exam_kind: string | null;
+  // which tier indexed the paper's topics: 'event' (its own test's scope),
+  // 'code' (chapter code in the filename), 'ai' (filename classification),
+  // 'proxy' (borrowed from a similar test in another year), 'none'
+  scope_source: string;
+  link_confidence: number | null;
+  // linked to this very event: a tutor already built a paper for this test
+  for_this_event: boolean;
+  same_school: boolean;
+  matched_count: number;
+  matched_concepts: {
+    concept_id: number;
+    name_en: string | null;
+    name_zh: string | null;
+  }[];
+}
+
+export interface CurriculumRevisionPackResponse {
+  event: {
+    id: number;
+    title: string;
+    event_type: string | null;
+    start_date: string;
+    school: string;
+    grade: string;
+  };
+  lang_stream: string | null;
+  concepts: CurriculumRevisionPackConcept[];
+  unmatched_lines: string[];
+  past_papers: CurriculumPastPaper[];
+}
+
+export interface CurriculumObservationResult {
+  id: number;
+  created: boolean;
+  academic_year: string;
+  week_number: number;
+  school: string;
+}
+
+export interface CurriculumTimelineConcept {
+  concept_id: number;
+  weight: number;
+  source_count: number;
+  sources: string[];
+  rank: number;
+  name_en?: string | null;
+  name_zh?: string | null;
+  kind?: string;
+  grade?: string | null;
+}
+
+export interface CurriculumPacingBand {
+  concept_id: number;
+  years_observed: number;
+  mean_week: number;
+  min_week: number;
+  max_week: number;
+  week_spread: number;
+  name_en?: string | null;
+  name_zh?: string | null;
+  kind?: string;
+  grade?: string | null;
+}
+
+export interface CurriculumWeekDates {
+  week_number: number;
+  start_date: string;
+  end_date: string;
+}
+
+export interface CurriculumTimelineResponse {
+  school: string;
+  grade: string;
+  lang_stream: string | null;
+  academic_year: string | null;
+  years_available: string[];
+  current_week: number | null;
+  weeks: { week_number: number; concepts: CurriculumTimelineConcept[] }[];
+  week_dates: CurriculumWeekDates[];
+  pacing: CurriculumPacingBand[];
+}
+
+export interface CurriculumCoverageRow {
+  school: string;
+  grade: string;
+  lang_stream: string | null;
+  academic_year: string;
+  weeks_observed: number;
+  first_week: number;
+  last_week: number;
+  total_weight: number;
+  tutor_confirms: number;
+}
+
+export interface CurriculumConceptVocab {
+  id: number;
+  kind: string;
+  name_en: string | null;
+  name_zh: string | null;
+  grade: string | null;
+  parent_id: number | null;
+  strand: string | null;
+  atlas_grade: string | null;
+  display_order: number | null;
+  codes: { code_space: string; code: string }[];
+  equivalent_ids: number[];
+  builds_on_ids: number[];
+  leads_to_ids: number[];
+}
+
+export interface CurriculumSearchConcept {
+  concept_id: number;
+  name_en: string | null;
+  name_zh: string | null;
+  kind: string;
+  concept_grade: string | null;
+  evidence: {
+    weight: number;
+    weeks_observed: number[];
+    sources: string[];
+  } | null;
+  files: CurriculumFile[];
+  /** Total mapped files before the per-concept cap. */
+  file_count?: number;
+}
+
+export interface CurriculumSearchResponse {
+  q: string | null;
+  school: string | null;
+  grade: string | null;
+  lang_stream: string | null;
+  academic_year: string | null;
+  concepts: CurriculumSearchConcept[];
 }
 
 // Holiday types

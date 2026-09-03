@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
-import useSWR, { mutate } from 'swr';
-import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
+import useSWR, { mutate, preload } from 'swr';
+import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { pickableTutors } from './employment';
+import { isCurriculumEligible } from './curriculum-labels';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -773,6 +774,142 @@ export function useCoursewareUsageDetail(
   return useSWR<CoursewareUsageDetail[]>(
     filename ? ['courseware-detail', filename, timeRange, limit, exerciseType, grade, school] : null,
     () => coursewareAPI.getUsageDetail(filename!, timeRange, limit, undefined, exerciseType, grade, school)
+  );
+}
+
+/**
+ * Hook for fetching school-timeline curriculum suggestions for a student.
+ * Pass null studentId to skip fetching (e.g. senior grades).
+ */
+export function useCurriculumSuggestions(
+  studentId: number | null | undefined,
+  date?: string | null
+) {
+  return useSWR<CurriculumSuggestionsResponse>(
+    studentId ? curriculumSuggestionsKey(studentId, date) : null,
+    () => curriculumAPI.getSuggestions(studentId!, date || undefined)
+  );
+}
+
+function curriculumSuggestionsKey(studentId: number, date?: string | null) {
+  return ['curriculum-suggestions', studentId, date || ''];
+}
+
+/**
+ * Warm the suggestions cache before the exercise modal opens.
+ *
+ * The modal's School Progress section keys on the same student and date, so
+ * a call made when the tutor hovers the exercise button, or when a session
+ * page loads, means the section renders from cache the moment the modal
+ * mounts instead of a beat after Trending. Sessions the section would never
+ * show for (summer classes, senior grades, no school) are skipped, so nothing
+ * is fetched for nothing.
+ */
+export function preloadCurriculumSuggestions(session: {
+  student_id?: number | null;
+  session_date?: string | null;
+  grade?: string | null;
+  school?: string | null;
+  summer_slot_id?: number | null;
+  lesson_number?: number | null;
+}) {
+  if (!isCurriculumEligible(session)) return;
+  const studentId = session.student_id!;
+  const date = session.session_date;
+  preload(curriculumSuggestionsKey(studentId, date), () =>
+    curriculumAPI.getSuggestions(studentId, date || undefined)
+  ).catch(() => {
+    // A failed warm-up is not an error anyone needs to see: the section
+    // fetches for itself when the modal opens.
+  });
+}
+
+/**
+ * Hook for one school-grade's weekly curriculum timeline (explorer page).
+ */
+export function useCurriculumTimeline(
+  school: string | null | undefined,
+  grade: string | null | undefined,
+  langStream?: string | null,
+  academicYear?: string | null
+) {
+  return useSWR<CurriculumTimelineResponse>(
+    school && grade ? ['curriculum-timeline', school, grade, langStream || '', academicYear || ''] : null,
+    () => curriculumAPI.getTimeline(school!, grade!, langStream, academicYear)
+  );
+}
+
+/**
+ * Hook for curriculum observation coverage across all combos (explorer page).
+ */
+export function useCurriculumCoverage() {
+  return useSWR<CurriculumCoverageRow[]>(
+    'curriculum-coverage',
+    () => curriculumAPI.getCoverage()
+  );
+}
+
+/**
+ * Hook for the full concept vocabulary (76 rows — cached, filtered client-side
+ * for autocomplete).
+ */
+export function useCurriculumConcepts(enabled: boolean = true) {
+  return useSWR<CurriculumConceptVocab[]>(
+    enabled ? 'curriculum-concepts' : null,
+    () => curriculumAPI.getConcepts(),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for a school-grade's tests and exams with parsed scope topics.
+ * Pass null school/grade to skip fetching.
+ */
+export function useCurriculumExams(
+  school: string | null | undefined,
+  grade: string | null | undefined
+) {
+  return useSWR<CurriculumExamsResponse>(
+    school && grade ? ['curriculum-exams', school, grade] : null,
+    () => curriculumAPI.getExams(school!, grade!),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for one test's revision pack. Pass null eventId while no pack is open.
+ */
+export function useCurriculumRevisionPack(
+  eventId: number | null | undefined,
+  limit?: number
+) {
+  return useSWR<CurriculumRevisionPackResponse>(
+    eventId ? ['curriculum-revision-pack', eventId, limit || 0] : null,
+    () => curriculumAPI.getRevisionPack(eventId!, limit),
+    // Lifting the cap changes the key; keep the capped pack on screen
+    // while the full one loads instead of flashing the modal empty.
+    { keepPreviousData: true }
+  );
+}
+
+/**
+ * Hook for free curriculum search. Pass null to skip fetching (no active query).
+ */
+export function useCurriculumSearch(
+  query: {
+    q?: string;
+    concept_id?: number;
+    school?: string;
+    grade?: string;
+    lang_stream?: string;
+    limit?: number;
+  } | null,
+  opts?: { keepPreviousData?: boolean }
+) {
+  return useSWR<CurriculumSearchResponse>(
+    query ? ['curriculum-search', JSON.stringify(query)] : null,
+    () => curriculumAPI.search(query!),
+    opts
   );
 }
 

@@ -138,6 +138,10 @@ docs/summer-course/*.gs
 docs/tutor-revenue-calculation.md
 docs/tutor-revenue-calculation.html
 
+# private symlink (worktrees) — anchored so only the repo-root entry is
+# ignored, not any future file or folder that happens to be named "private"
+/private
+
 # Coupon sync output. The generated SQL lists student IDs against coupon counts,
 # and this repository is public, so it stays local.
 coupon-sync/
