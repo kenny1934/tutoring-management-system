@@ -24,7 +24,7 @@ import unicodedata
 from collections import Counter, defaultdict
 from datetime import date
 
-from _common import PRIV, canon_school, connect  # noqa: E402  (sets sys.path + .env)
+from _common import PRIV, canon_school, connect, norm  # noqa: E402  (sets sys.path + .env)
 from curriculum.parser import parse_pdf_name  # noqa: E402
 
 TREE_V = os.path.join(PRIV, "drive_trees", "tree_v_secondary.txt")

@@ -264,13 +264,15 @@ def main():
         if not args.skip_scan:
             raw = scan_drive(log)
             if raw is None:
-                return 1
+                exit_code = 1
+                return exit_code
             new, per_root = filter_roots(raw)
             log("Kept per root: " + ", ".join(f"{r} {per_root[r]}" for r in ROOTS))
             missing = [r for r in ROOTS if per_root[r] == 0]
             if missing and not args.force:
                 log(f"ERROR nothing found under {', '.join(missing)}. The drive looks only partly readable, so the snapshot is left untouched.")
-                return 2
+                exit_code = 2
+                return exit_code
 
             old = read_snapshot(TREE_V)
             old_set, new_set = set(old), set(new)
@@ -287,7 +289,8 @@ def main():
                 log(f"STOPPED {len(vanished)} files vanished, above the guard of {threshold}. "
                     "If folders were really moved or deleted, run again with --force. "
                     "The snapshot and the database were left untouched.")
-                return 2
+                exit_code = 2
+                return exit_code
 
             year = current_school_year()
             weeks = sorted(
