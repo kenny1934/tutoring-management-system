@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.127](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.126...v2.0.127) (2026-09-03)
+
+
+### New Features
+
+* **curriculum:** School Progress ([#108](https://github.com/kenny1934/tutoring-management-system/issues/108)) ([31f5049](https://github.com/kenny1934/tutoring-management-system/commit/31f50492fe669a41681d18472f612ac4b167c6a9))
+
 ## [2.0.126](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.125...v2.0.126) (2026-08-30)
 
 
