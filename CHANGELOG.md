@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.127](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.126...v2.0.127) (2026-09-03)
+
+
+### New Features
+
+* **School Progress suggests worksheets for what each school is on this week**: while setting a session's exercises, tutors see the topics the student's school is likely covering, with worksheets ranked by that school's own usage, and can confirm or correct the topic with one tap.
+* **Revision papers surface before a test**: when a student has a test coming up, the suggestions switch to the test's scope and bring up the revision papers tutors made for that test or for similar ones.
+* **A new Curriculum page**: see any school's year week by week, compare its pace with other schools, browse the topic map, search topics, and open a revision pack for any test.
+* **The session page's curriculum tab now uses the same timelines**: it shows the school's neighbouring weeks instead of last year's sheet.
+
 ## [2.0.126](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.125...v2.0.126) (2026-08-30)
 
 
