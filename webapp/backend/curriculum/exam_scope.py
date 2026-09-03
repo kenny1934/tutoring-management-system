@@ -52,11 +52,30 @@ def _s2t(s):
     return "".join(_SIMP2TRAD.get(ch, ch) for ch in s)
 
 
+def _singular(word):
+    """Fold an English plural so "quadrilateral" meets "quadrilaterals".
+
+    Only the two common endings, and only on words long enough that the
+    ending is a plural rather than the word itself ("plus" is left alone
+    by length, "class" by its double s). Both the vocabulary and the text
+    being matched pass through here, so the folding only has to be
+    consistent, not linguistically perfect: "indices" and the frequent
+    misspelling "indice" both come out as "indice", which is the point.
+    """
+    if len(word) >= 5 and word.endswith("ies"):
+        return word[:-3] + "y"
+    if len(word) >= 5 and word.endswith("s") and not word.endswith("ss"):
+        return word[:-1]
+    return word
+
+
 def normalize(s):
     s = unicodedata.normalize("NFKC", str(s)).lower()
     s = _s2t(s)
     s = re.sub(r'[.　·•‧\-–—_,，、;；:：/\\()（）\[\]{}【】"\'\s]+', " ", s)
-    return re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r"\s+", " ", s).strip()
+    return " ".join(_singular(t) if t.isascii() and t.isalpha() else t
+                    for t in s.split(" "))
 
 
 _CN_DIGITS = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
@@ -103,9 +122,14 @@ _MAS_ALIASES = {
     '抽樣': '710', '條形圖': '710', '扇形圖': '710', '直方圖': '710',
     '折線圖': '710', '數據的收集': '710', '收集數據': '710',
     '三角形的邊': '801', '三角形的角': '801', '內角和': '801', '外角': '801',
+    # Named as a whole so the word "inequality" cannot pull it to 不等式.
+    'triangle inequality': '801', '三角形三邊關係': '801',
     '多邊形': '801', '多邊形的內角和': '801',
     '全等': '802', '全等三角形': '802', '全等三角形的判定': '802',
     '角平分線的性質': '802',
+    # The bare term is the F1 definition (幾何圖形初步) as often as the F2
+    # property (全等三角形); the grade of the text decides between them.
+    '角平分線': ('704', '802'),
     '軸對稱': '803', '等腰三角形': '803', '等邊三角形': '803',
     '垂直平分線': '803', '最短路徑': '803',
     '整式乘法': '804', '冪的運算': '804', '因式分解': '804', '平方差公式': '804',
@@ -154,7 +178,12 @@ _HK_ALIASES = {
     'introduction to geometry': '707', '3d figures': '707', 'polyhedra': '707',
     'areas and volumes': '708',
     'coordinates': '709', 'distance between two points': '709',
+    'rectangular coordinate system': '709', 'rectangular coordinates': '709',
     'angles related to lines': '710', 'parallel lines': '710',
+    # Whole phrases, so "straight line" inside them cannot pull the line to
+    # coordinate geometry.
+    'angles on a straight line': '710', 'adjacent angles': '710',
+    'vertically opposite angles': '710',
     'polynomials': '711', 'laws of indices': '711', 'indices': '711',
     '指數律': '711',
     'statistics': '712', 'statistical diagrams': '712', 'stem and leaf': '712',
@@ -163,6 +192,9 @@ _HK_ALIASES = {
     'rate and ratio': '801', 'rate': '801', 'applications of ratio': '801',
     'identities': '802', '恆等式': '802',
     'factorization': '803', 'factorisation': '803', 'cross method': '803',
+    # The verb form; the F2 and F3 factorization chapters share it and the
+    # grade of the text picks between them.
+    'factorizing': ('803', '901'), 'factorising': ('803', '901'),
     '十字相乘法': '803',
     'algebraic fractions': '804', 'formulae': '804', 'formulas': '804',
     'change of subject': '804',
@@ -218,6 +250,9 @@ _EXT_ALIASES = {
     'factor theorem': 'Remainder and Factor Theorems (Polynomial Division)',
     'polynomial division': 'Remainder and Factor Theorems (Polynomial Division)',
     'synthetic division': 'Remainder and Factor Theorems (Polynomial Division)',
+    # A bare "Polynomial" on an F3 test means this; on an F1 or F2 line the
+    # F1 polynomials chapter outranks it by grade.
+    'polynomial': 'Remainder and Factor Theorems (Polynomial Division)',
     'sequences': 'Sequences', '數列': 'Sequences',
     '等差數列': 'Sequences', '等比數列': 'Sequences',
     'sets': 'Sets and Venn Diagrams', 'venn diagrams': 'Sets and Venn Diagrams',
@@ -246,6 +281,9 @@ _STRAND_WORDS = {
     "代數", "幾何", "統計", "數據", "數據處理", "數學", "algebra", "geometry",
     "statistics", "number", "data handling",
 }
+# Compared against normalised text, so the words go through the same
+# folding ("statistics" becomes "statistic" on both sides).
+_STRAND_NORM = {normalize(w) for w in _STRAND_WORDS}
 
 # Publisher markers seen in scope text. 人教 pins the MAS positional map;
 # any other recognised marker means "some other textbook's numbering" and
@@ -358,8 +396,11 @@ class ScopeMatcher:
                 code_concepts["HK"][str(code)].add(cid)
         for series, table in alias_maps.items():
             for term, code in table.items():
-                for cid in code_concepts[series].get(code, ()):
-                    add_term(term, cid, 2)
+                # A term may belong to more than one chapter (a tuple of
+                # codes); the grade of the text picks between them.
+                for one in (code if isinstance(code, tuple) else (code,)):
+                    for cid in code_concepts[series].get(one, ()):
+                        add_term(term, cid, 2)
         for term, name_en in _EXT_ALIASES.items():
             cid = by_name_en.get(name_en)
             if cid is not None:
@@ -367,7 +408,14 @@ class ScopeMatcher:
 
     # -- name channel --------------------------------------------------------
 
-    def _match_name(self, n, series):
+    def _match_name(self, n, series, grade=None):
+        """Best concept for a normalised name, or None.
+
+        Candidates are weighed by match strength, then the school's series
+        is preferred, then the text's grade breaks what is left within that
+        series. A lone candidate wins whatever its grade, because schools
+        do teach ahead and revise behind.
+        """
         if not n:
             return None
         cand = Counter()
@@ -382,15 +430,47 @@ class ScopeMatcher:
             for term, hits in self.term_index.items():
                 if len(term) >= 3 and (_contains(n, term) or _contains(term, n)):
                     ratio = min(len(term), len(n)) / max(len(term), len(n))
-                    if ratio > 0.25:
+                    # The ratio stops a short CJK term matching inside a long
+                    # unrelated line, where there are no word boundaries. An
+                    # ASCII term already has to sit on word boundaries, so
+                    # it gets a looser floor; the plural fold also shortens
+                    # English terms by a letter, which the old floor turned
+                    # into lost matches ("surd" in "simplifying surd").
+                    if ratio > (0.2 if term.isascii() else 0.25):
                         for (cid, s), w in hits.items():
                             cand[(cid, s)] += w * (2 if _contains(n, term) else 1) * ratio
             fuzzy = True
         if not cand:
             return None
+        # The school's series comes first. Most chapters exist in both
+        # series' vocabularies, and resolving to the other series' copy
+        # splits the school's evidence in two. Extension topics belong to no
+        # series and count as the school's own.
         if series in ("MAS", "HK"):
-            cand = Counter({k: v * (2 if k[1] == series else 1)
+            cand = Counter({k: v * (2 if k[1] in (series, None) else 1)
                             for k, v in cand.items()})
+        # Grade then decides within the leading series, in both directions.
+        # On an F1 line "角平分線" is the F1 definition rather than the F2
+        # property; on an F3 test "Polynomial" is the F3 remainder theorem
+        # rather than the F1 polynomials chapter. One grade away is nudged,
+        # two or more away is discounted hard enough to lose an exact tie,
+        # and a lone candidate still wins whatever its grade. Grade never
+        # overrules series: a same-topic copy in the other series stays out
+        # of the comparison.
+        text_grade = _GRADE_ORDER.get(grade)
+        if text_grade and len(cand) > 1:
+            lead_tag = cand.most_common(1)[0][0][1]
+            allowed = {lead_tag, None} | ({series} if lead_tag is None else set())
+
+            def grade_factor(cid):
+                own = _GRADE_ORDER.get(self.grade_of.get(cid))
+                if own is None:
+                    return 1
+                gap = abs(own - text_grade)
+                return 1 if gap == 0 else 0.9 if gap == 1 else 0.6
+
+            cand = Counter({k: v * grade_factor(k[0])
+                            for k, v in cand.items() if k[1] in allowed})
         (cid, _), _score = cand.most_common(1)[0]
         return cid, (CONF_NAME_FUZZY if fuzzy else CONF_NAME_EXACT)
 
@@ -482,12 +562,12 @@ class ScopeMatcher:
             head, sep, rest = cleaned.partition(":")
             if not sep:
                 head, sep, rest = cleaned.partition("：")
-            if sep and normalize(head) in _STRAND_WORDS:
+            if sep and normalize(head) in _STRAND_NORM:
                 cleaned = rest.strip()
                 if not cleaned:
                     lines.append({"text": part, "kind": "strand", "concepts": []})
                     continue
-            if normalize(cleaned) in _STRAND_WORDS:
+            if normalize(cleaned) in _STRAND_NORM:
                 lines.append({"text": part, "kind": "strand", "concepts": []})
                 continue
 
@@ -505,7 +585,7 @@ class ScopeMatcher:
             name_text = _PAGE_REF_RE.sub(" ", name_text)
             name_text = _CH_CJK_RE.sub(" ", name_text)
             name_n = normalize(name_text)
-            name_hit = self._match_name(name_n, line_series)
+            name_hit = self._match_name(name_n, line_series, grade)
 
             concepts = []
             if name_hit and code_cids:

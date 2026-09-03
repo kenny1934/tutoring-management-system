@@ -24,7 +24,7 @@ import unicodedata
 from collections import Counter, defaultdict
 from datetime import date
 
-from _common import PRIV, connect  # noqa: E402  (sets sys.path + .env)
+from _common import PRIV, canon_school, connect  # noqa: E402  (sets sys.path + .env)
 from curriculum.parser import parse_pdf_name  # noqa: E402
 
 TREE_V = os.path.join(PRIV, "drive_trees", "tree_v_secondary.txt")
@@ -61,33 +61,18 @@ def year_conf(academic_year, today=None):
     return max(0.60, round(0.90 - 0.10 * age, 2))
 
 
-_school_data = json.load(open(os.path.join(PRIV, "school_aliases.json"), encoding="utf-8"))
-CANON_SET = set(_school_data["CANON"])
-FIX = _school_data["FIX"]
+def sheet_row_conf(concept):
+    """Confidence for a live-sheet observation, from how the part was resolved.
 
-
-def norm(s):
-    return unicodedata.normalize("NFKC", s or "").strip()
-
-
-def canon_school(name, stream=None):
-    """Return list of canonical school names (multi-school folders split)."""
-    name = norm(name)
-    if name in ("新增資料夾", "") or name.endswith(".pdf"):
-        return []
-    parts = (re.split(r"[,，]\s*|\s{1,}(?=[A-Z一-鿿])", name)
-             if (" " in name or "," in name or "，" in name) else [name])
-    out = []
-    for p in parts:
-        p = FIX.get(p.strip(), p.strip())
-        if not p:
-            continue
-        if p in CANON_SET:
-            out.append(p)
-        elif stream and f"{p}-{stream}" in CANON_SET:
-            out.append(f"{p}-{stream}")
-        # unknown school folders are dropped (counted by caller via empty result)
-    return out
+    A mechanical match at the parser's exact-name level gets the same 0.85
+    the frozen July sheet rows carry. Fuzzier mechanical matches and AI
+    answers step down through the same tiers the July AI residuals used,
+    so evidence from the two sheet imports weighs alike.
+    """
+    conf = float(concept.get("confidence", 0))
+    if concept.get("channel") == "ai":
+        return 0.75 if conf >= 0.9 else 0.65 if conf >= 0.7 else 0.55
+    return SHEET_CONF if conf >= 0.9 else 0.75
 
 
 def concept_for(alias_map, space, code):
@@ -276,6 +261,27 @@ def main():
         ref = f"{row['source']}:{school}:{grade}{stream or ''}:wk{week}:{row['part'][:60]}"
         for cid in cids:
             add(school, grade, stream, year, week, cid, "sheet", conf, False, ref)
+
+    # ---- channel 3b: live curriculum sheets ---------------------------------
+    # import_curriculum_sheets.py reads each year's Google Sheet and leaves one
+    # file per year here, rows already resolved to concept ids. The frozen
+    # July file above still covers 2024-25 and 2025-26; these files carry the
+    # years imported live, starting with 2026-27.
+    sheets_dir = os.path.join(PRIV, "sheets")
+    live_files = (sorted(n for n in os.listdir(sheets_dir)
+                         if n.startswith("sheet_") and n.endswith(".json"))
+                  if os.path.isdir(sheets_dir) else [])
+    for name in live_files:
+        data = json.load(open(os.path.join(sheets_dir, name), encoding="utf-8"))
+        year = data["academic_year"]
+        for row in data["rows"]:
+            ref = (f"sheet:{year}:{row['school']}:{row['grade']}{row['stream'] or ''}"
+                   f":wk{row['week']}:{row['text'][:60]}")
+            for c in row["concepts"]:
+                add(row["school"], row["grade"], row["stream"], year, row["week"],
+                    c["concept_id"], "sheet", sheet_row_conf(c),
+                    bool(row.get("is_revision")), ref)
+            stats[f"sheet_live:{year}"] += 1
 
     rows = [(k[0], k[1], k[2], k[3], k[4], k[5], k[6], v[0], k[7], v[1])
             for k, v in best.items()]

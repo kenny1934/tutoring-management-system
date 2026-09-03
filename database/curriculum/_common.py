@@ -7,8 +7,10 @@ so this directory is already importable as their sys.path[0].
 """
 import json
 import os
+import re
 import subprocess
 import sys
+import unicodedata
 
 import pymysql
 from dotenv import load_dotenv
@@ -21,6 +23,54 @@ if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
 load_dotenv(os.path.join(BACKEND_DIR, ".env"))
+
+
+# --- school names ------------------------------------------------------------
+# Folder names, sheet rows and calendar events all spell schools slightly
+# differently (DBWY for DBYW, 青州 for 青洲, a stream suffix present or not).
+# school_aliases.json holds the canonical list plus a FIX table of known
+# misspellings; canon_school turns any spelling into canonical names.
+
+_school_data = None
+
+
+def _school_aliases():
+    global _school_data
+    if _school_data is None:
+        with open(os.path.join(PRIV, "school_aliases.json"), encoding="utf-8") as fh:
+            data = json.load(fh)
+        _school_data = (set(data["CANON"]), data["FIX"])
+    return _school_data
+
+
+def norm(s):
+    return unicodedata.normalize("NFKC", s or "").strip()
+
+
+def canon_school(name, stream=None):
+    """Return the list of canonical school names a label stands for.
+
+    A label can name several schools (shared prep folders like "PCMS, KPS"),
+    so the result is a list. Unknown names come back as an empty list and the
+    caller counts them, so a new school shows up as a number in the run's
+    stats rather than silently vanishing.
+    """
+    canon_set, fix = _school_aliases()
+    name = norm(name)
+    if name in ("新增資料夾", "") or name.endswith(".pdf"):
+        return []
+    parts = (re.split(r"[,，]\s*|\s{1,}(?=[A-Z一-鿿])", name)
+             if (" " in name or "," in name or "，" in name) else [name])
+    out = []
+    for p in parts:
+        p = fix.get(p.strip(), p.strip())
+        if not p:
+            continue
+        if p in canon_set:
+            out.append(p)
+        elif stream and f"{p}-{stream}" in canon_set:
+            out.append(f"{p}-{stream}")
+    return out
 
 
 def connect():

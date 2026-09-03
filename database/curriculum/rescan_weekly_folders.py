@@ -18,7 +18,9 @@ one go, and it is what the Windows scheduled task runs every night:
      archive rows for files that are no longer in the tree and a half-read
      drive would take the archive down with it,
   4. write the new snapshot, keeping a dated copy of the old one,
-  5. run the three backfills that read the tree: the content map, the school
+  5. refresh the live curriculum sheet import (import_curriculum_sheets.py,
+     which reads the year's Google Sheet, not the drive) and then run the
+     three backfills that read the tree: the content map, the school
      timelines and the revision paper archive. Each is idempotent and runs
      as its own process, so one failing does not stop the others.
 
@@ -69,8 +71,11 @@ TREE_DIR = os.path.join(PRIV, "drive_trees")
 TREE_V = os.path.join(TREE_DIR, "tree_v_secondary.txt")
 LOG_DIR = os.path.join(PRIV, "rescan_logs")
 LOCK = os.path.join(LOG_DIR, ".rescan.lock")
+# In dependency order: the sheet import writes the file the observation
+# backfill reads, and the content map feeds nothing here but is cheap.
 BACKFILLS = (
     "backfill_courseware.py",
+    "import_curriculum_sheets.py",
     "backfill_observations.py",
     "backfill_rev_papers.py",
 )
