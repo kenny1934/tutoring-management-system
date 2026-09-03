@@ -294,7 +294,8 @@ have nothing to suggest, the slot settles into one muted line saying so
 rather than vanishing. The data is usually already there when the modal
 opens, because the app warms the suggestions cache when a session page
 loads, when a tutor hovers or focuses a CW or HW button on the sessions
-list, and when a card takes keyboard focus. Inside: the topics the school is likely on with an
+list or a Classwork or Homework link on a student's page, and when a card
+takes keyboard focus. Inside: the topics the school is likely on with an
 evidence line each, ranked worksheets with preview, add and "already
 assigned" badges, and a green "School is on this" button per topic. Outside a
 test window the button records new teaching at once. Inside one it opens
