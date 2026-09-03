@@ -29,6 +29,21 @@ KNOWN_ALIASES = ["Courseware Developer 中學", "Center", "MSA Staff"]
 _ROOT_TO_ALIAS = {root: alias for alias, roots in ALIAS_ROOTS.items() for root in roots}
 _DRIVE_RE = re.compile(r"^[A-Za-z]:")
 
+# Extensions the migration-036 popularity view strips when grouping. Keys
+# must strip exactly this set: a blind rsplit('.') would truncate
+# extensionless decimal-coded names ('903.1_Percentage_e' -> '903').
+KNOWN_EXT_RE = re.compile(r"\.(pdf|docx?|jpg|xlsx|pptx)$", re.IGNORECASE)
+
+
+def basename_key(name: str) -> str:
+    """Lowercased basename with any known extension stripped.
+
+    This is the join key shared by the popularity map, file dedupe and
+    assignment history in the suggestions router, and by the observation
+    backfill when it looks an assigned file up in the content map.
+    """
+    return KNOWN_EXT_RE.sub("", name or "").lower()
+
 
 def _clean(raw: str) -> str:
     """Strip quotes/whitespace and unify separators to backslash."""

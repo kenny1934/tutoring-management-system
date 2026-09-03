@@ -93,7 +93,7 @@ Sources and their confidence:
 | Source | What it is | Confidence |
 | --- | --- | --- |
 | `prep_folder` | A worksheet filed in a weekly prep folder on the V: drive under a school's name | 0.90 for the current school year, 0.10 less per year older, floor 0.60 |
-| `assignment` | A worksheet actually assigned to a student of that school and grade in that week | 0.70 |
+| `assignment` | A worksheet actually assigned to a student of that school and grade in that week. Its topic comes from the chapter code in the file name, or from the content map when the name has none, so a scan or renamed file a tutor pasted in counts once the map knows it. | 0.70, or 0.65 when the topic came from an AI-classified map row |
 | `sheet` | A cell in the curriculum sheet a tutor filled in | 0.85 for a mechanical match, 0.75 for a fuzzy one, 0.55 to 0.75 for an AI answer |
 | `exam_scope` | A topic named in a test's scope (kept on the exam tables, see below) | per line |
 | `tutor_confirm` | A tutor's one-tap confirm or correction in the app | 1.0 for a confirm, 0.7 for accepting a suggestion (unused in v1) |
@@ -164,7 +164,11 @@ to existing rows. All are idempotent and were run once.
 snapshots and the assignment log. `backfill_observations.py` rebuilds the
 prep folder, assignment and sheet observations and never touches tutor
 confirms. It shifts each student's current grade back by the number of
-school years since the session, because grades move every September.
+school years since the session, because grades move every September. An
+assigned file resolves through its chapter code first and the content map
+second, by full path and then by basename, so whether a tutor took a
+suggestion or pasted their own choice, the file feeds the school's timeline
+on the next rebuild.
 `backfill_rev_papers.py` rebuilds the paper archive from the weekly folders,
 preserving AI and manual index rows, and deletes rows for files no longer in
 the tree.

@@ -50,7 +50,7 @@ from sqlalchemy.orm import Session
 from auth.dependencies import get_current_user
 from constants import hk_now
 from curriculum import exam_scope
-from curriculum.paths import normalize
+from curriculum.paths import KNOWN_EXT_RE, basename_key, normalize
 from database import get_db
 from models import CalendarEvent, Student, Tutor
 from routers.debug_admin import escape_like_pattern
@@ -265,18 +265,6 @@ def _concept_meta(db, concept_ids):
     }
 
 
-# Extensions the migration-036 popularity view strips when grouping. Keys
-# must strip exactly this set — a blind rsplit('.') would truncate
-# extensionless decimal-coded names ('903.1_Percentage_e' -> '903').
-_KNOWN_EXT_RE = re.compile(r"\.(pdf|docx?|jpg|xlsx|pptx)$", re.IGNORECASE)
-
-
-def _basename_key(name):
-    """Lowercased basename with any known extension stripped — the join key
-    shared by the popularity map, file dedupe, and assignment history."""
-    return _KNOWN_EXT_RE.sub("", name or "").lower()
-
-
 # The in-process caches below all share one shape ({key -> entry}) and one
 # TTL; staleness is harmless in every case (popularity only breaks ties, the
 # matcher tracks rare vocabulary edits, a school's series is effectively
@@ -441,12 +429,12 @@ def _dedupe_files(files):
     basename, preferring the variant with a real extension."""
     kept = {}
     for f in files:
-        key = _basename_key(f["file_basename"])
+        key = basename_key(f["file_basename"])
         prev = kept.get(key)
         if prev is None:
             kept[key] = f
-        elif (not _KNOWN_EXT_RE.search(prev["file_basename"] or "")
-              and _KNOWN_EXT_RE.search(f["file_basename"] or "")):
+        elif (not KNOWN_EXT_RE.search(prev["file_basename"] or "")
+              and KNOWN_EXT_RE.search(f["file_basename"] or "")):
             prev["file_path"] = f["file_path"]
             prev["file_basename"] = f["file_basename"]
     return list(kept.values())
@@ -501,8 +489,8 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
         }
         if role_filter and r.role != role_filter:
             continue
-        pop = popularity.get(_basename_key(r.file_basename))
-        spop = school_popularity.get(_basename_key(r.file_basename))
+        pop = popularity.get(basename_key(r.file_basename))
+        spop = school_popularity.get(basename_key(r.file_basename))
         school_code = _reference_school(r.file_path)
         files_by_concept[r.concept_id].append({
             "file_path": r.file_path,
@@ -554,7 +542,7 @@ def _student_assigned_map(db, student_id):
     """), {"sid": student_id}).fetchall()
     out = {}
     for r in rows:
-        key = _basename_key(normalize(r.pdf_name)["basename"])
+        key = basename_key(normalize(r.pdf_name)["basename"])
         if not key:
             continue
         count, last_date = out.get(key, (0, None))
@@ -684,7 +672,7 @@ def get_curriculum_suggestions(
                 why["years_observed"] = evidence["years_observed"]
         files = files_by_concept.get(concept_id, [])[:MAX_FILES_PER_CONCEPT]
         for f in files:
-            done = assigned.get(_basename_key(f["file_basename"]))
+            done = assigned.get(basename_key(f["file_basename"]))
             f["student_assigned_count"] = done[0] if done else 0
             f["student_last_assigned"] = _iso(done[1]) if done else None
         suggestions.append({

@@ -6,6 +6,10 @@
                 are weaker in older years.
   assignment  — session_exercises joined to students (F1-F3) and academic_weeks.
                 Behavioural evidence, noisier (test-prep, catch-up): 0.70.
+                A file's topic comes from the chapter code in its name, or
+                failing that from the content map (courseware_concepts), so a
+                school scan or renamed file a tutor pasted counts once the map
+                knows it. Map rows that came from AI classification carry 0.65.
   sheet       — hand-collected school curriculum sheets, both years, from the
                 dry-run classification (private/curriculum_data/dryrun/):
                 mechanical matches 0.85, AI-mapped residuals 0.55-0.75.
@@ -26,10 +30,17 @@ from datetime import date
 
 from _common import PRIV, canon_school, connect, norm  # noqa: E402  (sets sys.path + .env)
 from curriculum.parser import parse_pdf_name  # noqa: E402
+from curriculum.paths import basename_key, normalize  # noqa: E402
 
 TREE_V = os.path.join(PRIV, "drive_trees", "tree_v_secondary.txt")
 
 ASSIGN_CONF = 0.70
+# An assignment resolved through an AI-classified content-map row sits one
+# step below one whose filename carries the chapter code outright.
+ASSIGN_MAP_AI_CONF = 0.65
+# Content-map roles that mean test prep rather than first teaching. The
+# filename parser already flags most of these; the role catches the rest.
+REVISION_ROLES = {"revision", "past_paper", "mock"}
 SHEET_CONF = 0.85
 AI_CONF = {"high": 0.75, "med": 0.65, "medium": 0.65, "low": 0.55}
 
@@ -82,6 +93,41 @@ def concept_for(alias_map, space, code):
 def hk_concepts(alias_map, code):
     """Dry-run sheet series 'HK' is generation-agnostic: prefer new, fall back old."""
     return alias_map.get(("HK_NEW", code)) or alias_map.get(("HK_OLD", code)) or []
+
+
+class ContentMap:
+    """The content map (courseware_concepts), keyed for looking up an assigned file.
+
+    session_exercises.pdf_name holds whatever the tutor pasted: a drive-letter
+    path, an alias path, sometimes a bare name. normalize() strips the prefix
+    so the full path is tried first. The basename is the fallback, because a
+    weekly-folder copy of a reference scan lives under a different path from
+    the row the map holds for it. Both keys are lowercased and the basename
+    loses its extension, which is the same key the suggestions router uses to
+    join assignment history.
+    """
+
+    def __init__(self, rows):
+        self.by_path = defaultdict(list)
+        self.by_base = defaultdict(list)
+        for match_path, basename, cid, role, source, conf in rows:
+            entry = (cid, role, source, float(conf))
+            self.by_path[match_path.lower()].append(entry)
+            self.by_base[basename_key(basename)].append(entry)
+
+    @classmethod
+    def load(cls, cur):
+        cur.execute("SELECT match_path, file_basename, concept_id, role, source, confidence "
+                    "FROM courseware_concepts")
+        return cls(cur.fetchall())
+
+    def lookup(self, pdf_name):
+        """[(concept_id, role, source, confidence)] for a file, or [] when unknown."""
+        n = normalize(pdf_name)
+        hits = self.by_path.get(n["match_path"].lower())
+        if not hits and n["basename"]:
+            hits = self.by_base.get(basename_key(n["basename"]))
+        return hits or []
 
 
 def main():
@@ -172,6 +218,10 @@ def main():
         n = int(m.group(1)) - offset
         return "F%d" % n if 1 <= n <= 6 else None
 
+    # A file's topic comes from the chapter code in its name when it has one.
+    # Otherwise the content map is asked, which is how a school scan, a
+    # tailor-made paper or a renamed file that a tutor pasted in still counts.
+    cmap = ContentMap.load(cur)
     cur.execute(
         "SELECT se.id, se.pdf_name, sl.session_date, s.school, s.grade, s.lang_stream "
         "FROM session_exercises se "
@@ -191,18 +241,22 @@ def main():
             continue
         p = parse_pdf_name(pdf)
         code, space = p.get("code"), p.get("code_space")
-        if not code or space in ("SM", "SS", None):
-            stats["assign:no_code"] += 1
-            continue
-        cids = concept_for(alias_map, space, code)
-        if not cids:
-            stats["assign:no_concept"] += 1
-            continue
+        is_rev = p.get("is_rev", False)
+        cids = (concept_for(alias_map, space, code)
+                if code and space not in ("SM", "SS", None) else [])
+        if cids:
+            hits = [(cid, ASSIGN_CONF, is_rev) for cid in cids]
+            stats["assign:code"] += 1
+        else:
+            hits = [(cid, ASSIGN_MAP_AI_CONF if source == "ai" else ASSIGN_CONF,
+                     is_rev or role in REVISION_ROLES)
+                    for cid, role, source, _conf in cmap.lookup(pdf)]
+            stats["assign:content_map" if hits else "assign:unresolved"] += 1
         schools = canon_school(school, stream) or [norm(school)]
         for sc in schools:
-            for cid in cids:
+            for cid, conf, rev in hits:
                 add(sc, grade, stream or None, year, week, cid, "assignment",
-                    ASSIGN_CONF, p.get("is_rev", False), f"session_exercise:{se_id}")
+                    conf, rev, f"session_exercise:{se_id}")
 
     # ---- channel 3: curriculum sheets (both years) ---------------------------
     sheet = json.load(open(os.path.join(PRIV, "dryrun", "sheet_classified.json"), encoding="utf-8"))

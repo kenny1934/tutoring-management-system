@@ -258,6 +258,17 @@ def test_reference_school_resolves_chinese_named_folders():
     assert curriculum._reference_school("Center\\Courseware (Eng)\\x.pdf") is None
 
 
+def test_basename_key_strips_known_extensions_only():
+    """The join key the router and the observation backfill share: known
+    extensions go, case folds, and an extensionless decimal code keeps its
+    decimal part because a blind split on '.' would truncate it."""
+    from curriculum.paths import basename_key
+    assert basename_key("MAS_803_Rev.PDF") == "mas_803_rev"
+    assert basename_key("Quiz_Identities (23.10.03).docx") == "quiz_identities (23.10.03)"
+    assert basename_key("903.1_Percentage_e") == "903.1_percentage_e"
+    assert basename_key(None) == ""
+
+
 def test_files_flag_already_assigned(client: TestClient, db_session):
     _consensus_row(db_session, week=11, concept_id=1, weight=3.0)
     db_session.add(Tutor(id=50, user_email="t@example.com", tutor_name="T",
