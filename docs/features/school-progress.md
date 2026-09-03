@@ -135,9 +135,11 @@ All of these were applied to production before the merge and need no
 re-running: 123 (vocabulary, content map, observations; drops the old
 `curriculum_current_week` view), 124 (path normalisation), 125 (views), 126
 (concept links), 127 (strands and atlas grade), 128 and 129 (exam scope
-mappings and their key), 167 (the 2026-27 calendar) and 168 (the revision
+mappings and their key), 167 (the 2026-27 calendar), 168 (the revision
 paper archive, applied under its original number 130 before main took that
-number for something else).
+number for something else) and 169 (a stored, indexed filename key on
+`session_exercises`, which the popularity views now read instead of
+recomputing it from every row on every query).
 
 ---
 
@@ -255,7 +257,14 @@ and the modal section up to four.
 
 The router caches its expensive lookups (popularity maps, the scope matcher,
 school series) with a small TTL helper, keyed per process, because Cloud Run
-runs several processes and nothing can invalidate across them.
+runs several processes and nothing can invalidate across them. The cache is
+cold more often than not, since processes idle between lessons and the TTL
+is ten minutes, so the cold path has to be cheap on its own. Before
+migration 169 the two popularity maps cost about a second on a cold process,
+which is why the section used to land a beat after Trending. With the
+filename key stored on the assignments table, a cold request now costs a
+few hundred milliseconds at most, and the frontend hides even that by
+warming the cache before the modal opens (see the modal section below).
 
 ### The exam-scope parser
 
@@ -277,7 +286,15 @@ line. English plurals fold on both sides of a match.
 ### School Progress in the exercise modal
 
 A teal collapsible below Trending, collapsed by default with the top topic
-named in its header. Inside: the topics the school is likely on with an
+named in its header. Its slot is on screen from the first paint: while the
+suggestions load the header shows with a pulsing line where the topic will
+go, so a tutor sees the section exists before the data lands rather than
+having it pop in a beat after Trending. If the student's school and week
+have nothing to suggest, the slot settles into one muted line saying so
+rather than vanishing. The data is usually already there when the modal
+opens, because the app warms the suggestions cache when a session page
+loads, when a tutor hovers or focuses a CW or HW button on the sessions
+list, and when a card takes keyboard focus. Inside: the topics the school is likely on with an
 evidence line each, ranked worksheets with preview, add and "already
 assigned" badges, and a green "School is on this" button per topic. Outside a
 test window the button records new teaching at once. Inside one it opens

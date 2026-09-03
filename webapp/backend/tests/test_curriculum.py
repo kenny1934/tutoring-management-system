@@ -51,10 +51,9 @@ RAW_TABLES = [
         concept_id INT, years_observed INT, mean_week DECIMAL(4,1),
         min_week INT, max_week INT, week_spread DECIMAL(4,1),
         total_weight DECIMAL(10,2))""",
-    """CREATE TABLE courseware_popularity_summary (
-        filename VARCHAR(255), normalized_paths TEXT, used_by TEXT,
-        assignment_count INT, unique_student_count INT,
-        earliest_use DATE, latest_use DATE)""",
+    """CREATE TABLE courseware_popularity_counts (
+        filename VARCHAR(255), assignment_count INT, unique_student_count INT,
+        latest_use DATE)""",
     """CREATE TABLE courseware_usage_detail (
         filename VARCHAR(255), original_pdf_name TEXT, exercise_type VARCHAR(50),
         session_date DATE, student_id INT, school VARCHAR(255),
@@ -118,7 +117,7 @@ def _setup(db_session):
         (2, '{ALIAS_E}\\705_EX1_e.pdf',  '705_EX1_e.pdf',  'exercise', 'e', 'code', 1.0)
     """))
     db_session.execute(text("""
-        INSERT INTO courseware_popularity_summary
+        INSERT INTO courseware_popularity_counts
             (filename, assignment_count, unique_student_count) VALUES
         ('704_EX1_e', 40, 20), ('704_EX2_e', 90, 45), ('704_Rev_e', 10, 8),
         ('705_EX1_e', 5, 3)
@@ -307,7 +306,7 @@ def test_extensionless_decimal_codes_stay_distinct(client: TestClient, db_sessio
         (2, '{ALIAS_E}\\903.2_Discount_e',       '903.2_Discount_e',       'exercise', 'e', 'code', 1.0)
     """))
     db_session.execute(text("""
-        INSERT INTO courseware_popularity_summary
+        INSERT INTO courseware_popularity_counts
             (filename, assignment_count, unique_student_count) VALUES
         ('903.1_PERCENTAGE_E', 7, 4)
     """))

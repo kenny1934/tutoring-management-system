@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
-import useSWR, { mutate } from 'swr';
+import useSWR, { mutate, preload } from 'swr';
 import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { pickableTutors } from './employment';
+import { isCurriculumEligible } from './curriculum-labels';
 import { isFileSystemAccessSupported } from './file-system';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
 
@@ -785,9 +786,42 @@ export function useCurriculumSuggestions(
   date?: string | null
 ) {
   return useSWR<CurriculumSuggestionsResponse>(
-    studentId ? ['curriculum-suggestions', studentId, date || ''] : null,
+    studentId ? curriculumSuggestionsKey(studentId, date) : null,
     () => curriculumAPI.getSuggestions(studentId!, date || undefined)
   );
+}
+
+function curriculumSuggestionsKey(studentId: number, date?: string | null) {
+  return ['curriculum-suggestions', studentId, date || ''];
+}
+
+/**
+ * Warm the suggestions cache before the exercise modal opens.
+ *
+ * The modal's School Progress section keys on the same student and date, so
+ * a call made when the tutor hovers the exercise button, or when a session
+ * page loads, means the section renders from cache the moment the modal
+ * mounts instead of a beat after Trending. Sessions the section would never
+ * show for (summer classes, senior grades, no school) are skipped, so nothing
+ * is fetched for nothing.
+ */
+export function preloadCurriculumSuggestions(session: {
+  student_id?: number | null;
+  session_date?: string | null;
+  grade?: string | null;
+  school?: string | null;
+  summer_slot_id?: number | null;
+  lesson_number?: number | null;
+}) {
+  if (!isCurriculumEligible(session)) return;
+  const studentId = session.student_id!;
+  const date = session.session_date;
+  preload(curriculumSuggestionsKey(studentId, date), () =>
+    curriculumAPI.getSuggestions(studentId, date || undefined)
+  ).catch(() => {
+    // A failed warm-up is not an error anyone needs to see: the section
+    // fetches for itself when the modal opens.
+  });
 }
 
 /**

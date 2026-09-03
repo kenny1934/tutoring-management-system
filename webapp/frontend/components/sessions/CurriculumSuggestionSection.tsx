@@ -113,6 +113,11 @@ const RECORD_BTN =
 const RECORDED_TEXT =
   "inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 shrink-0";
 const KIND_QUESTION = "Revision or New Topic?";
+// The header gradient ends on the exercise modal's own panel colours. White
+// or near-black endpoints leave a visible seam on the desk palette. Shared by
+// the loaded header and the loading placeholder so the two look the same.
+const SECTION_HEADER_BG =
+  "bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]";
 const REVISION_TITLE =
   "Record that the school is revising this topic for the test. Revision does not move the topic timeline.";
 const NEW_TOPIC_TITLE =
@@ -272,12 +277,44 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
     return null;
   }
 
-  // No loading skeleton: for sessions that end up with no suggestions it
-  // flashed a header that then vanished, and a section that appears when
-  // ready is calmer than one that appears and retracts.
-  if (isLoading) return null;
+  // The section's slot is on screen from the first paint, so a tutor sees it
+  // exists before the data lands. On a cold backend the suggestions used to
+  // arrive a beat after Trending, and a section that appears late, below
+  // where the eye already is, was easy to click past. Only about one eligible
+  // session in twenty ends with nothing to suggest, and for those the slot
+  // settles into a one-line note rather than vanishing, so nothing appears
+  // and then retracts.
+  if (isLoading) {
+    return (
+      <div
+        className="border border-teal-200 dark:border-teal-900 rounded-lg overflow-hidden"
+        aria-busy="true"
+        aria-label="School Progress is loading"
+      >
+        <div className={cn("flex items-center gap-2 px-3 py-2", SECTION_HEADER_BG)}>
+          <GraduationCap className="h-3.5 w-3.5 text-teal-600" />
+          <span className="text-xs text-gray-600 dark:text-gray-300 shrink-0">School Progress</span>
+          <span className="text-[10px] text-gray-400 hidden sm:inline shrink-0">
+            {session.school} · {session.grade}
+          </span>
+          <span className="h-2.5 w-28 rounded bg-teal-100 dark:bg-teal-900/40 animate-pulse" />
+          <ChevronRight className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600 ml-auto" />
+        </div>
+      </div>
+    );
+  }
 
-  if (!data || data.reason || data.suggestions.length === 0) return null;
+  // A failed request stays silent. The tutor can still set exercises, and
+  // the next open fetches again.
+  if (!data) return null;
+
+  if (data.reason || data.suggestions.length === 0) {
+    return (
+      <p className="text-[10px] text-gray-400 dark:text-gray-500 px-1">
+        No School Progress suggestions for this week yet.
+      </p>
+    );
+  }
 
   // A test window is when "revising or newly teaching?" becomes a live
   // question. The confirm button asks it after the tap, in place, and only
@@ -418,9 +455,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
-          // Gradient ends on the exercise modal's own panel colours; white or
-          // near-black endpoints leave a visible seam on the desk palette.
-          "bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]",
+          SECTION_HEADER_BG,
           "hover:from-teal-100 hover:to-[#fef9f3] dark:hover:from-teal-900/30 dark:hover:to-[#2d2618]"
         )}
       >

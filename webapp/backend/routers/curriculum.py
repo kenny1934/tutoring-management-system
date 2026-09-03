@@ -290,19 +290,19 @@ def _ttl_cached(cache, key, loader, max_entries=None):
     return entry["value"]
 
 
-# The popularity view derives its grouping key from every session_exercises
-# row on each query (~650ms server-side) — cache the whole map.
+# The whole map is cached: even on the stored filename key (migration 169)
+# grouping every assignment row costs a couple of hundred milliseconds.
 _popularity_cache = {}
 
 
 def _popularity_map(db):
-    """assignment counts from the migration-036 summary view, keyed by
+    """assignment counts from the migration-170 counts view, keyed by
     extension-stripped lowercased basename (the view preserves case and
     groups case-insensitively, so one arbitrary variant comes back)."""
     def load():
         rows = db.execute(text("""
             SELECT filename, assignment_count, unique_student_count, latest_use
-            FROM courseware_popularity_summary
+            FROM courseware_popularity_counts
         """)).fetchall()
         return {(r.filename or "").lower(): r for r in rows}
 

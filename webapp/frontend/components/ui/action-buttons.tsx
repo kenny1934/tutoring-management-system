@@ -11,6 +11,7 @@ import type { ActionConfig, ActionButtonsProps } from "@/lib/actions/types";
 import type { Session } from "@/types";
 import { sessionActions } from "@/lib/actions";
 import { sessionsAPI } from "@/lib/api";
+import { preloadCurriculumSuggestions } from "@/lib/hooks";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -192,6 +193,14 @@ export function SessionActionButtons({
   const hasRating = !!(session.performance_rating || session.notes);
 
   if (visibleActions.length === 0) return null;
+
+  // Hovering or focusing the CW/HW button is the earliest sign the exercise
+  // modal is about to open, so its School Progress section starts loading
+  // here. Read-only viewers never see that section, so nothing is fetched
+  // for them.
+  const warmExerciseModal = () => {
+    if (!isReadOnly) preloadCurriculumSuggestions(session);
+  };
 
   const handleClick = async (
     e: React.MouseEvent,
@@ -462,6 +471,7 @@ export function SessionActionButtons({
           const colorClass = action.id === 'copy-makeup-msg' && copiedMakeupMsg
             ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
             : action.colorClass;
+          const opensExerciseModal = action.id === "cw" || action.id === "hw";
 
           return (
             <React.Fragment key={action.id}>
@@ -469,6 +479,8 @@ export function SessionActionButtons({
               <button
                 disabled={isDisabledByReadOnly || !isEnabled || isLoading}
                 onClick={(e) => handleClick(e, action)}
+                onPointerEnter={opensExerciseModal ? warmExerciseModal : undefined}
+                onFocus={opensExerciseModal ? warmExerciseModal : undefined}
                 className={cn(
                   "flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm font-medium transition-all",
                   sizeClasses[size],

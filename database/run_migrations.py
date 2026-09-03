@@ -20,7 +20,7 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 # happens, so the cost is a confusing syntax error rather than a half-applied
 # migration, but the file has to be written around it.
 MIGRATIONS = [
-    "167_academic_calendar_2026_2027.sql",
+    "170_courseware_popularity_counts.sql",
 ]
 
 def main():

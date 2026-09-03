@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { useSession, usePageTitle, useMemoForSession } from "@/lib/hooks";
+import { useSession, usePageTitle, useMemoForSession, preloadCurriculumSuggestions } from "@/lib/hooks";
 import { useBackNavigation } from "@/lib/ui-hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
@@ -258,6 +258,16 @@ export default function SessionDetailPage() {
   // SWR hook for session data with caching
   const { data: session, error, isLoading: loading, mutate } = useSession(sessionId);
   const { isReadOnly } = useAuth();
+
+  // Warm the School Progress suggestions while the page is still settling, so
+  // the exercise modal's section is on screen the moment it opens. Keyed on
+  // the student and date rather than the session object, which changes
+  // identity on every revalidation. Read-only viewers never see the section.
+  const sessionStudentId = session?.student_id;
+  const sessionDate = session?.session_date;
+  useEffect(() => {
+    if (session && !isReadOnly) preloadCurriculumSuggestions(session);
+  }, [sessionStudentId, sessionDate, isReadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleHomeworkMarked = useHomeworkMarked();
   const { data: upcomingTests = [] } = useSWR<UpcomingTestAlert[]>(
