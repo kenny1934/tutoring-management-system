@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.128](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.127...v2.0.128) (2026-09-04)
+
+
+### New Features
+
+* **The summer pages close themselves once the application period ends**: the landing page, the application form and the status check now follow the dates set for that year's course, so a parent arriving after the closing date sees a short notice instead of a form that would refuse their submission at the final step.
+* **The closing notice sends parents to the September intake**: while the regular course is still taking applications, the notice offers it with its own closing date and a link to that form. When no intake is open it shows the branch phone numbers and WeChat IDs instead.
+
+
+### Bug Fixes
+
+* **The sidebar's Summer Course badge follows the real deadline**: it used to stay lit after the application period had closed, and it turned itself off a day early for anyone checking late in the evening.
+
 ## [2.0.127](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.126...v2.0.127) (2026-09-03)
 
 
