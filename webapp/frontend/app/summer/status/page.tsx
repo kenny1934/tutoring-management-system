@@ -1,11 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useState, useCallback } from "react";
-import { summerAPI, ApiError } from "@/lib/api";
+import { Fragment, useState, useCallback } from "react";
+import { summerAPI } from "@/lib/api";
 import type {
   SummerApplicationStatusResponse,
   SummerApplicationEditRequest,
-  SummerCourseFormConfig,
   SummerLocation,
   SummerSiblingInfo,
 } from "@/types";
@@ -16,6 +15,7 @@ import { Users, Plus, X, Pencil, Lock } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 import { SummerClosedNotice } from "@/components/summer/SummerClosedNotice";
+import { useSummerPublicConfig } from "@/lib/hooks";
 
 type EditSection = "background" | "preferences" | null;
 
@@ -66,44 +66,16 @@ export default function SummerStatusPage() {
   const [buddyLoading, setBuddyLoading] = useState(false);
   const [buddyError, setBuddyError] = useState<string | null>(null);
 
-  // Self-edit state
-  const [formConfig, setFormConfig] = useState<SummerCourseFormConfig | null>(null);
-  // The window gate needs the config before the page renders anything, so it
-  // is fetched on mount rather than lazily when an edit panel opens. If the
-  // fetch fails we fall through to the lookup form: the server refuses an
-  // out-of-window lookup on its own, so the gate never rested on this call.
-  const [configResolved, setConfigResolved] = useState(false);
-  // A 404 from the config endpoint is an answer, not a failure: no summer
-  // intake is active, so every lookup below would 404 too.
-  const [noIntake, setNoIntake] = useState(false);
+  // The window gate reads this, and so do the edit panels, which fall back to
+  // plain text inputs when it is absent.
+  const configState = useSummerPublicConfig();
+  const formConfig = configState.status === "ready" ? configState.config : null;
   const [editingSection, setEditingSection] = useState<EditSection>(null);
   const [editForm, setEditForm] = useState<SummerApplicationEditRequest>({});
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   const isSubmitted = result?.application_status === "Submitted";
-
-  useEffect(() => {
-    let cancelled = false;
-    summerAPI
-      .getFormConfig()
-      .then((cfg) => {
-        if (!cancelled) setFormConfig(cfg);
-      })
-      .catch((e) => {
-        if (!cancelled && e instanceof ApiError && e.status === 404) {
-          setNoIntake(true);
-        }
-        // Any other failure leaves the lookup form up. The server is the real
-        // gate, so a config hiccup should not lock a parent out of it.
-      })
-      .finally(() => {
-        if (!cancelled) setConfigResolved(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const openEdit = async (section: Exclude<EditSection, null>) => {
     if (!result) return;
@@ -317,22 +289,17 @@ export default function SummerStatusPage() {
       )
     : -1;
 
-  if (!configResolved) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  // No intake at all, so every lookup below would 404.
-  if (noIntake) {
-    return <SummerClosedNotice lang={lang} />;
-  }
-
   // Outside the application window there is nothing here for a parent: the
   // course has finished, and the server refuses the lookup and every edit that
   // follows from it. Offering the form would only produce a rejection.
+  //
+  // Note what is NOT gated: while the config is still in flight, or if it
+  // failed for any reason other than a 404, the lookup form renders. The
+  // server is the real gate, so making every in-season visitor wait on a round
+  // trip would buy nothing, and a config hiccup must not lock a parent out.
+  if (configState.status === "none") {
+    return <SummerClosedNotice lang={lang} />;
+  }
   if (formConfig && formConfig.application_window !== "open") {
     return <SummerClosedNotice config={formConfig} lang={lang} />;
   }

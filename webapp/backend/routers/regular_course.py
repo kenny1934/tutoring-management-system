@@ -144,6 +144,7 @@ from utils.regular_promo import (
     promo_message_fields,
 )
 from constants import (
+    application_window,
     hk_now,
     RegularApplicationStatus,
     BASE_FEE_PER_LESSON,
@@ -594,18 +595,10 @@ def _build_application_responses(
 # ============================================
 
 def _application_window(config: RegularCourseConfig) -> str:
-    """Where 'now' sits relative to the config's application window.
-
-    The form is gated on this rather than on the dates alone: submission has
-    always been rejected outside the window, so the form must not invite four
-    steps of typing it is going to refuse.
-    """
-    now = hk_now()
-    if now < config.application_open_date:
-        return "before"
-    if now > config.application_close_date:
-        return "closed"
-    return "open"
+    """Where 'now' sits relative to this config's application window."""
+    return application_window(
+        config.application_open_date, config.application_close_date
+    )
 
 
 def _public_pricing_config(config: RegularCourseConfig) -> Optional[dict]:

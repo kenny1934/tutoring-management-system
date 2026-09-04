@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate, preload } from 'swr';
-import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, type ParentCommunication } from './api';
+import { employmentAPI, homeworkAPI, sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, curriculumAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, summerAPI, regularAPI, prospectsAPI, api, ApiError, type ParentCommunication } from './api';
 import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { pickableTutors } from './employment';
 import { isCurriculumEligible } from './curriculum-labels';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, SummerCourseFormConfig, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -1396,6 +1396,39 @@ export function useRenewalCounts(isAdmin: boolean, location?: string) {
     () => enrollmentsAPI.getRenewalCounts(location),
     { refreshInterval, revalidateOnFocus: false }
   );
+}
+
+/** What the public summer config endpoint had to say.
+ *
+ *  A 404 is an answer rather than a failure: it means no summer intake is
+ *  active at all, which is the gap between one year's config being deactivated
+ *  and the next being activated. Every public summer page has to tell that
+ *  apart from "we could not reach the server", because the first is a season
+ *  that is over and the second must never be dressed up as one. Stating the
+ *  rule once here is the point: the three pages used to each carry their own
+ *  copy of it. */
+export type SummerPublicConfigState =
+  | { status: "loading" }
+  | { status: "ready"; config: SummerCourseFormConfig }
+  | { status: "none" }
+  | { status: "failed"; error: Error };
+
+export function useSummerPublicConfig(): SummerPublicConfigState {
+  // Same SWR key as the admin sidebar badge below, so an admin viewing a
+  // public page shares the one request and the one cache entry.
+  const { data, error } = useSWR<SummerCourseFormConfig>(
+    "summer-public-config",
+    () => summerAPI.getFormConfig(),
+    { revalidateOnFocus: false },
+  );
+  if (data) return { status: "ready", config: data };
+  if (error) {
+    return error instanceof ApiError && error.status === 404
+      ? { status: "none" }
+      : { status: "failed", error: error as Error };
+  }
+  // Neither settled yet, so the caller should wait.
+  return { status: "loading" };
 }
 
 /**

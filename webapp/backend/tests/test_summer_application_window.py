@@ -5,17 +5,13 @@ and which parent-facing endpoints it closes.
 Outside the window the entire parent-facing side of summer is shut. The form
 refuses submissions, as it always has, and now the status page is shut too:
 once the course has finished there is nothing left for a parent to look up or
-amend. These tests pin both halves, plus the hint that points a parent who
-arrives too late at the September intake instead.
+amend. These tests pin both halves. Where a parent gets pointed instead is a
+frontend decision now, covered by SummerClosedNotice.test.tsx.
 """
 import pytest
 from datetime import date, datetime
 
-from models import (
-    SummerCourseConfig,
-    RegularCourseConfig,
-    SummerApplication,
-)
+from models import SummerCourseConfig, SummerApplication
 from utils import rate_limiter
 
 
@@ -44,26 +40,6 @@ def cfg(db_session):
         locations=[{"name": "華士古分校", "open_days": ["Monday"]}],
         available_grades=[{"value": "F1"}],
         time_slots=["10:00 - 11:30"],
-        is_active=True,
-    )
-    db_session.add(config)
-    db_session.commit()
-    return config
-
-
-@pytest.fixture
-def regular_cfg(db_session):
-    """An active regular config whose window is open right now."""
-    config = RegularCourseConfig(
-        year=2026,
-        title="Regular Sep 2026",
-        application_open_date=datetime(2020, 1, 1),
-        application_close_date=datetime(2099, 12, 31),
-        course_start_date=date(2026, 9, 1),
-        locations=[{"name": "華士古分校", "open_days": ["Monday"]}],
-        available_grades=[{"value": "F1"}],
-        time_slots=["16:45 - 18:15"],
-        pricing_config={"base_fee": 2400},
         is_active=True,
     )
     db_session.add(config)
@@ -128,31 +104,6 @@ class TestPublicConfigWindow:
         resp = client.get("/api/summer/public/config")
         assert resp.status_code == 200
         assert resp.json()["application_window"] == "closed"
-
-
-class TestRegularIntakeHint:
-    def test_absent_while_summer_is_open(self, client, cfg, regular_cfg):
-        # Summer has its own form to offer, so there is nothing to redirect to.
-        resp = client.get("/api/summer/public/config")
-        assert resp.json()["regular_intake"] is None
-
-    def test_present_when_summer_is_shut_and_regular_is_open(
-        self, client, db_session, cfg, regular_cfg
-    ):
-        _close_window(db_session, cfg)
-        hint = client.get("/api/summer/public/config").json()["regular_intake"]
-        assert hint is not None
-        assert hint["year"] == 2026
-        assert hint["application_close_date"].startswith("2099-12-31")
-
-    def test_absent_when_regular_is_shut_too(self, client, db_session, cfg, regular_cfg):
-        _close_window(db_session, cfg)
-        _close_window(db_session, regular_cfg)
-        assert client.get("/api/summer/public/config").json()["regular_intake"] is None
-
-    def test_absent_when_there_is_no_regular_config(self, client, db_session, cfg):
-        _close_window(db_session, cfg)
-        assert client.get("/api/summer/public/config").json()["regular_intake"] is None
 
 
 # ---- What the window closes ----

@@ -5,3 +5,4 @@ export { ContactDetailPanel } from './ContactDetailPanel';
 export { RecordContactModal } from './RecordContactModal';
 export { PendingFollowupsSection } from './PendingFollowupsSection';
 export { ContactStatsBar } from './ContactStatsBar';
+export { BranchContacts } from './BranchContacts';

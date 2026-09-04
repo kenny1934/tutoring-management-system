@@ -2334,19 +2334,6 @@ class CreateCheckpointRequest(BaseModel):
 
 # -- Public schemas (no auth required) --
 
-class SummerRegularIntakeHint(BaseModel):
-    """The September intake, described for a parent who arrives too late for summer.
-
-    This rides on the summer form config so that the closed summer pages can
-    offer a live alternative without the browser having to fetch a second
-    config and work out the dates for itself. It is only filled in while the
-    regular intake is genuinely taking applications, so its presence is by
-    itself the signal that there is somewhere to send the parent.
-    """
-    year: int
-    application_close_date: datetime
-
-
 class SummerCourseFormConfig(BaseModel):
     """Config data exposed to the public application form."""
     year: int
@@ -2359,9 +2346,6 @@ class SummerCourseFormConfig(BaseModel):
     # config ships in every state, because the pages still need the branch list
     # and the course dates in order to say anything useful once it has closed.
     application_window: str
-    # Filled in only when summer is not taking applications and the September
-    # intake is. See SummerRegularIntakeHint.
-    regular_intake: Optional[SummerRegularIntakeHint] = None
     course_start_date: date
     course_end_date: date
     total_lessons: int

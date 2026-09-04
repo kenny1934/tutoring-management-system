@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowRight, Phone } from "lucide-react";
-import type { SummerCourseFormConfig, SummerRegularIntakeHint } from "@/types";
+import useSWR from "swr";
+import { ArrowRight } from "lucide-react";
+import type { SummerCourseFormConfig } from "@/types";
 import { type Lang, t, formatDate } from "@/lib/summer-utils";
-import { REGULAR_APPLY_URL } from "@/lib/regular-utils";
+import { REGULAR_APPLY_URL } from "@/lib/public-routes";
 import { regularAPI } from "@/lib/api";
-import { getBranchContact, FALLBACK_BRANCHES } from "@/lib/branch-contacts";
-import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
+import { FALLBACK_BRANCHES } from "@/lib/branch-contacts";
+import { BranchContacts } from "@/components/parent-contacts";
 
 /**
  * What every parent-facing summer page shows when the application window is
@@ -24,51 +24,6 @@ import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
  * between one year's config being deactivated and the next being activated,
  * and the pages used to fail into a raw error there.
  */
-
-/** Branch phone and WeChat, shown when we have nothing better to offer than a
- *  conversation. Branches come from the config, so a new one appears here as
- *  soon as it has a contact entry. */
-function BranchContacts({
-  locations,
-  lang,
-}: {
-  locations: Array<{ name: string; name_en?: string }>;
-  lang: Lang;
-}) {
-  const branches = locations.flatMap((loc) => {
-    const contact = getBranchContact(loc.name);
-    return contact ? [{ loc, contact }] : [];
-  });
-  if (branches.length === 0) return null;
-  return (
-    <div className="mt-6 flex flex-wrap justify-center gap-3">
-      {branches.map(({ loc, contact }) => (
-        <div
-          key={loc.name}
-          className="rounded-xl border border-border bg-card px-4 py-3 text-left"
-        >
-          <div className="text-sm font-semibold text-foreground">
-            {lang === "zh" ? loc.name : loc.name_en || loc.name}
-          </div>
-          <div className="mt-1.5 flex items-center gap-4">
-            <a
-              href={`tel:${contact.phone.replace(/\s+/g, "")}`}
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-hover transition-colors"
-            >
-              <Phone className="h-3.5 w-3.5" />
-              <span className="tabular-nums tracking-wider">{contact.phone}</span>
-            </a>
-            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <WeChatIcon className="h-3.5 w-3.5 text-green-600" />
-              <span className="tracking-wider">{contact.wechat}</span>
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function SummerClosedNotice({
   config,
   lang,
@@ -76,68 +31,50 @@ export function SummerClosedNotice({
   config?: SummerCourseFormConfig | null;
   lang: Lang;
 }) {
-  // No config means no intake is running, which reads to a parent as the same
-  // thing as a season that has ended.
-  const applicationWindow = config?.application_window ?? "closed";
-  const closed = applicationWindow !== "before";
+  // A parent who has just missed summer is usually still looking for a class,
+  // and between early August and the end of September the September intake is
+  // the answer. Regular's own config is the only thing that knows whether it
+  // is taking applications, so ask it rather than having summer's endpoint
+  // carry a second-hand copy of the answer. The SWR key is shared with the
+  // admin sidebar badge. A failure here needs no handling: the branch contacts
+  // below are the fallback.
+  const { data: regular } = useSWR(
+    "regular-public-config",
+    () => regularAPI.getFormConfig(),
+    { revalidateOnFocus: false },
+  );
+  const regularOpen = regular?.application_window === "open";
 
-  // With no config we cannot learn from it whether the September intake is
-  // running, and the gap is most likely to open in the autumn, which is
-  // exactly when regular is taking applications. So on that path only, ask
-  // regular directly rather than dropping the parent at a list of phone
-  // numbers. A failure here is not worth surfacing: the contacts still show.
-  const [fallbackIntake, setFallbackIntake] =
-    useState<SummerRegularIntakeHint | null>(null);
-  useEffect(() => {
-    if (config) return;
-    let cancelled = false;
-    regularAPI
-      .getFormConfig()
-      .then((cfg) => {
-        if (cancelled || cfg.application_window !== "open") return;
-        setFallbackIntake({
-          year: cfg.year,
-          application_close_date: cfg.application_close_date,
-        });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [config]);
-
-  const regular = config?.regular_intake ?? fallbackIntake;
-  const locations = config?.locations ?? FALLBACK_BRANCHES;
-
-  const heading = closed
-    ? t("暑期課程報名期已結束", "The summer application period has ended", lang)
-    : t("暑期課程報名尚未開放", "Summer course registration is not yet open", lang);
-
-  // Before the window opens we can say exactly when it does, which is more use
-  // to a parent than "check back later".
-  const body =
-    closed || !config
-      ? null
-      : t(
-          `報名將於${formatDate(config.application_open_date.slice(0, 10), lang)}開放。`,
-          `Applications open on ${formatDate(config.application_open_date.slice(0, 10), "en")}.`,
-          lang,
-        );
+  // Without a config there is no intake running, which reads to a parent as
+  // the same thing as a season that has ended.
+  const notYetOpen = config?.application_window === "before";
 
   return (
     <div className="text-center py-20">
-      <h2 className="text-xl font-semibold text-foreground">{heading}</h2>
-      {body && <p className="mt-2 text-muted-foreground">{body}</p>}
+      <h2 className="text-xl font-semibold text-foreground">
+        {notYetOpen
+          ? t("暑期課程報名尚未開放", "Summer course registration is not yet open", lang)
+          : t("暑期課程報名期已結束", "The summer application period has ended", lang)}
+      </h2>
 
-      {regular ? (
-        // A parent who has just missed summer is usually still looking for a
-        // class, and between early August and the end of September the
-        // September intake is the answer.
+      {/* Before the window opens we can say exactly when it does, which is
+          more use to a parent than "check back later". */}
+      {notYetOpen && config && (
+        <p className="mt-2 text-muted-foreground">
+          {t(
+            `報名將於${formatDate(config.application_open_date, "zh")}開放。`,
+            `Applications open on ${formatDate(config.application_open_date, "en")}.`,
+            lang,
+          )}
+        </p>
+      )}
+
+      {regularOpen && regular ? (
         <div className="mt-6">
           <p className="text-muted-foreground">
             {t(
-              `常規課程現正接受報名，報名期至${formatDate(regular.application_close_date.slice(0, 10), lang)}。`,
-              `The regular course is taking applications until ${formatDate(regular.application_close_date.slice(0, 10), "en")}.`,
+              `常規課程現正接受報名，報名期至${formatDate(regular.application_close_date, "zh")}。`,
+              `The regular course is taking applications until ${formatDate(regular.application_close_date, "en")}.`,
               lang,
             )}
           </p>
@@ -162,7 +99,10 @@ export function SummerClosedNotice({
               lang,
             )}
           </p>
-          <BranchContacts locations={locations} lang={lang} />
+          <BranchContacts
+            locations={config?.locations ?? FALLBACK_BRANCHES}
+            lang={lang}
+          />
         </>
       )}
     </div>

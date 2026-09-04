@@ -199,9 +199,17 @@ export function formatProspectCode(
   return stripped ? `${sourceBranch}-${stripped}` : sourceBranch;
 }
 
-/** Format a date string like "2025-07-05" to localized display. */
+/** Parse either a "2025-07-05" date or a "2025-07-05T09:30:00" datetime, both
+ *  as local time. A bare date string would otherwise be read as UTC, which is
+ *  a day out for a Hong Kong reader, and a datetime handed to the old
+ *  date-only helpers produced an Invalid Date with no complaint. */
+function parseLocalDate(dateStr: string): Date {
+  return new Date(dateStr.includes("T") ? dateStr : dateStr + "T00:00:00");
+}
+
+/** Format a date or datetime string to localized display. */
 export function formatDate(dateStr: string, lang: Lang): string {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseLocalDate(dateStr);
   if (lang === "zh") {
     return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
   }
@@ -214,7 +222,7 @@ export function formatDate(dateStr: string, lang: Lang): string {
 
 /** Compact date for tight UI strips — drops the year and uses short months. */
 export function formatDateShort(dateStr: string, lang: Lang): string {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseLocalDate(dateStr);
   if (lang === "zh") {
     return `${d.getMonth() + 1}月${d.getDate()}日`;
   }

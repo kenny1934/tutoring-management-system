@@ -7,10 +7,9 @@ import type {
   RegularApplicationCreate,
 } from "@/types";
 import { useRegularApplyFormState } from "@/hooks/useRegularApplyFormState";
-import { CheckCircle2, Copy, Check, Pencil, Phone } from "lucide-react";
+import { CheckCircle2, Copy, Check, Pencil } from "lucide-react";
 import { type Lang, t, REGULAR_STEP_LABELS, REGULAR_COURSE_PAGE_URL } from "@/lib/regular-utils";
-import { getBranchContact } from "@/lib/branch-contacts";
-import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
+import { BranchContacts } from "@/components/parent-contacts";
 import {
   FormProgressBar,
   type StepStatus,
@@ -51,50 +50,6 @@ function ApplyNotice({
           {statusLink}
         </a>
       )}
-    </div>
-  );
-}
-
-/** Branch phone and WeChat, shown on the screen whose copy asks the parent to
- *  get in touch. Branches come from the config, so a new one appears here as
- *  soon as it has a contact entry. */
-function BranchContacts({
-  locations,
-  lang,
-}: {
-  locations: RegularCourseFormConfig["locations"];
-  lang: Lang;
-}) {
-  const branches = locations.flatMap((loc) => {
-    const contact = getBranchContact(loc.name);
-    return contact ? [{ loc, contact }] : [];
-  });
-  if (branches.length === 0) return null;
-  return (
-    <div className="mt-6 flex flex-wrap justify-center gap-3">
-      {branches.map(({ loc, contact }) => (
-        <div
-          key={loc.name}
-          className="rounded-xl border border-border bg-card px-4 py-3 text-left"
-        >
-          <div className="text-sm font-semibold text-foreground">
-            {lang === "zh" ? loc.name : loc.name_en || loc.name}
-          </div>
-          <div className="mt-1.5 flex items-center gap-4">
-            <a
-              href={`tel:${contact.phone.replace(/\s+/g, "")}`}
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-hover transition-colors"
-            >
-              <Phone className="h-3.5 w-3.5" />
-              <span className="tabular-nums tracking-wider">{contact.phone}</span>
-            </a>
-            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <WeChatIcon className="h-3.5 w-3.5 text-green-600" />
-              <span className="tracking-wider">{contact.wechat}</span>
-            </span>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

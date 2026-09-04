@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { summerAPI, ApiError } from "@/lib/api";
+import { summerAPI } from "@/lib/api";
 import type {
-  SummerCourseFormConfig,
   SummerApplicationCreate,
 } from "@/types";
 import { useSummerApplyFormState } from "@/hooks/useSummerApplyFormState";
 import { CheckCircle2, Copy, Check, Pencil } from "lucide-react";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
 import { SummerClosedNotice } from "@/components/summer/SummerClosedNotice";
+import { useSummerPublicConfig } from "@/lib/hooks";
 import { type Lang, t } from "@/lib/summer-utils";
 import {
   FormProgressBar,
@@ -26,13 +26,9 @@ const TOTAL_STEPS = 5;
 
 export default function SummerApplyPage() {
   const [lang, setLang] = useState<Lang>("zh");
-  const [config, setConfig] = useState<SummerCourseFormConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const configState = useSummerPublicConfig();
+  const config = configState.status === "ready" ? configState.config : null;
   const [error, setError] = useState<string | null>(null);
-  // A 404 from the config endpoint is an answer, not a failure: no summer
-  // intake is active. It gets the closed notice rather than a raw server
-  // message.
-  const [noIntake, setNoIntake] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{
     reference_code: string;
@@ -89,18 +85,6 @@ export default function SummerApplyPage() {
   // avoid surprising users on shared devices.
   const [pendingDraft, setPendingDraft] = useState<Record<string, unknown> | null>(null);
   const draftHydrated = useRef(false);
-
-  // Load config
-  useEffect(() => {
-    summerAPI
-      .getFormConfig()
-      .then(setConfig)
-      .catch((e) => {
-        if (e instanceof ApiError && e.status === 404) setNoIntake(true);
-        else setError(e.message);
-      })
-      .finally(() => setLoading(false));
-  }, []);
 
   // Title used to live as a prominent <h1> inside Step 1. We demoted that
   // zone and now surface it as the browser tab title instead, so the form
@@ -481,7 +465,7 @@ export default function SummerApplyPage() {
   };
 
   // Loading state
-  if (loading) {
+  if (configState.status === "loading") {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -489,40 +473,20 @@ export default function SummerApplyPage() {
     );
   }
 
-  if (noIntake) {
-    return <SummerClosedNotice lang={lang} />;
-  }
-
-  // The config failed to load for some reason other than there being none.
-  if (!config) {
+  if (configState.status === "failed") {
     return (
       <div className="text-center py-20">
-        {error ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-            {error}
-          </div>
-        ) : (
-          <>
-            <h2 className="text-xl font-semibold text-foreground">
-              {t(
-                "暑期課程報名尚未開放",
-                "Summer course registration is not yet open",
-                lang
-              )}
-            </h2>
-            <p className="mt-2 text-muted-foreground">
-              {t("請稍後再試", "Please check back later", lang)}
-            </p>
-          </>
-        )}
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+          {configState.error.message}
+        </div>
       </div>
     );
   }
 
-  // Outside the application window the form is not offered at all. Submission
-  // is refused server-side either way, so showing four steps of fields would
-  // only invite typing that gets thrown away.
-  if (config.application_window !== "open") {
+  // Outside the application window, or with no intake at all, the form is not
+  // offered. Submission is refused server-side either way, so showing four
+  // steps of fields would only invite typing that gets thrown away.
+  if (!config || config.application_window !== "open") {
     return <SummerClosedNotice config={config} lang={lang} />;
   }
 

@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session, joinedload, contains_eager, selectinload
 from database import get_db
 from models import (
     SummerCourseConfig,
-    RegularCourseConfig,
     SummerBuddyGroup,
     SummerBuddyMember,
     SummerApplication,
@@ -35,7 +34,6 @@ from models import (
 )
 from schemas import (
     SummerCourseFormConfig,
-    SummerRegularIntakeHint,
     SummerApplicationCreate,
     DiscountOverrideRequest,
     SummerApplicationEditRequest,
@@ -116,6 +114,7 @@ from utils.tutor_duties import list_duties, replace_duties
 from utils.branch_codes import SECONDARY_BRANCH_CODES, resolve_claimed_branch_code
 from utils.school_alias import get_alias_map, resolve as resolve_school
 from constants import (
+    application_window,
     hk_now,
     SummerApplicationStatus,
     SummerSiblingVerificationStatus,
@@ -577,62 +576,27 @@ def _get_active_config(db: Session) -> SummerCourseConfig | None:
 
 
 def _application_window(config: SummerCourseConfig) -> str:
-    """Where 'now' sits relative to the config's application window.
-
-    Every public summer page is gated on this rather than on the dates alone.
-    Submission has always been refused outside the window, so the form must not
-    invite four steps of typing it is going to throw away, and once the course
-    has finished there is nothing for a parent to look up either.
-    """
-    now = hk_now()
-    if now < config.application_open_date:
-        return "before"
-    if now > config.application_close_date:
-        return "closed"
-    return "open"
+    """Where 'now' sits relative to this config's application window."""
+    return application_window(
+        config.application_open_date, config.application_close_date
+    )
 
 
-def _assert_window_open(config: SummerCourseConfig) -> None:
-    """Refuse a public request that arrives outside the application window."""
-    if _application_window(config) != "open":
-        raise HTTPException(status_code=400, detail="Application period is not open")
+def _require_open_config(db: Session) -> SummerCourseConfig:
+    """The active config, refusing the request if summer is not taking part.
 
-
-def _assert_public_access_open(db: Session) -> None:
-    """Gate a parent-facing request on the active config's application window.
-
-    Outside the window the whole parent-facing side of summer is shut, status
-    lookups included: by then the course has finished, so there is nothing left
-    to check or amend. Enforcing it on the server and not only in the browser
-    means a bookmarked link or a tab left open overnight cannot reach past the
-    closed page.
+    Every parent-facing endpoint runs through this, status lookups included:
+    once the course has finished there is nothing left for a parent to check or
+    amend. Enforcing it on the server and not only in the browser means a
+    bookmarked link or a tab left open overnight cannot reach past the closed
+    page. It returns the config because most callers need it straight after.
     """
     config = _get_active_config(db)
     if not config:
         raise HTTPException(status_code=404, detail="No active summer course found")
-    _assert_window_open(config)
-
-
-def _regular_intake_hint(db: Session) -> SummerRegularIntakeHint | None:
-    """The September intake, if it is open right now.
-
-    Called only when summer itself is shut. A parent who arrives out of season
-    is usually still looking for a class, and between early August and the end
-    of September the regular intake is the answer, so the closed pages send
-    them there instead of to a dead end.
-    """
-    config = db.query(RegularCourseConfig).filter(
-        RegularCourseConfig.is_active == True  # noqa: E712
-    ).first()
-    if not config:
-        return None
-    now = hk_now()
-    if now < config.application_open_date or now > config.application_close_date:
-        return None
-    return SummerRegularIntakeHint(
-        year=config.year,
-        application_close_date=config.application_close_date,
-    )
+    if _application_window(config) != "open":
+        raise HTTPException(status_code=400, detail="Application period is not open")
+    return config
 
 
 def _generate_reference_code(year: int) -> str:
@@ -688,17 +652,13 @@ def get_public_config(request: Request, db: Session = Depends(get_db)):
     config = _get_active_config(db)
     if not config:
         raise HTTPException(status_code=404, detail="No active summer course found")
-    window = _application_window(config)
     return SummerCourseFormConfig(
         year=config.year,
         title=config.title,
         description=config.description,
         application_open_date=config.application_open_date,
         application_close_date=config.application_close_date,
-        application_window=window,
-        # Only worth a second query on the path that can actually use the
-        # answer, which is the one where summer has nothing to offer.
-        regular_intake=_regular_intake_hint(db) if window != "open" else None,
+        application_window=_application_window(config),
         course_start_date=config.course_start_date,
         course_end_date=config.course_end_date,
         total_lessons=config.total_lessons,
@@ -752,11 +712,7 @@ def submit_application(
     """Submit a public summer course application."""
     check_ip_rate_limit(request, "summer_apply")
 
-    config = _get_active_config(db)
-    if not config:
-        raise HTTPException(status_code=404, detail="No active summer course found")
-
-    _assert_window_open(config)
+    config = _require_open_config(db)
 
     # Duplicate check: same (normalized phone, student name) within this config.
     # Same parent submitting multiple kids is allowed; same kid submitted twice
@@ -862,7 +818,7 @@ def check_application_status(
 ):
     """Check application status by reference code + phone (for verification)."""
     check_ip_rate_limit(request, "summer_status")
-    _assert_public_access_open(db)
+    _require_open_config(db)
     app = db.query(SummerApplication).options(
         joinedload(SummerApplication.buddy_group)
     ).filter(
@@ -999,11 +955,7 @@ def change_buddy_group(
     """Change buddy group for an existing application (public, auth via ref code + phone)."""
     check_ip_rate_limit(request, "summer_buddy")
 
-    config = _get_active_config(db)
-    if not config:
-        raise HTTPException(status_code=404, detail="No active summer course found")
-
-    _assert_window_open(config)
+    config = _require_open_config(db)
 
     now = hk_now()
     app = db.query(SummerApplication).filter(
@@ -1079,11 +1031,7 @@ def create_buddy_group(
     """Create a new buddy group and return the shareable code."""
     check_ip_rate_limit(request, "summer_buddy")
 
-    config = _get_active_config(db)
-    if not config:
-        raise HTTPException(status_code=404, detail="No active summer course found")
-
-    _assert_window_open(config)
+    config = _require_open_config(db)
 
     group = _create_buddy_group(db, config.id)
     db.commit()
@@ -1130,12 +1078,11 @@ def _authenticate_application(
 ) -> SummerApplication:
     """Resolve a public caller's own application from their ref code and phone.
 
-    The sibling endpoints and the self-edit endpoint all come through here, and
-    all three are only ever reached from the status page, so the window check
-    belongs here too. Without it a parent could still edit a submission from a
-    saved request long after the page that offers the button has gone dark.
+    Callers gate on the application window themselves, with
+    _require_open_config. Doing it here instead would hide a seasonal refusal
+    inside a helper whose name promises only a lookup, and hand it to every
+    future caller that just wants to resolve a reference code.
     """
-    _assert_public_access_open(db)
     app = db.query(SummerApplication).filter(
         SummerApplication.reference_code == reference_code.strip().upper(),
         SummerApplication.contact_phone == _normalize_phone(phone),
@@ -1158,6 +1105,7 @@ def declare_sibling(
 ):
     """Declare a primary-branch sibling on the caller's buddy group."""
     check_ip_rate_limit(request, "summer_buddy")
+    _require_open_config(db)
     app = _authenticate_application(db, reference_code, phone)
     if not app.buddy_group_id:
         raise HTTPException(
@@ -1185,6 +1133,7 @@ def remove_sibling(
 ):
     """Remove a Pending sibling the caller previously declared."""
     check_ip_rate_limit(request, "summer_buddy")
+    _require_open_config(db)
     app = _authenticate_application(db, reference_code, phone)
     member = db.query(SummerBuddyMember).filter(
         SummerBuddyMember.id == member_id,
@@ -1231,6 +1180,7 @@ def edit_application(
     hides edit affordances.
     """
     check_ip_rate_limit(request, "summer_edit")
+    _require_open_config(db)
     app = _authenticate_application(db, reference_code, phone)
 
     if app.application_status != SummerApplicationStatus.SUBMITTED.value:

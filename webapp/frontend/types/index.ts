@@ -2521,14 +2521,6 @@ export interface SummerLocation {
   time_slots?: Record<string, string[]>;  // day → available time slots
 }
 
-/** The September intake, described for a parent who arrives too late for summer.
- *  Present on the summer config only while summer is shut and regular is open,
- *  so its presence is by itself the signal that there is somewhere to send them. */
-export interface SummerRegularIntakeHint {
-  year: number;
-  application_close_date: string;
-}
-
 export interface SummerCourseFormConfig {
   year: number;
   title: string;
@@ -2538,7 +2530,6 @@ export interface SummerCourseFormConfig {
   /** Resolved server-side in Hong Kong time, so the public pages never depend
    *  on the visitor's device clock. Every summer page is gated on this. */
   application_window: "before" | "open" | "closed";
-  regular_intake?: SummerRegularIntakeHint | null;
   course_start_date: string;
   course_end_date: string;
   total_lessons: number;

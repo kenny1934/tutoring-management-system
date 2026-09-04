@@ -6,8 +6,8 @@ import Link from "next/link";
 import { ArrowRight, Plus, Minus, Phone, Copy, Check, X } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { getBranchContact } from "@/lib/branch-contacts";
-import { summerAPI, ApiError } from "@/lib/api";
-import type { SummerCourseFormConfig, SummerLocation } from "@/types";
+
+import type { SummerLocation } from "@/types";
 import {
   getActiveSummerPromo,
   formatDateShort,
@@ -16,6 +16,7 @@ import {
   BRANCH_IMAGES_FALLBACK,
 } from "@/lib/summer-utils";
 import { SummerClosedNotice } from "@/components/summer/SummerClosedNotice";
+import { useSummerPublicConfig } from "@/lib/hooks";
 
 const LANG = "zh" as const;
 
@@ -316,11 +317,8 @@ function FaqItem({
 // Page
 // =============================================================================
 export default function SummerLandingPage() {
-  const [config, setConfig] = useState<SummerCourseFormConfig | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  // A 404 from the config endpoint is an answer, not a failure: no summer
-  // intake is active. It gets the closed notice rather than a load error.
-  const [noIntake, setNoIntake] = useState(false);
+  const configState = useSummerPublicConfig();
+  const config = configState.status === "ready" ? configState.config : null;
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [copiedWechat, setCopiedWechat] = useState<string | null>(null);
@@ -352,27 +350,17 @@ export default function SummerLandingPage() {
     });
   };
 
-  useEffect(() => {
-    summerAPI
-      .getFormConfig()
-      .then(setConfig)
-      .catch((e) => {
-        if (e instanceof ApiError && e.status === 404) setNoIntake(true);
-        else setError("載入失敗，請稍後再試。");
-      });
-  }, []);
-
-  if (error) {
+  if (configState.status === "failed") {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-[#1A1614]">
         <p style={{ fontFamily: "var(--font-serif-tc)" }} className="text-lg">
-          {error}
+          載入失敗，請稍後再試。
         </p>
       </div>
     );
   }
 
-  if (noIntake) {
+  if (configState.status === "none") {
     return <SummerClosedNotice lang={LANG} />;
   }
 

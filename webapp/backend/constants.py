@@ -32,6 +32,25 @@ def today_hk() -> date:
     return hk_now().date()
 
 
+def application_window(open_at: datetime, close_at: datetime) -> str:
+    """Where 'now' sits relative to an intake's application window.
+
+    Returns "before", "open" or "closed". Summer and regular both gate their
+    public pages on this rather than on the dates alone, because submission has
+    always been refused outside the window and a form must not invite four
+    steps of typing it is going to throw away. It lives here, next to hk_now,
+    because the answer has to be the office's clock and not the visitor's, and
+    because two intakes deciding this differently would be a bug nobody notices
+    until a parent is turned away on the wrong day.
+    """
+    now = hk_now()
+    if now < open_at:
+        return "before"
+    if now > close_at:
+        return "closed"
+    return "open"
+
+
 class SessionStatus(str, Enum):
     """
     All valid session statuses.

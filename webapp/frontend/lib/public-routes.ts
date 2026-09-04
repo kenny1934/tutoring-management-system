@@ -14,6 +14,14 @@
  * them separately.
  */
 
+/** The September intake form, absolute. Summer's out-of-season pages link
+ *  here to send a parent somewhere that can still take their application, and
+ *  they are on summer.* when they follow it, so a relative path will not do.
+ *  It sits here with the other public-route facts rather than in either
+ *  intake's helper module, so neither has to import the other's. */
+export const REGULAR_APPLY_URL =
+  "https://regular.mathconceptsecondary.academy/apply";
+
 /** Hostname prefixes of the parent-facing subdomains. */
 export const PUBLIC_SUBDOMAIN_PREFIXES = [
   "prospect.",
