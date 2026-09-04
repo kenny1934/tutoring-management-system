@@ -9,7 +9,7 @@
 
   Register or update it from WSL with:
     /mnt/c/Windows/System32/schtasks.exe /Create /F /TN "CSM School Progress re-scan" \
-      /XML "\\wsl.localhost\Ubuntu-24.04\home\kenny\projects\tutoring-management-system\.claude\worktrees\rev-paper-archive\database\curriculum\windows_task_rescan.xml"
+      /XML "\\wsl.localhost\Ubuntu-24.04\home\kenny\projects\tutoring-management-system\database\curriculum\windows_task_rescan.xml"
   Run it by hand:      schtasks.exe /Run /TN "CSM School Progress re-scan"
   See the last result: schtasks.exe /Query /TN "CSM School Progress re-scan" /V /FO LIST
   Remove it:           schtasks.exe /Delete /F /TN "CSM School Progress re-scan"
@@ -20,8 +20,10 @@
   off at 23:30 (StartWhenAvailable), so a missed night is caught up at the
   next logon rather than skipped.
 
-  After the branch is merged and the worktree removed, re-point the path in
-  <Arguments> at the main checkout and register again.
+  The path in <Arguments> points at the main checkout. If the repository ever
+  moves, change it here and register again. The script it names has to be
+  executable: the repository does not track file modes (core.fileMode is
+  off), so after a fresh clone run chmod +x on rescan_weekly_folders.sh.
 -->
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
@@ -65,7 +67,7 @@
   <Actions Context="Author">
     <Exec>
       <Command>C:\Windows\System32\wsl.exe</Command>
-      <Arguments>-d Ubuntu-24.04 -- /home/kenny/projects/tutoring-management-system/.claude/worktrees/rev-paper-archive/database/curriculum/rescan_weekly_folders.sh</Arguments>
+      <Arguments>-d Ubuntu-24.04 -- /home/kenny/projects/tutoring-management-system/database/curriculum/rescan_weekly_folders.sh</Arguments>
     </Exec>
   </Actions>
 </Task>
