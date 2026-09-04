@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, useCallback } from "react";
-import { summerAPI } from "@/lib/api";
+import { summerAPI, ApiError } from "@/lib/api";
 import type {
   SummerApplicationStatusResponse,
   SummerApplicationEditRequest,
@@ -73,6 +73,9 @@ export default function SummerStatusPage() {
   // fetch fails we fall through to the lookup form: the server refuses an
   // out-of-window lookup on its own, so the gate never rested on this call.
   const [configResolved, setConfigResolved] = useState(false);
+  // A 404 from the config endpoint is an answer, not a failure: no summer
+  // intake is active, so every lookup below would 404 too.
+  const [noIntake, setNoIntake] = useState(false);
   const [editingSection, setEditingSection] = useState<EditSection>(null);
   const [editForm, setEditForm] = useState<SummerApplicationEditRequest>({});
   const [editSaving, setEditSaving] = useState(false);
@@ -87,8 +90,12 @@ export default function SummerStatusPage() {
       .then((cfg) => {
         if (!cancelled) setFormConfig(cfg);
       })
-      .catch(() => {
-        // Edit form falls back to plain text inputs if the config is missing.
+      .catch((e) => {
+        if (!cancelled && e instanceof ApiError && e.status === 404) {
+          setNoIntake(true);
+        }
+        // Any other failure leaves the lookup form up. The server is the real
+        // gate, so a config hiccup should not lock a parent out of it.
       })
       .finally(() => {
         if (!cancelled) setConfigResolved(true);
@@ -316,6 +323,11 @@ export default function SummerStatusPage() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
+  }
+
+  // No intake at all, so every lookup below would 404.
+  if (noIntake) {
+    return <SummerClosedNotice lang={lang} />;
   }
 
   // Outside the application window there is nothing here for a parent: the

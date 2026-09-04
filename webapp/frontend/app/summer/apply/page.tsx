@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { summerAPI } from "@/lib/api";
+import { summerAPI, ApiError } from "@/lib/api";
 import type {
   SummerCourseFormConfig,
   SummerApplicationCreate,
@@ -29,6 +29,10 @@ export default function SummerApplyPage() {
   const [config, setConfig] = useState<SummerCourseFormConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // A 404 from the config endpoint is an answer, not a failure: no summer
+  // intake is active. It gets the closed notice rather than a raw server
+  // message.
+  const [noIntake, setNoIntake] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{
     reference_code: string;
@@ -91,7 +95,10 @@ export default function SummerApplyPage() {
     summerAPI
       .getFormConfig()
       .then(setConfig)
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 404) setNoIntake(true);
+        else setError(e.message);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -482,7 +489,11 @@ export default function SummerApplyPage() {
     );
   }
 
-  // No active config, or the config failed to load.
+  if (noIntake) {
+    return <SummerClosedNotice lang={lang} />;
+  }
+
+  // The config failed to load for some reason other than there being none.
   if (!config) {
     return (
       <div className="text-center py-20">

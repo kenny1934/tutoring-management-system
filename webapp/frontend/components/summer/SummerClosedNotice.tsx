@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ArrowRight, Phone } from "lucide-react";
-import type { SummerCourseFormConfig, SummerLocation } from "@/types";
+import type { SummerCourseFormConfig, SummerRegularIntakeHint } from "@/types";
 import { type Lang, t, formatDate } from "@/lib/summer-utils";
 import { REGULAR_APPLY_URL } from "@/lib/regular-utils";
-import { getBranchContact } from "@/lib/branch-contacts";
+import { regularAPI } from "@/lib/api";
+import { getBranchContact, FALLBACK_BRANCHES } from "@/lib/branch-contacts";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 
 /**
@@ -16,6 +18,11 @@ import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
  * It deliberately offers no link to the status page. Outside the window the
  * status check is closed too, so a link there would only lead to this same
  * notice a second time.
+ *
+ * `config` is optional because the pages also render this when the public
+ * config 404s, meaning no summer intake is active at all. That is the gap
+ * between one year's config being deactivated and the next being activated,
+ * and the pages used to fail into a raw error there.
  */
 
 /** Branch phone and WeChat, shown when we have nothing better to offer than a
@@ -25,7 +32,7 @@ function BranchContacts({
   locations,
   lang,
 }: {
-  locations: SummerLocation[];
+  locations: Array<{ name: string; name_en?: string }>;
   lang: Lang;
 }) {
   const branches = locations.flatMap((loc) => {
@@ -66,11 +73,41 @@ export function SummerClosedNotice({
   config,
   lang,
 }: {
-  config: SummerCourseFormConfig;
+  config?: SummerCourseFormConfig | null;
   lang: Lang;
 }) {
-  const closed = config.application_window === "closed";
-  const regular = config.regular_intake;
+  // No config means no intake is running, which reads to a parent as the same
+  // thing as a season that has ended.
+  const applicationWindow = config?.application_window ?? "closed";
+  const closed = applicationWindow !== "before";
+
+  // With no config we cannot learn from it whether the September intake is
+  // running, and the gap is most likely to open in the autumn, which is
+  // exactly when regular is taking applications. So on that path only, ask
+  // regular directly rather than dropping the parent at a list of phone
+  // numbers. A failure here is not worth surfacing: the contacts still show.
+  const [fallbackIntake, setFallbackIntake] =
+    useState<SummerRegularIntakeHint | null>(null);
+  useEffect(() => {
+    if (config) return;
+    let cancelled = false;
+    regularAPI
+      .getFormConfig()
+      .then((cfg) => {
+        if (cancelled || cfg.application_window !== "open") return;
+        setFallbackIntake({
+          year: cfg.year,
+          application_close_date: cfg.application_close_date,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [config]);
+
+  const regular = config?.regular_intake ?? fallbackIntake;
+  const locations = config?.locations ?? FALLBACK_BRANCHES;
 
   const heading = closed
     ? t("暑期課程報名期已結束", "The summer application period has ended", lang)
@@ -78,13 +115,14 @@ export function SummerClosedNotice({
 
   // Before the window opens we can say exactly when it does, which is more use
   // to a parent than "check back later".
-  const body = closed
-    ? null
-    : t(
-        `報名將於${formatDate(config.application_open_date.slice(0, 10), lang)}開放。`,
-        `Applications open on ${formatDate(config.application_open_date.slice(0, 10), "en")}.`,
-        lang,
-      );
+  const body =
+    closed || !config
+      ? null
+      : t(
+          `報名將於${formatDate(config.application_open_date.slice(0, 10), lang)}開放。`,
+          `Applications open on ${formatDate(config.application_open_date.slice(0, 10), "en")}.`,
+          lang,
+        );
 
   return (
     <div className="text-center py-20">
@@ -124,7 +162,7 @@ export function SummerClosedNotice({
               lang,
             )}
           </p>
-          <BranchContacts locations={config.locations} lang={lang} />
+          <BranchContacts locations={locations} lang={lang} />
         </>
       )}
     </div>

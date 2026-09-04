@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowRight, Plus, Minus, Phone, Copy, Check, X } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { getBranchContact } from "@/lib/branch-contacts";
-import { summerAPI } from "@/lib/api";
+import { summerAPI, ApiError } from "@/lib/api";
 import type { SummerCourseFormConfig, SummerLocation } from "@/types";
 import {
   getActiveSummerPromo,
@@ -318,6 +318,9 @@ function FaqItem({
 export default function SummerLandingPage() {
   const [config, setConfig] = useState<SummerCourseFormConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A 404 from the config endpoint is an answer, not a failure: no summer
+  // intake is active. It gets the closed notice rather than a load error.
+  const [noIntake, setNoIntake] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [copiedWechat, setCopiedWechat] = useState<string | null>(null);
@@ -353,7 +356,10 @@ export default function SummerLandingPage() {
     summerAPI
       .getFormConfig()
       .then(setConfig)
-      .catch(() => setError("載入失敗，請稍後再試。"));
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 404) setNoIntake(true);
+        else setError("載入失敗，請稍後再試。");
+      });
   }, []);
 
   if (error) {
@@ -364,6 +370,10 @@ export default function SummerLandingPage() {
         </p>
       </div>
     );
+  }
+
+  if (noIntake) {
+    return <SummerClosedNotice lang={LANG} />;
   }
 
   if (!config) {

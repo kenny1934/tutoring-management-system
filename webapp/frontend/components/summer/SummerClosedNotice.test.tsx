@@ -1,7 +1,19 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import { SummerClosedNotice } from "./SummerClosedNotice";
 import type { SummerCourseFormConfig } from "@/types";
+
+// Only reached on the no-config path, where the component asks regular
+// directly whether the September intake is running.
+const getRegularConfig = vi.fn();
+vi.mock("@/lib/api", () => ({
+  regularAPI: { getFormConfig: () => getRegularConfig() },
+}));
+
+beforeEach(() => {
+  getRegularConfig.mockReset();
+  getRegularConfig.mockRejectedValue(new Error("no regular config"));
+});
 
 /** A config shaped like the public endpoint's response, closed by default. */
 function makeConfig(
@@ -83,5 +95,49 @@ describe("SummerClosedNotice", () => {
     expect(
       screen.getByText("The summer application period has ended"),
     ).toBeInTheDocument();
+  });
+
+  describe("with no active intake at all (the config 404s)", () => {
+    it("still says the period has ended rather than showing an error", async () => {
+      render(<SummerClosedNotice lang="zh" />);
+      expect(screen.getByText("暑期課程報名期已結束")).toBeInTheDocument();
+    });
+
+    it("falls back to the hardcoded branch contacts", async () => {
+      render(<SummerClosedNotice lang="zh" />);
+      expect(screen.getByText("華士古分校")).toBeInTheDocument();
+      expect(screen.getByText("二龍喉分校")).toBeInTheDocument();
+    });
+
+    it("asks regular directly and offers it when that intake is open", async () => {
+      getRegularConfig.mockResolvedValue({
+        year: 2026,
+        application_window: "open",
+        application_close_date: "2026-09-30T23:59:00",
+      });
+      render(<SummerClosedNotice lang="zh" />);
+      const link = await screen.findByRole("link", { name: /常規課程報名/ });
+      expect(link).toHaveAttribute(
+        "href",
+        "https://regular.mathconceptsecondary.academy/apply",
+      );
+    });
+
+    it("keeps the contacts when regular is shut too", async () => {
+      getRegularConfig.mockResolvedValue({
+        year: 2026,
+        application_window: "closed",
+        application_close_date: "2026-09-30T23:59:00",
+      });
+      render(<SummerClosedNotice lang="zh" />);
+      await waitFor(() => expect(getRegularConfig).toHaveBeenCalled());
+      expect(screen.queryByRole("link", { name: /常規課程報名/ })).toBeNull();
+      expect(screen.getByText("華士古分校")).toBeInTheDocument();
+    });
+
+    it("does not ask regular when a config was supplied", async () => {
+      render(<SummerClosedNotice config={makeConfig()} lang="zh" />);
+      expect(getRegularConfig).not.toHaveBeenCalled();
+    });
   });
 });
