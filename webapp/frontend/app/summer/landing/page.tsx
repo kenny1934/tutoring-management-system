@@ -15,6 +15,7 @@ import {
   DAY_SHORT_ZH,
   BRANCH_IMAGES_FALLBACK,
 } from "@/lib/summer-utils";
+import { SummerClosedNotice } from "@/components/summer/SummerClosedNotice";
 
 const LANG = "zh" as const;
 
@@ -371,6 +372,15 @@ export default function SummerLandingPage() {
         <div className="h-10 w-10 rounded-full border-2 border-[#B60D20]/20 border-t-[#B60D20] animate-spin" />
       </div>
     );
+  }
+
+  // Outside the application window none of the marketing below is honest: the
+  // page would still be announcing 現正招生 and every button would lead to a
+  // form that refuses the submission. Before the window opens it would also
+  // put the price posters and the early-bird offer in front of a parent days
+  // ahead of the campaign. So out of season the page is only the notice.
+  if (config.application_window !== "open") {
+    return <SummerClosedNotice config={config} lang={LANG} />;
   }
 
   const promo = getActiveSummerPromo(config.pricing_config, LANG);

@@ -251,6 +251,9 @@ export function SummerConfigEditor({
       description: null,
       application_open_date: appOpenDate || "",
       application_close_date: appCloseDate || "",
+      // The preview always shows the form. An admin editing next year's dates
+      // wants to see what they are building, not the out-of-season notice.
+      application_window: "open",
       course_start_date: courseStartDate || "",
       course_end_date: courseEndDate || "",
       pre_grade_window_start: preGradeStart || null,

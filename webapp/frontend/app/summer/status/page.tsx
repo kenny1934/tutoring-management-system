@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import { summerAPI } from "@/lib/api";
 import type {
   SummerApplicationStatusResponse,
@@ -15,6 +15,7 @@ import { parseHKTimestamp } from "@/lib/formatters";
 import { Users, Plus, X, Pencil, Lock } from "lucide-react";
 import { WeChatIcon } from "@/components/parent-contacts/contact-utils";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
+import { SummerClosedNotice } from "@/components/summer/SummerClosedNotice";
 
 type EditSection = "background" | "preferences" | null;
 
@@ -67,7 +68,11 @@ export default function SummerStatusPage() {
 
   // Self-edit state
   const [formConfig, setFormConfig] = useState<SummerCourseFormConfig | null>(null);
-  const [configLoading, setConfigLoading] = useState(false);
+  // The window gate needs the config before the page renders anything, so it
+  // is fetched on mount rather than lazily when an edit panel opens. If the
+  // fetch fails we fall through to the lookup form: the server refuses an
+  // out-of-window lookup on its own, so the gate never rested on this call.
+  const [configResolved, setConfigResolved] = useState(false);
   const [editingSection, setEditingSection] = useState<EditSection>(null);
   const [editForm, setEditForm] = useState<SummerApplicationEditRequest>({});
   const [editSaving, setEditSaving] = useState(false);
@@ -75,18 +80,23 @@ export default function SummerStatusPage() {
 
   const isSubmitted = result?.application_status === "Submitted";
 
-  const ensureConfig = useCallback(async () => {
-    if (formConfig || configLoading) return;
-    setConfigLoading(true);
-    try {
-      const cfg = await summerAPI.getFormConfig();
-      setFormConfig(cfg);
-    } catch {
-      // Edit form will fall back to plain text inputs if config fails to load
-    } finally {
-      setConfigLoading(false);
-    }
-  }, [formConfig, configLoading]);
+  useEffect(() => {
+    let cancelled = false;
+    summerAPI
+      .getFormConfig()
+      .then((cfg) => {
+        if (!cancelled) setFormConfig(cfg);
+      })
+      .catch(() => {
+        // Edit form falls back to plain text inputs if the config is missing.
+      })
+      .finally(() => {
+        if (!cancelled) setConfigResolved(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openEdit = async (section: Exclude<EditSection, null>) => {
     if (!result) return;
@@ -109,7 +119,6 @@ export default function SummerStatusPage() {
       unavailability_notes: result.unavailability_notes ?? "",
       sessions_per_week: result.sessions_per_week ?? 1,
     });
-    ensureConfig();
   };
 
   const closeEdit = () => {
@@ -288,7 +297,6 @@ export default function SummerStatusPage() {
         phone.trim()
       );
       setResult(data);
-      ensureConfig();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Lookup failed");
     } finally {
@@ -301,6 +309,21 @@ export default function SummerStatusPage() {
         result.application_status as (typeof STATUS_STEPS)[number]
       )
     : -1;
+
+  if (!configResolved) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  // Outside the application window there is nothing here for a parent: the
+  // course has finished, and the server refuses the lookup and every edit that
+  // follows from it. Offering the form would only produce a rejection.
+  if (formConfig && formConfig.application_window !== "open") {
+    return <SummerClosedNotice config={formConfig} lang={lang} />;
+  }
 
   return (
     <div

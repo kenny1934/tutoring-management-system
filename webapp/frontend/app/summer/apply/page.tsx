@@ -9,6 +9,7 @@ import type {
 import { useSummerApplyFormState } from "@/hooks/useSummerApplyFormState";
 import { CheckCircle2, Copy, Check, Pencil } from "lucide-react";
 import { BuddyCodeCard } from "@/components/summer/BuddyCodeCard";
+import { SummerClosedNotice } from "@/components/summer/SummerClosedNotice";
 import { type Lang, t } from "@/lib/summer-utils";
 import {
   FormProgressBar,
@@ -481,7 +482,7 @@ export default function SummerApplyPage() {
     );
   }
 
-  // No active config or load error
+  // No active config, or the config failed to load.
   if (!config) {
     return (
       <div className="text-center py-20">
@@ -501,16 +502,17 @@ export default function SummerApplyPage() {
             <p className="mt-2 text-muted-foreground">
               {t("請稍後再試", "Please check back later", lang)}
             </p>
-            <a
-              href="/summer/status"
-              className="inline-block mt-6 text-sm text-primary hover:text-primary-hover underline"
-            >
-              {t("已遞交申請？查看報名狀態 →", "Already applied? Check your status →", lang)}
-            </a>
           </>
         )}
       </div>
     );
+  }
+
+  // Outside the application window the form is not offered at all. Submission
+  // is refused server-side either way, so showing four steps of fields would
+  // only invite typing that gets thrown away.
+  if (config.application_window !== "open") {
+    return <SummerClosedNotice config={config} lang={lang} />;
   }
 
   // Success state

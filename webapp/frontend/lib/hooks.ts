@@ -1400,7 +1400,8 @@ export function useRenewalCounts(isAdmin: boolean, location?: string) {
 
 /**
  * Sidebar Summer Course badge state.
- * - `isOpen`: today falls between application_open_date and application_close_date.
+ * - `isOpen`: the public form is inside its application window, as resolved
+ *   server-side by the config endpoint.
  * - `actionableCount`: applications still in the active workflow at the given
  *   location (excludes Withdrawn / Rejected / Waitlisted / Enrolled).
  * The public form-config endpoint is unauthenticated; the stats call only fires
@@ -1425,11 +1426,12 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
     { refreshInterval, revalidateOnFocus: false },
   );
 
-  const isOpen = (() => {
-    if (!formConfig) return false;
-    const today = new Date().toISOString().slice(0, 10);
-    return formConfig.application_open_date <= today && today <= formConfig.application_close_date;
-  })();
+  // The config resolves the window server-side in Hong Kong time. Comparing the
+  // dates here used to get it wrong in two ways at once: it measured a
+  // YYYY-MM-DD "today" against a full YYYY-MM-DDTHH:MM:SS close date, so the
+  // last day always compared as still open, and it used the UTC date, which is
+  // a day behind for a Hong Kong viewer late in the evening.
+  const isOpen = formConfig?.application_window === "open";
 
   const actionableCount = stats
     ? Object.entries(stats.by_status).reduce(

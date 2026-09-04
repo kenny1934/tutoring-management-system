@@ -193,6 +193,13 @@ export const REGULAR_STATUS_STEPS = [
 export const REGULAR_COURSE_PAGE_URL =
   "https://mathconcept.com.mo/regular-courses/secondary-school/";
 
+/** The September intake form itself, on its own subdomain. Summer's closed
+ *  pages link here to send an out-of-season parent somewhere that can actually
+ *  take their application, so the address has to be absolute: they are on
+ *  summer.* when they follow it. */
+export const REGULAR_APPLY_URL =
+  "https://regular.mathconceptsecondary.academy/apply";
+
 /** Side-exit statuses rendered as a pill instead of a ladder rung. */
 export const REGULAR_EXIT_STATUSES = new Set(["Waitlisted", "Withdrawn", "Rejected"]);
 
