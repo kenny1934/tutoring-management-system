@@ -141,7 +141,7 @@ A separate **reports subdomain** serves shareable parent report links. The Cloud
 
 ### Versioning
 
-Semantic versioning via [release-please](https://github.com/googleapis/release-please). Merges to `main` auto-create a Release PR; merging that PR cuts a GitHub Release, updates `CHANGELOG.md`, and tags the version. The frontend bakes the version into the build via `NEXT_PUBLIC_APP_VERSION`.
+Semantic versioning, released by hand. The current version lives in `.release-please-manifest.json`, which is what the deploy workflow reads and bakes into the frontend as `NEXT_PUBLIC_APP_VERSION`. Cutting a release means bumping that file, writing the `CHANGELOG.md` entry, regenerating `webapp/frontend/lib/changelog-data.ts` from it, committing the three together, and pushing a `vX.Y.Z` tag.
 
 ## License
 

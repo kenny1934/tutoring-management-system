@@ -10,17 +10,34 @@ Do NOT include Claude Code Footer in commit message.
 
 ## Versioning & Releases
 
-- **Versioning**: Semantic versioning via `release-please` (Google's GitHub Action)
-- **Current version**: Tracked in `.release-please-manifest.json`
-- **Changelog**: `CHANGELOG.md` at repo root, parsed into `webapp/frontend/lib/changelog-data.ts` at build time. **When manually updating CHANGELOG.md, always regenerate by running `cd webapp/frontend && npx tsx scripts/parse-changelog.ts` and commit both files together.**
-- **Commit convention**: Use conventional commits (`feat:`, `fix:`, `perf:`, `refactor:`) — release-please uses these to generate changelog entries and determine version bumps
-- **Release flow**:
-  1. Merge PRs to `main` as normal (auto-deploys continue as before)
-  2. `release.yml` automatically creates/updates a Release PR accumulating changes
-  3. When ready to cut a release, merge the Release PR → creates git tag + GitHub Release + updates CHANGELOG.md
-  4. Next deploy picks up the new version tag and bakes it into the frontend as `NEXT_PUBLIC_APP_VERSION`
-- **Frontend version**: Passed via `NEXT_PUBLIC_APP_VERSION` build arg (Dockerfile → cloudbuild.yaml → deploy.yml)
-- **What's New page**: `/whats-new` — reads `changelog-data.json`, marks version as seen in localStorage
+Releases are cut by hand. `release-please` used to run here and was retired on
+2026-09-05, after 2.0.128: every release from 2.0.115 onward had been written
+manually anyway, because the notes it generated from commit subjects were not
+the user-facing sentences this changelog wants.
+
+- **Current version**: `.release-please-manifest.json`. Keep the filename, the
+  tool is gone but `deploy.yml` reads the version straight out of this file and
+  so does the `/deploy` skill and the README badge.
+- **Changelog**: `CHANGELOG.md` at repo root, parsed into
+  `webapp/frontend/lib/changelog-data.ts`. **After editing CHANGELOG.md, always
+  regenerate by running `cd webapp/frontend && npx tsx scripts/parse-changelog.ts`
+  and commit both files together.**
+- **Release flow**, all five steps in one commit plus a tag:
+  1. Bump the version in `.release-please-manifest.json`.
+  2. Add the entry at the top of `CHANGELOG.md`, following the shape of the one
+     below it. Write user-facing sentences about what changed for the reader,
+     not commit subjects, and never name a table, a column or a component.
+  3. `cd webapp/frontend && npx tsx scripts/parse-changelog.ts`
+  4. Commit all three files together as `chore(release): X.Y.Z`.
+  5. `git tag vX.Y.Z && git push origin main vX.Y.Z`. The tag is what makes the
+     release findable later, so do not skip it.
+- **Commit convention**: still conventional commits (`feat:`, `fix:`, `perf:`,
+  `refactor:`), now purely so the log reads well. Nothing parses them any more,
+  and no commit message reaches the changelog on its own.
+- **Frontend version**: passed via the `NEXT_PUBLIC_APP_VERSION` build arg
+  (Dockerfile, then cloudbuild.yaml, then deploy.yml).
+- **What's New page**: `/whats-new` reads `changelog-data.json` and marks the
+  version as seen in localStorage.
 
 ## Branch Workflow
 
