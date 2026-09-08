@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.129](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.128...v2.0.129) (2026-09-08)
+
+
+### Bug Fixes
+
+* **The Summer Course badge no longer lingers after the season**: a few leftover applications had kept a number on the sidebar badge through the off-season, so both the summer and regular badges now only count while their application period is open.
+* **The Curriculum page lists each school once**: CMR had appeared twice in the school picker because the 2025-26 curriculum sheet spelled it with its Chinese name, and those weeks now sit under the same entry as the rest of the school's year.
+
 ## [2.0.128](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.127...v2.0.128) (2026-09-04)
 
 
