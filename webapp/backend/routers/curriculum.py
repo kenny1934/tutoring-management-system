@@ -39,7 +39,7 @@ import logging
 import re
 import time
 from collections import defaultdict
-from datetime import date as date_type, timedelta
+from datetime import date as date_type, datetime as datetime_type, timedelta
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -48,7 +48,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from constants import hk_now
+from constants import hk_now, today_hk
 from curriculum import exam_scope
 from curriculum.paths import KNOWN_EXT_RE, basename_key, normalize
 from database import get_db
@@ -78,6 +78,22 @@ WEEK_DECAY = {0: 1.0, 1: 0.6, 2: 0.35}
 PACING_HALF_WINDOW = 3
 EXAM_LOOKAHEAD_DAYS = 14
 
+# --- The question on the collapsed School Progress strip -------------------
+# A confirmation this many days old stops counting as current. The school may
+# well have moved on since, so the strip asks again in a lighter form rather
+# than reporting a stale topic as fact.
+ASK_STALE_DAYS = 3
+# How many questions one tutor is put in front of in a day. It counts
+# questions asked and not answered, so answering one frees a slot and somebody
+# willing to keep answering never runs out.
+ASK_DAILY_CAP = 3
+# Of that budget, at most this many may go on routine questions, which keeps a
+# slot free later in the day for a school week nobody knows anything about.
+ASK_ROUTINE_DAILY_CAP = 2
+# Being asked the same thing on this many days without answering is an answer
+# of a kind. The question stops for that tutor for the rest of the week.
+ASK_MAX_DAYS_PER_COMBO = 2
+
 CONFIRM_CONFIDENCE = 1.0
 # Assigning a suggested file is weaker evidence than an explicit confirm —
 # tutors sometimes assign without the school actually being on that topic.
@@ -102,6 +118,20 @@ ROLE_ORDER_REVISION = {
 
 def _iso(value):
     return value.isoformat() if hasattr(value, "isoformat") else value
+
+
+def _as_date(value) -> Optional[date_type]:
+    """A date from whatever a driver returned: date, datetime, or a string."""
+    if value is None:
+        return None
+    if isinstance(value, datetime_type):
+        return value.date()
+    if isinstance(value, date_type):
+        return value
+    try:
+        return datetime_type.fromisoformat(str(value)[:19]).date()
+    except ValueError:
+        return None
 
 
 def _prior_year(academic_year: str) -> Optional[str]:
@@ -556,11 +586,151 @@ def _student_assigned_map(db, student_id):
 # Suggestions
 # ---------------------------------------------------------------------------
 
+def _combo_key(school, grade, stream, year, week) -> str:
+    """One school, grade and stream in one week: the unit a question covers.
+
+    Five students from the same class on the same day are one question, and so
+    are two tutors teaching them, which is what keeps the strip from asking
+    the same thing twenty times a day.
+    """
+    return "|".join([school or "", grade or "", stream or "", year or "", str(week)])
+
+
+def _ask_budget_allows(db, tutor_id, combo, klass, tutor_already_answered) -> bool:
+    """Whether this tutor should be asked this question now.
+
+    Three rules, in the order they bite. A question already put to them today
+    stays, because one that appears and then vanishes as they work down their
+    sessions is worse than one they ignore. A question they have been shown on
+    two separate days without answering stops for the rest of the week. And
+    the day's budget is spent, with routine questions limited to part of it so
+    a school week nobody knows anything about can still get through later.
+    """
+    today = today_hk()
+    prefix = escape_like_pattern(f"{tutor_id}:sp-ask:{combo}:")
+    days = {r.event_day for r in db.execute(text(r"""
+        SELECT DISTINCT event_day FROM feature_events
+        WHERE tutor_id = :t AND dedupe_key LIKE :prefix ESCAPE '\'
+    """), {"t": tutor_id, "prefix": prefix + "%"}).fetchall()}
+    if today in days:
+        return True
+    if not tutor_already_answered and len(days) >= ASK_MAX_DAYS_PER_COMBO:
+        return False
+
+    asked = db.execute(text(r"""
+        SELECT event_key, COUNT(DISTINCT dedupe_key) AS n FROM feature_events
+        WHERE tutor_id = :t AND event_day = :today
+          AND event_key LIKE 'school\_progress.asked.%' ESCAPE '\'
+        GROUP BY event_key
+    """), {"t": tutor_id, "today": today}).fetchall()
+    asked_total = sum(r.n for r in asked)
+    asked_routine = sum(r.n for r in asked
+                        if r.event_key.endswith(".routine"))
+
+    # An answer refunds a slot. The refund is not tied to the question it came
+    # from, which errs towards asking more of somebody who is answering.
+    answered = {(r.school, r.grade, r.lang_stream, r.academic_year, r.week_number)
+                for r in db.execute(text("""
+        SELECT school, grade, lang_stream, academic_year, week_number
+        FROM school_topic_observations
+        WHERE source = 'tutor_confirm' AND tutor_id = :t
+          AND DATE(created_at) = :today
+    """), {"t": tutor_id, "today": today}).fetchall()}
+
+    if klass == "routine" and max(0, asked_routine - len(answered)) >= ASK_ROUTINE_DAILY_CAP:
+        return False
+    return max(0, asked_total - len(answered)) < ASK_DAILY_CAP
+
+
+def _ask_block(db, student, on_date, year, week, tutor_id, timeline_tier) -> dict:
+    """What the collapsed strip should say about this school week.
+
+    Four states. `ask` when nobody has answered yet, `stale` when the answer
+    is old enough that the school may have moved on, `answered` when it is
+    current, and `none` when this tutor should be left alone. Only `ask` and
+    `stale` are questions, and only those two spend the day's budget.
+
+    `reason_class` is why the question was worth asking, which the strip sends
+    back when it records that the question was seen. That is what the budget
+    is counted in, and what will later say which kinds of question people
+    actually answer.
+    """
+    combo = _combo_key(student.school, student.grade, student.lang_stream, year, week)
+    block = {
+        "state": "none", "reason_class": None, "combo_key": combo,
+        "concept_id": None, "name_en": None, "name_zh": None,
+        "answered_on": None, "answered_by": None, "split": False,
+    }
+
+    rows = db.execute(text("""
+        SELECT o.concept_id, o.student_id, o.tutor_id, o.observed_on, o.created_at,
+               c.name_en, c.name_zh, t.tutor_name
+        FROM school_topic_observations o
+        LEFT JOIN curriculum_concepts c ON c.id = o.concept_id
+        LEFT JOIN tutors t ON t.id = o.tutor_id
+        WHERE o.source = 'tutor_confirm' AND o.is_revision = 0
+          AND o.school = :school AND o.grade = :grade
+          AND (o.lang_stream = :stream OR (o.lang_stream IS NULL AND :stream IS NULL))
+          AND o.academic_year = :year AND o.week_number = :week
+    """), {"school": student.school, "grade": student.grade,
+           "stream": student.lang_stream, "year": year, "week": week}).fetchall()
+
+    # Two classes at one school on different topics is a real state of the
+    # world, not a contradiction to resolve. It shows up as two concepts
+    # confirmed for two different students, which is what separates it from
+    # one class that moved on partway through the week.
+    concepts_by_student = defaultdict(set)
+    for r in rows:
+        if r.student_id:
+            concepts_by_student[r.student_id].add(r.concept_id)
+    split = (len(concepts_by_student) > 1
+             and len({c for s in concepts_by_student.values() for c in s}) > 1)
+    block["split"] = split
+
+    if not rows:
+        # Nothing at all is known about this school week when the timeline
+        # fell back to last year or to a pacing band. Those are the answers
+        # worth most, so they are named apart from the routine ones.
+        klass = "blind" if timeline_tier in ("last_year", "pacing", "none") else "routine"
+        state = "ask"
+    else:
+        def answered_day(row):
+            # Raw SQL hands dates back as whatever the driver felt like:
+            # date objects on MySQL, plain strings on SQLite.
+            return _as_date(row.observed_on) or _as_date(row.created_at)
+
+        dated = sorted(((answered_day(r), r) for r in rows),
+                       key=lambda pair: (pair[0] is not None, pair[0] or date_type.min))
+        day, latest = dated[-1]
+        block.update({
+            "concept_id": latest.concept_id,
+            "name_en": latest.name_en,
+            "name_zh": latest.name_zh,
+            "answered_on": _iso(day),
+            "answered_by": latest.tutor_name,
+        })
+        age = (on_date - day).days if day else None
+        if split:
+            state, klass = "ask", "split"
+        elif age is not None and age > ASK_STALE_DAYS:
+            state, klass = "stale", "stale"
+        else:
+            state, klass = "answered", None
+
+    if state in ("ask", "stale"):
+        already = any(r.tutor_id == tutor_id for r in rows)
+        if not _ask_budget_allows(db, tutor_id, combo, klass, already):
+            return block
+    block["state"] = state
+    block["reason_class"] = klass
+    return block
+
+
 @router.get("/curriculum/suggestions")
 def get_curriculum_suggestions(
     student_id: int = Query(..., description="Student to suggest for"),
     date: Optional[date_type] = Query(None, description="Session date (defaults to today, HK time)"),
-    _user: Tutor = Depends(get_current_user),
+    user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Suggest concepts + courseware PDFs for a student's session.
@@ -588,6 +758,9 @@ def get_curriculum_suggestions(
         "past_papers": [],
         "suggestions": [],
         "reason": None,
+        # What the collapsed strip should say, filled in once the week is
+        # known. Null while the student is outside the feature's reach.
+        "ask": None,
     }
 
     if student.grade not in SUGGESTED_GRADES:
@@ -638,7 +811,11 @@ def get_curriculum_suggestions(
                      key=lambda kv: (-kv[1]["score"], kv[0]))[:MAX_CONCEPTS]
     base["tier"] = tier
     if not top:
+        # Nothing to suggest is the most valuable question of all: this is a
+        # school week we know nothing about, so the strip still asks, it just
+        # has no topic of its own to offer.
         base["reason"] = "no_timeline"
+        base["ask"] = _ask_block(db, student, on_date, year, week, user.id, timeline_tier)
         return base
 
     concept_ids = [cid for cid, _ in top]
@@ -686,6 +863,7 @@ def get_curriculum_suggestions(
         })
 
     base["suggestions"] = suggestions
+    base["ask"] = _ask_block(db, student, on_date, year, week, user.id, timeline_tier)
     return base
 
 
@@ -1117,6 +1295,13 @@ class ObservationCreate(BaseModel):
     # confirm = tutor explicitly says "school is on this topic";
     # accept_suggestion = tutor assigned a suggested file (weaker signal).
     action: Literal["confirm", "accept_suggestion"] = "confirm"
+    # The session being worked on, kept so an answer can be traced back to the
+    # lesson it was given in.
+    session_id: Optional[int] = None
+    # Where the tutor answered. strip is the one-line question on the collapsed
+    # header, suggested is a topic button in the expanded list, correction is
+    # the topic picker, file_add is a suggested worksheet being assigned.
+    origin: Literal["strip", "suggested", "correction", "file_add"] = "suggested"
 
 
 @router.post("/curriculum/observations")
@@ -1166,6 +1351,21 @@ def create_observation(
         "is_rev": body.is_revision,
         "ref": source_ref,
     }
+    # Provenance (migration 171). These sit outside the idempotency key on
+    # purpose: the same tutor answering the same thing from the collapsed
+    # strip and then from the expanded list is one answer, not two.
+    extra = {
+        "tutor_id": user.id,
+        "student_id": body.student_id,
+        "session_id": body.session_id,
+        "observed_on": body.session_date,
+        "action": body.action,
+        "origin": body.origin,
+        # Written here rather than left to the column default because MySQL
+        # fills that default in UTC while the rest of the app writes Hong Kong
+        # time, and the daily limit on asking counts answers by their day.
+        "created_at": hk_now(),
+    }
     match_where = """
         WHERE school = :school AND grade = :grade
           AND (lang_stream = :stream OR (lang_stream IS NULL AND :stream IS NULL))
@@ -1173,10 +1373,25 @@ def create_observation(
           AND concept_id = :cid AND source = 'tutor_confirm'
           AND is_revision = :is_rev AND source_ref = :ref
     """
-    lookup_sql = f"SELECT id FROM school_topic_observations {match_where} LIMIT 1"
+    lookup_sql = (f"SELECT id, observed_on FROM school_topic_observations "
+                  f"{match_where} LIMIT 1")
 
     existing = db.execute(text(lookup_sql), params).fetchone()
     if existing:
+        # Answering "still on this" later in the same week says something the
+        # week number cannot: the school had not moved on by this date. The
+        # row is the same fact, so its date moves forward rather than a
+        # duplicate being written. That is also what stops the strip asking
+        # the same tutor the same stale question every day.
+        previous = _as_date(existing.observed_on)
+        if previous is None or previous < body.session_date:
+            db.execute(text("""
+                UPDATE school_topic_observations
+                SET observed_on = :observed_on, session_id = :session_id
+                WHERE id = :id
+            """), {"observed_on": body.session_date,
+                   "session_id": body.session_id, "id": existing.id})
+            db.commit()
         return {"id": existing.id, "created": False, "academic_year": year,
                 "week_number": week, "school": student.school}
 
@@ -1188,13 +1403,16 @@ def create_observation(
     result = db.execute(text(f"""
         INSERT INTO school_topic_observations
             (school, grade, lang_stream, academic_year, week_number, concept_id,
-             source, confidence, is_revision, source_ref)
+             source, confidence, is_revision, source_ref,
+             tutor_id, student_id, session_id, observed_on, action, origin, created_at)
         SELECT :school, :grade, :stream, :year, :week, :cid,
-               'tutor_confirm', :conf, :is_rev, :ref
+               'tutor_confirm', :conf, :is_rev, :ref,
+               :tutor_id, :student_id, :session_id, :observed_on, :action, :origin,
+               :created_at
         {from_dual}WHERE NOT EXISTS (
             SELECT 1 FROM school_topic_observations {match_where}
         )
-    """), {**params, "conf": confidence})
+    """), {**params, **extra, "conf": confidence})
     db.commit()
 
     if result.rowcount == 0:
@@ -1220,12 +1438,16 @@ def delete_observation(
     """Undo a mis-tapped confirmation. Only tutor_confirm rows created by the
     calling tutor can be removed — backfilled evidence is never deletable here."""
     row = db.execute(text("""
-        SELECT id, source, source_ref FROM school_topic_observations
+        SELECT id, source, source_ref, tutor_id FROM school_topic_observations
         WHERE id = :id
     """), {"id": observation_id}).fetchone()
     if not row or row.source != "tutor_confirm":
         raise HTTPException(status_code=404, detail="Confirmation not found")
-    if not (row.source_ref or "").startswith(f"tutor:{user.id}:"):
+    # tutor_id is the real answer since migration 171. The source_ref check
+    # stays for the handful of rows written before that column existed.
+    own = (row.tutor_id == user.id if row.tutor_id is not None
+           else (row.source_ref or "").startswith(f"tutor:{user.id}:"))
+    if not own:
         raise HTTPException(status_code=403, detail="Not your confirmation")
 
     db.execute(text(

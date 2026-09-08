@@ -290,6 +290,7 @@ class TestTheRegistryStaysHonest:
         ("documents", "locked_by"),
         ("documents", "updated_by"),
         ("extension_requests", "tutor_id"),
+        ("feature_events", "tutor_id"),
         ("homework_completion", "assigned_by_tutor_id"),
         ("homework_completion", "checked_by"),
         ("makeup_proposal_slots", "resolved_by_tutor_id"),

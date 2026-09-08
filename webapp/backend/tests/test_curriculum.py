@@ -37,7 +37,9 @@ RAW_TABLES = [
         id INTEGER PRIMARY KEY AUTOINCREMENT, school VARCHAR(255),
         grade VARCHAR(50), lang_stream VARCHAR(50), academic_year VARCHAR(20),
         week_number INT, concept_id INT, source VARCHAR(20),
-        confidence DECIMAL(3,2), is_revision BOOLEAN, source_ref VARCHAR(500))""",
+        confidence DECIMAL(3,2), is_revision BOOLEAN, source_ref VARCHAR(500),
+        tutor_id INT, student_id INT, session_id INT, observed_on DATE,
+        action VARCHAR(20), origin VARCHAR(20), created_at TIMESTAMP)""",
     """CREATE TABLE courseware_concepts (
         id INTEGER PRIMARY KEY, concept_id INT, file_path VARCHAR(500),
         file_basename VARCHAR(255), role VARCHAR(20), lang VARCHAR(1),
@@ -973,3 +975,137 @@ def test_coverage(client: TestClient, db_session):
     assert srl["weeks_observed"] == 2
     assert srl["total_weight"] == 1.85
     assert srl["tutor_confirms"] == 1
+
+
+# ---------------------------------------------------------------------------
+# The question on the collapsed strip
+# ---------------------------------------------------------------------------
+
+def _asked_elsewhere(client, key="school_progress.asked.routine", n=1, tag="other"):
+    """Pretend the tutor was already asked about n other school weeks today."""
+    events = [{"event_key": key, "dedupe_key": f"sp-ask:{tag}{i}|F1|E|2025-2026|11:day"}
+              for i in range(n)]
+    return client.post("/api/events", json={"events": events}, cookies=AUTH_COOKIE)
+
+
+def test_confirm_records_provenance(client: TestClient, db_session):
+    body = _confirm(client, session_id=555, origin="strip").json()
+    row = db_session.execute(text("""
+        SELECT tutor_id, student_id, session_id, observed_on, action, origin
+        FROM school_topic_observations WHERE id = :id"""), {"id": body["id"]}).fetchone()
+    assert row.tutor_id == 99
+    assert row.student_id == 1
+    assert row.session_id == 555
+    assert str(row.observed_on).startswith("2025-11-12")
+    assert (row.action, row.origin) == ("confirm", "strip")
+
+
+def test_ask_is_blind_when_nothing_is_known(client: TestClient):
+    """No timeline at all is the question worth asking most."""
+    ask = _get(client).json()["ask"]
+    assert (ask["state"], ask["reason_class"]) == ("ask", "blind")
+    assert ask["combo_key"] == "SRL-E|F1|E|2025-2026|11"
+
+
+def test_ask_is_routine_when_the_timeline_has_rows(client: TestClient, db_session):
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    ask = _get(client).json()["ask"]
+    assert (ask["state"], ask["reason_class"]) == ("ask", "routine")
+
+
+def test_answer_turns_the_question_into_a_statement(client: TestClient, db_session):
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    _confirm(client)
+    ask = _get(client).json()["ask"]
+    assert ask["state"] == "answered"
+    assert ask["reason_class"] is None
+    assert ask["answered_on"] == "2025-11-12"
+    assert ask["concept_id"] == 1
+    assert ask["name_en"] == "Linear Equations in One Unknown"
+
+
+def test_answer_goes_stale_and_asks_again(client: TestClient, db_session):
+    """Four days on, the school may have moved. Same week, lighter question."""
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    _confirm(client, session_date="2025-11-10")
+    ask = _get(client, date="2025-11-14").json()["ask"]
+    assert (ask["state"], ask["reason_class"]) == ("stale", "stale")
+    assert ask["answered_on"] == "2025-11-10"
+
+
+def test_two_classes_on_different_topics_keep_the_question_open(
+    client: TestClient, db_session
+):
+    """One answer closes the prompt. It does not close the question."""
+    db_session.add(Student(id=5, student_name="Eve", school="SRL-E",
+                           grade="F1", lang_stream="E"))
+    db_session.commit()
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    _confirm(client, student_id=1, concept_id=1)
+    _confirm(client, student_id=5, concept_id=2)
+    ask = _get(client).json()["ask"]
+    assert ask["split"] is True
+    assert (ask["state"], ask["reason_class"]) == ("ask", "split")
+
+
+def test_daily_cap_stops_asking(client: TestClient, db_session):
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    _asked_elsewhere(client, n=3)
+    ask = _get(client).json()["ask"]
+    assert ask["state"] == "none"
+    assert ask["reason_class"] is None
+
+
+def test_routine_questions_leave_a_slot_for_a_blind_one(client: TestClient, db_session):
+    """Two routine asks spend the routine budget, not the whole day's."""
+    _asked_elsewhere(client, n=2)
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    assert _get(client).json()["ask"]["state"] == "none"      # routine, budget gone
+    db_session.execute(text("DELETE FROM school_week_topic_consensus"))
+    db_session.commit()
+    assert _get(client).json()["ask"]["reason_class"] == "blind"  # still gets through
+
+
+def test_answering_frees_a_slot(client: TestClient, db_session):
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    _asked_elsewhere(client, n=3)
+    _confirm(client, student_id=1, concept_id=1, session_date="2025-11-12")
+    # That answer closes this school week, so read the budget through another
+    # student's week: the refund is what lets a fourth question be asked.
+    db_session.add(Student(id=6, student_name="Fay", school="PCMS",
+                           grade="F1", lang_stream="E"))
+    db_session.commit()
+    ask = _get(client, student_id=6).json()["ask"]
+    assert ask["state"] == "ask"
+
+
+def test_two_days_unanswered_stops_the_question_for_the_week(
+    client: TestClient, db_session
+):
+    from datetime import timedelta
+    from constants import today_hk
+    from models import FeatureEvent
+
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    combo = "SRL-E|F1|E|2025-2026|11"
+    for back in (1, 2):
+        day = today_hk() - timedelta(days=back)
+        db_session.add(FeatureEvent(
+            tutor_id=99, event_key="school_progress.asked.routine",
+            dedupe_key=f"99:sp-ask:{combo}:{day.isoformat()}", event_day=day))
+    db_session.commit()
+    assert _get(client).json()["ask"]["state"] == "none"
+
+
+def test_still_on_this_moves_the_answer_forward(client: TestClient, db_session):
+    """A repeat answer later in the week is the same fact, dated later."""
+    _consensus_row(db_session, week=11, concept_id=1, weight=2.0)
+    first = _confirm(client, session_date="2025-11-10").json()
+    again = _confirm(client, session_date="2025-11-14").json()
+    assert again["created"] is False and again["id"] == first["id"]
+    observed = db_session.execute(text(
+        "SELECT observed_on FROM school_topic_observations WHERE id = :id"),
+        {"id": first["id"]}).scalar()
+    assert str(observed).startswith("2025-11-14")
+    # And the question that prompted it is settled again.
+    assert _get(client, date="2025-11-14").json()["ask"]["state"] == "answered"

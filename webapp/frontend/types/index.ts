@@ -755,6 +755,41 @@ export interface CurriculumSuggestionsResponse {
   past_papers?: CurriculumPastPaper[];
   suggestions: CurriculumConceptSuggestion[];
   reason: string | null;
+  // What the collapsed School Progress strip should say about this school
+  // week. Null when the student is outside the feature's reach.
+  ask?: CurriculumAsk | null;
+}
+
+/** The one-line question, or statement, on the collapsed School Progress strip.
+ *
+ *  `ask` and `stale` are questions and cost the tutor something, so the server
+ *  decides when to raise them. `answered` is a statement of what somebody else
+ *  already said, and `none` means leave this tutor alone. `reason_class` is why
+ *  the question was worth asking, sent back when the strip records that it was
+ *  seen so the daily limit can be counted in the same terms.
+ */
+export interface CurriculumAsk {
+  state: "ask" | "stale" | "answered" | "none";
+  reason_class: "blind" | "split" | "stale" | "routine" | null;
+  combo_key: string;
+  concept_id: number | null;
+  name_en: string | null;
+  name_zh: string | null;
+  answered_on: string | null;
+  answered_by: string | null;
+  // Two classes at this school are reported on different topics this week.
+  split: boolean;
+}
+
+/** One moment worth counting later: a panel seen, a question put, a section
+ *  opened. `dedupe_key` collapses repeats, e.g. once per session per day. The
+ *  tutor is added server-side, so keys from two people never collide. */
+export interface FeatureEventIn {
+  event_key: string;
+  entity_type?: string;
+  entity_id?: number;
+  context?: Record<string, unknown>;
+  dedupe_key?: string;
 }
 
 export interface CurriculumExamScopeConcept {

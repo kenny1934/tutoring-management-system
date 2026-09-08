@@ -215,6 +215,7 @@ import type {
   WaitlistEntryBulkItem,
   WaitlistEntryUpdate,
   CurriculumSuggestionsResponse,
+  FeatureEventIn,
   CurriculumExamsResponse,
   CurriculumRevisionPackResponse,
   CurriculumObservationResult,
@@ -1110,6 +1111,9 @@ export const curriculumAPI = {
     session_date: string;
     is_revision?: boolean;
     action?: 'confirm' | 'accept_suggestion';
+    session_id?: number;
+    // Where the tutor answered, so we can tell later which surface earned it.
+    origin?: 'strip' | 'suggested' | 'correction' | 'file_add';
   }) =>
     fetchAPI<CurriculumObservationResult>('/curriculum/observations', {
       method: 'POST',
@@ -1169,6 +1173,28 @@ export const curriculumAPI = {
     return fetchAPI<CurriculumSearchResponse>(`/curriculum/search?${params}`);
   },
 };
+
+/** Record what a member of staff actually reached on screen.
+ *
+ *  A request log can only say that a page fetched something, and the School
+ *  Progress panel fetches on hover, so the logs measure guesses rather than
+ *  attention. These events fill that gap: a panel that rendered, a question
+ *  somebody was shown, a section somebody opened.
+ *
+ *  Deliberately fire and forget. Nothing on screen waits for it, and a lost
+ *  event costs a row in a report and nothing else. Keys are checked against an
+ *  allowlist on the server, so a typo here fails loudly in development rather
+ *  than quietly producing an empty report weeks later.
+ */
+export function recordFeatureEvents(events: FeatureEventIn[]): void {
+  if (events.length === 0) return;
+  fetchAPI<{ recorded: number }>('/events', {
+    method: 'POST',
+    body: JSON.stringify({ events }),
+  }).catch(() => {
+    /* telemetry never interrupts a tutor */
+  });
+}
 
 // Paperless-ngx API
 export const paperlessAPI = {

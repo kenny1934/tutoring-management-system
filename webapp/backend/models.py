@@ -6,7 +6,7 @@ from sqlalchemy import Column, Integer, BigInteger, String, Date, DateTime, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
-from constants import hk_now
+from constants import hk_now, today_hk
 
 
 class Tutor(Base):
@@ -1906,3 +1906,38 @@ class SchoolAlias(Base):
     target = Column(String(64), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class FeatureEvent(Base):
+    """One moment where a member of staff saw something, or chose not to act.
+
+    Almost everything else in this database is a fact about a student. This
+    table is a fact about us: which parts of the app people actually reach,
+    and which questions they read and walk away from. Those moments never
+    become a row anywhere else, so without this the only way to answer "is
+    anybody using this" is to read request logs and guess, and a request log
+    cannot tell a page that loaded on hover from a page a person read.
+
+    ``event_key`` is checked against an allowlist in routers/events.py, so the
+    table only ever holds events we decided to keep. ``dedupe_key`` is unique
+    when set, which is how an event that should count once per person per day
+    can be sent on every render and land once. ``event_day`` is the Hong Kong
+    date, written by the server, because that is the bucket every question
+    about frequency is asked in.
+    """
+    __tablename__ = "feature_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    event_key = Column(String(64), nullable=False)
+    entity_type = Column(String(32), nullable=True)
+    entity_id = Column(Integer, nullable=True)
+    context = Column(JSON, nullable=True)
+    dedupe_key = Column(String(160), nullable=True, unique=True)
+    event_day = Column(Date, nullable=False, default=today_hk)
+    created_at = Column(DateTime, default=hk_now, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_feature_event_key_time", "event_key", "event_day"),
+        Index("idx_feature_event_tutor_day", "tutor_id", "event_day", "event_key"),
+    )
