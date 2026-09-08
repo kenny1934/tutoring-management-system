@@ -313,8 +313,15 @@ def main():
             stats["sheet:no_concept"] += 1
             continue
         ref = f"{row['source']}:{school}:{grade}{stream or ''}:wk{week}:{row['part'][:60]}"
-        for cid in cids:
-            add(school, grade, stream, year, week, cid, "sheet", conf, False, ref)
+        # The July file keeps the sheet's own row label, and the 2025-26 sheet
+        # spelled a couple of schools its own way ("CMR (利瑪竇)", "菜農").
+        # Resolve it through the alias map like the other channels do, or the
+        # spelling becomes a second school in the explorer's picker. Unknown
+        # labels keep their raw spelling so the row is not lost, which is the
+        # same fallback channel 2 uses.
+        for sc in canon_school(school, stream) or [norm(school)]:
+            for cid in cids:
+                add(sc, grade, stream, year, week, cid, "sheet", conf, False, ref)
 
     # ---- channel 3b: live curriculum sheets ---------------------------------
     # import_curriculum_sheets.py reads each year's Google Sheet and leaves one
