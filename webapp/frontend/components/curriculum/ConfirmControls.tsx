@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, RotateCcw, BookPlus, X } from "lucide-react";
+import { Check, Loader2, RotateCcw, BookPlus, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,6 +24,62 @@ export const RECORDED_TEXT =
   "inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 shrink-0";
 
 export const KIND_QUESTION = "Revision or New Topic?";
+
+/**
+ * A topic somebody has recorded while this modal has been open.
+ *
+ * Every School Progress surface reads one map of these, keyed by topic, rather
+ * than remembering its own answers. The question on the collapsed strip, the
+ * buttons in the list below it and the search box are three ways of saying the
+ * same thing about the same school week, so an answer given on any one of them
+ * has to show on the others: answering on the strip and then opening the list
+ * used to leave an unpressed button beside a topic that had just been
+ * confirmed, which invited a second answer for the same lesson.
+ */
+export interface RecordedTopic {
+  observationId: number;
+  isRevision: boolean;
+  /** For the surfaces whose own row no longer names the topic by the time the
+   *  answer is shown. */
+  name: string;
+}
+
+export type RecordedTopics = Record<number, RecordedTopic>;
+
+/** What every surface shows once a topic is recorded, Undo included. */
+export function RecordedNote({
+  isRevision,
+  onUndo,
+  busy = false,
+  className,
+}: {
+  isRevision: boolean;
+  onUndo: () => void;
+  /** An undo already in flight. The note stays put while it runs, so the row
+   *  does not flip back to a button and then away again. */
+  busy?: boolean;
+  className?: string;
+}) {
+  return (
+    <span className={cn(RECORDED_TEXT, className)}>
+      <Check className="h-3 w-3" />
+      {isRevision ? "Noted as revision, thanks!" : "Noted, thanks!"}
+      <button
+        type="button"
+        onClick={onUndo}
+        disabled={busy}
+        className="inline-flex items-center gap-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 ml-1"
+      >
+        {busy ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Undo2 className="h-3 w-3" />
+        )}
+        Undo
+      </button>
+    </span>
+  );
+}
 
 /** The header gradient, ending on the exercise modal's own panel colours.
  *  White or near-black endpoints leave a visible seam on the desk palette.

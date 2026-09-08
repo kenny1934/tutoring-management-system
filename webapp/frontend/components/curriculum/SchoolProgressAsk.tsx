@@ -10,8 +10,12 @@ import { formatWeekdayShort } from "@/lib/formatters";
 import {
   KindQuestion,
   RECORD_BTN,
-  RECORDED_TEXT,
+  RecordedNote,
   SECTION_HEADER_BG,
+} from "@/components/curriculum/ConfirmControls";
+import type {
+  RecordedTopic,
+  RecordedTopics,
 } from "@/components/curriculum/ConfirmControls";
 import { TopicCorrectionPicker } from "@/components/curriculum/TopicCorrectionPicker";
 import type { CurriculumAsk, Session } from "@/types";
@@ -67,13 +71,9 @@ type AnswerState =
   | { status: "picking" }
   | { status: "asking"; concept: Topic; corrected: boolean }
   | { status: "saving"; isRevision: boolean; concept: Topic; corrected: boolean }
-  | {
-      status: "confirmed";
-      observationId: number;
-      isRevision: boolean;
-      concept: Topic;
-      corrected: boolean;
-    }
+  /** Answered here. What was recorded is read back from the shared map, so an
+   *  Undo pressed on the list below takes this row back to the question too. */
+  | { status: "confirmed"; conceptId: number }
   | { status: "unsure" };
 
 const ROW_FRAME =
@@ -93,6 +93,9 @@ export function SchoolProgressAsk({
   suggestions,
   stream,
   inTestWindow,
+  recorded,
+  onRecorded,
+  onCleared,
   hidden = false,
 }: {
   ask: CurriculumAsk;
@@ -103,6 +106,11 @@ export function SchoolProgressAsk({
   /** Chinese or English topic names in the search box, following the class. */
   stream: string | null;
   inTestWindow: boolean;
+  /** Every topic recorded while the modal has been open, shared with the list
+   *  below so that one answer settles the question on both. */
+  recorded: RecordedTopics;
+  onRecorded: (conceptId: number, topic: RecordedTopic) => void;
+  onCleared: (conceptId: number) => void;
   /** True while the section below is open, where the per-topic buttons ask the
    *  same thing with more room. The row renders nothing but stays mounted, so
    *  an answer survives the tutor opening the section and closing it again.
@@ -113,6 +121,7 @@ export function SchoolProgressAsk({
   const { showToast } = useToast();
   const hitArea = iconHitArea(useCoarsePointer());
   const [answer, setAnswer] = useState<AnswerState>({ status: "idle" });
+  const [undoing, setUndoing] = useState(false);
   const seen = useRef<string | null>(null);
 
   const isQuestion = ask.state === "ask" || ask.state === "stale";
@@ -163,13 +172,12 @@ export function SchoolProgressAsk({
         session_id: session.id,
         origin: "strip",
       });
-      setAnswer({
-        status: "confirmed",
+      onRecorded(concept.id, {
         observationId: result.id,
         isRevision,
-        concept,
-        corrected,
+        name: concept.name,
       });
+      setAnswer({ status: "confirmed", conceptId: concept.id });
     } catch {
       // Back to where the choice was made, so a retry is one tap away.
       setAnswer(
@@ -183,25 +191,24 @@ export function SchoolProgressAsk({
     }
   };
 
-  const undo = async () => {
-    if (answer.status !== "confirmed") return;
-    const previous = answer;
-    setAnswer({
-      status: "saving",
-      isRevision: previous.isRevision,
-      concept: previous.concept,
-      corrected: previous.corrected,
-    });
+  const undo = async (conceptId: number) => {
+    const topic = recorded[conceptId];
+    if (!topic) return;
+    setUndoing(true);
     try {
-      await curriculumAPI.undoConfirm(previous.observationId);
+      await curriculumAPI.undoConfirm(topic.observationId);
+      onCleared(conceptId);
       setAnswer({ status: "idle" });
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
+        // Already gone, so the question is open again either way.
+        onCleared(conceptId);
         setAnswer({ status: "idle" });
-        return;
+      } else {
+        showToast("Could not undo the confirmation. Please try again.", "error");
       }
-      setAnswer(previous);
-      showToast("Could not undo the confirmation. Please try again.", "error");
+    } finally {
+      setUndoing(false);
     }
   };
 
@@ -229,48 +236,60 @@ export function SchoolProgressAsk({
   if (ask.state === "none") return null;
   if (ask.state !== "answered" && !asked) return null;
 
-  if (answer.status === "confirmed" || answer.status === "unsure") {
+  if (answer.status === "unsure") {
     return (
       <div className={cn(ROW, SECTION_HEADER_BG)}>
-        {answer.status === "unsure" ? (
-          <>
-            <span className={QUESTION_TEXT}>Thanks, we will ask someone else.</span>
-            {/* A mis-tap on a small button should not cost the answer. The
-                event recording that somebody did not know has already been
-                sent and stays sent: they did tap it, and a real answer given
-                afterwards is recorded too, so both are visible in a report. */}
-            <button
-              type="button"
-              onClick={() => setAnswer({ status: "idle" })}
-              className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-1"
-            >
-              <Undo2 className="h-3 w-3" />
-              Undo
-            </button>
-          </>
-        ) : (
-          <>
-            {/* A corrected topic is named back, because the row that offered
-                it has gone and the tutor should see what was recorded. */}
-            {answer.corrected && (
-              <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0">
-                {answer.concept.name}
-              </span>
-            )}
-            <span className={cn(RECORDED_TEXT, !answer.corrected && "flex-1 min-w-0")}>
-              <Check className="h-3 w-3" />
-              {answer.isRevision ? "Noted as revision, thanks!" : "Noted, thanks!"}
-              <button
-                type="button"
-                onClick={undo}
-                className="inline-flex items-center gap-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1"
-              >
-                <Undo2 className="h-3 w-3" />
-                Undo
-              </button>
-            </span>
-          </>
+        <span className={QUESTION_TEXT}>Thanks, we will ask someone else.</span>
+        {/* A mis-tap on a small button should not cost the answer. The event
+            recording that somebody did not know has already been sent and
+            stays sent: they did tap it, and a real answer given afterwards is
+            recorded too, so both are visible in a report. */}
+        <button
+          type="button"
+          onClick={() => setAnswer({ status: "idle" })}
+          className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-1"
+        >
+          <Undo2 className="h-3 w-3" />
+          Undo
+        </button>
+      </div>
+    );
+  }
+
+  // A topic recorded for this school week settles the question, whichever
+  // topic it was and wherever the answer was given. Tapping "Yes, this one"
+  // on the second suggestion in the section below is an answer to the
+  // question on this row as much as tapping Yes here is, so reading it back
+  // from the shared map is what stops the row asking again on the way out.
+  const settledElsewhere =
+    (asked && recorded[asked.id] ? asked : suggestions.find((t) => recorded[t.id])) ??
+    null;
+  const settledId =
+    answer.status === "confirmed"
+      ? answer.conceptId
+      : answer.status === "idle"
+        ? settledElsewhere?.id ?? null
+        : null;
+  const settled = settledId == null ? null : recorded[settledId] ?? null;
+
+  if (settledId != null && settled) {
+    // Any topic other than the one the question was about is named back,
+    // because whatever offered it has gone by now and the tutor should see
+    // what was recorded.
+    const corrected = settledId !== asked?.id;
+    return (
+      <div className={cn(ROW, SECTION_HEADER_BG)}>
+        {corrected && (
+          <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0">
+            {settled.name}
+          </span>
         )}
+        <RecordedNote
+          isRevision={settled.isRevision}
+          busy={undoing}
+          onUndo={() => undo(settledId)}
+          className={corrected ? undefined : "flex-1 min-w-0"}
+        />
       </div>
     );
   }

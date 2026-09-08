@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SchoolProgressAsk } from "./SchoolProgressAsk";
+import type { RecordedTopics } from "./ConfirmControls";
 import type { CurriculumAsk, Session } from "@/types";
 
 // The row talks to the toast context and the API client. Neither is what this
@@ -76,16 +78,49 @@ const ALTERNATIVES = [
 ];
 const RANKED = [TOP, ...ALTERNATIVES];
 
-function renderAsk(a: CurriculumAsk, suggestions = RANKED) {
-  return render(
+// The map of recorded topics belongs to the exercise modal, which shares it
+// with the list of suggestions below the strip. This stands in for that, so
+// the tests exercise the same handing back and forth the real panel does.
+function Harness({
+  ask: a,
+  suggestions = RANKED,
+  inTestWindow = false,
+  hidden = false,
+  alreadyRecorded = {},
+}: {
+  ask: CurriculumAsk;
+  suggestions?: { id: number; name: string }[];
+  inTestWindow?: boolean;
+  hidden?: boolean;
+  /** Answered somewhere else in the modal before this row rendered. */
+  alreadyRecorded?: RecordedTopics;
+}) {
+  const [recorded, setRecorded] = useState<RecordedTopics>(alreadyRecorded);
+  return (
     <SchoolProgressAsk
       ask={a}
       session={SESSION}
       suggestions={suggestions}
       stream="C"
-      inTestWindow={false}
-    />,
+      inTestWindow={inTestWindow}
+      hidden={hidden}
+      recorded={recorded}
+      onRecorded={(id, topic) =>
+        setRecorded((prev) => ({ ...prev, [id]: topic }))
+      }
+      onCleared={(id) =>
+        setRecorded((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        })
+      }
+    />
   );
+}
+
+function renderAsk(a: CurriculumAsk, suggestions = RANKED) {
+  return render(<Harness ask={a} suggestions={suggestions} />);
 }
 
 describe("SchoolProgressAsk", () => {
@@ -124,6 +159,47 @@ describe("SchoolProgressAsk", () => {
       ),
     );
     expect(await screen.findByText("Noted, thanks!")).toBeInTheDocument();
+  });
+
+  // The two directions of the shared record. A tutor who answers on a topic
+  // row below should not be asked the same question when the section closes,
+  // and an Undo here has to release the topic so those rows offer it again.
+  it("shows an answer given in the section below instead of asking again", () => {
+    render(
+      <Harness
+        ask={ask()}
+        alreadyRecorded={{
+          42: { observationId: 9, isRevision: false, name: "Rational Numbers" },
+        }}
+      />,
+    );
+    expect(screen.getByText("Noted, thanks!")).toBeInTheDocument();
+    expect(screen.queryByText("Yes")).toBeNull();
+  });
+
+  it("settles for an answer given on another topic in that section", () => {
+    render(
+      <Harness
+        ask={ask()}
+        alreadyRecorded={{
+          43: { observationId: 9, isRevision: false, name: "Directed Numbers" },
+        }}
+      />,
+    );
+    expect(screen.getByText("Noted, thanks!")).toBeInTheDocument();
+    // Not the topic the question was about, so it is named back.
+    expect(screen.getByText("Directed Numbers")).toBeInTheDocument();
+    expect(screen.queryByText("Yes")).toBeNull();
+  });
+
+  it("puts the question back when the answer is undone", async () => {
+    renderAsk(ask());
+    fireEvent.click(screen.getByText("Yes"));
+    fireEvent.click(await screen.findByText("Undo"));
+    await waitFor(() => expect(undoConfirm).toHaveBeenCalledWith(7));
+    expect(
+      await screen.findByText("DBYW-C F1 on Rational Numbers this week?"),
+    ).toBeInTheDocument();
   });
 
   // "Mon 7 Sept" is formatWeekdayShort, the same formatter the session lists
@@ -224,15 +300,7 @@ describe("SchoolProgressAsk", () => {
   });
 
   it("asks whether a corrected topic is revision during a test window", async () => {
-    render(
-      <SchoolProgressAsk
-        ask={ask()}
-        session={SESSION}
-        suggestions={RANKED}
-        stream="C"
-        inTestWindow
-      />,
-    );
+    render(<Harness ask={ask()} inTestWindow />);
     fireEvent.click(screen.getByText("No, it's…"));
     fireEvent.click(screen.getByText("Directed Numbers"));
     expect(confirmTopic).not.toHaveBeenCalled();
@@ -267,20 +335,13 @@ describe("SchoolProgressAsk", () => {
   // was open, so opening it and closing it again asked a question the tutor
   // had already answered.
   it("remembers the answer while the section below is open", () => {
-    const props = {
-      ask: ask(),
-      session: SESSION,
-      suggestions: RANKED,
-      stream: "C",
-      inTestWindow: false,
-    };
-    const { rerender } = render(<SchoolProgressAsk {...props} />);
+    const { rerender } = render(<Harness ask={ask()} />);
     fireEvent.click(screen.getByText("Not sure"));
 
-    rerender(<SchoolProgressAsk {...props} hidden />);
+    rerender(<Harness ask={ask()} hidden />);
     expect(screen.queryByText("Thanks, we will ask someone else.")).toBeNull();
 
-    rerender(<SchoolProgressAsk {...props} />);
+    rerender(<Harness ask={ask()} />);
     expect(
       screen.getByText("Thanks, we will ask someone else."),
     ).toBeInTheDocument();
@@ -289,28 +350,14 @@ describe("SchoolProgressAsk", () => {
 
   it("stays out of the way when the tutor should be left alone", () => {
     const { container } = render(
-      <SchoolProgressAsk
-        ask={ask({ state: "none", reason_class: null })}
-        session={SESSION}
-        suggestions={RANKED}
-        stream="C"
-        inTestWindow={false}
-      />,
+      <Harness ask={ask({ state: "none", reason_class: null })} />,
     );
     expect(container.firstChild).toBeNull();
     expect(recordFeatureEvents).not.toHaveBeenCalled();
   });
 
   it("asks whether it is revision before recording during a test window", async () => {
-    render(
-      <SchoolProgressAsk
-        ask={ask()}
-        session={SESSION}
-        suggestions={RANKED}
-        stream="C"
-        inTestWindow
-      />,
-    );
+    render(<Harness ask={ask()} inTestWindow />);
     fireEvent.click(screen.getByText("Yes"));
     expect(confirmTopic).not.toHaveBeenCalled();
     fireEvent.click(await screen.findByText("Revision"));

@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Loader2, MessageSquarePlus, Undo2, X } from "lucide-react";
+import { Loader2, MessageSquarePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts } from "@/lib/hooks";
 import { ApiError, curriculumAPI } from "@/lib/api";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { conceptNameForStream, matchesConcept } from "@/lib/curriculum-labels";
-import { KindQuestion, RECORDED_TEXT } from "@/components/curriculum/ConfirmControls";
+import { KindQuestion, RecordedNote } from "@/components/curriculum/ConfirmControls";
+import type { RecordedTopic } from "@/components/curriculum/ConfirmControls";
 import type { CurriculumConceptVocab, Session } from "@/types";
 
 /**
@@ -47,6 +48,8 @@ export function TopicCorrectionPicker({
   onOpenChange,
   triggerLabel,
   origin = "correction",
+  onRecorded,
+  onCleared,
 }: {
   session: Session;
   /** Topics already on screen with their own answer buttons: offering them
@@ -60,6 +63,11 @@ export function TopicCorrectionPicker({
    *  collapsed strip does: there is nothing to trigger. */
   triggerLabel?: string;
   origin?: "correction" | "strip";
+  /** Reported so the rest of the panel agrees: a topic named here reads as
+   *  recorded on the question above and in the list below, if either of them
+   *  is showing it. */
+  onRecorded?: (conceptId: number, topic: RecordedTopic) => void;
+  onCleared?: (conceptId: number) => void;
 }) {
   const { showToast } = useToast();
   const hitArea = iconHitArea(useCoarsePointer());
@@ -104,6 +112,11 @@ export function TopicCorrectionPicker({
         session_id: session.id,
         origin,
       });
+      onRecorded?.(concept.id, {
+        observationId: result.id,
+        isRevision,
+        name: conceptNameForStream(concept, stream),
+      });
       setState({
         status: "confirmed",
         concept,
@@ -129,9 +142,11 @@ export function TopicCorrectionPicker({
     });
     try {
       await curriculumAPI.undoConfirm(previous.observationId);
+      onCleared?.(previous.concept.id);
       close();
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
+        onCleared?.(previous.concept.id);
         close();
         return;
       }
@@ -250,18 +265,7 @@ export function TopicCorrectionPicker({
       {state.status === "saving" ? (
         <Loader2 className="h-3 w-3 animate-spin text-gray-400 shrink-0" />
       ) : (
-        <span className={RECORDED_TEXT}>
-          <Check className="h-3 w-3" />
-          {state.isRevision ? "Noted as revision, thanks!" : "Noted, thanks!"}
-          <button
-            type="button"
-            onClick={undo}
-            className="inline-flex items-center gap-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1"
-          >
-            <Undo2 className="h-3 w-3" />
-            Undo
-          </button>
-        </span>
+        <RecordedNote isRevision={state.isRevision} onUndo={undo} />
       )}
     </div>
   );

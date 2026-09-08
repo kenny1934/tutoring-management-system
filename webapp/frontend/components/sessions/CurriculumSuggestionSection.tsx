@@ -10,7 +10,6 @@ import {
   History,
   Loader2,
   CalendarClock,
-  Undo2,
 } from "lucide-react";
 import { CurriculumPdfPreview } from "@/components/curriculum/CurriculumPdfPreview";
 import { CurriculumFileRow } from "@/components/curriculum/CurriculumFileRow";
@@ -22,8 +21,12 @@ import { TopicCorrectionPicker } from "@/components/curriculum/TopicCorrectionPi
 import {
   KindQuestion,
   RECORD_BTN,
-  RECORDED_TEXT,
+  RecordedNote,
   SECTION_HEADER_BG,
+} from "@/components/curriculum/ConfirmControls";
+import type {
+  RecordedTopic,
+  RecordedTopics,
 } from "@/components/curriculum/ConfirmControls";
 import { cn } from "@/lib/utils";
 import { getTypeColors } from "@/lib/exam-type-colors";
@@ -74,14 +77,16 @@ function evidenceLine(
   return `${prefix} ${sourceText} · ${weeksSpanText(why.weeks_observed || [])}`;
 }
 
-// "asking" only happens near a test: the tap has been made but nothing is
-// written until the tutor says whether the school is revising the topic or
-// teaching it for the first time.
+// What a single row is doing right now. Whether its topic has been recorded
+// is not in here: that is a fact about the school week rather than about one
+// row, so it lives in `recorded` and every surface reads it. "asking" only
+// happens near a test: the tap has been made but nothing is written until the
+// tutor says whether the school is revising the topic or teaching it for the
+// first time.
 type ConfirmState =
   | { status: "idle" }
   | { status: "asking" }
-  | { status: "saving"; isRevision: boolean }
-  | { status: "confirmed"; observationId: number; isRevision: boolean };
+  | { status: "saving"; isRevision: boolean };
 
 interface CurriculumSuggestionSectionProps {
   session: Session;
@@ -104,6 +109,11 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   // top topic so the information is visible at a glance.
   const [expanded, setExpanded] = useState(false);
   const [confirmStates, setConfirmStates] = useState<Record<number, ConfirmState>>({});
+  // Every topic recorded while this modal has been open, whichever surface
+  // recorded it. The question on the strip, the buttons below it and the
+  // search box all answer the same question about the same school week, so
+  // they share this rather than each remembering their own answers.
+  const [recorded, setRecorded] = useState<RecordedTopics>({});
   // The picker owns its own state. All this section decides is whether it is
   // open, because answering "No, it's..." on the collapsed question opens it.
   const [correctionOpen, setCorrectionOpen] = useState(false);
@@ -144,6 +154,16 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       dedupe_key: `sp-shown:${session.id}`,
     }]);
   }, [eligible, data, session.id, session.school, session.grade]);
+
+  const noteRecorded = (conceptId: number, topic: RecordedTopic) =>
+    setRecorded((prev) => ({ ...prev, [conceptId]: topic }));
+
+  const clearRecorded = (conceptId: number) =>
+    setRecorded((prev) => {
+      const next = { ...prev };
+      delete next[conceptId];
+      return next;
+    });
 
   const toggleExpanded = () => {
     if (!expanded) {
@@ -244,6 +264,8 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
             inTestWindow={data.revision_mode}
             open={correctionOpen}
             onOpenChange={setCorrectionOpen}
+            onRecorded={noteRecorded}
+            onCleared={clearRecorded}
             triggerLabel="Tell us what they are on"
             origin="strip"
           />
@@ -256,6 +278,8 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   // question. The confirm button asks it after the tap, in place, and only
   // then writes. Outside a test window the tap records new teaching at once.
   const inTestWindow = data.revision_mode;
+
+  const stream = data.lang_stream || session.lang_stream || null;
 
   const handleConfirm = async (
     concept: CurriculumConceptSuggestion,
@@ -274,9 +298,14 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         session_id: session.id,
         origin: "suggested",
       });
+      noteRecorded(concept.concept_id, {
+        observationId: result.id,
+        isRevision,
+        name: conceptNameForStream(concept, stream),
+      });
       setConfirmStates((prev) => ({
         ...prev,
-        [concept.concept_id]: { status: "confirmed", observationId: result.id, isRevision },
+        [concept.concept_id]: { status: "idle" },
       }));
     } catch {
       // Back to where the choice was made: the question during a test
@@ -289,29 +318,28 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
     }
   };
 
-  const handleUndo = async (concept: CurriculumConceptSuggestion) => {
-    const state = confirmStates[concept.concept_id];
-    if (state?.status !== "confirmed") return;
+  const handleUndo = async (conceptId: number) => {
+    const topic = recorded[conceptId];
+    if (!topic) return;
     setConfirmStates((prev) => ({
       ...prev,
-      [concept.concept_id]: { status: "saving", isRevision: state.isRevision },
+      [conceptId]: { status: "saving", isRevision: topic.isRevision },
     }));
     try {
-      await curriculumAPI.undoConfirm(state.observationId);
-      setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: { status: "idle" } }));
+      await curriculumAPI.undoConfirm(topic.observationId);
+      clearRecorded(conceptId);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
         // The observation is already gone (idempotent confirms can share one
-        // row that another Undo removed) — this undo has nothing left to do.
-        setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: { status: "idle" } }));
-        return;
+        // row that another Undo removed), so this undo has nothing left to
+        // do, and the topic should stop reading as recorded either way.
+        clearRecorded(conceptId);
+      } else {
+        showToast("Could not undo the confirmation. Please try again.", "error");
       }
-      setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: state }));
-      showToast("Could not undo the confirmation. Please try again.", "error");
     }
+    setConfirmStates((prev) => ({ ...prev, [conceptId]: { status: "idle" } }));
   };
-
-  const stream = data.lang_stream || session.lang_stream || null;
 
   const examDate = data.upcoming_exam?.start_date
     ? new Date(data.upcoming_exam.start_date).toLocaleDateString("en-GB", {
@@ -405,6 +433,9 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           }))}
           stream={stream}
           inTestWindow={inTestWindow}
+          recorded={recorded}
+          onRecorded={noteRecorded}
+          onCleared={clearRecorded}
         />
       )}
 
@@ -480,6 +511,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
             )}
             {data.suggestions.map((concept) => {
               const state = confirmStates[concept.concept_id] || { status: "idle" };
+              const topicRecorded = recorded[concept.concept_id];
               return (
                 <div key={concept.concept_id}>
                   <div className="flex items-start gap-2">
@@ -525,19 +557,15 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         </div>
                       )}
                     </div>
-                    {state.status === "confirmed" ? (
-                      <span className={RECORDED_TEXT}>
-                        <Check className="h-3 w-3" />
-                        {state.isRevision ? "Noted as revision, thanks!" : "Noted, thanks!"}
-                        <button
-                          type="button"
-                          onClick={() => handleUndo(concept)}
-                          className="inline-flex items-center gap-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1"
-                        >
-                          <Undo2 className="h-3 w-3" />
-                          Undo
-                        </button>
-                      </span>
+                    {topicRecorded ? (
+                      // Recorded here, or on the question above, or in the
+                      // search box: one answer, shown the same way wherever
+                      // it was given.
+                      <RecordedNote
+                        isRevision={topicRecorded.isRevision}
+                        busy={state.status === "saving"}
+                        onUndo={() => handleUndo(concept.concept_id)}
+                      />
                     ) : state.status === "asking" ||
                       (state.status === "saving" && inTestWindow) ? (
                       // The question stays on screen while its answer saves,
@@ -629,6 +657,8 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                 inTestWindow={inTestWindow}
                 open={correctionOpen}
                 onOpenChange={setCorrectionOpen}
+                onRecorded={noteRecorded}
+                onCleared={clearRecorded}
                 triggerLabel="School is on something else?"
               />
             </div>
