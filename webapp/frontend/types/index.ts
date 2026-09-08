@@ -771,6 +771,10 @@ export interface CurriculumSuggestionsResponse {
 export interface CurriculumAsk {
   state: "ask" | "stale" | "answered" | "none";
   reason_class: "blind" | "split" | "stale" | "routine" | null;
+  /** The name to record the question under when it is shown. Sent whole by
+   *  the server so both sides cannot drift into using different names for the
+   *  same question. Null when there is no question to ask. */
+  event_key: string | null;
   combo_key: string;
   concept_id: number | null;
   name_en: string | null;

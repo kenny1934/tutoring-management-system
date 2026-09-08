@@ -39,7 +39,8 @@ import logging
 import re
 import time
 from collections import defaultdict
-from datetime import date as date_type, datetime as datetime_type, timedelta
+from datetime import (date as date_type, datetime as datetime_type,
+                      time as time_type, timedelta)
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -48,7 +49,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from constants import hk_now, today_hk
+from constants import as_date, hk_now, today_hk
 from curriculum import exam_scope
 from curriculum.paths import KNOWN_EXT_RE, basename_key, normalize
 from database import get_db
@@ -97,7 +98,14 @@ ASK_MAX_DAYS_PER_COMBO = 2
 # when it renders one, and the day's budget is counted in them. They must stay
 # in step with ALLOWED_EVENT_KEYS in routers/events.py, which a test checks.
 ASK_CLASSES = ("blind", "split", "stale", "routine")
-ASK_EVENT_KEYS = tuple(f"school_progress.asked.{c}" for c in ASK_CLASSES)
+
+
+def ask_event_key(klass: str) -> str:
+    """The name a question of this class is recorded under."""
+    return f"school_progress.asked.{klass}"
+
+
+ASK_EVENT_KEYS = tuple(ask_event_key(c) for c in ASK_CLASSES)
 
 CONFIRM_CONFIDENCE = 1.0
 # Assigning a suggested file is weaker evidence than an explicit confirm —
@@ -123,20 +131,6 @@ ROLE_ORDER_REVISION = {
 
 def _iso(value):
     return value.isoformat() if hasattr(value, "isoformat") else value
-
-
-def _as_date(value) -> Optional[date_type]:
-    """A date from whatever a driver returned: date, datetime, or a string."""
-    if value is None:
-        return None
-    if isinstance(value, datetime_type):
-        return value.date()
-    if isinstance(value, date_type):
-        return value
-    try:
-        return datetime_type.fromisoformat(str(value)[:19]).date()
-    except ValueError:
-        return None
 
 
 def _prior_year(academic_year: str) -> Optional[str]:
@@ -641,13 +635,20 @@ def _ask_budget_allows(db, tutor_id, combo, klass, tutor_already_answered) -> bo
 
     # An answer refunds a slot. The refund is not tied to the question it came
     # from, which errs towards asking more of somebody who is answering.
+    #
+    # Bounded by two timestamps rather than by DATE(created_at) = today: a
+    # function around the column would leave MySQL able to use only the
+    # tutor_id half of idx_obs_tutor_day, so the cost would grow with
+    # everything that tutor has ever confirmed instead of with today.
+    day_start = datetime_type.combine(today, time_type.min)
     answered = {(r.school, r.grade, r.lang_stream, r.academic_year, r.week_number)
                 for r in db.execute(text("""
         SELECT school, grade, lang_stream, academic_year, week_number
         FROM school_topic_observations
         WHERE source = 'tutor_confirm' AND tutor_id = :t
-          AND DATE(created_at) = :today
-    """), {"t": tutor_id, "today": today}).fetchall()}
+          AND created_at >= :day_start AND created_at < :day_end
+    """), {"t": tutor_id, "day_start": day_start,
+           "day_end": day_start + timedelta(days=1)}).fetchall()}
 
     if klass == "routine" and max(0, asked_routine - len(answered)) >= ASK_ROUTINE_DAILY_CAP:
         return False
@@ -662,14 +663,18 @@ def _ask_block(db, student, on_date, year, week, tutor_id, timeline_tier) -> dic
     current, and `none` when this tutor should be left alone. Only `ask` and
     `stale` are questions, and only those two spend the day's budget.
 
-    `reason_class` is why the question was worth asking, which the strip sends
-    back when it records that the question was seen. That is what the budget
-    is counted in, and what will later say which kinds of question people
-    actually answer.
+    `reason_class` is why the question was worth asking, and `event_key` is
+    the name the strip records it under when it reports that the question was
+    seen. The key is handed over whole rather than built from the class at the
+    other end, so the two sides cannot drift into recording under a name the
+    budget does not count. The class stays because it is the fact, and a
+    surface that wants to treat a blind question differently from a routine
+    one should not have to take a wire name apart to do it.
     """
     combo = _combo_key(student.school, student.grade, student.lang_stream, year, week)
     block = {
-        "state": "none", "reason_class": None, "combo_key": combo,
+        "state": "none", "reason_class": None, "event_key": None,
+        "combo_key": combo,
         "concept_id": None, "name_en": None, "name_zh": None,
         "answered_on": None, "answered_by": None, "split": False,
     }
@@ -709,11 +714,11 @@ def _ask_block(db, student, on_date, year, week, tutor_id, timeline_tier) -> dic
         def answered_day(row):
             # Raw SQL hands dates back as whatever the driver felt like:
             # date objects on MySQL, plain strings on SQLite.
-            return _as_date(row.observed_on) or _as_date(row.created_at)
+            return as_date(row.observed_on) or as_date(row.created_at)
 
-        dated = sorted(((answered_day(r), r) for r in rows),
-                       key=lambda pair: (pair[0] is not None, pair[0] or date_type.min))
-        day, latest = dated[-1]
+        day, latest = max(((answered_day(r), r) for r in rows),
+                          key=lambda pair: (pair[0] is not None,
+                                            pair[0] or date_type.min))
         block.update({
             "concept_id": latest.concept_id,
             "name_en": latest.name_en,
@@ -735,6 +740,7 @@ def _ask_block(db, student, on_date, year, week, tutor_id, timeline_tier) -> dic
             return block
     block["state"] = state
     block["reason_class"] = klass
+    block["event_key"] = ask_event_key(klass) if klass else None
     return block
 
 
@@ -1353,6 +1359,12 @@ def create_observation(
     confidence = CONFIRM_CONFIDENCE if body.action == "confirm" else ACCEPT_CONFIDENCE
     source_ref = f"tutor:{user.id}:student:{body.student_id}:{body.action}"
 
+    # What makes two answers the same answer: this tutor, about this student,
+    # on this topic, in this school week, by this action. Migration 171 turned
+    # those last three facts into real columns, so the match runs on the
+    # columns. source_ref still carries the same string it always did, for the
+    # rows written before that migration and for the delete path's fallback,
+    # but nothing decides anything from it here any more.
     params = {
         "school": student.school,
         "grade": student.grade,
@@ -1361,17 +1373,17 @@ def create_observation(
         "week": week,
         "cid": body.concept_id,
         "is_rev": body.is_revision,
-        "ref": source_ref,
-    }
-    # Provenance (migration 171). These sit outside the idempotency key on
-    # purpose: the same tutor answering the same thing from the collapsed
-    # strip and then from the expanded list is one answer, not two.
-    extra = {
         "tutor_id": user.id,
         "student_id": body.student_id,
+        "action": body.action,
+        "ref": source_ref,
+    }
+    # Where the answer was given, which sits outside the key on purpose: the
+    # same tutor answering the same thing from the collapsed strip and then
+    # from the expanded list is one answer, not two.
+    extra = {
         "session_id": body.session_id,
         "observed_on": body.session_date,
-        "action": body.action,
         "origin": body.origin,
         # Written here rather than left to the column default because MySQL
         # fills that default in UTC while the rest of the app writes Hong Kong
@@ -1383,7 +1395,8 @@ def create_observation(
           AND (lang_stream = :stream OR (lang_stream IS NULL AND :stream IS NULL))
           AND academic_year = :year AND week_number = :week
           AND concept_id = :cid AND source = 'tutor_confirm'
-          AND is_revision = :is_rev AND source_ref = :ref
+          AND is_revision = :is_rev AND tutor_id = :tutor_id
+          AND student_id = :student_id AND action = :action
     """
     lookup_sql = (f"SELECT id, observed_on FROM school_topic_observations "
                   f"{match_where} LIMIT 1")
@@ -1395,7 +1408,7 @@ def create_observation(
         # row is the same fact, so its date moves forward rather than a
         # duplicate being written. That is also what stops the strip asking
         # the same tutor the same stale question every day.
-        previous = _as_date(existing.observed_on)
+        previous = as_date(existing.observed_on)
         if previous is None or previous < body.session_date:
             db.execute(text("""
                 UPDATE school_topic_observations

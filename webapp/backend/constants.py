@@ -32,6 +32,27 @@ def today_hk() -> date:
     return hk_now().date()
 
 
+def as_date(value) -> date | None:
+    """A date, whichever way the database driver handed the value back.
+
+    Raw SQL returns dates as whatever the driver felt like. MySQL builds a
+    `date` or a `datetime`; the SQLite stand-in the tests use can only return
+    a string, because that is all SQLite lets a user-defined function return.
+    Anything unparseable comes back as None rather than raising, since every
+    caller is reading a column it can do without.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return datetime.fromisoformat(str(value)[:19]).date()
+    except ValueError:
+        return None
+
+
 def application_window(open_at: datetime, close_at: datetime) -> str:
     """Where 'now' sits relative to an intake's application window.
 

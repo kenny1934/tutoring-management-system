@@ -8,7 +8,7 @@ from sqlalchemy import text, func, and_
 from typing import List, Optional
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from constants import hk_now
+from constants import as_date, hk_now
 from database import get_db
 from models import TerminationRecord, Student, Tutor, Enrollment, SummerCourseConfig
 from quarters import (
@@ -125,18 +125,6 @@ _TERMED_CTE = f"""
 """
 
 
-def _as_date(value):
-    """A date, whichever way the driver handed the end date back.
-
-    MySQL types the stored function's result as a DATE and the connector builds
-    a `date` from it. The SQLite stand-in the tests use can only return a
-    string, because that is all SQLite lets a user-defined function return.
-    """
-    if isinstance(value, str):
-        return date.fromisoformat(value[:10])
-    return value
-
-
 def get_summer_pauses(db: Session) -> dict:
     """Every configured summer course period, keyed by year.
 
@@ -205,7 +193,7 @@ async def get_available_quarters(
     pauses = get_summer_pauses(db)
     seen_quarters: set = set()
     for row in rows:
-        end_date = _as_date(row.eff_end_date)
+        end_date = as_date(row.eff_end_date)
         if end_date:
             q, y = attribute_quarter(end_date, pauses.get(end_date.year))
             seen_quarters.add((q, y))

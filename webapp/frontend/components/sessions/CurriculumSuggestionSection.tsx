@@ -23,6 +23,8 @@ import {
   RECORD_BTN,
   RecordedNote,
   SECTION_HEADER_BG,
+  UNDO_FAILED_MESSAGE,
+  undoRecordedTopic,
 } from "@/components/curriculum/ConfirmControls";
 import type {
   RecordedTopic,
@@ -32,7 +34,7 @@ import { cn } from "@/lib/utils";
 import { getTypeColors } from "@/lib/exam-type-colors";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
-import { ApiError, curriculumAPI, recordFeatureEvents } from "@/lib/api";
+import { curriculumAPI, recordFeatureEvents } from "@/lib/api";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import {
   SOURCE_LABELS,
@@ -325,19 +327,9 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       ...prev,
       [conceptId]: { status: "saving", isRevision: topic.isRevision },
     }));
-    try {
-      await curriculumAPI.undoConfirm(topic.observationId);
-      clearRecorded(conceptId);
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 404) {
-        // The observation is already gone (idempotent confirms can share one
-        // row that another Undo removed), so this undo has nothing left to
-        // do, and the topic should stop reading as recorded either way.
-        clearRecorded(conceptId);
-      } else {
-        showToast("Could not undo the confirmation. Please try again.", "error");
-      }
-    }
+    const outcome = await undoRecordedTopic(topic.observationId);
+    if (outcome === "failed") showToast(UNDO_FAILED_MESSAGE, "error");
+    else clearRecorded(conceptId);
     setConfirmStates((prev) => ({ ...prev, [conceptId]: { status: "idle" } }));
   };
 

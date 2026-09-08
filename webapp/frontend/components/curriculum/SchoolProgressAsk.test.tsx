@@ -56,18 +56,31 @@ const SESSION = {
   lang_stream: "C",
 } as Session;
 
-const ask = (overrides: Partial<CurriculumAsk> = {}): CurriculumAsk => ({
-  state: "ask",
-  reason_class: "routine",
-  combo_key: "DBYW-C|F1|C|2026-2027|1",
-  concept_id: null,
-  name_en: null,
-  name_zh: null,
-  answered_on: null,
-  answered_by: null,
-  split: false,
-  ...overrides,
-});
+const ask = (overrides: Partial<CurriculumAsk> = {}): CurriculumAsk => {
+  const block: CurriculumAsk = {
+    state: "ask",
+    reason_class: "routine",
+    event_key: null,
+    combo_key: "DBYW-C|F1|C|2026-2027|1",
+    concept_id: null,
+    name_en: null,
+    name_zh: null,
+    answered_on: null,
+    answered_by: null,
+    split: false,
+    ...overrides,
+  };
+  // The server sends the key whole rather than letting the strip build it.
+  // The fixture stands in for that, so every block here is coherent.
+  return {
+    ...block,
+    event_key:
+      overrides.event_key ??
+      (block.reason_class
+        ? `school_progress.asked.${block.reason_class}`
+        : null),
+  };
+};
 
 // What the panel ranked for this school week. The question is about the first
 // one; the other two are what disagreeing offers.
@@ -138,6 +151,7 @@ describe("SchoolProgressAsk", () => {
     renderAsk(ask({ reason_class: "blind" }));
     expect(recordFeatureEvents).toHaveBeenCalledWith([
       expect.objectContaining({
+        // Recorded under the name the server chose, not one built here.
         event_key: "school_progress.asked.blind",
         dedupe_key: "sp-ask:DBYW-C|F1|C|2026-2027|1",
       }),

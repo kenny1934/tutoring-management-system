@@ -94,14 +94,30 @@ def record_events(
             status_code=400, detail=f"Unknown event key(s): {', '.join(unknown)}")
 
     day = today_hk()
+    keyed = [
+        (f"{user.id}:{e.dedupe_key}:{day.isoformat()}" if e.dedupe_key else None, e)
+        for e in body.events
+    ]
+    # One lookup for the whole batch. The keys are exact, so asking for all of
+    # them at once costs the same round trip as asking for one, and a page
+    # that sends several should not pay a query each.
+    wanted = {key for key, _ in keyed if key}
+    seen = set()
+    if wanted:
+        seen = {
+            row[0] for row in db.query(FeatureEvent.dedupe_key)
+            .filter(FeatureEvent.dedupe_key.in_(wanted)).all()
+        }
+
     rows = []
-    for e in body.events:
-        dedupe = (f"{user.id}:{e.dedupe_key}:{day.isoformat()}"
-                  if e.dedupe_key else None)
-        if dedupe and db.query(FeatureEvent.id).filter(
-            FeatureEvent.dedupe_key == dedupe
-        ).first():
-            continue
+    for dedupe, e in keyed:
+        if dedupe:
+            # Also covers a key repeated inside this batch, which would
+            # otherwise be inserted twice and cost the whole batch to the
+            # unique index.
+            if dedupe in seen:
+                continue
+            seen.add(dedupe)
         rows.append(FeatureEvent(
             tutor_id=user.id,
             event_key=e.event_key,

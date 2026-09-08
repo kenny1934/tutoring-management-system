@@ -68,6 +68,17 @@ def test_dedupe_key_lands_once(client: TestClient, db_session):
     assert stored.dedupe_key == f"99:sp-shown:12:{today_hk().isoformat()}"
 
 
+def test_a_key_repeated_in_one_batch_lands_once(client: TestClient, db_session):
+    """And does not take the rest of the batch down with it."""
+    resp = _post(client, [
+        {"event_key": "school_progress.shown", "dedupe_key": "sp-shown:12"},
+        {"event_key": "school_progress.shown", "dedupe_key": "sp-shown:12"},
+        {"event_key": "school_progress.expanded", "dedupe_key": "sp-expanded:12"},
+    ])
+    assert resp.json()["recorded"] == 2
+    assert db_session.query(FeatureEvent).count() == 2
+
+
 def test_undeduped_events_repeat(client: TestClient, db_session):
     event = {"event_key": "school_progress.answered_unsure"}
     _post(client, [event])

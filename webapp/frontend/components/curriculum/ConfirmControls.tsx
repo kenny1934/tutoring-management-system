@@ -2,6 +2,7 @@
 
 import { Check, Loader2, RotateCcw, BookPlus, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ApiError, curriculumAPI } from "@/lib/api";
 
 /**
  * The look and the wording shared by everything that records a school's topic.
@@ -20,10 +21,10 @@ export const RECORD_BTN =
   "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 " +
   "hover:bg-green-200 dark:hover:bg-green-900/50";
 
-export const RECORDED_TEXT =
+const RECORDED_TEXT =
   "inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 shrink-0";
 
-export const KIND_QUESTION = "Revision or New Topic?";
+const KIND_QUESTION = "Revision or New Topic?";
 
 /**
  * A topic somebody has recorded while this modal has been open.
@@ -45,6 +46,29 @@ export interface RecordedTopic {
 }
 
 export type RecordedTopics = Record<number, RecordedTopic>;
+
+export const UNDO_FAILED_MESSAGE =
+  "Could not undo the confirmation. Please try again.";
+
+/**
+ * Take back a recorded topic, treating one that has already gone as done.
+ *
+ * Every surface offers an Undo, and the same answer can be showing on more
+ * than one of them at once, so the second Undo to reach the server finds
+ * nothing left to remove. That is the answer the tutor wanted either way, so
+ * it is reported as success and only a real failure is worth a toast.
+ */
+export async function undoRecordedTopic(
+  observationId: number
+): Promise<"undone" | "already-gone" | "failed"> {
+  try {
+    await curriculumAPI.undoConfirm(observationId);
+    return "undone";
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return "already-gone";
+    return "failed";
+  }
+}
 
 /** What every surface shows once a topic is recorded, Undo included. */
 export function RecordedNote({

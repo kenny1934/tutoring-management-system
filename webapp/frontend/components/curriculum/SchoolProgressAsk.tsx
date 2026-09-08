@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
-import { ApiError, curriculumAPI, recordFeatureEvents } from "@/lib/api";
+import { curriculumAPI, recordFeatureEvents } from "@/lib/api";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { formatWeekdayShort } from "@/lib/formatters";
 import {
@@ -12,6 +12,8 @@ import {
   RECORD_BTN,
   RecordedNote,
   SECTION_HEADER_BG,
+  UNDO_FAILED_MESSAGE,
+  undoRecordedTopic,
 } from "@/components/curriculum/ConfirmControls";
 import type {
   RecordedTopic,
@@ -71,9 +73,6 @@ type AnswerState =
   | { status: "picking" }
   | { status: "asking"; concept: Topic; corrected: boolean }
   | { status: "saving"; isRevision: boolean; concept: Topic; corrected: boolean }
-  /** Answered here. What was recorded is read back from the shared map, so an
-   *  Undo pressed on the list below takes this row back to the question too. */
-  | { status: "confirmed"; conceptId: number }
   | { status: "unsure" };
 
 const ROW_FRAME =
@@ -125,22 +124,22 @@ export function SchoolProgressAsk({
   const seen = useRef<string | null>(null);
 
   const isQuestion = ask.state === "ask" || ask.state === "stale";
-  const askedKey = `${ask.combo_key}:${ask.reason_class}`;
+  const askedKey = `${ask.combo_key}:${ask.event_key}`;
 
   // Report that the question reached somebody. Deduped per tutor, school week
   // and day on the server, so it can be sent on every render and land once,
   // and it is what the daily limit on asking is counted from.
   useEffect(() => {
-    if (!isQuestion || !ask.reason_class || seen.current === askedKey) return;
+    if (!isQuestion || !ask.event_key || seen.current === askedKey) return;
     seen.current = askedKey;
     recordFeatureEvents([{
-      event_key: `school_progress.asked.${ask.reason_class}`,
+      event_key: ask.event_key,
       entity_type: "session",
       entity_id: session.id,
       context: { school: session.school, grade: session.grade },
       dedupe_key: `sp-ask:${ask.combo_key}`,
     }]);
-  }, [isQuestion, ask.reason_class, ask.combo_key, askedKey, session.id,
+  }, [isQuestion, ask.event_key, ask.combo_key, askedKey, session.id,
       session.school, session.grade]);
 
   // The topic this row is about: the one already on record when the question
@@ -177,7 +176,9 @@ export function SchoolProgressAsk({
         isRevision,
         name: concept.name,
       });
-      setAnswer({ status: "confirmed", conceptId: concept.id });
+      // Nothing to remember: the shared map now holds the answer, and the
+      // idle row reads it back from there.
+      setAnswer({ status: "idle" });
     } catch {
       // Back to where the choice was made, so a retry is one tap away.
       setAnswer(
@@ -195,21 +196,10 @@ export function SchoolProgressAsk({
     const topic = recorded[conceptId];
     if (!topic) return;
     setUndoing(true);
-    try {
-      await curriculumAPI.undoConfirm(topic.observationId);
-      onCleared(conceptId);
-      setAnswer({ status: "idle" });
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 404) {
-        // Already gone, so the question is open again either way.
-        onCleared(conceptId);
-        setAnswer({ status: "idle" });
-      } else {
-        showToast("Could not undo the confirmation. Please try again.", "error");
-      }
-    } finally {
-      setUndoing(false);
-    }
+    const outcome = await undoRecordedTopic(topic.observationId);
+    if (outcome === "failed") showToast(UNDO_FAILED_MESSAGE, "error");
+    else onCleared(conceptId);
+    setUndoing(false);
   };
 
   const notSure = () => {
@@ -261,15 +251,10 @@ export function SchoolProgressAsk({
   // on the second suggestion in the section below is an answer to the
   // question on this row as much as tapping Yes here is, so reading it back
   // from the shared map is what stops the row asking again on the way out.
-  const settledElsewhere =
+  const settledTopic =
     (asked && recorded[asked.id] ? asked : suggestions.find((t) => recorded[t.id])) ??
     null;
-  const settledId =
-    answer.status === "confirmed"
-      ? answer.conceptId
-      : answer.status === "idle"
-        ? settledElsewhere?.id ?? null
-        : null;
+  const settledId = answer.status === "idle" ? settledTopic?.id ?? null : null;
   const settled = settledId == null ? null : recorded[settledId] ?? null;
 
   if (settledId != null && settled) {
@@ -310,6 +295,8 @@ export function SchoolProgressAsk({
           onOpenChange={(open) => {
             if (!open) setAnswer({ status: "idle" });
           }}
+          onRecorded={onRecorded}
+          onCleared={onCleared}
           origin="strip"
         />
       </div>

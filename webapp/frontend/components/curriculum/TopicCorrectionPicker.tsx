@@ -5,10 +5,16 @@ import { Loader2, MessageSquarePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts } from "@/lib/hooks";
-import { ApiError, curriculumAPI } from "@/lib/api";
+import { useAutocomplete } from "@/hooks/useAutocomplete";
+import { curriculumAPI } from "@/lib/api";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { conceptNameForStream, matchesConcept } from "@/lib/curriculum-labels";
-import { KindQuestion, RecordedNote } from "@/components/curriculum/ConfirmControls";
+import {
+  KindQuestion,
+  RecordedNote,
+  UNDO_FAILED_MESSAGE,
+  undoRecordedTopic,
+} from "@/components/curriculum/ConfirmControls";
 import type { RecordedTopic } from "@/components/curriculum/ConfirmControls";
 import type { CurriculumConceptVocab, Session } from "@/types";
 
@@ -66,8 +72,8 @@ export function TopicCorrectionPicker({
   /** Reported so the rest of the panel agrees: a topic named here reads as
    *  recorded on the question above and in the list below, if either of them
    *  is showing it. */
-  onRecorded?: (conceptId: number, topic: RecordedTopic) => void;
-  onCleared?: (conceptId: number) => void;
+  onRecorded: (conceptId: number, topic: RecordedTopic) => void;
+  onCleared: (conceptId: number) => void;
 }) {
   const { showToast } = useToast();
   const hitArea = iconHitArea(useCoarsePointer());
@@ -112,7 +118,7 @@ export function TopicCorrectionPicker({
         session_id: session.id,
         origin,
       });
-      onRecorded?.(concept.id, {
+      onRecorded(concept.id, {
         observationId: result.id,
         isRevision,
         name: conceptNameForStream(concept, stream),
@@ -140,20 +146,37 @@ export function TopicCorrectionPicker({
       concept: previous.concept,
       isRevision: previous.isRevision,
     });
-    try {
-      await curriculumAPI.undoConfirm(previous.observationId);
-      onCleared?.(previous.concept.id);
-      close();
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 404) {
-        onCleared?.(previous.concept.id);
-        close();
-        return;
-      }
+    const outcome = await undoRecordedTopic(previous.observationId);
+    if (outcome === "failed") {
       setState(previous);
-      showToast("Could not undo the confirmation. Please try again.", "error");
+      showToast(UNDO_FAILED_MESSAGE, "error");
+      return;
     }
+    onCleared(previous.concept.id);
+    close();
   };
+
+  // Arrow keys, Enter and Escape over the matches, from the hook the rest of
+  // the app's search inputs use, so this box behaves like all of them.
+  const {
+    highlightedIndex,
+    setHighlightedIndex,
+    handleKeyDown,
+    selectItem,
+    getItemRef,
+  } = useAutocomplete<CurriculumConceptVocab>({
+    items: matches,
+    isOpen: matches.length > 0,
+    setOpen: (next) => {
+      if (!next) close();
+    },
+    onSelect: (c) =>
+      inTestWindow ? setState({ status: "kind", concept: c }) : save(c, false),
+    resetKey: query,
+    // The picker decides for itself where to go next: to the revision
+    // question during a test window, to the saved note otherwise.
+    closeOnSelect: false,
+  });
 
   if (!open && state.status === "closed") {
     if (!triggerLabel) return null;
@@ -183,6 +206,7 @@ export function TopicCorrectionPicker({
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="e.g. Factorization, 因式分解 or 803"
             className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded border border-teal-200 dark:border-teal-800 bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
@@ -200,16 +224,17 @@ export function TopicCorrectionPicker({
         </div>
         {matches.length > 0 && (
           <div className="mt-1 space-y-0.5">
-            {matches.map((c) => (
+            {matches.map((c, i) => (
               <button
                 key={c.id}
                 type="button"
-                onClick={() =>
-                  inTestWindow
-                    ? setState({ status: "kind", concept: c })
-                    : save(c, false)
-                }
-                className="w-full flex items-center gap-1.5 text-left rounded px-1.5 py-1 hover:bg-teal-50 dark:hover:bg-teal-900/20"
+                ref={getItemRef(i)}
+                onClick={() => selectItem(c)}
+                onMouseEnter={() => setHighlightedIndex(i)}
+                className={cn(
+                  "w-full flex items-center gap-1.5 text-left rounded px-1.5 py-1 hover:bg-teal-50 dark:hover:bg-teal-900/20",
+                  i === highlightedIndex && "bg-teal-50 dark:bg-teal-900/20"
+                )}
               >
                 <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1">
                   {conceptNameForStream(c, stream)}
