@@ -1436,7 +1436,8 @@ export function useSummerPublicConfig(): SummerPublicConfigState {
  * - `isOpen`: the public form is inside its application window, as resolved
  *   server-side by the config endpoint.
  * - `actionableCount`: applications still in the active workflow at the given
- *   location (excludes Withdrawn / Rejected / Waitlisted / Enrolled).
+ *   location (excludes Withdrawn / Rejected / Waitlisted / Enrolled). Only
+ *   counted while the window is open; see the note on the stats call below.
  * The public form-config endpoint is unauthenticated; the stats call only fires
  * for admins.
  */
@@ -1453,11 +1454,6 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
     () => summerAPI.getFormConfig(),
     { revalidateOnFocus: false },
   );
-  const { data: stats } = useSWR(
-    isAdmin ? ["summer-app-stats-sidebar", scopedLocation ?? "all"] : null,
-    () => summerAPI.getApplicationStats({ location: scopedLocation }),
-    { refreshInterval, revalidateOnFocus: false },
-  );
 
   // The config resolves the window server-side in Hong Kong time. Comparing the
   // dates here used to get it wrong in two ways at once: it measured a
@@ -1465,6 +1461,20 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
   // last day always compared as still open, and it used the UTC date, which is
   // a day behind for a Hong Kong viewer late in the evening.
   const isOpen = formConfig?.application_window === "open";
+
+  // The count is a nudge to triage applications during the season, so it is
+  // only fetched while the window is open. Once the window closes, or the
+  // year's config is deactivated and the config call 404s, whatever is still
+  // sitting in Submitted or Fee Sent is a lead nobody is going to chase, and
+  // the badge used to keep showing that number through the whole off-season.
+  // The applications page still lists them under their status. Keying the
+  // request on the window also stops the two-minute poll for the months the
+  // intake is not running.
+  const { data: stats } = useSWR(
+    isAdmin && isOpen ? ["summer-app-stats-sidebar", scopedLocation ?? "all"] : null,
+    () => summerAPI.getApplicationStats({ location: scopedLocation }),
+    { refreshInterval, revalidateOnFocus: false },
+  );
 
   const actionableCount = stats
     ? Object.entries(stats.by_status).reduce(
@@ -1482,7 +1492,8 @@ export function useSummerSidebarBadge(isAdmin: boolean, location?: string) {
  *   config resolves this server-side in Hong Kong time, so no date maths here.
  * - `actionableCount`: applications still in the active workflow at the given
  *   location. The regular status ladder has the same rungs as summer's, so the
- *   same inactive set applies.
+ *   same inactive set applies, and the count is likewise only fetched while
+ *   the window is open, for the reason given on the summer hook.
  * The public form-config endpoint is unauthenticated; the stats call only fires
  * for admins.
  */
@@ -1515,13 +1526,14 @@ export function useRegularSidebarBadge(isAdmin: boolean, location?: string) {
     () => regularAPI.getFormConfig(),
     { revalidateOnFocus: false },
   );
+
+  const isOpen = formConfig?.application_window === "open";
+
   const { data: stats } = useSWR(
-    isAdmin ? ["regular-app-stats-sidebar", scopedLocation ?? "all"] : null,
+    isAdmin && isOpen ? ["regular-app-stats-sidebar", scopedLocation ?? "all"] : null,
     () => regularAPI.getApplicationStats({ location: scopedLocation }),
     { refreshInterval, revalidateOnFocus: false },
   );
-
-  const isOpen = formConfig?.application_window === "open";
 
   const actionableCount = stats
     ? Object.entries(stats.by_status).reduce(
