@@ -78,3 +78,11 @@ def test_undeduped_events_repeat(client: TestClient, db_session):
 def test_batch_size_is_capped(client: TestClient):
     resp = _post(client, [{"event_key": "school_progress.shown"}] * 21)
     assert resp.status_code == 422
+
+
+def test_the_ask_keys_the_strip_sends_are_all_allowed():
+    """The budget counts these keys, so a rename must not silently drop one."""
+    from routers.curriculum import ASK_EVENT_KEYS
+    from routers.events import ALLOWED_EVENT_KEYS
+
+    assert set(ASK_EVENT_KEYS) <= ALLOWED_EVENT_KEYS

@@ -93,6 +93,11 @@ ASK_ROUTINE_DAILY_CAP = 2
 # Being asked the same thing on this many days without answering is an answer
 # of a kind. The question stops for that tutor for the rest of the week.
 ASK_MAX_DAYS_PER_COMBO = 2
+# Why a question was worth asking. The strip reports back under these names
+# when it renders one, and the day's budget is counted in them. They must stay
+# in step with ALLOWED_EVENT_KEYS in routers/events.py, which a test checks.
+ASK_CLASSES = ("blind", "split", "stale", "routine")
+ASK_EVENT_KEYS = tuple(f"school_progress.asked.{c}" for c in ASK_CLASSES)
 
 CONFIRM_CONFIDENCE = 1.0
 # Assigning a suggested file is weaker evidence than an explicit confirm —
@@ -607,22 +612,29 @@ def _ask_budget_allows(db, tutor_id, combo, klass, tutor_already_answered) -> bo
     a school week nobody knows anything about can still get through later.
     """
     today = today_hk()
+    # The escape character is bound rather than written into the statement.
+    # MySQL reads a backslash inside a quoted literal as an escape of its own,
+    # so ESCAPE '\' never reaches the LIKE at all, it just breaks the parse.
+    # Same reasoning as _alias_like_params above.
     prefix = escape_like_pattern(f"{tutor_id}:sp-ask:{combo}:")
-    days = {r.event_day for r in db.execute(text(r"""
+    days = {r.event_day for r in db.execute(text("""
         SELECT DISTINCT event_day FROM feature_events
-        WHERE tutor_id = :t AND dedupe_key LIKE :prefix ESCAPE '\'
-    """), {"t": tutor_id, "prefix": prefix + "%"}).fetchall()}
+        WHERE tutor_id = :t AND dedupe_key LIKE :prefix ESCAPE :like_esc
+    """), {"t": tutor_id, "prefix": prefix + "%", "like_esc": "\\"}).fetchall()}
     if today in days:
         return True
     if not tutor_already_answered and len(days) >= ASK_MAX_DAYS_PER_COMBO:
         return False
 
-    asked = db.execute(text(r"""
+    # An exact list, not a pattern: the keys are known, and matching them by
+    # name keeps a school called something with an underscore in it out of the
+    # question entirely.
+    asked = db.execute(text("""
         SELECT event_key, COUNT(DISTINCT dedupe_key) AS n FROM feature_events
-        WHERE tutor_id = :t AND event_day = :today
-          AND event_key LIKE 'school\_progress.asked.%' ESCAPE '\'
+        WHERE tutor_id = :t AND event_day = :today AND event_key IN :keys
         GROUP BY event_key
-    """), {"t": tutor_id, "today": today}).fetchall()
+    """).bindparams(bindparam("keys", expanding=True)),
+        {"t": tutor_id, "today": today, "keys": list(ASK_EVENT_KEYS)}).fetchall()
     asked_total = sum(r.n for r in asked)
     asked_routine = sum(r.n for r in asked
                         if r.event_key.endswith(".routine"))
