@@ -56,7 +56,9 @@ export function TopicCorrectionPicker({
   inTestWindow: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  triggerLabel: string;
+  /** Left out when the caller opens the picker itself, as the question on the
+   *  collapsed strip does: there is nothing to trigger. */
+  triggerLabel?: string;
   origin?: "correction" | "strip";
 }) {
   const { showToast } = useToast();
@@ -139,6 +141,7 @@ export function TopicCorrectionPicker({
   };
 
   if (!open && state.status === "closed") {
+    if (!triggerLabel) return null;
     return (
       <button
         type="button"

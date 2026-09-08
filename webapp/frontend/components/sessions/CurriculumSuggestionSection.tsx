@@ -391,24 +391,20 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           toggle rather than a child of it, because answer buttons nested
           inside a button are invalid markup and unreachable from the
           keyboard. It steps aside while the section is open, where the
-          per-topic buttons ask the same thing with more room. */}
-      {!expanded && data.ask && (
+          per-topic buttons ask the same thing with more room, but it stays
+          mounted while it does so: unmounting it threw the answer away and
+          asked again the moment the section was closed. */}
+      {data.ask && (
         <SchoolProgressAsk
+          hidden={expanded}
           ask={data.ask}
           session={session}
-          topConcept={
-            data.suggestions.length > 0
-              ? {
-                  id: data.suggestions[0].concept_id,
-                  name: conceptNameForStream(data.suggestions[0], stream),
-                }
-              : null
-          }
+          suggestions={data.suggestions.map((c) => ({
+            id: c.concept_id,
+            name: conceptNameForStream(c, stream),
+          }))}
+          stream={stream}
           inTestWindow={inTestWindow}
-          onCorrect={() => {
-            setExpanded(true);
-            setCorrectionOpen(true);
-          }}
         />
       )}
 

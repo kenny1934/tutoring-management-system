@@ -29,6 +29,16 @@ vi.mock("@/contexts/ToastContext", () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));
 
+// The search box, which the row opens in place, loads the topic vocabulary.
+vi.mock("@/lib/hooks", () => ({
+  useCurriculumConcepts: () => ({
+    data: [
+      { id: 44, name_en: "Estimation", name_zh: "估算", grade: "F1", codes: [] },
+      { id: 77, name_en: "Polynomials", name_zh: "多項式", grade: "F2", codes: [] },
+    ],
+  }),
+}));
+
 beforeEach(() => {
   confirmTopic.mockReset().mockResolvedValue({ id: 7, created: true });
   undoConfirm.mockReset().mockResolvedValue({ deleted: true });
@@ -57,19 +67,25 @@ const ask = (overrides: Partial<CurriculumAsk> = {}): CurriculumAsk => ({
   ...overrides,
 });
 
+// What the panel ranked for this school week. The question is about the first
+// one; the other two are what disagreeing offers.
 const TOP = { id: 42, name: "Rational Numbers" };
+const ALTERNATIVES = [
+  { id: 43, name: "Directed Numbers" },
+  { id: 44, name: "Estimation" },
+];
+const RANKED = [TOP, ...ALTERNATIVES];
 
-function renderAsk(a: CurriculumAsk, onCorrect = vi.fn()) {
-  render(
+function renderAsk(a: CurriculumAsk, suggestions = RANKED) {
+  return render(
     <SchoolProgressAsk
       ask={a}
       session={SESSION}
-      topConcept={TOP}
+      suggestions={suggestions}
+      stream="C"
       inTestWindow={false}
-      onCorrect={onCorrect}
     />,
   );
-  return onCorrect;
 }
 
 describe("SchoolProgressAsk", () => {
@@ -158,11 +174,74 @@ describe("SchoolProgressAsk", () => {
     ).toBeInTheDocument();
   });
 
-  it("hands disagreement to the topic picker", () => {
-    const onCorrect = renderAsk(ask());
+  // The point of the chips: the panel has already ranked the alternatives, so
+  // disagreeing should cost one more tap rather than a keyboard and a guess.
+  it("offers the other ranked topics before it offers the keyboard", () => {
+    renderAsk(ask());
     fireEvent.click(screen.getByText("No, it's…"));
-    expect(onCorrect).toHaveBeenCalled();
+    expect(screen.getByText("Then what are they on?")).toBeInTheDocument();
+    expect(screen.getByText("Directed Numbers")).toBeInTheDocument();
+    expect(screen.getByText("Estimation")).toBeInTheDocument();
+    expect(screen.getByText("Other topic…")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).toBeNull();
     expect(confirmTopic).not.toHaveBeenCalled();
+  });
+
+  it("records a corrected topic in one tap, and names it back", async () => {
+    renderAsk(ask());
+    fireEvent.click(screen.getByText("No, it's…"));
+    fireEvent.click(screen.getByText("Directed Numbers"));
+    await waitFor(() =>
+      expect(confirmTopic).toHaveBeenCalledWith(
+        expect.objectContaining({ concept_id: 43, origin: "strip" }),
+      ),
+    );
+    expect(await screen.findByText("Noted, thanks!")).toBeInTheDocument();
+    expect(screen.getByText("Directed Numbers")).toBeInTheDocument();
+  });
+
+  it("puts the question back when the correction is cancelled", () => {
+    renderAsk(ask());
+    fireEvent.click(screen.getByText("No, it's…"));
+    fireEvent.click(screen.getByLabelText("Cancel"));
+    expect(
+      screen.getByText("DBYW-C F1 on Rational Numbers this week?"),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the search box for a topic none of them offered", () => {
+    renderAsk(ask());
+    fireEvent.click(screen.getByText("No, it's…"));
+    fireEvent.click(screen.getByText("Other topic…"));
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  // Nothing to offer means nothing to tap, so the keyboard is the answer.
+  it("goes straight to the search box when there is nothing else to offer", () => {
+    renderAsk(ask(), [TOP]);
+    fireEvent.click(screen.getByText("No, it's…"));
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("asks whether a corrected topic is revision during a test window", async () => {
+    render(
+      <SchoolProgressAsk
+        ask={ask()}
+        session={SESSION}
+        suggestions={RANKED}
+        stream="C"
+        inTestWindow
+      />,
+    );
+    fireEvent.click(screen.getByText("No, it's…"));
+    fireEvent.click(screen.getByText("Directed Numbers"));
+    expect(confirmTopic).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByText("New Topic"));
+    await waitFor(() =>
+      expect(confirmTopic).toHaveBeenCalledWith(
+        expect.objectContaining({ concept_id: 43, is_revision: false }),
+      ),
+    );
   });
 
   it("records not knowing, which is the only answer nothing else captures", () => {
@@ -175,14 +254,47 @@ describe("SchoolProgressAsk", () => {
     expect(screen.getByText("Thanks, we will ask someone else.")).toBeInTheDocument();
   });
 
+  it("lets a mis-tapped Not sure be taken back", () => {
+    renderAsk(ask());
+    fireEvent.click(screen.getByText("Not sure"));
+    fireEvent.click(screen.getByText("Undo"));
+    expect(
+      screen.getByText("DBYW-C F1 on Rational Numbers this week?"),
+    ).toBeInTheDocument();
+  });
+
+  // The bug this covers: the row used to be unmounted while the section below
+  // was open, so opening it and closing it again asked a question the tutor
+  // had already answered.
+  it("remembers the answer while the section below is open", () => {
+    const props = {
+      ask: ask(),
+      session: SESSION,
+      suggestions: RANKED,
+      stream: "C",
+      inTestWindow: false,
+    };
+    const { rerender } = render(<SchoolProgressAsk {...props} />);
+    fireEvent.click(screen.getByText("Not sure"));
+
+    rerender(<SchoolProgressAsk {...props} hidden />);
+    expect(screen.queryByText("Thanks, we will ask someone else.")).toBeNull();
+
+    rerender(<SchoolProgressAsk {...props} />);
+    expect(
+      screen.getByText("Thanks, we will ask someone else."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Not sure")).toBeNull();
+  });
+
   it("stays out of the way when the tutor should be left alone", () => {
     const { container } = render(
       <SchoolProgressAsk
         ask={ask({ state: "none", reason_class: null })}
         session={SESSION}
-        topConcept={TOP}
+        suggestions={RANKED}
+        stream="C"
         inTestWindow={false}
-        onCorrect={vi.fn()}
       />,
     );
     expect(container.firstChild).toBeNull();
@@ -194,9 +306,9 @@ describe("SchoolProgressAsk", () => {
       <SchoolProgressAsk
         ask={ask()}
         session={SESSION}
-        topConcept={TOP}
+        suggestions={RANKED}
+        stream="C"
         inTestWindow
-        onCorrect={vi.fn()}
       />,
     );
     fireEvent.click(screen.getByText("Yes"));
