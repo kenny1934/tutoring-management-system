@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.130](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.129...v2.0.130) (2026-09-08)
+
+
+### New Features
+
+* **School Progress now asks what the school is on**: the question sits on the panel's top line while a session's exercises are being set, so a tutor with no use for the suggested worksheets can still answer it in one tap. Yes, a correction and "Not sure" all count as answers.
+* **Correcting the topic no longer means typing**: saying no offers the other topics that school is likely to be on this week, one tap each, and the search box only appears when the school is on none of them.
+* **The question appears only where an answer would help**: a few a day for each tutor at most, never twice in one week to somebody who has passed on it, and not at all where a colleague has answered recently. Where one has, the panel names who answered and when, and still lets a tutor say this class is on something else.
+
 ## [2.0.129](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.128...v2.0.129) (2026-09-08)
 
 

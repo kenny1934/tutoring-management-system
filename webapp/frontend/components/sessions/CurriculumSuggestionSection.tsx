@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   GraduationCap,
@@ -10,29 +10,37 @@ import {
   History,
   Loader2,
   CalendarClock,
-  Undo2,
-  MessageSquarePlus,
-  X,
-  RotateCcw,
-  BookPlus,
 } from "lucide-react";
 import { CurriculumPdfPreview } from "@/components/curriculum/CurriculumPdfPreview";
 import { CurriculumFileRow } from "@/components/curriculum/CurriculumFileRow";
 import { CurriculumPastPaperRow } from "@/components/curriculum/CurriculumPastPaperRow";
 import { CurriculumRevisionPack } from "@/components/curriculum/CurriculumRevisionPack";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
+import { SchoolProgressAsk } from "@/components/curriculum/SchoolProgressAsk";
+import { TopicCorrectionPicker } from "@/components/curriculum/TopicCorrectionPicker";
+import {
+  KindQuestion,
+  RECORD_BTN,
+  RecordedNote,
+  SECTION_HEADER_BG,
+  UNDO_FAILED_MESSAGE,
+  undoRecordedTopic,
+} from "@/components/curriculum/ConfirmControls";
+import type {
+  RecordedTopic,
+  RecordedTopics,
+} from "@/components/curriculum/ConfirmControls";
 import { cn } from "@/lib/utils";
 import { getTypeColors } from "@/lib/exam-type-colors";
 import { useToast } from "@/contexts/ToastContext";
 import { useCurriculumConcepts, useCurriculumSuggestions } from "@/lib/hooks";
-import { ApiError, curriculumAPI } from "@/lib/api";
+import { curriculumAPI, recordFeatureEvents } from "@/lib/api";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import {
   SOURCE_LABELS,
   conceptNameForStream,
   curriculumExplorerHref,
   isCurriculumEligible,
-  matchesConcept,
   priorAcademicYear,
   stripExtension,
   weeksSpanText,
@@ -40,7 +48,6 @@ import {
 import type {
   Session,
   CurriculumConceptSuggestion,
-  CurriculumConceptVocab,
   CurriculumFile,
 } from "@/types";
 
@@ -72,132 +79,16 @@ function evidenceLine(
   return `${prefix} ${sourceText} · ${weeksSpanText(why.weeks_observed || [])}`;
 }
 
-// "asking" only happens near a test: the tap has been made but nothing is
-// written until the tutor says whether the school is revising the topic or
-// teaching it for the first time.
+// What a single row is doing right now. Whether its topic has been recorded
+// is not in here: that is a fact about the school week rather than about one
+// row, so it lives in `recorded` and every surface reads it. "asking" only
+// happens near a test: the tap has been made but nothing is written until the
+// tutor says whether the school is revising the topic or teaching it for the
+// first time.
 type ConfirmState =
   | { status: "idle" }
   | { status: "asking" }
-  | { status: "saving"; isRevision: boolean }
-  | { status: "confirmed"; observationId: number; isRevision: boolean };
-
-// The correction picker: disagreement is worth more to the timeline than
-// agreement, so when none of the suggestions is what the school is actually
-// doing, the tutor can name the real topic instead of walking away. During a
-// test window a picked topic passes through "kind" so the tutor says whether
-// the school is revising it or newly teaching it.
-type CorrectionState =
-  | { status: "closed" }
-  | { status: "picking" }
-  | { status: "kind"; concept: CurriculumConceptVocab }
-  | { status: "saving"; concept: CurriculumConceptVocab; isRevision: boolean }
-  | {
-      status: "confirmed";
-      concept: CurriculumConceptVocab;
-      observationId: number;
-      isRevision: boolean;
-    };
-
-// Two kinds of small control live in this section, and they must never share
-// a look. Anything that RECORDS something (the confirm button and the two
-// answers below it) is a rounded rectangle with the green tint and leading
-// icon that quick attend and the homework marks use, so it reads as "this
-// writes a fact". Anything that OPENS something (the builds-on chips and the
-// header links) stays a teal outline pill with a trailing arrow. An earlier
-// version gave both the same teal outline, and tutors could not tell whether
-// "Revising this" would open a list or record an answer.
-const RECORD_BTN =
-  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border transition-colors shrink-0 disabled:opacity-50 " +
-  "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 " +
-  "hover:bg-green-200 dark:hover:bg-green-900/50";
-const RECORDED_TEXT =
-  "inline-flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400 shrink-0";
-const KIND_QUESTION = "Revision or New Topic?";
-// The header gradient ends on the exercise modal's own panel colours. White
-// or near-black endpoints leave a visible seam on the desk palette. Shared by
-// the loaded header and the loading placeholder so the two look the same.
-const SECTION_HEADER_BG =
-  "bg-gradient-to-r from-teal-50 to-[#fef9f3] dark:from-teal-900/20 dark:to-[#2d2618]";
-const REVISION_TITLE =
-  "Record that the school is revising this topic for the test. Revision does not move the topic timeline.";
-const NEW_TOPIC_TITLE =
-  "Record that the school is teaching this as a new topic. New teaching builds the topic timeline.";
-
-// The question a tap raises during a test window. Nothing has been written
-// when this shows, so the X simply puts the confirm button back. `saving`
-// names the answer in flight so its own button carries the spinner.
-function KindQuestion({
-  saving,
-  onPick,
-  onDismiss,
-  dismissLabel,
-  hitArea,
-  className,
-}: {
-  saving: "revision" | "new" | null;
-  onPick: (isRevision: boolean) => void;
-  onDismiss: () => void;
-  dismissLabel: string;
-  hitArea: string;
-  className?: string;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={KIND_QUESTION}
-      className={cn(
-        "flex flex-wrap items-center justify-end gap-x-1.5 gap-y-1",
-        className
-      )}
-    >
-      <span className="text-[10px] text-gray-500 dark:text-gray-400">
-        {KIND_QUESTION}
-      </span>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => onPick(true)}
-          disabled={saving != null}
-          title={REVISION_TITLE}
-          className={RECORD_BTN}
-        >
-          {saving === "revision" ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <RotateCcw className="h-3 w-3" />
-          )}
-          Revision
-        </button>
-        <button
-          type="button"
-          onClick={() => onPick(false)}
-          disabled={saving != null}
-          title={NEW_TOPIC_TITLE}
-          className={RECORD_BTN}
-        >
-          {saving === "new" ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <BookPlus className="h-3 w-3" />
-          )}
-          New Topic
-        </button>
-        <button
-          type="button"
-          aria-label={dismissLabel}
-          onClick={onDismiss}
-          disabled={saving != null}
-          className={cn(
-            hitArea,
-            "rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
-          )}
-        >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
-  );
-}
+  | { status: "saving"; isRevision: boolean };
 
 interface CurriculumSuggestionSectionProps {
   session: Session;
@@ -220,12 +111,21 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   // top topic so the information is visible at a glance.
   const [expanded, setExpanded] = useState(false);
   const [confirmStates, setConfirmStates] = useState<Record<number, ConfirmState>>({});
-  const [correction, setCorrection] = useState<CorrectionState>({ status: "closed" });
-  const [correctionQuery, setCorrectionQuery] = useState("");
+  // Every topic recorded while this modal has been open, whichever surface
+  // recorded it. The question on the strip, the buttons below it and the
+  // search box all answer the same question about the same school week, so
+  // they share this rather than each remembering their own answers.
+  const [recorded, setRecorded] = useState<RecordedTopics>({});
+  // The picker owns its own state. All this section decides is whether it is
+  // open, because answering "No, it's..." on the collapsed question opens it.
+  const [correctionOpen, setCorrectionOpen] = useState(false);
   const [preview, setPreview] = useState<{
     path: string;
     label: string;
     answerPath?: string | null;
+    // Set when the file came from a suggested topic, so adding it from the
+    // preview counts as the same quiet vote as adding it from the row.
+    conceptId?: number;
   } | null>(null);
 
   // Worksheet browser for a prerequisite topic (opened from the builds-on
@@ -236,26 +136,67 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
 
   // Vocabulary for the correction picker and the builds-on chips; only
   // fetched once the section is opened.
-  const { data: vocab } = useCurriculumConcepts(
-    expanded || correction.status !== "closed"
-  );
+  const { data: vocab } = useCurriculumConcepts(expanded || correctionOpen);
   const vocabById = useMemo(
     () => new Map((vocab || []).map((c) => [c.id, c])),
     [vocab]
   );
-  const grade = session.grade || "";
-  const correctionMatches = useMemo(() => {
-    const needle = correctionQuery.trim();
-    if (correction.status !== "picking" || !needle || !vocab) return [];
-    // Suggested topics already have their own confirm buttons; offering them
-    // here again would give one observation two competing Undo spots.
-    const suggested = new Set((data?.suggestions || []).map((s) => s.concept_id));
-    // Same-grade concepts first: schools drift, but rarely across two grades.
-    return vocab
-      .filter((c) => !suggested.has(c.id) && matchesConcept(c, needle))
-      .sort((a, b) => Number(b.grade === grade) - Number(a.grade === grade))
-      .slice(0, 6);
-  }, [correction.status, correctionQuery, vocab, grade, data]);
+  // Record that the strip was in front of somebody, as opposed to fetched on
+  // a hover that went nowhere. Deduped per tutor, session and day on the
+  // server, and the ref keeps a re-render from posting it twice over.
+  const shownFor = useRef<number | null>(null);
+  useEffect(() => {
+    if (!eligible || !data || shownFor.current === session.id) return;
+    shownFor.current = session.id;
+    recordFeatureEvents([{
+      event_key: "school_progress.shown",
+      entity_type: "session",
+      entity_id: session.id,
+      context: { school: session.school, grade: session.grade },
+      dedupe_key: `sp-shown:${session.id}`,
+    }]);
+  }, [eligible, data, session.id, session.school, session.grade]);
+
+  const noteRecorded = (conceptId: number, topic: RecordedTopic) =>
+    setRecorded((prev) => ({ ...prev, [conceptId]: topic }));
+
+  const clearRecorded = (conceptId: number) =>
+    setRecorded((prev) => {
+      const next = { ...prev };
+      delete next[conceptId];
+      return next;
+    });
+
+  const toggleExpanded = () => {
+    if (!expanded) {
+      recordFeatureEvents([{
+        event_key: "school_progress.expanded",
+        entity_type: "session",
+        entity_id: session.id,
+        dedupe_key: `sp-expanded:${session.id}`,
+      }]);
+    }
+    setExpanded(!expanded);
+  };
+
+  /** Adding a suggested worksheet is a quieter vote for the topic than saying
+   *  so outright, so it is recorded at the lower confidence the backend keeps
+   *  for it. During a test window the panel is showing revision material, and
+   *  revision does not move the school's timeline. */
+  const noteFileAdded = (conceptId: number) => {
+    curriculumAPI.confirmTopic({
+      student_id: session.student_id,
+      concept_id: conceptId,
+      session_date: session.session_date,
+      is_revision: data?.revision_mode ?? false,
+      action: "accept_suggestion",
+      session_id: session.id,
+      origin: "file_add",
+    }).catch(() => {
+      // The tutor asked for a worksheet, not for a survey. A lost vote costs
+      // a little evidence and nothing they can see.
+    });
+  };
 
   if (!eligible) {
     // F1-F3 tutors see this section daily; on an F4-F6 session its silent
@@ -309,10 +250,29 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   if (!data) return null;
 
   if (data.reason || data.suggestions.length === 0) {
+    // A school week we know nothing about is the one worth asking about
+    // most, so the note carries the way to answer rather than only
+    // apologising. Nothing else on this line changes.
     return (
-      <p className="text-[10px] text-gray-400 dark:text-gray-500 px-1">
-        No School Progress suggestions for this week yet.
-      </p>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1">
+        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+          No School Progress suggestions for this week yet.
+        </p>
+        {data.ask?.state === "ask" && (
+          <TopicCorrectionPicker
+            session={session}
+            suggestedIds={[]}
+            stream={data.lang_stream || session.lang_stream || null}
+            inTestWindow={data.revision_mode}
+            open={correctionOpen}
+            onOpenChange={setCorrectionOpen}
+            onRecorded={noteRecorded}
+            onCleared={clearRecorded}
+            triggerLabel="Tell us what they are on"
+            origin="strip"
+          />
+        )}
+      </div>
     );
   }
 
@@ -320,6 +280,8 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
   // question. The confirm button asks it after the tap, in place, and only
   // then writes. Outside a test window the tap records new teaching at once.
   const inTestWindow = data.revision_mode;
+
+  const stream = data.lang_stream || session.lang_stream || null;
 
   const handleConfirm = async (
     concept: CurriculumConceptSuggestion,
@@ -335,10 +297,17 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         concept_id: concept.concept_id,
         session_date: session.session_date,
         is_revision: isRevision,
+        session_id: session.id,
+        origin: "suggested",
+      });
+      noteRecorded(concept.concept_id, {
+        observationId: result.id,
+        isRevision,
+        name: conceptNameForStream(concept, stream),
       });
       setConfirmStates((prev) => ({
         ...prev,
-        [concept.concept_id]: { status: "confirmed", observationId: result.id, isRevision },
+        [concept.concept_id]: { status: "idle" },
       }));
     } catch {
       // Back to where the choice was made: the question during a test
@@ -351,68 +320,18 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
     }
   };
 
-  const handleUndo = async (concept: CurriculumConceptSuggestion) => {
-    const state = confirmStates[concept.concept_id];
-    if (state?.status !== "confirmed") return;
+  const handleUndo = async (conceptId: number) => {
+    const topic = recorded[conceptId];
+    if (!topic) return;
     setConfirmStates((prev) => ({
       ...prev,
-      [concept.concept_id]: { status: "saving", isRevision: state.isRevision },
+      [conceptId]: { status: "saving", isRevision: topic.isRevision },
     }));
-    try {
-      await curriculumAPI.undoConfirm(state.observationId);
-      setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: { status: "idle" } }));
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 404) {
-        // The observation is already gone (idempotent confirms can share one
-        // row that another Undo removed) — this undo has nothing left to do.
-        setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: { status: "idle" } }));
-        return;
-      }
-      setConfirmStates((prev) => ({ ...prev, [concept.concept_id]: state }));
-      showToast("Could not undo the confirmation. Please try again.", "error");
-    }
+    const outcome = await undoRecordedTopic(topic.observationId);
+    if (outcome === "failed") showToast(UNDO_FAILED_MESSAGE, "error");
+    else clearRecorded(conceptId);
+    setConfirmStates((prev) => ({ ...prev, [conceptId]: { status: "idle" } }));
   };
-
-  const handleCorrection = async (
-    concept: CurriculumConceptVocab,
-    isRevision: boolean
-  ) => {
-    setCorrection({ status: "saving", concept, isRevision });
-    try {
-      const result = await curriculumAPI.confirmTopic({
-        student_id: session.student_id,
-        concept_id: concept.id,
-        session_date: session.session_date,
-        is_revision: isRevision,
-      });
-      setCorrection({ status: "confirmed", concept, observationId: result.id, isRevision });
-      setCorrectionQuery("");
-    } catch {
-      // Back to where the choice was being made: the kind chooser during a
-      // test window, the topic list otherwise.
-      setCorrection(inTestWindow ? { status: "kind", concept } : { status: "picking" });
-      showToast("Could not save the topic. Please try again.", "error");
-    }
-  };
-
-  const handleCorrectionUndo = async () => {
-    if (correction.status !== "confirmed") return;
-    const prev = correction;
-    setCorrection({ status: "saving", concept: prev.concept, isRevision: prev.isRevision });
-    try {
-      await curriculumAPI.undoConfirm(prev.observationId);
-      setCorrection({ status: "closed" });
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 404) {
-        setCorrection({ status: "closed" });
-        return;
-      }
-      setCorrection(prev);
-      showToast("Could not undo the confirmation. Please try again.", "error");
-    }
-  };
-
-  const stream = data.lang_stream || session.lang_stream || null;
 
   const examDate = data.upcoming_exam?.start_date
     ? new Date(data.upcoming_exam.start_date).toLocaleDateString("en-GB", {
@@ -452,7 +371,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
       <button
         type="button"
         aria-expanded={expanded}
-        onClick={() => setExpanded(!expanded)}
+        onClick={toggleExpanded}
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
           SECTION_HEADER_BG,
@@ -487,6 +406,30 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
           <ChevronRight className="h-3.5 w-3.5 text-gray-400 ml-auto" />
         )}
       </button>
+
+      {/* The question, on its own line under the header. A sibling of the
+          toggle rather than a child of it, because answer buttons nested
+          inside a button are invalid markup and unreachable from the
+          keyboard. It steps aside while the section is open, where the
+          per-topic buttons ask the same thing with more room, but it stays
+          mounted while it does so: unmounting it threw the answer away and
+          asked again the moment the section was closed. */}
+      {data.ask && (
+        <SchoolProgressAsk
+          hidden={expanded}
+          ask={data.ask}
+          session={session}
+          suggestions={data.suggestions.map((c) => ({
+            id: c.concept_id,
+            name: conceptNameForStream(c, stream),
+          }))}
+          stream={stream}
+          inTestWindow={inTestWindow}
+          recorded={recorded}
+          onRecorded={noteRecorded}
+          onCleared={clearRecorded}
+        />
+      )}
 
       {expanded && (
         <div className="border-t border-teal-100 dark:border-teal-900/50">
@@ -560,6 +503,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
             )}
             {data.suggestions.map((concept) => {
               const state = confirmStates[concept.concept_id] || { status: "idle" };
+              const topicRecorded = recorded[concept.concept_id];
               return (
                 <div key={concept.concept_id}>
                   <div className="flex items-start gap-2">
@@ -605,19 +549,15 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         </div>
                       )}
                     </div>
-                    {state.status === "confirmed" ? (
-                      <span className={RECORDED_TEXT}>
-                        <Check className="h-3 w-3" />
-                        {state.isRevision ? "Noted as revision, thanks!" : "Noted, thanks!"}
-                        <button
-                          type="button"
-                          onClick={() => handleUndo(concept)}
-                          className="inline-flex items-center gap-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1"
-                        >
-                          <Undo2 className="h-3 w-3" />
-                          Undo
-                        </button>
-                      </span>
+                    {topicRecorded ? (
+                      // Recorded here, or on the question above, or in the
+                      // search box: one answer, shown the same way wherever
+                      // it was given.
+                      <RecordedNote
+                        isRevision={topicRecorded.isRevision}
+                        busy={state.status === "saving"}
+                        onUndo={() => handleUndo(concept.concept_id)}
+                      />
                     ) : state.status === "asking" ||
                       (state.status === "saving" && inTestWindow) ? (
                       // The question stays on screen while its answer saves,
@@ -653,7 +593,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                             : handleConfirm(concept, false)
                         }
                         disabled={state.status === "saving"}
-                        title="Tell the system the school really is on this topic. This improves future suggestions for everyone."
+                        title="Records that this is the topic the school is on. It improves the suggestions everyone sees."
                         className={RECORD_BTN}
                       >
                         {state.status === "saving" ? (
@@ -661,7 +601,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         ) : (
                           <Check className="h-3 w-3" />
                         )}
-                        School is on this
+                        Yes, this one
                       </button>
                     )}
                   </div>
@@ -676,11 +616,15 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                         <CurriculumFileRow
                           key={file.file_path}
                           file={file}
-                          onAdd={() => onAdd(file.file_path)}
+                          onAdd={() => {
+                            onAdd(file.file_path);
+                            noteFileAdded(concept.concept_id);
+                          }}
                           onPreview={(f) =>
                             setPreview({
                               path: f.file_path,
                               label: stripExtension(f.file_basename),
+                              conceptId: concept.concept_id,
                             })
                           }
                           scopeSchool={data.school}
@@ -698,127 +642,17 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                 (-mx) and the modal panel's own desk colours, so it reads as
                 the card's footer rather than a box floating over the list. */}
             <div className="sticky bottom-0 -mx-3 px-3 pt-2 pb-3 bg-[#fef9f3] dark:bg-[#2d2618] border-t border-teal-100/60 dark:border-teal-900/40">
-              {correction.status === "closed" && (
-                <button
-                  type="button"
-                  onClick={() => setCorrection({ status: "picking" })}
-                  className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
-                >
-                  <MessageSquarePlus className="h-3 w-3" />
-                  School is on something else?
-                </button>
-              )}
-
-              {correction.status === "picking" && (
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={correctionQuery}
-                      onChange={(e) => setCorrectionQuery(e.target.value)}
-                      placeholder="e.g. Factorization, 因式分解 or 803"
-                      className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded border border-teal-200 dark:border-teal-800 bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    />
-                    <button
-                      type="button"
-                      aria-label="Close topic picker"
-                      onClick={() => {
-                        setCorrection({ status: "closed" });
-                        setCorrectionQuery("");
-                      }}
-                      className={cn(
-                        hitArea,
-                        "rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      )}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                  {correctionMatches.length > 0 && (
-                    <div className="mt-1 space-y-0.5">
-                      {correctionMatches.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() =>
-                            inTestWindow
-                              ? setCorrection({ status: "kind", concept: c })
-                              : handleCorrection(c, false)
-                          }
-                          className="w-full flex items-center gap-1.5 text-left rounded px-1.5 py-1 hover:bg-teal-50 dark:hover:bg-teal-900/20"
-                        >
-                          <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1">
-                            {conceptNameForStream(c, stream)}
-                          </span>
-                          {c.grade && (
-                            <span className="text-[9px] px-1 py-px rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0">
-                              {c.grade}
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {correctionQuery.trim() && correctionMatches.length === 0 && (
-                    <p className="mt-1 text-[10px] text-gray-400">
-                      No matching topic. Try another name or a chapter code.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {(correction.status === "kind" ||
-                (correction.status === "saving" && inTestWindow)) && (
-                // Same question as on a suggestion row, so the picker and the
-                // rows teach one habit. The X goes back to the topic list.
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate">
-                    {conceptNameForStream(correction.concept, stream)}
-                  </span>
-                  <KindQuestion
-                    saving={
-                      correction.status === "saving"
-                        ? correction.isRevision
-                          ? "revision"
-                          : "new"
-                        : null
-                    }
-                    onPick={(isRevision) => handleCorrection(correction.concept, isRevision)}
-                    onDismiss={() => setCorrection({ status: "picking" })}
-                    dismissLabel="Back to the topic list"
-                    hitArea={hitArea}
-                  />
-                </div>
-              )}
-
-              {((correction.status === "saving" && !inTestWindow) ||
-                correction.status === "confirmed") && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate">
-                    {conceptNameForStream(
-                      correction.concept,
-                      stream
-                    )}
-                  </span>
-                  {correction.status === "saving" ? (
-                    <Loader2 className="h-3 w-3 animate-spin text-gray-400 shrink-0" />
-                  ) : (
-                    <span className={RECORDED_TEXT}>
-                      <Check className="h-3 w-3" />
-                      {correction.isRevision ? "Noted as revision, thanks!" : "Noted, thanks!"}
-                      <button
-                        type="button"
-                        onClick={handleCorrectionUndo}
-                        className="inline-flex items-center gap-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1"
-                      >
-                        <Undo2 className="h-3 w-3" />
-                        Undo
-                      </button>
-                    </span>
-                  )}
-                </div>
-              )}
+              <TopicCorrectionPicker
+                session={session}
+                suggestedIds={data.suggestions.map((c) => c.concept_id)}
+                stream={stream}
+                inTestWindow={inTestWindow}
+                open={correctionOpen}
+                onOpenChange={setCorrectionOpen}
+                onRecorded={noteRecorded}
+                onCleared={clearRecorded}
+                triggerLabel="School is on something else?"
+              />
             </div>
           </div>
         </div>
@@ -828,7 +662,10 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
         <CurriculumPdfPreview
           filePath={preview.path}
           fileLabel={preview.label}
-          onAdd={() => onAdd(preview.path, preview.answerPath ?? undefined)}
+          onAdd={() => {
+            onAdd(preview.path, preview.answerPath ?? undefined);
+            if (preview.conceptId) noteFileAdded(preview.conceptId);
+          }}
           onClose={() => setPreview(null)}
         />
       )}
