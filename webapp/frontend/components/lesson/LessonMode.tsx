@@ -33,6 +33,7 @@ import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
+import type { EraserSetting } from "@/lib/stroke-eraser";
 import type { HomeworkStatus, Session, SessionExercise } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { useStudentHomework } from "@/lib/hooks";
@@ -254,6 +255,7 @@ export function LessonMode({
   const [annotationTool, setAnnotationTool] = useState<"pen" | "eraser">("pen");
   const [penColor, setPenColor] = useState("#dc2626");
   const [penSize, setPenSize] = useState(3);
+  const [eraser, setEraser] = useState<EraserSetting>("M");
   const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
 
   // Answer key state
@@ -1330,6 +1332,8 @@ export function LessonMode({
                   onSaveAnnotated={handleSaveAnnotated}
                   eraserActive={drawingEnabled && annotationTool === "eraser"}
                   onEraserToggle={handleEraserToggle}
+                  eraser={eraser}
+                  onEraserChange={setEraser}
                   onAnswerKeyToggle={handleAnswerKeyToggle}
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}

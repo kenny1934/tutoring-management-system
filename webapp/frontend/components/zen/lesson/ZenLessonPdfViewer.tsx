@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { extractPagesForPrint, getPdfJs, type PrintStampInfo } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "@/components/lesson/AnnotationLayer";
+import { ERASER_RADIUS } from "@/lib/stroke-eraser";
 import type { Stroke } from "@/hooks/useAnnotations";
 
 interface RenderedPage {
@@ -585,6 +586,8 @@ export function ZenLessonPdfViewer({
                     strokes={pageStrokes?.(i) || []}
                     isDrawing={isDrawing || false}
                     isErasing={isErasing || false}
+                    // Zen has no eraser size controls, so it always rubs with the medium eraser
+                    eraserRadius={ERASER_RADIUS.M * scaleFactor}
                     penColor={penColor}
                     penSize={penSize * scaleFactor}
                     onStrokesChange={(strokes) => onStrokesChange(i, strokes)}

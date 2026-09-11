@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect, memo } from "react";
 import getStroke from "perfect-freehand";
 import { getStrokeOptions } from "@/hooks/useAnnotations";
 import type { Stroke } from "@/hooks/useAnnotations";
+import { eraseStrokes } from "@/lib/stroke-eraser";
 
 interface AnnotationLayerProps {
   /** Page width in CSS pixels */
@@ -16,6 +17,12 @@ interface AnnotationLayerProps {
   isDrawing: boolean;
   /** Whether eraser mode is active */
   isErasing: boolean;
+  /**
+   * Radius of the rubbing eraser, in the same units as the strokes. Leave it
+   * out, or pass null, for the whole-stroke eraser, where tapping a stroke
+   * removes all of it.
+   */
+  eraserRadius?: number | null;
   /** Current pen color */
   penColor: string;
   /** Current pen size */
@@ -120,6 +127,7 @@ export function AnnotationLayer({
   strokes,
   isDrawing,
   isErasing,
+  eraserRadius = null,
   penColor,
   penSize,
   onStrokesChange,
@@ -133,10 +141,28 @@ export function AnnotationLayer({
   // Eraser hover state
   const [hoveredStrokeIndex, setHoveredStrokeIndex] = useState<number | null>(null);
 
+  // Rubbing eraser state. While you drag, the erased result is kept here and
+  // drawn in place of the saved strokes. It is handed back once, when you let
+  // go, so one drag of the eraser is one step in the undo history.
+  const isRubbing = isErasing && eraserRadius !== null;
+  const [rubbedStrokes, setRubbedStrokes] = useState<Stroke[] | null>(null);
+  const rubbedStrokesRef = useRef<Stroke[] | null>(null);
+  const lastRubPointRef = useRef<[number, number] | null>(null);
+  const [eraserCursor, setEraserCursor] = useState<[number, number] | null>(null);
+
   // Reset hover when leaving eraser mode
   useEffect(() => {
     if (!isErasing) setHoveredStrokeIndex(null);
   }, [isErasing]);
+
+  // Drop the eraser circle and any half-finished rub when the rubbing eraser is put away
+  useEffect(() => {
+    if (isRubbing) return;
+    setEraserCursor(null);
+    setRubbedStrokes(null);
+    rubbedStrokesRef.current = null;
+    lastRubPointRef.current = null;
+  }, [isRubbing]);
 
   const handleEraseStroke = useCallback(
     (index: number) => {
@@ -210,6 +236,64 @@ export function AnnotationLayer({
     [strokes, penColor, penSize, onStrokesChange]
   );
 
+  /** Erase along the line from the last pointer position to this one. */
+  const rubTo = useCallback(
+    (to: [number, number]) => {
+      if (eraserRadius === null || !rubbedStrokesRef.current) return;
+      const from = lastRubPointRef.current ?? to;
+      lastRubPointRef.current = to;
+      const next = eraseStrokes(rubbedStrokesRef.current, from, to, eraserRadius);
+      if (next !== rubbedStrokesRef.current) {
+        rubbedStrokesRef.current = next;
+        setRubbedStrokes(next);
+      }
+    },
+    [eraserRadius]
+  );
+
+  const handleRubDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      svgRef.current?.setPointerCapture(e.pointerId);
+      const [x, y] = getPoint(e);
+      rubbedStrokesRef.current = strokes;
+      lastRubPointRef.current = null;
+      setEraserCursor([x, y]);
+      rubTo([x, y]);
+    },
+    [getPoint, strokes, rubTo]
+  );
+
+  const handleRubMove = useCallback(
+    (e: React.PointerEvent) => {
+      const [x, y] = getPoint(e);
+      setEraserCursor([x, y]);
+      if (rubbedStrokesRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        rubTo([x, y]);
+      }
+    },
+    [getPoint, rubTo]
+  );
+
+  const handleRubEnd = useCallback(() => {
+    const result = rubbedStrokesRef.current;
+    if (!result) return;
+    rubbedStrokesRef.current = null;
+    lastRubPointRef.current = null;
+    setRubbedStrokes(null);
+    if (result !== strokes) onStrokesChange(result);
+  }, [strokes, onStrokesChange]);
+
+  const handleRubLeave = useCallback(() => {
+    handleRubEnd();
+    setEraserCursor(null);
+  }, [handleRubEnd]);
+
+  const shownStrokes = rubbedStrokes ?? strokes;
+
   // Render current in-progress stroke
   const currentOutline =
     currentPoints.length >= 2
@@ -232,19 +316,21 @@ export function AnnotationLayer({
       className="absolute inset-0 w-full h-full"
       style={{
         pointerEvents: active ? "auto" : "none",
-        cursor: isErasing ? "pointer" : isDrawing ? "crosshair" : "default",
+        // The rubbing eraser draws its own circle, so the system cursor is hidden
+        cursor: isRubbing ? "none" : isErasing ? "pointer" : isDrawing ? "crosshair" : "default",
         touchAction: active ? "none" : "auto",
         opacity: hidden ? 0 : undefined,
         transition: "opacity 0.15s ease",
       }}
-      onPointerDown={isErasing ? undefined : handlePointerDown}
-      onPointerMove={isErasing ? undefined : handlePointerMove}
-      onPointerUp={isErasing ? undefined : handlePointerUp}
-      onPointerLeave={isErasing ? undefined : handlePointerUp}
+      onPointerDown={isRubbing ? handleRubDown : isErasing ? undefined : handlePointerDown}
+      onPointerMove={isRubbing ? handleRubMove : isErasing ? undefined : handlePointerMove}
+      onPointerUp={isRubbing ? handleRubEnd : isErasing ? undefined : handlePointerUp}
+      onPointerCancel={isRubbing ? handleRubEnd : undefined}
+      onPointerLeave={isRubbing ? handleRubLeave : isErasing ? undefined : handlePointerUp}
     >
-      {/* Completed strokes */}
-      {isErasing
-        ? strokes.map((stroke, i) => (
+      {/* Completed strokes. The whole-stroke eraser makes each one tappable. */}
+      {isErasing && !isRubbing
+        ? shownStrokes.map((stroke, i) => (
             <ErasableStrokePath
               key={i}
               stroke={stroke}
@@ -255,7 +341,7 @@ export function AnnotationLayer({
               onErase={handleEraseStroke}
             />
           ))
-        : strokes.map((stroke, i) => (
+        : shownStrokes.map((stroke, i) => (
             <StrokePath key={i} stroke={stroke} />
           ))
       }
@@ -263,6 +349,20 @@ export function AnnotationLayer({
       {/* In-progress stroke (pen mode only) */}
       {currentPath && (
         <path d={currentPath} fill={penColor} opacity={0.85} />
+      )}
+
+      {/* Rubbing eraser circle, the exact area it will erase */}
+      {isRubbing && eraserCursor && eraserRadius !== null && (
+        <circle
+          cx={eraserCursor[0]}
+          cy={eraserCursor[1]}
+          r={eraserRadius}
+          fill="rgba(255, 255, 255, 0.35)"
+          stroke="#6b5a42"
+          strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
+          pointerEvents="none"
+        />
       )}
     </svg>
   );
