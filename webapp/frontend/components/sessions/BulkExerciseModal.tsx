@@ -25,6 +25,9 @@ import { YouTubeThumbnail } from "@/components/ui/url-badge";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { SummerBulkAssignSection } from "./SummerMaterialsSection";
+import { ExerciseModal } from "./ExerciseModal";
+import { TrendingCoursewareSection } from "./TrendingCoursewareSection";
+import { CurriculumSuggestionSection } from "./CurriculumSuggestionSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { exerciseInputClass } from "./exercise-constants";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -58,7 +61,31 @@ interface BulkExerciseModalProps {
   onSave?: (sessionIds: number[], exercises: ExerciseFormItem[]) => void;
 }
 
-export function BulkExerciseModal({
+/**
+ * Every "assign to the selected sessions" button and the C/H shortcuts open
+ * this. When only one session is selected there is nothing bulk about the
+ * job, so the ordinary exercise modal opens instead. That one has the Trending
+ * and School Progress strips, the recap and the duplicate warnings, and it
+ * shows the exercises the session already has, where the bulk modal can only
+ * add more on top.
+ */
+export function BulkExerciseModal(props: BulkExerciseModalProps) {
+  const { sessions, exerciseType, isOpen, onClose, onSave } = props;
+  if (sessions.length === 1) {
+    return (
+      <ExerciseModal
+        session={sessions[0]}
+        exerciseType={exerciseType}
+        isOpen={isOpen}
+        onClose={onClose}
+        onSave={onSave && ((sessionId, saved) => onSave([sessionId], saved))}
+      />
+    );
+  }
+  return <GroupExerciseModal {...props} />;
+}
+
+function GroupExerciseModal({
   sessions,
   exerciseType,
   isOpen,
@@ -722,6 +749,34 @@ export function BulkExerciseModal({
     [sessions]
   );
 
+  // The same-class check. The ordinary modal's two suggestion strips are
+  // about one class, so they only appear here when everyone selected could
+  // share one. Trending is looked up by school and grade alone, so that is
+  // all it needs. School Progress also needs the same stream, because the
+  // school's timeline is kept per stream, and the same date, because the
+  // school week and the test window both come from the date and the sessions
+  // list can show several days at once. When the check passes, the first
+  // session stands in for the rest.
+  const standIn = sessions[0];
+  const sameGradeAtSchool =
+    !!standIn?.school &&
+    !!standIn.grade &&
+    sessions.every((s) => s.school === standIn.school && s.grade === standIn.grade);
+  const sameClassToday =
+    sameGradeAtSchool &&
+    sessions.every(
+      (s) =>
+        (s.lang_stream || null) === (standIn.lang_stream || null) &&
+        s.session_date === standIn.session_date
+    );
+  const addSuggested = (path: string, answerPath?: string) => {
+    setExercises((prev) => [
+      ...prev,
+      { ...createExercise(exerciseType, path), answer_pdf_name: answerPath ?? "" },
+    ]);
+    setIsDirty(true);
+  };
+
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
   const Icon = isCW ? PenTool : Home;
@@ -799,6 +854,19 @@ export function BulkExerciseModal({
             })}
           </div>
         </div>
+
+        {sameGradeAtSchool && (
+          <TrendingCoursewareSection
+            exerciseType={exerciseType}
+            grade={standIn.grade}
+            school={standIn.school}
+            location={standIn.location}
+            onAdd={addSuggested}
+          />
+        )}
+        {sameClassToday && (
+          <CurriculumSuggestionSection session={standIn} onAdd={addSuggested} forGroup />
+        )}
 
         {/* Summer Materials - lang-aware quick assign for same-grade summer sessions */}
         <SummerBulkAssignSection sessions={sessions} exerciseType={exerciseType} />

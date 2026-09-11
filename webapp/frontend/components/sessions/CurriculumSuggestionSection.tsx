@@ -98,9 +98,27 @@ interface CurriculumSuggestionSectionProps {
   /** Archived papers carry a recognised answer key when one exists —
    *  adding one fills the exercise's answer file too. */
   onAdd: (path: string, answerPath?: string) => void;
+  /** Set by the bulk modal when `session` is standing in for several
+   *  students from the same class on the same day. The topics and the
+   *  question are the same for all of them, so the strip reads them from this
+   *  one session. What it leaves off is each file's Done badge, because that
+   *  is this one student's history and would mislead about the rest. */
+  forGroup?: boolean;
 }
 
-export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSuggestionSectionProps) {
+/** The file without its student history. The row only draws a Done badge
+ *  when the file has been assigned to the student before, so a zero count is
+ *  enough to leave the badge off. */
+function withoutStudentHistory(file: CurriculumFile): CurriculumFile {
+  return {
+    ...file,
+    student_assigned_count: 0,
+    student_last_assigned: null,
+    student_pages_done: null,
+  };
+}
+
+export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }: CurriculumSuggestionSectionProps) {
   const { showToast } = useToast();
   const hitArea = iconHitArea(useCoarsePointer());
   const eligible = isCurriculumEligible(session);
@@ -642,7 +660,7 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                       {concept.files.map((file: CurriculumFile) => (
                         <CurriculumFileRow
                           key={file.file_path}
-                          file={file}
+                          file={forGroup ? withoutStudentHistory(file) : file}
                           onAdd={() => {
                             onAdd(file.file_path);
                             noteFileAdded(concept.concept_id);
