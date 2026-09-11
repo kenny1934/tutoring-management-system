@@ -37,17 +37,70 @@ export function getStrokeOptions(stroke: Stroke, isComplete: boolean) {
 }
 
 /**
+ * One step in an exercise's undo or redo history. It records which page
+ * changed and what that page held on the other side of the change, so
+ * stepping back or forward just puts those strokes back on the page. Drawing
+ * a stroke, erasing one and clearing a page are all recorded the same way.
+ */
+interface HistoryEntry {
+  pageIndex: number;
+  strokes: Stroke[];
+}
+
+/** True when both lists hold the same stroke objects in the same order. */
+function sameStrokes(a: Stroke[], b: Stroke[]): boolean {
+  return a.length === b.length && a.every((stroke, i) => stroke === b[i]);
+}
+
+/**
+ * Strokes restored from sessionStorage come back without any history, so we
+ * rebuild one as if they had been drawn a page at a time, in page order. That
+ * keeps undo working after a reload, even though the real order is lost.
+ */
+function historyFromStrokes(annotations: PageAnnotations): HistoryEntry[] {
+  const history: HistoryEntry[] = [];
+  const pages = Object.keys(annotations).map(Number).sort((a, b) => a - b);
+  for (const pageIndex of pages) {
+    const strokes = annotations[pageIndex] || [];
+    for (let i = 0; i < strokes.length; i++) {
+      history.push({ pageIndex, strokes: strokes.slice(0, i) });
+    }
+  }
+  return history;
+}
+
+/**
+ * Pull the most recent entry off a history stack. When a page is given, only
+ * entries for that page count, which is how Zen mode undoes on the page you
+ * are looking at. Taking an entry out of the middle is safe, because each
+ * page's entries only ever describe that page.
+ */
+function takeLatest(stack: HistoryEntry[], pageIndex?: number): HistoryEntry | null {
+  for (let i = stack.length - 1; i >= 0; i--) {
+    if (pageIndex === undefined || stack[i].pageIndex === pageIndex) {
+      return stack.splice(i, 1)[0];
+    }
+  }
+  return null;
+}
+
+/**
  * In-memory annotation state manager for lesson mode.
  * Annotations are keyed by exercise ID and survive exercise switches.
  * All state is GC'd when the host component unmounts.
  *
+ * Each exercise keeps its own undo history in the order you made the changes,
+ * across all of its pages, so undo takes back whatever you did last, whether
+ * that was drawing a stroke, erasing one or clearing a page.
+ *
  * When sessionKey is provided, annotations are auto-saved to sessionStorage
- * (debounced 500ms) and restored on mount.
+ * (debounced 500ms) and restored on mount. The history itself is not saved.
  */
 export function useAnnotations(sessionKey?: string) {
   const storeRef = useRef<Map<number, PageAnnotations>>(new Map());
-  // Redo stack: exerciseId → pageIndex → array of undone strokes
-  const redoRef = useRef<Map<number, Record<number, Stroke[]>>>(new Map());
+  // Undo and redo stacks per exercise, newest entry last.
+  const undoRef = useRef<Map<number, HistoryEntry[]>>(new Map());
+  const redoRef = useRef<Map<number, HistoryEntry[]>>(new Map());
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Debounced persist to sessionStorage
@@ -72,13 +125,17 @@ export function useAnnotations(sessionKey?: string) {
       if (!saved) return;
       const parsed = JSON.parse(saved);
       const map = new Map<number, PageAnnotations>();
+      const history = new Map<number, HistoryEntry[]>();
       for (const [k, v] of Object.entries(parsed)) {
         const id = Number(k);
         if (!isNaN(id) && typeof v === "object" && v !== null) {
           map.set(id, v as PageAnnotations);
+          history.set(id, historyFromStrokes(v as PageAnnotations));
         }
       }
       storeRef.current = map;
+      undoRef.current = history;
+      redoRef.current = new Map();
     } catch {}
   }, [sessionKey]);
 
@@ -93,78 +150,96 @@ export function useAnnotations(sessionKey?: string) {
     return storeRef.current.get(exerciseId) || {};
   }, []);
 
+  /**
+   * Replace a page's strokes as a new change you made. The lesson viewers
+   * report every page each time anything changes, so a page that comes back
+   * unchanged is ignored here, and only the page that really changed goes
+   * into the history. Any real change also throws away the redo stack, the
+   * same as in any drawing app.
+   */
   const setPageStrokes = useCallback(
     (exerciseId: number, pageIndex: number, strokes: Stroke[]) => {
       const current = storeRef.current.get(exerciseId) || {};
+      const before = current[pageIndex] || [];
+      if (sameStrokes(before, strokes)) return;
+
       storeRef.current.set(exerciseId, { ...current, [pageIndex]: strokes });
-      // Clear redo stack for this page when a new stroke is drawn
-      const redo = redoRef.current.get(exerciseId);
-      if (redo?.[pageIndex]) {
-        delete redo[pageIndex];
-      }
+      const undo = undoRef.current.get(exerciseId) || [];
+      undo.push({ pageIndex, strokes: before });
+      undoRef.current.set(exerciseId, undo);
+      redoRef.current.delete(exerciseId);
       persistToStorage();
     },
     [persistToStorage]
   );
 
-  const undoLastStroke = useCallback(
-    (exerciseId: number, pageIndex: number): Stroke[] => {
+  /**
+   * Move one history entry from one stack to the other: put its strokes back
+   * on its page, and remember what the page held just before so the opposite
+   * action can reverse it. Returns the exercise's annotations afterwards, or
+   * null when there was nothing to step through.
+   */
+  const stepHistory = useCallback(
+    (
+      from: Map<number, HistoryEntry[]>,
+      to: Map<number, HistoryEntry[]>,
+      exerciseId: number,
+      pageIndex?: number
+    ): PageAnnotations | null => {
+      const stack = from.get(exerciseId);
+      const entry = stack ? takeLatest(stack, pageIndex) : null;
+      if (!entry) return null;
+
       const current = storeRef.current.get(exerciseId) || {};
-      const pageStrokes = current[pageIndex] || [];
-      if (pageStrokes.length === 0) return pageStrokes;
+      const opposite = to.get(exerciseId) || [];
+      opposite.push({ pageIndex: entry.pageIndex, strokes: current[entry.pageIndex] || [] });
+      to.set(exerciseId, opposite);
 
-      // Push removed stroke onto redo stack
-      const removed = pageStrokes[pageStrokes.length - 1];
-      const redo = redoRef.current.get(exerciseId) || {};
-      redo[pageIndex] = [...(redo[pageIndex] || []), removed];
-      redoRef.current.set(exerciseId, redo);
-
-      const updated = pageStrokes.slice(0, -1);
-      storeRef.current.set(exerciseId, { ...current, [pageIndex]: updated });
+      const updated = { ...current, [entry.pageIndex]: entry.strokes };
+      storeRef.current.set(exerciseId, updated);
       persistToStorage();
       return updated;
     },
     [persistToStorage]
   );
 
-  const redoLastStroke = useCallback(
-    (exerciseId: number, pageIndex: number): Stroke[] | null => {
-      const redo = redoRef.current.get(exerciseId);
-      const redoStrokes = redo?.[pageIndex];
-      if (!redoStrokes || redoStrokes.length === 0) return null;
-
-      // Pop last undone stroke and add back
-      const stroke = redoStrokes.pop()!;
-      const current = storeRef.current.get(exerciseId) || {};
-      const pageStrokes = [...(current[pageIndex] || []), stroke];
-      storeRef.current.set(exerciseId, { ...current, [pageIndex]: pageStrokes });
-      persistToStorage();
-      return pageStrokes;
-    },
-    [persistToStorage]
+  /**
+   * Undo the most recent change on an exercise, on whichever page it was.
+   * Pass a page index to undo only the most recent change on that page.
+   */
+  const undo = useCallback(
+    (exerciseId: number, pageIndex?: number) =>
+      stepHistory(undoRef.current, redoRef.current, exerciseId, pageIndex),
+    [stepHistory]
   );
 
+  /** Redo the most recently undone change, optionally limited to one page. */
+  const redo = useCallback(
+    (exerciseId: number, pageIndex?: number) =>
+      stepHistory(redoRef.current, undoRef.current, exerciseId, pageIndex),
+    [stepHistory]
+  );
+
+  /** Clearing a single page is recorded like any other change, so it can be undone. */
   const clearPage = useCallback(
     (exerciseId: number, pageIndex: number) => {
-      const current = storeRef.current.get(exerciseId) || {};
-      const { [pageIndex]: _, ...rest } = current;
-      storeRef.current.set(exerciseId, rest);
-      // Clear redo for this page
-      const redo = redoRef.current.get(exerciseId);
-      if (redo?.[pageIndex]) delete redo[pageIndex];
-      persistToStorage();
+      setPageStrokes(exerciseId, pageIndex, []);
     },
-    [persistToStorage]
+    [setPageStrokes]
   );
 
+  // Clearing a whole exercise is confirmed in the viewer first, and it wipes
+  // the history too, so it cannot be undone.
   const clearAnnotations = useCallback((exerciseId: number) => {
     storeRef.current.delete(exerciseId);
+    undoRef.current.delete(exerciseId);
     redoRef.current.delete(exerciseId);
     persistToStorage();
   }, [persistToStorage]);
 
   const clearAll = useCallback(() => {
     storeRef.current.clear();
+    undoRef.current.clear();
     redoRef.current.clear();
     persistToStorage();
   }, [persistToStorage]);
@@ -199,8 +274,8 @@ export function useAnnotations(sessionKey?: string) {
     getAnnotations,
     getAllAnnotations,
     setPageStrokes,
-    undoLastStroke,
-    redoLastStroke,
+    undo,
+    redo,
     clearPage,
     clearAnnotations,
     clearAll,

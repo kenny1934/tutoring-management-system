@@ -158,7 +158,7 @@ export function LessonWideMode({
   // Use a combined key for all sessions in this lesson
   const annotationKey = `lesson-wide-annotations-${date}-${slot}-${tutorId}`;
   const {
-    getAnnotations, getAllAnnotations, setPageStrokes, undoLastStroke, redoLastStroke,
+    getAnnotations, getAllAnnotations, setPageStrokes, undo, redo,
     clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
   } = useAnnotations(annotationKey);
   const [drawingEnabled, setDrawingEnabled] = useState(false);
@@ -571,17 +571,18 @@ export function LessonWideMode({
     }
   }, [selectedEntry, setPageStrokes]);
 
+  // Undo and redo follow the order you drew in, across every page of the exercise.
   const handleUndo = useCallback(() => {
     if (!selectedEntry?.exercise) return;
-    const updated = undoLastStroke(selectedEntry.exercise.id);
+    const updated = undo(selectedEntry.exercise.id);
     if (updated) setCurrentAnnotations(updated);
-  }, [selectedEntry, undoLastStroke]);
+  }, [selectedEntry, undo]);
 
   const handleRedo = useCallback(() => {
     if (!selectedEntry?.exercise) return;
-    const updated = redoLastStroke(selectedEntry.exercise.id);
+    const updated = redo(selectedEntry.exercise.id);
     if (updated) setCurrentAnnotations(updated);
-  }, [selectedEntry, redoLastStroke]);
+  }, [selectedEntry, redo]);
 
   const handleClearAllAnnotations = useCallback(() => {
     if (!selectedEntry?.exercise) return;

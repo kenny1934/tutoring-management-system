@@ -13,8 +13,8 @@ interface UseZenAnnotationHandlersParams {
   annotations: {
     getAnnotations: (exerciseId: number) => Record<number, Stroke[]>;
     setPageStrokes: (exerciseId: number, pageIndex: number, strokes: Stroke[]) => void;
-    undoLastStroke: (exerciseId: number, pageIndex: number) => Stroke[];
-    redoLastStroke: (exerciseId: number, pageIndex: number) => Stroke[] | null;
+    undo: (exerciseId: number, pageIndex?: number) => Record<number, Stroke[]> | null;
+    redo: (exerciseId: number, pageIndex?: number) => Record<number, Stroke[]> | null;
     clearPage: (exerciseId: number, pageIndex: number) => void;
     clearAll: () => void;
     clearStorage: () => void;
@@ -49,15 +49,16 @@ export function useZenAnnotationHandlers({
   const showExitConfirmRef = useRef(showExitConfirm);
   showExitConfirmRef.current = showExitConfirm;
 
+  // Zen undoes and redoes on the page currently scrolled into view, not across the whole exercise.
   const handleUndo = useCallback(() => {
     if (!selectedExercise) return;
-    annotations.undoLastStroke(selectedExercise.id, currentPage - 1);
+    annotations.undo(selectedExercise.id, currentPage - 1);
     bumpStrokes();
   }, [selectedExercise, currentPage, annotations, bumpStrokes]);
 
   const handleRedo = useCallback(() => {
     if (!selectedExercise) return;
-    annotations.redoLastStroke(selectedExercise.id, currentPage - 1);
+    annotations.redo(selectedExercise.id, currentPage - 1);
     bumpStrokes();
   }, [selectedExercise, currentPage, annotations, bumpStrokes]);
 

@@ -247,7 +247,7 @@ export function LessonMode({
 
   // F2: Annotation state with sessionStorage persistence
   const {
-    getAnnotations, getAllAnnotations, setPageStrokes, undoLastStroke, redoLastStroke,
+    getAnnotations, getAllAnnotations, setPageStrokes, undo, redo,
     clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
   } = useAnnotations(`lesson-annotations-${session.id}`);
   const [drawingEnabled, setDrawingEnabled] = useState(false);
@@ -637,38 +637,18 @@ export function LessonMode({
     }
   }, [selectedExercise, setPageStrokes]);
 
+  // Undo and redo follow the order you drew in, across every page of the exercise.
   const handleUndo = useCallback(() => {
     if (!selectedExercise) return;
-    // Find the last page that has strokes
-    const pageIndices = Object.keys(currentAnnotations)
-      .map(Number)
-      .filter((i) => (currentAnnotations[i]?.length || 0) > 0);
-    if (pageIndices.length === 0) return;
-    const lastPage = Math.max(...pageIndices);
-    const updated = undoLastStroke(selectedExercise.id, lastPage);
-    setCurrentAnnotations((prev) => ({ ...prev, [lastPage]: updated }));
-  }, [selectedExercise, currentAnnotations, undoLastStroke]);
+    const updated = undo(selectedExercise.id);
+    if (updated) setCurrentAnnotations(updated);
+  }, [selectedExercise, undo]);
 
   const handleRedo = useCallback(() => {
     if (!selectedExercise) return;
-    // Find the last page that was undone from (redo stack) — use same heuristic as undo
-    const pageIndices = Object.keys(currentAnnotations)
-      .map(Number)
-      .sort((a, b) => b - a);
-    // Try each page from highest to lowest; redoLastStroke returns null if no redo available
-    for (const pageIdx of pageIndices) {
-      const result = redoLastStroke(selectedExercise.id, pageIdx);
-      if (result) {
-        setCurrentAnnotations((prev) => ({ ...prev, [pageIdx]: result }));
-        return;
-      }
-    }
-    // Also try page 0 in case all strokes were undone (page might not be in currentAnnotations)
-    const result = redoLastStroke(selectedExercise.id, 0);
-    if (result) {
-      setCurrentAnnotations((prev) => ({ ...prev, [0]: result }));
-    }
-  }, [selectedExercise, currentAnnotations, redoLastStroke]);
+    const updated = redo(selectedExercise.id);
+    if (updated) setCurrentAnnotations(updated);
+  }, [selectedExercise, redo]);
 
   const handleClearAllAnnotations = useCallback(() => {
     if (!selectedExercise) return;
