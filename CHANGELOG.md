@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.0.131](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.130...v2.0.131) (2026-09-11)
+
+
+### New Features
+
+* **Hovering CW or HW shows what is already set**: resting the mouse on a session's CW or HW button opens a small card listing each exercise with its pages and remarks, so checking a session's work no longer means opening it.
+* **A suggested topic opens its full worksheet list**: clicking a topic's name in School Progress shows every worksheet for it, and a topic with more than the eight shown gets a link to see them all.
+* **School Progress shows which pages a student has done**: a worksheet the student only partly did now shows the pages, such as "p1-4 · 7 Jun", instead of a plain Done badge.
+* **Setting exercises from a selection keeps the suggestions**: with one session ticked, C and H now open the usual exercise window with Trending and School Progress, and a group from the same class gets both strips too.
+* **The lesson eraser rubs out only what it touches**: it comes in small, medium and large sizes and removes just the ink under it, and the old whole-stroke eraser is still there as a fourth choice.
+* **The Curriculum page counts how many students are behind a topic**: a week's main topic now reflects how many students worked on it, and a topic that rests on one student's worksheets alone is marked "One student only" instead of being shown as the main topic.
+* **Admins are asked to check a grade that looks wrong**: when most of a student's worksheets after the first three weeks of the year come from a lower grade than their record, and their school does not teach that way, the Curriculum page lists them for an admin to check.
+
+
+### Bug Fixes
+
+* **Undo and redo work in wide lesson mode**: undo used to blank every page at once, and now it takes back your last stroke, erasing or page clear in the order you made them.
+* **Summer lessons no longer shape the Curriculum page**: work set in summer course lessons prepares students for their next grade, so it no longer counts as evidence of what their school is teaching.
+* **Review at the start of the year no longer looks like the school's topic**: worksheets from a student's previous grade in the first three weeks of the school year now count as review.
+* **Ties on the Curriculum page go to the likelier topic**: when two topics had equal evidence, whichever happened to be listed first used to win, and now the one with more students, the one that belongs to the grade, or the one the school was already on comes first.
+* **Travel Graphs and Sequences only appear in the HK topic map**: no school on the MAS series teaches them as topics of their own, so they no longer sit in the MAS map.
+
 ## [2.0.130](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.129...v2.0.130) (2026-09-08)
 
 
