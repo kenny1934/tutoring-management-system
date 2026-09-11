@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.133](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.132...v2.0.133) (2026-09-11)
+
+
+### New Features
+
+* **A new Pen Tray for annotating lessons**: every drawing tool now sits in one tray with large buttons that stay put, so it works well by finger on a touch board.
+* **You can now highlight worksheets**: pick yellow, green or pink, and the printed text and your pen marks stay readable through it.
+* **Scroll with two fingers while drawing**: one finger draws and two fingers scroll or pinch to zoom, so there's no need to stop drawing to move down the page.
+
 ## [2.0.132](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.131...v2.0.132) (2026-09-11)
 
 
