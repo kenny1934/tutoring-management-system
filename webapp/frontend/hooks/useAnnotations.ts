@@ -16,23 +16,30 @@ export interface Stroke {
   kind?: "highlighter";
 }
 
-/** How opaque each kind of ink is, on screen and in the saved PDF alike. */
-export const PEN_OPACITY = 0.85;
-export const HIGHLIGHTER_OPACITY = 0.35;
+// How opaque each kind of ink is, on screen and in the saved PDF alike.
+const PEN_OPACITY = 0.85;
+const HIGHLIGHTER_OPACITY = 0.35;
 
 export const strokeOpacity = (stroke: Pick<Stroke, "kind">) =>
   stroke.kind === "highlighter" ? HIGHLIGHTER_OPACITY : PEN_OPACITY;
 
+export type InkKind = "pen" | "highlighter";
+
+/** A new stroke in the given ink. Pen strokes carry no kind, like ink saved before the highlighter. */
+export function makeStroke(points: Stroke["points"], color: string, size: number, ink: InkKind): Stroke {
+  return ink === "highlighter" ? { points, color, size, kind: "highlighter" } : { points, color, size };
+}
+
 /**
- * A page's strokes in the order they're painted: every highlighter stroke,
- * then every pen stroke, each group keeping the order it was drawn in. That
- * keeps pen ink on top of highlighter ink, on screen and in the saved PDF.
+ * A page's strokes split into the two layers they're painted in: highlighter
+ * ink first, then pen ink on top of it, each keeping the order it was drawn
+ * in. The screen and the saved PDF both paint in this order.
  */
-export function inkOrder(strokes: Stroke[]): Stroke[] {
-  return [
-    ...strokes.filter((s) => s.kind === "highlighter"),
-    ...strokes.filter((s) => s.kind !== "highlighter"),
-  ];
+export function inkLayers(strokes: Stroke[]): [highlighter: Stroke[], pen: Stroke[]] {
+  const highlighter: Stroke[] = [];
+  const pen: Stroke[] = [];
+  for (const s of strokes) (s.kind === "highlighter" ? highlighter : pen).push(s);
+  return [highlighter, pen];
 }
 
 /** Strokes keyed by page index (0-based within the displayed pages). */

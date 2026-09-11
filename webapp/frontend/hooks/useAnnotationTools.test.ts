@@ -15,8 +15,8 @@ describe("useAnnotationTools", () => {
     const { result } = renderHook(() => useAnnotationTools());
     act(() => result.current.selectSwatch("yellow"));
     expect(result.current.tool).toBe("highlighter");
-    expect(result.current.inkKind).toBe("highlighter");
-    expect(result.current.inkColor).toBe("#facc15");
+    expect(result.current.swatch.kind).toBe("highlighter");
+    expect(result.current.swatch.color).toBe("#facc15");
     expect(result.current.inkSize).toBe(INK_SIZES.highlighter.M);
 
     act(() => result.current.selectSwatch("blue"));
@@ -61,6 +61,7 @@ describe("useAnnotationTools", () => {
     expect(result.current.swatch.id).toBe("black");
     expect(result.current.sizes.black).toBe("M");
     expect(result.current.eraser).toBe("stroke");
+    expect(result.current.eraserRadius).toBeNull();
   });
 
   it("ignores settings it doesn't recognise", () => {

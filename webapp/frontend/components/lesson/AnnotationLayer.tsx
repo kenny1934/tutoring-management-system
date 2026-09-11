@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, memo } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo, memo } from "react";
 import getStroke from "perfect-freehand";
-import { getStrokeOptions, strokeOpacity } from "@/hooks/useAnnotations";
-import type { Stroke } from "@/hooks/useAnnotations";
+import { getStrokeOptions, inkLayers, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
+import type { InkKind, Stroke } from "@/hooks/useAnnotations";
 import { eraseStrokes } from "@/lib/stroke-eraser";
 
 interface AnnotationLayerProps {
@@ -28,7 +28,7 @@ interface AnnotationLayerProps {
   /** Current pen size */
   penSize: number;
   /** Whether new strokes are pen or highlighter ink. Defaults to pen. */
-  inkKind?: "pen" | "highlighter";
+  inkKind?: InkKind;
   /** Called when strokes change (new stroke added or stroke removed) */
   onStrokesChange: (strokes: Stroke[]) => void;
   /** Hide strokes visually (drawing still works) */
@@ -85,21 +85,22 @@ const StrokePath = memo(function StrokePath({ stroke }: { stroke: Stroke }) {
   return <path d={pathData} fill={stroke.color} opacity={strokeOpacity(stroke)} />;
 });
 
-/** A stroke wrapped in a clickable group for eraser mode. */
+/**
+ * A stroke wrapped in a clickable group for the whole-stroke eraser. Strokes
+ * are never changed in place, so the stroke itself says which one to remove.
+ */
 const ErasableStrokePath = memo(function ErasableStrokePath({
   stroke,
-  index,
   isHovered,
   onHover,
   onLeave,
   onErase,
 }: {
   stroke: Stroke;
-  index: number;
   isHovered: boolean;
-  onHover: (index: number) => void;
+  onHover: (stroke: Stroke) => void;
   onLeave: () => void;
-  onErase: (index: number) => void;
+  onErase: (stroke: Stroke) => void;
 }) {
   const outlinePoints = getStroke(stroke.points, getStrokeOptions(stroke, true));
   const pathData = getSvgPathFromStroke(outlinePoints);
@@ -107,12 +108,12 @@ const ErasableStrokePath = memo(function ErasableStrokePath({
 
   return (
     <g
-      onPointerEnter={() => onHover(index)}
+      onPointerEnter={() => onHover(stroke)}
       onPointerLeave={onLeave}
       onPointerDown={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        onErase(index);
+        onErase(stroke);
       }}
       style={{ cursor: "pointer" }}
     >
@@ -166,7 +167,7 @@ export function AnnotationLayer({
   const isDrawingStroke = useRef(false);
 
   // Eraser hover state
-  const [hoveredStrokeIndex, setHoveredStrokeIndex] = useState<number | null>(null);
+  const [hoveredStroke, setHoveredStroke] = useState<Stroke | null>(null);
 
   // Rubbing eraser state. While you drag, the erased result is kept here and
   // drawn in place of the saved strokes. It is handed back once, when you let
@@ -179,40 +180,39 @@ export function AnnotationLayer({
 
   // Reset hover when leaving eraser mode
   useEffect(() => {
-    if (!isErasing) setHoveredStrokeIndex(null);
+    if (!isErasing) setHoveredStroke(null);
   }, [isErasing]);
 
-  // Drop the eraser circle and any half-finished rub when the rubbing eraser is put away
-  useEffect(() => {
-    if (isRubbing) return;
-    setEraserCursor(null);
-    setRubbedStrokes(null);
-    rubbedStrokesRef.current = null;
-    lastRubPointRef.current = null;
-  }, [isRubbing]);
-
-  // Throw away a half-drawn line or rub when a second finger turns the touch
-  // into a scroll or a zoom.
-  useEffect(() => {
-    if (!suspended) return;
+  // Throw away a half-drawn line or rub, and the eraser circle. Each setter
+  // skips the render when there was nothing to throw away.
+  const discardInProgress = useCallback(() => {
     isDrawingStroke.current = false;
     currentPointsRef.current = [];
-    setCurrentPoints([]);
+    setCurrentPoints((prev) => (prev.length ? [] : prev));
     rubbedStrokesRef.current = null;
     lastRubPointRef.current = null;
     setRubbedStrokes(null);
     setEraserCursor(null);
-  }, [suspended]);
+  }, []);
+
+  // That happens when the rubbing eraser is put away, and when a second
+  // finger turns the touch into a scroll or a zoom.
+  useEffect(() => {
+    if (!isRubbing) discardInProgress();
+  }, [isRubbing, discardInProgress]);
+  useEffect(() => {
+    if (suspended) discardInProgress();
+  }, [suspended, discardInProgress]);
 
   const handleEraseStroke = useCallback(
-    (index: number) => {
-      onStrokesChange(strokes.filter((_, i) => i !== index));
-      setHoveredStrokeIndex(null);
+    (stroke: Stroke) => {
+      onStrokesChange(strokes.filter((s) => s !== stroke));
+      setHoveredStroke(null);
     },
     [strokes, onStrokesChange]
   );
 
-  const handleHoverLeave = useCallback(() => setHoveredStrokeIndex(null), []);
+  const handleHoverLeave = useCallback(() => setHoveredStroke(null), []);
 
   const getPoint = useCallback(
     (e: React.PointerEvent): [number, number, number] => {
@@ -265,13 +265,7 @@ export function AnnotationLayer({
       setCurrentPoints([]);
 
       if (points.length >= 2) {
-        const newStroke: Stroke = {
-          points,
-          color: penColor,
-          size: penSize,
-          ...(inkKind === "highlighter" ? { kind: "highlighter" as const } : {}),
-        };
-        onStrokesChange([...strokes, newStroke]);
+        onStrokesChange([...strokes, makeStroke(points, penColor, penSize, inkKind)]);
       }
     },
     [strokes, penColor, penSize, inkKind, onStrokesChange]
@@ -337,12 +331,7 @@ export function AnnotationLayer({
   const shownStrokes = rubbedStrokes ?? strokes;
 
   // Render current in-progress stroke
-  const currentStroke: Stroke = {
-    points: currentPoints,
-    color: penColor,
-    size: penSize,
-    ...(inkKind === "highlighter" ? { kind: "highlighter" as const } : {}),
-  };
+  const currentStroke = makeStroke(currentPoints, penColor, penSize, inkKind);
   const currentOutline =
     currentPoints.length >= 2 ? getStroke(currentPoints, getStrokeOptions(currentStroke, false)) : null;
 
@@ -374,26 +363,28 @@ export function AnnotationLayer({
           onPointerLeave: handlePointerUp,
         };
 
-  // Highlighter ink is painted first so pen ink always sits on top of it. The
-  // index passed along is the stroke's place in the full list, which is what
-  // the whole-stroke eraser removes by.
-  const renderStrokes = (kind: "highlighter" | "pen") =>
-    shownStrokes.map((stroke, i) => {
-      if ((stroke.kind === "highlighter") !== (kind === "highlighter")) return null;
-      return isErasing && !isRubbing ? (
-        <ErasableStrokePath
-          key={strokeKey(stroke)}
-          stroke={stroke}
-          index={i}
-          isHovered={hoveredStrokeIndex === i}
-          onHover={setHoveredStrokeIndex}
-          onLeave={handleHoverLeave}
-          onErase={handleEraseStroke}
-        />
-      ) : (
-        <StrokePath key={strokeKey(stroke)} stroke={stroke} />
-      );
-    });
+  // The finished strokes, in their two layers so pen ink always sits on top of
+  // highlighter ink. They are only rebuilt when the ink itself changes, so a
+  // move of the pen re-renders the line being drawn and nothing else.
+  const [highlighterPaths, penPaths] = useMemo(() => {
+    const tappable = isErasing && !isRubbing;
+    return inkLayers(shownStrokes).map((layer) =>
+      layer.map((stroke) =>
+        tappable ? (
+          <ErasableStrokePath
+            key={strokeKey(stroke)}
+            stroke={stroke}
+            isHovered={hoveredStroke === stroke}
+            onHover={setHoveredStroke}
+            onLeave={handleHoverLeave}
+            onErase={handleEraseStroke}
+          />
+        ) : (
+          <StrokePath key={strokeKey(stroke)} stroke={stroke} />
+        ),
+      ),
+    );
+  }, [shownStrokes, isErasing, isRubbing, hoveredStroke, handleHoverLeave, handleEraseStroke]);
 
   return (
     <svg
@@ -412,9 +403,9 @@ export function AnnotationLayer({
       {...pointerHandlers}
     >
       {/* Completed strokes, highlighter first. The whole-stroke eraser makes each one tappable. */}
-      {renderStrokes("highlighter")}
+      {highlighterPaths}
       {inkKind === "highlighter" && currentPathEl}
-      {renderStrokes("pen")}
+      {penPaths}
       {inkKind !== "highlighter" && currentPathEl}
 
       {/* Rubbing eraser circle, the exact area it will erase */}

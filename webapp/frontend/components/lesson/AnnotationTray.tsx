@@ -8,6 +8,7 @@ import {
 import {
   useFloating, offset, flip, shift, autoUpdate, useDismiss, useInteractions, FloatingPortal,
 } from "@floating-ui/react";
+import { useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   INK_SWATCHES, INK_SIZES, type AnnotationTools, type InkSize, type InkSwatch,
@@ -36,13 +37,19 @@ const MARGIN = 16;
 const FAB = 60;
 const EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
+const PENS = INK_SWATCHES.filter((s) => s.kind === "pen");
+const HIGHLIGHTERS = INK_SWATCHES.filter((s) => s.kind === "highlighter");
+
 const SIZE_NAMES: Record<InkSize, string> = { S: "Small", M: "Medium", L: "Large" };
-const ERASER_CHOICES: { value: EraserSetting; title: string }[] = [
-  { value: "S", title: "Small eraser" },
-  { value: "M", title: "Medium eraser" },
-  { value: "L", title: "Large eraser" },
+// Each eraser size is shown as a dashed circle this many pixels across.
+const ERASER_CHOICES: { value: EraserSetting; title: string; circle?: number }[] = [
+  { value: "S", title: "Small eraser", circle: 14 },
+  { value: "M", title: "Medium eraser", circle: 24 },
+  { value: "L", title: "Large eraser", circle: 38 },
   { value: "stroke", title: "Whole-stroke eraser: tap a stroke to remove all of it" },
 ];
+
+type Pop = "sizes" | "eraser" | "more";
 
 function readTrayState(): { dock: Dock; collapsed: boolean } {
   try {
@@ -54,9 +61,16 @@ function readTrayState(): { dock: Dock; collapsed: boolean } {
   }
 }
 
-const canAnimate = (el: HTMLElement | null): el is HTMLElement =>
-  !!el && typeof el.animate === "function" &&
-  !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const canAnimate = (el: HTMLElement | null, reducedMotion: boolean): el is HTMLElement =>
+  !!el && typeof el.animate === "function" && !reducedMotion;
+
+// The two ends of the collapse: the tray where it sits, and the round button
+// in its corner. Collapsing morphs from the first to the second, and expanding
+// morphs back.
+const trayFrame = (tray: HTMLElement): Keyframe =>
+  ({ left: `${tray.offsetLeft}px`, width: `${tray.offsetWidth}px`, borderRadius: "18px" });
+const fabFrame = (left: number): Keyframe =>
+  ({ left: `${left}px`, width: `${FAB}px`, borderRadius: `${FAB / 2}px` });
 
 // The tray is a dark walnut ledge in both themes, so it reads as one object
 // floating over the worksheet.
@@ -67,7 +81,8 @@ const btnBase =
 const btnOn = "bg-[#f3e7d3] text-[#2e251c] hover:bg-[#f3e7d3]";
 const Separator = () => <span aria-hidden className="flex-none w-px h-7 mx-1 bg-[#4a3c2e] dark:bg-[#5a4a39]" />;
 
-function SwatchMark({ swatch, big = false }: { swatch: InkSwatch; big?: boolean }) {
+/** A colour's mark: a dot for a pen, a chisel tip for a highlighter. An outline passed in follows its shape. */
+function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big?: boolean; className?: string }) {
   return (
     <span
       className={cn(
@@ -75,6 +90,7 @@ function SwatchMark({ swatch, big = false }: { swatch: InkSwatch; big?: boolean 
         swatch.kind === "pen"
           ? big ? "w-[26px] h-[26px] rounded-full" : "w-6 h-6 rounded-full"
           : big ? "w-[18px] h-[30px] rounded-[3px_9px_3px_3px]" : "w-4 h-6 rounded-[3px_8px_3px_3px]",
+        className,
       )}
       style={{ backgroundColor: swatch.color }}
     />
@@ -93,12 +109,13 @@ export function AnnotationTray({
 }: AnnotationTrayProps) {
   const [{ dock, collapsed }, setTrayState] = useState(readTrayState);
   const [morphing, setMorphing] = useState(false);
+  const reducedMotion = useReducedMotion() ?? false;
   const trayRef = useRef<HTMLDivElement>(null);
   const morphRef = useRef<Animation | null>(null);
   const expandingRef = useRef(false);
   const poppingRef = useRef(false);
   const fabRef = useRef<HTMLButtonElement>(null);
-  const dragRef = useRef<{ x: number; left: number } | null>(null);
+  const dragRef = useRef<{ x: number; left: number; max: number } | null>(null);
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ dock, collapsed })); } catch { /* storage unavailable */ }
@@ -130,7 +147,8 @@ export function AnnotationTray({
 
   // ---------- Pop-outs ----------
 
-  type Pop = { kind: "swatch"; id: string } | { kind: "eraser" } | { kind: "more" };
+  // The sizes pop-out only ever opens for the colour that's picked, so it
+  // needs no note of which colour it's for.
   const [pop, setPop] = useState<Pop | null>(null);
   const [clearArmed, setClearArmed] = useState(false);
   const clearTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -151,25 +169,23 @@ export function AnnotationTray({
   useEffect(() => () => clearTimeout(clearTimer.current), []);
 
   const togglePop = (next: Pop, anchor: HTMLElement) => {
-    const same = pop && pop.kind === next.kind && (pop.kind !== "swatch" || (next.kind === "swatch" && pop.id === next.id));
-    if (same) { setPop(null); return; }
+    if (pop === next) { setPop(null); return; }
     refs.setReference(anchor);
     setPop(next);
   };
 
   // ---------- Tools ----------
 
+  const isPicked = (swatch: InkSwatch) => tools.tool === swatch.kind && tools.swatch.id === swatch.id;
+
   const handleSwatch = (swatch: InkSwatch, anchor: HTMLElement) => {
-    if (tools.tool === swatch.kind && tools.swatch.id === swatch.id) {
-      togglePop({ kind: "swatch", id: swatch.id }, anchor);
-      return;
-    }
+    if (isPicked(swatch)) { togglePop("sizes", anchor); return; }
     setPop(null);
     tools.selectSwatch(swatch.id);
   };
 
   const handleEraser = (anchor: HTMLElement) => {
-    if (tools.tool === "eraser") { togglePop({ kind: "eraser" }, anchor); return; }
+    if (tools.tool === "eraser") { togglePop("eraser", anchor); return; }
     setPop(null);
     tools.selectEraser();
   };
@@ -181,15 +197,14 @@ export function AnnotationTray({
     if (!tray) return;
     e.preventDefault();
     setPop(null);
-    dragRef.current = { x: e.clientX, left: tray.offsetLeft };
+    dragRef.current = { x: e.clientX, left: tray.offsetLeft, max: areaWidth() - tray.offsetWidth - 8 };
     tray.style.transition = "none";
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
   const onGripMove = (e: React.PointerEvent) => {
     const tray = trayRef.current, drag = dragRef.current;
     if (!tray || !drag) return;
-    const max = areaWidth() - tray.offsetWidth - 8;
-    tray.style.left = `${Math.max(8, Math.min(drag.left + e.clientX - drag.x, max))}px`;
+    tray.style.left = `${Math.max(8, Math.min(drag.left + e.clientX - drag.x, drag.max))}px`;
   };
   const onGripUp = () => {
     const tray = trayRef.current;
@@ -217,14 +232,11 @@ export function AnnotationTray({
     setPop(null);
     const tray = trayRef.current;
     morphRef.current?.cancel();
-    if (!canAnimate(tray)) { setTrayState((s) => ({ ...s, collapsed: true })); return; }
+    if (!canAnimate(tray, reducedMotion)) { setTrayState((s) => ({ ...s, collapsed: true })); return; }
     setMorphing(true);
     tray.style.transition = "none";
     const anim = tray.animate(
-      [
-        { left: `${tray.offsetLeft}px`, width: `${tray.offsetWidth}px`, borderRadius: "18px" },
-        { left: `${fabLeft()}px`, width: `${FAB}px`, borderRadius: `${FAB / 2}px` },
-      ],
+      [trayFrame(tray), fabFrame(fabLeft())],
       { duration: 320, delay: 70, easing: EASE, fill: "forwards" },
     );
     morphRef.current = anim;
@@ -242,10 +254,10 @@ export function AnnotationTray({
     const fab = fabRef.current;
     if (!collapsed || !poppingRef.current) return;
     poppingRef.current = false;
-    if (canAnimate(fab)) {
+    if (canAnimate(fab, reducedMotion)) {
       fab.animate([{ opacity: 0.5, transform: "scale(0.92)" }, { opacity: 1, transform: "scale(1)" }], { duration: 160, easing: EASE });
     }
-  }, [collapsed]);
+  }, [collapsed, reducedMotion]);
 
   const expand = () => {
     expandingRef.current = true;
@@ -257,31 +269,23 @@ export function AnnotationTray({
     if (collapsed || !expandingRef.current) return;
     expandingRef.current = false;
     place();
-    if (!canAnimate(tray)) return;
+    if (!canAnimate(tray, reducedMotion)) return;
     setMorphing(true);
     tray.style.transition = "none";
-    const anim = tray.animate(
-      [
-        { left: `${fabLeft()}px`, width: `${FAB}px`, borderRadius: `${FAB / 2}px` },
-        { left: `${tray.offsetLeft}px`, width: `${tray.offsetWidth}px`, borderRadius: "18px" },
-      ],
-      { duration: 320, easing: EASE },
-    );
+    const anim = tray.animate([fabFrame(fabLeft()), trayFrame(tray)], { duration: 320, easing: EASE });
     morphRef.current = anim;
     anim.onfinish = () => { morphRef.current = null; setMorphing(false); };
-  }, [collapsed, place, fabLeft]);
+  }, [collapsed, place, fabLeft, reducedMotion]);
 
   useEffect(() => () => morphRef.current?.cancel(), []);
 
   // ---------- Rendering ----------
 
-  const pens = INK_SWATCHES.filter((s) => s.kind === "pen");
-  const highlighters = INK_SWATCHES.filter((s) => s.kind === "highlighter");
   const toolName =
     tools.tool === "hand" ? "the Hand" : tools.tool === "eraser" ? "the eraser" : `the ${tools.swatch.label.toLowerCase()}`;
 
   const swatchButton = (swatch: InkSwatch) => {
-    const on = tools.drawingEnabled && tools.tool === swatch.kind && tools.swatch.id === swatch.id;
+    const on = isPicked(swatch);
     return (
       <button
         key={swatch.id}
@@ -293,15 +297,10 @@ export function AnnotationTray({
         className={cn(btnBase, on && "bg-[#f3e7d3]/15 hover:bg-[#f3e7d3]/15")}
       >
         {/* The picked colour rises a little inside its ring, leaving room for the size letter below it */}
-        <span
-          className={cn(
-            "block transition-transform",
-            on && "-translate-y-[3px] rounded-full outline-2 outline-offset-2 outline-[#f3e7d3]",
-            on && swatch.kind === "highlighter" && "rounded-[3px_8px_3px_3px]",
-          )}
-        >
-          <SwatchMark swatch={swatch} />
-        </span>
+        <SwatchMark
+          swatch={swatch}
+          className={cn("transition-transform", on && "-translate-y-[3px] outline-2 outline-offset-2 outline-[#f3e7d3]")}
+        />
         {on && <SizeBadge>{tools.sizes[swatch.id]}</SizeBadge>}
       </button>
     );
@@ -349,9 +348,9 @@ export function AnnotationTray({
           <Hand className="h-[22px] w-[22px]" />
         </button>
         <Separator />
-        {pens.map(swatchButton)}
+        {PENS.map(swatchButton)}
         <Separator />
-        {highlighters.map(swatchButton)}
+        {HIGHLIGHTERS.map(swatchButton)}
         <Separator />
         <button
           type="button"
@@ -376,8 +375,8 @@ export function AnnotationTray({
           type="button"
           aria-label="More"
           title="More"
-          aria-expanded={pop?.kind === "more"}
-          onClick={(e) => togglePop({ kind: "more" }, e.currentTarget)}
+          aria-expanded={pop === "more"}
+          onClick={(e) => togglePop("more", e.currentTarget)}
           className={btnBase}
         >
           <Ellipsis className="h-[22px] w-[22px]" />
@@ -403,11 +402,7 @@ export function AnnotationTray({
         >
           {tools.tool === "hand" ? <Hand className="h-6 w-6" />
             : tools.tool === "eraser" ? <Eraser className="h-6 w-6" />
-            : (
-              <span className={cn("block outline outline-[3px] outline-offset-[3px] outline-[#f3e7d3]", tools.swatch.kind === "pen" ? "rounded-full" : "rounded-[3px_9px_3px_3px]")}>
-                <SwatchMark swatch={tools.swatch} big />
-              </span>
-            )}
+            : <SwatchMark swatch={tools.swatch} big className="outline outline-[3px] outline-offset-[3px] outline-[#f3e7d3]" />}
         </button>
       )}
 
@@ -419,37 +414,34 @@ export function AnnotationTray({
             {...getFloatingProps()}
             className={cn(
               "z-[200] rounded-[14px] p-1.5 bg-[#2e251c] dark:bg-[#3b3025] text-[#f3e7d3] shadow-[0_12px_32px_rgba(46,30,14,0.35)]",
-              pop.kind === "more" ? "flex flex-col min-w-[240px]" : "flex gap-1",
+              pop === "more" ? "flex flex-col min-w-[240px]" : "flex gap-1",
             )}
           >
-            {pop.kind === "swatch" && (() => {
-              const swatch = INK_SWATCHES.find((s) => s.id === pop.id)!;
-              return (["S", "M", "L"] as InkSize[]).map((size) => (
-                <PopOption
-                  key={size}
-                  title={`${SIZE_NAMES[size]} ${swatch.label.toLowerCase()}`}
-                  on={tools.sizes[swatch.id] === size}
-                  onClick={() => { tools.setSwatchSize(swatch.id, size); setPop(null); }}
-                >
-                  <SizeSample swatch={swatch} size={size} />
-                </PopOption>
-              ));
-            })()}
+            {pop === "sizes" && (["S", "M", "L"] as InkSize[]).map((size) => (
+              <PopOption
+                key={size}
+                title={`${SIZE_NAMES[size]} ${tools.swatch.label.toLowerCase()}`}
+                on={tools.sizes[tools.swatch.id] === size}
+                onClick={() => { tools.setSwatchSize(tools.swatch.id, size); setPop(null); }}
+              >
+                <SizeSample swatch={tools.swatch} size={size} />
+              </PopOption>
+            ))}
 
-            {pop.kind === "eraser" && ERASER_CHOICES.map((choice) => (
+            {pop === "eraser" && ERASER_CHOICES.map((choice) => (
               <PopOption
                 key={choice.value}
                 title={choice.title}
                 on={tools.eraser === choice.value}
                 onClick={() => { tools.setEraser(choice.value); setPop(null); }}
               >
-                {choice.value === "stroke"
-                  ? <span className="text-xs font-bold">Stroke</span>
-                  : <span className="block rounded-full border-2 border-dashed border-current" style={{ width: { S: 14, M: 24, L: 38 }[choice.value], height: { S: 14, M: 24, L: 38 }[choice.value] }} />}
+                {choice.circle
+                  ? <span className="block rounded-full border-2 border-dashed border-current" style={{ width: choice.circle, height: choice.circle }} />
+                  : <span className="text-xs font-bold">Stroke</span>}
               </PopOption>
             ))}
 
-            {pop.kind === "more" && (
+            {pop === "more" && (
               <>
                 <MenuRow
                   icon={inkHidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}

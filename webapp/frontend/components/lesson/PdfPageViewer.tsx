@@ -11,7 +11,6 @@ import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { AnnotationTray } from "./AnnotationTray";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
-import { ERASER_RADIUS } from "@/lib/stroke-eraser";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { useTheme } from "next-themes";
@@ -156,8 +155,8 @@ export function PdfPageViewer({
   const retryCountRef = useRef(0);
   const [autoRetryTick, setAutoRetryTick] = useState(0);
 
-  // Annotation visibility toggle
-  const [annotationsVisible, setAnnotationsVisible] = useState(true);
+  // The tray's "Hide ink" switch. Hidden ink is still there, and you can still draw.
+  const [inkHidden, setInkHidden] = useState(false);
 
   // Keep refs in sync with state (synchronous, before effects run)
   pagesRef.current = pages;
@@ -171,37 +170,42 @@ export function PdfPageViewer({
   // React render per finger movement, and kept in state once the pinch ends.
   const pageStackRef = useRef<HTMLDivElement>(null);
 
-  const zoomStyle = useCallback((z: number) => {
+  // Every style that follows the zoom level. React applies them once a zoom
+  // settles, and previewZoom writes the very same ones during a pinch.
+  const zoomStyles = useCallback((z: number): { stack: React.CSSProperties; scroller: React.CSSProperties } => {
     const scale = z / 100;
     const pagesNow = pagesRef.current;
     // gap-4 = 16px between pages
     const naturalHeight = pagesNow.reduce((sum, p) => sum + p.height, 0) + Math.max(0, pagesNow.length - 1) * 16;
+    // Past fit-to-width the pages line up on the left so they can scroll sideways.
+    const pastFit = z > fitZoomRef.current;
     return {
-      transform: `scale(${scale})`,
-      width: `${(100 / z) * 100}%`,
-      marginBottom: scale < 1 ? naturalHeight * (scale - 1) : undefined,
+      stack: {
+        transform: `scale(${scale})`,
+        width: `${(100 / z) * 100}%`,
+        marginBottom: scale < 1 ? `${naturalHeight * (scale - 1)}px` : "",
+        alignItems: pastFit ? "flex-start" : "center",
+      },
+      scroller: { overflowX: pastFit ? "auto" : "hidden" },
     };
   }, []);
 
   const previewZoom = useCallback((z: number) => {
     const stack = pageStackRef.current, container = scrollContainerRef.current;
     if (!stack || !container) return;
-    const style = zoomStyle(z);
-    stack.style.transform = style.transform;
-    stack.style.width = style.width;
-    stack.style.marginBottom = style.marginBottom !== undefined ? `${style.marginBottom}px` : "";
-    // Past fit-to-width the pages line up on the left so they can scroll sideways.
-    stack.style.alignItems = z > fitZoomRef.current ? "flex-start" : "center";
-    container.style.overflowX = z > fitZoomRef.current ? "auto" : "hidden";
-  }, [zoomStyle]);
+    const styles = zoomStyles(z);
+    Object.assign(stack.style, styles.stack);
+    Object.assign(container.style, styles.scroller);
+  }, [zoomStyles]);
 
   const commitZoom = useCallback((z: number) => {
-    // Hand the alignment back to the classes, which now follow the new zoom.
-    pageStackRef.current?.style.removeProperty("align-items");
-    scrollContainerRef.current?.style.removeProperty("overflow-x");
+    // Show the whole-number zoom that's kept, so the page already matches what
+    // React renders next, even when the pinch ends back where it started.
+    const settled = Math.round(z);
+    previewZoom(settled);
     userHasZoomed.current = true;
-    setZoom(Math.round(z));
-  }, []);
+    setZoom(settled);
+  }, [previewZoom]);
 
   const { gestureActive, handlers: touchHandlers } = useViewerTouch({
     scrollRef: scrollContainerRef,
@@ -833,19 +837,18 @@ export function PdfPageViewer({
         {...touchHandlers}
         className={cn(
           "flex-1 overflow-y-auto px-2 py-2 md:px-4 md:py-4 min-h-0",
-          zoom > fitZoomRef.current ? "overflow-x-auto" : "overflow-x-hidden",
           // Room under the last page, so its bottom lines can scroll clear of the tray
           tools && "!pb-24",
           tools && !drawingEnabled && "cursor-grab active:cursor-grabbing",
         )}
         // The viewer handles every touch itself: one finger for the tool, two
         // to scroll or pinch-zoom. The mouse wheel still scrolls as usual.
-        style={{ touchAction: "none" }}
+        style={{ touchAction: "none", ...zoomStyles(zoom).scroller }}
       >
         <div
           ref={pageStackRef}
-          className={cn("flex flex-col gap-4", zoom > fitZoomRef.current ? "items-start" : "items-center")}
-          style={{ ...zoomStyle(zoom), transformOrigin: "top left" }}
+          className="flex flex-col gap-4"
+          style={{ ...zoomStyles(zoom).stack, transformOrigin: "top left" }}
         >
           {pages.map((page, i) => (
             <div
@@ -861,20 +864,22 @@ export function PdfPageViewer({
                 style={pdfDarkMode ? { filter: 'invert(0.86) hue-rotate(180deg)' } : undefined}
                 draggable={false}
               />
-              <AnnotationLayer
-                width={page.width}
-                height={page.height}
-                strokes={annotations[i] || []}
-                isDrawing={drawingEnabled && !eraserActive}
-                isErasing={eraserActive}
-                eraserRadius={!tools || tools.eraser === "stroke" ? null : ERASER_RADIUS[tools.eraser]}
-                penColor={tools?.inkColor ?? "#dc2626"}
-                penSize={tools?.inkSize ?? 3}
-                inkKind={tools?.inkKind}
-                onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
-                hidden={!annotationsVisible}
-                suspended={gestureActive}
-              />
+              {tools && (
+                <AnnotationLayer
+                  width={page.width}
+                  height={page.height}
+                  strokes={annotations[i] || []}
+                  isDrawing={drawingEnabled && !eraserActive}
+                  isErasing={eraserActive}
+                  eraserRadius={tools.eraserRadius}
+                  penColor={tools.swatch.color}
+                  penSize={tools.inkSize}
+                  inkKind={tools.swatch.kind}
+                  onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
+                  hidden={inkHidden}
+                  suspended={gestureActive}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -885,8 +890,8 @@ export function PdfPageViewer({
           tools={tools}
           onUndo={onUndo}
           onRedo={onRedo}
-          inkHidden={!annotationsVisible}
-          onInkHiddenChange={(hidden) => setAnnotationsVisible(!hidden)}
+          inkHidden={inkHidden}
+          onInkHiddenChange={setInkHidden}
           hasInk={hasAnnotations}
           onClearAll={onClearAll}
           onSaveAnnotated={onSaveAnnotated}

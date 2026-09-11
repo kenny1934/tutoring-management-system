@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useAnnotations, inkOrder, type Stroke } from "./useAnnotations";
+import { useAnnotations, inkLayers, type Stroke } from "./useAnnotations";
 
 const EX = 1;
 
@@ -119,12 +119,12 @@ describe("useAnnotations undo and redo", () => {
   });
 });
 
-describe("inkOrder", () => {
-  it("paints every highlighter stroke before any pen stroke, keeping each group's order", () => {
+describe("inkLayers", () => {
+  it("puts every highlighter stroke in the layer under the pen strokes, keeping each layer's order", () => {
     const pen1 = stroke("red");
     const hl1: Stroke = { ...stroke("yellow"), kind: "highlighter" };
     const pen2 = stroke("blue");
     const hl2: Stroke = { ...stroke("pink"), kind: "highlighter" };
-    expect(inkOrder([pen1, hl1, pen2, hl2])).toEqual([hl1, hl2, pen1, pen2]);
+    expect(inkLayers([pen1, hl1, pen2, hl2])).toEqual([[hl1, hl2], [pen1, pen2]]);
   });
 });

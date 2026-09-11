@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import {
   classifyTwoFingerGesture, distance, midpoint,
   type TouchPoint, type TwoFingerGesture,
@@ -25,6 +25,7 @@ interface ViewerTouchOptions {
 interface Gesture {
   kind: TwoFingerGesture | null;
   start: [TouchPoint, TouchPoint];
+  startMid: TouchPoint;
   scrollLeft: number;
   scrollTop: number;
   zoom: number;
@@ -47,7 +48,8 @@ interface Gesture {
  *
  * The handlers go on the scrolling container in the capture phase, so they
  * see every touch before the drawing layer does and can keep the second
- * finger away from it.
+ * finger away from it. Everything they need is read through refs, so they
+ * don't need to keep the same identity between renders.
  */
 export function useViewerTouch(options: ViewerTouchOptions) {
   const opts = useRef(options);
@@ -56,16 +58,24 @@ export function useViewerTouch(options: ViewerTouchOptions) {
   const touches = useRef(new Map<number, TouchPoint>());
   const pan = useRef<{ id: number; x: number; y: number } | null>(null);
   const gesture = useRef<Gesture | null>(null);
+  const frame = useRef(0);
   const [gestureActive, setGestureActive] = useState(false);
+
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
   const firstTwo = (): [TouchPoint, TouchPoint] => {
     const [a, b] = [...touches.current.values()];
     return [a, b];
   };
 
+  const startPan = (e: React.PointerEvent) => {
+    pan.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    try { opts.current.scrollRef.current?.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+  };
+
   // Start (or restart, when fingers are added or lifted) measuring a gesture
   // from where the fingers are now.
-  const beginGesture = useCallback((zoom: number) => {
+  const beginGesture = (zoom: number) => {
     const el = opts.current.scrollRef.current;
     if (!el || touches.current.size < 2) return;
     const pts = firstTwo();
@@ -78,6 +88,7 @@ export function useViewerTouch(options: ViewerTouchOptions) {
       // fresh second finger after a finished pinch gets decided again.
       kind: previous && !previous.committed ? previous.kind : null,
       start: pts,
+      startMid: mid,
       scrollLeft: el.scrollLeft,
       scrollTop: el.scrollTop,
       zoom,
@@ -85,9 +96,9 @@ export function useViewerTouch(options: ViewerTouchOptions) {
       anchor: page ? { x: (mid.x - page.left) / scale, y: (mid.y - page.top) / scale } : { x: 0, y: 0 },
       committed: false,
     };
-  }, []);
+  };
 
-  const moveGesture = useCallback(() => {
+  const moveGesture = () => {
     const g = gesture.current;
     const el = opts.current.scrollRef.current;
     if (!g || !el || touches.current.size < 2 || g.committed) return;
@@ -100,9 +111,8 @@ export function useViewerTouch(options: ViewerTouchOptions) {
     }
     const mid = midpoint(...now);
     if (g.kind !== "pinch") {
-      const startMid = midpoint(...g.start);
-      el.scrollLeft = g.scrollLeft - (mid.x - startMid.x);
-      el.scrollTop = g.scrollTop - (mid.y - startMid.y);
+      el.scrollLeft = g.scrollLeft - (mid.x - g.startMid.x);
+      el.scrollTop = g.scrollTop - (mid.y - g.startMid.y);
       return;
     }
     const { minZoom, maxZoom } = opts.current;
@@ -116,22 +126,32 @@ export function useViewerTouch(options: ViewerTouchOptions) {
     const scale = zoom / 100;
     el.scrollLeft += page.left + g.anchor.x * scale - mid.x;
     el.scrollTop += page.top + g.anchor.y * scale - mid.y;
-  }, [beginGesture]);
+  };
 
-  const endGesture = useCallback(() => {
+  // Each finger reports its own moves, so a two-finger gesture would run twice
+  // a frame. The moves only record where the fingers are, and the gesture runs
+  // once, just before the next frame is painted.
+  const scheduleMove = () => {
+    if (!frame.current) frame.current = requestAnimationFrame(() => { frame.current = 0; moveGesture(); });
+  };
+  // Catch up on a move still waiting for its frame, before fingers are added or lifted.
+  const flushMove = () => {
+    if (!frame.current) return;
+    cancelAnimationFrame(frame.current);
+    frame.current = 0;
+    moveGesture();
+  };
+
+  const endGesture = () => {
     const g = gesture.current;
     if (!g || g.committed) return;
     g.committed = true;
     if (g.kind === "pinch") opts.current.commitZoom(g.liveZoom);
-  }, []);
+  };
 
-  const onPointerDownCapture = useCallback((e: React.PointerEvent) => {
-    const el = opts.current.scrollRef.current;
+  const onPointerDownCapture = (e: React.PointerEvent) => {
     if (e.pointerType === "mouse") {
-      if (opts.current.handTool && e.button === 0) {
-        pan.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
-        try { el?.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
-      }
+      if (opts.current.handTool && e.button === 0) startPan(e);
       return;
     }
     // The first finger of a fresh touch clears anything left over from a
@@ -141,14 +161,14 @@ export function useViewerTouch(options: ViewerTouchOptions) {
       gesture.current = null;
       setGestureActive(false);
     }
+    flushMove();
     touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (touches.current.size >= 2) {
       e.stopPropagation();
       pan.current = null;
-      const wasActive = gesture.current !== null;
       beginGesture(gesture.current?.liveZoom ?? opts.current.zoom);
-      if (!wasActive) setGestureActive(true);
+      setGestureActive(true);
       return;
     }
     // A finger that lands while the last gesture's other finger is still down
@@ -156,32 +176,34 @@ export function useViewerTouch(options: ViewerTouchOptions) {
     if (gesture.current) { e.stopPropagation(); return; }
 
     const onPage = (e.target as Element).closest?.("[data-annotation-layer]");
-    if (opts.current.handTool || !onPage) {
-      pan.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
-      try { el?.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
-    }
-  }, [beginGesture]);
+    if (opts.current.handTool || !onPage) startPan(e);
+  };
 
-  const onPointerMoveCapture = useCallback((e: React.PointerEvent) => {
-    const el = opts.current.scrollRef.current;
+  const onPointerMoveCapture = (e: React.PointerEvent) => {
     if (touches.current.has(e.pointerId)) touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (gesture.current && touches.current.has(e.pointerId)) {
       e.stopPropagation();
-      moveGesture();
+      scheduleMove();
       return;
     }
     const p = pan.current;
+    const el = opts.current.scrollRef.current;
     if (p && p.id === e.pointerId && el) {
       el.scrollLeft -= e.clientX - p.x;
       el.scrollTop -= e.clientY - p.y;
       p.x = e.clientX;
       p.y = e.clientY;
     }
-  }, [moveGesture]);
+  };
 
-  const onPointerEndCapture = useCallback((e: React.PointerEvent) => {
+  const onPointerEndCapture = (e: React.PointerEvent) => {
     if (pan.current?.id === e.pointerId) pan.current = null;
-    if (!touches.current.delete(e.pointerId) || !gesture.current) return;
+    if (!touches.current.has(e.pointerId) || !gesture.current) {
+      touches.current.delete(e.pointerId);
+      return;
+    }
+    flushMove();
+    touches.current.delete(e.pointerId);
     e.stopPropagation();
     if (touches.current.size >= 2) {
       beginGesture(gesture.current.liveZoom);
@@ -192,7 +214,7 @@ export function useViewerTouch(options: ViewerTouchOptions) {
       gesture.current = null;
       setGestureActive(false);
     }
-  }, [beginGesture, endGesture]);
+  };
 
   return {
     /** True from the moment a second finger lands until every finger lifts. */

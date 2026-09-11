@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { EraserSetting } from "@/lib/stroke-eraser";
+import { ERASER_RADIUS, type EraserSetting } from "@/lib/stroke-eraser";
+import type { InkKind } from "./useAnnotations";
 
 /**
  * Which tool the lesson viewer's Pen Tray has picked. The Hand scrolls the
  * worksheet and draws nothing, so it is where every lesson starts.
  */
-export type AnnotationTool = "hand" | "pen" | "highlighter" | "eraser";
+type AnnotationTool = "hand" | InkKind | "eraser";
 
-export type InkKind = "pen" | "highlighter";
 export type InkSize = "S" | "M" | "L";
 
 /** One colour on the tray. Each pen and highlighter colour is its own swatch. */
@@ -55,7 +55,8 @@ interface StoredTools {
 }
 
 const isSize = (v: unknown): v is InkSize => v === "S" || v === "M" || v === "L";
-const isEraser = (v: unknown): v is EraserSetting => isSize(v) || v === "stroke";
+const isEraser = (v: unknown): v is EraserSetting =>
+  v === "stroke" || (typeof v === "string" && Object.keys(ERASER_RADIUS).includes(v));
 const findSwatch = (id: string) => INK_SWATCHES.find((s) => s.id === id);
 
 function readStored(): StoredTools {
@@ -120,21 +121,22 @@ export function useAnnotationTools() {
     setTool((current) => {
       if (key === "eraser") return current === "eraser" ? "hand" : "eraser";
       if (current === "pen" || current === "highlighter") return "hand";
-      return findSwatch(swatchId)?.kind ?? "pen";
+      return swatch.kind;
     });
-  }, [swatchId]);
+  }, [swatch.kind]);
 
   return useMemo(() => ({
     tool,
+    /** The colour you picked last. A new stroke gets its colour and kind whenever a pen or highlighter is picked. */
     swatch,
     sizes,
     eraser,
     /** True whenever a tool other than the Hand is picked. */
     drawingEnabled: tool !== "hand",
-    /** The ink a new stroke gets, whenever a pen or highlighter is picked. */
-    inkColor: swatch.color,
-    inkKind: swatch.kind,
-    inkSize: INK_SIZES[swatch.kind][sizes[swatch.id] ?? "S"],
+    /** The width of a new stroke in the picked colour. */
+    inkSize: INK_SIZES[swatch.kind][sizes[swatch.id]],
+    /** How far the rubbing eraser reaches, or null for the whole-stroke eraser. */
+    eraserRadius: eraser === "stroke" ? null : ERASER_RADIUS[eraser],
     selectHand,
     selectEraser,
     selectSwatch,
