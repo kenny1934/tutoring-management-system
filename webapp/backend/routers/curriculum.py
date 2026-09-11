@@ -900,7 +900,11 @@ def list_concepts(
     equivalent_ids carries cross-series equivalence (concept_links, symmetric,
     stored once per pair) so the pacing comparison can align an MAS school's
     lanes with an HK school's. Prerequisite links are directional: builds_on_ids
-    lists a concept's prerequisites, leads_to_ids what it unlocks."""
+    lists a concept's prerequisites, leads_to_ids what it unlocks.
+
+    atlas_series is MAS or HK on an extension topic that belongs to one series
+    only. The atlas reads a topic's series from its codes otherwise, and an
+    extension topic has none, so without it the topic would show in both."""
     codes = defaultdict(list)
     for row in db.execute(text(
         "SELECT concept_id, code_space, code FROM concept_code_aliases "
@@ -935,6 +939,7 @@ def list_concepts(
             "parent_id": row.parent_id,
             "strand": row.strand,
             "atlas_grade": row.atlas_grade,
+            "atlas_series": row.atlas_series,
             "display_order": row.display_order,
             "codes": codes.get(row.id, []),
             "equivalent_ids": equivalents.get(row.id, []),
@@ -943,7 +948,7 @@ def list_concepts(
         }
         for row in db.execute(text(
             "SELECT id, kind, name_en, name_zh, grade, parent_id, "
-            "strand, atlas_grade, display_order "
+            "strand, atlas_grade, atlas_series, display_order "
             "FROM curriculum_concepts ORDER BY display_order, id"
         ))
     ]

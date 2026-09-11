@@ -942,6 +942,8 @@ export interface CurriculumConceptVocab {
   parent_id: number | null;
   strand: string | null;
   atlas_grade: string | null;
+  /** "MAS" or "HK" when an extension topic belongs to one series only. */
+  atlas_series: string | null;
   display_order: number | null;
   codes: { code_space: string; code: string }[];
   equivalent_ids: number[];

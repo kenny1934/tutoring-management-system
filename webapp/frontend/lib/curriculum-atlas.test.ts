@@ -50,6 +50,7 @@ function vocab(
     parent_id: null,
     strand: "algebra",
     atlas_grade: null,
+    atlas_series: null,
     display_order: id,
     codes: [{ code_space: "HK_NEW", code: `${700 + id}` }],
     equivalent_ids: [],
@@ -71,6 +72,15 @@ describe("toAtlasInputs", () => {
     expect(concepts.find((c) => c.id === 3)?.series).toEqual(["MAS", "HK"]);
     expect(concepts.find((c) => c.id === 3)?.grade).toBe("F2");
     expect(concepts.find((c) => c.id === 3)?.isExtension).toBe(true);
+  });
+
+  it("keeps a single-series extension topic out of the other series", () => {
+    const { concepts } = toAtlasInputs([
+      vocab(1, { codes: [], kind: "extension", grade: null, atlas_grade: "F2", atlas_series: "HK" }),
+      vocab(2, { codes: [], kind: "extension", grade: null, atlas_grade: "F1", atlas_series: "MAS" }),
+    ]);
+    expect(concepts.find((c) => c.id === 1)?.series).toEqual(["HK"]);
+    expect(concepts.find((c) => c.id === 2)?.series).toEqual(["MAS"]);
   });
 
   it("skips concepts without strand or placeable grade, and their edges", () => {

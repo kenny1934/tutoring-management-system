@@ -29,7 +29,8 @@ RAW_TABLES = [
     """CREATE TABLE curriculum_concepts (
         id INTEGER PRIMARY KEY, kind VARCHAR(20), name_en VARCHAR(255),
         name_zh VARCHAR(255), grade VARCHAR(50), parent_id INT,
-        display_order INT, strand VARCHAR(30), atlas_grade VARCHAR(50))""",
+        display_order INT, strand VARCHAR(30), atlas_grade VARCHAR(50),
+        atlas_series VARCHAR(12))""",
     """CREATE TABLE concept_code_aliases (
         id INTEGER PRIMARY KEY, concept_id INT, code_space VARCHAR(12),
         code VARCHAR(12))""",
@@ -648,16 +649,19 @@ def test_list_concepts_carries_atlas_fields(client: TestClient, db_session):
         "UPDATE curriculum_concepts SET strand = 'algebra', atlas_grade = NULL WHERE id = 1"
     ))
     db_session.execute(text("""
-        INSERT INTO curriculum_concepts (id, kind, name_en, grade, display_order, strand, atlas_grade)
-        VALUES (4, 'extension', 'Sequences', NULL, NULL, 'algebra', 'F2')
+        INSERT INTO curriculum_concepts
+            (id, kind, name_en, grade, display_order, strand, atlas_grade, atlas_series)
+        VALUES (4, 'extension', 'Sequences', NULL, NULL, 'algebra', 'F2', 'HK')
     """))
     db_session.commit()
     body = client.get("/api/curriculum/concepts", cookies=AUTH_COOKIE).json()
     by_id = {c["id"]: c for c in body}
     assert by_id[1]["strand"] == "algebra"
     assert by_id[1]["display_order"] == 4
+    assert by_id[1]["atlas_series"] is None
     assert by_id[4]["grade"] is None
     assert by_id[4]["atlas_grade"] == "F2"
+    assert by_id[4]["atlas_series"] == "HK"
 
 
 # ---------------------------------------------------------------------------

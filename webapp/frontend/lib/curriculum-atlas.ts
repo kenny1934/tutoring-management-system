@@ -40,7 +40,9 @@ export interface AtlasEdgeInput {
 /**
  * Adapter from the concepts endpoint to atlas inputs. Concepts without a
  * strand or a placeable grade are skipped (the strand fill has not run for
- * them); concepts without codes belong to both series.
+ * them). A concept's series comes from its codes. An extension topic has no
+ * codes, so it belongs to the one series its atlas_series names, or to both
+ * when that is empty.
  */
 export function toAtlasInputs(vocab: CurriculumConceptVocab[]): {
   concepts: AtlasConceptInput[];
@@ -55,9 +57,13 @@ export function toAtlasInputs(vocab: CurriculumConceptVocab[]): {
     if (!strand || !STRAND_ORDER.includes(strand)) continue;
     const spaces = new Set(c.codes.map((code) => code.code_space));
     const series: AtlasSeries[] = [];
-    if (spaces.has("MAS")) series.push("MAS");
-    if (spaces.has("HK_NEW") || spaces.has("HK_OLD")) series.push("HK");
-    if (series.length === 0) series.push("MAS", "HK");
+    if (c.atlas_series === "MAS" || c.atlas_series === "HK") {
+      series.push(c.atlas_series);
+    } else {
+      if (spaces.has("MAS")) series.push("MAS");
+      if (spaces.has("HK_NEW") || spaces.has("HK_OLD")) series.push("HK");
+      if (series.length === 0) series.push("MAS", "HK");
+    }
     concepts.push({
       id: c.id,
       name_en: c.name_en,
