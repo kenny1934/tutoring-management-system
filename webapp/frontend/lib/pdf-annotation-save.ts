@@ -7,6 +7,8 @@ import { extractPagesForPrint } from "./pdf-utils";
 import type { PrintStampInfo } from "./pdf-utils";
 import { RENDER_SCALE, getStrokeOptions, inkLayers, strokeOpacity } from "@/hooks/useAnnotations";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
+import { DRAFT_GRID_COLOUR, DRAFT_SHEET_PT, DRAFT_SQUARE_PT, draftSquared, inkedDraftPages } from "./draft-sheets";
+import type { PDFPage, RGB } from "pdf-lib";
 
 /**
  * Draw a single stroke onto a canvas context. A one-point stroke from a tap
@@ -79,8 +81,21 @@ async function renderPageAnnotations(
   return blob.arrayBuffer();
 }
 
+/** Rule a Draft sheet into squares from its top-left corner, the way the screen does. */
+function ruleSquares(page: PDFPage, colour: RGB) {
+  const { width, height } = page.getSize();
+  const line = { thickness: 0.5, color: colour };
+  for (let x = 0; x <= width; x += DRAFT_SQUARE_PT) {
+    page.drawLine({ start: { x, y: 0 }, end: { x, y: height }, ...line });
+  }
+  for (let y = 0; y <= height; y += DRAFT_SQUARE_PT) {
+    page.drawLine({ start: { x: 0, y: height - y }, end: { x: width, y: height - y }, ...line });
+  }
+}
+
 /**
- * Create a PDF with annotations embedded as PNG overlays on each page.
+ * Create a PDF with annotations embedded as PNG overlays on each page. Any
+ * Draft sheets with ink are added after the worksheet's pages.
  *
  * @param pdfData - Raw PDF ArrayBuffer
  * @param pageNumbers - Pages to extract (1-indexed, empty = all)
@@ -99,7 +114,7 @@ export async function saveAnnotatedPdf(
   const stampedBytes = await stampedBlob.arrayBuffer();
 
   // Step 2: Load into pdf-lib
-  const { PDFDocument } = await import("pdf-lib");
+  const { PDFDocument, rgb } = await import("pdf-lib");
   const pdfDoc = await PDFDocument.load(stampedBytes, { ignoreEncryption: true });
   const pages = pdfDoc.getPages();
 
@@ -125,7 +140,17 @@ export async function saveAnnotatedPdf(
     });
   }
 
-  // Step 4: Save
+  // Step 4: Add the Draft's sheets that have ink, blank or squared as they are on screen
+  const squared = draftSquared.get();
+  for (const pageIndex of inkedDraftPages(annotations)) {
+    const { width, height } = DRAFT_SHEET_PT;
+    const sheet = pdfDoc.addPage([width, height]);
+    if (squared) ruleSquares(sheet, rgb(...DRAFT_GRID_COLOUR.rgb));
+    const pngData = await renderPageAnnotations(annotations[pageIndex], width, height);
+    if (pngData) sheet.drawImage(await pdfDoc.embedPng(pngData), { x: 0, y: 0, width, height });
+  }
+
+  // Step 5: Save
   const finalBytes = await pdfDoc.save();
   return new Blob([finalBytes], { type: "application/pdf" });
 }

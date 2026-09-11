@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback, type ReactNo
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   ZoomIn, ZoomOut, UnfoldHorizontal, BookCheck, Moon, Sun,
-  ChevronUp, ChevronDown, Printer,
+  ChevronUp, ChevronDown, Printer, NotebookPen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
@@ -100,6 +100,10 @@ interface PdfPageViewerProps {
   answerKeyAvailable?: boolean;
   /** True while the search for this exercise's answer key is still running. */
   answerKeySearching?: boolean;
+  /** Opens or closes the Draft beside the worksheet. Pass it to show the toolbar's Draft button. */
+  onDraftToggle?: () => void;
+  /** Whether the Draft is open. */
+  showDraft?: boolean;
   /**
    * Buttons from the lesson view, shown at the start of the toolbar. Focus
    * mode puts its way back here, so a finger can always reach it.
@@ -157,6 +161,8 @@ export function PdfPageViewer({
   showAnswerKey = false,
   answerKeyAvailable = false,
   answerKeySearching = false,
+  onDraftToggle,
+  showDraft = false,
   toolbarStart,
   onPrint,
   isPrinting = false,
@@ -857,7 +863,7 @@ export function PdfPageViewer({
   const tbBtn = "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium";
   const tbBtnClass = cn(tbBtn, "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors");
   const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
-  // The words on the Answers and Print buttons only show when the pane has room for them.
+  // The words on the Draft, Answers and Print buttons only show when the pane has room for them.
   const tbLabel = "hidden @[560px]/toolbar:inline";
 
   return (
@@ -918,7 +924,24 @@ export function PdfPageViewer({
           </button>
         </div>
 
-        {(onAnswerKeyToggle || onPrint) && <div className="flex-none h-6 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />}
+        {(onDraftToggle || onAnswerKeyToggle || onPrint) && <div className="flex-none h-6 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />}
+
+        {/* Draft toggle */}
+        {onDraftToggle && (
+          <button
+            onClick={onDraftToggle}
+            className={cn(
+              tbBtn, "transition-colors",
+              showDraft ? "bg-[#a0704b] text-white" : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]",
+            )}
+            title={showDraft ? "Close the draft" : "Open a draft sheet beside the worksheet for your working."}
+            aria-label="Draft"
+            aria-pressed={showDraft}
+          >
+            <NotebookPen className="h-5 w-5" />
+            <span className={tbLabel}>Draft</span>
+          </button>
+        )}
 
         {/* Answer key toggle */}
         {onAnswerKeyToggle && (

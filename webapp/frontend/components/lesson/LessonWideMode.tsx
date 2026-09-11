@@ -19,6 +19,8 @@ import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
 import { StudentStrip } from "./StudentStrip";
 import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
+import { DraftPane } from "./DraftPane";
+import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -178,6 +180,9 @@ export function LessonWideMode({
   const tools = useAnnotationTools();
   const drawingEnabled = tools.drawingEnabled;
   const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
+
+  // Whether the Draft is open beside the worksheet
+  const [showDraft, setShowDraft] = useState(false);
 
   // --- Answer key state ---
   const [showAnswerKey, setShowAnswerKey] = useState(false);
@@ -575,6 +580,12 @@ export function LessonWideMode({
   const exerciseHasAnnotations = selectedEntry?.exercise
     ? checkHasAnnotations(selectedEntry.exercise.id)
     : false;
+
+  // The Draft sits beside the worksheet viewer. It isn't offered on phones,
+  // and an exercise that's a web link has no viewer for it to sit beside.
+  const openExercise = selectedEntry?.exercise ?? null;
+  const isLinkExercise = !!openExercise?.url && !openExercise?.pdf_name;
+  const draftOpen = showDraft && !isMobile && !!openExercise && !isLinkExercise;
 
   // --- Answer key toggle ---
   const handleAnswerKeyToggle = useCallback(() => {
@@ -1414,7 +1425,11 @@ export function LessonWideMode({
           )}
 
           {/* PDF viewers */}
-          <div className={cn("flex flex-1 min-h-0 min-w-0", !isMobile && showAnswerKey && answerPdfData && "gap-0")}>
+          <div className={cn(
+            "flex flex-1 min-h-0 min-w-0",
+            !isMobile && showAnswerKey && answerPdfData && "gap-0",
+            draftOpen && "relative overflow-hidden @container/viewers",
+          )}>
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
               selectedEntry?.exercise?.url && !selectedEntry?.exercise?.pdf_name ? (
                 /* URL exercise: iframe embed or open-in-new-tab */
@@ -1519,6 +1534,8 @@ export function LessonWideMode({
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
                   answerKeySearching={!!selectedEntry?.exercise?.pdf_name && !answerSearchDone}
+                  onDraftToggle={isMobile || !openExercise ? undefined : () => setShowDraft((open) => !open)}
+                  showDraft={draftOpen}
                   toolbarStart={focusButtons}
                   onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
                   isPrinting={printing.id !== null}
@@ -1530,10 +1547,23 @@ export function LessonWideMode({
               )
             )}
 
-            {/* Answer key viewer */}
-            {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
+            {/* The Draft, beside the worksheet */}
+            {draftOpen && openExercise && (
               <>
-                {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
+                <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
+                <DraftPane
+                  exerciseId={openExercise.id}
+                  annotations={currentAnnotations}
+                  onPageStrokesChange={handlePageStrokesChange}
+                  tools={tools}
+                  onClose={() => setShowDraft(false)}
+                />
+              </>
+            )}
+
+            {/* Answer key viewer */}
+            {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (() => {
+              const answerViewer = (
                 <PdfPageViewer
                   pdfData={answerPdfData}
                   pageNumbers={answerPageNumbers}
@@ -1541,8 +1571,16 @@ export function LessonWideMode({
                   error={answerError}
                   exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
                 />
-              </>
-            )}
+              );
+              // With the Draft open, the answer key folds away when there isn't room for three columns.
+              if (draftOpen) return <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey>;
+              return (
+                <>
+                  {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
+                  {answerViewer}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

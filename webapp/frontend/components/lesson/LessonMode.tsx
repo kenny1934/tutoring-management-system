@@ -19,6 +19,8 @@ import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
+import { DraftPane } from "./DraftPane";
+import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -265,6 +267,9 @@ export function LessonMode({
   const tools = useAnnotationTools();
   const drawingEnabled = tools.drawingEnabled;
   const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
+
+  // Whether the Draft is open beside the worksheet
+  const [showDraft, setShowDraft] = useState(false);
 
   // Answer key state
   const [showAnswerKey, setShowAnswerKey] = useState(false);
@@ -649,6 +654,11 @@ export function LessonMode({
 
   // A preview is class-wide, so it has no student stamp, on screen or in the saved file.
   const viewerStamp = selectedExercise && isPreviewExercise(selectedExercise) ? undefined : stamp;
+
+  // The Draft sits beside the worksheet viewer. It isn't offered on phones,
+  // and an exercise that's a web link has no viewer for it to sit beside.
+  const isLinkExercise = !!selectedExercise?.url && !selectedExercise?.pdf_name;
+  const draftOpen = showDraft && !isMobile && !!selectedExercise && !isLinkExercise;
 
   const handleSaveAnnotated = useCallback(async () => {
     if (!selectedExercise?.pdf_name || !pdfData) return;
@@ -1247,7 +1257,11 @@ export function LessonMode({
           )}
 
           {/* PDF/URL viewers — side-by-side on desktop, tabbed on mobile */}
-          <div className={cn("flex flex-1 min-h-0 min-w-0", !isMobile && showAnswerKey && answerPdfData && "gap-0")}>
+          <div className={cn(
+            "flex flex-1 min-h-0 min-w-0",
+            !isMobile && showAnswerKey && answerPdfData && "gap-0",
+            draftOpen && "relative overflow-hidden @container/viewers",
+          )}>
             {/* Main exercise viewer — hidden on mobile when answer tab is active */}
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
               selectedExercise?.url && !selectedExercise?.pdf_name ? (
@@ -1357,6 +1371,8 @@ export function LessonMode({
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
                   answerKeySearching={!!selectedExercise?.pdf_name && !answerSearchDone}
+                  onDraftToggle={isMobile || !selectedExercise ? undefined : () => setShowDraft((open) => !open)}
+                  showDraft={draftOpen}
                   toolbarStart={focusButtons}
                   onPrint={selectedExercise?.pdf_name ? () => handlePrintExercise(selectedExercise) : undefined}
                   isPrinting={printing.id !== null}
@@ -1368,10 +1384,23 @@ export function LessonMode({
               )
             )}
 
-            {/* Answer key viewer (read-only) */}
-            {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
+            {/* The Draft, beside the worksheet */}
+            {draftOpen && selectedExercise && (
               <>
-                {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
+                <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
+                <DraftPane
+                  exerciseId={selectedExercise.id}
+                  annotations={currentAnnotations}
+                  onPageStrokesChange={handlePageStrokesChange}
+                  tools={tools}
+                  onClose={() => setShowDraft(false)}
+                />
+              </>
+            )}
+
+            {/* Answer key viewer (read-only) */}
+            {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (() => {
+              const answerViewer = (
                 <PdfPageViewer
                   pdfData={answerPdfData}
                   pageNumbers={answerPageNumbers}
@@ -1379,8 +1408,16 @@ export function LessonMode({
                   error={answerError}
                   exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
                 />
-              </>
-            )}
+              );
+              // With the Draft open, the answer key folds away when there isn't room for three columns.
+              if (draftOpen) return <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey>;
+              return (
+                <>
+                  {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
+                  {answerViewer}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
