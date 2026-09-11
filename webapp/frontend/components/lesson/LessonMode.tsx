@@ -817,8 +817,10 @@ export function LessonMode({
         toggleHomeworkBlock();
         break;
       case "p":
+        // Prints the exercise that's open. Like the print buttons, it waits
+        // while another print is still being prepared.
         e.preventDefault();
-        handlePrint();
+        if (selectedExercise && printing.id === null) handlePrintExercise(selectedExercise);
         break;
       case "a":
         if (answerSearchResult) {
