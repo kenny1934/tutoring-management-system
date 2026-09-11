@@ -47,6 +47,11 @@ export interface PageAnnotations {
   [pageIndex: number]: Stroke[];
 }
 
+/** Whether an exercise's annotations hold at least one stroke. */
+export function hasInk(annotations: PageAnnotations | undefined): annotations is PageAnnotations {
+  return !!annotations && Object.values(annotations).some((strokes) => strokes.length > 0);
+}
+
 /**
  * Scale factor for rendering crisp PDF pages.
  * Shared between PdfPageViewer (render) and pdf-annotation-save (export).
@@ -334,15 +339,13 @@ export function useAnnotations(sessionKey?: string) {
   }, [sessionKey]);
 
   const hasAnnotations = useCallback((exerciseId: number): boolean => {
-    const data = storeRef.current.get(exerciseId);
-    if (!data) return false;
-    return Object.values(data).some((strokes) => strokes.length > 0);
+    return hasInk(storeRef.current.get(exerciseId));
   }, []);
 
   /** Check if ANY exercise in the store has annotation strokes. */
   const hasAnyAnnotations = useCallback((): boolean => {
     for (const pageAnnotations of storeRef.current.values()) {
-      if (Object.values(pageAnnotations).some((s) => s.length > 0)) return true;
+      if (hasInk(pageAnnotations)) return true;
     }
     return false;
   }, []);

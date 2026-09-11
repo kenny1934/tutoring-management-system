@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnnotationLayer } from "./AnnotationLayer";
+import { tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
-import { usePdfDarkMode } from "@/hooks/usePdfDarkMode";
-import type { AnnotationTools } from "@/hooks/useAnnotationTools";
+import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
+import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import {
   DRAFT_GRID_COLOUR, DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SHEET_PT, DRAFT_SQUARE_PT,
@@ -31,13 +32,9 @@ const SQUARED_PAPER: CSSProperties = {
   backgroundSize: `${(100 * DRAFT_SQUARE_PT) / DRAFT_SHEET_PT.width}% ${(100 * DRAFT_SQUARE_PT) / DRAFT_SHEET_PT.height}%`,
 };
 
-// The same filter the worksheet uses in dark PDF mode, so the two match.
-const DARK_PAPER: CSSProperties = { filter: "invert(0.86) hue-rotate(180deg)" };
+const DARK_PAPER: CSSProperties = { filter: PDF_DARK_FILTER };
 
-const barButton =
-  "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium transition-colors";
-const barButtonIdle = "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]";
-const barButtonOn = "bg-[#a0704b] text-white";
+const barButton = cn(tbBtn, "transition-colors");
 
 /**
  * The Draft: sheets of blank or squared paper in a pane beside the worksheet,
@@ -89,26 +86,21 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, tools,
     setSheetsAsked((asked) => ({ ...asked, [exerciseId]: sheetCount + 1 }));
   };
 
-  const eraserActive = tools.tool === "eraser";
-
   return (
     <section aria-label="Draft" className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
-      <div className={cn(
-        "flex flex-nowrap items-center gap-1 px-2 py-0.5 min-w-0",
-        "border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]",
-      )}>
+      <div className={toolbarRow}>
         <span className="ml-1 text-xs font-medium text-[#8b7355] dark:text-[#a09080]">Draft</span>
         <div className="flex-1" />
         <div role="group" aria-label="Paper" className="flex flex-none gap-0.5">
-          <button type="button" aria-pressed={!squared} onClick={() => setSquared(false)} className={cn(barButton, squared ? barButtonIdle : barButtonOn)}>
+          <button type="button" aria-pressed={!squared} onClick={() => setSquared(false)} className={cn(barButton, squared ? tbBtnIdle : tbBtnOn)}>
             Blank
           </button>
-          <button type="button" aria-pressed={squared} onClick={() => setSquared(true)} className={cn(barButton, squared ? barButtonOn : barButtonIdle)}>
+          <button type="button" aria-pressed={squared} onClick={() => setSquared(true)} className={cn(barButton, squared ? tbBtnOn : tbBtnIdle)}>
             Squared
           </button>
         </div>
         <div className="flex-none h-6 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />
-        <button type="button" onClick={onClose} aria-label="Close the draft" title="Close the draft" className={cn(barButton, barButtonIdle)}>
+        <button type="button" onClick={onClose} aria-label="Close the draft" title="Close the draft" className={cn(barButton, tbBtnIdle)}>
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -145,14 +137,7 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, tools,
                     width={DRAFT_SHEET.width}
                     height={DRAFT_SHEET.height}
                     strokes={annotations[pageIndex] || []}
-                    isDrawing={tools.drawingEnabled && !eraserActive}
-                    isErasing={eraserActive}
-                    eraserRadius={tools.eraserRadius}
-                    penColor={tools.swatch.color}
-                    penSize={tools.inkSize}
-                    inkKind={tools.swatch.kind}
-                    straight={tools.straight}
-                    fading={tools.fading}
+                    {...inkLayerProps(tools)}
                     onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
                     suspended={gestureActive}
                   />
@@ -163,7 +148,7 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, tools,
           <button
             type="button"
             onClick={addSheet}
-            className={cn(barButton, "px-4 border border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]", barButtonIdle)}
+            className={cn(barButton, "px-4 border border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]", tbBtnIdle)}
           >
             <Plus className="h-5 w-5" />
             Add a sheet

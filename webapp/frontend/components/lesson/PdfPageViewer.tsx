@@ -12,9 +12,9 @@ import { AnnotationLayer } from "./AnnotationLayer";
 import { AnnotationTray } from "./AnnotationTray";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
-import { usePdfDarkMode } from "@/hooks/usePdfDarkMode";
+import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { useTheme } from "next-themes";
-import type { AnnotationTools } from "@/hooks/useAnnotationTools";
+import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 
@@ -35,6 +35,17 @@ function formatCompactPageRange(pages: number[]): string {
   groups.push(start === end ? String(start) : `${start}-${end}`);
   return groups.join(",");
 }
+
+// The toolbar's row and its buttons. The Draft's toolbar uses them too, so the two bars match.
+export const toolbarRow = cn(
+  "flex flex-nowrap items-center gap-1 px-2 py-0.5 min-w-0",
+  "border-b border-[#d4c4a8] dark:border-[#3a3228]",
+  "bg-[#f0e6d4] dark:bg-[#252018]",
+);
+// Every toolbar button is 44px, the size a finger can hit at the board.
+export const tbBtn = "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium";
+export const tbBtnIdle = "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]";
+export const tbBtnOn = "bg-[#a0704b] text-white";
 
 /** A rendered page image with its dimensions. */
 interface RenderedPage {
@@ -236,7 +247,6 @@ export function PdfPageViewer({
   zoomRef.current = zoom;
 
   const drawingEnabled = tools?.drawingEnabled ?? false;
-  const eraserActive = tools?.tool === "eraser";
 
   // ---------- Touch and pinch-zoom ----------
   // During a pinch the zoom is shown straight on the page stack, without a
@@ -718,12 +728,6 @@ export function PdfPageViewer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const toolbarRow = cn(
-    "flex flex-nowrap items-center gap-1 px-2 py-0.5 min-w-0",
-    "border-b border-[#d4c4a8] dark:border-[#3a3228]",
-    "bg-[#f0e6d4] dark:bg-[#252018]",
-  );
-
   // While a worksheet loads, fails or is missing, the view's own buttons still
   // sit at the top. In focus mode they're the way back, so they can't vanish.
   const withStartBar = (content: ReactNode) => toolbarStart ? (
@@ -859,9 +863,7 @@ export function PdfPageViewer({
     );
   }
 
-  // Every toolbar button is 44px, the size a finger can hit at the board.
-  const tbBtn = "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium";
-  const tbBtnClass = cn(tbBtn, "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors");
+  const tbBtnClass = cn(tbBtn, tbBtnIdle, "transition-colors");
   const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
   // The words on the Draft, Answers and Print buttons only show when the pane has room for them.
   const tbLabel = "hidden @[560px]/toolbar:inline";
@@ -932,7 +934,7 @@ export function PdfPageViewer({
             onClick={onDraftToggle}
             className={cn(
               tbBtn, "transition-colors",
-              showDraft ? "bg-[#a0704b] text-white" : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]",
+              showDraft ? tbBtnOn : tbBtnIdle,
             )}
             title={showDraft ? "Close the draft" : "Open a draft sheet beside the worksheet for your working."}
             aria-label="Draft"
@@ -953,8 +955,8 @@ export function PdfPageViewer({
               !answerKeyAvailable
                 ? "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed"
                 : showAnswerKey
-                ? "bg-[#a0704b] text-white"
-                : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
+                ? tbBtnOn
+                : tbBtnIdle
             )}
             title={
               answerKeySearching ? "Looking for the answer key"
@@ -1021,7 +1023,7 @@ export function PdfPageViewer({
                   The saved PDF is drawn from the strokes, so it keeps the real colours. */}
               <div
                 className="absolute inset-0 rounded"
-                style={pdfDarkMode ? { filter: 'invert(0.86) hue-rotate(180deg)' } : undefined}
+                style={pdfDarkMode ? { filter: PDF_DARK_FILTER } : undefined}
               >
                 <img
                   src={page.url}
@@ -1036,14 +1038,7 @@ export function PdfPageViewer({
                     width={page.width}
                     height={page.height}
                     strokes={annotations[i] || []}
-                    isDrawing={drawingEnabled && !eraserActive}
-                    isErasing={eraserActive}
-                    eraserRadius={tools.eraserRadius}
-                    penColor={tools.swatch.color}
-                    penSize={tools.inkSize}
-                    inkKind={tools.swatch.kind}
-                    straight={tools.straight}
-                    fading={tools.fading}
+                    {...inkLayerProps(tools)}
                     onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
                     hidden={inkHidden}
                     suspended={gestureActive}

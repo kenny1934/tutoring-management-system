@@ -7,16 +7,15 @@
  */
 import { saveAnnotatedPdf } from "./pdf-annotation-save";
 import type { PrintStampInfo } from "./pdf-utils";
-import type { PageAnnotations } from "@/hooks/useAnnotations";
+import { hasInk, type PageAnnotations } from "@/hooks/useAnnotations";
 
-/** One annotated exercise to put in the ZIP. */
+/** How to save one exercise's ink: which file it goes on, and what the copy in the ZIP is called. */
 export interface AnnotatedExercise {
   /** The exercise's file, which is what the loader is asked for. */
   pdfName: string;
   /** The pages the exercise uses, 1-indexed, or empty for every page. */
   pageNumbers: number[];
   stamp: PrintStampInfo | undefined;
-  annotations: PageAnnotations;
   /**
    * The file's name inside the ZIP, without ".pdf". Two exercises can share a
    * name, such as classwork and homework from the same file, so a repeat gets
@@ -32,11 +31,6 @@ export interface AnnotatedZipResult {
   failed: number;
 }
 
-/** Whether an exercise's annotations hold at least one stroke. */
-export function hasInk(annotations: PageAnnotations | undefined): annotations is PageAnnotations {
-  return !!annotations && Object.values(annotations).some((strokes) => strokes.length > 0);
-}
-
 /** Give each name a number after its first use, so no file in the ZIP replaces another. */
 function uniqueNames(names: string[]): string[] {
   const seen = new Map<string, number>();
@@ -48,23 +42,56 @@ function uniqueNames(names: string[]): string[] {
 }
 
 /**
- * Save every exercise into one ZIP. The loader returns the PDF's bytes, or
- * null when the file can't be found. An exercise whose PDF can't be loaded or
- * drawn on counts as failed, and the others are still saved.
+ * Save every exercise that has ink into one ZIP.
+ *
+ * It works through the ink itself, not through the lesson's list of
+ * exercises, because ink can outlive its exercise's place on that list. A
+ * preview's ink comes back after a reload although the preview doesn't, and
+ * saving "Edit exercises" gives every exercise a new id. `describe` says how
+ * to save an exercise's ink, and returns null when it can't find the exercise
+ * or the exercise has no file. That ink counts as failed, so the views keep it.
+ *
+ * The loader returns the PDF's bytes, or null when the file can't be found.
+ * An exercise whose PDF can't be loaded or drawn on counts as failed too, and
+ * the others are still saved.
+ *
+ * Every file starts loading at once, so the wait is about as long as the
+ * slowest one, and a file two exercises share is only loaded once. The
+ * drawing stays one exercise at a time, because each page it draws takes a
+ * lot of memory.
  */
 export async function buildAnnotatedZip(
-  exercises: AnnotatedExercise[],
+  ink: Map<number, PageAnnotations>,
+  describe: (exerciseId: number) => AnnotatedExercise | null,
   loadPdf: (pdfName: string) => Promise<ArrayBuffer | null>,
 ): Promise<AnnotatedZipResult> {
-  const JSZip = (await import("jszip")).default;
-  const zip = new JSZip();
-  const names = uniqueNames(exercises.map((ex) => ex.name));
   let saved = 0;
   let failed = 0;
 
+  const exercises: (AnnotatedExercise & { annotations: PageAnnotations })[] = [];
+  for (const [exerciseId, annotations] of ink) {
+    if (!hasInk(annotations)) continue;
+    const exercise = describe(exerciseId);
+    if (exercise) exercises.push({ ...exercise, annotations });
+    else failed++;
+  }
+
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  const names = uniqueNames(exercises.map((ex) => ex.name));
+
+  const loads = new Map<string, Promise<ArrayBuffer | null>>();
+  for (const { pdfName } of exercises) {
+    if (loads.has(pdfName)) continue;
+    loads.set(pdfName, loadPdf(pdfName).catch((err) => {
+      console.error(`Failed to load ${pdfName}:`, err);
+      return null;
+    }));
+  }
+
   for (const [i, exercise] of exercises.entries()) {
     try {
-      const pdf = await loadPdf(exercise.pdfName);
+      const pdf = await loads.get(exercise.pdfName);
       if (!pdf) { failed++; continue; }
       const blob = await saveAnnotatedPdf(pdf, exercise.pageNumbers, exercise.stamp, exercise.annotations);
       zip.file(`${names[i]}.pdf`, blob);

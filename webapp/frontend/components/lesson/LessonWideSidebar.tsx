@@ -30,7 +30,7 @@ interface LessonWideSidebarProps {
   selectedEntry: StudentExerciseEntry | null;
   onEntrySelect: (entry: StudentExerciseEntry) => void;
   /** Opens a student from their name, on the worksheet the view picks for them. */
-  onStudentOpen?: (session: Session) => void;
+  onStudentOpen: (session: Session) => void;
   onEditExercises: (session: Session, type: "CW" | "HW") => void;
   isReadOnly?: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
@@ -136,7 +136,7 @@ function StudentBlock({
   entries: StudentExerciseEntry[];
   selectedEntry: StudentExerciseEntry | null;
   onEntrySelect: (entry: StudentExerciseEntry) => void;
-  onStudentOpen?: (session: Session) => void;
+  onStudentOpen: (session: Session) => void;
   onEditExercises: (session: Session, type: "CW" | "HW") => void;
   isReadOnly?: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
@@ -150,6 +150,7 @@ function StudentBlock({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
+  const isBulkPrinting = printing?.id === -session.id;
   const saveLessonNumber = useSaveLessonNumber(session.id);
 
   const cwEntries = useMemo(
@@ -164,7 +165,6 @@ function StudentBlock({
   // Tapping the name means "go to this student" at the board, so it opens
   // them. Only the chevron folds their list away.
   const open = () => {
-    if (!onStudentOpen) { setExpanded(e => !e); return; }
     onStudentOpen(session);
     setExpanded(true);
   };
@@ -223,9 +223,7 @@ function StudentBlock({
             {entries.length}
           </span>
         </div>
-        {onBulkPrintStudent && (() => {
-          const isBulkPrinting = printing?.id === -session.id;
-          return (
+        {onBulkPrintStudent && (
           <div className="flex items-center gap-1 flex-shrink-0">
             {cwEntries.length > 0 && (
               <RowPrintButton
@@ -246,8 +244,7 @@ function StudentBlock({
               />
             )}
           </div>
-          );
-        })()}
+        )}
       </div>
 
       <AnimatePresence initial={false}>
@@ -402,6 +399,7 @@ function FileGroupItem({
   printing?: PrintingState;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const isGroupPrinting = printing?.id === -2;
 
   return (
     <div>
@@ -424,17 +422,14 @@ function FileGroupItem({
             {group.entries.length}
           </span>
         </button>
-        {onPrintFileGroup && group.entries.length > 0 && (() => {
-          const isGroupPrinting = printing?.id === -2;
-          return (
-            <RowPrintButton
-              onPrint={() => onPrintFileGroup(group)}
-              isPrinting={isGroupPrinting}
-              title={getPrintButtonTitle(isGroupPrinting, printing?.progress, `Print for all ${group.entries.length} students`)}
-              label={`Print ${group.displayName} for all ${group.entries.length} students`}
-            />
-          );
-        })()}
+        {onPrintFileGroup && group.entries.length > 0 && (
+          <RowPrintButton
+            onPrint={() => onPrintFileGroup(group)}
+            isPrinting={isGroupPrinting}
+            title={getPrintButtonTitle(isGroupPrinting, printing?.progress, `Print for all ${group.entries.length} students`)}
+            label={`Print ${group.displayName} for all ${group.entries.length} students`}
+          />
+        )}
       </div>
 
       {/* Student entries */}

@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * A yes-or-no setting kept in localStorage and shared by every component that
@@ -23,23 +23,24 @@ export function createBooleanPreference(storageKey: string) {
     listeners.forEach((listener) => listener());
   }
 
+  // One listener for the other tabs' changes, there while anything is subscribed.
+  function onStorage(e: StorageEvent) {
+    if (e.key !== storageKey) return;
+    current = e.newValue === "true";
+    listeners.forEach((listener) => listener());
+  }
+
   function subscribe(listener: () => void) {
+    if (listeners.size === 0) window.addEventListener("storage", onStorage);
     listeners.add(listener);
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== storageKey) return;
-      current = e.newValue === "true";
-      listeners.forEach((l) => l());
-    };
-    window.addEventListener("storage", onStorage);
     return () => {
       listeners.delete(listener);
-      window.removeEventListener("storage", onStorage);
+      if (listeners.size === 0) window.removeEventListener("storage", onStorage);
     };
   }
 
   function usePreference(): [value: boolean, set: (value: boolean) => void] {
-    const value = useSyncExternalStore(subscribe, get, () => false);
-    return [value, useCallback((next: boolean) => set(next), [])];
+    return [useSyncExternalStore(subscribe, get, () => false), set];
   }
 
   return { get, set, usePreference };

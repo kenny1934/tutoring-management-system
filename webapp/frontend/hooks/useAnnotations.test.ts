@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useAnnotations, inkLayers, getStrokeOptions, type Stroke } from "./useAnnotations";
+import { useAnnotations, inkLayers, getStrokeOptions, hasInk, type Stroke } from "./useAnnotations";
 
 const EX = 1;
 
@@ -176,5 +176,14 @@ describe("inkLayers", () => {
     const pen2 = stroke("blue");
     const hl2: Stroke = { ...stroke("pink"), kind: "highlighter" };
     expect(inkLayers([pen1, hl1, pen2, hl2])).toEqual([[hl1, hl2], [pen1, pen2]]);
+  });
+});
+
+describe("hasInk", () => {
+  it("is true only when some page holds a stroke", () => {
+    expect(hasInk(undefined)).toBe(false);
+    expect(hasInk({})).toBe(false);
+    expect(hasInk({ 0: [], 1: [] })).toBe(false);
+    expect(hasInk({ 0: [], 1: [stroke("red")] })).toBe(true);
   });
 });

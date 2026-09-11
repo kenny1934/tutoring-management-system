@@ -176,3 +176,22 @@ export function useAnnotationTools() {
 }
 
 export type AnnotationTools = ReturnType<typeof useAnnotationTools>;
+
+/**
+ * The Pen Tray's settings as a drawing layer's props. The worksheet's pages
+ * and the Draft's sheets both draw with them, so a new tool setting only has
+ * to be passed on here.
+ */
+export function inkLayerProps(tools: AnnotationTools) {
+  const erasing = tools.tool === "eraser";
+  return {
+    isDrawing: tools.drawingEnabled && !erasing,
+    isErasing: erasing,
+    eraserRadius: tools.eraserRadius,
+    penColor: tools.swatch.color,
+    penSize: tools.inkSize,
+    inkKind: tools.swatch.kind,
+    straight: tools.straight,
+    fading: tools.fading,
+  };
+}

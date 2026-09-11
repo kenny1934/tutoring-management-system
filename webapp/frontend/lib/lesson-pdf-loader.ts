@@ -134,3 +134,51 @@ async function loadSinglePdf(
 
   return { error: 'file_not_found' };
 }
+
+/**
+ * Keep a loaded PDF in a lesson view's cache. The cache holds its files in
+ * the order they arrived, so once it's over its limit the oldest one goes.
+ */
+export function rememberPdf(cache: Map<string, ArrayBuffer>, limit: number, pdfName: string, data: ArrayBuffer) {
+  cache.set(pdfName, data);
+  if (cache.size > limit) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
+}
+
+/** A PDF's bytes from the cache, loading them when they aren't there, or null when the file can't be found. */
+export async function cachedPdf(cache: Map<string, ArrayBuffer>, pdfName: string): Promise<ArrayBuffer | null> {
+  const cached = cache.get(pdfName);
+  if (cached) return cached;
+  const result = await loadExercisePdf(pdfName);
+  return 'data' in result ? result.data : null;
+}
+
+// The files being fetched ahead of time right now. A view that asks for one
+// of them again while it's on its way leaves it be, so nothing downloads twice.
+const prefetching = new Set<string>();
+
+/**
+ * Fetch the files a lesson view is likely to open next into its cache, one
+ * at a time. The returned function stops it before the next file starts. A
+ * file that has already arrived is kept all the same, because its bytes are
+ * good and the view may well open it later.
+ */
+export function prefetchPdfs(cache: Map<string, ArrayBuffer>, limit: number, pdfNames: string[]): () => void {
+  let stopped = false;
+  (async () => {
+    for (const pdfName of new Set(pdfNames)) {
+      if (stopped) break;
+      if (cache.has(pdfName) || prefetching.has(pdfName)) continue;
+      prefetching.add(pdfName);
+      try {
+        const result = await loadExercisePdf(pdfName);
+        if ('data' in result) rememberPdf(cache, limit, pdfName, result.data);
+      } finally {
+        prefetching.delete(pdfName);
+      }
+    }
+  })();
+  return () => { stopped = true; };
+}

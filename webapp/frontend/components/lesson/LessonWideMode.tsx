@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
+import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
@@ -21,6 +21,7 @@ import { StudentStrip } from "./StudentStrip";
 import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
 import { DraftPane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
+import { FocusModeButtons } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -31,7 +32,7 @@ import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
-import { buildAnnotatedZip, hasInk, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
+import { buildAnnotatedZip, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
 import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
@@ -105,9 +106,10 @@ export function LessonWideMode({
   const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const MAX_PDF_CACHE_SIZE = 30;
 
-  // Parallel-version previews opened in this lesson. They aren't among the
-  // students' exercises, so "Download All" needs this list to find their ink.
-  const previewEntriesRef = useRef<Map<number, StudentExerciseEntry>>(new Map());
+  // Every worksheet opened in this lesson, so "Download All" can still save
+  // its ink once it's no longer among the students' exercises. A preview never
+  // is, and saving "Edit exercises" gives every exercise a new id.
+  const shownEntriesRef = useRef<Map<number, StudentExerciseEntry>>(new Map());
 
   // Each worksheet's zoom, scroll position and "Hide ink", so switching
   // between students and back finds each one as the tutor left it.
@@ -414,11 +416,7 @@ export function LessonWideMode({
       if (cancelled) return;
 
       if ("data" in result) {
-        pdfCacheRef.current.set(pdfName, result.data);
-        if (pdfCacheRef.current.size > MAX_PDF_CACHE_SIZE) {
-          const oldest = pdfCacheRef.current.keys().next().value;
-          if (oldest !== undefined) pdfCacheRef.current.delete(oldest);
-        }
+        rememberPdf(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, pdfName, result.data);
         setPdfData(result.data);
       } else {
         setPdfData(null);
@@ -439,10 +437,8 @@ export function LessonWideMode({
 
   // --- Sync annotations when selection changes ---
   useEffect(() => {
-    if (selectedEntry && isPreviewExercise(selectedEntry.exercise)) {
-      previewEntriesRef.current.set(selectedEntry.exercise.id, selectedEntry);
-    }
     if (selectedEntry?.exercise) {
+      shownEntriesRef.current.set(selectedEntry.exercise.id, selectedEntry);
       setCurrentAnnotations(getAnnotations(selectedEntry.exercise.id));
     } else {
       setCurrentAnnotations({});
@@ -519,11 +515,7 @@ export function LessonWideMode({
         if (cancelled) return;
 
         if ("data" in result) {
-          pdfCacheRef.current.set(answerPath, result.data);
-          if (pdfCacheRef.current.size > MAX_PDF_CACHE_SIZE) {
-            const oldest = pdfCacheRef.current.keys().next().value;
-            if (oldest !== undefined) pdfCacheRef.current.delete(oldest);
-          }
+          rememberPdf(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, answerPath, result.data);
           setAnswerPdfData(result.data);
           setAnswerPageNumbers(getAnswerPageNumbers(selectedEntry.exercise));
         } else {
@@ -625,9 +617,9 @@ export function LessonWideMode({
       if (isPreviewExercise(target.exercise)) {
         const result = await loadExercisePdf(target.exercise.pdf_name);
         if ('error' in result) {
-          showToast("Couldn't load the file for printing", 'error');
+          showToast(printErrorMessage(result.error), 'error');
         } else if (!printPdfBlob(new Blob([result.data], { type: 'application/pdf' }))) {
-          showToast('Print failed. Check popup blocker settings.', 'error');
+          showToast(printErrorMessage('popup_blocked'), 'error');
         }
         return;
       }
@@ -767,15 +759,10 @@ export function LessonWideMode({
   const handleSaveAllAndExit = useCallback(async () => {
     setIsSavingAll(true);
     try {
-      const inkByExercise = getAllAnnotations();
-      const toSave: AnnotatedExercise[] = [];
-      let unsaveable = 0;
-      for (const entry of [...allEntries, ...previewEntriesRef.current.values()]) {
-        const ink = inkByExercise.get(entry.exercise.id);
-        if (!hasInk(ink)) continue;
-        // Ink on an exercise that has since lost its file can't be saved, so it counts as a failure.
-        if (!entry.exercise.pdf_name) { unsaveable++; continue; }
-        toSave.push({
+      const describe = (exerciseId: number): AnnotatedExercise | null => {
+        const entry = allEntries.find((e) => e.exercise.id === exerciseId) ?? shownEntriesRef.current.get(exerciseId);
+        if (!entry?.exercise.pdf_name) return null;
+        return {
           pdfName: entry.exercise.pdf_name,
           pageNumbers: getExercisePageNumbers(entry.exercise),
           // A preview is class-wide, so it has no student stamp.
@@ -786,17 +773,14 @@ export function LessonWideMode({
             sessionDate: entry.session.session_date,
             sessionTime: entry.session.time_slot,
           },
-          annotations: ink,
           name: `annotated-${entry.studentName}-${getDisplayName(entry.exercise.pdf_name)}`,
-        });
-      }
-
-      const { zip, saved, failed } = await buildAnnotatedZip(toSave, async (pdfName) => {
-        const cached = pdfCacheRef.current.get(pdfName);
-        if (cached) return cached;
-        const result = await loadExercisePdf(pdfName);
-        return "data" in result ? result.data : null;
-      });
+        };
+      };
+      const { zip, saved, failed } = await buildAnnotatedZip(
+        getAllAnnotations(),
+        describe,
+        (pdfName) => cachedPdf(pdfCacheRef.current, pdfName),
+      );
 
       if (zip) {
         const parts = ["Annotations", date, slot].filter(Boolean);
@@ -804,8 +788,8 @@ export function LessonWideMode({
       }
 
       setShowExitConfirm(false);
-      if (failed + unsaveable > 0) {
-        showToast(saveAllFailedMessage({ saved, failed: failed + unsaveable }), 'error');
+      if (failed > 0) {
+        showToast(saveAllFailedMessage({ saved, failed }), 'error');
         return;
       }
       clearStorage();
@@ -860,7 +844,7 @@ export function LessonWideMode({
    * round in turn. Otherwise it's the worksheet they were last on, and
    * failing that, their first.
    */
-  const entryForStudent = useCallback((session: Session): StudentExerciseEntry | null => {
+  const entryForStudent = (session: Session): StudentExerciseEntry | null => {
     const theirs = allEntries.filter(e => e.session.id === session.id);
     if (theirs.length === 0) return null;
     const current = selectedEntry?.exercise;
@@ -870,12 +854,12 @@ export function LessonWideMode({
     if (sameFile) return sameFile;
     const last = lastEntryBySessionRef.current.get(session.id);
     return (last && theirs.find(e => e.exercise.id === last.exercise.id)) || theirs[0];
-  }, [allEntries, selectedEntry]);
+  };
 
-  const openStudent = useCallback((session: Session) => {
+  const openStudent = (session: Session) => {
     const entry = entryForStudent(session);
     if (entry) setSelectedEntry(entry);
-  }, [entryForStudent]);
+  };
 
   // Where the student on screen sits in the strip. A preview isn't anyone's,
   // so from a preview the strip's next arrow goes to the first student.
@@ -900,22 +884,8 @@ export function LessonWideMode({
       e => e.exercise.id === selectedEntry.exercise.id && e.session.id === selectedEntry.session.id
     );
     const names = [allEntries[index + 1]?.exercise.pdf_name, nextStudentEntry?.exercise.pdf_name]
-      .filter((name): name is string => !!name && !pdfCacheRef.current.has(name));
-
-    let cancelled = false;
-    (async () => {
-      for (const name of new Set(names)) {
-        if (cancelled) break;
-        const result = await loadExercisePdf(name);
-        if (cancelled || !("data" in result)) continue;
-        pdfCacheRef.current.set(name, result.data);
-        if (pdfCacheRef.current.size > MAX_PDF_CACHE_SIZE) {
-          const oldest = pdfCacheRef.current.keys().next().value;
-          if (oldest !== undefined) pdfCacheRef.current.delete(oldest);
-        }
-      }
-    })();
-    return () => { cancelled = true; };
+      .filter((name): name is string => !!name);
+    return prefetchPdfs(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, names);
   }, [selectedEntry, pdfData, allEntries, nextStudentEntry]);
 
   // --- Keyboard shortcuts ---
@@ -1231,31 +1201,25 @@ export function LessonWideMode({
     </div>
   );
 
-  // In focus mode the header and sidebar are hidden, and the mouse-only edge
-  // zones can't bring them back for a finger at the board. These two buttons
-  // sit at the start of the worksheet's toolbar instead.
   const focusButtons = focusMode && !isMobile ? (
-    <>
-      <button
-        type="button"
-        onClick={() => setHoverSidebar(true)}
-        aria-expanded={hoverSidebar}
-        className="h-11 px-3 flex flex-none items-center gap-1.5 rounded-lg text-sm font-medium bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
-      >
-        <Users className="h-5 w-5" />
-        Students
-      </button>
-      <button
-        type="button"
-        onClick={exitFocusMode}
-        title="Leave focus mode (F)"
-        className="h-11 px-3 flex flex-none items-center gap-1.5 rounded-lg text-sm font-medium border border-[#a0704b] text-[#6b4c30] dark:text-[#d4a574] hover:bg-[#e8d4b8] dark:hover:bg-[#3a3228] transition-colors"
-      >
-        <Minimize2 className="h-5 w-5" />
-        Leave focus
-      </button>
-    </>
+    <FocusModeButtons
+      icon={Users}
+      label="Students"
+      sidebarOpen={hoverSidebar}
+      onOpenSidebar={() => setHoverSidebar(true)}
+      onLeave={exitFocusMode}
+    />
   ) : null;
+
+  const answerViewer = (
+    <PdfPageViewer
+      pdfData={answerPdfData}
+      pageNumbers={answerPageNumbers}
+      isLoading={answerLoading}
+      error={answerError}
+      exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
+    />
+  );
 
   // Picking something from the focus-mode sidebar closes it again, since a
   // finger can't move off it the way a mouse does.
@@ -1561,26 +1525,15 @@ export function LessonWideMode({
               </>
             )}
 
-            {/* Answer key viewer */}
-            {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (() => {
-              const answerViewer = (
-                <PdfPageViewer
-                  pdfData={answerPdfData}
-                  pageNumbers={answerPageNumbers}
-                  isLoading={answerLoading}
-                  error={answerError}
-                  exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
-                />
-              );
-              // With the Draft open, the answer key folds away when there isn't room for three columns.
-              if (draftOpen) return <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey>;
-              return (
+            {/* Answer key viewer. With the Draft open, it folds away when there isn't room for three columns. */}
+            {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
+              draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
                 <>
                   {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
                   {answerViewer}
                 </>
-              );
-            })()}
+              )
+            )}
           </div>
         </div>
       </div>

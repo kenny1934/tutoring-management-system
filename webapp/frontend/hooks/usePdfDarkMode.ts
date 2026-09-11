@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { createBooleanPreference } from "@/lib/boolean-preference";
 
 /**
@@ -11,8 +10,16 @@ import { createBooleanPreference } from "@/lib/boolean-preference";
  */
 const darkMode = createBooleanPreference("csm_pdf_dark_mode");
 
+const toggleDarkMode = () => darkMode.set(!darkMode.get());
+
+/**
+ * The filter that darkens a page in dark PDF mode. It goes on the page and its
+ * ink together, so black ink turns light on the darkened page instead of
+ * vanishing, and the worksheet and the Draft use the same one so they match.
+ */
+export const PDF_DARK_FILTER = "invert(0.86) hue-rotate(180deg)";
+
 export function usePdfDarkMode(): [dark: boolean, toggle: () => void] {
-  const [dark, setDark] = darkMode.usePreference();
-  const toggle = useCallback(() => setDark(!darkMode.get()), [setDark]);
-  return [dark, toggle];
+  const [dark] = darkMode.usePreference();
+  return [dark, toggleDarkMode];
 }

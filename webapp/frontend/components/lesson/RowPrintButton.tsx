@@ -24,7 +24,7 @@ export function RowPrintButton({ onPrint, isPrinting, title, label, iconClassNam
   return (
     <button
       type="button"
-      onClick={(e) => { e.stopPropagation(); if (!isPrinting) onPrint(); }}
+      onClick={onPrint}
       disabled={isPrinting}
       title={title}
       aria-label={label}

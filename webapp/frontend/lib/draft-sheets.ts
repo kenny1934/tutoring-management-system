@@ -28,12 +28,12 @@ export const DRAFT_SHEET = {
 export const DRAFT_SQUARE_PT = 72 / 2.54;
 
 /** The colour of the squares' lines, on screen and in the saved PDF. */
-export const DRAFT_GRID_COLOUR = { css: "#c9d6e6", rgb: [0.79, 0.84, 0.9] as const };
+export const DRAFT_GRID_COLOUR = { css: "#c9d6e6", rgb: [0xc9 / 255, 0xd6 / 255, 0xe6 / 255] as const };
 
 /** Whether the Draft is squared or blank. It's one switch, remembered per browser. */
 export const draftSquared = createBooleanPreference("csm_draft_squared");
 
-export const isDraftPage = (pageIndex: number) => pageIndex >= DRAFT_PAGE_BASE;
+const isDraftPage = (pageIndex: number) => pageIndex >= DRAFT_PAGE_BASE;
 
 /** The Draft pages that have ink on them, in sheet order. */
 export function inkedDraftPages(annotations: PageAnnotations): number[] {
