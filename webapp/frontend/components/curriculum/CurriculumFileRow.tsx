@@ -19,6 +19,63 @@ interface CurriculumFileRowProps {
   scopeSchool?: string | null;
 }
 
+// A partly done file can have a long page list, which would squeeze the file
+// name out of the row. The badge shows the first few spans and the tooltip
+// carries the full list.
+const MAX_BADGE_SPANS = 2;
+
+/** "1-4,9-14,20" written as a person would say it: "pages 1-4, 9-14 and 20". */
+function pagesInWords(pages: string): string {
+  const spans = pages.split(",");
+  const noun = spans.length === 1 && !spans[0].includes("-") ? "page" : "pages";
+  const list =
+    spans.length > 1
+      ? `${spans.slice(0, -1).join(", ")} and ${spans[spans.length - 1]}`
+      : spans[0];
+  return `${noun} ${list}`;
+}
+
+/** The badge that tells the tutor this student has had the file before.
+ *  It says Done when some assignment covered the whole file. When every
+ *  assignment covered only part of it, the badge shows those pages instead,
+ *  with a dashed border, so a tutor can tell at a glance that there is more
+ *  of the file left to set. */
+function StudentDoneBadge({ file }: { file: CurriculumFile }) {
+  const count = file.student_assigned_count ?? 0;
+  const last = file.student_last_assigned
+    ? new Date(file.student_last_assigned)
+    : null;
+  const times = count === 1 ? "time" : "times";
+  const history =
+    `${count} ${times}` +
+    (last
+      ? `, last on ${last.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+      : "");
+  const pages = file.student_pages_done;
+  const spans = pages ? pages.split(",") : [];
+  const label = pages
+    ? `p${spans.slice(0, MAX_BADGE_SPANS).join(",")}${spans.length > MAX_BADGE_SPANS ? "…" : ""}`
+    : "Done";
+  return (
+    <span
+      className={cn(
+        "text-[9px] px-1 py-px rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0",
+        pages && "border-dashed border-amber-300 dark:border-amber-700"
+      )}
+      title={
+        pages
+          ? `This student has done ${pagesInWords(pages)} of this file so far. It has been assigned to them ${history}.`
+          : `Already assigned to this student ${history}`
+      }
+    >
+      {label}
+      {last
+        ? ` · ${last.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+        : ""}
+    </span>
+  );
+}
+
 /** The badge cluster every file row shares: school, role, language, usage. */
 export function CurriculumFileBadges({
   file,
@@ -43,21 +100,7 @@ export function CurriculumFileBadges({
     <>
       {/* Student-scoped lists (the exercise modal) carry assignment history
           for the session's student; other lists omit the fields entirely. */}
-      {(file.student_assigned_count ?? 0) > 0 && (
-        <span
-          className="text-[9px] px-1 py-px rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0"
-          title={`Already assigned to this student ${file.student_assigned_count} ${times(file.student_assigned_count ?? 0)}${
-            file.student_last_assigned
-              ? `, last on ${new Date(file.student_last_assigned).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
-              : ""
-          }`}
-        >
-          Done
-          {file.student_last_assigned
-            ? ` · ${new Date(file.student_last_assigned).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
-            : ""}
-        </span>
-      )}
+      {(file.student_assigned_count ?? 0) > 0 && <StudentDoneBadge file={file} />}
       {file.school_code && (
         <span
           className={cn(

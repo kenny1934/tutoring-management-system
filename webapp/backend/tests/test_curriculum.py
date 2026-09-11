@@ -309,6 +309,63 @@ def test_files_flag_already_assigned(client: TestClient, db_session):
     ex1 = next(f for f in files if f["file_basename"] == "704_EX1_e.pdf")
     assert ex1["student_assigned_count"] == 0
     assert ex1["student_last_assigned"] is None
+    # Assigned without a page range, so the whole file counts as done.
+    assert ex2["student_pages_done"] is None
+
+
+def test_files_list_the_pages_done_when_only_part_was_assigned(
+    client: TestClient, db_session
+):
+    """A file given out in chunks lists every page the student has had,
+    with touching chunks joined, and a custom page list stored in the
+    remarks counts the same as the start and end fields. One whole-file
+    assignment makes the file done whatever the other assignments covered."""
+    _consensus_row(db_session, week=11, concept_id=1, weight=3.0)
+    db_session.add(Tutor(id=50, user_email="t@example.com", tutor_name="T",
+                         role="Tutor", is_active_tutor=True))
+    logs = [
+        SessionLog(student_id=1, tutor_id=50, session_date=date(2025, 10, d),
+                   time_slot="16:00 - 17:30", location="MSA",
+                   session_status="Attended")
+        for d in (6, 13, 20)
+    ]
+    db_session.add_all(logs)
+    db_session.flush()
+
+    def assign(log, name, **pages):
+        db_session.add(SessionExercise(
+            session_id=log.id, exercise_type="Classwork",
+            created_by="t@example.com",
+            pdf_name=f"Z:\\Courseware (Eng)\\new_math7-9EX\\{name}", **pages))
+
+    assign(logs[0], "704_EX2_e.pdf", page_start=1, page_end=4)
+    assign(logs[1], "704_EX2_e.pdf", page_start=5, page_end=6)
+    assign(logs[2], "704_EX2_e.pdf", remarks="Pages: 9 ~ 11, 13 || Q1 only")
+    assign(logs[0], "704_EX1_e.pdf", page_start=2, page_end=3)
+    assign(logs[1], "704_EX1_e.pdf")
+    db_session.commit()
+
+    files = _get(client).json()["suggestions"][0]["files"]
+    ex2 = next(f for f in files if f["file_basename"] == "704_EX2_e.pdf")
+    assert ex2["student_pages_done"] == "1-6,9-11,13"
+    assert ex2["student_assigned_count"] == 3
+    assert ex2["student_last_assigned"] == "2025-10-20"
+    ex1 = next(f for f in files if f["file_basename"] == "704_EX1_e.pdf")
+    assert ex1["student_pages_done"] is None
+
+
+def test_page_list_parsing_matches_what_tutors_type():
+    """The backend reads the typed page list as loosely as the frontend
+    does, and a single page or a reversed simple range still reads sensibly."""
+    assert curriculum._page_list_spans("1,3,5-7") == [(1, 1), (3, 3), (5, 7)]
+    assert curriculum._page_list_spans("2 – 4 (not done)") == [(2, 4)]
+    assert curriculum._exercise_page_spans(3, None, None) == [(3, 3)]
+    assert curriculum._exercise_page_spans(6, 4, None) == [(4, 6)]
+    assert curriculum._exercise_page_spans(None, None, "Just a note") is None
+    assert curriculum._exercise_page_spans(None, None, "Pages: all") is None
+    assert curriculum._format_page_spans(
+        curriculum._merge_page_spans([(5, 6), (1, 4), (3, 3), (9, 9)])
+    ) == "1-6,9"
 
 
 def test_extensionless_decimal_codes_stay_distinct(client: TestClient, db_session):

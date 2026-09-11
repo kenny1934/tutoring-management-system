@@ -557,28 +557,111 @@ def _ranked_files(db, concept_ids, preferred_lang, role_order, role_filter=None,
     return files_by_concept, meta
 
 
+# The exercise editor stores a custom page list such as "1,3,5-7" at the front
+# of the remarks, as "Pages: 1,3,5-7", with any real remark after " || ".
+PAGE_LIST_PREFIX = "Pages: "
+PAGE_LIST_DELIMITER = " || "
+
+
+def _page_list_spans(page_list):
+    """The (start, end) spans in a typed page list such as "1,3,5-7".
+
+    It accepts the same loose input as the frontend's parsePageRange, because
+    both read what tutors typed into one box: "~" and the long dashes count as
+    a hyphen, spaces can separate pages, and stray words are ignored.
+    """
+    cleaned = re.sub(r"[~–—]", "-", page_list or "")
+    cleaned = re.sub(r"\s*-\s*", "-", cleaned)
+    cleaned = re.sub(r"[^\d,\-\s]", " ", cleaned)
+    spans = []
+    for part in re.split(r"[,\s]+", cleaned):
+        numbers = [int(n) for n in part.split("-") if n]
+        if not numbers:
+            continue
+        start, end = numbers[0], numbers[-1]
+        if start > 0 and end >= start:
+            spans.append((start, end))
+    return spans
+
+
+def _exercise_page_spans(page_start, page_end, remarks):
+    """The pages one assignment covered, or None when it covered the whole file.
+
+    A custom page list wins over the start and end fields, the same way the
+    exercise hover card reads it. A page list with no numbers in it restricts
+    nothing we can read, so that assignment counts as the whole file too.
+    """
+    if remarks and remarks.startswith(PAGE_LIST_PREFIX):
+        page_list = remarks[len(PAGE_LIST_PREFIX):].split(PAGE_LIST_DELIMITER)[0]
+        return _page_list_spans(page_list) or None
+    if not page_start:
+        return None
+    end = page_end or page_start
+    return [(min(page_start, end), max(page_start, end))]
+
+
+def _merge_page_spans(spans):
+    """Sorted spans with overlapping and touching ones joined, so a file given
+    as pages 1 to 4 one week and 5 to 6 the next reads as pages 1 to 6."""
+    merged = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _format_page_spans(spans):
+    return ",".join(str(a) if a == b else f"{a}-{b}" for a, b in spans)
+
+
 def _student_assigned_map(db, student_id):
-    """{extension-stripped lowercased basename: (count, last_date)} of every
-    PDF assigned to this student, so suggestions can flag worksheets the
-    student has already done."""
+    """This student's history with every PDF they have been assigned, keyed by
+    the extension-stripped lowercased basename, so suggestions can flag
+    worksheets the student has already done.
+
+    Each value is (count, last_date, pages_done). pages_done is None when at
+    least one assignment covered the whole file. Otherwise it lists every page
+    the student was given across all their assignments, such as "1-4,9-14",
+    because a third of assignments cover only part of a file and a tutor needs
+    to see which part before setting it again.
+    """
+    # Only the page list is wanted from the remarks, not the tutor's note.
     rows = db.execute(text("""
-        SELECT se.pdf_name, COUNT(*) AS n, MAX(sl.session_date) AS last_date
+        SELECT se.pdf_name, se.page_start, se.page_end, sl.session_date,
+               CASE WHEN se.remarks LIKE 'Pages: %' THEN se.remarks END
+                   AS page_remarks
         FROM session_exercises se
         JOIN session_log sl ON sl.id = se.session_id
         WHERE sl.student_id = :sid
           AND se.pdf_name IS NOT NULL AND se.pdf_name != ''
-        GROUP BY se.pdf_name
     """), {"sid": student_id}).fetchall()
-    out = {}
+    history = {}
     for r in rows:
         key = basename_key(normalize(r.pdf_name)["basename"])
         if not key:
             continue
-        count, last_date = out.get(key, (0, None))
-        if r.last_date and (last_date is None or r.last_date > last_date):
-            last_date = r.last_date
-        out[key] = (count + r.n, last_date)
-    return out
+        h = history.setdefault(
+            key, {"count": 0, "last_date": None, "whole": False, "spans": []})
+        h["count"] += 1
+        if r.session_date and (h["last_date"] is None
+                               or r.session_date > h["last_date"]):
+            h["last_date"] = r.session_date
+        spans = _exercise_page_spans(r.page_start, r.page_end, r.page_remarks)
+        if spans is None:
+            h["whole"] = True
+        else:
+            h["spans"].extend(spans)
+    return {
+        key: (
+            h["count"],
+            h["last_date"],
+            None if h["whole"]
+            else _format_page_spans(_merge_page_spans(h["spans"])),
+        )
+        for key, h in history.items()
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -871,6 +954,7 @@ def get_curriculum_suggestions(
             done = assigned.get(basename_key(f["file_basename"]))
             f["student_assigned_count"] = done[0] if done else 0
             f["student_last_assigned"] = _iso(done[1]) if done else None
+            f["student_pages_done"] = done[2] if done else None
         suggestions.append({
             "concept_id": concept_id,
             "name_en": meta.get("name_en"),

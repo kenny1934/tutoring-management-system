@@ -708,6 +708,9 @@ export interface CurriculumFile {
   // this student's own history with the file (suggestions endpoint only)
   student_assigned_count?: number;
   student_last_assigned?: string | null;
+  // every page the student has been given across their assignments, such as
+  // "1-4,9-14"; null when one of them covered the whole file
+  student_pages_done?: string | null;
 }
 
 export interface CurriculumConceptSuggestion {
