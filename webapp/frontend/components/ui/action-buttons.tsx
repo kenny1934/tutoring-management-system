@@ -15,6 +15,7 @@ import { preloadCurriculumSuggestions } from "@/lib/hooks";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { ExerciseHoverCard } from "@/components/sessions/ExerciseHoverCard";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { MakeupMessageModal } from "@/components/sessions/MakeupMessageModal";
@@ -473,29 +474,40 @@ export function SessionActionButtons({
             : action.colorClass;
           const opensExerciseModal = action.id === "cw" || action.id === "hw";
 
+          const button = (
+            <button
+              disabled={isDisabledByReadOnly || !isEnabled || isLoading}
+              onClick={(e) => handleClick(e, action)}
+              onPointerEnter={opensExerciseModal ? warmExerciseModal : undefined}
+              onFocus={opensExerciseModal ? warmExerciseModal : undefined}
+              className={cn(
+                "flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm font-medium transition-all",
+                sizeClasses[size],
+                isDisabledByReadOnly
+                  ? cn(colorClass, "cursor-not-allowed opacity-40")
+                  : isEnabled && !isLoading
+                    ? cn(colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow active:scale-[0.95]")
+                    : cn(colorClass, "cursor-not-allowed opacity-50"),
+                isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1"
+              )}
+              // The CW and HW buttons get a hover card listing what is assigned,
+              // so a native tooltip there would just pop up on top of it.
+              title={opensExerciseModal ? undefined : isDisabledByReadOnly ? "Read-only access" : isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
+              aria-label={opensExerciseModal ? action.label : undefined}
+            >
+              <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", action.iconColorClass)} />
+              {label && <span className="hidden sm:inline">{isLoading ? "..." : label}</span>}
+            </button>
+          );
+
           return (
             <React.Fragment key={action.id}>
               {idx === firstPushRightIdx && <div className="ml-auto" />}
-              <button
-                disabled={isDisabledByReadOnly || !isEnabled || isLoading}
-                onClick={(e) => handleClick(e, action)}
-                onPointerEnter={opensExerciseModal ? warmExerciseModal : undefined}
-                onFocus={opensExerciseModal ? warmExerciseModal : undefined}
-                className={cn(
-                  "flex items-center gap-1 rounded-md border border-black/10 dark:border-white/10 shadow-sm font-medium transition-all",
-                  sizeClasses[size],
-                  isDisabledByReadOnly
-                    ? cn(colorClass, "cursor-not-allowed opacity-40")
-                    : isEnabled && !isLoading
-                      ? cn(colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow active:scale-[0.95]")
-                      : cn(colorClass, "cursor-not-allowed opacity-50"),
-                  isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1"
-                )}
-                title={isDisabledByReadOnly ? "Read-only access" : isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
-              >
-                <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", action.iconColorClass)} />
-                {label && <span className="hidden sm:inline">{isLoading ? "..." : label}</span>}
-              </button>
+              {opensExerciseModal ? (
+                <ExerciseHoverCard exercises={session.exercises} type={action.id === "cw" ? "CW" : "HW"}>
+                  {button}
+                </ExerciseHoverCard>
+              ) : button}
             </React.Fragment>
           );
           });

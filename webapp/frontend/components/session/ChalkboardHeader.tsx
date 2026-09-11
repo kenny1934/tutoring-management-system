@@ -30,6 +30,7 @@ import { useHaptic } from "@/lib/useHaptic";
 import type { Session, ExtensionRequestDetail } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { ExerciseHoverCard } from "@/components/sessions/ExerciseHoverCard";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
@@ -79,9 +80,10 @@ interface ChalkStubProps {
   active?: boolean;  // Indicates content exists (e.g., CW/HW assigned)
   loading?: boolean; // Shows processing animation
   iconColor?: string; // Optional override for icon color (e.g., red for CW, blue for HW)
+  hasHoverCard?: boolean; // CW/HW show a hover card instead, so the native tooltip is left off
 }
 
-function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disabled, index, active, loading, iconColor }: ChalkStubProps) {
+function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disabled, index, active, loading, iconColor, hasHoverCard }: ChalkStubProps) {
   const isDisabled = disabled || loading;
   return (
     <motion.button
@@ -110,7 +112,7 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
         isDisabled && !loading && "opacity-40 cursor-not-allowed",
         loading && "cursor-wait"
       )}
-      title={loading ? "Processing..." : label}
+      title={hasHoverCard ? undefined : loading ? "Processing..." : label}
       aria-label={loading ? "Processing..." : label}
     >
       {/* Chalk stub - top-down view (pill shape lying flat) */}
@@ -588,22 +590,36 @@ export function ChalkboardHeader({ session, onEdit, onLesson, onAction, loadingA
         {/* Chalk stubs container */}
         <div className="relative h-full flex items-center justify-start gap-0.5 sm:gap-2 px-2 sm:px-3 overflow-x-auto scrollbar-hide">
           {/* All actions from sessionActions (including edit at the end) */}
-          {visibleActions.map((action, index) => (
-            <ChalkStub
-              key={action.id}
-              id={action.id}
-              label={isReadOnly ? `${action.label} (Read-only)` : action.label}
-              shortLabel={action.shortLabel || action.label}
-              icon={action.icon}
-              colors={getChalkColor(action.id)}
-              onClick={() => handleActionClick(action)}
-              disabled={(isReadOnly && !['cw', 'hw', 'rate', 'schedule-makeup'].includes(action.id)) || (!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled)}
-              loading={effectiveLoadingAction === action.id}
-              index={index}
-              active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
-              iconColor={action.id === 'cw' ? '#ef4444' : action.id === 'hw' ? '#3b82f6' : undefined}
-            />
-          ))}
+          {visibleActions.map((action, index) => {
+            const isExercise = action.id === 'cw' || action.id === 'hw';
+            const stub = (
+              <ChalkStub
+                key={action.id}
+                id={action.id}
+                label={isReadOnly ? `${action.label} (Read-only)` : action.label}
+                shortLabel={action.shortLabel || action.label}
+                icon={action.icon}
+                colors={getChalkColor(action.id)}
+                onClick={() => handleActionClick(action)}
+                disabled={(isReadOnly && !['cw', 'hw', 'rate', 'schedule-makeup'].includes(action.id)) || (!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled)}
+                loading={effectiveLoadingAction === action.id}
+                index={index}
+                active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
+                iconColor={action.id === 'cw' ? '#ef4444' : action.id === 'hw' ? '#3b82f6' : undefined}
+                hasHoverCard={isExercise}
+              />
+            );
+            return isExercise ? (
+              <ExerciseHoverCard
+                key={action.id}
+                exercises={session.exercises}
+                type={action.id === 'cw' ? 'CW' : 'HW'}
+                className="flex-shrink-0"
+              >
+                {stub}
+              </ExerciseHoverCard>
+            ) : stub;
+          })}
 
           {/* Spacer to push nav buttons right */}
           <div className="flex-1" />

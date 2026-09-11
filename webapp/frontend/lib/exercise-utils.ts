@@ -563,6 +563,25 @@ export function findDuplicatesFromIndex(
 // URL Utilities
 // ============================================================================
 
+/**
+ * The pages an exercise covers, written the way tutors read them: "p3-5",
+ * "p3", or a custom list such as "p1,3,5-7". Returns an empty string when the
+ * exercise uses the whole file, so callers can leave the page column blank.
+ */
+export function formatExercisePages(exercise: {
+  page_start?: number | null;
+  page_end?: number | null;
+  remarks?: string | null;
+}): string {
+  const { complexPages } = parseExerciseRemarks(exercise.remarks);
+  if (complexPages) return `p${complexPages}`;
+  if (!exercise.page_start) return '';
+  if (exercise.page_end && exercise.page_end !== exercise.page_start) {
+    return `p${exercise.page_start}-${exercise.page_end}`;
+  }
+  return `p${exercise.page_start}`;
+}
+
 /** Get display name for an exercise — prefers pdf_name, falls back to url_title or URL hostname */
 export function getExerciseDisplayName(exercise: { pdf_name?: string | null; url?: string; url_title?: string }): string {
   if (exercise.pdf_name) return getDisplayName(exercise.pdf_name);

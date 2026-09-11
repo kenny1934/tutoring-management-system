@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parsePageInput,
   parseExerciseRemarks,
+  formatExercisePages,
   combineExerciseRemarks,
   detectPageMode,
   validateExercisePageRange,
@@ -75,6 +76,30 @@ describe('parseExerciseRemarks', () => {
       complexPages: '1,3',
       remarks: 'Some notes',
     });
+  });
+});
+
+// ============================================================================
+// formatExercisePages
+// ============================================================================
+
+describe('formatExercisePages', () => {
+  it('writes a range when the start and end pages differ', () => {
+    expect(formatExercisePages({ page_start: 3, page_end: 5 })).toBe('p3-5');
+  });
+
+  it('writes a single page when there is no end, or it matches the start', () => {
+    expect(formatExercisePages({ page_start: 3 })).toBe('p3');
+    expect(formatExercisePages({ page_start: 3, page_end: 3 })).toBe('p3');
+  });
+
+  it('prefers a custom page list stored in the remarks', () => {
+    expect(formatExercisePages({ page_start: 1, remarks: 'Pages: 1,3,5-7 || Q1 only' })).toBe('p1,3,5-7');
+  });
+
+  it('returns an empty string when the whole file is used', () => {
+    expect(formatExercisePages({})).toBe('');
+    expect(formatExercisePages({ remarks: 'Just a note' })).toBe('');
   });
 });
 
