@@ -352,6 +352,10 @@ export function LessonWideMode({
   }, [focusMode, isMobile, hoverHeader, hoverSidebar]);
 
   // --- Annotation tool toggles ---
+  // Shared by the d/e keys and the toolbar buttons. Picking the other tool
+  // switches to it, and picking the tool that's already active leaves draw mode.
+  // Leaving from the eraser resets the tool to the pen, so the next time you
+  // start drawing you get the pen.
   const toggleAnnotationTool = useCallback((tool: "pen" | "eraser") => {
     if (!drawingEnabled) {
       setDrawingEnabled(true);
@@ -364,25 +368,8 @@ export function LessonWideMode({
     }
   }, [drawingEnabled, annotationTool]);
 
-  const handleDrawingToggle = useCallback(() => {
-    if (drawingEnabled && annotationTool !== "pen") {
-      setAnnotationTool("pen");
-    } else {
-      setDrawingEnabled(d => !d);
-      setAnnotationTool("pen");
-    }
-  }, [drawingEnabled, annotationTool]);
-
-  const handleEraserToggle = useCallback(() => {
-    if (!drawingEnabled) {
-      setDrawingEnabled(true);
-      setAnnotationTool("eraser");
-    } else if (annotationTool === "eraser") {
-      setAnnotationTool("pen");
-    } else {
-      setAnnotationTool("eraser");
-    }
-  }, [drawingEnabled, annotationTool]);
+  const handleDrawingToggle = useCallback(() => toggleAnnotationTool("pen"), [toggleAnnotationTool]);
+  const handleEraserToggle = useCallback(() => toggleAnnotationTool("eraser"), [toggleAnnotationTool]);
 
   // --- Auto-select first entry ---
   useEffect(() => {

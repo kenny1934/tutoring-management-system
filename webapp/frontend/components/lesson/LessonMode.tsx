@@ -269,7 +269,10 @@ export function LessonMode({
   const answerCacheRef = useRef<Map<string, AnswerSearchResult | null>>(new Map());
   const answerOpenSetRef = useRef<Set<number>>(new Set());
 
-  // S4: Keyboard annotation tool toggle (d/e keys — exits draw mode when same tool pressed)
+  // S4: Annotation tool toggle, shared by the d/e keys and the toolbar buttons.
+  // Picking the other tool switches to it, and picking the tool that's already
+  // active leaves draw mode. Leaving from the eraser resets the tool to the pen,
+  // so the next time you start drawing you get the pen.
   const toggleAnnotationTool = useCallback((tool: "pen" | "eraser") => {
     if (!drawingEnabled) {
       setDrawingEnabled(true);
@@ -282,26 +285,8 @@ export function LessonMode({
     }
   }, [drawingEnabled, annotationTool]);
 
-  // S4: Button callbacks (different behavior from keyboard)
-  const handleDrawingToggle = useCallback(() => {
-    if (drawingEnabled && annotationTool !== "pen") {
-      setAnnotationTool("pen");
-    } else {
-      setDrawingEnabled(d => !d);
-      setAnnotationTool("pen");
-    }
-  }, [drawingEnabled, annotationTool]);
-
-  const handleEraserToggle = useCallback(() => {
-    if (!drawingEnabled) {
-      setDrawingEnabled(true);
-      setAnnotationTool("eraser");
-    } else if (annotationTool === "eraser") {
-      setAnnotationTool("pen");
-    } else {
-      setAnnotationTool("eraser");
-    }
-  }, [drawingEnabled, annotationTool]);
+  const handleDrawingToggle = useCallback(() => toggleAnnotationTool("pen"), [toggleAnnotationTool]);
+  const handleEraserToggle = useCallback(() => toggleAnnotationTool("eraser"), [toggleAnnotationTool]);
 
   // All exercises from both sessions (for auto-select, save-all ZIP)
   const allExercises = useMemo(() => {
