@@ -10,6 +10,11 @@
                 failing that from the content map (courseware_concepts), so a
                 school scan or renamed file a tutor pasted counts once the map
                 knows it. Map rows that came from AI classification carry 0.65.
+                One row per student per topic week, with student_id filled in,
+                so the consensus view can give each student one vote.
+                Students the grade check flags (curriculum/grade_check.py)
+                keep their rows, marked excluded_reason = 'grade_check', and
+                the views leave them out.
   sheet       — hand-collected school curriculum sheets, both years, from the
                 dry-run classification (private/curriculum_data/dryrun/):
                 mechanical matches 0.85, AI-mapped residuals 0.55-0.75.
@@ -29,6 +34,9 @@ from collections import Counter, defaultdict
 from datetime import date
 
 from _common import PRIV, canon_school, connect, norm  # noqa: E402  (sets sys.path + .env)
+from curriculum.grade_check import (  # noqa: E402
+    school_below_shares, students_out_of_step, warm_up_review,
+)
 from curriculum.parser import parse_pdf_name  # noqa: E402
 from curriculum.paths import basename_key, normalize  # noqa: E402
 
@@ -142,12 +150,16 @@ def main():
     for space, code, cid in cur.fetchall():
         alias_map[(space, code)].append(cid)
 
+    cur.execute("SELECT id, grade FROM curriculum_concepts")
+    concept_grade = dict(cur.fetchall())
+
     stats = Counter()
     # dedupe key -> [confidence, source_ref]
     best = {}
 
-    def add(school, grade, stream, year, week, cid, source, conf, is_rev, ref):
-        key = (school, grade, stream or None, year, week, cid, source, bool(is_rev))
+    def add(school, grade, stream, year, week, cid, source, conf, is_rev, ref, student=None):
+        # student is only set on assignments, which keep one row per student.
+        key = (school, grade, stream or None, year, week, cid, source, bool(is_rev), student)
         cur_row = best.get(key)
         if cur_row is None or conf > cur_row[0]:
             best[key] = [conf, ref[:500]]
@@ -236,8 +248,12 @@ def main():
         "AND se.pdf_name IS NOT NULL AND se.pdf_name != ''"
     )
     stats["assign:summer_skipped"] = cur.fetchone()[0]
+    # One entry per worksheet whose topic has a single known grade, for the
+    # grade check once the school's own plans are known.
+    worksheets = []
     cur.execute(
-        "SELECT se.id, se.pdf_name, sl.session_date, s.school, s.grade, s.lang_stream "
+        "SELECT se.id, se.pdf_name, sl.session_date, sl.student_id, "
+        "s.school, s.grade, s.lang_stream "
         "FROM session_exercises se "
         "JOIN session_log sl ON sl.id = se.session_id "
         "JOIN students s ON s.id = sl.student_id "
@@ -246,7 +262,7 @@ def main():
         "AND s.school IS NOT NULL AND s.school != '' "
         "AND (e.enrollment_type IS NULL OR e.enrollment_type != 'Summer')"
     )
-    for se_id, pdf, sdate, school, grade, stream in cur.fetchall():
+    for se_id, pdf, sdate, student_id, school, grade, stream in cur.fetchall():
         year, week = week_of(sdate)
         if not year:
             stats["assign:no_week"] += 1
@@ -272,7 +288,10 @@ def main():
         for sc in schools:
             for cid, conf, rev in hits:
                 add(sc, grade, stream or None, year, week, cid, "assignment",
-                    conf, rev, f"session_exercise:{se_id}")
+                    conf, rev, f"session_exercise:{se_id}", student=student_id)
+        grades = {concept_grade.get(cid) for cid, _conf, rev in hits if not rev}
+        if len(grades) == 1 and None not in grades:
+            worksheets.append((student_id, year, week, schools[0], grade, grades.pop()))
 
     # ---- channel 3: curriculum sheets (both years) ---------------------------
     sheet = json.load(open(os.path.join(PRIV, "dryrun", "sheet_classified.json"), encoding="utf-8"))
@@ -285,7 +304,9 @@ def main():
 
     # per (school, grade) dominant series from assignment behaviour, for AI residual picks
     pref = defaultdict(Counter)
-    for (school, grade, stream, year, week, cid, source, is_rev) in best:
+    # Counted once per topic week, not per student, so a school's series is
+    # judged the way it was before assignments were kept one row per student.
+    for (school, grade, stream, year, week, cid, source, is_rev) in {k[:8] for k in best}:
         if source == "assignment":
             pref[(school, grade)][cid] += 1
     cur.execute("SELECT a.concept_id, a.code_space FROM concept_code_aliases a")
@@ -360,11 +381,43 @@ def main():
                     bool(row.get("is_revision")), ref)
             stats[f"sheet_live:{year}"] += 1
 
-    rows = [(k[0], k[1], k[2], k[3], k[4], k[5], k[6], v[0], k[7], v[1])
-            for k, v in best.items()]
+    # ---- warm-up review and the grade check ----------------------------------
+    # Both compare assignments with what the school's own plans (prep folders
+    # and sheets) put in each grade, so they wait until every channel is in.
+    # See curriculum/grade_check.
+    school_topics = [(k[0], k[1], concept_grade.get(k[5]))
+                     for k in best if k[6] in ("prep_folder", "sheet") and not k[7]]
+    norms = school_below_shares(school_topics)
+
+    # A lower grade's worksheet in the first weeks of the year is review, so
+    # it moves to the revision key, which the views leave out.
+    for k in [k for k in best if k[6] == "assignment" and not k[7]]:
+        if not warm_up_review(k[4], k[1], concept_grade.get(k[5]),
+                              norms.get((k[0], k[1]), 0.0)):
+            continue
+        conf, ref = best.pop(k)
+        rev_key = k[:7] + (True,) + k[8:]
+        if rev_key not in best or conf > best[rev_key][0]:
+            best[rev_key] = [conf, ref]
+        stats["assign:warm_up_review"] += 1
+
+    flagged = students_out_of_step(worksheets, school_topics)
+    stats["grade_check:students_flagged"] = len(flagged)
+
+    rows = []
+    for k, v in best.items():
+        student = k[8]
+        excluded = ("grade_check"
+                    if k[6] == "assignment" and (student, k[3]) in flagged else None)
+        if excluded:
+            stats["grade_check:rows_set_aside"] += 1
+        rows.append((k[0], k[1], k[2], k[3], k[4], k[5], k[6], v[0], k[7], v[1],
+                     student, excluded))
     print(f"deduped observations: {len(rows)}")
     for k, v in sorted(stats.items()):
         print(f"  {k}: {v}")
+    for student, year in sorted(flagged, key=lambda f: (f[1], f[0])):
+        print(f"  grade check flagged student {student} in {year}")
     by_source = Counter(r[6] for r in rows)
     print("  unique by source:", dict(by_source))
 
@@ -379,8 +432,8 @@ def main():
         cur.executemany(
             "INSERT INTO school_topic_observations "
             "(school, grade, lang_stream, academic_year, week_number, concept_id, "
-            " source, confidence, is_revision, source_ref) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            " source, confidence, is_revision, source_ref, student_id, excluded_reason) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             rows,
         )
         conn.commit()

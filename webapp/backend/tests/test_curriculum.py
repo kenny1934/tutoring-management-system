@@ -40,7 +40,8 @@ RAW_TABLES = [
         week_number INT, concept_id INT, source VARCHAR(20),
         confidence DECIMAL(3,2), is_revision BOOLEAN, source_ref VARCHAR(500),
         tutor_id INT, student_id INT, session_id INT, observed_on DATE,
-        action VARCHAR(20), origin VARCHAR(20), created_at TIMESTAMP)""",
+        action VARCHAR(20), origin VARCHAR(20), created_at TIMESTAMP,
+        excluded_reason VARCHAR(20))""",
     """CREATE TABLE courseware_concepts (
         id INTEGER PRIMARY KEY, concept_id INT, file_path VARCHAR(500),
         file_basename VARCHAR(255), role VARCHAR(20), lang VARCHAR(1),
@@ -48,7 +49,8 @@ RAW_TABLES = [
     """CREATE TABLE school_week_topic_consensus (
         school VARCHAR(255), grade VARCHAR(50), lang_stream VARCHAR(50),
         academic_year VARCHAR(20), week_number INT, concept_id INT,
-        weight DECIMAL(10,2), source_count INT, sources TEXT, rank_in_week INT)""",
+        weight DECIMAL(10,2), source_count INT, sources TEXT, rank_in_week INT,
+        student_count INT)""",
     """CREATE TABLE school_concept_pacing (
         school VARCHAR(255), grade VARCHAR(50), lang_stream VARCHAR(50),
         concept_id INT, years_observed INT, mean_week DECIMAL(4,1),
@@ -146,14 +148,29 @@ def _setup(db_session):
 
 def _consensus_row(db, week, concept_id, weight, year="2025-2026",
                    school="SRL-E", grade="F1", stream="E",
-                   sources="assignment,prep_folder"):
+                   sources="assignment,prep_folder", students=2):
     db.execute(text("""
         INSERT INTO school_week_topic_consensus
             (school, grade, lang_stream, academic_year, week_number, concept_id,
-             weight, source_count, sources, rank_in_week)
-        VALUES (:school, :grade, :stream, :year, :week, :cid, :w, 2, :sources, 1)
+             weight, source_count, sources, rank_in_week, student_count)
+        VALUES (:school, :grade, :stream, :year, :week, :cid, :w, 2, :sources, 1, :n)
     """), {"school": school, "grade": grade, "stream": stream, "year": year,
-           "week": week, "cid": concept_id, "w": weight, "sources": sources})
+           "week": week, "cid": concept_id, "w": weight, "sources": sources,
+           "n": students})
+    db.commit()
+
+
+def _assignment_obs(db, week, concept_id, student_id, year="2025-2026",
+                    school="SRL-E", grade="F1", stream="E", excluded=None):
+    db.execute(text("""
+        INSERT INTO school_topic_observations
+            (school, grade, lang_stream, academic_year, week_number, concept_id,
+             source, confidence, is_revision, source_ref, student_id, excluded_reason)
+        VALUES (:school, :grade, :stream, :year, :week, :cid, 'assignment', 0.7, 0,
+                :ref, :sid, :excluded)
+    """), {"school": school, "grade": grade, "stream": stream, "year": year,
+           "week": week, "cid": concept_id, "ref": f"session_exercise:{student_id}{week}",
+           "sid": student_id, "excluded": excluded})
     db.commit()
 
 
@@ -961,8 +978,9 @@ def test_timeline(client: TestClient, db_session):
     """))
     db_session.commit()
 
-    # rank_in_week only gates the view rows in (<= 3); the endpoint re-ranks
-    # by merged weight, so concept 1 (3.0) leads concept 2 (1.0) either way.
+    # The endpoint reads every rank and re-ranks by merged weight, so the
+    # view's own rank_in_week does not decide the order: concept 1 (3.0)
+    # leads concept 2 (1.0) either way.
     db_session.execute(text(
         "UPDATE school_week_topic_consensus SET rank_in_week = 2 WHERE concept_id = 2"))
     db_session.commit()
@@ -1051,6 +1069,164 @@ def test_coverage(client: TestClient, db_session):
     assert srl["weeks_observed"] == 2
     assert srl["total_weight"] == 1.85
     assert srl["tutor_confirms"] == 1
+
+
+def _timeline(client, **params):
+    return client.get("/api/curriculum/timeline", params={
+        "school": "SRL-E", "grade": "F1", "lang_stream": "E",
+        "academic_year": "2025-2026", **params,
+    }, cookies=AUTH_COOKIE).json()
+
+
+def test_timeline_flags_a_topic_only_one_student_stands_behind(
+        client: TestClient, db_session):
+    _consensus_row(db_session, week=10, concept_id=1, weight=0.7,
+                   sources="assignment", students=1)
+    _consensus_row(db_session, week=10, concept_id=2, weight=1.05,
+                   sources="assignment", students=2)
+    _consensus_row(db_session, week=10, concept_id=3, weight=0.6,
+                   sources="prep_folder", students=0)
+
+    concepts = {c["concept_id"]: c for c in _timeline(client)["weeks"][0]["concepts"]}
+    assert concepts[1]["thin"] is True
+    assert concepts[1]["student_count"] == 1
+    assert concepts[2]["thin"] is False
+    # A prep folder is somebody saying what the school is on, so it is never thin.
+    assert concepts[3]["thin"] is False
+
+
+def test_timeline_tie_goes_to_the_topic_with_more_students(client: TestClient, db_session):
+    # Both reach the capped weight, which used to leave the lower id on top.
+    _consensus_row(db_session, week=10, concept_id=1, weight=1.4,
+                   sources="assignment", students=3)
+    _consensus_row(db_session, week=10, concept_id=2, weight=1.4,
+                   sources="assignment", students=13)
+
+    wk = _timeline(client)["weeks"][0]
+    assert [c["concept_id"] for c in wk["concepts"]] == [2, 1]
+
+
+def test_timeline_tie_goes_to_the_topic_of_the_grade(client: TestClient, db_session):
+    db_session.execute(text(
+        "UPDATE curriculum_concepts SET grade = 'F2' WHERE id = 1"))
+    db_session.commit()
+    # Concept 1 is an F2 chapter with the lower id, which used to win the tie.
+    _consensus_row(db_session, week=10, concept_id=1, weight=0.7)
+    _consensus_row(db_session, week=10, concept_id=2, weight=0.7)
+
+    wk = _timeline(client)["weeks"][0]
+    assert [c["concept_id"] for c in wk["concepts"]] == [2, 1]
+
+
+def test_timeline_tie_goes_to_the_topic_the_school_was_already_on(
+        client: TestClient, db_session):
+    _consensus_row(db_session, week=10, concept_id=2, weight=0.7)
+    _consensus_row(db_session, week=11, concept_id=1, weight=0.7)
+    _consensus_row(db_session, week=11, concept_id=2, weight=0.7)
+
+    weeks = {w["week_number"]: w for w in _timeline(client)["weeks"]}
+    assert [c["concept_id"] for c in weeks[11]["concepts"]] == [2, 1]
+
+
+def test_suggestions_count_students_across_the_window(client: TestClient, db_session):
+    _consensus_row(db_session, week=11, concept_id=1, weight=0.7,
+                   sources="assignment", students=1)
+    _consensus_row(db_session, week=10, concept_id=2, weight=0.7,
+                   sources="assignment", students=1)
+    _consensus_row(db_session, week=11, concept_id=2, weight=0.7,
+                   sources="assignment", students=1)
+    _assignment_obs(db_session, week=11, concept_id=1, student_id=1)
+    # Two different students in two different weeks: each week alone has one
+    # student, but the evidence line covers both weeks.
+    _assignment_obs(db_session, week=10, concept_id=2, student_id=1)
+    _assignment_obs(db_session, week=11, concept_id=2, student_id=4)
+    # Set-aside evidence does not count as a second student.
+    _assignment_obs(db_session, week=11, concept_id=1, student_id=4,
+                    excluded="grade_check")
+
+    why = {s["concept_id"]: s["why"] for s in _get(client).json()["suggestions"]}
+    assert why[1]["student_count"] == 1
+    assert why[1]["thin"] is True
+    assert why[2]["student_count"] == 2
+    assert why[2]["thin"] is False
+
+
+def test_suggestion_tie_goes_to_the_students_grade(client: TestClient, db_session):
+    db_session.execute(text(
+        "UPDATE curriculum_concepts SET grade = 'F2' WHERE id = 1"))
+    db_session.commit()
+    _consensus_row(db_session, week=11, concept_id=1, weight=0.7)
+    _consensus_row(db_session, week=11, concept_id=2, weight=0.7)
+
+    body = _get(client).json()
+    assert [s["concept_id"] for s in body["suggestions"]] == [2, 1]
+
+
+def test_coverage_ignores_set_aside_evidence(client: TestClient, db_session):
+    _assignment_obs(db_session, week=10, concept_id=1, student_id=1)
+    _assignment_obs(db_session, week=11, concept_id=1, student_id=1,
+                    excluded="grade_check")
+
+    body = client.get("/api/curriculum/coverage", cookies=AUTH_COOKIE).json()
+    assert body[0]["weeks_observed"] == 1
+
+
+def _as_admin():
+    app.dependency_overrides[get_current_user] = lambda: Tutor(
+        id=99, user_email="me@example.com", tutor_name="Me", role="Admin",
+        is_active_tutor=True,
+    )
+
+
+def _current_week(db_session):
+    from datetime import date, timedelta
+    db_session.execute(text("""
+        INSERT INTO academic_weeks (academic_year, week_number, week_start_date, week_end_date)
+        VALUES ('2025-2026', 44, :start, :end)
+    """), {"start": (date.today() - timedelta(days=3)).isoformat(),
+           "end": (date.today() + timedelta(days=3)).isoformat()})
+    db_session.commit()
+
+
+def test_grade_check_is_admin_only(client: TestClient):
+    assert client.get("/api/curriculum/grade-check",
+                      cookies=AUTH_COOKIE).status_code == 403
+
+
+def test_grade_check_lists_students_set_aside_this_year(client: TestClient, db_session):
+    _as_admin()
+    _current_week(db_session)
+    db_session.execute(text(
+        "UPDATE curriculum_concepts SET grade = 'F1' WHERE id IN (1, 2)"))
+    db_session.execute(text(
+        "UPDATE students SET grade = 'F2' WHERE id = 1"))
+    db_session.commit()
+    for week, cid in ((1, 1), (2, 1), (2, 2)):
+        _assignment_obs(db_session, week=week, concept_id=cid, student_id=1,
+                        grade="F2", excluded="grade_check")
+    # Last year's flags are not this year's business.
+    _assignment_obs(db_session, week=3, concept_id=1, student_id=4, grade="F2",
+                    year="2024-2025", excluded="grade_check")
+
+    body = client.get("/api/curriculum/grade-check", cookies=AUTH_COOKIE).json()
+    assert body["academic_year"] == "2025-2026"
+    assert len(body["students"]) == 1
+    amy = body["students"][0]
+    assert amy["student_id"] == 1
+    assert amy["grade"] == "F2"
+    assert amy["worksheet_grade"] == "F1"
+    assert (amy["first_week"], amy["last_week"]) == (1, 2)
+
+
+def test_grade_check_drops_a_student_once_their_grade_is_corrected(
+        client: TestClient, db_session):
+    _as_admin()
+    _current_week(db_session)
+    _assignment_obs(db_session, week=1, concept_id=1, student_id=1,
+                    grade="F2", excluded="grade_check")
+    # The rows were filed under F2, but the record now says F1 again.
+    body = client.get("/api/curriculum/grade-check", cookies=AUTH_COOKIE).json()
+    assert body["students"] == []
 
 
 # ---------------------------------------------------------------------------

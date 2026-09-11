@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Map as MapIcon, FileText, Loader2, TriangleAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,13 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
-import { useCurriculumConcepts, useCurriculumCoverage, useCurriculumTimeline } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  useCurriculumConcepts,
+  useCurriculumCoverage,
+  useCurriculumGradeCheck,
+  useCurriculumTimeline,
+} from "@/lib/hooks";
 import {
   computeConceptLanes,
   mergePacingRows,
@@ -18,7 +25,7 @@ import {
   type ConceptLane,
   type PacingRow,
 } from "@/lib/curriculum-bands";
-import { conceptNameForStream, sourcesText } from "@/lib/curriculum-labels";
+import { conceptNameForStream, evidenceSourcesText } from "@/lib/curriculum-labels";
 import {
   ATLAS_GRADES,
   previousAcademicYear,
@@ -28,7 +35,7 @@ import { CurriculumAtlas } from "@/components/curriculum/CurriculumAtlas";
 import { CurriculumExamStrip } from "@/components/curriculum/CurriculumExamStrip";
 import { CurriculumSearch } from "@/components/curriculum/CurriculumSearch";
 import { CurriculumTopicFiles } from "@/components/curriculum/CurriculumTopicFiles";
-import type { CurriculumPacingBand } from "@/types";
+import type { CurriculumGradeCheckStudent, CurriculumPacingBand } from "@/types";
 
 const selectClass =
   "text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/60 dark:border-[#8b6f47] bg-white dark:bg-[#1a1a1a] text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500";
@@ -247,7 +254,7 @@ const GanttLanes = memo(function GanttLanes({
                         : "Weaker signal this week"
                     }
                   >
-                    Wk {w.week_number} · {sourcesText(w.sources)}
+                    Wk {w.week_number} · {evidenceSourcesText(w.sources, w.thin)}
                   </span>
                 ))}
               </div>
@@ -396,12 +403,56 @@ const PacingChartRows = memo(function PacingChartRows({
   );
 });
 
+/** Students whose worksheets sit mostly below the grade on their record while
+ *  their school's own plans do not. The weekly topics leave them out, and
+ *  admin is asked to check the grade, since only a person can tell a
+ *  repeating student from catch-up work. */
+function GradeCheckNote({ students }: { students: CurriculumGradeCheckStudent[] }) {
+  return (
+    <div className="px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-[11px] text-amber-900 dark:text-amber-200">
+      <div className="flex items-start gap-2">
+        <TriangleAlert className="h-3.5 w-3.5 mt-0.5 text-amber-600 shrink-0" />
+        <p>Most of their worksheets are from a lower grade. Please check their grade.</p>
+      </div>
+      <ul className="mt-1.5 ml-[1.375rem] space-y-0.5">
+        {students.map((s) => (
+          <li key={s.student_id} className="flex flex-wrap items-baseline gap-x-1.5">
+            <span className="text-amber-700/80 dark:text-amber-300/70">
+              {s.home_location ? `${s.home_location}-` : ""}
+              {s.school_student_id}
+            </span>
+            <Link
+              href={`/students/${s.student_id}`}
+              target="_blank"
+              className="font-medium hover:underline"
+            >
+              {s.student_name}
+            </Link>
+            <span className="text-amber-800/80 dark:text-amber-200/80">
+              {s.school} {s.grade} on record
+              {s.worksheet_grade ? ` · worksheets mostly ${s.worksheet_grade}` : ""}
+              {" · "}
+              {s.first_week === s.last_week
+                ? `week ${s.first_week}`
+                : `weeks ${s.first_week} to ${s.last_week}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function CurriculumPage() {
   const {
     data: coverage,
     isLoading: coverageLoading,
     error: coverageError,
   } = useCurriculumCoverage();
+
+  // Students the grade check set aside. Only admin viewers can see who.
+  const { canViewAdminPages } = useAuth();
+  const { data: gradeCheck } = useCurriculumGradeCheck(canViewAdminPages);
 
   // Paper texture is skipped on mobile, same as the other desk pages.
   const isMobile = useIsMobile();
@@ -868,6 +919,10 @@ export default function CurriculumPage() {
           </div>
         </div>
 
+        {gradeCheck && gradeCheck.students.length > 0 && (
+          <GradeCheckNote students={gradeCheck.students} />
+        )}
+
         {/* Free search */}
         <CurriculumSearch
           scope={
@@ -1136,7 +1191,7 @@ export default function CurriculumPage() {
                             <span
                               className={cn(
                                 "text-[11px] truncate",
-                                c.rank === 1
+                                c.rank === 1 && !c.thin
                                   ? "font-medium text-teal-800 dark:text-teal-300"
                                   : "text-gray-600 dark:text-gray-400"
                               )}
@@ -1144,7 +1199,11 @@ export default function CurriculumPage() {
                               {conceptNameForStream(c, effectiveStream)}
                             </span>
                             <span className="text-[9px] text-gray-400 shrink-0">
-                              {c.rank === 1 ? "Main topic" : "Also covered"}
+                              {c.thin
+                                ? "One student only"
+                                : c.rank === 1
+                                  ? "Main topic"
+                                  : "Also covered"}
                             </span>
                             <button
                               type="button"

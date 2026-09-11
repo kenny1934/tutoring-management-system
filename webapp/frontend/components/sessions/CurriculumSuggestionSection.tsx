@@ -71,8 +71,11 @@ function evidenceLine(
     return span ? `Typically around ${span}` : "Typical pace for this school";
   }
   const sources = (why.sources || []).map((s) => SOURCE_LABELS[s] || s);
-  const sourceText =
-    sources.length > 1
+  // One student's worksheets are too little to call it the school's topic,
+  // so the line says that is all there is.
+  const sourceText = why.thin
+    ? "one student's assignments"
+    : sources.length > 1
       ? `${sources.slice(0, -1).join(", ")} and ${sources[sources.length - 1]}`
       : sources[0] || "past records";
   const prefix = why.tier === "last_year" ? "Last year, seen in" : "Seen in";

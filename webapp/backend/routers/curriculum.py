@@ -17,6 +17,7 @@ Endpoints:
   GET  /curriculum/coverage      observation coverage per combo (gap finding)
   GET  /curriculum/exams         a school-grade's tests with parsed scopes
   GET  /curriculum/revision-pack/{id}  one test's scope concepts + files
+  GET  /curriculum/grade-check   students the grade check set aside (admin)
 
 Concept evidence for suggestions is tried in tiers, strongest first:
   this_year — observations for the current academic year, weeks w-2..w,
@@ -48,7 +49,7 @@ from pydantic import BaseModel
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, require_admin_view
 from constants import as_date, hk_now, today_hk
 from curriculum import exam_scope
 from curriculum.paths import KNOWN_EXT_RE, basename_key, normalize
@@ -190,6 +191,40 @@ def _consensus_rows(db, school, grade, stream, year, week_lo, week_hi):
     """), params).fetchall()
 
 
+def _window_students(db, school, grade, stream, year, week_lo, week_hi, concept_ids):
+    """{concept_id: distinct students} behind the assignment evidence in a window.
+
+    The view counts students per week, so two students in two different weeks
+    would each read as one. The evidence line names a whole window, which is
+    why this counts across it."""
+    if not concept_ids:
+        return {}
+    stream_where, stream_param = _stream_where(stream)
+    stmt = text(f"""
+        SELECT concept_id, COUNT(DISTINCT student_id) AS students
+        FROM school_topic_observations
+        WHERE school = :school AND grade = :grade {stream_where}
+          AND academic_year = :year
+          AND week_number BETWEEN :lo AND :hi
+          AND source = 'assignment' AND is_revision = FALSE
+          AND excluded_reason IS NULL AND concept_id IN :ids
+        GROUP BY concept_id
+    """).bindparams(bindparam("ids", expanding=True))
+    params = {"school": school, "grade": grade, "year": year, "lo": week_lo,
+              "hi": week_hi, "ids": list(concept_ids), **stream_param}
+    return {row.concept_id: int(row.students) for row in db.execute(stmt, params)}
+
+
+def _is_thin(sources, student_count):
+    """Whether a topic rests on nothing but one student's worksheets.
+
+    Only assignment evidence can be thin. A prep folder, a curriculum sheet or
+    a tutor's confirmation is somebody saying what the school is on, which
+    one student's worksheets are not, since that student may be revising,
+    catching up or working ahead of the class."""
+    return set(sources) == {"assignment"} and student_count <= 1
+
+
 def _score_consensus(rows, current_week):
     """Aggregate view rows into per-concept scores with evidence."""
     scored = defaultdict(lambda: {"score": 0.0, "weight": 0.0, "weeks": set(), "sources": set()})
@@ -207,11 +242,17 @@ def _score_consensus(rows, current_week):
 
 def _predict_concepts(db, school, grade, stream, year, week):
     """Return (tier, {concept_id: evidence}) — first tier with rows wins."""
+    def with_students(scored, in_year, lo, hi):
+        counts = _window_students(db, school, grade, stream, in_year, lo, hi, list(scored))
+        for concept_id, entry in scored.items():
+            entry["students"] = counts.get(concept_id, 0)
+        return scored
+
     # Tier 1: this year, current week and the two before it.
     rows = _consensus_rows(db, school, grade, stream, year, week - 2, week)
     scored = _score_consensus(rows, week)
     if scored:
-        return "this_year", scored
+        return "this_year", with_students(scored, year, week - 2, week)
 
     # Tier 2: last year around the same week (future weeks exist there).
     prior = _prior_year(year)
@@ -219,7 +260,7 @@ def _predict_concepts(db, school, grade, stream, year, week):
         rows = _consensus_rows(db, school, grade, stream, prior, week - 2, week + 2)
         scored = _score_consensus(rows, week)
         if scored:
-            return "last_year", scored
+            return "last_year", with_students(scored, prior, week - 2, week + 2)
 
     # Tier 3: all-years pacing band.
     stream_where, stream_param = _stream_where(stream)
@@ -908,8 +949,16 @@ def get_curriculum_suggestions(
         top = _ranked_scope(scope)[:MAX_CONCEPTS]
     else:
         tier = timeline_tier
+        # A tie goes to the topic with more students behind it, then to the
+        # one that belongs to the student's own grade, and only then to the
+        # lower id, so an earlier grade's chapter cannot win a tie by being
+        # numbered first.
+        grades = {cid: m.get("grade") for cid, m in _concept_meta(db, set(scored)).items()}
         top = sorted(scored.items(),
-                     key=lambda kv: (-kv[1]["score"], kv[0]))[:MAX_CONCEPTS]
+                     key=lambda kv: (-round(kv[1]["score"], 6),
+                                     -kv[1].get("students", 0),
+                                     grades.get(kv[0]) != student.grade,
+                                     kv[0]))[:MAX_CONCEPTS]
     base["tier"] = tier
     if not top:
         # Nothing to suggest is the most valuable question of all: this is a
@@ -939,12 +988,16 @@ def get_curriculum_suggestions(
                 "scope_lines": evidence["lines"],
             }
         else:
+            sources = sorted(s for s in evidence["sources"] if s)
             why = {
                 "tier": tier,
                 "weight": round(evidence["weight"], 2),
-                "sources": sorted(s for s in evidence["sources"] if s),
+                "sources": sources,
                 "weeks_observed": sorted(evidence["weeks"]),
             }
+            if "students" in evidence:
+                why["student_count"] = evidence["students"]
+                why["thin"] = _is_thin(sources, evidence["students"])
             if "mean_week" in evidence:
                 why["mean_week"] = evidence["mean_week"]
                 why["years_observed"] = evidence["years_observed"]
@@ -1579,6 +1632,35 @@ def delete_observation(
 # Explorer data
 # ---------------------------------------------------------------------------
 
+def _rank_timeline_weeks(weeks, grade, concept_grades, keep=3):
+    """{week: top entries} from {week: {concept_id: merged entry}}.
+
+    Weight decides first. A tie goes to the topic with more students behind
+    it, which matters because the view stops adding weight at three students,
+    then to the topic that belongs to the grade being looked at, then to one
+    the school was already on the week before, and only then to the lower
+    concept id. Before this the id alone broke ties, so an earlier grade's
+    chapter won just by being numbered first.
+    Each kept entry gets its rank and a `thin` flag for a topic that rests on
+    nothing but one student's worksheets."""
+    ranked = {}
+    for wk, by_concept in weeks.items():
+        before = weeks.get(wk - 1, {})
+        entries = sorted(by_concept.values(), key=lambda e: (
+            -round(e["weight"], 6),
+            -e["student_count"],
+            concept_grades.get(e["concept_id"]) != grade,
+            e["concept_id"] not in before,
+            e["concept_id"],
+        ))[:keep]
+        for rank, e in enumerate(entries, start=1):
+            e["rank"] = rank
+            e["sources"] = sorted(e["sources"])
+            e["thin"] = _is_thin(e["sources"], e["student_count"])
+        ranked[wk] = entries
+    return ranked
+
+
 @router.get("/curriculum/timeline")
 def get_timeline(
     school: str = Query(..., max_length=255),
@@ -1611,33 +1693,33 @@ def get_timeline(
     # partition (NULL-stream rows form their own partition), so a school with
     # both tagged and untagged observations would surface the same concept
     # twice — two rank-1 rows per week, two pacing bands per concept. Merge
-    # partitions per (week, concept) and re-rank by merged weight.
+    # partitions per (week, concept) and re-rank by merged weight. Every rank
+    # is read, not just the view's top three, because a merge can lift a
+    # fourth-placed concept into the top three.
     weeks = defaultdict(dict)
-    concept_ids = set()
     if year:
         for row in db.execute(text(f"""
-            SELECT week_number, concept_id, weight, source_count, sources
+            SELECT week_number, concept_id, weight, source_count, sources, student_count
             FROM school_week_topic_consensus
             WHERE school = :school AND grade = :grade {stream_where}
-              AND academic_year = :year AND rank_in_week <= 3
+              AND academic_year = :year
         """), {**params, "year": year}):
             entry = weeks[row.week_number].setdefault(row.concept_id, {
                 "concept_id": row.concept_id,
                 "weight": 0.0,
                 "source_count": 0,
                 "sources": set(),
+                "student_count": 0,
             })
             entry["weight"] += float(row.weight)
             entry["source_count"] += row.source_count
             entry["sources"].update(s for s in (row.sources or "").split(",") if s)
-    week_entries = {}
-    for wk, by_concept in weeks.items():
-        entries = sorted(by_concept.values(), key=lambda e: (-e["weight"], e["concept_id"]))[:3]
-        for rank, e in enumerate(entries, start=1):
-            e["rank"] = rank
-            e["sources"] = sorted(e["sources"])
-            concept_ids.add(e["concept_id"])
-        week_entries[wk] = entries
+            # A student has one stream, so partitions never share a student.
+            entry["student_count"] += int(row.student_count or 0)
+    week_grades = {cid: m.get("grade") for cid, m in _concept_meta(
+        db, {cid for by_concept in weeks.values() for cid in by_concept}).items()}
+    week_entries = _rank_timeline_weeks(weeks, grade, week_grades)
+    concept_ids = {e["concept_id"] for entries in week_entries.values() for e in entries}
 
     pacing_by_concept = {}
     for row in db.execute(text(f"""
@@ -1742,7 +1824,74 @@ def get_coverage(
                    ROUND(SUM(confidence), 2) AS total_weight,
                    SUM(source = 'tutor_confirm') AS tutor_confirms
             FROM school_topic_observations
+            WHERE excluded_reason IS NULL
             GROUP BY school, grade, lang_stream, academic_year
             ORDER BY school, grade, lang_stream, academic_year
         """))
     ]
+
+
+@router.get("/curriculum/grade-check")
+def get_grade_check(
+    _user: Tutor = Depends(require_admin_view),
+    db: Session = Depends(get_db),
+):
+    """Students whose worksheets the grade check set aside this school year.
+
+    The nightly rebuild flags a student whose worksheets sit mostly below the
+    grade on their record while their school's own plans do not (see
+    curriculum/grade_check.py). That is a repeating student whose grade was
+    never moved back, or catch-up work, and only a person can tell which. So
+    this list is a question for admin, not a verdict.
+
+    A student leaves the list the moment their grade on record changes,
+    without waiting for the next rebuild: the rows were filed under the grade
+    the record had then, so a record that no longer matches has been dealt
+    with.
+    """
+    week_row = _week_for_date(db, hk_now().date())
+    if not week_row:
+        return {"academic_year": None, "students": []}
+    year = week_row[0]
+    rows = db.execute(text("""
+        SELECT o.student_id, s.student_name, s.school_student_id, s.home_location,
+               o.school, o.grade, c.grade AS concept_grade,
+               COUNT(*) AS topic_weeks,
+               MIN(o.week_number) AS first_week, MAX(o.week_number) AS last_week
+        FROM school_topic_observations o
+        JOIN students s ON s.id = o.student_id
+        LEFT JOIN curriculum_concepts c ON c.id = o.concept_id
+        WHERE o.excluded_reason = 'grade_check' AND o.academic_year = :year
+          AND s.grade = o.grade
+        GROUP BY o.student_id, s.student_name, s.school_student_id, s.home_location,
+                 o.school, o.grade, c.grade
+    """), {"year": year}).fetchall()
+
+    students = {}
+    for r in rows:
+        entry = students.setdefault(r.student_id, {
+            "student_id": r.student_id,
+            "student_name": r.student_name,
+            "school_student_id": r.school_student_id,
+            "home_location": r.home_location,
+            "school": r.school,
+            "grade": r.grade,
+            "worksheet_grades": defaultdict(int),
+            "first_week": r.first_week,
+            "last_week": r.last_week,
+        })
+        if r.concept_grade:
+            entry["worksheet_grades"][r.concept_grade] += r.topic_weeks
+        entry["first_week"] = min(entry["first_week"], r.first_week)
+        entry["last_week"] = max(entry["last_week"], r.last_week)
+
+    out = []
+    for entry in students.values():
+        counts = entry.pop("worksheet_grades")
+        # The grade most of their worksheets came from, which is what admin
+        # compares with the record.
+        entry["worksheet_grade"] = (max(counts, key=lambda g: (counts[g], g))
+                                    if counts else None)
+        out.append(entry)
+    out.sort(key=lambda e: (e["school"] or "", e["student_name"] or ""))
+    return {"academic_year": year, "students": out}

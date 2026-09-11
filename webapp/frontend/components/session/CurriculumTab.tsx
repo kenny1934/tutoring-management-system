@@ -14,7 +14,7 @@ import {
   curriculumExplorerHref,
   isCurriculumEligible,
   priorAcademicYear,
-  sourcesText,
+  evidenceSourcesText,
 } from "@/lib/curriculum-labels";
 
 interface WeekData {
@@ -87,7 +87,7 @@ function WeekSection({
                   <p
                     className={cn(
                       "text-xs leading-relaxed",
-                      c.rank === 1
+                      c.rank === 1 && !c.thin
                         ? "font-medium text-foreground/90"
                         : "text-foreground/70"
                     )}
@@ -95,7 +95,7 @@ function WeekSection({
                     {conceptNameForStream(c, langStream)}
                   </p>
                   <p className="text-[10px] text-foreground/50">
-                    Seen in {sourcesText(c.sources)}
+                    Seen in {evidenceSourcesText(c.sources, c.thin)}
                   </p>
                 </div>
               ))}

@@ -1,6 +1,8 @@
 // Turns the weekly consensus timeline into Gantt-style concept lanes for the
 // Curriculum page: one lane per concept, bands spanning consecutive weeks,
-// solid where the concept held rank 1 and faint where it was rank 2-3.
+// solid where the concept held rank 1 and faint where it was rank 2-3. A
+// rank-1 week that rests on one student's worksheets alone is drawn faint as
+// well, because that is not enough to call it the school's main topic.
 import type {
   CurriculumPacingBand,
   CurriculumTimelineConcept,
@@ -12,6 +14,8 @@ export interface LaneWeek {
   rank: number;
   weight: number;
   sources: string[];
+  /** Only one student's worksheets put the topic in this week. */
+  thin: boolean;
 }
 
 export interface LaneSegment {
@@ -60,6 +64,7 @@ export function computeConceptLanes(weeks: TimelineWeek[]): ConceptLane[] {
           existing.rank = c.rank;
           existing.weight = c.weight;
           existing.sources = c.sources;
+          existing.thin = !!c.thin;
         }
       } else {
         lane.weeks.push({
@@ -67,6 +72,7 @@ export function computeConceptLanes(weeks: TimelineWeek[]): ConceptLane[] {
           rank: c.rank,
           weight: c.weight,
           sources: c.sources,
+          thin: !!c.thin,
         });
       }
       lane.firstWeek = Math.min(lane.firstWeek, week.week_number);
@@ -78,7 +84,7 @@ export function computeConceptLanes(weeks: TimelineWeek[]): ConceptLane[] {
     lane.weeks.sort((a, b) => a.week_number - b.week_number);
     let current: LaneSegment | null = null;
     for (const w of lane.weeks) {
-      const primary = w.rank === 1;
+      const primary = w.rank === 1 && !w.thin;
       if (
         current &&
         w.week_number === current.endWeek + 1 &&

@@ -314,8 +314,10 @@ export type AtlasStatus = "covered" | "current" | "coming-up" | "no-data";
 
 /**
  * Progress tier per concept for the selected school-grade, from the timeline
- * response. This year's observations win; pacing fills the gaps. Returns an
- * empty map when there is no current week (past years get no overlay).
+ * response. This year's observations win; pacing fills the gaps. A week that
+ * rests on one student's worksheets alone is not counted as an observation.
+ * Returns an empty map when there is no current week (past years get no
+ * overlay).
  */
 export function computeAtlasStatus(
   weeks: { week_number: number; concepts: CurriculumTimelineConcept[] }[],
@@ -329,6 +331,8 @@ export function computeAtlasStatus(
   for (const w of weeks) {
     if (w.week_number > currentWeek) continue;
     for (const c of w.concepts) {
+      // One student's worksheets are not enough to say where the school is.
+      if (c.thin) continue;
       lastObserved.set(
         c.concept_id,
         Math.max(lastObserved.get(c.concept_id) ?? 0, w.week_number)
@@ -364,7 +368,8 @@ export function previousAcademicYear(year: string): string | null {
  * Concept ids a cohort was observed covering in earlier grades: the selected
  * class's own history (F3 2025-2026 was F2 in 2024-2025). The years are
  * finished, so any observation counts as covered — recency tiers and pacing
- * do not apply. Absence means "no record", not "not taught".
+ * do not apply — except one that rests on a single student's worksheets.
+ * Absence means "no record", not "not taught".
  */
 export function computeCohortCovered(
   weeksByYear: { week_number: number; concepts: CurriculumTimelineConcept[] }[][]
@@ -372,7 +377,9 @@ export function computeCohortCovered(
   const covered = new Set<number>();
   for (const weeks of weeksByYear) {
     for (const w of weeks) {
-      for (const c of w.concepts) covered.add(c.concept_id);
+      for (const c of w.concepts) {
+        if (!c.thin) covered.add(c.concept_id);
+      }
     }
   }
   return covered;

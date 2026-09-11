@@ -223,6 +223,7 @@ import type {
   CurriculumCoverageRow,
   CurriculumConceptVocab,
   CurriculumSearchResponse,
+  CurriculumGradeCheckResponse,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -1138,6 +1139,9 @@ export const curriculumAPI = {
   },
 
   getCoverage: () => fetchAPI<CurriculumCoverageRow[]>('/curriculum/coverage'),
+
+  /** Students the grade check set aside this school year. Admin view only. */
+  getGradeCheck: () => fetchAPI<CurriculumGradeCheckResponse>('/curriculum/grade-check'),
 
   getConcepts: () => fetchAPI<CurriculumConceptVocab[]>('/curriculum/concepts'),
 

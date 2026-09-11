@@ -43,6 +43,18 @@ describe("computeConceptLanes", () => {
     expect(lanes[0].lastWeek).toBe(12);
   });
 
+  it("draws a rank-1 week that rests on one student as faint", () => {
+    const lanes = computeConceptLanes([
+      { week_number: 1, concepts: [{ ...concept(1, 1), thin: true }] },
+      { week_number: 2, concepts: [concept(1, 1)] },
+    ]);
+    expect(lanes[0].segments).toEqual([
+      { startWeek: 1, endWeek: 1, primary: false },
+      { startWeek: 2, endWeek: 2, primary: true },
+    ]);
+    expect(lanes[0].weeks.map((w) => w.thin)).toEqual([true, false]);
+  });
+
   it("splits segments on week gaps", () => {
     const lanes = computeConceptLanes([
       { week_number: 10, concepts: [concept(1, 1)] },
@@ -84,7 +96,7 @@ describe("computeConceptLanes", () => {
       },
     ]);
     expect(lanes[0].weeks).toEqual([
-      { week_number: 10, rank: 1, weight: 4.2, sources: ["sheet"] },
+      { week_number: 10, rank: 1, weight: 4.2, sources: ["sheet"], thin: false },
     ]);
   });
 
@@ -96,7 +108,7 @@ describe("computeConceptLanes", () => {
       },
     ]);
     expect(lanes[0].weeks).toEqual([
-      { week_number: 10, rank: 1, weight: 5, sources: ["assignment", "prep_folder"] },
+      { week_number: 10, rank: 1, weight: 5, sources: ["assignment", "prep_folder"], thin: false },
     ]);
     expect(lanes[0].segments).toEqual([
       { startWeek: 10, endWeek: 10, primary: true },

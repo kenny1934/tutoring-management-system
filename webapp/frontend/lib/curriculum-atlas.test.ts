@@ -244,6 +244,15 @@ describe("computeAtlasStatus", () => {
     week_spread: 4,
   });
 
+  it("does not call a topic current on one student's worksheets", () => {
+    const status = computeAtlasStatus(
+      [{ week_number: 30, concepts: [{ concept_id: 1, thin: true } as never] }],
+      30,
+      []
+    );
+    expect(status.has(1)).toBe(false);
+  });
+
   it("tiers observed concepts by recency and fills gaps from pacing", () => {
     const status = computeAtlasStatus(
       [
@@ -302,6 +311,16 @@ describe("computeCohortCovered", () => {
       [{ week_number: 20, concepts: [{ concept_id: 7 } as never] }],
     ]);
     expect(covered).toEqual(new Set([1, 2, 7]));
+  });
+
+  it("leaves out topics that rest on one student's worksheets", () => {
+    const covered = computeCohortCovered([
+      [
+        { week_number: 3, concepts: [{ concept_id: 1, thin: true } as never] },
+        { week_number: 4, concepts: [{ concept_id: 2 } as never] },
+      ],
+    ]);
+    expect(covered).toEqual(new Set([2]));
   });
 
   it("returns an empty set with no history", () => {

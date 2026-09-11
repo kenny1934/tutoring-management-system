@@ -64,6 +64,13 @@ export function weeksSpanText(weeks: number[]): string {
   return `weeks ${first} to ${last}`;
 }
 
+/** Where a week's evidence came from. When one student's worksheets are all
+ *  there is, it says so, because that is too little to call it the school's
+ *  topic: the student may be revising, catching up or working ahead. */
+export function evidenceSourcesText(sources: string[], thin?: boolean): string {
+  return thin ? "one student's assignments" : sourcesText(sources);
+}
+
 /** The standard evidence line under a topic: span first, then sources. */
 export function evidenceSummary(weeks: number[], sources: string[]): string {
   return `Seen in ${weeksSpanText(weeks)} · ${sourcesText(sources)}`;

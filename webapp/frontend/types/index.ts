@@ -727,6 +727,10 @@ export interface CurriculumConceptSuggestion {
     weeks_observed?: number[];
     mean_week?: number;
     years_observed?: number;
+    // this_year / last_year: students behind the assignment evidence, and
+    // whether one student's worksheets are all there is
+    student_count?: number;
+    thin?: boolean;
     // exam_scope tier: the line(s) of the test's scope this topic came from
     confidence?: number;
     scope_lines?: string[];
@@ -890,6 +894,10 @@ export interface CurriculumTimelineConcept {
   source_count: number;
   sources: string[];
   rank: number;
+  /** Students whose worksheets put the topic in this week. */
+  student_count?: number;
+  /** Nothing but one student's worksheets stands behind the topic. */
+  thin?: boolean;
   name_en?: string | null;
   name_zh?: string | null;
   kind?: string;
@@ -937,6 +945,26 @@ export interface CurriculumCoverageRow {
   last_week: number;
   total_weight: number;
   tutor_confirms: number;
+}
+
+/** A student the grade check set aside: their worksheets sit mostly below
+ *  the grade on their record while their school's own plans do not. */
+export interface CurriculumGradeCheckStudent {
+  student_id: number;
+  student_name: string;
+  school_student_id: string | null;
+  home_location: string | null;
+  school: string;
+  grade: string;
+  /** The grade most of their worksheets came from. */
+  worksheet_grade: string | null;
+  first_week: number;
+  last_week: number;
+}
+
+export interface CurriculumGradeCheckResponse {
+  academic_year: string | null;
+  students: CurriculumGradeCheckStudent[];
 }
 
 export interface CurriculumConceptVocab {

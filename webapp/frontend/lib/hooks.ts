@@ -5,7 +5,7 @@ import { CODE_TO_LOCATION, INACTIVE_APP_STATUSES } from './summer-utils';
 import { pickableTutors } from './employment';
 import { isCurriculumEligible } from './curriculum-labels';
 import { isFileSystemAccessSupported } from './file-system';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, SummerCourseFormConfig, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, TutorYearMatrixResponse, CoursewarePopularity, CoursewareUsageDetail, CurriculumSuggestionsResponse, CurriculumTimelineResponse, CurriculumCoverageRow, CurriculumGradeCheckResponse, CurriculumConceptVocab, CurriculumSearchResponse, CurriculumExamsResponse, CurriculumRevisionPackResponse, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, AgedPendingMakeupsCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse, StudentProgress, PrimaryProspect, HomeworkCompletion, DepartureLoad, EmploymentOverrun, StudentCouponResponse, SummerApplication, SummerCourseFormConfig, PrimaryProspectMatchResult, ProspectCourse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -846,6 +846,18 @@ export function useCurriculumCoverage() {
   return useSWR<CurriculumCoverageRow[]>(
     'curriculum-coverage',
     () => curriculumAPI.getCoverage()
+  );
+}
+
+/**
+ * Hook for the students the grade check set aside this school year. Only
+ * fetched for admin viewers, since the endpoint refuses everyone else.
+ */
+export function useCurriculumGradeCheck(enabled: boolean) {
+  return useSWR<CurriculumGradeCheckResponse>(
+    enabled ? 'curriculum-grade-check' : null,
+    () => curriculumAPI.getGradeCheck(),
+    { revalidateOnFocus: false }
   );
 }
 
