@@ -259,7 +259,7 @@ export function LessonMode({
   // F2: Annotation state with sessionStorage persistence
   const {
     getAnnotations, getAllAnnotations, setPageStrokes, undo, redo,
-    clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
+    clearPage, clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
   } = useAnnotations(`lesson-annotations-${session.id}`);
   // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
   const tools = useAnnotationTools();
@@ -634,11 +634,18 @@ export function LessonMode({
     if (updated) setCurrentAnnotations(updated);
   }, [selectedExercise, redo]);
 
+  // Both clears can be undone, and the tray offers an Undo straight after each one.
   const handleClearAllAnnotations = useCallback(() => {
     if (!selectedExercise) return;
     clearAnnotations(selectedExercise.id);
     setCurrentAnnotations({});
   }, [selectedExercise, clearAnnotations]);
+
+  const handleClearPage = useCallback((pageIndex: number) => {
+    if (!selectedExercise) return;
+    clearPage(selectedExercise.id, pageIndex);
+    setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: [] }));
+  }, [selectedExercise, clearPage]);
 
   // A preview is class-wide, so it has no student stamp, on screen or in the saved file.
   const viewerStamp = selectedExercise && isPreviewExercise(selectedExercise) ? undefined : stamp;
@@ -1343,6 +1350,7 @@ export function LessonMode({
                   onUndo={handleUndo}
                   onRedo={handleRedo}
                   onClearAll={handleClearAllAnnotations}
+                  onClearPage={handleClearPage}
                   hasAnnotations={exerciseHasAnnotations}
                   onSaveAnnotated={handleSaveAnnotated}
                   onAnswerKeyToggle={handleAnswerKeyToggle}

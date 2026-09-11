@@ -172,7 +172,7 @@ export function LessonWideMode({
   const annotationKey = `lesson-wide-annotations-${date}-${slot}-${tutorId}`;
   const {
     getAnnotations, getAllAnnotations, setPageStrokes, undo, redo,
-    clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
+    clearPage, clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
   } = useAnnotations(annotationKey);
   // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
   const tools = useAnnotationTools();
@@ -559,11 +559,18 @@ export function LessonWideMode({
     if (updated) setCurrentAnnotations(updated);
   }, [selectedEntry, redo]);
 
+  // Both clears can be undone, and the tray offers an Undo straight after each one.
   const handleClearAllAnnotations = useCallback(() => {
     if (!selectedEntry?.exercise) return;
     clearAnnotations(selectedEntry.exercise.id);
     setCurrentAnnotations({});
   }, [selectedEntry, clearAnnotations]);
+
+  const handleClearPage = useCallback((pageIndex: number) => {
+    if (!selectedEntry?.exercise) return;
+    clearPage(selectedEntry.exercise.id, pageIndex);
+    setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: [] }));
+  }, [selectedEntry, clearPage]);
 
   const exerciseHasAnnotations = selectedEntry?.exercise
     ? checkHasAnnotations(selectedEntry.exercise.id)
@@ -1505,6 +1512,7 @@ export function LessonWideMode({
                   onUndo={handleUndo}
                   onRedo={handleRedo}
                   onClearAll={handleClearAllAnnotations}
+                  onClearPage={handleClearPage}
                   hasAnnotations={exerciseHasAnnotations}
                   onSaveAnnotated={handleSaveAnnotated}
                   onAnswerKeyToggle={handleAnswerKeyToggle}

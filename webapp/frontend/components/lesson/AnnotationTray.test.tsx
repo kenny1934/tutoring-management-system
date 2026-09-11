@@ -58,14 +58,79 @@ describe("AnnotationTray", () => {
     expect(tools.eraser).toBe("stroke");
   });
 
-  it("asks for a second tap before clearing all ink", () => {
+  it("clears all ink in one tap, then offers to undo it", () => {
     const onClearAll = vi.fn();
-    render(<Harness onClearAll={onClearAll} />);
+    const onUndo = vi.fn();
+    render(<Harness onClearAll={onClearAll} onUndo={onUndo} />);
     fireEvent.click(button("More"));
     fireEvent.click(screen.getByRole("button", { name: /Clear all ink/ }));
-    expect(onClearAll).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /Tap again to clear all ink/ }));
     expect(onClearAll).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByRole("status")).toHaveTextContent("All the ink on this exercise was cleared.");
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Undo" }));
+    expect(onUndo).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("takes the undo message away once the ink changes some other way", () => {
+    const { rerender } = render(<Harness onClearAll={() => {}} onUndo={() => {}} inkRevision={{}} />);
+    fireEvent.click(button("More"));
+    fireEvent.click(screen.getByRole("button", { name: /Clear all ink/ }));
+    expect(screen.getByRole("status")).toBeInTheDocument();
+
+    rerender(<Harness onClearAll={() => {}} onUndo={() => {}} inkRevision={{}} />);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("clears only the page in view, and names it", () => {
+    const onClearPage = vi.fn();
+    render(<Harness onClearAll={() => {}} onClearPage={onClearPage} pageInView={{ number: 2, hasInk: true }} />);
+    fireEvent.click(button("More"));
+    fireEvent.click(screen.getByRole("button", { name: /Clear this page/ }));
+    expect(onClearPage).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Page 2 was cleared.");
+  });
+
+  it("leaves out Clear this page on a one-page exercise", () => {
+    render(<Harness onClearAll={() => {}} onClearPage={() => {}} />);
+    fireEvent.click(button("More"));
+    expect(screen.queryByRole("button", { name: /Clear this page/ })).toBeNull();
+  });
+
+  it("picks fading ink, and the collapsed tray says so", () => {
+    let tools!: AnnotationTools;
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    fireEvent.click(button("Fading ink"));
+    expect(tools.fading).toBe(true);
+    expect(tools.drawingEnabled).toBe(true);
+    fireEvent.click(button("Collapse the tray"));
+    expect(screen.getByRole("button", { name: /You are using fading ink./ })).toBeInTheDocument();
+  });
+
+  it("turns straight lines on for the colour you used last, keeps them on across colours, and drops them with the Hand", () => {
+    let tools!: AnnotationTools;
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    fireEvent.click(button("Blue pen"));
+    fireEvent.click(button("Hand: scroll the worksheet with one finger"));
+
+    fireEvent.click(button("Straight lines"));
+    expect(tools.tool).toBe("pen");
+    expect(tools.swatch.id).toBe("blue");
+    expect(button("Straight lines")).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(button("Yellow highlighter"));
+    expect(tools.straight).toBe(true);
+    expect(tools.tool).toBe("highlighter");
+
+    fireEvent.click(button("Straight lines"));
+    expect(tools.straight).toBe(false);
+    expect(tools.tool).toBe("highlighter");
+
+    fireEvent.click(button("Straight lines"));
+    fireEvent.click(button("Hand: scroll the worksheet with one finger"));
+    expect(tools.straight).toBe(false);
+    fireEvent.click(button("Red pen"));
+    expect(tools.straight).toBe(false);
   });
 
   it("greys out saving until there is ink to save", () => {
@@ -87,7 +152,7 @@ describe("AnnotationTray", () => {
 
   describe("in a viewer too narrow for the whole tray", () => {
     // jsdom has no layout, so give the tray's area the width in its data-width
-    // attribute, and give the full tray its real width of about 727px.
+    // attribute, and give the full tray its real width of about 844px.
     const restore: (() => void)[] = [];
     function stubGetter(name: "clientWidth" | "scrollWidth", get: (this: HTMLElement) => number) {
       const proto = HTMLElement.prototype;
@@ -100,7 +165,7 @@ describe("AnnotationTray", () => {
     }
     beforeEach(() => {
       stubGetter("clientWidth", function () { return Number(this.dataset.width ?? 0); });
-      stubGetter("scrollWidth", function () { return this.getAttribute("role") === "toolbar" ? 727 : 0; });
+      stubGetter("scrollWidth", function () { return this.getAttribute("role") === "toolbar" ? 844 : 0; });
     });
     afterEach(() => restore.splice(0).forEach((undo) => undo()));
 

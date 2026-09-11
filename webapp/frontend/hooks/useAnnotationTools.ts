@@ -6,9 +6,12 @@ import type { InkKind } from "./useAnnotations";
 
 /**
  * Which tool the lesson viewer's Pen Tray has picked. The Hand scrolls the
- * worksheet and draws nothing, so it is where every lesson starts.
+ * worksheet and draws nothing, so it is where every lesson starts. Fading ink
+ * is for pointing: its marks fade away by themselves and are never saved.
  */
-type AnnotationTool = "hand" | InkKind | "eraser";
+type AnnotationTool = "hand" | InkKind | "eraser" | "fade";
+
+const isInk = (tool: AnnotationTool): tool is InkKind => tool === "pen" || tool === "highlighter";
 
 export type InkSize = "S" | "M" | "L";
 
@@ -80,12 +83,18 @@ function readStored(): StoredTools {
 }
 
 /**
- * The Pen Tray's settings, shared by both lesson views: the tool, the colour
- * you last picked, each colour's size and the eraser size.
+ * The Pen Tray's settings, shared by both lesson views: the tool, whether
+ * straight lines are on, the colour you last picked, each colour's size and
+ * the eraser size.
  */
 export function useAnnotationTools() {
   const [stored] = useState(readStored);
-  const [tool, setTool] = useState<AnnotationTool>("hand");
+  // Straight lines is a switch on the pens and highlighters, so it's kept with
+  // the tool. Picking the Hand, the eraser or fading ink turns it off, so the
+  // next colour you pick always starts out freehand.
+  const [{ tool, straight }, setMode] = useState<{ tool: AnnotationTool; straight: boolean }>(
+    { tool: "hand", straight: false },
+  );
   const [swatchId, setSwatchId] = useState(stored.swatchId);
   const [sizes, setSizes] = useState(stored.sizes);
   const [eraser, setEraser] = useState<EraserSetting>(stored.eraser);
@@ -98,15 +107,26 @@ export function useAnnotationTools() {
 
   const swatch = findSwatch(swatchId) ?? INK_SWATCHES[0];
 
-  const selectHand = useCallback(() => setTool("hand"), []);
-  const selectEraser = useCallback(() => setTool("eraser"), []);
+  const selectHand = useCallback(() => setMode({ tool: "hand", straight: false }), []);
+  const selectEraser = useCallback(() => setMode({ tool: "eraser", straight: false }), []);
+  const selectFade = useCallback(() => setMode({ tool: "fade", straight: false }), []);
 
+  // Changing colour keeps straight lines on, so you can rule lines in several colours.
   const selectSwatch = useCallback((id: string) => {
     const next = findSwatch(id);
     if (!next) return;
     setSwatchId(id);
-    setTool(next.kind);
+    setMode((m) => ({ tool: next.kind, straight: isInk(m.tool) && m.straight }));
   }, []);
+
+  /**
+   * The Straight lines button. With a pen or highlighter picked, it switches
+   * straight lines on or off. With anything else picked, it goes back to the
+   * colour you used last with straight lines on.
+   */
+  const toggleStraight = useCallback(() => {
+    setMode((m) => (isInk(m.tool) ? { ...m, straight: !m.straight } : { tool: swatch.kind, straight: true }));
+  }, [swatch.kind]);
 
   const setSwatchSize = useCallback((id: string, size: InkSize) => {
     setSizes((prev) => ({ ...prev, [id]: size }));
@@ -118,15 +138,19 @@ export function useAnnotationTools() {
    * and goes back to the Hand.
    */
   const toggleFromKey = useCallback((key: "pen" | "eraser") => {
-    setTool((current) => {
-      if (key === "eraser") return current === "eraser" ? "hand" : "eraser";
-      if (current === "pen" || current === "highlighter") return "hand";
-      return swatch.kind;
+    setMode((m) => {
+      if (key === "eraser") return { tool: m.tool === "eraser" ? "hand" : "eraser", straight: false };
+      if (isInk(m.tool)) return { tool: "hand", straight: false };
+      return { tool: swatch.kind, straight: false };
     });
   }, [swatch.kind]);
 
   return useMemo(() => ({
     tool,
+    /** True when the picked pen or highlighter draws straight lines. */
+    straight,
+    /** True when fading ink is picked. */
+    fading: tool === "fade",
     /** The colour you picked last. A new stroke gets its colour and kind whenever a pen or highlighter is picked. */
     swatch,
     sizes,
@@ -139,11 +163,16 @@ export function useAnnotationTools() {
     eraserRadius: eraser === "stroke" ? null : ERASER_RADIUS[eraser],
     selectHand,
     selectEraser,
+    selectFade,
     selectSwatch,
+    toggleStraight,
     setSwatchSize,
     setEraser,
     toggleFromKey,
-  }), [tool, swatch, sizes, eraser, selectHand, selectEraser, selectSwatch, setSwatchSize, toggleFromKey]);
+  }), [
+    tool, straight, swatch, sizes, eraser,
+    selectHand, selectEraser, selectFade, selectSwatch, toggleStraight, setSwatchSize, toggleFromKey,
+  ]);
 }
 
 export type AnnotationTools = ReturnType<typeof useAnnotationTools>;

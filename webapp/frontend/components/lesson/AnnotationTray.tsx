@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Hand, Eraser, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
-  Eye, EyeOff, Trash2, Download,
+  Eye, EyeOff, Trash2, Download, WandSparkles,
 } from "lucide-react";
 import {
   useFloating, offset, flip, shift, autoUpdate, useDismiss, useInteractions, FloatingPortal,
@@ -26,6 +26,18 @@ interface AnnotationTrayProps {
   /** Whether this exercise has any ink, for clearing and saving. */
   hasInk: boolean;
   onClearAll?: () => void;
+  /**
+   * The page in view, for "Clear this page". Leave it out when the exercise
+   * has only one page, where clearing the page and clearing all are the same.
+   */
+  pageInView?: { number: number; hasInk: boolean };
+  onClearPage?: () => void;
+  /**
+   * Anything that changes whenever the ink does, such as the exercise's
+   * annotations object. The message offering to undo a clear goes away when
+   * it changes, so that message's Undo can only ever take back the clear.
+   */
+  inkRevision?: unknown;
   onSaveAnnotated?: () => void;
 }
 
@@ -50,6 +62,11 @@ const ERASER_CHOICES: { value: EraserSetting; title: string; circle?: number }[]
 ];
 
 type Pop = "sizes" | "eraser" | "more";
+
+// How long the message offering to undo a clear stays up.
+const UNDO_OFFER_MS = 8000;
+// Stands in for the ink the undo message saw, until it has seen the ink after the clear.
+const NOT_SEEN = Symbol("not seen");
 
 function readTrayState(): { dock: Dock; collapsed: boolean } {
   try {
@@ -110,7 +127,8 @@ function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big
  * only changes when the viewer is resized.
  */
 export function AnnotationTray({
-  tools, onUndo, onRedo, inkHidden, onInkHiddenChange, hasInk, onClearAll, onSaveAnnotated,
+  tools, onUndo, onRedo, inkHidden, onInkHiddenChange, hasInk, onClearAll,
+  pageInView, onClearPage, inkRevision, onSaveAnnotated,
 }: AnnotationTrayProps) {
   const [{ dock, collapsed }, setTrayState] = useState(readTrayState);
   const [morphing, setMorphing] = useState(false);
@@ -167,8 +185,6 @@ export function AnnotationTray({
   // The sizes pop-out only ever opens for the colour that's picked, so it
   // needs no note of which colour it's for.
   const [pop, setPop] = useState<Pop | null>(null);
-  const [clearArmed, setClearArmed] = useState(false);
-  const clearTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const { refs, floatingStyles, context } = useFloating({
     open: pop !== null,
     onOpenChange: (open) => { if (!open) setPop(null); },
@@ -178,15 +194,47 @@ export function AnnotationTray({
   });
   const { getFloatingProps } = useInteractions([useDismiss(context)]);
 
+  // ---------- Undoing a clear ----------
+  // Clearing takes one tap, and then a message above the tray offers to undo
+  // it. The message goes after a few seconds, or as soon as the ink changes in
+  // any other way, which includes the tray's own Undo.
+
+  const [undoOffer, setUndoOffer] = useState<string | null>(null);
+  const offerInkRef = useRef<unknown>(NOT_SEEN);
+  const offerTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const offerFloating = useFloating({
+    open: undoOffer !== null,
+    placement: "top",
+    middleware: [offset(10), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const offerUndo = (message: string) => {
+    offerFloating.refs.setReference(trayRef.current);
+    offerInkRef.current = NOT_SEEN;
+    setUndoOffer(message);
+    clearTimeout(offerTimer.current);
+    offerTimer.current = setTimeout(() => setUndoOffer(null), UNDO_OFFER_MS);
+  };
+  const dropUndoOffer = () => {
+    clearTimeout(offerTimer.current);
+    setUndoOffer(null);
+  };
+
   useEffect(() => {
-    if (pop) return;
-    setClearArmed(false);
-    clearTimeout(clearTimer.current);
-  }, [pop]);
-  useEffect(() => () => clearTimeout(clearTimer.current), []);
+    if (undoOffer === null) return;
+    // The first ink the message sees is what the clear left behind.
+    if (offerInkRef.current === NOT_SEEN) offerInkRef.current = inkRevision;
+    else if (offerInkRef.current !== inkRevision) {
+      clearTimeout(offerTimer.current);
+      setUndoOffer(null);
+    }
+  }, [inkRevision, undoOffer]);
+  useEffect(() => () => clearTimeout(offerTimer.current), []);
 
   const togglePop = (next: Pop, anchor: HTMLElement) => {
     if (pop === next) { setPop(null); return; }
+    dropUndoOffer();
     refs.setReference(anchor);
     setPop(next);
   };
@@ -247,6 +295,7 @@ export function AnnotationTray({
 
   const collapse = () => {
     setPop(null);
+    dropUndoOffer();
     const tray = trayRef.current;
     morphRef.current?.cancel();
     if (!canAnimate(tray, reducedMotion)) { setTrayState((s) => ({ ...s, collapsed: true })); return; }
@@ -299,7 +348,10 @@ export function AnnotationTray({
   // ---------- Rendering ----------
 
   const toolName =
-    tools.tool === "hand" ? "the Hand" : tools.tool === "eraser" ? "the eraser" : `the ${tools.swatch.label.toLowerCase()}`;
+    tools.tool === "hand" ? "the Hand"
+    : tools.tool === "eraser" ? "the eraser"
+    : tools.fading ? "fading ink"
+    : `the ${tools.swatch.label.toLowerCase()}${tools.straight ? " with straight lines on" : ""}`;
 
   const swatchButton = (swatch: InkSwatch) => {
     const on = isPicked(swatch);
@@ -366,10 +418,33 @@ export function AnnotationTray({
         >
           <Hand className="h-[22px] w-[22px]" />
         </button>
+        <button
+          type="button"
+          aria-label="Fading ink"
+          title="Fading ink: your marks fade away a few seconds after you stop."
+          aria-pressed={tools.fading}
+          onClick={() => { setPop(null); tools.selectFade(); }}
+          className={cn(btnBase, tools.fading && btnOn)}
+        >
+          <WandSparkles className="h-[22px] w-[22px]" />
+        </button>
         <Separator />
         {PENS.map(swatchButton)}
         <Separator />
         {HIGHLIGHTERS.map(swatchButton)}
+        <Separator />
+        <button
+          type="button"
+          aria-label="Straight lines"
+          title={tools.straight
+            ? "Straight lines are on. Tap to draw freehand again."
+            : "Straight lines: draw a straight line in the colour you've picked."}
+          aria-pressed={tools.straight}
+          onClick={() => { setPop(null); tools.toggleStraight(); }}
+          className={cn(btnBase, tools.straight && btnOn)}
+        >
+          <StraightLineIcon />
+        </button>
         <Separator />
         <button
           type="button"
@@ -425,6 +500,7 @@ export function AnnotationTray({
         >
           {tools.tool === "hand" ? <Hand className="h-6 w-6" />
             : tools.tool === "eraser" ? <Eraser className="h-6 w-6" />
+            : tools.fading ? <WandSparkles className="h-6 w-6" />
             : <SwatchMark swatch={tools.swatch} big className="outline outline-[3px] outline-offset-[3px] outline-[#f3e7d3]" />}
         </button>
       )}
@@ -480,22 +556,30 @@ export function AnnotationTray({
                   hint={inkHidden ? "Your ink is only hidden, not deleted." : undefined}
                   onClick={() => { onInkHiddenChange(!inkHidden); setPop(null); }}
                 />
+                {onClearPage && pageInView && (
+                  <MenuRow
+                    danger
+                    icon={<Trash2 className="h-5 w-5" />}
+                    label="Clear this page"
+                    hint={`Page ${pageInView.number}`}
+                    disabled={!pageInView.hasInk}
+                    onClick={() => {
+                      setPop(null);
+                      onClearPage();
+                      offerUndo(`Page ${pageInView.number} was cleared.`);
+                    }}
+                  />
+                )}
                 {onClearAll && (
                   <MenuRow
                     danger
                     icon={<Trash2 className="h-5 w-5" />}
-                    label={clearArmed ? "Tap again to clear all ink" : "Clear all ink"}
-                    hint={clearArmed ? "This removes every mark on this exercise and can't be undone." : undefined}
+                    label="Clear all ink"
                     disabled={!hasInk}
                     onClick={() => {
-                      if (!clearArmed) {
-                        setClearArmed(true);
-                        clearTimeout(clearTimer.current);
-                        clearTimer.current = setTimeout(() => setClearArmed(false), 3000);
-                        return;
-                      }
                       setPop(null);
                       onClearAll();
+                      offerUndo("All the ink on this exercise was cleared.");
                     }}
                   />
                 )}
@@ -513,7 +597,42 @@ export function AnnotationTray({
           </div>
         </FloatingPortal>
       )}
+
+      {undoOffer && !collapsed && (
+        <FloatingPortal>
+          <div
+            ref={offerFloating.refs.setFloating}
+            style={offerFloating.floatingStyles}
+            role="status"
+            className={cn(
+              "z-[200] flex items-center gap-3 rounded-[14px] p-1.5 pl-4",
+              "bg-[#2e251c] dark:bg-[#3b3025] text-[#f3e7d3] shadow-[0_12px_32px_rgba(46,30,14,0.35)]",
+            )}
+          >
+            <span className="text-sm font-medium">{undoOffer}</span>
+            <button
+              type="button"
+              onClick={() => { dropUndoOffer(); onUndo?.(); }}
+              disabled={!onUndo}
+              className="min-h-12 px-4 rounded-[10px] font-semibold text-sm bg-[#f3e7d3] text-[#2e251c] hover:bg-white transition-colors"
+            >
+              Undo
+            </button>
+          </div>
+        </FloatingPortal>
+      )}
     </>
+  );
+}
+
+/** A line with a dot at each end, for the Straight lines button. */
+function StraightLineIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <line x1="5.5" y1="18.5" x2="18.5" y2="5.5" />
+      <circle cx="5" cy="19" r="2" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="5" r="2" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 

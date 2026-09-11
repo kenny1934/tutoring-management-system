@@ -84,6 +84,8 @@ interface PdfPageViewerProps {
   onRedo?: () => void;
   /** Called to clear all annotations for this exercise. */
   onClearAll?: () => void;
+  /** Called with a page's index to clear the ink on that page, from the tray's "Clear this page". */
+  onClearPage?: (pageIndex: number) => void;
   /** Whether any annotations exist (for showing save button). */
   hasAnnotations?: boolean;
   /** Called to save annotated PDF. */
@@ -147,6 +149,7 @@ export function PdfPageViewer({
   onUndo,
   onRedo,
   onClearAll,
+  onClearPage,
   hasAnnotations = false,
   onSaveAnnotated,
   exerciseId,
@@ -1005,6 +1008,8 @@ export function PdfPageViewer({
                 />
                 {tools && (
                   <AnnotationLayer
+                    // A new exercise gets fresh layers, so fading ink from the last one doesn't linger
+                    key={exerciseId}
                     width={page.width}
                     height={page.height}
                     strokes={annotations[i] || []}
@@ -1014,6 +1019,8 @@ export function PdfPageViewer({
                     penColor={tools.swatch.color}
                     penSize={tools.inkSize}
                     inkKind={tools.swatch.kind}
+                    straight={tools.straight}
+                    fading={tools.fading}
                     onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
                     hidden={inkHidden}
                     suspended={gestureActive}
@@ -1034,6 +1041,11 @@ export function PdfPageViewer({
           onInkHiddenChange={setInkHidden}
           hasInk={hasAnnotations}
           onClearAll={onClearAll}
+          pageInView={pages.length > 1
+            ? { number: currentVisiblePage, hasInk: (annotations[currentVisiblePage - 1]?.length ?? 0) > 0 }
+            : undefined}
+          onClearPage={onClearPage && (() => onClearPage(currentVisiblePage - 1))}
+          inkRevision={annotations}
           onSaveAnnotated={onSaveAnnotated}
         />
       )}

@@ -29,6 +29,13 @@ interface AnnotationLayerProps {
   penSize: number;
   /** Whether new strokes are pen or highlighter ink. Defaults to pen. */
   inkKind?: InkKind;
+  /** Draw a straight line from where the finger goes down to where it lifts. */
+  straight?: boolean;
+  /**
+   * Draw fading ink, for pointing. Its marks fade away a few seconds after you
+   * stop, and they never reach onStrokesChange, so they're never saved.
+   */
+  fading?: boolean;
   /** Called when strokes change (new stroke added or stroke removed) */
   onStrokesChange: (strokes: Stroke[]) => void;
   /** Hide strokes visually (drawing still works) */
@@ -39,6 +46,37 @@ interface AnnotationLayerProps {
    * start of that gesture, not something you meant to draw.
    */
   suspended?: boolean;
+}
+
+type Point = Stroke["points"][number];
+
+/**
+ * Fading ink is bright red, like a laser pointer, and a little thicker than a
+ * medium pen so it shows up from the back of the room. Its marks stay while
+ * you keep pointing, then fade out together a few seconds after your last one.
+ */
+const FADING_INK = { color: "#ef4444", size: 8 };
+const FADE_DELAY = 3000;
+const FADE_DURATION = 600;
+
+// Every page's fading ink fades together, so marks on two pages both stay
+// while you keep pointing on either of them. Each page's layer listens here.
+// "hold" means a finger went down with fading ink, and "release" means it lifted.
+type FadeSignal = "hold" | "release";
+const fadeListeners = new Set<(signal: FadeSignal) => void>();
+const signalFade = (signal: FadeSignal) => fadeListeners.forEach((listen) => listen(signal));
+
+// A straight line within this many degrees of level or upright is snapped to
+// it, because number lines and underlines are meant to be exactly level, and
+// a finger on a vertical board rarely is.
+const SNAP_DEGREES = 5;
+
+/** Where a straight line from start towards the pointer ends, snapped level or upright when it's nearly there. */
+function straightLineEnd(start: Point, pointer: Point): Point {
+  const angle = Math.abs((Math.atan2(pointer[1] - start[1], pointer[0] - start[0]) * 180) / Math.PI);
+  if (angle < SNAP_DEGREES || angle > 180 - SNAP_DEGREES) return [pointer[0], start[1], pointer[2]];
+  if (Math.abs(angle - 90) < SNAP_DEGREES) return [start[0], pointer[1], pointer[2]];
+  return pointer;
 }
 
 /**
@@ -160,6 +198,8 @@ export function AnnotationLayer({
   penColor,
   penSize,
   inkKind = "pen",
+  straight = false,
+  fading = false,
   onStrokesChange,
   hidden = false,
   suspended = false,
@@ -168,6 +208,51 @@ export function AnnotationLayer({
   const [currentPoints, setCurrentPoints] = useState<[number, number, number][]>([]);
   const currentPointsRef = useRef<[number, number, number][]>([]);
   const isDrawingStroke = useRef(false);
+
+  // What a new stroke looks like. Fading ink has its own look, whatever colour is picked.
+  const inkColor = fading ? FADING_INK.color : penColor;
+  const inkSize = fading ? FADING_INK.size : penSize;
+  const newInk: InkKind = fading ? "pen" : inkKind;
+
+  // Fading ink never reaches onStrokesChange, so it stays out of the saved
+  // ink, the undo history and the PDF. It lives here until it has faded. The
+  // ref lets the fade listener see the marks without subscribing again.
+  const [fadingStrokes, setFadingStrokes] = useState<Stroke[]>([]);
+  const fadingStrokesRef = useRef<Stroke[]>([]);
+  const [fadingOut, setFadingOut] = useState(false);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // True from the moment a finger goes down with fading ink until it lifts.
+  const holdingRef = useRef(false);
+
+  useEffect(() => {
+    const listen = (signal: FadeSignal) => {
+      clearTimeout(fadeTimer.current);
+      if (fadingStrokesRef.current.length === 0) return;
+      // Pointing again brings back any marks that were part way through fading.
+      setFadingOut(false);
+      if (signal === "hold") return;
+      fadeTimer.current = setTimeout(() => {
+        setFadingOut(true);
+        fadeTimer.current = setTimeout(() => {
+          fadingStrokesRef.current = [];
+          setFadingStrokes([]);
+          setFadingOut(false);
+        }, FADE_DURATION);
+      }, FADE_DELAY);
+    };
+    fadeListeners.add(listen);
+    return () => {
+      fadeListeners.delete(listen);
+      clearTimeout(fadeTimer.current);
+    };
+  }, []);
+
+  /** A finger that was pointing with fading ink has lifted, or its mark was thrown away. */
+  const releaseFade = useCallback(() => {
+    if (!holdingRef.current) return;
+    holdingRef.current = false;
+    signalFade("release");
+  }, []);
 
   // Eraser hover state
   const [hoveredStroke, setHoveredStroke] = useState<Stroke | null>(null);
@@ -196,7 +281,8 @@ export function AnnotationLayer({
     lastRubPointRef.current = null;
     setRubbedStrokes(null);
     setEraserCursor(null);
-  }, []);
+    releaseFade();
+  }, [releaseFade]);
 
   // That happens when the rubbing eraser is put away, and when a second
   // finger turns the touch into a scroll or a zoom.
@@ -237,11 +323,15 @@ export function AnnotationLayer({
       e.stopPropagation();
       (e.target as Element).setPointerCapture(e.pointerId);
       isDrawingStroke.current = true;
+      if (fading) {
+        holdingRef.current = true;
+        signalFade("hold");
+      }
       const pt = getPoint(e);
       currentPointsRef.current = [pt];
       setCurrentPoints([pt]);
     },
-    [isDrawing, suspended, getPoint]
+    [isDrawing, suspended, fading, getPoint]
   );
 
   const handlePointerMove = useCallback(
@@ -250,10 +340,19 @@ export function AnnotationLayer({
       e.preventDefault();
       e.stopPropagation();
       const pt = getPoint(e);
+      if (straight) {
+        // A straight line only ever has its two ends: where the finger went
+        // down, and where it is now.
+        const start = currentPointsRef.current[0];
+        const line = [start, straightLineEnd(start, pt)];
+        currentPointsRef.current = line;
+        setCurrentPoints(line);
+        return;
+      }
       currentPointsRef.current.push(pt);
       setCurrentPoints((prev) => [...prev, pt]);
     },
-    [getPoint]
+    [straight, getPoint]
   );
 
   const handlePointerUp = useCallback(
@@ -263,17 +362,31 @@ export function AnnotationLayer({
       e.stopPropagation();
       isDrawingStroke.current = false;
 
-      const points = currentPointsRef.current;
+      let points = currentPointsRef.current;
       currentPointsRef.current = [];
       setCurrentPoints([]);
+
+      // A straight line that has barely moved is a tap, so it's kept as a dot.
+      if (straight && points.length === 2 && Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1]) < 1) {
+        points = [points[0]];
+      }
+
+      if (fading) {
+        if (points.length > 0) {
+          fadingStrokesRef.current = [...fadingStrokesRef.current, makeStroke(points, inkColor, inkSize, newInk)];
+          setFadingStrokes(fadingStrokesRef.current);
+        }
+        releaseFade();
+        return;
+      }
 
       // A tap without moving is a one-point stroke, which draws as a round
       // dot. That's how a tutor puts in a decimal point or dots an i.
       if (points.length > 0) {
-        onStrokesChange([...strokes, makeStroke(points, penColor, penSize, inkKind)]);
+        onStrokesChange([...strokes, makeStroke(points, inkColor, inkSize, newInk)]);
       }
     },
-    [strokes, penColor, penSize, inkKind, onStrokesChange]
+    [strokes, straight, fading, inkColor, inkSize, newInk, releaseFade, onStrokesChange]
   );
 
   /** Erase along the line from the last pointer position to this one. */
@@ -336,7 +449,7 @@ export function AnnotationLayer({
   const shownStrokes = rubbedStrokes ?? strokes;
 
   // Render current in-progress stroke
-  const currentStroke = makeStroke(currentPoints, penColor, penSize, inkKind);
+  const currentStroke = makeStroke(currentPoints, inkColor, inkSize, newInk);
   const currentOutline =
     currentPoints.length > 0 ? getStroke(currentPoints, getStrokeOptions(currentStroke, false)) : null;
 
@@ -344,8 +457,9 @@ export function AnnotationLayer({
     ? getSvgPathFromStroke(currentOutline)
     : null;
   const currentPathEl = currentPath && (
-    <path d={currentPath} fill={penColor} opacity={strokeOpacity(currentStroke)} />
+    <path d={currentPath} fill={inkColor} opacity={strokeOpacity(currentStroke)} />
   );
+  const currentSavedInk = fading ? null : currentPathEl;
 
   const active = isDrawing || isErasing;
 
@@ -402,16 +516,34 @@ export function AnnotationLayer({
         // The rubbing eraser draws its own circle, so the system cursor is hidden
         cursor: isRubbing ? "none" : isErasing ? "pointer" : isDrawing ? "crosshair" : "default",
         touchAction: active ? "none" : "auto",
-        opacity: hidden ? 0 : undefined,
-        transition: "opacity 0.15s ease",
       }}
       {...pointerHandlers}
     >
-      {/* Completed strokes, highlighter first. The whole-stroke eraser makes each one tappable. */}
-      {highlighterPaths}
-      {inkKind === "highlighter" && currentPathEl}
-      {penPaths}
-      {inkKind !== "highlighter" && currentPathEl}
+      {/* Completed strokes, highlighter first. The whole-stroke eraser makes
+          each one tappable. "Hide ink" hides these, but not fading ink, which
+          is for pointing at the clean worksheet as much as the marked one. */}
+      <g style={{ opacity: hidden ? 0 : 1, transition: "opacity 0.15s ease" }}>
+        {highlighterPaths}
+        {newInk === "highlighter" && currentSavedInk}
+        {penPaths}
+        {newInk !== "highlighter" && currentSavedInk}
+      </g>
+
+      {/* Fading ink, on top of everything, with a soft glow */}
+      {(fadingStrokes.length > 0 || (fading && currentPathEl)) && (
+        <g
+          data-fading-ink=""
+          pointerEvents="none"
+          style={{
+            opacity: fadingOut ? 0 : 1,
+            transition: fadingOut ? `opacity ${FADE_DURATION}ms ease-out` : "none",
+            filter: "drop-shadow(0 0 3px rgba(239, 68, 68, 0.7))",
+          }}
+        >
+          {fadingStrokes.map((stroke) => <StrokePath key={strokeKey(stroke)} stroke={stroke} />)}
+          {fading && currentPathEl}
+        </g>
+      )}
 
       {/* Rubbing eraser circle, the exact area it will erase */}
       {isRubbing && eraserCursor && eraserRadius !== null && (

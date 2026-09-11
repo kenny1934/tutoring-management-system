@@ -56,6 +56,23 @@ export const RENDER_SCALE = 1.5;
 
 /** Shared perfect-freehand options for consistent stroke rendering. */
 export function getStrokeOptions(stroke: Stroke, isComplete: boolean) {
+  // A stroke with exactly two points is a straight line. It comes from the
+  // Straight lines tool, or it's a short piece the eraser cut from a longer
+  // stroke. Either way it's drawn the same width all the way along. Streamline
+  // is off, because it would pull the far end back towards the start while
+  // the line is still being dragged.
+  if (stroke.points.length === 2) {
+    return {
+      size: stroke.size,
+      thinning: 0,
+      smoothing: 0.5,
+      streamline: 0,
+      simulatePressure: false,
+      start: { cap: true, taper: 0 },
+      end: { cap: true, taper: 0 },
+      last: isComplete,
+    };
+  }
   // A highlighter keeps the same width all the way along, like a felt tip, so
   // it ignores pressure and doesn't thin out when you move fast.
   if (stroke.kind === "highlighter") {
@@ -83,14 +100,14 @@ export function getStrokeOptions(stroke: Stroke, isComplete: boolean) {
 }
 
 /**
- * One step in an exercise's undo or redo history. It records which page
- * changed and what that page held on the other side of the change, so
- * stepping back or forward just puts those strokes back on the page. Drawing
- * a stroke, erasing one and clearing a page are all recorded the same way.
+ * One step in an exercise's undo or redo history. It records what each page it
+ * touched held on the other side of the change, so stepping back or forward
+ * just puts those strokes back. Drawing a stroke, erasing one and clearing a
+ * page each touch one page. Clearing the whole exercise touches every page
+ * that had ink, and it's still one step, so one undo brings all of it back.
  */
 interface HistoryEntry {
-  pageIndex: number;
-  strokes: Stroke[];
+  pages: PageAnnotations;
 }
 
 /** True when both lists hold the same stroke objects in the same order. */
@@ -109,7 +126,7 @@ function historyFromStrokes(annotations: PageAnnotations): HistoryEntry[] {
   for (const pageIndex of pages) {
     const strokes = annotations[pageIndex] || [];
     for (let i = 0; i < strokes.length; i++) {
-      history.push({ pageIndex, strokes: strokes.slice(0, i) });
+      history.push({ pages: { [pageIndex]: strokes.slice(0, i) } });
     }
   }
   return history;
@@ -117,15 +134,21 @@ function historyFromStrokes(annotations: PageAnnotations): HistoryEntry[] {
 
 /**
  * Pull the most recent entry off a history stack. When a page is given, only
- * entries for that page count, which is how Zen mode undoes on the page you
- * are looking at. Taking an entry out of the middle is safe, because each
- * page's entries only ever describe that page.
+ * entries that touched that page count, which is how Zen mode undoes on the
+ * page you are looking at. Taking an entry out of the middle is safe, because
+ * we only ever take that page's part of it. When the entry touched other pages
+ * too, as clearing the whole exercise does, the rest of it stays where it was
+ * in the stack for those pages.
  */
 function takeLatest(stack: HistoryEntry[], pageIndex?: number): HistoryEntry | null {
+  if (pageIndex === undefined) return stack.pop() ?? null;
   for (let i = stack.length - 1; i >= 0; i--) {
-    if (pageIndex === undefined || stack[i].pageIndex === pageIndex) {
-      return stack.splice(i, 1)[0];
-    }
+    const pages = stack[i].pages;
+    if (!(pageIndex in pages)) continue;
+    const { [pageIndex]: strokes, ...rest } = pages;
+    if (Object.keys(rest).length === 0) stack.splice(i, 1);
+    else stack[i] = { pages: rest };
+    return { pages: { [pageIndex]: strokes } };
   }
   return null;
 }
@@ -137,7 +160,8 @@ function takeLatest(stack: HistoryEntry[], pageIndex?: number): HistoryEntry | n
  *
  * Each exercise keeps its own undo history in the order you made the changes,
  * across all of its pages, so undo takes back whatever you did last, whether
- * that was drawing a stroke, erasing one or clearing a page.
+ * that was drawing a stroke, erasing one, clearing a page or clearing the
+ * whole exercise.
  *
  * When sessionKey is provided, annotations are auto-saved to sessionStorage
  * (debounced 500ms) and restored on mount. The history itself is not saved.
@@ -211,7 +235,7 @@ export function useAnnotations(sessionKey?: string) {
 
       storeRef.current.set(exerciseId, { ...current, [pageIndex]: strokes });
       const undo = undoRef.current.get(exerciseId) || [];
-      undo.push({ pageIndex, strokes: before });
+      undo.push({ pages: { [pageIndex]: before } });
       undoRef.current.set(exerciseId, undo);
       redoRef.current.delete(exerciseId);
       persistToStorage();
@@ -221,9 +245,9 @@ export function useAnnotations(sessionKey?: string) {
 
   /**
    * Move one history entry from one stack to the other: put its strokes back
-   * on its page, and remember what the page held just before so the opposite
-   * action can reverse it. Returns the exercise's annotations afterwards, or
-   * null when there was nothing to step through.
+   * on its pages, and remember what those pages held just before so the
+   * opposite action can reverse it. Returns the exercise's annotations
+   * afterwards, or null when there was nothing to step through.
    */
   const stepHistory = useCallback(
     (
@@ -237,11 +261,13 @@ export function useAnnotations(sessionKey?: string) {
       if (!entry) return null;
 
       const current = storeRef.current.get(exerciseId) || {};
+      const reverse: PageAnnotations = {};
+      for (const page of Object.keys(entry.pages).map(Number)) reverse[page] = current[page] || [];
       const opposite = to.get(exerciseId) || [];
-      opposite.push({ pageIndex: entry.pageIndex, strokes: current[entry.pageIndex] || [] });
+      opposite.push({ pages: reverse });
       to.set(exerciseId, opposite);
 
-      const updated = { ...current, [entry.pageIndex]: entry.strokes };
+      const updated = { ...current, ...entry.pages };
       storeRef.current.set(exerciseId, updated);
       persistToStorage();
       return updated;
@@ -274,11 +300,21 @@ export function useAnnotations(sessionKey?: string) {
     [setPageStrokes]
   );
 
-  // Clearing a whole exercise is confirmed in the viewer first, and it wipes
-  // the history too, so it cannot be undone.
+  /**
+   * Clear every page of an exercise as a single change, so one undo brings all
+   * of its ink back. Nothing is recorded when there's no ink to clear.
+   */
   const clearAnnotations = useCallback((exerciseId: number) => {
-    storeRef.current.delete(exerciseId);
-    undoRef.current.delete(exerciseId);
+    const before: PageAnnotations = {};
+    for (const [page, strokes] of Object.entries(storeRef.current.get(exerciseId) || {})) {
+      if (strokes.length > 0) before[Number(page)] = strokes;
+    }
+    if (Object.keys(before).length === 0) return;
+
+    storeRef.current.set(exerciseId, {});
+    const undo = undoRef.current.get(exerciseId) || [];
+    undo.push({ pages: before });
+    undoRef.current.set(exerciseId, undo);
     redoRef.current.delete(exerciseId);
     persistToStorage();
   }, [persistToStorage]);

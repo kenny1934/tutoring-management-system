@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useAnnotations, inkLayers, type Stroke } from "./useAnnotations";
+import { useAnnotations, inkLayers, getStrokeOptions, type Stroke } from "./useAnnotations";
 
 const EX = 1;
 
@@ -106,6 +106,46 @@ describe("useAnnotations undo and redo", () => {
     expect(colours(hook.undo(EX)?.[0])).toEqual(["a"]);
   });
 
+  it("brings every page back with one undo after clearing the whole exercise, and redo clears it again", () => {
+    const { result } = renderHook(() => useAnnotations());
+    const hook = result.current;
+    draw(hook, 0, stroke("a"));
+    draw(hook, 2, stroke("b"));
+    hook.clearAnnotations(EX);
+    expect(hook.hasAnnotations(EX)).toBe(false);
+
+    const restored = hook.undo(EX);
+    expect(colours(restored?.[0])).toEqual(["a"]);
+    expect(colours(restored?.[2])).toEqual(["b"]);
+
+    const cleared = hook.redo(EX);
+    expect(colours(cleared?.[0])).toEqual([]);
+    expect(colours(cleared?.[2])).toEqual([]);
+    // The step before the clear is still there underneath it.
+    hook.undo(EX);
+    expect(colours(hook.undo(EX)?.[2])).toEqual([]);
+  });
+
+  it("takes only one page's share of a whole-exercise clear when undoing on that page", () => {
+    const { result } = renderHook(() => useAnnotations());
+    const hook = result.current;
+    draw(hook, 0, stroke("a"));
+    draw(hook, 1, stroke("b"));
+    hook.clearAnnotations(EX);
+
+    const pageOne = hook.undo(EX, 1);
+    expect(colours(pageOne?.[1])).toEqual(["b"]);
+    expect(colours(pageOne?.[0])).toEqual([]);
+    expect(colours(hook.undo(EX, 0)?.[0])).toEqual(["a"]);
+  });
+
+  it("records nothing when clearing an exercise with no ink", () => {
+    const { result } = renderHook(() => useAnnotations());
+    const hook = result.current;
+    hook.clearAnnotations(EX);
+    expect(hook.undo(EX)).toBeNull();
+  });
+
   it("keeps undo working on strokes restored after a reload, in page order", () => {
     const saved = { [EX]: { 0: [stroke("a")], 1: [stroke("b"), stroke("c")] } };
     sessionStorage.setItem("lesson-test", JSON.stringify(saved));
@@ -116,6 +156,16 @@ describe("useAnnotations undo and redo", () => {
     expect(colours(hook.undo(EX)?.[1])).toEqual([]);
     expect(colours(hook.undo(EX)?.[0])).toEqual([]);
     expect(hook.undo(EX)).toBeNull();
+  });
+});
+
+describe("getStrokeOptions", () => {
+  it("draws a two-point stroke as an even line that reaches both of its ends, even mid-drag", () => {
+    const line: Stroke = { points: [[0, 0, 0.2], [100, 0, 0.9]], color: "#000", size: 6 };
+    const options = getStrokeOptions(line, false);
+    expect(options.thinning).toBe(0);
+    expect(options.streamline).toBe(0);
+    expect(options.simulatePressure).toBe(false);
   });
 });
 
