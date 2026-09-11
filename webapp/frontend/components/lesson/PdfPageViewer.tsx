@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   PencilLine, Undo2, Redo2, Trash2, Eraser, Download, Circle,
@@ -48,24 +48,42 @@ const PEN_COLORS = [
   { color: "#f59e0b", label: "Orange" },
 ];
 
-const PEN_SIZES = [
-  { size: 3, label: "S" },
-  { size: 6, label: "M" },
-  { size: 12, label: "L" },
+/**
+ * One choice in the pen-size or eraser picker. `dot` and `mobileDot` are the
+ * icon sizes in pixels on the desktop strip and in the mobile popover.
+ */
+interface ToolOption<T> {
+  value: T;
+  title: string;
+  dot?: number;
+  mobileDot?: number;
+}
+
+const PEN_SIZES: ToolOption<number>[] = [
+  { value: 3, title: "Size: S", dot: 4, mobileDot: 6 },
+  { value: 6, title: "Size: M", dot: 7, mobileDot: 10 },
+  { value: 12, title: "Size: L", dot: 10, mobileDot: 14 },
 ];
 
 // The eraser sizes show as outline circles, so they read differently from the
-// filled pen-size dots. `dot` and `mobileDot` are the icon sizes in pixels.
-// The last option is the whole-stroke eraser, which has a word, not a circle.
-const ERASER_OPTIONS: { setting: EraserSetting; title: string; dot?: number; mobileDot?: number }[] = [
-  { setting: "S", title: "Small eraser", dot: 5, mobileDot: 8 },
-  { setting: "M", title: "Medium eraser", dot: 8, mobileDot: 12 },
-  { setting: "L", title: "Large eraser", dot: 11, mobileDot: 16 },
-  { setting: "stroke", title: "Whole-stroke eraser: tap a stroke to remove all of it" },
+// filled pen-size dots. The last option is the whole-stroke eraser, which has
+// a word, not a circle.
+const ERASER_OPTIONS: ToolOption<EraserSetting>[] = [
+  { value: "S", title: "Small eraser", dot: 5, mobileDot: 8 },
+  { value: "M", title: "Medium eraser", dot: 8, mobileDot: 12 },
+  { value: "L", title: "Large eraser", dot: 11, mobileDot: 16 },
+  { value: "stroke", title: "Whole-stroke eraser: tap a stroke to remove all of it" },
 ];
 
+function PenSizeIcon({ size, mobile = false }: { size: number; mobile?: boolean }) {
+  // A size that isn't on the list shows as the largest dot.
+  const option = PEN_SIZES.find((o) => o.value === size) ?? PEN_SIZES[PEN_SIZES.length - 1];
+  const px = mobile ? option.mobileDot : option.dot;
+  return <Circle className="fill-current" style={{ width: px, height: px }} />;
+}
+
 function EraserOptionIcon({ setting, mobile = false }: { setting: EraserSetting; mobile?: boolean }) {
-  const option = ERASER_OPTIONS.find((o) => o.setting === setting);
+  const option = ERASER_OPTIONS.find((o) => o.value === setting);
   const px = mobile ? option?.mobileDot : option?.dot;
   if (!px) return <span className={cn("font-bold", mobile ? "text-[11px]" : "text-[10px] px-0.5")}>Stroke</span>;
   return <Circle style={{ width: px, height: px }} />;
@@ -134,13 +152,22 @@ function MobileColorPopover({
   );
 }
 
-/** Mobile size popover — larger tap targets for touch devices. */
-function MobileSizePopover({
-  currentSize,
-  onSizeChange,
+/**
+ * Mobile picker for the pen size or the eraser. The trigger shows the current
+ * choice, and tapping it opens a popover of large tap targets.
+ */
+function MobileChoicePopover<T extends string | number>({
+  title,
+  options,
+  current,
+  onChange,
+  renderIcon,
 }: {
-  currentSize: number;
-  onSizeChange: (size: number) => void;
+  title: string;
+  options: ToolOption<T>[];
+  current: T;
+  onChange: (value: T) => void;
+  renderIcon: (value: T) => ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const { refs, floatingStyles, context } = useFloating({
@@ -162,15 +189,9 @@ function MobileSizePopover({
           "min-w-[44px] min-h-[44px] flex items-center justify-center rounded",
           "text-[#8b7355] dark:text-[#a09080]"
         )}
-        title="Pen size"
+        title={title}
       >
-        <Circle
-          className="fill-current"
-          style={{
-            width: currentSize === 3 ? 6 : currentSize === 6 ? 10 : 14,
-            height: currentSize === 3 ? 6 : currentSize === 6 ? 10 : 14,
-          }}
-        />
+        {renderIcon(current)}
       </button>
       {isOpen && (
         <FloatingPortal>
@@ -181,25 +202,19 @@ function MobileSizePopover({
             className="z-[200] bg-[#f0e6d4] dark:bg-[#252018] rounded-lg shadow-xl border border-[#d4c4a8] dark:border-[#3a3228] p-3"
           >
             <div className="flex gap-2">
-              {PEN_SIZES.map(({ size, label }) => (
+              {options.map((option) => (
                 <button
-                  key={size}
-                  onClick={() => { onSizeChange(size); setIsOpen(false); }}
+                  key={option.value}
+                  onClick={() => { onChange(option.value); setIsOpen(false); }}
                   className={cn(
-                    "w-11 h-11 flex items-center justify-center rounded-lg transition-colors",
-                    currentSize === size
+                    "min-w-11 h-11 px-1 flex items-center justify-center rounded-lg transition-colors",
+                    current === option.value
                       ? "bg-[#a0704b] text-white"
                       : "text-[#8b7355] dark:text-[#a09080] hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228]"
                   )}
-                  title={`Size: ${label}`}
+                  title={option.title}
                 >
-                  <Circle
-                    className="fill-current"
-                    style={{
-                      width: size === 3 ? 6 : size === 6 ? 10 : 14,
-                      height: size === 3 ? 6 : size === 6 ? 10 : 14,
-                    }}
-                  />
+                  {renderIcon(option.value)}
                 </button>
               ))}
             </div>
@@ -210,67 +225,36 @@ function MobileSizePopover({
   );
 }
 
-/** Mobile eraser popover: the three rubbing sizes plus the whole-stroke eraser, with large tap targets. */
-function MobileEraserPopover({
+/** Desktop version of the same picker: a row of small buttons in the toolbar. */
+function ChoiceStrip<T extends string | number>({
+  options,
   current,
   onChange,
+  renderIcon,
 }: {
-  current: EraserSetting;
-  onChange: (setting: EraserSetting) => void;
+  options: ToolOption<T>[];
+  current: T;
+  onChange: (value: T) => void;
+  renderIcon: (value: T) => ReactNode;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: setIsOpen,
-    middleware: [offset(8), flip(), shift({ padding: 8 })],
-    placement: "bottom",
-  });
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
-
   return (
-    <>
-      <button
-        ref={refs.setReference}
-        {...getReferenceProps()}
-        className={cn(
-          "min-w-[44px] min-h-[44px] flex items-center justify-center rounded",
-          "text-[#8b7355] dark:text-[#a09080]"
-        )}
-        title="Eraser size"
-      >
-        <EraserOptionIcon setting={current} mobile />
-      </button>
-      {isOpen && (
-        <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            style={floatingStyles}
-            {...getFloatingProps()}
-            className="z-[200] bg-[#f0e6d4] dark:bg-[#252018] rounded-lg shadow-xl border border-[#d4c4a8] dark:border-[#3a3228] p-3"
-          >
-            <div className="flex gap-2">
-              {ERASER_OPTIONS.map(({ setting, title }) => (
-                <button
-                  key={setting}
-                  onClick={() => { onChange(setting); setIsOpen(false); }}
-                  className={cn(
-                    "min-w-11 h-11 px-1 flex items-center justify-center rounded-lg transition-colors",
-                    current === setting
-                      ? "bg-[#a0704b] text-white"
-                      : "text-[#8b7355] dark:text-[#a09080] hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228]"
-                  )}
-                  title={title}
-                >
-                  <EraserOptionIcon setting={setting} mobile />
-                </button>
-              ))}
-            </div>
-          </div>
-        </FloatingPortal>
-      )}
-    </>
+    <div className="flex items-center gap-0.5">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "flex items-center justify-center min-w-5 h-5 rounded transition-colors",
+            current === option.value
+              ? "bg-[#a0704b] text-white"
+              : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
+          )}
+          title={option.title}
+        >
+          {renderIcon(option.value)}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -294,8 +278,8 @@ interface PdfPageViewerProps {
   onRetry?: () => void;
   /** Annotation state for this exercise's pages. */
   annotations?: PageAnnotations;
-  /** Called when annotations change on any page. */
-  onAnnotationsChange?: (annotations: PageAnnotations) => void;
+  /** Called with the one page whose strokes changed, and its new strokes. */
+  onPageStrokesChange?: (pageIndex: number, strokes: Stroke[]) => void;
   /** Whether drawing mode is active. */
   drawingEnabled?: boolean;
   /** Called to toggle drawing mode. */
@@ -360,7 +344,7 @@ export function PdfPageViewer({
   exerciseLabel,
   onRetry,
   annotations = {},
-  onAnnotationsChange,
+  onPageStrokesChange,
   drawingEnabled = false,
   onDrawingToggle,
   penColor = "#dc2626",
@@ -841,15 +825,6 @@ export function PdfPageViewer({
     setCurrentVisiblePage(1);
   }, [pdfData]);
 
-  // Handle page strokes change
-  const handlePageStrokesChange = useCallback(
-    (pageIndex: number, strokes: Stroke[]) => {
-      if (!onAnnotationsChange) return;
-      onAnnotationsChange({ ...annotations, [pageIndex]: strokes });
-    },
-    [annotations, onAnnotationsChange]
-  );
-
   // Loading state
   if (isLoading || isProcessing) {
     // Theme-aware colors for the page-flip animation
@@ -1119,9 +1094,12 @@ export function PdfPageViewer({
                       currentColor={penColor}
                       onColorChange={(c) => onPenColorChange?.(c)}
                     />
-                    <MobileSizePopover
-                      currentSize={penSize}
-                      onSizeChange={(s) => onPenSizeChange?.(s)}
+                    <MobileChoicePopover
+                      title="Pen size"
+                      options={PEN_SIZES}
+                      current={penSize}
+                      onChange={(s) => onPenSizeChange?.(s)}
+                      renderIcon={(s) => <PenSizeIcon size={s} mobile />}
                     />
                   </>
                 ) : (
@@ -1145,29 +1123,12 @@ export function PdfPageViewer({
                     </div>
 
                     {/* Desktop: inline size selector */}
-                    <div className="flex items-center gap-0.5">
-                      {PEN_SIZES.map(({ size, label }) => (
-                        <button
-                          key={size}
-                          onClick={() => onPenSizeChange?.(size)}
-                          className={cn(
-                            "flex items-center justify-center w-5 h-5 rounded transition-colors",
-                            penSize === size
-                              ? "bg-[#a0704b] text-white"
-                              : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
-                          )}
-                          title={`Size: ${label}`}
-                        >
-                          <Circle
-                            className="fill-current"
-                            style={{
-                              width: size === 3 ? 4 : size === 6 ? 7 : 10,
-                              height: size === 3 ? 4 : size === 6 ? 7 : 10,
-                            }}
-                          />
-                        </button>
-                      ))}
-                    </div>
+                    <ChoiceStrip
+                      options={PEN_SIZES}
+                      current={penSize}
+                      onChange={(s) => onPenSizeChange?.(s)}
+                      renderIcon={(s) => <PenSizeIcon size={s} />}
+                    />
                   </>
                 )}
               </>
@@ -1176,28 +1137,20 @@ export function PdfPageViewer({
             {/* Eraser-specific controls: rubbing sizes and the whole-stroke eraser */}
             {eraserActive && (
               isMobile ? (
-                <MobileEraserPopover
+                <MobileChoicePopover
+                  title="Eraser size"
+                  options={ERASER_OPTIONS}
                   current={eraser}
                   onChange={(s) => onEraserChange?.(s)}
+                  renderIcon={(s) => <EraserOptionIcon setting={s} mobile />}
                 />
               ) : (
-                <div className="flex items-center gap-0.5">
-                  {ERASER_OPTIONS.map(({ setting, title }) => (
-                    <button
-                      key={setting}
-                      onClick={() => onEraserChange?.(setting)}
-                      className={cn(
-                        "flex items-center justify-center min-w-5 h-5 rounded transition-colors",
-                        eraser === setting
-                          ? "bg-[#a0704b] text-white"
-                          : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
-                      )}
-                      title={title}
-                    >
-                      <EraserOptionIcon setting={setting} />
-                    </button>
-                  ))}
-                </div>
+                <ChoiceStrip
+                  options={ERASER_OPTIONS}
+                  current={eraser}
+                  onChange={(s) => onEraserChange?.(s)}
+                  renderIcon={(s) => <EraserOptionIcon setting={s} />}
+                />
               )
             )}
 
@@ -1298,7 +1251,7 @@ export function PdfPageViewer({
                 eraserRadius={eraser === "stroke" ? null : ERASER_RADIUS[eraser]}
                 penColor={penColor}
                 penSize={penSize}
-                onStrokesChange={(strokes) => handlePageStrokesChange(i, strokes)}
+                onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
                 hidden={!annotationsVisible}
               />
             </div>

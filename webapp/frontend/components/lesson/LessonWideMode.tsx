@@ -36,7 +36,7 @@ import { groupExercisesByStudent, bulkPrintAllStudents, type StudentExerciseGrou
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
-import type { PageAnnotations } from "@/hooks/useAnnotations";
+import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import type { EraserSetting } from "@/lib/stroke-eraser";
 import type { Session, SessionExercise } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -565,12 +565,10 @@ export function LessonWideMode({
   }, [showAnswerKey, answerSearchResult, selectedEntry]);
 
   // --- Annotation callbacks ---
-  const handleAnnotationsChange = useCallback((newAnnotations: PageAnnotations) => {
+  const handlePageStrokesChange = useCallback((pageIndex: number, strokes: Stroke[]) => {
     if (!selectedEntry?.exercise) return;
-    setCurrentAnnotations(newAnnotations);
-    for (const [pageIdx, strokes] of Object.entries(newAnnotations)) {
-      setPageStrokes(selectedEntry.exercise.id, Number(pageIdx), strokes);
-    }
+    setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: strokes }));
+    setPageStrokes(selectedEntry.exercise.id, pageIndex, strokes);
   }, [selectedEntry, setPageStrokes]);
 
   // Undo and redo follow the order you drew in, across every page of the exercise.
@@ -1431,7 +1429,7 @@ export function LessonWideMode({
                   exerciseLabel={exerciseLabel}
                   onRetry={handleRetry}
                   annotations={currentAnnotations}
-                  onAnnotationsChange={handleAnnotationsChange}
+                  onPageStrokesChange={handlePageStrokesChange}
                   drawingEnabled={drawingEnabled}
                   onDrawingToggle={handleDrawingToggle}
                   penColor={penColor}

@@ -15,11 +15,8 @@ import {
 } from "@floating-ui/react";
 import { cn } from "@/lib/utils";
 import { ABOVE_OVERLAYS_Z } from "@/hooks/useOverlayLayer";
-import {
-  formatExercisePages,
-  getExerciseDisplayName,
-  parseExerciseRemarks,
-} from "@/lib/exercise-utils";
+import { getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
+import { getPageLabel } from "@/lib/lesson-utils";
 import type { SessionExercise } from "@/types";
 
 // Older exercises were saved with the long type names, so both spellings count.
@@ -109,7 +106,7 @@ export function ExerciseHoverCard({ exercises, type, className, children }: Exer
             ) : (
               <ul className="mt-1.5 space-y-1.5">
                 {assigned.map((ex) => {
-                  const pages = formatExercisePages(ex);
+                  const pages = getPageLabel(ex);
                   const { remarks } = parseExerciseRemarks(ex.remarks);
                   return (
                     <li key={ex.id} className="text-xs">

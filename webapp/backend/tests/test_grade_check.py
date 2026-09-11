@@ -26,51 +26,51 @@ def test_repeating_student_with_a_stale_grade_is_flagged():
     # plans keep to our grade filing.
     worksheets = [(1, YEAR, 5, "SRL-C", "F3", "F2")] * 5
     plans = _plans("SRL-C", "F3", below=1, same=20)
-    assert students_out_of_step(worksheets, plans) == {(1, YEAR)}
+    assert students_out_of_step(worksheets, school_below_shares(plans)) == {(1, YEAR)}
 
 
 def test_a_school_that_teaches_below_our_filing_spares_its_students():
     worksheets = [(1, YEAR, 5, "TIS", "F3", "F2")] * 6
     plans = _plans("TIS", "F3", below=15, same=21)
-    assert students_out_of_step(worksheets, plans) == set()
+    assert students_out_of_step(worksheets, school_below_shares(plans)) == set()
 
 
 def test_too_few_worksheets_says_nothing():
     worksheets = [(1, YEAR, 5, "SRL-C", "F3", "F2")] * 2
-    assert students_out_of_step(worksheets, []) == set()
+    assert students_out_of_step(worksheets, {}) == set()
 
 
 def test_mostly_on_grade_work_is_not_flagged():
     worksheets = ([(1, YEAR, 5, "SRL-C", "F3", "F2")] * 2
                   + [(1, YEAR, 5, "SRL-C", "F3", "F3")] * 4)
-    assert students_out_of_step(worksheets, []) == set()
+    assert students_out_of_step(worksheets, {}) == set()
 
 
 def test_each_school_year_is_judged_on_its_own():
     worksheets = ([(1, "2025-2026", 5, "SRL-C", "F2", "F2")] * 5
                   + [(1, YEAR, 5, "SRL-C", "F3", "F2")] * 3)
-    assert students_out_of_step(worksheets, []) == {(1, YEAR)}
+    assert students_out_of_step(worksheets, {}) == {(1, YEAR)}
 
 
 def test_a_school_with_too_few_planned_topics_counts_as_keeping_to_our_filing():
     plans = _plans("NEW", "F3", below=5, same=0)
     assert school_below_shares(plans) == {}
     worksheets = [(1, YEAR, 5, "NEW", "F3", "F2")] * 3
-    assert students_out_of_step(worksheets, plans) == {(1, YEAR)}
+    assert students_out_of_step(worksheets, school_below_shares(plans)) == {(1, YEAR)}
 
 
 def test_the_september_warm_up_is_ignored():
     # Everyone reviews last year's work in the first weeks, so three weeks of
     # it say nothing. The same work carried on past the warm-up does.
     warm_up = [(1, YEAR, week, "SRL-C", "F3", "F2") for week in (1, 2, 3)] * 2
-    assert students_out_of_step(warm_up, []) == set()
+    assert students_out_of_step(warm_up, {}) == set()
     later = [(1, YEAR, week, "SRL-C", "F3", "F2") for week in (4, 5, 6)]
-    assert students_out_of_step(warm_up + later, []) == {(1, YEAR)}
+    assert students_out_of_step(warm_up + later, {}) == {(1, YEAR)}
 
 
 def test_unknown_grades_are_ignored():
     worksheets = [(1, YEAR, 5, "SRL-C", "F3", None)] * 5 + [(1, YEAR, 5, "SRL-C", "P6", "F1")] * 5
-    assert students_out_of_step(worksheets, []) == set()
+    assert students_out_of_step(worksheets, {}) == set()
 
 
 def test_warm_up_review_is_a_lower_grade_early_in_the_year():

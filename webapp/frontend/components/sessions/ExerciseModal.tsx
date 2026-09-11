@@ -412,6 +412,13 @@ export function ExerciseModal({
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
 
+  // Trending, School Progress and Summer Materials all add a file this way,
+  // with its answer key when the section knows one.
+  const addSuggested = useCallback((path: string, answerPath?: string) => {
+    setExercises((prev) => [...prev, createExercise(exerciseType, path, answerPath)]);
+    setIsDirty(true);
+  }, [exerciseType]);
+
   // Toggle checkbox selection for an exercise row
   const toggleSelection = useCallback((index: number) => {
     setSelectedIndices(prev => {
@@ -1162,24 +1169,12 @@ export function ExerciseModal({
           grade={session.grade}
           school={session.school}
           location={session.location}
-          onAdd={(path) => {
-            setExercises(prev => [...prev, createExercise(exerciseType, path)]);
-            setIsDirty(true);
-          }}
+          onAdd={addSuggested}
         />
 
         {/* School Progress - curriculum suggestions from the school timeline */}
         {!readOnly && (
-          <CurriculumSuggestionSection
-            session={session}
-            onAdd={(path, answerPath) => {
-              setExercises((prev) => [
-                ...prev,
-                { ...createExercise(exerciseType, path), answer_pdf_name: answerPath ?? "" },
-              ]);
-              setIsDirty(true);
-            }}
-          />
+          <CurriculumSuggestionSection session={session} onAdd={addSuggested} />
         )}
 
         {/* Summer Materials - scan-based defaults for summer lessons */}
@@ -1188,13 +1183,7 @@ export function ExerciseModal({
             session={session}
             exerciseType={exerciseType}
             existingPaths={exercises.map((ex) => ex.pdf_name).filter(Boolean)}
-            onAdd={(pdfName, answerPdfName) => {
-              setExercises((prev) => [
-                ...prev,
-                { ...createExercise(exerciseType, pdfName), answer_pdf_name: answerPdfName ?? "" },
-              ]);
-              setIsDirty(true);
-            }}
+            onAdd={addSuggested}
           />
         )}
 

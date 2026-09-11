@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Check, Copy, Eye, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
-import { ROLE_LABELS, stripExtension } from "@/lib/curriculum-labels";
+import { ROLE_LABELS, listInWords, stripExtension } from "@/lib/curriculum-labels";
+import { formatDayFirstDate, plural } from "@/lib/formatters";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import type { CurriculumFile } from "@/types";
 
@@ -28,11 +29,7 @@ const MAX_BADGE_SPANS = 2;
 function pagesInWords(pages: string): string {
   const spans = pages.split(",");
   const noun = spans.length === 1 && !spans[0].includes("-") ? "page" : "pages";
-  const list =
-    spans.length > 1
-      ? `${spans.slice(0, -1).join(", ")} and ${spans[spans.length - 1]}`
-      : spans[0];
-  return `${noun} ${list}`;
+  return `${noun} ${listInWords(spans)}`;
 }
 
 /** The badge that tells the tutor this student has had the file before.
@@ -45,12 +42,9 @@ function StudentDoneBadge({ file }: { file: CurriculumFile }) {
   const last = file.student_last_assigned
     ? new Date(file.student_last_assigned)
     : null;
-  const times = count === 1 ? "time" : "times";
   const history =
-    `${count} ${times}` +
-    (last
-      ? `, last on ${last.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
-      : "");
+    plural(count, "time") +
+    (file.student_last_assigned ? `, last on ${formatDayFirstDate(file.student_last_assigned)}` : "");
   const pages = file.student_pages_done;
   const spans = pages ? pages.split(",") : [];
   const label = pages

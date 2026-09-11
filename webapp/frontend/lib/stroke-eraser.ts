@@ -7,9 +7,6 @@
  */
 import type { Stroke } from "@/hooks/useAnnotations";
 
-/** The eraser sizes on the toolbar, plus the older eraser that removes whole strokes. */
-export type EraserSetting = "S" | "M" | "L" | "stroke";
-
 /**
  * Eraser radius for each size, in the same page units as stroke points and
  * pen sizes (the pens are 3, 6 and 12 wide). A medium eraser is about one
@@ -17,8 +14,12 @@ export type EraserSetting = "S" | "M" | "L" | "stroke";
  */
 export const ERASER_RADIUS = { S: 6, M: 12, L: 24 } as const;
 
+/** The eraser sizes on the toolbar, plus the older eraser that removes whole strokes. */
+export type EraserSetting = keyof typeof ERASER_RADIUS | "stroke";
+
 type Point = [number, number, number];
 type Vec = [number, number];
+type Box = { left: number; right: number; top: number; bottom: number };
 
 // Pieces shorter than this are two points sitting on top of each other, left
 // behind when a cut lands exactly on a point. They would draw as a stray dot.
@@ -84,6 +85,25 @@ function coveredRange(a: Point, b: Point, from: Vec, to: Vec, reach: number): [n
   return [bisect(f, 0, closest), bisect(f, closest, 1)];
 }
 
+// Strokes are never changed in place, so each one's bounding box is worked
+// out the first time the eraser passes and kept for as long as the stroke is.
+const strokeBoxes = new WeakMap<Stroke, Box>();
+
+function boundingBox(stroke: Stroke): Box {
+  let box = strokeBoxes.get(stroke);
+  if (!box) {
+    box = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+    for (const [x, y] of stroke.points) {
+      box.left = Math.min(box.left, x);
+      box.right = Math.max(box.right, x);
+      box.top = Math.min(box.top, y);
+      box.bottom = Math.max(box.bottom, y);
+    }
+    strokeBoxes.set(stroke, box);
+  }
+  return box;
+}
+
 function pathLength(points: Point[]): number {
   let length = 0;
   for (let i = 1; i < points.length; i++) {
@@ -106,20 +126,23 @@ function eraseStroke(stroke: Stroke, from: Vec, to: Vec, radius: number): Stroke
   if (points.length === 0) return null;
 
   // Most strokes on a page are nowhere near the eraser, so rule them out by
-  // their bounding box before doing any real geometry.
+  // their bounding box before doing any real geometry, and then do the same
+  // for each segment of the strokes that are left.
   const boxLeft = Math.min(from[0], to[0]) - reach;
   const boxRight = Math.max(from[0], to[0]) + reach;
   const boxTop = Math.min(from[1], to[1]) - reach;
   const boxBottom = Math.max(from[1], to[1]) + reach;
-  const nearEraser = (p: Point) =>
-    p[0] >= boxLeft && p[0] <= boxRight && p[1] >= boxTop && p[1] <= boxBottom;
+  const box = boundingBox(stroke);
+  if (box.right < boxLeft || box.left > boxRight || box.bottom < boxTop || box.top > boxBottom) {
+    return null;
+  }
   const segmentNearEraser = (a: Point, b: Point) =>
     Math.max(a[0], b[0]) >= boxLeft && Math.min(a[0], b[0]) <= boxRight &&
     Math.max(a[1], b[1]) >= boxTop && Math.min(a[1], b[1]) <= boxBottom;
 
   if (points.length === 1) {
     const [x, y] = points[0];
-    return nearEraser(points[0]) && distanceToSegment(x, y, from, to) <= reach ? [] : null;
+    return distanceToSegment(x, y, from, to) <= reach ? [] : null;
   }
 
   const pieces: Point[][] = [];

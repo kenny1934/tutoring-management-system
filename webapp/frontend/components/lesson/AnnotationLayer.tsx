@@ -52,6 +52,23 @@ export function getSvgPathFromStroke(outlinePoints: [number, number][]): string 
   return d.join(" ");
 }
 
+// Each stroke object gets its own React key the first time it's drawn.
+// Strokes are never changed in place, so when the rubbing eraser splits one,
+// the new pieces get new keys and every other stroke keeps its own, and only
+// the pieces re-render. Keying by position would shift the key of every stroke
+// drawn after the one being rubbed, on every move of the eraser.
+const strokeKeys = new WeakMap<Stroke, number>();
+let nextStrokeKey = 0;
+
+function strokeKey(stroke: Stroke): number {
+  let key = strokeKeys.get(stroke);
+  if (key === undefined) {
+    key = nextStrokeKey++;
+    strokeKeys.set(stroke, key);
+  }
+  return key;
+}
+
 /** Render a completed stroke as an SVG path element. Memoized to avoid re-rendering unchanged strokes. */
 const StrokePath = memo(function StrokePath({ stroke }: { stroke: Stroke }) {
   const outlinePoints = getStroke(stroke.points, getStrokeOptions(stroke, true));
@@ -309,6 +326,25 @@ export function AnnotationLayer({
 
   const active = isDrawing || isErasing;
 
+  // The page's pointer handlers depend on the tool. The whole-stroke eraser
+  // needs none here, because each stroke handles its own tap.
+  const pointerHandlers = isRubbing
+    ? {
+        onPointerDown: handleRubDown,
+        onPointerMove: handleRubMove,
+        onPointerUp: handleRubEnd,
+        onPointerCancel: handleRubEnd,
+        onPointerLeave: handleRubLeave,
+      }
+    : isErasing
+      ? {}
+      : {
+          onPointerDown: handlePointerDown,
+          onPointerMove: handlePointerMove,
+          onPointerUp: handlePointerUp,
+          onPointerLeave: handlePointerUp,
+        };
+
   return (
     <svg
       ref={svgRef}
@@ -322,17 +358,13 @@ export function AnnotationLayer({
         opacity: hidden ? 0 : undefined,
         transition: "opacity 0.15s ease",
       }}
-      onPointerDown={isRubbing ? handleRubDown : isErasing ? undefined : handlePointerDown}
-      onPointerMove={isRubbing ? handleRubMove : isErasing ? undefined : handlePointerMove}
-      onPointerUp={isRubbing ? handleRubEnd : isErasing ? undefined : handlePointerUp}
-      onPointerCancel={isRubbing ? handleRubEnd : undefined}
-      onPointerLeave={isRubbing ? handleRubLeave : isErasing ? undefined : handlePointerUp}
+      {...pointerHandlers}
     >
       {/* Completed strokes. The whole-stroke eraser makes each one tappable. */}
       {isErasing && !isRubbing
         ? shownStrokes.map((stroke, i) => (
             <ErasableStrokePath
-              key={i}
+              key={strokeKey(stroke)}
               stroke={stroke}
               index={i}
               isHovered={hoveredStrokeIndex === i}
@@ -341,8 +373,8 @@ export function AnnotationLayer({
               onErase={handleEraseStroke}
             />
           ))
-        : shownStrokes.map((stroke, i) => (
-            <StrokePath key={i} stroke={stroke} />
+        : shownStrokes.map((stroke) => (
+            <StrokePath key={strokeKey(stroke)} stroke={stroke} />
           ))
       }
 

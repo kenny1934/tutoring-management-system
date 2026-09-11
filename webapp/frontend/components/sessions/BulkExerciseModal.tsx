@@ -770,10 +770,7 @@ function GroupExerciseModal({
         s.session_date === standIn.session_date
     );
   const addSuggested = (path: string, answerPath?: string) => {
-    setExercises((prev) => [
-      ...prev,
-      { ...createExercise(exerciseType, path), answer_pdf_name: answerPath ?? "" },
-    ]);
+    setExercises((prev) => [...prev, createExercise(exerciseType, path, answerPath)]);
     setIsDirty(true);
   };
 

@@ -6,21 +6,23 @@ import { downloadBlob } from "@/lib/geometry-utils";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import { exerciseToPageNumbers } from "./useZenLessonState";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
-import type { Stroke } from "@/hooks/useAnnotations";
+import type { Stroke, useAnnotations } from "@/hooks/useAnnotations";
 import type { SessionExercise } from "@/types";
 
 interface UseZenAnnotationHandlersParams {
-  annotations: {
-    getAnnotations: (exerciseId: number) => Record<number, Stroke[]>;
-    setPageStrokes: (exerciseId: number, pageIndex: number, strokes: Stroke[]) => void;
-    undo: (exerciseId: number, pageIndex?: number) => Record<number, Stroke[]> | null;
-    redo: (exerciseId: number, pageIndex?: number) => Record<number, Stroke[]> | null;
-    clearPage: (exerciseId: number, pageIndex: number) => void;
-    clearAll: () => void;
-    clearStorage: () => void;
-    hasAnnotations: (exerciseId: number) => boolean;
-    hasAnyAnnotations: () => boolean;
-  };
+  // Picked from the hook's own return type, so a rename there shows up here.
+  annotations: Pick<
+    ReturnType<typeof useAnnotations>,
+    | "getAnnotations"
+    | "setPageStrokes"
+    | "undo"
+    | "redo"
+    | "clearPage"
+    | "clearAll"
+    | "clearStorage"
+    | "hasAnnotations"
+    | "hasAnyAnnotations"
+  >;
   selectedExercise: { id: number; pdf_name: string } | undefined;
   exercises: SessionExercise[];
   pdfCacheRef: React.RefObject<Map<string, ArrayBuffer>>;

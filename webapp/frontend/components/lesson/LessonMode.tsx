@@ -32,7 +32,7 @@ import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-uti
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
-import type { PageAnnotations } from "@/hooks/useAnnotations";
+import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import type { EraserSetting } from "@/lib/stroke-eraser";
 import type { HomeworkStatus, Session, SessionExercise } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -630,13 +630,10 @@ export function LessonMode({
   }, [session, showToast, paperlessSearchWithProgress]);
 
   // Annotation handlers
-  const handleAnnotationsChange = useCallback((annotations: PageAnnotations) => {
+  const handlePageStrokesChange = useCallback((pageIndex: number, strokes: Stroke[]) => {
     if (!selectedExercise) return;
-    setCurrentAnnotations(annotations);
-    // Sync each page to the ref store
-    for (const [pageIdx, strokes] of Object.entries(annotations)) {
-      setPageStrokes(selectedExercise.id, parseInt(pageIdx), strokes);
-    }
+    setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: strokes }));
+    setPageStrokes(selectedExercise.id, pageIndex, strokes);
   }, [selectedExercise, setPageStrokes]);
 
   // Undo and redo follow the order you drew in, across every page of the exercise.
@@ -1318,7 +1315,7 @@ export function LessonMode({
                   exerciseLabel={exerciseLabel}
                   onRetry={handleRetry}
                   annotations={currentAnnotations}
-                  onAnnotationsChange={handleAnnotationsChange}
+                  onPageStrokesChange={handlePageStrokesChange}
                   drawingEnabled={drawingEnabled}
                   onDrawingToggle={handleDrawingToggle}
                   penColor={penColor}

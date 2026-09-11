@@ -145,6 +145,7 @@ export function TrendingCoursewareSection({
               {trendingData.map((item, index) => {
                 const firstPath = item.normalized_paths?.split(", ")[0]?.trim() || item.filename;
                 const isExpanded = detailItem?.filename === item.filename;
+                const previewStatus = trendingItemState[item.filename]?.status;
                 return (
                   <div key={item.filename}>
                     <div
@@ -168,7 +169,7 @@ export function TrendingCoursewareSection({
                         {item.unique_student_count}
                       </span>
                       {/* Preview button */}
-                      {trendingItemState[item.filename]?.status === 'unavailable' ? (
+                      {previewStatus === 'unavailable' ? (
                         <div className="p-1 shrink-0" title="Not available in Shelv" onClick={(e) => e.stopPropagation()}>
                           <EyeOff className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600" />
                         </div>
@@ -178,11 +179,11 @@ export function TrendingCoursewareSection({
                             e.stopPropagation();
                             handlePreviewTrending(item);
                           }}
-                          disabled={trendingItemState[item.filename]?.status === 'checking'}
+                          disabled={previewStatus === 'checking'}
                           className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
-                          title={trendingItemState[item.filename]?.status === 'checking' ? 'Checking...' : 'Preview PDF'}
+                          title={previewStatus === 'checking' ? 'Checking...' : 'Preview PDF'}
                         >
-                          {trendingItemState[item.filename]?.status === 'checking' ? (
+                          {previewStatus === 'checking' ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <Eye className="h-3.5 w-3.5" />

@@ -30,7 +30,7 @@ import json
 import os
 import re
 import unicodedata
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, namedtuple
 from datetime import date
 
 from _common import PRIV, canon_school, connect, norm  # noqa: E402  (sets sys.path + .env)
@@ -51,6 +51,11 @@ ASSIGN_MAP_AI_CONF = 0.65
 REVISION_ROLES = {"revision", "past_paper", "mock"}
 SHEET_CONF = 0.85
 AI_CONF = {"high": 0.75, "med": 0.65, "medium": 0.65, "low": 0.55}
+
+# What makes an observation distinct. Rows that share all of these collapse
+# into one, keeping the higher confidence. student is only set on
+# assignments, which keep one row per student.
+ObsKey = namedtuple("ObsKey", "school grade stream year week cid source is_rev student")
 
 
 def _current_start_year(today=None):
@@ -154,15 +159,19 @@ def main():
     concept_grade = dict(cur.fetchall())
 
     stats = Counter()
-    # dedupe key -> [confidence, source_ref]
+    # ObsKey -> [confidence, source_ref]
     best = {}
 
-    def add(school, grade, stream, year, week, cid, source, conf, is_rev, ref, student=None):
-        # student is only set on assignments, which keep one row per student.
-        key = (school, grade, stream or None, year, week, cid, source, bool(is_rev), student)
+    def keep_best(key, conf, ref):
+        """Keep the row with the higher confidence when two share a key."""
         cur_row = best.get(key)
         if cur_row is None or conf > cur_row[0]:
-            best[key] = [conf, ref[:500]]
+            best[key] = [conf, ref]
+
+    def add(school, grade, stream, year, week, cid, source, conf, is_rev, ref, student=None):
+        keep_best(ObsKey(school, grade, stream or None, year, week, cid, source,
+                         bool(is_rev), student),
+                  conf, ref[:500])
         stats[source] += 1
 
     # ---- channel 1: prep folders (4 years) ----------------------------------
@@ -385,34 +394,31 @@ def main():
     # Both compare assignments with what the school's own plans (prep folders
     # and sheets) put in each grade, so they wait until every channel is in.
     # See curriculum/grade_check.
-    school_topics = [(k[0], k[1], concept_grade.get(k[5]))
-                     for k in best if k[6] in ("prep_folder", "sheet") and not k[7]]
-    norms = school_below_shares(school_topics)
+    norms = school_below_shares(
+        (k.school, k.grade, concept_grade.get(k.cid))
+        for k in best if k.source in ("prep_folder", "sheet") and not k.is_rev)
 
     # A lower grade's worksheet in the first weeks of the year is review, so
     # it moves to the revision key, which the views leave out.
-    for k in [k for k in best if k[6] == "assignment" and not k[7]]:
-        if not warm_up_review(k[4], k[1], concept_grade.get(k[5]),
-                              norms.get((k[0], k[1]), 0.0)):
+    for k in [k for k in best if k.source == "assignment" and not k.is_rev]:
+        if not warm_up_review(k.week, k.grade, concept_grade.get(k.cid),
+                              norms.get((k.school, k.grade), 0.0)):
             continue
         conf, ref = best.pop(k)
-        rev_key = k[:7] + (True,) + k[8:]
-        if rev_key not in best or conf > best[rev_key][0]:
-            best[rev_key] = [conf, ref]
+        keep_best(k._replace(is_rev=True), conf, ref)
         stats["assign:warm_up_review"] += 1
 
-    flagged = students_out_of_step(worksheets, school_topics)
+    flagged = students_out_of_step(worksheets, norms)
     stats["grade_check:students_flagged"] = len(flagged)
 
     rows = []
-    for k, v in best.items():
-        student = k[8]
+    for k, (conf, ref) in best.items():
         excluded = ("grade_check"
-                    if k[6] == "assignment" and (student, k[3]) in flagged else None)
+                    if k.source == "assignment" and (k.student, k.year) in flagged else None)
         if excluded:
             stats["grade_check:rows_set_aside"] += 1
-        rows.append((k[0], k[1], k[2], k[3], k[4], k[5], k[6], v[0], k[7], v[1],
-                     student, excluded))
+        rows.append((k.school, k.grade, k.stream, k.year, k.week, k.cid, k.source, conf,
+                     k.is_rev, ref, k.student, excluded))
     print(f"deduped observations: {len(rows)}")
     for k, v in sorted(stats.items()):
         print(f"  {k}: {v}")

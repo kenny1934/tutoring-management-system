@@ -44,11 +44,13 @@ export function generateClientId(): string {
 
 /**
  * Create a new empty exercise.
- * Used when adding a new row or for drag-drop with just a path.
+ * Used when adding a new row, for drag-drop with just a path, and when a
+ * suggestion section adds a file together with its answer key.
  */
 export function createExercise(
   exerciseType: "CW" | "HW",
-  pdfName: string = ""
+  pdfName: string = "",
+  answerPdfName: string = ""
 ): ExerciseFormItemBase {
   return {
     clientId: generateClientId(),
@@ -62,7 +64,7 @@ export function createExercise(
     complex_pages: "",
     remarks: "",
     // Answer fields default empty
-    answer_pdf_name: "",
+    answer_pdf_name: answerPdfName,
     answer_page_mode: 'simple',
     answer_page_start: "",
     answer_page_end: "",
@@ -562,25 +564,6 @@ export function findDuplicatesFromIndex(
 // ============================================================================
 // URL Utilities
 // ============================================================================
-
-/**
- * The pages an exercise covers, written the way tutors read them: "p3-5",
- * "p3", or a custom list such as "p1,3,5-7". Returns an empty string when the
- * exercise uses the whole file, so callers can leave the page column blank.
- */
-export function formatExercisePages(exercise: {
-  page_start?: number | null;
-  page_end?: number | null;
-  remarks?: string | null;
-}): string {
-  const { complexPages } = parseExerciseRemarks(exercise.remarks);
-  if (complexPages) return `p${complexPages}`;
-  if (!exercise.page_start) return '';
-  if (exercise.page_end && exercise.page_end !== exercise.page_start) {
-    return `p${exercise.page_start}-${exercise.page_end}`;
-  }
-  return `p${exercise.page_start}`;
-}
 
 /** Get display name for an exercise — prefers pdf_name, falls back to url_title or URL hostname */
 export function getExerciseDisplayName(exercise: { pdf_name?: string | null; url?: string; url_title?: string }): string {

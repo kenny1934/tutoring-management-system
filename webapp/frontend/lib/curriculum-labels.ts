@@ -45,6 +45,15 @@ export function sourcesText(sources: string[]): string {
   return sources.map((s) => SOURCE_LABELS[s] || s).join(", ");
 }
 
+/** A list written the way you would say it: "a", "a and b", "a, b and c". */
+export function listInWords(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/** What the evidence line says when one student's worksheets are all there is. */
+export const THIN_EVIDENCE_TEXT = "one student's assignments";
+
 /** The span wording every evidence line uses. A handful of observations are
  *  listed ("weeks 9 and 14"), sparse spreads name their count ("4 weeks
  *  between weeks 8 and 20") and only dense runs read as a range ("weeks 8
@@ -68,7 +77,7 @@ export function weeksSpanText(weeks: number[]): string {
  *  there is, it says so, because that is too little to call it the school's
  *  topic: the student may be revising, catching up or working ahead. */
 export function evidenceSourcesText(sources: string[], thin?: boolean): string {
-  return thin ? "one student's assignments" : sourcesText(sources);
+  return thin ? THIN_EVIDENCE_TEXT : sourcesText(sources);
 }
 
 /** The standard evidence line under a topic: span first, then sources. */

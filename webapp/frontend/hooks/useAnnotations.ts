@@ -151,11 +151,11 @@ export function useAnnotations(sessionKey?: string) {
   }, []);
 
   /**
-   * Replace a page's strokes as a new change you made. The lesson viewers
-   * report every page each time anything changes, so a page that comes back
-   * unchanged is ignored here, and only the page that really changed goes
-   * into the history. Any real change also throws away the redo stack, the
-   * same as in any drawing app.
+   * Replace a page's strokes as a new change you made. The viewers only
+   * report the page that changed, but a page that comes back unchanged is
+   * still ignored here, so a caller that reports extra pages can't put empty
+   * steps into the history. Any real change also throws away the redo stack,
+   * the same as in any drawing app.
    */
   const setPageStrokes = useCallback(
     (exerciseId: number, pageIndex: number, strokes: Stroke[]) => {

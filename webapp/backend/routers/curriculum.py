@@ -225,6 +225,19 @@ def _is_thin(sources, student_count):
     return set(sources) == {"assignment"} and student_count <= 1
 
 
+def _topic_order(weight, students, concept_grade, grade):
+    """The start of the sort key that ranks topics, shared by the suggestions
+    and the explorer timeline so the two can't drift apart.
+
+    Weight decides first. A tie goes to the topic with more students behind
+    it, which matters because the view stops adding weight at three students,
+    and then to the topic that belongs to the grade being looked at, so an
+    earlier grade's chapter can't win a tie by being numbered first. Each
+    caller adds its own last terms, ending with the concept id.
+    """
+    return (-round(weight, 6), -students, concept_grade != grade)
+
+
 def _score_consensus(rows, current_week):
     """Aggregate view rows into per-concept scores with evidence."""
     scored = defaultdict(lambda: {"score": 0.0, "weight": 0.0, "weeks": set(), "sources": set()})
@@ -242,25 +255,27 @@ def _score_consensus(rows, current_week):
 
 def _predict_concepts(db, school, grade, stream, year, week):
     """Return (tier, {concept_id: evidence}) — first tier with rows wins."""
-    def with_students(scored, in_year, lo, hi):
+    def window(in_year, lo, hi):
+        """Score a window of weeks, and count the students behind each topic
+        across that same window, so the count describes what was scored."""
+        rows = _consensus_rows(db, school, grade, stream, in_year, lo, hi)
+        scored = _score_consensus(rows, week)
         counts = _window_students(db, school, grade, stream, in_year, lo, hi, list(scored))
         for concept_id, entry in scored.items():
             entry["students"] = counts.get(concept_id, 0)
         return scored
 
     # Tier 1: this year, current week and the two before it.
-    rows = _consensus_rows(db, school, grade, stream, year, week - 2, week)
-    scored = _score_consensus(rows, week)
+    scored = window(year, week - 2, week)
     if scored:
-        return "this_year", with_students(scored, year, week - 2, week)
+        return "this_year", scored
 
     # Tier 2: last year around the same week (future weeks exist there).
     prior = _prior_year(year)
     if prior:
-        rows = _consensus_rows(db, school, grade, stream, prior, week - 2, week + 2)
-        scored = _score_consensus(rows, week)
+        scored = window(prior, week - 2, week + 2)
         if scored:
-            return "last_year", with_students(scored, prior, week - 2, week + 2)
+            return "last_year", scored
 
     # Tier 3: all-years pacing band.
     stream_where, stream_param = _stream_where(stream)
@@ -949,16 +964,11 @@ def get_curriculum_suggestions(
         top = _ranked_scope(scope)[:MAX_CONCEPTS]
     else:
         tier = timeline_tier
-        # A tie goes to the topic with more students behind it, then to the
-        # one that belongs to the student's own grade, and only then to the
-        # lower id, so an earlier grade's chapter cannot win a tie by being
-        # numbered first.
         grades = {cid: m.get("grade") for cid, m in _concept_meta(db, set(scored)).items()}
         top = sorted(scored.items(),
-                     key=lambda kv: (-round(kv[1]["score"], 6),
-                                     -kv[1].get("students", 0),
-                                     grades.get(kv[0]) != student.grade,
-                                     kv[0]))[:MAX_CONCEPTS]
+                     key=lambda kv: _topic_order(kv[1]["score"], kv[1].get("students", 0),
+                                                 grades.get(kv[0]), student.grade)
+                     + (kv[0],))[:MAX_CONCEPTS]
     base["tier"] = tier
     if not top:
         # Nothing to suggest is the most valuable question of all: this is a
@@ -1004,10 +1014,11 @@ def get_curriculum_suggestions(
         all_files = files_by_concept.get(concept_id, [])
         files = all_files[:MAX_FILES_PER_CONCEPT]
         for f in files:
-            done = assigned.get(basename_key(f["file_basename"]))
-            f["student_assigned_count"] = done[0] if done else 0
-            f["student_last_assigned"] = _iso(done[1]) if done else None
-            f["student_pages_done"] = done[2] if done else None
+            count, last, pages = assigned.get(
+                basename_key(f["file_basename"]), (0, None, None))
+            f["student_assigned_count"] = count
+            f["student_last_assigned"] = _iso(last)
+            f["student_pages_done"] = pages
         suggestions.append({
             "concept_id": concept_id,
             "name_en": meta.get("name_en"),
@@ -1635,21 +1646,16 @@ def delete_observation(
 def _rank_timeline_weeks(weeks, grade, concept_grades, keep=3):
     """{week: top entries} from {week: {concept_id: merged entry}}.
 
-    Weight decides first. A tie goes to the topic with more students behind
-    it, which matters because the view stops adding weight at three students,
-    then to the topic that belongs to the grade being looked at, then to one
-    the school was already on the week before, and only then to the lower
-    concept id. Before this the id alone broke ties, so an earlier grade's
-    chapter won just by being numbered first.
+    Topics rank by _topic_order. After that, a tie goes to a topic the school
+    was already on the week before, and only then to the lower concept id.
     Each kept entry gets its rank and a `thin` flag for a topic that rests on
     nothing but one student's worksheets."""
     ranked = {}
     for wk, by_concept in weeks.items():
         before = weeks.get(wk - 1, {})
-        entries = sorted(by_concept.values(), key=lambda e: (
-            -round(e["weight"], 6),
-            -e["student_count"],
-            concept_grades.get(e["concept_id"]) != grade,
+        entries = sorted(by_concept.values(), key=lambda e: _topic_order(
+            e["weight"], e["student_count"], concept_grades.get(e["concept_id"]), grade,
+        ) + (
             e["concept_id"] not in before,
             e["concept_id"],
         ))[:keep]
@@ -1716,10 +1722,6 @@ def get_timeline(
             entry["sources"].update(s for s in (row.sources or "").split(",") if s)
             # A student has one stream, so partitions never share a student.
             entry["student_count"] += int(row.student_count or 0)
-    week_grades = {cid: m.get("grade") for cid, m in _concept_meta(
-        db, {cid for by_concept in weeks.values() for cid in by_concept}).items()}
-    week_entries = _rank_timeline_weeks(weeks, grade, week_grades)
-    concept_ids = {e["concept_id"] for entries in week_entries.values() for e in entries}
 
     pacing_by_concept = {}
     for row in db.execute(text(f"""
@@ -1728,7 +1730,6 @@ def get_timeline(
         FROM school_concept_pacing
         WHERE school = :school AND grade = :grade {stream_where}
     """), params):
-        concept_ids.add(row.concept_id)
         w = float(row.total_weight or 0)
         entry = pacing_by_concept.get(row.concept_id)
         if entry is None:
@@ -1758,7 +1759,12 @@ def get_timeline(
         # The view emits 1 decimal place; keep merged means on the same contract.
         p["mean_week"] = round(p["mean_week"], 1)
 
-    meta = _concept_meta(db, concept_ids)
+    # One lookup covers every topic the page can show: each week's candidates,
+    # whose grades also break ties in the ranking, and the pacing bands.
+    meta = _concept_meta(
+        db, {cid for by_concept in weeks.values() for cid in by_concept} | set(pacing_by_concept))
+    week_entries = _rank_timeline_weeks(
+        weeks, grade, {cid: m.get("grade") for cid, m in meta.items()})
     for entries in week_entries.values():
         for e in entries:
             e.update(meta.get(e["concept_id"], {}))

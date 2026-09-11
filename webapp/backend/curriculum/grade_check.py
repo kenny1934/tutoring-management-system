@@ -99,16 +99,16 @@ def warm_up_review(week, grade, concept_grade, school_share):
     return school_share < SCHOOL_BELOW_SHARE
 
 
-def students_out_of_step(worksheets, school_topics):
+def students_out_of_step(worksheets, norms):
     """{(student_id, academic_year)} whose worksheets should not count.
 
     worksheets is an iterable of (student_id, academic_year, week_number,
     school, grade, concept_grade), one per worksheet whose topic has a single
     known grade. Revision worksheets should be left out before they get here,
     because revising an earlier grade is expected and says nothing about the
-    record. school and grade are what the worksheet is filed under.
+    record. school and grade are what the worksheet is filed under. norms is
+    what school_below_shares() returns for the schools' own plans.
     """
-    norms = school_below_shares(school_topics)
     tally = defaultdict(lambda: [0, 0])
     where = {}
     for student_id, year, week, school, grade, concept_grade in worksheets:
