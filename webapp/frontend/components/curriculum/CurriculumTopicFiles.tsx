@@ -29,8 +29,10 @@ interface CurriculumTopicFilesProps {
   conceptName: string;
   scope: Scope | null;
   /** When set (the exercise modal case), every row and the preview offer
-   *  "add to the session". */
-  onAdd?: (path: string) => void;
+   *  "add to the session". The topic the file was listed under comes back
+   *  too, because the related-topic chips may have moved the list off the
+   *  topic it was opened on. */
+  onAdd?: (path: string, conceptId: number) => void;
   onClose: () => void;
 }
 
@@ -50,7 +52,10 @@ export function CurriculumTopicFiles({
   onClose,
 }: CurriculumTopicFilesProps) {
   const hitArea = iconHitArea(useCoarsePointer());
-  const [preview, setPreview] = useState<CurriculumFile | null>(null);
+  const [preview, setPreview] = useState<{
+    file: CurriculumFile;
+    conceptId: number;
+  } | null>(null);
   // Files shown per concept, keyed by concept id; absent = default chunk.
   const [fileCounts, setFileCounts] = useState<Record<number, number>>({});
   const [current, setCurrent] = useState({ conceptId, name: conceptName });
@@ -255,8 +260,14 @@ export function CurriculumTopicFiles({
                   <CurriculumFileRow
                     key={file.file_path}
                     file={file}
-                    onPreview={setPreview}
-                    onAdd={onAdd ? () => onAdd(file.file_path) : undefined}
+                    onPreview={(f) =>
+                      setPreview({ file: f, conceptId: concept.concept_id })
+                    }
+                    onAdd={
+                      onAdd
+                        ? () => onAdd(file.file_path, concept.concept_id)
+                        : undefined
+                    }
                     scopeSchool={scope?.school}
                   />
                 ))}
@@ -288,9 +299,13 @@ export function CurriculumTopicFiles({
 
       {preview && (
         <CurriculumPdfPreview
-          filePath={preview.file_path}
-          fileLabel={stripExtension(preview.file_basename)}
-          onAdd={onAdd ? () => onAdd(preview.file_path) : undefined}
+          filePath={preview.file.file_path}
+          fileLabel={stripExtension(preview.file.file_basename)}
+          onAdd={
+            onAdd
+              ? () => onAdd(preview.file.file_path, preview.conceptId)
+              : undefined
+          }
           onClose={() => setPreview(null)}
         />
       )}

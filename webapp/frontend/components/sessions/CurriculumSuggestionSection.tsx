@@ -128,9 +128,16 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
     conceptId?: number;
   } | null>(null);
 
-  // Worksheet browser for a prerequisite topic (opened from the builds-on
-  // chips; portals above the exercise modal).
-  const [topicFiles, setTopicFiles] = useState<{ conceptId: number; name: string } | null>(null);
+  // Worksheet browser for one topic, portalled above the exercise modal. It
+  // opens from a suggested topic's name, which only lists its top few files
+  // here, and from the builds-on chips under it. `fromSuggestion` marks the
+  // first case, where adding a file is the same quiet vote as adding it from
+  // the row.
+  const [topicFiles, setTopicFiles] = useState<{
+    conceptId: number;
+    name: string;
+    fromSuggestion?: boolean;
+  } | null>(null);
   // The upcoming test's full revision pack (same portal layer).
   const [packOpen, setPackOpen] = useState(false);
 
@@ -504,13 +511,30 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
             {data.suggestions.map((concept) => {
               const state = confirmStates[concept.concept_id] || { status: "idle" };
               const topicRecorded = recorded[concept.concept_id];
+              const topicName = conceptNameForStream(concept, stream);
+              const openTopic = () =>
+                setTopicFiles({
+                  conceptId: concept.concept_id,
+                  name: topicName,
+                  fromSuggestion: true,
+                });
               return (
                 <div key={concept.concept_id}>
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-gray-800 dark:text-gray-200">
-                        {conceptNameForStream(concept, stream)}
-                      </div>
+                      {/* The name opens every worksheet for the topic, the way
+                          the builds-on chips below it do. It carries the same
+                          trailing chevron, because there is no hover on a
+                          tablet to tell the tutor the name can be tapped. */}
+                      <button
+                        type="button"
+                        onClick={openTopic}
+                        title="Tap for every worksheet on this topic."
+                        className="group inline-flex items-start gap-0.5 max-w-full text-left text-xs font-medium text-gray-800 dark:text-gray-200 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
+                      >
+                        <span className="min-w-0">{topicName}</span>
+                        <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 text-teal-600/70 dark:text-teal-400/70 group-hover:text-teal-600 dark:group-hover:text-teal-400" />
+                      </button>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400">
                         {evidenceLine(concept, examLabel)}
                       </div>
@@ -632,6 +656,17 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                       ))}
                     </div>
                   )}
+                  {/* Same wording as the search box, so the two lists say
+                      the same thing about how much more there is. */}
+                  {(concept.file_count ?? 0) > concept.files.length && (
+                    <button
+                      type="button"
+                      onClick={openTopic}
+                      className="mt-1 text-[10px] text-teal-700 dark:text-teal-400 hover:underline"
+                    >
+                      See all {concept.file_count} files
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -683,7 +718,16 @@ export function CurriculumSuggestionSection({ session, onAdd }: CurriculumSugges
                 }
               : null
           }
-          onAdd={onAdd}
+          onAdd={(path, conceptId) => {
+            onAdd(path);
+            // A vote only for the suggested topic itself. Once the chips
+            // have walked the list to a prerequisite, the tutor is choosing
+            // revision for the student, which says nothing about where the
+            // school is.
+            if (topicFiles.fromSuggestion && conceptId === topicFiles.conceptId) {
+              noteFileAdded(conceptId);
+            }
+          }}
           onClose={() => setTopicFiles(null)}
         />
       )}

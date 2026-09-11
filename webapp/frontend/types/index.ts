@@ -728,7 +728,10 @@ export interface CurriculumConceptSuggestion {
     confidence?: number;
     scope_lines?: string[];
   };
+  /** The top few files only. */
   files: CurriculumFile[];
+  /** Every file mapped to the topic, which the worksheet list shows in full. */
+  file_count?: number;
 }
 
 export interface CurriculumSuggestionsResponse {

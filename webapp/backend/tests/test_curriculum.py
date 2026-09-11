@@ -218,6 +218,21 @@ def test_this_year_tier_ranks_files(client: TestClient, db_session):
     assert basenames.index("704_EX1_c.pdf") > basenames.index("704_Rev_e.pdf")
 
 
+def test_suggestion_counts_files_beyond_the_inline_few(
+    client: TestClient, db_session, monkeypatch
+):
+    """Each suggestion lists only its top files, but file_count covers the
+    whole topic, so the panel can say how many more there are."""
+    _consensus_row(db_session, week=11, concept_id=1, weight=3.0)
+    full = _get(client).json()["suggestions"][0]
+    assert full["file_count"] == len(full["files"])
+
+    monkeypatch.setattr(curriculum, "MAX_FILES_PER_CONCEPT", 2)
+    capped = _get(client).json()["suggestions"][0]
+    assert len(capped["files"]) == 2
+    assert capped["file_count"] == full["file_count"] > 2
+
+
 def test_school_usage_outranks_global_popularity(client: TestClient, db_session):
     """A file this school's students have actually been assigned beats a
     merely globally popular one; other schools' usage does not count, and

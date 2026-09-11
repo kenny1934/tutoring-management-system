@@ -865,7 +865,8 @@ def get_curriculum_suggestions(
             if "mean_week" in evidence:
                 why["mean_week"] = evidence["mean_week"]
                 why["years_observed"] = evidence["years_observed"]
-        files = files_by_concept.get(concept_id, [])[:MAX_FILES_PER_CONCEPT]
+        all_files = files_by_concept.get(concept_id, [])
+        files = all_files[:MAX_FILES_PER_CONCEPT]
         for f in files:
             done = assigned.get(basename_key(f["file_basename"]))
             f["student_assigned_count"] = done[0] if done else 0
@@ -878,6 +879,9 @@ def get_curriculum_suggestions(
             "concept_grade": meta.get("grade"),
             "why": why,
             "files": files,
+            # Only the top few files ride along, so the panel needs the full
+            # count to say how many more the topic's worksheet list holds.
+            "file_count": len(all_files),
         })
 
     base["suggestions"] = suggestions
