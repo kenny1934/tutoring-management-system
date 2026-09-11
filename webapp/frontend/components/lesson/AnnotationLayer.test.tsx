@@ -140,6 +140,25 @@ describe("AnnotationLayer pen and highlighter", () => {
     expect(paths[0].getAttribute("opacity")).toBe("0.35");
   });
 
+  it("keeps a tap as a dot, for a decimal point or the dot on an i", () => {
+    const { svg, onStrokesChange, rerender } = renderDrawing({ penColor: "#dc2626", penSize: 3 });
+    fireEvent.pointerDown(svg, { clientX: 40, clientY: 60, pointerId: 1 });
+    fireEvent.pointerUp(svg, { clientX: 40, clientY: 60, pointerId: 1 });
+
+    expect(onStrokesChange).toHaveBeenCalledTimes(1);
+    const [dot] = onStrokesChange.mock.calls[0][0] as Stroke[];
+    expect(dot.points).toHaveLength(1);
+
+    // And the dot is drawn, as a closed shape around the point.
+    rerender(
+      <AnnotationLayer
+        width={100} height={100} strokes={[dot]} isDrawing={false} isErasing={false}
+        penColor="#dc2626" penSize={3} onStrokesChange={onStrokesChange}
+      />
+    );
+    expect(svg.querySelector("path")?.getAttribute("d")).toMatch(/^M .* Z$/);
+  });
+
   it("throws away a half-drawn line when a second finger turns the touch into a scroll", () => {
     const { svg, onStrokesChange, rerender } = renderDrawing();
     fireEvent.pointerDown(svg, { clientX: 10, clientY: 50, pointerId: 1 });

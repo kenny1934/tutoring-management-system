@@ -8,8 +8,11 @@ import type { PrintStampInfo } from "./pdf-utils";
 import { RENDER_SCALE, getStrokeOptions, inkLayers, strokeOpacity } from "@/hooks/useAnnotations";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 
-/** Draw a single stroke onto a canvas context. */
-function drawStrokeToCanvas(
+/**
+ * Draw a single stroke onto a canvas context. A one-point stroke from a tap
+ * has a small circle for an outline, so it's drawn as a dot like any other.
+ */
+export function drawStrokeToCanvas(
   ctx: CanvasRenderingContext2D,
   stroke: Stroke,
   scale: number,

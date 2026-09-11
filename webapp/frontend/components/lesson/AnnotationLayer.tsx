@@ -41,7 +41,10 @@ interface AnnotationLayerProps {
   suspended?: boolean;
 }
 
-/** Convert perfect-freehand outline points to an SVG path string. */
+/**
+ * Convert perfect-freehand outline points to an SVG path string. A one-point
+ * stroke still has a full outline, a small circle, so it draws as a dot.
+ */
 export function getSvgPathFromStroke(outlinePoints: [number, number][]): string {
   if (outlinePoints.length < 2) return "";
 
@@ -264,7 +267,9 @@ export function AnnotationLayer({
       currentPointsRef.current = [];
       setCurrentPoints([]);
 
-      if (points.length >= 2) {
+      // A tap without moving is a one-point stroke, which draws as a round
+      // dot. That's how a tutor puts in a decimal point or dots an i.
+      if (points.length > 0) {
         onStrokesChange([...strokes, makeStroke(points, penColor, penSize, inkKind)]);
       }
     },
@@ -333,7 +338,7 @@ export function AnnotationLayer({
   // Render current in-progress stroke
   const currentStroke = makeStroke(currentPoints, penColor, penSize, inkKind);
   const currentOutline =
-    currentPoints.length >= 2 ? getStroke(currentPoints, getStrokeOptions(currentStroke, false)) : null;
+    currentPoints.length > 0 ? getStroke(currentPoints, getStrokeOptions(currentStroke, false)) : null;
 
   const currentPath = currentOutline
     ? getSvgPathFromStroke(currentOutline)

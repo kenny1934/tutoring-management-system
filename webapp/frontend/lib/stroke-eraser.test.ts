@@ -44,6 +44,14 @@ describe("eraseStrokes", () => {
     expect(xs(result[0]).at(-1)).toBeCloseTo(89, 3);
   });
 
+  it("rubs out a dot left by a tap, and leaves it when the eraser passes by", () => {
+    const dot: Stroke = { points: [[50, 50, 0.5]], color: "#dc2626", size: 3 };
+    expect(eraseStrokes([dot], [40, 50], [60, 50], 5)).toEqual([]);
+
+    const strokes = [dot];
+    expect(eraseStrokes(strokes, [0, 0], [20, 0], 5)).toBe(strokes);
+  });
+
   it("removes a stroke entirely when the eraser covers all of it", () => {
     const result = eraseStrokes([line(2)], [0, 50], [100, 50], 5);
     expect(result).toEqual([]);

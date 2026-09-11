@@ -99,16 +99,25 @@ function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big
 
 /**
  * The Pen Tray: a floating tray at the bottom of the lesson viewer that holds
- * every annotation tool. It never changes width, so its buttons stay put
- * whatever is picked. Tapping the colour or eraser that's already picked opens
- * its sizes above the tray. It can be dragged to the left, middle or right,
- * and collapsed into a round button in its corner.
+ * every annotation tool. It never changes width when you pick something, so
+ * its buttons stay put. Tapping the colour or eraser that's already picked
+ * opens its sizes above the tray. It can be dragged to the left, middle or
+ * right, and collapsed into a round button in its corner.
+ *
+ * When the viewer is too narrow for the whole tray, which happens with the
+ * answer key open beside the worksheet, undo and redo move into the More menu
+ * so that More and Collapse stay on screen. We call that the compact tray. It
+ * only changes when the viewer is resized.
  */
 export function AnnotationTray({
   tools, onUndo, onRedo, inkHidden, onInkHiddenChange, hasInk, onClearAll, onSaveAnnotated,
 }: AnnotationTrayProps) {
   const [{ dock, collapsed }, setTrayState] = useState(readTrayState);
   const [morphing, setMorphing] = useState(false);
+  const [compact, setCompact] = useState(false);
+  // The whole tray's width, measured whenever it's showing in full. The compact
+  // tray can't measure it, because undo and redo aren't there.
+  const fullWidthRef = useRef(0);
   const reducedMotion = useReducedMotion() ?? false;
   const trayRef = useRef<HTMLDivElement>(null);
   const morphRef = useRef<Animation | null>(null);
@@ -127,14 +136,22 @@ export function AnnotationTray({
     [dock],
   );
 
-  /** Put the tray where its dock says, leaving the side margin free. */
+  /**
+   * Put the tray where its dock says, leaving the side margin free. This is
+   * also where the tray decides whether it has to be compact. When that
+   * changes, the tray renders again and is placed once more at its new width.
+   */
   const place = useCallback(() => {
     const tray = trayRef.current;
     if (!tray || dragRef.current) return;
     const width = areaWidth();
+    if (!compact && !collapsed) fullWidthRef.current = tray.scrollWidth;
+    // An area with no width hasn't been laid out yet, so it says nothing about fitting.
+    const needsCompact = width > 0 && fullWidthRef.current > width - 2 * MARGIN;
+    if (needsCompact !== compact) { setCompact(needsCompact); return; }
     const left = dock === "left" ? MARGIN : dock === "right" ? width - tray.offsetWidth - MARGIN : (width - tray.offsetWidth) / 2;
     tray.style.left = `${Math.max(MARGIN, left)}px`;
-  }, [dock]);
+  }, [dock, compact, collapsed]);
 
   useLayoutEffect(() => {
     place();
@@ -317,7 +334,9 @@ export function AnnotationTray({
           "absolute bottom-4 z-20 flex items-center gap-1 p-1.5 rounded-[18px]",
           "bg-[#2e251c] dark:bg-[#3b3025] text-[#f3e7d3]",
           "shadow-[0_12px_32px_rgba(46,30,14,0.3),inset_0_1px_0_rgba(255,255,255,0.06)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.55)]",
-          "max-w-[calc(100%-16px)] overflow-x-auto [scrollbar-width:none] touch-none select-none",
+          "max-w-[calc(100%-16px)] overflow-x-auto [scrollbar-width:none] select-none",
+          // If even the compact tray is too wide, a finger can swipe it sideways to reach the end.
+          compact ? "touch-pan-x overscroll-x-contain" : "touch-none",
           "[&>*]:transition-opacity [&>*]:duration-150",
           morphing && "overflow-hidden [&>*]:opacity-0 [&>*]:duration-75",
           collapsed && "hidden",
@@ -364,13 +383,17 @@ export function AnnotationTray({
           {tools.tool === "eraser" && <SizeBadge>{tools.eraser === "stroke" ? "Str" : tools.eraser}</SizeBadge>}
         </button>
         <Separator />
-        <button type="button" aria-label="Undo" title="Undo (Z)" onClick={() => { setPop(null); onUndo?.(); }} disabled={!onUndo} className={btnBase}>
-          <Undo2 className="h-[22px] w-[22px]" />
-        </button>
-        <button type="button" aria-label="Redo" title="Redo (Shift+Z)" onClick={() => { setPop(null); onRedo?.(); }} disabled={!onRedo} className={btnBase}>
-          <Redo2 className="h-[22px] w-[22px]" />
-        </button>
-        <Separator />
+        {!compact && (
+          <>
+            <button type="button" aria-label="Undo" title="Undo (Z)" onClick={() => { setPop(null); onUndo?.(); }} disabled={!onUndo} className={btnBase}>
+              <Undo2 className="h-[22px] w-[22px]" />
+            </button>
+            <button type="button" aria-label="Redo" title="Redo (Shift+Z)" onClick={() => { setPop(null); onRedo?.(); }} disabled={!onRedo} className={btnBase}>
+              <Redo2 className="h-[22px] w-[22px]" />
+            </button>
+            <Separator />
+          </>
+        )}
         <button
           type="button"
           aria-label="More"
@@ -443,6 +466,14 @@ export function AnnotationTray({
 
             {pop === "more" && (
               <>
+                {/* In the compact tray, undo and redo live here. The menu stays
+                    open after each tap, so several steps can be undone in a row. */}
+                {compact && (
+                  <div className="grid grid-cols-2 gap-1 pb-1 mb-1 border-b border-[#4a3c2e] dark:border-[#5a4a39]">
+                    <MenuRow icon={<Undo2 className="h-5 w-5" />} label="Undo" disabled={!onUndo} onClick={() => onUndo?.()} />
+                    <MenuRow icon={<Redo2 className="h-5 w-5" />} label="Redo" disabled={!onRedo} onClick={() => onRedo?.()} />
+                  </div>
+                )}
                 <MenuRow
                   icon={inkHidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                   label={inkHidden ? "Show ink" : "Hide ink"}

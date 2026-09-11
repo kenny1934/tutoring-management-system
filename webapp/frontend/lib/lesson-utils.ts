@@ -61,6 +61,30 @@ export function getPrintButtonTitle(isPrinting: boolean, progress: string | null
   return progress || "Printing...";
 }
 
+/**
+ * What to tell the tutor when printing one exercise fails, from the error
+ * code the print helpers return. A blocked popup is the one case the tutor
+ * can fix, so it gets its own advice. Everything else means the file itself
+ * couldn't be reached.
+ */
+export function printErrorMessage(error: string): string {
+  return error === "popup_blocked"
+    ? "Print failed. Check popup blocker settings."
+    : "Couldn't load the file for printing";
+}
+
+/**
+ * The undo and redo keys, shared by both lesson views so they can't drift
+ * apart again. Z undoes and Shift+Z redoes. With Shift held the browser
+ * reports the key as a capital "Z", which is the case the multi-student view
+ * once missed.
+ */
+export function inkHistoryKey(e: Pick<KeyboardEvent, "key" | "shiftKey">): "undo" | "redo" | null {
+  if (e.key === "Z" || (e.key === "z" && e.shiftKey)) return "redo";
+  if (e.key === "z") return "undo";
+  return null;
+}
+
 /** Compare two items by student ID (primary) then student name (secondary). */
 export function compareByStudentId(
   idA: string | null | undefined, nameA: string | null | undefined,

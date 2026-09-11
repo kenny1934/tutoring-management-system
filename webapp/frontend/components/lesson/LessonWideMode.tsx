@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, inkHistoryKey, printErrorMessage, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
@@ -29,6 +29,7 @@ import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
+import { buildAnnotatedZip, hasInk, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
 import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
@@ -98,6 +99,10 @@ export function LessonWideMode({
   const [pageNumbers, setPageNumbers] = useState<number[]>([]);
   const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const MAX_PDF_CACHE_SIZE = 30;
+
+  // Parallel-version previews opened in this lesson. They aren't among the
+  // students' exercises, so "Download All" needs this list to find their ink.
+  const previewEntriesRef = useRef<Map<number, StudentExerciseEntry>>(new Map());
 
   // --- Mobile ---
   const isMobile = useIsMobile();
@@ -427,6 +432,9 @@ export function LessonWideMode({
 
   // --- Sync annotations when selection changes ---
   useEffect(() => {
+    if (selectedEntry && isPreviewExercise(selectedEntry.exercise)) {
+      previewEntriesRef.current.set(selectedEntry.exercise.id, selectedEntry);
+    }
     if (selectedEntry?.exercise) {
       setCurrentAnnotations(getAnnotations(selectedEntry.exercise.id));
     } else {
@@ -611,7 +619,7 @@ export function LessonWideMode({
         sessionDate: target.session.session_date,
         sessionTime: target.session.time_slot,
       };
-      await printFileFromPathWithFallback(
+      const error = await printFileFromPathWithFallback(
         target.exercise.pdf_name,
         target.exercise.page_start,
         target.exercise.page_end,
@@ -619,6 +627,7 @@ export function LessonWideMode({
         entryStamp,
         paperlessSearchWithProgress
       );
+      if (error) showToast(printErrorMessage(error), 'error');
     } finally {
       setPrinting({ id: null, progress: null });
     }
@@ -708,16 +717,23 @@ export function LessonWideMode({
   }, [showToast, paperlessSearchWithProgress]);
 
   // --- Save annotated PDF ---
+  // The file is named after the student as well, so several students' copies
+  // of one worksheet don't download as "(1)", "(2)" and so on.
   const handleSaveAnnotated = useCallback(async () => {
     if (!selectedEntry?.exercise || !pdfData) return;
-    const blob = await saveAnnotatedPdf(
-      pdfData,
-      getExercisePageNumbers(selectedEntry.exercise),
-      stamp,
-      currentAnnotations,
-    );
-    downloadBlob(blob, `${exerciseLabel || "exercise"}-annotated.pdf`);
-  }, [selectedEntry, pdfData, currentAnnotations, stamp, exerciseLabel]);
+    try {
+      const blob = await saveAnnotatedPdf(
+        pdfData,
+        getExercisePageNumbers(selectedEntry.exercise),
+        stamp,
+        currentAnnotations,
+      );
+      downloadBlob(blob, `annotated-${selectedEntry.studentName}-${exerciseLabel || "exercise"}.pdf`);
+    } catch (err) {
+      console.error("Failed to save annotated PDF:", err);
+      showToast(SAVE_FAILED_MESSAGE, 'error');
+    }
+  }, [selectedEntry, pdfData, currentAnnotations, stamp, exerciseLabel, showToast]);
 
   // --- Exit confirmation ---
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -731,49 +747,63 @@ export function LessonWideMode({
     }
   }, [hasAnyAnnotations]);
 
+  // Saves every exercise with ink into one ZIP, loading any PDF that isn't in
+  // memory, which after a reload is most of them. The ink is only cleared, and
+  // the tab only closed, once every one of them has been saved.
   const handleSaveAllAndExit = useCallback(async () => {
     setIsSavingAll(true);
     try {
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
-      const allAnnotationsMap = getAllAnnotations();
-
-      for (const entry of allEntries) {
-        const ann = allAnnotationsMap.get(entry.exercise.id);
-        if (!ann || !Object.values(ann).some((s) => s.length > 0)) continue;
-        if (!entry.exercise.pdf_name) continue;
-
-        const cached = pdfCacheRef.current.get(entry.exercise.pdf_name);
-        if (!cached) continue;
-
-        const entryStamp: PrintStampInfo = {
-          location: entry.session.location,
-          schoolStudentId: entry.studentId || undefined,
-          studentName: entry.studentName,
-          sessionDate: entry.session.session_date,
-          sessionTime: entry.session.time_slot,
-        };
-
-        const pages = getExercisePageNumbers(entry.exercise);
-        const blob = await saveAnnotatedPdf(cached, pages, entryStamp, ann);
-        const label = `${entry.studentName}-${entry.exercise.pdf_name ? getDisplayName(entry.exercise.pdf_name) : 'exercise'}`;
-        zip.file(`annotated-${label}.pdf`, blob);
+      const inkByExercise = getAllAnnotations();
+      const toSave: AnnotatedExercise[] = [];
+      let unsaveable = 0;
+      for (const entry of [...allEntries, ...previewEntriesRef.current.values()]) {
+        const ink = inkByExercise.get(entry.exercise.id);
+        if (!hasInk(ink)) continue;
+        // Ink on an exercise that has since lost its file can't be saved, so it counts as a failure.
+        if (!entry.exercise.pdf_name) { unsaveable++; continue; }
+        toSave.push({
+          pdfName: entry.exercise.pdf_name,
+          pageNumbers: getExercisePageNumbers(entry.exercise),
+          // A preview is class-wide, so it has no student stamp.
+          stamp: isPreviewExercise(entry.exercise) ? undefined : {
+            location: entry.session.location,
+            schoolStudentId: entry.studentId || undefined,
+            studentName: entry.studentName,
+            sessionDate: entry.session.session_date,
+            sessionTime: entry.session.time_slot,
+          },
+          annotations: ink,
+          name: `annotated-${entry.studentName}-${getDisplayName(entry.exercise.pdf_name)}`,
+        });
       }
 
-      const parts = ["Annotations", date, slot].filter(Boolean);
-      const zipName = parts.join("_").replace(/\s+/g, "-") + ".zip";
+      const { zip, saved, failed } = await buildAnnotatedZip(toSave, async (pdfName) => {
+        const cached = pdfCacheRef.current.get(pdfName);
+        if (cached) return cached;
+        const result = await loadExercisePdf(pdfName);
+        return "data" in result ? result.data : null;
+      });
 
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      downloadBlob(zipBlob, zipName);
-      clearStorage();
-      setIsSavingAll(false);
+      if (zip) {
+        const parts = ["Annotations", date, slot].filter(Boolean);
+        downloadBlob(zip, parts.join("_").replace(/\s+/g, "-") + ".zip");
+      }
+
       setShowExitConfirm(false);
+      if (failed + unsaveable > 0) {
+        showToast(saveAllFailedMessage({ saved, failed: failed + unsaveable }), 'error');
+        return;
+      }
+      clearStorage();
       window.close();
     } catch (err) {
       console.error("Failed to save annotated PDFs:", err);
+      setShowExitConfirm(false);
+      showToast(saveAllFailedMessage({ saved: 0, failed: 1 }), 'error');
+    } finally {
       setIsSavingAll(false);
     }
-  }, [allEntries, getAllAnnotations, date, slot, clearStorage]);
+  }, [allEntries, getAllAnnotations, date, slot, clearStorage, showToast]);
 
   // --- beforeunload warning ---
   useEffect(() => {
@@ -807,12 +837,27 @@ export function LessonWideMode({
   }, []);
 
   // --- Keyboard shortcuts ---
-  useStableKeyboardHandler(useCallback((e: KeyboardEvent) => {
+  // The handler is a plain function on purpose. useStableKeyboardHandler picks
+  // up the newest one on every render, so it always sees the current state. It
+  // used to be memoised, and because the Wolfram panel was missing from its
+  // dependencies, keys kept switching exercises behind the open panel.
+  useStableKeyboardHandler((e: KeyboardEvent) => {
     // Skip when modals are open or input is focused
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-    if (exerciseModalSession || showExitConfirm) return;
+    if (exerciseModalSession || bulkAssignType || showExitConfirm) return;
     if (showWolfram && e.key !== "Escape") return;
+
+    // Undo and redo work on any tool, the same as the tray's buttons.
+    const historyKey = inkHistoryKey(e);
+    if (historyKey) {
+      if (selectedEntry) {
+        e.preventDefault();
+        if (historyKey === "undo") handleUndo();
+        else handleRedo();
+      }
+      return;
+    }
 
     switch (e.key) {
       case "Escape":
@@ -843,16 +888,13 @@ export function LessonWideMode({
       case "e":
         tools.toggleFromKey("eraser");
         break;
-      case "z":
-        if (drawingEnabled) {
-          e.shiftKey ? handleRedo() : handleUndo();
-        }
-        break;
       case "p":
-        handlePrint();
+        // Like the print buttons, it waits while another print is still being prepared.
+        if (printing.id === null) handlePrint();
         break;
       case "a":
-        handleAnswerKeyToggle();
+        // Only when there's an answer key to show, or it would open an empty pane.
+        if (answerSearchResult) handleAnswerKeyToggle();
         break;
       case "s":
         if (exerciseHasAnnotations) handleSaveAnnotated();
@@ -872,12 +914,7 @@ export function LessonWideMode({
         // Let PdfPageViewer handle zoom
         break;
     }
-  }, [
-    exerciseModalSession, showExitConfirm, showShortcutHelp, drawingEnabled, focusMode,
-    currentFileGroup, tools, handleRedo, handleUndo,
-    handlePrint, handleAnswerKeyToggle, toggleFocusMode, exitFocusMode,
-    exerciseHasAnnotations, handleSaveAnnotated,
-  ]));
+  });
 
   // Navigate between exercises (j/k)
   const navigateExercise = useCallback((direction: 1 | -1) => {
@@ -1378,6 +1415,7 @@ export function LessonWideMode({
                   onAnswerKeyToggle={handleAnswerKeyToggle}
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
+                  answerKeySearching={!!selectedEntry?.exercise?.pdf_name && !answerSearchDone}
                 />
               </ErrorBoundary>
               )

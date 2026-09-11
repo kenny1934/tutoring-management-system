@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { AnnotationTray } from "./AnnotationTray";
 import { useAnnotationTools, type AnnotationTools } from "@/hooks/useAnnotationTools";
@@ -83,6 +83,57 @@ describe("AnnotationTray", () => {
     expect(tray().className).toContain("hidden");
     fireEvent.click(fab);
     expect(tray().className).not.toContain("hidden");
+  });
+
+  describe("in a viewer too narrow for the whole tray", () => {
+    // jsdom has no layout, so give the tray's area the width in its data-width
+    // attribute, and give the full tray its real width of about 727px.
+    const restore: (() => void)[] = [];
+    function stubGetter(name: "clientWidth" | "scrollWidth", get: (this: HTMLElement) => number) {
+      const proto = HTMLElement.prototype;
+      const original = Object.getOwnPropertyDescriptor(proto, name);
+      Object.defineProperty(proto, name, { configurable: true, get });
+      restore.push(() => {
+        if (original) Object.defineProperty(proto, name, original);
+        else delete (proto as unknown as Record<string, unknown>)[name];
+      });
+    }
+    beforeEach(() => {
+      stubGetter("clientWidth", function () { return Number(this.dataset.width ?? 0); });
+      stubGetter("scrollWidth", function () { return this.getAttribute("role") === "toolbar" ? 727 : 0; });
+    });
+    afterEach(() => restore.splice(0).forEach((undo) => undo()));
+
+    function NarrowHarness({ width, ...props }: { width: number } & Partial<React.ComponentProps<typeof AnnotationTray>>) {
+      const tools = useAnnotationTools();
+      return (
+        <div data-width={width} style={{ position: "relative" }}>
+          <AnnotationTray tools={tools} inkHidden={false} onInkHiddenChange={() => {}} hasInk {...props} />
+        </div>
+      );
+    }
+
+    it("keeps undo and redo on the tray when it fits", () => {
+      render(<NarrowHarness width={1200} onUndo={() => {}} onRedo={() => {}} />);
+      expect(button("Undo")).toBeInTheDocument();
+    });
+
+    it("moves undo and redo into More, which stays open so several steps can be undone", () => {
+      const onUndo = vi.fn();
+      const onRedo = vi.fn();
+      render(<NarrowHarness width={640} onUndo={onUndo} onRedo={onRedo} />);
+
+      expect(within(tray()).queryByRole("button", { name: "Undo" })).toBeNull();
+      expect(button("More")).toBeInTheDocument();
+      expect(button("Collapse the tray")).toBeInTheDocument();
+
+      fireEvent.click(button("More"));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+      fireEvent.click(screen.getByRole("button", { name: "Redo" }));
+      expect(onUndo).toHaveBeenCalledTimes(2);
+      expect(onRedo).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("remembers that it was collapsed", () => {

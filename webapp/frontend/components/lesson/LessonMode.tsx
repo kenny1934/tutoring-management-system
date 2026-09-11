@@ -11,7 +11,7 @@ import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUr
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, inkHistoryKey, printErrorMessage, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
@@ -31,6 +31,8 @@ import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
+import { buildAnnotatedZip, hasInk, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
+import { downloadBlob } from "@/lib/geometry-utils";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { useAnnotationTools } from "@/hooks/useAnnotationTools";
@@ -93,6 +95,10 @@ export function LessonMode({
   // PDF cache: raw ArrayBuffer by pdf_name (avoids re-fetching on exercise switch)
   const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const MAX_PDF_CACHE_SIZE = 20;
+
+  // Parallel-version previews opened in this lesson. They aren't among the
+  // session's exercises, so "Download All" needs this list to find their ink.
+  const previewExercisesRef = useRef<Map<number, SessionExercise>>(new Map());
 
   // Mobile responsive
   const isMobile = useIsMobile();
@@ -402,6 +408,9 @@ export function LessonMode({
 
   // Sync annotations when exercise changes
   useEffect(() => {
+    if (selectedExercise && isPreviewExercise(selectedExercise)) {
+      previewExercisesRef.current.set(selectedExercise.id, selectedExercise);
+    }
     if (selectedExercise) {
       setCurrentAnnotations(getAnnotations(selectedExercise.id));
     } else {
@@ -448,11 +457,17 @@ export function LessonMode({
     setAnswerSearchDone(false);
 
     (async () => {
-      const result = await searchAnswerFile(pdfName);
-      if (cancelled) return;
-      answerCacheRef.current.set(pdfName, result);
-      setAnswerSearchResult(result);
-      setAnswerSearchDone(true);
+      try {
+        const result = await searchAnswerFile(pdfName);
+        if (cancelled) return;
+        answerCacheRef.current.set(pdfName, result);
+        setAnswerSearchResult(result);
+      } catch (err) {
+        console.error("Answer file search failed:", err);
+      } finally {
+        // A failed search still has to end, or the button would keep saying it's looking.
+        if (!cancelled) setAnswerSearchDone(true);
+      }
     })();
 
     return () => { cancelled = true; };
@@ -563,7 +578,7 @@ export function LessonMode({
         return;
       }
       const { complexPages } = parseExerciseRemarks(exercise.remarks);
-      await printFileFromPathWithFallback(
+      const error = await printFileFromPathWithFallback(
         exercise.pdf_name,
         exercise.page_start,
         exercise.page_end,
@@ -571,6 +586,7 @@ export function LessonMode({
         stamp,
         paperlessSearchWithProgress
       );
+      if (error) showToast(printErrorMessage(error), 'error');
     } finally {
       setPrinting({ id: null, progress: null });
     }
@@ -619,28 +635,24 @@ export function LessonMode({
     setCurrentAnnotations({});
   }, [selectedExercise, clearAnnotations]);
 
+  // A preview is class-wide, so it has no student stamp, on screen or in the saved file.
+  const viewerStamp = selectedExercise && isPreviewExercise(selectedExercise) ? undefined : stamp;
+
   const handleSaveAnnotated = useCallback(async () => {
     if (!selectedExercise?.pdf_name || !pdfData) return;
     try {
       const blob = await saveAnnotatedPdf(
         pdfData,
         pageNumbers,
-        stamp,
+        viewerStamp,
         currentAnnotations,
       );
-      const url = URL.createObjectURL(blob);
-      try {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `annotated-${getDisplayName(selectedExercise.pdf_name)}.pdf`;
-        a.click();
-      } finally {
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-      }
+      downloadBlob(blob, `annotated-${getDisplayName(selectedExercise.pdf_name)}.pdf`);
     } catch (err) {
       console.error("Failed to save annotated PDF:", err);
+      showToast(SAVE_FAILED_MESSAGE, 'error');
     }
-  }, [selectedExercise, pdfData, pageNumbers, stamp, currentAnnotations]);
+  }, [selectedExercise, pdfData, pageNumbers, viewerStamp, currentAnnotations, showToast]);
 
   const exerciseHasAnnotations = selectedExercise
     ? checkHasAnnotations(selectedExercise.id)
@@ -658,60 +670,90 @@ export function LessonMode({
     }
   }, [hasAnyAnnotations, onExit]);
 
-  // S5: handleSaveAllAndExit uses getExercisePageNumbers
+  // Saves every exercise with ink into one ZIP, loading any PDF that isn't in
+  // memory, which after a reload is most of them. The ink is only cleared, and
+  // the lesson only closed, once every one of them has been saved.
   const handleSaveAllAndExit = useCallback(async () => {
     setIsSavingAll(true);
     try {
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
-      const allAnnotationsMap = getAllAnnotations();
-
-      for (const exercise of allExercises) {
-        const ann = allAnnotationsMap.get(exercise.id);
-        if (!ann || !Object.values(ann).some((s) => s.length > 0)) continue;
-        if (!exercise.pdf_name) continue;
-
-        const cached = pdfCacheRef.current.get(exercise.pdf_name);
-        if (!cached) continue;
-
-        const pages = getExercisePageNumbers(exercise);
-        const blob = await saveAnnotatedPdf(cached, pages, stamp, ann);
-        zip.file(`annotated-${getDisplayName(exercise.pdf_name)}.pdf`, blob);
+      const inkByExercise = getAllAnnotations();
+      const toSave: AnnotatedExercise[] = [];
+      let unsaveable = 0;
+      for (const exercise of [...allExercises, ...previewExercisesRef.current.values()]) {
+        const ink = inkByExercise.get(exercise.id);
+        if (!hasInk(ink)) continue;
+        // Ink on an exercise that has since lost its file can't be saved, so it counts as a failure.
+        if (!exercise.pdf_name) { unsaveable++; continue; }
+        toSave.push({
+          pdfName: exercise.pdf_name,
+          pageNumbers: getExercisePageNumbers(exercise),
+          stamp: isPreviewExercise(exercise) ? undefined : stamp,
+          annotations: ink,
+          name: `annotated-${getDisplayName(exercise.pdf_name)}`,
+        });
       }
 
-      const studentId = [session.location, session.school_student_id].filter(Boolean).join("-");
-      const parts = [
-        "Annotations",
-        studentId,
-        session.student_name,
-        session.session_date,
-        session.time_slot,
-      ].filter(Boolean);
-      const zipName = parts.join("_").replace(/\s+/g, "-") + ".zip";
+      const { zip, saved, failed } = await buildAnnotatedZip(toSave, async (pdfName) => {
+        const cached = pdfCacheRef.current.get(pdfName);
+        if (cached) return cached;
+        const result = await loadExercisePdf(pdfName);
+        return "data" in result ? result.data : null;
+      });
 
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = zipName;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-      setIsSavingAll(false);
+      if (zip) {
+        const studentId = [session.location, session.school_student_id].filter(Boolean).join("-");
+        const parts = [
+          "Annotations",
+          studentId,
+          session.student_name,
+          session.session_date,
+          session.time_slot,
+        ].filter(Boolean);
+        downloadBlob(zip, parts.join("_").replace(/\s+/g, "-") + ".zip");
+      }
+
       setShowExitConfirm(false);
+      if (failed + unsaveable > 0) {
+        showToast(saveAllFailedMessage({ saved, failed: failed + unsaveable }), 'error');
+        return;
+      }
       // F2: Clear sessionStorage on save & exit
       clearStorage();
       onExit();
     } catch (err) {
       console.error("Failed to save annotated PDFs:", err);
+      setShowExitConfirm(false);
+      showToast(saveAllFailedMessage({ saved: 0, failed: 1 }), 'error');
+    } finally {
       setIsSavingAll(false);
     }
-  }, [allExercises, getAllAnnotations, stamp, session, onExit, clearStorage]);
+  }, [allExercises, getAllAnnotations, stamp, session, onExit, clearStorage, showToast]);
+
+  // Warn before the tab closes or reloads while there's ink that only lives in this tab.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasAnyAnnotations()) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasAnyAnnotations]);
 
   // Keyboard shortcuts — useStableKeyboardHandler reads latest closure on every keydown
   useStableKeyboardHandler((e: KeyboardEvent) => {
     if (exerciseModalType || showExitConfirm) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (showWolfram && e.key !== "Escape") return;
+
+    // Undo and redo work on any tool, the same as the tray's buttons.
+    const historyKey = inkHistoryKey(e);
+    if (historyKey) {
+      if (selectedExercise) {
+        e.preventDefault();
+        if (historyKey === "undo") handleUndo();
+        else handleRedo();
+      }
+      return;
+    }
 
     switch (e.key) {
       case "Escape":
@@ -767,18 +809,6 @@ export function LessonMode({
       case "e":
         e.preventDefault();
         tools.toggleFromKey("eraser");
-        break;
-      case "z":
-        if (drawingEnabled) {
-          e.preventDefault();
-          handleUndo();
-        }
-        break;
-      case "Z":
-        if (drawingEnabled) {
-          e.preventDefault();
-          handleRedo();
-        }
         break;
       case "c":
         if (currentSession) {
@@ -1249,7 +1279,7 @@ export function LessonMode({
                 <PdfPageViewer
                   pdfData={pdfData}
                   pageNumbers={pageNumbers}
-                  stamp={selectedExercise && isPreviewExercise(selectedExercise) ? undefined : stamp}
+                  stamp={viewerStamp}
                   exerciseId={selectedExercise?.id}
                   isLoading={pdfLoading}
                   loadingMessage={pdfLoadingMessage}
@@ -1267,6 +1297,7 @@ export function LessonMode({
                   onAnswerKeyToggle={handleAnswerKeyToggle}
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
+                  answerKeySearching={!!selectedExercise?.pdf_name && !answerSearchDone}
                 />
               </ErrorBoundary>
               )

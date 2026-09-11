@@ -81,6 +81,8 @@ interface PdfPageViewerProps {
   showAnswerKey?: boolean;
   /** Whether an answer key file was found for this exercise. */
   answerKeyAvailable?: boolean;
+  /** True while the search for this exercise's answer key is still running. */
+  answerKeySearching?: boolean;
 }
 
 const MIN_ZOOM = 25;
@@ -118,6 +120,7 @@ export function PdfPageViewer({
   onAnswerKeyToggle,
   showAnswerKey = false,
   answerKeyAvailable = false,
+  answerKeySearching = false,
 }: PdfPageViewerProps) {
   const isMobile = useIsMobile();
   const { resolvedTheme } = useTheme();
@@ -822,9 +825,16 @@ export function PdfPageViewer({
                   ? "bg-[#a0704b] text-white"
                   : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
               )}
-              title={!answerKeyAvailable ? "No answer key found" : showAnswerKey ? "Hide answer key" : "Show answer key"}
+              title={
+                answerKeySearching ? "Looking for the answer key"
+                  : !answerKeyAvailable ? "No answer key found"
+                  : showAnswerKey ? "Hide answer key" : "Show answer key"
+              }
+              aria-busy={answerKeySearching || undefined}
             >
-              <BookCheck className="h-3.5 w-3.5" />
+              {answerKeySearching
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <BookCheck className="h-3.5 w-3.5" />}
             </button>
           </>
         )}
@@ -899,49 +909,51 @@ export function PdfPageViewer({
       )}
       </div>
 
-      {/* Bottom page navigation bar */}
-      {pages.length > 1 && (
-        <div className={cn(
-          "flex items-center justify-center gap-2 px-2 py-1",
-          "border-t border-[#d4c4a8] dark:border-[#3a3228]",
-          "bg-[#f0e6d4] dark:bg-[#252018]",
-        )}>
-          <button
-            onClick={() => scrollToPage(currentVisiblePage - 1)}
-            disabled={currentVisiblePage <= 1}
-            className={currentVisiblePage <= 1 ? tbBtnDisabled : tbBtnClass}
-            title="Previous page"
-          >
-            <ChevronUp className="h-3.5 w-3.5" />
-          </button>
-          <div className="flex items-center gap-1 text-[11px] text-[#8b7355] dark:text-[#a09080]">
-            <input
-              ref={pageInputRef}
-              type="text"
-              inputMode="numeric"
-              defaultValue={currentVisiblePage}
-              onBlur={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 1 && val <= pages.length) scrollToPage(val);
-                else e.target.value = String(currentVisiblePage);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              className="w-8 text-center rounded border border-[#d4c4a8] dark:border-[#3a3228] bg-white/50 dark:bg-black/20 text-[11px] text-[#8b7355] dark:text-[#a09080] py-0.5 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
-            />
-            <span>/ {pages.length}</span>
-          </div>
-          <button
-            onClick={() => scrollToPage(currentVisiblePage + 1)}
-            disabled={currentVisiblePage >= pages.length}
-            className={currentVisiblePage >= pages.length ? tbBtnDisabled : tbBtnClass}
-            title="Next page"
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
+      {/* Bottom page navigation bar. It's there even for a one-page file, with
+          its arrows greyed out, so the viewer keeps the same height and the
+          Pen Tray doesn't jump up and down between exercises. */}
+      <div className={cn(
+        "flex items-center justify-center gap-2 px-2 py-1",
+        "border-t border-[#d4c4a8] dark:border-[#3a3228]",
+        "bg-[#f0e6d4] dark:bg-[#252018]",
+      )}>
+        <button
+          onClick={() => scrollToPage(currentVisiblePage - 1)}
+          disabled={currentVisiblePage <= 1}
+          className={currentVisiblePage <= 1 ? tbBtnDisabled : tbBtnClass}
+          title="Previous page"
+        >
+          <ChevronUp className="h-3.5 w-3.5" />
+        </button>
+        <div className="flex items-center gap-1 text-[11px] text-[#8b7355] dark:text-[#a09080]">
+          <input
+            ref={pageInputRef}
+            type="text"
+            inputMode="numeric"
+            aria-label="Page number"
+            disabled={pages.length <= 1}
+            defaultValue={currentVisiblePage}
+            onBlur={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!isNaN(val) && val >= 1 && val <= pages.length) scrollToPage(val);
+              else e.target.value = String(currentVisiblePage);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            className="w-8 text-center rounded border border-[#d4c4a8] dark:border-[#3a3228] bg-white/50 dark:bg-black/20 text-[11px] text-[#8b7355] dark:text-[#a09080] py-0.5 focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+          />
+          <span>/ {pages.length}</span>
         </div>
-      )}
+        <button
+          onClick={() => scrollToPage(currentVisiblePage + 1)}
+          disabled={currentVisiblePage >= pages.length}
+          className={currentVisiblePage >= pages.length ? tbBtnDisabled : tbBtnClass}
+          title="Next page"
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
