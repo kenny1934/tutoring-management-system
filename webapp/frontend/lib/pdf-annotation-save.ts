@@ -5,7 +5,7 @@
 import getStroke from "perfect-freehand";
 import { extractPagesForPrint } from "./pdf-utils";
 import type { PrintStampInfo } from "./pdf-utils";
-import { RENDER_SCALE, getStrokeOptions } from "@/hooks/useAnnotations";
+import { RENDER_SCALE, getStrokeOptions, inkOrder, strokeOpacity } from "@/hooks/useAnnotations";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 
 /** Draw a single stroke onto a canvas context. */
@@ -31,7 +31,7 @@ function drawStrokeToCanvas(
 
   ctx.closePath();
   ctx.fillStyle = stroke.color;
-  ctx.globalAlpha = 0.85;
+  ctx.globalAlpha = strokeOpacity(stroke);
   ctx.fill();
   ctx.globalAlpha = 1;
 }
@@ -65,7 +65,8 @@ async function renderPageAnnotations(
   canvas.height = cssHeight * quality;
   const ctx = canvas.getContext("2d")!;
 
-  for (const stroke of strokes) {
+  // Highlighter goes down first so pen ink sits on top of it, as on screen.
+  for (const stroke of inkOrder(strokes)) {
     drawStrokeToCanvas(ctx, stroke, quality);
   }
 

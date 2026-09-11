@@ -91,3 +91,69 @@ describe("AnnotationLayer rubbing eraser", () => {
     expect(svg.querySelector("circle")).toBeNull();
   });
 });
+
+describe("AnnotationLayer pen and highlighter", () => {
+  function renderDrawing(props: Partial<React.ComponentProps<typeof AnnotationLayer>> = {}) {
+    const onStrokesChange = vi.fn();
+    const utils = render(
+      <AnnotationLayer
+        width={100}
+        height={100}
+        strokes={[]}
+        isDrawing
+        isErasing={false}
+        penColor="#facc15"
+        penSize={20}
+        onStrokesChange={onStrokesChange}
+        {...props}
+      />
+    );
+    return { ...utils, svg: utils.container.querySelector("svg")!, onStrokesChange };
+  }
+
+  function drawLine(svg: SVGSVGElement) {
+    fireEvent.pointerDown(svg, { clientX: 10, clientY: 50, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 50, clientY: 50, pointerId: 1 });
+    fireEvent.pointerUp(svg, { clientX: 90, clientY: 50, pointerId: 1 });
+  }
+
+  it("marks a stroke drawn with the highlighter as highlighter ink", () => {
+    const { svg, onStrokesChange } = renderDrawing({ inkKind: "highlighter" });
+    drawLine(svg);
+    const [stroke] = onStrokesChange.mock.calls[0][0] as Stroke[];
+    expect(stroke.kind).toBe("highlighter");
+    expect(stroke.color).toBe("#facc15");
+  });
+
+  it("leaves pen strokes unmarked, the same as ink saved before the highlighter", () => {
+    const { svg, onStrokesChange } = renderDrawing({ penColor: "#dc2626", penSize: 3 });
+    drawLine(svg);
+    const [stroke] = onStrokesChange.mock.calls[0][0] as Stroke[];
+    expect(stroke).not.toHaveProperty("kind");
+  });
+
+  it("paints highlighter ink underneath pen ink, whatever order they were drawn in", () => {
+    const highlight: Stroke = { ...LINE, color: "#facc15", size: 20, kind: "highlighter" };
+    const { svg } = renderDrawing({ isDrawing: false, strokes: [LINE, highlight] });
+    const paths = [...svg.querySelectorAll("path")];
+    expect(paths.map((p) => p.getAttribute("fill"))).toEqual(["#facc15", "#dc2626"]);
+    expect(paths[0].getAttribute("opacity")).toBe("0.35");
+  });
+
+  it("throws away a half-drawn line when a second finger turns the touch into a scroll", () => {
+    const { svg, onStrokesChange, rerender } = renderDrawing();
+    fireEvent.pointerDown(svg, { clientX: 10, clientY: 50, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 50, clientY: 50, pointerId: 1 });
+
+    rerender(
+      <AnnotationLayer
+        width={100} height={100} strokes={[]} isDrawing isErasing={false}
+        penColor="#facc15" penSize={20} onStrokesChange={onStrokesChange} suspended
+      />
+    );
+    fireEvent.pointerUp(svg, { clientX: 90, clientY: 50, pointerId: 1 });
+
+    expect(onStrokesChange).not.toHaveBeenCalled();
+    expect(svg.querySelector("path")).toBeNull();
+  });
+});

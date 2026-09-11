@@ -1,23 +1,21 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
-  PencilLine, Undo2, Redo2, Trash2, Eraser, Download, Circle,
-  ZoomIn, ZoomOut, UnfoldHorizontal, Eye, EyeOff, BookCheck, Moon, Sun,
+  ZoomIn, ZoomOut, UnfoldHorizontal, BookCheck, Moon, Sun,
   ChevronUp, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
+import { AnnotationTray } from "./AnnotationTray";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
-import { ERASER_RADIUS, type EraserSetting } from "@/lib/stroke-eraser";
+import { ERASER_RADIUS } from "@/lib/stroke-eraser";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { useTheme } from "next-themes";
-import {
-  useFloating, offset, flip, shift, useClick, useDismiss, useInteractions,
-  FloatingPortal,
-} from "@floating-ui/react";
+import type { AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 
@@ -37,225 +35,6 @@ function formatCompactPageRange(pages: number[]): string {
   }
   groups.push(start === end ? String(start) : `${start}-${end}`);
   return groups.join(",");
-}
-
-// Pen colors palette
-const PEN_COLORS = [
-  { color: "#dc2626", label: "Red" },
-  { color: "#2563eb", label: "Blue" },
-  { color: "#16a34a", label: "Green" },
-  { color: "#000000", label: "Black" },
-  { color: "#f59e0b", label: "Orange" },
-];
-
-/**
- * One choice in the pen-size or eraser picker. `dot` and `mobileDot` are the
- * icon sizes in pixels on the desktop strip and in the mobile popover.
- */
-interface ToolOption<T> {
-  value: T;
-  title: string;
-  dot?: number;
-  mobileDot?: number;
-}
-
-const PEN_SIZES: ToolOption<number>[] = [
-  { value: 3, title: "Size: S", dot: 4, mobileDot: 6 },
-  { value: 6, title: "Size: M", dot: 7, mobileDot: 10 },
-  { value: 12, title: "Size: L", dot: 10, mobileDot: 14 },
-];
-
-// The eraser sizes show as outline circles, so they read differently from the
-// filled pen-size dots. The last option is the whole-stroke eraser, which has
-// a word, not a circle.
-const ERASER_OPTIONS: ToolOption<EraserSetting>[] = [
-  { value: "S", title: "Small eraser", dot: 5, mobileDot: 8 },
-  { value: "M", title: "Medium eraser", dot: 8, mobileDot: 12 },
-  { value: "L", title: "Large eraser", dot: 11, mobileDot: 16 },
-  { value: "stroke", title: "Whole-stroke eraser: tap a stroke to remove all of it" },
-];
-
-function PenSizeIcon({ size, mobile = false }: { size: number; mobile?: boolean }) {
-  // A size that isn't on the list shows as the largest dot.
-  const option = PEN_SIZES.find((o) => o.value === size) ?? PEN_SIZES[PEN_SIZES.length - 1];
-  const px = mobile ? option.mobileDot : option.dot;
-  return <Circle className="fill-current" style={{ width: px, height: px }} />;
-}
-
-function EraserOptionIcon({ setting, mobile = false }: { setting: EraserSetting; mobile?: boolean }) {
-  const option = ERASER_OPTIONS.find((o) => o.value === setting);
-  const px = mobile ? option?.mobileDot : option?.dot;
-  if (!px) return <span className={cn("font-bold", mobile ? "text-[11px]" : "text-[10px] px-0.5")}>Stroke</span>;
-  return <Circle style={{ width: px, height: px }} />;
-}
-
-/** Mobile color popover — larger tap targets for touch devices. */
-function MobileColorPopover({
-  currentColor,
-  onColorChange,
-}: {
-  currentColor: string;
-  onColorChange: (color: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: setIsOpen,
-    middleware: [offset(8), flip(), shift({ padding: 8 })],
-    placement: "bottom",
-  });
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
-
-  return (
-    <>
-      <button
-        ref={refs.setReference}
-        {...getReferenceProps()}
-        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded"
-        title="Pen color"
-      >
-        <div
-          className="w-6 h-6 rounded-full border-2 border-[#6b5a42] dark:border-[#c4a882]"
-          style={{ backgroundColor: currentColor }}
-        />
-      </button>
-      {isOpen && (
-        <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            style={floatingStyles}
-            {...getFloatingProps()}
-            className="z-[200] bg-[#f0e6d4] dark:bg-[#252018] rounded-lg shadow-xl border border-[#d4c4a8] dark:border-[#3a3228] p-3"
-          >
-            <div className="flex gap-2">
-              {PEN_COLORS.map(({ color, label }) => (
-                <button
-                  key={color}
-                  onClick={() => { onColorChange(color); setIsOpen(false); }}
-                  className={cn(
-                    "w-11 h-11 rounded-full border-[3px] transition-all",
-                    currentColor === color
-                      ? "border-[#6b5a42] dark:border-[#c4a882] scale-110"
-                      : "border-transparent"
-                  )}
-                  style={{ backgroundColor: color }}
-                  title={label}
-                />
-              ))}
-            </div>
-          </div>
-        </FloatingPortal>
-      )}
-    </>
-  );
-}
-
-/**
- * Mobile picker for the pen size or the eraser. The trigger shows the current
- * choice, and tapping it opens a popover of large tap targets.
- */
-function MobileChoicePopover<T extends string | number>({
-  title,
-  options,
-  current,
-  onChange,
-  renderIcon,
-}: {
-  title: string;
-  options: ToolOption<T>[];
-  current: T;
-  onChange: (value: T) => void;
-  renderIcon: (value: T) => ReactNode;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: setIsOpen,
-    middleware: [offset(8), flip(), shift({ padding: 8 })],
-    placement: "bottom",
-  });
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
-
-  return (
-    <>
-      <button
-        ref={refs.setReference}
-        {...getReferenceProps()}
-        className={cn(
-          "min-w-[44px] min-h-[44px] flex items-center justify-center rounded",
-          "text-[#8b7355] dark:text-[#a09080]"
-        )}
-        title={title}
-      >
-        {renderIcon(current)}
-      </button>
-      {isOpen && (
-        <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            style={floatingStyles}
-            {...getFloatingProps()}
-            className="z-[200] bg-[#f0e6d4] dark:bg-[#252018] rounded-lg shadow-xl border border-[#d4c4a8] dark:border-[#3a3228] p-3"
-          >
-            <div className="flex gap-2">
-              {options.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => { onChange(option.value); setIsOpen(false); }}
-                  className={cn(
-                    "min-w-11 h-11 px-1 flex items-center justify-center rounded-lg transition-colors",
-                    current === option.value
-                      ? "bg-[#a0704b] text-white"
-                      : "text-[#8b7355] dark:text-[#a09080] hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228]"
-                  )}
-                  title={option.title}
-                >
-                  {renderIcon(option.value)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </FloatingPortal>
-      )}
-    </>
-  );
-}
-
-/** Desktop version of the same picker: a row of small buttons in the toolbar. */
-function ChoiceStrip<T extends string | number>({
-  options,
-  current,
-  onChange,
-  renderIcon,
-}: {
-  options: ToolOption<T>[];
-  current: T;
-  onChange: (value: T) => void;
-  renderIcon: (value: T) => ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "flex items-center justify-center min-w-5 h-5 rounded transition-colors",
-            current === option.value
-              ? "bg-[#a0704b] text-white"
-              : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
-          )}
-          title={option.title}
-        >
-          {renderIcon(option.value)}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 /** A rendered page image with its dimensions. */
@@ -280,18 +59,11 @@ interface PdfPageViewerProps {
   annotations?: PageAnnotations;
   /** Called with the one page whose strokes changed, and its new strokes. */
   onPageStrokesChange?: (pageIndex: number, strokes: Stroke[]) => void;
-  /** Whether drawing mode is active. */
-  drawingEnabled?: boolean;
-  /** Called to toggle drawing mode. */
-  onDrawingToggle?: () => void;
-  /** Current pen color. */
-  penColor?: string;
-  /** Called to change pen color. */
-  onPenColorChange?: (color: string) => void;
-  /** Current pen size. */
-  penSize?: number;
-  /** Called to change pen size. */
-  onPenSizeChange?: (size: number) => void;
+  /**
+   * The Pen Tray's settings. Pass them to show the tray and let people draw
+   * on the pages. Without them the viewer is read-only.
+   */
+  tools?: AnnotationTools;
   /** Called to undo last stroke on a page. */
   onUndo?: () => void;
   /** Called to redo last undone stroke on a page. */
@@ -302,14 +74,6 @@ interface PdfPageViewerProps {
   hasAnnotations?: boolean;
   /** Called to save annotated PDF. */
   onSaveAnnotated?: () => void;
-  /** Whether the eraser tool is active. */
-  eraserActive?: boolean;
-  /** Called to toggle the eraser tool. */
-  onEraserToggle?: () => void;
-  /** Eraser size, or "stroke" for the whole-stroke eraser. */
-  eraser?: EraserSetting;
-  /** Called to change the eraser size. */
-  onEraserChange?: (setting: EraserSetting) => void;
   /** Exercise ID for render caching — skips re-render when switching back. */
   exerciseId?: number;
   /** Called to toggle answer key view. */
@@ -345,21 +109,12 @@ export function PdfPageViewer({
   onRetry,
   annotations = {},
   onPageStrokesChange,
-  drawingEnabled = false,
-  onDrawingToggle,
-  penColor = "#dc2626",
-  onPenColorChange,
-  penSize = 3,
-  onPenSizeChange,
+  tools,
   onUndo,
   onRedo,
   onClearAll,
   hasAnnotations = false,
   onSaveAnnotated,
-  eraserActive = false,
-  onEraserToggle,
-  eraser = "M",
-  onEraserChange,
   exerciseId,
   onAnswerKeyToggle,
   showAnswerKey = false,
@@ -408,20 +163,56 @@ export function PdfPageViewer({
   pagesRef.current = pages;
   zoomRef.current = zoom;
 
-  // Clear all confirmation state (arm-then-confirm pattern)
-  const [confirmingClearAll, setConfirmingClearAll] = useState(false);
-  const clearAllTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const drawingEnabled = tools?.drawingEnabled ?? false;
+  const eraserActive = tools?.tool === "eraser";
 
-  const handleClearAllClick = useCallback(() => {
-    if (confirmingClearAll) {
-      clearTimeout(clearAllTimerRef.current);
-      setConfirmingClearAll(false);
-      onClearAll?.();
-    } else {
-      setConfirmingClearAll(true);
-      clearAllTimerRef.current = setTimeout(() => setConfirmingClearAll(false), 2000);
-    }
-  }, [confirmingClearAll, onClearAll]);
+  // ---------- Touch and pinch-zoom ----------
+  // During a pinch the zoom is shown straight on the page stack, without a
+  // React render per finger movement, and kept in state once the pinch ends.
+  const pageStackRef = useRef<HTMLDivElement>(null);
+
+  const zoomStyle = useCallback((z: number) => {
+    const scale = z / 100;
+    const pagesNow = pagesRef.current;
+    // gap-4 = 16px between pages
+    const naturalHeight = pagesNow.reduce((sum, p) => sum + p.height, 0) + Math.max(0, pagesNow.length - 1) * 16;
+    return {
+      transform: `scale(${scale})`,
+      width: `${(100 / z) * 100}%`,
+      marginBottom: scale < 1 ? naturalHeight * (scale - 1) : undefined,
+    };
+  }, []);
+
+  const previewZoom = useCallback((z: number) => {
+    const stack = pageStackRef.current, container = scrollContainerRef.current;
+    if (!stack || !container) return;
+    const style = zoomStyle(z);
+    stack.style.transform = style.transform;
+    stack.style.width = style.width;
+    stack.style.marginBottom = style.marginBottom !== undefined ? `${style.marginBottom}px` : "";
+    // Past fit-to-width the pages line up on the left so they can scroll sideways.
+    stack.style.alignItems = z > fitZoomRef.current ? "flex-start" : "center";
+    container.style.overflowX = z > fitZoomRef.current ? "auto" : "hidden";
+  }, [zoomStyle]);
+
+  const commitZoom = useCallback((z: number) => {
+    // Hand the alignment back to the classes, which now follow the new zoom.
+    pageStackRef.current?.style.removeProperty("align-items");
+    scrollContainerRef.current?.style.removeProperty("overflow-x");
+    userHasZoomed.current = true;
+    setZoom(Math.round(z));
+  }, []);
+
+  const { gestureActive, handlers: touchHandlers } = useViewerTouch({
+    scrollRef: scrollContainerRef,
+    getAnchor: () => pageRefs.current[0] ?? null,
+    handTool: !drawingEnabled,
+    zoom,
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+    previewZoom,
+    commitZoom,
+  });
 
   // Zoom handlers
   const togglePdfDarkMode = useCallback(() => {
@@ -951,9 +742,6 @@ export function PdfPageViewer({
     );
   }
 
-  const zoomScale = zoom / 100;
-  // Natural content height for scroll correction when zoomed out (gap-4 = 16px)
-  const naturalContentHeight = pages.reduce((sum, p) => sum + p.height, 0) + Math.max(0, pages.length - 1) * 16;
   const tbBtn = isMobile ? "p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center" : "p-1";
   const tbBtnClass = cn(tbBtn, "rounded hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors");
   const tbBtnDisabled = cn(tbBtn, "rounded text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
@@ -1036,197 +824,28 @@ export function PdfPageViewer({
             </button>
           </>
         )}
-
-        {/* Annotation toolbar */}
-        {onDrawingToggle && (
-          <>
-            {/* Separator */}
-            <div className="h-4 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />
-
-            {/* Pen tool toggle */}
-            <button
-              onClick={onDrawingToggle}
-              className={cn(
-                tbBtn, "rounded transition-colors",
-                drawingEnabled && !eraserActive
-                  ? "bg-[#a0704b] text-white"
-                  : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
-              )}
-              title={drawingEnabled && !eraserActive ? "Exit draw mode (D)" : "Pen tool (D)"}
-            >
-              <PencilLine className="h-3.5 w-3.5" />
-            </button>
-
-            {/* Eraser tool toggle */}
-            <button
-              onClick={onEraserToggle}
-              className={cn(
-                tbBtn, "rounded transition-colors",
-                eraserActive
-                  ? "bg-[#a0704b] text-white"
-                  : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
-              )}
-              title={eraserActive ? "Exit eraser mode (E)" : "Eraser tool (E)"}
-            >
-              <Eraser className="h-3.5 w-3.5" />
-            </button>
-
-            {/* Annotation visibility toggle */}
-            <button
-              onClick={() => setAnnotationsVisible(v => !v)}
-              className={cn(
-                tbBtn, "rounded transition-colors",
-                !annotationsVisible
-                  ? "bg-[#a0704b] text-white"
-                  : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
-              )}
-              title={annotationsVisible ? "Hide annotations" : "Show annotations"}
-            >
-              {annotationsVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-            </button>
-
-            {/* Pen-specific controls: colors and sizes */}
-            {drawingEnabled && !eraserActive && (
-              <>
-                {isMobile ? (
-                  <>
-                    <MobileColorPopover
-                      currentColor={penColor}
-                      onColorChange={(c) => onPenColorChange?.(c)}
-                    />
-                    <MobileChoicePopover
-                      title="Pen size"
-                      options={PEN_SIZES}
-                      current={penSize}
-                      onChange={(s) => onPenSizeChange?.(s)}
-                      renderIcon={(s) => <PenSizeIcon size={s} mobile />}
-                    />
-                  </>
-                ) : (
-                  <>
-                    {/* Desktop: inline color picker */}
-                    <div className="flex items-center gap-0.5">
-                      {PEN_COLORS.map(({ color, label }) => (
-                        <button
-                          key={color}
-                          onClick={() => onPenColorChange?.(color)}
-                          className={cn(
-                            "w-4 h-4 rounded-full border-2 transition-all",
-                            penColor === color
-                              ? "border-[#6b5a42] dark:border-[#c4a882] scale-110"
-                              : "border-transparent hover:border-[#d4c4a8] dark:hover:border-[#5a4d3a]"
-                          )}
-                          style={{ backgroundColor: color }}
-                          title={label}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Desktop: inline size selector */}
-                    <ChoiceStrip
-                      options={PEN_SIZES}
-                      current={penSize}
-                      onChange={(s) => onPenSizeChange?.(s)}
-                      renderIcon={(s) => <PenSizeIcon size={s} />}
-                    />
-                  </>
-                )}
-              </>
-            )}
-
-            {/* Eraser-specific controls: rubbing sizes and the whole-stroke eraser */}
-            {eraserActive && (
-              isMobile ? (
-                <MobileChoicePopover
-                  title="Eraser size"
-                  options={ERASER_OPTIONS}
-                  current={eraser}
-                  onChange={(s) => onEraserChange?.(s)}
-                  renderIcon={(s) => <EraserOptionIcon setting={s} mobile />}
-                />
-              ) : (
-                <ChoiceStrip
-                  options={ERASER_OPTIONS}
-                  current={eraser}
-                  onChange={(s) => onEraserChange?.(s)}
-                  renderIcon={(s) => <EraserOptionIcon setting={s} />}
-                />
-              )
-            )}
-
-            {/* Annotation controls — visible when any annotation tool is active */}
-            {drawingEnabled && (
-              <>
-                {/* Separator */}
-                <div className="h-4 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />
-
-                {/* Undo / Redo */}
-                <button
-                  onClick={onUndo}
-                  className={tbBtnClass}
-                  title="Undo (Z)"
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={onRedo}
-                  className={tbBtnClass}
-                  title="Redo (Shift+Z)"
-                >
-                  <Redo2 className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Separator */}
-                <div className="h-4 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />
-
-                {/* Clear all (with confirmation) */}
-                <button
-                  onClick={handleClearAllClick}
-                  className={cn(
-                    tbBtn, "rounded transition-colors",
-                    confirmingClearAll
-                      ? "bg-red-500 text-white"
-                      : tbBtnClass
-                  )}
-                  title={confirmingClearAll ? "Click again to confirm" : "Clear all annotations"}
-                >
-                  {confirmingClearAll
-                    ? <span className="text-[10px] font-bold px-0.5">Sure?</span>
-                    : <Trash2 className="h-3.5 w-3.5" />}
-                </button>
-              </>
-            )}
-
-            {/* Save annotated PDF */}
-            {hasAnnotations && onSaveAnnotated && (
-              <button
-                onClick={onSaveAnnotated}
-                className={cn(tbBtn, "rounded hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#a0704b] transition-colors")}
-                title="Save annotated PDF"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </>
-        )}
       </div>
 
-      {/* Scrollable page container */}
+      {/* Scrollable page container, with the Pen Tray floating over its bottom edge */}
+      <div className="relative flex-1 min-h-0 flex flex-col">
       <div
         ref={scrollContainerRef}
+        {...touchHandlers}
         className={cn(
           "flex-1 overflow-y-auto px-2 py-2 md:px-4 md:py-4 min-h-0",
-          zoom > fitZoomRef.current ? "overflow-x-auto" : "overflow-x-hidden"
+          zoom > fitZoomRef.current ? "overflow-x-auto" : "overflow-x-hidden",
+          // Room under the last page, so its bottom lines can scroll clear of the tray
+          tools && "!pb-24",
+          tools && !drawingEnabled && "cursor-grab active:cursor-grabbing",
         )}
+        // The viewer handles every touch itself: one finger for the tool, two
+        // to scroll or pinch-zoom. The mouse wheel still scrolls as usual.
+        style={{ touchAction: "none" }}
       >
         <div
+          ref={pageStackRef}
           className={cn("flex flex-col gap-4", zoom > fitZoomRef.current ? "items-start" : "items-center")}
-          style={{
-            transform: `scale(${zoomScale})`,
-            transformOrigin: "top left",
-            width: `${(100 / zoom) * 100}%`,
-            marginBottom: zoomScale < 1 ? naturalContentHeight * (zoomScale - 1) : undefined,
-          }}
+          style={{ ...zoomStyle(zoom), transformOrigin: "top left" }}
         >
           {pages.map((page, i) => (
             <div
@@ -1248,15 +867,31 @@ export function PdfPageViewer({
                 strokes={annotations[i] || []}
                 isDrawing={drawingEnabled && !eraserActive}
                 isErasing={eraserActive}
-                eraserRadius={eraser === "stroke" ? null : ERASER_RADIUS[eraser]}
-                penColor={penColor}
-                penSize={penSize}
+                eraserRadius={!tools || tools.eraser === "stroke" ? null : ERASER_RADIUS[tools.eraser]}
+                penColor={tools?.inkColor ?? "#dc2626"}
+                penSize={tools?.inkSize ?? 3}
+                inkKind={tools?.inkKind}
                 onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
                 hidden={!annotationsVisible}
+                suspended={gestureActive}
               />
             </div>
           ))}
         </div>
+      </div>
+
+      {tools && onPageStrokesChange && (
+        <AnnotationTray
+          tools={tools}
+          onUndo={onUndo}
+          onRedo={onRedo}
+          inkHidden={!annotationsVisible}
+          onInkHiddenChange={(hidden) => setAnnotationsVisible(!hidden)}
+          hasInk={hasAnnotations}
+          onClearAll={onClearAll}
+          onSaveAnnotated={onSaveAnnotated}
+        />
+      )}
       </div>
 
       {/* Bottom page navigation bar */}

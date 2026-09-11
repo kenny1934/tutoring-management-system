@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle, Sigma,
-  Maximize2, Minimize2, PencilLine, ChevronDown,
+  Maximize2, Minimize2, ChevronDown,
   AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,7 @@ import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
-import type { EraserSetting } from "@/lib/stroke-eraser";
+import { useAnnotationTools } from "@/hooks/useAnnotationTools";
 import type { HomeworkStatus, Session, SessionExercise } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { useStudentHomework } from "@/lib/hooks";
@@ -251,11 +251,9 @@ export function LessonMode({
     getAnnotations, getAllAnnotations, setPageStrokes, undo, redo,
     clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
   } = useAnnotations(`lesson-annotations-${session.id}`);
-  const [drawingEnabled, setDrawingEnabled] = useState(false);
-  const [annotationTool, setAnnotationTool] = useState<"pen" | "eraser">("pen");
-  const [penColor, setPenColor] = useState("#dc2626");
-  const [penSize, setPenSize] = useState(3);
-  const [eraser, setEraser] = useState<EraserSetting>("M");
+  // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
+  const tools = useAnnotationTools();
+  const drawingEnabled = tools.drawingEnabled;
   const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
 
   // Answer key state
@@ -268,25 +266,6 @@ export function LessonMode({
   const [answerSearchDone, setAnswerSearchDone] = useState(false);
   const answerCacheRef = useRef<Map<string, AnswerSearchResult | null>>(new Map());
   const answerOpenSetRef = useRef<Set<number>>(new Set());
-
-  // S4: Annotation tool toggle, shared by the d/e keys and the toolbar buttons.
-  // Picking the other tool switches to it, and picking the tool that's already
-  // active leaves draw mode. Leaving from the eraser resets the tool to the pen,
-  // so the next time you start drawing you get the pen.
-  const toggleAnnotationTool = useCallback((tool: "pen" | "eraser") => {
-    if (!drawingEnabled) {
-      setDrawingEnabled(true);
-      setAnnotationTool(tool);
-    } else if (annotationTool !== tool) {
-      setAnnotationTool(tool);
-    } else {
-      setDrawingEnabled(false);
-      if (tool === "eraser") setAnnotationTool("pen");
-    }
-  }, [drawingEnabled, annotationTool]);
-
-  const handleDrawingToggle = useCallback(() => toggleAnnotationTool("pen"), [toggleAnnotationTool]);
-  const handleEraserToggle = useCallback(() => toggleAnnotationTool("eraser"), [toggleAnnotationTool]);
 
   // All exercises from both sessions (for auto-select, save-all ZIP)
   const allExercises = useMemo(() => {
@@ -743,6 +722,8 @@ export function LessonMode({
           setShowPrintMenu(false);
         } else if (showShortcutHelp) {
           setShowShortcutHelp(false);
+        } else if (drawingEnabled) {
+          tools.selectHand();
         } else if (focusMode) {
           exitFocusMode();
         } else {
@@ -781,11 +762,11 @@ export function LessonMode({
       }
       case "d":
         e.preventDefault();
-        toggleAnnotationTool("pen");
+        tools.toggleFromKey("pen");
         break;
       case "e":
         e.preventDefault();
-        toggleAnnotationTool("eraser");
+        tools.toggleFromKey("eraser");
         break;
       case "z":
         if (drawingEnabled) {
@@ -880,16 +861,6 @@ export function LessonMode({
     ? getDisplayName(selectedExercise.pdf_name)
     : undefined;
 
-  // Header annotation toggle (different from toolbar — toggles entire annotation mode)
-  const handleHeaderAnnotationToggle = useCallback(() => {
-    if (drawingEnabled) {
-      setDrawingEnabled(false);
-      setAnnotationTool("pen");
-    } else {
-      setDrawingEnabled(true);
-    }
-  }, [drawingEnabled]);
-
   // Extracted header to avoid duplication between normal and overlay rendering
   const renderHeader = (isOverlay?: boolean) => (
     <div className={cn(
@@ -969,22 +940,6 @@ export function LessonMode({
         </div>
 
         <div className="flex-1" />
-
-        {/* Annotation mode toggle */}
-        {selectedExercise?.pdf_name && (
-          <button
-            onClick={handleHeaderAnnotationToggle}
-            className={cn(
-              "p-1 sm:p-1.5 rounded-lg transition-colors",
-              drawingEnabled
-                ? "bg-white/20 text-white"
-                : "hover:bg-white/10 text-white/70"
-            )}
-            title={drawingEnabled ? "Exit annotation mode (Esc)" : "Annotation mode (D)"}
-          >
-            <PencilLine className="h-3.5 w-3.5" />
-          </button>
-        )}
 
         {/* Wolfram Alpha toggle */}
         <button
@@ -1116,8 +1071,8 @@ export function LessonMode({
                 {[
                   ["j / k", "Navigate exercises"],
                   ["+  / -", "Zoom in / out"],
-                  ["d", "Pen tool"],
-                  ["e", "Eraser tool"],
+                  ["d", "Pen, or back to the Hand"],
+                  ["e", "Eraser, or back to the Hand"],
                   ["z / Z", "Undo / Redo"],
                   ["c / h", "Edit CW / HW"],
                   ["H", "Check homework"],
@@ -1303,21 +1258,12 @@ export function LessonMode({
                   onRetry={handleRetry}
                   annotations={currentAnnotations}
                   onPageStrokesChange={handlePageStrokesChange}
-                  drawingEnabled={drawingEnabled}
-                  onDrawingToggle={handleDrawingToggle}
-                  penColor={penColor}
-                  onPenColorChange={setPenColor}
-                  penSize={penSize}
-                  onPenSizeChange={setPenSize}
+                  tools={tools}
                   onUndo={handleUndo}
                   onRedo={handleRedo}
                   onClearAll={handleClearAllAnnotations}
                   hasAnnotations={exerciseHasAnnotations}
                   onSaveAnnotated={handleSaveAnnotated}
-                  eraserActive={drawingEnabled && annotationTool === "eraser"}
-                  onEraserToggle={handleEraserToggle}
-                  eraser={eraser}
-                  onEraserChange={setEraser}
                   onAnswerKeyToggle={handleAnswerKeyToggle}
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}

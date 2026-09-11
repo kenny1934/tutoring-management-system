@@ -8,6 +8,31 @@ export interface Stroke {
   points: [number, number, number][];
   color: string;
   size: number;
+  /**
+   * "highlighter" for highlighter ink, which is see-through and sits under
+   * pen ink. Pen strokes leave it out, and so does every stroke saved before
+   * the highlighter existed, so old ink still loads as pen.
+   */
+  kind?: "highlighter";
+}
+
+/** How opaque each kind of ink is, on screen and in the saved PDF alike. */
+export const PEN_OPACITY = 0.85;
+export const HIGHLIGHTER_OPACITY = 0.35;
+
+export const strokeOpacity = (stroke: Pick<Stroke, "kind">) =>
+  stroke.kind === "highlighter" ? HIGHLIGHTER_OPACITY : PEN_OPACITY;
+
+/**
+ * A page's strokes in the order they're painted: every highlighter stroke,
+ * then every pen stroke, each group keeping the order it was drawn in. That
+ * keeps pen ink on top of highlighter ink, on screen and in the saved PDF.
+ */
+export function inkOrder(strokes: Stroke[]): Stroke[] {
+  return [
+    ...strokes.filter((s) => s.kind === "highlighter"),
+    ...strokes.filter((s) => s.kind !== "highlighter"),
+  ];
 }
 
 /** Strokes keyed by page index (0-based within the displayed pages). */
@@ -24,6 +49,20 @@ export const RENDER_SCALE = 1.5;
 
 /** Shared perfect-freehand options for consistent stroke rendering. */
 export function getStrokeOptions(stroke: Stroke, isComplete: boolean) {
+  // A highlighter keeps the same width all the way along, like a felt tip, so
+  // it ignores pressure and doesn't thin out when you move fast.
+  if (stroke.kind === "highlighter") {
+    return {
+      size: stroke.size,
+      thinning: 0,
+      smoothing: 0.6,
+      streamline: 0.6,
+      simulatePressure: false,
+      start: { cap: true, taper: 0 },
+      end: { cap: true, taper: 0 },
+      last: isComplete,
+    };
+  }
   return {
     size: stroke.size,
     thinning: 0.5,
