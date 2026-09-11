@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.132](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.131...v2.0.132) (2026-09-11)
+
+
+### New Features
+
+* **The usage count opens a list of lessons**: clicking it shows who was given the file and when, and a lesson that was later rescheduled or cancelled is tagged as such.
+
+
+### Bug Fixes
+
+* **Clicking the eraser again leaves drawing mode**: a second click used to switch to the pen, and now it turns drawing off, as the E key does.
+* **The P shortcut in lesson mode works again**: pressing it prints the exercise you have open.
+
 ## [2.0.131](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.130...v2.0.131) (2026-09-11)
 
 
