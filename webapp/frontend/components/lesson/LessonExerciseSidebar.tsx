@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
-  Printer, Loader2, ExternalLink,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SummerCoursewarePanel } from "./SummerCoursewarePanel";
 import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
 import { HomeworkStatusGlyph, homeworkState } from "@/components/homework/homework-status";
+import { RowPrintButton } from "./RowPrintButton";
 
 interface LessonExerciseSidebarProps {
   currentSession: Session | null;
@@ -76,73 +77,65 @@ function ExerciseItem({
   const pageLabel = getPageLabel(exercise);
 
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "w-full text-left px-2.5 py-2 rounded-md transition-all text-sm group",
-        "border border-transparent min-h-[44px] md:min-h-0",
-        isSelected
-          ? "bg-[#f5e6d0] dark:bg-[#3d3020] border-[#d4a574] dark:border-[#8b6f47] shadow-sm"
-          : "hover:bg-[#faf3e8] dark:hover:bg-[#2a2318] hover:border-[#e8d4b8]/50 dark:hover:border-[#5a4d3a]/50"
-      )}
-    >
-      <div className="flex items-start gap-1.5 min-w-0">
-        {isUrlExercise && (
-          <YouTubeThumbnail url={exercise.url} className="mt-0.5" fallbackIcon={<ExternalLink className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />} />
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-current={isSelected || undefined}
+        className={cn(
+          "flex-1 min-w-0 text-left px-2.5 py-2 rounded-md transition-all text-sm",
+          "border border-transparent min-h-10",
+          isSelected
+            ? "bg-[#f5e6d0] dark:bg-[#3d3020] border-[#d4a574] dark:border-[#8b6f47] shadow-sm"
+            : "hover:bg-[#faf3e8] dark:hover:bg-[#2a2318] hover:border-[#e8d4b8]/50 dark:hover:border-[#5a4d3a]/50"
         )}
-        <div className="flex-1 min-w-0">
-          {/* File name */}
-          <div className={cn(
-            "truncate font-medium",
-            isSelected
-              ? "text-[#6b4c30] dark:text-[#d4a574]"
-              : "text-gray-700 dark:text-gray-300"
-          )}>
-            {(exercise.pdf_name || exercise.url) ? displayName : "(no file)"}
-            <UrlBadge url={exercise.url} />
+      >
+        <div className="flex items-start gap-1.5 min-w-0">
+          {isUrlExercise && (
+            <YouTubeThumbnail url={exercise.url} className="mt-0.5" fallbackIcon={<ExternalLink className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />} />
+          )}
+          <div className="flex-1 min-w-0">
+            {/* File name */}
+            <div className={cn(
+              "truncate font-medium",
+              isSelected
+                ? "text-[#6b4c30] dark:text-[#d4a574]"
+                : "text-gray-700 dark:text-gray-300"
+            )}>
+              {(exercise.pdf_name || exercise.url) ? displayName : "(no file)"}
+              <UrlBadge url={exercise.url} />
+            </div>
+
+            {/* Page range */}
+            {pageLabel && (
+              <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">
+                {pageLabel}
+              </span>
+            )}
           </div>
 
-          {/* Page range */}
-          {pageLabel && (
-            <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">
-              {pageLabel}
-            </span>
-          )}
+          {/* Status indicators */}
+          <div className="flex items-center gap-1 flex-shrink-0 mt-1">
+            {completionStatus && (
+              <span title={homeworkState(completionStatus).longLabel}>
+                <HomeworkStatusGlyph status={completionStatus} className="h-3 w-3" />
+              </span>
+            )}
+            {hasAnnotations && (
+              <span className="w-2 h-2 rounded-full bg-[#a0704b]" title="Has annotations" />
+            )}
+          </div>
         </div>
-
-        {/* Status indicators */}
-        <div className="flex items-center gap-1 flex-shrink-0 mt-1">
-          {exercise.pdf_name && onPrint && (
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); if (!isPrinting) onPrint(exercise); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (!isPrinting) onPrint(exercise); } }}
-              className={cn(
-                "p-0.5 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors flex-shrink-0 cursor-pointer",
-                isPrinting ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-              )}
-              title={getPrintButtonTitle(!!isPrinting, printProgress, "Print")}
-              aria-disabled={isPrinting}
-            >
-              {isPrinting ? (
-                <Loader2 className="h-3 w-3 animate-spin text-[#a0906e] dark:text-[#8a7a60]" />
-              ) : (
-                <Printer className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
-              )}
-            </div>
-          )}
-          {completionStatus && (
-            <span title={homeworkState(completionStatus).longLabel}>
-              <HomeworkStatusGlyph status={completionStatus} className="h-3 w-3" />
-            </span>
-          )}
-          {hasAnnotations && (
-            <span className="w-2 h-2 rounded-full bg-[#a0704b]" title="Has annotations" />
-          )}
-        </div>
-      </div>
-    </button>
+      </button>
+      {exercise.pdf_name && onPrint && (
+        <RowPrintButton
+          onPrint={() => onPrint(exercise)}
+          isPrinting={!!isPrinting}
+          title={getPrintButtonTitle(!!isPrinting, printProgress, "Print")}
+          label={`Print ${displayName}`}
+        />
+      )}
+    </div>
   );
 }
 
@@ -192,6 +185,7 @@ function ExerciseSection({
             onClick={onEdit}
             className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors"
             title={`Edit ${label}`}
+            aria-label={`Edit ${label}`}
           >
             <Pencil className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
           </button>

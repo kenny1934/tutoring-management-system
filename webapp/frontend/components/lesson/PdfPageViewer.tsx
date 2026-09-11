@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   ZoomIn, ZoomOut, UnfoldHorizontal, BookCheck, Moon, Sun,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { AnnotationTray } from "./AnnotationTray";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
+import { usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { useTheme } from "next-themes";
 import type { AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
@@ -41,6 +41,21 @@ interface RenderedPage {
   url: string;
   width: number;
   height: number;
+}
+
+/**
+ * How one exercise was last left in the viewer: its zoom, where it was
+ * scrolled to, and whether its ink was hidden. The lesson views keep one per
+ * exercise, so switching between students or worksheets and back puts each
+ * one where the tutor left it.
+ */
+export interface PdfViewState {
+  zoom: number;
+  /** False while the zoom is still fit-to-width, which then follows the pane's size. */
+  userZoomed: boolean;
+  scrollTop: number;
+  scrollLeft: number;
+  inkHidden: boolean;
 }
 
 interface PdfPageViewerProps {
@@ -83,6 +98,24 @@ interface PdfPageViewerProps {
   answerKeyAvailable?: boolean;
   /** True while the search for this exercise's answer key is still running. */
   answerKeySearching?: boolean;
+  /**
+   * Buttons from the lesson view, shown at the start of the toolbar. Focus
+   * mode puts its way back here, so a finger can always reach it.
+   */
+  toolbarStart?: ReactNode;
+  /** Prints the exercise on screen. Pass it to show the toolbar's Print button. */
+  onPrint?: () => void;
+  /** True while a print is being prepared, which greys out the Print button. */
+  isPrinting?: boolean;
+  /** The Print button's tooltip, which shows the progress while printing. */
+  printTitle?: string;
+  /** What to say when there's nothing to show. Defaults to asking for an exercise. */
+  emptyMessage?: string;
+  /**
+   * Where each exercise's zoom, scroll position and "Hide ink" are kept, keyed
+   * by exercise id. Pass the same map on every render.
+   */
+  viewStates?: Map<number, PdfViewState>;
 }
 
 const MIN_ZOOM = 25;
@@ -121,8 +154,13 @@ export function PdfPageViewer({
   showAnswerKey = false,
   answerKeyAvailable = false,
   answerKeySearching = false,
+  toolbarStart,
+  onPrint,
+  isPrinting = false,
+  printTitle = "Print this exercise (P)",
+  emptyMessage = "Select an exercise to view",
+  viewStates,
 }: PdfPageViewerProps) {
-  const isMobile = useIsMobile();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [pages, setPages] = useState<RenderedPage[]>([]);
@@ -130,10 +168,7 @@ export function PdfPageViewer({
   const [processError, setProcessError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [currentVisiblePage, setCurrentVisiblePage] = useState(1);
-  const [pdfDarkMode, setPdfDarkMode] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('csm_pdf_dark_mode') === 'true';
-  });
+  const [pdfDarkMode, togglePdfDarkMode] = usePdfDarkMode();
   const pageUrlsRef = useRef<string[]>([]);
   const pagesRef = useRef<RenderedPage[]>([]);
   const zoomRef = useRef(100);
@@ -159,7 +194,33 @@ export function PdfPageViewer({
   const [autoRetryTick, setAutoRetryTick] = useState(0);
 
   // The tray's "Hide ink" switch. Hidden ink is still there, and you can still draw.
-  const [inkHidden, setInkHidden] = useState(false);
+  const [inkHidden, setInkHiddenState] = useState(false);
+  const inkHiddenRef = useRef(false);
+
+  // ---------- Each exercise's view ----------
+  // When the exercise changes, the view it was last left in waits here until
+  // its pages are showing. `zoomTarget` is the zoom it settles on, and the
+  // scroll position goes back once that zoom has been drawn. Scrolling isn't
+  // recorded while a view is waiting, so the outgoing pages can't overwrite it.
+  const restoreRef = useRef<(PdfViewState & { zoomTarget?: number }) | null>(null);
+
+  const saveView = useCallback(() => {
+    if (exerciseId == null || !viewStates || restoreRef.current) return;
+    const el = scrollContainerRef.current;
+    viewStates.set(exerciseId, {
+      zoom: zoomRef.current,
+      userZoomed: userHasZoomed.current,
+      scrollTop: el?.scrollTop ?? 0,
+      scrollLeft: el?.scrollLeft ?? 0,
+      inkHidden: inkHiddenRef.current,
+    });
+  }, [exerciseId, viewStates]);
+
+  const setInkHidden = useCallback((hidden: boolean) => {
+    inkHiddenRef.current = hidden;
+    setInkHiddenState(hidden);
+    saveView();
+  }, [saveView]);
 
   // Keep refs in sync with state (synchronous, before effects run)
   pagesRef.current = pages;
@@ -222,14 +283,6 @@ export function PdfPageViewer({
   });
 
   // Zoom handlers
-  const togglePdfDarkMode = useCallback(() => {
-    setPdfDarkMode(prev => {
-      const next = !prev;
-      localStorage.setItem('csm_pdf_dark_mode', String(next));
-      return next;
-    });
-  }, []);
-
   const handleZoomIn = useCallback(() => {
     userHasZoomed.current = true;
     setZoom((z) => Math.min(z + ZOOM_STEP, MAX_ZOOM));
@@ -437,19 +490,58 @@ export function PdfPageViewer({
     };
   }, []);
 
-  // Auto fit-to-width when pages load (skip for hi-res re-renders)
-  // useLayoutEffect prevents flash of full-size page before zoom correction
+  // Pick the zoom for pages that have just arrived: the one this exercise was
+  // left at if the tutor zoomed it, and otherwise fit-to-width.
+  const settleZoom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (pagesRef.current.length === 0 || !container) return;
+    const fit = computeFitZoom(container, pagesRef.current[0].width);
+    fitZoomRef.current = fit;
+    const pending = restoreRef.current;
+    const target = pending?.userZoomed ? pending.zoom : fit;
+    userHasZoomed.current = !!pending?.userZoomed;
+    if (pending) pending.zoomTarget = target;
+    if (target !== zoomRef.current) setZoom(target);
+  }, []);
+
+  // A new exercise, or new bytes for this one, brings back the view it was
+  // left in, or the top of the first page at fit-to-width if it's new.
   useLayoutEffect(() => {
-    if (pages.length === 0 || !scrollContainerRef.current) return;
+    const saved = exerciseId != null ? viewStates?.get(exerciseId) : undefined;
+    restoreRef.current = saved
+      ? { ...saved }
+      : { zoom: 0, userZoomed: false, scrollTop: 0, scrollLeft: 0, inkHidden: false };
+    inkHiddenRef.current = saved?.inkHidden ?? false;
+    setInkHiddenState(inkHiddenRef.current);
+    setCurrentVisiblePage(1);
+    // Pages that are already this exercise's won't arrive again, so settle now.
+    if (exerciseId != null && renderCacheRef.current.get(exerciseId)?.pages === pagesRef.current) settleZoom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseId, pdfData]);
+
+  // Settle the zoom when pages load, except for hi-res re-renders of the same
+  // pages. A layout effect, so the page never shows at the wrong size first.
+  useLayoutEffect(() => {
     if (hiResRerenderRef.current) {
       hiResRerenderRef.current = false;
       return;
     }
-    userHasZoomed.current = false;
-    const fit = computeFitZoom(scrollContainerRef.current, pages[0].width);
-    fitZoomRef.current = fit;
-    if (fit !== zoomRef.current) setZoom(fit);
-  }, [pages]);
+    settleZoom();
+  }, [pages, settleZoom]);
+
+  // Once the settled zoom has been drawn, scroll back to where the tutor was.
+  useLayoutEffect(() => {
+    const pending = restoreRef.current;
+    const el = scrollContainerRef.current;
+    if (!pending || pending.zoomTarget === undefined || !el || pages.length === 0) return;
+    if (zoom !== pending.zoomTarget) return;
+    el.scrollTop = pending.scrollTop;
+    el.scrollLeft = pending.scrollLeft;
+    restoreRef.current = null;
+  }, [pages, zoom]);
+
+  // Remember each zoom change, including a pinch or a refit to the pane's width.
+  useEffect(() => { saveView(); }, [zoom, saveView]);
 
   // Reset horizontal scroll when content fits (prevents stuck scroll after zoom-out)
   useEffect(() => {
@@ -617,11 +709,20 @@ export function PdfPageViewer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Scroll to top when exercise changes
-  useEffect(() => {
-    scrollContainerRef.current?.scrollTo(0, 0);
-    setCurrentVisiblePage(1);
-  }, [pdfData]);
+  const toolbarRow = cn(
+    "flex flex-nowrap items-center gap-1 px-2 py-0.5 min-w-0",
+    "border-b border-[#d4c4a8] dark:border-[#3a3228]",
+    "bg-[#f0e6d4] dark:bg-[#252018]",
+  );
+
+  // While a worksheet loads, fails or is missing, the view's own buttons still
+  // sit at the top. In focus mode they're the way back, so they can't vanish.
+  const withStartBar = (content: ReactNode) => toolbarStart ? (
+    <div className="flex-1 flex flex-col min-h-0 min-w-0">
+      <div className={toolbarRow}>{toolbarStart}</div>
+      {content}
+    </div>
+  ) : content;
 
   // Loading state
   if (isLoading || isProcessing) {
@@ -643,7 +744,7 @@ export function PdfPageViewer({
       : '2px 2px 6px rgba(139, 96, 64, 0.2)';
     const lineColor = isDark ? 'rgba(180, 140, 100, 0.2)' : 'rgba(160, 112, 75, 0.15)';
 
-    return (
+    return withStartBar(
       <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
         <div className="flex flex-col items-center gap-5">
           {/* Page-turning book animation (falls back to simple pulse for reduced-motion) */}
@@ -714,7 +815,7 @@ export function PdfPageViewer({
 
   // Error state
   if (error || processError) {
-    return (
+    return withStartBar(
       <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
         <div className="flex flex-col items-center gap-3 max-w-sm text-center">
           <AlertTriangle className="h-10 w-10 text-amber-500" />
@@ -737,53 +838,53 @@ export function PdfPageViewer({
 
   // No PDF loaded / empty state
   if (!pdfData || pages.length === 0) {
-    return (
+    return withStartBar(
       <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
         <div className="flex flex-col items-center gap-3 text-center">
           <FileX className="h-10 w-10 text-[#c4a882]" />
           <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-            Select an exercise to view
+            {emptyMessage}
           </p>
         </div>
       </div>
     );
   }
 
-  const tbBtn = isMobile ? "p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center" : "p-1";
-  const tbBtnClass = cn(tbBtn, "rounded hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors");
-  const tbBtnDisabled = cn(tbBtn, "rounded text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
+  // Every toolbar button is 44px, the size a finger can hit at the board.
+  const tbBtn = "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium";
+  const tbBtnClass = cn(tbBtn, "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors");
+  const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
+  // The words on the Answers and Print buttons only show when the pane has room for them.
+  const tbLabel = "hidden @[560px]/toolbar:inline";
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
-      {/* Toolbar */}
-      <div className={cn(
-        "flex items-center gap-1.5 px-2 py-1",
-        "border-b border-[#d4c4a8] dark:border-[#3a3228]",
-        "bg-[#f0e6d4] dark:bg-[#252018]",
-        "flex-wrap"
-      )}>
-        {/* Exercise label */}
+      {/* Toolbar. It never wraps: the file name gives way first, then the button labels. */}
+      <div className={cn(toolbarRow, "@container/toolbar")}>
+        {toolbarStart}
         {exerciseLabel && (
-          <span className="text-xs font-medium text-[#8b7355] dark:text-[#a09080] truncate mr-1">
+          <span className="min-w-0 truncate text-xs font-medium text-[#8b7355] dark:text-[#a09080] ml-1">
             {exerciseLabel}
           </span>
         )}
         {pageNumbers.length > 0 && (
-          <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">
+          <span className="flex-none text-[10px] text-[#b0a090] dark:text-[#706050]">
             p{formatCompactPageRange(pageNumbers)}
           </span>
         )}
+        <div className="flex-1" />
         {/* Zoom controls */}
-        <div className="flex items-center gap-0.5 ml-auto">
+        <div className="flex flex-none items-center gap-0.5">
           <button
             onClick={handleZoomOut}
             disabled={zoom <= MIN_ZOOM}
             className={zoom <= MIN_ZOOM ? tbBtnDisabled : tbBtnClass}
             title="Zoom out (-)"
+            aria-label="Zoom out"
           >
-            <ZoomOut className="h-3.5 w-3.5" />
+            <ZoomOut className="h-5 w-5" />
           </button>
-          <span className="text-[10px] text-[#8b7355] dark:text-[#a09080] min-w-[2.5rem] text-center tabular-nums">
+          <span className="text-xs text-[#8b7355] dark:text-[#a09080] min-w-[2.75rem] text-center tabular-nums">
             {zoom}%
           </span>
           <button
@@ -791,52 +892,73 @@ export function PdfPageViewer({
             disabled={zoom >= MAX_ZOOM}
             className={zoom >= MAX_ZOOM ? tbBtnDisabled : tbBtnClass}
             title="Zoom in (+)"
+            aria-label="Zoom in"
           >
-            <ZoomIn className="h-3.5 w-3.5" />
+            <ZoomIn className="h-5 w-5" />
           </button>
           <button
             onClick={handleFitWidth}
             className={tbBtnClass}
             title="Fit to width"
+            aria-label="Fit to width"
           >
-            <UnfoldHorizontal className="h-3.5 w-3.5" />
+            <UnfoldHorizontal className="h-5 w-5" />
           </button>
           <button
             onClick={togglePdfDarkMode}
             className={cn(tbBtnClass, pdfDarkMode && "!text-yellow-500 dark:!text-yellow-400")}
             title={pdfDarkMode ? "Light PDF mode" : "Dark PDF mode"}
+            aria-label="Dark PDF mode"
+            aria-pressed={pdfDarkMode}
           >
-            {pdfDarkMode ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            {pdfDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
         </div>
 
+        {(onAnswerKeyToggle || onPrint) && <div className="flex-none h-6 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />}
+
         {/* Answer key toggle */}
         {onAnswerKeyToggle && (
-          <>
-            <div className="h-4 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />
-            <button
-              onClick={onAnswerKeyToggle}
-              disabled={!answerKeyAvailable}
-              className={cn(
-                tbBtn, "rounded transition-colors text-[10px] font-bold",
-                !answerKeyAvailable
-                  ? "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed"
-                  : showAnswerKey
-                  ? "bg-[#a0704b] text-white"
-                  : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
-              )}
-              title={
-                answerKeySearching ? "Looking for the answer key"
-                  : !answerKeyAvailable ? "No answer key found"
-                  : showAnswerKey ? "Hide answer key" : "Show answer key"
-              }
-              aria-busy={answerKeySearching || undefined}
-            >
-              {answerKeySearching
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : <BookCheck className="h-3.5 w-3.5" />}
-            </button>
-          </>
+          <button
+            onClick={onAnswerKeyToggle}
+            disabled={!answerKeyAvailable}
+            className={cn(
+              tbBtn, "transition-colors",
+              !answerKeyAvailable
+                ? "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed"
+                : showAnswerKey
+                ? "bg-[#a0704b] text-white"
+                : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
+            )}
+            title={
+              answerKeySearching ? "Looking for the answer key"
+                : !answerKeyAvailable ? "No answer key found"
+                : showAnswerKey ? "Hide answer key (A)" : "Show answer key (A)"
+            }
+            aria-label="Answers"
+            aria-pressed={showAnswerKey}
+            aria-busy={answerKeySearching || undefined}
+          >
+            {answerKeySearching
+              ? <Loader2 className="h-5 w-5 animate-spin" />
+              : <BookCheck className="h-5 w-5" />}
+            <span className={tbLabel}>Answers</span>
+          </button>
+        )}
+
+        {/* Print the exercise on screen */}
+        {onPrint && (
+          <button
+            onClick={onPrint}
+            disabled={isPrinting}
+            className={isPrinting ? cn(tbBtnDisabled, "text-[#8b7355] dark:text-[#a09080]") : tbBtnClass}
+            title={printTitle}
+            aria-label="Print"
+            aria-busy={isPrinting || undefined}
+          >
+            {isPrinting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
+            <span className={tbLabel}>Print</span>
+          </button>
         )}
       </div>
 
@@ -845,6 +967,7 @@ export function PdfPageViewer({
       <div
         ref={scrollContainerRef}
         {...touchHandlers}
+        onScroll={saveView}
         className={cn(
           "flex-1 overflow-y-auto px-2 py-2 md:px-4 md:py-4 min-h-0",
           // Room under the last page, so its bottom lines can scroll clear of the tray
@@ -867,29 +990,36 @@ export function PdfPageViewer({
               className="relative bg-white rounded shadow-lg ring-1 ring-black/5 dark:ring-white/5"
               style={{ width: page.width, height: page.height }}
             >
-              <img
-                src={page.url}
-                alt={`Page ${i + 1}`}
-                className="block w-full h-full rounded"
+              {/* Dark PDF mode inverts the page and its ink together, so black
+                  ink turns light on the darkened page instead of vanishing.
+                  The saved PDF is drawn from the strokes, so it keeps the real colours. */}
+              <div
+                className="absolute inset-0 rounded"
                 style={pdfDarkMode ? { filter: 'invert(0.86) hue-rotate(180deg)' } : undefined}
-                draggable={false}
-              />
-              {tools && (
-                <AnnotationLayer
-                  width={page.width}
-                  height={page.height}
-                  strokes={annotations[i] || []}
-                  isDrawing={drawingEnabled && !eraserActive}
-                  isErasing={eraserActive}
-                  eraserRadius={tools.eraserRadius}
-                  penColor={tools.swatch.color}
-                  penSize={tools.inkSize}
-                  inkKind={tools.swatch.kind}
-                  onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
-                  hidden={inkHidden}
-                  suspended={gestureActive}
+              >
+                <img
+                  src={page.url}
+                  alt={`Page ${i + 1}`}
+                  className="block w-full h-full rounded"
+                  draggable={false}
                 />
-              )}
+                {tools && (
+                  <AnnotationLayer
+                    width={page.width}
+                    height={page.height}
+                    strokes={annotations[i] || []}
+                    isDrawing={drawingEnabled && !eraserActive}
+                    isErasing={eraserActive}
+                    eraserRadius={tools.eraserRadius}
+                    penColor={tools.swatch.color}
+                    penSize={tools.inkSize}
+                    inkKind={tools.swatch.kind}
+                    onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
+                    hidden={inkHidden}
+                    suspended={gestureActive}
+                  />
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -913,7 +1043,7 @@ export function PdfPageViewer({
           its arrows greyed out, so the viewer keeps the same height and the
           Pen Tray doesn't jump up and down between exercises. */}
       <div className={cn(
-        "flex items-center justify-center gap-2 px-2 py-1",
+        "flex items-center justify-center gap-2 px-2 py-0.5",
         "border-t border-[#d4c4a8] dark:border-[#3a3228]",
         "bg-[#f0e6d4] dark:bg-[#252018]",
       )}>
@@ -922,8 +1052,9 @@ export function PdfPageViewer({
           disabled={currentVisiblePage <= 1}
           className={currentVisiblePage <= 1 ? tbBtnDisabled : tbBtnClass}
           title="Previous page"
+          aria-label="Previous page"
         >
-          <ChevronUp className="h-3.5 w-3.5" />
+          <ChevronUp className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-1 text-[11px] text-[#8b7355] dark:text-[#a09080]">
           <input
@@ -950,8 +1081,9 @@ export function PdfPageViewer({
           disabled={currentVisiblePage >= pages.length}
           className={currentVisiblePage >= pages.length ? tbBtnDisabled : tbBtnClass}
           title="Next page"
+          aria-label="Next page"
         >
-          <ChevronDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-5 w-5" />
         </button>
       </div>
     </div>

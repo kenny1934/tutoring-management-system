@@ -49,7 +49,7 @@ export function ExitConfirmDialog({
                 </div>
                 <div className="flex-1">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                    Unsaved Annotations
+                    Unsaved annotations
                   </h3>
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                     You have annotations that haven&apos;t been saved. What would you like to do?
@@ -66,7 +66,7 @@ export function ExitConfirmDialog({
                 className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-md transition-colors bg-[#a0704b] text-white hover:bg-[#8b5d3b] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {isSaving ? "Downloading..." : "Download All & Exit"}
+                {isSaving ? "Downloading..." : "Download all and exit"}
               </button>
               <button
                 type="button"
@@ -74,7 +74,7 @@ export function ExitConfirmDialog({
                 disabled={isSaving}
                 className="w-full px-4 py-2 text-sm font-medium rounded-md transition-colors bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Exit Without Downloading
+                Exit without downloading
               </button>
               <button
                 type="button"

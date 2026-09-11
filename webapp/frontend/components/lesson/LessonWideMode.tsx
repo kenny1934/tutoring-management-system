@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getAnswerPageNumbers, getStudentIdDisplay, getPrintButtonTitle, compareByStudentId, inkHistoryKey, printErrorMessage, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
@@ -17,8 +17,8 @@ import { LessonWideSidebar } from "./LessonWideSidebar";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
-import { StudentSwitcher } from "./StudentSwitcher";
-import { PdfPageViewer } from "./PdfPageViewer";
+import { StudentStrip } from "./StudentStrip";
+import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -40,7 +40,6 @@ import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { useAnnotationTools } from "@/hooks/useAnnotationTools";
 import type { Session, SessionExercise } from "@/types";
-import { GradeBadge } from "@/components/ui/grade-label";
 
 // --- Data types for grouping ---
 
@@ -61,6 +60,10 @@ export interface FileGroup {
   exerciseType: "CW" | "HW";
   entries: StudentExerciseEntry[];
 }
+
+/** Classwork or homework, whichever way the exercise's type is spelt. */
+const exerciseKind = (exercise: SessionExercise): "CW" | "HW" =>
+  exercise.exercise_type === "Classwork" || exercise.exercise_type === "CW" ? "CW" : "HW";
 
 // --- Props ---
 
@@ -103,6 +106,10 @@ export function LessonWideMode({
   // Parallel-version previews opened in this lesson. They aren't among the
   // students' exercises, so "Download All" needs this list to find their ink.
   const previewEntriesRef = useRef<Map<number, StudentExerciseEntry>>(new Map());
+
+  // Each worksheet's zoom, scroll position and "Hide ink", so switching
+  // between students and back finds each one as the tutor left it.
+  const viewStatesRef = useRef(new Map<number, PdfViewState>());
 
   // --- Mobile ---
   const isMobile = useIsMobile();
@@ -208,7 +215,7 @@ export function LessonWideMode({
   const fileGroups = useMemo<FileGroup[]>(() => {
     const map = new Map<string, FileGroup>();
     for (const entry of allEntries) {
-      const type = entry.exercise.exercise_type === "Classwork" || entry.exercise.exercise_type === "CW" ? "CW" : "HW";
+      const type = exerciseKind(entry.exercise);
       const key = `${type}:${entry.exercise.pdf_name}`;
       let group = map.get(key);
       if (!group) {
@@ -278,11 +285,6 @@ export function LessonWideMode({
       sessionTime: selectedEntry.session.time_slot,
     };
   }, [selectedEntry]);
-
-  // Student ID display for header
-  const studentIdDisplay = selectedEntry && !isPreviewExercise(selectedEntry.exercise)
-    ? getStudentIdDisplay(selectedEntry.session, selectedLocation)
-    : null;
 
   // Exercise label for PDF viewer
   const exerciseLabel = selectedEntry?.exercise?.pdf_name
@@ -377,7 +379,7 @@ export function LessonWideMode({
     if (!exercise?.pdf_name) {
       setPdfData(null);
       setPageNumbers([]);
-      setPdfError(exercise ? "No file assigned to this exercise" : null);
+      setPdfError(exercise ? NO_FILE_ERROR : null);
       return;
     }
 
@@ -416,7 +418,7 @@ export function LessonWideMode({
       } else {
         setPdfData(null);
         setPdfError(
-          result.error === "no_file" ? "No file assigned"
+          result.error === "no_file" ? NO_FILE_ERROR
             : result.error === "fetch_failed" ? "Failed to download PDF"
             : "File not found"
         );
@@ -645,9 +647,7 @@ export function LessonWideMode({
     setPrinting({ id: -1, progress: null });
     try {
       const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
-      if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
-      else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
-      else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+      if (error) showToast(bulkPrintErrorMessage(error, type), 'error');
     } finally {
       setPrinting({ id: null, progress: null });
     }
@@ -690,9 +690,7 @@ export function LessonWideMode({
         });
       if (groups.length === 0) return;
       const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
-      if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
-      else if (error === 'no_valid_files') showToast('No valid PDF files found', 'error');
-      else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+      if (error) showToast(bulkPrintErrorMessage(error), 'error');
     } finally {
       setPrinting({ id: null, progress: null });
     }
@@ -708,9 +706,7 @@ export function LessonWideMode({
     setPrinting({ id: -session.id, progress: null });
     try {
       const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
-      if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
-      else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
-      else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+      if (error) showToast(bulkPrintErrorMessage(error, type), 'error');
     } finally {
       setPrinting({ id: null, progress: null });
     }
@@ -823,18 +819,86 @@ export function LessonWideMode({
     setSelectedEntry({ ...selectedEntry });
   }, [selectedEntry]);
 
-  // --- Student switcher for by-file mode ---
-  const currentFileGroup = useMemo(() => {
-    if (!selectedEntry) return null;
-    return fileGroups.find(g =>
-      g.pdfName === selectedEntry.exercise.pdf_name &&
-      g.entries.some(e => e.exercise.id === selectedEntry.exercise.id)
-    ) ?? null;
-  }, [selectedEntry, fileGroups]);
+  // --- Moving between students ---
+  // Each student remembers the worksheet they were last on, so going back to
+  // them takes one tap and lands where the tutor left off.
+  const lastEntryBySessionRef = useRef<Map<number, StudentExerciseEntry>>(new Map());
+  useEffect(() => {
+    if (selectedEntry && !isPreviewExercise(selectedEntry.exercise)) {
+      lastEntryBySessionRef.current.set(selectedEntry.session.id, selectedEntry);
+    }
+  }, [selectedEntry]);
 
-  const handleStudentSwitch = useCallback((entry: StudentExerciseEntry) => {
-    setSelectedEntry(entry);
-  }, []);
+  // The students with something to show, in the order the sidebar lists them.
+  // These are the ones the student strip steps through.
+  const studentsWithWork = useMemo(
+    () => students.filter(s => allEntries.some(e => e.session.id === s.id)),
+    [students, allEntries]
+  );
+
+  /**
+   * The worksheet to open for a student. It's the file the tutor is on now if
+   * that student has it too, so a class working on one sheet can be gone
+   * round in turn. Otherwise it's the worksheet they were last on, and
+   * failing that, their first.
+   */
+  const entryForStudent = useCallback((session: Session): StudentExerciseEntry | null => {
+    const theirs = allEntries.filter(e => e.session.id === session.id);
+    if (theirs.length === 0) return null;
+    const current = selectedEntry?.exercise;
+    const sameFile = current?.pdf_name
+      ? theirs.find(e => e.exercise.pdf_name === current.pdf_name && exerciseKind(e.exercise) === exerciseKind(current))
+      : undefined;
+    if (sameFile) return sameFile;
+    const last = lastEntryBySessionRef.current.get(session.id);
+    return (last && theirs.find(e => e.exercise.id === last.exercise.id)) || theirs[0];
+  }, [allEntries, selectedEntry]);
+
+  const openStudent = useCallback((session: Session) => {
+    const entry = entryForStudent(session);
+    if (entry) setSelectedEntry(entry);
+  }, [entryForStudent]);
+
+  // Where the student on screen sits in the strip. A preview isn't anyone's,
+  // so from a preview the strip's next arrow goes to the first student.
+  const studentIndex = selectedEntry && !isPreviewExercise(selectedEntry.exercise)
+    ? studentsWithWork.findIndex(s => s.id === selectedEntry.session.id)
+    : -1;
+  const previousStudent = studentIndex > 0 ? studentsWithWork[studentIndex - 1] : null;
+  const nextStudent = studentIndex < studentsWithWork.length - 1 ? studentsWithWork[studentIndex + 1] : null;
+
+  const navigateStudent = (direction: 1 | -1) => {
+    const target = direction === 1 ? nextStudent : previousStudent;
+    if (target) openStudent(target);
+  };
+
+  // Once a worksheet has loaded, fetch the two a tutor is most likely to open
+  // next: the next one in the list, and the next student's. Switching is what
+  // this view is for, so the first switch shouldn't sit on a loading screen.
+  const nextStudentEntry = nextStudent ? entryForStudent(nextStudent) : null;
+  useEffect(() => {
+    if (!selectedEntry || !pdfData) return;
+    const index = allEntries.findIndex(
+      e => e.exercise.id === selectedEntry.exercise.id && e.session.id === selectedEntry.session.id
+    );
+    const names = [allEntries[index + 1]?.exercise.pdf_name, nextStudentEntry?.exercise.pdf_name]
+      .filter((name): name is string => !!name && !pdfCacheRef.current.has(name));
+
+    let cancelled = false;
+    (async () => {
+      for (const name of new Set(names)) {
+        if (cancelled) break;
+        const result = await loadExercisePdf(name);
+        if (cancelled || !("data" in result)) continue;
+        pdfCacheRef.current.set(name, result.data);
+        if (pdfCacheRef.current.size > MAX_PDF_CACHE_SIZE) {
+          const oldest = pdfCacheRef.current.keys().next().value;
+          if (oldest !== undefined) pdfCacheRef.current.delete(oldest);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedEntry, pdfData, allEntries, nextStudentEntry]);
 
   // --- Keyboard shortcuts ---
   // The handler is a plain function on purpose. useStableKeyboardHandler picks
@@ -877,7 +941,8 @@ export function LessonWideMode({
         navigateExercise(-1);
         break;
       case "Tab":
-        if (currentFileGroup && currentFileGroup.entries.length > 1) {
+        // Tab and Shift+Tab step through the students, like the strip's arrows.
+        if (studentsWithWork.length > 1) {
           e.preventDefault();
           navigateStudent(e.shiftKey ? -1 : 1);
         }
@@ -943,17 +1008,6 @@ export function LessonWideMode({
     }
   }, [selectedEntry, allEntries, fileGroups, sidebarMode]);
 
-  // Navigate between students within a file group (Tab)
-  const navigateStudent = useCallback((direction: 1 | -1) => {
-    if (!selectedEntry || !currentFileGroup) return;
-    const entries = currentFileGroup.entries;
-    const currentIdx = entries.findIndex(
-      e => e.exercise.id === selectedEntry.exercise.id && e.session.id === selectedEntry.session.id
-    );
-    const nextIdx = (currentIdx + direction + entries.length) % entries.length;
-    setSelectedEntry(entries[nextIdx]);
-  }, [selectedEntry, currentFileGroup]);
-
   // --- Sidebar resize ---
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -988,13 +1042,16 @@ export function LessonWideMode({
   }, []);
 
   // --- Render header ---
+  // Header buttons are 40px, big enough to hit with a finger at the board.
+  const hdrBtn = "min-w-10 h-10 px-2 inline-flex items-center justify-center rounded-lg transition-colors";
+
   const renderHeader = (isOverlay?: boolean) => (
     <div className={cn(
       "relative rounded-2xl bg-gradient-to-br from-[#b89968] via-[#a67c52] to-[#8b6f47] p-1",
       isOverlay && "shadow-lg rounded-3xl"
     )}>
       <div className={cn(
-        "flex items-center gap-1.5 sm:gap-3 px-2 py-2 sm:px-3 sm:py-2.5",
+        "flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-1.5",
         "bg-[#2d4739] dark:bg-[#1a2821]",
         "shadow-inner rounded-[12px]",
         isOverlay && "rounded-[20px]"
@@ -1002,17 +1059,18 @@ export function LessonWideMode({
         {/* Exit button — closes tab (with annotation warning) */}
         <button
           onClick={focusMode ? exitFocusMode : handleExitAttempt}
-          className="p-1 sm:p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className={cn(hdrBtn, "hover:bg-white/10")}
           title={focusMode ? "Exit focus mode (Esc)" : "Close lesson tab"}
+          aria-label={focusMode ? "Exit focus mode" : "Close lesson tab"}
         >
-          <ArrowLeft className="h-4 w-4 text-white/80" />
+          <ArrowLeft className="h-5 w-5 text-white/80" />
         </button>
 
         {/* Lesson info */}
         <div className="flex items-center gap-2 min-w-0">
           <Users className="h-4 w-4 text-white/70 flex-shrink-0" />
           <span className="text-sm font-bold text-white/90 truncate">
-            {tutorName ? `${tutorName} — ${slot}` : slot}
+            {tutorName ? `${tutorName} · ${slot}` : slot}
           </span>
           <span className="hidden sm:inline text-xs text-white/50">
             ({sessions.length} student{sessions.length !== 1 ? "s" : ""})
@@ -1032,22 +1090,6 @@ export function LessonWideMode({
             </span>
           )}
         </div>
-
-        {/* Current student info */}
-        {selectedEntry && (
-          <div className="hidden sm:flex items-center gap-2 min-w-0">
-            <span className="text-white/40">&bull;</span>
-            {studentIdDisplay && (
-              <span className="text-xs text-white/60 font-mono">{studentIdDisplay}</span>
-            )}
-            <span className="text-xs font-medium text-white/80 truncate">
-              {selectedEntry.studentName}
-            </span>
-            {selectedEntry.grade && (
-              <GradeBadge className="text-[10px] px-1.5 py-0.5 rounded font-medium text-gray-800" grade={selectedEntry.grade} langStream={selectedEntry.langStream} />
-            )}
-          </div>
-        )}
 
         {/* Metadata badges */}
         <div className="hidden sm:flex items-center gap-2 text-xs text-white/70 font-medium">
@@ -1073,12 +1115,14 @@ export function LessonWideMode({
         <button
           onClick={() => setShowWolfram(v => !v)}
           className={cn(
-            "p-1 sm:p-1.5 rounded-lg transition-colors",
+            hdrBtn,
             showWolfram ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
           )}
           title="Wolfram Alpha (W)"
+          aria-label="Wolfram Alpha"
+          aria-pressed={showWolfram}
         >
-          <Sigma className="h-3.5 w-3.5" />
+          <Sigma className="h-5 w-5" />
         </button>
 
         {/* Bulk print dropdown */}
@@ -1087,17 +1131,20 @@ export function LessonWideMode({
             onClick={() => { if (printing.id === null) setShowPrintMenu(v => !v); }}
             disabled={printing.id !== null}
             className={cn(
-              "p-1 sm:p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
+              hdrBtn, "gap-0.5",
               printing.id !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
             )}
             title={getPrintButtonTitle(printing.id !== null, printing.progress, "Print all exercises")}
+            aria-label="Print all exercises"
+            aria-haspopup="menu"
+            aria-expanded={showPrintMenu}
           >
             {printing.id !== null ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Printer className="h-3.5 w-3.5" />
+              <Printer className="h-5 w-5" />
             )}
-            <ChevronDown className="h-2.5 w-2.5" />
+            <ChevronDown className="h-3.5 w-3.5" />
           </button>
           <AnimatePresence>
             {showPrintMenu && (
@@ -1137,13 +1184,15 @@ export function LessonWideMode({
         {/* Focus mode toggle */}
         <button
           onClick={toggleFocusMode}
-          className="hidden md:inline-flex p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className={cn(hdrBtn, "hidden md:inline-flex hover:bg-white/10")}
           title={focusMode ? "Exit focus mode (F)" : "Focus mode (F)"}
+          aria-label="Focus mode"
+          aria-pressed={focusMode}
         >
           {focusMode ? (
-            <Minimize2 className="h-3.5 w-3.5 text-white/70" />
+            <Minimize2 className="h-5 w-5 text-white/70" />
           ) : (
-            <Maximize2 className="h-3.5 w-3.5 text-white/70" />
+            <Maximize2 className="h-5 w-5 text-white/70" />
           )}
         </button>
 
@@ -1151,16 +1200,51 @@ export function LessonWideMode({
         <button
           onClick={() => setShowShortcutHelp(v => !v)}
           className={cn(
-            "hidden md:inline-flex p-1.5 rounded-lg transition-colors",
+            hdrBtn, "hidden md:inline-flex",
             showShortcutHelp ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/40"
           )}
           title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+          aria-pressed={showShortcutHelp}
         >
-          <HelpCircle className="h-3.5 w-3.5" />
+          <HelpCircle className="h-5 w-5" />
         </button>
       </div>
     </div>
   );
+
+  // In focus mode the header and sidebar are hidden, and the mouse-only edge
+  // zones can't bring them back for a finger at the board. These two buttons
+  // sit at the start of the worksheet's toolbar instead.
+  const focusButtons = focusMode && !isMobile ? (
+    <>
+      <button
+        type="button"
+        onClick={() => setHoverSidebar(true)}
+        aria-expanded={hoverSidebar}
+        className="h-11 px-3 flex flex-none items-center gap-1.5 rounded-lg text-sm font-medium bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+      >
+        <Users className="h-5 w-5" />
+        Students
+      </button>
+      <button
+        type="button"
+        onClick={exitFocusMode}
+        title="Leave focus mode (F)"
+        className="h-11 px-3 flex flex-none items-center gap-1.5 rounded-lg text-sm font-medium border border-[#a0704b] text-[#6b4c30] dark:text-[#d4a574] hover:bg-[#e8d4b8] dark:hover:bg-[#3a3228] transition-colors"
+      >
+        <Minimize2 className="h-5 w-5" />
+        Leave focus
+      </button>
+    </>
+  ) : null;
+
+  // Picking something from the focus-mode sidebar closes it again, since a
+  // finger can't move off it the way a mouse does.
+  const selectEntry = (entry: StudentExerciseEntry) => {
+    setSelectedEntry(entry);
+    if (focusMode) setHoverSidebar(false);
+  };
 
   // Shared sidebar props (rendered in 3 locations: main, focus overlay, mobile sheet)
   const sidebarProps = {
@@ -1171,7 +1255,11 @@ export function LessonWideMode({
     sidebarMode,
     onSidebarModeChange: setSidebarMode,
     selectedEntry,
-    onEntrySelect: setSelectedEntry,
+    onEntrySelect: selectEntry,
+    onStudentOpen: (session: Session) => {
+      openStudent(session);
+      if (focusMode) setHoverSidebar(false);
+    },
     onEditExercises: handleEditExercises,
     isReadOnly,
     hasAnnotations: checkHasAnnotations,
@@ -1279,12 +1367,13 @@ export function LessonWideMode({
 
         {/* PDF Viewer area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
-          {/* Student switcher bar (by-file mode, shared exercises) */}
-          {currentFileGroup && currentFileGroup.entries.length > 1 && (
-            <StudentSwitcher
-              entries={currentFileGroup.entries}
-              selectedEntry={selectedEntry}
-              onSelect={handleStudentSwitch}
+          {/* Whose worksheet this is, in large letters, with arrows to the next student */}
+          {selectedEntry && (
+            <StudentStrip
+              entry={selectedEntry}
+              position={studentIndex >= 0 ? { index: studentIndex + 1, total: studentsWithWork.length } : null}
+              onPrevious={previousStudent ? () => openStudent(previousStudent) : undefined}
+              onNext={nextStudent ? () => openStudent(nextStudent) : undefined}
               selectedLocation={selectedLocation}
             />
           )}
@@ -1323,6 +1412,11 @@ export function LessonWideMode({
               selectedEntry?.exercise?.url && !selectedEntry?.exercise?.pdf_name ? (
                 /* URL exercise: iframe embed or open-in-new-tab */
                 <div className={cn("flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]", isMobile && "pb-20")}>
+                  {focusButtons && (
+                    <div className="flex items-center gap-1 px-2 py-0.5 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
+                      {focusButtons}
+                    </div>
+                  )}
                   {(() => {
                     const embedUrl = toEmbedUrl(selectedEntry.exercise.url!);
                     if (embedUrl) {
@@ -1403,7 +1497,8 @@ export function LessonWideMode({
                   loadingMessage={pdfLoadingMessage}
                   error={pdfError}
                   exerciseLabel={exerciseLabel}
-                  onRetry={handleRetry}
+                  // Trying again can't find a file the exercise doesn't have.
+                  onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
                   annotations={currentAnnotations}
                   onPageStrokesChange={handlePageStrokesChange}
                   tools={tools}
@@ -1416,6 +1511,12 @@ export function LessonWideMode({
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
                   answerKeySearching={!!selectedEntry?.exercise?.pdf_name && !answerSearchDone}
+                  toolbarStart={focusButtons}
+                  onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
+                  isPrinting={printing.id !== null}
+                  printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
+                  emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
+                  viewStates={viewStatesRef.current}
                 />
               </ErrorBoundary>
               )
@@ -1461,6 +1562,12 @@ export function LessonWideMode({
             </AnimatePresence>
           </div>
 
+          {/* A tap anywhere off the sidebar closes it, which a finger needs
+              because it can't simply move away the way a mouse does. */}
+          {hoverSidebar && (
+            <div className="absolute inset-0 z-40 bg-black/10" onPointerDown={() => setHoverSidebar(false)} />
+          )}
+
           {/* Sidebar overlay */}
           <div
             className="absolute top-0 left-0 bottom-0 z-50"
@@ -1489,7 +1596,11 @@ export function LessonWideMode({
       {isMobile && (
         <button
           onClick={() => setMobileExerciseListOpen(true)}
-          className="fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#a0704b] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform"
+          className={cn(
+            "fixed right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#a0704b] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform",
+            // Above the page bar and the Pen Tray's collapsed button, which sits in the same corner.
+            selectedEntry?.exercise?.pdf_name ? "bottom-36" : "bottom-4",
+          )}
           aria-label="Exercise list"
         >
           <LayoutList className="h-6 w-6 text-white" />
@@ -1507,6 +1618,10 @@ export function LessonWideMode({
             {...sidebarProps}
             onEntrySelect={(entry) => {
               setSelectedEntry(entry);
+              setMobileExerciseListOpen(false);
+            }}
+            onStudentOpen={(session) => {
+              openStudent(session);
               setMobileExerciseListOpen(false);
             }}
           />
@@ -1534,7 +1649,7 @@ export function LessonWideMode({
       )}
 
       {/* Wolfram Alpha panel */}
-      <WolframPanel isOpen={showWolfram && !focusMode} onClose={() => setShowWolfram(false)} />
+      <WolframPanel isOpen={showWolfram} onClose={() => setShowWolfram(false)} />
 
       {/* Exit confirmation dialog */}
       {showExitConfirm && (

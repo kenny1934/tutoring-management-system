@@ -74,6 +74,29 @@ export function printErrorMessage(error: string): string {
 }
 
 /**
+ * What to tell the tutor when a bulk print in a lesson view fails, from the
+ * error code bulkPrintAllStudents returns. Pass the exercise type when the
+ * print was for classwork or homework only, so the message can say which.
+ */
+export function bulkPrintErrorMessage(
+  error: "not_supported" | "no_valid_files" | "print_failed",
+  type?: "CW" | "HW",
+): string {
+  if (error === "not_supported") return "Printing from the drive needs Chrome or Edge.";
+  if (error === "no_valid_files") return type ? `No valid ${type} PDF files found` : "No valid PDF files found";
+  return "Print failed. Check popup blocker settings.";
+}
+
+/**
+ * The viewer's message for an exercise with no file. Retrying can't help
+ * with it, so the lesson views leave out the "Try again" button when they see it.
+ */
+export const NO_FILE_ERROR = "No file assigned to this exercise";
+
+/** The viewer's message when the lesson has no exercises to show at all. */
+export const NO_EXERCISES_MESSAGE = "No exercises have been assigned to this lesson yet.";
+
+/**
  * The undo and redo keys, shared by both lesson views so they can't drift
  * apart again. Z undoes and Shift+Z redoes. With Shift held the browser
  * reports the key as a capital "Z", which is the case the multi-student view

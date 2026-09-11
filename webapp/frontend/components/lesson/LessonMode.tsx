@@ -11,14 +11,14 @@ import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUr
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, inkHistoryKey, printErrorMessage, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, inkHistoryKey, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
 import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
-import { PdfPageViewer } from "./PdfPageViewer";
+import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -99,6 +99,10 @@ export function LessonMode({
   // Parallel-version previews opened in this lesson. They aren't among the
   // session's exercises, so "Download All" needs this list to find their ink.
   const previewExercisesRef = useRef<Map<number, SessionExercise>>(new Map());
+
+  // Each exercise's zoom, scroll position and "Hide ink", so switching between
+  // exercises and back finds each one as the tutor left it.
+  const viewStatesRef = useRef(new Map<number, PdfViewState>());
 
   // Mobile responsive
   const isMobile = useIsMobile();
@@ -320,7 +324,7 @@ export function LessonMode({
     if (!selectedExercise || !selectedExercise.pdf_name) {
       setPdfData(null);
       setPageNumbers([]);
-      setPdfError(selectedExercise ? "No file assigned to this exercise" : null);
+      setPdfError(selectedExercise ? NO_FILE_ERROR : null);
       return;
     }
 
@@ -363,7 +367,7 @@ export function LessonMode({
         setPdfData(null);
         setPdfError(
           result.error === "no_file"
-            ? "No file assigned"
+            ? NO_FILE_ERROR
             : result.error === "fetch_failed"
             ? "Failed to download PDF"
             : "File not found"
@@ -518,10 +522,13 @@ export function LessonMode({
   }, [showAnswerKey, answerSearchResult, selectedExercise]);
 
   // Handle exercise selection
+  // Picking an exercise from the mobile sheet or the focus-mode sidebar closes
+  // it again, since a finger can't move off it the way a mouse does.
   const handleExerciseSelect = useCallback((exercise: SessionExercise) => {
     setSelectedExercise(exercise);
     if (isMobile) setMobileExerciseListOpen(false);
-  }, [isMobile]);
+    if (focusMode) setHoverSidebar(false);
+  }, [isMobile, focusMode]);
 
   // Handle edit exercises
   const handleEditExercises = useCallback((s: Session, type: "CW" | "HW") => {
@@ -601,9 +608,7 @@ export function LessonMode({
     setPrinting({ id: -1, progress: null });
     try {
       const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
-      if (error === 'not_supported') showToast('File System Access not supported. Use Chrome/Edge.', 'error');
-      else if (error === 'no_valid_files') showToast(`No valid ${type} PDF files found`, 'error');
-      else if (error === 'print_failed') showToast('Print failed. Check popup blocker settings.', 'error');
+      if (error) showToast(bulkPrintErrorMessage(error, type), 'error');
     } finally {
       setPrinting({ id: null, progress: null });
     }
@@ -887,11 +892,40 @@ export function LessonMode({
     return () => { resizeCleanupRef.current?.(); };
   }, []);
 
+  // In focus mode the header and sidebar are hidden, and the mouse-only edge
+  // zones can't bring them back for a finger at the board. These two buttons
+  // sit at the start of the worksheet's toolbar instead.
+  const focusButtons = focusMode && !isMobile ? (
+    <>
+      <button
+        type="button"
+        onClick={() => setHoverSidebar(true)}
+        aria-expanded={hoverSidebar}
+        className="h-11 px-3 flex flex-none items-center gap-1.5 rounded-lg text-sm font-medium bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+      >
+        <LayoutList className="h-5 w-5" />
+        Exercises
+      </button>
+      <button
+        type="button"
+        onClick={exitFocusMode}
+        title="Leave focus mode (F)"
+        className="h-11 px-3 flex flex-none items-center gap-1.5 rounded-lg text-sm font-medium border border-[#a0704b] text-[#6b4c30] dark:text-[#d4a574] hover:bg-[#e8d4b8] dark:hover:bg-[#3a3228] transition-colors"
+      >
+        <Minimize2 className="h-5 w-5" />
+        Leave focus
+      </button>
+    </>
+  ) : null;
+
   const exerciseLabel = selectedExercise?.pdf_name
     ? getDisplayName(selectedExercise.pdf_name)
     : undefined;
 
   // Extracted header to avoid duplication between normal and overlay rendering
+  // Header buttons are 40px, big enough to hit with a finger at the board.
+  const hdrBtn = "min-w-10 h-10 px-2 inline-flex items-center justify-center rounded-lg transition-colors";
+
   const renderHeader = (isOverlay?: boolean) => (
     <div className={cn(
       "relative rounded-2xl bg-gradient-to-br from-[#b89968] via-[#a67c52] to-[#8b6f47] p-1",
@@ -899,7 +933,7 @@ export function LessonMode({
     )}>
       {/* Chalkboard surface */}
       <div className={cn(
-        "flex items-center gap-1.5 sm:gap-3 px-2 py-2 sm:px-3 sm:py-2.5",
+        "flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-1.5",
         "bg-[#2d4739] dark:bg-[#1a2821]",
         "shadow-inner rounded-[12px]",
         isOverlay && "rounded-[20px]"
@@ -907,10 +941,11 @@ export function LessonMode({
         {/* Exit button */}
         <button
           onClick={focusMode ? exitFocusMode : handleExitAttempt}
-          className="p-1 sm:p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className={cn(hdrBtn, "hover:bg-white/10")}
           title={focusMode ? "Exit focus mode (Esc)" : "Exit Lesson Mode (Esc)"}
+          aria-label={focusMode ? "Exit focus mode" : "Exit lesson mode"}
         >
-          <ArrowLeft className="h-4 w-4 text-white/80" />
+          <ArrowLeft className="h-5 w-5 text-white/80" />
         </button>
 
         {/* Student info */}
@@ -929,14 +964,14 @@ export function LessonMode({
             <button
               onClick={toggleHomeworkBlock}
               className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums flex-shrink-0 transition-colors",
+                "flex items-center gap-1 px-2 min-h-8 rounded-md text-xs font-medium tabular-nums flex-shrink-0 transition-colors",
                 homeworkProgress.checked >= homeworkProgress.total
                   ? "bg-white/15 text-white/80 hover:bg-white/25"
                   : "bg-amber-400/20 text-amber-200 hover:bg-amber-400/30"
               )}
               title={`${homeworkCountLabel(homeworkProgress.checked, homeworkProgress.total)} (H)`}
             >
-              <Home className="h-2.5 w-2.5" />
+              <Home className="h-3.5 w-3.5" />
               HW {homeworkProgress.checked}/{homeworkProgress.total}
             </button>
           )}
@@ -975,12 +1010,14 @@ export function LessonMode({
         <button
           onClick={() => setShowWolfram(v => !v)}
           className={cn(
-            "p-1 sm:p-1.5 rounded-lg transition-colors",
+            hdrBtn,
             showWolfram ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
           )}
           title="Wolfram Alpha (W)"
+          aria-label="Wolfram Alpha"
+          aria-pressed={showWolfram}
         >
-          <Sigma className="h-3.5 w-3.5" />
+          <Sigma className="h-5 w-5" />
         </button>
 
         {/* Bulk print dropdown */}
@@ -989,17 +1026,20 @@ export function LessonMode({
             onClick={() => { if (printing.id === null) setShowPrintMenu(v => !v); }}
             disabled={printing.id !== null}
             className={cn(
-              "p-1 sm:p-1.5 rounded-lg transition-colors flex items-center gap-0.5",
+              hdrBtn, "gap-0.5",
               printing.id !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
             )}
             title={getPrintButtonTitle(printing.id !== null, printing.progress, "Print exercises")}
+            aria-label="Print exercises"
+            aria-haspopup="menu"
+            aria-expanded={showPrintMenu}
           >
             {printing.id !== null ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Printer className="h-3.5 w-3.5" />
+              <Printer className="h-5 w-5" />
             )}
-            <ChevronDown className="h-2.5 w-2.5" />
+            <ChevronDown className="h-3.5 w-3.5" />
           </button>
           <AnimatePresence>
             {showPrintMenu && (
@@ -1033,13 +1073,15 @@ export function LessonMode({
         {/* Focus mode toggle (desktop only — mobile header is already compact) */}
         <button
           onClick={toggleFocusMode}
-          className="hidden md:inline-flex p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className={cn(hdrBtn, "hidden md:inline-flex hover:bg-white/10")}
           title={focusMode ? "Exit focus mode (F)" : "Focus mode (F)"}
+          aria-label="Focus mode"
+          aria-pressed={focusMode}
         >
           {focusMode ? (
-            <Minimize2 className="h-3.5 w-3.5 text-white/70" />
+            <Minimize2 className="h-5 w-5 text-white/70" />
           ) : (
-            <Maximize2 className="h-3.5 w-3.5 text-white/70" />
+            <Maximize2 className="h-5 w-5 text-white/70" />
           )}
         </button>
 
@@ -1047,14 +1089,16 @@ export function LessonMode({
         <button
           onClick={() => setShowShortcutHelp(v => !v)}
           className={cn(
-            "hidden md:inline-flex p-1.5 rounded-lg transition-colors",
+            hdrBtn, "hidden md:inline-flex",
             showShortcutHelp
               ? "bg-white/20 text-white"
               : "hover:bg-white/10 text-white/40"
           )}
           title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+          aria-pressed={showShortcutHelp}
         >
-          <HelpCircle className="h-3.5 w-3.5" />
+          <HelpCircle className="h-5 w-5" />
         </button>
       </div>
 
@@ -1202,6 +1246,12 @@ export function LessonMode({
               selectedExercise?.url && !selectedExercise?.pdf_name ? (
                 /* URL exercise: iframe embed or open-in-new-tab */
                 <div className={cn("flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]", isMobile && "pb-20")}>
+                  {/* A URL exercise has no viewer toolbar, so focus mode's buttons get a bar of their own */}
+                  {focusButtons && (
+                    <div className="flex items-center gap-1 px-2 py-0.5 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
+                      {focusButtons}
+                    </div>
+                  )}
                   {(() => {
                     const embedUrl = toEmbedUrl(selectedExercise.url);
                     if (embedUrl) {
@@ -1285,7 +1335,8 @@ export function LessonMode({
                   loadingMessage={pdfLoadingMessage}
                   error={pdfError}
                   exerciseLabel={exerciseLabel}
-                  onRetry={handleRetry}
+                  // Trying again can't find a file the exercise doesn't have.
+                  onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
                   annotations={currentAnnotations}
                   onPageStrokesChange={handlePageStrokesChange}
                   tools={tools}
@@ -1298,6 +1349,12 @@ export function LessonMode({
                   showAnswerKey={showAnswerKey}
                   answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
                   answerKeySearching={!!selectedExercise?.pdf_name && !answerSearchDone}
+                  toolbarStart={focusButtons}
+                  onPrint={selectedExercise?.pdf_name ? () => handlePrintExercise(selectedExercise) : undefined}
+                  isPrinting={printing.id !== null}
+                  printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
+                  emptyMessage={!currentSession?.exercises?.length ? NO_EXERCISES_MESSAGE : undefined}
+                  viewStates={viewStatesRef.current}
                 />
               </ErrorBoundary>
               )
@@ -1343,6 +1400,12 @@ export function LessonMode({
             </AnimatePresence>
           </div>
 
+          {/* A tap anywhere off the sidebar closes it, which a finger needs
+              because it can't simply move away the way a mouse does. */}
+          {hoverSidebar && (
+            <div className="absolute inset-0 z-30 bg-black/10" onPointerDown={() => setHoverSidebar(false)} />
+          )}
+
           {/* Sidebar overlay */}
           <div
             className="absolute top-0 left-0 bottom-0 z-40"
@@ -1383,7 +1446,7 @@ export function LessonMode({
       )}
 
       {/* Wolfram Alpha panel */}
-      <WolframPanel isOpen={showWolfram && !focusMode} onClose={() => setShowWolfram(false)} />
+      <WolframPanel isOpen={showWolfram} onClose={() => setShowWolfram(false)} />
 
       {/* Exercise Modal */}
       {exerciseModalSession && exerciseModalType && (
@@ -1416,7 +1479,11 @@ export function LessonMode({
       {isMobile && (
         <button
           onClick={() => setMobileExerciseListOpen(true)}
-          className="fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#a0704b] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform"
+          className={cn(
+            "fixed right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#a0704b] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform",
+            // Above the page bar and the Pen Tray's collapsed button, which sits in the same corner.
+            selectedExercise?.pdf_name ? "bottom-36" : "bottom-4",
+          )}
           aria-label="Exercise list"
         >
           <LayoutList className="h-6 w-6 text-white" />
