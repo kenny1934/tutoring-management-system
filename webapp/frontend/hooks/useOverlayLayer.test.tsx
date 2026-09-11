@@ -156,6 +156,39 @@ describe("stacked overlays", () => {
     expect(onModalClose).toHaveBeenCalledTimes(1);
   });
 
+  it("lets a modal use the layer its owner joined with, instead of joining twice", () => {
+    // The exercise modal joins the stack itself so its own shortcuts can tell
+    // when something sits above it, and hands that layer to Modal.
+    function Owner({ onClose }: { onClose: () => void }) {
+      const layer = useOverlayLayer(true, { lockScroll: true });
+      return (
+        <>
+          <div data-testid="owner" data-topmost={String(layer.isTopmost)} />
+          <Modal isOpen layer={layer} onClose={onClose} title="Classwork">
+            body
+          </Modal>
+        </>
+      );
+    }
+    const onClose = vi.fn();
+    const { rerender } = render(<Owner onClose={onClose} />);
+    // Alone, the modal answers Escape. Had it joined the stack as well, its
+    // effect would run before its owner's, leaving it one place below the
+    // owner and never topmost, so this Escape would go unanswered.
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <>
+        <Owner onClose={onClose} />
+        <Layer name="popover" />
+      </>,
+    );
+    expect(topmost("owner")).toBe(false);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the page frozen when a stacked modal closes", () => {
     const { rerender } = render(
       <>

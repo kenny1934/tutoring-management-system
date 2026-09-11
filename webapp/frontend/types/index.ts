@@ -686,6 +686,7 @@ export interface CoursewareUsageDetail {
   school: string;
   tutor_id: number;
   tutor_name: string;
+  session_status: string;
 }
 
 // School-timeline curriculum types (the concept-based system)

@@ -4,7 +4,7 @@ import { useEffect, useCallback, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import { useOverlayLayer, type OverlayLayer } from "@/hooks/useOverlayLayer";
 import { cn } from "@/lib/utils";
 
 const sizeClasses = {
@@ -29,6 +29,13 @@ export interface ModalProps {
   className?: string;
   /** If false, renders without backdrop (for use in side-by-side layouts). Default: true */
   standalone?: boolean;
+  /** For an owner that listens for keys itself and so needs to know when
+   *  something is stacked over it. The owner joins the overlay stack (with
+   *  `lockScroll`) and hands the layer in, and the modal uses that layer
+   *  rather than joining a second time. A second entry would land just below
+   *  the owner's, because a child's effects run first, and leave the modal
+   *  never topmost. */
+  layer?: OverlayLayer;
 }
 
 /**
@@ -45,6 +52,7 @@ export function Modal({
   persistent = false,
   className,
   standalone = true,
+  layer,
 }: ModalProps) {
   // Track if component is mounted (for SSR compatibility)
   const [mounted, setMounted] = useState(false);
@@ -57,7 +65,8 @@ export function Modal({
   // which one a keypress belongs to. It owns the body scroll lock as well:
   // an inner modal closing must not hand the page back while this one is
   // still open.
-  const { isTopmost, zIndex } = useOverlayLayer(isOpen, { lockScroll: true });
+  const ownLayer = useOverlayLayer(isOpen && !layer, { lockScroll: true });
+  const { isTopmost, zIndex } = layer ?? ownLayer;
 
   // Escape belongs to the topmost modal alone.
   const handleEscape = useCallback(

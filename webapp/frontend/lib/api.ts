@@ -1083,7 +1083,8 @@ export const coursewareAPI = {
     offset?: number,
     exerciseType?: string,
     grade?: string,
-    school?: string
+    school?: string,
+    excludeSchool?: string
   ) => {
     const params = new URLSearchParams({
       filename,
@@ -1094,6 +1095,7 @@ export const coursewareAPI = {
     if (exerciseType) params.append('exercise_type', exerciseType);
     if (grade) params.append('grade', grade);
     if (school) params.append('school', school);
+    if (excludeSchool) params.append('exclude_school', excludeSchool);
     return fetchAPI<CoursewareUsageDetail[]>(`/courseware/usage-detail?${params}`);
   },
 };

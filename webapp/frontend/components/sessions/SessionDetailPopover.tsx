@@ -27,6 +27,7 @@ import { sessionsAPI, api, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import { useConfirmOpen } from "@/contexts/ConfirmContext";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExerciseModal } from "./ExerciseModal";
 import { RateSessionModal } from "./RateSessionModal";
@@ -434,6 +435,13 @@ export function SessionDetailPopover({
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const saveLessonNumber = useSaveLessonNumber(session?.id);
   const confirmDialogOpen = useConfirmOpen();
+  // The popover joins the overlay stack like the modals do. That is how a
+  // modal underneath it (the exercise modal, when the popover is opened from
+  // the School Progress usage list) knows to leave Escape and backdrop clicks
+  // alone, and how this popover knows to leave them alone once one of its own
+  // dialogs is open over it. It also paints the popover above whatever it was
+  // opened from, where a fixed z-index could land it underneath.
+  const { isTopmost, zIndex } = useOverlayLayer(isOpen);
 
   // Modal state for keyboard shortcuts
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
@@ -508,9 +516,10 @@ export function SessionDetailPopover({
     if (!isOpen || !session) return;
 
     const handleKeyDown = async (e: KeyboardEvent) => {
-      // Skip if typing in an input or if a modal is open
+      // Skip if typing in an input, if a modal is open, or if anything else
+      // has been stacked over the popover
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (exerciseModalType || isRateModalOpen || isEditModalOpen) return;
+      if (exerciseModalType || isRateModalOpen || isEditModalOpen || !isTopmost) return;
 
       const key = e.key.toLowerCase();
 
@@ -572,7 +581,7 @@ export function SessionDetailPopover({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, session, exerciseModalType, isRateModalOpen, isEditModalOpen, canMarkAttendance, showToast]);
+  }, [isOpen, isTopmost, session, exerciseModalType, isRateModalOpen, isEditModalOpen, canMarkAttendance, showToast]);
 
   // Virtual reference based on click position
   const virtualReference = useMemo(() => {
@@ -618,10 +627,24 @@ export function SessionDetailPopover({
     }
   }, [virtualReference, refs]);
 
-  // Disable click-outside dismissal when any modal is open
+  // Disable click-outside dismissal when any modal is open or anything else
+  // sits above the popover. Escape is handled below instead of here.
   const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen || confirmDialogOpen;
-  const dismiss = useDismiss(context, { enabled: !anyModalOpen });
+  const dismiss = useDismiss(context, { enabled: !anyModalOpen && isTopmost, escapeKey: false });
   const { getFloatingProps } = useInteractions([dismiss]);
+
+  // Escape is heard in the capture phase at the window. The exercise modal
+  // catches every key there and stops it reaching the document, where
+  // floating-ui listens, so a popover opened over that modal would never hear
+  // Escape otherwise. Only the topmost overlay answers it.
+  useEffect(() => {
+    if (!isOpen || !isTopmost || anyModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [isOpen, isTopmost, anyModalOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -631,10 +654,9 @@ export function SessionDetailPopover({
       <FloatingPortal>
         <div
           ref={refs.setFloating}
-          style={floatingStyles}
+          style={{ ...floatingStyles, zIndex }}
           {...getFloatingProps()}
           className={cn(
-            "z-[9999]",
             "bg-[#fef9f3] dark:bg-[#2d2618]",
             "border-2 border-[#d4a574] dark:border-[#8b6f47]",
             "rounded-lg shadow-lg",
@@ -699,10 +721,9 @@ export function SessionDetailPopover({
     <FloatingPortal>
       <div
         ref={refs.setFloating}
-        style={floatingStyles}
+        style={{ ...floatingStyles, zIndex }}
         {...getFloatingProps()}
         className={cn(
-          "z-[9999]",
           "bg-[#fef9f3] dark:bg-[#2d2618]",
           "border-2 border-[#d4a574] dark:border-[#8b6f47]",
           "rounded-lg shadow-lg",

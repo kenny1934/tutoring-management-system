@@ -769,11 +769,12 @@ export function useCoursewareUsageDetail(
   limit?: number,
   exerciseType?: string,
   grade?: string,
-  school?: string
+  school?: string,
+  excludeSchool?: string
 ) {
   return useSWR<CoursewareUsageDetail[]>(
-    filename ? ['courseware-detail', filename, timeRange, limit, exerciseType, grade, school] : null,
-    () => coursewareAPI.getUsageDetail(filename!, timeRange, limit, undefined, exerciseType, grade, school)
+    filename ? ['courseware-detail', filename, timeRange, limit, exerciseType, grade, school, excludeSchool] : null,
+    () => coursewareAPI.getUsageDetail(filename!, timeRange, limit, undefined, exerciseType, grade, school, excludeSchool)
   );
 }
 

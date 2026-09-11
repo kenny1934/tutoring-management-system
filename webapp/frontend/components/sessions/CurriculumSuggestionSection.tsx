@@ -671,6 +671,7 @@ export function CurriculumSuggestionSection({ session, onAdd, forGroup = false }
                             })
                           }
                           scopeSchool={data.school}
+                          studentId={forGroup ? null : session.student_id}
                         />
                       ))}
                     </div>

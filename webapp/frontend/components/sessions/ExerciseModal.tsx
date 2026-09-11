@@ -19,6 +19,7 @@ import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-moda
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
 import { useSession } from "@/lib/hooks";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData, buildDuplicateIndex, findDuplicatesFromIndex, isUrl, hasExerciseSource, extractUrlFromPaste } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
@@ -82,6 +83,10 @@ export function ExerciseModal({
   readOnly = false,
 }: ExerciseModalProps) {
   const { selectedLocation } = useLocation();
+  // The modal's place in the overlay stack, taken here rather than inside
+  // Modal because the keyboard shortcuts below need to know when something
+  // has been stacked on top of it. Modal is handed the same layer.
+  const overlayLayer = useOverlayLayer(isOpen, { lockScroll: true });
   const studentIdDisplay = selectedLocation === "All Locations" && session.location
     ? `${session.location}-${session.school_student_id || ""}`
     : session.school_student_id;
@@ -550,6 +555,17 @@ export function ExerciseModal({
         return;
       }
 
+      // Something else in the overlay stack sits above this modal: a lesson's
+      // detail popover opened from the School Progress usage list, a file
+      // browser, or a confirm dialog. Every shortcut below acts on this modal,
+      // so none of them run. Escape travels on to the overlay on top, which
+      // is the one it belongs to, and every other key is still kept from the
+      // page underneath, the same as at the bottom of this handler.
+      if (!overlayLayer.isTopmost) {
+        if (e.key !== 'Escape') e.stopPropagation();
+        return;
+      }
+
       // Handle close confirmation with Escape - MUST be at TOP
       if (showCloseConfirm) {
         if (e.key === 'Escape') {
@@ -669,7 +685,7 @@ export function ExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, handleSave, addExercise, handleCopyExercises, handlePasteRequest, handlePasteConfirm, showPasteConfirm, handleBulkDeleteRequest, handleBulkDeleteConfirm, showBulkDeleteConfirm, selectedIndices, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
+  }, [isOpen, overlayLayer.isTopmost, handleSave, addExercise, handleCopyExercises, handlePasteRequest, handlePasteConfirm, showPasteConfirm, handleBulkDeleteRequest, handleBulkDeleteConfirm, showBulkDeleteConfirm, selectedIndices, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
 
   const updateExercise = (
     index: number,
@@ -992,6 +1008,7 @@ export function ExerciseModal({
   return (
     <Modal
       isOpen={isOpen}
+      layer={overlayLayer}
       onClose={handleCloseAttempt}
       title={
         <div className="flex items-center gap-2">

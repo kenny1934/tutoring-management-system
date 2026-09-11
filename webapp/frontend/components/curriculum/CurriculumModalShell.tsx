@@ -3,6 +3,7 @@
 import { ReactNode, RefObject, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useOverlayLayer } from "@/hooks/useOverlayLayer";
 
 /**
  * Dialog focus management shared by the curriculum overlays (modal shell,
@@ -74,16 +75,21 @@ export function CurriculumModalShell({
   const panelRef = useRef<HTMLDivElement>(null);
   const trapTab = useDialogFocus(panelRef);
 
+  // In the overlay stack so that a lesson's detail popover, opened from the
+  // usage list under a file row in here, can take Escape for itself. The
+  // shell keeps its fixed z-index, which already sits it where it needs to be.
+  const { isTopmost } = useOverlayLayer(true);
+
   // Capture phase: the exercise modal swallows bubbling Escapes with its own
   // capture listener, so this one must sit at the same level to be heard (it
   // defers to us via the data-curriculum-overlay marker below).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !previewOpen) onClose();
+      if (e.key === "Escape" && !previewOpen && isTopmost) onClose();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose, previewOpen]);
+  }, [onClose, previewOpen, isTopmost]);
 
   if (typeof document === "undefined") return null;
 

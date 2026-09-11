@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Eye, Plus } from "lucide-react";
+import { Check, ChevronDown, Copy, Eye, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { ROLE_LABELS, listInWords, stripExtension } from "@/lib/curriculum-labels";
 import { formatDayFirstDate, plural } from "@/lib/formatters";
 import { iconHitArea, useCoarsePointer } from "@/hooks/useCoarsePointer";
 import type { CurriculumFile } from "@/types";
+import { CurriculumFileUsage } from "./CurriculumFileUsage";
 
 interface CurriculumFileRowProps {
   file: CurriculumFile;
@@ -18,6 +19,9 @@ interface CurriculumFileRowProps {
   /** School the list is scoped to; lights up the usage badge for files its
    *  own students have been assigned. */
   scopeSchool?: string | null;
+  /** The student the work is being set for. Their own lines are highlighted
+   *  when the usage list is opened. */
+  studentId?: number | null;
 }
 
 // A partly done file can have a long page list, which would squeeze the file
@@ -70,14 +74,21 @@ function StudentDoneBadge({ file }: { file: CurriculumFile }) {
   );
 }
 
-/** The badge cluster every file row shares: school, role, language, usage. */
+/** The badge cluster every file row shares: school, role, language, usage.
+ *  When `onToggleUsage` is given, the usage count becomes a button that
+ *  opens the list of lessons behind it. */
 export function CurriculumFileBadges({
   file,
   scopeSchool,
+  usageOpen = false,
+  onToggleUsage,
 }: {
   file: CurriculumFile;
   scopeSchool?: string | null;
+  usageOpen?: boolean;
+  onToggleUsage?: () => void;
 }) {
+  const coarse = useCoarsePointer();
   const schoolCount = file.school_assignment_count || 0;
   const schoolStudents = file.school_student_count || 0;
   const times = (n: number) => (n === 1 ? "time" : "times");
@@ -123,19 +134,45 @@ export function CurriculumFileBadges({
           {file.lang === "e" ? "EN" : "中"}
         </span>
       )}
-      {file.assignment_count > 0 && (
-        <span
-          className={cn(
-            "text-[9px] shrink-0",
-            schoolCount > 0
-              ? "text-teal-600 dark:text-teal-400 font-medium"
-              : "text-gray-400"
-          )}
-          title={usageTitle}
-        >
-          {file.assignment_count}×
-        </span>
-      )}
+      {file.assignment_count > 0 &&
+        (onToggleUsage ? (
+          // The outline and chevron mark it as the one badge that does
+          // something, and the pointer cursor has to be asked for because
+          // Tailwind's reset gives buttons the plain arrow.
+          <button
+            type="button"
+            onClick={onToggleUsage}
+            aria-expanded={usageOpen}
+            className={cn(
+              "inline-flex items-center gap-0.5 text-[9px] shrink-0 rounded border cursor-pointer transition-colors",
+              coarse ? "px-1.5 py-0.5" : "px-1 py-px",
+              schoolCount > 0
+                ? "text-teal-600 dark:text-teal-400 font-medium border-teal-200 dark:border-teal-800"
+                : "text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700",
+              "hover:bg-teal-50 hover:border-teal-400 hover:text-teal-700 dark:hover:bg-teal-900/30 dark:hover:border-teal-600 dark:hover:text-teal-300",
+              usageOpen &&
+                "bg-teal-100 border-teal-400 text-teal-700 dark:bg-teal-900/40 dark:border-teal-600 dark:text-teal-300"
+            )}
+            title={`${usageTitle}. Click to see the students and lessons.`}
+          >
+            {file.assignment_count}×
+            <ChevronDown
+              className={cn("h-2.5 w-2.5 transition-transform", usageOpen && "rotate-180")}
+            />
+          </button>
+        ) : (
+          <span
+            className={cn(
+              "text-[9px] shrink-0",
+              schoolCount > 0
+                ? "text-teal-600 dark:text-teal-400 font-medium"
+                : "text-gray-400"
+            )}
+            title={usageTitle}
+          >
+            {file.assignment_count}×
+          </span>
+        ))}
     </>
   );
 }
@@ -146,9 +183,11 @@ export function CurriculumFileRow({
   onPreview,
   onAdd,
   scopeSchool,
+  studentId,
 }: CurriculumFileRowProps) {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const hitArea = iconHitArea(useCoarsePointer());
 
   const copyPath = async () => {
@@ -162,55 +201,65 @@ export function CurriculumFileRow({
   };
 
   return (
-    <div className="flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10">
-      {onAdd && (
+    <div>
+      <div className="flex items-center gap-1.5 group rounded px-1 py-0.5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10">
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            title="Add to the session"
+            className={cn(
+              hitArea,
+              "rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+            )}
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        )}
+        {/* Name click previews: the row's biggest target does the safe,
+            read-only thing; adding stays on the explicit plus button. */}
+        <span
+          className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 cursor-pointer"
+          title={file.file_path}
+          onClick={() => onPreview(file)}
+        >
+          {stripExtension(file.file_basename)}
+        </span>
+        <CurriculumFileBadges
+          file={file}
+          scopeSchool={scopeSchool}
+          usageOpen={usageOpen}
+          onToggleUsage={() => setUsageOpen((open) => !open)}
+        />
         <button
           type="button"
-          onClick={onAdd}
-          title="Add to the session"
+          onClick={() => onPreview(file)}
+          title="Preview this worksheet"
           className={cn(
             hitArea,
-            "rounded text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 shrink-0"
+            "rounded shrink-0 text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
           )}
         >
-          <Plus className="h-3 w-3" />
+          <Eye className="h-3 w-3" />
         </button>
+        <button
+          type="button"
+          onClick={copyPath}
+          title="Copy the file path to paste into an exercise"
+          className={cn(
+            hitArea,
+            "rounded shrink-0 transition-colors",
+            copied
+              ? "text-teal-600"
+              : "text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30"
+          )}
+        >
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        </button>
+      </div>
+      {usageOpen && (
+        <CurriculumFileUsage file={file} scopeSchool={scopeSchool} studentId={studentId} />
       )}
-      {/* Name click previews: the row's biggest target does the safe,
-          read-only thing; adding stays on the explicit plus button. */}
-      <span
-        className="text-[11px] text-gray-700 dark:text-gray-300 truncate flex-1 cursor-pointer"
-        title={file.file_path}
-        onClick={() => onPreview(file)}
-      >
-        {stripExtension(file.file_basename)}
-      </span>
-      <CurriculumFileBadges file={file} scopeSchool={scopeSchool} />
-      <button
-        type="button"
-        onClick={() => onPreview(file)}
-        title="Preview this worksheet"
-        className={cn(
-          hitArea,
-          "rounded shrink-0 text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
-        )}
-      >
-        <Eye className="h-3 w-3" />
-      </button>
-      <button
-        type="button"
-        onClick={copyPath}
-        title="Copy the file path to paste into an exercise"
-        className={cn(
-          hitArea,
-          "rounded shrink-0 transition-colors",
-          copied
-            ? "text-teal-600"
-            : "text-gray-400 hover:text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30"
-        )}
-      >
-        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      </button>
     </div>
   );
 }

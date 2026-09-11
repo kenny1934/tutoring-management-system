@@ -110,6 +110,7 @@ async def get_courseware_usage_detail(
     exercise_type: Optional[str] = Query(None, description="Filter by exercise type: 'CW' or 'HW'"),
     grade: Optional[str] = Query(None, description="Filter by grade (e.g., 'F1', 'F2')"),
     school: Optional[str] = Query(None, description="Filter by school"),
+    exclude_school: Optional[str] = Query(None, description="Leave out this school's students"),
     limit: int = Query(10, ge=1, le=100, description="Number of results to return"),
     offset: int = Query(0, ge=0, le=10000, description="Offset for pagination"),
     db: Session = Depends(get_db)
@@ -119,6 +120,13 @@ async def get_courseware_usage_detail(
 
     Returns all assignments of this courseware showing students, tutors, dates.
     Optional filters for exercise_type, grade, and school to match trending context.
+
+    School Progress lists one school's students first and the rest of them
+    on request, so it asks once with `school` and once with `exclude_school`.
+    Each line carries the lesson's status because a small share of exercises
+    sit on lessons that were rescheduled or cancelled after the work was set,
+    and the list tags those rather than hiding them, so it still adds up to
+    the assignment count shown on the file.
     """
     where_clauses = ["cud.filename = :filename"]
     params = {"filename": filename, "limit": limit, "offset": offset}
@@ -137,6 +145,11 @@ async def get_courseware_usage_detail(
     if school:
         where_clauses.append("cud.school = :school")
         params["school"] = school
+
+    if exclude_school:
+        # A student with no school on record is still "not this school".
+        where_clauses.append("(cud.school IS NULL OR cud.school <> :exclude_school)")
+        params["exclude_school"] = exclude_school
 
     where_sql = " AND ".join(where_clauses)
 
@@ -159,12 +172,14 @@ async def get_courseware_usage_detail(
             cud.lang_stream,
             cud.school,
             cud.tutor_id,
-            cud.tutor_name
+            cud.tutor_name,
+            sl.session_status
         FROM courseware_usage_detail cud
         JOIN session_exercises se ON cud.exercise_id = se.id
+        JOIN session_log sl ON se.session_id = sl.id
         JOIN students s ON cud.student_id = s.id
         WHERE {where_sql}
-        ORDER BY cud.session_date DESC, cud.student_name
+        ORDER BY cud.session_date DESC, cud.student_name, cud.exercise_id
         LIMIT :limit OFFSET :offset
     """)
 
@@ -180,7 +195,9 @@ async def get_courseware_usage_detail(
             "exercise_type": row.exercise_type,
             "page_start": row.page_start,
             "page_end": row.page_end,
-            "session_date": row.session_date.isoformat() if row.session_date else None,
+            # str() gives the same YYYY-MM-DD as isoformat() on MySQL's date,
+            # and also passes through SQLite's plain string in the tests.
+            "session_date": str(row.session_date) if row.session_date else None,
             "location": row.location,
             "student_id": row.student_id,
             "school_student_id": row.school_student_id,
@@ -190,6 +207,7 @@ async def get_courseware_usage_detail(
             "school": row.school,
             "tutor_id": row.tutor_id,
             "tutor_name": row.tutor_name,
+            "session_status": row.session_status,
         }
         for row in results
     ]
