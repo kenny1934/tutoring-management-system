@@ -221,14 +221,30 @@ def main():
     # A file's topic comes from the chapter code in its name when it has one.
     # Otherwise the content map is asked, which is how a school scan, a
     # tailor-made paper or a renamed file that a tutor pasted in still counts.
+    #
+    # Summer course lessons are left out. They teach the grade a student is
+    # about to enter, from our own summer syllabus, so what gets assigned
+    # there says nothing about where the school is. The enrolment type is the
+    # test because every summer lesson carries it, while the summer slot link
+    # is missing on about a fifth of them.
     cmap = ContentMap.load(cur)
+    cur.execute(
+        "SELECT COUNT(*) FROM session_exercises se "
+        "JOIN session_log sl ON sl.id = se.session_id "
+        "JOIN enrollments e ON e.id = sl.enrollment_id "
+        "WHERE e.enrollment_type = 'Summer' "
+        "AND se.pdf_name IS NOT NULL AND se.pdf_name != ''"
+    )
+    stats["assign:summer_skipped"] = cur.fetchone()[0]
     cur.execute(
         "SELECT se.id, se.pdf_name, sl.session_date, s.school, s.grade, s.lang_stream "
         "FROM session_exercises se "
         "JOIN session_log sl ON sl.id = se.session_id "
         "JOIN students s ON s.id = sl.student_id "
+        "LEFT JOIN enrollments e ON e.id = sl.enrollment_id "
         "WHERE s.grade REGEXP '^F[1-6]$' AND se.pdf_name IS NOT NULL AND se.pdf_name != '' "
-        "AND s.school IS NOT NULL AND s.school != ''"
+        "AND s.school IS NOT NULL AND s.school != '' "
+        "AND (e.enrollment_type IS NULL OR e.enrollment_type != 'Summer')"
     )
     for se_id, pdf, sdate, school, grade, stream in cur.fetchall():
         year, week = week_of(sdate)
