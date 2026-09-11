@@ -99,11 +99,6 @@ export function LessonMode({
   const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const MAX_PDF_CACHE_SIZE = 20;
 
-  // Every exercise opened in this lesson, so "Download All" can still save
-  // its ink once it's no longer among the session's exercises. A preview never
-  // is, and saving "Edit exercises" gives every exercise a new id.
-  const shownExercisesRef = useRef<Map<number, SessionExercise>>(new Map());
-
   // Each exercise's zoom, scroll position and "Hide ink", so switching between
   // exercises and back finds each one as the tutor left it.
   const viewStatesRef = useRef(new Map<number, PdfViewState>());
@@ -262,9 +257,20 @@ export function LessonMode({
 
   // F2: Annotation state with sessionStorage persistence
   const {
-    getAnnotations, getAllAnnotations, setPageStrokes, undo, redo,
+    getAnnotations, getAllAnnotations, setPageStrokes, undo, redo, setInkSource, getInkSource,
     clearPage, clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
-  } = useAnnotations(`lesson-annotations-${session.id}`);
+  } = useAnnotations<AnnotatedExercise>(`lesson-annotations-${session.id}`);
+
+  // How "Download All" saves an exercise's ink. A preview is class-wide, so it has no student stamp.
+  const describeForZip = useCallback((exercise: SessionExercise): AnnotatedExercise | null => {
+    if (!exercise.pdf_name) return null;
+    return {
+      pdfName: exercise.pdf_name,
+      pageNumbers: getExercisePageNumbers(exercise),
+      stamp: isPreviewExercise(exercise) ? undefined : stamp,
+      name: `annotated-${getDisplayName(exercise.pdf_name)}`,
+    };
+  }, [stamp]);
   // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
   const tools = useAnnotationTools();
   const drawingEnabled = tools.drawingEnabled;
@@ -396,12 +402,20 @@ export function LessonMode({
   // Sync annotations when exercise changes
   useEffect(() => {
     if (selectedExercise) {
-      shownExercisesRef.current.set(selectedExercise.id, selectedExercise);
       setCurrentAnnotations(getAnnotations(selectedExercise.id));
     } else {
       setCurrentAnnotations({});
     }
   }, [selectedExercise, getAnnotations]);
+
+  // Each exercise that's opened has how to save it stored next to the ink, so
+  // "Download All" can still save the ink once the exercise has left the
+  // session's list. A preview never survives a reload, and saving "Edit
+  // exercises" gives every exercise a new id.
+  useEffect(() => {
+    const source = selectedExercise && describeForZip(selectedExercise);
+    if (selectedExercise && source) setInkSource(selectedExercise.id, source);
+  }, [selectedExercise, describeForZip, setInkSource]);
 
   // Auto-search for answer file when exercise changes
   useEffect(() => {
@@ -670,15 +684,9 @@ export function LessonMode({
   const handleSaveAllAndExit = useCallback(async () => {
     setIsSavingAll(true);
     try {
-      const describe = (exerciseId: number): AnnotatedExercise | null => {
-        const exercise = allExercises.find((ex) => ex.id === exerciseId) ?? shownExercisesRef.current.get(exerciseId);
-        if (!exercise?.pdf_name) return null;
-        return {
-          pdfName: exercise.pdf_name,
-          pageNumbers: getExercisePageNumbers(exercise),
-          stamp: isPreviewExercise(exercise) ? undefined : stamp,
-          name: `annotated-${getDisplayName(exercise.pdf_name)}`,
-        };
+      const describe = (exerciseId: number) => {
+        const listed = allExercises.find((ex) => ex.id === exerciseId);
+        return listed ? describeForZip(listed) : getInkSource(exerciseId) ?? null;
       };
       const { zip, saved, failed } = await buildAnnotatedZip(
         getAllAnnotations(),
@@ -713,7 +721,7 @@ export function LessonMode({
     } finally {
       setIsSavingAll(false);
     }
-  }, [allExercises, getAllAnnotations, stamp, session, onExit, clearStorage, showToast]);
+  }, [allExercises, getAllAnnotations, describeForZip, getInkSource, session, onExit, clearStorage, showToast]);
 
   // Warn before the tab closes or reloads while there's ink that only lives in this tab.
   useEffect(() => {

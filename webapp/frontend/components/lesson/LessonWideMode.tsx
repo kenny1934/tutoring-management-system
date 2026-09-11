@@ -68,6 +68,23 @@ export interface FileGroup {
 const exerciseKind = (exercise: SessionExercise): "CW" | "HW" =>
   exercise.exercise_type === "Classwork" || exercise.exercise_type === "CW" ? "CW" : "HW";
 
+/** How "Download All" saves a worksheet's ink. A preview is class-wide, so it has no student stamp. */
+function describeForZip(entry: StudentExerciseEntry): AnnotatedExercise | null {
+  if (!entry.exercise.pdf_name) return null;
+  return {
+    pdfName: entry.exercise.pdf_name,
+    pageNumbers: getExercisePageNumbers(entry.exercise),
+    stamp: isPreviewExercise(entry.exercise) ? undefined : {
+      location: entry.session.location,
+      schoolStudentId: entry.studentId || undefined,
+      studentName: entry.studentName,
+      sessionDate: entry.session.session_date,
+      sessionTime: entry.session.time_slot,
+    },
+    name: `annotated-${entry.studentName}-${getDisplayName(entry.exercise.pdf_name)}`,
+  };
+}
+
 // --- Props ---
 
 interface LessonWideModeProps {
@@ -105,11 +122,6 @@ export function LessonWideMode({
   const [pageNumbers, setPageNumbers] = useState<number[]>([]);
   const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const MAX_PDF_CACHE_SIZE = 30;
-
-  // Every worksheet opened in this lesson, so "Download All" can still save
-  // its ink once it's no longer among the students' exercises. A preview never
-  // is, and saving "Edit exercises" gives every exercise a new id.
-  const shownEntriesRef = useRef<Map<number, StudentExerciseEntry>>(new Map());
 
   // Each worksheet's zoom, scroll position and "Hide ink", so switching
   // between students and back finds each one as the tutor left it.
@@ -175,9 +187,9 @@ export function LessonWideMode({
   // Use a combined key for all sessions in this lesson
   const annotationKey = `lesson-wide-annotations-${date}-${slot}-${tutorId}`;
   const {
-    getAnnotations, getAllAnnotations, setPageStrokes, undo, redo,
+    getAnnotations, getAllAnnotations, setPageStrokes, undo, redo, setInkSource, getInkSource,
     clearPage, clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
-  } = useAnnotations(annotationKey);
+  } = useAnnotations<AnnotatedExercise>(annotationKey);
   // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
   const tools = useAnnotationTools();
   const drawingEnabled = tools.drawingEnabled;
@@ -438,12 +450,20 @@ export function LessonWideMode({
   // --- Sync annotations when selection changes ---
   useEffect(() => {
     if (selectedEntry?.exercise) {
-      shownEntriesRef.current.set(selectedEntry.exercise.id, selectedEntry);
       setCurrentAnnotations(getAnnotations(selectedEntry.exercise.id));
     } else {
       setCurrentAnnotations({});
     }
   }, [selectedEntry, getAnnotations]);
+
+  // Each worksheet that's opened has how to save it stored next to the ink,
+  // so "Download All" can still save the ink once the worksheet has left the
+  // students' lists. A preview never survives a reload, and saving "Edit
+  // exercises" gives every exercise a new id.
+  useEffect(() => {
+    const source = selectedEntry && describeForZip(selectedEntry);
+    if (selectedEntry && source) setInkSource(selectedEntry.exercise.id, source);
+  }, [selectedEntry, setInkSource]);
 
   // --- Answer file search ---
   useEffect(() => {
@@ -759,22 +779,9 @@ export function LessonWideMode({
   const handleSaveAllAndExit = useCallback(async () => {
     setIsSavingAll(true);
     try {
-      const describe = (exerciseId: number): AnnotatedExercise | null => {
-        const entry = allEntries.find((e) => e.exercise.id === exerciseId) ?? shownEntriesRef.current.get(exerciseId);
-        if (!entry?.exercise.pdf_name) return null;
-        return {
-          pdfName: entry.exercise.pdf_name,
-          pageNumbers: getExercisePageNumbers(entry.exercise),
-          // A preview is class-wide, so it has no student stamp.
-          stamp: isPreviewExercise(entry.exercise) ? undefined : {
-            location: entry.session.location,
-            schoolStudentId: entry.studentId || undefined,
-            studentName: entry.studentName,
-            sessionDate: entry.session.session_date,
-            sessionTime: entry.session.time_slot,
-          },
-          name: `annotated-${entry.studentName}-${getDisplayName(entry.exercise.pdf_name)}`,
-        };
+      const describe = (exerciseId: number) => {
+        const listed = allEntries.find((e) => e.exercise.id === exerciseId);
+        return listed ? describeForZip(listed) : getInkSource(exerciseId) ?? null;
       };
       const { zip, saved, failed } = await buildAnnotatedZip(
         getAllAnnotations(),
@@ -801,7 +808,7 @@ export function LessonWideMode({
     } finally {
       setIsSavingAll(false);
     }
-  }, [allEntries, getAllAnnotations, date, slot, clearStorage, showToast]);
+  }, [allEntries, getAllAnnotations, getInkSource, date, slot, clearStorage, showToast]);
 
   // --- beforeunload warning ---
   useEffect(() => {

@@ -170,9 +170,15 @@ function takeLatest(stack: HistoryEntry[], pageIndex?: number): HistoryEntry | n
  *
  * When sessionKey is provided, annotations are auto-saved to sessionStorage
  * (debounced 500ms) and restored on mount. The history itself is not saved.
+ *
+ * Each exercise can also have a source: whatever the view wants to remember
+ * about what its ink was drawn on, such as how to save it. Sources are saved
+ * next to the ink under their own key and cleared along with it.
  */
-export function useAnnotations(sessionKey?: string) {
+export function useAnnotations<Source = unknown>(sessionKey?: string) {
   const storeRef = useRef<Map<number, PageAnnotations>>(new Map());
+  const sourcesRef = useRef<Map<number, Source>>(new Map());
+  const sourcesKey = sessionKey && `${sessionKey}:sources`;
   // Undo and redo stacks per exercise, newest entry last.
   const undoRef = useRef<Map<number, HistoryEntry[]>>(new Map());
   const redoRef = useRef<Map<number, HistoryEntry[]>>(new Map());
@@ -192,9 +198,19 @@ export function useAnnotations(sessionKey?: string) {
     }, 500);
   }, [sessionKey]);
 
+  const persistSources = useCallback(() => {
+    if (!sourcesKey) return;
+    try { sessionStorage.setItem(sourcesKey, JSON.stringify([...sourcesRef.current])); } catch {}
+  }, [sourcesKey]);
+
   // Restore from sessionStorage on mount
   useEffect(() => {
-    if (!sessionKey) return;
+    if (!sessionKey || !sourcesKey) return;
+    try {
+      const saved = sessionStorage.getItem(sourcesKey);
+      // A source the view has already set since mounting is newer than the saved one.
+      if (saved) sourcesRef.current = new Map([...JSON.parse(saved), ...sourcesRef.current]);
+    } catch {}
     try {
       const saved = sessionStorage.getItem(sessionKey);
       if (!saved) return;
@@ -212,7 +228,7 @@ export function useAnnotations(sessionKey?: string) {
       undoRef.current = history;
       redoRef.current = new Map();
     } catch {}
-  }, [sessionKey]);
+  }, [sessionKey, sourcesKey]);
 
   // Clear save timer on unmount
   useEffect(() => {
@@ -223,6 +239,22 @@ export function useAnnotations(sessionKey?: string) {
 
   const getAnnotations = useCallback((exerciseId: number): PageAnnotations => {
     return storeRef.current.get(exerciseId) || {};
+  }, []);
+
+  /**
+   * Remember what an exercise's ink is drawn on. The lesson views record how
+   * to save each exercise they open, so "Download All" can still save its ink
+   * after the exercise has left the lesson's list. A preview is never on the
+   * list after a reload, and saving "Edit exercises" gives every exercise a
+   * new id.
+   */
+  const setInkSource = useCallback((exerciseId: number, source: Source) => {
+    sourcesRef.current.set(exerciseId, source);
+    persistSources();
+  }, [persistSources]);
+
+  const getInkSource = useCallback((exerciseId: number): Source | undefined => {
+    return sourcesRef.current.get(exerciseId);
   }, []);
 
   /**
@@ -328,15 +360,20 @@ export function useAnnotations(sessionKey?: string) {
     storeRef.current.clear();
     undoRef.current.clear();
     redoRef.current.clear();
+    sourcesRef.current.clear();
     persistToStorage();
-  }, [persistToStorage]);
+    persistSources();
+  }, [persistToStorage, persistSources]);
 
-  /** Remove sessionStorage entry entirely. */
+  /** Remove the ink and its sources from sessionStorage entirely. */
   const clearStorage = useCallback(() => {
-    if (!sessionKey) return;
+    if (!sessionKey || !sourcesKey) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    try { sessionStorage.removeItem(sessionKey); } catch {}
-  }, [sessionKey]);
+    try {
+      sessionStorage.removeItem(sessionKey);
+      sessionStorage.removeItem(sourcesKey);
+    } catch {}
+  }, [sessionKey, sourcesKey]);
 
   const hasAnnotations = useCallback((exerciseId: number): boolean => {
     return hasInk(storeRef.current.get(exerciseId));
@@ -358,6 +395,8 @@ export function useAnnotations(sessionKey?: string) {
   return {
     getAnnotations,
     getAllAnnotations,
+    setInkSource,
+    getInkSource,
     setPageStrokes,
     undo,
     redo,

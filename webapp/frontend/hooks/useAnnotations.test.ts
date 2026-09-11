@@ -159,6 +159,30 @@ describe("useAnnotations undo and redo", () => {
   });
 });
 
+describe("useAnnotations ink sources", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it("remembers what an exercise's ink is on across a reload", () => {
+    const first = renderHook(() => useAnnotations<{ pdfName: string }>("lesson-test"));
+    first.result.current.setInkSource(-7, { pdfName: "preview.pdf" });
+    first.unmount();
+
+    const reloaded = renderHook(() => useAnnotations<{ pdfName: string }>("lesson-test"));
+    expect(reloaded.result.current.getInkSource(-7)).toEqual({ pdfName: "preview.pdf" });
+    expect(reloaded.result.current.getInkSource(8)).toBeUndefined();
+  });
+
+  it("forgets them when the ink's storage is cleared", () => {
+    const first = renderHook(() => useAnnotations<string>("lesson-test"));
+    first.result.current.setInkSource(1, "a.pdf");
+    first.result.current.clearStorage();
+    first.unmount();
+
+    const reloaded = renderHook(() => useAnnotations<string>("lesson-test"));
+    expect(reloaded.result.current.getInkSource(1)).toBeUndefined();
+  });
+});
+
 describe("getStrokeOptions", () => {
   it("draws a two-point stroke as an even line that reaches both of its ends, even mid-drag", () => {
     const line: Stroke = { points: [[0, 0, 0.2], [100, 0, 0.9]], color: "#000", size: 6 };
