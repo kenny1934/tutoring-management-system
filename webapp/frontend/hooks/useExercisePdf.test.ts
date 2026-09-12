@@ -88,6 +88,40 @@ describe("useExercisePdf", () => {
     expect(result.current.pdfData).toBe(newer);
   });
 
+  it("stops loading when it moves to a file already in the cache while another is loading", async () => {
+    const held = heldLoad();
+    load.mockImplementation(async (_name: string, onProgress?: (message: string) => void) => {
+      onProgress?.("Checking Paperless cache…");
+      return held.promise;
+    });
+    const cachedBytes = new ArrayBuffer(3);
+    const { result, rerender } = renderPdf(exercise(1, "A.pdf"), new Map([["B.pdf", cachedBytes]]));
+    await waitFor(() => expect(result.current.pdfLoadingMessage).toBe("Checking Paperless cache…"));
+    expect(result.current.pdfLoading).toBe(true);
+
+    rerender({ open: exercise(2, "B.pdf") });
+    expect(result.current.pdfData).toBe(cachedBytes);
+    expect(result.current.pdfLoading).toBe(false);
+    expect(result.current.pdfLoadingMessage).toBeNull();
+  });
+
+  it("stops loading when it moves to an exercise with no file while another is loading", async () => {
+    load.mockImplementation(() => heldLoad().promise);
+    const { result, rerender } = renderPdf(exercise(1, "A.pdf"));
+    await waitFor(() => expect(result.current.pdfLoading).toBe(true));
+
+    rerender({ open: exercise(2, null) });
+    expect(result.current.pdfError).toBe(NO_FILE_ERROR);
+    expect(result.current.pdfLoading).toBe(false);
+  });
+
+  it("stops loading and says the download failed when the load throws", async () => {
+    load.mockRejectedValue(new Error("The network went away"));
+    const { result } = renderPdf(exercise(1, "A.pdf"));
+    await waitFor(() => expect(result.current.pdfError).toBe("Failed to download PDF"));
+    expect(result.current.pdfLoading).toBe(false);
+  });
+
   it("forgets the file and loads it again on retry", async () => {
     const cache = new Map<string, ArrayBuffer>();
     const { result } = renderPdf(exercise(1, "A.pdf"), cache);

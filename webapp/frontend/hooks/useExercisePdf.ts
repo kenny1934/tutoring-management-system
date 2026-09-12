@@ -33,11 +33,16 @@ export function useExercisePdf(exercise: SessionExercise | null, cache: Map<stri
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    // Anything still loading is for an exercise that's no longer open, and its
+    // load has been told to stop, so nothing else would turn the spinner off.
+    // Only a new load below turns it back on.
+    setPdfLoading(false);
+    setPdfLoadingMessage(null);
+
     // A web link has no file, so there's nothing to load.
     if (exercise?.url && !exercise?.pdf_name) {
       setPdfData(null);
       setPageNumbers([]);
-      setPdfLoading(false);
       setPdfError(null);
       return;
     }
@@ -64,12 +69,17 @@ export function useExercisePdf(exercise: SessionExercise | null, cache: Map<stri
 
     (async () => {
       setPdfLoading(true);
-      setPdfLoadingMessage(null);
       setPdfError(null);
 
-      const result = await loadExercisePdf(pdfName, (message) => {
-        if (!cancelled) setPdfLoadingMessage(message);
-      });
+      // A load that throws is a download that failed, so the spinner still ends.
+      let result: Awaited<ReturnType<typeof loadExercisePdf>>;
+      try {
+        result = await loadExercisePdf(pdfName, (message) => {
+          if (!cancelled) setPdfLoadingMessage(message);
+        });
+      } catch {
+        result = { error: "fetch_failed" };
+      }
       if (cancelled) return;
 
       if ("data" in result) {

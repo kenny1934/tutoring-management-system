@@ -199,6 +199,18 @@ const inkLoaded = () => screen.findByText("Saved");
 const drawAStroke = () => fireEvent.click(within(worksheet()).getByRole("button", { name: "Draw a stroke" }));
 const strokesShown = () => within(worksheet()).getByText(/Strokes on the first page/).textContent;
 
+/** Makes one file's load wait until the test lets it finish, as a slow drive or Paperless would. */
+function holdLoad(pdfName: string) {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const loadAtOnce = h.loadExercisePdf.getMockImplementation()!;
+  h.loadExercisePdf.mockImplementation(async (name: string, onProgress?: (message: string) => void) => {
+    if (name === pdfName) await gate;
+    return loadAtOnce(name, onProgress);
+  });
+  return release;
+}
+
 /** The server takes every page it's sent, as it does when all is well. */
 const saveEverything = async (pages: LessonInkPageIn[]) => ({
   saved: pages.map((page) => ({
@@ -247,6 +259,20 @@ describe.each([
     await opened("Linear equations 3");
     expect(h.loadExercisePdf).toHaveBeenCalledWith(LINEAR, expect.any(Function));
     await waitFor(() => expect(worksheet()).not.toHaveTextContent("Loading"));
+  });
+
+  it("stops showing Loading when it goes back to a file it has while another is still loading", async () => {
+    holdLoad(QUADRATICS);
+    mount();
+    await opened("Linear equations 3");
+    await waitFor(() => expect(worksheet()).not.toHaveTextContent("Loading"));
+    press("j");
+    await opened("Quadratics 1");
+    expect(worksheet()).toHaveTextContent("Loading");
+
+    press("k");
+    await opened("Linear equations 3");
+    expect(worksheet()).not.toHaveTextContent("Loading");
   });
 
   it("loads the file again when Try again is pressed after it failed", async () => {
