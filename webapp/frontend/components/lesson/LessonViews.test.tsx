@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { MotionGlobalConfig } from "framer-motion";
 import type { Session, SessionExercise } from "@/types";
 import type { LessonInkPageIn } from "@/lib/api";
@@ -226,6 +226,8 @@ beforeEach(() => {
   h.showToast.mockReset();
   sessionStorage.clear();
   localStorage.clear();
+  // A desktop screen, unless a test says it's a phone.
+  Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1024 });
   // jsdom would really close its window, which ends the test run.
   vi.spyOn(window, "close").mockImplementation(() => {});
 });
@@ -327,6 +329,36 @@ describe.each([
     await dragBy(50, 370);
     await dragBy(50, 420);
     expect(localStorage.getItem("lesson-sidebar-width")).toBe("420");
+  });
+
+  it("ignores f on a phone, where nothing on screen could leave focus mode", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 500 });
+    mount();
+    await opened("Linear equations 3");
+    press("f");
+    expect(screen.getByRole("button", { name: "Focus mode" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("brings the sidebar back from the left edge in focus mode, and closes it at a tap off it", async () => {
+    mount();
+    await opened("Linear equations 3");
+    press("f");
+    const tapOffLayer = () => document.querySelector(".bg-black\\/10");
+    expect(tapOffLayer()).toBeNull();
+
+    fireEvent.mouseMove(document, { clientX: 10, clientY: 300 });
+    await waitFor(() => expect(tapOffLayer()).not.toBeNull());
+    fireEvent.pointerDown(tapOffLayer()!);
+    await waitFor(() => expect(tapOffLayer()).toBeNull());
+  });
+
+  it("brings the header back from the top edge in focus mode", async () => {
+    mount();
+    await opened("Linear equations 3");
+    press("f");
+    expect(screen.queryByTitle("Exit focus mode (Esc)")).toBeNull();
+    fireEvent.mouseMove(document, { clientX: 600, clientY: 2 });
+    expect(await screen.findByTitle("Exit focus mode (Esc)")).toBeInTheDocument();
   });
 
   it("ignores its keys while an exercise editor is open", async () => {
@@ -517,7 +549,8 @@ describe("The multi-student view", () => {
     expect(screen.getByRole("button", { name: "Close lesson tab" })).toBeInTheDocument();
 
     press("Escape");
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Leaving waits on the ink being sent, so give it the moment it would take.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     expect(window.close).not.toHaveBeenCalled();
     expect(screen.queryByText("Some ink isn't saved yet")).toBeNull();
   });

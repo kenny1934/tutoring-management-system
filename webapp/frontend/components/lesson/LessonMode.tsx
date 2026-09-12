@@ -37,6 +37,8 @@ import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-uti
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
 import { SidebarResizeHandle } from "./SidebarResizeHandle";
+import { useFocusMode } from "@/hooks/useFocusMode";
+import { FocusOverlays } from "./FocusOverlays";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import { buildAnnotatedZip, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
 import { downloadBlob } from "@/lib/geometry-utils";
@@ -119,12 +121,10 @@ export function LessonMode({
   // The sidebar's width, which the tutor changes by dragging its edge
   const { width: sidebarWidth, startResize } = useSidebarWidth();
 
-  // Focus mode (hides sidebar + header, hover to reveal)
-  const [focusMode, setFocusMode] = useState(false);
-  const [hoverHeader, setHoverHeader] = useState(false);
-  const [hoverSidebar, setHoverSidebar] = useState(false);
-  const hoverHeaderTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const hoverSidebarTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Focus mode hides the sidebar and the header, and brings each back while
+  // the mouse rests at its edge. Phones don't get it.
+  const focus = useFocusMode(!isMobile);
+  const { focusMode, hoverSidebar, setHoverSidebar, exitFocusMode, toggleFocusMode } = focus;
 
   // Shortcut help panel
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
@@ -173,7 +173,7 @@ export function LessonMode({
     setHomeworkOpen(opening);
     if (opening && focusMode) setHoverSidebar(true);
     if (opening && isMobile) setMobileExerciseListOpen(true);
-  }, [homeworkOpen, focusMode, isMobile]);
+  }, [homeworkOpen, focusMode, isMobile, setHoverSidebar]);
 
   // The sidebar is mounted three times over, in the split pane, the focus mode
   // overlay and the mobile sheet. Spreading one object is what stops the three
@@ -186,63 +186,6 @@ export function LessonMode({
     homeworkExpanded: homeworkOpen,
     onHomeworkExpandedChange: setHomeworkOpen,
   };
-
-  // S2: Focus mode helpers
-  const exitFocusMode = useCallback(() => {
-    clearTimeout(hoverHeaderTimerRef.current);
-    hoverHeaderTimerRef.current = undefined;
-    clearTimeout(hoverSidebarTimerRef.current);
-    hoverSidebarTimerRef.current = undefined;
-    setFocusMode(false);
-    setHoverHeader(false);
-    setHoverSidebar(false);
-  }, []);
-
-  const toggleFocusMode = useCallback(() => {
-    setFocusMode(fm => !fm);
-    setHoverHeader(false);
-    setHoverSidebar(false);
-  }, []);
-
-  // Focus mode: document-level mousemove for hover detection
-  // Two-threshold: 5px "arm zone" at edge starts timer, 48px "keep-alive zone" prevents cancellation
-  const HEADER_ARM_PX = 5;
-  const HEADER_ZONE_PX = 48;
-  const SIDEBAR_ZONE_PX = 48;
-  useEffect(() => {
-    if (!focusMode || isMobile) return;
-
-    const onMouseMove = (e: MouseEvent) => {
-      // Header: two-threshold — arm at edge, keep alive in zone
-      if (!hoverHeader) {
-        if (e.clientY <= HEADER_ARM_PX && !hoverHeaderTimerRef.current) {
-          hoverHeaderTimerRef.current = setTimeout(() => setHoverHeader(true), 200);
-        } else if (e.clientY > HEADER_ZONE_PX) {
-          clearTimeout(hoverHeaderTimerRef.current);
-          hoverHeaderTimerRef.current = undefined;
-        }
-      }
-
-      // Sidebar: simple 48px zone (no toolbar conflict on left edge)
-      if (e.clientX <= SIDEBAR_ZONE_PX && !hoverSidebar) {
-        if (!hoverSidebarTimerRef.current) {
-          hoverSidebarTimerRef.current = setTimeout(() => setHoverSidebar(true), 100);
-        }
-      } else if (e.clientX > SIDEBAR_ZONE_PX && !hoverSidebar) {
-        clearTimeout(hoverSidebarTimerRef.current);
-        hoverSidebarTimerRef.current = undefined;
-      }
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    return () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      clearTimeout(hoverHeaderTimerRef.current);
-      hoverHeaderTimerRef.current = undefined;
-      clearTimeout(hoverSidebarTimerRef.current);
-      hoverSidebarTimerRef.current = undefined;
-    };
-  }, [focusMode, isMobile, hoverHeader, hoverSidebar]);
 
   // All exercises from both sessions (for auto-select, save-all ZIP, and saving ink)
   const allExercises = useMemo(() => {
@@ -538,7 +481,7 @@ export function LessonMode({
     setSelectedExercise(exercise);
     if (isMobile) setMobileExerciseListOpen(false);
     if (focusMode) setHoverSidebar(false);
-  }, [isMobile, focusMode]);
+  }, [isMobile, focusMode, setHoverSidebar]);
 
   // Handle edit exercises
   const handleEditExercises = useCallback((s: Session, type: "CW" | "HW") => {
@@ -808,7 +751,7 @@ export function LessonMode({
         break;
       case "f":
         e.preventDefault();
-        if (!isMobile) toggleFocusMode();
+        toggleFocusMode();
         break;
       case "w":
         e.preventDefault();
@@ -874,7 +817,7 @@ export function LessonMode({
 
   // This view has no student strip, so in focus mode these buttons share the
   // worksheet's toolbar, and show only their icons to leave it room.
-  const focusButtons = focusMode && !isMobile ? (
+  const focusButtons = focusMode ? (
     <>
       <FocusSidebarButton icon={LayoutList} label="Exercises" open={hoverSidebar} onOpen={() => setHoverSidebar(true)} labelClass="sr-only" />
       <LeaveFocusButton onLeave={exitFocusMode} labelClass="sr-only" />
@@ -1378,72 +1321,27 @@ export function LessonMode({
         </div>
       </div>
 
-      {/* Focus mode: hover overlays (desktop only) — detection via document mousemove, these are render-only */}
-      {focusMode && !isMobile && (
-        <>
-          {/* Header overlay */}
-          <div
-            className="absolute top-0 left-0 right-0 z-50"
-            style={{ height: hoverHeader ? 'auto' : 0 }}
-            onMouseLeave={() => setHoverHeader(false)}
-          >
-            <AnimatePresence>
-              {hoverHeader && (
-                <motion.div
-                  initial={{ y: "-100%" }}
-                  animate={{ y: 0 }}
-                  exit={{ y: "-100%" }}
-                  transition={{ duration: 0.15 }}
-                >
-                  {renderHeader(true)}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* A tap anywhere off the sidebar closes it, which a finger needs
-              because it can't simply move away the way a mouse does. */}
-          {hoverSidebar && (
-            <div className="absolute inset-0 z-30 bg-black/10" onPointerDown={() => setHoverSidebar(false)} />
-          )}
-
-          {/* Sidebar overlay */}
-          <div
-            className="absolute top-0 left-0 bottom-0 z-40"
-            style={{ width: hoverSidebar ? sidebarWidth : 0 }}
-            onMouseLeave={() => setHoverSidebar(false)}
-          >
-            <AnimatePresence>
-              {hoverSidebar && (
-                <motion.div
-                  initial={{ x: "-100%" }}
-                  animate={{ x: 0 }}
-                  exit={{ x: "-100%" }}
-                  transition={{ duration: 0.15 }}
-                  className={cn(
-                    "h-full flex flex-col border-r shadow-2xl",
-                    "bg-[#faf5ed] dark:bg-[#1e1a14]",
-                    "border-[#d4c4a8] dark:border-[#3a3228]"
-                  )}
-                  style={{ width: sidebarWidth }}
-                >
-                  <LessonExerciseSidebar
-                    currentSession={currentSession}
-                    previousSession={previousSession}
-                    selectedExerciseId={selectedExercise?.id ?? null}
-                    onExerciseSelect={handleExerciseSelect}
-                    onEditExercises={handleEditExercises}
-                    isReadOnly={isReadOnly}
-                    hasAnnotations={checkHasAnnotations}
-                    {...homeworkSidebarProps}
-                    onPrint={handlePrintExercise}
-                    printing={printing}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </>
+      {/* Focus mode brings the header and the sidebar back over the worksheet */}
+      {focusMode && (
+        <FocusOverlays
+          focus={focus}
+          header={renderHeader(true)}
+          sidebarWidth={sidebarWidth}
+          sidebar={
+            <LessonExerciseSidebar
+              currentSession={currentSession}
+              previousSession={previousSession}
+              selectedExerciseId={selectedExercise?.id ?? null}
+              onExerciseSelect={handleExerciseSelect}
+              onEditExercises={handleEditExercises}
+              isReadOnly={isReadOnly}
+              hasAnnotations={checkHasAnnotations}
+              {...homeworkSidebarProps}
+              onPrint={handlePrintExercise}
+              printing={printing}
+            />
+          }
+        />
       )}
 
       {/* Wolfram Alpha panel */}
