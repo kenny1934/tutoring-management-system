@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.134](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.133...v2.0.134) (2026-09-12)
+
+
+### New Features
+
+* **A Draft beside the worksheet**: the Draft button opens blank or squared paper next to the worksheet, so the class sees the question and your working together.
+* **Fading ink for pointing**: its marks fade a few seconds after you stop and are never saved.
+* **Straight lines in any colour**: turn them on in the Pen Tray, and a line close to level or upright snaps straight.
+* **Wide lesson mode shows whose worksheet is on the board**: a strip above the worksheet gives the student's name in large letters, with arrows to the previous and next student.
+* **Focus mode works by finger at the board**: the buttons that open the student list and leave focus mode now stay on screen.
+
+
+### Bug Fixes
+
+* **Download All no longer loses ink**: every annotated worksheet is saved, and if one can't be, the ink is kept and the lesson stays open.
+
 ## [2.0.133](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.132...v2.0.133) (2026-09-11)
 
 
