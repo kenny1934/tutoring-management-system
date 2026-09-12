@@ -1959,3 +1959,36 @@ class FeatureEvent(Base):
         Index("idx_feature_event_key_time", "event_key", "event_day"),
         Index("idx_feature_event_tutor_day", "tutor_id", "event_day", "event_key"),
     )
+
+
+class LessonInk(Base):
+    """One page of a tutor's ink from lesson mode.
+
+    The lesson views used to keep ink in the browser tab only, so it was lost
+    whenever the tab closed. This table keeps each page, and migration 179
+    explains each column.
+
+    ``target_key`` names what the page belongs to within the lesson. It's
+    ``ex:<exercise id>`` for an exercise, or ``preview:<file id>`` for a
+    parallel-version preview, which has no exercise row. ``version`` goes up on
+    every write, so a save can tell whether someone else has written the page
+    since it last read it. The later save wins either way, and the earlier
+    writer is told. The database deletes rows with their session or exercise,
+    and a nightly job removes ink from lessons more than a year old.
+    """
+    __tablename__ = "lesson_ink"
+    __table_args__ = (
+        UniqueConstraint("session_id", "target_key", "page_index", name="uq_lesson_ink_page"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("session_log.id", ondelete="CASCADE"), nullable=False)
+    session_exercise_id = Column(Integer, ForeignKey("session_exercises.id", ondelete="CASCADE"), nullable=True)
+    target_key = Column(String(40), nullable=False)
+    page_index = Column(Integer, nullable=False)
+    pdf_page = Column(Integer, nullable=True)
+    pdf_name = Column(String(500), nullable=True)
+    strokes = Column(JSON, nullable=False)
+    version = Column(Integer, nullable=False, default=1)
+    updated_by = Column(String(255), nullable=False)
+    updated_at = Column(DateTime, nullable=False, default=hk_now)
