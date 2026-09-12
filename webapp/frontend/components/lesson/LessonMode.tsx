@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Calendar, Clock, MapPin, HelpCircle, Sigma,
-  Maximize2, Minimize2,
-  AlertTriangle, LayoutList, Loader2, ExternalLink, Home, Download,
+  Calendar, Clock, MapPin,
+  AlertTriangle, LayoutList, ExternalLink, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, toEmbedUrl } from "@/lib/exercise-utils";
@@ -32,9 +31,8 @@ import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
 import { usePrintExercise } from "@/hooks/usePrintExercise";
 import { useLessonKeys } from "@/hooks/useLessonKeys";
-import { PrintAllMenu } from "./PrintAllMenu";
 import { ShortcutHelpPanel, type ShortcutRow } from "./ShortcutHelpPanel";
-import { InkSaveStatus } from "./InkSaveStatus";
+import { LessonHeader, type HeaderDetail } from "./LessonHeader";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
@@ -434,33 +432,21 @@ export function LessonMode({
     />
   );
 
-  // Extracted header to avoid duplication between normal and overlay rendering
-  // Header buttons are 40px, big enough to hit with a finger at the board.
-  const hdrBtn = "min-w-10 h-10 px-2 inline-flex items-center justify-center rounded-lg transition-colors";
+  const headerDetails: HeaderDetail[] = [
+    { icon: Calendar, text: formatShortDate(session.session_date) },
+    ...(session.time_slot ? [{ icon: Clock, text: session.time_slot }] : []),
+    ...(session.location ? [{ icon: MapPin, text: session.location }] : []),
+  ];
 
+  // The header is drawn in place, and again as the one focus mode brings back.
   const renderHeader = (isOverlay?: boolean) => (
-    <div className={cn(
-      "relative rounded-2xl bg-gradient-to-br from-[#b89968] via-[#a67c52] to-[#8b6f47] p-1",
-      isOverlay && "shadow-lg rounded-3xl"
-    )}>
-      {/* Chalkboard surface */}
-      <div className={cn(
-        "flex items-center gap-1.5 sm:gap-3 px-2 py-1 sm:px-3 sm:py-1.5",
-        "bg-[#2d4739] dark:bg-[#1a2821]",
-        "shadow-inner rounded-[12px]",
-        isOverlay && "rounded-[20px]"
-      )} style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.4)' }}>
-        {/* Exit button */}
-        <button
-          onClick={focusMode ? exitFocusMode : handleExitAttempt}
-          className={cn(hdrBtn, "hover:bg-white/10")}
-          title={focusMode ? "Exit focus mode (Esc)" : "Exit Lesson Mode (Esc)"}
-          aria-label={focusMode ? "Exit focus mode" : "Exit lesson mode"}
-        >
-          <ArrowLeft className="h-5 w-5 text-white/80" />
-        </button>
-
-        {/* Student info */}
+    <LessonHeader
+      overlay={isOverlay}
+      focus={focus}
+      exitLabel="Exit lesson mode"
+      exitTitle="Exit Lesson Mode (Esc)"
+      onExit={handleExitAttempt}
+      info={
         <div className="flex items-center gap-2 min-w-0">
           {studentIdDisplay && (
             <span className="text-xs text-white/60 font-mono">{studentIdDisplay}</span>
@@ -488,105 +474,18 @@ export function LessonMode({
             </button>
           )}
         </div>
-
-        {/* Metadata badges */}
-        <div className="hidden sm:flex items-center gap-2 text-xs text-white/70 font-medium">
-          <span className="text-white/40">&bull;</span>
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3 text-white/80" />
-            <span>{formatShortDate(session.session_date)}</span>
-          </div>
-          {session.time_slot && (
-            <>
-              <span className="text-white/40">&bull;</span>
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3 text-white/80" />
-                <span>{session.time_slot}</span>
-              </div>
-            </>
-          )}
-          {session.location && (
-            <>
-              <span className="text-white/40">&bull;</span>
-              <div className="flex items-center gap-1">
-                <MapPin className="h-3 w-3 text-white/80" />
-                <span>{session.location}</span>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="flex-1" />
-
-        <InkSaveStatus status={syncStatus} className="hidden md:inline px-1" />
-
-        {/* Wolfram Alpha toggle */}
-        <button
-          onClick={() => setShowWolfram(v => !v)}
-          className={cn(
-            hdrBtn,
-            showWolfram ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
-          )}
-          title="Wolfram Alpha (W)"
-          aria-label="Wolfram Alpha"
-          aria-pressed={showWolfram}
-        >
-          <Sigma className="h-5 w-5" />
-        </button>
-
-        {/* Download All, at any time. Exit only offers it while some ink hasn't reached the server. */}
-        <button
-          onClick={() => void downloadAllInk()}
-          disabled={isSavingAll || !hasAnyAnnotations()}
-          className={cn(hdrBtn, "text-white/70 hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-transparent")}
-          title="Download all ink as PDFs"
-          aria-label="Download all ink as PDFs"
-        >
-          {isSavingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
-        </button>
-
-        <PrintAllMenu
-          label="Print exercises"
-          printing={printing}
-          open={showPrintMenu}
-          onOpenChange={setShowPrintMenu}
-          onPrint={handleBulkPrint}
-          buttonClassName={hdrBtn}
-        />
-
-        {/* Focus mode toggle (desktop only — mobile header is already compact) */}
-        <button
-          onClick={toggleFocusMode}
-          className={cn(hdrBtn, "hidden md:inline-flex hover:bg-white/10")}
-          title={focusMode ? "Exit focus mode (F)" : "Focus mode (F)"}
-          aria-label="Focus mode"
-          aria-pressed={focusMode}
-        >
-          {focusMode ? (
-            <Minimize2 className="h-5 w-5 text-white/70" />
-          ) : (
-            <Maximize2 className="h-5 w-5 text-white/70" />
-          )}
-        </button>
-
-        {/* Shortcut help toggle (desktop only) */}
-        <button
-          onClick={() => setShowShortcutHelp(v => !v)}
-          className={cn(
-            hdrBtn, "hidden md:inline-flex",
-            showShortcutHelp
-              ? "bg-white/20 text-white"
-              : "hover:bg-white/10 text-white/40"
-          )}
-          title="Keyboard shortcuts (?)"
-          aria-label="Keyboard shortcuts"
-          aria-pressed={showShortcutHelp}
-        >
-          <HelpCircle className="h-5 w-5" />
-        </button>
-      </div>
-
-    </div>
+      }
+      details={headerDetails}
+      syncStatus={syncStatus}
+      wolframOpen={showWolfram}
+      onWolframToggle={() => setShowWolfram(v => !v)}
+      canDownloadAll={hasAnyAnnotations()}
+      savingAll={isSavingAll}
+      onDownloadAll={() => void downloadAllInk()}
+      print={{ label: "Print exercises", printing, open: showPrintMenu, onOpenChange: setShowPrintMenu, onPrint: handleBulkPrint }}
+      helpOpen={showShortcutHelp}
+      onHelpToggle={() => setShowShortcutHelp(v => !v)}
+    />
   );
 
   return (

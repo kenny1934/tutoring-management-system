@@ -5,7 +5,7 @@ import { BookOpen, ChevronDown, Loader2, PenTool, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPrintButtonTitle, type PrintingState } from "@/lib/lesson-utils";
 
-interface PrintAllMenuProps {
+export interface PrintAllMenuProps {
   /** The button's name, which is also its title while nothing is printing. */
   label: string;
   printing: PrintingState;
