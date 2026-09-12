@@ -1,5 +1,39 @@
 import { describe, it, expect } from "vitest";
-import { hasBrowserModifier, inkHistoryKey, loopStep, printErrorMessage } from "./lesson-utils";
+import type { SessionExercise } from "@/types";
+import {
+  hasBrowserModifier, inkHistoryKey, inkLocation, loopStep, printErrorMessage, replacedInkMessage,
+} from "./lesson-utils";
+
+describe("replacedInkMessage", () => {
+  it("names who changed a page", () => {
+    expect(replacedInkMessage([2], "Ms Chan", false))
+      .toBe("Ms Chan changed page 3 of this worksheet, so it now shows their version.");
+  });
+
+  it("says when the change came from another tab of your own", () => {
+    expect(replacedInkMessage([2], "Me", true))
+      .toBe("Page 3 was changed in another tab, so it now shows that version.");
+  });
+
+  it("lists several pages in order, and names Draft sheets", () => {
+    expect(replacedInkMessage([3, 2, 1000], "Ms Chan", false))
+      .toBe("Ms Chan changed pages 3 and 4 of this worksheet and Draft sheet 1, so they now show their version.");
+  });
+
+  it("says another tutor when nobody's name is known", () => {
+    expect(replacedInkMessage([0], null, false))
+      .toBe("Another tutor changed page 1 of this worksheet, so it now shows their version.");
+  });
+});
+
+describe("inkLocation", () => {
+  it("saves an exercise under its own lesson, with the PDF pages it shows", () => {
+    const exercise = {
+      id: 5, session_id: 100, exercise_type: "CW", pdf_name: "A.pdf", page_start: 3, page_end: 5, created_by: "x",
+    } as SessionExercise;
+    expect(inkLocation(exercise)).toEqual({ sessionId: 100, pdfName: "A.pdf", pdfPages: [3, 4, 5] });
+  });
+});
 
 describe("loopStep", () => {
   it("steps either way and goes round at both ends", () => {

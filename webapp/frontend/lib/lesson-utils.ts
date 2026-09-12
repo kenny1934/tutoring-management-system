@@ -3,6 +3,7 @@ import { parseExerciseRemarks } from "@/lib/exercise-utils";
 import { getPageNumbers } from "@/lib/bulk-pdf-helpers";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import type { Session, SessionExercise } from "@/types";
+import { DRAFT_PAGE_BASE, type InkLocation } from "@/hooks/useAnnotations";
 
 /** Compute page numbers for an exercise (supports both simple and custom ranges). */
 export function getExercisePageNumbers(exercise: SessionExercise): number[] {
@@ -116,6 +117,51 @@ export function inkHistoryKey(e: Pick<KeyboardEvent, "key" | "shiftKey">): "undo
  */
 export function hasBrowserModifier(e: Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "altKey">): boolean {
   return e.ctrlKey || e.metaKey || e.altKey;
+}
+
+/**
+ * Where an exercise's ink is saved on the server: under its own lesson, with
+ * its file and the PDF pages it shows. A preview carries the lesson the view
+ * files it with, so it works the same way.
+ */
+export function inkLocation(exercise: SessionExercise): InkLocation {
+  return {
+    sessionId: exercise.session_id,
+    pdfName: exercise.pdf_name ?? null,
+    pdfPages: getExercisePageNumbers(exercise),
+  };
+}
+
+const listOf = (numbers: number[]) =>
+  numbers.length === 1 ? `${numbers[0]}` : `${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}`;
+
+/**
+ * The message for pages of the open worksheet that another tab or person has
+ * saved since this view last had them. Worksheet pages are counted from 1, and
+ * Draft sheets are named as Draft sheets. When nobody's name is known, it
+ * says another tutor.
+ */
+export function replacedInkMessage(pageIndexes: number[], byName: string | null, fromOwnTab: boolean): string {
+  const pages = [...new Set(pageIndexes)].sort((a, b) => a - b);
+  const worksheet = pages.filter((i) => i < DRAFT_PAGE_BASE).map((i) => i + 1);
+  const draft = pages.filter((i) => i >= DRAFT_PAGE_BASE).map((i) => i - DRAFT_PAGE_BASE + 1);
+  // "Of this worksheet" is only said when someone is named. From your own
+  // other tab, the page number is enough.
+  const describe = (ofThisWorksheet: boolean) => {
+    const parts: string[] = [];
+    if (worksheet.length > 0) {
+      parts.push(`${worksheet.length > 1 ? "pages" : "page"} ${listOf(worksheet)}${ofThisWorksheet ? " of this worksheet" : ""}`);
+    }
+    if (draft.length > 0) parts.push(`${draft.length > 1 ? "Draft sheets" : "Draft sheet"} ${listOf(draft)}`);
+    return parts.join(" and ");
+  };
+  const several = pages.length > 1;
+  const nowShows = several ? "they now show" : "it now shows";
+  if (fromOwnTab) {
+    const what = describe(false);
+    return `${what.charAt(0).toUpperCase()}${what.slice(1)} ${several ? "were" : "was"} changed in another tab, so ${nowShows} that version.`;
+  }
+  return `${byName ?? "Another tutor"} changed ${describe(true)}, so ${nowShows} their version.`;
 }
 
 /**

@@ -7,20 +7,40 @@ import {
 } from "@floating-ui/react";
 import { cn } from "@/lib/utils";
 
-/** Shared exit confirmation dialog — warns about unsaved annotations. */
+/**
+ * Shared exit confirmation dialog, which warns about ink that leaving would
+ * lose. The lesson views save ink to the server, so they only ask when some
+ * pages haven't reached it yet, and pass unsentInk for that wording. The Zen
+ * views keep ink in the tab only, and keep the original wording.
+ */
 export function ExitConfirmDialog({
   isOpen,
   isSaving,
   onCancel,
   onSaveAndExit,
   onExit,
+  unsentInk = false,
 }: {
   isOpen: boolean;
   isSaving: boolean;
   onCancel: () => void;
   onSaveAndExit: () => void;
   onExit: () => void;
+  unsentInk?: boolean;
 }) {
+  const copy = unsentInk
+    ? {
+        title: "Some ink isn't saved yet",
+        message: "A few pages haven't reached the server, so leaving now could lose them. You can download all the ink first, or stay while it keeps trying.",
+        exit: "Exit anyway",
+        cancel: "Stay",
+      }
+    : {
+        title: "Unsaved annotations",
+        message: "You have annotations that haven't been saved. What would you like to do?",
+        exit: "Exit without downloading",
+        cancel: "Cancel",
+      };
   const { refs, context } = useFloating({
     open: isOpen,
     onOpenChange: (open) => {
@@ -49,10 +69,10 @@ export function ExitConfirmDialog({
                 </div>
                 <div className="flex-1">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                    Unsaved annotations
+                    {copy.title}
                   </h3>
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    You have annotations that haven&apos;t been saved. What would you like to do?
+                    {copy.message}
                   </p>
                 </div>
               </div>
@@ -74,7 +94,7 @@ export function ExitConfirmDialog({
                 disabled={isSaving}
                 className="w-full px-4 py-2 text-sm font-medium rounded-md transition-colors bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Exit without downloading
+                {copy.exit}
               </button>
               <button
                 type="button"
@@ -82,7 +102,7 @@ export function ExitConfirmDialog({
                 disabled={isSaving}
                 className="w-full px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 dark:text-gray-300 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] disabled:opacity-50"
               >
-                Cancel
+                {copy.cancel}
               </button>
             </div>
           </div>

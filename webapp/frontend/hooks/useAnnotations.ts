@@ -184,6 +184,8 @@ export interface ReplacedInk {
   exerciseId: number;
   pageIndex: number;
   byName: string | null;
+  /** Whoever saved it, so a view can tell another tab of its own from someone else. */
+  byEmail: string;
 }
 
 /**
@@ -325,8 +327,9 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
   const sendRef = useRef<() => Promise<void>>(async () => {});
   const [syncStatus, setSyncStatus] = useState<InkSyncStatus>(serverOn ? "loading" : "saved");
   const [inkReady, setInkReady] = useState(!serverOn);
-  // Bumped when ink arrives from the server, so the view draws it.
-  const [, setInkRevision] = useState(0);
+  // Goes up whenever ink arrives from the server. The views copy the open
+  // exercise's ink into their own state, so they watch this to copy it again.
+  const [inkRevision, setInkRevision] = useState(0);
 
   const markUnsent = useCallback((exerciseId: number, pageIndex: number) => {
     unsentRef.current.set(pageKey(exerciseId, pageIndex), {
@@ -486,7 +489,9 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
       versionsRef.current.set(key, page.version);
       storeRef.current.set(exerciseId, { ...storeRef.current.get(exerciseId), [pageIndex]: page.strokes });
       touched.add(exerciseId);
-      if (known !== undefined) replaced.push({ exerciseId, pageIndex, byName: page.updated_by_name });
+      if (known !== undefined) {
+        replaced.push({ exerciseId, pageIndex, byName: page.updated_by_name, byEmail: page.updated_by });
+      }
     }
     for (const exerciseId of touched) {
       undoRef.current.set(exerciseId, historyFromStrokes(storeRef.current.get(exerciseId) ?? {}));
@@ -776,6 +781,7 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
     hasAnyAnnotations,
     syncStatus,
     inkReady,
+    inkRevision,
     hasUnsentInk,
     flushInk,
   };

@@ -4,11 +4,11 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown, Sigma,
   Maximize2, Minimize2, Users,
-  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink, Home,
+  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink, Home, Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
 import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
@@ -26,7 +26,9 @@ import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAnnotations } from "@/hooks/useAnnotations";
+import { useAnnotations, type ReplacedInk } from "@/hooks/useAnnotations";
+import { useAuth } from "@/contexts/AuthContext";
+import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
@@ -192,16 +194,62 @@ export function LessonWideMode({
   // --- Wolfram Alpha ---
   const [showWolfram, setShowWolfram] = useState(false);
 
+  // All student exercise entries (flat list)
+  const allEntries = useMemo<StudentExerciseEntry[]>(() => {
+    const entries: StudentExerciseEntry[] = [];
+    for (const session of sessions) {
+      if (!session.exercises?.length) continue;
+      for (const exercise of session.exercises) {
+        entries.push({
+          session,
+          exercise,
+          studentName: session.student_name || `Student #${session.student_id}`,
+          studentId: session.school_student_id || null,
+          grade: session.grade || null,
+          langStream: session.lang_stream || null,
+        });
+      }
+    }
+    return entries;
+  }, [sessions]);
+
   // --- Drawing / Annotations ---
   // Use a combined key for all sessions in this lesson
   const annotationKey = `lesson-wide-annotations-${date}-${slot}-${tutorId}`;
+  // Ink is saved to the server for every lesson in the slot. The tab keeps
+  // whatever hasn't been sent yet.
+  const { user } = useAuth();
+  const locateInk = useCallback((exerciseId: number) => {
+    const exercise = allEntries.find((entry) => entry.exercise.id === exerciseId)?.exercise
+      ?? (selectedEntry?.exercise.id === exerciseId ? selectedEntry.exercise : null);
+    return exercise ? inkLocation(exercise) : null;
+  }, [allEntries, selectedEntry]);
+  // Only the worksheet on screen gets a message. Any other worksheet shows
+  // the new ink the next time it's opened.
+  const handleInkReplaced = useCallback((pages: ReplacedInk[]) => {
+    const onScreen = pages.filter((page) => page.exerciseId === selectedEntry?.exercise.id);
+    if (onScreen.length === 0) return;
+    const fromOwnTab = !!user?.email && onScreen[0].byEmail === user.email;
+    showToast(replacedInkMessage(onScreen.map((page) => page.pageIndex), onScreen[0].byName, fromOwnTab), "info");
+  }, [selectedEntry, user, showToast]);
   const {
     getAnnotations, getAllAnnotations, setPageStrokes, undo, redo, setInkSource, getInkSource,
     clearPage, clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
-  } = useAnnotations<AnnotatedExercise>(annotationKey);
+    syncStatus, inkReady, inkRevision, hasUnsentInk, flushInk,
+  } = useAnnotations<AnnotatedExercise>(annotationKey, {
+    sessionIds: sessions.map((s) => s.id),
+    locate: locateInk,
+    onReplaced: handleInkReplaced,
+  });
   // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
   const tools = useAnnotationTools();
   const drawingEnabled = tools.drawingEnabled;
+  // Until the slot's ink has loaded, drawing waits on the Hand. A stroke
+  // drawn before then could replace a page's saved ink with only that stroke.
+  const { selectHand } = tools;
+  useEffect(() => {
+    if (!inkReady && drawingEnabled) selectHand();
+  }, [inkReady, drawingEnabled, selectHand]);
   const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
 
   // Whether the Draft is open beside the worksheet
@@ -222,25 +270,6 @@ export function LessonWideMode({
   const answerOpenSetRef = useRef<Set<number>>(new Set());
 
   // --- Computed data structures ---
-
-  // All student exercise entries (flat list)
-  const allEntries = useMemo<StudentExerciseEntry[]>(() => {
-    const entries: StudentExerciseEntry[] = [];
-    for (const session of sessions) {
-      if (!session.exercises?.length) continue;
-      for (const exercise of session.exercises) {
-        entries.push({
-          session,
-          exercise,
-          studentName: session.student_name || `Student #${session.student_id}`,
-          studentId: session.school_student_id || null,
-          grade: session.grade || null,
-          langStream: session.lang_stream || null,
-        });
-      }
-    }
-    return entries;
-  }, [sessions]);
 
   // File groups: exercises grouped by pdf_name + exercise_type
   const fileGroups = useMemo<FileGroup[]>(() => {
@@ -460,12 +489,12 @@ export function LessonWideMode({
     } else {
       setCurrentAnnotations({});
     }
-  }, [selectedEntry, getAnnotations]);
+    // inkRevision goes up when ink arrives from the server, so it's copied again.
+  }, [selectedEntry, getAnnotations, inkRevision]);
 
   // Each worksheet that's opened has how to save it stored next to the ink,
   // so "Download All" can still save the ink once the worksheet has left the
-  // students' lists. A preview never survives a reload, and saving "Edit
-  // exercises" gives every exercise a new id.
+  // students' lists, as a preview has after a reload.
   useEffect(() => {
     if (!selectedEntry) return;
     const source = describeForZip(selectedEntry);
@@ -766,18 +795,22 @@ export function LessonWideMode({
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isSavingAll, setIsSavingAll] = useState(false);
 
-  const handleExitAttempt = useCallback(() => {
-    if (hasAnyAnnotations()) {
-      setShowExitConfirm(true);
-    } else {
+  const handleExitAttempt = useCallback(async () => {
+    // Anything still waiting is sent first, so the dialog only appears when
+    // some pages can't reach the server.
+    if (await flushInk()) {
+      clearStorage();
       window.close();
+    } else {
+      setShowExitConfirm(true);
     }
-  }, [hasAnyAnnotations]);
+  }, [flushInk, clearStorage]);
 
   // Saves every exercise with ink into one ZIP, loading any PDF that isn't in
-  // memory, which after a reload is most of them. The ink is only cleared, and
-  // the tab only closed, once every one of them has been saved.
-  const handleSaveAllAndExit = useCallback(async () => {
+  // memory, which after a reload is most of them. It resolves to true when
+  // every one of them was saved. The header's button and the exit dialog both
+  // use it.
+  const downloadAllInk = useCallback(async (): Promise<boolean> => {
     setIsSavingAll(true);
     try {
       const describe = (exerciseId: number) => {
@@ -795,32 +828,36 @@ export function LessonWideMode({
         downloadBlob(zip, parts.join("_").replace(/\s+/g, "-") + ".zip");
       }
 
-      setShowExitConfirm(false);
       if (failed > 0) {
         showToast(saveAllFailedMessage({ saved, failed }), 'error');
-        return;
+        return false;
       }
-      clearStorage();
-      window.close();
+      return true;
     } catch (err) {
       console.error("Failed to save annotated PDFs:", err);
-      setShowExitConfirm(false);
       showToast(saveAllFailedMessage({ saved: 0, failed: 1 }), 'error');
+      return false;
     } finally {
       setIsSavingAll(false);
     }
-  }, [allEntries, getAllAnnotations, getInkSource, date, slot, clearStorage, showToast]);
+  }, [allEntries, getAllAnnotations, getInkSource, date, slot, showToast]);
 
-  // --- beforeunload warning ---
+  // The exit dialog's download. The tab closes after it, and any page that
+  // never reached the server is in the download.
+  const handleSaveAllAndExit = useCallback(async () => {
+    const saved = await downloadAllInk();
+    setShowExitConfirm(false);
+    if (saved) window.close();
+  }, [downloadAllInk]);
+
+  // --- beforeunload warning, while some ink hasn't reached the server ---
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (hasAnyAnnotations()) {
-        e.preventDefault();
-      }
+      if (hasUnsentInk()) e.preventDefault();
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [hasAnyAnnotations]);
+  }, [hasUnsentInk]);
 
   // --- Retry ---
   const handleRetry = useCallback(() => {
@@ -1122,6 +1159,8 @@ export function LessonWideMode({
 
         <div className="flex-1" />
 
+        <InkSaveStatus status={syncStatus} className="hidden md:inline px-1" />
+
         {/* Wolfram Alpha toggle */}
         <button
           onClick={() => setShowWolfram(v => !v)}
@@ -1134,6 +1173,17 @@ export function LessonWideMode({
           aria-pressed={showWolfram}
         >
           <Sigma className="h-5 w-5" />
+        </button>
+
+        {/* Download All, at any time. Exit only offers it while some ink hasn't reached the server. */}
+        <button
+          onClick={() => void downloadAllInk()}
+          disabled={isSavingAll || !hasAnyAnnotations()}
+          className={cn(hdrBtn, "text-white/70 hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-transparent")}
+          title="Download all ink as PDFs"
+          aria-label="Download all ink as PDFs"
+        >
+          {isSavingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
         </button>
 
         {/* Bulk print dropdown */}
@@ -1687,12 +1737,10 @@ export function LessonWideMode({
         <ExitConfirmDialog
           isOpen={showExitConfirm}
           isSaving={isSavingAll}
+          unsentInk
           onCancel={() => setShowExitConfirm(false)}
           onSaveAndExit={handleSaveAllAndExit}
-          onExit={() => {
-            clearStorage();
-            window.close();
-          }}
+          onExit={() => window.close()}
         />
       )}
     </motion.div>

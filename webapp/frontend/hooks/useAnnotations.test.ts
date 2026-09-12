@@ -388,7 +388,10 @@ describe("useAnnotations saving to the server", () => {
     expect(colours(result.current.getAnnotations(EX)[0])).toEqual(["b"]);
     // The page drawn here and not sent yet is the later save, so it stays.
     expect(colours(result.current.getAnnotations(EX)[1])).toEqual(["mine"]);
-    expect(onReplaced).toHaveBeenCalledWith([{ exerciseId: EX, pageIndex: 0, byName: "Ms Other" }]);
+    expect(onReplaced).toHaveBeenCalledWith([
+      { exerciseId: EX, pageIndex: 0, byName: "Ms Other", byEmail: "me@example.com" },
+    ]);
+    expect(result.current.inkRevision).toBe(2);
   });
 
   it("rebuilds undo for ink that came from the server", async () => {
