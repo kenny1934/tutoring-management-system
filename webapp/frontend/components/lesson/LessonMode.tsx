@@ -33,6 +33,7 @@ import { LessonHeader, type HeaderDetail } from "./LessonHeader";
 import { UrlExerciseView } from "./UrlExerciseView";
 import { LessonViewerArea } from "./LessonViewerArea";
 import { useDraft } from "@/hooks/useDraft";
+import { useExerciseEditor } from "@/hooks/useExerciseEditor";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
@@ -123,9 +124,8 @@ export function LessonMode({
   const isMobile = useIsMobile();
   const [mobileExerciseListOpen, setMobileExerciseListOpen] = useState(false);
 
-  // Exercise modal
-  const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
-  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+  // The exercise editor, for this lesson's classwork or homework
+  const { editing, openEditor: handleEditExercises, closeEditor: handleExerciseModalClose } = useExerciseEditor(onSessionDataChange);
 
   // The sidebar's width, which the tutor changes by dragging its edge
   const { width: sidebarWidth, startResize } = useSidebarWidth();
@@ -288,19 +288,6 @@ export function LessonMode({
     if (focusMode) setHoverSidebar(false);
   }, [isMobile, focusMode, setHoverSidebar]);
 
-  // Handle edit exercises
-  const handleEditExercises = useCallback((s: Session, type: "CW" | "HW") => {
-    setExerciseModalSession(s);
-    setExerciseModalType(type);
-  }, []);
-
-  // Handle exercise modal close
-  const handleExerciseModalClose = useCallback(() => {
-    setExerciseModalSession(null);
-    setExerciseModalType(null);
-    onSessionDataChange();
-  }, [onSessionDataChange]);
-
   // --- Printing ---
   // Every exercise here is the one student's, so each prints with the lesson's stamp.
   const { printing, printExercise, printAll } = usePrintExercise();
@@ -364,7 +351,7 @@ export function LessonMode({
   };
   useLessonKeys(
     {
-      blocked: !!exerciseModalType || showExitConfirm,
+      blocked: !!editing || showExitConfirm,
       wolframOpen: showWolfram,
       printMenuOpen: showPrintMenu,
       helpOpen: showShortcutHelp,
@@ -622,11 +609,11 @@ export function LessonMode({
       <WolframPanel isOpen={showWolfram} onClose={() => setShowWolfram(false)} />
 
       {/* Exercise Modal */}
-      {exerciseModalSession && exerciseModalType && (
+      {editing && (
         <ExerciseModal
-          session={exerciseModalSession}
-          exerciseType={exerciseModalType}
-          isOpen={true}
+          session={editing.session}
+          exerciseType={editing.type}
+          isOpen
           onClose={handleExerciseModalClose}
           readOnly={isReadOnly}
         />

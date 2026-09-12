@@ -32,6 +32,7 @@ import { LessonHeader, type HeaderDetail } from "./LessonHeader";
 import { UrlExerciseView } from "./UrlExerciseView";
 import { LessonViewerArea } from "./LessonViewerArea";
 import { useDraft } from "@/hooks/useDraft";
+import { useExerciseEditor } from "@/hooks/useExerciseEditor";
 import { useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -161,9 +162,8 @@ export function LessonWideMode({
   const isMobile = useIsMobile();
   const [mobileExerciseListOpen, setMobileExerciseListOpen] = useState(false);
 
-  // --- Exercise modal ---
-  const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
-  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+  // --- Exercise editor, for one student's classwork or homework ---
+  const { editing, openEditor: handleEditExercises, closeEditor: handleExerciseModalClose } = useExerciseEditor(onSessionDataChange);
 
   // --- Bulk exercise assignment ---
   const [bulkAssignType, setBulkAssignType] = useState<"CW" | "HW" | null>(null);
@@ -332,18 +332,6 @@ export function LessonWideMode({
       setSelectedEntry(allEntries[0]);
     }
   }, [allEntries, selectedEntry]);
-
-  // --- Exercise modal ---
-  const handleEditExercises = useCallback((session: Session, type: "CW" | "HW") => {
-    setExerciseModalSession(session);
-    setExerciseModalType(type);
-  }, []);
-
-  const handleExerciseModalClose = useCallback(() => {
-    setExerciseModalSession(null);
-    setExerciseModalType(null);
-    onSessionDataChange();
-  }, [onSessionDataChange]);
 
   // --- Printing ---
   // Each exercise prints with its own student's stamp.
@@ -556,7 +544,7 @@ export function LessonWideMode({
   // and Escape never closes it.
   useLessonKeys(
     {
-      blocked: !!exerciseModalSession || !!bulkAssignType || showExitConfirm,
+      blocked: !!editing || !!bulkAssignType || showExitConfirm,
       wolframOpen: showWolfram,
       printMenuOpen: showPrintMenu,
       helpOpen: showShortcutHelp,
@@ -865,10 +853,10 @@ export function LessonWideMode({
       )}
 
       {/* Exercise modal (single student) */}
-      {exerciseModalSession && exerciseModalType && (
+      {editing && (
         <ExerciseModal
-          session={exerciseModalSession}
-          exerciseType={exerciseModalType}
+          session={editing.session}
+          exerciseType={editing.type}
           isOpen
           onClose={handleExerciseModalClose}
           readOnly={isReadOnly}
