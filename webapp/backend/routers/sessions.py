@@ -710,7 +710,7 @@ async def get_session_detail(
 
     all_exercises = db.query(SessionExercise).filter(
         SessionExercise.session_id.in_(session_ids_for_exercises)
-    ).all()
+    ).order_by(*SessionExercise.display_order()).all()
 
     # Group exercises by session ID
     exercises_by_session = {}
@@ -1679,6 +1679,49 @@ async def cancel_makeup(
     return _build_session_response(original_session, db)
 
 
+_EXERCISE_FIELDS = (
+    "pdf_name", "page_start", "page_end", "remarks", "url", "url_title",
+    "answer_pdf_name", "answer_page_start", "answer_page_end", "answer_remarks",
+)
+
+
+def _pair_with_existing_exercises(
+    db: Session, session_id: int, exercise_type: str, incoming: list
+) -> tuple[list, list]:
+    """Find the existing row each incoming exercise should update.
+
+    Homework completion records and lesson ink are keyed on an exercise's id,
+    so a save has to keep ids stable. Each incoming exercise first claims the
+    row with its own id, if that row belongs to this session and type. The Zen
+    assign screens send no ids, so an exercise still without a row then takes
+    the first unclaimed row with the same file, pages and link. That way an
+    unchanged row keeps its id whoever saves it.
+
+    Returns the row for each incoming exercise, or None where it's new, and
+    the rows nothing claimed, which the save deletes.
+    """
+    existing = db.query(SessionExercise).filter(
+        SessionExercise.session_id == session_id,
+        SessionExercise.exercise_type == exercise_type,
+    ).order_by(*SessionExercise.display_order()).all()
+    unclaimed = {row.id: row for row in existing}
+
+    # Ids go first, so matching by content can't take a row that a later
+    # exercise names by its id. An id sent twice claims its row only once.
+    rows = [unclaimed.pop(ex.id, None) if ex.id is not None else None for ex in incoming]
+
+    def content(item):
+        return (item.pdf_name, item.page_start, item.page_end, item.url)
+
+    for i, ex in enumerate(incoming):
+        if rows[i] is None:
+            match = next((row for row in unclaimed.values() if content(row) == content(ex)), None)
+            if match is not None:
+                rows[i] = unclaimed.pop(match.id)
+
+    return rows, list(unclaimed.values())
+
+
 @router.put("/sessions/{session_id}/exercises", response_model=SessionResponse)
 async def save_session_exercises(
     session_id: int,
@@ -1689,7 +1732,9 @@ async def save_session_exercises(
     """
     Save exercises (CW or HW) for a session.
 
-    Replaces all exercises of the specified type with the new list, unless append=true.
+    Replaces the exercises of the specified type with the new list, unless
+    append=true. Rows are updated in place, so an exercise keeps its id for as
+    long as it stays in the list, and each one's place in the list is stored.
     Requires authentication.
 
     - **session_id**: The session's database ID
@@ -1703,33 +1748,31 @@ async def save_session_exercises(
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
-    # Delete existing exercises of this type (skip when appending)
-    if not request.append:
-        db.query(SessionExercise).filter(
-            SessionExercise.session_id == session_id,
-            SessionExercise.exercise_type == request.exercise_type
-        ).delete(synchronize_session=False)
-
-    # Insert new exercises using short form (CW/HW)
-    for ex in request.exercises:
-        new_exercise = SessionExercise(
-            session_id=session_id,
-            exercise_type=request.exercise_type,  # Use CW or HW
-            pdf_name=ex.pdf_name,
-            page_start=ex.page_start,
-            page_end=ex.page_end,
-            remarks=ex.remarks,
-            url=ex.url,
-            url_title=ex.url_title,
-            # Answer file fields
-            answer_pdf_name=ex.answer_pdf_name,
-            answer_page_start=ex.answer_page_start,
-            answer_page_end=ex.answer_page_end,
-            answer_remarks=ex.answer_remarks,
-            created_by=current_user.user_email,
-            created_at=hk_now()
+    if request.append:
+        rows, leftovers = [None] * len(request.exercises), []
+    else:
+        rows, leftovers = _pair_with_existing_exercises(
+            db, session_id, request.exercise_type, request.exercises
         )
-        db.add(new_exercise)
+
+    for place, (ex, row) in enumerate(zip(request.exercises, rows)):
+        if row is None:
+            row = SessionExercise(
+                session_id=session_id,
+                exercise_type=request.exercise_type,  # Use CW or HW
+                created_by=current_user.user_email,
+                created_at=hk_now()
+            )
+            db.add(row)
+        for field in _EXERCISE_FIELDS:
+            setattr(row, field, getattr(ex, field))
+        # Appended rows are left without a place, so they're listed after
+        # the rest, the same as rows added from anywhere else.
+        if not request.append:
+            row.sort_order = place
+
+    for row in leftovers:
+        db.delete(row)
 
     # Update audit columns
     session.last_modified_by = current_user.user_email

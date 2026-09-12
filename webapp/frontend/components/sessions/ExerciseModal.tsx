@@ -335,6 +335,8 @@ export function ExerciseModal({
 
     // Build API format - only use the active mode's values
     const apiExercises = currentExercises.map((ex) => ({
+      // Rows it loaded keep their id, so the save updates them in place.
+      id: ex.id ?? null,
       exercise_type: ex.exercise_type,
       pdf_name: ex.pdf_name || null,
       url: ex.url || null,

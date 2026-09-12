@@ -823,6 +823,7 @@ export const sessionsAPI = {
     sessionId: number,
     exerciseType: 'CW' | 'HW',
     exercises: Array<{
+      id?: number | null;
       exercise_type: string;
       pdf_name: string;
       page_start?: number | null;

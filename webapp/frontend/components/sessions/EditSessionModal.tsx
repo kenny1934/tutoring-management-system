@@ -372,6 +372,7 @@ export function EditSessionModal({
     const cwExercises = currentForm.exercises
       .filter((ex) => ex.exercise_type === "CW")
       .map((ex) => ({
+        id: ex.id ?? null,
         exercise_type: ex.exercise_type,
         pdf_name: ex.pdf_name,
         page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
@@ -382,6 +383,7 @@ export function EditSessionModal({
     const hwExercises = currentForm.exercises
       .filter((ex) => ex.exercise_type === "HW")
       .map((ex) => ({
+        id: ex.id ?? null,
         exercise_type: ex.exercise_type,
         pdf_name: ex.pdf_name,
         page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,

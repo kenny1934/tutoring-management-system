@@ -706,6 +706,10 @@ class SessionExerciseResponse(BaseModel):
 
 class ExerciseCreateRequest(BaseModel):
     """Request schema for creating/updating a session exercise"""
+    # The edit forms send the id of every row they loaded, so a save can update
+    # that row and keep its id. A row without one is new, unless it matches an
+    # existing row's file, pages and link. See _pair_with_existing_exercises.
+    id: Optional[int] = None
     exercise_type: str = Field(..., pattern="^(CW|HW|Classwork|Homework)$")
     pdf_name: Optional[str] = Field(None, max_length=500)
     page_start: Optional[int] = Field(None, gt=0)

@@ -337,7 +337,10 @@ class SessionLog(Base):
     enrollment = relationship("Enrollment", back_populates="sessions")
     student = relationship("Student", back_populates="sessions")
     tutor = relationship("Tutor", back_populates="sessions")
-    exercises = relationship("SessionExercise", back_populates="session", cascade="all, delete-orphan")
+    exercises = relationship(
+        "SessionExercise", back_populates="session", cascade="all, delete-orphan",
+        order_by=lambda: SessionExercise.display_order(),
+    )
     exam_revision_slot = relationship("ExamRevisionSlot", back_populates="sessions")
     summer_session = relationship("SummerSession", foreign_keys=[summer_session_id])
     extension_request = relationship("ExtensionRequest", back_populates="session", uselist=False)
@@ -442,9 +445,24 @@ class SessionExercise(Base):
     answer_page_start = Column(Integer, nullable=True)
     answer_page_end = Column(Integer, nullable=True)
     answer_remarks = Column(Text, comment='Answer complex pages + notes')
+    # The row's place in the edit form's list. It's empty for rows added any
+    # other way, which are listed after the rest. See display_order().
+    sort_order = Column(Integer, nullable=True)
 
     # Relationships
     session = relationship("SessionLog", back_populates="exercises")
+
+    @classmethod
+    def display_order(cls):
+        """The order a session's exercises are listed in.
+
+        Classwork comes before homework. Within each, the rows the edit form
+        has placed come first, in that order, and rows added any other way
+        follow in the order they were added. Rows saved before sort_order
+        existed have no place, so they keep the id order they were always
+        shown in.
+        """
+        return [cls.exercise_type, cls.sort_order.is_(None), cls.sort_order, cls.id]
 
 
 class HomeworkCompletion(Base):
