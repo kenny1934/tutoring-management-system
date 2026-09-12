@@ -46,6 +46,7 @@ PUBLIC_PATHS = frozenset({
     "/api/admin/employment/sync",
     "/api/summer/marketing/snapshot",
     "/api/summer/revenue/sheet-refresh",
+    "/api/admin/lesson-ink/purge",
 })
 
 # Path prefixes that do not require an access_token cookie. Handlers underneath

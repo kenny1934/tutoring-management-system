@@ -37,6 +37,7 @@ def test_allowlisted_paths_are_public():
         "/api/push/vapid-key",
         "/api/summer/pre-grade-window",
         "/api/admin/promote-grades",
+        "/api/admin/lesson-ink/purge",
         "/api/summer/marketing/snapshot",
         "/api/summer/public/config",
         "/api/regular/public/config",
