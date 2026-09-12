@@ -518,6 +518,15 @@ describe.each([
     expect(await screen.findByTitle("Exit focus mode (Esc)")).toBeInTheDocument();
   });
 
+  it("lists the keys in its help panel, including the ones the two views used to differ on", async () => {
+    mount();
+    await opened("Linear equations 3");
+    press("?");
+    expect(screen.getByText("Keyboard Shortcuts")).toBeInTheDocument();
+    expect(screen.getByText("Save annotated PDF")).toBeInTheDocument();
+    expect(screen.getByText("Edit CW / HW")).toBeInTheDocument();
+  });
+
   it("claims a key from the browser only when it does something", async () => {
     mount();
     await opened("Linear equations 3");
