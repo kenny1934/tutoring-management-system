@@ -117,6 +117,27 @@ export function hasBrowserModifier(e: Pick<KeyboardEvent, "ctrlKey" | "metaKey" 
   return e.ctrlKey || e.metaKey || e.altKey;
 }
 
+/** Whether a key was typed into a text box or a dropdown, where it belongs to that field. */
+export function isTypingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
+}
+
+/**
+ * Which way a key zooms a PDF viewer: 1 for + or =, -1 for -, and 0 for any
+ * other key. With Ctrl, Cmd or Alt held they're the browser's own page zoom,
+ * so they're left to the browser, and so is anything typed into a field.
+ */
+export function zoomKeyStep(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "target">): 1 | -1 | 0 {
+  if (hasBrowserModifier(e) || isTypingTarget(e.target)) return 0;
+  if (e.key === "=" || e.key === "+") return 1;
+  if (e.key === "-") return -1;
+  return 0;
+}
+
 /**
  * Where an exercise's ink is saved on the server: under its own lesson, with
  * its file and the PDF pages it shows. A preview carries the lesson the view

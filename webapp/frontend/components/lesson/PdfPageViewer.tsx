@@ -8,6 +8,7 @@ import {
   ChevronUp, ChevronDown, Printer, NotebookPen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { zoomKeyStep } from "@/lib/lesson-utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { AnnotationTray } from "./AnnotationTray";
@@ -145,6 +146,11 @@ interface PdfPageViewerProps {
    * waits for it.
    */
   trayArea?: HTMLElement | null;
+  /**
+   * Whether + and - zoom this viewer. The lesson views turn it off for the
+   * answer key, so the keys zoom only the worksheet beside it.
+   */
+  zoomKeys?: boolean;
 }
 
 const MIN_ZOOM = 25;
@@ -193,6 +199,7 @@ export function PdfPageViewer({
   emptyMessage = "Select an exercise to view",
   viewStates,
   trayArea,
+  zoomKeys = true,
 }: PdfPageViewerProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -723,23 +730,20 @@ export function PdfPageViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, exerciseId]);
 
-  // Keyboard shortcuts for zoom (+/- keys)
+  // + and - zoom in and out. Held with Ctrl, Cmd or Alt they're left to the
+  // browser, whose own page zoom they are.
   useEffect(() => {
+    if (!zoomKeys) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === "=" || e.key === "+") {
-        e.preventDefault();
-        userHasZoomed.current = true;
-        setZoom((z) => Math.min(z + ZOOM_STEP, MAX_ZOOM));
-      } else if (e.key === "-") {
-        e.preventDefault();
-        userHasZoomed.current = true;
-        setZoom((z) => Math.max(z - ZOOM_STEP, MIN_ZOOM));
-      }
+      const step = zoomKeyStep(e);
+      if (step === 0) return;
+      e.preventDefault();
+      userHasZoomed.current = true;
+      setZoom((z) => Math.min(Math.max(z + step * ZOOM_STEP, MIN_ZOOM), MAX_ZOOM));
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [zoomKeys]);
 
   // While a worksheet loads, fails or is missing, the view's own buttons still
   // sit at the top. In focus mode they're the way back, so they can't vanish.

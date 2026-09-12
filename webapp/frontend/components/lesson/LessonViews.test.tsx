@@ -93,6 +93,7 @@ interface ViewerProps {
   answerKeyAvailable?: boolean;
   answerKeySearching?: boolean;
   onRetry?: () => void;
+  zoomKeys?: boolean;
 }
 
 // The worksheet viewer is the one that takes ink, and the answer key's doesn't.
@@ -116,6 +117,7 @@ vi.mock("./PdfPageViewer", () => ({
         {onStrokes && <p>{props.tools?.drawingEnabled ? "Drawing" : "On the Hand"}</p>}
         {props.answerKeySearching && <p>Looking for the answer key</p>}
         {props.answerKeyAvailable && <p>Answer key found</p>}
+        {props.zoomKeys !== false && <p>Takes the zoom keys</p>}
         {onStrokes && <button onClick={() => onStrokes(0, [...strokes, stroke])}>Draw a stroke</button>}
         {props.onRetry && <button onClick={props.onRetry}>Try again</button>}
       </section>
@@ -516,6 +518,28 @@ describe.each([
     expect(await screen.findByTitle("Exit focus mode (Esc)")).toBeInTheDocument();
   });
 
+  it("claims a key from the browser only when it does something", async () => {
+    mount();
+    await opened("Linear equations 3");
+    await inkLoaded();
+    // fireEvent returns false when the view called preventDefault.
+    expect(press("s")).toBe(true);
+    expect(press("a")).toBe(true);
+    expect(press("d")).toBe(false);
+    expect(press("Escape")).toBe(false);
+    expect(worksheet()).toHaveTextContent("On the Hand");
+  });
+
+  it("leaves the zoom keys to the worksheet, so the answer key beside it keeps its own zoom", async () => {
+    h.searchAnswerFile.mockResolvedValue({ path: LINEAR_ANSWERS, source: "local" });
+    mount();
+    await within(await screen.findByTestId("worksheet")).findByText("Answer key found");
+    press("a");
+    const answerKey = await screen.findByTestId("answer-key");
+    expect(within(worksheet()).getByText("Takes the zoom keys")).toBeInTheDocument();
+    expect(within(answerKey).queryByText("Takes the zoom keys")).toBeNull();
+  });
+
   it("ignores its keys while an exercise editor is open", async () => {
     mount();
     await opened("Linear equations 3");
@@ -562,6 +586,19 @@ describe("The one-student view", () => {
     await opened("Linear equations 3");
     press("c");
     expect(screen.getByTestId("exercise-editor")).toHaveTextContent("CW for Chan Tai Man, read only");
+  });
+
+  it("saves the open worksheet as a PDF with s once it has ink", async () => {
+    renderOneStudent();
+    await inkLoaded();
+    await waitFor(() => expect(worksheet()).not.toHaveTextContent("Loading"));
+    press("s");
+    expect(h.saveAnnotatedPdf).not.toHaveBeenCalled();
+
+    drawAStroke();
+    press("s");
+    await waitFor(() => expect(h.downloadBlob).toHaveBeenCalledTimes(1));
+    expect(h.downloadBlob.mock.calls[0][1]).toBe("annotated-Linear equations 3.pdf");
   });
 
   it("uses Escape to close Wolfram, the print menu and the help, then the pen, then focus mode, then to leave", async () => {
@@ -759,6 +796,34 @@ describe("The multi-student view", () => {
 
   // A browser only lets a page close a tab that a page opened. This view's
   // tab normally is, but one from a bookmark or a restored session isn't.
+  it("opens the classwork editor with c and the homework editor with h, for the student on screen", async () => {
+    renderSlot();
+    await opened("Stamped for Chan Tai Man");
+    press("c");
+    expect(screen.getByTestId("exercise-editor")).toHaveTextContent("CW for Chan Tai Man");
+    fireEvent.click(screen.getByRole("button", { name: "Close the editor" }));
+    press("Tab");
+    await opened("Stamped for Wong Siu Ming");
+    press("h");
+    expect(screen.getByTestId("exercise-editor")).toHaveTextContent("HW for Wong Siu Ming");
+  });
+
+  it("opens the editor read only for a read-only user", async () => {
+    renderSlot({ isReadOnly: true });
+    await opened("Linear equations 3");
+    press("c");
+    expect(screen.getByTestId("exercise-editor")).toHaveTextContent("CW for Chan Tai Man, read only");
+  });
+
+  it("closes the print menu with Escape", async () => {
+    renderSlot();
+    await opened("Linear equations 3");
+    fireEvent.click(screen.getByRole("button", { name: "Print all exercises" }));
+    expect(screen.getByText("Print all CW")).toBeInTheDocument();
+    press("Escape");
+    await waitFor(() => expect(screen.queryByText("Print all CW")).toBeNull());
+  });
+
   it("prints one student's classwork from that student's own print button", async () => {
     renderSlot();
     await opened("Linear equations 3");

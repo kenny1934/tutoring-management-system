@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, loopStep, NO_FILE_ERROR, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, loopStep, NO_FILE_ERROR, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
 import { prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
@@ -30,12 +30,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
 import { usePrintExercise } from "@/hooks/usePrintExercise";
+import { useLessonKeys } from "@/hooks/useLessonKeys";
 import { PrintAllMenu } from "./PrintAllMenu";
 import { useRouter } from "next/navigation";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
-import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
 import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import { useFocusMode } from "@/hooks/useFocusMode";
@@ -513,88 +513,6 @@ export function LessonWideMode({
     return prefetchPdfs(pdfCache, PDF_CACHE_SIZE, names);
   }, [selectedEntry, pdfData, allEntries, nextStudentEntry, pdfCache]);
 
-  // --- Keyboard shortcuts ---
-  // The handler is a plain function on purpose. useStableKeyboardHandler picks
-  // up the newest one on every render, so it always sees the current state. It
-  // used to be memoised, and because the Wolfram panel was missing from its
-  // dependencies, keys kept switching exercises behind the open panel.
-  useStableKeyboardHandler((e: KeyboardEvent) => {
-    // Skip when modals are open or input is focused
-    const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-    if (exerciseModalSession || bulkAssignType || showExitConfirm) return;
-    if (showWolfram && e.key !== "Escape") return;
-
-    // Undo and redo work on any tool, the same as the tray's buttons.
-    const historyKey = inkHistoryKey(e);
-    if (historyKey) {
-      if (selectedEntry) {
-        e.preventDefault();
-        if (historyKey === "undo") handleUndo();
-        else handleRedo();
-      }
-      return;
-    }
-    if (hasBrowserModifier(e)) return;
-
-    switch (e.key) {
-      case "Escape":
-        if (showWolfram) { setShowWolfram(false); break; }
-        if (showShortcutHelp) { setShowShortcutHelp(false); break; }
-        if (drawingEnabled) { tools.selectHand(); break; }
-        if (focusMode) { exitFocusMode(); break; }
-        break;
-      case "j":
-      case "ArrowDown":
-        e.preventDefault();
-        navigateExercise(1);
-        break;
-      case "k":
-      case "ArrowUp":
-        e.preventDefault();
-        navigateExercise(-1);
-        break;
-      case "Tab":
-        // Tab and Shift+Tab step through the students, like the strip's arrows.
-        if (canStep) {
-          e.preventDefault();
-          navigateStudent(e.shiftKey ? -1 : 1);
-        }
-        break;
-      case "d":
-        tools.toggleFromKey("pen");
-        break;
-      case "e":
-        tools.toggleFromKey("eraser");
-        break;
-      case "p":
-        // Like the print buttons, it waits while another print is still being prepared.
-        if (printing.id === null) handlePrint();
-        break;
-      case "a":
-        // Only when there's an answer key to show, or it would open an empty pane.
-        if (answerKeyFound) handleAnswerKeyToggle();
-        break;
-      case "s":
-        if (exerciseHasAnnotations) handleSaveAnnotated();
-        break;
-      case "f":
-        toggleFocusMode();
-        break;
-      case "w":
-        setShowWolfram(v => !v);
-        break;
-      case "?":
-        setShowShortcutHelp(v => !v);
-        break;
-      case "+":
-      case "=":
-      case "-":
-        // Let PdfPageViewer handle zoom
-        break;
-    }
-  });
-
   // Navigate between exercises (j/k)
   const navigateExercise = useCallback((direction: 1 | -1) => {
     if (!selectedEntry || allEntries.length === 0) return;
@@ -621,6 +539,48 @@ export function LessonWideMode({
       }
     }
   }, [selectedEntry, allEntries, fileGroups, sidebarMode]);
+
+  // --- Keys ---
+  // The key table is shared with the one-student view, in useLessonKeys. An
+  // action left out here is one this view can't do right now, so its key is
+  // left to the browser. There's no exit, because this view is its own tab
+  // and Escape never closes it.
+  useLessonKeys(
+    {
+      blocked: !!exerciseModalSession || !!bulkAssignType || showExitConfirm,
+      wolframOpen: showWolfram,
+      printMenuOpen: showPrintMenu,
+      helpOpen: showShortcutHelp,
+      drawing: drawingEnabled,
+      focusMode,
+    },
+    {
+      undo: selectedEntry ? handleUndo : undefined,
+      redo: selectedEntry ? handleRedo : undefined,
+      closeWolfram: () => setShowWolfram(false),
+      closePrintMenu: () => setShowPrintMenu(false),
+      closeHelp: () => setShowShortcutHelp(false),
+      selectHand: tools.selectHand,
+      exitFocus: exitFocusMode,
+      toggleHelp: () => setShowShortcutHelp(v => !v),
+      toggleFocus: isMobile ? undefined : toggleFocusMode,
+      toggleWolfram: () => setShowWolfram(v => !v),
+      next: () => navigateExercise(1),
+      previous: () => navigateExercise(-1),
+      // Tab and Shift+Tab step through the students, like the strip's arrows.
+      nextStudent: canStep ? () => navigateStudent(1) : undefined,
+      previousStudent: canStep ? () => navigateStudent(-1) : undefined,
+      pen: () => tools.toggleFromKey("pen"),
+      eraser: () => tools.toggleFromKey("eraser"),
+      // c and h edit the exercises of the student on screen.
+      editClasswork: selectedEntry ? () => handleEditExercises(selectedEntry.session, "CW") : undefined,
+      editHomework: selectedEntry ? () => handleEditExercises(selectedEntry.session, "HW") : undefined,
+      // Like the print buttons, p waits while another print is still being prepared.
+      print: selectedEntry?.exercise.pdf_name && printing.id === null ? () => handlePrint() : undefined,
+      answerKey: answerKeyFound ? handleAnswerKeyToggle : undefined,
+      save: exerciseHasAnnotations ? () => void handleSaveAnnotated() : undefined,
+    },
+  );
 
   // --- Render header ---
   // Header buttons are 40px, big enough to hit with a finger at the board.
@@ -777,6 +737,8 @@ export function LessonWideMode({
       isLoading={answerLoading}
       error={answerError}
       exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
+      // + and - zoom the worksheet, and the answer key keeps its own zoom.
+      zoomKeys={false}
     />
   );
 
@@ -858,6 +820,7 @@ export function LessonWideMode({
                   ["e", "Eraser, or back to the Hand"],
                   ["z / Z", "Undo / Redo"],
                   ["s", "Save annotated PDF"],
+                  ["c / h", "Edit CW / HW"],
                   ["p", "Print"],
                   ["a", "Answer key"],
                   ["w", "Wolfram Alpha"],

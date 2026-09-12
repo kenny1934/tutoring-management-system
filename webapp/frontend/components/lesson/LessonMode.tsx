@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, toEmbedUrl } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, NO_FILE_ERROR, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getPrintButtonTitle, NO_FILE_ERROR, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
 import { prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
@@ -31,11 +31,11 @@ import { WolframPanel } from "./WolframPanel";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
 import { usePrintExercise } from "@/hooks/usePrintExercise";
+import { useLessonKeys } from "@/hooks/useLessonKeys";
 import { PrintAllMenu } from "./PrintAllMenu";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
-import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
 import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import { useFocusMode } from "@/hooks/useFocusMode";
@@ -344,110 +344,51 @@ export function LessonMode({
     leave: onExit,
   });
 
-  // Keyboard shortcuts — useStableKeyboardHandler reads latest closure on every keydown
-  useStableKeyboardHandler((e: KeyboardEvent) => {
-    if (exerciseModalType || showExitConfirm) return;
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if (showWolfram && e.key !== "Escape") return;
-
-    // Undo and redo work on any tool, the same as the tray's buttons.
-    const historyKey = inkHistoryKey(e);
-    if (historyKey) {
-      if (selectedExercise) {
-        e.preventDefault();
-        if (historyKey === "undo") handleUndo();
-        else handleRedo();
-      }
-      return;
-    }
-    if (hasBrowserModifier(e)) return;
-
-    switch (e.key) {
-      case "Escape":
-        e.preventDefault();
-        if (showWolfram) {
-          setShowWolfram(false);
-        } else if (showPrintMenu) {
-          setShowPrintMenu(false);
-        } else if (showShortcutHelp) {
-          setShowShortcutHelp(false);
-        } else if (drawingEnabled) {
-          tools.selectHand();
-        } else if (focusMode) {
-          exitFocusMode();
-        } else {
-          handleExitAttempt();
-        }
-        break;
-      case "?":
-        e.preventDefault();
-        setShowShortcutHelp(v => !v);
-        break;
-      case "f":
-        e.preventDefault();
-        toggleFocusMode();
-        break;
-      case "w":
-        e.preventDefault();
-        setShowWolfram(v => !v);
-        break;
-      case "j":
-      case "ArrowDown": {
-        e.preventDefault();
-        const currentIdx = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
-        if (currentIdx < navigableExercises.length - 1) {
-          setSelectedExercise(navigableExercises[currentIdx + 1]);
-        }
-        break;
-      }
-      case "k":
-      case "ArrowUp": {
-        e.preventDefault();
-        const currentIdx = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
-        if (currentIdx > 0) {
-          setSelectedExercise(navigableExercises[currentIdx - 1]);
-        }
-        break;
-      }
-      case "d":
-        e.preventDefault();
-        tools.toggleFromKey("pen");
-        break;
-      case "e":
-        e.preventDefault();
-        tools.toggleFromKey("eraser");
-        break;
-      case "c":
-        if (currentSession) {
-          e.preventDefault();
-          handleEditExercises(currentSession, "CW");
-        }
-        break;
-      case "h":
-        if (currentSession) {
-          e.preventDefault();
-          handleEditExercises(currentSession, "HW");
-        }
-        break;
-      case "H":
-        if (homeworkProgress.total === 0) break;
-        e.preventDefault();
-        toggleHomeworkBlock();
-        break;
-      case "p":
-        // Prints the exercise that's open. Like the print buttons, it waits
-        // while another print is still being prepared.
-        e.preventDefault();
-        if (selectedExercise && printing.id === null) handlePrintExercise(selectedExercise);
-        break;
-      case "a":
-        if (answerKeyFound) {
-          e.preventDefault();
-          handleAnswerKeyToggle();
-        }
-        break;
-    }
-  });
+  // --- Keys ---
+  // The key table is shared with the multi-student view, in useLessonKeys. An
+  // action left out here is one this view can't do right now, so its key is
+  // left to the browser.
+  const stepExercise = (direction: 1 | -1) => {
+    const index = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
+    const target = navigableExercises[index + direction];
+    if (target) setSelectedExercise(target);
+  };
+  useLessonKeys(
+    {
+      blocked: !!exerciseModalType || showExitConfirm,
+      wolframOpen: showWolfram,
+      printMenuOpen: showPrintMenu,
+      helpOpen: showShortcutHelp,
+      drawing: drawingEnabled,
+      focusMode,
+    },
+    {
+      undo: selectedExercise ? handleUndo : undefined,
+      redo: selectedExercise ? handleRedo : undefined,
+      closeWolfram: () => setShowWolfram(false),
+      closePrintMenu: () => setShowPrintMenu(false),
+      closeHelp: () => setShowShortcutHelp(false),
+      selectHand: tools.selectHand,
+      exitFocus: exitFocusMode,
+      exit: () => void handleExitAttempt(),
+      toggleHelp: () => setShowShortcutHelp(v => !v),
+      toggleFocus: isMobile ? undefined : toggleFocusMode,
+      toggleWolfram: () => setShowWolfram(v => !v),
+      next: () => stepExercise(1),
+      previous: () => stepExercise(-1),
+      pen: () => tools.toggleFromKey("pen"),
+      eraser: () => tools.toggleFromKey("eraser"),
+      editClasswork: () => handleEditExercises(currentSession, "CW"),
+      editHomework: () => handleEditExercises(currentSession, "HW"),
+      homeworkBlock: homeworkProgress.total > 0 ? toggleHomeworkBlock : undefined,
+      // Like the print buttons, p waits while another print is still being prepared.
+      print: selectedExercise?.pdf_name && printing.id === null
+        ? () => void handlePrintExercise(selectedExercise)
+        : undefined,
+      answerKey: answerKeyFound ? handleAnswerKeyToggle : undefined,
+      save: exerciseHasAnnotations ? () => void handleSaveAnnotated() : undefined,
+    },
+  );
 
   // This view has no student strip, so in focus mode these buttons share the
   // worksheet's toolbar, and show only their icons to leave it room.
@@ -469,6 +410,8 @@ export function LessonMode({
       isLoading={answerLoading}
       error={answerError}
       exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
+      // + and - zoom the worksheet, and the answer key keeps its own zoom.
+      zoomKeys={false}
     />
   );
 
@@ -670,6 +613,7 @@ export function LessonMode({
                   ["d", "Pen, or back to the Hand"],
                   ["e", "Eraser, or back to the Hand"],
                   ["z / Z", "Undo / Redo"],
+                  ["s", "Save annotated PDF"],
                   ["c / h", "Edit CW / HW"],
                   ["H", "Check homework"],
                   ["p", "Print"],
