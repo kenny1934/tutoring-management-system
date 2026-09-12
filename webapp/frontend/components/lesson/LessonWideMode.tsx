@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
 import { cachedPdf, loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
@@ -28,8 +28,7 @@ import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAnnotations, type ReplacedInk } from "@/hooks/useAnnotations";
-import { useAuth } from "@/contexts/AuthContext";
+import { useLessonInk } from "@/hooks/useLessonInk";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -47,8 +46,6 @@ import { groupExercisesByStudent, bulkPrintAllStudents, type StudentExerciseGrou
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
-import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
-import { useAnnotationTools } from "@/hooks/useAnnotationTools";
 import type { Session, SessionExercise } from "@/types";
 
 // --- Data types for grouping ---
@@ -197,43 +194,24 @@ export function LessonWideMode({
   }, [sessions]);
 
   // --- Drawing / Annotations ---
-  // Use a combined key for all sessions in this lesson
-  const annotationKey = `lesson-wide-annotations-${date}-${slot}-${tutorId}`;
   // Ink is saved to the server for every lesson in the slot. The tab keeps
-  // whatever hasn't been sent yet.
-  const { user } = useAuth();
-  const locateInk = useCallback((exerciseId: number) => {
-    const exercise = allEntries.find((entry) => entry.exercise.id === exerciseId)?.exercise
-      ?? (selectedEntry?.exercise.id === exerciseId ? selectedEntry.exercise : null);
-    return exercise ? inkLocation(exercise) : null;
-  }, [allEntries, selectedEntry]);
-  // Only the worksheet on screen gets a message. Any other worksheet shows
-  // the new ink the next time it's opened.
-  const handleInkReplaced = useCallback((pages: ReplacedInk[]) => {
-    const onScreen = pages.filter((page) => page.exerciseId === selectedEntry?.exercise.id);
-    if (onScreen.length === 0) return;
-    const fromOwnTab = !!user?.email && onScreen[0].byEmail === user.email;
-    showToast(replacedInkMessage(onScreen.map((page) => page.pageIndex), onScreen[0].byName, fromOwnTab), "info");
-  }, [selectedEntry, user, showToast]);
+  // whatever hasn't been sent yet, under one key for the whole slot.
+  const listedExercises = useMemo(() => allEntries.map((entry) => entry.exercise), [allEntries]);
+  const openInkSource = useMemo(() => (selectedEntry ? describeForZip(selectedEntry) : null), [selectedEntry]);
   const {
-    getAnnotations, getAllAnnotations, setPageStrokes, undo, redo, setInkSource, getInkSource,
-    clearPage, clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
-    syncStatus, inkReady, inkRevision, hasUnsentInk, flushInk,
-  } = useAnnotations<AnnotatedExercise>(annotationKey, {
+    tools, annotations: currentAnnotations, openHasInk: exerciseHasAnnotations,
+    onPageStrokesChange: handlePageStrokesChange, onUndo: handleUndo, onRedo: handleRedo,
+    onClearAll: handleClearAllAnnotations, onClearPage: handleClearPage, onClearPages: handleClearPages,
+    getAllAnnotations, getInkSource, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
+    syncStatus, flushInk,
+  } = useLessonInk<AnnotatedExercise>({
+    storageKey: `lesson-wide-annotations-${date}-${slot}-${tutorId}`,
     sessionIds: sessions.map((s) => s.id),
-    locate: locateInk,
-    onReplaced: handleInkReplaced,
+    exercises: listedExercises,
+    openExercise,
+    openSource: openInkSource,
   });
-  // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
-  const tools = useAnnotationTools();
   const drawingEnabled = tools.drawingEnabled;
-  // Until the slot's ink has loaded, drawing waits on the Hand. A stroke
-  // drawn before then could replace a page's saved ink with only that stroke.
-  const { selectHand } = tools;
-  useEffect(() => {
-    if (!inkReady && drawingEnabled) selectHand();
-  }, [inkReady, drawingEnabled, selectHand]);
-  const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
 
   // Whether the Draft is open beside the worksheet
   const [showDraft, setShowDraft] = useState(false);
@@ -337,69 +315,6 @@ export function LessonWideMode({
       setSelectedEntry(allEntries[0]);
     }
   }, [allEntries, selectedEntry]);
-
-  // --- Sync annotations when selection changes ---
-  useEffect(() => {
-    if (selectedEntry?.exercise) {
-      setCurrentAnnotations(getAnnotations(selectedEntry.exercise.id));
-    } else {
-      setCurrentAnnotations({});
-    }
-    // inkRevision goes up when ink arrives from the server, so it's copied again.
-  }, [selectedEntry, getAnnotations, inkRevision]);
-
-  // Each worksheet that's opened has how to save it stored next to the ink,
-  // so "Download All" can still save the ink once the worksheet has left the
-  // students' lists, as a preview has after a reload.
-  useEffect(() => {
-    if (!selectedEntry) return;
-    const source = describeForZip(selectedEntry);
-    if (source) setInkSource(selectedEntry.exercise.id, source);
-  }, [selectedEntry, setInkSource]);
-
-  // --- Annotation callbacks ---
-  const handlePageStrokesChange = useCallback((pageIndex: number, strokes: Stroke[]) => {
-    if (!selectedEntry?.exercise) return;
-    setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: strokes }));
-    setPageStrokes(selectedEntry.exercise.id, pageIndex, strokes);
-  }, [selectedEntry, setPageStrokes]);
-
-  // Undo and redo follow the order you drew in, across every page of the exercise.
-  const handleUndo = useCallback(() => {
-    if (!selectedEntry?.exercise) return;
-    const updated = undo(selectedEntry.exercise.id);
-    if (updated) setCurrentAnnotations(updated);
-  }, [selectedEntry, undo]);
-
-  const handleRedo = useCallback(() => {
-    if (!selectedEntry?.exercise) return;
-    const updated = redo(selectedEntry.exercise.id);
-    if (updated) setCurrentAnnotations(updated);
-  }, [selectedEntry, redo]);
-
-  // Both clears can be undone, and the tray offers an Undo straight after each one.
-  const handleClearAllAnnotations = useCallback(() => {
-    if (!selectedEntry?.exercise) return;
-    clearAnnotations(selectedEntry.exercise.id);
-    setCurrentAnnotations({});
-  }, [selectedEntry, clearAnnotations]);
-
-  const handleClearPage = useCallback((pageIndex: number) => {
-    if (!selectedEntry?.exercise) return;
-    clearPage(selectedEntry.exercise.id, pageIndex);
-    setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: [] }));
-  }, [selectedEntry, clearPage]);
-
-  // The Draft clears one sheet or all of them, either way as one change that one undo brings back.
-  const handleClearPages = useCallback((pages: number[]) => {
-    if (!selectedEntry?.exercise) return;
-    clearAnnotations(selectedEntry.exercise.id, pages);
-    setCurrentAnnotations(getAnnotations(selectedEntry.exercise.id));
-  }, [selectedEntry, clearAnnotations, getAnnotations]);
-
-  const exerciseHasAnnotations = selectedEntry?.exercise
-    ? checkHasAnnotations(selectedEntry.exercise.id)
-    : false;
 
   // The Draft sits beside the worksheet viewer. It isn't offered on phones,
   // and an exercise that's a web link has no viewer for it to sit beside.
@@ -600,15 +515,6 @@ export function LessonWideMode({
     setShowExitConfirm(false);
     if (saved) window.close();
   }, [downloadAllInk]);
-
-  // --- beforeunload warning, while some ink hasn't reached the server ---
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (hasUnsentInk()) e.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [hasUnsentInk]);
 
   // --- Moving between students ---
   // Each student remembers the worksheet they were last on, so going back to

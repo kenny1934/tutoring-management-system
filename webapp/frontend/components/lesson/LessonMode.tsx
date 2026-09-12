@@ -11,7 +11,7 @@ import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUr
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
 import { cachedPdf, loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
@@ -30,8 +30,7 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
-import { useAnnotations, type ReplacedInk } from "@/hooks/useAnnotations";
-import { useAuth } from "@/contexts/AuthContext";
+import { useLessonInk } from "@/hooks/useLessonInk";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -44,8 +43,6 @@ import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import { buildAnnotatedZip, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
 import { downloadBlob } from "@/lib/geometry-utils";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
-import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
-import { useAnnotationTools } from "@/hooks/useAnnotationTools";
 import type { HomeworkStatus, Session, SessionExercise } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { useStudentHomework } from "@/lib/hooks";
@@ -189,32 +186,6 @@ export function LessonMode({
     return exercises;
   }, [currentSession, previousSession]);
 
-  // Ink is saved to the server for this lesson and the previous one, which
-  // this view also shows. The tab keeps whatever hasn't been sent yet.
-  const { user } = useAuth();
-  const locateInk = useCallback((exerciseId: number) => {
-    const exercise = allExercises.find((ex) => ex.id === exerciseId)
-      ?? (selectedExercise?.id === exerciseId ? selectedExercise : null);
-    return exercise ? inkLocation(exercise) : null;
-  }, [allExercises, selectedExercise]);
-  // Only the worksheet on screen gets a message. Any other exercise shows
-  // the new ink the next time it's opened.
-  const handleInkReplaced = useCallback((pages: ReplacedInk[]) => {
-    const onScreen = pages.filter((page) => page.exerciseId === selectedExercise?.id);
-    if (onScreen.length === 0) return;
-    const fromOwnTab = !!user?.email && onScreen[0].byEmail === user.email;
-    showToast(replacedInkMessage(onScreen.map((page) => page.pageIndex), onScreen[0].byName, fromOwnTab), "info");
-  }, [selectedExercise, user, showToast]);
-  const {
-    getAnnotations, getAllAnnotations, setPageStrokes, undo, redo, setInkSource, getInkSource,
-    clearPage, clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
-    syncStatus, inkReady, inkRevision, hasUnsentInk, flushInk,
-  } = useAnnotations<AnnotatedExercise>(`lesson-annotations-${session.id}`, {
-    sessionIds: previousSession ? [session.id, previousSession.id] : [session.id],
-    locate: locateInk,
-    onReplaced: handleInkReplaced,
-  });
-
   // How "Download All" saves an exercise's ink. A preview is class-wide, so it has no student stamp.
   const describeForZip = useCallback((exercise: SessionExercise): AnnotatedExercise | null => {
     if (!exercise.pdf_name) return null;
@@ -225,16 +196,27 @@ export function LessonMode({
       name: `annotated-${getDisplayName(exercise.pdf_name)}`,
     };
   }, [stamp]);
-  // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
-  const tools = useAnnotationTools();
+  const openInkSource = useMemo(
+    () => (selectedExercise ? describeForZip(selectedExercise) : null),
+    [selectedExercise, describeForZip]
+  );
+
+  // Ink is saved to the server for this lesson and the previous one, which
+  // this view also shows. The tab keeps whatever hasn't been sent yet.
+  const {
+    tools, annotations: currentAnnotations, openHasInk: exerciseHasAnnotations,
+    onPageStrokesChange: handlePageStrokesChange, onUndo: handleUndo, onRedo: handleRedo,
+    onClearAll: handleClearAllAnnotations, onClearPage: handleClearPage, onClearPages: handleClearPages,
+    getAllAnnotations, getInkSource, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
+    syncStatus, flushInk,
+  } = useLessonInk<AnnotatedExercise>({
+    storageKey: `lesson-annotations-${session.id}`,
+    sessionIds: previousSession ? [session.id, previousSession.id] : [session.id],
+    exercises: allExercises,
+    openExercise: selectedExercise,
+    openSource: openInkSource,
+  });
   const drawingEnabled = tools.drawingEnabled;
-  // Until the lesson's ink has loaded, drawing waits on the Hand. A stroke
-  // drawn before then could replace a page's saved ink with only that stroke.
-  const { selectHand } = tools;
-  useEffect(() => {
-    if (!inkReady && drawingEnabled) selectHand();
-  }, [inkReady, drawingEnabled, selectHand]);
-  const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
 
   // Whether the Draft is open beside the worksheet
   const [showDraft, setShowDraft] = useState(false);
@@ -281,25 +263,6 @@ export function LessonMode({
       .filter((name): name is string => !!name);
     return prefetchPdfs(pdfCache, PDF_CACHE_SIZE, adjacent);
   }, [selectedExercise, pdfData, allExercises, pdfCache]);
-
-  // Sync annotations when exercise changes
-  useEffect(() => {
-    if (selectedExercise) {
-      setCurrentAnnotations(getAnnotations(selectedExercise.id));
-    } else {
-      setCurrentAnnotations({});
-    }
-    // inkRevision goes up when ink arrives from the server, so it's copied again.
-  }, [selectedExercise, getAnnotations, inkRevision]);
-
-  // Each exercise that's opened has how to save it stored next to the ink, so
-  // "Download All" can still save the ink once the exercise has left the
-  // session's list, as a preview has after a reload.
-  useEffect(() => {
-    if (!selectedExercise) return;
-    const source = describeForZip(selectedExercise);
-    if (source) setInkSource(selectedExercise.id, source);
-  }, [selectedExercise, describeForZip, setInkSource]);
 
   // Handle exercise selection
   // Picking an exercise from the mobile sheet or the focus-mode sidebar closes
@@ -371,46 +334,6 @@ export function LessonMode({
     }
   }, [session, showToast, paperlessSearchWithProgress]);
 
-  // Annotation handlers
-  const handlePageStrokesChange = useCallback((pageIndex: number, strokes: Stroke[]) => {
-    if (!selectedExercise) return;
-    setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: strokes }));
-    setPageStrokes(selectedExercise.id, pageIndex, strokes);
-  }, [selectedExercise, setPageStrokes]);
-
-  // Undo and redo follow the order you drew in, across every page of the exercise.
-  const handleUndo = useCallback(() => {
-    if (!selectedExercise) return;
-    const updated = undo(selectedExercise.id);
-    if (updated) setCurrentAnnotations(updated);
-  }, [selectedExercise, undo]);
-
-  const handleRedo = useCallback(() => {
-    if (!selectedExercise) return;
-    const updated = redo(selectedExercise.id);
-    if (updated) setCurrentAnnotations(updated);
-  }, [selectedExercise, redo]);
-
-  // Both clears can be undone, and the tray offers an Undo straight after each one.
-  const handleClearAllAnnotations = useCallback(() => {
-    if (!selectedExercise) return;
-    clearAnnotations(selectedExercise.id);
-    setCurrentAnnotations({});
-  }, [selectedExercise, clearAnnotations]);
-
-  const handleClearPage = useCallback((pageIndex: number) => {
-    if (!selectedExercise) return;
-    clearPage(selectedExercise.id, pageIndex);
-    setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: [] }));
-  }, [selectedExercise, clearPage]);
-
-  // The Draft clears one sheet or all of them, either way as one change that one undo brings back.
-  const handleClearPages = useCallback((pages: number[]) => {
-    if (!selectedExercise) return;
-    clearAnnotations(selectedExercise.id, pages);
-    setCurrentAnnotations(getAnnotations(selectedExercise.id));
-  }, [selectedExercise, clearAnnotations, getAnnotations]);
-
   // A preview is class-wide, so it has no student stamp, on screen or in the saved file.
   const viewerStamp = selectedExercise && isPreviewExercise(selectedExercise) ? undefined : stamp;
 
@@ -434,10 +357,6 @@ export function LessonMode({
       showToast(SAVE_FAILED_MESSAGE, 'error');
     }
   }, [selectedExercise, pdfData, pageNumbers, viewerStamp, currentAnnotations, showToast]);
-
-  const exerciseHasAnnotations = selectedExercise
-    ? checkHasAnnotations(selectedExercise.id)
-    : false;
 
   // Exit confirmation state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -504,15 +423,6 @@ export function LessonMode({
     setShowExitConfirm(false);
     if (saved) onExit();
   }, [downloadAllInk, onExit]);
-
-  // Warn before the tab closes or reloads while some ink hasn't reached the server.
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (hasUnsentInk()) e.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [hasUnsentInk]);
 
   // Keyboard shortcuts — useStableKeyboardHandler reads latest closure on every keydown
   useStableKeyboardHandler((e: KeyboardEvent) => {
