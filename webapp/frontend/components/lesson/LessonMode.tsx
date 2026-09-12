@@ -2,20 +2,18 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle, Sigma,
-  Maximize2, Minimize2, ChevronDown,
-  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink, Home, Download,
+  ArrowLeft, Calendar, Clock, MapPin, HelpCircle, Sigma,
+  Maximize2, Minimize2,
+  AlertTriangle, LayoutList, Loader2, ExternalLink, Home, Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
+import { getDisplayName, getExerciseDisplayName, toEmbedUrl } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
-import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
+import { getExercisePageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, NO_FILE_ERROR, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
+import { prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
-import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
@@ -32,6 +30,8 @@ import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
+import { usePrintExercise } from "@/hooks/usePrintExercise";
+import { PrintAllMenu } from "./PrintAllMenu";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -287,53 +287,15 @@ export function LessonMode({
     onSessionDataChange();
   }, [onSessionDataChange]);
 
-  // Print: single exercise from sidebar
-  const { printing, setPrinting, paperlessSearchWithProgress } = usePrintingState();
-
-  const handlePrintExercise = useCallback(async (exercise: SessionExercise) => {
-    if (!exercise.pdf_name) return;
-    setPrinting({ id: exercise.id, progress: null });
-    try {
-      // Class-wide previews (parallel versions): their paths aren't real
-      // files, so print the loaded/composed bytes directly — no stamp.
-      if (isPreviewExercise(exercise)) {
-        const result = await loadExercisePdf(exercise.pdf_name);
-        if ('error' in result) {
-          showToast(printErrorMessage(result.error), 'error');
-        } else if (!printPdfBlob(new Blob([result.data], { type: 'application/pdf' }))) {
-          showToast(printErrorMessage('popup_blocked'), 'error');
-        }
-        return;
-      }
-      const { complexPages } = parseExerciseRemarks(exercise.remarks);
-      const error = await printFileFromPathWithFallback(
-        exercise.pdf_name,
-        exercise.page_start,
-        exercise.page_end,
-        complexPages || undefined,
-        stamp,
-        paperlessSearchWithProgress
-      );
-      if (error) showToast(printErrorMessage(error), 'error');
-    } finally {
-      setPrinting({ id: null, progress: null });
-    }
-  }, [stamp, paperlessSearchWithProgress, showToast]);
-
-  // Print: bulk print all CW or HW
+  // --- Printing ---
+  // Every exercise here is the one student's, so each prints with the lesson's stamp.
+  const { printing, printExercise, printAll } = usePrintExercise();
+  const handlePrintExercise = useCallback(
+    (exercise: SessionExercise) => printExercise(exercise, stamp),
+    [printExercise, stamp],
+  );
   const [showPrintMenu, setShowPrintMenu] = useState(false);
-  const handleBulkPrint = useCallback(async (type: 'CW' | 'HW') => {
-    setShowPrintMenu(false);
-    const groups = groupExercisesByStudent([session], type);
-    if (groups.length === 0) return;
-    setPrinting({ id: -1, progress: null });
-    try {
-      const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
-      if (error) showToast(bulkPrintErrorMessage(error, type), 'error');
-    } finally {
-      setPrinting({ id: null, progress: null });
-    }
-  }, [session, showToast, paperlessSearchWithProgress]);
+  const handleBulkPrint = useCallback((type: 'CW' | 'HW') => printAll([session], type), [printAll, session]);
 
   // A preview is class-wide, so it has no student stamp, on screen or in the saved file.
   const viewerStamp = selectedExercise && isPreviewExercise(selectedExercise) ? undefined : stamp;
@@ -621,55 +583,14 @@ export function LessonMode({
           {isSavingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
         </button>
 
-        {/* Bulk print dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => { if (printing.id === null) setShowPrintMenu(v => !v); }}
-            disabled={printing.id !== null}
-            className={cn(
-              hdrBtn, "gap-0.5",
-              printing.id !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
-            )}
-            title={getPrintButtonTitle(printing.id !== null, printing.progress, "Print exercises")}
-            aria-label="Print exercises"
-            aria-haspopup="menu"
-            aria-expanded={showPrintMenu}
-          >
-            {printing.id !== null ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Printer className="h-5 w-5" />
-            )}
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-          <AnimatePresence>
-            {showPrintMenu && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60]"
-                  onClick={() => setShowPrintMenu(false)}
-                />
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.1 }}
-                  className="absolute right-0 top-full mt-1 z-[61] bg-[#2d4739] dark:bg-[#1a2821] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[140px]"
-                >
-                  <button onClick={() => handleBulkPrint('CW')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors">
-                    <PenTool className="h-3 w-3 text-rose-400" /> Print all CW
-                  </button>
-                  <button onClick={() => handleBulkPrint('HW')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors">
-                    <BookOpen className="h-3 w-3 text-blue-400" /> Print all HW
-                  </button>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
+        <PrintAllMenu
+          label="Print exercises"
+          printing={printing}
+          open={showPrintMenu}
+          onOpenChange={setShowPrintMenu}
+          onPrint={handleBulkPrint}
+          buttonClassName={hdrBtn}
+        />
 
         {/* Focus mode toggle (desktop only — mobile header is already compact) */}
         <button

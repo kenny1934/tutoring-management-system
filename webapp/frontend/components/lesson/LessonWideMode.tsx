@@ -2,17 +2,16 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Calendar, MapPin, HelpCircle, Printer, ChevronDown, Sigma,
+  ArrowLeft, Calendar, MapPin, HelpCircle, Sigma,
   Maximize2, Minimize2, Users,
-  AlertTriangle, LayoutList, PenTool, BookOpen, Loader2, ExternalLink, Home, Download,
+  AlertTriangle, LayoutList, Loader2, ExternalLink, Home, Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
+import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, loopStep, NO_FILE_ERROR, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
+import { prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
-import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonWideSidebar } from "./LessonWideSidebar";
@@ -30,6 +29,8 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
+import { usePrintExercise } from "@/hooks/usePrintExercise";
+import { PrintAllMenu } from "./PrintAllMenu";
 import { useRouter } from "next/navigation";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -44,7 +45,7 @@ import { SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip
 import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
-import { groupExercisesByStudent, bulkPrintAllStudents, type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
+import { type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { useToast } from "@/contexts/ToastContext";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
@@ -335,71 +336,30 @@ export function LessonWideMode({
     onSessionDataChange();
   }, [onSessionDataChange]);
 
-  // --- Print ---
-  const { printing, setPrinting, paperlessSearchWithProgress } = usePrintingState();
+  // --- Printing ---
+  // Each exercise prints with its own student's stamp.
+  const { printing, printExercise, printGroups, printAll } = usePrintExercise();
 
-  const handlePrint = useCallback(async (entry?: StudentExerciseEntry) => {
-    const target = entry || selectedEntry;
-    if (!target?.exercise?.pdf_name) return;
-    setPrinting({ id: target.exercise.id, progress: null });
-    try {
-      // Class-wide previews (parallel versions): their paths aren't real
-      // files, so print the loaded/composed bytes directly — no stamp.
-      if (isPreviewExercise(target.exercise)) {
-        const result = await loadExercisePdf(target.exercise.pdf_name);
-        if ('error' in result) {
-          showToast(printErrorMessage(result.error), 'error');
-        } else if (!printPdfBlob(new Blob([result.data], { type: 'application/pdf' }))) {
-          showToast(printErrorMessage('popup_blocked'), 'error');
-        }
-        return;
-      }
-      const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
-      const error = await printFileFromPathWithFallback(
-        target.exercise.pdf_name,
-        target.exercise.page_start,
-        target.exercise.page_end,
-        complexPages || undefined,
-        stampFor(target.session),
-        paperlessSearchWithProgress
-      );
-      if (error) showToast(printErrorMessage(error), 'error');
-    } finally {
-      setPrinting({ id: null, progress: null });
-    }
-  }, [selectedEntry, paperlessSearchWithProgress, showToast]);
+  const handlePrint = useCallback((entry?: StudentExerciseEntry) => {
+    const target = entry ?? selectedEntry;
+    if (target) void printExercise(target.exercise, stampFor(target.session));
+  }, [selectedEntry, printExercise]);
 
-  // --- Bulk print ---
   const [showPrintMenu, setShowPrintMenu] = useState(false);
-  const handleBulkPrint = useCallback(async (type: 'CW' | 'HW') => {
-    setShowPrintMenu(false);
-    const groups = groupExercisesByStudent(sessions, type);
-    if (groups.length === 0) {
-      showToast(`No ${type} exercises found`, 'info');
-      return;
-    }
-    setPrinting({ id: -1, progress: null });
-    try {
-      const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
-      if (error) showToast(bulkPrintErrorMessage(error, type), 'error');
-    } finally {
-      setPrinting({ id: null, progress: null });
-    }
-  }, [sessions, showToast, paperlessSearchWithProgress]);
+  const handleBulkPrint = useCallback((type: 'CW' | 'HW') => printAll(sessions, type), [printAll, sessions]);
 
-  // --- Print file group (one file, all students) ---
-  const handlePrintFileGroup = useCallback(async (group: FileGroup) => {
+  // One file for every student who has it, each copy with its own student's
+  // stamp. The file's button in the sidebar spins while printing.id is -2.
+  const handlePrintFileGroup = useCallback((group: FileGroup) => {
     if (group.entries.length === 1) {
       handlePrint(group.entries[0]);
       return;
     }
-    setPrinting({ id: -2, progress: null });
-    try {
-      const groups: StudentExerciseGroup[] = group.entries
-        .filter(e => e.exercise.pdf_name?.trim())
-        .map(entry => {
-          const { complexPages } = parseExerciseRemarks(entry.exercise.remarks);
-          return {
+    const groups: StudentExerciseGroup[] = group.entries
+      .filter(e => e.exercise.pdf_name?.trim())
+      .map(entry => {
+        const { complexPages } = parseExerciseRemarks(entry.exercise.remarks);
+        return {
           studentId: entry.session.student_id,
           studentName: entry.session.student_name ?? 'Unknown',
           schoolStudentId: entry.session.school_student_id ?? '',
@@ -415,30 +375,16 @@ export function LessonWideMode({
           stamp: stampFor(entry.session),
           filename: `${group.exerciseType}_${entry.session.school_student_id || ''}_${entry.session.student_name}`,
         };
-        });
-      if (groups.length === 0) return;
-      const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
-      if (error) showToast(bulkPrintErrorMessage(error), 'error');
-    } finally {
-      setPrinting({ id: null, progress: null });
-    }
-  }, [handlePrint, showToast, paperlessSearchWithProgress]);
+      });
+    void printGroups(groups, -2);
+  }, [handlePrint, printGroups]);
 
-  // --- Bulk print all CW or HW for a single student ---
-  const handleBulkPrintStudent = useCallback(async (session: Session, type: 'CW' | 'HW') => {
-    const groups = groupExercisesByStudent([session], type);
-    if (groups.length === 0) {
-      showToast(`No ${type} exercises found`, 'info');
-      return;
-    }
-    setPrinting({ id: -session.id, progress: null });
-    try {
-      const error = await bulkPrintAllStudents(groups, paperlessSearchWithProgress);
-      if (error) showToast(bulkPrintErrorMessage(error, type), 'error');
-    } finally {
-      setPrinting({ id: null, progress: null });
-    }
-  }, [showToast, paperlessSearchWithProgress]);
+  // One student's classwork or homework. That student's own button spins
+  // while printing.id is minus the lesson's id.
+  const handleBulkPrintStudent = useCallback(
+    (session: Session, type: 'CW' | 'HW') => printAll([session], type, -session.id),
+    [printAll],
+  );
 
   // --- Save annotated PDF ---
   // The file is named after the student as well, so several students' copies
@@ -773,61 +719,14 @@ export function LessonWideMode({
           {isSavingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
         </button>
 
-        {/* Bulk print dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => { if (printing.id === null) setShowPrintMenu(v => !v); }}
-            disabled={printing.id !== null}
-            className={cn(
-              hdrBtn, "gap-0.5",
-              printing.id !== null ? "bg-white/20 text-white" : showPrintMenu ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
-            )}
-            title={getPrintButtonTitle(printing.id !== null, printing.progress, "Print all exercises")}
-            aria-label="Print all exercises"
-            aria-haspopup="menu"
-            aria-expanded={showPrintMenu}
-          >
-            {printing.id !== null ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Printer className="h-5 w-5" />
-            )}
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-          <AnimatePresence>
-            {showPrintMenu && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60]"
-                  onClick={() => setShowPrintMenu(false)}
-                />
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.1 }}
-                  className="absolute right-0 top-full mt-1 z-[61] bg-[#2d4739] dark:bg-[#1a2821] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[140px]"
-                >
-                  <button
-                    onClick={() => handleBulkPrint('CW')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors"
-                  >
-                    <PenTool className="h-3 w-3 text-rose-400" /> Print all CW
-                  </button>
-                  <button
-                    onClick={() => handleBulkPrint('HW')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors"
-                  >
-                    <BookOpen className="h-3 w-3 text-blue-400" /> Print all HW
-                  </button>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
+        <PrintAllMenu
+          label="Print all exercises"
+          printing={printing}
+          open={showPrintMenu}
+          onOpenChange={setShowPrintMenu}
+          onPrint={handleBulkPrint}
+          buttonClassName={hdrBtn}
+        />
 
         {/* Focus mode toggle */}
         <button

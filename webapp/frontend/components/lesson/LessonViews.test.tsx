@@ -179,17 +179,19 @@ const wong = lesson(101, "Wong Siu Ming", "1235", [
   exercise(2001, 101, "CW", LINEAR),
   exercise(2002, 101, "HW", FACTORISING),
 ]);
+/** A lesson with classwork and no homework. */
+const lee = lesson(102, "Lee Ka Yan", "1236", [exercise(3001, 102, "CW", LINEAR)]);
 
-function renderOneStudent(props: { isReadOnly?: boolean } = {}) {
+function renderOneStudent({ session = chan, ...props }: { isReadOnly?: boolean; session?: Session } = {}) {
   const onExit = vi.fn();
-  render(<LessonMode session={chan} onExit={onExit} onSessionDataChange={() => {}} {...props} />);
+  render(<LessonMode session={session} onExit={onExit} onSessionDataChange={() => {}} {...props} />);
   return { onExit };
 }
 
-function renderSlot(props: { isReadOnly?: boolean } = {}) {
+function renderSlot({ sessions = [chan, wong], ...props }: { isReadOnly?: boolean; sessions?: Session[] } = {}) {
   render(
     <LessonWideMode
-      sessions={[chan, wong]}
+      sessions={sessions}
       date="2026-09-11"
       slot="16:45 - 18:15"
       tutorId={7}
@@ -266,9 +268,19 @@ afterEach(() => {
 // --- What both views already do the same way ---
 
 describe.each([
-  { view: "the one-student view", mount: () => void renderOneStudent() },
-  { view: "the multi-student view", mount: () => renderSlot() },
-])("In $view", ({ mount }) => {
+  {
+    view: "the one-student view",
+    mount: (lessons?: Session[]) => void renderOneStudent(lessons ? { session: lessons[0] } : {}),
+    printMenu: "Print exercises",
+    everyone: ["Chan Tai Man"],
+  },
+  {
+    view: "the multi-student view",
+    mount: (lessons?: Session[]) => renderSlot(lessons ? { sessions: lessons } : {}),
+    printMenu: "Print all exercises",
+    everyone: ["Chan Tai Man", "Wong Siu Ming"],
+  },
+])("In $view", ({ mount, printMenu, everyone }) => {
   it("opens the first worksheet and loads its file", async () => {
     mount();
     await opened("Linear equations 3");
@@ -325,6 +337,35 @@ describe.each([
     drawAStroke();
     press("z", { ctrlKey: true });
     expect(strokesShown()).toBe("Strokes on the first page: 0");
+  });
+
+  it("prints the open worksheet at p, stamped with its student's name", async () => {
+    mount();
+    await opened("Linear equations 3");
+    press("p");
+    await waitFor(() => expect(h.printFile).toHaveBeenCalledWith(
+      LINEAR, null, null, undefined, expect.objectContaining({ studentName: "Chan Tai Man" }), expect.any(Function),
+    ));
+  });
+
+  it("prints everyone's classwork from the print menu, and closes the menu", async () => {
+    mount();
+    await opened("Linear equations 3");
+    fireEvent.click(screen.getByRole("button", { name: printMenu }));
+    fireEvent.click(screen.getByText("Print all CW"));
+    await waitFor(() => expect(h.bulkPrint).toHaveBeenCalledTimes(1));
+    const groups = h.bulkPrint.mock.calls[0][0] as { studentName: string }[];
+    expect(groups.map((group) => group.studentName)).toEqual(everyone);
+    await waitFor(() => expect(screen.queryByText("Print all CW")).toBeNull());
+  });
+
+  it("says so when there's no homework to print, and prints nothing", async () => {
+    mount([lee]);
+    await opened("Linear equations 3");
+    fireEvent.click(screen.getByRole("button", { name: printMenu }));
+    fireEvent.click(screen.getByText("Print all HW"));
+    await waitFor(() => expect(h.showToast).toHaveBeenCalledWith("No HW exercises found", "info"));
+    expect(h.bulkPrint).not.toHaveBeenCalled();
   });
 
   it("opens the answer key with a once one has been found, and closes it with a", async () => {
@@ -718,6 +759,15 @@ describe("The multi-student view", () => {
 
   // A browser only lets a page close a tab that a page opened. This view's
   // tab normally is, but one from a bookmark or a restored session isn't.
+  it("prints one student's classwork from that student's own print button", async () => {
+    renderSlot();
+    await opened("Linear equations 3");
+    fireEvent.click(screen.getByTitle("Print all CW (2)"));
+    await waitFor(() => expect(h.bulkPrint).toHaveBeenCalledTimes(1));
+    const groups = h.bulkPrint.mock.calls[0][0] as { studentName: string }[];
+    expect(groups.map((group) => group.studentName)).toEqual(["Chan Tai Man"]);
+  });
+
   it("goes to the sessions page when the browser won't close the tab", async () => {
     renderSlot();
     await inkLoaded();
