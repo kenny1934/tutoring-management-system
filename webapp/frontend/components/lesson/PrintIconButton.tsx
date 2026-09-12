@@ -43,7 +43,7 @@ export function PrintIconButton({ onPrint, isPrinting, title, label, iconClassNa
       className={cn(
         "flex-none w-8 h-8 grid place-items-center rounded-md transition-[opacity,background-color]",
         "hover:bg-[#e8d4b8]/60 dark:hover:bg-[#3a3228] disabled:cursor-wait",
-        revealOnHover && "[@media(any-pointer:coarse)]:hidden",
+        revealOnHover && "any-pointer-coarse:hidden",
         // While it's printing it stays in view, so the spinner shows the progress.
         revealOnHover && !isPrinting && [
           "opacity-0 pointer-events-none focus-visible:opacity-100 focus-visible:pointer-events-auto",

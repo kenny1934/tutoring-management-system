@@ -155,17 +155,12 @@ describe("FoldingAnswerKey", () => {
     expect(tab).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("says whether it's slid in, and says it's gone when it goes away", () => {
-    const onOutChange = vi.fn();
-    const { unmount } = render(<FoldingAnswerKey onOutChange={onOutChange}><p>The answers</p></FoldingAnswerKey>);
-    expect(onOutChange).toHaveBeenLastCalledWith(true);
+  it("marks itself while it's slid in, so the Pen Tray's lane can keep to the worksheet", () => {
+    render(<FoldingAnswerKey><p>The answers</p></FoldingAnswerKey>);
+    const panel = screen.getByText("The answers").parentElement;
+    expect(panel).toHaveAttribute("data-answers-out");
 
     fireEvent.click(screen.getByRole("button", { name: /Answers/ }));
-    expect(onOutChange).toHaveBeenLastCalledWith(false);
-    fireEvent.click(screen.getByRole("button", { name: /Answers/ }));
-    expect(onOutChange).toHaveBeenLastCalledWith(true);
-
-    unmount();
-    expect(onOutChange).toHaveBeenLastCalledWith(false);
+    expect(panel).not.toHaveAttribute("data-answers-out");
   });
 });

@@ -18,10 +18,10 @@ import { useHomeworkToCheck } from "@/lib/hooks";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
 import { StudentStrip, stripLabel } from "./StudentStrip";
-import { PAGE_BAR_HEIGHT, PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
-import { DraftPane } from "./DraftPane";
+import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
+import { DraftPane, DraftTrayLane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
-import { FocusModeButtons, FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
+import { FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -68,19 +68,28 @@ export interface FileGroup {
 const exerciseKind = (exercise: SessionExercise): "CW" | "HW" =>
   exercise.exercise_type === "Classwork" || exercise.exercise_type === "CW" ? "CW" : "HW";
 
+/**
+ * The student stamp on a worksheet's pages. Every stamp this view builds for
+ * itself comes from here, so the board, a printed worksheet and "Download All"
+ * all show the same student.
+ */
+function stampFor(session: Session): PrintStampInfo {
+  return {
+    location: session.location,
+    schoolStudentId: session.school_student_id,
+    studentName: session.student_name,
+    sessionDate: session.session_date,
+    sessionTime: session.time_slot,
+  };
+}
+
 /** How "Download All" saves a worksheet's ink. A preview is class-wide, so it has no student stamp. */
 function describeForZip(entry: StudentExerciseEntry): AnnotatedExercise | null {
   if (!entry.exercise.pdf_name) return null;
   return {
     pdfName: entry.exercise.pdf_name,
     pageNumbers: getExercisePageNumbers(entry.exercise),
-    stamp: isPreviewExercise(entry.exercise) ? undefined : {
-      location: entry.session.location,
-      schoolStudentId: entry.studentId || undefined,
-      studentName: entry.studentName,
-      sessionDate: entry.session.session_date,
-      sessionTime: entry.session.time_slot,
-    },
+    stamp: isPreviewExercise(entry.exercise) ? undefined : stampFor(entry.session),
     name: `annotated-${entry.studentName}-${getDisplayName(entry.exercise.pdf_name)}`,
   };
 }
@@ -197,11 +206,9 @@ export function LessonWideMode({
 
   // Whether the Draft is open beside the worksheet
   const [showDraft, setShowDraft] = useState(false);
-  // While the Draft is open, the Pen Tray floats in an area over the worksheet
-  // and the Draft together. It keeps to the worksheet while the answer key is
-  // slid in over the Draft.
+  // While the Draft is open, the Pen Tray floats in a lane over the worksheet
+  // and the Draft together.
   const [trayArea, setTrayArea] = useState<HTMLElement | null>(null);
-  const [answersOverDraft, setAnswersOverDraft] = useState(false);
 
   // --- Answer key state ---
   const [showAnswerKey, setShowAnswerKey] = useState(false);
@@ -301,13 +308,7 @@ export function LessonWideMode({
   // per-student stamp.
   const stamp = useMemo<PrintStampInfo | undefined>(() => {
     if (!selectedEntry || isPreviewExercise(selectedEntry.exercise)) return undefined;
-    return {
-      location: selectedEntry.session.location,
-      schoolStudentId: selectedEntry.session.school_student_id,
-      studentName: selectedEntry.session.student_name,
-      sessionDate: selectedEntry.session.session_date,
-      sessionTime: selectedEntry.session.time_slot,
-    };
+    return stampFor(selectedEntry.session);
   }, [selectedEntry]);
 
   // Exercise label for PDF viewer
@@ -466,8 +467,9 @@ export function LessonWideMode({
   // students' lists. A preview never survives a reload, and saving "Edit
   // exercises" gives every exercise a new id.
   useEffect(() => {
-    const source = selectedEntry && describeForZip(selectedEntry);
-    if (selectedEntry && source) setInkSource(selectedEntry.exercise.id, source);
+    if (!selectedEntry) return;
+    const source = describeForZip(selectedEntry);
+    if (source) setInkSource(selectedEntry.exercise.id, source);
   }, [selectedEntry, setInkSource]);
 
   // --- Answer file search ---
@@ -656,19 +658,12 @@ export function LessonWideMode({
         return;
       }
       const { complexPages } = parseExerciseRemarks(target.exercise.remarks);
-      const entryStamp: PrintStampInfo = {
-        location: target.session.location,
-        schoolStudentId: target.session.school_student_id,
-        studentName: target.session.student_name,
-        sessionDate: target.session.session_date,
-        sessionTime: target.session.time_slot,
-      };
       const error = await printFileFromPathWithFallback(
         target.exercise.pdf_name,
         target.exercise.page_start,
         target.exercise.page_end,
         complexPages || undefined,
-        entryStamp,
+        stampFor(target.session),
         paperlessSearchWithProgress
       );
       if (error) showToast(printErrorMessage(error), 'error');
@@ -720,13 +715,7 @@ export function LessonWideMode({
             page_end: entry.exercise.page_end,
             complex_pages: complexPages || undefined,
           }],
-          stamp: {
-            location: entry.session.location,
-            schoolStudentId: entry.session.school_student_id,
-            studentName: entry.session.student_name,
-            sessionDate: entry.session.session_date,
-            sessionTime: entry.session.time_slot,
-          },
+          stamp: stampFor(entry.session),
           filename: `${group.exerciseType}_${entry.session.school_student_id || ''}_${entry.session.student_name}`,
         };
         });
@@ -1239,13 +1228,10 @@ export function LessonWideMode({
   // the start of the worksheet's toolbar.
   const showFocusButtons = focusMode && !isMobile;
   const focusButtons = showFocusButtons && !selectedEntry ? (
-    <FocusModeButtons
-      icon={Users}
-      label="Students"
-      sidebarOpen={hoverSidebar}
-      onOpenSidebar={() => setHoverSidebar(true)}
-      onLeave={exitFocusMode}
-    />
+    <>
+      <FocusSidebarButton icon={Users} label="Students" open={hoverSidebar} onOpen={() => setHoverSidebar(true)} />
+      <LeaveFocusButton onLeave={exitFocusMode} />
+    </>
   ) : null;
 
   const answerViewer = (
@@ -1433,7 +1419,7 @@ export function LessonWideMode({
           <div className={cn(
             "flex flex-1 min-h-0 min-w-0",
             !isMobile && showAnswerKey && answerPdfData && "gap-0",
-            draftOpen && "relative overflow-hidden @container/viewers",
+            draftOpen && "group/viewers relative overflow-hidden @container/viewers",
           )}>
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
               <div className={cn("relative flex flex-1 min-h-0 min-w-0", draftOpen && "@[1100px]/viewers:flex-[2]")}>
@@ -1565,24 +1551,13 @@ export function LessonWideMode({
                 )}
 
                 {/* While the Draft is open, the Pen Tray floats in here, across the worksheet and the Draft */}
-                {draftOpen && (
-                  <div
-                    ref={setTrayArea}
-                    className={cn(
-                      "absolute left-0 top-0 pointer-events-none",
-                      // With the answer key slid in over the Draft, the tray keeps to the worksheet,
-                      // which is half the width less half the line between the two panes.
-                      answersOverDraft ? "right-[calc(50%+0.5px)] @[1100px]/viewers:right-0" : "right-0",
-                    )}
-                    style={{ bottom: PAGE_BAR_HEIGHT }}
-                  />
-                )}
+                {draftOpen && <DraftTrayLane ref={setTrayArea} />}
               </div>
             )}
 
             {/* Answer key viewer. With the Draft open, it folds away when there isn't room for three columns. */}
             {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
-              draftOpen ? <FoldingAnswerKey onOutChange={setAnswersOverDraft}>{answerViewer}</FoldingAnswerKey> : (
+              draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
                 <>
                   {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
                   {answerViewer}

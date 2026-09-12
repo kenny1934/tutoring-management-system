@@ -193,16 +193,10 @@ describe("AnnotationTray", () => {
       expect(scrollBy).toHaveBeenCalledTimes(1);
     });
 
-    it("centres itself by the width of its tools, even while its box is still the round button's width", () => {
-      // While the tray grows out of the round button, its box starts at the button's 60px.
-      stubGetter("offsetWidth", function () { return this.getAttribute("role") === "toolbar" ? 60 : 0; });
-      render(<NarrowHarness width={1200} />);
-      expect(tray().style.left).toBe(`${(1200 - 844) / 2}px`);
-    });
-
-    it("shows no arrow for more tools once it has opened out of the round button, when every tool fits", () => {
-      // jsdom can't animate, so this stands in for the tray's own animations.
-      // While one is running, the tray's box is only the round button's 60px.
+    // jsdom can't animate, so this stands in for the tray's own animations.
+    // While one is running, the tray's box is only the round button's 60px.
+    // It gives back a way to finish the one that's running.
+    function fakeAnimations() {
       let running: { onfinish: (() => void) | null; cancel: () => void } | null = null;
       const proto = HTMLElement.prototype as unknown as { animate?: unknown };
       proto.animate = function (this: HTMLElement) {
@@ -211,18 +205,51 @@ describe("AnnotationTray", () => {
         return animation;
       };
       restore.push(() => { delete proto.animate; });
-      stubGetter("clientWidth", function () {
-        if (this.getAttribute("role") === "toolbar") return running ? 60 : 844;
-        return Number(this.dataset.width ?? 0);
-      });
-      const finish = () => act(() => { const animation = running!; running = null; animation.onfinish?.(); });
+      for (const name of ["clientWidth", "offsetWidth"] as const) {
+        stubGetter(name, function () {
+          if (this.getAttribute("role") === "toolbar") return running ? 60 : 844;
+          return Number(this.dataset.width ?? 0);
+        });
+      }
+      return () => act(() => { const animation = running!; running = null; animation.onfinish?.(); });
+    }
 
+    it("stays put while it opens out of the round button, and places itself again once it has", () => {
+      const finish = fakeAnimations();
+      // Keep hold of each resize watcher, so the test can report a resize.
+      const watchers: (() => void)[] = [];
+      const original = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = class {
+        constructor(report: () => void) { watchers.push(report); }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      } as unknown as typeof ResizeObserver;
+      restore.push(() => { globalThis.ResizeObserver = original; });
+
+      const { container } = render(<NarrowHarness width={1200} />);
+      expect(tray().style.left).toBe(`${(1200 - 844) / 2}px`);
+      fireEvent.click(button("Collapse the tray"));
+      finish();
+      fireEvent.click(screen.getByRole("button", { name: /Open the annotation tray/ }));
+
+      // The area narrows partway through opening, while the tray's box is still the round button's width.
+      (container.firstChild as HTMLElement).dataset.width = "1000";
+      act(() => watchers[watchers.length - 1]());
+      expect(tray().style.left).toBe(`${(1200 - 844) / 2}px`);
+
+      finish();
+      expect(tray().style.left).toBe(`${(1000 - 844) / 2}px`);
+    });
+
+    it("shows no arrow for more tools once it has opened out of the round button, when every tool fits", () => {
+      const finish = fakeAnimations();
       render(<NarrowHarness width={1200} />);
       fireEvent.click(button("Collapse the tray"));
       finish();
       fireEvent.click(screen.getByRole("button", { name: /Open the annotation tray/ }));
-      // In a browser, the tray's resize watcher checks it partway through
-      // opening. A scroll stands in for that here.
+      // Partway through opening, most of the tools really are out of sight, so
+      // anything that checks then finds them there. A scroll stands in for that.
       fireEvent.scroll(tray());
       finish();
 

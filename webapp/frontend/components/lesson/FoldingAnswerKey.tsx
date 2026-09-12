@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { BookCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,26 +18,18 @@ import { cn } from "@/lib/utils";
  * It starts slid in, because it only appears when someone has just asked to
  * see the answers. The row has to be `relative` and hide its overflow, so the
  * answer key can wait off its right edge while it's away.
+ *
+ * While it's slid in, its panel carries `data-answers-out`. On a narrow row
+ * that means it's covering the Draft, and the lane the Pen Tray floats in
+ * looks for that mark to keep the tray over the worksheet (see DraftTrayLane).
  */
-export function FoldingAnswerKey({ children, onOutChange }: {
-  children: ReactNode;
-  /**
-   * Told whether the answer key is slid in, and told false when it goes away.
-   * On a narrow row, slid in means it's covering the Draft, so the lesson
-   * views keep the Pen Tray over the worksheet until it slides away again.
-   */
-  onOutChange?: (out: boolean) => void;
-}) {
+export function FoldingAnswerKey({ children }: { children: ReactNode }) {
   const [out, setOut] = useState(true);
-
-  const reportRef = useRef(onOutChange);
-  reportRef.current = onOutChange;
-  useLayoutEffect(() => { reportRef.current?.(out); }, [out]);
-  useLayoutEffect(() => () => reportRef.current?.(false), []);
 
   return (
     <>
       <div
+        data-answers-out={out || undefined}
         className={cn(
           "flex min-h-0 min-w-0",
           // The worksheet and the Draft share the row equally after the tab, so half of what's left is the Draft's width.

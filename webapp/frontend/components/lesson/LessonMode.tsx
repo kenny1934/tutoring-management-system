@@ -18,10 +18,10 @@ import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
-import { PAGE_BAR_HEIGHT, PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
-import { DraftPane } from "./DraftPane";
+import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
+import { DraftPane, DraftTrayLane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
-import { FocusModeButtons } from "./FocusModeButtons";
+import { FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { LessonNumberBadge } from "@/components/sessions/LessonNumberBadge";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -278,11 +278,9 @@ export function LessonMode({
 
   // Whether the Draft is open beside the worksheet
   const [showDraft, setShowDraft] = useState(false);
-  // While the Draft is open, the Pen Tray floats in an area over the worksheet
-  // and the Draft together. It keeps to the worksheet while the answer key is
-  // slid in over the Draft.
+  // While the Draft is open, the Pen Tray floats in a lane over the worksheet
+  // and the Draft together.
   const [trayArea, setTrayArea] = useState<HTMLElement | null>(null);
-  const [answersOverDraft, setAnswersOverDraft] = useState(false);
 
   // Answer key state
   const [showAnswerKey, setShowAnswerKey] = useState(false);
@@ -418,8 +416,9 @@ export function LessonMode({
   // session's list. A preview never survives a reload, and saving "Edit
   // exercises" gives every exercise a new id.
   useEffect(() => {
-    const source = selectedExercise && describeForZip(selectedExercise);
-    if (selectedExercise && source) setInkSource(selectedExercise.id, source);
+    if (!selectedExercise) return;
+    const source = describeForZip(selectedExercise);
+    if (source) setInkSource(selectedExercise.id, source);
   }, [selectedExercise, describeForZip, setInkSource]);
 
   // Auto-search for answer file when exercise changes
@@ -896,14 +895,10 @@ export function LessonMode({
   // This view has no student strip, so in focus mode these buttons share the
   // worksheet's toolbar, and show only their icons to leave it room.
   const focusButtons = focusMode && !isMobile ? (
-    <FocusModeButtons
-      icon={LayoutList}
-      label="Exercises"
-      sidebarOpen={hoverSidebar}
-      onOpenSidebar={() => setHoverSidebar(true)}
-      onLeave={exitFocusMode}
-      labelClass="sr-only"
-    />
+    <>
+      <FocusSidebarButton icon={LayoutList} label="Exercises" open={hoverSidebar} onOpen={() => setHoverSidebar(true)} labelClass="sr-only" />
+      <LeaveFocusButton onLeave={exitFocusMode} labelClass="sr-only" />
+    </>
   ) : null;
 
   const exerciseLabel = selectedExercise?.pdf_name
@@ -1241,7 +1236,7 @@ export function LessonMode({
           <div className={cn(
             "flex flex-1 min-h-0 min-w-0",
             !isMobile && showAnswerKey && answerPdfData && "gap-0",
-            draftOpen && "relative overflow-hidden @container/viewers",
+            draftOpen && "group/viewers relative overflow-hidden @container/viewers",
           )}>
             {/* Main exercise viewer — hidden on mobile when answer tab is active */}
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
@@ -1383,24 +1378,13 @@ export function LessonMode({
                 )}
 
                 {/* While the Draft is open, the Pen Tray floats in here, across the worksheet and the Draft */}
-                {draftOpen && (
-                  <div
-                    ref={setTrayArea}
-                    className={cn(
-                      "absolute left-0 top-0 pointer-events-none",
-                      // With the answer key slid in over the Draft, the tray keeps to the worksheet,
-                      // which is half the width less half the line between the two panes.
-                      answersOverDraft ? "right-[calc(50%+0.5px)] @[1100px]/viewers:right-0" : "right-0",
-                    )}
-                    style={{ bottom: PAGE_BAR_HEIGHT }}
-                  />
-                )}
+                {draftOpen && <DraftTrayLane ref={setTrayArea} />}
               </div>
             )}
 
             {/* Answer key viewer (read-only). With the Draft open, it folds away when there isn't room for three columns. */}
             {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
-              draftOpen ? <FoldingAnswerKey onOutChange={setAnswersOverDraft}>{answerViewer}</FoldingAnswerKey> : (
+              draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
                 <>
                   {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
                   {answerViewer}

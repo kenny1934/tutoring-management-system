@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
@@ -42,16 +42,18 @@ const SQUARED_PAPER: CSSProperties = {
 
 const DARK_PAPER: CSSProperties = { filter: PDF_DARK_FILTER };
 
-// The lesson views float the Pen Tray across the worksheet and the Draft, just
-// above the worksheet's page bar. This is how far the tray's top sits above
-// the bottom of the Draft.
+// The Pen Tray floats in DraftTrayLane, at the end of this file, which stops
+// at the top of the worksheet's page bar. This is how far the tray's top sits
+// above the bottom of the Draft.
 const TRAY_TOP = PAGE_BAR_HEIGHT + TRAY_CLEARANCE;
 
 const barButton = cn(tbBtn, "transition-colors");
+// Clear and its options grey out the same way when there's nothing to clear.
+const greyedOut = "disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed";
 const clearOption = cn(
   menuItemClass,
   "min-h-11 text-red-700 dark:text-red-400 hover:bg-[#f5ebe0] dark:hover:bg-[#3a3228]",
-  "disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed",
+  greyedOut,
 );
 
 /**
@@ -71,7 +73,8 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
   // How many sheets each exercise's Draft has been given with "Add a sheet".
   // Sheets with ink on them are counted from the ink, so they survive a reload.
   const [sheetsAsked, setSheetsAsked] = useState<Record<number, number>>({});
-  const sheetCount = Math.max(1, draftSheetsInUse(annotations), sheetsAsked[exerciseId] ?? 0);
+  const sheetsInUse = draftSheetsInUse(annotations);
+  const sheetCount = Math.max(1, sheetsInUse, sheetsAsked[exerciseId] ?? 0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sheetRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -111,7 +114,7 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
   const undoOffer = useUndoOffer(annotations);
   // "This sheet" is whichever sheet fills most of the pane when the menu opens.
   const [sheetInView, setSheetInView] = useState(0);
-  const draftHasInk = draftSheetsInUse(annotations) > 0;
+  const draftHasInk = sheetsInUse > 0;
   const sheetHasInk = (n: number) => (annotations[DRAFT_PAGE_BASE + n]?.length ?? 0) > 0;
 
   const sheetMostInView = () => {
@@ -169,7 +172,7 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
                 triggerProps.onClick();
               }}
               disabled={!draftHasInk}
-              className={cn(barButton, tbBtnIdle, "disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed")}
+              className={cn(barButton, tbBtnIdle, greyedOut)}
             >
               <Trash2 className="h-5 w-5" />
               Clear
@@ -264,5 +267,31 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
         />
       )}
     </section>
+  );
+}
+
+/**
+ * The lane the Pen Tray floats in while the Draft is open. A lesson view puts
+ * it in the box that holds the worksheet and the Draft, and hands it to the
+ * worksheet's viewer, which draws its tray in here. Touches pass through it to
+ * the panes underneath. It stops at the top of the worksheet's page bar, so
+ * the tray sits just above the bar.
+ *
+ * Below 1100px the answer key can slide in over the Draft (see
+ * FoldingAnswerKey). While it's there, the lane keeps to the worksheet, which
+ * is half the width less half the line between the two panes. For that to
+ * work, the row of viewers needs the `group/viewers` class as well as being
+ * the "viewers" container.
+ */
+export function DraftTrayLane({ ref }: { ref: Ref<HTMLDivElement> }) {
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "absolute left-0 right-0 top-0 pointer-events-none",
+        "@max-[1100px]/viewers:group-has-[[data-answers-out]]/viewers:right-[calc(50%+0.5px)]",
+      )}
+      style={{ bottom: PAGE_BAR_HEIGHT }}
+    />
   );
 }

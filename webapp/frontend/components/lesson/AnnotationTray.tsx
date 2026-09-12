@@ -166,9 +166,7 @@ export function AnnotationTray({
   const [hiddenSides, setHiddenSides] = useState({ start: false, end: false });
   const updateHiddenSides = useCallback(() => {
     const tray = trayRef.current;
-    // While the tray grows out of the round button, most of its tools really
-    // are out of sight, so this waits and checks again once it has finished.
-    if (!tray || morphRef.current) return;
+    if (!tray) return;
     const start = tray.scrollLeft > 1;
     const end = tray.scrollLeft + tray.clientWidth < tray.scrollWidth - 1;
     setHiddenSides((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
@@ -182,10 +180,14 @@ export function AnnotationTray({
    * Put the tray where its dock says, leaving the side margin free. This is
    * also where the tray decides whether it has to be compact. When that
    * changes, the tray renders again and is placed once more at its new width.
+   *
+   * While a drag or an animation is moving the tray, its box is only part of
+   * the way there, so this leaves it alone. Dropping the tray places it again,
+   * and so does the end of the animation that opens it.
    */
   const place = useCallback(() => {
     const tray = trayRef.current;
-    if (!tray || dragRef.current) return;
+    if (!tray || dragRef.current || morphRef.current) return;
     const width = areaWidth();
     if (!compact && !collapsed) fullWidthRef.current = tray.scrollWidth;
     // An area with no width hasn't been laid out yet, so it says nothing about fitting.
@@ -193,13 +195,11 @@ export function AnnotationTray({
     if (needsCompact !== compact) { setCompact(needsCompact); return; }
     // A collapsed tray is hidden, so there's nothing to place until it opens.
     if (collapsed) return;
-    // The tray's width is worked out from its tools, capped at the room there
-    // is. Its box on screen can't be used for this, because while the tray is
-    // growing out of the round button, its box is still the button's width.
-    const trayWidth = Math.min(tray.scrollWidth, width - 2 * MARGIN);
-    const left = dock === "left" ? MARGIN : dock === "right" ? width - trayWidth - MARGIN : (width - trayWidth) / 2;
-    tray.style.left = `${Math.max(MARGIN, left)}px`;
+    // Moving the tray doesn't change which of its tools are out of sight, so
+    // that's checked before the move, while the layout is still up to date.
     updateHiddenSides();
+    const left = dock === "left" ? MARGIN : dock === "right" ? width - tray.offsetWidth - MARGIN : (width - tray.offsetWidth) / 2;
+    tray.style.left = `${Math.max(MARGIN, left)}px`;
   }, [dock, compact, collapsed, updateHiddenSides]);
 
   useLayoutEffect(() => {
@@ -351,8 +351,8 @@ export function AnnotationTray({
     tray.style.transition = "none";
     const anim = tray.animate([fabFrame(fabLeft()), trayFrame(tray)], { duration: 320, easing: EASE });
     morphRef.current = anim;
-    anim.onfinish = () => { morphRef.current = null; setMorphing(false); updateHiddenSides(); };
-  }, [collapsed, place, fabLeft, reducedMotion, updateHiddenSides]);
+    anim.onfinish = () => { morphRef.current = null; setMorphing(false); place(); };
+  }, [collapsed, place, fabLeft, reducedMotion]);
 
   useEffect(() => () => morphRef.current?.cancel(), []);
 
