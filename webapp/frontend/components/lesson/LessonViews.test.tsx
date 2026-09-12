@@ -183,6 +183,9 @@ const wong = lesson(101, "Wong Siu Ming", "1235", [
 ]);
 /** A lesson with classwork and no homework. */
 const lee = lesson(102, "Lee Ka Yan", "1236", [exercise(3001, 102, "CW", LINEAR)]);
+/** A lesson whose only exercise is a video link. */
+const VIDEO = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+const ho = lesson(103, "Ho Wing Kei", "1237", [{ ...exercise(4001, 103, "CW", ""), url: VIDEO } as SessionExercise]);
 
 function renderOneStudent({ session = chan, ...props }: { isReadOnly?: boolean; session?: Session } = {}) {
   const onExit = vi.fn();
@@ -516,6 +519,15 @@ describe.each([
     expect(screen.queryByTitle("Exit focus mode (Esc)")).toBeNull();
     fireEvent.mouseMove(document, { clientX: 600, clientY: 2 });
     expect(await screen.findByTitle("Exit focus mode (Esc)")).toBeInTheDocument();
+  });
+
+  it("shows a link exercise in a frame, without loading a file for it", async () => {
+    mount([ho]);
+    await waitFor(() => expect(document.querySelector("iframe")).toHaveAttribute(
+      "src", "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    ));
+    expect(screen.queryByTestId("worksheet")).toBeNull();
+    expect(h.loadExercisePdf).not.toHaveBeenCalled();
   });
 
   it("lists the keys in its help panel, including the ones the two views used to differ on", async () => {

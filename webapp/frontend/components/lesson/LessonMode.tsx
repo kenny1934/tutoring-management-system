@@ -3,10 +3,10 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Calendar, Clock, MapPin,
-  AlertTriangle, LayoutList, ExternalLink, Home,
+  AlertTriangle, LayoutList, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDisplayName, getExerciseDisplayName, toEmbedUrl } from "@/lib/exercise-utils";
+import { getDisplayName, getExerciseDisplayName } from "@/lib/exercise-utils";
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { useToast } from "@/contexts/ToastContext";
 import { getExercisePageNumbers, getPrintButtonTitle, NO_FILE_ERROR, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
@@ -33,6 +33,7 @@ import { usePrintExercise } from "@/hooks/usePrintExercise";
 import { useLessonKeys } from "@/hooks/useLessonKeys";
 import { ShortcutHelpPanel, type ShortcutRow } from "./ShortcutHelpPanel";
 import { LessonHeader, type HeaderDetail } from "./LessonHeader";
+import { UrlExerciseView } from "./UrlExerciseView";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
@@ -573,68 +574,13 @@ export function LessonMode({
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
               <div className={cn("relative flex flex-1 min-h-0 min-w-0", draftOpen && "@[1100px]/viewers:flex-[2]")}>
                 {selectedExercise?.url && !selectedExercise?.pdf_name ? (
-                  /* URL exercise: iframe embed or open-in-new-tab */
-                  <div className={cn("flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]", isMobile && "pb-20")}>
-                    {/* A URL exercise has no viewer toolbar, so focus mode's buttons get a bar of their own */}
-                    {focusButtons && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
-                        {focusButtons}
-                      </div>
-                    )}
-                    {(() => {
-                      const embedUrl = toEmbedUrl(selectedExercise.url);
-                      if (embedUrl) {
-                        const isGoogleDoc = selectedExercise.url?.includes("docs.google.com");
-                        return (
-                          <>
-                            <iframe
-                              src={embedUrl}
-                              className="w-full border-0 rounded"
-                              style={{ flex: 1, minHeight: 0 }}
-                              allow="autoplay; fullscreen"
-                              allowFullScreen
-                              title={getExerciseDisplayName(selectedExercise)}
-                            />
-                            {(isMobile || isGoogleDoc) && (
-                              <div className="flex items-center justify-center gap-3 py-1.5 text-xs flex-shrink-0">
-                                {isMobile && (
-                                  <a
-                                    href={selectedExercise.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:underline"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                    Open in app
-                                  </a>
-                                )}
-                                {isGoogleDoc && (
-                                  <span className="text-[#8b7355] dark:text-[#a09080]">
-                                    Can't see the file? Ask the owner to share it with you.
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        );
-                      }
-                      return (
-                        <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                          <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-                            This resource cannot be embedded directly.
-                          </p>
-                          <a
-                            href={selectedExercise.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                          >
-                            Open in new tab
-                          </a>
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  <UrlExerciseView
+                    url={selectedExercise.url}
+                    title={getExerciseDisplayName(selectedExercise)}
+                    isMobile={isMobile}
+                    // A link has no viewer toolbar, so focus mode's buttons get a bar of their own.
+                    toolbarStart={focusButtons}
+                  />
                 ) : (
                 <ErrorBoundary
                   onReset={handleRetry}
