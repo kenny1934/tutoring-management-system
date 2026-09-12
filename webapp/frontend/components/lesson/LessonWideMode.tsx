@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Calendar, MapPin, Users,
-  AlertTriangle, LayoutList, Home,
+  LayoutList, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
@@ -19,12 +19,9 @@ import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
 import { StudentStrip, stripLabel } from "./StudentStrip";
 import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
-import { DraftPane, DraftTrayLane } from "./DraftPane";
-import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
-import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion } from "framer-motion";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
@@ -33,6 +30,8 @@ import { useLessonKeys } from "@/hooks/useLessonKeys";
 import { ShortcutHelpPanel, type ShortcutRow } from "./ShortcutHelpPanel";
 import { LessonHeader, type HeaderDetail } from "./LessonHeader";
 import { UrlExerciseView } from "./UrlExerciseView";
+import { LessonViewerArea } from "./LessonViewerArea";
+import { useDraft } from "@/hooks/useDraft";
 import { useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -234,11 +233,8 @@ export function LessonWideMode({
   });
   const drawingEnabled = tools.drawingEnabled;
 
-  // Whether the Draft is open beside the worksheet
-  const [showDraft, setShowDraft] = useState(false);
-  // While the Draft is open, the Pen Tray floats in a lane over the worksheet
-  // and the Draft together.
-  const [trayArea, setTrayArea] = useState<HTMLElement | null>(null);
+  // The Draft beside the worksheet
+  const { draftOpen, toggleDraft, closeDraft, trayArea, setTrayArea } = useDraft(openExercise, isMobile);
 
   // --- The open worksheet's answer key ---
   const {
@@ -336,11 +332,6 @@ export function LessonWideMode({
       setSelectedEntry(allEntries[0]);
     }
   }, [allEntries, selectedEntry]);
-
-  // The Draft sits beside the worksheet viewer. It isn't offered on phones,
-  // and an exercise that's a web link has no viewer for it to sit beside.
-  const isLinkExercise = !!openExercise?.url && !openExercise?.pdf_name;
-  const draftOpen = showDraft && !isMobile && !!openExercise && !isLinkExercise;
 
   // --- Exercise modal ---
   const handleEditExercises = useCallback((session: Session, type: "CW" | "HW") => {
@@ -744,10 +735,11 @@ export function LessonWideMode({
           </>
         )}
 
-        {/* PDF Viewer area */}
-        <div className="flex flex-col flex-1 min-h-0 min-w-0">
-          {/* Whose worksheet this is, in large letters, with arrows to the next student */}
-          {selectedEntry && (
+        {/* The open exercise, with its Draft and its answer key */}
+        <LessonViewerArea
+          isMobile={isMobile}
+          // Whose worksheet this is, in large letters, with arrows to the next student
+          top={selectedEntry && (
             <StudentStrip
               entry={selectedEntry}
               position={stepIndex >= 0 ? { index: stepIndex + 1, total: stepCount } : null}
@@ -760,136 +752,70 @@ export function LessonWideMode({
               end={focusMode ? <LeaveFocusButton onLeave={exitFocusMode} labelClass={stripLabel} /> : undefined}
             />
           )}
-
-          {/* Mobile tab bar when answer key is shown */}
-          {isMobile && showAnswerKey && answerPdfData && (
-            <div className="flex border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
-              <button
-                onClick={() => setMobileActiveTab("exercise")}
-                className={cn(
-                  "flex-1 py-2.5 text-xs font-semibold text-center transition-colors",
-                  mobileActiveTab === "exercise"
-                    ? "text-[#6b4c30] dark:text-[#d4a574] border-b-2 border-[#a0704b]"
-                    : "text-[#8b7355] dark:text-[#a09080]"
-                )}
-              >
-                Exercise
-              </button>
-              <button
-                onClick={() => setMobileActiveTab("answer")}
-                className={cn(
-                  "flex-1 py-2.5 text-xs font-semibold text-center transition-colors",
-                  mobileActiveTab === "answer"
-                    ? "text-[#6b4c30] dark:text-[#d4a574] border-b-2 border-[#a0704b]"
-                    : "text-[#8b7355] dark:text-[#a09080]"
-                )}
-              >
-                Answer Key
-              </button>
-            </div>
-          )}
-
-          {/* PDF viewers */}
-          <div className={cn(
-            "flex flex-1 min-h-0 min-w-0",
-            !isMobile && showAnswerKey && answerPdfData && "gap-0",
-            draftOpen && "group/viewers relative overflow-hidden @container/viewers",
-          )}>
-            {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
-              <div className={cn("relative flex flex-1 min-h-0 min-w-0", draftOpen && "@[1100px]/viewers:flex-[2]")}>
-                {selectedEntry?.exercise?.url && !selectedEntry?.exercise?.pdf_name ? (
-                  // Focus mode's way back is in the student strip above, so the link needs no bar of its own.
-                  <UrlExerciseView
-                    url={selectedEntry.exercise.url}
-                    title={getExerciseDisplayName(selectedEntry.exercise)}
-                    isMobile={isMobile}
-                  />
-                ) : (
-                <ErrorBoundary
-                  onReset={handleRetry}
-                  fallback={
-                    <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
-                      <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-                        <AlertTriangle className="h-10 w-10 text-amber-500" />
-                        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-                          Something went wrong rendering the PDF
-                        </p>
-                        <button onClick={handleRetry} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors">
-                          Try again
-                        </button>
-                      </div>
-                    </div>
-                  }
-                >
-                  <PdfPageViewer
-                    pdfData={pdfData}
-                    pageNumbers={pageNumbers}
-                    stamp={stamp}
-                    exerciseId={selectedEntry?.exercise?.id}
-                    isLoading={pdfLoading}
-                    loadingMessage={pdfLoadingMessage}
-                    error={pdfError}
-                    exerciseLabel={exerciseLabel}
-                    // Trying again can't find a file the exercise doesn't have.
-                    onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
-                    annotations={currentAnnotations}
-                    onPageStrokesChange={handlePageStrokesChange}
-                    tools={tools}
-                    onUndo={handleUndo}
-                    onRedo={handleRedo}
-                    onClearAll={handleClearAllAnnotations}
-                    onClearPage={handleClearPage}
-                    hasAnnotations={exerciseHasAnnotations}
-                    onSaveAnnotated={handleSaveAnnotated}
-                    onAnswerKeyToggle={handleAnswerKeyToggle}
-                    showAnswerKey={showAnswerKey}
-                    answerKeyAvailable={answerKeyFound}
-                    answerKeySearching={answerKeySearching}
-                    onDraftToggle={isMobile || !openExercise ? undefined : () => setShowDraft((open) => !open)}
-                    showDraft={draftOpen}
-                    toolbarStart={focusButtons}
-                    onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
-                    isPrinting={printing.id !== null}
-                    printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
-                    emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
-                    viewStates={viewStatesRef.current}
-                    trayArea={draftOpen ? trayArea : undefined}
-                  />
-                </ErrorBoundary>
-                )}
-
-                {/* The Draft, beside the worksheet */}
-                {draftOpen && openExercise && (
-                  <>
-                    <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
-                    <DraftPane
-                      exerciseId={openExercise.id}
-                      annotations={currentAnnotations}
-                      onPageStrokesChange={handlePageStrokesChange}
-                      onClearPages={handleClearPages}
-                      onUndo={handleUndo}
-                      tools={tools}
-                      onClose={() => setShowDraft(false)}
-                    />
-                  </>
-                )}
-
-                {/* While the Draft is open, the Pen Tray floats in here, across the worksheet and the Draft */}
-                {draftOpen && <DraftTrayLane ref={setTrayArea} />}
-              </div>
-            )}
-
-            {/* Answer key viewer. With the Draft open, it folds away when there isn't room for three columns. */}
-            {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
-              draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
-                <>
-                  {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
-                  {answerViewer}
-                </>
-              )
-            )}
-          </div>
-        </div>
+          link={selectedEntry?.exercise?.url && !selectedEntry?.exercise?.pdf_name ? (
+            // Focus mode's way back is in the student strip above, so the link needs no bar of its own.
+            <UrlExerciseView
+              url={selectedEntry.exercise.url}
+              title={getExerciseDisplayName(selectedEntry.exercise)}
+              isMobile={isMobile}
+            />
+          ) : undefined}
+          worksheet={
+            <PdfPageViewer
+              pdfData={pdfData}
+              pageNumbers={pageNumbers}
+              stamp={stamp}
+              exerciseId={selectedEntry?.exercise?.id}
+              isLoading={pdfLoading}
+              loadingMessage={pdfLoadingMessage}
+              error={pdfError}
+              exerciseLabel={exerciseLabel}
+              // Trying again can't find a file the exercise doesn't have.
+              onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
+              annotations={currentAnnotations}
+              onPageStrokesChange={handlePageStrokesChange}
+              tools={tools}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onClearAll={handleClearAllAnnotations}
+              onClearPage={handleClearPage}
+              hasAnnotations={exerciseHasAnnotations}
+              onSaveAnnotated={handleSaveAnnotated}
+              onAnswerKeyToggle={handleAnswerKeyToggle}
+              showAnswerKey={showAnswerKey}
+              answerKeyAvailable={answerKeyFound}
+              answerKeySearching={answerKeySearching}
+              onDraftToggle={isMobile || !openExercise ? undefined : toggleDraft}
+              showDraft={draftOpen}
+              toolbarStart={focusButtons}
+              onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
+              isPrinting={printing.id !== null}
+              printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
+              emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
+              viewStates={viewStatesRef.current}
+              trayArea={draftOpen ? trayArea : undefined}
+            />
+          }
+          onRetry={handleRetry}
+          answerKey={{
+            shown: showAnswerKey,
+            loaded: !!answerPdfData,
+            viewer: answerViewer,
+            mobileTab: mobileActiveTab,
+            onMobileTabChange: setMobileActiveTab,
+          }}
+          draft={{
+            open: draftOpen,
+            exerciseId: openExercise?.id,
+            annotations: currentAnnotations,
+            onPageStrokesChange: handlePageStrokesChange,
+            onClearPages: handleClearPages,
+            onUndo: handleUndo,
+            tools,
+            onClose: closeDraft,
+            onTrayArea: setTrayArea,
+          }}
+        />
       </div>
 
       {/* Focus mode brings the header and the sidebar back over the worksheet */}

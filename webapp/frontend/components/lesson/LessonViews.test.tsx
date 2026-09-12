@@ -94,6 +94,7 @@ interface ViewerProps {
   answerKeySearching?: boolean;
   onRetry?: () => void;
   zoomKeys?: boolean;
+  onDraftToggle?: () => void;
 }
 
 // The worksheet viewer is the one that takes ink, and the answer key's doesn't.
@@ -120,6 +121,7 @@ vi.mock("./PdfPageViewer", () => ({
         {props.zoomKeys !== false && <p>Takes the zoom keys</p>}
         {onStrokes && <button onClick={() => onStrokes(0, [...strokes, stroke])}>Draw a stroke</button>}
         {props.onRetry && <button onClick={props.onRetry}>Try again</button>}
+        {props.onDraftToggle && <button onClick={props.onDraftToggle}>Open the Draft</button>}
       </section>
     );
   },
@@ -519,6 +521,31 @@ describe.each([
     expect(screen.queryByTitle("Exit focus mode (Esc)")).toBeNull();
     fireEvent.mouseMove(document, { clientX: 600, clientY: 2 });
     expect(await screen.findByTitle("Exit focus mode (Esc)")).toBeInTheDocument();
+  });
+
+  it("opens the Draft beside the worksheet, and closes it again", async () => {
+    mount();
+    await opened("Linear equations 3");
+    await inkLoaded();
+    fireEvent.click(within(worksheet()).getByRole("button", { name: "Open the Draft" }));
+    expect(await screen.findByRole("region", { name: "Draft" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close the draft" }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Draft" })).toBeNull());
+  });
+
+  it("puts the worksheet and the answer key on tabs on a phone", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 500 });
+    h.searchAnswerFile.mockResolvedValue({ path: LINEAR_ANSWERS, source: "local" });
+    mount();
+    await within(await screen.findByTestId("worksheet")).findByText("Answer key found");
+    press("a");
+    fireEvent.click(await screen.findByRole("button", { name: "Answer Key" }));
+    expect(await screen.findByTestId("answer-key")).toBeInTheDocument();
+    expect(screen.queryByTestId("worksheet")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Exercise" }));
+    expect(await screen.findByTestId("worksheet")).toBeInTheDocument();
+    expect(screen.queryByTestId("answer-key")).toBeNull();
   });
 
   it("shows a link exercise in a frame, without loading a file for it", async () => {
