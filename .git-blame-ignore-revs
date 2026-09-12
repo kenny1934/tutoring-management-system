@@ -1,0 +1,6 @@
+# Commits that git blame should skip, because they only changed formatting.
+# GitHub reads this file on its own. To use it locally, run
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# The lesson files moved from Windows to Unix line endings.
+fe1fee936d90b0d1b31a4747068035a9d9ce9c2a
