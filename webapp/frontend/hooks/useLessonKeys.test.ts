@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { lessonKeyAction, useLessonKeys, type LessonKeyEvent, type LessonKeyState } from "./useLessonKeys";
+import { lessonKeyAction, lessonShortcuts, useLessonKeys, type LessonKeyEvent, type LessonKeyState } from "./useLessonKeys";
 
 /** Nothing open, and the Hand picked. */
 const calm: LessonKeyState = {
@@ -20,6 +20,9 @@ describe("lessonKeyAction", () => {
     ["Tab", "nextStudent"],
     ["d", "pen"],
     ["e", "eraser"],
+    ["+", "zoomIn"],
+    ["=", "zoomIn"],
+    ["-", "zoomOut"],
     ["z", "undo"],
     ["Z", "redo"],
     ["c", "editClasswork"],
@@ -41,8 +44,14 @@ describe("lessonKeyAction", () => {
     expect(lessonKeyAction(key("z", { shiftKey: true }), calm)).toBe("redo");
   });
 
-  it("leaves the zoom keys and every other key alone, because the worksheet's viewer zooms itself", () => {
-    for (const k of ["+", "=", "-", "x", "Enter", " "]) expect(lessonKeyAction(key(k), calm)).toBeNull();
+  it("leaves every other key alone", () => {
+    for (const k of ["x", "Enter", " "]) expect(lessonKeyAction(key(k), calm)).toBeNull();
+  });
+
+  it("leaves + and - held with Ctrl, Cmd or Alt to the browser's own page zoom", () => {
+    expect(lessonKeyAction(key("+", { ctrlKey: true }), calm)).toBeNull();
+    expect(lessonKeyAction(key("-", { metaKey: true }), calm)).toBeNull();
+    expect(lessonKeyAction(key("=", { altKey: true }), calm)).toBeNull();
   });
 
   it("closes the nearest thing with Escape: Wolfram, the print menu, the help, the pen, then focus mode", () => {
@@ -56,7 +65,7 @@ describe("lessonKeyAction", () => {
 
   it("ignores every key while a dialog is open", () => {
     const blocked = { ...calm, blocked: true };
-    for (const k of ["j", "z", "Escape", "c"]) expect(lessonKeyAction(key(k), blocked)).toBeNull();
+    for (const k of ["j", "z", "Escape", "c", "+"]) expect(lessonKeyAction(key(k), blocked)).toBeNull();
   });
 
   it("lets only Escape through while Wolfram is open", () => {
@@ -79,6 +88,23 @@ describe("lessonKeyAction", () => {
       expect(lessonKeyAction(key("j", { target: document.createElement(tag) }), calm)).toBeNull();
     }
     expect(lessonKeyAction(key("j", { target: document.createElement("div") }), calm)).toBe("next");
+  });
+});
+
+describe("lessonShortcuts", () => {
+  const keys = (view: Parameters<typeof lessonShortcuts>[0]) => lessonShortcuts(view).map(([k]) => k);
+
+  it("lists Tab only for the multi-student view and H only for the one-student view", () => {
+    expect(keys("multi-student")).toContain("Tab");
+    expect(keys("multi-student")).not.toContain("H");
+    expect(keys("one-student")).toContain("H");
+    expect(keys("one-student")).not.toContain("Tab");
+  });
+
+  it("says Escape leaves only the one-student view", () => {
+    const escape = (view: Parameters<typeof lessonShortcuts>[0]) => lessonShortcuts(view).find(([k]) => k === "Esc")?.[1];
+    expect(escape("one-student")).toBe("Exit / Back");
+    expect(escape("multi-student")).toBe("Back");
   });
 });
 

@@ -21,5 +21,12 @@ export function useDraft(exercise: Pick<SessionExercise, "url" | "pdf_name"> | n
   const toggleDraft = useCallback(() => setShowDraft((open) => !open), []);
   const closeDraft = useCallback(() => setShowDraft(false), []);
 
-  return { draftOpen, toggleDraft, closeDraft, trayArea, setTrayArea };
+  return {
+    draftOpen,
+    toggleDraft,
+    closeDraft,
+    /** The lane for the Pen Tray, only while the Draft is open. Otherwise the tray stays in the worksheet's viewer. */
+    trayArea: draftOpen ? trayArea : undefined,
+    setTrayArea,
+  };
 }

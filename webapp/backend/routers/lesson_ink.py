@@ -31,7 +31,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from auth.dependencies import get_current_user, reject_read_only, require_admin_write
 from constants import hk_now, today_hk
@@ -143,9 +143,11 @@ def _save_pages(db: Session, pages: List[InkPageIn], user: Tutor) -> dict:
         .filter(SessionExercise.id.in_(exercise_ids)).all()
     ) if exercise_ids else {}
 
+    # The rows are only written over, so their old strokes, which can be tens
+    # of kilobytes a page, are never loaded.
     existing = {
         (row.session_id, row.target_key, row.page_index): row
-        for row in db.query(LessonInk).filter(
+        for row in db.query(LessonInk).options(defer(LessonInk.strokes)).filter(
             LessonInk.session_id.in_(session_ids), LessonInk.target_key.in_(target_keys),
         )
     }

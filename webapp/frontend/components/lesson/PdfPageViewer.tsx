@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useCallback, type ReactNode, type Ref } from "react";
 import { createPortal } from "react-dom";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
@@ -8,7 +8,6 @@ import {
   ChevronUp, ChevronDown, Printer, NotebookPen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { zoomKeyStep } from "@/lib/lesson-utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { AnnotationTray } from "./AnnotationTray";
@@ -147,10 +146,18 @@ interface PdfPageViewerProps {
    */
   trayArea?: HTMLElement | null;
   /**
-   * Whether + and - zoom this viewer. The lesson views turn it off for the
-   * answer key, so the keys zoom only the worksheet beside it.
+   * How the lesson views zoom this viewer from the keyboard. The + and - keys
+   * go through the views' key table, so they wait while a dialog is open, and
+   * only the worksheet's viewer is handed this, so the answer key keeps its
+   * own zoom.
    */
-  zoomKeys?: boolean;
+  ref?: Ref<PdfViewerHandle>;
+}
+
+/** What a lesson view can do to its worksheet's viewer from the keyboard. */
+export interface PdfViewerHandle {
+  zoomIn: () => void;
+  zoomOut: () => void;
 }
 
 const MIN_ZOOM = 25;
@@ -199,7 +206,7 @@ export function PdfPageViewer({
   emptyMessage = "Select an exercise to view",
   viewStates,
   trayArea,
-  zoomKeys = true,
+  ref,
 }: PdfPageViewerProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -331,6 +338,8 @@ export function PdfPageViewer({
     userHasZoomed.current = true;
     setZoom((z) => Math.max(z - ZOOM_STEP, MIN_ZOOM));
   }, []);
+
+  useImperativeHandle(ref, () => ({ zoomIn: handleZoomIn, zoomOut: handleZoomOut }), [handleZoomIn, handleZoomOut]);
 
   const handleFitWidth = useCallback(() => {
     if (pagesRef.current.length === 0 || !scrollContainerRef.current) return;
@@ -729,21 +738,6 @@ export function PdfPageViewer({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, exerciseId]);
-
-  // + and - zoom in and out. Held with Ctrl, Cmd or Alt they're left to the
-  // browser, whose own page zoom they are.
-  useEffect(() => {
-    if (!zoomKeys) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const step = zoomKeyStep(e);
-      if (step === 0) return;
-      e.preventDefault();
-      userHasZoomed.current = true;
-      setZoom((z) => Math.min(Math.max(z + step * ZOOM_STEP, MIN_ZOOM), MAX_ZOOM));
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [zoomKeys]);
 
   // While a worksheet loads, fails or is missing, the view's own buttons still
   // sit at the top. In focus mode they're the way back, so they can't vanish.

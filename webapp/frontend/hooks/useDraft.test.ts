@@ -36,6 +36,15 @@ describe("useDraft", () => {
     expect(result.current.draftOpen).toBe(true);
   });
 
+  it("hands over the Pen Tray's lane only while the Draft is open", () => {
+    const lane = document.createElement("div");
+    const { result } = renderHook(() => useDraft(worksheet, false));
+    act(() => result.current.setTrayArea(lane));
+    expect(result.current.trayArea).toBeUndefined();
+    act(() => result.current.toggleDraft());
+    expect(result.current.trayArea).toBe(lane);
+  });
+
   it("keeps its functions the same between renders", () => {
     const { result, rerender } = renderHook(() => useDraft(worksheet, false));
     const first = result.current;

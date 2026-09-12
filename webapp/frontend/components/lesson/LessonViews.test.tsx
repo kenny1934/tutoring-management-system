@@ -6,6 +6,8 @@ import type { LessonInkPageIn } from "@/lib/api";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import type { AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
+import type { Ref } from "react";
+import type { PdfViewerHandle } from "./PdfPageViewer";
 
 // These tests pin down what the two lesson views do today, so the work of
 // moving their shared parts into hooks can't change it without a test
@@ -93,39 +95,48 @@ interface ViewerProps {
   answerKeyAvailable?: boolean;
   answerKeySearching?: boolean;
   onRetry?: () => void;
-  zoomKeys?: boolean;
   onDraftToggle?: () => void;
+  ref?: Ref<PdfViewerHandle>;
 }
 
 // The worksheet viewer is the one that takes ink, and the answer key's doesn't.
-vi.mock("./PdfPageViewer", () => ({
-  PAGE_BAR_HEIGHT: 49,
-  toolbarRow: "",
-  tbBtn: "",
-  tbBtnIdle: "",
-  tbBtnOn: "",
-  PdfPageViewer: (props: ViewerProps) => {
-    const onStrokes = props.onPageStrokesChange;
-    const strokes = props.annotations?.[0] ?? [];
-    const stroke: Stroke = { points: [[10, 10, 0.5], [20, 20, 0.5]], color: "#000000", size: 3 };
-    return (
-      <section data-testid={onStrokes ? "worksheet" : "answer-key"}>
-        <p>{props.exerciseLabel}</p>
-        {props.isLoading && <p>Loading</p>}
-        {props.error && <p>{props.error}</p>}
-        {props.stamp && <p>Stamped for {props.stamp.studentName}</p>}
-        {onStrokes && <p>Strokes on the first page: {strokes.length}</p>}
-        {onStrokes && <p>{props.tools?.drawingEnabled ? "Drawing" : "On the Hand"}</p>}
-        {props.answerKeySearching && <p>Looking for the answer key</p>}
-        {props.answerKeyAvailable && <p>Answer key found</p>}
-        {props.zoomKeys !== false && <p>Takes the zoom keys</p>}
-        {onStrokes && <button onClick={() => onStrokes(0, [...strokes, stroke])}>Draw a stroke</button>}
-        {props.onRetry && <button onClick={props.onRetry}>Try again</button>}
-        {props.onDraftToggle && <button onClick={props.onDraftToggle}>Open the Draft</button>}
-      </section>
-    );
-  },
-}));
+// Each stub keeps a zoom that the view's keys can change through its ref.
+vi.mock("./PdfPageViewer", async () => {
+  const { useImperativeHandle, useState } = await import("react");
+  return {
+    PAGE_BAR_HEIGHT: 49,
+    toolbarRow: "",
+    tbBtn: "",
+    tbBtnIdle: "",
+    tbBtnOn: "",
+    PdfPageViewer: (props: ViewerProps) => {
+      const [zoom, setZoom] = useState(100);
+      useImperativeHandle(props.ref, () => ({
+        zoomIn: () => setZoom((z) => z + 25),
+        zoomOut: () => setZoom((z) => z - 25),
+      }));
+      const onStrokes = props.onPageStrokesChange;
+      const strokes = props.annotations?.[0] ?? [];
+      const stroke: Stroke = { points: [[10, 10, 0.5], [20, 20, 0.5]], color: "#000000", size: 3 };
+      return (
+        <section data-testid={onStrokes ? "worksheet" : "answer-key"}>
+          <p>{props.exerciseLabel}</p>
+          {props.isLoading && <p>Loading</p>}
+          {props.error && <p>{props.error}</p>}
+          {props.stamp && <p>Stamped for {props.stamp.studentName}</p>}
+          {onStrokes && <p>Strokes on the first page: {strokes.length}</p>}
+          {onStrokes && <p>{props.tools?.drawingEnabled ? "Drawing" : "On the Hand"}</p>}
+          {props.answerKeySearching && <p>Looking for the answer key</p>}
+          {props.answerKeyAvailable && <p>Answer key found</p>}
+          <p>Zoom {zoom}%</p>
+          {onStrokes && <button onClick={() => onStrokes(0, [...strokes, stroke])}>Draw a stroke</button>}
+          {props.onRetry && <button onClick={props.onRetry}>Try again</button>}
+          {props.onDraftToggle && <button onClick={props.onDraftToggle}>Open the Draft</button>}
+        </section>
+      );
+    },
+  };
+});
 vi.mock("./WolframPanel", () => ({
   WolframPanel: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div data-testid="wolfram" /> : null),
 }));
@@ -578,25 +589,31 @@ describe.each([
     expect(worksheet()).toHaveTextContent("On the Hand");
   });
 
-  it("leaves the zoom keys to the worksheet, so the answer key beside it keeps its own zoom", async () => {
+  it("zooms the worksheet with + and -, and leaves the answer key beside it at its own zoom", async () => {
     h.searchAnswerFile.mockResolvedValue({ path: LINEAR_ANSWERS, source: "local" });
     mount();
     await within(await screen.findByTestId("worksheet")).findByText("Answer key found");
     press("a");
     const answerKey = await screen.findByTestId("answer-key");
-    expect(within(worksheet()).getByText("Takes the zoom keys")).toBeInTheDocument();
-    expect(within(answerKey).queryByText("Takes the zoom keys")).toBeNull();
+    expect(press("+")).toBe(false);
+    press("=");
+    press("-");
+    expect(worksheet()).toHaveTextContent("Zoom 125%");
+    expect(answerKey).toHaveTextContent("Zoom 100%");
   });
 
   it("ignores its keys while an exercise editor is open", async () => {
     mount();
     await opened("Linear equations 3");
+    await waitFor(() => expect(worksheet()).not.toHaveTextContent("Loading"));
     // The sidebar's edit button for the first student's classwork.
     fireEvent.click(screen.getAllByTitle(/^Edit (CW|Classwork)$/)[0]);
     expect(screen.getByTestId("exercise-editor")).toBeInTheDocument();
     press("j");
     press("w");
+    press("+");
     expect(worksheet()).toHaveTextContent("Linear equations 3");
+    expect(worksheet()).toHaveTextContent("Zoom 100%");
     expect(screen.queryByTestId("wolfram")).toBeNull();
   });
 });

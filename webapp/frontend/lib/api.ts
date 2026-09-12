@@ -3467,13 +3467,7 @@ export const lessonInkAPI = {
   saveOnExit: (pages: LessonInkPageIn[]) => {
     const body = JSON.stringify({ pages });
     if (pages.length === 0 || body.length > 60_000) return;
-    fetch(`${API_BASE_URL}/lesson-ink`, {
-      method: "PUT",
-      keepalive: true,
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body,
-    }).catch(() => {});
+    fetchAPI("/lesson-ink", { method: "PUT", keepalive: true, body }).catch(() => {});
   },
 };
 

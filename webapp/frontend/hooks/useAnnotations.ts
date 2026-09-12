@@ -321,7 +321,8 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
   // when the view can't place the exercise, as with a preview after a reload.
   const homesRef = useRef<Map<number, InkLocation>>(new Map());
   const loadedRef = useRef(false);
-  const sendingRef = useRef(false);
+  // The save on its way to the server, if there is one.
+  const sendingRef = useRef<Promise<void> | null>(null);
   const retryMsRef = useRef(0);
   const sendTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const sendRef = useRef<() => Promise<void>>(async () => {});
@@ -419,10 +420,11 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
     if (!loadedRef.current || sendingRef.current || unsentRef.current.size === 0) return;
     const { pages, sent } = buildBatch();
     if (pages.length > 0) {
-      sendingRef.current = true;
       setSyncStatus("saving");
+      const saving = lessonInkAPI.save(pages);
+      sendingRef.current = saving.then(() => {}, () => {});
       try {
-        const result = await lessonInkAPI.save(pages);
+        const result = await saving;
         const settle = (page: { session_id: number; target_key: string; page_index: number }, version?: number) => {
           const entry = sent.get(`${page.session_id}|${page.target_key}|${page.page_index}`);
           if (!entry) return;
@@ -438,7 +440,7 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
       } catch {
         retryMsRef.current = Math.min(Math.max(SEND_AFTER_MS, retryMsRef.current * 2), MAX_RETRY_MS);
       } finally {
-        sendingRef.current = false;
+        sendingRef.current = null;
       }
     }
     if (unsentRef.current.size === 0) {
@@ -759,7 +761,8 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
   const flushInk = useCallback(async (): Promise<boolean> => {
     for (let attempt = 0; attempt < 3 && unsentRef.current.size > 0; attempt++) {
       if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
-      while (sendingRef.current) await new Promise((resolve) => setTimeout(resolve, 100));
+      // A save already on its way is waited for, and then whatever it didn't carry is sent.
+      while (sendingRef.current) await sendingRef.current;
       await sendRef.current();
     }
     return unsentRef.current.size === 0;

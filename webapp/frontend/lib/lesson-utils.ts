@@ -1,5 +1,7 @@
 import { parseExerciseRemarks } from "@/lib/exercise-utils";
 import { getPageNumbers } from "@/lib/bulk-pdf-helpers";
+import { listInWords } from "@/lib/curriculum-labels";
+import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { Session, SessionExercise } from "@/types";
 import { DRAFT_PAGE_BASE, type InkLocation } from "@/hooks/useAnnotations";
 
@@ -34,6 +36,21 @@ export function getPageLabel(exercise: SessionExercise): string | null {
   }
   if (exercise.page_start) return `p${exercise.page_start}`;
   return null;
+}
+
+/**
+ * The student stamp on a worksheet's pages. Both lesson views build every
+ * stamp from here, so the board, a printed worksheet and "Download All" all
+ * show the same student.
+ */
+export function stampFor(session: Session): PrintStampInfo {
+  return {
+    location: session.location,
+    schoolStudentId: session.school_student_id,
+    studentName: session.student_name,
+    sessionDate: session.session_date,
+    sessionTime: session.time_slot,
+  };
 }
 
 /** Format student ID with optional location prefix for "All Locations" view. */
@@ -96,10 +113,9 @@ export const NO_FILE_ERROR = "No file assigned to this exercise";
 export const NO_EXERCISES_MESSAGE = "No exercises have been assigned to this lesson yet.";
 
 /**
- * The undo and redo keys, shared by both lesson views so they can't drift
- * apart again. Z undoes and Shift+Z redoes. With Shift held the browser
- * reports the key as a capital "Z", which is the case the multi-student view
- * once missed.
+ * The undo and redo keys, which lessonKeyAction reads for both lesson views.
+ * Z undoes and Shift+Z redoes. With Shift held the browser reports the key as
+ * a capital "Z", which is the case the multi-student view once missed.
  */
 export function inkHistoryKey(e: Pick<KeyboardEvent, "key" | "shiftKey">): "undo" | "redo" | null {
   if (e.key === "Z" || (e.key === "z" && e.shiftKey)) return "redo";
@@ -109,9 +125,10 @@ export function inkHistoryKey(e: Pick<KeyboardEvent, "key" | "shiftKey">): "undo
 
 /**
  * Whether Ctrl, Cmd or Alt is held. Keys pressed with those belong to the
- * browser, so both lesson views ignore them. Ctrl+C used to open the
- * classwork editor as well as copying. The views check the undo and redo keys
- * before this, so Ctrl+Z still undoes ink.
+ * browser, so lessonKeyAction ignores them. Ctrl+C used to open the classwork
+ * editor as well as copying, and Ctrl with + or - is the browser's own page
+ * zoom. lessonKeyAction reads the undo and redo keys before this, so Ctrl+Z
+ * still undoes ink.
  */
 export function hasBrowserModifier(e: Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "altKey">): boolean {
   return e.ctrlKey || e.metaKey || e.altKey;
@@ -127,18 +144,6 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * Which way a key zooms a PDF viewer: 1 for + or =, -1 for -, and 0 for any
- * other key. With Ctrl, Cmd or Alt held they're the browser's own page zoom,
- * so they're left to the browser, and so is anything typed into a field.
- */
-export function zoomKeyStep(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "target">): 1 | -1 | 0 {
-  if (hasBrowserModifier(e) || isTypingTarget(e.target)) return 0;
-  if (e.key === "=" || e.key === "+") return 1;
-  if (e.key === "-") return -1;
-  return 0;
-}
-
-/**
  * Where an exercise's ink is saved on the server: under its own lesson, with
  * its file and the PDF pages it shows. A preview carries the lesson the view
  * files it with, so it works the same way.
@@ -151,8 +156,7 @@ export function inkLocation(exercise: SessionExercise): InkLocation {
   };
 }
 
-const listOf = (numbers: number[]) =>
-  numbers.length === 1 ? `${numbers[0]}` : `${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}`;
+const listOf = (numbers: number[]) => listInWords(numbers.map(String));
 
 /**
  * The message for pages of the open worksheet that another tab or person has

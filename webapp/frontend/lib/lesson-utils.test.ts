@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import type { SessionExercise } from "@/types";
 import {
   hasBrowserModifier, inkHistoryKey, inkLocation, isTypingTarget, loopStep, printErrorMessage, replacedInkMessage,
-  zoomKeyStep,
 } from "./lesson-utils";
 
 describe("replacedInkMessage", () => {
@@ -96,29 +95,6 @@ describe("isTypingTarget", () => {
   it("is false for anything else, or for no target at all", () => {
     expect(isTypingTarget(document.createElement("div"))).toBe(false);
     expect(isTypingTarget(null)).toBe(false);
-  });
-});
-
-describe("zoomKeyStep", () => {
-  const key = (k: string, init: Partial<Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "altKey" | "target">> = {}) => ({
-    key: k, ctrlKey: false, metaKey: false, altKey: false, target: null, ...init,
-  });
-
-  it("zooms in on + or =, and out on -", () => {
-    expect(zoomKeyStep(key("+"))).toBe(1);
-    expect(zoomKeyStep(key("="))).toBe(1);
-    expect(zoomKeyStep(key("-"))).toBe(-1);
-  });
-
-  it("leaves them to the browser's own page zoom when Ctrl, Cmd or Alt is held", () => {
-    expect(zoomKeyStep(key("+", { ctrlKey: true }))).toBe(0);
-    expect(zoomKeyStep(key("-", { metaKey: true }))).toBe(0);
-    expect(zoomKeyStep(key("=", { altKey: true }))).toBe(0);
-  });
-
-  it("leaves a key typed into a field, and every other key, alone", () => {
-    expect(zoomKeyStep(key("-", { target: document.createElement("input") }))).toBe(0);
-    expect(zoomKeyStep(key("z"))).toBe(0);
   });
 });
 

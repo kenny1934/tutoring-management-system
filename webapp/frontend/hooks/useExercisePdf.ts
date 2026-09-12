@@ -39,18 +39,12 @@ export function useExercisePdf(exercise: SessionExercise | null, cache: Map<stri
     setPdfLoading(false);
     setPdfLoadingMessage(null);
 
-    // A web link has no file, so there's nothing to load.
-    if (exercise?.url && !exercise?.pdf_name) {
-      setPdfData(null);
-      setPageNumbers([]);
-      setPdfError(null);
-      return;
-    }
-
+    // Nothing to load. A web link has no file and that's fine, but any other
+    // exercise without one is missing it.
     if (!exercise?.pdf_name) {
       setPdfData(null);
       setPageNumbers([]);
-      setPdfError(exercise ? NO_FILE_ERROR : null);
+      setPdfError(exercise && !exercise.url ? NO_FILE_ERROR : null);
       return;
     }
 

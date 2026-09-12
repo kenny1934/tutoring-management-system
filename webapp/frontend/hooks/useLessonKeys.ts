@@ -2,6 +2,7 @@
 
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { hasBrowserModifier, inkHistoryKey, isTypingTarget } from "@/lib/lesson-utils";
+import type { ShortcutRow } from "@/components/lesson/ShortcutHelpPanel";
 
 /** Something a key can do in a lesson view. */
 export type LessonKeyAction =
@@ -9,7 +10,7 @@ export type LessonKeyAction =
   | "closeWolfram" | "closePrintMenu" | "closeHelp" | "selectHand" | "exitFocus" | "exit"
   | "toggleHelp" | "toggleFocus" | "toggleWolfram"
   | "next" | "previous" | "nextStudent" | "previousStudent"
-  | "pen" | "eraser"
+  | "pen" | "eraser" | "zoomIn" | "zoomOut"
   | "editClasswork" | "editHomework" | "homeworkBlock"
   | "print" | "answerKey" | "save";
 
@@ -63,6 +64,10 @@ export function lessonKeyAction(e: LessonKeyEvent, state: LessonKeyState): Lesso
       return e.shiftKey ? "previousStudent" : "nextStudent";
     case "d": return "pen";
     case "e": return "eraser";
+    case "+":
+    case "=":
+      return "zoomIn";
+    case "-": return "zoomOut";
     case "c": return "editClasswork";
     case "h": return "editHomework";
     case "H": return "homeworkBlock";
@@ -74,6 +79,35 @@ export function lessonKeyAction(e: LessonKeyEvent, state: LessonKeyState): Lesso
     case "?": return "toggleHelp";
     default: return null;
   }
+}
+
+/**
+ * The help panel's rows for each view, in one place beside the key table, so
+ * a new key only has to be added here. Tab is only in the multi-student view,
+ * because only it has several students, and H is only in the one-student
+ * view, because only it has the homework block. The multi-student view is its
+ * own tab and Escape never closes it, so there Escape only goes back.
+ */
+export function lessonShortcuts(view: "one-student" | "multi-student"): readonly ShortcutRow[] {
+  const oneStudent = view === "one-student";
+  const rows: (ShortcutRow | false)[] = [
+    ["j / k", "Navigate exercises"],
+    !oneStudent && ["Tab", "Switch student"],
+    ["+  / -", "Zoom in / out"],
+    ["d", "Pen, or back to the Hand"],
+    ["e", "Eraser, or back to the Hand"],
+    ["z / Z", "Undo / Redo"],
+    ["s", "Save annotated PDF"],
+    ["c / h", "Edit CW / HW"],
+    oneStudent && ["H", "Check homework"],
+    ["p", "Print"],
+    ["a", "Answer key"],
+    ["w", "Wolfram Alpha"],
+    ["f", "Focus mode"],
+    ["?", "This help"],
+    ["Esc", oneStudent ? "Exit / Back" : "Back"],
+  ];
+  return rows.filter((row): row is ShortcutRow => row !== false);
 }
 
 /** What each action does in this view. Leave an action out while the view can't do it. */

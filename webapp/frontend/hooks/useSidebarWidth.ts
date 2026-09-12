@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouse
 
 const STORAGE_KEY = "lesson-sidebar-width";
 export const SIDEBAR_MIN_WIDTH = 220;
-export const SIDEBAR_MAX_WIDTH = 600;
+const SIDEBAR_MAX_WIDTH = 600;
 const DEFAULT_WIDTH = 320;
 
 const clampWidth = (width: number) => Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width));

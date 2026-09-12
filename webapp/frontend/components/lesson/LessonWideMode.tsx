@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, loopStep, NO_FILE_ERROR, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, compareByStudentId, loopStep, stampFor, NO_EXERCISES_MESSAGE } from "@/lib/lesson-utils";
 import { prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
@@ -18,7 +18,7 @@ import { useHomeworkToCheck } from "@/lib/hooks";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
 import { StudentStrip, stripLabel } from "./StudentStrip";
-import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
+import type { PdfViewerHandle } from "./PdfPageViewer";
 import { FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
@@ -26,8 +26,9 @@ import { motion } from "framer-motion";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
 import { usePrintExercise } from "@/hooks/usePrintExercise";
-import { useLessonKeys } from "@/hooks/useLessonKeys";
-import { ShortcutHelpPanel, type ShortcutRow } from "./ShortcutHelpPanel";
+import { lessonShortcuts, useLessonKeys } from "@/hooks/useLessonKeys";
+import { useLessonPanels } from "@/hooks/useLessonPanels";
+import { ShortcutHelpPanel } from "./ShortcutHelpPanel";
 import { LessonHeader, type HeaderDetail } from "./LessonHeader";
 import { UrlExerciseView } from "./UrlExerciseView";
 import { LessonViewerArea } from "./LessonViewerArea";
@@ -37,7 +38,7 @@ import { useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
-import { SidebarResizeHandle } from "./SidebarResizeHandle";
+import { SidebarPane } from "./SidebarPane";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import { FocusOverlays } from "./FocusOverlays";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
@@ -48,7 +49,6 @@ import { WolframPanel } from "./WolframPanel";
 import { type StudentExerciseGroup } from "@/lib/bulk-exercise-download";
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
 import { useToast } from "@/contexts/ToastContext";
-import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { Session, SessionExercise } from "@/types";
 
 // --- Data types for grouping ---
@@ -75,21 +75,6 @@ export interface FileGroup {
 const exerciseKind = (exercise: SessionExercise): "CW" | "HW" =>
   exercise.exercise_type === "Classwork" || exercise.exercise_type === "CW" ? "CW" : "HW";
 
-/**
- * The student stamp on a worksheet's pages. Every stamp this view builds for
- * itself comes from here, so the board, a printed worksheet and "Download All"
- * all show the same student.
- */
-function stampFor(session: Session): PrintStampInfo {
-  return {
-    location: session.location,
-    schoolStudentId: session.school_student_id,
-    studentName: session.student_name,
-    sessionDate: session.session_date,
-    sessionTime: session.time_slot,
-  };
-}
-
 /** How "Download All" saves a worksheet's ink. A preview is class-wide, so it has no student stamp. */
 function describeForZip(entry: StudentExerciseEntry): AnnotatedExercise | null {
   if (!entry.exercise.pdf_name) return null;
@@ -112,23 +97,7 @@ interface LessonWideModeProps {
   isReadOnly?: boolean;
 }
 
-/** The help panel's rows. Tab is this view's alone, because only it has several students. */
-const SHORTCUTS: readonly ShortcutRow[] = [
-  ["j / k", "Navigate exercises"],
-  ["Tab", "Switch student"],
-  ["+  / -", "Zoom in / out"],
-  ["d", "Pen, or back to the Hand"],
-  ["e", "Eraser, or back to the Hand"],
-  ["z / Z", "Undo / Redo"],
-  ["s", "Save annotated PDF"],
-  ["c / h", "Edit CW / HW"],
-  ["p", "Print"],
-  ["a", "Answer key"],
-  ["w", "Wolfram Alpha"],
-  ["f", "Focus mode"],
-  ["?", "This help"],
-  ["Esc", "Back"],
-];
+const SHORTCUTS = lessonShortcuts("multi-student");
 
 export function LessonWideMode({
   sessions,
@@ -151,12 +120,8 @@ export function LessonWideMode({
 
   // --- The open worksheet's file, loaded through the one cache everything in this view shares ---
   const pdfCache = usePdfCache();
-  const { pdfData, pageNumbers, pdfLoading, pdfLoadingMessage, pdfError, retry: handleRetry } =
-    useExercisePdf(openExercise, pdfCache);
-
-  // Each worksheet's zoom, scroll position and "Hide ink", so switching
-  // between students and back finds each one as the tutor left it.
-  const viewStatesRef = useRef(new Map<number, PdfViewState>());
+  const pdf = useExercisePdf(openExercise, pdfCache);
+  const { pdfData, pageNumbers } = pdf;
 
   // --- Mobile ---
   const isMobile = useIsMobile();
@@ -188,11 +153,8 @@ export function LessonWideMode({
   const focus = useFocusMode(!isMobile);
   const { focusMode, hoverSidebar, setHoverSidebar, exitFocusMode, toggleFocusMode } = focus;
 
-  // --- Shortcut help ---
-  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
-
-  // --- Wolfram Alpha ---
-  const [showWolfram, setShowWolfram] = useState(false);
+  // --- Wolfram, the print menu and the shortcut help ---
+  const panels = useLessonPanels();
 
   // All student exercise entries (flat list)
   const allEntries = useMemo<StudentExerciseEntry[]>(() => {
@@ -218,29 +180,27 @@ export function LessonWideMode({
   // whatever hasn't been sent yet, under one key for the whole slot.
   const listedExercises = useMemo(() => allEntries.map((entry) => entry.exercise), [allEntries]);
   const openInkSource = useMemo(() => (selectedEntry ? describeForZip(selectedEntry) : null), [selectedEntry]);
-  const {
-    tools, annotations: currentAnnotations, openHasInk: exerciseHasAnnotations,
-    onPageStrokesChange: handlePageStrokesChange, onUndo: handleUndo, onRedo: handleRedo,
-    onClearAll: handleClearAllAnnotations, onClearPage: handleClearPage, onClearPages: handleClearPages,
-    getAllAnnotations, getInkSource, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
-    syncStatus, flushInk,
-  } = useLessonInk<AnnotatedExercise>({
+  const ink = useLessonInk<AnnotatedExercise>({
     storageKey: `lesson-wide-annotations-${date}-${slot}-${tutorId}`,
     sessionIds: sessions.map((s) => s.id),
     exercises: listedExercises,
     openExercise,
     openSource: openInkSource,
   });
-  const drawingEnabled = tools.drawingEnabled;
+  const {
+    tools, annotations: currentAnnotations, openHasInk: exerciseHasAnnotations, onUndo: handleUndo, onRedo: handleRedo,
+    getAllAnnotations, getInkSource, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
+    syncStatus, flushInk,
+  } = ink;
 
   // The Draft beside the worksheet
-  const { draftOpen, toggleDraft, closeDraft, trayArea, setTrayArea } = useDraft(openExercise, isMobile);
+  const draft = useDraft(openExercise, isMobile);
 
   // --- The open worksheet's answer key ---
-  const {
-    showAnswerKey, toggleAnswerKey: handleAnswerKeyToggle, answerKeyFound, answerKeySearching,
-    answerPdfData, answerPageNumbers, answerLoading, answerError, mobileActiveTab, setMobileActiveTab,
-  } = useAnswerKey(openExercise, pdfCache);
+  const answer = useAnswerKey(openExercise, pdfCache);
+
+  // The worksheet's viewer, which + and - zoom
+  const worksheetRef = useRef<PdfViewerHandle>(null);
 
   // --- Computed data structures ---
 
@@ -308,7 +268,7 @@ export function LessonWideMode({
   // --- Stamp for current selection ---
   // Ephemeral previews (parallel versions) are class-wide, so no
   // per-student stamp.
-  const stamp = useMemo<PrintStampInfo | undefined>(() => {
+  const stamp = useMemo(() => {
     if (!selectedEntry || isPreviewExercise(selectedEntry.exercise)) return undefined;
     return stampFor(selectedEntry.session);
   }, [selectedEntry]);
@@ -342,7 +302,6 @@ export function LessonWideMode({
     if (target) void printExercise(target.exercise, stampFor(target.session));
   }, [selectedEntry, printExercise]);
 
-  const [showPrintMenu, setShowPrintMenu] = useState(false);
   const handleBulkPrint = useCallback((type: 'CW' | 'HW') => printAll(sessions, type), [printAll, sessions]);
 
   // One file for every student who has it, each copy with its own student's
@@ -391,7 +350,7 @@ export function LessonWideMode({
     try {
       const blob = await saveAnnotatedPdf(
         pdfData,
-        getExercisePageNumbers(selectedEntry.exercise),
+        pageNumbers,
         stamp,
         currentAnnotations,
       );
@@ -400,7 +359,7 @@ export function LessonWideMode({
       console.error("Failed to save annotated PDF:", err);
       showToast(SAVE_FAILED_MESSAGE, 'error');
     }
-  }, [selectedEntry, pdfData, currentAnnotations, stamp, exerciseLabel, showToast]);
+  }, [selectedEntry, pdfData, pageNumbers, currentAnnotations, stamp, exerciseLabel, showToast]);
 
   // --- Leaving ---
   // The tab was opened from the sessions page, so leaving closes it. A browser
@@ -545,23 +504,17 @@ export function LessonWideMode({
   useLessonKeys(
     {
       blocked: !!editing || !!bulkAssignType || showExitConfirm,
-      wolframOpen: showWolfram,
-      printMenuOpen: showPrintMenu,
-      helpOpen: showShortcutHelp,
-      drawing: drawingEnabled,
+      ...panels.keyState,
+      drawing: tools.drawingEnabled,
       focusMode,
     },
     {
+      ...panels.keyHandlers,
       undo: selectedEntry ? handleUndo : undefined,
       redo: selectedEntry ? handleRedo : undefined,
-      closeWolfram: () => setShowWolfram(false),
-      closePrintMenu: () => setShowPrintMenu(false),
-      closeHelp: () => setShowShortcutHelp(false),
       selectHand: tools.selectHand,
       exitFocus: exitFocusMode,
-      toggleHelp: () => setShowShortcutHelp(v => !v),
       toggleFocus: isMobile ? undefined : toggleFocusMode,
-      toggleWolfram: () => setShowWolfram(v => !v),
       next: () => navigateExercise(1),
       previous: () => navigateExercise(-1),
       // Tab and Shift+Tab step through the students, like the strip's arrows.
@@ -569,12 +522,15 @@ export function LessonWideMode({
       previousStudent: canStep ? () => navigateStudent(-1) : undefined,
       pen: () => tools.toggleFromKey("pen"),
       eraser: () => tools.toggleFromKey("eraser"),
+      // + and - zoom the worksheet once its file is on screen.
+      zoomIn: pdfData ? () => worksheetRef.current?.zoomIn() : undefined,
+      zoomOut: pdfData ? () => worksheetRef.current?.zoomOut() : undefined,
       // c and h edit the exercises of the student on screen.
       editClasswork: selectedEntry ? () => handleEditExercises(selectedEntry.session, "CW") : undefined,
       editHomework: selectedEntry ? () => handleEditExercises(selectedEntry.session, "HW") : undefined,
       // Like the print buttons, p waits while another print is still being prepared.
       print: selectedEntry?.exercise.pdf_name && printing.id === null ? () => handlePrint() : undefined,
-      answerKey: answerKeyFound ? handleAnswerKeyToggle : undefined,
+      answerKey: answer.answerKeyFound ? answer.toggleAnswerKey : undefined,
       save: exerciseHasAnnotations ? () => void handleSaveAnnotated() : undefined,
     },
   );
@@ -622,14 +578,14 @@ export function LessonWideMode({
       }
       details={headerDetails}
       syncStatus={syncStatus}
-      wolframOpen={showWolfram}
-      onWolframToggle={() => setShowWolfram(v => !v)}
+      wolframOpen={panels.wolframOpen}
+      onWolframToggle={panels.toggleWolfram}
       canDownloadAll={hasAnyAnnotations()}
       savingAll={isSavingAll}
       onDownloadAll={() => void downloadAllInk()}
-      print={{ label: "Print all exercises", printing, open: showPrintMenu, onOpenChange: setShowPrintMenu, onPrint: handleBulkPrint }}
-      helpOpen={showShortcutHelp}
-      onHelpToggle={() => setShowShortcutHelp(v => !v)}
+      print={{ label: "Print all exercises", printing, open: panels.printMenuOpen, onOpenChange: panels.setPrintMenuOpen, onPrint: handleBulkPrint }}
+      helpOpen={panels.helpOpen}
+      onHelpToggle={panels.toggleHelp}
     />
   );
 
@@ -642,18 +598,6 @@ export function LessonWideMode({
       <LeaveFocusButton onLeave={exitFocusMode} />
     </>
   ) : null;
-
-  const answerViewer = (
-    <PdfPageViewer
-      pdfData={answerPdfData}
-      pageNumbers={answerPageNumbers}
-      isLoading={answerLoading}
-      error={answerError}
-      exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
-      // + and - zoom the worksheet, and the answer key keeps its own zoom.
-      zoomKeys={false}
-    />
-  );
 
   // Picking something from the focus-mode sidebar closes it again, since a
   // finger can't move off it the way a mouse does.
@@ -701,26 +645,15 @@ export function LessonWideMode({
       {!focusMode && renderHeader()}
 
       {/* Shortcut help panel */}
-      <ShortcutHelpPanel open={showShortcutHelp} onClose={() => setShowShortcutHelp(false)} rows={SHORTCUTS} />
+      <ShortcutHelpPanel open={panels.helpOpen} onClose={panels.closeHelp} rows={SHORTCUTS} />
 
       {/* Split pane: sidebar + PDF viewer */}
       <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         {!focusMode && !isMobile && (
-          <>
-            <div
-              className={cn(
-                "flex flex-col border-r border-[#d4c4a8] dark:border-[#3a3228]",
-                "bg-[#faf5ed] dark:bg-[#1e1a14]",
-                "overflow-hidden"
-              )}
-              style={{ width: sidebarWidth, minWidth: 220, maxWidth: 600 }}
-            >
-              <LessonWideSidebar {...sidebarProps} />
-            </div>
-
-            <SidebarResizeHandle onResizeStart={startResize} />
-          </>
+          <SidebarPane width={sidebarWidth} onResizeStart={startResize}>
+            <LessonWideSidebar {...sidebarProps} />
+          </SidebarPane>
         )}
 
         {/* The open exercise, with its Draft and its answer key */}
@@ -748,61 +681,19 @@ export function LessonWideMode({
               isMobile={isMobile}
             />
           ) : undefined}
-          worksheet={
-            <PdfPageViewer
-              pdfData={pdfData}
-              pageNumbers={pageNumbers}
-              stamp={stamp}
-              exerciseId={selectedEntry?.exercise?.id}
-              isLoading={pdfLoading}
-              loadingMessage={pdfLoadingMessage}
-              error={pdfError}
-              exerciseLabel={exerciseLabel}
-              // Trying again can't find a file the exercise doesn't have.
-              onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
-              annotations={currentAnnotations}
-              onPageStrokesChange={handlePageStrokesChange}
-              tools={tools}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              onClearAll={handleClearAllAnnotations}
-              onClearPage={handleClearPage}
-              hasAnnotations={exerciseHasAnnotations}
-              onSaveAnnotated={handleSaveAnnotated}
-              onAnswerKeyToggle={handleAnswerKeyToggle}
-              showAnswerKey={showAnswerKey}
-              answerKeyAvailable={answerKeyFound}
-              answerKeySearching={answerKeySearching}
-              onDraftToggle={isMobile || !openExercise ? undefined : toggleDraft}
-              showDraft={draftOpen}
-              toolbarStart={focusButtons}
-              onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
-              isPrinting={printing.id !== null}
-              printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
-              emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
-              viewStates={viewStatesRef.current}
-              trayArea={draftOpen ? trayArea : undefined}
-            />
-          }
-          onRetry={handleRetry}
-          answerKey={{
-            shown: showAnswerKey,
-            loaded: !!answerPdfData,
-            viewer: answerViewer,
-            mobileTab: mobileActiveTab,
-            onMobileTabChange: setMobileActiveTab,
-          }}
-          draft={{
-            open: draftOpen,
-            exerciseId: openExercise?.id,
-            annotations: currentAnnotations,
-            onPageStrokesChange: handlePageStrokesChange,
-            onClearPages: handleClearPages,
-            onUndo: handleUndo,
-            tools,
-            onClose: closeDraft,
-            onTrayArea: setTrayArea,
-          }}
+          exercise={openExercise}
+          exerciseLabel={exerciseLabel}
+          pdf={pdf}
+          answer={answer}
+          draft={draft}
+          ink={ink}
+          stamp={stamp}
+          onSaveAnnotated={handleSaveAnnotated}
+          onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
+          printing={printing}
+          emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
+          toolbarStart={focusButtons}
+          worksheetRef={worksheetRef}
         />
       </div>
 
@@ -874,7 +765,7 @@ export function LessonWideMode({
       )}
 
       {/* Wolfram Alpha panel */}
-      <WolframPanel isOpen={showWolfram} onClose={() => setShowWolfram(false)} />
+      <WolframPanel isOpen={panels.wolframOpen} onClose={panels.closeWolfram} />
 
       {/* Exit confirmation dialog */}
       {showExitConfirm && (
