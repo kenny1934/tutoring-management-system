@@ -338,17 +338,22 @@ export function useAnnotations<Source = unknown>(sessionKey?: string) {
   );
 
   /**
-   * Clear every page of an exercise as a single change, so one undo brings all
-   * of its ink back. Nothing is recorded when there's no ink to clear.
+   * Clear an exercise's pages as a single change, so one undo brings all of
+   * their ink back. It clears every page unless it's given the ones to clear,
+   * which is how the Draft clears only its own sheets. Nothing is recorded
+   * when there's no ink to clear.
    */
-  const clearAnnotations = useCallback((exerciseId: number) => {
+  const clearAnnotations = useCallback((exerciseId: number, pages?: number[]) => {
+    const current = storeRef.current.get(exerciseId) || {};
     const before: PageAnnotations = {};
-    for (const [page, strokes] of Object.entries(storeRef.current.get(exerciseId) || {})) {
-      if (strokes.length > 0) before[Number(page)] = strokes;
+    for (const page of pages ?? Object.keys(current).map(Number)) {
+      if (current[page]?.length) before[page] = current[page];
     }
     if (Object.keys(before).length === 0) return;
 
-    storeRef.current.set(exerciseId, {});
+    const after: PageAnnotations = { ...current };
+    for (const page of Object.keys(before)) delete after[Number(page)];
+    storeRef.current.set(exerciseId, pages ? after : {});
     const undo = undoRef.current.get(exerciseId) || [];
     undo.push({ pages: before });
     undoRef.current.set(exerciseId, undo);

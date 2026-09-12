@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { AnnotationTray } from "./AnnotationTray";
 import { useAnnotationTools, type AnnotationTools } from "@/hooks/useAnnotationTools";
 
@@ -154,7 +154,7 @@ describe("AnnotationTray", () => {
     // jsdom has no layout, so give the tray's area the width in its data-width
     // attribute, and give the full tray its real width of about 844px.
     const restore: (() => void)[] = [];
-    function stubGetter(name: "clientWidth" | "scrollWidth", get: (this: HTMLElement) => number) {
+    function stubGetter(name: "clientWidth" | "scrollWidth" | "offsetWidth", get: (this: HTMLElement) => number) {
       const proto = HTMLElement.prototype;
       const original = Object.getOwnPropertyDescriptor(proto, name);
       Object.defineProperty(proto, name, { configurable: true, get });
@@ -167,7 +167,8 @@ describe("AnnotationTray", () => {
       stubGetter("clientWidth", function () { return Number(this.dataset.width ?? 0); });
       stubGetter("scrollWidth", function () { return this.getAttribute("role") === "toolbar" ? 844 : 0; });
     });
-    afterEach(() => restore.splice(0).forEach((undo) => undo()));
+    // Undone newest first, so a getter stubbed twice ends up back where it started.
+    afterEach(() => restore.splice(0).reverse().forEach((undo) => undo()));
 
     function NarrowHarness({ width, ...props }: { width: number } & Partial<React.ComponentProps<typeof AnnotationTray>>) {
       const tools = useAnnotationTools();
@@ -177,6 +178,57 @@ describe("AnnotationTray", () => {
         </div>
       );
     }
+
+    it("fades the end with tools out of sight, and its arrow slides the tray along", () => {
+      render(<NarrowHarness width={400} />);
+      const scrollBy = vi.fn();
+      tray().scrollBy = scrollBy;
+
+      const rest = within(tray()).getByRole("button", { name: "Show the rest of the tools", hidden: true });
+      const start = within(tray()).getByRole("button", { name: "Show the tools at the start", hidden: true });
+      expect(rest.closest(".invisible")).toBeNull();
+      expect(start.closest(".invisible")).not.toBeNull();
+
+      fireEvent.click(rest);
+      expect(scrollBy).toHaveBeenCalledTimes(1);
+    });
+
+    it("centres itself by the width of its tools, even while its box is still the round button's width", () => {
+      // While the tray grows out of the round button, its box starts at the button's 60px.
+      stubGetter("offsetWidth", function () { return this.getAttribute("role") === "toolbar" ? 60 : 0; });
+      render(<NarrowHarness width={1200} />);
+      expect(tray().style.left).toBe(`${(1200 - 844) / 2}px`);
+    });
+
+    it("shows no arrow for more tools once it has opened out of the round button, when every tool fits", () => {
+      // jsdom can't animate, so this stands in for the tray's own animations.
+      // While one is running, the tray's box is only the round button's 60px.
+      let running: { onfinish: (() => void) | null; cancel: () => void } | null = null;
+      const proto = HTMLElement.prototype as unknown as { animate?: unknown };
+      proto.animate = function (this: HTMLElement) {
+        const animation = { onfinish: null, cancel: () => {} };
+        if (this.getAttribute("role") === "toolbar") running = animation;
+        return animation;
+      };
+      restore.push(() => { delete proto.animate; });
+      stubGetter("clientWidth", function () {
+        if (this.getAttribute("role") === "toolbar") return running ? 60 : 844;
+        return Number(this.dataset.width ?? 0);
+      });
+      const finish = () => act(() => { const animation = running!; running = null; animation.onfinish?.(); });
+
+      render(<NarrowHarness width={1200} />);
+      fireEvent.click(button("Collapse the tray"));
+      finish();
+      fireEvent.click(screen.getByRole("button", { name: /Open the annotation tray/ }));
+      // In a browser, the tray's resize watcher checks it partway through
+      // opening. A scroll stands in for that here.
+      fireEvent.scroll(tray());
+      finish();
+
+      const rest = within(tray()).getByRole("button", { name: "Show the rest of the tools", hidden: true });
+      expect(rest.closest(".invisible")).not.toBeNull();
+    });
 
     it("keeps undo and redo on the tray when it fits", () => {
       render(<NarrowHarness width={1200} onUndo={() => {}} onRedo={() => {}} />);

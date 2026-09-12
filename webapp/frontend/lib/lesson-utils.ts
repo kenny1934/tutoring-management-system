@@ -108,6 +108,18 @@ export function inkHistoryKey(e: Pick<KeyboardEvent, "key" | "shiftKey">): "undo
   return null;
 }
 
+/**
+ * One step either way through a list that goes round, as the lesson views'
+ * student arrows do. From outside the list, at index -1, forwards goes to
+ * the first and backwards to the last. It's null when there's nowhere else
+ * to go.
+ */
+export function loopStep(index: number, count: number, direction: 1 | -1): number | null {
+  if (index < 0) return count === 0 ? null : direction === 1 ? 0 : count - 1;
+  if (count < 2) return null;
+  return (index + direction + count) % count;
+}
+
 /** Compare two items by student ID (primary) then student name (secondary). */
 export function compareByStudentId(
   idA: string | null | undefined, nameA: string | null | undefined,

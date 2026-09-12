@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SummerCoursewarePanel } from "./SummerCoursewarePanel";
 import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
 import { HomeworkStatusGlyph, homeworkState } from "@/components/homework/homework-status";
-import { RowPrintButton } from "./RowPrintButton";
+import { PrintIconButton } from "./PrintIconButton";
 
 interface LessonExerciseSidebarProps {
   currentSession: Session | null;
@@ -77,7 +77,7 @@ function ExerciseItem({
   const pageLabel = getPageLabel(exercise);
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="group/row flex items-center gap-1">
       <button
         type="button"
         onClick={onClick}
@@ -128,11 +128,12 @@ function ExerciseItem({
         </div>
       </button>
       {exercise.pdf_name && onPrint && (
-        <RowPrintButton
+        <PrintIconButton
           onPrint={() => onPrint(exercise)}
           isPrinting={!!isPrinting}
           title={getPrintButtonTitle(!!isPrinting, printProgress, "Print")}
           label={`Print ${displayName}`}
+          revealOnHover
         />
       )}
     </div>

@@ -139,6 +139,22 @@ describe("useAnnotations undo and redo", () => {
     expect(colours(hook.undo(EX, 0)?.[0])).toEqual(["a"]);
   });
 
+  it("clears only the pages it's given, as one change that one undo brings back", () => {
+    const { result } = renderHook(() => useAnnotations());
+    const hook = result.current;
+    draw(hook, 0, stroke("a"));
+    draw(hook, 1000, stroke("b"));
+    draw(hook, 1001, stroke("c"));
+
+    hook.clearAnnotations(EX, [1000, 1001]);
+    expect(colours(hook.getAnnotations(EX)[0])).toEqual(["a"]);
+    expect(colours(hook.getAnnotations(EX)[1000])).toEqual([]);
+
+    const back = hook.undo(EX);
+    expect(colours(back?.[1000])).toEqual(["b"]);
+    expect(colours(back?.[1001])).toEqual(["c"]);
+  });
+
   it("records nothing when clearing an exercise with no ink", () => {
     const { result } = renderHook(() => useAnnotations());
     const hook = result.current;

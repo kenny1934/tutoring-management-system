@@ -24,10 +24,12 @@ beforeEach(() => localStorage.clear());
 
 const line = (): Stroke => ({ points: [[0, 0, 0.5], [10, 10, 0.5]], color: "#000", size: 3 });
 
-function Harness({ initial = {}, onChange = vi.fn(), onTools }: {
+function Harness({ initial = {}, onChange = vi.fn(), onTools, onClearPages = vi.fn(), onUndo }: {
   initial?: PageAnnotations;
   onChange?: (pageIndex: number, strokes: Stroke[]) => void;
   onTools?: (tools: AnnotationTools) => void;
+  onClearPages?: (pageIndices: number[]) => void;
+  onUndo?: () => void;
 }) {
   const tools = useAnnotationTools();
   onTools?.(tools);
@@ -42,6 +44,15 @@ function Harness({ initial = {}, onChange = vi.fn(), onTools }: {
         onChange(pageIndex, strokes);
         setAnnotations((prev) => ({ ...prev, [pageIndex]: strokes }));
       }}
+      onClearPages={(pages) => {
+        onClearPages(pages);
+        setAnnotations((prev) => {
+          const next = { ...prev };
+          for (const page of pages) delete next[page];
+          return next;
+        });
+      }}
+      onUndo={onUndo}
     />
   );
 }
@@ -82,6 +93,44 @@ describe("DraftPane", () => {
     fireEvent.click(screen.getByRole("button", { name: "Blank" }));
     expect(draftSquared.get()).toBe(false);
   });
+
+  it("clears the sheet in view from the Clear menu, then offers to undo it", () => {
+    const onClearPages = vi.fn();
+    const onUndo = vi.fn();
+    render(
+      <Harness
+        initial={{ [DRAFT_PAGE_BASE]: [line()], [DRAFT_PAGE_BASE + 1]: [line()] }}
+        onClearPages={onClearPages}
+        onUndo={onUndo}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Clear this sheet/ }));
+
+    expect(onClearPages).toHaveBeenCalledWith([DRAFT_PAGE_BASE]);
+    expect(screen.getByRole("status")).toHaveTextContent("Sheet 1 of the draft was cleared.");
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(onUndo).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears every sheet at once, and goes back to a single sheet", () => {
+    const onClearPages = vi.fn();
+    render(<Harness initial={{ [DRAFT_PAGE_BASE]: [line()], [DRAFT_PAGE_BASE + 2]: [line()] }} onClearPages={onClearPages} />);
+    fireEvent.click(screen.getByRole("button", { name: /Add a sheet/ }));
+    expect(sheets()).toHaveLength(4);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Clear the draft" }));
+
+    expect(onClearPages).toHaveBeenCalledWith([DRAFT_PAGE_BASE, DRAFT_PAGE_BASE + 2]);
+    expect(sheets()).toHaveLength(1);
+    expect(screen.getByRole("status")).toHaveTextContent("The draft was cleared.");
+  });
+
+  it("greys out Clear while the draft has no ink", () => {
+    render(<Harness />);
+    expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
+  });
 });
 
 describe("draftSheetsInUse", () => {
@@ -104,5 +153,19 @@ describe("FoldingAnswerKey", () => {
 
     fireEvent.click(tab);
     expect(tab).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("says whether it's slid in, and says it's gone when it goes away", () => {
+    const onOutChange = vi.fn();
+    const { unmount } = render(<FoldingAnswerKey onOutChange={onOutChange}><p>The answers</p></FoldingAnswerKey>);
+    expect(onOutChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent.click(screen.getByRole("button", { name: /Answers/ }));
+    expect(onOutChange).toHaveBeenLastCalledWith(false);
+    fireEvent.click(screen.getByRole("button", { name: /Answers/ }));
+    expect(onOutChange).toHaveBeenLastCalledWith(true);
+
+    unmount();
+    expect(onOutChange).toHaveBeenLastCalledWith(false);
   });
 });

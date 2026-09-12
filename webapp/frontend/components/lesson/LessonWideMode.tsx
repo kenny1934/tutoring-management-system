@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
 import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
@@ -17,11 +17,11 @@ import { LessonWideSidebar } from "./LessonWideSidebar";
 import { useHomeworkToCheck } from "@/lib/hooks";
 import { useHomeworkMarked } from "@/components/homework/useHomeworkMarked";
 import { checkedCount, homeworkCountLabel } from "@/lib/homework-utils";
-import { StudentStrip } from "./StudentStrip";
-import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
+import { StudentStrip, stripLabel } from "./StudentStrip";
+import { PAGE_BAR_HEIGHT, PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
 import { DraftPane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
-import { FocusModeButtons } from "./FocusModeButtons";
+import { FocusModeButtons, FocusSidebarButton, LeaveFocusButton } from "./FocusModeButtons";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -197,6 +197,11 @@ export function LessonWideMode({
 
   // Whether the Draft is open beside the worksheet
   const [showDraft, setShowDraft] = useState(false);
+  // While the Draft is open, the Pen Tray floats in an area over the worksheet
+  // and the Draft together. It keeps to the worksheet while the answer key is
+  // slid in over the Draft.
+  const [trayArea, setTrayArea] = useState<HTMLElement | null>(null);
+  const [answersOverDraft, setAnswersOverDraft] = useState(false);
 
   // --- Answer key state ---
   const [showAnswerKey, setShowAnswerKey] = useState(false);
@@ -589,6 +594,13 @@ export function LessonWideMode({
     setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: [] }));
   }, [selectedEntry, clearPage]);
 
+  // The Draft clears one sheet or all of them, either way as one change that one undo brings back.
+  const handleClearPages = useCallback((pages: number[]) => {
+    if (!selectedEntry?.exercise) return;
+    clearAnnotations(selectedEntry.exercise.id, pages);
+    setCurrentAnnotations(getAnnotations(selectedEntry.exercise.id));
+  }, [selectedEntry, clearAnnotations, getAnnotations]);
+
   const exerciseHasAnnotations = selectedEntry?.exercise
     ? checkHasAnnotations(selectedEntry.exercise.id)
     : false;
@@ -868,23 +880,37 @@ export function LessonWideMode({
     if (entry) setSelectedEntry(entry);
   };
 
-  // Where the student on screen sits in the strip. A preview isn't anyone's,
-  // so from a preview the strip's next arrow goes to the first student.
-  const studentIndex = selectedEntry && !isPreviewExercise(selectedEntry.exercise)
-    ? studentsWithWork.findIndex(s => s.id === selectedEntry.session.id)
-    : -1;
-  const previousStudent = studentIndex > 0 ? studentsWithWork[studentIndex - 1] : null;
-  const nextStudent = studentIndex < studentsWithWork.length - 1 ? studentsWithWork[studentIndex + 1] : null;
+  // The strip's arrows and Tab step through the students in the order the
+  // pane lists them, going round from the last back to the first. With the
+  // pane grouped by file, that's the students under the worksheet on screen,
+  // so the whole class can be gone round on one sheet. Grouped by student,
+  // it's every student with work, each on the worksheet entryForStudent picks.
+  const fileGroupOnScreen = sidebarMode === "by-file" && selectedEntry
+    ? fileGroups.find(g => g.entries.some(e => e.exercise.id === selectedEntry.exercise.id))
+    : undefined;
+  const stepCount = fileGroupOnScreen ? fileGroupOnScreen.entries.length : studentsWithWork.length;
+  // A preview isn't anyone's, so it has no place in the list, and from a
+  // preview the next arrow goes to the first student.
+  const stepIndex = !selectedEntry || isPreviewExercise(selectedEntry.exercise) ? -1
+    : fileGroupOnScreen ? fileGroupOnScreen.entries.findIndex(e => e.exercise.id === selectedEntry.exercise.id)
+    : studentsWithWork.findIndex(s => s.id === selectedEntry.session.id);
+  const canStep = loopStep(stepIndex, stepCount, 1) !== null;
+
+  const stepEntry = (direction: 1 | -1): StudentExerciseEntry | null => {
+    const i = loopStep(stepIndex, stepCount, direction);
+    if (i === null) return null;
+    return fileGroupOnScreen ? fileGroupOnScreen.entries[i] : entryForStudent(studentsWithWork[i]);
+  };
 
   const navigateStudent = (direction: 1 | -1) => {
-    const target = direction === 1 ? nextStudent : previousStudent;
-    if (target) openStudent(target);
+    const target = stepEntry(direction);
+    if (target) setSelectedEntry(target);
   };
 
   // Once a worksheet has loaded, fetch the two a tutor is most likely to open
   // next: the next one in the list, and the next student's. Switching is what
   // this view is for, so the first switch shouldn't sit on a loading screen.
-  const nextStudentEntry = nextStudent ? entryForStudent(nextStudent) : null;
+  const nextStudentEntry = stepEntry(1);
   useEffect(() => {
     if (!selectedEntry || !pdfData) return;
     const index = allEntries.findIndex(
@@ -937,7 +963,7 @@ export function LessonWideMode({
         break;
       case "Tab":
         // Tab and Shift+Tab step through the students, like the strip's arrows.
-        if (studentsWithWork.length > 1) {
+        if (canStep) {
           e.preventDefault();
           navigateStudent(e.shiftKey ? -1 : 1);
         }
@@ -1208,7 +1234,11 @@ export function LessonWideMode({
     </div>
   );
 
-  const focusButtons = focusMode && !isMobile ? (
+  // In focus mode, the Students button and the way out sit at the two ends of
+  // the student strip. With no worksheet picked there's no strip, so they go at
+  // the start of the worksheet's toolbar.
+  const showFocusButtons = focusMode && !isMobile;
+  const focusButtons = showFocusButtons && !selectedEntry ? (
     <FocusModeButtons
       icon={Users}
       label="Students"
@@ -1360,10 +1390,14 @@ export function LessonWideMode({
           {selectedEntry && (
             <StudentStrip
               entry={selectedEntry}
-              position={studentIndex >= 0 ? { index: studentIndex + 1, total: studentsWithWork.length } : null}
-              onPrevious={previousStudent ? () => openStudent(previousStudent) : undefined}
-              onNext={nextStudent ? () => openStudent(nextStudent) : undefined}
+              position={stepIndex >= 0 ? { index: stepIndex + 1, total: stepCount } : null}
+              onPrevious={canStep ? () => navigateStudent(-1) : undefined}
+              onNext={canStep ? () => navigateStudent(1) : undefined}
               selectedLocation={selectedLocation}
+              start={showFocusButtons ? (
+                <FocusSidebarButton icon={Users} label="Students" open={hoverSidebar} onOpen={() => setHoverSidebar(true)} labelClass={stripLabel} />
+              ) : undefined}
+              end={showFocusButtons ? <LeaveFocusButton onLeave={exitFocusMode} labelClass={stripLabel} /> : undefined}
             />
           )}
 
@@ -1402,139 +1436,153 @@ export function LessonWideMode({
             draftOpen && "relative overflow-hidden @container/viewers",
           )}>
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
-              selectedEntry?.exercise?.url && !selectedEntry?.exercise?.pdf_name ? (
-                /* URL exercise: iframe embed or open-in-new-tab */
-                <div className={cn("flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]", isMobile && "pb-20")}>
-                  {focusButtons && (
-                    <div className="flex items-center gap-1 px-2 py-0.5 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
-                      {focusButtons}
-                    </div>
-                  )}
-                  {(() => {
-                    const embedUrl = toEmbedUrl(selectedEntry.exercise.url!);
-                    if (embedUrl) {
-                      const isGoogleDoc = selectedEntry.exercise.url?.includes("docs.google.com");
+              <div className={cn("relative flex flex-1 min-h-0 min-w-0", draftOpen && "@[1100px]/viewers:flex-[2]")}>
+                {selectedEntry?.exercise?.url && !selectedEntry?.exercise?.pdf_name ? (
+                  /* URL exercise: iframe embed or open-in-new-tab */
+                  <div className={cn("flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]", isMobile && "pb-20")}>
+                    {(() => {
+                      const embedUrl = toEmbedUrl(selectedEntry.exercise.url!);
+                      if (embedUrl) {
+                        const isGoogleDoc = selectedEntry.exercise.url?.includes("docs.google.com");
+                        return (
+                          <>
+                            <iframe
+                              src={embedUrl}
+                              className="w-full border-0 rounded"
+                              style={{ flex: 1, minHeight: 0 }}
+                              allow="autoplay; fullscreen"
+                              allowFullScreen
+                              title={getExerciseDisplayName(selectedEntry.exercise)}
+                            />
+                            {(isMobile || isGoogleDoc) && (
+                              <div className="flex items-center justify-center gap-3 py-1.5 text-xs flex-shrink-0">
+                                {isMobile && (
+                                  <a
+                                    href={selectedEntry.exercise.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:underline"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    Open in app
+                                  </a>
+                                )}
+                                {isGoogleDoc && (
+                                  <span className="text-[#8b7355] dark:text-[#a09080]">
+                                    Can't see the file? Ask the owner to share it with you.
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
                       return (
-                        <>
-                          <iframe
-                            src={embedUrl}
-                            className="w-full border-0 rounded"
-                            style={{ flex: 1, minHeight: 0 }}
-                            allow="autoplay; fullscreen"
-                            allowFullScreen
-                            title={getExerciseDisplayName(selectedEntry.exercise)}
-                          />
-                          {(isMobile || isGoogleDoc) && (
-                            <div className="flex items-center justify-center gap-3 py-1.5 text-xs flex-shrink-0">
-                              {isMobile && (
-                                <a
-                                  href={selectedEntry.exercise.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:underline"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  Open in app
-                                </a>
-                              )}
-                              {isGoogleDoc && (
-                                <span className="text-[#8b7355] dark:text-[#a09080]">
-                                  Can't see the file? Ask the owner to share it with you.
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </>
+                        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                          <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+                            This resource cannot be embedded directly.
+                          </p>
+                          <a
+                            href={selectedEntry.exercise.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                          >
+                            Open in new tab
+                          </a>
+                        </div>
                       );
-                    }
-                    return (
-                      <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-                          This resource cannot be embedded directly.
-                        </p>
-                        <a
-                          href={selectedEntry.exercise.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                        >
-                          Open in new tab
-                        </a>
-                      </div>
-                    );
-                  })()}
-                </div>
-              ) : (
-              <ErrorBoundary
-                onReset={handleRetry}
-                fallback={
-                  <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
-                    <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-                      <AlertTriangle className="h-10 w-10 text-amber-500" />
-                      <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-                        Something went wrong rendering the PDF
-                      </p>
-                      <button onClick={handleRetry} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors">
-                        Try again
-                      </button>
-                    </div>
+                    })()}
                   </div>
-                }
-              >
-                <PdfPageViewer
-                  pdfData={pdfData}
-                  pageNumbers={pageNumbers}
-                  stamp={stamp}
-                  exerciseId={selectedEntry?.exercise?.id}
-                  isLoading={pdfLoading}
-                  loadingMessage={pdfLoadingMessage}
-                  error={pdfError}
-                  exerciseLabel={exerciseLabel}
-                  // Trying again can't find a file the exercise doesn't have.
-                  onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
-                  annotations={currentAnnotations}
-                  onPageStrokesChange={handlePageStrokesChange}
-                  tools={tools}
-                  onUndo={handleUndo}
-                  onRedo={handleRedo}
-                  onClearAll={handleClearAllAnnotations}
-                  onClearPage={handleClearPage}
-                  hasAnnotations={exerciseHasAnnotations}
-                  onSaveAnnotated={handleSaveAnnotated}
-                  onAnswerKeyToggle={handleAnswerKeyToggle}
-                  showAnswerKey={showAnswerKey}
-                  answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
-                  answerKeySearching={!!selectedEntry?.exercise?.pdf_name && !answerSearchDone}
-                  onDraftToggle={isMobile || !openExercise ? undefined : () => setShowDraft((open) => !open)}
-                  showDraft={draftOpen}
-                  toolbarStart={focusButtons}
-                  onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
-                  isPrinting={printing.id !== null}
-                  printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
-                  emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
-                  viewStates={viewStatesRef.current}
-                />
-              </ErrorBoundary>
-              )
-            )}
+                ) : (
+                <ErrorBoundary
+                  onReset={handleRetry}
+                  fallback={
+                    <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
+                      <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+                        <AlertTriangle className="h-10 w-10 text-amber-500" />
+                        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+                          Something went wrong rendering the PDF
+                        </p>
+                        <button onClick={handleRetry} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors">
+                          Try again
+                        </button>
+                      </div>
+                    </div>
+                  }
+                >
+                  <PdfPageViewer
+                    pdfData={pdfData}
+                    pageNumbers={pageNumbers}
+                    stamp={stamp}
+                    exerciseId={selectedEntry?.exercise?.id}
+                    isLoading={pdfLoading}
+                    loadingMessage={pdfLoadingMessage}
+                    error={pdfError}
+                    exerciseLabel={exerciseLabel}
+                    // Trying again can't find a file the exercise doesn't have.
+                    onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
+                    annotations={currentAnnotations}
+                    onPageStrokesChange={handlePageStrokesChange}
+                    tools={tools}
+                    onUndo={handleUndo}
+                    onRedo={handleRedo}
+                    onClearAll={handleClearAllAnnotations}
+                    onClearPage={handleClearPage}
+                    hasAnnotations={exerciseHasAnnotations}
+                    onSaveAnnotated={handleSaveAnnotated}
+                    onAnswerKeyToggle={handleAnswerKeyToggle}
+                    showAnswerKey={showAnswerKey}
+                    answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
+                    answerKeySearching={!!selectedEntry?.exercise?.pdf_name && !answerSearchDone}
+                    onDraftToggle={isMobile || !openExercise ? undefined : () => setShowDraft((open) => !open)}
+                    showDraft={draftOpen}
+                    toolbarStart={focusButtons}
+                    onPrint={selectedEntry?.exercise?.pdf_name ? () => handlePrint() : undefined}
+                    isPrinting={printing.id !== null}
+                    printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
+                    emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
+                    viewStates={viewStatesRef.current}
+                    trayArea={draftOpen ? trayArea : undefined}
+                  />
+                </ErrorBoundary>
+                )}
 
-            {/* The Draft, beside the worksheet */}
-            {draftOpen && openExercise && (
-              <>
-                <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
-                <DraftPane
-                  exerciseId={openExercise.id}
-                  annotations={currentAnnotations}
-                  onPageStrokesChange={handlePageStrokesChange}
-                  tools={tools}
-                  onClose={() => setShowDraft(false)}
-                />
-              </>
+                {/* The Draft, beside the worksheet */}
+                {draftOpen && openExercise && (
+                  <>
+                    <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
+                    <DraftPane
+                      exerciseId={openExercise.id}
+                      annotations={currentAnnotations}
+                      onPageStrokesChange={handlePageStrokesChange}
+                      onClearPages={handleClearPages}
+                      onUndo={handleUndo}
+                      tools={tools}
+                      onClose={() => setShowDraft(false)}
+                    />
+                  </>
+                )}
+
+                {/* While the Draft is open, the Pen Tray floats in here, across the worksheet and the Draft */}
+                {draftOpen && (
+                  <div
+                    ref={setTrayArea}
+                    className={cn(
+                      "absolute left-0 top-0 pointer-events-none",
+                      // With the answer key slid in over the Draft, the tray keeps to the worksheet,
+                      // which is half the width less half the line between the two panes.
+                      answersOverDraft ? "right-[calc(50%+0.5px)] @[1100px]/viewers:right-0" : "right-0",
+                    )}
+                    style={{ bottom: PAGE_BAR_HEIGHT }}
+                  />
+                )}
+              </div>
             )}
 
             {/* Answer key viewer. With the Draft open, it folds away when there isn't room for three columns. */}
             {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
-              draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
+              draftOpen ? <FoldingAnswerKey onOutChange={setAnswersOverDraft}>{answerViewer}</FoldingAnswerKey> : (
                 <>
                   {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
                   {answerViewer}

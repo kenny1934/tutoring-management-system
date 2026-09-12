@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Hand, Eraser, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
-  Eye, EyeOff, Trash2, Download, WandSparkles,
+  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import {
   useFloating, offset, flip, shift, autoUpdate, useDismiss, useInteractions, FloatingPortal,
@@ -14,6 +14,8 @@ import {
   INK_SWATCHES, INK_SIZES, type AnnotationTools, type InkSize, type InkSwatch,
 } from "@/hooks/useAnnotationTools";
 import type { EraserSetting } from "@/lib/stroke-eraser";
+import { useUndoOffer } from "@/hooks/useUndoOffer";
+import { UndoOfferBar } from "./UndoOfferBar";
 
 type Dock = "left" | "center" | "right";
 
@@ -47,6 +49,12 @@ const MARGIN = 16;
 // The round button the tray collapses into is as tall as the tray itself,
 // which is what lets the tray morph into it.
 const FAB = 60;
+/**
+ * How far the top of the tray sits above the bottom of its area. A pane the
+ * tray floats over needs this much room at the bottom, so its last lines can
+ * scroll clear of the tray.
+ */
+export const TRAY_CLEARANCE = MARGIN + FAB;
 const EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
 const PENS = INK_SWATCHES.filter((s) => s.kind === "pen");
@@ -62,11 +70,6 @@ const ERASER_CHOICES: { value: EraserSetting; title: string; circle?: number }[]
 ];
 
 type Pop = "sizes" | "eraser" | "more";
-
-// How long the message offering to undo a clear stays up.
-const UNDO_OFFER_MS = 8000;
-// Stands in for the ink the undo message saw, until it has seen the ink after the clear.
-const NOT_SEEN = Symbol("not seen");
 
 function readTrayState(): { dock: Dock; collapsed: boolean } {
   try {
@@ -121,6 +124,9 @@ function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big
  * opens its sizes above the tray. It can be dragged to the left, middle or
  * right, and collapsed into a round button in its corner.
  *
+ * While the Draft is open, the lesson views float the tray across the
+ * worksheet and the Draft together, because it draws on both of them.
+ *
  * When the viewer is too narrow for the whole tray, which happens with the
  * answer key open beside the worksheet, undo and redo move into the More menu
  * so that More and Collapse stay on screen. We call that the compact tray. It
@@ -154,6 +160,24 @@ export function AnnotationTray({
     [dock],
   );
 
+  // When even the compact tray is too wide for the viewer, it scrolls
+  // sideways. The end with tools out of sight fades, and an arrow there
+  // slides the tray along, so it's clear there's more.
+  const [hiddenSides, setHiddenSides] = useState({ start: false, end: false });
+  const updateHiddenSides = useCallback(() => {
+    const tray = trayRef.current;
+    // While the tray grows out of the round button, most of its tools really
+    // are out of sight, so this waits and checks again once it has finished.
+    if (!tray || morphRef.current) return;
+    const start = tray.scrollLeft > 1;
+    const end = tray.scrollLeft + tray.clientWidth < tray.scrollWidth - 1;
+    setHiddenSides((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+  }, []);
+  const slideTray = (direction: 1 | -1) => {
+    const tray = trayRef.current;
+    tray?.scrollBy?.({ left: direction * tray.clientWidth * 0.6, behavior: reducedMotion ? "auto" : "smooth" });
+  };
+
   /**
    * Put the tray where its dock says, leaving the side margin free. This is
    * also where the tray decides whether it has to be compact. When that
@@ -167,9 +191,16 @@ export function AnnotationTray({
     // An area with no width hasn't been laid out yet, so it says nothing about fitting.
     const needsCompact = width > 0 && fullWidthRef.current > width - 2 * MARGIN;
     if (needsCompact !== compact) { setCompact(needsCompact); return; }
-    const left = dock === "left" ? MARGIN : dock === "right" ? width - tray.offsetWidth - MARGIN : (width - tray.offsetWidth) / 2;
+    // A collapsed tray is hidden, so there's nothing to place until it opens.
+    if (collapsed) return;
+    // The tray's width is worked out from its tools, capped at the room there
+    // is. Its box on screen can't be used for this, because while the tray is
+    // growing out of the round button, its box is still the button's width.
+    const trayWidth = Math.min(tray.scrollWidth, width - 2 * MARGIN);
+    const left = dock === "left" ? MARGIN : dock === "right" ? width - trayWidth - MARGIN : (width - trayWidth) / 2;
     tray.style.left = `${Math.max(MARGIN, left)}px`;
-  }, [dock, compact, collapsed]);
+    updateHiddenSides();
+  }, [dock, compact, collapsed, updateHiddenSides]);
 
   useLayoutEffect(() => {
     place();
@@ -199,9 +230,7 @@ export function AnnotationTray({
   // it. The message goes after a few seconds, or as soon as the ink changes in
   // any other way, which includes the tray's own Undo.
 
-  const [undoOffer, setUndoOffer] = useState<string | null>(null);
-  const offerInkRef = useRef<unknown>(NOT_SEEN);
-  const offerTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const { message: undoOffer, offer, drop: dropUndoOffer } = useUndoOffer(inkRevision);
   const offerFloating = useFloating({
     open: undoOffer !== null,
     placement: "top",
@@ -211,26 +240,8 @@ export function AnnotationTray({
 
   const offerUndo = (message: string) => {
     offerFloating.refs.setReference(trayRef.current);
-    offerInkRef.current = NOT_SEEN;
-    setUndoOffer(message);
-    clearTimeout(offerTimer.current);
-    offerTimer.current = setTimeout(() => setUndoOffer(null), UNDO_OFFER_MS);
+    offer(message);
   };
-  const dropUndoOffer = () => {
-    clearTimeout(offerTimer.current);
-    setUndoOffer(null);
-  };
-
-  useEffect(() => {
-    if (undoOffer === null) return;
-    // The first ink the message sees is what the clear left behind.
-    if (offerInkRef.current === NOT_SEEN) offerInkRef.current = inkRevision;
-    else if (offerInkRef.current !== inkRevision) {
-      clearTimeout(offerTimer.current);
-      setUndoOffer(null);
-    }
-  }, [inkRevision, undoOffer]);
-  useEffect(() => () => clearTimeout(offerTimer.current), []);
 
   const togglePop = (next: Pop, anchor: HTMLElement) => {
     if (pop === next) { setPop(null); return; }
@@ -340,8 +351,8 @@ export function AnnotationTray({
     tray.style.transition = "none";
     const anim = tray.animate([fabFrame(fabLeft()), trayFrame(tray)], { duration: 320, easing: EASE });
     morphRef.current = anim;
-    anim.onfinish = () => { morphRef.current = null; setMorphing(false); };
-  }, [collapsed, place, fabLeft, reducedMotion]);
+    anim.onfinish = () => { morphRef.current = null; setMorphing(false); updateHiddenSides(); };
+  }, [collapsed, place, fabLeft, reducedMotion, updateHiddenSides]);
 
   useEffect(() => () => morphRef.current?.cancel(), []);
 
@@ -381,12 +392,16 @@ export function AnnotationTray({
         ref={trayRef}
         role="toolbar"
         aria-label="Annotation tools"
+        onScroll={updateHiddenSides}
         aria-hidden={collapsed || undefined}
         className={cn(
           "absolute bottom-4 z-20 flex items-center gap-1 p-1.5 rounded-[18px]",
           "bg-[#2e251c] dark:bg-[#3b3025] text-[#f3e7d3]",
           "shadow-[0_12px_32px_rgba(46,30,14,0.3),inset_0_1px_0_rgba(255,255,255,0.06)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.55)]",
-          "max-w-[calc(100%-16px)] overflow-x-auto [scrollbar-width:none] select-none",
+          // It keeps the side margin clear at both ends, even when it has to scroll.
+          "max-w-[calc(100%-32px)] overflow-x-auto [scrollbar-width:none] select-none",
+          // The area the lesson views float it in lets touches through to the panes underneath.
+          "pointer-events-auto",
           // If even the compact tray is too wide, a finger can swipe it sideways to reach the end.
           compact ? "touch-pan-x overscroll-x-contain" : "touch-none",
           "[&>*]:transition-opacity [&>*]:duration-150",
@@ -394,6 +409,7 @@ export function AnnotationTray({
           collapsed && "hidden",
         )}
       >
+        <TrayEdge side="start" shown={hiddenSides.start} onSlide={() => slideTray(-1)} />
         <button
           type="button"
           aria-label="Drag the tray to the left, middle or right"
@@ -482,6 +498,7 @@ export function AnnotationTray({
         <button type="button" aria-label="Collapse the tray" title="Collapse the tray" onClick={collapse} className={btnBase}>
           <ChevronsDown className="h-[22px] w-[22px]" />
         </button>
+        <TrayEdge side="end" shown={hiddenSides.end} onSlide={() => slideTray(1)} />
       </div>
 
       {collapsed && (
@@ -492,7 +509,7 @@ export function AnnotationTray({
           aria-label={`Open the annotation tray. You are using ${toolName}.`}
           title={`Open the annotation tray. You are using ${toolName}.`}
           className={cn(
-            "absolute bottom-4 z-20 grid place-items-center rounded-full",
+            "absolute bottom-4 z-20 grid place-items-center rounded-full pointer-events-auto",
             "bg-[#2e251c] dark:bg-[#3b3025] text-[#f3e7d3] shadow-[0_12px_32px_rgba(46,30,14,0.3)]",
             dock === "left" ? "left-4" : "right-4",
           )}
@@ -600,28 +617,46 @@ export function AnnotationTray({
 
       {undoOffer && !collapsed && (
         <FloatingPortal>
-          <div
-            ref={offerFloating.refs.setFloating}
+          <UndoOfferBar
+            message={undoOffer}
+            onUndo={onUndo && (() => { dropUndoOffer(); onUndo(); })}
+            floatingRef={offerFloating.refs.setFloating}
             style={offerFloating.floatingStyles}
-            role="status"
-            className={cn(
-              "z-[200] flex items-center gap-3 rounded-[14px] p-1.5 pl-4",
-              "bg-[#2e251c] dark:bg-[#3b3025] text-[#f3e7d3] shadow-[0_12px_32px_rgba(46,30,14,0.35)]",
-            )}
-          >
-            <span className="text-sm font-medium">{undoOffer}</span>
-            <button
-              type="button"
-              onClick={() => { dropUndoOffer(); onUndo?.(); }}
-              disabled={!onUndo}
-              className="min-h-12 px-4 rounded-[10px] font-semibold text-sm bg-[#f3e7d3] text-[#2e251c] hover:bg-white transition-colors"
-            >
-              Undo
-            </button>
-          </div>
+          />
         </FloatingPortal>
       )}
     </>
+  );
+}
+
+/**
+ * The fade and arrow at one end of the tray while tools are out of sight
+ * there. It takes no room in the row. It sticks to the tray's edge and
+ * spreads over the tools beside it, so the tray never changes width when it
+ * comes and goes. The negative margin gives back the row's gap beside it.
+ */
+function TrayEdge({ side, shown, onSlide }: { side: "start" | "end"; shown: boolean; onSlide: () => void }) {
+  const start = side === "start";
+  return (
+    <div className={cn("sticky z-10 w-0 self-stretch flex-none", start ? "left-0 -mr-1" : "right-0 -ml-1", !shown && "invisible")}>
+      <div
+        className={cn(
+          // It reaches past its edge into the tray's padding, and the tray's rounded edge clips it.
+          "absolute -inset-y-1.5 w-16 flex items-center from-[#2e251c] from-45% to-transparent dark:from-[#3b3025]",
+          start ? "-left-1.5 justify-start pl-1.5 bg-gradient-to-r" : "-right-1.5 justify-end pr-1.5 bg-gradient-to-l",
+        )}
+      >
+        <button
+          type="button"
+          aria-label={start ? "Show the tools at the start" : "Show the rest of the tools"}
+          title={start ? "Show the tools at the start" : "Show the rest of the tools"}
+          onClick={onSlide}
+          className="w-9 h-12 grid place-items-center rounded-[12px] text-[#f3e7d3] hover:bg-[#f3e7d3]/10"
+        >
+          {start ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
+        </button>
+      </div>
+    </div>
   );
 }
 

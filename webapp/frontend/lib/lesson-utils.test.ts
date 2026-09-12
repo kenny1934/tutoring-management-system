@@ -1,5 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { inkHistoryKey, printErrorMessage } from "./lesson-utils";
+import { inkHistoryKey, loopStep, printErrorMessage } from "./lesson-utils";
+
+describe("loopStep", () => {
+  it("steps either way and goes round at both ends", () => {
+    expect(loopStep(1, 4, 1)).toBe(2);
+    expect(loopStep(3, 4, 1)).toBe(0);
+    expect(loopStep(0, 4, -1)).toBe(3);
+  });
+
+  it("goes to the first or the last from outside the list", () => {
+    expect(loopStep(-1, 4, 1)).toBe(0);
+    expect(loopStep(-1, 4, -1)).toBe(3);
+    expect(loopStep(-1, 1, 1)).toBe(0);
+  });
+
+  it("has nowhere to go with one item, or none", () => {
+    expect(loopStep(0, 1, 1)).toBeNull();
+    expect(loopStep(-1, 0, 1)).toBeNull();
+  });
+});
 
 describe("inkHistoryKey", () => {
   it("undoes on z", () => {

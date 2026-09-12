@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, type ComponentProps } from "react";
 import {
   PenTool, BookOpen, ChevronDown, Pencil, Plus, FileX,
-  Users, FileStack, User,
+  Users, FileStack, User, ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getExerciseDisplayName } from "@/lib/exercise-utils";
@@ -18,7 +18,8 @@ import type { Session, HomeworkCompletion } from "@/types";
 import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
-import { RowPrintButton } from "./RowPrintButton";
+import { PrintIconButton } from "./PrintIconButton";
+import { WithSchoolIfItFits } from "./SchoolBadge";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -46,6 +47,17 @@ interface LessonWideSidebarProps {
   onHomeworkMarked?: (updated: HomeworkCompletion) => void;
 }
 
+/** A file's block is the file and its type, because one file can be both classwork and homework. */
+const fileGroupKey = (group: FileGroup) => `${group.exerciseType}:${group.pdfName}`;
+
+/** A copy of the folded blocks with one block folded away or opened. */
+function withFolded<K>(folded: ReadonlySet<K>, key: K, fold: boolean): ReadonlySet<K> {
+  const next = new Set(folded);
+  if (fold) next.add(key);
+  else next.delete(key);
+  return next;
+}
+
 // --- By-Student mode components ---
 
 function StudentExerciseItem({
@@ -69,7 +81,7 @@ function StudentExerciseItem({
   const pageLabel = getPageLabel(entry.exercise);
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="group/row flex items-center gap-1">
       <button
         type="button"
         onClick={onClick}
@@ -104,11 +116,12 @@ function StudentExerciseItem({
         </div>
       </button>
       {entry.exercise.pdf_name && onPrint && (
-        <RowPrintButton
+        <PrintIconButton
           onPrint={() => onPrint(entry)}
           isPrinting={!!isPrinting}
           title={getPrintButtonTitle(!!isPrinting, printProgress, "Print")}
           label={`Print ${displayName}`}
+          revealOnHover
         />
       )}
     </div>
@@ -125,7 +138,8 @@ function StudentBlock({
   isReadOnly,
   hasAnnotations,
   selectedLocation,
-  defaultExpanded,
+  expanded,
+  onExpandedChange,
   onPrint,
   onBulkPrintStudent,
   printing,
@@ -141,14 +155,14 @@ function StudentBlock({
   isReadOnly?: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
   selectedLocation: string;
-  defaultExpanded: boolean;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
   onPrint?: (entry: StudentExerciseEntry) => void;
   onBulkPrintStudent?: (session: Session, type: 'CW' | 'HW') => void;
   printing?: PrintingState;
   homework: HomeworkCompletion[];
   onHomeworkMarked?: (updated: HomeworkCompletion) => void;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
   const studentId = getStudentIdDisplay(session, selectedLocation);
   const isBulkPrinting = printing?.id === -session.id;
   const saveLessonNumber = useSaveLessonNumber(session.id);
@@ -166,18 +180,21 @@ function StudentBlock({
   // them. Only the chevron folds their list away.
   const open = () => {
     onStudentOpen(session);
-    setExpanded(true);
+    onExpandedChange(true);
   };
 
   return (
     <div>
-      <div className="flex items-center gap-1">
+      {/* The student's number, name, grade and language are what the pane is
+          grouped by, so they sit on a tinted band in the largest text here.
+          Their school follows whenever there's room for all of it. */}
+      <div className="flex items-center rounded-md bg-[#f0e6d4] dark:bg-[#252018]">
         <button
           type="button"
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => onExpandedChange(!expanded)}
           aria-expanded={expanded}
           aria-label={expanded ? "Collapse" : "Expand"}
-          className="flex-none w-8 h-10 grid place-items-center rounded-md hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60 transition-colors"
+          className="flex-none w-8 h-10 grid place-items-center rounded-l-md hover:bg-[#e8d4b8]/70 dark:hover:bg-[#3a3228] transition-colors"
         >
           <ChevronDown className={cn("h-4 w-4 text-[#a0906e] dark:text-[#8a7a60] transition-transform", !expanded && "-rotate-90")} />
         </button>
@@ -195,56 +212,32 @@ function StudentBlock({
             }
           }}
           className={cn(
-            "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors min-h-10 min-w-0 cursor-pointer",
-            "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
+            "flex-1 flex items-center gap-1.5 pr-2 py-1.5 rounded-r-md text-left transition-colors min-h-10 min-w-0 cursor-pointer",
+            "hover:bg-[#e8d4b8]/70 dark:hover:bg-[#3a3228]"
           )}
         >
-          <User className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60] flex-shrink-0" />
-          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <WithSchoolIfItFits school={session.school} lineClass="h-5" className="flex-1 gap-x-1.5" badgeClassName="text-[10px] leading-4 py-0.5">
             {studentId && (
-              <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
+              <span className="text-xs font-mono text-[#8b7355] dark:text-[#a09080] whitespace-nowrap flex-shrink-0">{studentId}</span>
             )}
-            <span className="text-xs font-semibold text-[#6b5a42] dark:text-[#c4a882] truncate">
+            <span className="text-sm font-bold text-[#4a3520] dark:text-[#e8d4b8] truncate">
               {session.student_name}
             </span>
             {session.grade && (
-              <GradeBadge className="text-[9px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
+              <GradeBadge className="text-[10px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0" grade={session.grade} langStream={session.lang_stream} />
             )}
+          </WithSchoolIfItFits>
+          {/* The badge puts its class on the badge inside its own button, so a span pushes it to the right edge. */}
+          <span className="ml-auto flex-none">
             <EditableLessonNumberBadge
               lessonNumber={session.lesson_number}
               movedLessonNumber={session.moved_lesson_number}
               size="xs"
-              className="flex-shrink-0"
               disabled={isReadOnly}
               onSave={saveLessonNumber}
             />
-          </div>
-          <span className="text-[10px] text-[#b0a090] dark:text-[#706050] tabular-nums flex-shrink-0">
-            {entries.length}
           </span>
         </div>
-        {onBulkPrintStudent && (
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {cwEntries.length > 0 && (
-              <RowPrintButton
-                onPrint={() => onBulkPrintStudent(session, 'CW')}
-                isPrinting={isBulkPrinting}
-                title={getPrintButtonTitle(isBulkPrinting, printing?.progress, `Print all CW (${cwEntries.length})`)}
-                label={`Print all CW for ${session.student_name}`}
-                iconClassName="text-rose-400 dark:text-rose-300"
-              />
-            )}
-            {hwEntries.length > 0 && (
-              <RowPrintButton
-                onPrint={() => onBulkPrintStudent(session, 'HW')}
-                isPrinting={isBulkPrinting}
-                title={getPrintButtonTitle(isBulkPrinting, printing?.progress, `Print all HW (${hwEntries.length})`)}
-                label={`Print all HW for ${session.student_name}`}
-                iconClassName="text-blue-400 dark:text-blue-300"
-              />
-            )}
-          </div>
-        )}
       </div>
 
       <AnimatePresence initial={false}>
@@ -272,6 +265,13 @@ function StudentBlock({
                   label="Classwork"
                   icon={PenTool}
                   iconColor="text-rose-500 dark:text-rose-400"
+                  printAll={onBulkPrintStudent && {
+                    onPrint: () => onBulkPrintStudent(session, 'CW'),
+                    isPrinting: isBulkPrinting,
+                    title: getPrintButtonTitle(isBulkPrinting, printing?.progress, `Print all CW (${cwEntries.length})`),
+                    label: `Print all CW for ${session.student_name}`,
+                    iconClassName: "text-rose-400 dark:text-rose-300",
+                  }}
                   entries={cwEntries}
                   selectedEntry={selectedEntry}
                   onEntrySelect={onEntrySelect}
@@ -287,6 +287,13 @@ function StudentBlock({
                   label="Homework"
                   icon={BookOpen}
                   iconColor="text-blue-500 dark:text-blue-400"
+                  printAll={onBulkPrintStudent && {
+                    onPrint: () => onBulkPrintStudent(session, 'HW'),
+                    isPrinting: isBulkPrinting,
+                    title: getPrintButtonTitle(isBulkPrinting, printing?.progress, `Print all HW (${hwEntries.length})`),
+                    label: `Print all HW for ${session.student_name}`,
+                    iconClassName: "text-blue-400 dark:text-blue-300",
+                  }}
                   entries={hwEntries}
                   selectedEntry={selectedEntry}
                   onEntrySelect={onEntrySelect}
@@ -314,6 +321,7 @@ function ExerciseTypeSection({
   label,
   icon: Icon,
   iconColor,
+  printAll,
   entries,
   selectedEntry,
   onEntrySelect,
@@ -326,6 +334,8 @@ function ExerciseTypeSection({
   label: string;
   icon: typeof PenTool;
   iconColor: string;
+  /** The heading's button that prints every exercise in the section for this student. */
+  printAll?: ComponentProps<typeof PrintIconButton>;
   entries: StudentExerciseEntry[];
   selectedEntry: StudentExerciseEntry | null;
   onEntrySelect: (entry: StudentExerciseEntry) => void;
@@ -345,16 +355,19 @@ function ExerciseTypeSection({
           </span>
           <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">({entries.length})</span>
         </div>
-        {!isReadOnly && (
-          <button
-            onClick={onEdit}
-            className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#3a3228] transition-colors"
-            title={`Edit ${label}`}
-            aria-label={`Edit ${label}`}
-          >
-            <Pencil className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60]" />
-          </button>
-        )}
+        <div className="flex items-center gap-0.5">
+          {printAll && <PrintIconButton {...printAll} />}
+          {!isReadOnly && (
+            <button
+              onClick={onEdit}
+              className="w-8 h-8 grid place-items-center rounded-md hover:bg-[#e8d4b8]/60 dark:hover:bg-[#3a3228] transition-colors"
+              title={`Edit ${label}`}
+              aria-label={`Edit ${label}`}
+            >
+              <Pencil className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60]" />
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex flex-col gap-0.5">
         {entries.map((entry) => (
@@ -388,6 +401,8 @@ function FileGroupItem({
   onPrint,
   onPrintFileGroup,
   printing,
+  expanded,
+  onExpandedChange,
 }: {
   group: FileGroup;
   selectedEntry: StudentExerciseEntry | null;
@@ -397,8 +412,9 @@ function FileGroupItem({
   onPrint?: (entry: StudentExerciseEntry) => void;
   onPrintFileGroup?: (group: FileGroup) => void;
   printing?: PrintingState;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const isGroupPrinting = printing?.id === -2;
 
   return (
@@ -406,7 +422,8 @@ function FileGroupItem({
       {/* File header */}
       <div className="flex items-center gap-1">
         <button
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => onExpandedChange(!expanded)}
+          aria-expanded={expanded}
           className={cn(
             "flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left transition-colors min-h-10 min-w-0",
             "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
@@ -423,11 +440,12 @@ function FileGroupItem({
           </span>
         </button>
         {onPrintFileGroup && group.entries.length > 0 && (
-          <RowPrintButton
+          <PrintIconButton
             onPrint={() => onPrintFileGroup(group)}
             isPrinting={isGroupPrinting}
             title={getPrintButtonTitle(isGroupPrinting, printing?.progress, `Print for all ${group.entries.length} students`)}
             label={`Print ${group.displayName} for all ${group.entries.length} students`}
+            iconClassName={group.exerciseType === "CW" ? "text-rose-400 dark:text-rose-300" : "text-blue-400 dark:text-blue-300"}
           />
         )}
       </div>
@@ -454,7 +472,7 @@ function FileGroupItem({
                 const isEntryPrinting = printing?.id === entry.exercise.id;
 
                 return (
-                  <div key={`${entry.session.id}-${entry.exercise.id}`} className="flex items-center gap-1">
+                  <div key={`${entry.session.id}-${entry.exercise.id}`} className="group/row flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => onEntrySelect(entry)}
@@ -468,39 +486,42 @@ function FileGroupItem({
                       )}
                     >
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <User className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60] flex-shrink-0" />
-                        {studentId && (
-                          <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
-                        )}
-                        <span className={cn(
-                          "truncate font-medium",
-                          isSelected ? "text-[#6b4c30] dark:text-[#d4a574]" : "text-gray-700 dark:text-gray-300"
-                        )}>
-                          {entry.studentName}
-                        </span>
-                        <GradeBadge
-                          className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
-                          grade={entry.grade}
-                          langStream={entry.langStream}
-                        />
+                        {/* The school takes whatever room is left, which puts the lesson and pages at the right end. */}
+                        <WithSchoolIfItFits school={entry.session.school} lineClass="h-5" className="flex-1 gap-x-1.5" badgeClassName="text-[10px] leading-4 py-0.5">
+                          <User className="h-3 w-3 text-[#a0906e] dark:text-[#8a7a60] flex-shrink-0" />
+                          {studentId && (
+                            <span className="text-[10px] font-mono text-[#a0906e] dark:text-[#8a7a60] whitespace-nowrap flex-shrink-0">{studentId}</span>
+                          )}
+                          <span className={cn(
+                            "truncate font-medium",
+                            isSelected ? "text-[#6b4c30] dark:text-[#d4a574]" : "text-gray-700 dark:text-gray-300"
+                          )}>
+                            {entry.studentName}
+                          </span>
+                          <GradeBadge
+                            className="text-[8px] px-1 py-0.5 rounded font-medium text-gray-800 flex-shrink-0"
+                            grade={entry.grade}
+                            langStream={entry.langStream}
+                          />
+                        </WithSchoolIfItFits>
                         <SessionLessonBadge session={entry.session} size="xs" className="flex-shrink-0" />
                         {pageLabel && (
                           <span className="text-[10px] text-[#b0a090] dark:text-[#706050] flex-shrink-0">
                             {pageLabel}
                           </span>
                         )}
-                        <div className="flex-1" />
                         {hasAnno && (
                           <span className="w-2 h-2 rounded-full bg-[#a0704b] flex-shrink-0" title="Has annotations" />
                         )}
                       </div>
                     </button>
                     {entry.exercise.pdf_name && onPrint && (
-                      <RowPrintButton
+                      <PrintIconButton
                         onPrint={() => onPrint(entry)}
                         isPrinting={isEntryPrinting}
                         title={getPrintButtonTitle(isEntryPrinting, printing?.progress, "Print")}
                         label={`Print for ${entry.studentName}`}
+                        revealOnHover
                       />
                     )}
                   </div>
@@ -541,6 +562,20 @@ export function LessonWideSidebar({
   // Student picker popover state (both modes)
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
   const handlePickerClose = useCallback(() => setPickerType(null), []);
+
+  // The blocks folded away, by student and by file. Each block still opens
+  // and folds on its own, and the top bar's toggle does every block in the
+  // grouping that's showing.
+  const [foldedStudents, setFoldedStudents] = useState<ReadonlySet<number>>(() => new Set());
+  const [foldedFiles, setFoldedFiles] = useState<ReadonlySet<string>>(() => new Set());
+  const blockCount = sidebarMode === "by-student" ? students.length : fileGroups.length;
+  const anyOpen = sidebarMode === "by-student"
+    ? students.some((s) => !foldedStudents.has(s.id))
+    : fileGroups.some((g) => !foldedFiles.has(fileGroupKey(g)));
+  const foldAll = () => {
+    if (sidebarMode === "by-student") setFoldedStudents(anyOpen ? new Set(students.map((s) => s.id)) : new Set());
+    else setFoldedFiles(anyOpen ? new Set(fileGroups.map(fileGroupKey)) : new Set());
+  };
 
   // Group file groups by type for by-file view
   const cwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "CW"), [fileGroups]);
@@ -583,6 +618,16 @@ export function LessonWideSidebar({
           <FileStack className="h-3 w-3" />
           Files
         </button>
+        {blockCount > 0 && (
+          <button
+            type="button"
+            onClick={foldAll}
+            className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors text-[#8b7355] dark:text-[#a09080] hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
+          >
+            {anyOpen ? <ChevronsDownUp className="h-3 w-3" /> : <ChevronsUpDown className="h-3 w-3" />}
+            {anyOpen ? "Collapse all" : "Expand all"}
+          </button>
+        )}
       </div>
 
       {/* Scrollable content */}
@@ -625,7 +670,7 @@ export function LessonWideSidebar({
 
         {sidebarMode === "by-student" ? (
           // By-student mode: one block per student
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-2">
             {students.map((session) => {
               const studentEntries = allEntries.filter(e => e.session.id === session.id);
               return (
@@ -640,7 +685,8 @@ export function LessonWideSidebar({
                   isReadOnly={isReadOnly}
                   hasAnnotations={hasAnnotations}
                   selectedLocation={selectedLocation}
-                  defaultExpanded
+                  expanded={!foldedStudents.has(session.id)}
+                  onExpandedChange={(open) => setFoldedStudents((folded) => withFolded(folded, session.id, !open))}
                   onPrint={onPrint}
                   onBulkPrintStudent={onBulkPrintStudent}
                   printing={printing}
@@ -666,6 +712,8 @@ export function LessonWideSidebar({
                     <FileGroupItem
                       key={group.pdfName}
                       group={group}
+                      expanded={!foldedFiles.has(fileGroupKey(group))}
+                      onExpandedChange={(open) => setFoldedFiles((folded) => withFolded(folded, fileGroupKey(group), !open))}
                       selectedEntry={selectedEntry}
                       onEntrySelect={onEntrySelect}
                       hasAnnotations={hasAnnotations}
@@ -691,6 +739,8 @@ export function LessonWideSidebar({
                     <FileGroupItem
                       key={group.pdfName}
                       group={group}
+                      expanded={!foldedFiles.has(fileGroupKey(group))}
+                      onExpandedChange={(open) => setFoldedFiles((folded) => withFolded(folded, fileGroupKey(group), !open))}
                       selectedEntry={selectedEntry}
                       onEntrySelect={onEntrySelect}
                       hasAnnotations={hasAnnotations}

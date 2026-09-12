@@ -30,10 +30,34 @@ describe("StudentStrip", () => {
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
-  it("shows a preview by its own name, with no student number or count", () => {
-    render(<StudentStrip entry={entry(-3, "Parallel CW")} position={null} selectedLocation="MSA" />);
+  it("holds what it's given at its two ends, outside the arrows", () => {
+    render(
+      <StudentStrip
+        entry={entry(1, "CHAN Tai Man")}
+        position={{ index: 1, total: 2 }}
+        selectedLocation="MSA"
+        start={<button type="button">Students</button>}
+        end={<button type="button">Leave focus</button>}
+      />,
+    );
+    expect(screen.getAllByRole("button").map((b) => b.textContent || b.getAttribute("aria-label")))
+      .toEqual(["Students", "Previous student", "Next student", "Leave focus"]);
+  });
+
+  it("shows a preview by its own name, with no student number, school or count", () => {
+    const preview = entry(-3, "Parallel CW");
+    preview.session.school = "SRL-E";
+    render(<StudentStrip entry={preview} position={null} selectedLocation="MSA" />);
     expect(screen.getByText("Parallel CW")).toBeInTheDocument();
     expect(screen.queryByText("1023")).toBeNull();
+    expect(screen.queryByText("SRL-E")).toBeNull();
     expect(screen.queryByText(/ of /)).toBeNull();
+  });
+
+  it("shows the student's school after their grade", () => {
+    const withSchool = entry(1, "CHAN Tai Man");
+    withSchool.session.school = "DBYW-C";
+    render(<StudentStrip entry={withSchool} position={{ index: 1, total: 2 }} selectedLocation="MSA" />);
+    expect(screen.getByText("DBYW-C")).toBeInTheDocument();
   });
 });

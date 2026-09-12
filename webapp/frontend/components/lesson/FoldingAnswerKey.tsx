@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { BookCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +19,21 @@ import { cn } from "@/lib/utils";
  * see the answers. The row has to be `relative` and hide its overflow, so the
  * answer key can wait off its right edge while it's away.
  */
-export function FoldingAnswerKey({ children }: { children: ReactNode }) {
+export function FoldingAnswerKey({ children, onOutChange }: {
+  children: ReactNode;
+  /**
+   * Told whether the answer key is slid in, and told false when it goes away.
+   * On a narrow row, slid in means it's covering the Draft, so the lesson
+   * views keep the Pen Tray over the worksheet until it slides away again.
+   */
+  onOutChange?: (out: boolean) => void;
+}) {
   const [out, setOut] = useState(true);
+
+  const reportRef = useRef(onOutChange);
+  reportRef.current = onOutChange;
+  useLayoutEffect(() => { reportRef.current?.(out); }, [out]);
+  useLayoutEffect(() => () => reportRef.current?.(false), []);
 
   return (
     <>

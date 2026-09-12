@@ -18,7 +18,7 @@ import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
 import { isPreviewExercise } from "@/lib/summer-courseware-session";
-import { PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
+import { PAGE_BAR_HEIGHT, PdfPageViewer, type PdfViewState } from "./PdfPageViewer";
 import { DraftPane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { FocusModeButtons } from "./FocusModeButtons";
@@ -278,6 +278,11 @@ export function LessonMode({
 
   // Whether the Draft is open beside the worksheet
   const [showDraft, setShowDraft] = useState(false);
+  // While the Draft is open, the Pen Tray floats in an area over the worksheet
+  // and the Draft together. It keeps to the worksheet while the answer key is
+  // slid in over the Draft.
+  const [trayArea, setTrayArea] = useState<HTMLElement | null>(null);
+  const [answersOverDraft, setAnswersOverDraft] = useState(false);
 
   // Answer key state
   const [showAnswerKey, setShowAnswerKey] = useState(false);
@@ -638,6 +643,13 @@ export function LessonMode({
     setCurrentAnnotations((prev) => ({ ...prev, [pageIndex]: [] }));
   }, [selectedExercise, clearPage]);
 
+  // The Draft clears one sheet or all of them, either way as one change that one undo brings back.
+  const handleClearPages = useCallback((pages: number[]) => {
+    if (!selectedExercise) return;
+    clearAnnotations(selectedExercise.id, pages);
+    setCurrentAnnotations(getAnnotations(selectedExercise.id));
+  }, [selectedExercise, clearAnnotations, getAnnotations]);
+
   // A preview is class-wide, so it has no student stamp, on screen or in the saved file.
   const viewerStamp = selectedExercise && isPreviewExercise(selectedExercise) ? undefined : stamp;
 
@@ -881,6 +893,8 @@ export function LessonMode({
     return () => { resizeCleanupRef.current?.(); };
   }, []);
 
+  // This view has no student strip, so in focus mode these buttons share the
+  // worksheet's toolbar, and show only their icons to leave it room.
   const focusButtons = focusMode && !isMobile ? (
     <FocusModeButtons
       icon={LayoutList}
@@ -888,6 +902,7 @@ export function LessonMode({
       sidebarOpen={hoverSidebar}
       onOpenSidebar={() => setHoverSidebar(true)}
       onLeave={exitFocusMode}
+      labelClass="sr-only"
     />
   ) : null;
 
@@ -1230,143 +1245,162 @@ export function LessonMode({
           )}>
             {/* Main exercise viewer — hidden on mobile when answer tab is active */}
             {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
-              selectedExercise?.url && !selectedExercise?.pdf_name ? (
-                /* URL exercise: iframe embed or open-in-new-tab */
-                <div className={cn("flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]", isMobile && "pb-20")}>
-                  {/* A URL exercise has no viewer toolbar, so focus mode's buttons get a bar of their own */}
-                  {focusButtons && (
-                    <div className="flex items-center gap-1 px-2 py-0.5 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
-                      {focusButtons}
-                    </div>
-                  )}
-                  {(() => {
-                    const embedUrl = toEmbedUrl(selectedExercise.url);
-                    if (embedUrl) {
-                      const isGoogleDoc = selectedExercise.url?.includes("docs.google.com");
-                      return (
-                        <>
-                          <iframe
-                            src={embedUrl}
-                            className="w-full border-0 rounded"
-                            style={{ flex: 1, minHeight: 0 }}
-                            allow="autoplay; fullscreen"
-                            allowFullScreen
-                            title={getExerciseDisplayName(selectedExercise)}
-                          />
-                          {(isMobile || isGoogleDoc) && (
-                            <div className="flex items-center justify-center gap-3 py-1.5 text-xs flex-shrink-0">
-                              {isMobile && (
-                                <a
-                                  href={selectedExercise.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:underline"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  Open in app
-                                </a>
-                              )}
-                              {isGoogleDoc && (
-                                <span className="text-[#8b7355] dark:text-[#a09080]">
-                                  Can't see the file? Ask the owner to share it with you.
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      );
-                    }
-                    return (
-                      <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-                          This resource cannot be embedded directly.
-                        </p>
-                        <a
-                          href={selectedExercise.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                        >
-                          Open in new tab
-                        </a>
+              <div className={cn("relative flex flex-1 min-h-0 min-w-0", draftOpen && "@[1100px]/viewers:flex-[2]")}>
+                {selectedExercise?.url && !selectedExercise?.pdf_name ? (
+                  /* URL exercise: iframe embed or open-in-new-tab */
+                  <div className={cn("flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]", isMobile && "pb-20")}>
+                    {/* A URL exercise has no viewer toolbar, so focus mode's buttons get a bar of their own */}
+                    {focusButtons && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
+                        {focusButtons}
                       </div>
-                    );
-                  })()}
-                </div>
-              ) : (
-              <ErrorBoundary
-                onReset={handleRetry}
-                fallback={
-                  <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
-                    <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-                      <AlertTriangle className="h-10 w-10 text-amber-500" />
-                      <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-                        Something went wrong rendering the PDF
-                      </p>
-                      <button
-                        onClick={handleRetry}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
-                      >
-                        Try again
-                      </button>
-                    </div>
+                    )}
+                    {(() => {
+                      const embedUrl = toEmbedUrl(selectedExercise.url);
+                      if (embedUrl) {
+                        const isGoogleDoc = selectedExercise.url?.includes("docs.google.com");
+                        return (
+                          <>
+                            <iframe
+                              src={embedUrl}
+                              className="w-full border-0 rounded"
+                              style={{ flex: 1, minHeight: 0 }}
+                              allow="autoplay; fullscreen"
+                              allowFullScreen
+                              title={getExerciseDisplayName(selectedExercise)}
+                            />
+                            {(isMobile || isGoogleDoc) && (
+                              <div className="flex items-center justify-center gap-3 py-1.5 text-xs flex-shrink-0">
+                                {isMobile && (
+                                  <a
+                                    href={selectedExercise.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:underline"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    Open in app
+                                  </a>
+                                )}
+                                {isGoogleDoc && (
+                                  <span className="text-[#8b7355] dark:text-[#a09080]">
+                                    Can't see the file? Ask the owner to share it with you.
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
+                      return (
+                        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                          <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+                            This resource cannot be embedded directly.
+                          </p>
+                          <a
+                            href={selectedExercise.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                          >
+                            Open in new tab
+                          </a>
+                        </div>
+                      );
+                    })()}
                   </div>
-                }
-              >
-                <PdfPageViewer
-                  pdfData={pdfData}
-                  pageNumbers={pageNumbers}
-                  stamp={viewerStamp}
-                  exerciseId={selectedExercise?.id}
-                  isLoading={pdfLoading}
-                  loadingMessage={pdfLoadingMessage}
-                  error={pdfError}
-                  exerciseLabel={exerciseLabel}
-                  // Trying again can't find a file the exercise doesn't have.
-                  onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
-                  annotations={currentAnnotations}
-                  onPageStrokesChange={handlePageStrokesChange}
-                  tools={tools}
-                  onUndo={handleUndo}
-                  onRedo={handleRedo}
-                  onClearAll={handleClearAllAnnotations}
-                  onClearPage={handleClearPage}
-                  hasAnnotations={exerciseHasAnnotations}
-                  onSaveAnnotated={handleSaveAnnotated}
-                  onAnswerKeyToggle={handleAnswerKeyToggle}
-                  showAnswerKey={showAnswerKey}
-                  answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
-                  answerKeySearching={!!selectedExercise?.pdf_name && !answerSearchDone}
-                  onDraftToggle={isMobile || !selectedExercise ? undefined : () => setShowDraft((open) => !open)}
-                  showDraft={draftOpen}
-                  toolbarStart={focusButtons}
-                  onPrint={selectedExercise?.pdf_name ? () => handlePrintExercise(selectedExercise) : undefined}
-                  isPrinting={printing.id !== null}
-                  printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
-                  emptyMessage={!currentSession?.exercises?.length ? NO_EXERCISES_MESSAGE : undefined}
-                  viewStates={viewStatesRef.current}
-                />
-              </ErrorBoundary>
-              )
-            )}
+                ) : (
+                <ErrorBoundary
+                  onReset={handleRetry}
+                  fallback={
+                    <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
+                      <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+                        <AlertTriangle className="h-10 w-10 text-amber-500" />
+                        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+                          Something went wrong rendering the PDF
+                        </p>
+                        <button
+                          onClick={handleRetry}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    </div>
+                  }
+                >
+                  <PdfPageViewer
+                    pdfData={pdfData}
+                    pageNumbers={pageNumbers}
+                    stamp={viewerStamp}
+                    exerciseId={selectedExercise?.id}
+                    isLoading={pdfLoading}
+                    loadingMessage={pdfLoadingMessage}
+                    error={pdfError}
+                    exerciseLabel={exerciseLabel}
+                    // Trying again can't find a file the exercise doesn't have.
+                    onRetry={pdfError === NO_FILE_ERROR ? undefined : handleRetry}
+                    annotations={currentAnnotations}
+                    onPageStrokesChange={handlePageStrokesChange}
+                    tools={tools}
+                    onUndo={handleUndo}
+                    onRedo={handleRedo}
+                    onClearAll={handleClearAllAnnotations}
+                    onClearPage={handleClearPage}
+                    hasAnnotations={exerciseHasAnnotations}
+                    onSaveAnnotated={handleSaveAnnotated}
+                    onAnswerKeyToggle={handleAnswerKeyToggle}
+                    showAnswerKey={showAnswerKey}
+                    answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
+                    answerKeySearching={!!selectedExercise?.pdf_name && !answerSearchDone}
+                    onDraftToggle={isMobile || !selectedExercise ? undefined : () => setShowDraft((open) => !open)}
+                    showDraft={draftOpen}
+                    toolbarStart={focusButtons}
+                    onPrint={selectedExercise?.pdf_name ? () => handlePrintExercise(selectedExercise) : undefined}
+                    isPrinting={printing.id !== null}
+                    printTitle={getPrintButtonTitle(printing.id !== null, printing.progress, "Print this exercise (P)")}
+                    emptyMessage={!currentSession?.exercises?.length ? NO_EXERCISES_MESSAGE : undefined}
+                    viewStates={viewStatesRef.current}
+                    trayArea={draftOpen ? trayArea : undefined}
+                  />
+                </ErrorBoundary>
+                )}
 
-            {/* The Draft, beside the worksheet */}
-            {draftOpen && selectedExercise && (
-              <>
-                <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
-                <DraftPane
-                  exerciseId={selectedExercise.id}
-                  annotations={currentAnnotations}
-                  onPageStrokesChange={handlePageStrokesChange}
-                  tools={tools}
-                  onClose={() => setShowDraft(false)}
-                />
-              </>
+                {/* The Draft, beside the worksheet */}
+                {draftOpen && selectedExercise && (
+                  <>
+                    <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
+                    <DraftPane
+                      exerciseId={selectedExercise.id}
+                      annotations={currentAnnotations}
+                      onPageStrokesChange={handlePageStrokesChange}
+                      onClearPages={handleClearPages}
+                      onUndo={handleUndo}
+                      tools={tools}
+                      onClose={() => setShowDraft(false)}
+                    />
+                  </>
+                )}
+
+                {/* While the Draft is open, the Pen Tray floats in here, across the worksheet and the Draft */}
+                {draftOpen && (
+                  <div
+                    ref={setTrayArea}
+                    className={cn(
+                      "absolute left-0 top-0 pointer-events-none",
+                      // With the answer key slid in over the Draft, the tray keeps to the worksheet,
+                      // which is half the width less half the line between the two panes.
+                      answersOverDraft ? "right-[calc(50%+0.5px)] @[1100px]/viewers:right-0" : "right-0",
+                    )}
+                    style={{ bottom: PAGE_BAR_HEIGHT }}
+                  />
+                )}
+              </div>
             )}
 
             {/* Answer key viewer (read-only). With the Draft open, it folds away when there isn't room for three columns. */}
             {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
-              draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
+              draftOpen ? <FoldingAnswerKey onOutChange={setAnswersOverDraft}>{answerViewer}</FoldingAnswerKey> : (
                 <>
                   {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
                   {answerViewer}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   ZoomIn, ZoomOut, UnfoldHorizontal, BookCheck, Moon, Sun,
@@ -46,6 +47,10 @@ export const toolbarRow = cn(
 export const tbBtn = "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium";
 export const tbBtnIdle = "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]";
 export const tbBtnOn = "bg-[#a0704b] text-white";
+// The page bar under the pages, in pixels. While the Draft is open, the lesson
+// views float the Pen Tray over the worksheet and the Draft together from this
+// far up, so the tray still sits just above the page bar.
+export const PAGE_BAR_HEIGHT = 49;
 
 /** A rendered page image with its dimensions. */
 interface RenderedPage {
@@ -133,6 +138,13 @@ interface PdfPageViewerProps {
    * by exercise id. Pass the same map on every render.
    */
   viewStates?: Map<number, PdfViewState>;
+  /**
+   * An area to show the Pen Tray in, in place of this viewer's own. While the
+   * Draft is open, the lesson views pass one that covers the worksheet and the
+   * Draft together. Null means that area isn't on the page yet, so the tray
+   * waits for it.
+   */
+  trayArea?: HTMLElement | null;
 }
 
 const MIN_ZOOM = 25;
@@ -180,6 +192,7 @@ export function PdfPageViewer({
   printTitle = "Print this exercise (P)",
   emptyMessage = "Select an exercise to view",
   viewStates,
+  trayArea,
 }: PdfPageViewerProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -867,6 +880,8 @@ export function PdfPageViewer({
   const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
   // The words on the Draft, Answers and Print buttons only show when the pane has room for them.
   const tbLabel = "hidden @[560px]/toolbar:inline";
+  // The tray floats over this viewer, unless the lesson view has given it an area of its own.
+  const placeTray = (tray: ReactNode) => (trayArea ? createPortal(tray, trayArea) : tray);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -1050,7 +1065,7 @@ export function PdfPageViewer({
         </div>
       </div>
 
-      {tools && onPageStrokesChange && (
+      {tools && onPageStrokesChange && trayArea !== null && placeTray(
         <AnnotationTray
           tools={tools}
           onUndo={onUndo}
@@ -1065,7 +1080,7 @@ export function PdfPageViewer({
           onClearPage={onClearPage && (() => onClearPage(currentVisiblePage - 1))}
           inkRevision={annotations}
           onSaveAnnotated={onSaveAnnotated}
-        />
+        />,
       )}
       </div>
 
@@ -1076,7 +1091,7 @@ export function PdfPageViewer({
         "flex items-center justify-center gap-2 px-2 py-0.5",
         "border-t border-[#d4c4a8] dark:border-[#3a3228]",
         "bg-[#f0e6d4] dark:bg-[#252018]",
-      )}>
+      )} style={{ height: PAGE_BAR_HEIGHT }}>
         <button
           onClick={() => scrollToPage(currentVisiblePage - 1)}
           disabled={currentVisiblePage <= 1}
