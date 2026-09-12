@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
 import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
@@ -932,6 +932,7 @@ export function LessonWideMode({
       }
       return;
     }
+    if (hasBrowserModifier(e)) return;
 
     switch (e.key) {
       case "Escape":
@@ -1327,7 +1328,7 @@ export function LessonWideMode({
                   ["w", "Wolfram Alpha"],
                   ["f", "Focus mode"],
                   ["?", "This help"],
-                  ["Esc", "Exit / Back"],
+                  ["Esc", "Back"],
                 ].map(([key, desc]) => (
                   <div key={key} className="contents">
                     <kbd className="text-white/90 font-mono bg-white/10 px-1.5 py-0.5 rounded text-[10px] text-center">{key}</kbd>
@@ -1664,6 +1665,7 @@ export function LessonWideMode({
           exerciseType={exerciseModalType}
           isOpen
           onClose={handleExerciseModalClose}
+          readOnly={isReadOnly}
         />
       )}
 

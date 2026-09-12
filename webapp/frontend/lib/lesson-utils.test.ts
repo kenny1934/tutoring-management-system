@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { inkHistoryKey, loopStep, printErrorMessage } from "./lesson-utils";
+import { hasBrowserModifier, inkHistoryKey, loopStep, printErrorMessage } from "./lesson-utils";
 
 describe("loopStep", () => {
   it("steps either way and goes round at both ends", () => {
@@ -36,6 +36,18 @@ describe("inkHistoryKey", () => {
   it("leaves every other key alone", () => {
     expect(inkHistoryKey({ key: "a", shiftKey: false })).toBeNull();
     expect(inkHistoryKey({ key: "Escape", shiftKey: false })).toBeNull();
+  });
+});
+
+describe("hasBrowserModifier", () => {
+  it("is true with Ctrl, Cmd or Alt held, so Ctrl+C is left to the browser", () => {
+    expect(hasBrowserModifier({ ctrlKey: true, metaKey: false, altKey: false })).toBe(true);
+    expect(hasBrowserModifier({ ctrlKey: false, metaKey: true, altKey: false })).toBe(true);
+    expect(hasBrowserModifier({ ctrlKey: false, metaKey: false, altKey: true })).toBe(true);
+  });
+
+  it("is false for a plain key", () => {
+    expect(hasBrowserModifier({ ctrlKey: false, metaKey: false, altKey: false })).toBe(false);
   });
 });
 

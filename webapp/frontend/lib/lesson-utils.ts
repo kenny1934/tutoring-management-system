@@ -109,6 +109,16 @@ export function inkHistoryKey(e: Pick<KeyboardEvent, "key" | "shiftKey">): "undo
 }
 
 /**
+ * Whether Ctrl, Cmd or Alt is held. Keys pressed with those belong to the
+ * browser, so both lesson views ignore them. Ctrl+C used to open the
+ * classwork editor as well as copying. The views check the undo and redo keys
+ * before this, so Ctrl+Z still undoes ink.
+ */
+export function hasBrowserModifier(e: Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "altKey">): boolean {
+  return e.ctrlKey || e.metaKey || e.altKey;
+}
+
+/**
  * One step either way through a list that goes round, as the lesson views'
  * student arrows do. From outside the list, at index -1, forwards goes to
  * the first and backwards to the last. It's null when there's nowhere else

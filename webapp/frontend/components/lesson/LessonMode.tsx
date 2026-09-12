@@ -11,7 +11,7 @@ import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUr
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, inkHistoryKey, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
+import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
 import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
@@ -759,6 +759,7 @@ export function LessonMode({
       }
       return;
     }
+    if (hasBrowserModifier(e)) return;
 
     switch (e.key) {
       case "Escape":
