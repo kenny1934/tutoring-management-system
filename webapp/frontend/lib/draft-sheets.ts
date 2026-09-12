@@ -1,15 +1,9 @@
-import { RENDER_SCALE, type PageAnnotations } from "@/hooks/useAnnotations";
+import { DRAFT_PAGE_BASE, RENDER_SCALE, type PageAnnotations } from "@/hooks/useAnnotations";
 import { createBooleanPreference } from "./boolean-preference";
 
-/**
- * The Draft is blank or squared paper beside the worksheet, for the tutor's
- * working. Its ink lives in the exercise's own annotations as extra pages,
- * starting at this page index, so sheet one is page 1000. No worksheet shows
- * anywhere near a thousand pages, so the two never collide. That also means
- * undo, clearing, the exit warnings and saving all treat Draft ink like any
- * other ink without knowing the Draft exists.
- */
-export const DRAFT_PAGE_BASE = 1000;
+// The page index the Draft's sheets start at. The ink hook defines it, because
+// saving ink to the server needs it too, and it's re-exported here for the Draft.
+export { DRAFT_PAGE_BASE };
 
 /** A Draft sheet is A4 portrait, the size nearly every worksheet is, in PDF points. */
 export const DRAFT_SHEET_PT = { width: 595.28, height: 841.89 };

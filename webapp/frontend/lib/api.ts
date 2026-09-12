@@ -278,6 +278,7 @@ import type {
   SqlQueryResponse,
   RevertResponse,
 } from "@/types/debug";
+import type { Stroke } from "@/hooks/useAnnotations";
 import { pickableForOpenEndedWork } from "./employment";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
@@ -3418,6 +3419,62 @@ export const employmentAPI = {
 
   /** Pull leaving dates from ARK now instead of waiting for tonight's run. */
   sync: () => fetchAPI<EmploymentSyncResult>("/admin/employment/sync", { method: "POST" }),
+};
+
+/**
+ * A page of lesson ink as the server holds it. The target is `ex:<exercise id>`
+ * or `preview:<file id>`, and the page index is the page of the PDF counted
+ * from 0, or a Draft sheet's own index, 1000 and up.
+ */
+export interface LessonInkPage {
+  session_id: number;
+  target_key: string;
+  page_index: number;
+  pdf_page: number | null;
+  pdf_name: string | null;
+  strokes: Stroke[];
+  version: number;
+  updated_by: string;
+  updated_by_name: string | null;
+  updated_at: string | null;
+}
+
+export type LessonInkPageIn = Pick<
+  LessonInkPage, "session_id" | "target_key" | "page_index" | "pdf_page" | "pdf_name" | "strokes"
+>;
+
+type LessonInkPageKey = Pick<LessonInkPage, "session_id" | "target_key" | "page_index">;
+
+export interface LessonInkSaveResult {
+  saved: (LessonInkPageKey & { version: number })[];
+  /** Pages whose exercise has left its lesson. Their ink went with it, so there's nothing to save. */
+  dropped: LessonInkPageKey[];
+}
+
+export const lessonInkAPI = {
+  /** Every page of ink for the given lessons, cleared pages included. */
+  read: (sessionIds: number[]) =>
+    fetchAPI<{ pages: LessonInkPage[] }>(`/lesson-ink?session_ids=${sessionIds.join(",")}`),
+
+  save: (pages: LessonInkPageIn[]) =>
+    fetchAPI<LessonInkSaveResult>("/lesson-ink", { method: "PUT", body: JSON.stringify({ pages }) }),
+
+  /**
+   * One last try as the tab closes. A keepalive request can carry at most
+   * 64 KB, so a bigger batch isn't sent at all, and the pages stay in the
+   * tab's own storage for the next time the lesson opens.
+   */
+  saveOnExit: (pages: LessonInkPageIn[]) => {
+    const body = JSON.stringify({ pages });
+    if (pages.length === 0 || body.length > 60_000) return;
+    fetch(`${API_BASE_URL}/lesson-ink`, {
+      method: "PUT",
+      keepalive: true,
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body,
+    }).catch(() => {});
+  },
 };
 
 export const homeworkAPI = {

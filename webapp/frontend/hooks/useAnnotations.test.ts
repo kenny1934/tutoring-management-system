@@ -1,6 +1,14 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
-import { useAnnotations, inkLayers, getStrokeOptions, hasInk, type Stroke } from "./useAnnotations";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { lessonInkAPI, type LessonInkPage } from "@/lib/api";
+import {
+  useAnnotations, inkLayers, getStrokeOptions, hasInk, serverPageIndex, viewPageIndex, inkTargetKey,
+  roundStroke, type ReplacedInk, type Stroke,
+} from "./useAnnotations";
+
+vi.mock("@/lib/api", () => ({
+  lessonInkAPI: { read: vi.fn(), save: vi.fn(), saveOnExit: vi.fn() },
+}));
 
 const EX = 1;
 
@@ -225,5 +233,212 @@ describe("hasInk", () => {
     expect(hasInk({})).toBe(false);
     expect(hasInk({ 0: [], 1: [] })).toBe(false);
     expect(hasInk({ 0: [], 1: [stroke("red")] })).toBe(true);
+  });
+});
+
+describe("server keys and rounding", () => {
+  it("saves a worksheet page under its page of the PDF, and a Draft sheet under its own index", () => {
+    expect(serverPageIndex(1, [5, 6, 7])).toBe(5);
+    expect(serverPageIndex(3, [])).toBe(3);
+    expect(serverPageIndex(1000, [5, 6, 7])).toBe(1000);
+    expect(serverPageIndex(3, [5, 6, 7])).toBeNull();
+  });
+
+  it("finds a saved page among the pages shown, even after the range has moved", () => {
+    expect(viewPageIndex(5, [5, 6, 7])).toBe(1);
+    expect(viewPageIndex(5, [6, 7])).toBe(0);
+    expect(viewPageIndex(8, [5, 6, 7])).toBeNull();
+    expect(viewPageIndex(1002, [5])).toBe(1002);
+  });
+
+  it("keys a preview by its file", () => {
+    expect(inkTargetKey(12)).toBe("ex:12");
+    expect(inkTargetKey(-345)).toBe("preview:345");
+  });
+
+  it("rounds points for saving, and keeps a pressure of exactly 0.5", () => {
+    const rounded = roundStroke({ points: [[1.234, 5.678, 0.5], [2.25, 3.96, 0.4567]], color: "red", size: 2 });
+    expect(rounded.points).toEqual([[1.2, 5.7, 0.5], [2.3, 4, 0.46]]);
+  });
+});
+
+describe("useAnnotations saving to the server", () => {
+  const api = vi.mocked(lessonInkAPI);
+  const KEY = "ink-test";
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    sessionStorage.clear();
+    api.read.mockReset();
+    api.save.mockReset();
+    api.saveOnExit.mockReset();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const onServer = (strokes: Stroke[], over: Partial<LessonInkPage> = {}): LessonInkPage => ({
+    session_id: 100, target_key: "ex:1", page_index: 0, pdf_page: 1, pdf_name: "A.pdf", strokes,
+    version: 1, updated_by: "me@example.com", updated_by_name: "Me", updated_at: null, ...over,
+  });
+  const savedAs = (page_index: number, version: number) => ({
+    saved: [{ session_id: 100, target_key: "ex:1", page_index, version }], dropped: [],
+  });
+
+  // Let pending promises settle, moving the clock on first if asked.
+  const tick = (ms = 0) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+
+  async function mount(pages: LessonInkPage[], pdfPages: number[] = [], onReplaced?: (p: ReplacedInk[]) => void) {
+    api.read.mockResolvedValue({ pages });
+    const view = renderHook(() => useAnnotations(KEY, {
+      sessionIds: [100],
+      locate: () => ({ sessionId: 100, pdfName: "A.pdf", pdfPages }),
+      onReplaced,
+    }));
+    await tick();
+    return view;
+  }
+
+  it("loads the lesson's ink, putting each page on its page of the PDF", async () => {
+    const { result } = await mount([
+      onServer([stroke("a")], { page_index: 5, pdf_page: 6 }),
+      onServer([stroke("b")], { page_index: 8, pdf_page: 9 }),
+    ], [5, 6, 7]);
+
+    expect(api.read).toHaveBeenCalledWith([100]);
+    expect(result.current.inkReady).toBe(true);
+    expect(result.current.syncStatus).toBe("saved");
+    // Page 9 isn't among the pages shown, so it's left alone on the server.
+    expect(Object.keys(result.current.getAnnotations(EX))).toEqual(["1"]);
+    expect(colours(result.current.getAnnotations(EX)[1])).toEqual(["a"]);
+  });
+
+  it("sends a changed page two seconds after the last change, under its page of the PDF, with rounded points", async () => {
+    const { result } = await mount([], [5, 6, 7]);
+    api.save.mockResolvedValue(savedAs(5, 1));
+    act(() => result.current.setPageStrokes(EX, 1, [{ points: [[1.234, 5.678, 0.5]], color: "red", size: 2 }]));
+
+    await tick(1999);
+    expect(api.save).not.toHaveBeenCalled();
+    await tick(1);
+    await tick();
+    expect(api.save).toHaveBeenCalledWith([{
+      session_id: 100, target_key: "ex:1", page_index: 5, pdf_page: 6, pdf_name: "A.pdf",
+      strokes: [{ points: [[1.2, 5.7, 0.5]], color: "red", size: 2 }],
+    }]);
+    expect(result.current.syncStatus).toBe("saved");
+    expect(result.current.hasUnsentInk()).toBe(false);
+  });
+
+  it("keeps a page waiting when a send fails, and tries again", async () => {
+    const { result } = await mount([]);
+    api.save.mockRejectedValueOnce(new Error("offline")).mockResolvedValue(savedAs(0, 1));
+    act(() => draw(result.current, 0, stroke("a")));
+
+    await tick(2000);
+    expect(api.save).toHaveBeenCalledTimes(1);
+    expect(result.current.syncStatus).toBe("waiting");
+    expect(result.current.hasUnsentInk()).toBe(true);
+
+    await tick(2000);
+    expect(api.save).toHaveBeenCalledTimes(2);
+    expect(result.current.syncStatus).toBe("saved");
+  });
+
+  it("lets a page the tab hadn't sent win over the server's copy, then sends it", async () => {
+    sessionStorage.setItem(KEY, JSON.stringify({ [EX]: { 0: [stroke("mine")] } }));
+    api.save.mockResolvedValue(savedAs(0, 4));
+    const { result } = await mount([onServer([stroke("theirs")], { version: 3 })]);
+
+    expect(colours(result.current.getAnnotations(EX)[0])).toEqual(["mine"]);
+    await tick(2000);
+    expect(colours(api.save.mock.calls[0][0][0].strokes)).toEqual(["mine"]);
+  });
+
+  it("sends nothing until the lesson's ink has loaded", async () => {
+    let finishLoading: (value: { pages: LessonInkPage[] }) => void = () => {};
+    api.read.mockReturnValue(new Promise((resolve) => { finishLoading = resolve; }));
+    api.save.mockResolvedValue(savedAs(0, 1));
+    sessionStorage.setItem(KEY, JSON.stringify({ [EX]: { 0: [stroke("mine")] } }));
+    const { result } = renderHook(() => useAnnotations(KEY, {
+      sessionIds: [100], locate: () => ({ sessionId: 100, pdfPages: [] }),
+    }));
+
+    await tick(5000);
+    expect(api.save).not.toHaveBeenCalled();
+    expect(result.current.inkReady).toBe(false);
+
+    await act(async () => finishLoading({ pages: [] }));
+    await tick(2000);
+    expect(api.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes a page someone else changed when the tab comes back into view, and says so", async () => {
+    const onReplaced = vi.fn();
+    const { result } = await mount([onServer([stroke("a")])], [], onReplaced);
+    act(() => draw(result.current, 1, stroke("mine")));
+
+    api.read.mockResolvedValue({ pages: [
+      onServer([stroke("b")], { version: 2, updated_by_name: "Ms Other" }),
+      onServer([stroke("x")], { page_index: 1, pdf_page: 2, version: 5 }),
+    ] });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(colours(result.current.getAnnotations(EX)[0])).toEqual(["b"]);
+    // The page drawn here and not sent yet is the later save, so it stays.
+    expect(colours(result.current.getAnnotations(EX)[1])).toEqual(["mine"]);
+    expect(onReplaced).toHaveBeenCalledWith([{ exerciseId: EX, pageIndex: 0, byName: "Ms Other" }]);
+  });
+
+  it("rebuilds undo for ink that came from the server", async () => {
+    const { result } = await mount([onServer([stroke("a"), stroke("b")])]);
+
+    let afterUndo = null as ReturnType<typeof result.current.undo>;
+    act(() => { afterUndo = result.current.undo(EX); });
+    expect(colours(afterUndo?.[0])).toEqual(["a"]);
+  });
+
+  it("stops sending a page the server dropped because its exercise has gone", async () => {
+    const { result } = await mount([]);
+    api.save.mockResolvedValue({ saved: [], dropped: [{ session_id: 100, target_key: "ex:1", page_index: 0 }] });
+    act(() => draw(result.current, 0, stroke("a")));
+
+    await tick(2000);
+    await tick(60_000);
+    expect(api.save).toHaveBeenCalledTimes(1);
+    expect(result.current.syncStatus).toBe("saved");
+  });
+
+  it("sends everything at once when asked, so the view can close", async () => {
+    const { result } = await mount([]);
+    api.save.mockResolvedValue(savedAs(0, 1));
+    act(() => draw(result.current, 0, stroke("a")));
+
+    let done = false;
+    await act(async () => { done = await result.current.flushInk(); });
+    expect(done).toBe(true);
+    expect(api.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps only the pages it hasn't sent in the tab", async () => {
+    const { result } = await mount([onServer([stroke("a")])]);
+    api.save.mockResolvedValue(savedAs(1, 1));
+    act(() => draw(result.current, 1, stroke("b")));
+
+    await tick(500);
+    expect(JSON.parse(sessionStorage.getItem(KEY)!)).toEqual({ [EX]: { 1: [expect.objectContaining({ color: "b" })] } });
+    await tick(2000);
+    await tick(500);
+    expect(JSON.parse(sessionStorage.getItem(KEY)!)).toEqual({});
+  });
+
+  it("never calls the server when saving to it isn't turned on", async () => {
+    const { result } = renderHook(() => useAnnotations(KEY));
+    draw(result.current, 0, stroke("a"));
+
+    await tick(5000);
+    expect(api.read).not.toHaveBeenCalled();
+    expect(api.save).not.toHaveBeenCalled();
   });
 });

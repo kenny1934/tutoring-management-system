@@ -10,7 +10,9 @@ slot, so the read takes a list of sessions.
 A page is named by its session, a target and its page index. The target is
 ``ex:<exercise id>`` for an exercise, or ``preview:<file id>`` for a
 parallel-version preview, which isn't an exercise row. The multi-student view
-files a preview under the slot's first session.
+files a preview under the slot's first session. The page index is the page of
+the PDF counted from 0, or a Draft sheet's own index, 1000 and up, so ink
+stays on its page when someone edits an exercise's page range.
 
 When two people change the same page, the later save wins. Every write puts
 the page's version up by one, and the views remember the version they last

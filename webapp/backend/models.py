@@ -1970,7 +1970,10 @@ class LessonInk(Base):
 
     ``target_key`` names what the page belongs to within the lesson. It's
     ``ex:<exercise id>`` for an exercise, or ``preview:<file id>`` for a
-    parallel-version preview, which has no exercise row. ``version`` goes up on
+    parallel-version preview, which has no exercise row. ``page_index`` is the
+    page of the PDF counted from 0, which stays put when someone edits the
+    exercise's page range, or a Draft sheet's own index, 1000 and up (see
+    migration 180). ``version`` goes up on
     every write, so a save can tell whether someone else has written the page
     since it last read it. The later save wins either way, and the earlier
     writer is told. The database deletes rows with their session or exercise,
