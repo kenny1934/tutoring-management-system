@@ -33,6 +33,8 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
+import { useSidebarWidth } from "@/hooks/useSidebarWidth";
+import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import { buildAnnotatedZip, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
 import { downloadBlob } from "@/lib/geometry-utils";
@@ -163,23 +165,8 @@ export function LessonWideMode({
     onSessionDataChange();
   }, [onSessionDataChange]);
 
-  // --- Sidebar width (shared with single lesson mode) ---
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    if (typeof window === "undefined") return 320;
-    try {
-      const saved = localStorage.getItem("lesson-sidebar-width");
-      if (saved) {
-        const n = parseInt(saved, 10);
-        if (!isNaN(n) && n >= 220 && n <= 600) return n;
-      }
-    } catch {}
-    return 320;
-  });
-  const isResizingRef = useRef(false);
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(0);
-  const currentWidthRef = useRef(sidebarWidth);
-  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  // --- Sidebar width, shared with the one-student view ---
+  const { width: sidebarWidth, startResize } = useSidebarWidth();
 
   // --- Focus mode ---
   const [focusMode, setFocusMode] = useState(false);
@@ -1056,39 +1043,6 @@ export function LessonWideMode({
     }
   }, [selectedEntry, allEntries, fileGroups, sidebarMode]);
 
-  // --- Sidebar resize ---
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isResizingRef.current = true;
-    startXRef.current = e.clientX;
-    startWidthRef.current = currentWidthRef.current;
-
-    const handleMove = (e: MouseEvent) => {
-      if (!isResizingRef.current) return;
-      const dx = e.clientX - startXRef.current;
-      const newWidth = Math.min(600, Math.max(220, startWidthRef.current + dx));
-      currentWidthRef.current = newWidth;
-      setSidebarWidth(newWidth);
-    };
-
-    const handleUp = () => {
-      isResizingRef.current = false;
-      try {
-        localStorage.setItem("lesson-sidebar-width", String(currentWidthRef.current));
-      } catch {}
-      document.removeEventListener("mousemove", handleMove);
-      document.removeEventListener("mouseup", handleUp);
-    };
-
-    document.addEventListener("mousemove", handleMove);
-    document.addEventListener("mouseup", handleUp);
-    resizeCleanupRef.current = handleUp;
-  }, []);
-
-  useEffect(() => {
-    return () => { resizeCleanupRef.current?.(); };
-  }, []);
-
   // --- Render header ---
   // Header buttons are 40px, big enough to hit with a finger at the board.
   const hdrBtn = "min-w-10 h-10 px-2 inline-flex items-center justify-center rounded-lg transition-colors";
@@ -1407,17 +1361,7 @@ export function LessonWideMode({
               <LessonWideSidebar {...sidebarProps} />
             </div>
 
-            {/* Resize handle */}
-            <div
-              onMouseDown={handleResizeStart}
-              className={cn(
-                "w-1.5 cursor-col-resize flex-shrink-0",
-                "bg-[#d4c4a8] dark:bg-[#3a3228]",
-                "hover:bg-[#c4a882] dark:hover:bg-[#5a4d3a]",
-                "active:bg-[#a0704b] dark:active:bg-[#8b6f47]",
-                "transition-colors"
-              )}
-            />
+            <SidebarResizeHandle onResizeStart={startResize} />
           </>
         )}
 

@@ -311,6 +311,24 @@ describe.each([
     expect(worksheet()).toHaveTextContent("On the Hand");
   });
 
+  it("starts each drag of the sidebar's edge from the width the last one left", async () => {
+    mount();
+    await opened("Linear equations 3");
+    const handle = document.querySelector(".cursor-col-resize") as HTMLElement;
+    const sidebar = handle.previousElementSibling as HTMLElement;
+    expect(sidebar.style.width).toBe("320px");
+
+    const dragBy = async (distance: number, expected: number) => {
+      fireEvent.mouseDown(handle, { clientX: 400 });
+      fireEvent.mouseMove(document, { clientX: 400 + distance });
+      await waitFor(() => expect(sidebar.style.width).toBe(`${expected}px`));
+      fireEvent.mouseUp(document);
+    };
+    await dragBy(50, 370);
+    await dragBy(50, 420);
+    expect(localStorage.getItem("lesson-sidebar-width")).toBe("420");
+  });
+
   it("ignores its keys while an exercise editor is open", async () => {
     mount();
     await opened("Linear equations 3");

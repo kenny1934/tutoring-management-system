@@ -35,6 +35,8 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
+import { useSidebarWidth } from "@/hooks/useSidebarWidth";
+import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import { buildAnnotatedZip, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
 import { downloadBlob } from "@/lib/geometry-utils";
@@ -114,23 +116,8 @@ export function LessonMode({
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
 
-  // F1: Sidebar width — persist to localStorage
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    if (typeof window === "undefined") return 320;
-    try {
-      const saved = localStorage.getItem("lesson-sidebar-width");
-      if (saved) {
-        const n = parseInt(saved, 10);
-        if (!isNaN(n) && n >= 220 && n <= 600) return n;
-      }
-    } catch {}
-    return 320;
-  });
-  const isResizingRef = useRef(false);
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(0);
-  const currentWidthRef = useRef(sidebarWidth);
-  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  // The sidebar's width, which the tutor changes by dragging its edge
+  const { width: sidebarWidth, startResize } = useSidebarWidth();
 
   // Focus mode (hides sidebar + header, hover to reveal)
   const [focusMode, setFocusMode] = useState(false);
@@ -885,51 +872,6 @@ export function LessonMode({
     }
   });
 
-  // P1: Resize handler with rAF throttle + F1: persist to localStorage on mouseup
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isResizingRef.current = true;
-    startXRef.current = e.clientX;
-    startWidthRef.current = sidebarWidth;
-    currentWidthRef.current = sidebarWidth;
-
-    let rafId: number | null = null;
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      if (!isResizingRef.current || rafId !== null) return;
-      rafId = requestAnimationFrame(() => {
-        const delta = ev.clientX - startXRef.current;
-        const newWidth = Math.max(220, Math.min(600, startWidthRef.current + delta));
-        currentWidthRef.current = newWidth;
-        setSidebarWidth(newWidth);
-        rafId = null;
-      });
-    };
-
-    const cleanup = () => {
-      isResizingRef.current = false;
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", cleanup);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      resizeCleanupRef.current = null;
-      // F1: Persist final width to localStorage
-      try { localStorage.setItem("lesson-sidebar-width", String(currentWidthRef.current)); } catch {}
-    };
-
-    resizeCleanupRef.current = cleanup;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", cleanup);
-  }, []);
-
-  // Clean up resize listeners on unmount
-  useEffect(() => {
-    return () => { resizeCleanupRef.current?.(); };
-  }, []);
-
   // This view has no student strip, so in focus mode these buttons share the
   // worksheet's toolbar, and show only their icons to leave it room.
   const focusButtons = focusMode && !isMobile ? (
@@ -1239,17 +1181,7 @@ export function LessonMode({
               />
             </div>
 
-            {/* Resize handle */}
-            <div
-              onMouseDown={handleResizeStart}
-              className={cn(
-                "w-1.5 cursor-col-resize flex-shrink-0",
-                "bg-[#d4c4a8] dark:bg-[#3a3228]",
-                "hover:bg-[#c4a882] dark:hover:bg-[#5a4d3a]",
-                "active:bg-[#a0704b] dark:active:bg-[#8b6f47]",
-                "transition-colors"
-              )}
-            />
+            <SidebarResizeHandle onResizeStart={startResize} />
           </>
         )}
 
