@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { cachedPdf, loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
+import { loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
@@ -29,6 +29,8 @@ import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLessonInk } from "@/hooks/useLessonInk";
+import { useLessonExit } from "@/hooks/useLessonExit";
+import { useRouter } from "next/navigation";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -38,7 +40,7 @@ import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import { FocusOverlays } from "./FocusOverlays";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
-import { buildAnnotatedZip, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
+import { SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
 import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
@@ -457,64 +459,32 @@ export function LessonWideMode({
     }
   }, [selectedEntry, pdfData, currentAnnotations, stamp, exerciseLabel, showToast]);
 
-  // --- Exit confirmation ---
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [isSavingAll, setIsSavingAll] = useState(false);
-
-  const handleExitAttempt = useCallback(async () => {
-    // Anything still waiting is sent first, so the dialog only appears when
-    // some pages can't reach the server.
-    if (await flushInk()) {
-      clearStorage();
-      window.close();
-    } else {
-      setShowExitConfirm(true);
-    }
-  }, [flushInk, clearStorage]);
-
-  // Saves every exercise with ink into one ZIP, loading any PDF that isn't in
-  // memory, which after a reload is most of them. It resolves to true when
-  // every one of them was saved. The header's button and the exit dialog both
-  // use it.
-  const downloadAllInk = useCallback(async (): Promise<boolean> => {
-    setIsSavingAll(true);
-    try {
-      const describe = (exerciseId: number) => {
-        const listed = allEntries.find((e) => e.exercise.id === exerciseId);
-        return listed ? describeForZip(listed) : getInkSource(exerciseId) ?? null;
-      };
-      const { zip, saved, failed } = await buildAnnotatedZip(
-        getAllAnnotations(),
-        describe,
-        (pdfName) => cachedPdf(pdfCache, pdfName),
-      );
-
-      if (zip) {
-        const parts = ["Annotations", date, slot].filter(Boolean);
-        downloadBlob(zip, parts.join("_").replace(/\s+/g, "-") + ".zip");
-      }
-
-      if (failed > 0) {
-        showToast(saveAllFailedMessage({ saved, failed }), 'error');
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error("Failed to save annotated PDFs:", err);
-      showToast(saveAllFailedMessage({ saved: 0, failed: 1 }), 'error');
-      return false;
-    } finally {
-      setIsSavingAll(false);
-    }
-  }, [allEntries, getAllAnnotations, getInkSource, date, slot, showToast, pdfCache]);
-
-  // The exit dialog's download. The tab closes after it, and any page that
-  // never reached the server is in the download.
-  const handleSaveAllAndExit = useCallback(async () => {
-    const saved = await downloadAllInk();
-    setShowExitConfirm(false);
-    if (saved) window.close();
-  }, [downloadAllInk]);
+  // --- Leaving ---
+  // The tab was opened from the sessions page, so leaving closes it. A browser
+  // only lets a page close a tab that a page opened, though, and a tab that
+  // came back from a bookmark or a restored session wasn't. That tab goes to
+  // the sessions page, so the button never does nothing.
+  const router = useRouter();
+  const closeTab = useCallback(() => {
+    window.close();
+    if (!window.closed) router.push("/sessions");
+  }, [router]);
+  const describeListed = useCallback((exerciseId: number) => {
+    const listed = allEntries.find((entry) => entry.exercise.id === exerciseId);
+    return listed ? describeForZip(listed) : undefined;
+  }, [allEntries]);
+  // Leaving sends any ink still waiting first, and only asks when some pages
+  // can't reach the server. The header's Download All and the exit dialog
+  // both save through here.
+  const {
+    attemptExit: handleExitAttempt, downloadAllInk, isSavingAll,
+    showExitConfirm, saveAllAndExit, exitAnyway, stay,
+  } = useLessonExit({
+    flushInk, clearStorage, getAllAnnotations, getInkSource, describeListed,
+    cache: pdfCache,
+    zipName: ["Annotations", date, slot].filter(Boolean).join("_"),
+    leave: closeTab,
+  });
 
   // --- Moving between students ---
   // Each student remembers the worksheet they were last on, so going back to
@@ -1298,12 +1268,12 @@ export function LessonWideMode({
       {/* Exit confirmation dialog */}
       {showExitConfirm && (
         <ExitConfirmDialog
-          isOpen={showExitConfirm}
+          isOpen
           isSaving={isSavingAll}
           unsentInk
-          onCancel={() => setShowExitConfirm(false)}
-          onSaveAndExit={handleSaveAllAndExit}
-          onExit={() => window.close()}
+          onCancel={stay}
+          onSaveAndExit={saveAllAndExit}
+          onExit={exitAnyway}
         />
       )}
     </motion.div>

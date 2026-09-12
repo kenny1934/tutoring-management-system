@@ -27,6 +27,8 @@ const h = vi.hoisted(() => ({
   bulkPrint: vi.fn(),
   saveAnnotatedPdf: vi.fn(),
   downloadBlob: vi.fn(),
+  buildZip: vi.fn(),
+  routerPush: vi.fn(),
   markHomework: vi.fn(),
   noHomework: new Map(),
 }));
@@ -70,6 +72,14 @@ vi.mock("@/lib/pdf-annotation-save", async (importOriginal) => ({
 vi.mock("@/lib/geometry-utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/geometry-utils")>()),
   downloadBlob: h.downloadBlob,
+}));
+vi.mock("@/lib/annotated-zip", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/annotated-zip")>()),
+  buildAnnotatedZip: h.buildZip,
+}));
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: h.routerPush, replace: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
 }));
 
 interface ViewerProps {
@@ -238,6 +248,8 @@ beforeEach(() => {
   h.bulkPrint.mockReset().mockResolvedValue(null);
   h.saveAnnotatedPdf.mockReset().mockResolvedValue(new Blob());
   h.downloadBlob.mockReset();
+  h.buildZip.mockReset().mockResolvedValue({ zip: new Blob(["zip"]), saved: 1, failed: 0 });
+  h.routerPush.mockReset();
   h.showToast.mockReset();
   sessionStorage.clear();
   localStorage.clear();
@@ -570,6 +582,30 @@ describe("The one-student view", () => {
     expect(await screen.findByText("Some ink isn't saved yet")).toBeInTheDocument();
     expect(onExit).not.toHaveBeenCalled();
   });
+
+  it("leaves at Exit anyway, and closes the dialog", async () => {
+    h.inkSave.mockRejectedValue(new Error("offline"));
+    const { onExit } = renderOneStudent();
+    await inkLoaded();
+    drawAStroke();
+    press("Escape");
+    fireEvent.click(await screen.findByRole("button", { name: "Exit anyway" }));
+
+    expect(onExit).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByText("Some ink isn't saved yet")).toBeNull());
+  });
+
+  it("downloads all the ink and leaves at Download all and exit", async () => {
+    h.inkSave.mockRejectedValue(new Error("offline"));
+    const { onExit } = renderOneStudent();
+    await inkLoaded();
+    drawAStroke();
+    press("Escape");
+    fireEvent.click(await screen.findByRole("button", { name: "Download all and exit" }));
+
+    await waitFor(() => expect(onExit).toHaveBeenCalledTimes(1));
+    expect(h.downloadBlob.mock.calls[0][1]).toMatch(/^Annotations_MSA-1234_Chan-Tai-Man_.*\.zip$/);
+  });
 });
 
 // --- The multi-student view ---
@@ -678,5 +714,57 @@ describe("The multi-student view", () => {
 
     expect(await screen.findByText("Some ink isn't saved yet")).toBeInTheDocument();
     expect(window.close).not.toHaveBeenCalled();
+  });
+
+  // A browser only lets a page close a tab that a page opened. This view's
+  // tab normally is, but one from a bookmark or a restored session isn't.
+  it("goes to the sessions page when the browser won't close the tab", async () => {
+    renderSlot();
+    await inkLoaded();
+    fireEvent.click(screen.getByRole("button", { name: "Close lesson tab" }));
+
+    await waitFor(() => expect(window.close).toHaveBeenCalledTimes(1));
+    expect(h.routerPush).toHaveBeenCalledWith("/sessions");
+  });
+
+  it("goes nowhere else when the browser does close the tab", async () => {
+    vi.mocked(window.close).mockImplementation(() => {
+      Object.defineProperty(window, "closed", { configurable: true, value: true });
+    });
+    try {
+      renderSlot();
+      await inkLoaded();
+      fireEvent.click(screen.getByRole("button", { name: "Close lesson tab" }));
+      await waitFor(() => expect(window.close).toHaveBeenCalledTimes(1));
+      expect(h.routerPush).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "closed", { configurable: true, value: false });
+    }
+  });
+
+  it("closes the dialog and leaves at Exit anyway, even when the browser won't close the tab", async () => {
+    h.inkSave.mockRejectedValue(new Error("offline"));
+    renderSlot();
+    await inkLoaded();
+    drawAStroke();
+    fireEvent.click(screen.getByRole("button", { name: "Close lesson tab" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Exit anyway" }));
+
+    await waitFor(() => expect(screen.queryByText("Some ink isn't saved yet")).toBeNull());
+    expect(window.close).toHaveBeenCalledTimes(1);
+    expect(h.routerPush).toHaveBeenCalledWith("/sessions");
+  });
+
+  it("downloads all the ink and closes the tab at Download all and exit", async () => {
+    h.inkSave.mockRejectedValue(new Error("offline"));
+    renderSlot();
+    await inkLoaded();
+    drawAStroke();
+    fireEvent.click(screen.getByRole("button", { name: "Close lesson tab" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Download all and exit" }));
+
+    await waitFor(() => expect(window.close).toHaveBeenCalledTimes(1));
+    // Each run of spaces becomes one hyphen, so the slot's " - " comes out as three.
+    expect(h.downloadBlob.mock.calls[0][1]).toBe("Annotations_2026-09-11_16:45---18:15.zip");
   });
 });

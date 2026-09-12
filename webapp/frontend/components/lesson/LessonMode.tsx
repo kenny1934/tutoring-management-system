@@ -12,7 +12,7 @@ import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
 import { getExercisePageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { cachedPdf, loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
+import { loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { useAnswerKey } from "@/hooks/useAnswerKey";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
 import { useLessonInk } from "@/hooks/useLessonInk";
+import { useLessonExit } from "@/hooks/useLessonExit";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -40,7 +41,7 @@ import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import { FocusOverlays } from "./FocusOverlays";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
-import { buildAnnotatedZip, saveAllFailedMessage, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
+import { SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
 import { downloadBlob } from "@/lib/geometry-utils";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { HomeworkStatus, Session, SessionExercise } from "@/types";
@@ -358,71 +359,28 @@ export function LessonMode({
     }
   }, [selectedExercise, pdfData, pageNumbers, viewerStamp, currentAnnotations, showToast]);
 
-  // Exit confirmation state
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [isSavingAll, setIsSavingAll] = useState(false);
-
-  const handleExitAttempt = useCallback(async () => {
-    // Anything still waiting is sent first, so the dialog only appears when
-    // some pages can't reach the server.
-    if (await flushInk()) {
-      clearStorage();
-      onExit();
-    } else {
-      setShowExitConfirm(true);
-    }
-  }, [flushInk, clearStorage, onExit]);
-
-  // Saves every exercise with ink into one ZIP, loading any PDF that isn't in
-  // memory, which after a reload is most of them. It resolves to true when
-  // every one of them was saved. The header's button and the exit dialog both
-  // use it.
-  const downloadAllInk = useCallback(async (): Promise<boolean> => {
-    setIsSavingAll(true);
-    try {
-      const describe = (exerciseId: number) => {
-        const listed = allExercises.find((ex) => ex.id === exerciseId);
-        return listed ? describeForZip(listed) : getInkSource(exerciseId) ?? null;
-      };
-      const { zip, saved, failed } = await buildAnnotatedZip(
-        getAllAnnotations(),
-        describe,
-        (pdfName) => cachedPdf(pdfCache, pdfName),
-      );
-
-      if (zip) {
-        const studentId = [session.location, session.school_student_id].filter(Boolean).join("-");
-        const parts = [
-          "Annotations",
-          studentId,
-          session.student_name,
-          session.session_date,
-          session.time_slot,
-        ].filter(Boolean);
-        downloadBlob(zip, parts.join("_").replace(/\s+/g, "-") + ".zip");
-      }
-
-      if (failed > 0) {
-        showToast(saveAllFailedMessage({ saved, failed }), 'error');
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error("Failed to save annotated PDFs:", err);
-      showToast(saveAllFailedMessage({ saved: 0, failed: 1 }), 'error');
-      return false;
-    } finally {
-      setIsSavingAll(false);
-    }
-  }, [allExercises, getAllAnnotations, describeForZip, getInkSource, session, showToast, pdfCache]);
-
-  // The exit dialog's download. Pages that haven't reached the server stay in
-  // this tab, so they're still sent the next time the lesson opens here.
-  const handleSaveAllAndExit = useCallback(async () => {
-    const saved = await downloadAllInk();
-    setShowExitConfirm(false);
-    if (saved) onExit();
-  }, [downloadAllInk, onExit]);
+  // Leaving sends any ink still waiting first, and only asks when some pages
+  // can't reach the server. The header's Download All and the exit dialog
+  // both save through here.
+  const describeListed = useCallback((exerciseId: number) => {
+    const listed = allExercises.find((ex) => ex.id === exerciseId);
+    return listed ? describeForZip(listed) : undefined;
+  }, [allExercises, describeForZip]);
+  const {
+    attemptExit: handleExitAttempt, downloadAllInk, isSavingAll,
+    showExitConfirm, saveAllAndExit, exitAnyway, stay,
+  } = useLessonExit({
+    flushInk, clearStorage, getAllAnnotations, getInkSource, describeListed,
+    cache: pdfCache,
+    zipName: [
+      "Annotations",
+      [session.location, session.school_student_id].filter(Boolean).join("-"),
+      session.student_name,
+      session.session_date,
+      session.time_slot,
+    ].filter(Boolean).join("_"),
+    leave: onExit,
+  });
 
   // Keyboard shortcuts — useStableKeyboardHandler reads latest closure on every keydown
   useStableKeyboardHandler((e: KeyboardEvent) => {
@@ -1075,17 +1033,12 @@ export function LessonMode({
       {/* Exit Confirmation Dialog */}
       {showExitConfirm && (
         <ExitConfirmDialog
-          isOpen={showExitConfirm}
+          isOpen
           isSaving={isSavingAll}
           unsentInk
-          onCancel={() => setShowExitConfirm(false)}
-          onSaveAndExit={handleSaveAllAndExit}
-          onExit={() => {
-            setShowExitConfirm(false);
-            // The pages that haven't reached the server stay in this tab, so
-            // they're sent the next time the lesson opens here.
-            onExit();
-          }}
+          onCancel={stay}
+          onSaveAndExit={saveAllAndExit}
+          onExit={exitAnyway}
         />
       )}
 
