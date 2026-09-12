@@ -11,9 +11,10 @@ import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUr
 import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
+import { getExercisePageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
+import { cachedPdf, loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
+import { useAnswerKey } from "@/hooks/useAnswerKey";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
@@ -34,7 +35,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
-import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
 import { SidebarResizeHandle } from "./SidebarResizeHandle";
@@ -107,7 +107,6 @@ export function LessonMode({
   // Mobile responsive
   const isMobile = useIsMobile();
   const [mobileExerciseListOpen, setMobileExerciseListOpen] = useState(false);
-  const [mobileActiveTab, setMobileActiveTab] = useState<"exercise" | "answer">("exercise");
 
   // Exercise modal
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
@@ -243,16 +242,11 @@ export function LessonMode({
   // and the Draft together.
   const [trayArea, setTrayArea] = useState<HTMLElement | null>(null);
 
-  // Answer key state
-  const [showAnswerKey, setShowAnswerKey] = useState(false);
-  const [answerPdfData, setAnswerPdfData] = useState<ArrayBuffer | null>(null);
-  const [answerPageNumbers, setAnswerPageNumbers] = useState<number[]>([]);
-  const [answerLoading, setAnswerLoading] = useState(false);
-  const [answerError, setAnswerError] = useState<string | null>(null);
-  const [answerSearchResult, setAnswerSearchResult] = useState<AnswerSearchResult | null>(null);
-  const [answerSearchDone, setAnswerSearchDone] = useState(false);
-  const answerCacheRef = useRef<Map<string, AnswerSearchResult | null>>(new Map());
-  const answerOpenSetRef = useRef<Set<number>>(new Set());
+  // The open exercise's answer key
+  const {
+    showAnswerKey, toggleAnswerKey: handleAnswerKeyToggle, answerKeyFound, answerKeySearching,
+    answerPdfData, answerPageNumbers, answerLoading, answerError, mobileActiveTab, setMobileActiveTab,
+  } = useAnswerKey(selectedExercise, pdfCache);
 
   // Navigable exercises for j/k: only include previous session if user is browsing it
   const selectedIsFromPrevious = previousSession?.exercises?.some(
@@ -307,101 +301,6 @@ export function LessonMode({
     if (source) setInkSource(selectedExercise.id, source);
   }, [selectedExercise, describeForZip, setInkSource]);
 
-  // Auto-search for answer file when exercise changes
-  useEffect(() => {
-    if (!selectedExercise?.pdf_name) {
-      setAnswerSearchResult(null);
-      setAnswerSearchDone(false);
-      setShowAnswerKey(false);
-      return;
-    }
-
-    const pdfName = selectedExercise.pdf_name;
-    const wasOpen = answerOpenSetRef.current.has(selectedExercise.id);
-    setShowAnswerKey(wasOpen);
-    setAnswerPdfData(null);
-
-    // Check explicit answer path on the exercise first
-    if (selectedExercise.answer_pdf_name) {
-      const result: AnswerSearchResult = {
-        path: selectedExercise.answer_pdf_name,
-        source: 'local',
-      };
-      answerCacheRef.current.set(pdfName, result);
-      setAnswerSearchResult(result);
-      setAnswerSearchDone(true);
-      return;
-    }
-
-    // Check cache
-    if (answerCacheRef.current.has(pdfName)) {
-      const cached = answerCacheRef.current.get(pdfName) ?? null;
-      setAnswerSearchResult(cached);
-      setAnswerSearchDone(true);
-      return;
-    }
-
-    // Fall back to heuristic search
-    let cancelled = false;
-    setAnswerSearchDone(false);
-
-    (async () => {
-      try {
-        const result = await searchAnswerFile(pdfName);
-        if (cancelled) return;
-        answerCacheRef.current.set(pdfName, result);
-        setAnswerSearchResult(result);
-      } catch (err) {
-        console.error("Answer file search failed:", err);
-      } finally {
-        // A failed search still has to end, or the button would keep saying it's looking.
-        if (!cancelled) setAnswerSearchDone(true);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [selectedExercise]);
-
-  // Load answer PDF when showAnswerKey is toggled on
-  useEffect(() => {
-    if (!showAnswerKey || !answerSearchResult || !selectedExercise) return;
-
-    const answerPath = answerSearchResult.path;
-
-    // Check PDF cache
-    const cached = pdfCache.get(answerPath);
-    if (cached) {
-      setAnswerPdfData(cached);
-      setAnswerError(null);
-      // Compute answer page numbers from exercise metadata
-      const pages = getAnswerPageNumbers(selectedExercise);
-      setAnswerPageNumbers(pages);
-      return;
-    }
-
-    let cancelled = false;
-    setAnswerLoading(true);
-    setAnswerError(null);
-
-    (async () => {
-      const result = await loadExercisePdf(answerPath);
-      if (cancelled) return;
-
-      if ("data" in result) {
-        rememberPdf(pdfCache, PDF_CACHE_SIZE, answerPath, result.data);
-        setAnswerPdfData(result.data);
-        const pages = getAnswerPageNumbers(selectedExercise);
-        setAnswerPageNumbers(pages);
-      } else {
-        setAnswerPdfData(null);
-        setAnswerError("Failed to load answer key");
-      }
-      setAnswerLoading(false);
-    })();
-
-    return () => { cancelled = true; };
-  }, [showAnswerKey, answerSearchResult, selectedExercise, pdfCache]);
-
   // Handle exercise selection
   // Picking an exercise from the mobile sheet or the focus-mode sidebar closes
   // it again, since a finger can't move off it the way a mouse does.
@@ -416,19 +315,6 @@ export function LessonMode({
     setExerciseModalSession(s);
     setExerciseModalType(type);
   }, []);
-
-  // Toggle answer key view (persists per exercise via answerOpenSetRef)
-  const handleAnswerKeyToggle = useCallback(() => {
-    setShowAnswerKey(prev => {
-      const next = !prev;
-      if (selectedExercise?.id != null) {
-        if (next) answerOpenSetRef.current.add(selectedExercise.id);
-        else answerOpenSetRef.current.delete(selectedExercise.id);
-      }
-      if (next) setMobileActiveTab("answer");
-      return next;
-    });
-  }, [selectedExercise]);
 
   // Handle exercise modal close
   const handleExerciseModalClose = useCallback(() => {
@@ -725,7 +611,7 @@ export function LessonMode({
         if (selectedExercise && printing.id === null) handlePrintExercise(selectedExercise);
         break;
       case "a":
-        if (answerSearchResult) {
+        if (answerKeyFound) {
           e.preventDefault();
           handleAnswerKeyToggle();
         }
@@ -1190,8 +1076,8 @@ export function LessonMode({
                     onSaveAnnotated={handleSaveAnnotated}
                     onAnswerKeyToggle={handleAnswerKeyToggle}
                     showAnswerKey={showAnswerKey}
-                    answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
-                    answerKeySearching={!!selectedExercise?.pdf_name && !answerSearchDone}
+                    answerKeyAvailable={answerKeyFound}
+                    answerKeySearching={answerKeySearching}
                     onDraftToggle={isMobile || !selectedExercise ? undefined : () => setShowDraft((open) => !open)}
                     showDraft={draftOpen}
                     toolbarStart={focusButtons}

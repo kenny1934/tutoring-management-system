@@ -199,6 +199,9 @@ const inkLoaded = () => screen.findByText("Saved");
 const drawAStroke = () => fireEvent.click(within(worksheet()).getByRole("button", { name: "Draw a stroke" }));
 const strokesShown = () => within(worksheet()).getByText(/Strokes on the first page/).textContent;
 
+/** Every worksheet has an answer file named after it. */
+const answersByName = async (pdfName: string) => ({ path: `ANS ${pdfName}`, source: "local" as const });
+
 /** Makes one file's load wait until the test lets it finish, as a slow drive or Paperless would. */
 function holdLoad(pdfName: string) {
   let release!: () => void;
@@ -324,6 +327,70 @@ describe.each([
 
     press("a");
     expect(screen.queryByTestId("answer-key")).toBeNull();
+  });
+
+  it("says the answer key failed to load when its load throws, and stops showing Loading", async () => {
+    h.searchAnswerFile.mockResolvedValue({ path: LINEAR_ANSWERS, source: "local" });
+    const loadAtOnce = h.loadExercisePdf.getMockImplementation()!;
+    h.loadExercisePdf.mockImplementation(async (name: string, onProgress?: (message: string) => void) => {
+      if (name === LINEAR_ANSWERS) throw new Error("The network went away");
+      return loadAtOnce(name, onProgress);
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mount();
+    await within(await screen.findByTestId("worksheet")).findByText("Answer key found");
+
+    press("a");
+    const answers = await screen.findByTestId("answer-key");
+    await waitFor(() => expect(answers).toHaveTextContent("Failed to load answer key"));
+    expect(answers).not.toHaveTextContent("Loading");
+  });
+
+  it("stops showing Loading on an answer key it already has while another is still loading", async () => {
+    h.searchAnswerFile.mockImplementation(answersByName);
+    holdLoad(`ANS ${LINEAR}`);
+    mount();
+    await opened("Linear equations 3");
+
+    // Quadratics' answer key is opened and loaded first, so it's in memory.
+    press("j");
+    await opened("Quadratics 1");
+    await within(worksheet()).findByText("Answer key found");
+    press("a");
+    await waitFor(() => expect(screen.getByTestId("answer-key")).toHaveTextContent("ANS: Quadratics 1"));
+    await waitFor(() => expect(screen.getByTestId("answer-key")).not.toHaveTextContent("Loading"));
+
+    // Linear equations' answer key is opened, and its load hangs.
+    press("k");
+    await opened("Linear equations 3");
+    await within(worksheet()).findByText("Answer key found");
+    press("a");
+    await waitFor(() => expect(screen.getByTestId("answer-key")).toHaveTextContent("Loading"));
+
+    // Back to Quadratics, whose answer key was left open and is already here.
+    press("j");
+    await opened("Quadratics 1");
+    await waitFor(() => expect(screen.getByTestId("answer-key")).toHaveTextContent("ANS: Quadratics 1"));
+    expect(screen.getByTestId("answer-key")).not.toHaveTextContent("Loading");
+  });
+
+  it("doesn't open the last worksheet's answer key while the new one's is still being looked for", async () => {
+    let finishSearch!: () => void;
+    const searchGate = new Promise<void>((resolve) => { finishSearch = resolve; });
+    h.searchAnswerFile.mockImplementation(async (name: string) => {
+      if (name !== QUADRATICS) return answersByName(name);
+      await searchGate;
+      return null;
+    });
+    mount();
+    await within(await screen.findByTestId("worksheet")).findByText("Answer key found");
+
+    press("j");
+    await opened("Quadratics 1");
+    press("a");
+    expect(screen.queryByTestId("answer-key")).toBeNull();
+    expect(h.loadExercisePdf).not.toHaveBeenCalledWith(`ANS ${LINEAR}`);
+    finishSearch();
   });
 
   it("does nothing with a while no answer key has been found", async () => {

@@ -8,9 +8,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
-import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
+import { getExercisePageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
+import { cachedPdf, loadExercisePdf, prefetchPdfs, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
 import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
+import { useAnswerKey } from "@/hooks/useAnswerKey";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
@@ -32,7 +33,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { InkSaveStatus } from "./InkSaveStatus";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
-import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
 import { SidebarResizeHandle } from "./SidebarResizeHandle";
@@ -129,11 +129,12 @@ export function LessonWideMode({
   // --- Selection state ---
   // selectedEntry tracks both which exercise AND which student
   const [selectedEntry, setSelectedEntry] = useState<StudentExerciseEntry | null>(null);
+  const openExercise = selectedEntry?.exercise ?? null;
 
   // --- The open worksheet's file, loaded through the one cache everything in this view shares ---
   const pdfCache = usePdfCache();
   const { pdfData, pageNumbers, pdfLoading, pdfLoadingMessage, pdfError, retry: handleRetry } =
-    useExercisePdf(selectedEntry?.exercise ?? null, pdfCache);
+    useExercisePdf(openExercise, pdfCache);
 
   // Each worksheet's zoom, scroll position and "Hide ink", so switching
   // between students and back finds each one as the tutor left it.
@@ -142,7 +143,6 @@ export function LessonWideMode({
   // --- Mobile ---
   const isMobile = useIsMobile();
   const [mobileExerciseListOpen, setMobileExerciseListOpen] = useState(false);
-  const [mobileActiveTab, setMobileActiveTab] = useState<"exercise" | "answer">("exercise");
 
   // --- Exercise modal ---
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
@@ -241,16 +241,11 @@ export function LessonWideMode({
   // and the Draft together.
   const [trayArea, setTrayArea] = useState<HTMLElement | null>(null);
 
-  // --- Answer key state ---
-  const [showAnswerKey, setShowAnswerKey] = useState(false);
-  const [answerPdfData, setAnswerPdfData] = useState<ArrayBuffer | null>(null);
-  const [answerPageNumbers, setAnswerPageNumbers] = useState<number[]>([]);
-  const [answerLoading, setAnswerLoading] = useState(false);
-  const [answerError, setAnswerError] = useState<string | null>(null);
-  const [answerSearchResult, setAnswerSearchResult] = useState<AnswerSearchResult | null>(null);
-  const [answerSearchDone, setAnswerSearchDone] = useState(false);
-  const answerCacheRef = useRef<Map<string, AnswerSearchResult | null>>(new Map());
-  const answerOpenSetRef = useRef<Set<number>>(new Set());
+  // --- The open worksheet's answer key ---
+  const {
+    showAnswerKey, toggleAnswerKey: handleAnswerKeyToggle, answerKeyFound, answerKeySearching,
+    answerPdfData, answerPageNumbers, answerLoading, answerError, mobileActiveTab, setMobileActiveTab,
+  } = useAnswerKey(openExercise, pdfCache);
 
   // --- Computed data structures ---
 
@@ -362,97 +357,6 @@ export function LessonWideMode({
     if (source) setInkSource(selectedEntry.exercise.id, source);
   }, [selectedEntry, setInkSource]);
 
-  // --- Answer file search ---
-  useEffect(() => {
-    const exercise = selectedEntry?.exercise;
-    if (!exercise?.pdf_name) {
-      setAnswerSearchResult(null);
-      setAnswerSearchDone(false);
-      setShowAnswerKey(false);
-      return;
-    }
-
-    const pdfName = exercise.pdf_name;
-    const wasOpen = answerOpenSetRef.current.has(exercise.id);
-    setShowAnswerKey(wasOpen);
-    setAnswerPdfData(null);
-
-    if (exercise.answer_pdf_name) {
-      const result: AnswerSearchResult = { path: exercise.answer_pdf_name, source: 'local' };
-      answerCacheRef.current.set(pdfName, result);
-      setAnswerSearchResult(result);
-      setAnswerSearchDone(true);
-      return;
-    }
-
-    if (answerCacheRef.current.has(pdfName)) {
-      setAnswerSearchResult(answerCacheRef.current.get(pdfName) ?? null);
-      setAnswerSearchDone(true);
-      return;
-    }
-
-    let cancelled = false;
-    setAnswerSearchDone(false);
-    (async () => {
-      try {
-        const result = await searchAnswerFile(pdfName);
-        if (cancelled) return;
-        answerCacheRef.current.set(pdfName, result);
-        setAnswerSearchResult(result);
-      } catch (err) {
-        console.error("Answer file search failed:", err);
-      } finally {
-        if (!cancelled) setAnswerSearchDone(true);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [selectedEntry]);
-
-  // --- Load answer PDF ---
-  useEffect(() => {
-    if (!showAnswerKey || !answerSearchResult || !selectedEntry?.exercise) return;
-
-    const answerPath = answerSearchResult.path;
-    const cached = pdfCache.get(answerPath);
-    if (cached) {
-      setAnswerPdfData(cached);
-      setAnswerError(null);
-      setAnswerPageNumbers(getAnswerPageNumbers(selectedEntry.exercise));
-      return;
-    }
-
-    let cancelled = false;
-    setAnswerLoading(true);
-    setAnswerError(null);
-
-    (async () => {
-      try {
-        const result = await loadExercisePdf(answerPath);
-        if (cancelled) return;
-
-        if ("data" in result) {
-          rememberPdf(pdfCache, PDF_CACHE_SIZE, answerPath, result.data);
-          setAnswerPdfData(result.data);
-          setAnswerPageNumbers(getAnswerPageNumbers(selectedEntry.exercise));
-        } else {
-          setAnswerPdfData(null);
-          setAnswerError("Failed to load answer key");
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Answer PDF load failed:", err);
-          setAnswerPdfData(null);
-          setAnswerError("Failed to load answer key");
-        }
-      } finally {
-        if (!cancelled) setAnswerLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [showAnswerKey, answerSearchResult, selectedEntry, pdfCache]);
-
   // --- Annotation callbacks ---
   const handlePageStrokesChange = useCallback((pageIndex: number, strokes: Stroke[]) => {
     if (!selectedEntry?.exercise) return;
@@ -499,22 +403,8 @@ export function LessonWideMode({
 
   // The Draft sits beside the worksheet viewer. It isn't offered on phones,
   // and an exercise that's a web link has no viewer for it to sit beside.
-  const openExercise = selectedEntry?.exercise ?? null;
   const isLinkExercise = !!openExercise?.url && !openExercise?.pdf_name;
   const draftOpen = showDraft && !isMobile && !!openExercise && !isLinkExercise;
-
-  // --- Answer key toggle ---
-  const handleAnswerKeyToggle = useCallback(() => {
-    setShowAnswerKey(prev => {
-      const next = !prev;
-      if (selectedEntry?.exercise?.id != null) {
-        if (next) answerOpenSetRef.current.add(selectedEntry.exercise.id);
-        else answerOpenSetRef.current.delete(selectedEntry.exercise.id);
-      }
-      if (next) setMobileActiveTab("answer");
-      return next;
-    });
-  }, [selectedEntry]);
 
   // --- Exercise modal ---
   const handleEditExercises = useCallback((session: Session, type: "CW" | "HW") => {
@@ -861,7 +751,7 @@ export function LessonWideMode({
         break;
       case "a":
         // Only when there's an answer key to show, or it would open an empty pane.
-        if (answerSearchResult) handleAnswerKeyToggle();
+        if (answerKeyFound) handleAnswerKeyToggle();
         break;
       case "s":
         if (exerciseHasAnnotations) handleSaveAnnotated();
@@ -1380,8 +1270,8 @@ export function LessonWideMode({
                     onSaveAnnotated={handleSaveAnnotated}
                     onAnswerKeyToggle={handleAnswerKeyToggle}
                     showAnswerKey={showAnswerKey}
-                    answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
-                    answerKeySearching={!!selectedEntry?.exercise?.pdf_name && !answerSearchDone}
+                    answerKeyAvailable={answerKeyFound}
+                    answerKeySearching={answerKeySearching}
                     onDraftToggle={isMobile || !openExercise ? undefined : () => setShowDraft((open) => !open)}
                     showDraft={draftOpen}
                     toolbarStart={focusButtons}
