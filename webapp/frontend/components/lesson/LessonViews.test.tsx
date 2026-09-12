@@ -249,6 +249,15 @@ describe.each([
     await waitFor(() => expect(worksheet()).not.toHaveTextContent("Loading"));
   });
 
+  it("loads the file again when Try again is pressed after it failed", async () => {
+    h.loadExercisePdf.mockResolvedValueOnce({ error: "fetch_failed" });
+    mount();
+    await waitFor(() => expect(worksheet()).toHaveTextContent("Failed to download PDF"));
+    fireEvent.click(within(worksheet()).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(worksheet()).not.toHaveTextContent("Failed to download PDF"));
+    expect(h.loadExercisePdf.mock.calls.filter(([name]) => name === LINEAR)).toHaveLength(2);
+  });
+
   it("undoes the last stroke with z and brings it back with Shift+Z", async () => {
     mount();
     await inkLoaded();

@@ -12,7 +12,8 @@ import { type BulkPrintExercise } from "@/lib/bulk-pdf-helpers";
 import { groupExercisesByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 import { useToast } from "@/contexts/ToastContext";
 import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf } from "@/lib/lesson-pdf-loader";
+import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
+import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
@@ -94,16 +95,10 @@ export function LessonMode({
   // Exercise state
   const [selectedExercise, setSelectedExercise] = useState<SessionExercise | null>(null);
 
-  // PDF state
-  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfLoadingMessage, setPdfLoadingMessage] = useState<string | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [pageNumbers, setPageNumbers] = useState<number[]>([]);
-
-  // PDF cache: raw ArrayBuffer by pdf_name (avoids re-fetching on exercise switch)
-  const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
-  const MAX_PDF_CACHE_SIZE = 20;
+  // The open exercise's file, loaded through the one cache everything in this view shares
+  const pdfCache = usePdfCache();
+  const { pdfData, pageNumbers, pdfLoading, pdfLoadingMessage, pdfError, retry: handleRetry } =
+    useExercisePdf(selectedExercise, pdfCache);
 
   // Each exercise's zoom, scroll position and "Hide ink", so switching between
   // exercises and back finds each one as the tutor left it.
@@ -284,81 +279,14 @@ export function LessonMode({
     }
   }, [currentSession, selectedExercise]);
 
-  // S5: Load PDF when exercise changes (with caching) — uses getExercisePageNumbers
-  useEffect(() => {
-    // URL-only exercises: skip PDF loading entirely
-    if (selectedExercise?.url && !selectedExercise?.pdf_name) {
-      setPdfData(null);
-      setPageNumbers([]);
-      setPdfLoading(false);
-      setPdfError(null);
-      return;
-    }
-
-    if (!selectedExercise || !selectedExercise.pdf_name) {
-      setPdfData(null);
-      setPageNumbers([]);
-      setPdfError(selectedExercise ? NO_FILE_ERROR : null);
-      return;
-    }
-
-    const pdfName = selectedExercise.pdf_name;
-    const pages = getExercisePageNumbers(selectedExercise);
-    setPageNumbers(pages);
-
-    // Check cache first
-    const cached = pdfCacheRef.current.get(pdfName);
-    if (cached) {
-      setPdfData(cached);
-      setPdfError(null);
-      return;
-    }
-
-    // Not cached — clear stale data and fetch
-    setPdfData(null);
-    let cancelled = false;
-
-    async function load() {
-      setPdfLoading(true);
-      setPdfLoadingMessage(null);
-      setPdfError(null);
-
-      const result = await loadExercisePdf(pdfName, (msg) => {
-        if (!cancelled) setPdfLoadingMessage(msg);
-      });
-
-      if (cancelled) return;
-
-      if ("data" in result) {
-        rememberPdf(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, pdfName, result.data);
-        setPdfData(result.data);
-      } else {
-        setPdfData(null);
-        setPdfError(
-          result.error === "no_file"
-            ? NO_FILE_ERROR
-            : result.error === "fetch_failed"
-            ? "Failed to download PDF"
-            : "File not found"
-        );
-      }
-
-      setPdfLoading(false);
-      setPdfLoadingMessage(null);
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [selectedExercise]);
-
   // Prefetch adjacent exercise PDFs into cache
   useEffect(() => {
     if (!selectedExercise || !pdfData) return;
     const currentIdx = allExercises.findIndex(ex => ex.id === selectedExercise.id);
     const adjacent = [allExercises[currentIdx - 1]?.pdf_name, allExercises[currentIdx + 1]?.pdf_name]
       .filter((name): name is string => !!name);
-    return prefetchPdfs(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, adjacent);
-  }, [selectedExercise, pdfData, allExercises]);
+    return prefetchPdfs(pdfCache, PDF_CACHE_SIZE, adjacent);
+  }, [selectedExercise, pdfData, allExercises, pdfCache]);
 
   // Sync annotations when exercise changes
   useEffect(() => {
@@ -441,7 +369,7 @@ export function LessonMode({
     const answerPath = answerSearchResult.path;
 
     // Check PDF cache
-    const cached = pdfCacheRef.current.get(answerPath);
+    const cached = pdfCache.get(answerPath);
     if (cached) {
       setAnswerPdfData(cached);
       setAnswerError(null);
@@ -460,7 +388,7 @@ export function LessonMode({
       if (cancelled) return;
 
       if ("data" in result) {
-        rememberPdf(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, answerPath, result.data);
+        rememberPdf(pdfCache, PDF_CACHE_SIZE, answerPath, result.data);
         setAnswerPdfData(result.data);
         const pages = getAnswerPageNumbers(selectedExercise);
         setAnswerPageNumbers(pages);
@@ -472,7 +400,7 @@ export function LessonMode({
     })();
 
     return () => { cancelled = true; };
-  }, [showAnswerKey, answerSearchResult, selectedExercise]);
+  }, [showAnswerKey, answerSearchResult, selectedExercise, pdfCache]);
 
   // Handle exercise selection
   // Picking an exercise from the mobile sheet or the focus-mode sidebar closes
@@ -508,16 +436,6 @@ export function LessonMode({
     setExerciseModalType(null);
     onSessionDataChange();
   }, [onSessionDataChange]);
-
-  // Handle retry PDF load
-  const handleRetry = useCallback(() => {
-    if (selectedExercise) {
-      // Force re-trigger by toggling
-      const ex = selectedExercise;
-      setSelectedExercise(null);
-      setTimeout(() => setSelectedExercise(ex), 0);
-    }
-  }, [selectedExercise]);
 
   // Print: single exercise from sidebar
   const { printing, setPrinting, paperlessSearchWithProgress } = usePrintingState();
@@ -664,7 +582,7 @@ export function LessonMode({
       const { zip, saved, failed } = await buildAnnotatedZip(
         getAllAnnotations(),
         describe,
-        (pdfName) => cachedPdf(pdfCacheRef.current, pdfName),
+        (pdfName) => cachedPdf(pdfCache, pdfName),
       );
 
       if (zip) {
@@ -691,7 +609,7 @@ export function LessonMode({
     } finally {
       setIsSavingAll(false);
     }
-  }, [allExercises, getAllAnnotations, describeForZip, getInkSource, session, showToast]);
+  }, [allExercises, getAllAnnotations, describeForZip, getInkSource, session, showToast, pdfCache]);
 
   // The exit dialog's download. Pages that haven't reached the server stay in
   // this tab, so they're still sent the next time the lesson opens here.

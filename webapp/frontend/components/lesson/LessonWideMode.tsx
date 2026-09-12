@@ -9,7 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getDisplayName, getExerciseDisplayName, parseExerciseRemarks, toEmbedUrl } from "@/lib/exercise-utils";
 import { getExercisePageNumbers, getAnswerPageNumbers, getPrintButtonTitle, compareByStudentId, inkHistoryKey, hasBrowserModifier, inkLocation, replacedInkMessage, loopStep, printErrorMessage, bulkPrintErrorMessage, NO_FILE_ERROR, NO_EXERCISES_MESSAGE, usePrintingState } from "@/lib/lesson-utils";
-import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf } from "@/lib/lesson-pdf-loader";
+import { cachedPdf, loadExercisePdf, prefetchPdfs, rememberPdf, PDF_CACHE_SIZE } from "@/lib/lesson-pdf-loader";
+import { usePdfCache, useExercisePdf } from "@/hooks/useExercisePdf";
 import { printFileFromPathWithFallback, printPdfBlob } from "@/lib/file-system";
 import { formatShortDate } from "@/lib/formatters";
 import { useLocation } from "@/contexts/LocationContext";
@@ -129,14 +130,10 @@ export function LessonWideMode({
   // selectedEntry tracks both which exercise AND which student
   const [selectedEntry, setSelectedEntry] = useState<StudentExerciseEntry | null>(null);
 
-  // --- PDF state ---
-  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfLoadingMessage, setPdfLoadingMessage] = useState<string | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [pageNumbers, setPageNumbers] = useState<number[]>([]);
-  const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
-  const MAX_PDF_CACHE_SIZE = 30;
+  // --- The open worksheet's file, loaded through the one cache everything in this view shares ---
+  const pdfCache = usePdfCache();
+  const { pdfData, pageNumbers, pdfLoading, pdfLoadingMessage, pdfError, retry: handleRetry } =
+    useExercisePdf(selectedEntry?.exercise ?? null, pdfCache);
 
   // Each worksheet's zoom, scroll position and "Hide ink", so switching
   // between students and back finds each one as the tutor left it.
@@ -346,71 +343,6 @@ export function LessonWideMode({
     }
   }, [allEntries, selectedEntry]);
 
-  // --- Load PDF when selection changes ---
-  useEffect(() => {
-    const exercise = selectedEntry?.exercise;
-
-    // URL-only exercises: skip PDF loading
-    if (exercise?.url && !exercise?.pdf_name) {
-      setPdfData(null);
-      setPageNumbers([]);
-      setPdfLoading(false);
-      setPdfError(null);
-      return;
-    }
-
-    if (!exercise?.pdf_name) {
-      setPdfData(null);
-      setPageNumbers([]);
-      setPdfError(exercise ? NO_FILE_ERROR : null);
-      return;
-    }
-
-    const pdfName = exercise.pdf_name;
-    const pages = getExercisePageNumbers(exercise);
-    setPageNumbers(pages);
-
-    const cached = pdfCacheRef.current.get(pdfName);
-    if (cached) {
-      setPdfData(cached);
-      setPdfError(null);
-      return;
-    }
-
-    setPdfData(null);
-    let cancelled = false;
-
-    async function load() {
-      setPdfLoading(true);
-      setPdfLoadingMessage(null);
-      setPdfError(null);
-
-      const result = await loadExercisePdf(pdfName, (msg) => {
-        if (!cancelled) setPdfLoadingMessage(msg);
-      });
-
-      if (cancelled) return;
-
-      if ("data" in result) {
-        rememberPdf(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, pdfName, result.data);
-        setPdfData(result.data);
-      } else {
-        setPdfData(null);
-        setPdfError(
-          result.error === "no_file" ? NO_FILE_ERROR
-            : result.error === "fetch_failed" ? "Failed to download PDF"
-            : "File not found"
-        );
-      }
-
-      setPdfLoading(false);
-      setPdfLoadingMessage(null);
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [selectedEntry]);
-
   // --- Sync annotations when selection changes ---
   useEffect(() => {
     if (selectedEntry?.exercise) {
@@ -482,7 +414,7 @@ export function LessonWideMode({
     if (!showAnswerKey || !answerSearchResult || !selectedEntry?.exercise) return;
 
     const answerPath = answerSearchResult.path;
-    const cached = pdfCacheRef.current.get(answerPath);
+    const cached = pdfCache.get(answerPath);
     if (cached) {
       setAnswerPdfData(cached);
       setAnswerError(null);
@@ -500,7 +432,7 @@ export function LessonWideMode({
         if (cancelled) return;
 
         if ("data" in result) {
-          rememberPdf(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, answerPath, result.data);
+          rememberPdf(pdfCache, PDF_CACHE_SIZE, answerPath, result.data);
           setAnswerPdfData(result.data);
           setAnswerPageNumbers(getAnswerPageNumbers(selectedEntry.exercise));
         } else {
@@ -519,7 +451,7 @@ export function LessonWideMode({
     })();
 
     return () => { cancelled = true; };
-  }, [showAnswerKey, answerSearchResult, selectedEntry]);
+  }, [showAnswerKey, answerSearchResult, selectedEntry, pdfCache]);
 
   // --- Annotation callbacks ---
   const handlePageStrokesChange = useCallback((pageIndex: number, strokes: Stroke[]) => {
@@ -749,7 +681,7 @@ export function LessonWideMode({
       const { zip, saved, failed } = await buildAnnotatedZip(
         getAllAnnotations(),
         describe,
-        (pdfName) => cachedPdf(pdfCacheRef.current, pdfName),
+        (pdfName) => cachedPdf(pdfCache, pdfName),
       );
 
       if (zip) {
@@ -769,7 +701,7 @@ export function LessonWideMode({
     } finally {
       setIsSavingAll(false);
     }
-  }, [allEntries, getAllAnnotations, getInkSource, date, slot, showToast]);
+  }, [allEntries, getAllAnnotations, getInkSource, date, slot, showToast, pdfCache]);
 
   // The exit dialog's download. The tab closes after it, and any page that
   // never reached the server is in the download.
@@ -787,13 +719,6 @@ export function LessonWideMode({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [hasUnsentInk]);
-
-  // --- Retry ---
-  const handleRetry = useCallback(() => {
-    if (!selectedEntry?.exercise?.pdf_name) return;
-    pdfCacheRef.current.delete(selectedEntry.exercise.pdf_name);
-    setSelectedEntry({ ...selectedEntry });
-  }, [selectedEntry]);
 
   // --- Moving between students ---
   // Each student remembers the worksheet they were last on, so going back to
@@ -873,8 +798,8 @@ export function LessonWideMode({
     );
     const names = [allEntries[index + 1]?.exercise.pdf_name, nextStudentEntry?.exercise.pdf_name]
       .filter((name): name is string => !!name);
-    return prefetchPdfs(pdfCacheRef.current, MAX_PDF_CACHE_SIZE, names);
-  }, [selectedEntry, pdfData, allEntries, nextStudentEntry]);
+    return prefetchPdfs(pdfCache, PDF_CACHE_SIZE, names);
+  }, [selectedEntry, pdfData, allEntries, nextStudentEntry, pdfCache]);
 
   // --- Keyboard shortcuts ---
   // The handler is a plain function on purpose. useStableKeyboardHandler picks

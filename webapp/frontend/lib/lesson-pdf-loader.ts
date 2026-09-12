@@ -135,6 +135,9 @@ async function loadSinglePdf(
   return { error: 'file_not_found' };
 }
 
+/** How many files a lesson view keeps in memory at once. Both views keep the same number. */
+export const PDF_CACHE_SIZE = 30;
+
 /**
  * Keep a loaded PDF in a lesson view's cache. The cache holds its files in
  * the order they arrived, so once it's over its limit the oldest one goes.
