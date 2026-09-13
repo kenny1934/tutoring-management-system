@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.0.135](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.134...v2.0.135) (2026-09-13)
+
+
+### New Features
+
+* **Lesson ink is saved to the server**: it saves itself a couple of seconds after each stroke and comes back when the lesson reopens on any device, and the header shows whether it has been saved.
+* **A strip of small pages**: the "Show all pages" button beside the page number shows every page as a small picture, and tapping one goes straight to it.
+* **Cover part of a page and reveal it**: a cover over the worksheet or the answer key hides the page until you drag its tab down to uncover it bit by bit.
+* **Select ink with the lasso**: draw a loop round some ink to move it, resize it, change its colour, delete it or send it to another page.
+* **A ruler, a protractor and compasses**: they lie on the worksheet or the Draft in true centimetres and snap onto points in your ink, so geometric constructions come out exact.
+* **The Draft can be made wider or narrower**: drag the border between the worksheet and the Draft to give either one more room.
+
+
+### Bug Fixes
+
+* **Browser shortcuts work during a lesson**: keys pressed with Ctrl, Cmd or Alt, such as Ctrl+C to copy or Ctrl and + to zoom the page, are left to the browser and no longer set off lesson shortcuts.
+* **Narrow toolbars and the student list fit**: a toolbar too narrow for its buttons now scrolls sideways, and Collapse all shrinks to an icon in a narrow student list.
+
 ## [2.0.134](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.133...v2.0.134) (2026-09-12)
 
 
