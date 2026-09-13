@@ -33,12 +33,16 @@ function Harness({ onHide = () => {} }: { onHide?: () => void }) {
 const compasses = () => screen.getByRole("group", { name: /^Compasses:/ });
 const touch = (pointerId: number, clientX: number, clientY: number) => ({ pointerId, clientX, clientY, pointerType: "touch" });
 
-/** A page that takes the whole screen, whose drawing layer hands back this line, or none. */
-function registerPage(line: DrivenLine | null) {
+/**
+ * A page that takes the whole screen, whose drawing layer hands back this
+ * line, or none, and has one point in its ink for the compasses to snap onto.
+ */
+function registerPage(line: DrivenLine | null, point: Vec = [900, 900]) {
   const startLine = vi.fn(() => line);
   const page: InkPage = {
     index: 0, label: "Page 1", width: 1000, height: 1000, onPagesChange: () => {}, strokes: () => [], receive: () => {},
     contains: () => true, startLine,
+    snapNear: (at, reach) => (Math.hypot(at[0] - point[0], at[1] - point[1]) <= reach ? point : null),
   };
   return { startLine, off: registerInkPage("compass-test-page", page) };
 }
@@ -116,6 +120,37 @@ describe("Compass", () => {
     fireEvent.pointerUp(handle, touch(2, 250, 300));
     expect(startLine).toHaveBeenCalledTimes(1);
     expect(compasses().style.transform).toBe("rotate(90deg)");
+    off();
+  });
+
+  it("snaps the needle onto a point in the ink as it's dragged near, and shows a ring there", () => {
+    const { off } = registerPage(null, [300, 300]);
+    const { container } = render(<Harness />);
+    // The legs carry the needle from (200, 300) to (298, 302), within half a centimetre of the point.
+    fireEvent.pointerDown(compasses(), touch(1, 210, 280));
+    fireEvent.pointerMove(compasses(), touch(1, 308, 282));
+    expect(compasses().style.left).toBe("300px");
+    expect(container.querySelector("[data-snapped='needle']")).not.toBeNull();
+
+    // Further away, it lets go and follows the finger again.
+    fireEvent.pointerMove(compasses(), touch(1, 330, 282));
+    expect(compasses().style.left).toBe("320px");
+    expect(container.querySelector("[data-snapped]")).toBeNull();
+    fireEvent.pointerUp(compasses(), touch(1, 330, 282));
+    off();
+  });
+
+  it("snaps the pencil onto a point, opening to exactly that length", () => {
+    const { off } = registerPage(null, [262, 305]);
+    const { container } = render(<Harness />);
+    const grip = screen.getByRole("img", { name: "Drag to open or close" });
+    fireEvent.pointerDown(grip, touch(1, 235, 280));
+    // The pencil follows the finger to (263, 304), a pixel or so from the point.
+    fireEvent.pointerMove(grip, touch(1, 258, 284));
+    expect(parseFloat(compasses().style.width)).toBeCloseTo(Math.hypot(62, 5));
+    expect(screen.getByText("6.2 cm")).toBeInTheDocument();
+    expect(container.querySelector("[data-snapped='pencil']")).not.toBeNull();
+    fireEvent.pointerUp(grip, touch(1, 258, 284));
     off();
   });
 });

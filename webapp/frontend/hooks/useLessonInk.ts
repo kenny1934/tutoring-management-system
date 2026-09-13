@@ -65,8 +65,10 @@ export function useLessonInk<Source>({ storageKey, sessionIds, exercises, openEx
     hasAnnotations, inkReady, inkRevision, hasUnsentInk,
   } = ink;
 
-  // The Pen Tray's tool, colours and sizes. Lessons start on the Hand.
-  const tools = useAnnotationTools();
+  // The Pen Tray's tool, colours and sizes. Lessons start on the Hand, and the
+  // tray is kept on it until the saved ink has loaded. The drawing layers are
+  // told as well, because the compasses draw whatever tool is picked.
+  const tools = useAnnotationTools({ inkReady });
   const { drawingEnabled, selectHand } = tools;
   useEffect(() => {
     if (!inkReady && drawingEnabled) selectHand();

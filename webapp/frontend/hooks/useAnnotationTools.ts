@@ -86,9 +86,10 @@ function readStored(): StoredTools {
 /**
  * The Pen Tray's settings, shared by both lesson views: the tool, whether
  * straight lines are on, the colour you last picked, each colour's size and
- * the eraser size.
+ * the eraser size. The lesson views also pass in whether the lessons' saved
+ * ink has loaded, so the drawing layers can wait for it.
  */
-export function useAnnotationTools() {
+export function useAnnotationTools({ inkReady = true }: { inkReady?: boolean } = {}) {
   const [stored] = useState(readStored);
   // Straight lines is a switch on the pens and highlighters, so it's kept with
   // the tool. Picking the Hand, the eraser, fading ink or the lasso turns it
@@ -163,6 +164,8 @@ export function useAnnotationTools() {
     inkSize: INK_SIZES[swatch.kind][sizes[swatch.id]],
     /** How far the rubbing eraser reaches, or null for the whole-stroke eraser. */
     eraserRadius: eraser === "stroke" ? null : ERASER_RADIUS[eraser],
+    /** False until the lessons' saved ink has loaded. Nothing draws before then. */
+    inkReady,
     selectHand,
     selectEraser,
     selectFade,
@@ -173,7 +176,7 @@ export function useAnnotationTools() {
     setEraser,
     toggleFromKey,
   }), [
-    tool, straight, swatch, sizes, eraser,
+    tool, straight, swatch, sizes, eraser, inkReady,
     selectHand, selectEraser, selectFade, selectLasso, selectSwatch, toggleStraight, setSwatchSize, toggleFromKey,
   ]);
 }
@@ -198,5 +201,6 @@ export function inkLayerProps(tools: AnnotationTools) {
     inkKind: tools.swatch.kind,
     straight: tools.straight,
     fading: tools.fading,
+    inkReady: tools.inkReady,
   };
 }

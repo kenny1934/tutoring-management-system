@@ -27,7 +27,7 @@ export type Box = { left: number; right: number; top: number; bottom: number };
 const MIN_PIECE_LENGTH = 0.01;
 
 /** Distance from point (px, py) to the segment from a to b. */
-function distanceToSegment(px: number, py: number, a: Vec, b: Vec): number {
+export function distanceToSegment(px: number, py: number, a: Vec, b: Vec): number {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const lengthSquared = dx * dx + dy * dy;

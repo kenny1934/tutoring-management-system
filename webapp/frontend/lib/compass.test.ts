@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { addTurn, arcPoints, directionOf, hingeHeight, snapWidth } from "./compass";
+import { addTurn, arcPoints, directionOf, hingeHeight, opensTo, snapWidth } from "./compass";
+
+describe("opensTo", () => {
+  it("says whether the compasses can open to a width", () => {
+    expect(opensTo(6.22)).toBe(true);
+    expect(opensTo(0.3)).toBe(false);
+    expect(opensTo(13.5)).toBe(false);
+  });
+});
 
 describe("snapWidth", () => {
   it("snaps to whole millimetres, between 0.5 and 13 cm", () => {

@@ -15,9 +15,10 @@ export interface DrivenLine {
 }
 
 /**
- * A page that the lasso's Move button can send selected ink to. The
- * worksheet's pages and the Draft's sheets register themselves while they're
- * showing. The list is kept at the module's level, like the lasso's
+ * A page that the lasso's Move button can send selected ink to, and that the
+ * compasses draw on and snap to. The worksheet's pages and the Draft's sheets
+ * register themselves while they're showing. The list is kept at the module's
+ * level, like the lasso's
  * one-selection signal, because the worksheet and the Draft are separate
  * panes that share nothing else a drawing layer can reach.
  */
@@ -40,8 +41,14 @@ export interface InkPage {
   receive: (strokes: Stroke[]) => void;
   /** Whether a point on screen is on the page. */
   contains: (point: Vec) => boolean;
-  /** Starts a line a tool drives, from this point on screen, or returns null when no pen, highlighter or fading ink is picked. */
+  /**
+   * Starts a line a tool drives, from this point on screen. It returns null
+   * while the page can't take ink: before the lessons' saved ink has loaded,
+   * while two fingers are scrolling it, or while another line is being drawn.
+   */
   startLine: (start: Vec) => DrivenLine | null;
+  /** The point in the page's pen ink that a tool snaps onto, within reach of a point on screen, in screen pixels. */
+  snapNear: (point: Vec, reach: number) => Vec | null;
 }
 
 const pages = new Map<string, InkPage>();
@@ -75,6 +82,11 @@ const readPages = () => inOrder;
 /** The page under a point on screen, if any, such as the one under the compasses' pencil. */
 export function inkPageAt(point: Vec): InkPage | undefined {
   return inOrder.find((page) => page.contains(point));
+}
+
+/** The point in the ink of the page under a point on screen that a tool snaps onto, within reach of it, or null. */
+export function inkSnapAt(point: Vec, reach: number): Vec | null {
+  return inkPageAt(point)?.snapNear(point, reach) ?? null;
 }
 
 /**

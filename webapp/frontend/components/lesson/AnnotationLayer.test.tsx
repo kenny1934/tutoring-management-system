@@ -543,14 +543,15 @@ describe("AnnotationLayer along the ruler", () => {
 describe("AnnotationLayer driven by a tool", () => {
   const noop = () => {};
 
-  function renderPage(isDrawing: boolean) {
+  function renderPage({ isDrawing = true, inkReady = true, strokes = [] as Stroke[] } = {}) {
     const onStrokesChange = vi.fn();
     render(
       <AnnotationLayer
         width={100}
         height={100}
-        strokes={[]}
+        strokes={strokes}
         isDrawing={isDrawing}
+        inkReady={inkReady}
         isErasing={false}
         penColor="#2563eb"
         penSize={3}
@@ -564,7 +565,7 @@ describe("AnnotationLayer driven by a tool", () => {
   }
 
   it("draws a line a tool drives through the page list, with a steady pressure, as one change when the tool ends it", () => {
-    const onStrokesChange = renderPage(true);
+    const onStrokesChange = renderPage();
     const line = inkPageAt([50, 50])!.startLine([10, 10])!;
     act(() => line.to([[10, 10], [50, 10], [80, 10]]));
     expect(onStrokesChange).not.toHaveBeenCalled();
@@ -575,8 +576,22 @@ describe("AnnotationLayer driven by a tool", () => {
     expect(stroke.color).toBe("#2563eb");
   });
 
-  it("lets no tool draw while no pen is picked", () => {
-    renderPage(false);
+  it("draws for a tool with the Hand picked too, in the colour picked last", () => {
+    const onStrokesChange = renderPage({ isDrawing: false });
+    const line = inkPageAt([50, 50])!.startLine([10, 10])!;
+    act(() => line.to([[10, 10], [50, 10], [80, 10]]));
+    act(() => line.end());
+    expect(onStrokesChange.mock.calls[0][0][0].color).toBe("#2563eb");
+  });
+
+  it("lets no tool draw before the lessons' saved ink has loaded", () => {
+    renderPage({ inkReady: false });
     expect(inkPageAt([50, 50])!.startLine([10, 10])).toBeNull();
+  });
+
+  it("tells a tool where the nearest crossing in its pen ink is, in screen pixels", () => {
+    renderPage({ strokes: [LINE, { ...LINE, points: [[50, 0, 0.5], [50, 100, 0.5]] }] });
+    expect(inkPageAt([50, 50])!.snapNear([53, 48], 5)).toEqual([50, 50]);
+    expect(inkPageAt([50, 50])!.snapNear([70, 30], 5)).toBeNull();
   });
 });

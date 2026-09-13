@@ -5,8 +5,10 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool } from "@/hooks/usePlacedTool";
-import { inkPageAt, type DrivenLine } from "@/hooks/useInkPages";
-import { COMPASS_START_CM, addTurn, arcPoints, directionOf, hingeHeight, pointAt, snapWidth } from "@/lib/compass";
+import { inkPageAt, inkSnapAt, type DrivenLine } from "@/hooks/useInkPages";
+import {
+  COMPASS_SNAP_CM, COMPASS_START_CM, addTurn, arcPoints, directionOf, hingeHeight, opensTo, pointAt, snapWidth,
+} from "@/lib/compass";
 import type { Vec } from "@/lib/stroke-select";
 
 const LABEL =
@@ -53,11 +55,18 @@ interface Turn {
  * turns them round the needle. The grip on the pencil's leg opens or closes
  * them while the needle stays put, snapping to whole millimetres.
  *
- * The handle at the top turns them round the needle. With a pen, a highlighter
- * or fading ink picked, the pencil draws as it turns, up to one full circle:
- * the compasses hand the arc to the drawing layer of the page under the
- * pencil, which draws it in the picked ink as one change. While any part is
- * held, a label by the hinge shows the width.
+ * The needle and the pencil both snap onto points in the pen ink as they're
+ * dragged near one: where two lines cross, the end of a line, or a dot. So a
+ * construction can put the needle exactly where two arcs cross, and set the
+ * width to exactly the length between two points. A ring shows the point
+ * they've caught.
+ *
+ * The handle at the top turns them round the needle, and the pencil draws as
+ * it turns, up to one full circle. The compasses hand the arc to the drawing
+ * layer of the page under the pencil, which draws it as one change: in the
+ * picked pen, highlighter or fading ink, or in the colour picked last when the
+ * Hand, the eraser or the lasso is picked. While any part is held, a label by
+ * the hinge shows the width.
  */
 export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassProps) {
   const [width, setWidthState] = useState(COMPASS_START_CM);
@@ -72,12 +81,19 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   // The box runs from the needle across to the pencil, and up past the hinge to hold the turn handle.
   const boxHeight = rise + 1.5 * cm;
 
+  // Which end has caught a point in the ink during this drag, for the ring that shows it.
+  const [snapped, setSnapped] = useState<"needle" | "pencil" | null>(null);
   const { toolRef, place, held, onScreen, setPlace, handlers } = usePlacedTool({
     containerRef,
     // The needle starts left of the middle and below it, so the compasses stand centred on the start.
     start: [start[0] - span / 2, start[1] + rise / 2],
     // They turn round the needle from the handle at the top, so a second finger beside them isn't caught to turn them.
     near: () => false,
+    snap: (needle, scale) => {
+      const found = inkSnapAt(needle, COMPASS_SNAP_CM * cm * scale);
+      setSnapped(found ? "needle" : null);
+      return found;
+    },
   });
   const [busy, setBusy] = useState(false);
   const gripRef = useRef<{ pointerId: number; offset: Vec } | null>(null);
@@ -104,6 +120,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     const m = measure();
     if (!m || !grabHandle(e)) return;
     const pencil = pointAt(m.needle, widthRef.current * m.onScreenCm, place.angle);
+    setSnapped(null);
     gripRef.current = { pointerId: e.pointerId, offset: [pencil[0] - e.clientX, pencil[1] - e.clientY] };
   };
 
@@ -112,8 +129,14 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     const m = measure();
     if (!grip || grip.pointerId !== e.pointerId || !m) return;
     e.stopPropagation();
-    const pencil: Vec = [e.clientX + grip.offset[0], e.clientY + grip.offset[1]];
-    setWidth(snapWidth(Math.hypot(pencil[0] - m.needle[0], pencil[1] - m.needle[1]) / m.onScreenCm));
+    const dragged: Vec = [e.clientX + grip.offset[0], e.clientY + grip.offset[1]];
+    const widthTo = (point: Vec) => Math.hypot(point[0] - m.needle[0], point[1] - m.needle[1]) / m.onScreenCm;
+    // A point the compasses can open to sets the width exactly. Anywhere else, the width snaps to a whole millimetre.
+    const found = inkSnapAt(dragged, COMPASS_SNAP_CM * m.onScreenCm);
+    const caught = found && opensTo(widthTo(found)) ? found : null;
+    const pencil = caught ?? dragged;
+    setSnapped(caught ? "pencil" : null);
+    setWidth(caught ? widthTo(caught) : snapWidth(widthTo(dragged)));
     setPlace({ cx: place.cx, cy: place.cy, angle: directionOf(m.needle, pencil) });
   };
 
@@ -127,6 +150,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   const turnDown = (e: React.PointerEvent<HTMLSpanElement>) => {
     const m = measure();
     if (!m || !grabHandle(e)) return;
+    setSnapped(null);
     turnRef.current = {
       pointerId: e.pointerId,
       last: directionOf(m.needle, [e.clientX, e.clientY]),
@@ -196,6 +220,11 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
         title={LABEL}
         data-touch-owner=""
         {...handlers}
+        // A new drag starts with nothing caught.
+        onPointerDown={(e) => {
+          setSnapped(null);
+          handlers.onPointerDown(e);
+        }}
         // The box itself lets touches through, and the legs and handles inside it take them.
         className={cn("pointer-events-none absolute z-10 touch-none select-none", held ? "cursor-grabbing" : "cursor-grab")}
         style={{
@@ -228,6 +257,18 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
           <line x1={pencilShoulder[0]} y1={pencilShoulder[1]} x2={lead[0]} y2={lead[1]} stroke="#e2b25c" strokeWidth={0.3 * cm} />
           <line x1={lead[0]} y1={lead[1]} x2={pencil[0]} y2={pencil[1]} stroke="#2e251c" strokeWidth={0.12 * cm} strokeLinecap="round" />
           <circle cx={hinge[0]} cy={hinge[1]} r={0.32 * cm} fill="#2e251c" style={{ pointerEvents: "visiblePainted" }} />
+          {/* A ring round the point in the ink that the needle or the pencil has caught */}
+          {inUse && snapped && (
+            <circle
+              data-snapped={snapped}
+              cx={snapped === "needle" ? needle[0] : pencil[0]}
+              cy={boxHeight}
+              r={0.3 * cm}
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth={Math.max(2, 0.06 * cm)}
+            />
+          )}
         </svg>
 
         {/* The grip on the pencil's leg opens and closes the compasses */}

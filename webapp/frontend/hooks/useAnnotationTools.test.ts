@@ -84,4 +84,9 @@ describe("useAnnotationTools", () => {
     expect(result.current.sizes.red).toBe("S");
     expect(result.current.eraser).toBe("M");
   });
+
+  it("passes on whether the lessons' saved ink has loaded, and counts it as loaded when nobody says", () => {
+    expect(inkLayerProps(renderHook(() => useAnnotationTools()).result.current).inkReady).toBe(true);
+    expect(inkLayerProps(renderHook(() => useAnnotationTools({ inkReady: false })).result.current).inkReady).toBe(false);
+  });
 });

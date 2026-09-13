@@ -17,6 +17,14 @@ export const COMPASS_MIN_CM = 0.5;
 export const COMPASS_MAX_CM = 13;
 export const COMPASS_START_CM = 4;
 
+/** How close, in centimetres, the needle or the pencil has to come to a point in the ink to snap onto it. */
+export const COMPASS_SNAP_CM = 0.5;
+
+/** Whether the compasses can open, or close, to this width. */
+export function opensTo(cm: number): boolean {
+  return cm >= COMPASS_MIN_CM && cm <= COMPASS_MAX_CM;
+}
+
 /** A width kept between 0.5 and 13 cm, and snapped to a whole millimetre so a 4 cm circle comes out exactly. */
 export function snapWidth(cm: number): number {
   return Math.round(Math.min(Math.max(cm, COMPASS_MIN_CM), COMPASS_MAX_CM) * 10) / 10;

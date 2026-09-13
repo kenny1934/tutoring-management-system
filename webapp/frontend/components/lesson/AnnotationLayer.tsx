@@ -13,6 +13,7 @@ import {
 } from "@/lib/stroke-select";
 import type { InkSwatch } from "@/hooks/useAnnotationTools";
 import { registerInkPage, type DrivenLine, type InkPage } from "@/hooks/useInkPages";
+import { snapPoint } from "@/lib/snap";
 import { clipPointsToPage, type DrawingGuide, type GuidedLine } from "@/lib/ruler";
 import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
 
@@ -83,6 +84,13 @@ interface AnnotationLayerProps {
   /** What the Move list calls this page, such as "Page 3" or "Draft sheet 2". */
   pageLabel?: string;
   onPagesChange?: (pages: PageAnnotations) => void;
+  /**
+   * False until the lessons' saved ink has loaded. The Pen Tray stays on the
+   * Hand until then, and a tool such as the compasses, which draws whatever
+   * is picked, draws nothing either, so a new line can't replace ink the page
+   * hasn't received yet. Defaults to true.
+   */
+  inkReady?: boolean;
 }
 
 type Point = Stroke["points"][number];
@@ -276,6 +284,7 @@ export function AnnotationLayer({
   pageIndex,
   pageLabel,
   onPagesChange,
+  inkReady = true,
 }: AnnotationLayerProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [currentPoints, setCurrentPoints] = useState<[number, number, number][]>([]);
@@ -589,13 +598,15 @@ export function AnnotationLayer({
 
   /**
    * Start a line that a tool draws by itself, such as the compasses as they
-   * turn. It's drawn like a line against a tool, in the picked ink, but its
-   * points come from the tool, in screen pixels, not from a finger on this
-   * page. Nothing starts unless a pen, a highlighter or fading ink is picked.
+   * turn. It's drawn like a line against a tool, but its points come from the
+   * tool, in screen pixels, not from a finger on this page. It draws whatever
+   * is picked on the Pen Tray: the picked pen, highlighter or fading ink, or
+   * with the Hand, the eraser or the lasso, the colour picked last. Nothing
+   * starts before the lessons' saved ink has loaded.
    */
   const startDrivenLine = useCallback(
     (start: Vec): DrivenLine | null => {
-      if (!isDrawing || suspended || isDrawingStroke.current) return null;
+      if (!inkReady || suspended || isDrawingStroke.current) return null;
       let latest: Vec[] = [start];
       isDrawingStroke.current = true;
       drivenRef.current = true;
@@ -617,7 +628,7 @@ export function AnnotationLayer({
         },
       };
     },
-    [isDrawing, suspended, fading, guidedLine]
+    [inkReady, suspended, fading, guidedLine]
   );
 
   /** Erase along the line from the last pointer position to this one. */
@@ -737,6 +748,15 @@ export function AnnotationLayer({
         return !!box && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
       },
       startLine: (start) => liveRef.current.startDrivenLine(start),
+      snapNear: ([x, y], reach) => {
+        const box = svgRef.current?.getBoundingClientRect();
+        if (!box || box.width === 0 || box.height === 0) return null;
+        // Page units per screen pixel, across and down.
+        const across = width / box.width;
+        const down = height / box.height;
+        const found = snapPoint(liveRef.current.strokes, [(x - box.left) * across, (y - box.top) * down], reach * across);
+        return found && [box.left + found[0] / across, box.top + found[1] / down];
+      },
     });
   }, [layerId, pageIndex, pageLabel, width, height, onPagesChange, receiveInk]);
 

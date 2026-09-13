@@ -26,6 +26,12 @@ interface PlacedToolOptions {
   start: Vec;
   /** Whether a finger at this screen point is close enough to the tool, where it is now, to be a second finger on it. */
   near: (at: OnScreen, point: Vec) => boolean;
+  /**
+   * Where a one-finger drag should put the tool's centre instead of where the
+   * finger takes it, such as onto a point in the ink, or null to leave it. It's
+   * given the centre in screen pixels and how much the container is zoomed.
+   */
+  snap?: (centre: Vec, scale: number) => Vec | null;
 }
 
 /** The fingers on the tool, and where they and the tool were when the last one landed or lifted. */
@@ -50,18 +56,23 @@ const direction = (a: Vec, b: Vec) => Math.atan2(b[1] - a[1], b[0] - a[0]);
  * laptop, the mouse wheel over the tool turns it a degree at a time, or 15
  * degrees with Shift.
  *
+ * A tool can also snap its centre while one finger drags it, as the compasses'
+ * needle snaps onto points in the ink.
+ *
  * The tool's element takes the ref and the pointer handlers this returns.
  */
-export function usePlacedTool({ containerRef, start, near }: PlacedToolOptions) {
+export function usePlacedTool({ containerRef, start, near, snap }: PlacedToolOptions) {
   const toolRef = useRef<HTMLDivElement>(null);
   const [place, setPlaceState] = useState<Place>({ cx: start[0], cy: start[1], angle: 0 });
   const placeRef = useRef(place);
   const holdRef = useRef<Hold | null>(null);
   const [held, setHeld] = useState(false);
-  // The window's listener reads the latest test through this, so it isn't added again when the test changes.
+  // The window's listener and the drag read the latest tests through these, so nothing is added again when one changes.
   const nearRef = useRef(near);
+  const snapRef = useRef(snap);
   useEffect(() => {
     nearRef.current = near;
+    snapRef.current = snap;
   });
 
   const setPlace = useCallback((next: Place) => {
@@ -129,7 +140,9 @@ export function usePlacedTool({ containerRef, start, near }: PlacedToolOptions) 
     const now = [...hold.points.values()];
     if (now.length !== base.points.length) return;
     if (now.length === 1) {
-      moveTo([base.centre[0] + now[0][0] - base.points[0][0], base.centre[1] + now[0][1] - base.points[0][1]], base.angle);
+      const centre: Vec = [base.centre[0] + now[0][0] - base.points[0][0], base.centre[1] + now[0][1] - base.points[0][1]];
+      const snapped = snapRef.current?.(centre, measure()?.scale ?? 1);
+      moveTo(snapped ?? centre, base.angle);
       return;
     }
     // Two fingers turn it about the point between them, and carry it with that point.
