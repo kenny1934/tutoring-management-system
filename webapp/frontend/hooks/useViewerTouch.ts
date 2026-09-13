@@ -45,6 +45,9 @@ interface Gesture {
  * - Two fingers scroll or pinch-zoom, decided once per gesture.
  * - When a second finger lands, the drawing layers are told to throw away
  *   whatever the first finger had started, through `gestureActive`.
+ * - A finger that lands on something marked `data-touch-owner`, such as a
+ *   cover's tab, belongs to that element, which handles it itself. We call
+ *   this the Touch Owner rule.
  *
  * The handlers go on the scrolling container in the capture phase, so they
  * see every touch before the drawing layer does and can keep the second
@@ -150,6 +153,13 @@ export function useViewerTouch(options: ViewerTouchOptions) {
   };
 
   const onPointerDownCapture = (e: React.PointerEvent) => {
+    // The Touch Owner rule. A finger or a mouse that lands on something marked
+    // data-touch-owner, such as a cover's tab, is left to it: the viewer
+    // doesn't pan with it or count it towards a two-finger gesture, and lets
+    // the event through. A finger that lands anywhere else in the meantime is
+    // an ordinary touch, so a tutor can hold something with one hand and draw
+    // with the other.
+    if ((e.target as Element).closest?.("[data-touch-owner]")) return;
     if (e.pointerType === "mouse") {
       if (opts.current.handTool && e.button === 0) startPan(e);
       return;
