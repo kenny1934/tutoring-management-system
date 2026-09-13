@@ -1119,6 +1119,7 @@ export function PdfPageViewer({
                     onStrokesChange={(strokes) => onPageStrokesChange?.(i, strokes)}
                     hidden={inkHidden}
                     suspended={gestureActive}
+                    uiScale={zoom / 100}
                   />
                 )}
               </div>

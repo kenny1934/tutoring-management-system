@@ -7,9 +7,10 @@ import type { InkKind } from "./useAnnotations";
 /**
  * Which tool the lesson viewer's Pen Tray has picked. The Hand scrolls the
  * worksheet and draws nothing, so it is where every lesson starts. Fading ink
- * is for pointing: its marks fade away by themselves and are never saved.
+ * is for pointing: its marks fade away by themselves and are never saved. The
+ * lasso selects ink, to move it, resize it or delete it.
  */
-type AnnotationTool = "hand" | InkKind | "eraser" | "fade";
+type AnnotationTool = "hand" | InkKind | "eraser" | "fade" | "lasso";
 
 const isInk = (tool: AnnotationTool): tool is InkKind => tool === "pen" || tool === "highlighter";
 
@@ -90,8 +91,8 @@ function readStored(): StoredTools {
 export function useAnnotationTools() {
   const [stored] = useState(readStored);
   // Straight lines is a switch on the pens and highlighters, so it's kept with
-  // the tool. Picking the Hand, the eraser or fading ink turns it off, so the
-  // next colour you pick always starts out freehand.
+  // the tool. Picking the Hand, the eraser, fading ink or the lasso turns it
+  // off, so the next colour you pick always starts out freehand.
   const [{ tool, straight }, setMode] = useState<{ tool: AnnotationTool; straight: boolean }>(
     { tool: "hand", straight: false },
   );
@@ -110,6 +111,7 @@ export function useAnnotationTools() {
   const selectHand = useCallback(() => setMode({ tool: "hand", straight: false }), []);
   const selectEraser = useCallback(() => setMode({ tool: "eraser", straight: false }), []);
   const selectFade = useCallback(() => setMode({ tool: "fade", straight: false }), []);
+  const selectLasso = useCallback(() => setMode({ tool: "lasso", straight: false }), []);
 
   // Changing colour keeps straight lines on, so you can rule lines in several colours.
   const selectSwatch = useCallback((id: string) => {
@@ -133,13 +135,13 @@ export function useAnnotationTools() {
   }, []);
 
   /**
-   * The D and E keys. D picks the pen or highlighter you used last, and E the
-   * eraser. Pressing the key for the tool you're already using puts it down
-   * and goes back to the Hand.
+   * The D, E and L keys. D picks the pen or highlighter you used last, E the
+   * eraser and L the lasso. Pressing the key for the tool you're already
+   * using puts it down and goes back to the Hand.
    */
-  const toggleFromKey = useCallback((key: "pen" | "eraser") => {
+  const toggleFromKey = useCallback((key: "pen" | "eraser" | "lasso") => {
     setMode((m) => {
-      if (key === "eraser") return { tool: m.tool === "eraser" ? "hand" : "eraser", straight: false };
+      if (key !== "pen") return { tool: m.tool === key ? "hand" : key, straight: false };
       if (isInk(m.tool)) return { tool: "hand", straight: false };
       return { tool: swatch.kind, straight: false };
     });
@@ -164,6 +166,7 @@ export function useAnnotationTools() {
     selectHand,
     selectEraser,
     selectFade,
+    selectLasso,
     selectSwatch,
     toggleStraight,
     setSwatchSize,
@@ -171,7 +174,7 @@ export function useAnnotationTools() {
     toggleFromKey,
   }), [
     tool, straight, swatch, sizes, eraser,
-    selectHand, selectEraser, selectFade, selectSwatch, toggleStraight, setSwatchSize, toggleFromKey,
+    selectHand, selectEraser, selectFade, selectLasso, selectSwatch, toggleStraight, setSwatchSize, toggleFromKey,
   ]);
 }
 
@@ -184,9 +187,11 @@ export type AnnotationTools = ReturnType<typeof useAnnotationTools>;
  */
 export function inkLayerProps(tools: AnnotationTools) {
   const erasing = tools.tool === "eraser";
+  const selecting = tools.tool === "lasso";
   return {
-    isDrawing: tools.drawingEnabled && !erasing,
+    isDrawing: tools.drawingEnabled && !erasing && !selecting,
     isErasing: erasing,
+    isSelecting: selecting,
     eraserRadius: tools.eraserRadius,
     penColor: tools.swatch.color,
     penSize: tools.inkSize,

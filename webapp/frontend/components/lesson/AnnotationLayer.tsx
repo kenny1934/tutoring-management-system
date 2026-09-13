@@ -1,10 +1,16 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, useMemo, memo } from "react";
+import { useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo } from "react";
 import getStroke from "perfect-freehand";
 import { getStrokeOptions, inkLayers, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
 import type { InkKind, Stroke } from "@/hooks/useAnnotations";
-import { eraseStrokes } from "@/lib/stroke-eraser";
+import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
+import { eraseStrokes, type Box } from "@/lib/stroke-eraser";
+import { hasBrowserModifier, isTypingTarget } from "@/lib/lesson-utils";
+import {
+  clampMove, clampScale, dragScale, moveStrokes, resizeStrokes, selectionBounds, strokesInLoop, type Vec,
+} from "@/lib/stroke-select";
+import { DELETE_BUTTON_ROOM, LassoSelection, type SelectionDragKind } from "./LassoSelection";
 
 interface AnnotationLayerProps {
   /** Page width in CSS pixels */
@@ -36,6 +42,11 @@ interface AnnotationLayerProps {
    * stop, and they never reach onStrokesChange, so they're never saved.
    */
   fading?: boolean;
+  /**
+   * The lasso is picked. A loop drawn round some ink selects it, and the
+   * selection can then be moved, resized from its corner or deleted.
+   */
+  isSelecting?: boolean;
   /** Called when strokes change (new stroke added or stroke removed) */
   onStrokesChange: (strokes: Stroke[]) => void;
   /** Hide strokes visually (drawing still works) */
@@ -46,6 +57,12 @@ interface AnnotationLayerProps {
    * start of that gesture, not something you meant to draw.
    */
   suspended?: boolean;
+  /**
+   * How much the page is scaled on screen, such as the worksheet's zoom. The
+   * lasso's handle and Delete button are divided by it, so they stay the size
+   * of a finger at any zoom. The Draft never zooms, so it leaves this at 1.
+   */
+  uiScale?: number;
 }
 
 type Point = Stroke["points"][number];
@@ -78,6 +95,28 @@ function straightLineEnd(start: Point, pointer: Point): Point {
   if (Math.abs(angle - 90) < SNAP_DEGREES) return [start[0], pointer[1], pointer[2]];
   return pointer;
 }
+
+// Only one page holds a selection at a time. A layer that starts a new loop
+// tells the others, on the worksheet and in the Draft, to let go of theirs.
+const lassoListeners = new Set<(from: string) => void>();
+
+// The lasso's loop and the glow round selected ink are in the tray's brown.
+const LASSO_COLOUR = "#a0704b";
+const SELECTED_GLOW = "drop-shadow(0 0 3px rgba(160, 112, 75, 0.9))";
+
+/** Ink the lasso has selected. */
+interface InkSelection {
+  strokes: Stroke[];
+  /** The box round the selected strokes' centre lines. A move or a resize keeps it on the page. */
+  bounds: Box;
+  /** Half the widest selected stroke's width, which is how far its ink reaches past the centre line. */
+  reach: number;
+  /** The Delete button goes under the box, because the ink is near the top of the page. */
+  below: boolean;
+}
+
+/** A move or a resize of the selection, as far as the finger has taken it. */
+type SelectionDrag = { kind: "move"; dx: number; dy: number } | { kind: "resize"; scale: number };
 
 /**
  * Convert perfect-freehand outline points to an SVG path string. A one-point
@@ -200,9 +239,11 @@ export function AnnotationLayer({
   inkKind = "pen",
   straight = false,
   fading = false,
+  isSelecting = false,
   onStrokesChange,
   hidden = false,
   suspended = false,
+  uiScale = 1,
 }: AnnotationLayerProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [currentPoints, setCurrentPoints] = useState<[number, number, number][]>([]);
@@ -266,17 +307,30 @@ export function AnnotationLayer({
   const lastRubPointRef = useRef<[number, number] | null>(null);
   const [eraserCursor, setEraserCursor] = useState<[number, number] | null>(null);
 
+  // The lasso. While a loop is drawn its points are kept here, and when the
+  // finger lifts, the ink it caught becomes the selection. While the selection
+  // is dragged, the ink is shown moving or resizing, and the page's strokes
+  // are only rewritten when the finger lifts, so a whole drag is one undo step.
+  const layerId = useId();
+  const [loop, setLoop] = useState<Vec[] | null>(null);
+  const loopRef = useRef<Vec[] | null>(null);
+  const [selection, setSelection] = useState<InkSelection | null>(null);
+  const [drag, setDrag] = useState<SelectionDrag | null>(null);
+  const dragRef = useRef<{ from: Vec; pointerId: number; preview: SelectionDrag } | null>(null);
+
   // Reset hover when leaving eraser mode
   useEffect(() => {
     if (!isErasing) setHoveredStroke(null);
   }, [isErasing]);
 
-  // Throw away a half-drawn line or rub, and the eraser circle. Each setter
-  // skips the render when there was nothing to throw away.
+  // Throw away a half-drawn line, loop or rub, and the eraser circle. Each
+  // setter skips the render when there was nothing to throw away.
   const discardInProgress = useCallback(() => {
     isDrawingStroke.current = false;
     currentPointsRef.current = [];
     setCurrentPoints((prev) => (prev.length ? [] : prev));
+    loopRef.current = null;
+    setLoop(null);
     rubbedStrokesRef.current = null;
     lastRubPointRef.current = null;
     setRubbedStrokes(null);
@@ -292,6 +346,44 @@ export function AnnotationLayer({
   useEffect(() => {
     if (suspended) discardInProgress();
   }, [suspended, discardInProgress]);
+
+  const dropSelection = useCallback(() => {
+    dragRef.current = null;
+    setDrag(null);
+    setSelection(null);
+  }, []);
+
+  // Starting a loop on another page lets go of this page's selection.
+  useEffect(() => {
+    const listen = (from: string) => {
+      if (from !== layerId) dropSelection();
+    };
+    lassoListeners.add(listen);
+    return () => {
+      lassoListeners.delete(listen);
+    };
+  }, [layerId, dropSelection]);
+
+  // Putting the lasso down lets go of the selection, and of a loop half drawn.
+  useEffect(() => {
+    if (isSelecting) return;
+    loopRef.current = null;
+    setLoop(null);
+    dropSelection();
+  }, [isSelecting, dropSelection]);
+
+  // The selection goes as soon as any of its ink leaves the page, whether by
+  // an undo, a clear, or another tutor's ink replacing the page. Strokes are
+  // never changed in place, so looking for the stroke objects themselves is
+  // enough. It's only checked when the page's ink changes, because a move
+  // puts the moved strokes on the page and in the selection at the same time.
+  // It's a layout effect, so ink that has gone is never drawn as selected.
+  useLayoutEffect(() => {
+    if (!selection) return;
+    const onPage = new Set(strokes);
+    if (!selection.strokes.every((s) => onPage.has(s))) dropSelection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strokes]);
 
   const handleEraseStroke = useCallback(
     (stroke: Stroke) => {
@@ -446,6 +538,140 @@ export function AnnotationLayer({
     setEraserCursor(null);
   }, [handleRubEnd]);
 
+  /** Keep the given strokes as the selection, and work out where its Delete button fits. */
+  const select = useCallback(
+    (picked: Stroke[]) => {
+      const bounds = selectionBounds(picked);
+      const reach = Math.max(...picked.map((s) => s.size)) / 2;
+      const rect = svgRef.current?.getBoundingClientRect();
+      const onScreen = rect && height > 0 ? rect.height / height : 1;
+      setSelection({ strokes: picked, bounds, reach, below: (bounds.top - reach) * onScreen < DELETE_BUTTON_ROOM });
+    },
+    [height]
+  );
+
+  const handleLassoDown = useCallback(
+    (e: React.PointerEvent) => {
+      // While a finger drags the selection, another finger landing on the page starts nothing.
+      if (suspended || dragRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      svgRef.current?.setPointerCapture(e.pointerId);
+      lassoListeners.forEach((listen) => listen(layerId));
+      dropSelection();
+      const [x, y] = getPoint(e);
+      loopRef.current = [[x, y]];
+      setLoop(loopRef.current);
+    },
+    [suspended, getPoint, layerId, dropSelection]
+  );
+
+  const handleLassoMove = useCallback(
+    (e: React.PointerEvent) => {
+      const points = loopRef.current;
+      if (!points) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const [x, y] = getPoint(e);
+      loopRef.current = [...points, [x, y]];
+      setLoop(loopRef.current);
+    },
+    [getPoint]
+  );
+
+  // A loop that catches no ink, such as a tap, leaves nothing selected.
+  const handleLassoUp = useCallback(
+    (e: React.PointerEvent) => {
+      const points = loopRef.current;
+      if (!points) return;
+      e.preventDefault();
+      e.stopPropagation();
+      loopRef.current = null;
+      setLoop(null);
+      const caught = strokesInLoop(strokes, points);
+      if (caught.length > 0) select(caught);
+    },
+    [strokes, select]
+  );
+
+  const handleSelectionDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, kind: SelectionDragKind) => {
+      if (!selection) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      const [x, y] = getPoint(e);
+      const preview: SelectionDrag = kind === "move" ? { kind, dx: 0, dy: 0 } : { kind, scale: 1 };
+      dragRef.current = { from: [x, y], pointerId: e.pointerId, preview };
+      setDrag(preview);
+    },
+    [selection, getPoint]
+  );
+
+  const handleSelectionMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const current = dragRef.current;
+      if (!current || current.pointerId !== e.pointerId || !selection) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const [x, y] = getPoint(e);
+      const { bounds } = selection;
+      if (current.preview.kind === "move") {
+        const [dx, dy] = clampMove(bounds, x - current.from[0], y - current.from[1], width, height);
+        current.preview = { kind: "move", dx, dy };
+      } else {
+        const scale = clampScale(bounds, dragScale(bounds, current.from, [x, y]), width, height);
+        current.preview = { kind: "resize", scale };
+      }
+      setDrag(current.preview);
+    },
+    [selection, getPoint, width, height]
+  );
+
+  // A move or a resize is handed back as one change when the finger lifts,
+  // and the ink stays selected, ready to move or resize again.
+  const handleSelectionUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const current = dragRef.current;
+      if (!current || current.pointerId !== e.pointerId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dragRef.current = null;
+      setDrag(null);
+      if (!selection) return;
+      const { strokes: picked, bounds } = selection;
+      const done = current.preview;
+      let changed: Stroke[] | null = null;
+      if (done.kind === "move" && (done.dx !== 0 || done.dy !== 0)) changed = moveStrokes(picked, done.dx, done.dy);
+      if (done.kind === "resize" && done.scale !== 1) changed = resizeStrokes(picked, [bounds.left, bounds.top], done.scale);
+      if (!changed) return;
+      const replaced = new Map(picked.map((s, i) => [s, changed[i]]));
+      onStrokesChange(strokes.map((s) => replaced.get(s) ?? s));
+      select(changed);
+    },
+    [selection, strokes, onStrokesChange, select]
+  );
+
+  const handleSelectionCancel = useCallback(() => {
+    dragRef.current = null;
+    setDrag(null);
+  }, []);
+
+  const deleteSelection = useCallback(() => {
+    if (!selection) return;
+    const gone = new Set(selection.strokes);
+    dropSelection();
+    onStrokesChange(strokes.filter((s) => !gone.has(s)));
+  }, [selection, strokes, dropSelection, onStrokesChange]);
+
+  // On a laptop, the Delete and Backspace keys delete the selection too.
+  useStableKeyboardHandler((e) => {
+    if (e.key !== "Delete" && e.key !== "Backspace") return;
+    if (isTypingTarget(e.target) || hasBrowserModifier(e)) return;
+    e.preventDefault();
+    deleteSelection();
+  }, selection !== null);
+
   const shownStrokes = rubbedStrokes ?? strokes;
 
   // Render current in-progress stroke
@@ -461,7 +687,7 @@ export function AnnotationLayer({
   );
   const currentSavedInk = fading ? null : currentPathEl;
 
-  const active = isDrawing || isErasing;
+  const active = isDrawing || isErasing || isSelecting;
 
   // The page's pointer handlers depend on the tool. The whole-stroke eraser
   // needs none here, because each stroke handles its own tap.
@@ -475,20 +701,31 @@ export function AnnotationLayer({
       }
     : isErasing
       ? {}
-      : {
-          onPointerDown: handlePointerDown,
-          onPointerMove: handlePointerMove,
-          onPointerUp: handlePointerUp,
-          onPointerLeave: handlePointerUp,
-        };
+      : isSelecting
+        ? {
+            onPointerDown: handleLassoDown,
+            onPointerMove: handleLassoMove,
+            onPointerUp: handleLassoUp,
+            onPointerCancel: discardInProgress,
+            onPointerLeave: handleLassoUp,
+          }
+        : {
+            onPointerDown: handlePointerDown,
+            onPointerMove: handlePointerMove,
+            onPointerUp: handlePointerUp,
+            onPointerLeave: handlePointerUp,
+          };
 
   // The finished strokes, in their two layers so pen ink always sits on top of
   // highlighter ink. They are only rebuilt when the ink itself changes, so a
-  // move of the pen re-renders the line being drawn and nothing else.
+  // move of the pen re-renders the line being drawn and nothing else. Ink the
+  // lasso has selected is left out, and drawn in a group of its own on top of
+  // its layer, so dragging it moves that group and nothing else.
+  const selected = useMemo(() => new Set(selection?.strokes), [selection]);
   const [highlighterPaths, penPaths] = useMemo(() => {
     const tappable = isErasing && !isRubbing;
     return inkLayers(shownStrokes).map((layer) =>
-      layer.map((stroke) =>
+      layer.filter((stroke) => !selected.has(stroke)).map((stroke) =>
         tappable ? (
           <ErasableStrokePath
             key={strokeKey(stroke)}
@@ -503,61 +740,128 @@ export function AnnotationLayer({
         ),
       ),
     );
-  }, [shownStrokes, isErasing, isRubbing, hoveredStroke, handleHoverLeave, handleEraseStroke]);
+  }, [shownStrokes, isErasing, isRubbing, hoveredStroke, handleHoverLeave, handleEraseStroke, selected]);
+
+  // The selected ink as it looks part way through a drag. A resize draws it
+  // again at its new size, and a move shifts its whole group on screen.
+  const selectedPaths = useMemo((): React.ReactNode[][] => {
+    if (!selection) return [[], []];
+    const shown = drag?.kind === "resize"
+      ? resizeStrokes(selection.strokes, [selection.bounds.left, selection.bounds.top], drag.scale)
+      : selection.strokes;
+    return inkLayers(shown).map((layer) => layer.map((stroke, i) => <StrokePath key={i} stroke={stroke} />));
+  }, [selection, drag]);
+  const selectedGroup = (paths: React.ReactNode[]) =>
+    paths.length > 0 && (
+      <g
+        data-selected-ink=""
+        transform={drag?.kind === "move" ? `translate(${drag.dx} ${drag.dy})` : undefined}
+        style={{ filter: SELECTED_GLOW }}
+      >
+        {paths}
+      </g>
+    );
+
+  // The selection's box, which follows the ink part way through a drag.
+  let selectionBox: Box | null = null;
+  if (selection) {
+    const { bounds, reach } = selection;
+    const [dx, dy] = drag?.kind === "move" ? [drag.dx, drag.dy] : [0, 0];
+    const scale = drag?.kind === "resize" ? drag.scale : 1;
+    selectionBox = {
+      left: bounds.left + dx - reach,
+      top: bounds.top + dy - reach,
+      right: bounds.left + (bounds.right - bounds.left) * scale + dx + reach,
+      bottom: bounds.top + (bounds.bottom - bounds.top) * scale + dy + reach,
+    };
+  }
 
   return (
-    <svg
-      ref={svgRef}
-      data-annotation-layer=""
-      viewBox={`0 0 ${width} ${height}`}
-      className="absolute inset-0 w-full h-full"
-      style={{
-        pointerEvents: active ? "auto" : "none",
-        // The rubbing eraser draws its own circle, so the system cursor is hidden
-        cursor: isRubbing ? "none" : isErasing ? "pointer" : isDrawing ? "crosshair" : "default",
-        touchAction: active ? "none" : "auto",
-      }}
-      {...pointerHandlers}
-    >
-      {/* Completed strokes, highlighter first. The whole-stroke eraser makes
-          each one tappable. "Hide ink" hides these, but not fading ink, which
-          is for pointing at the clean worksheet as much as the marked one. */}
-      <g style={{ opacity: hidden ? 0 : 1, transition: "opacity 0.15s ease" }}>
-        {highlighterPaths}
-        {newInk === "highlighter" && currentSavedInk}
-        {penPaths}
-        {newInk !== "highlighter" && currentSavedInk}
-      </g>
-
-      {/* Fading ink, on top of everything, with a soft glow */}
-      {(fadingStrokes.length > 0 || (fading && currentPathEl)) && (
-        <g
-          data-fading-ink=""
-          pointerEvents="none"
-          style={{
-            opacity: fadingOut ? 0 : 1,
-            transition: fadingOut ? `opacity ${FADE_DURATION}ms ease-out` : "none",
-            filter: "drop-shadow(0 0 3px rgba(239, 68, 68, 0.7))",
-          }}
-        >
-          {fadingStrokes.map((stroke) => <StrokePath key={strokeKey(stroke)} stroke={stroke} />)}
-          {fading && currentPathEl}
+    <>
+      <svg
+        ref={svgRef}
+        data-annotation-layer=""
+        viewBox={`0 0 ${width} ${height}`}
+        className="absolute inset-0 w-full h-full"
+        style={{
+          pointerEvents: active ? "auto" : "none",
+          // The rubbing eraser draws its own circle, so the system cursor is hidden
+          cursor: isRubbing ? "none" : isErasing ? "pointer" : isDrawing || isSelecting ? "crosshair" : "default",
+          touchAction: active ? "none" : "auto",
+        }}
+        {...pointerHandlers}
+      >
+        {/* Completed strokes, highlighter first, with any selected ink on top of
+            its own layer. The whole-stroke eraser makes each one tappable. "Hide
+            ink" hides these, but not fading ink, which is for pointing at the
+            clean worksheet as much as the marked one. */}
+        <g style={{ opacity: hidden ? 0 : 1, transition: "opacity 0.15s ease" }}>
+          {highlighterPaths}
+          {selectedGroup(selectedPaths[0])}
+          {newInk === "highlighter" && currentSavedInk}
+          {penPaths}
+          {selectedGroup(selectedPaths[1])}
+          {newInk !== "highlighter" && currentSavedInk}
         </g>
-      )}
 
-      {/* Rubbing eraser circle, the exact area it will erase */}
-      {isRubbing && eraserCursor && eraserRadius !== null && (
-        <circle
-          cx={eraserCursor[0]}
-          cy={eraserCursor[1]}
-          r={eraserRadius}
-          fill="rgba(255, 255, 255, 0.35)"
-          stroke="#6b5a42"
-          strokeWidth={1}
-          vectorEffect="non-scaling-stroke"
-          pointerEvents="none"
+        {/* Fading ink, on top of everything, with a soft glow */}
+        {(fadingStrokes.length > 0 || (fading && currentPathEl)) && (
+          <g
+            data-fading-ink=""
+            pointerEvents="none"
+            style={{
+              opacity: fadingOut ? 0 : 1,
+              transition: fadingOut ? `opacity ${FADE_DURATION}ms ease-out` : "none",
+              filter: "drop-shadow(0 0 3px rgba(239, 68, 68, 0.7))",
+            }}
+          >
+            {fadingStrokes.map((stroke) => <StrokePath key={strokeKey(stroke)} stroke={stroke} />)}
+            {fading && currentPathEl}
+          </g>
+        )}
+
+        {/* The lasso's loop while it's being drawn */}
+        {loop && loop.length > 1 && (
+          <path
+            data-lasso-loop=""
+            d={`M ${loop.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L ")} Z`}
+            fill="rgba(160, 112, 75, 0.08)"
+            stroke={LASSO_COLOUR}
+            strokeWidth={2}
+            strokeDasharray="7 5"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+        )}
+
+        {/* Rubbing eraser circle, the exact area it will erase */}
+        {isRubbing && eraserCursor && eraserRadius !== null && (
+          <circle
+            cx={eraserCursor[0]}
+            cy={eraserCursor[1]}
+            r={eraserRadius}
+            fill="rgba(255, 255, 255, 0.35)"
+            stroke="#6b5a42"
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+        )}
+      </svg>
+      {selection && selectionBox && (
+        <LassoSelection
+          box={selectionBox}
+          width={width}
+          height={height}
+          uiScale={uiScale}
+          below={selection.below}
+          onPointerDown={handleSelectionDown}
+          onPointerMove={handleSelectionMove}
+          onPointerUp={handleSelectionUp}
+          onPointerCancel={handleSelectionCancel}
+          onDelete={deleteSelection}
         />
       )}
-    </svg>
+    </>
   );
 }

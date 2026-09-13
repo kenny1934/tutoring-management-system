@@ -19,7 +19,8 @@ export type EraserSetting = keyof typeof ERASER_RADIUS | "stroke";
 
 type Point = [number, number, number];
 type Vec = [number, number];
-type Box = { left: number; right: number; top: number; bottom: number };
+/** A box in page units, given by its four edges. */
+export type Box = { left: number; right: number; top: number; bottom: number };
 
 // Pieces shorter than this are two points sitting on top of each other, left
 // behind when a cut lands exactly on a point. They would draw as a stray dot.
@@ -86,10 +87,11 @@ function coveredRange(a: Point, b: Point, from: Vec, to: Vec, reach: number): [n
 }
 
 // Strokes are never changed in place, so each one's bounding box is worked
-// out the first time the eraser passes and kept for as long as the stroke is.
+// out the first time the eraser or the lasso needs it, and kept for as long as
+// the stroke is.
 const strokeBoxes = new WeakMap<Stroke, Box>();
 
-function boundingBox(stroke: Stroke): Box {
+export function boundingBox(stroke: Stroke): Box {
   let box = strokeBoxes.get(stroke);
   if (!box) {
     box = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };

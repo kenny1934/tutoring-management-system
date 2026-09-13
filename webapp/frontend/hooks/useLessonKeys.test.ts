@@ -20,6 +20,7 @@ describe("lessonKeyAction", () => {
     ["Tab", "nextStudent"],
     ["d", "pen"],
     ["e", "eraser"],
+    ["l", "lasso"],
     ["+", "zoomIn"],
     ["=", "zoomIn"],
     ["-", "zoomOut"],

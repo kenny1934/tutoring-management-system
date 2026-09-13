@@ -10,7 +10,7 @@ export type LessonKeyAction =
   | "closeWolfram" | "closePrintMenu" | "closeHelp" | "selectHand" | "exitFocus" | "exit"
   | "toggleHelp" | "toggleFocus" | "toggleWolfram"
   | "next" | "previous" | "nextStudent" | "previousStudent"
-  | "pen" | "eraser" | "zoomIn" | "zoomOut"
+  | "pen" | "eraser" | "lasso" | "zoomIn" | "zoomOut"
   | "editClasswork" | "editHomework" | "homeworkBlock"
   | "print" | "answerKey" | "save";
 
@@ -21,7 +21,7 @@ export interface LessonKeyState {
   wolframOpen: boolean;
   printMenuOpen: boolean;
   helpOpen: boolean;
-  /** The pen or the eraser is picked. */
+  /** A tool other than the Hand is picked, such as a pen, the eraser or the lasso. */
   drawing: boolean;
   focusMode: boolean;
 }
@@ -34,7 +34,7 @@ export type LessonKeyEvent = Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" 
  * useLessonKeys checks that, by whether the view passed a handler for it.
  *
  * Escape closes the nearest thing first: Wolfram, then the print menu, then
- * the help, then the pen or eraser, then focus mode. Only once all of those
+ * the help, then whichever tool is picked, then focus mode. Only once all of those
  * are closed does it mean leaving the lesson.
  */
 export function lessonKeyAction(e: LessonKeyEvent, state: LessonKeyState): LessonKeyAction | null {
@@ -64,6 +64,7 @@ export function lessonKeyAction(e: LessonKeyEvent, state: LessonKeyState): Lesso
       return e.shiftKey ? "previousStudent" : "nextStudent";
     case "d": return "pen";
     case "e": return "eraser";
+    case "l": return "lasso";
     case "+":
     case "=":
       return "zoomIn";
@@ -96,6 +97,7 @@ export function lessonShortcuts(view: "one-student" | "multi-student"): readonly
     ["+  / -", "Zoom in / out"],
     ["d", "Pen, or back to the Hand"],
     ["e", "Eraser, or back to the Hand"],
+    ["l", "Lasso, or back to the Hand"],
     ["z / Z", "Undo / Redo"],
     ["s", "Save annotated PDF"],
     ["c / h", "Edit CW / HW"],

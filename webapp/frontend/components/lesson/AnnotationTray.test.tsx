@@ -145,6 +145,16 @@ describe("AnnotationTray", () => {
     expect(tools.straight).toBe(false);
   });
 
+  it("picks the lasso, and the collapsed tray says so", () => {
+    let tools!: AnnotationTools;
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    fireEvent.click(button("Lasso"));
+    expect(tools.tool).toBe("lasso");
+    expect(button("Lasso")).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(button("Collapse the tray"));
+    expect(screen.getByRole("button", { name: /You are using the lasso./ })).toBeInTheDocument();
+  });
+
   it("greys out saving until there is ink to save", () => {
     render(<Harness hasInk={false} onSaveAnnotated={() => {}} />);
     fireEvent.click(button("More"));

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useAnnotationTools, INK_SIZES } from "./useAnnotationTools";
+import { useAnnotationTools, inkLayerProps, INK_SIZES } from "./useAnnotationTools";
 
 beforeEach(() => localStorage.clear());
 
@@ -47,6 +47,19 @@ describe("useAnnotationTools", () => {
     act(() => result.current.toggleFromKey("pen"));
     act(() => result.current.toggleFromKey("pen"));
     expect(result.current.tool).toBe("hand");
+  });
+
+  it("lets L pick the lasso and put it down again, and the drawing layer selects with it instead of drawing", () => {
+    const { result } = renderHook(() => useAnnotationTools());
+    act(() => result.current.toggleFromKey("lasso"));
+    expect(result.current.tool).toBe("lasso");
+    expect(inkLayerProps(result.current)).toMatchObject({ isSelecting: true, isDrawing: false, isErasing: false });
+    act(() => result.current.toggleFromKey("lasso"));
+    expect(result.current.tool).toBe("hand");
+
+    act(() => result.current.selectLasso());
+    act(() => result.current.selectSwatch("red"));
+    expect(inkLayerProps(result.current)).toMatchObject({ isSelecting: false, isDrawing: true });
   });
 
   it("remembers colours, sizes and the eraser in this browser, but not the tool", () => {

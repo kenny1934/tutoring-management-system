@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Hand, Eraser, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
+  Hand, Eraser, Lasso, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
   Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds,
 } from "lucide-react";
 import {
@@ -366,6 +366,7 @@ export function AnnotationTray({
   const toolName =
     tools.tool === "hand" ? "the Hand"
     : tools.tool === "eraser" ? "the eraser"
+    : tools.tool === "lasso" ? "the lasso"
     : tools.fading ? "fading ink"
     : `the ${tools.swatch.label.toLowerCase()}${tools.straight ? " with straight lines on" : ""}`;
 
@@ -478,6 +479,16 @@ export function AnnotationTray({
           <Eraser className="h-[22px] w-[22px]" />
           {tools.tool === "eraser" && <SizeBadge>{tools.eraser === "stroke" ? "Str" : tools.eraser}</SizeBadge>}
         </button>
+        <button
+          type="button"
+          aria-label="Lasso"
+          title="Lasso: draw a loop round some ink to move it, resize it or delete it (L)"
+          aria-pressed={tools.tool === "lasso"}
+          onClick={() => { setPop(null); tools.selectLasso(); }}
+          className={cn(btnBase, tools.tool === "lasso" && btnOn)}
+        >
+          <Lasso className="h-[22px] w-[22px]" />
+        </button>
         <Separator />
         {!compact && (
           <>
@@ -522,6 +533,7 @@ export function AnnotationTray({
         >
           {tools.tool === "hand" ? <Hand className="h-6 w-6" />
             : tools.tool === "eraser" ? <Eraser className="h-6 w-6" />
+            : tools.tool === "lasso" ? <Lasso className="h-6 w-6" />
             : tools.fading ? <WandSparkles className="h-6 w-6" />
             : <SwatchMark swatch={tools.swatch} big className="outline outline-[3px] outline-offset-[3px] outline-[#f3e7d3]" />}
         </button>
