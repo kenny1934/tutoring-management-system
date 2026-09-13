@@ -536,7 +536,7 @@ def build_filter_clause(
 # ============================================================================
 
 @router.get("/tables", response_model=list[TableInfo])
-async def list_tables(
+def list_tables(
     include_counts: bool = Query(True, description="Include row counts (slower)"),
     admin: Tutor = Depends(require_super_admin),
     db: Session = Depends(get_db),
@@ -574,7 +574,7 @@ async def list_tables(
 
 
 @router.get("/tables/{table_name}/schema", response_model=TableSchema)
-async def get_table_schema(
+def get_table_schema(
     table_name: str,
     admin: Tutor = Depends(require_super_admin),
     db: Session = Depends(get_db),
@@ -646,7 +646,7 @@ async def get_table_schema(
 
 
 @router.get("/tables/{table_name}/rows", response_model=PaginatedRows)
-async def list_rows(
+def list_rows(
     table_name: str,
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -784,7 +784,7 @@ async def list_rows(
 
 
 @router.get("/tables/{table_name}/rows/{row_id}")
-async def get_row(
+def get_row(
     table_name: str,
     row_id: int,
     admin: Tutor = Depends(require_super_admin),
@@ -1343,7 +1343,7 @@ async def export_table(
 
 
 @router.get("/audit-logs", response_model=PaginatedAuditLogs)
-async def get_audit_logs(
+def get_audit_logs(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     table_name: Optional[str] = None,

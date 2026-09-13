@@ -31,7 +31,7 @@ def _get_next_student_id(db: Session, location: str) -> str:
 
 
 @router.get("/students/schools", response_model=List[str])
-async def get_unique_schools(response: Response, db: Session = Depends(get_db)):
+def get_unique_schools(response: Response, db: Session = Depends(get_db)):
     """Get list of all unique school names for autocomplete."""
     response.headers["Cache-Control"] = "private, max-age=300"
     schools = db.query(Student.school).filter(Student.school.isnot(None)).distinct().limit(200).all()
@@ -39,7 +39,7 @@ async def get_unique_schools(response: Response, db: Session = Depends(get_db)):
 
 
 @router.get("/students/school-info/{school_name}")
-async def get_school_info(
+def get_school_info(
     school_name: str,
     db: Session = Depends(get_db)
 ):
@@ -60,7 +60,7 @@ async def get_school_info(
 
 
 @router.get("/students/next-id/{location}")
-async def get_next_student_id(
+def get_next_student_id(
     location: str,
     db: Session = Depends(get_db)
 ):
@@ -204,7 +204,7 @@ def find_duplicate_students(
 
 
 @router.get("/students/check-duplicates")
-async def check_duplicates(
+def check_duplicates(
     student_name: str = Query(..., description="Student name to check"),
     location: str = Query(..., description="Home location"),
     phone: Optional[str] = Query(None, description="Phone number to check"),
@@ -215,7 +215,7 @@ async def check_duplicates(
 
 
 @router.get("/students", response_model=List[StudentResponse])
-async def get_students(
+def get_students(
     request: Request,
     search: Optional[str] = Query(None, description="Search by student name or ID"),
     grade: Optional[str] = Query(None, description="Filter by grade"),
@@ -353,7 +353,7 @@ async def get_students(
 
 
 @router.get("/students/{student_id}", response_model=StudentDetailResponse)
-async def get_student_detail(
+def get_student_detail(
     request: Request,
     student_id: int,
     current_user: Tutor = Depends(get_current_user),
@@ -399,7 +399,7 @@ async def get_student_detail(
 
 
 @router.get("/students/{student_id}/coupon", response_model=StudentCouponResponse)
-async def get_student_coupon(
+def get_student_coupon(
     student_id: int,
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)

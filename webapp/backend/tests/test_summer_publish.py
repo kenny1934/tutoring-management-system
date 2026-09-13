@@ -785,10 +785,7 @@ class TestDownstreamSummerHandling:
         enrollment.first_lesson_date = date.today() - timedelta(days=3)
         db_session.commit()
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            get_overdue_enrollments(location=None, tutor_id=None, db=db_session)
-        )
+        result = get_overdue_enrollments(location=None, tutor_id=None, db=db_session)
         assert any(o.id == enrollment.id for o in result)
 
     def test_renewals_excludes_summer(
@@ -797,12 +794,9 @@ class TestDownstreamSummerHandling:
         from routers.enrollments import get_enrollments_needing_renewal
         enrollment = self._publish_one(db_session, admin, app_full, slot)
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            get_enrollments_needing_renewal(
-                location=None, tutor_id=None, include_expired=True,
-                current_user=admin, db=db_session,
-            )
+        result = get_enrollments_needing_renewal(
+            location=None, tutor_id=None, include_expired=True,
+            current_user=admin, db=db_session,
         )
         assert all(r.id != enrollment.id for r in result)
 

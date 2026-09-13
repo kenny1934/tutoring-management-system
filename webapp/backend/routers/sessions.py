@@ -66,7 +66,7 @@ def _is_lesson_number_only_update(request: SessionUpdate) -> bool:
 
 
 @router.get("/sessions", response_model=List[SessionResponse])
-async def get_sessions(
+def get_sessions(
     student_id: Optional[int] = Query(None, description="Filter by student ID"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     enrollment_id: Optional[int] = Query(None, description="Filter by enrollment ID"),
@@ -186,7 +186,7 @@ async def get_sessions(
 
 
 @router.get("/sessions/student/{student_id}/exercise-history", response_model=ExerciseHistoryResponse)
-async def get_exercise_history(
+def get_exercise_history(
     student_id: int,
     before_date: Optional[date] = Query(None, description="Cursor: only return sessions before this date"),
     limit: int = Query(10, ge=1, le=50, description="Number of sessions to return"),
@@ -235,7 +235,7 @@ async def get_exercise_history(
 # ============================================================================
 
 @router.get("/sessions/unchecked-attendance", response_model=List[UncheckedAttendanceReminder])
-async def get_unchecked_attendance(
+def get_unchecked_attendance(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     urgency: Optional[str] = Query(None, description="Filter by urgency level: critical, high, medium, low"),
@@ -1272,7 +1272,7 @@ def _get_lesson_match_data(
 
 
 @router.get("/sessions/{session_id}/makeup-suggestions", response_model=List[MakeupSlotSuggestion])
-async def get_makeup_suggestions(
+def get_makeup_suggestions(
     session_id: int,
     response: Response,
     days_ahead: int = Query(30, ge=1, le=60, description="Days ahead to search for slots"),
@@ -2109,7 +2109,7 @@ async def update_session(
 
 
 @router.get("/sessions/{session_id}/upcoming-tests", response_model=List[UpcomingTestAlert])
-async def get_upcoming_tests(
+def get_upcoming_tests(
     session_id: int,
     db: Session = Depends(get_db)
 ):
@@ -2193,7 +2193,7 @@ async def sync_calendar(
 
 
 @router.get("/calendar/events", response_model=List[CalendarEventResponse])
-async def get_calendar_events(
+def get_calendar_events(
     days_ahead: int = Query(30, ge=1, le=365, description="Number of days ahead to fetch events"),
     include_past: bool = Query(False, description="Include past events"),
     days_behind: int = Query(365, ge=0, le=730, description="Days in past if include_past=True"),

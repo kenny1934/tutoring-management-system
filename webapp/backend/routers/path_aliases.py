@@ -27,7 +27,7 @@ class CreatePathAliasRequest(BaseModel):
 
 
 @router.get("/path-aliases", response_model=List[PathAliasDefinition])
-async def get_path_aliases(db: Session = Depends(get_db)):
+def get_path_aliases(db: Session = Depends(get_db)):
     """
     Get all path alias definitions.
     These are admin-defined aliases that users can map to their local drive letters.

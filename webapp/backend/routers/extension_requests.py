@@ -310,7 +310,7 @@ async def create_extension_request(
 
 
 @router.get("/extension-requests", response_model=List[ExtensionRequestResponse])
-async def get_extension_requests(
+def get_extension_requests(
     tutor_id: Optional[int] = Query(None, description="Filter by requesting tutor"),
     status: Optional[str] = Query(None, description="Filter by status (Pending, Approved, Rejected)"),
     enrollment_id: Optional[int] = Query(None, description="Filter by enrollment"),
@@ -374,7 +374,7 @@ def get_pending_count(
 
 
 @router.get("/extension-requests/{request_id}", response_model=ExtensionRequestDetailResponse)
-async def get_extension_request(
+def get_extension_request(
     request_id: int,
     db: Session = Depends(get_db)
 ):
