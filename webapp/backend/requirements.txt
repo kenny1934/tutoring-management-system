@@ -1,6 +1,13 @@
 # FastAPI and ASGI server
-fastapi>=0.115.0
-uvicorn[standard]>=0.27.0
+# Pinned to the versions production ran on 13 September 2026. With only
+# minimum versions, every image build installed the newest release, so
+# production, CI and local venvs drifted apart without anyone choosing an
+# upgrade. Starlette and anyio are pinned as well because they decide how
+# requests are routed and how many plain def handlers run at once.
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+starlette==1.6.0
+anyio==4.15.1
 
 # Database
 sqlalchemy==2.0.25
@@ -22,8 +29,8 @@ python-dotenv==1.0.1
 python-multipart==0.0.6
 
 # Data validation
-pydantic>=2.9.0,<3.0.0
-pydantic-settings>=2.1.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
 
 # Utilities
 python-dateutil==2.8.2
