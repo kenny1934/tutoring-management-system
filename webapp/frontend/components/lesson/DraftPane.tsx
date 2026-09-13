@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Ruler as RulerIcon, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { UndoOfferBar } from "./UndoOfferBar";
+import { Ruler, rulerStart } from "./Ruler";
 import { TRAY_CLEARANCE } from "./AnnotationTray";
 import { PAGE_BAR_HEIGHT, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
+import { CM, type RulerGuide } from "@/lib/ruler";
+import type { Vec } from "@/lib/stroke-select";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import {
   DRAFT_GRID_COLOUR, DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SHEET_PT, DRAFT_SQUARE_PT,
@@ -80,6 +83,24 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
   const sheetRefs = useRef<(HTMLDivElement | null)[]>([]);
   const newSheetRef = useRef<number | null>(null);
 
+  // The Draft's own ruler, from the button on its bar. The sheets fit the
+  // pane, so a centimetre is measured from a sheet's width while it's out.
+  const columnRef = useRef<HTMLDivElement>(null);
+  const [rulerAt, setRulerAt] = useState<Vec | null>(null);
+  const rulerGuideRef = useRef<RulerGuide | null>(null);
+  const [sheetWidth, setSheetWidth] = useState(0);
+  const rulerOut = rulerAt !== null;
+  useEffect(() => {
+    const sheet = sheetRefs.current[0];
+    if (!rulerOut || !sheet) return;
+    const measure = () => setSheetWidth(sheet.offsetWidth);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(sheet);
+    return () => observer.disconnect();
+  }, [rulerOut]);
+
   const { gestureActive, handlers } = useViewerTouch({
     scrollRef,
     getAnchor: () => sheetRefs.current[0] ?? null,
@@ -91,9 +112,10 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
     commitZoom: () => {},
   });
 
-  // Each exercise's Draft opens at its first sheet.
+  // Each exercise's Draft opens at its first sheet, with the ruler put away.
   useEffect(() => {
     scrollRef.current?.scrollTo?.({ top: 0 });
+    setRulerAt(null);
   }, [exerciseId]);
 
   // A sheet that was just added is scrolled into view, ready to write on.
@@ -107,6 +129,8 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
     newSheetRef.current = sheetCount;
     setSheetsAsked((asked) => ({ ...asked, [exerciseId]: sheetCount + 1 }));
   };
+
+  const toggleRuler = () => setRulerAt(rulerAt ? null : rulerStart(columnRef.current, scrollRef.current));
 
   // ---------- Clearing ----------
   // Both clears can be undone, and a message at the bottom of the pane offers
@@ -148,7 +172,7 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
 
   return (
     <section aria-label="Draft" className="relative flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
-      <div className={toolbarRow}>
+      <div className={cn(toolbarRow, "@container/draftbar")}>
         <span className="ml-1 text-xs font-medium text-[#8b7355] dark:text-[#a09080]">Draft</span>
         <div className="flex-1" />
         <div role="group" aria-label="Paper" className="flex flex-none gap-0.5">
@@ -159,6 +183,18 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
             Squared
           </button>
         </div>
+        <button
+          type="button"
+          aria-label="Ruler"
+          aria-pressed={rulerOut}
+          title={rulerOut ? "Hide the ruler" : "Show the ruler on the draft"}
+          onClick={toggleRuler}
+          className={cn(barButton, rulerOut ? tbBtnOn : tbBtnIdle)}
+        >
+          <RulerIcon className="h-5 w-5" />
+          {/* The word goes when the Draft is narrow, and the icon stays */}
+          <span className="hidden @[440px]/draftbar:inline">Ruler</span>
+        </button>
         <DropdownMenu
           align="right"
           menuClassName="bg-[#fef9f3] dark:bg-[#2d2618] border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -216,7 +252,7 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
         // The room at the bottom lets the last sheet and "Add a sheet" scroll clear of the tray.
         style={{ touchAction: "none", paddingBottom: TRAY_TOP + 20 }}
       >
-        <div className="flex flex-col items-center gap-4">
+        <div ref={columnRef} className="relative flex flex-col items-center gap-4">
           {Array.from({ length: sheetCount }, (_, n) => {
             const pageIndex = DRAFT_PAGE_BASE + n;
             return (
@@ -241,6 +277,7 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
                     {...inkLayerProps(tools)}
                     onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
                     suspended={gestureActive}
+                    rulerGuide={rulerGuideRef}
                   />
                 </div>
               </div>
@@ -254,6 +291,16 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
             <Plus className="h-5 w-5" />
             Add a sheet
           </button>
+          {rulerAt && (
+            <Ruler
+              containerRef={columnRef}
+              cm={sheetWidth * (CM / DRAFT_SHEET.width)}
+              start={rulerAt}
+              guideRef={rulerGuideRef}
+              darkMode={pdfDarkMode}
+              onHide={() => setRulerAt(null)}
+            />
+          )}
         </div>
       </div>
 

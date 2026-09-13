@@ -127,6 +127,17 @@ describe("DraftPane", () => {
     expect(screen.getByRole("status")).toHaveTextContent("The draft was cleared.");
   });
 
+  it("puts a ruler on the draft from its bar, and takes it away again", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Ruler" }));
+    expect(screen.getByRole("group", { name: /^Ruler:/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ruler" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide the ruler" }));
+    expect(screen.queryByRole("group", { name: /^Ruler:/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Ruler" })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("greys out Clear while the draft has no ink", () => {
     render(<Harness />);
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();

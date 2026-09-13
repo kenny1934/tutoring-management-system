@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo } from "react";
+import { useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo, type RefObject } from "react";
 import getStroke from "perfect-freehand";
 import { getStrokeOptions, inkLayers, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
 import type { InkKind, Stroke } from "@/hooks/useAnnotations";
@@ -10,6 +10,7 @@ import { hasBrowserModifier, isTypingTarget } from "@/lib/lesson-utils";
 import {
   clampMove, clampScale, dragScale, moveStrokes, resizeStrokes, selectionBounds, strokesInLoop, type Vec,
 } from "@/lib/stroke-select";
+import { clipToPage, ontoEdge, type RulerEdge, type RulerGuide } from "@/lib/ruler";
 import { DELETE_BUTTON_ROOM, LassoSelection, type SelectionDragKind } from "./LassoSelection";
 
 interface AnnotationLayerProps {
@@ -63,6 +64,8 @@ interface AnnotationLayerProps {
    * of a finger at any zoom. The Draft never zooms, so it leaves this at 1.
    */
   uiScale?: number;
+  /** The ruler on this pane, while it's out. A line that starts just outside its edge runs along it. */
+  rulerGuide?: RefObject<RulerGuide | null>;
 }
 
 type Point = Stroke["points"][number];
@@ -244,11 +247,15 @@ export function AnnotationLayer({
   hidden = false,
   suspended = false,
   uiScale = 1,
+  rulerGuide,
 }: AnnotationLayerProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [currentPoints, setCurrentPoints] = useState<[number, number, number][]>([]);
   const currentPointsRef = useRef<[number, number, number][]>([]);
   const isDrawingStroke = useRef(false);
+  // A line that starts just outside the ruler's edge runs along it. This
+  // holds that edge, and where on screen the finger landed, while it's drawn.
+  const rulerLineRef = useRef<{ edge: RulerEdge; start: Vec } | null>(null);
 
   // What a new stroke looks like. Fading ink has its own look, whatever colour is picked.
   const inkColor = fading ? FADING_INK.color : penColor;
@@ -327,6 +334,7 @@ export function AnnotationLayer({
   // setter skips the render when there was nothing to throw away.
   const discardInProgress = useCallback(() => {
     isDrawingStroke.current = false;
+    rulerLineRef.current = null;
     currentPointsRef.current = [];
     setCurrentPoints((prev) => (prev.length ? [] : prev));
     loopRef.current = null;
@@ -408,6 +416,33 @@ export function AnnotationLayer({
     [width, height]
   );
 
+  /**
+   * The line along the ruler from where the finger landed to where it is now,
+   * in page units. It's kept half a pen width out from the edge and stops at
+   * the ruler's ends, and whatever runs past the edge of this page is dropped.
+   */
+  const rulerLine = useCallback(
+    (e: React.PointerEvent): Point[] => {
+      const line = rulerLineRef.current;
+      const svg = svgRef.current;
+      if (!line || !svg) return [];
+      const rect = svg.getBoundingClientRect();
+      const toPage = ([x, y]: Vec): Vec => [((x - rect.left) / rect.width) * width, ((y - rect.top) / rect.height) * height];
+      const offset = (inkSize / 2) * (rect.width / width);
+      const onPage = clipToPage(
+        toPage(ontoEdge(line.edge, line.start, offset)),
+        toPage(ontoEdge(line.edge, [e.clientX, e.clientY], offset)),
+        width,
+        height,
+      );
+      if (onPage) return onPage.map(([x, y]): Point => [x, y, 0.5]);
+      // A line whose whole length is off this page leaves a dot where the finger landed.
+      const [sx, sy] = toPage(line.start);
+      return [[sx, sy, 0.5]];
+    },
+    [width, height, inkSize]
+  );
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!isDrawing || suspended) return;
@@ -419,11 +454,13 @@ export function AnnotationLayer({
         holdingRef.current = true;
         signalFade("hold");
       }
-      const pt = getPoint(e);
-      currentPointsRef.current = [pt];
-      setCurrentPoints([pt]);
+      const edge = rulerGuide?.current?.edgeAt([e.clientX, e.clientY]) ?? null;
+      rulerLineRef.current = edge ? { edge, start: [e.clientX, e.clientY] } : null;
+      const first = rulerLineRef.current ? rulerLine(e) : [getPoint(e)];
+      currentPointsRef.current = first;
+      setCurrentPoints([...first]);
     },
-    [isDrawing, suspended, fading, getPoint]
+    [isDrawing, suspended, fading, getPoint, rulerGuide, rulerLine]
   );
 
   const handlePointerMove = useCallback(
@@ -431,6 +468,12 @@ export function AnnotationLayer({
       if (!isDrawingStroke.current) return;
       e.preventDefault();
       e.stopPropagation();
+      if (rulerLineRef.current) {
+        const line = rulerLine(e);
+        currentPointsRef.current = line;
+        setCurrentPoints(line);
+        return;
+      }
       const pt = getPoint(e);
       if (straight) {
         // A straight line only ever has its two ends: where the finger went
@@ -444,7 +487,7 @@ export function AnnotationLayer({
       currentPointsRef.current.push(pt);
       setCurrentPoints((prev) => [...prev, pt]);
     },
-    [straight, getPoint]
+    [straight, getPoint, rulerLine]
   );
 
   const handlePointerUp = useCallback(
@@ -453,13 +496,16 @@ export function AnnotationLayer({
       e.preventDefault();
       e.stopPropagation();
       isDrawingStroke.current = false;
+      const ruled = rulerLineRef.current !== null;
+      rulerLineRef.current = null;
 
       let points = currentPointsRef.current;
       currentPointsRef.current = [];
       setCurrentPoints([]);
 
-      // A straight line that has barely moved is a tap, so it's kept as a dot.
-      if (straight && points.length === 2 && Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1]) < 1) {
+      // A straight line, or a line along the ruler, that has barely moved is a
+      // tap, so it's kept as a dot.
+      if ((straight || ruled) && points.length === 2 && Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1]) < 1) {
         points = [points[0]];
       }
 

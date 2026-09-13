@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } 
 import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import { AnnotationLayer } from "./AnnotationLayer";
 import type { Stroke } from "@/hooks/useAnnotations";
+import type { RulerEdge, RulerGuide } from "@/lib/ruler";
 
 // The layer maps pointer positions through the SVG's on-screen box. jsdom has
 // no layout, so give every element a 100 by 100 box at the origin, which makes
@@ -391,5 +392,52 @@ describe("AnnotationLayer lasso", () => {
     fireEvent.pointerMove(svg, { clientX: 25, clientY: 20, pointerId: 1 });
     fireEvent.pointerUp(svg, { clientX: 5, clientY: 20, pointerId: 1 });
     expect(deleteButton()).toBeNull();
+  });
+});
+
+describe("AnnotationLayer along the ruler", () => {
+  // A level ruler whose bottom edge runs across the page at y = 30, from x = 10 to x = 90.
+  const EDGE: RulerEdge = { origin: [50, 30], along: [1, 0], out: [0, 1], ends: [-40, 40] };
+  const guide: { current: RulerGuide } = { current: { edgeAt: ([, y]) => (y > 30 && y < 70 ? EDGE : null) } };
+  const round = (s: Stroke) => s.points.map((point) => point.map((v) => Math.round(v * 1000) / 1000));
+
+  function renderPen() {
+    const onStrokesChange = vi.fn();
+    const { container } = render(
+      <AnnotationLayer
+        width={100}
+        height={100}
+        strokes={[]}
+        isDrawing
+        isErasing={false}
+        penColor="#dc2626"
+        penSize={4}
+        onStrokesChange={onStrokesChange}
+        rulerGuide={guide}
+      />
+    );
+    return { svg: container.querySelector("svg")!, onStrokesChange };
+  }
+
+  it("runs a line that starts just outside the edge along it, half a pen width out, stopping at the ruler's end", () => {
+    const { svg, onStrokesChange } = renderPen();
+    fireEvent.pointerDown(svg, { clientX: 20, clientY: 38, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 60, clientY: 44, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 98, clientY: 41, pointerId: 1 });
+    fireEvent.pointerUp(svg, { clientX: 98, clientY: 41, pointerId: 1 });
+
+    const [stroke]: Stroke[] = onStrokesChange.mock.calls[0][0];
+    expect(round(stroke)).toEqual([[20, 32, 0.5], [90, 32, 0.5]]);
+  });
+
+  it("draws freehand as usual away from the ruler", () => {
+    const { svg, onStrokesChange } = renderPen();
+    fireEvent.pointerDown(svg, { clientX: 20, clientY: 80, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 30, clientY: 85, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 40, clientY: 82, pointerId: 1 });
+    fireEvent.pointerUp(svg, { clientX: 40, clientY: 82, pointerId: 1 });
+
+    const [stroke]: Stroke[] = onStrokesChange.mock.calls[0][0];
+    expect(stroke.points).toHaveLength(3);
   });
 });

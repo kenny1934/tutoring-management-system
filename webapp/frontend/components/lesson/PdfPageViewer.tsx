@@ -10,6 +10,9 @@ import {
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
+import { Ruler, rulerStart } from "./Ruler";
+import { CM, type RulerGuide } from "@/lib/ruler";
+import type { Vec } from "@/lib/stroke-select";
 import { AnnotationTray } from "./AnnotationTray";
 import { PageThumbnails } from "./PageThumbnails";
 import { PageCover } from "./PageCover";
@@ -406,6 +409,12 @@ export function PdfPageViewer({
   const thumbsButtonRef = useRef<HTMLButtonElement>(null);
   const closeThumbs = useCallback(() => setThumbsOpen(false), []);
   useEffect(() => { setThumbsOpen(false); }, [exerciseId, pdfData]);
+
+  // The ruler, from More's "Show the ruler". It lies among the pages, and
+  // it's put away when the viewer moves on to another file, like the strip.
+  const [rulerAt, setRulerAt] = useState<Vec | null>(null);
+  const rulerGuideRef = useRef<RulerGuide | null>(null);
+  useEffect(() => { setRulerAt(null); }, [exerciseId, pdfData]);
 
   // Reset retry counter when a genuinely new PDF loads
   useEffect(() => {
@@ -930,6 +939,7 @@ export function PdfPageViewer({
     setCovers(current === undefined ? { ...coversRef.current, [pageIndex]: 0 } : others);
   };
   const pageCovered = covers[currentVisiblePage - 1] !== undefined;
+  const toggleRuler = () => setRulerAt(rulerAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -1085,7 +1095,7 @@ export function PdfPageViewer({
       >
         <div
           ref={pageStackRef}
-          className="flex flex-col gap-4"
+          className="relative flex flex-col gap-4"
           style={{ ...zoomStyles(zoom).stack, transformOrigin: "top left" }}
         >
           {pages.map((page, i) => (
@@ -1120,6 +1130,7 @@ export function PdfPageViewer({
                     hidden={inkHidden}
                     suspended={gestureActive}
                     uiScale={zoom / 100}
+                    rulerGuide={rulerGuideRef}
                   />
                 )}
               </div>
@@ -1134,6 +1145,16 @@ export function PdfPageViewer({
               )}
             </div>
           ))}
+          {tools && rulerAt && (
+            <Ruler
+              containerRef={pageStackRef}
+              cm={CM}
+              start={rulerAt}
+              guideRef={rulerGuideRef}
+              darkMode={pdfDarkMode}
+              onHide={() => setRulerAt(null)}
+            />
+          )}
         </div>
       </div>
 
@@ -1151,6 +1172,7 @@ export function PdfPageViewer({
             : undefined}
           onClearPage={onClearPage && (() => onClearPage(currentVisiblePage - 1))}
           cover={{ covered: pageCovered, onToggle: () => toggleCover(currentVisiblePage - 1) }}
+          ruler={{ shown: rulerAt !== null, onToggle: toggleRuler }}
           inkRevision={annotations}
           onSaveAnnotated={onSaveAnnotated}
         />,

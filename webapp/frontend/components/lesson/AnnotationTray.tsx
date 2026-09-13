@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Hand, Eraser, Lasso, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
-  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds,
+  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds, Ruler,
 } from "lucide-react";
 import {
   useFloating, offset, flip, shift, autoUpdate, useDismiss, useInteractions, FloatingPortal,
@@ -39,6 +39,8 @@ interface AnnotationTrayProps {
    * the cover". Leave it out where pages can't be covered.
    */
   cover?: { covered: boolean; onToggle: () => void };
+  /** The worksheet's ruler, for More's "Show the ruler" and "Hide the ruler". Leave it out where there's no ruler. */
+  ruler?: { shown: boolean; onToggle: () => void };
   /**
    * Anything that changes whenever the ink does, such as the exercise's
    * annotations object. The message offering to undo a clear goes away when
@@ -139,7 +141,7 @@ function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big
  */
 export function AnnotationTray({
   tools, onUndo, onRedo, inkHidden, onInkHiddenChange, hasInk, onClearAll,
-  pageInView, onClearPage, cover, inkRevision, onSaveAnnotated,
+  pageInView, onClearPage, cover, ruler, inkRevision, onSaveAnnotated,
 }: AnnotationTrayProps) {
   const [{ dock, collapsed }, setTrayState] = useState(readTrayState);
   const [morphing, setMorphing] = useState(false);
@@ -596,6 +598,13 @@ export function AnnotationTray({
                     label={cover.covered ? "Remove the cover" : "Cover this page"}
                     hint={pageInView ? `Page ${pageInView.number}` : undefined}
                     onClick={() => { setPop(null); cover.onToggle(); }}
+                  />
+                )}
+                {ruler && (
+                  <MenuRow
+                    icon={<Ruler className="h-5 w-5" />}
+                    label={ruler.shown ? "Hide the ruler" : "Show the ruler"}
+                    onClick={() => { setPop(null); ruler.onToggle(); }}
                   />
                 )}
                 {onClearPage && pageInView && (
