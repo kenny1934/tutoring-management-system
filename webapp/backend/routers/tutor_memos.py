@@ -93,7 +93,7 @@ async def list_memos(
 
 
 @router.get("/tutor-memos/pending-count")
-async def get_pending_count(
+def get_pending_count(
     tutor_id: Optional[int] = Query(None),
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),

@@ -1108,7 +1108,7 @@ async def get_enrollments_needing_renewal(
 
 
 @router.get("/enrollments/renewal-counts", response_model=RenewalCountsResponse)
-async def get_renewal_counts(
+def get_renewal_counts(
     location: Optional[str] = Query(None, description="Filter by location"),
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)

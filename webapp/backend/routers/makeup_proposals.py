@@ -195,7 +195,7 @@ async def get_proposals(
 
 
 @router.get("/makeup-proposals/pending-count", response_model=PendingProposalCount)
-async def get_pending_count(
+def get_pending_count(
     tutor_id: int = Query(..., description="Tutor ID to count pending proposals for"),
     db: Session = Depends(get_db)
 ):
