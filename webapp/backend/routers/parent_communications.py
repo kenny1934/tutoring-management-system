@@ -501,7 +501,7 @@ async def get_pending_followups(
 
 
 @router.get("/parent-communications/contact-needed-count")
-async def get_contact_needed_count(
+def get_contact_needed_count(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
     _: Tutor = Depends(reject_guest),

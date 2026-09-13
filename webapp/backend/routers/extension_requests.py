@@ -354,7 +354,7 @@ async def get_extension_requests(
 
 
 @router.get("/extension-requests/pending-count", response_model=PendingExtensionRequestCount)
-async def get_pending_count(
+def get_pending_count(
     location: Optional[str] = Query(None, description="Filter by location"),
     db: Session = Depends(get_db)
 ):

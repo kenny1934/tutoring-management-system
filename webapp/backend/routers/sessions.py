@@ -319,7 +319,7 @@ async def get_unchecked_attendance(
 
 
 @router.get("/sessions/unchecked-attendance/count", response_model=UncheckedAttendanceCount)
-async def get_unchecked_attendance_count(
+def get_unchecked_attendance_count(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     db: Session = Depends(get_db)
@@ -358,7 +358,7 @@ async def get_unchecked_attendance_count(
 
 
 @router.get("/sessions/aged-pending-makeups/count", response_model=AgedPendingMakeupsCount)
-async def get_aged_pending_makeups_count(
+def get_aged_pending_makeups_count(
     tutor_id: int = Query(..., description="Filter by assigned tutor ID"),
     threshold_days: int = Query(30, ge=1, le=60, description="Minimum days old to count"),
     current_user: Tutor = Depends(get_current_user),
@@ -372,40 +372,57 @@ async def get_aged_pending_makeups_count(
 
     Filters by assigned tutor via the student's latest active Regular enrollment.
 
+    Every open tab polls this every 30 seconds for the notification bell, so
+    it has to cost the same handful of queries however many make-ups are
+    pending across the school. It is declared with a plain def so that FastAPI
+    runs it in the thread pool. Its queries block, and inside an async def
+    they would hold the server's event loop, which stalls every other request
+    and, under load, the health check as well.
+
     Returns:
     - count: total pending makeups aged >= threshold_days
     - critical: subset aged >= 45 days
     """
     today = hk_now().date()
 
-    # Get all pending makeup sessions at once
-    pending_sessions = db.query(SessionLog).options(
-        joinedload(SessionLog.student)
-    ).filter(
-        SessionLog.session_status.in_(PENDING_MAKEUP_STATUSES)
+    pending_sessions = db.query(SessionLog).filter(
+        SessionLog.session_status.in_(PENDING_MAKEUP_STATUSES),
+        SessionLog.student_id.isnot(None),
     ).all()
+    if not pending_sessions:
+        return AgedPendingMakeupsCount(count=0, critical=0)
+
+    # A student belongs to the tutor on their latest active Regular enrollment,
+    # meaning the one with the most recent first lesson. MySQL sorts a missing
+    # first lesson date last when ordering newest first, so such an enrollment
+    # only wins when the student has nothing else, and date.min does the same.
+    latest: dict[int, tuple] = {}
+    enrollments = db.query(
+        Enrollment.student_id, Enrollment.tutor_id, Enrollment.first_lesson_date, Enrollment.id,
+    ).filter(
+        Enrollment.student_id.in_(list({s.student_id for s in pending_sessions})),
+        Enrollment.enrollment_type == 'Regular',
+        Enrollment.payment_status != 'Cancelled',
+    ).all()
+    for student_id, enrollment_tutor_id, first_lesson_date, enrollment_id in enrollments:
+        rank = (first_lesson_date or date.min, enrollment_id)
+        if student_id not in latest or rank > latest[student_id][0]:
+            latest[student_id] = (rank, enrollment_tutor_id)
+
+    mine = [
+        s for s in pending_sessions
+        if s.student_id in latest and latest[s.student_id][1] == tutor_id
+    ]
+
+    # A make-up that was itself rescheduled is aged from the lesson that was
+    # first missed. Sessions that are not make-ups are left out of root_dates
+    # and count from their own date.
+    root_dates = batch_find_root_original_session_dates(mine, db)
 
     count = 0
     critical = 0
-
-    for session in pending_sessions:
-        if not session.student_id:
-            continue
-
-        # Check tutor assignment via student's latest active Regular enrollment
-        latest_enrollment = db.query(Enrollment).filter(
-            Enrollment.student_id == session.student_id,
-            Enrollment.enrollment_type == 'Regular',
-            Enrollment.payment_status != 'Cancelled',
-        ).order_by(Enrollment.first_lesson_date.desc()).first()
-
-        if not latest_enrollment or latest_enrollment.tutor_id != tutor_id:
-            continue
-
-        # Trace to root original session date
-        root = _find_root_original_session(session, db)
-        days_old = (today - root.session_date).days
-
+    for session in mine:
+        days_old = (today - root_dates.get(session.id, session.session_date)).days
         if days_old >= threshold_days:
             count += 1
         if days_old >= 45:

@@ -1354,7 +1354,7 @@ async def get_sent_messages(
 
 
 @router.get("/messages/unread-count", response_model=UnreadCountResponse)
-async def get_unread_count(
+def get_unread_count(
     tutor_id: int = Query(..., description="Tutor ID to get unread count for"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),

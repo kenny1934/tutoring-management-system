@@ -703,7 +703,7 @@ def _compute_location_stats(
 
 
 @router.get("/terminations/review-needed-count", response_model=TerminationReviewCount)
-async def get_review_needed_count(
+def get_review_needed_count(
     request: Request,
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
