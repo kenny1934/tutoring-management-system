@@ -96,6 +96,24 @@ export function moveStrokes(strokes: Stroke[], dx: number, dy: number): Stroke[]
   }));
 }
 
+// How far to shift a span from lo to hi so it lies between 0 and size. A span
+// longer than size is lined up with 0.
+function shiftInto(lo: number, hi: number, size: number): number {
+  if (lo < 0) return -lo;
+  if (hi > size) return Math.max(size - hi, -lo);
+  return 0;
+}
+
+/**
+ * How far to move ink so it lies on a page of the given size, which is not at
+ * all when it's already on it. Ink moved to another page keeps its place when
+ * it can, and ink wider or taller than the page is lined up with its left or
+ * top edge.
+ */
+export function fitOnPage(bounds: Box, width: number, height: number): Vec {
+  return [shiftInto(bounds.left, bounds.right, width), shiftInto(bounds.top, bounds.bottom, height)];
+}
+
 /**
  * The scale a drag of the resize handle asks for. The handle sits on the
  * selection's bottom-right corner and the top-left corner stays still, so the

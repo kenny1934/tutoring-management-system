@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   insideLoop, strokesInLoop, selectionBounds, clampMove, moveStrokes, dragScale, clampScale, resizeStrokes, recolourStrokes,
+  fitOnPage,
 } from "./stroke-select";
 import type { Stroke } from "@/hooks/useAnnotations";
 
@@ -78,6 +79,19 @@ describe("resizing a selection", () => {
     expect(clampScale(bounds, 10, 1000, 1000)).toBe(4);
     // On a 60 by 60 page, the ink's 20 across from x = 10 can only grow to 50 across.
     expect(clampScale(bounds, 10, 60, 60)).toBe(2.5);
+  });
+});
+
+describe("fitOnPage", () => {
+  it("leaves ink that's on the page where it is, and moves ink that runs off it just far enough to be on it", () => {
+    const bounds = { left: 10, top: 60, right: 30, bottom: 80 };
+    expect(fitOnPage(bounds, 100, 100)).toEqual([0, 0]);
+    // On a page 50 tall, the ink goes up until its bottom is on the page's edge.
+    expect(fitOnPage(bounds, 100, 50)).toEqual([0, -30]);
+  });
+
+  it("lines ink that's bigger than the page up with its left or top edge", () => {
+    expect(fitOnPage({ left: 10, top: 10, right: 90, bottom: 40 }, 50, 100)).toEqual([-10, 0]);
   });
 });
 

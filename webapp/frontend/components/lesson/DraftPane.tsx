@@ -26,6 +26,8 @@ interface DraftPaneProps {
   /** The exercise's annotations. The Draft's sheets are its pages from DRAFT_PAGE_BASE up. */
   annotations: PageAnnotations;
   onPageStrokesChange: (pageIndex: number, strokes: Stroke[]) => void;
+  /** Saves several pages' strokes as one change, for the lasso's Move. The worksheet is given the same one. */
+  onPagesStrokesChange?: (pages: PageAnnotations) => void;
   /** Clears the given pages as one change, so one undo brings them all back. */
   onClearPages: (pageIndices: number[]) => void;
   /** Takes back the last change, for the Undo in the message after a clear. */
@@ -70,7 +72,9 @@ const clearOption = cn(
  * doesn't zoom it. Its ink is part of the exercise's own, so a single undo
  * history covers the worksheet and the Draft together.
  */
-export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClearPages, onUndo, tools, onClose }: DraftPaneProps) {
+export function DraftPane({
+  exerciseId, annotations, onPageStrokesChange, onPagesStrokesChange, onClearPages, onUndo, tools, onClose,
+}: DraftPaneProps) {
   const [squared, setSquared] = draftSquared.usePreference();
   const [pdfDarkMode] = usePdfDarkMode();
   // How many sheets each exercise's Draft has been given with "Add a sheet".
@@ -278,6 +282,9 @@ export function DraftPane({ exerciseId, annotations, onPageStrokesChange, onClea
                     onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
                     suspended={gestureActive}
                     rulerGuide={rulerGuideRef}
+                    pageIndex={pageIndex}
+                    pageLabel={`Draft sheet ${n + 1}`}
+                    onPagesChange={onPagesStrokesChange}
                   />
                 </div>
               </div>

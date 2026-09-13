@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import { render, screen, within, fireEvent, act } from "@testing-library/react";
+import { useCallback, useState } from "react";
 import { AnnotationLayer } from "./AnnotationLayer";
-import type { Stroke } from "@/hooks/useAnnotations";
+import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import type { RulerEdge, RulerGuide } from "@/lib/ruler";
 
 // The layer maps pointer positions through the SVG's on-screen box. jsdom has
@@ -417,6 +418,48 @@ describe("AnnotationLayer lasso", () => {
 
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
     expect(within(screen.getByTestId("second")).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  // Two pages that save together, as the worksheet's pages and the Draft's sheets do.
+  function TwoPages({ onPagesChange }: { onPagesChange: (pages: PageAnnotations) => void }) {
+    const [pages, setPages] = useState<PageAnnotations>({ 0: [LINE, TICK], 1: [] });
+    const save = useCallback((changed: PageAnnotations) => {
+      onPagesChange(changed);
+      setPages((prev) => ({ ...prev, ...changed }));
+    }, [onPagesChange]);
+    return (
+      <>
+        {[0, 1].map((i) => (
+          <div key={i} data-testid={`page-${i}`}>
+            <AnnotationLayer {...lassoProps()} strokes={pages[i]} pageIndex={i} pageLabel={`Page ${i + 1}`} onPagesChange={save} />
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  it("moves the selection to another page as one change, and keeps it selected there", () => {
+    const onPagesChange = vi.fn();
+    render(<TwoPages onPagesChange={onPagesChange} />);
+    drawLoop(screen.getByTestId("page-0").querySelector("svg")!, ROUND_TICK);
+    fireEvent.click(screen.getByRole("button", { name: "Move" }));
+    expect(screen.getByText("Move the ink to")).toBeInTheDocument();
+    // A page isn't offered as somewhere to move its own ink.
+    expect(screen.queryByRole("button", { name: "Page 1" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+
+    expect(onPagesChange).toHaveBeenCalledTimes(1);
+    const pages: PageAnnotations = onPagesChange.mock.calls[0][0];
+    expect(pages[0]).toEqual([LINE]);
+    expect(pages[1].map((s) => s.points)).toEqual([TICK.points]);
+    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
+    expect(within(screen.getByTestId("page-1")).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("offers no Move when there's no other page to move to", () => {
+    const { svg } = renderLasso();
+    drawLoop(svg, ROUND_TICK);
+    expect(screen.queryByRole("button", { name: "Move" })).toBeNull();
   });
 
   it("throws away a half-drawn loop when a second finger turns the touch into a scroll", () => {

@@ -18,7 +18,8 @@ import { FoldingAnswerKey } from "./FoldingAnswerKey";
 /** The ink handlers the worksheet and the Draft draw through. */
 type ViewerInk = Pick<
   ReturnType<typeof useLessonInk>,
-  "tools" | "annotations" | "openHasInk" | "onPageStrokesChange" | "onUndo" | "onRedo" | "onClearAll" | "onClearPage" | "onClearPages"
+  "tools" | "annotations" | "openHasInk" | "onPageStrokesChange" | "onPagesStrokesChange" | "onUndo" | "onRedo" | "onClearAll"
+  | "onClearPage" | "onClearPages"
 >;
 
 interface LessonViewerAreaProps {
@@ -149,6 +150,7 @@ export function LessonViewerArea({
                   onRetry={pdf.pdfError === NO_FILE_ERROR ? undefined : pdf.retry}
                   annotations={ink.annotations}
                   onPageStrokesChange={ink.onPageStrokesChange}
+                  onPagesStrokesChange={ink.onPagesStrokesChange}
                   tools={ink.tools}
                   onUndo={ink.onUndo}
                   onRedo={ink.onRedo}
@@ -181,6 +183,8 @@ export function LessonViewerArea({
                   exerciseId={exercise.id}
                   annotations={ink.annotations}
                   onPageStrokesChange={ink.onPageStrokesChange}
+                  // The worksheet gets the same one, so the lasso moves ink between the two panes
+                  onPagesStrokesChange={ink.onPagesStrokesChange}
                   onClearPages={ink.onClearPages}
                   onUndo={ink.onUndo}
                   tools={ink.tools}

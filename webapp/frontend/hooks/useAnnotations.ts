@@ -608,26 +608,41 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
   }, []);
 
   /**
-   * Replace a page's strokes as a new change you made. The viewers only
-   * report the page that changed, but a page that comes back unchanged is
-   * still ignored here, so a caller that reports extra pages can't put empty
-   * steps into the history. Any real change also throws away the redo stack,
-   * the same as in any drawing app.
+   * Replace several pages' strokes as one change you made, so one undo puts
+   * them all back. The lasso's Move needs more than one page, because moving
+   * ink changes both the page it leaves and the page it lands on. A page that
+   * comes back unchanged is left out, so a caller that reports extra pages
+   * can't put empty steps into the history, and nothing is recorded when none
+   * has changed. Any real change also throws away the redo stack, the same as
+   * in any drawing app.
    */
-  const setPageStrokes = useCallback(
-    (exerciseId: number, pageIndex: number, strokes: Stroke[]) => {
+  const setPagesStrokes = useCallback(
+    (exerciseId: number, pages: PageAnnotations) => {
       const current = storeRef.current.get(exerciseId) || {};
-      const before = current[pageIndex] || [];
-      if (sameStrokes(before, strokes)) return;
+      const before: PageAnnotations = {};
+      for (const [page, strokes] of Object.entries(pages)) {
+        const was = current[Number(page)] || [];
+        if (!sameStrokes(was, strokes)) before[Number(page)] = was;
+      }
+      const touched = Object.keys(before).map(Number);
+      if (touched.length === 0) return;
 
-      storeRef.current.set(exerciseId, { ...current, [pageIndex]: strokes });
+      const after = { ...current };
+      for (const page of touched) after[page] = pages[page];
+      storeRef.current.set(exerciseId, after);
       const undo = undoRef.current.get(exerciseId) || [];
-      undo.push({ pages: { [pageIndex]: before } });
+      undo.push({ pages: before });
       undoRef.current.set(exerciseId, undo);
       redoRef.current.delete(exerciseId);
-      changed(exerciseId, [pageIndex]);
+      changed(exerciseId, touched);
     },
     [changed]
+  );
+
+  /** Replace one page's strokes as a new change you made. The viewers report each page as it changes. */
+  const setPageStrokes = useCallback(
+    (exerciseId: number, pageIndex: number, strokes: Stroke[]) => setPagesStrokes(exerciseId, { [pageIndex]: strokes }),
+    [setPagesStrokes]
   );
 
   /**
@@ -774,6 +789,7 @@ export function useAnnotations<Source = unknown>(sessionKey?: string, server?: I
     setInkSource,
     getInkSource,
     setPageStrokes,
+    setPagesStrokes,
     undo,
     redo,
     clearPage,

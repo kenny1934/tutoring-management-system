@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Palette, Trash2 } from "lucide-react";
+import { useState, type Ref } from "react";
+import { MoveRight, Palette, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Box } from "@/lib/stroke-eraser";
 import { kindOf } from "@/lib/stroke-select";
-import type { InkKind, Stroke } from "@/hooks/useAnnotations";
+import type { InkKind, PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { INK_SWATCHES, type InkSwatch } from "@/hooks/useAnnotationTools";
+import { useMoveTargets, type InkPage } from "@/hooks/useInkPages";
 import { SwatchMark } from "./AnnotationTray";
 
 // The box is padded round the ink and never smaller than a fingertip, so a
@@ -48,6 +49,12 @@ interface LassoSelectionProps {
   onPointerCancel: () => void;
   onRecolour: (swatch: InkSwatch) => void;
   onDelete: () => void;
+  /** The box itself, so the page can scroll it into view. */
+  boxRef?: Ref<HTMLDivElement>;
+  /** This page's index and how its ink is saved, which say which other pages the Move button offers. */
+  pageIndex?: number;
+  onPagesChange?: (pages: PageAnnotations) => void;
+  onMove: (to: InkPage) => void;
 }
 
 const percent = (value: number, of: number) => `${(value / of) * 100}%`;
@@ -57,7 +64,8 @@ const panelClass = "flex flex-col gap-1.5 rounded-xl bg-white p-2 shadow-md ring
 
 /**
  * The box round ink the lasso has selected, with a handle on its bottom-right
- * corner to resize the ink and a bar of buttons to recolour it or delete it.
+ * corner to resize the ink and a bar of buttons to recolour it, move it to
+ * another page or delete it.
  * It sits on the page, inside the dark PDF filter with the ink, so it darkens
  * along with the page.
  *
@@ -67,8 +75,11 @@ const panelClass = "flex flex-col gap-1.5 rounded-xl bg-white p-2 shadow-md ring
  */
 export function LassoSelection({
   box, width, height, strokes, uiScale, below, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onRecolour, onDelete,
+  boxRef, pageIndex, onPagesChange, onMove,
 }: LassoSelectionProps) {
-  const [panel, setPanel] = useState<"colour" | null>(null);
+  const [panel, setPanel] = useState<"colour" | "move" | null>(null);
+  // The Move button only shows when there's another page to move the ink to.
+  const targets = useMoveTargets(pageIndex, onPagesChange);
   const pad = PAD / uiScale;
   const min = MIN_BOX / uiScale;
   const unscale = `scale(${1 / uiScale})`;
@@ -89,6 +100,7 @@ export function LassoSelection({
   return (
     <div className="absolute inset-0 pointer-events-none">
       <div
+        ref={boxRef}
         data-ink-selection=""
         data-touch-owner=""
         onPointerDown={(e) => {
@@ -144,6 +156,18 @@ export function LassoSelection({
               <Palette className="h-5 w-5" />
               Colour
             </button>
+            {targets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPanel(panel === "move" ? null : "move")}
+                aria-expanded={panel === "move"}
+                title="Move the selected ink to another page"
+                className={cn(barButton, "border-l border-black/10 text-[#6b4c30] hover:bg-[#f5ebe0]", panel === "move" && "bg-[#f5ebe0]")}
+              >
+                <MoveRight className="h-5 w-5" />
+                Move
+              </button>
+            )}
             <button
               type="button"
               onClick={onDelete}
@@ -178,6 +202,25 @@ export function LassoSelection({
                   ))}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* The other pages scroll inside the panel when there are more than fit */}
+          {panel === "move" && targets.length > 0 && (
+            <div className={panelClass}>
+              <p className="px-1 text-xs font-medium text-[#8b7355]">Move the ink to</p>
+              <div className="flex max-h-[86px] max-w-[19rem] flex-wrap gap-1.5 overflow-y-auto touch-pan-y">
+                {targets.map((page) => (
+                  <button
+                    key={page.index}
+                    type="button"
+                    onClick={() => onMove(page)}
+                    className="h-10 whitespace-nowrap rounded-lg px-3 text-sm font-medium text-[#6b4c30] ring-1 ring-inset ring-[#e8d4b8] hover:bg-[#f5ebe0]"
+                  >
+                    {page.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

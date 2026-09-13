@@ -163,6 +163,24 @@ describe("useAnnotations undo and redo", () => {
     expect(colours(back?.[1001])).toEqual(["c"]);
   });
 
+  it("saves several pages as one change that one undo takes back, leaving out pages that haven't changed", () => {
+    const { result } = renderHook(() => useAnnotations());
+    const hook = result.current;
+    const a = stroke("a");
+    draw(hook, 0, a);
+    draw(hook, 1, stroke("b"));
+
+    // The stroke moves from page 0 to the Draft's first sheet, and page 1 comes back as it was.
+    hook.setPagesStrokes(EX, { 0: [], 1: hook.getAnnotations(EX)[1], 1000: [a] });
+    expect(colours(hook.getAnnotations(EX)[1000])).toEqual(["a"]);
+
+    const back = hook.undo(EX);
+    expect(colours(back?.[0])).toEqual(["a"]);
+    expect(colours(back?.[1000])).toEqual([]);
+    // Page 1 wasn't part of the move, so the next undo takes back its own stroke.
+    expect(colours(hook.undo(EX)?.[1])).toEqual([]);
+  });
+
   it("records nothing when clearing an exercise with no ink", () => {
     const { result } = renderHook(() => useAnnotations());
     const hook = result.current;

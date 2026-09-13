@@ -3,14 +3,16 @@
 import { useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo, type RefObject } from "react";
 import getStroke from "perfect-freehand";
 import { getStrokeOptions, inkLayers, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
-import type { InkKind, Stroke } from "@/hooks/useAnnotations";
+import type { InkKind, PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { eraseStrokes, type Box } from "@/lib/stroke-eraser";
 import { hasBrowserModifier, isTypingTarget } from "@/lib/lesson-utils";
 import {
-  clampMove, clampScale, dragScale, moveStrokes, recolourStrokes, resizeStrokes, selectionBounds, strokesInLoop, type Vec,
+  clampMove, clampScale, dragScale, fitOnPage, moveStrokes, recolourStrokes, resizeStrokes, selectionBounds, strokesInLoop,
+  type Vec,
 } from "@/lib/stroke-select";
 import type { InkSwatch } from "@/hooks/useAnnotationTools";
+import { registerInkPage, type InkPage } from "@/hooks/useInkPages";
 import { clipToPage, ontoEdge, type RulerEdge, type RulerGuide } from "@/lib/ruler";
 import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
 
@@ -67,6 +69,16 @@ interface AnnotationLayerProps {
   uiScale?: number;
   /** The ruler on this pane, while it's out. A line that starts just outside its edge runs along it. */
   rulerGuide?: RefObject<RulerGuide | null>;
+  /**
+   * This page's index in the exercise's annotations, its name, and a way to
+   * save several pages as one change. With all three, ink the lasso selects
+   * can be moved to any other page given the same onPagesChange, on the
+   * worksheet or in the Draft, and one undo brings it back.
+   */
+  pageIndex?: number;
+  /** What the Move list calls this page, such as "Page 3" or "Draft sheet 2". */
+  pageLabel?: string;
+  onPagesChange?: (pages: PageAnnotations) => void;
 }
 
 type Point = Stroke["points"][number];
@@ -117,6 +129,8 @@ interface InkSelection {
   reach: number;
   /** The bar of buttons goes under the box, because the ink is near the top of the page. */
   below: boolean;
+  /** Scroll the box into view once it shows, for ink that has just been moved here from another page. */
+  reveal: boolean;
 }
 
 /** A move or a resize of the selection, as far as the finger has taken it. */
@@ -249,6 +263,9 @@ export function AnnotationLayer({
   suspended = false,
   uiScale = 1,
   rulerGuide,
+  pageIndex,
+  pageLabel,
+  onPagesChange,
 }: AnnotationLayerProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [currentPoints, setCurrentPoints] = useState<[number, number, number][]>([]);
@@ -585,14 +602,18 @@ export function AnnotationLayer({
     setEraserCursor(null);
   }, [handleRubEnd]);
 
-  /** Keep the given strokes as the selection, and work out where its bar of buttons fits. */
+  /**
+   * Keep the given strokes as the selection, and work out where its bar of
+   * buttons fits. Ink that has just been moved here from another page is
+   * scrolled into view too.
+   */
   const select = useCallback(
-    (picked: Stroke[]) => {
+    (picked: Stroke[], reveal = false) => {
       const bounds = selectionBounds(picked);
       const reach = Math.max(...picked.map((s) => s.size)) / 2;
       const rect = svgRef.current?.getBoundingClientRect();
       const onScreen = rect && height > 0 ? rect.height / height : 1;
-      setSelection({ strokes: picked, bounds, reach, below: (bounds.top - reach) * onScreen < SELECTION_BAR_ROOM });
+      setSelection({ strokes: picked, bounds, reach, below: (bounds.top - reach) * onScreen < SELECTION_BAR_ROOM, reveal });
     },
     [height]
   );
@@ -610,6 +631,57 @@ export function AnnotationLayer({
     },
     [selection, strokes, onStrokesChange, select]
   );
+
+  // While it's showing, a page with a place among the exercise's pages is on
+  // the list the lasso's Move button offers. The list reads the page's ink
+  // through a ref, so the page doesn't register again with every stroke.
+  const strokesRef = useRef(strokes);
+  useEffect(() => {
+    strokesRef.current = strokes;
+  });
+  const receiveInk = useCallback(
+    (moved: Stroke[]) => {
+      lassoListeners.forEach((listen) => listen(layerId));
+      select(moved, true);
+    },
+    [layerId, select]
+  );
+  useEffect(() => {
+    if (pageIndex === undefined || pageLabel === undefined || !onPagesChange) return;
+    return registerInkPage(layerId, {
+      index: pageIndex,
+      label: pageLabel,
+      width,
+      height,
+      onPagesChange,
+      strokes: () => strokesRef.current,
+      receive: receiveInk,
+    });
+  }, [layerId, pageIndex, pageLabel, width, height, onPagesChange, receiveInk]);
+
+  /**
+   * Move the selection to another page, as one change to both pages. The ink
+   * keeps its place, shifted only as far as it takes to stay on the new page,
+   * and the new page selects it and scrolls it into view.
+   */
+  const moveSelection = useCallback(
+    (to: InkPage) => {
+      if (!selection || pageIndex === undefined || !onPagesChange) return;
+      const [dx, dy] = fitOnPage(selection.bounds, to.width, to.height);
+      const moved = moveStrokes(selection.strokes, dx, dy);
+      const gone = new Set(selection.strokes);
+      dropSelection();
+      onPagesChange({ [pageIndex]: strokes.filter((s) => !gone.has(s)), [to.index]: [...to.strokes(), ...moved] });
+      to.receive(moved);
+    },
+    [selection, pageIndex, onPagesChange, strokes, dropSelection]
+  );
+
+  // Ink that has just arrived from another page is scrolled into view.
+  const selectionBoxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selection?.reveal) selectionBoxRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  }, [selection]);
 
   const handleLassoDown = useCallback(
     (e: React.PointerEvent) => {
@@ -928,6 +1000,10 @@ export function AnnotationLayer({
           onPointerCancel={handleSelectionCancel}
           onRecolour={recolourSelection}
           onDelete={deleteSelection}
+          boxRef={selectionBoxRef}
+          pageIndex={pageIndex}
+          onPagesChange={onPagesChange}
+          onMove={moveSelection}
         />
       )}
     </>

@@ -61,7 +61,7 @@ export function useLessonInk<Source>({ storageKey, sessionIds, exercises, openEx
 
   const ink = useAnnotations<Source>(storageKey, { sessionIds, locate, onReplaced });
   const {
-    getAnnotations, setPageStrokes, undo, redo, clearPage, clearAnnotations, setInkSource,
+    getAnnotations, setPageStrokes, setPagesStrokes, undo, redo, clearPage, clearAnnotations, setInkSource,
     hasAnnotations, inkReady, inkRevision, hasUnsentInk,
   } = ink;
 
@@ -88,6 +88,13 @@ export function useLessonInk<Source>({ storageKey, sessionIds, exercises, openEx
     setAnnotations((prev) => ({ ...prev, [pageIndex]: strokes }));
     setPageStrokes(openId, pageIndex, strokes);
   }, [openId, setPageStrokes]);
+
+  // The lasso's Move changes the page the ink leaves and the page it lands on, as one change that one undo takes back.
+  const onPagesStrokesChange = useCallback((pages: PageAnnotations) => {
+    if (openId === null) return;
+    setAnnotations((prev) => ({ ...prev, ...pages }));
+    setPagesStrokes(openId, pages);
+  }, [openId, setPagesStrokes]);
 
   // Undo and redo follow the order the tutor drew in, across every page of the exercise.
   const onUndo = useCallback(() => {
@@ -139,6 +146,7 @@ export function useLessonInk<Source>({ storageKey, sessionIds, exercises, openEx
     /** Whether the open exercise has any ink. */
     openHasInk: openId !== null && hasAnnotations(openId),
     onPageStrokesChange,
+    onPagesStrokesChange,
     onUndo,
     onRedo,
     onClearAll,

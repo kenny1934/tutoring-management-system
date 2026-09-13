@@ -82,13 +82,27 @@ describe("useLessonInk", () => {
     expect(result.current.annotations[1]).toHaveLength(1);
   });
 
+  it("moves ink between two pages as one change, which one undo takes back", async () => {
+    const { result } = renderInk();
+    await waitFor(() => expect(result.current.inkReady).toBe(true));
+    const moved = stroke(1);
+    act(() => result.current.onPageStrokesChange(0, [moved]));
+    act(() => result.current.onPagesStrokesChange({ 0: [], 1000: [moved] }));
+    expect(result.current.annotations[0]).toEqual([]);
+    expect(result.current.annotations[1000]).toEqual([moved]);
+
+    act(() => result.current.onUndo());
+    expect(result.current.annotations[0]).toEqual([moved]);
+    expect(result.current.annotations[1000]).toEqual([]);
+  });
+
   it("keeps its handlers the same while the same exercise is open", async () => {
     const { result, rerender } = renderInk();
     await waitFor(() => expect(result.current.inkReady).toBe(true));
     const before = result.current;
     act(() => result.current.onPageStrokesChange(0, [stroke(1)]));
     rerender({ openExercise: first, source: null });
-    for (const name of ["onPageStrokesChange", "onUndo", "onRedo", "onClearAll", "onClearPage", "onClearPages"] as const) {
+    for (const name of ["onPageStrokesChange", "onPagesStrokesChange", "onUndo", "onRedo", "onClearAll", "onClearPage", "onClearPages"] as const) {
       expect(result.current[name]).toBe(before[name]);
     }
   });

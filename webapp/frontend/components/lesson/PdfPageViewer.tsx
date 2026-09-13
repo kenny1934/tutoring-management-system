@@ -100,6 +100,12 @@ interface PdfPageViewerProps {
   /** Called with the one page whose strokes changed, and its new strokes. */
   onPageStrokesChange?: (pageIndex: number, strokes: Stroke[]) => void;
   /**
+   * Saves several pages' strokes as one change. Pass it to let the lasso move
+   * selected ink from one page to another. The lesson views give the Draft the
+   * same one, so ink moves between the worksheet and the Draft as well.
+   */
+  onPagesStrokesChange?: (pages: PageAnnotations) => void;
+  /**
    * The Pen Tray's settings. Pass them to show the tray and let people draw
    * on the pages. Without them the viewer is read-only.
    */
@@ -205,6 +211,7 @@ export function PdfPageViewer({
   onRetry,
   annotations = {},
   onPageStrokesChange,
+  onPagesStrokesChange,
   tools,
   onUndo,
   onRedo,
@@ -1131,6 +1138,9 @@ export function PdfPageViewer({
                     suspended={gestureActive}
                     uiScale={zoom / 100}
                     rulerGuide={rulerGuideRef}
+                    pageIndex={i}
+                    pageLabel={`Page ${i + 1}`}
+                    onPagesChange={onPagesStrokesChange}
                   />
                 )}
               </div>

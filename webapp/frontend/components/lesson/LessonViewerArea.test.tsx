@@ -57,7 +57,7 @@ function renderArea(overrides: Partial<AreaProps> = {}) {
     answer: openAnswerKey({ showAnswerKey: false, answerPdfData: null }),
     draft: draftState(false),
     ink: {
-      tools: {} as AnnotationTools, annotations: {}, openHasInk: false, onPageStrokesChange: vi.fn(),
+      tools: {} as AnnotationTools, annotations: {}, openHasInk: false, onPageStrokesChange: vi.fn(), onPagesStrokesChange: vi.fn(),
       onUndo: vi.fn(), onRedo: vi.fn(), onClearAll: vi.fn(), onClearPage: vi.fn(), onClearPages: vi.fn(),
     },
     stamp: undefined,
