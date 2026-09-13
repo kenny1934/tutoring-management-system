@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useRef } from "react";
 import { Protractor } from "./Protractor";
@@ -15,15 +15,17 @@ beforeAll(() => {
 afterAll(() => {
   Element.prototype.getBoundingClientRect = originalRect;
 });
+// Each test starts with no size remembered, so the protractor is 10 cm across.
+beforeEach(() => localStorage.clear());
 
-// A protractor at 10 pixels to the centimetre, so 70 from its centre mark to
-// its curved edge with a strip 10 tall. Its middle starts at (200, 270), which
-// puts its centre mark at (200, 300).
+// A protractor at 10 pixels to the centimetre, so 10 cm across is 50 from its
+// centre mark to its curved edge, with a strip 8 tall. Its middle starts at
+// (200, 279), which puts its centre mark at (200, 300).
 function Harness({ onHide = () => {}, guides }: { onHide?: () => void; guides: Set<DrawingGuide> }) {
   const containerRef = useRef<HTMLDivElement>(null);
   return (
     <div ref={containerRef}>
-      <Protractor containerRef={containerRef} cm={10} start={[200, 270]} guides={guides} darkMode={false} onHide={onHide} />
+      <Protractor containerRef={containerRef} cm={10} start={[200, 279]} guides={guides} darkMode={false} onHide={onHide} />
     </div>
   );
 }
@@ -45,11 +47,11 @@ function renderWithGuide() {
 }
 
 describe("Protractor", () => {
-  it("sits with its centre mark on its baseline, and its X hides it", () => {
+  it("starts 10 cm across with its centre mark on its baseline, and its X hides it", () => {
     const onHide = vi.fn();
     render(<Harness onHide={onHide} guides={new Set()} />);
-    expect(protractor().style.left).toBe("130px");
-    expect(protractor().style.top).toBe("230px");
+    expect(protractor().style.left).toBe("150px");
+    expect(protractor().style.top).toBe("250px");
     fireEvent.click(screen.getByRole("button", { name: "Hide the protractor" }));
     expect(onHide).toHaveBeenCalledTimes(1);
   });
@@ -58,14 +60,41 @@ describe("Protractor", () => {
     render(<Harness guides={new Set()} />);
     expect(protractor()).not.toHaveTextContent("°");
 
-    fireEvent.pointerDown(protractor(), touch(1, 200, 260));
+    fireEvent.pointerDown(protractor(), touch(1, 200, 270));
     expect(protractor()).toHaveTextContent("0°");
-    fireEvent.pointerMove(protractor(), touch(1, 220, 270));
-    fireEvent.pointerUp(protractor(), touch(1, 220, 270));
+    fireEvent.pointerMove(protractor(), touch(1, 220, 280));
+    fireEvent.pointerUp(protractor(), touch(1, 220, 280));
 
-    expect(protractor().style.left).toBe("150px");
-    expect(protractor().style.top).toBe("240px");
+    expect(protractor().style.left).toBe("170px");
+    expect(protractor().style.top).toBe("260px");
     expect(protractor()).not.toHaveTextContent("°");
+  });
+
+  it("resizes about its centre mark from its handle, between 8 and 20 cm, and remembers the size", () => {
+    render(<Harness guides={new Set()} />);
+    const handle = screen.getByRole("img", { name: "Drag to resize" });
+
+    // From 50 pixels out to 70 takes it from 10 cm across to 14, and its centre mark stays at (200, 300).
+    fireEvent.pointerDown(handle, touch(1, 150, 300));
+    fireEvent.pointerMove(handle, touch(1, 130, 300));
+    fireEvent.pointerUp(handle, touch(1, 130, 300));
+    expect(protractor().style.left).toBe("130px");
+    expect(protractor().style.top).toBe("230px");
+    expect(localStorage.getItem("csm_protractor_size")).toBe("14");
+
+    // A drag almost to the centre stops at 8 cm.
+    fireEvent.pointerDown(handle, touch(2, 130, 300));
+    fireEvent.pointerMove(handle, touch(2, 195, 300));
+    fireEvent.pointerUp(handle, touch(2, 195, 300));
+    expect(protractor().style.left).toBe("160px");
+    expect(localStorage.getItem("csm_protractor_size")).toBe("8");
+  });
+
+  it("comes back at the size this board last left it at", () => {
+    localStorage.setItem("csm_protractor_size", "16");
+    render(<Harness guides={new Set()} />);
+    // 16 cm across is 80 pixels from the centre mark to the curved edge.
+    expect(protractor().style.width).toBe("160px");
   });
 
   it("guides a ray from the hole at its centre, turned to whole degrees, and shows both readings while it's drawn", () => {
@@ -73,7 +102,7 @@ describe("Protractor", () => {
     const line = guide.lineFrom([201, 299], 0)!;
     let ends: Vec[] = [];
     act(() => {
-      ends = line.to(point(50, 34.6));
+      ends = line.to(point(40, 34.6));
     });
     expect(ends[0]).toEqual([200, 300]);
     expect(protractor()).toHaveTextContent("35° / 145°");
@@ -84,10 +113,10 @@ describe("Protractor", () => {
 
   it("guides an arc just outside its curved edge, with a point for every degree, and shows how far it spans", () => {
     const { guide } = renderWithGuide();
-    const line = guide.lineFrom(point(80, 0.2), 2)!;
+    const line = guide.lineFrom(point(60, 0.2), 2)!;
     let points: Vec[] = [];
     act(() => {
-      points = line.to(point(90, 60.3));
+      points = line.to(point(70, 60.3));
     });
     expect(points).toHaveLength(61);
     expect(protractor()).toHaveTextContent("60°");
@@ -95,7 +124,7 @@ describe("Protractor", () => {
 
   it("guides nothing from a start on its plastic, and leaves the guides once it's put away", () => {
     const { guide, guides, unmount } = renderWithGuide();
-    expect(guide.lineFrom(point(40, 90), 0)).toBeNull();
+    expect(guide.lineFrom(point(30, 90), 0)).toBeNull();
     unmount();
     expect(guides.size).toBe(0);
   });

@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { arcTo, lineKind, nearProtractor, polar, rayTo, shownTilt, type ProtractorFrame } from "./protractor";
+import { describe, it, expect, beforeEach } from "vitest";
+import {
+  arcTo, draggedSize, lineKind, nearProtractor, polar, rayTo, readProtractorSize, saveProtractorSize, shownTilt,
+  type ProtractorFrame,
+} from "./protractor";
 
 // A level protractor with its centre mark at (200, 200), 100 pixels to its
 // curved edge, a strip 10 tall below its baseline and a hole 5 in radius.
@@ -67,6 +70,26 @@ describe("nearProtractor", () => {
     expect(nearProtractor(LEVEL, [290, 220], 16)).toBe(true);
     expect(nearProtractor(LEVEL, [200, 240], 16)).toBe(false);
     expect(nearProtractor(LEVEL, point(120, 45), 16)).toBe(false);
+  });
+});
+
+describe("the protractor's size", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("starts at 10 cm across, and comes back at the size it was left at, kept between 8 and 20 cm", () => {
+    expect(readProtractorSize()).toBe(10);
+    saveProtractorSize(14);
+    expect(readProtractorSize()).toBe(14);
+    localStorage.setItem("csm_protractor_size", "40");
+    expect(readProtractorSize()).toBe(20);
+    localStorage.setItem("csm_protractor_size", "a lot");
+    expect(readProtractorSize()).toBe(10);
+  });
+
+  it("grows and shrinks with the finger's distance from the centre mark, between 8 and 20 cm", () => {
+    expect(draggedSize(10, 50, 70)).toBe(14);
+    expect(draggedSize(10, 50, 10)).toBe(8);
+    expect(draggedSize(10, 50, 500)).toBe(20);
   });
 });
 

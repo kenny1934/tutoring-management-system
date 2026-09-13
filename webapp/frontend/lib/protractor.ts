@@ -1,8 +1,9 @@
 /**
  * The protractor for lesson annotations: a clear half-disc that lies on the
- * worksheet or the Draft, 14 cm across in true centimetres of the printed
- * page. It has a strip of plastic below its baseline and a small hole cut at
- * its centre mark, and it's moved and turned the same way as the ruler.
+ * worksheet or the Draft, measured in true centimetres of the printed page.
+ * It starts 10 cm across, and a handle resizes it. It has a strip of plastic
+ * below its baseline and a small hole cut at its centre mark, and it's moved
+ * and turned the same way as the ruler.
  *
  * A line started in the hole is a ray from the centre mark, turned to the
  * nearest whole degree. A line started just outside the curved edge follows
@@ -17,12 +18,54 @@
 import { EDGE_REACH } from "@/lib/ruler";
 import type { Vec } from "@/lib/stroke-select";
 
-/** The protractor is 7 cm from its centre mark to its curved edge. */
-export const PROTRACTOR_RADIUS_CM = 7;
-/** The strip of plastic below the baseline, which holds the X. */
-export const PROTRACTOR_STRIP_CM = 1;
-/** The radius of the hole at the centre mark. It's cut through the plastic, so a finger in it reaches the page. */
-export const PROTRACTOR_HOLE_CM = 0.45;
+/**
+ * The protractor starts 10 cm across, the size of a usual school protractor.
+ * Its handle resizes it from 8 to 20 cm. Its angles don't depend on its size,
+ * so unlike the ruler it measures truly at any size. Below 8 cm its numbers
+ * get too small to read on the board.
+ */
+export const PROTRACTOR_ACROSS_CM = 10;
+export const PROTRACTOR_MIN_CM = 8;
+export const PROTRACTOR_MAX_CM = 20;
+
+/**
+ * The strip of plastic below the baseline, which holds the X and the handle,
+ * and the hole at the centre mark, as shares of the radius, so the whole
+ * protractor grows and shrinks together. At 10 cm across, the strip is 0.8 cm
+ * tall and the hole 0.9 cm across. The hole is cut through the plastic, so a
+ * finger in it reaches the page.
+ */
+export const STRIP_SHARE = 0.16;
+export const HOLE_SHARE = 0.09;
+
+// Each board remembers the size its protractor was last left at.
+const SIZE_KEY = "csm_protractor_size";
+
+const clampSize = (cm: number) => Math.min(Math.max(cm, PROTRACTOR_MIN_CM), PROTRACTOR_MAX_CM);
+
+/** The size, in centimetres across, the protractor was last left at on this board, or the usual size. */
+export function readProtractorSize(): number {
+  try {
+    const stored = Number(localStorage.getItem(SIZE_KEY));
+    return stored > 0 ? clampSize(stored) : PROTRACTOR_ACROSS_CM;
+  } catch {
+    return PROTRACTOR_ACROSS_CM;
+  }
+}
+
+export function saveProtractorSize(cm: number) {
+  try { localStorage.setItem(SIZE_KEY, String(cm)); } catch { /* private window */ }
+}
+
+/**
+ * The size a drag of the handle asks for. The handle resizes the protractor
+ * about its centre mark, so the size grows or shrinks with the finger's
+ * distance from it. It's kept between 8 and 20 cm and rounded to a millimetre.
+ */
+export function draggedSize(startCm: number, fromDistance: number, toDistance: number): number {
+  if (fromDistance <= 0) return startCm;
+  return Math.round(clampSize((startCm * toDistance) / fromDistance) * 10) / 10;
+}
 
 /** The protractor on screen: its centre mark, the direction along its baseline, and its sizes. */
 export interface ProtractorFrame {

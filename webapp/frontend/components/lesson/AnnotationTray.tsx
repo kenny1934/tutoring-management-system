@@ -487,7 +487,7 @@ export function AnnotationTray({
         <button
           type="button"
           aria-label="Lasso"
-          title="Lasso: draw a loop round some ink to move it, resize it or delete it (L)"
+          title="Lasso: draw a loop round some ink to change it (L)"
           aria-pressed={tools.tool === "lasso"}
           onClick={() => { setPop(null); tools.selectLasso(); }}
           className={cn(btnBase, tools.tool === "lasso" && btnOn)}
