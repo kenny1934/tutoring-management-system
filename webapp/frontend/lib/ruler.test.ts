@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CM, clipToPage, edgeAt, nearRuler, ontoEdge, shownAngle, snapAngle, type RulerFrame } from "./ruler";
+import { CM, clipPointsToPage, clipToPage, edgeAt, nearRuler, ontoEdge, shownAngle, snapAngle, type RulerFrame } from "./ruler";
 
 // A level ruler centred at (100, 100), 160 pixels long and 30 tall.
 const LEVEL: RulerFrame = { cx: 100, cy: 100, dx: 1, dy: 0, halfLength: 80, halfHeight: 15 };
@@ -65,6 +65,20 @@ describe("clipToPage", () => {
 
   it("drops a line that misses the page", () => {
     expect(clipToPage([110, 50], [150, 50], 100, 100)).toBeNull();
+  });
+});
+
+describe("clipPointsToPage", () => {
+  const rounded = (points: number[][] | null) => points?.map((point) => point.map((v) => Math.round(v * 1000) / 1000));
+
+  it("keeps a line of many points from its start to where it first leaves the page", () => {
+    const line: [number, number][] = [[10, 10], [50, 10], [80, 10], [180, 10], [80, 20]];
+    expect(rounded(clipPointsToPage(line, 100, 100))).toEqual([[10, 10], [50, 10], [80, 10], [100, 10]]);
+  });
+
+  it("keeps a dot that's on the page, and drops a line that misses it", () => {
+    expect(clipPointsToPage([[10, 10]], 100, 100)).toEqual([[10, 10]]);
+    expect(clipPointsToPage([[110, 10], [150, 10], [120, 50]], 100, 100)).toBeNull();
   });
 });
 

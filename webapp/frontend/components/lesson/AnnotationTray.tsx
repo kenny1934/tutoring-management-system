@@ -16,6 +16,7 @@ import {
 import type { EraserSetting } from "@/lib/stroke-eraser";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
 import { UndoOfferBar } from "./UndoOfferBar";
+import { ProtractorIcon } from "./Protractor";
 
 type Dock = "left" | "center" | "right";
 
@@ -41,6 +42,8 @@ interface AnnotationTrayProps {
   cover?: { covered: boolean; onToggle: () => void };
   /** The worksheet's ruler, for More's "Show the ruler" and "Hide the ruler". Leave it out where there's no ruler. */
   ruler?: { shown: boolean; onToggle: () => void };
+  /** The worksheet's protractor, for More's "Show the protractor" and "Hide the protractor". Leave it out where there's none. */
+  protractor?: { shown: boolean; onToggle: () => void };
   /**
    * Anything that changes whenever the ink does, such as the exercise's
    * annotations object. The message offering to undo a clear goes away when
@@ -141,7 +144,7 @@ export function SwatchMark({ swatch, big = false, className }: { swatch: InkSwat
  */
 export function AnnotationTray({
   tools, onUndo, onRedo, inkHidden, onInkHiddenChange, hasInk, onClearAll,
-  pageInView, onClearPage, cover, ruler, inkRevision, onSaveAnnotated,
+  pageInView, onClearPage, cover, ruler, protractor, inkRevision, onSaveAnnotated,
 }: AnnotationTrayProps) {
   const [{ dock, collapsed }, setTrayState] = useState(readTrayState);
   const [morphing, setMorphing] = useState(false);
@@ -605,6 +608,13 @@ export function AnnotationTray({
                     icon={<Ruler className="h-5 w-5" />}
                     label={ruler.shown ? "Hide the ruler" : "Show the ruler"}
                     onClick={() => { setPop(null); ruler.onToggle(); }}
+                  />
+                )}
+                {protractor && (
+                  <MenuRow
+                    icon={<ProtractorIcon className="h-5 w-5" />}
+                    label={protractor.shown ? "Hide the protractor" : "Show the protractor"}
+                    onClick={() => { setPop(null); protractor.onToggle(); }}
                   />
                 )}
                 {onClearPage && pageInView && (

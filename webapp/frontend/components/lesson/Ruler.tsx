@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool, type OnScreen } from "@/hooks/usePlacedTool";
 import {
-  CATCH, RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, shownAngle,
-  type RulerFrame, type RulerGuide,
+  CATCH, RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, shownAngle,
+  type DrawingGuide, type RulerFrame,
 } from "@/lib/ruler";
 import type { Vec } from "@/lib/stroke-select";
 
@@ -56,8 +56,8 @@ interface RulerProps {
   cm: number;
   /** Where the ruler's centre starts, in the container's own pixels. */
   start: Vec;
-  /** Filled in with the ruler's edges while it's out, for the pane's drawing layers. */
-  guideRef: RefObject<RulerGuide | null>;
+  /** The tools on the pane, which its drawing layers ask about each line. The ruler is one of them while it's out. */
+  guides: Set<DrawingGuide>;
   /** Dark PDF mode, where the ruler darkens along with the pages. */
   darkMode: boolean;
   onHide: () => void;
@@ -86,24 +86,28 @@ function rulerFrame(at: OnScreen, cm: number): RulerFrame {
  * turns it too, and a finger further away is left to the pane, so a tutor can
  * hold the ruler with one hand and draw along it with the other.
  */
-export function Ruler({ containerRef, cm, start, guideRef, darkMode, onHide }: RulerProps) {
+export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: RulerProps) {
   const { toolRef, place, held, onScreen, handlers } = usePlacedTool({
     containerRef,
     start,
     near: (at, point) => nearRuler(rulerFrame(at, cm), point, CATCH),
   });
 
+  // A line that starts just outside either long edge runs along it, half a
+  // pen width out, and stops at the ruler's ends.
   useLayoutEffect(() => {
-    guideRef.current = {
-      edgeAt: (point) => {
+    const guide: DrawingGuide = {
+      lineFrom: (start, offset) => {
         const at = onScreen();
-        return at ? edgeAt(rulerFrame(at, cm), point) : null;
+        const edge = at && edgeAt(rulerFrame(at, cm), start);
+        return edge ? { to: (point) => [ontoEdge(edge, start, offset), ontoEdge(edge, point, offset)] } : null;
       },
     };
+    guides.add(guide);
     return () => {
-      guideRef.current = null;
+      guides.delete(guide);
     };
-  }, [guideRef, onScreen, cm]);
+  }, [guides, onScreen, cm]);
 
   const length = RULER_LENGTH_CM * cm;
   const height = RULER_HEIGHT_CM * cm;

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Ruler } from "./Ruler";
-import type { RulerGuide } from "@/lib/ruler";
+import type { DrawingGuide } from "@/lib/ruler";
 
 // jsdom lays nothing out, so the container sits at the screen's corner at its
 // own size, which makes its pixels and screen pixels the same.
@@ -18,12 +18,12 @@ afterAll(() => {
 const LABEL = "Ruler: drag it to move it, or turn it with two fingers or the mouse wheel";
 
 // A ruler at 10 pixels to the centimetre, so 160 long and 30 tall, centred at (200, 300).
-function Harness({ onHide = () => {}, guideRef }: { onHide?: () => void; guideRef?: { current: RulerGuide | null } }) {
+function Harness({ onHide = () => {}, guides }: { onHide?: () => void; guides?: Set<DrawingGuide> }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const ownGuide = useRef<RulerGuide | null>(null);
+  const [ownGuides] = useState(() => new Set<DrawingGuide>());
   return (
     <div ref={containerRef}>
-      <Ruler containerRef={containerRef} cm={10} start={[200, 300]} guideRef={guideRef ?? ownGuide} darkMode={false} onHide={onHide} />
+      <Ruler containerRef={containerRef} cm={10} start={[200, 300]} guides={guides ?? ownGuides} darkMode={false} onHide={onHide} />
     </div>
   );
 }
@@ -89,15 +89,17 @@ describe("Ruler", () => {
     expect(ruler()).toHaveTextContent("16°");
   });
 
-  it("tells the drawing layers about its edges while it's out", () => {
-    const guideRef: { current: RulerGuide | null } = { current: null };
-    const { unmount } = render(<Harness guideRef={guideRef} />);
+  it("guides a line along its edge for the drawing layers while it's out", () => {
+    const guides = new Set<DrawingGuide>();
+    const { unmount } = render(<Harness guides={guides} />);
+    const [guide] = guides;
 
-    const edge = guideRef.current?.edgeAt([200, 330]);
-    expect(edge?.origin[1]).toBeCloseTo(315);
-    expect(guideRef.current?.edgeAt([200, 400])).toBeNull();
+    // A line that starts 15 pixels below the ruler runs along its bottom edge, 15 below the middle line.
+    const line = guide.lineFrom([200, 330], 0);
+    expect(line?.to([250, 340])[1][1]).toBeCloseTo(315);
+    expect(guide.lineFrom([200, 400], 0)).toBeNull();
 
     unmount();
-    expect(guideRef.current).toBeNull();
+    expect(guides.size).toBe(0);
   });
 });

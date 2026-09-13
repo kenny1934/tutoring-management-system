@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { Ruler, rulerStart } from "./Ruler";
-import { CM, type RulerGuide } from "@/lib/ruler";
+import { Protractor } from "./Protractor";
+import { CM, type DrawingGuide } from "@/lib/ruler";
 import type { Vec } from "@/lib/stroke-select";
 import { AnnotationTray } from "./AnnotationTray";
 import { PageThumbnails } from "./PageThumbnails";
@@ -417,11 +418,16 @@ export function PdfPageViewer({
   const closeThumbs = useCallback(() => setThumbsOpen(false), []);
   useEffect(() => { setThumbsOpen(false); }, [exerciseId, pdfData]);
 
-  // The ruler, from More's "Show the ruler". It lies among the pages, and
-  // it's put away when the viewer moves on to another file, like the strip.
+  // The ruler and the protractor, from More. They lie among the pages, and
+  // they're put away when the viewer moves on to another file, like the strip.
+  // Each joins the pane's guides while it's out, for the drawing layers.
   const [rulerAt, setRulerAt] = useState<Vec | null>(null);
-  const rulerGuideRef = useRef<RulerGuide | null>(null);
-  useEffect(() => { setRulerAt(null); }, [exerciseId, pdfData]);
+  const [protractorAt, setProtractorAt] = useState<Vec | null>(null);
+  const [guides] = useState(() => new Set<DrawingGuide>());
+  useEffect(() => {
+    setRulerAt(null);
+    setProtractorAt(null);
+  }, [exerciseId, pdfData]);
 
   // Reset retry counter when a genuinely new PDF loads
   useEffect(() => {
@@ -947,6 +953,8 @@ export function PdfPageViewer({
   };
   const pageCovered = covers[currentVisiblePage - 1] !== undefined;
   const toggleRuler = () => setRulerAt(rulerAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
+  const toggleProtractor = () =>
+    setProtractorAt(protractorAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -1137,7 +1145,7 @@ export function PdfPageViewer({
                     hidden={inkHidden}
                     suspended={gestureActive}
                     uiScale={zoom / 100}
-                    rulerGuide={rulerGuideRef}
+                    guides={guides}
                     pageIndex={i}
                     pageLabel={`Page ${i + 1}`}
                     onPagesChange={onPagesStrokesChange}
@@ -1160,9 +1168,19 @@ export function PdfPageViewer({
               containerRef={pageStackRef}
               cm={CM}
               start={rulerAt}
-              guideRef={rulerGuideRef}
+              guides={guides}
               darkMode={pdfDarkMode}
               onHide={() => setRulerAt(null)}
+            />
+          )}
+          {tools && protractorAt && (
+            <Protractor
+              containerRef={pageStackRef}
+              cm={CM}
+              start={protractorAt}
+              guides={guides}
+              darkMode={pdfDarkMode}
+              onHide={() => setProtractorAt(null)}
             />
           )}
         </div>
@@ -1183,6 +1201,7 @@ export function PdfPageViewer({
           onClearPage={onClearPage && (() => onClearPage(currentVisiblePage - 1))}
           cover={{ covered: pageCovered, onToggle: () => toggleCover(currentVisiblePage - 1) }}
           ruler={{ shown: rulerAt !== null, onToggle: toggleRuler }}
+          protractor={{ shown: protractorAt !== null, onToggle: toggleProtractor }}
           inkRevision={annotations}
           onSaveAnnotated={onSaveAnnotated}
         />,

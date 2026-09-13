@@ -106,6 +106,18 @@ describe("AnnotationTray", () => {
     expect(screen.getByRole("button", { name: /Hide the ruler/ })).toBeInTheDocument();
   });
 
+  it("shows the protractor from More, and offers to hide it once it's out", () => {
+    const onToggle = vi.fn();
+    const { rerender } = render(<Harness protractor={{ shown: false, onToggle }} />);
+    fireEvent.click(button("More"));
+    fireEvent.click(screen.getByRole("button", { name: /Show the protractor/ }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+
+    rerender(<Harness protractor={{ shown: true, onToggle }} />);
+    fireEvent.click(button("More"));
+    expect(screen.getByRole("button", { name: /Hide the protractor/ })).toBeInTheDocument();
+  });
+
   it("clears only the page in view, and names it", () => {
     const onClearPage = vi.fn();
     render(<Harness onClearAll={() => {}} onClearPage={onClearPage} pageInView={{ number: 2, hasInk: true }} />);

@@ -129,8 +129,50 @@ export function clipToPage(a: Vec, b: Vec, width: number, height: number): [Vec,
   return [[a[0] + from * dx, a[1] + from * dy], [a[0] + to * dx, a[1] + to * dy]];
 }
 
-/** What a drawing layer asks the ruler on its pane. */
-export interface RulerGuide {
-  /** The edge a line starting at this screen point should run along, or null when it isn't beside one. */
-  edgeAt: (point: Vec) => RulerEdge | null;
+/**
+ * The first stretch of a line through these points that's on a page of the
+ * given size, in page units, or null when none of it is. An arc drawn against
+ * the protractor can run off the page it started on and come back, and it
+ * keeps the part from its start to where it first leaves.
+ */
+export function clipPointsToPage(points: Vec[], width: number, height: number): Vec[] | null {
+  if (points.length === 1) {
+    const [[x, y]] = points;
+    return x >= 0 && x <= width && y >= 0 && y <= height ? points : null;
+  }
+  const kept: Vec[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const piece = clipToPage(points[i - 1], points[i], width, height);
+    if (!piece) {
+      if (kept.length > 0) break;
+      continue;
+    }
+    if (kept.length === 0) kept.push(piece[0]);
+    kept.push(piece[1]);
+    // The line leaves the page part way along this piece.
+    if (Math.hypot(piece[1][0] - points[i][0], piece[1][1] - points[i][1]) > 1e-6) break;
+  }
+  return kept.length > 0 ? kept : null;
+}
+
+/**
+ * A tool lying on a pane that a line can be drawn against, such as the ruler
+ * or the protractor. Each tool that's out adds its guide to the pane's set,
+ * and a drawing layer asks each of them about a line as it starts.
+ */
+export interface DrawingGuide {
+  /**
+   * The line that starts at this screen point, or null when the point isn't
+   * where this tool guides a line. The offset is half the pen's width in
+   * screen pixels, which a line keeps between its ink and the tool's edge.
+   */
+  lineFrom: (start: Vec, offset: number) => GuidedLine | null;
+}
+
+/** A line being drawn against a tool. */
+export interface GuidedLine {
+  /** The line's points in screen pixels, with the finger at this point. */
+  to: (point: Vec) => Vec[];
+  /** Called once the finger lifts, or the line is thrown away. */
+  end?: () => void;
 }

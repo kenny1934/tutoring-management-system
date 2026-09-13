@@ -138,6 +138,17 @@ describe("DraftPane", () => {
     expect(screen.getByRole("button", { name: "Ruler" })).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("puts a protractor on the draft from its bar, and takes it away again", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Protractor" }));
+    expect(screen.getByRole("group", { name: /^Protractor:/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Protractor" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide the protractor" }));
+    expect(screen.queryByRole("group", { name: /^Protractor:/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Protractor" })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("greys out Clear while the draft has no ink", () => {
     render(<Harness />);
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();

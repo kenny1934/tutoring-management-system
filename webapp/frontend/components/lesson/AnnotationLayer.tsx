@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo, type RefObject } from "react";
+import { useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo } from "react";
 import getStroke from "perfect-freehand";
 import { getStrokeOptions, inkLayers, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
 import type { InkKind, PageAnnotations, Stroke } from "@/hooks/useAnnotations";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/stroke-select";
 import type { InkSwatch } from "@/hooks/useAnnotationTools";
 import { registerInkPage, type InkPage } from "@/hooks/useInkPages";
-import { clipToPage, ontoEdge, type RulerEdge, type RulerGuide } from "@/lib/ruler";
+import { clipPointsToPage, type DrawingGuide, type GuidedLine } from "@/lib/ruler";
 import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
 
 interface AnnotationLayerProps {
@@ -67,8 +67,12 @@ interface AnnotationLayerProps {
    * size of a finger at any zoom. The Draft never zooms, so it leaves this at 1.
    */
   uiScale?: number;
-  /** The ruler on this pane, while it's out. A line that starts just outside its edge runs along it. */
-  rulerGuide?: RefObject<RulerGuide | null>;
+  /**
+   * The tools lying on this pane, such as the ruler and the protractor. A line
+   * that starts where one of them guides it, such as just outside the ruler's
+   * edge, runs against that tool.
+   */
+  guides?: ReadonlySet<DrawingGuide>;
   /**
    * This page's index in the exercise's annotations, its name, and a way to
    * save several pages as one change. With all three, ink the lasso selects
@@ -103,6 +107,12 @@ const signalFade = (signal: FadeSignal) => fadeListeners.forEach((listen) => lis
 // it, because number lines and underlines are meant to be exactly level, and
 // a finger on a vertical board rarely is.
 const SNAP_DEGREES = 5;
+
+// A pen stroke whose points all have a pressure of exactly 0.5 has its
+// pressure worked out from its speed, which would make an arc drawn against
+// the protractor thicken and thin. A steady 0.51 counts as real pressure, so
+// the arc is drawn one width all along, a hair wider than the pen's size.
+const STEADY_PRESSURE = 0.51;
 
 /** Where a straight line from start towards the pointer ends, snapped level or upright when it's nearly there. */
 function straightLineEnd(start: Point, pointer: Point): Point {
@@ -262,7 +272,7 @@ export function AnnotationLayer({
   hidden = false,
   suspended = false,
   uiScale = 1,
-  rulerGuide,
+  guides,
   pageIndex,
   pageLabel,
   onPagesChange,
@@ -271,9 +281,10 @@ export function AnnotationLayer({
   const [currentPoints, setCurrentPoints] = useState<[number, number, number][]>([]);
   const currentPointsRef = useRef<[number, number, number][]>([]);
   const isDrawingStroke = useRef(false);
-  // A line that starts just outside the ruler's edge runs along it. This
-  // holds that edge, and where on screen the finger landed, while it's drawn.
-  const rulerLineRef = useRef<{ edge: RulerEdge; start: Vec } | null>(null);
+  // A line that starts where a tool on the pane guides it, such as just
+  // outside the ruler's edge, runs against that tool. This holds the line,
+  // and where on screen the finger landed, while it's drawn.
+  const guidedRef = useRef<{ line: GuidedLine; start: Vec } | null>(null);
 
   // What a new stroke looks like. Fading ink has its own look, whatever colour is picked.
   const inkColor = fading ? FADING_INK.color : penColor;
@@ -352,7 +363,8 @@ export function AnnotationLayer({
   // setter skips the render when there was nothing to throw away.
   const discardInProgress = useCallback(() => {
     isDrawingStroke.current = false;
-    rulerLineRef.current = null;
+    guidedRef.current?.line.end?.();
+    guidedRef.current = null;
     currentPointsRef.current = [];
     setCurrentPoints((prev) => (prev.length ? [] : prev));
     loopRef.current = null;
@@ -434,31 +446,41 @@ export function AnnotationLayer({
     [width, height]
   );
 
+  /** Ask each tool on the pane whether a line starting at this screen point runs against it. */
+  const startGuidedLine = useCallback(
+    (start: Vec) => {
+      const rect = svgRef.current?.getBoundingClientRect();
+      // Half the pen's width in screen pixels, which a line keeps between its ink and the tool.
+      const offset = (inkSize / 2) * (rect && width > 0 ? rect.width / width : 1);
+      for (const guide of guides ?? []) {
+        const line = guide.lineFrom(start, offset);
+        if (line) return { line, start };
+      }
+      return null;
+    },
+    [guides, inkSize, width]
+  );
+
   /**
-   * The line along the ruler from where the finger landed to where it is now,
-   * in page units. It's kept half a pen width out from the edge and stops at
-   * the ruler's ends, and whatever runs past the edge of this page is dropped.
+   * The line against a tool from where the finger landed to where it is now,
+   * in page units, with whatever runs past the edge of this page dropped. A
+   * two-point line is drawn one width whatever its pressure. A line of more
+   * points, such as an arc, gets a steady pressure, which draws it one width too.
    */
-  const rulerLine = useCallback(
+  const guidedLine = useCallback(
     (e: React.PointerEvent): Point[] => {
-      const line = rulerLineRef.current;
+      const guided = guidedRef.current;
       const svg = svgRef.current;
-      if (!line || !svg) return [];
+      if (!guided || !svg) return [];
       const rect = svg.getBoundingClientRect();
       const toPage = ([x, y]: Vec): Vec => [((x - rect.left) / rect.width) * width, ((y - rect.top) / rect.height) * height];
-      const offset = (inkSize / 2) * (rect.width / width);
-      const onPage = clipToPage(
-        toPage(ontoEdge(line.edge, line.start, offset)),
-        toPage(ontoEdge(line.edge, [e.clientX, e.clientY], offset)),
-        width,
-        height,
-      );
-      if (onPage) return onPage.map(([x, y]): Point => [x, y, 0.5]);
+      const onPage = clipPointsToPage(guided.line.to([e.clientX, e.clientY]).map(toPage), width, height);
+      if (onPage) return onPage.map(([x, y]): Point => [x, y, onPage.length > 2 ? STEADY_PRESSURE : 0.5]);
       // A line whose whole length is off this page leaves a dot where the finger landed.
-      const [sx, sy] = toPage(line.start);
+      const [sx, sy] = toPage(guided.start);
       return [[sx, sy, 0.5]];
     },
-    [width, height, inkSize]
+    [width, height]
   );
 
   const handlePointerDown = useCallback(
@@ -472,13 +494,12 @@ export function AnnotationLayer({
         holdingRef.current = true;
         signalFade("hold");
       }
-      const edge = rulerGuide?.current?.edgeAt([e.clientX, e.clientY]) ?? null;
-      rulerLineRef.current = edge ? { edge, start: [e.clientX, e.clientY] } : null;
-      const first = rulerLineRef.current ? rulerLine(e) : [getPoint(e)];
+      guidedRef.current = startGuidedLine([e.clientX, e.clientY]);
+      const first = guidedRef.current ? guidedLine(e) : [getPoint(e)];
       currentPointsRef.current = first;
       setCurrentPoints([...first]);
     },
-    [isDrawing, suspended, fading, getPoint, rulerGuide, rulerLine]
+    [isDrawing, suspended, fading, getPoint, startGuidedLine, guidedLine]
   );
 
   const handlePointerMove = useCallback(
@@ -486,8 +507,8 @@ export function AnnotationLayer({
       if (!isDrawingStroke.current) return;
       e.preventDefault();
       e.stopPropagation();
-      if (rulerLineRef.current) {
-        const line = rulerLine(e);
+      if (guidedRef.current) {
+        const line = guidedLine(e);
         currentPointsRef.current = line;
         setCurrentPoints(line);
         return;
@@ -505,7 +526,7 @@ export function AnnotationLayer({
       currentPointsRef.current.push(pt);
       setCurrentPoints((prev) => [...prev, pt]);
     },
-    [straight, getPoint, rulerLine]
+    [straight, getPoint, guidedLine]
   );
 
   const handlePointerUp = useCallback(
@@ -514,16 +535,17 @@ export function AnnotationLayer({
       e.preventDefault();
       e.stopPropagation();
       isDrawingStroke.current = false;
-      const ruled = rulerLineRef.current !== null;
-      rulerLineRef.current = null;
+      const guided = guidedRef.current;
+      guided?.line.end?.();
+      guidedRef.current = null;
 
       let points = currentPointsRef.current;
       currentPointsRef.current = [];
       setCurrentPoints([]);
 
-      // A straight line, or a line along the ruler, that has barely moved is a
+      // A straight line, or a line against a tool, that has barely moved is a
       // tap, so it's kept as a dot.
-      if ((straight || ruled) && points.length === 2 && Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1]) < 1) {
+      if ((straight || guided) && points.length === 2 && Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1]) < 1) {
         points = [points[0]];
       }
 

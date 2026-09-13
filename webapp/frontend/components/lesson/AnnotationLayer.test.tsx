@@ -3,7 +3,7 @@ import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import { useCallback, useState } from "react";
 import { AnnotationLayer } from "./AnnotationLayer";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
-import type { RulerEdge, RulerGuide } from "@/lib/ruler";
+import { ontoEdge, type DrawingGuide, type RulerEdge } from "@/lib/ruler";
 
 // The layer maps pointer positions through the SVG's on-screen box. jsdom has
 // no layout, so give every element a 100 by 100 box at the origin, which makes
@@ -479,10 +479,13 @@ describe("AnnotationLayer lasso", () => {
 describe("AnnotationLayer along the ruler", () => {
   // A level ruler whose bottom edge runs across the page at y = 30, from x = 10 to x = 90.
   const EDGE: RulerEdge = { origin: [50, 30], along: [1, 0], out: [0, 1], ends: [-40, 40] };
-  const guide: { current: RulerGuide } = { current: { edgeAt: ([, y]) => (y > 30 && y < 70 ? EDGE : null) } };
+  const ruler: DrawingGuide = {
+    lineFrom: (start, offset) =>
+      start[1] > 30 && start[1] < 70 ? { to: (point) => [ontoEdge(EDGE, start, offset), ontoEdge(EDGE, point, offset)] } : null,
+  };
   const round = (s: Stroke) => s.points.map((point) => point.map((v) => Math.round(v * 1000) / 1000));
 
-  function renderPen() {
+  function renderPen(guides: DrawingGuide[] = [ruler]) {
     const onStrokesChange = vi.fn();
     const { container } = render(
       <AnnotationLayer
@@ -494,7 +497,7 @@ describe("AnnotationLayer along the ruler", () => {
         penColor="#dc2626"
         penSize={4}
         onStrokesChange={onStrokesChange}
-        rulerGuide={guide}
+        guides={new Set(guides)}
       />
     );
     return { svg: container.querySelector("svg")!, onStrokesChange };
@@ -520,5 +523,18 @@ describe("AnnotationLayer along the ruler", () => {
 
     const [stroke]: Stroke[] = onStrokesChange.mock.calls[0][0];
     expect(stroke.points).toHaveLength(3);
+  });
+
+  it("gives a line of many points against a tool a steady pressure, keeps the part on the page, and tells the tool it's done", () => {
+    const end = vi.fn();
+    const arc: DrawingGuide = { lineFrom: () => ({ to: ([x]) => [[10, 10], [50, 10], [x, 10], [180, 10]], end }) };
+    const { svg, onStrokesChange } = renderPen([arc]);
+    fireEvent.pointerDown(svg, { clientX: 20, clientY: 20, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 80, clientY: 20, pointerId: 1 });
+    fireEvent.pointerUp(svg, { clientX: 80, clientY: 20, pointerId: 1 });
+
+    const [stroke]: Stroke[] = onStrokesChange.mock.calls[0][0];
+    expect(round(stroke)).toEqual([[10, 10, 0.51], [50, 10, 0.51], [80, 10, 0.51], [100, 10, 0.51]]);
+    expect(end).toHaveBeenCalledTimes(1);
   });
 });

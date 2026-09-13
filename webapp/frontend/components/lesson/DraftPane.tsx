@@ -7,13 +7,14 @@ import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { UndoOfferBar } from "./UndoOfferBar";
 import { Ruler, rulerStart } from "./Ruler";
+import { Protractor, ProtractorIcon } from "./Protractor";
 import { TRAY_CLEARANCE } from "./AnnotationTray";
 import { PAGE_BAR_HEIGHT, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
-import { CM, type RulerGuide } from "@/lib/ruler";
+import { CM, type DrawingGuide } from "@/lib/ruler";
 import type { Vec } from "@/lib/stroke-select";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import {
@@ -87,23 +88,27 @@ export function DraftPane({
   const sheetRefs = useRef<(HTMLDivElement | null)[]>([]);
   const newSheetRef = useRef<number | null>(null);
 
-  // The Draft's own ruler, from the button on its bar. The sheets fit the
-  // pane, so a centimetre is measured from a sheet's width while it's out.
+  // The Draft's own ruler and protractor, from the buttons on its bar. The
+  // sheets fit the pane, so a centimetre is measured from a sheet's width
+  // while either of them is out.
   const columnRef = useRef<HTMLDivElement>(null);
   const [rulerAt, setRulerAt] = useState<Vec | null>(null);
-  const rulerGuideRef = useRef<RulerGuide | null>(null);
+  const [protractorAt, setProtractorAt] = useState<Vec | null>(null);
+  const [guides] = useState(() => new Set<DrawingGuide>());
   const [sheetWidth, setSheetWidth] = useState(0);
   const rulerOut = rulerAt !== null;
+  const protractorOut = protractorAt !== null;
+  const measuring = rulerOut || protractorOut;
   useEffect(() => {
     const sheet = sheetRefs.current[0];
-    if (!rulerOut || !sheet) return;
+    if (!measuring || !sheet) return;
     const measure = () => setSheetWidth(sheet.offsetWidth);
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
     observer.observe(sheet);
     return () => observer.disconnect();
-  }, [rulerOut]);
+  }, [measuring]);
 
   const { gestureActive, handlers } = useViewerTouch({
     scrollRef,
@@ -116,10 +121,11 @@ export function DraftPane({
     commitZoom: () => {},
   });
 
-  // Each exercise's Draft opens at its first sheet, with the ruler put away.
+  // Each exercise's Draft opens at its first sheet, with the ruler and the protractor put away.
   useEffect(() => {
     scrollRef.current?.scrollTo?.({ top: 0 });
     setRulerAt(null);
+    setProtractorAt(null);
   }, [exerciseId]);
 
   // A sheet that was just added is scrolled into view, ready to write on.
@@ -135,6 +141,9 @@ export function DraftPane({
   };
 
   const toggleRuler = () => setRulerAt(rulerAt ? null : rulerStart(columnRef.current, scrollRef.current));
+  const toggleProtractor = () => setProtractorAt(protractorAt ? null : rulerStart(columnRef.current, scrollRef.current));
+  // A centimetre of the Draft's sheets, on screen.
+  const sheetCm = sheetWidth * (CM / DRAFT_SHEET.width);
 
   // ---------- Clearing ----------
   // Both clears can be undone, and a message at the bottom of the pane offers
@@ -196,8 +205,19 @@ export function DraftPane({
           className={cn(barButton, rulerOut ? tbBtnOn : tbBtnIdle)}
         >
           <RulerIcon className="h-5 w-5" />
-          {/* The word goes when the Draft is narrow, and the icon stays */}
-          <span className="hidden @[440px]/draftbar:inline">Ruler</span>
+          {/* The words go when the Draft is narrow, and the icons stay */}
+          <span className="hidden @[560px]/draftbar:inline">Ruler</span>
+        </button>
+        <button
+          type="button"
+          aria-label="Protractor"
+          aria-pressed={protractorOut}
+          title={protractorOut ? "Hide the protractor" : "Show the protractor on the draft"}
+          onClick={toggleProtractor}
+          className={cn(barButton, protractorOut ? tbBtnOn : tbBtnIdle)}
+        >
+          <ProtractorIcon className="h-5 w-5" />
+          <span className="hidden @[560px]/draftbar:inline">Protractor</span>
         </button>
         <DropdownMenu
           align="right"
@@ -281,7 +301,7 @@ export function DraftPane({
                     {...inkLayerProps(tools)}
                     onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
                     suspended={gestureActive}
-                    rulerGuide={rulerGuideRef}
+                    guides={guides}
                     pageIndex={pageIndex}
                     pageLabel={`Draft sheet ${n + 1}`}
                     onPagesChange={onPagesStrokesChange}
@@ -301,11 +321,21 @@ export function DraftPane({
           {rulerAt && (
             <Ruler
               containerRef={columnRef}
-              cm={sheetWidth * (CM / DRAFT_SHEET.width)}
+              cm={sheetCm}
               start={rulerAt}
-              guideRef={rulerGuideRef}
+              guides={guides}
               darkMode={pdfDarkMode}
               onHide={() => setRulerAt(null)}
+            />
+          )}
+          {protractorAt && (
+            <Protractor
+              containerRef={columnRef}
+              cm={sheetCm}
+              start={protractorAt}
+              guides={guides}
+              darkMode={pdfDarkMode}
+              onHide={() => setProtractorAt(null)}
             />
           )}
         </div>
