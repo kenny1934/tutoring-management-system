@@ -57,6 +57,28 @@ export function addTurn(swept: number, lastDirection: number, direction: number)
   return Math.min(Math.max(swept + step, -360), 360);
 }
 
+/**
+ * The stretch of a turn the pencil has passed over, as the lowest and highest
+ * amounts turned so far, once the turn has reached `swept`. A real pencil
+ * marks everything it passes, so going back over the arc keeps it, and going
+ * on past the start extends it the other way. It never covers more than one
+ * full circle.
+ */
+export function sweepRange([low, high]: [number, number], swept: number): [number, number] {
+  if (swept > high) return [Math.max(low, swept - 360), swept];
+  if (swept < low) return [swept, Math.min(high, swept + 360)];
+  return [low, high];
+}
+
+/**
+ * Whether the compasses are drawn mirrored at this angle, which keeps their
+ * hinge and handle above the line from the needle to the pencil. That's
+ * whenever the pencil is left of the needle.
+ */
+export function mirroredAt(angle: number): boolean {
+  return Math.cos((angle * Math.PI) / 180) < -1e-9;
+}
+
 /** The points of an arc round a centre, from one direction to another, with a point for every degree. */
 export function arcPoints(centre: Vec, radius: number, from: number, to: number): Vec[] {
   const steps = Math.max(1, Math.ceil(Math.abs(to - from)));

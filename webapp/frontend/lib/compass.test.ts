@@ -1,5 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { addTurn, arcPoints, directionOf, hingeHeight, opensTo, snapWidth } from "./compass";
+import { addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, snapWidth, sweepRange } from "./compass";
+
+describe("sweepRange", () => {
+  it("keeps what the pencil has passed over when a turn goes back, and extends it past the start", () => {
+    expect(sweepRange([0, 0], 90)).toEqual([0, 90]);
+    expect(sweepRange([0, 90], 10)).toEqual([0, 90]);
+    expect(sweepRange([0, 90], -45)).toEqual([-45, 90]);
+  });
+
+  it("never covers more than one full circle", () => {
+    expect(sweepRange([-100, 0], 300)).toEqual([-60, 300]);
+    expect(sweepRange([0, 100], -300)).toEqual([-300, 60]);
+  });
+});
+
+describe("mirroredAt", () => {
+  it("mirrors the compasses whenever the pencil is left of the needle", () => {
+    expect(mirroredAt(0)).toBe(false);
+    expect(mirroredAt(90)).toBe(false);
+    expect(mirroredAt(180)).toBe(true);
+    expect(mirroredAt(-120)).toBe(true);
+    expect(mirroredAt(270)).toBe(false);
+  });
+});
 
 describe("opensTo", () => {
   it("says whether the compasses can open to a width", () => {

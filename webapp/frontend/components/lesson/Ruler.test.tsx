@@ -87,6 +87,9 @@ describe("Ruler", () => {
     expect(ruler()).toHaveTextContent("1°");
     fireEvent.wheel(ruler(), { deltaY: 100, shiftKey: true });
     expect(ruler()).toHaveTextContent("16°");
+    // The X turns back against the ruler, so it still reads as an X.
+    const x = screen.getByRole("button", { name: "Hide the ruler" }).querySelector("svg")!;
+    expect(x.style.transform).toBe("rotate(-16deg)");
   });
 
   it("guides a line along its edge for the drawing layers while it's out", () => {

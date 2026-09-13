@@ -1,18 +1,22 @@
 "use client";
 
 import { useRef, useState, type RefObject } from "react";
-import { X } from "lucide-react";
+import { FlipHorizontal2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool } from "@/hooks/usePlacedTool";
 import { inkPageAt, inkSnapAt, type DrivenLine } from "@/hooks/useInkPages";
 import {
-  COMPASS_SNAP_CM, COMPASS_START_CM, addTurn, arcPoints, directionOf, hingeHeight, opensTo, pointAt, snapWidth,
+  COMPASS_SNAP_CM, COMPASS_START_CM, addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, pointAt,
+  snapWidth, sweepRange,
 } from "@/lib/compass";
 import type { Vec } from "@/lib/stroke-select";
 
 const LABEL =
   "Compasses: drag the needle to move them, drag the pencil to open or close them, and turn the handle at the top to draw";
+
+const BUTTON_CLASS =
+  "pointer-events-auto absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#2e251c]/80 text-[#f3e7d3] hover:bg-[#2e251c]";
 
 interface CompassProps {
   /** What the compasses lie in, such as the worksheet's stack of pages. They scroll and zoom along with it. */
@@ -38,6 +42,8 @@ interface Turn {
   /** The finger's last direction from the needle. */
   last: number;
   swept: number;
+  /** The stretch of the turn the pencil has passed over, as the lowest and highest amounts turned. */
+  range: [number, number];
   /** Which way the compasses pointed when the handle was grabbed. */
   from: number;
   started: boolean;
@@ -61,12 +67,18 @@ interface Turn {
  * width to exactly the length between two points. A ring shows the point
  * they've caught.
  *
- * The handle at the top turns them round the needle, and the pencil draws as
- * it turns, up to one full circle. The compasses hand the arc to the drawing
- * layer of the page under the pencil, which draws it as one change: in the
- * picked pen, highlighter or fading ink, or in the colour picked last when the
- * Hand, the eraser or the lasso is picked. While any part is held, a label by
- * the hinge shows the width.
+ * The handle at the top turns them round the needle, and the pencil marks
+ * everything it passes, up to one full circle, so going back over an arc
+ * keeps it and carrying on past the start extends it. The compasses hand the
+ * arc to the drawing layer of the page under the pencil, which draws it as one
+ * change: in the picked pen, highlighter or fading ink, or in the colour
+ * picked last when the Hand, the eraser or the lasso is picked. While any part
+ * is held, a label by the hinge shows the width.
+ *
+ * Like a real pair, they can work with the pencil on either side of the
+ * needle. Whenever the pencil is on the left they're drawn mirrored, so the
+ * hinge and the handle stay on top, and the button beside the hinge flips the
+ * pencil to the other side of the needle without drawing.
  */
 export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassProps) {
   const [width, setWidthState] = useState(COMPASS_START_CM);
@@ -96,6 +108,12 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     },
   });
   const [busy, setBusy] = useState(false);
+  const inUse = held || busy;
+  // While any part is held, the compasses stay mirrored or not as they were
+  // when it was grabbed, so the handle never jumps from under a finger part
+  // way through a turn. They stand the right way up again when it lifts.
+  const [heldMirror, setHeldMirror] = useState(false);
+  const mirrored = inUse ? heldMirror : mirroredAt(place.angle);
   const gripRef = useRef<{ pointerId: number; offset: Vec } | null>(null);
   const turnRef = useRef<Turn | null>(null);
 
@@ -111,6 +129,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     e.preventDefault();
     e.stopPropagation();
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* the finger has already lifted */ }
+    setHeldMirror(mirrored);
     setBusy(true);
     return true;
   };
@@ -155,6 +174,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
       pointerId: e.pointerId,
       last: directionOf(m.needle, [e.clientX, e.clientY]),
       swept: 0,
+      range: [0, 0],
       from: place.angle,
       started: false,
       line: null,
@@ -169,16 +189,18 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     const direction = directionOf(m.needle, [e.clientX, e.clientY]);
     turn.swept = addTurn(turn.swept, turn.last, direction);
     turn.last = direction;
-    const angle = turn.from + turn.swept;
-    setPlace({ cx: place.cx, cy: place.cy, angle });
+    turn.range = sweepRange(turn.range, turn.swept);
+    setPlace({ cx: place.cx, cy: place.cy, angle: turn.from + turn.swept });
     const radius = widthRef.current * m.onScreenCm;
+    const [low, high] = turn.range;
     // The pencil only touches the page once the compasses have really turned, so a tap on the handle leaves no mark.
-    if (!turn.started && Math.abs(turn.swept) >= 1) {
+    if (!turn.started && high - low >= 1) {
       turn.started = true;
       const pencil = pointAt(m.needle, radius, turn.from);
       turn.line = inkPageAt(pencil)?.startLine(pencil) ?? null;
     }
-    turn.line?.to(arcPoints(m.needle, radius, turn.from, angle));
+    // The arc covers everything the pencil has passed over, not just the way back to where the turn began.
+    turn.line?.to(arcPoints(m.needle, radius, turn.from + low, turn.from + high));
   };
 
   const turnUp = (e: React.PointerEvent<HTMLSpanElement>) => {
@@ -190,8 +212,15 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     setBusy(false);
   };
 
+  // The pencil swings round to the other side of the needle, at the same width, and draws nothing.
+  const flip = () => {
+    setSnapped(null);
+    setPlace({ cx: place.cx, cy: place.cy, angle: (place.angle + 180) % 360 });
+  };
+
   // The drawing, in the box's own pixels, with the needle at its bottom-left
-  // corner and the pencil at its bottom-right.
+  // corner and the pencil at its bottom-right. Mirrored, the box is flipped
+  // over the line between them, so the hinge ends up on the other side.
   const needle: Vec = [0, boxHeight];
   const pencil: Vec = [span, boxHeight];
   const hinge: Vec = [span / 2, boxHeight - rise];
@@ -200,12 +229,13 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   const needleShoulder = along(needle, hinge, 0.6 * cm);
   const pencilShoulder = along(pencil, hinge, 1.3 * cm);
   const lead = along(pencil, hinge, 0.35 * cm);
-  const inUse = held || busy;
   const legColour = inUse ? "#a0704b" : "#6b5a42";
+  // The buttons' icons turn back against the compasses, so an X never looks like a plus.
+  const upright = `${mirrored ? "scaleY(-1) " : ""}rotate(${-place.angle}deg)`;
 
   // The width's label sits beyond the turn handle, outside the turned box, so it always reads upright.
   const turnRadians = (place.angle * Math.PI) / 180;
-  const labelOut = rise + 2 * cm;
+  const labelOut = (rise + 2 * cm) * (mirrored ? -1 : 1);
   const labelAt: Vec = [
     place.cx + (span / 2) * Math.cos(turnRadians) + labelOut * Math.sin(turnRadians),
     place.cy + (span / 2) * Math.sin(turnRadians) - labelOut * Math.cos(turnRadians),
@@ -220,9 +250,10 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
         title={LABEL}
         data-touch-owner=""
         {...handlers}
-        // A new drag starts with nothing caught.
+        // A new drag starts with nothing caught, and keeps the way up the compasses have now.
         onPointerDown={(e) => {
           setSnapped(null);
+          setHeldMirror(mirrored);
           handlers.onPointerDown(e);
         }}
         // The box itself lets touches through, and the legs and handles inside it take them.
@@ -232,7 +263,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
           top: place.cy - boxHeight,
           width: span,
           height: boxHeight,
-          transform: `rotate(${place.angle}deg)`,
+          transform: `rotate(${place.angle}deg)${mirrored ? " scaleY(-1)" : ""}`,
           transformOrigin: `0px ${boxHeight}px`,
           filter: darkMode ? PDF_DARK_FILTER : undefined,
         }}
@@ -287,7 +318,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
           <i className="block h-4 w-4 rounded-full border-2 border-[#a0704b] bg-white" />
         </span>
 
-        {/* The handle at the top turns the compasses round the needle, and draws with any pen that's picked */}
+        {/* The handle at the top turns the compasses round the needle, and the pencil draws as it turns */}
         <span
           data-tool-handle=""
           role="img"
@@ -305,13 +336,23 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
 
         <button
           type="button"
+          aria-label="Flip to the other side"
+          title="Flip to the other side"
+          onClick={flip}
+          className={BUTTON_CLASS}
+          style={{ left: hinge[0] - 1.1 * cm, top: hinge[1], width: 0.8 * cm, height: 0.8 * cm }}
+        >
+          <FlipHorizontal2 className="h-1/2 w-1/2" style={{ transform: upright }} />
+        </button>
+        <button
+          type="button"
           aria-label="Hide the compasses"
           title="Hide the compasses"
           onClick={onHide}
-          className="pointer-events-auto absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#2e251c]/80 text-[#f3e7d3] hover:bg-[#2e251c]"
+          className={BUTTON_CLASS}
           style={{ left: hinge[0] + 1.1 * cm, top: hinge[1], width: 0.8 * cm, height: 0.8 * cm }}
         >
-          <X className="h-1/2 w-1/2" />
+          <X className="h-1/2 w-1/2" style={{ transform: upright }} />
         </button>
       </div>
 

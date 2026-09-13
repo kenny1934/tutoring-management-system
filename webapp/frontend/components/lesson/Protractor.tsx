@@ -274,7 +274,8 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
         className="pointer-events-auto absolute grid -translate-y-1/2 place-items-center rounded-full bg-[#2e251c]/80 text-[#f3e7d3] hover:bg-[#2e251c]"
         style={{ right: 0.3 * cm, top: radius + strip / 2, width: control, height: control }}
       >
-        <X className="h-1/2 w-1/2" />
+        {/* The X turns back against the protractor, so it never looks like a plus */}
+        <X className="h-1/2 w-1/2" style={{ transform: `rotate(${-place.angle}deg)` }} />
       </button>
     </div>
   );

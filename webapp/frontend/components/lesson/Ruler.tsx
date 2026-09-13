@@ -150,7 +150,8 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
         className="absolute top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-[#2e251c]/80 text-[#f3e7d3] hover:bg-[#2e251c]"
         style={{ right: 0.6 * cm, width: 1.1 * cm, height: 1.1 * cm }}
       >
-        <X className="h-1/2 w-1/2" />
+        {/* The X turns back against the ruler, so it never looks like a plus */}
+        <X className="h-1/2 w-1/2" style={{ transform: `rotate(${-place.angle}deg)` }} />
       </button>
     </div>
   );

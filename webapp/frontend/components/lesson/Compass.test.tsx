@@ -153,4 +153,53 @@ describe("Compass", () => {
     fireEvent.pointerUp(grip, touch(1, 258, 284));
     off();
   });
+
+  it("keeps every part of the circle the pencil has passed over, going back and on past the start", () => {
+    const line: DrivenLine = { to: vi.fn(), end: vi.fn() };
+    const { off } = registerPage(line);
+    render(<Harness />);
+    const handle = screen.getByRole("img", { name: "Turn to draw" });
+
+    // A quarter turn one way, back to the start, then an eighth of a turn on past it the other way.
+    fireEvent.pointerDown(handle, touch(1, 200, 250));
+    fireEvent.pointerMove(handle, touch(1, 250, 300));
+    fireEvent.pointerMove(handle, touch(1, 200, 250));
+    fireEvent.pointerMove(handle, touch(1, 200 - 50 * Math.SQRT1_2, 300 - 50 * Math.SQRT1_2));
+    const arc = vi.mocked(line.to).mock.lastCall![0];
+    expect(arc).toHaveLength(136);
+    expect(arc[0][0]).toBeCloseTo(200 + 40 * Math.SQRT1_2);
+    expect(arc[0][1]).toBeCloseTo(300 - 40 * Math.SQRT1_2);
+    expect(arc[135][0]).toBeCloseTo(200);
+    expect(arc[135][1]).toBeCloseTo(340);
+    fireEvent.pointerUp(handle, touch(1, 164, 264));
+    off();
+  });
+
+  it("stands the right way up again, mirrored, once a turn leaves the pencil left of the needle", () => {
+    render(<Harness />);
+    const handle = screen.getByRole("img", { name: "Turn to draw" });
+    fireEvent.pointerDown(handle, touch(1, 200, 250));
+    fireEvent.pointerMove(handle, touch(1, 250, 300));
+    fireEvent.pointerMove(handle, touch(1, 200, 350));
+    // Part way through the turn, the handle stays where the finger has it.
+    expect(compasses().style.transform).toBe("rotate(180deg)");
+    fireEvent.pointerUp(handle, touch(1, 200, 350));
+
+    expect(compasses().style.transform).toBe("rotate(180deg) scaleY(-1)");
+    // The X turns back against them, so it still reads as an X.
+    const x = screen.getByRole("button", { name: "Hide the compasses" }).querySelector("svg")!;
+    expect(x.style.transform).toBe("scaleY(-1) rotate(-180deg)");
+  });
+
+  it("flips the pencil to the other side of the needle without drawing", () => {
+    const line: DrivenLine = { to: vi.fn(), end: vi.fn() };
+    const { startLine, off } = registerPage(line);
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Flip to the other side" }));
+
+    expect(compasses().style.transform).toBe("rotate(180deg) scaleY(-1)");
+    expect(compasses().style.left).toBe("200px");
+    expect(startLine).not.toHaveBeenCalled();
+    off();
+  });
 });

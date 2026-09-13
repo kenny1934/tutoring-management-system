@@ -13,6 +13,7 @@ import type { useLessonInk } from "@/hooks/useLessonInk";
 import type { SessionExercise } from "@/types";
 import { PdfPageViewer, type PdfViewerHandle, type PdfViewState } from "./PdfPageViewer";
 import { DraftPane, DraftTrayLane } from "./DraftPane";
+import { DraftSplit } from "./DraftSplit";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
 
 /** The ink handlers the worksheet and the Draft draw through. */
@@ -175,10 +176,9 @@ export function LessonViewerArea({
               </ErrorBoundary>
             )}
 
-            {/* The Draft, beside the worksheet */}
+            {/* The Draft, beside the worksheet, behind a border that drags to share the space */}
             {draft.draftOpen && exercise && (
-              <>
-                {divider}
+              <DraftSplit>
                 <DraftPane
                   exerciseId={exercise.id}
                   annotations={ink.annotations}
@@ -190,7 +190,7 @@ export function LessonViewerArea({
                   tools={ink.tools}
                   onClose={draft.closeDraft}
                 />
-              </>
+              </DraftSplit>
             )}
 
             {/* While the Draft is open, the Pen Tray floats in here, across the worksheet and the Draft */}
