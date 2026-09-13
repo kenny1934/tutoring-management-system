@@ -94,20 +94,16 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   // The box runs from the needle across to the pencil, and up past the hinge to hold the turn handle.
   const boxHeight = rise + 1.5 * cm;
 
-  // Which end has caught a point in the ink during this drag, for the ring that shows it.
-  const [snapped, setSnapped] = useState<"needle" | "pencil" | null>(null);
-  const { toolRef, place, held, onScreen, setPlace, handlers } = usePlacedTool({
+  const { toolRef, place, held, snapped: needleSnapped, onScreen, setPlace, handlers } = usePlacedTool({
     containerRef,
     // The needle starts left of the middle and below it, so the compasses stand centred on the start.
     start: [start[0] - span / 2, start[1] + rise / 2],
     // They turn round the needle from the handle at the top, so a second finger beside them isn't caught to turn them.
     near: () => false,
-    snap: (needle, scale) => {
-      const found = inkSnapAt(needle, SNAP_REACH_CM * cm * scale);
-      setSnapped(found ? "needle" : null);
-      return found;
-    },
+    snap: (needle, scale) => inkSnapAt(needle, SNAP_REACH_CM * cm * scale),
   });
+  // Whether the pencil has caught a point in the ink during this drag of its grip.
+  const [pencilSnapped, setPencilSnapped] = useState(false);
   const [busy, setBusy] = useState(false);
   const inUse = held || busy;
   // While any part is held, the compasses stay mirrored or not as they were
@@ -140,7 +136,6 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     const m = measure();
     if (!m || !grabHandle(e)) return;
     const pencil = pointAt(m.needle, widthRef.current * m.onScreenCm, place.angle);
-    setSnapped(null);
     gripRef.current = { pointerId: e.pointerId, offset: [pencil[0] - e.clientX, pencil[1] - e.clientY] };
   };
 
@@ -155,7 +150,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     const found = inkSnapAt(dragged, SNAP_REACH_CM * m.onScreenCm);
     const caught = found && opensTo(widthTo(found)) ? found : null;
     const pencil = caught ?? dragged;
-    setSnapped(caught ? "pencil" : null);
+    setPencilSnapped(caught !== null);
     setWidth(caught ? widthTo(caught) : snapWidth(widthTo(dragged)));
     setPlace({ cx: place.cx, cy: place.cy, angle: directionOf(m.needle, pencil) });
   };
@@ -164,13 +159,13 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     if (gripRef.current?.pointerId !== e.pointerId) return;
     e.stopPropagation();
     gripRef.current = null;
+    setPencilSnapped(false);
     setBusy(false);
   };
 
   const turnDown = (e: React.PointerEvent<HTMLSpanElement>) => {
     const m = measure();
     if (!m || !grabHandle(e)) return;
-    setSnapped(null);
     turnRef.current = {
       pointerId: e.pointerId,
       last: directionOf(m.needle, [e.clientX, e.clientY]),
@@ -214,10 +209,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   };
 
   // The pencil swings round to the other side of the needle, at the same width, and draws nothing.
-  const flip = () => {
-    setSnapped(null);
-    setPlace({ cx: place.cx, cy: place.cy, angle: (place.angle + 180) % 360 });
-  };
+  const flip = () => setPlace({ cx: place.cx, cy: place.cy, angle: (place.angle + 180) % 360 });
 
   // The drawing, in the box's own pixels, with the needle at its bottom-left
   // corner and the pencil at its bottom-right. Mirrored, the box is flipped
@@ -231,6 +223,8 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   const pencilShoulder = along(pencil, hinge, 1.3 * cm);
   const lead = along(pencil, hinge, 0.35 * cm);
   const legColour = inUse ? "#a0704b" : "#6b5a42";
+  // Which end has caught a point in the ink during this drag, for the ring that shows it.
+  const snapped = needleSnapped ? "needle" : pencilSnapped ? "pencil" : null;
   // The buttons' icons turn back against the compasses, so an X never looks like a plus.
   const upright = `${mirrored ? "scaleY(-1) " : ""}rotate(${-place.angle}deg)`;
 
@@ -251,9 +245,8 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
         title={LABEL}
         data-touch-owner=""
         {...handlers}
-        // A new drag starts with nothing caught, and keeps the way up the compasses have now.
+        // A new drag keeps the way up the compasses have now.
         onPointerDown={(e) => {
-          setSnapped(null);
           setHeldMirror(mirrored);
           handlers.onPointerDown(e);
         }}
@@ -290,7 +283,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
           <line x1={lead[0]} y1={lead[1]} x2={pencil[0]} y2={pencil[1]} stroke="#2e251c" strokeWidth={0.12 * cm} strokeLinecap="round" />
           <circle cx={hinge[0]} cy={hinge[1]} r={0.32 * cm} fill="#2e251c" style={{ pointerEvents: "visiblePainted" }} />
           {/* A ring round the point in the ink that the needle or the pencil has caught */}
-          {inUse && snapped && (
+          {snapped && (
             <circle
               data-snapped={snapped}
               cx={snapped === "needle" ? needle[0] : pencil[0]}

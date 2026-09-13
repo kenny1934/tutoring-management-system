@@ -57,7 +57,7 @@ const direction = (a: Vec, b: Vec) => Math.atan2(b[1] - a[1], b[0] - a[0]);
  * degrees with Shift.
  *
  * A tool can also snap its centre while one finger drags it, as the compasses'
- * needle snaps onto points in the ink.
+ * needle and the protractor's centre mark snap onto points in the ink.
  *
  * The tool's element takes the ref and the pointer handlers this returns.
  */
@@ -67,6 +67,8 @@ export function usePlacedTool({ containerRef, start, near, snap }: PlacedToolOpt
   const placeRef = useRef(place);
   const holdRef = useRef<Hold | null>(null);
   const [held, setHeld] = useState(false);
+  // Whether a one-finger drag has the tool's centre on a point its snap caught, for a ring that shows it.
+  const [snapped, setSnapped] = useState(false);
   // The window's listener and the drag read the latest tests through these, so nothing is added again when one changes.
   const nearRef = useRef(near);
   const snapRef = useRef(snap);
@@ -141,11 +143,13 @@ export function usePlacedTool({ containerRef, start, near, snap }: PlacedToolOpt
     if (now.length !== base.points.length) return;
     if (now.length === 1) {
       const centre: Vec = [base.centre[0] + now[0][0] - base.points[0][0], base.centre[1] + now[0][1] - base.points[0][1]];
-      const snapped = snapRef.current?.(centre, measure()?.scale ?? 1);
-      moveTo(snapped ?? centre, base.angle);
+      const caught = snapRef.current?.(centre, measure()?.scale ?? 1) ?? null;
+      setSnapped(caught !== null);
+      moveTo(caught ?? centre, base.angle);
       return;
     }
-    // Two fingers turn it about the point between them, and carry it with that point.
+    // Two fingers turn it about the point between them, and carry it with that point, so it lets go of any point it caught.
+    setSnapped(false);
     const turned = ((direction(now[0], now[1]) - direction(base.points[0], base.points[1])) * 180) / Math.PI;
     const angle = snapAngle(base.angle + turned);
     const turn = ((angle - base.angle) * Math.PI) / 180;
@@ -165,6 +169,7 @@ export function usePlacedTool({ containerRef, start, near, snap }: PlacedToolOpt
     }
     holdRef.current = null;
     setHeld(false);
+    setSnapped(false);
   };
 
   // While the tool is held, a second finger that lands just beside it is
@@ -214,6 +219,7 @@ export function usePlacedTool({ containerRef, start, near, snap }: PlacedToolOpt
     toolRef,
     place,
     held,
+    snapped,
     onScreen,
     /** Puts the tool somewhere new, for a tool with handles of its own, such as the compasses. */
     setPlace,

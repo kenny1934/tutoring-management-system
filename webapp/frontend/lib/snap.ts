@@ -1,9 +1,11 @@
 /**
- * Points in lesson ink that the compasses and the ruler snap onto: where two
- * lines of pen ink cross, the ends of lines, and single dots tapped to mark a
- * point. Two arcs crossing is how most constructions find a point, so the
- * compasses' needle and pencil, and the ends of a line along the ruler, can
- * land on it exactly, not just wherever a finger happens to stop.
+ * Points in lesson ink that the compasses, the ruler and the protractor snap
+ * onto: where two lines of pen ink cross, the ends of lines, and single dots
+ * tapped to mark a point. Two arcs crossing is how most constructions find a
+ * point, so the tools can land on one exactly, not just wherever a finger
+ * happens to stop. The compasses' needle and pencil snap, and so do the ends
+ * of a line along the ruler, the protractor's centre mark, and the end of a
+ * ray drawn from it.
  *
  * Only pen ink counts. Highlighter strokes are broad, and their edges would
  * catch the compasses in places nobody meant. A line crossing itself doesn't

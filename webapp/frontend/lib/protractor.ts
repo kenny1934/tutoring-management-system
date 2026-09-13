@@ -130,6 +130,15 @@ export function rayTo(frame: ProtractorFrame, point: Vec): { ends: [Vec, Vec]; d
   return { ends: [[frame.cx, frame.cy], fromPolar(frame, r, whole)], degrees: Math.abs(whole) };
 }
 
+/**
+ * A ray from the centre mark that runs exactly to a point, such as a point in
+ * the ink that a ray's end is pinned to. It's usually a fraction of a degree
+ * off a whole one, so only its reading is turned to the nearest whole degree.
+ */
+export function rayOnto(frame: ProtractorFrame, point: Vec): { ends: [Vec, Vec]; degrees: number } {
+  return { ends: [[frame.cx, frame.cy], point], degrees: Math.abs(Math.round(polar(frame, point).angle)) };
+}
+
 // An angle kept to the curved edge, from 0 to 180. Below the baseline, a point counts as the nearer end.
 const onCurve = (angle: number) => Math.min(Math.max(angle < -90 ? angle + 360 : angle, 0), 180);
 

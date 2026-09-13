@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { useLayoutEffect, type RefObject } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/ruler";
 import { SNAP_REACH_CM } from "@/lib/snap";
 import type { Vec } from "@/lib/stroke-select";
+import { SnapRings, usePinnedPoints } from "./SnapRings";
 
 const LABEL = "Ruler: drag it to move it, or turn it with two fingers or the mouse wheel";
 
@@ -77,9 +78,6 @@ function rulerFrame(at: OnScreen, cm: number): RulerFrame {
   };
 }
 
-const samePoints = (a: Vec[], b: Vec[]) =>
-  a.length === b.length && a.every((p, i) => Math.abs(p[0] - b[i][0]) < 0.01 && Math.abs(p[1] - b[i][1]) < 0.01);
-
 /**
  * A ruler lying on a pane, 16 cm long in true centimetres of the printed
  * page. It sits in the container with the pages, so it scrolls and zooms with
@@ -103,18 +101,12 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
     start,
     near: (at, point) => nearRuler(rulerFrame(at, cm), point, CATCH),
   });
-  // The points the line being drawn is pinned to, in the container's own pixels, for the rings that show them.
-  const [pinned, setPinned] = useState<Vec[]>([]);
+  // The points the line being drawn is pinned to, for the rings that show them.
+  const { pinned, show, clear } = usePinnedPoints(containerRef);
 
   // A line that starts just outside either long edge runs along it, half a
   // pen width out, and stops at the ruler's ends, unless an end is pinned.
   useLayoutEffect(() => {
-    const showPinned = (points: Vec[], scale: number) => {
-      const box = containerRef.current?.getBoundingClientRect();
-      if (!box) return;
-      const next = points.map(([x, y]): Vec => [(x - box.left) / scale, (y - box.top) / scale]);
-      setPinned((prev) => (samePoints(prev, next) ? prev : next));
-    };
     const guide: DrawingGuide = {
       lineFrom: (start, offset) => {
         const at = onScreen();
@@ -127,10 +119,10 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
           to: (point) => {
             const to = ontoEdge(edge, point, offset);
             const pinTo = inkSnapAt(to, reach);
-            showPinned([pinFrom, pinTo].filter((p): p is Vec => p !== null), at.scale);
+            show([pinFrom, pinTo], at.scale);
             return pinnedLine(edge.along, from, to, pinFrom, pinTo);
           },
-          end: () => setPinned([]),
+          end: clear,
         };
       },
     };
@@ -138,7 +130,7 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
     return () => {
       guides.delete(guide);
     };
-  }, [guides, onScreen, cm, containerRef]);
+  }, [guides, onScreen, cm, show, clear]);
 
   const length = RULER_LENGTH_CM * cm;
   const height = RULER_HEIGHT_CM * cm;
@@ -187,16 +179,7 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
         </button>
       </div>
 
-      {/* A ring round each point in the ink that the line being drawn is pinned to */}
-      {pinned.map(([x, y], i) => (
-        <span
-          key={i}
-          data-pinned=""
-          aria-hidden="true"
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#2563eb]"
-          style={{ left: x, top: y, width: 0.6 * cm, height: 0.6 * cm, filter: darkMode ? PDF_DARK_FILTER : undefined }}
-        />
-      ))}
+      <SnapRings points={pinned} cm={cm} darkMode={darkMode} />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  arcTo, draggedSize, lineKind, nearProtractor, polar, rayTo, readProtractorSize, saveProtractorSize, shownTilt,
+  arcTo, draggedSize, lineKind, nearProtractor, polar, rayOnto, rayTo, readProtractorSize, saveProtractorSize, shownTilt,
   type ProtractorFrame,
 } from "./protractor";
 
@@ -46,6 +46,14 @@ describe("rayTo", () => {
 
   it("reads from the baseline on either side of it", () => {
     expect(rayTo(LEVEL, point(80, -30)).degrees).toBe(30);
+  });
+});
+
+describe("rayOnto", () => {
+  it("runs from the centre mark exactly to the point, with only its reading turned to a whole degree", () => {
+    const ray = rayOnto(LEVEL, point(80, 34.6));
+    expect(ray.ends).toEqual([[200, 200], point(80, 34.6)]);
+    expect(ray.degrees).toBe(35);
   });
 });
 

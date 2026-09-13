@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useRef } from "react";
 import { Protractor } from "./Protractor";
 import type { DrawingGuide } from "@/lib/ruler";
+import { registerInkPage, type InkPage } from "@/hooks/useInkPages";
 import type { Vec } from "@/lib/stroke-select";
 
 // jsdom lays nothing out, so the container sits at the screen's corner at its
@@ -44,6 +45,16 @@ function renderWithGuide() {
   const utils = render(<Harness guides={guides} />);
   const [guide] = guides;
   return { ...utils, guides, guide };
+}
+
+/** A page that takes the whole screen, with these points in its ink for the protractor to snap onto. */
+function registerPage(points: Vec[]) {
+  const page: InkPage = {
+    index: 0, label: "Page 1", width: 1000, height: 1000, onPagesChange: () => {}, strokes: () => [], receive: () => {},
+    contains: () => true, startLine: () => null,
+    snapNear: (at, reach) => points.find((p) => Math.hypot(p[0] - at[0], p[1] - at[1]) <= reach) ?? null,
+  };
+  return registerInkPage("protractor-test-page", page);
 }
 
 describe("Protractor", () => {
@@ -120,6 +131,42 @@ describe("Protractor", () => {
     });
     expect(points).toHaveLength(61);
     expect(protractor()).toHaveTextContent("60°");
+  });
+
+  it("snaps its centre mark onto a point in the ink as it's dragged near, and shows a ring there", () => {
+    const off = registerPage([[260, 300]]);
+    const { container } = render(<Harness guides={new Set()} />);
+    // The drag carries the centre mark from (200, 300) to (258, 302), within half a centimetre of the point.
+    fireEvent.pointerDown(protractor(), touch(1, 200, 270));
+    fireEvent.pointerMove(protractor(), touch(1, 258, 272));
+    expect(protractor().style.left).toBe("210px");
+    expect(protractor().style.top).toBe("250px");
+    expect(container.querySelectorAll("[data-pinned]")).toHaveLength(1);
+
+    // Further away, it lets go and follows the finger again.
+    fireEvent.pointerMove(protractor(), touch(1, 280, 272));
+    expect(protractor().style.left).toBe("230px");
+    expect(container.querySelectorAll("[data-pinned]")).toHaveLength(0);
+    fireEvent.pointerUp(protractor(), touch(1, 280, 272));
+    off();
+  });
+
+  it("runs a ray exactly to a point in the ink its end comes near, reading the nearest whole degree", () => {
+    const target = point(40, 34.6);
+    const off = registerPage([target]);
+    const { guide, container } = renderWithGuide();
+    const line = guide.lineFrom([201, 299], 0)!;
+    let ends: Vec[] = [];
+    act(() => {
+      ends = line.to(point(41, 36));
+    });
+    expect(ends).toEqual([[200, 300], target]);
+    expect(protractor()).toHaveTextContent("35° / 145°");
+    expect(container.querySelectorAll("[data-pinned]")).toHaveLength(1);
+
+    act(() => line.end?.());
+    expect(container.querySelectorAll("[data-pinned]")).toHaveLength(0);
+    off();
   });
 
   it("guides nothing from a start on its plastic, and leaves the guides once it's put away", () => {
