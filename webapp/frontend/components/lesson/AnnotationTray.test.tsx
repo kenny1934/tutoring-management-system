@@ -82,6 +82,18 @@ describe("AnnotationTray", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  it("covers the page in view from More, and offers to remove the cover once it's there", () => {
+    const onToggle = vi.fn();
+    const { rerender } = render(<Harness cover={{ covered: false, onToggle }} pageInView={{ number: 2, hasInk: false }} />);
+    fireEvent.click(button("More"));
+    fireEvent.click(screen.getByRole("button", { name: /Cover this page/ }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+
+    rerender(<Harness cover={{ covered: true, onToggle }} pageInView={{ number: 2, hasInk: false }} />);
+    fireEvent.click(button("More"));
+    expect(screen.getByRole("button", { name: /Remove the cover/ })).toHaveTextContent("Page 2");
+  });
+
   it("clears only the page in view, and names it", () => {
     const onClearPage = vi.fn();
     render(<Harness onClearAll={() => {}} onClearPage={onClearPage} pageInView={{ number: 2, hasInk: true }} />);

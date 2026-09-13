@@ -12,6 +12,7 @@ import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { AnnotationTray } from "./AnnotationTray";
 import { PageThumbnails } from "./PageThumbnails";
+import { PageCover } from "./PageCover";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
@@ -62,9 +63,9 @@ interface RenderedPage {
 
 /**
  * How one exercise was last left in the viewer: its zoom, where it was
- * scrolled to, and whether its ink was hidden. The lesson views keep one per
- * exercise, so switching between students or worksheets and back puts each
- * one where the tutor left it.
+ * scrolled to, whether its ink was hidden, and any covers on its pages. The
+ * lesson views keep one per exercise, so switching between students or
+ * worksheets and back puts each one where the tutor left it.
  */
 export interface PdfViewState {
   zoom: number;
@@ -73,6 +74,11 @@ export interface PdfViewState {
   scrollTop: number;
   scrollLeft: number;
   inkHidden: boolean;
+  /**
+   * The covers on the exercise's pages, keyed by page index. Each is where
+   * its top edge sits, from 0 at the top of the page to 1 at the bottom.
+   */
+  covers: Record<number, number>;
 }
 
 interface PdfPageViewerProps {
@@ -135,8 +141,8 @@ interface PdfPageViewerProps {
   /** What to say when there's nothing to show. Defaults to asking for an exercise. */
   emptyMessage?: string;
   /**
-   * Where each exercise's zoom, scroll position and "Hide ink" are kept, keyed
-   * by exercise id. Pass the same map on every render.
+   * Where each exercise's zoom, scroll position, "Hide ink" and covers are
+   * kept, keyed by exercise id. Pass the same map on every render.
    */
   viewStates?: Map<number, PdfViewState>;
   /**
@@ -245,6 +251,12 @@ export function PdfPageViewer({
   const [inkHidden, setInkHiddenState] = useState(false);
   const inkHiddenRef = useRef(false);
 
+  // The covers on this exercise's pages, from the tray's "Cover this page".
+  // Like "Hide ink", they're part of the exercise's view, so they come back
+  // when the tutor returns to it, but they're never saved as ink.
+  const [covers, setCoversState] = useState<Record<number, number>>({});
+  const coversRef = useRef<Record<number, number>>({});
+
   // ---------- Each exercise's view ----------
   // When the exercise changes, the view it was last left in waits here until
   // its pages are showing. `zoomTarget` is the zoom it settles on, and the
@@ -261,12 +273,19 @@ export function PdfPageViewer({
       scrollTop: el?.scrollTop ?? 0,
       scrollLeft: el?.scrollLeft ?? 0,
       inkHidden: inkHiddenRef.current,
+      covers: coversRef.current,
     });
   }, [exerciseId, viewStates]);
 
   const setInkHidden = useCallback((hidden: boolean) => {
     inkHiddenRef.current = hidden;
     setInkHiddenState(hidden);
+    saveView();
+  }, [saveView]);
+
+  const setCovers = useCallback((next: Record<number, number>) => {
+    coversRef.current = next;
+    setCoversState(next);
     saveView();
   }, [saveView]);
 
@@ -566,9 +585,11 @@ export function PdfPageViewer({
     const saved = exerciseId != null ? viewStates?.get(exerciseId) : undefined;
     restoreRef.current = saved
       ? { ...saved }
-      : { zoom: 0, userZoomed: false, scrollTop: 0, scrollLeft: 0, inkHidden: false };
+      : { zoom: 0, userZoomed: false, scrollTop: 0, scrollLeft: 0, inkHidden: false, covers: {} };
     inkHiddenRef.current = saved?.inkHidden ?? false;
     setInkHiddenState(inkHiddenRef.current);
+    coversRef.current = saved?.covers ?? {};
+    setCoversState(coversRef.current);
     setCurrentVisiblePage(1);
     // Pages that are already this exercise's won't arrive again, so settle now.
     if (exerciseId != null && renderCacheRef.current.get(exerciseId)?.pages === pagesRef.current) settleZoom();
@@ -888,6 +909,11 @@ export function PdfPageViewer({
   const tbLabel = "hidden @[560px]/toolbar:inline";
   // The tray floats over this viewer, unless the lesson view has given it an area of its own.
   const placeTray = (tray: ReactNode) => (trayArea ? createPortal(tray, trayArea) : tray);
+  // Put a cover over a page from its top edge down, or take it off again.
+  const toggleCover = (pageIndex: number) => {
+    const { [pageIndex]: current, ...others } = coversRef.current;
+    setCovers(current === undefined ? { ...coversRef.current, [pageIndex]: 0 } : others);
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -1066,6 +1092,15 @@ export function PdfPageViewer({
                   />
                 )}
               </div>
+              {tools && covers[i] !== undefined && (
+                <PageCover
+                  top={covers[i]}
+                  onMove={(top) => setCovers({ ...coversRef.current, [i]: top })}
+                  onRemove={() => toggleCover(i)}
+                  scale={zoom / 100}
+                  darkMode={pdfDarkMode}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -1084,6 +1119,7 @@ export function PdfPageViewer({
             ? { number: currentVisiblePage, hasInk: (annotations[currentVisiblePage - 1]?.length ?? 0) > 0 }
             : undefined}
           onClearPage={onClearPage && (() => onClearPage(currentVisiblePage - 1))}
+          cover={{ covered: covers[currentVisiblePage - 1] !== undefined, onToggle: () => toggleCover(currentVisiblePage - 1) }}
           inkRevision={annotations}
           onSaveAnnotated={onSaveAnnotated}
         />,

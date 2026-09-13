@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Hand, Eraser, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
-  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight,
+  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds,
 } from "lucide-react";
 import {
   useFloating, offset, flip, shift, autoUpdate, useDismiss, useInteractions, FloatingPortal,
@@ -34,6 +34,11 @@ interface AnnotationTrayProps {
    */
   pageInView?: { number: number; hasInk: boolean };
   onClearPage?: () => void;
+  /**
+   * The cover on the page in view, for More's "Cover this page" and "Remove
+   * the cover". Leave it out where pages can't be covered.
+   */
+  cover?: { covered: boolean; onToggle: () => void };
   /**
    * Anything that changes whenever the ink does, such as the exercise's
    * annotations object. The message offering to undo a clear goes away when
@@ -134,7 +139,7 @@ function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big
  */
 export function AnnotationTray({
   tools, onUndo, onRedo, inkHidden, onInkHiddenChange, hasInk, onClearAll,
-  pageInView, onClearPage, inkRevision, onSaveAnnotated,
+  pageInView, onClearPage, cover, inkRevision, onSaveAnnotated,
 }: AnnotationTrayProps) {
   const [{ dock, collapsed }, setTrayState] = useState(readTrayState);
   const [morphing, setMorphing] = useState(false);
@@ -573,6 +578,14 @@ export function AnnotationTray({
                   hint={inkHidden ? "Your ink is only hidden, not deleted." : undefined}
                   onClick={() => { onInkHiddenChange(!inkHidden); setPop(null); }}
                 />
+                {cover && (
+                  <MenuRow
+                    icon={<Blinds className="h-5 w-5" />}
+                    label={cover.covered ? "Remove the cover" : "Cover this page"}
+                    hint={pageInView ? `Page ${pageInView.number}` : undefined}
+                    onClick={() => { setPop(null); cover.onToggle(); }}
+                  />
+                )}
                 {onClearPage && pageInView && (
                   <MenuRow
                     danger
