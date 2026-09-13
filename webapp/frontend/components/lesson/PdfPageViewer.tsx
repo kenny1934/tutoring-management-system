@@ -41,9 +41,11 @@ function formatCompactPageRange(pages: number[]): string {
   return groups.join(",");
 }
 
-// The toolbar's row and its buttons. The Draft's toolbar uses them too, so the two bars match.
+// The toolbar's row and its buttons. The Draft's toolbar uses them too, so the
+// two bars match. A pane too narrow for all its buttons scrolls its row
+// sideways, with a thin scrollbar that shows there's more.
 export const toolbarRow = cn(
-  "flex flex-nowrap items-center gap-1 px-2 py-0.5 min-w-0",
+  "flex flex-nowrap items-center gap-1 px-2 py-0.5 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-thin",
   "border-b border-[#d4c4a8] dark:border-[#3a3228]",
   "bg-[#f0e6d4] dark:bg-[#252018]",
 );
@@ -949,7 +951,7 @@ export function PdfPageViewer({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
-      {/* Toolbar. It never wraps: the file name gives way first, then the button labels. */}
+      {/* Toolbar. It never wraps: the file name gives way first, then the button labels, and then the row scrolls sideways. */}
       <div className={cn(toolbarRow, "@container/toolbar")}>
         {toolbarStart}
         {exerciseLabel && (

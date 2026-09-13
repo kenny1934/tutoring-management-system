@@ -52,6 +52,9 @@ const DARK_PAPER: CSSProperties = { filter: PDF_DARK_FILTER };
 const TRAY_TOP = PAGE_BAR_HEIGHT + TRAY_CLEARANCE;
 
 const barButton = cn(tbBtn, "transition-colors");
+// The words on Tools and Clear only show when the Draft has room for them, as
+// the worksheet's button words do. Narrower than that, the bar scrolls sideways.
+const barLabel = "hidden @[440px]/draftbar:inline";
 // Clear and its options grey out the same way when there's nothing to clear.
 const greyedOut = "disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed";
 const toolOption = cn(
@@ -181,7 +184,7 @@ export function DraftPane({
 
   return (
     <section aria-label="Draft" className="relative flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
-      <div className={toolbarRow}>
+      <div className={cn(toolbarRow, "@container/draftbar")}>
         <span className="ml-1 text-xs font-medium text-[#8b7355] dark:text-[#a09080]">Draft</span>
         <div className="flex-1" />
         <div role="group" aria-label="Paper" className="flex flex-none gap-0.5">
@@ -201,10 +204,11 @@ export function DraftPane({
               type="button"
               {...triggerProps}
               title="Put a ruler, a protractor or compasses on the draft"
+              aria-label="Tools"
               className={cn(barButton, measuring ? tbBtnOn : tbBtnIdle)}
             >
               <DraftingCompass className="h-5 w-5" />
-              Tools
+              <span className={barLabel}>Tools</span>
             </button>
           )}
         >
@@ -232,10 +236,12 @@ export function DraftPane({
                 triggerProps.onClick();
               }}
               disabled={!draftHasInk}
+              title="Clear"
+              aria-label="Clear"
               className={cn(barButton, tbBtnIdle, greyedOut)}
             >
               <Trash2 className="h-5 w-5" />
-              Clear
+              <span className={barLabel}>Clear</span>
             </button>
           )}
         >

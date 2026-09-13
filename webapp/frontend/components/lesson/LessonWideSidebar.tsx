@@ -592,8 +592,8 @@ export function LessonWideSidebar({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Mode toggle */}
-      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[#e8d4b8] dark:border-[#3a3228]">
+      {/* Mode toggle. In a narrow sidebar, Collapse all shows only its icon, so the row still fits. */}
+      <div className="@container/sidebarhead flex items-center gap-1 px-2 py-1.5 border-b border-[#e8d4b8] dark:border-[#3a3228]">
         <button
           onClick={() => onSidebarModeChange("by-student")}
           className={cn(
@@ -622,10 +622,12 @@ export function LessonWideSidebar({
           <button
             type="button"
             onClick={foldAll}
-            className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors text-[#8b7355] dark:text-[#a09080] hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
+            title={anyOpen ? "Collapse all" : "Expand all"}
+            aria-label={anyOpen ? "Collapse all" : "Expand all"}
+            className="ml-auto flex flex-none items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors text-[#8b7355] dark:text-[#a09080] hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
           >
             {anyOpen ? <ChevronsDownUp className="h-3 w-3" /> : <ChevronsUpDown className="h-3 w-3" />}
-            {anyOpen ? "Collapse all" : "Expand all"}
+            <span className="hidden @[280px]/sidebarhead:inline">{anyOpen ? "Collapse all" : "Expand all"}</span>
           </button>
         )}
       </div>

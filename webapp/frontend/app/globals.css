@@ -1942,6 +1942,13 @@ html {
   display: none; /* Chrome, Safari, Opera */
 }
 
+/* A thin scrollbar in the lesson viewer's brown, for a row that only scrolls when
+   it's too narrow, such as a toolbar. It shows there's more to reach. */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 115, 85, 0.5) transparent;
+}
+
 /* ===== LOGIN PAGE ANIMATIONS ===== */
 
 @keyframes warm-gradient {
