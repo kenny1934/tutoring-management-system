@@ -113,7 +113,7 @@ def _build_proposal_response(
 
 
 @router.get("/makeup-proposals", response_model=List[MakeupProposalResponse])
-async def get_proposals(
+def get_proposals(
     tutor_id: Optional[int] = Query(None, description="Filter by target tutor (slots or needs_input)"),
     proposed_by: Optional[int] = Query(None, description="Filter by proposer"),
     status: Optional[str] = Query(None, description="Filter by status (pending, approved, rejected)"),
@@ -222,7 +222,7 @@ def get_pending_count(
 
 
 @router.get("/makeup-proposals/{proposal_id}", response_model=MakeupProposalResponse)
-async def get_proposal(
+def get_proposal(
     proposal_id: int,
     include_session: bool = Query(True, description="Include original session details"),
     db: Session = Depends(get_db)
@@ -1163,7 +1163,7 @@ async def cancel_proposal(
 
 
 @router.get("/makeup-proposals/for-session/{session_id}", response_model=Optional[MakeupProposalResponse])
-async def get_proposal_for_session(
+def get_proposal_for_session(
     session_id: int,
     db: Session = Depends(get_db)
 ):

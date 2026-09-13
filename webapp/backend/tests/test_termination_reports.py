@@ -16,7 +16,6 @@ Q1 2026 runs 22 Jan to 21 Apr, and its opening week is 22-28 Jan.
 """
 from __future__ import annotations
 
-import asyncio
 from datetime import date
 
 import pytest
@@ -27,16 +26,6 @@ from routers import terminations as T
 YEAR, QUARTER = 2026, 1
 OPENING = date(2026, 1, 22)
 CLOSING = date(2026, 4, 21)
-
-
-def _run(coro):
-    """A private loop rather than asyncio.run(), which clears the process's
-    current loop on the way out and breaks tests elsewhere in the suite."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
 
 
 @pytest.fixture
@@ -81,17 +70,17 @@ def _pack(db_session, student, tutor, *, first_lesson, lessons=8, location="MSA"
 
 
 def _stats(db_session, admin, location=None):
-    return _run(T.get_termination_stats(
+    return T.get_termination_stats(
         request=None, quarter=QUARTER, year=YEAR, location=location, tutor_id=None,
         current_user=admin, db=db_session,
-    ))
+    )
 
 
 def _left_this_quarter(db_session, admin, location=None):
-    return _run(T.get_terminated_students(
+    return T.get_terminated_students(
         request=None, quarter=QUARTER, year=YEAR, location=location, tutor_id=None,
         current_user=admin, db=db_session,
-    ))
+    )
 
 
 class TestWhoLeft:
@@ -236,10 +225,10 @@ class TestDrillDown:
         db_session.commit()
 
         def names(stat_type):
-            rows = _run(T.get_stat_details(
+            rows = T.get_stat_details(
                 request=None, stat_type=stat_type, quarter=QUARTER, year=YEAR,
                 location=None, tutor_id=None, current_user=admin, db=db_session,
-            ))
+            )
             return sorted(r.student_name for r in rows)
 
         stats = _stats(db_session, admin)
@@ -256,10 +245,10 @@ class TestDrillDown:
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as exc:
-            _run(T.get_stat_details(
+            T.get_stat_details(
                 request=None, stat_type="something else", quarter=QUARTER, year=YEAR,
                 location=None, tutor_id=None, current_user=admin, db=db_session,
-            ))
+            )
         assert exc.value.status_code == 400
 
 
@@ -273,9 +262,9 @@ class TestAvailableQuarters:
         for s in (one, two):
             _pack(db_session, s, tutor, first_lesson=date(2026, 1, 21), lessons=8)
 
-        quarters = _run(T.get_available_quarters(
+        quarters = T.get_available_quarters(
             request=None, location=None, current_user=admin, db=db_session,
-        ))
+        )
 
         assert (QUARTER, YEAR) in [(q.quarter, q.year) for q in quarters]
 
@@ -288,8 +277,8 @@ class TestAvailableQuarters:
         s = _student(db_session, "Ending today")
         _pack(db_session, s, tutor, first_lesson=hk_now().date(), lessons=1)
 
-        quarters = _run(T.get_available_quarters(
+        quarters = T.get_available_quarters(
             request=None, location=None, current_user=admin, db=db_session,
-        ))
+        )
 
         assert current not in [(q.quarter, q.year) for q in quarters]

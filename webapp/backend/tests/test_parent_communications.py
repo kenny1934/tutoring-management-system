@@ -203,13 +203,9 @@ class TestTypeDistribution:
         return tutor
 
     def _stats(self, db_session, tutor):
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(get_communication_stats(
-                tutor_id=None, location=None, _=tutor, db=db_session,
-            ))
-        finally:
-            loop.close()
+        return get_communication_stats(
+            tutor_id=None, location=None, _=tutor, db=db_session,
+        )
 
     def test_a_type_nobody_named_is_still_counted(self, db_session):
         tutor = self._world(db_session, ["Course Renewal", "Course Renewal", "Concern"])

@@ -822,7 +822,7 @@ async def create_enrollment(
 
 
 @router.get("/enrollments/{enrollment_id}/renewal-data", response_model=RenewalDataResponse)
-async def get_renewal_data(
+def get_renewal_data(
     enrollment_id: int,
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -893,7 +893,7 @@ async def get_renewal_data(
 
 
 @router.get("/enrollments/renewals", response_model=List[RenewalListItem])
-async def get_enrollments_needing_renewal(
+def get_enrollments_needing_renewal(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     include_expired: bool = Query(True, description="Include already expired enrollments"),
@@ -1217,7 +1217,7 @@ def get_renewal_counts(
 
 
 @router.get("/enrollments", response_model=List[EnrollmentResponse])
-async def get_enrollments(
+def get_enrollments(
     student_id: Optional[int] = Query(None, description="Filter by student ID"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
@@ -1383,7 +1383,7 @@ def get_active_enrollment_objects(db: Session, location: Optional[str] = None):
 
 
 @router.get("/enrollments/active", response_model=List[EnrollmentResponse])
-async def get_active_enrollments(
+def get_active_enrollments(
     location: Optional[str] = Query(None, description="Filter by location"),
     db: Session = Depends(get_db)
 ):
@@ -1423,7 +1423,7 @@ async def get_active_enrollments(
 
 
 @router.get("/enrollments/overdue", response_model=List[OverdueEnrollment])
-async def get_overdue_enrollments(
+def get_overdue_enrollments(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     db: Session = Depends(get_db)
@@ -1585,7 +1585,7 @@ async def get_overdue_enrollments(
 
 
 @router.get("/enrollments/my-students", response_model=List[EnrollmentResponse])
-async def get_my_students(
+def get_my_students(
     tutor_id: int = Query(..., description="Filter by tutor ID (required)"),
     location: Optional[str] = Query(None, description="Filter by location"),
     db: Session = Depends(get_db)
@@ -1690,7 +1690,7 @@ async def get_my_students(
 # ============================================
 
 @router.get("/enrollments/trials", response_model=List[TrialListItem])
-async def get_trials(
+def get_trials(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID (for tutor-specific view)"),
     current_user: Tutor = Depends(get_current_user),
@@ -1847,7 +1847,7 @@ async def get_trials(
 
 
 @router.get("/enrollments/{enrollment_id}", response_model=EnrollmentResponse)
-async def get_enrollment_detail(
+def get_enrollment_detail(
     enrollment_id: int,
     db: Session = Depends(get_db)
 ):
@@ -1882,7 +1882,7 @@ async def get_enrollment_detail(
 
 
 @router.get("/enrollments/{enrollment_id}/detail", response_model=EnrollmentDetailResponse)
-async def get_enrollment_detail_for_modal(
+def get_enrollment_detail_for_modal(
     enrollment_id: int,
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -1997,7 +1997,7 @@ async def get_enrollment_detail_for_modal(
 
 
 @router.get("/enrollments/{enrollment_id}/fee-message")
-async def get_fee_message(
+def get_fee_message(
     enrollment_id: int,
     lang: str = Query("zh", description="Language: 'zh' for Chinese, 'en' for English"),
     lessons_paid: int = Query(6, description="Number of lessons for renewal (default 6)"),

@@ -43,7 +43,7 @@ def _is_placeholder(url: str) -> bool:
 # ============================================
 
 @router.get("/wecom/webhooks", response_model=list[WecomWebhookResponse])
-async def list_webhooks(
+def list_webhooks(
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(require_admin_view),
 ):
@@ -65,7 +65,7 @@ async def list_webhooks(
 
 
 @router.get("/wecom/webhooks/{webhook_id}", response_model=WecomWebhookAdminResponse)
-async def get_webhook(
+def get_webhook(
     webhook_id: int,
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(require_admin_write),
@@ -380,7 +380,7 @@ async def send_image(
 # ============================================
 
 @router.get("/wecom/message-log", response_model=list[WecomMessageLogResponse])
-async def get_message_log(
+def get_message_log(
     webhook_name: Optional[str] = Query(None, description="Filter by webhook name"),
     send_status: Optional[str] = Query(None, description="Filter by status: pending, sent, failed"),
     limit: int = Query(50, ge=1, le=200),

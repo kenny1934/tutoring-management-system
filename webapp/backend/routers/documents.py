@@ -247,7 +247,7 @@ def _doc_query(db: Session):
 
 
 @router.get("/documents", response_model=List[DocumentListItem])
-async def list_documents(
+def list_documents(
     doc_type: Optional[str] = Query(None, pattern="^(worksheet|lesson_plan)$"),
     search: Optional[str] = Query(None),
     include_archived: bool = Query(False),
@@ -315,7 +315,7 @@ async def list_documents(
 
 
 @router.get("/documents/tags")
-async def list_all_tags(
+def list_all_tags(
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),
 ):
@@ -419,7 +419,7 @@ async def delete_tag(
 
 
 @router.get("/documents/{doc_id}", response_model=DocumentResponse)
-async def get_document(
+def get_document(
     doc_id: int,
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),
@@ -754,7 +754,7 @@ async def unlock_document(
 # ─── Document Versions ───────────────────────────────────────────────
 
 @router.get("/documents/{doc_id}/versions", response_model=List[DocumentVersionResponse])
-async def list_versions(
+def list_versions(
     doc_id: int,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -778,7 +778,7 @@ async def list_versions(
 
 
 @router.get("/documents/{doc_id}/versions/{ver_id}", response_model=DocumentVersionDetailResponse)
-async def get_version(
+def get_version(
     doc_id: int,
     ver_id: int,
     _: Tutor = Depends(reject_guest),
@@ -922,7 +922,7 @@ def _folder_to_response(folder: DocumentFolder, db: Session) -> dict:
 
 
 @router.get("/document-folders", response_model=List[FolderResponse])
-async def list_folders(
+def list_folders(
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),
 ):

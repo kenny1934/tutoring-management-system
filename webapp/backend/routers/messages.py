@@ -797,7 +797,7 @@ async def get_presence(current_user: Tutor = Depends(get_current_user)):
 
 
 @router.get("/messages/templates", response_model=List[MessageTemplateResponse])
-async def get_templates(
+def get_templates(
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
@@ -958,7 +958,7 @@ async def unsnooze_threads(
 
 
 @router.get("/messages/snoozed")
-async def get_snoozed_threads(
+def get_snoozed_threads(
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
@@ -983,7 +983,7 @@ async def get_snoozed_threads(
 
 
 @router.get("/messages/scheduled")
-async def get_scheduled_messages(
+def get_scheduled_messages(
     tutor_id: int = Query(...),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
@@ -1327,7 +1327,7 @@ async def get_message_threads(
 
 
 @router.get("/messages/sent", response_model=List[MessageResponse])
-async def get_sent_messages(
+def get_sent_messages(
     tutor_id: int = Query(..., description="Tutor ID to get sent messages for"),
     limit: int = Query(50, ge=1, le=500, description="Maximum messages to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
@@ -1381,7 +1381,7 @@ def get_unread_count(
 
 
 @router.get("/messages/unread-counts-by-category", response_model=CategoryUnreadCountsResponse)
-async def get_unread_counts_by_category(
+def get_unread_counts_by_category(
     tutor_id: int = Query(..., description="Tutor ID"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
@@ -1449,7 +1449,7 @@ async def get_unread_counts_by_category(
 
 
 @router.get("/messages/mentions", response_model=PaginatedThreadsResponse)
-async def get_mentioned_threads(
+def get_mentioned_threads(
     tutor_id: int = Query(..., description="Current tutor ID"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -1548,7 +1548,7 @@ async def get_mentioned_threads(
 
 
 @router.get("/messages/thread/{message_id}", response_model=ThreadResponse)
-async def get_thread(
+def get_thread(
     message_id: int,
     tutor_id: int = Query(..., description="Current tutor ID"),
     db: Session = Depends(get_db),
@@ -1923,7 +1923,7 @@ async def unarchive_messages(
 
 
 @router.get("/messages/archived", response_model=PaginatedThreadsResponse)
-async def get_archived_messages(
+def get_archived_messages(
     tutor_id: int = Query(..., description="Current tutor ID"),
     limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
@@ -2189,7 +2189,7 @@ async def thread_unpin_messages(
 
 
 @router.get("/messages/pinned", response_model=PaginatedThreadsResponse)
-async def get_pinned_messages(
+def get_pinned_messages(
     tutor_id: int = Query(..., description="Current tutor ID"),
     limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),

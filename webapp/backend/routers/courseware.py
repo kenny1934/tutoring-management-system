@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/courseware/popularity")
-async def get_courseware_popularity(
+def get_courseware_popularity(
     time_range: str = Query("recent", description="Time range: 'recent' (14 days) or 'all-time'"),
     exercise_type: Optional[str] = Query(None, description="Filter by exercise type: 'Classwork' or 'Homework'"),
     grade: Optional[str] = Query(None, description="Filter by grade (e.g., 'F1', 'F2')"),
@@ -104,7 +104,7 @@ async def get_courseware_popularity(
 
 
 @router.get("/courseware/usage-detail")
-async def get_courseware_usage_detail(
+def get_courseware_usage_detail(
     filename: str = Query(..., description="Filename to get details for"),
     time_range: str = Query("recent", description="Time range: 'recent' (14 days) or 'all-time'"),
     exercise_type: Optional[str] = Query(None, description="Filter by exercise type: 'CW' or 'HW'"),

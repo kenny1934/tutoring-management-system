@@ -130,7 +130,7 @@ def load_homework_to_check(db: Session, session_ids: List[int]) -> dict:
 
 
 @router.get("/homework/to-check", response_model=List[SessionHomeworkResponse])
-async def get_homework_to_check(
+def get_homework_to_check(
     session_ids: str = Query(..., description="Comma-separated session IDs"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
@@ -149,7 +149,7 @@ async def get_homework_to_check(
 
 
 @router.get("/homework/counts", response_model=List[HomeworkCountResponse])
-async def get_homework_counts(
+def get_homework_counts(
     session_ids: str = Query(..., description="Comma-separated session IDs"),
     db: Session = Depends(get_db),
     current_user: Tutor = Depends(get_current_user),
@@ -187,7 +187,7 @@ async def get_homework_counts(
 
 
 @router.get("/students/{student_id}/homework", response_model=List[HomeworkCompletionResponse])
-async def get_student_homework(
+def get_student_homework(
     student_id: int,
     limit: int = Query(DEFAULT_STUDENT_HOMEWORK_LIMIT, ge=1, le=MAX_STUDENT_HOMEWORK),
     db: Session = Depends(get_db),

@@ -155,7 +155,7 @@ def get_quarter_window(db: Session, year: int, quarter: int) -> QuarterWindow:
 
 
 @router.get("/terminations/quarters", response_model=List[QuarterOption])
-async def get_available_quarters(
+def get_available_quarters(
     request: Request,
     location: Optional[str] = Query(None, description="Filter by location"),
     current_user: Tutor = Depends(reject_guest),
@@ -211,7 +211,7 @@ async def get_available_quarters(
 
 
 @router.get("/terminations", response_model=List[TerminatedStudentResponse])
-async def get_terminated_students(
+def get_terminated_students(
     request: Request,
     quarter: int = Query(..., ge=1, le=4, description="Quarter (1-4)"),
     year: int = Query(..., ge=2020, description="Year"),
@@ -408,7 +408,7 @@ async def delete_termination_record(
 
 
 @router.get("/terminations/stats", response_model=TerminationStatsResponse)
-async def get_termination_stats(
+def get_termination_stats(
     request: Request,
     quarter: int = Query(..., ge=1, le=4, description="Quarter (1-4)"),
     year: int = Query(..., ge=2020, description="Year"),
@@ -767,7 +767,7 @@ def get_review_needed_count(
 
 
 @router.get("/terminations/stats/trends", response_model=List[QuarterTrendPoint])
-async def get_termination_trends(
+def get_termination_trends(
     request: Request,
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
@@ -781,7 +781,7 @@ async def get_termination_trends(
     """
     # Get available quarters (already in descending order)
     # Exclude current in-progress quarter — its data is incomplete
-    quarters_result = await get_available_quarters(request=request, location=location, current_user=current_user, db=db)
+    quarters_result = get_available_quarters(request=request, location=location, current_user=current_user, db=db)
     current_q, current_y = get_quarter_for_date(hk_now().date())
     quarters = [q for q in quarters_result
                 if not (q.quarter == current_q and q.year == current_y)][:8]
@@ -805,7 +805,7 @@ async def get_termination_trends(
 
 
 @router.get("/terminations/stats/details", response_model=List[StatDetailStudent])
-async def get_stat_details(
+def get_stat_details(
     request: Request,
     stat_type: str = Query(..., description="Type of stat: opening, terminated, or closing"),
     quarter: int = Query(..., ge=1, le=4, description="Quarter (1-4)"),

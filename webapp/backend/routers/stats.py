@@ -19,7 +19,7 @@ router = APIRouter()
 
 
 @router.get("/locations", response_model=List[str])
-async def get_locations(response: Response, db: Session = Depends(get_db), _: Tutor = Depends(reject_guest)):
+def get_locations(response: Response, db: Session = Depends(get_db), _: Tutor = Depends(reject_guest)):
     """
     Get list of all unique locations from enrollments and sessions.
 
@@ -51,7 +51,7 @@ async def get_locations(response: Response, db: Session = Depends(get_db), _: Tu
 
 
 @router.get("/stats", response_model=DashboardStats)
-async def get_dashboard_stats(
+def get_dashboard_stats(
     location: Optional[str] = Query(None, description="Filter stats by location"),
     tutor_id: Optional[int] = Query(None, description="Filter stats by tutor (for 'My View' mode)"),
     db: Session = Depends(get_db),
@@ -194,7 +194,7 @@ async def get_dashboard_stats(
 
 
 @router.get("/active-students", response_model=List[StudentBasic])
-async def get_active_students(
+def get_active_students(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor (for 'My View' mode)"),
     db: Session = Depends(get_db),
@@ -243,7 +243,7 @@ async def get_active_students(
 
 
 @router.get("/search")
-async def global_search(
+def global_search(
     request: Request,
     q: str = Query(..., min_length=2, description="Search query"),
     location: Optional[str] = Query(None, description="Filter by location"),
@@ -415,7 +415,7 @@ async def global_search(
 
 
 @router.get("/activity-feed", response_model=List[ActivityEvent])
-async def get_activity_feed(
+def get_activity_feed(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor (for 'My View' mode)"),
     limit: int = Query(50, ge=1, le=100, description="Max events to return"),

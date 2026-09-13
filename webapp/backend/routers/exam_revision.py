@@ -275,7 +275,7 @@ def _check_tutor_conflicts(
 # ============================================
 
 @router.get("/exam-revision/slots", response_model=List[ExamRevisionSlotResponse])
-async def get_revision_slots(
+def get_revision_slots(
     calendar_event_id: Optional[int] = Query(None, description="Filter by calendar event (exam) ID"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
@@ -711,7 +711,7 @@ async def delete_revision_slot(
 # ============================================
 
 @router.get("/exam-revision/slots/{slot_id}/eligible-students", response_model=List[EligibleStudentResponse])
-async def get_eligible_students(
+def get_eligible_students(
     slot_id: int,
     db: Session = Depends(get_db)
 ):
@@ -823,7 +823,7 @@ async def get_eligible_students(
 
 
 @router.get("/exam-revision/calendar/{event_id}/eligible-students", response_model=List[EligibleStudentResponse])
-async def get_eligible_students_by_exam(
+def get_eligible_students_by_exam(
     event_id: int,
     locations: Optional[str] = Query(None, description="Comma-separated locations to filter by (optional - omit for all locations)"),
     db: Session = Depends(get_db)
@@ -1156,7 +1156,7 @@ async def remove_enrollment(
 # ============================================
 
 @router.get("/exam-revision/calendar/{event_id}/date")
-async def get_exam_date(event_id: int, db: Session = Depends(get_db)):
+def get_exam_date(event_id: int, db: Session = Depends(get_db)):
     """Get the start date of a calendar event by ID."""
     event = db.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
     if not event:
@@ -1165,7 +1165,7 @@ async def get_exam_date(event_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/exam-revision/calendar", response_model=List[ExamWithRevisionSlotsResponse])
-async def get_exams_with_revision_slots(
+def get_exams_with_revision_slots(
     school: Optional[str] = Query(None, description="Filter by school"),
     grade: Optional[str] = Query(None, description="Filter by grade"),
     location: Optional[str] = Query(None, description="Filter slots by location"),
@@ -1330,7 +1330,7 @@ def _count_eligible_students(
 # ============================================
 
 @router.get("/exam-revision/calendar/sync-status")
-async def get_calendar_sync_status(
+def get_calendar_sync_status(
     db: Session = Depends(get_db)
 ):
     """
