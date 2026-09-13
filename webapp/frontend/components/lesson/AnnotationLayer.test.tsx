@@ -342,6 +342,44 @@ describe("AnnotationLayer lasso", () => {
     expect(tick.size).toBe(3);
   });
 
+  it("recolours the selection from its Colour button as one change, and keeps it selected", () => {
+    const { svg, onStrokesChange } = renderLasso();
+    drawLoop(svg, ROUND_TICK);
+    fireEvent.click(screen.getByRole("button", { name: "Colour" }));
+
+    // The tick is blue pen ink, so only the pen colours are offered, with blue picked.
+    expect(screen.queryByRole("button", { name: "Yellow highlighter" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Blue pen" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Red pen" }));
+
+    expect(onStrokesChange).toHaveBeenCalledTimes(1);
+    const [line, tick]: Stroke[] = onStrokesChange.mock.calls[0][0];
+    expect(line).toBe(LINE);
+    expect(tick).toEqual({ ...TICK, color: "#dc2626" });
+    expect(deleteButton()).not.toBeNull();
+  });
+
+  it("offers both rows of colours for pen and highlighter ink together, and each colour changes only its own kind", () => {
+    const MARK: Stroke = { points: [[8, 12, 0.5], [22, 12, 0.5]], color: "#facc15", size: 12, kind: "highlighter" };
+    const props = lassoProps();
+    const { container } = render(<AnnotationLayer {...props} strokes={[TICK, MARK]} />);
+    drawLoop(container.querySelector("svg")!, ROUND_TICK);
+    fireEvent.click(screen.getByRole("button", { name: "Colour" }));
+    fireEvent.click(screen.getByRole("button", { name: "Green highlighter" }));
+
+    const [tick, mark]: Stroke[] = props.onStrokesChange.mock.calls[0][0];
+    expect(tick).toBe(TICK);
+    expect(mark).toEqual({ ...MARK, color: "#4ade80" });
+  });
+
+  it("changes nothing when the colour picked is the one the ink already has", () => {
+    const { svg, onStrokesChange } = renderLasso();
+    drawLoop(svg, ROUND_TICK);
+    fireEvent.click(screen.getByRole("button", { name: "Colour" }));
+    fireEvent.click(screen.getByRole("button", { name: "Blue pen" }));
+    expect(onStrokesChange).not.toHaveBeenCalled();
+  });
+
   it("deletes the selection with the Delete key", () => {
     const { svg, onStrokesChange } = renderLasso();
     drawLoop(svg, ROUND_TICK);

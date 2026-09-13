@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  insideLoop, strokesInLoop, selectionBounds, clampMove, moveStrokes, dragScale, clampScale, resizeStrokes,
+  insideLoop, strokesInLoop, selectionBounds, clampMove, moveStrokes, dragScale, clampScale, resizeStrokes, recolourStrokes,
 } from "./stroke-select";
 import type { Stroke } from "@/hooks/useAnnotations";
 
@@ -78,5 +78,18 @@ describe("resizing a selection", () => {
     expect(clampScale(bounds, 10, 1000, 1000)).toBe(4);
     // On a 60 by 60 page, the ink's 20 across from x = 10 can only grow to 50 across.
     expect(clampScale(bounds, 10, 60, 60)).toBe(2.5);
+  });
+});
+
+describe("recolourStrokes", () => {
+  it("changes only ink of the colour's own kind, and leaves everything else the same object", () => {
+    const pen = stroke([[0, 0], [5, 5]]);
+    const highlighter: Stroke = { ...stroke([[0, 10], [5, 10]]), color: "#facc15", kind: "highlighter" };
+
+    const [bluePen, sameHighlighter] = recolourStrokes([pen, highlighter], "pen", "#2563eb");
+    expect(bluePen).toEqual({ ...pen, color: "#2563eb" });
+    expect(sameHighlighter).toBe(highlighter);
+    // A stroke that's already the colour picked is left as it is.
+    expect(recolourStrokes([pen], "pen", pen.color)[0]).toBe(pen);
   });
 });

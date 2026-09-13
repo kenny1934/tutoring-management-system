@@ -8,10 +8,11 @@ import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { eraseStrokes, type Box } from "@/lib/stroke-eraser";
 import { hasBrowserModifier, isTypingTarget } from "@/lib/lesson-utils";
 import {
-  clampMove, clampScale, dragScale, moveStrokes, resizeStrokes, selectionBounds, strokesInLoop, type Vec,
+  clampMove, clampScale, dragScale, moveStrokes, recolourStrokes, resizeStrokes, selectionBounds, strokesInLoop, type Vec,
 } from "@/lib/stroke-select";
+import type { InkSwatch } from "@/hooks/useAnnotationTools";
 import { clipToPage, ontoEdge, type RulerEdge, type RulerGuide } from "@/lib/ruler";
-import { DELETE_BUTTON_ROOM, LassoSelection, type SelectionDragKind } from "./LassoSelection";
+import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
 
 interface AnnotationLayerProps {
   /** Page width in CSS pixels */
@@ -45,7 +46,7 @@ interface AnnotationLayerProps {
   fading?: boolean;
   /**
    * The lasso is picked. A loop drawn round some ink selects it, and the
-   * selection can then be moved, resized from its corner or deleted.
+   * selection can then be moved, resized from its corner, recoloured or deleted.
    */
   isSelecting?: boolean;
   /** Called when strokes change (new stroke added or stroke removed) */
@@ -60,8 +61,8 @@ interface AnnotationLayerProps {
   suspended?: boolean;
   /**
    * How much the page is scaled on screen, such as the worksheet's zoom. The
-   * lasso's handle and Delete button are divided by it, so they stay the size
-   * of a finger at any zoom. The Draft never zooms, so it leaves this at 1.
+   * lasso's handle and its bar of buttons are divided by it, so they stay the
+   * size of a finger at any zoom. The Draft never zooms, so it leaves this at 1.
    */
   uiScale?: number;
   /** The ruler on this pane, while it's out. A line that starts just outside its edge runs along it. */
@@ -114,7 +115,7 @@ interface InkSelection {
   bounds: Box;
   /** Half the widest selected stroke's width, which is how far its ink reaches past the centre line. */
   reach: number;
-  /** The Delete button goes under the box, because the ink is near the top of the page. */
+  /** The bar of buttons goes under the box, because the ink is near the top of the page. */
   below: boolean;
 }
 
@@ -584,16 +585,30 @@ export function AnnotationLayer({
     setEraserCursor(null);
   }, [handleRubEnd]);
 
-  /** Keep the given strokes as the selection, and work out where its Delete button fits. */
+  /** Keep the given strokes as the selection, and work out where its bar of buttons fits. */
   const select = useCallback(
     (picked: Stroke[]) => {
       const bounds = selectionBounds(picked);
       const reach = Math.max(...picked.map((s) => s.size)) / 2;
       const rect = svgRef.current?.getBoundingClientRect();
       const onScreen = rect && height > 0 ? rect.height / height : 1;
-      setSelection({ strokes: picked, bounds, reach, below: (bounds.top - reach) * onScreen < DELETE_BUTTON_ROOM });
+      setSelection({ strokes: picked, bounds, reach, below: (bounds.top - reach) * onScreen < SELECTION_BAR_ROOM });
     },
     [height]
+  );
+
+  /**
+   * Put changed copies of the selected strokes on the page in their places,
+   * as one change, and keep them selected, ready for the next change.
+   */
+  const replaceSelection = useCallback(
+    (changed: Stroke[]) => {
+      if (!selection) return;
+      const replaced = new Map(selection.strokes.map((s, i) => [s, changed[i]]));
+      onStrokesChange(strokes.map((s) => replaced.get(s) ?? s));
+      select(changed);
+    },
+    [selection, strokes, onStrokesChange, select]
   );
 
   const handleLassoDown = useCallback(
@@ -687,21 +702,26 @@ export function AnnotationLayer({
       if (!selection) return;
       const { strokes: picked, bounds } = selection;
       const done = current.preview;
-      let changed: Stroke[] | null = null;
-      if (done.kind === "move" && (done.dx !== 0 || done.dy !== 0)) changed = moveStrokes(picked, done.dx, done.dy);
-      if (done.kind === "resize" && done.scale !== 1) changed = resizeStrokes(picked, [bounds.left, bounds.top], done.scale);
-      if (!changed) return;
-      const replaced = new Map(picked.map((s, i) => [s, changed[i]]));
-      onStrokesChange(strokes.map((s) => replaced.get(s) ?? s));
-      select(changed);
+      if (done.kind === "move" && (done.dx !== 0 || done.dy !== 0)) replaceSelection(moveStrokes(picked, done.dx, done.dy));
+      if (done.kind === "resize" && done.scale !== 1) replaceSelection(resizeStrokes(picked, [bounds.left, bounds.top], done.scale));
     },
-    [selection, strokes, onStrokesChange, select]
+    [selection, replaceSelection]
   );
 
   const handleSelectionCancel = useCallback(() => {
     dragRef.current = null;
     setDrag(null);
   }, []);
+
+  // A colour that changes none of the selected ink, because it's all that colour already, changes nothing.
+  const recolourSelection = useCallback(
+    (swatch: InkSwatch) => {
+      if (!selection) return;
+      const changed = recolourStrokes(selection.strokes, swatch.kind, swatch.color);
+      if (changed.some((s, i) => s !== selection.strokes[i])) replaceSelection(changed);
+    },
+    [selection, replaceSelection]
+  );
 
   const deleteSelection = useCallback(() => {
     if (!selection) return;
@@ -899,12 +919,14 @@ export function AnnotationLayer({
           box={selectionBox}
           width={width}
           height={height}
+          strokes={selection.strokes}
           uiScale={uiScale}
           below={selection.below}
           onPointerDown={handleSelectionDown}
           onPointerMove={handleSelectionMove}
           onPointerUp={handleSelectionUp}
           onPointerCancel={handleSelectionCancel}
+          onRecolour={recolourSelection}
           onDelete={deleteSelection}
         />
       )}

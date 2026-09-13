@@ -109,7 +109,7 @@ const btnOn = "bg-[#f3e7d3] text-[#2e251c] hover:bg-[#f3e7d3]";
 const Separator = () => <span aria-hidden className="flex-none w-px h-7 mx-1 bg-[#4a3c2e] dark:bg-[#5a4a39]" />;
 
 /** A colour's mark: a dot for a pen, a chisel tip for a highlighter. An outline passed in follows its shape. */
-function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big?: boolean; className?: string }) {
+export function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big?: boolean; className?: string }) {
   return (
     <span
       className={cn(

@@ -1,15 +1,18 @@
 /**
  * The lasso for lesson annotations. You draw a loop round some ink to select
- * it, and then you can move it, resize it or delete it. Strokes are never
- * changed in place, so a move or a resize makes new strokes, and the drawing
- * layer hands the page's new strokes back once, when the finger lifts. That
- * keeps each move, resize or delete a single step in the undo history, and
- * saving, the server and the PDF don't need to know the lasso exists.
+ * it, and then you can move it, resize it, recolour it or delete it. Strokes
+ * are never changed in place, so each of those makes new strokes, and the
+ * drawing layer hands the page's new strokes back once, when the finger lifts
+ * or the colour is picked. That keeps each one a single step in the undo
+ * history, and saving, the server and the PDF don't need to know the lasso exists.
  */
-import type { Stroke } from "@/hooks/useAnnotations";
+import type { InkKind, Stroke } from "@/hooks/useAnnotations";
 import { boundingBox, type Box } from "@/lib/stroke-eraser";
 
 export type Vec = [number, number];
+
+/** Whether a stroke is pen or highlighter ink. Pen strokes carry no kind, like ink saved before the highlighter. */
+export const kindOf = (stroke: Stroke): InkKind => stroke.kind ?? "pen";
 
 /** A resize can shrink the ink to a quarter of its size, or grow it to four times its size. */
 export const MIN_SCALE = 0.25;
@@ -127,4 +130,14 @@ export function resizeStrokes(strokes: Stroke[], corner: Vec, scale: number): St
     ...stroke,
     points: stroke.points.map(([x, y, p]): [number, number, number] => [cx + (x - cx) * scale, cy + (y - cy) * scale, p]),
   }));
+}
+
+/**
+ * The strokes with one kind of ink in a new colour. A colour only changes ink
+ * of its own kind, so picking a pen colour never touches highlighter ink. Ink
+ * of the other kind, and any stroke that's already that colour, stays the same
+ * object, so the page can tell nothing happened to it.
+ */
+export function recolourStrokes(strokes: Stroke[], kind: InkKind, colour: string): Stroke[] {
+  return strokes.map((stroke) => (kindOf(stroke) === kind && stroke.color !== colour ? { ...stroke, color: colour } : stroke));
 }
