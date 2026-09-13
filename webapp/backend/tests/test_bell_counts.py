@@ -15,7 +15,7 @@ however many make-ups are pending. It walks every pending make-up in the
 school to find the ones belonging to the tutor who asked, so any query made
 per make-up multiplies across the whole school on every poll.
 """
-import asyncio
+import inspect
 import itertools
 from datetime import timedelta
 
@@ -23,8 +23,17 @@ import pytest
 from sqlalchemy import event
 
 from constants import SessionStatus, hk_now
-from main import app
 from models import Enrollment, SessionLog, Student, Tutor
+from routers import (
+    enrollments,
+    extension_requests,
+    makeup_proposals,
+    messages,
+    parent_communications,
+    sessions,
+    terminations,
+    tutor_memos,
+)
 from tests.conftest import test_engine
 from tests.helpers import make_auth_token
 
@@ -195,24 +204,23 @@ def test_aged_count_queries_do_not_grow_with_pending_make_ups(client, db_session
     assert with_twenty_one == with_one
 
 
-BELL_COUNT_PATHS = [
-    "/api/sessions/unchecked-attendance/count",
-    "/api/sessions/aged-pending-makeups/count",
-    "/api/messages/unread-count",
-    "/api/makeup-proposals/pending-count",
-    "/api/terminations/review-needed-count",
-    "/api/extension-requests/pending-count",
-    "/api/enrollments/renewal-counts",
-    "/api/parent-communications/contact-needed-count",
-    "/api/tutor-memos/pending-count",
-]
+# The handler behind each count the bell polls, keyed by the URL the frontend
+# calls. The handlers are imported directly because how an included router's
+# routes show up on the app has changed between FastAPI versions, and CI
+# installs whichever version is newest.
+BELL_COUNT_HANDLERS = {
+    "/api/sessions/unchecked-attendance/count": sessions.get_unchecked_attendance_count,
+    "/api/sessions/aged-pending-makeups/count": sessions.get_aged_pending_makeups_count,
+    "/api/messages/unread-count": messages.get_unread_count,
+    "/api/makeup-proposals/pending-count": makeup_proposals.get_pending_count,
+    "/api/terminations/review-needed-count": terminations.get_review_needed_count,
+    "/api/extension-requests/pending-count": extension_requests.get_pending_count,
+    "/api/enrollments/renewal-counts": enrollments.get_renewal_counts,
+    "/api/parent-communications/contact-needed-count": parent_communications.get_contact_needed_count,
+    "/api/tutor-memos/pending-count": tutor_memos.get_pending_count,
+}
 
 
-@pytest.mark.parametrize("path", BELL_COUNT_PATHS)
+@pytest.mark.parametrize("path", list(BELL_COUNT_HANDLERS))
 def test_bell_counts_run_in_the_thread_pool(path):
-    endpoints = [
-        route.endpoint for route in app.routes
-        if getattr(route, "path", None) == path and "GET" in getattr(route, "methods", set())
-    ]
-    assert endpoints, f"no GET route at {path}"
-    assert not any(asyncio.iscoroutinefunction(e) for e in endpoints)
+    assert not inspect.iscoroutinefunction(BELL_COUNT_HANDLERS[path])
