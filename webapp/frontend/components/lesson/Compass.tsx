@@ -7,9 +7,10 @@ import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool } from "@/hooks/usePlacedTool";
 import { inkPageAt, inkSnapAt, type DrivenLine } from "@/hooks/useInkPages";
 import {
-  COMPASS_SNAP_CM, COMPASS_START_CM, addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, pointAt,
+  COMPASS_START_CM, addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, pointAt,
   snapWidth, sweepRange,
 } from "@/lib/compass";
+import { SNAP_REACH_CM } from "@/lib/snap";
 import type { Vec } from "@/lib/stroke-select";
 
 const LABEL =
@@ -102,7 +103,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     // They turn round the needle from the handle at the top, so a second finger beside them isn't caught to turn them.
     near: () => false,
     snap: (needle, scale) => {
-      const found = inkSnapAt(needle, COMPASS_SNAP_CM * cm * scale);
+      const found = inkSnapAt(needle, SNAP_REACH_CM * cm * scale);
       setSnapped(found ? "needle" : null);
       return found;
     },
@@ -151,7 +152,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     const dragged: Vec = [e.clientX + grip.offset[0], e.clientY + grip.offset[1]];
     const widthTo = (point: Vec) => Math.hypot(point[0] - m.needle[0], point[1] - m.needle[1]) / m.onScreenCm;
     // A point the compasses can open to sets the width exactly. Anywhere else, the width snaps to a whole millimetre.
-    const found = inkSnapAt(dragged, COMPASS_SNAP_CM * m.onScreenCm);
+    const found = inkSnapAt(dragged, SNAP_REACH_CM * m.onScreenCm);
     const caught = found && opensTo(widthTo(found)) ? found : null;
     const pencil = caught ?? dragged;
     setSnapped(caught ? "pencil" : null);

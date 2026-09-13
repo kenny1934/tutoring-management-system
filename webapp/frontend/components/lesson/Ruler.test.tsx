@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { Ruler } from "./Ruler";
 import type { DrawingGuide } from "@/lib/ruler";
+import { registerInkPage, type InkPage } from "@/hooks/useInkPages";
+import type { Vec } from "@/lib/stroke-select";
 
 // jsdom lays nothing out, so the container sits at the screen's corner at its
 // own size, which makes its pixels and screen pixels the same.
@@ -104,5 +106,35 @@ describe("Ruler", () => {
 
     unmount();
     expect(guides.size).toBe(0);
+  });
+
+  it("pins a line along its edge onto points in the ink near its ends, with a ring at each", () => {
+    // A page with two points in its ink, one near each end of the line below.
+    const points: Vec[] = [[151, 317], [249, 316]];
+    const page: InkPage = {
+      index: 0, label: "Page 1", width: 1000, height: 1000, onPagesChange: () => {}, strokes: () => [], receive: () => {},
+      contains: () => true, startLine: () => null,
+      snapNear: (at, reach) => points.find((p) => Math.hypot(p[0] - at[0], p[1] - at[1]) <= reach) ?? null,
+    };
+    const off = registerInkPage("ruler-test-page", page);
+    const guides = new Set<DrawingGuide>();
+    const { container } = render(<Harness guides={guides} />);
+    const [guide] = guides;
+
+    // With both ends near a point, the line joins the two points exactly.
+    const line = guide.lineFrom([150, 330], 0)!;
+    let ends: Vec[] = [];
+    act(() => { ends = line.to([250, 340]); });
+    expect(ends).toEqual(points);
+    expect(container.querySelectorAll("[data-pinned]")).toHaveLength(2);
+
+    // With only the start near one, the line runs from it in the ruler's direction.
+    act(() => { ends = line.to([200, 340]); });
+    expect(ends).toEqual([[151, 317], [200, 317]]);
+    expect(container.querySelectorAll("[data-pinned]")).toHaveLength(1);
+
+    act(() => line.end!());
+    expect(container.querySelectorAll("[data-pinned]")).toHaveLength(0);
+    off();
   });
 });

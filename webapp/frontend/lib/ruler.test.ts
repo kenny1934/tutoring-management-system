@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { CM, clipPointsToPage, clipToPage, edgeAt, nearRuler, ontoEdge, shownAngle, snapAngle, type RulerFrame } from "./ruler";
+import {
+  CM, clipPointsToPage, clipToPage, edgeAt, nearRuler, ontoEdge, pinnedLine, shownAngle, snapAngle, type RulerFrame,
+} from "./ruler";
 
 // A level ruler centred at (100, 100), 160 pixels long and 30 tall.
 const LEVEL: RulerFrame = { cx: 100, cy: 100, dx: 1, dy: 0, halfLength: 80, halfHeight: 15 };
@@ -92,5 +94,23 @@ describe("the ruler's angle", () => {
   it("shows from 0 to 179 degrees", () => {
     expect(shownAngle(-30)).toBe(150);
     expect(shownAngle(190)).toBe(10);
+  });
+});
+
+describe("pinnedLine", () => {
+  // A line along a level edge, from (10, 50) to (90, 50).
+  const along: [number, number] = [1, 0];
+
+  it("joins two pinned points exactly, even where the ruler lies a little off them", () => {
+    expect(pinnedLine(along, [10, 50], [90, 50], [11, 52], [89, 47])).toEqual([[11, 52], [89, 47]]);
+  });
+
+  it("runs from a single pinned point in the ruler's direction, as far as the other end reaches", () => {
+    expect(pinnedLine(along, [10, 50], [90, 50], [11, 52], null)).toEqual([[11, 52], [90, 52]]);
+    expect(pinnedLine(along, [10, 50], [90, 50], null, [89, 47])).toEqual([[10, 47], [89, 47]]);
+  });
+
+  it("leaves a line with nothing pinned as it was", () => {
+    expect(pinnedLine(along, [10, 50], [90, 50], null, null)).toEqual([[10, 50], [90, 50]]);
   });
 });

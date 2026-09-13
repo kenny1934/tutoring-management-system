@@ -1,8 +1,9 @@
 /**
- * Points in lesson ink that the compasses snap onto: where two lines of pen
- * ink cross, the ends of lines, and single dots tapped to mark a point. Two
- * arcs crossing is how most constructions find a point, so the needle and the
- * pencil can land on it exactly, not just wherever a finger happens to stop.
+ * Points in lesson ink that the compasses and the ruler snap onto: where two
+ * lines of pen ink cross, the ends of lines, and single dots tapped to mark a
+ * point. Two arcs crossing is how most constructions find a point, so the
+ * compasses' needle and pencil, and the ends of a line along the ruler, can
+ * land on it exactly, not just wherever a finger happens to stop.
  *
  * Only pen ink counts. Highlighter strokes are broad, and their edges would
  * catch the compasses in places nobody meant. A line crossing itself doesn't
@@ -11,6 +12,9 @@
 import type { Stroke } from "@/hooks/useAnnotations";
 import { distanceToSegment } from "./stroke-eraser";
 import { kindOf, type Vec } from "./stroke-select";
+
+/** How close, in centimetres, a tool has to come to a point in the ink to snap onto it. */
+export const SNAP_REACH_CM = 0.5;
 
 /** Where the segment from a to b crosses the segment from c to d, or null when they don't meet. */
 export function crossing(a: Vec, b: Vec, c: Vec, d: Vec): Vec | null {

@@ -4,7 +4,8 @@
  * finger moves it and two fingers turn it. A line that starts just outside
  * either long edge runs straight along that edge, and it's stored as an
  * ordinary two-point stroke, so saving, undo, the server and the PDF don't
- * need to know the ruler exists.
+ * need to know the ruler exists. A line that starts or ends beside a point in
+ * the ink, such as where two arcs cross, is pinned onto that point.
  *
  * The ruler's frame and edges are in screen pixels, the same space pointer
  * events arrive in, so the ruler and each drawing layer can turn them into
@@ -101,6 +102,26 @@ export function ontoEdge(edge: RulerEdge, [px, py]: Vec, offset: number): Vec {
   const { origin, along, out, ends } = edge;
   const t = Math.min(Math.max((px - origin[0]) * along[0] + (py - origin[1]) * along[1], ends[0]), ends[1]);
   return [origin[0] + along[0] * t + out[0] * offset, origin[1] + along[1] * t + out[1] * offset];
+}
+
+/** The point on the line through `through`, running in the direction `along`, that's level with `point`. */
+function slideAlong(through: Vec, along: Vec, [px, py]: Vec): Vec {
+  const t = (px - through[0]) * along[0] + (py - through[1]) * along[1];
+  return [through[0] + along[0] * t, through[1] + along[1] * t];
+}
+
+/**
+ * A line along a ruler's edge, from `from` to `to`, with either end pinned
+ * onto a point in the ink. With both ends pinned it joins the two points
+ * exactly, even where the ruler lies a little off them. With one pinned, it
+ * runs from that point in the ruler's direction, as far as the other end
+ * reaches. With neither, it's the line along the edge, unchanged.
+ */
+export function pinnedLine(along: Vec, from: Vec, to: Vec, pinFrom: Vec | null, pinTo: Vec | null): [Vec, Vec] {
+  if (pinFrom && pinTo) return [pinFrom, pinTo];
+  if (pinFrom) return [pinFrom, slideAlong(pinFrom, along, to)];
+  if (pinTo) return [slideAlong(pinTo, along, from), pinTo];
+  return [from, to];
 }
 
 /**
