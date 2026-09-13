@@ -60,7 +60,7 @@ def _load_memo(db: Session, memo_id: int) -> TutorMemo:
 
 
 @router.get("/tutor-memos", response_model=List[TutorMemoResponse])
-async def list_memos(
+def list_memos(
     student_id: Optional[int] = Query(None),
     tutor_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None, pattern="^(pending|linked)$"),
@@ -93,7 +93,7 @@ async def list_memos(
 
 
 @router.get("/tutor-memos/pending-count")
-async def get_pending_count(
+def get_pending_count(
     tutor_id: Optional[int] = Query(None),
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),
@@ -107,7 +107,7 @@ async def get_pending_count(
 
 
 @router.get("/tutor-memos/{memo_id}", response_model=TutorMemoResponse)
-async def get_memo(
+def get_memo(
     memo_id: int,
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),
@@ -319,7 +319,7 @@ async def import_memo_to_session(
 
 
 @router.get("/sessions/{session_id}/memo", response_model=Optional[TutorMemoResponse])
-async def get_memo_for_session(
+def get_memo_for_session(
     session_id: int,
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),

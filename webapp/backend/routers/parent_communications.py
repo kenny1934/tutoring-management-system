@@ -124,14 +124,17 @@ def get_active_student_ids(
 
     # Store in cache and prune expired entries
     _active_ids_cache[cache_key] = (active_ids, now + _ACTIVE_IDS_CACHE_TTL)
-    for k in [k for k, (_, exp) in _active_ids_cache.items() if now >= exp]:
-        del _active_ids_cache[k]
+    # The endpoints that read this cache run in the thread pool, so another
+    # request can add an entry while this one sweeps, or remove one first.
+    # Sweeping a snapshot and popping with a default copes with both.
+    for k in [k for k, (_, exp) in list(_active_ids_cache.items()) if now >= exp]:
+        _active_ids_cache.pop(k, None)
 
     return active_ids
 
 
 @router.get("/parent-communications", response_model=List[ParentCommunicationResponse])
-async def get_communications(
+def get_communications(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     student_id: Optional[int] = Query(None, description="Filter by student ID"),
     location: Optional[str] = Query(None, description="Filter by location (via enrollment)"),
@@ -199,7 +202,7 @@ async def get_communications(
 
 
 @router.get("/parent-communications/students", response_model=List[StudentContactStatus])
-async def get_student_contact_statuses(
+def get_student_contact_statuses(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID (shows their students)"),
     location: Optional[str] = Query(None, description="Filter by location"),
     search: Optional[str] = Query(None, description="Search by student name, ID, grade, or contact notes"),
@@ -331,7 +334,7 @@ async def get_student_contact_statuses(
 
 
 @router.get("/parent-communications/calendar", response_model=List[ParentCommunicationResponse])
-async def get_calendar_events(
+def get_calendar_events(
     start_date: date = Query(..., description="Start date for calendar range"),
     end_date: date = Query(..., description="End date for calendar range"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
@@ -388,7 +391,7 @@ async def get_calendar_events(
 
 
 @router.get("/parent-communications/pending-followups", response_model=List[StudentContactStatus])
-async def get_pending_followups(
+def get_pending_followups(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
     _: Tutor = Depends(reject_guest),
@@ -501,7 +504,7 @@ async def get_pending_followups(
 
 
 @router.get("/parent-communications/contact-needed-count")
-async def get_contact_needed_count(
+def get_contact_needed_count(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
     _: Tutor = Depends(reject_guest),
@@ -546,7 +549,7 @@ async def get_contact_needed_count(
 
 
 @router.get("/parent-communications/stats", response_model=ParentCommunicationStats)
-async def get_communication_stats(
+def get_communication_stats(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
     _: Tutor = Depends(reject_guest),
@@ -654,7 +657,7 @@ async def get_communication_stats(
 
 
 @router.get("/parent-communications/{communication_id}", response_model=ParentCommunicationResponse)
-async def get_communication(
+def get_communication(
     communication_id: int,
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
@@ -905,7 +908,7 @@ async def delete_communication(
 # ============================================
 
 @router.get("/location-settings/{location}", response_model=LocationSettingsResponse)
-async def get_location_settings(
+def get_location_settings(
     location: str,
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)

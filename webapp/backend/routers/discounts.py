@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/discounts", response_model=List[DiscountResponse])
-async def get_discounts(
+def get_discounts(
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

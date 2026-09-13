@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.get("/holidays", response_model=List[HolidayResponse])
-async def get_holidays(
+def get_holidays(
     response: Response,
     from_date: Optional[date] = Query(None, description="Filter holidays >= this date"),
     to_date: Optional[date] = Query(None, description="Filter holidays <= this date"),

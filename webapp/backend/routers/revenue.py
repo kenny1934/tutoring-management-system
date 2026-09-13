@@ -110,7 +110,7 @@ def calculate_monthly_bonus(total_revenue: Decimal) -> Decimal:
 
 
 @router.get("/revenue/monthly-summary", response_model=MonthlySummaryResponse)
-async def get_monthly_revenue_summary(
+def get_monthly_revenue_summary(
     request: Request,
     tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
@@ -180,7 +180,7 @@ async def get_monthly_revenue_summary(
 
 
 @router.get("/revenue/session-details", response_model=List[SessionRevenueDetail])
-async def get_session_revenue_details(
+def get_session_revenue_details(
     request: Request,
     tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
@@ -237,7 +237,7 @@ async def get_session_revenue_details(
 
 
 @router.get("/revenue/location-monthly-summary", response_model=LocationSummaryResponse)
-async def get_location_monthly_summary(
+def get_location_monthly_summary(
     request: Request,
     location: Optional[str] = Query(None, description="Location to aggregate (None for all locations)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
@@ -300,7 +300,7 @@ async def get_location_monthly_summary(
 
 
 @router.get("/revenue/tutor-year-matrix", response_model=TutorYearMatrixResponse)
-async def get_tutor_year_matrix(
+def get_tutor_year_matrix(
     request: Request,
     year: int = Query(..., ge=2000, le=2100, description="Calendar year"),
     location: Optional[str] = Query(None, description="Optional location filter (matches tutor's default_location)"),
