@@ -13,8 +13,8 @@ import {
 } from "@/lib/stroke-select";
 import type { InkSwatch } from "@/hooks/useAnnotationTools";
 import { registerInkPage, type DrivenLine, type InkPage } from "@/hooks/useInkPages";
-import { snapPoint } from "@/lib/snap";
-import { clipPointsToPage, type DrawingGuide, type GuidedLine } from "@/lib/ruler";
+import { SNAP_REACH_CM, snapPoint } from "@/lib/snap";
+import { CM, clipPointsToPage, type DrawingGuide, type GuidedLine } from "@/lib/drawing-guide";
 import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
 
 interface AnnotationLayerProps {
@@ -445,17 +445,27 @@ export function AnnotationLayer({
 
   const handleHoverLeave = useCallback(() => setHoveredStroke(null), []);
 
+  /**
+   * Turns points between screen pixels and this page's units, measured from
+   * where the page is on screen now, or null before the page is on screen.
+   */
+  const pageSpace = useCallback(() => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return {
+      toPage: ([x, y]: Vec): Vec => [((x - rect.left) / rect.width) * width, ((y - rect.top) / rect.height) * height],
+      toScreen: ([x, y]: Vec): Vec => [rect.left + (x / width) * rect.width, rect.top + (y / height) * rect.height],
+    };
+  }, [width, height]);
+
   const getPoint = useCallback(
     (e: React.PointerEvent): [number, number, number] => {
-      const svg = svgRef.current;
-      if (!svg) return [0, 0, 0.5];
-      const rect = svg.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * width;
-      const y = ((e.clientY - rect.top) / rect.height) * height;
-      const pressure = e.pressure > 0 ? e.pressure : 0.5;
-      return [x, y, pressure];
+      const space = pageSpace();
+      if (!space) return [0, 0, 0.5];
+      const [x, y] = space.toPage([e.clientX, e.clientY]);
+      return [x, y, e.pressure > 0 ? e.pressure : 0.5];
     },
-    [width, height]
+    [pageSpace]
   );
 
   /** Ask each tool on the pane whether a line starting at this screen point runs against it. */
@@ -474,26 +484,42 @@ export function AnnotationLayer({
   );
 
   /**
-   * The line against a tool from where the finger landed to where it is now,
-   * in page units, with whatever runs past the edge of this page dropped. A
-   * two-point line is drawn one width whatever its pressure. A line of more
-   * points, such as an arc, gets a steady pressure, which draws it one width too.
+   * A line against a tool, or one a tool draws by itself, as a stroke's
+   * points: turned from screen pixels into page units, with whatever runs past
+   * the edge of this page dropped. A two-point line is drawn one width
+   * whatever its pressure. A line of more points, such as an arc, gets a
+   * steady pressure, which draws it one width too.
    */
+  const pageLine = useCallback(
+    (points: Vec[], start: Vec): Point[] => {
+      const space = pageSpace();
+      if (!space) return [];
+      const onPage = clipPointsToPage(points.map(space.toPage), width, height);
+      if (onPage) return onPage.map(([x, y]): Point => [x, y, onPage.length > 2 ? STEADY_PRESSURE : 0.5]);
+      // A line whose whole length is off this page leaves a dot where it started.
+      const [sx, sy] = space.toPage(start);
+      return [[sx, sy, 0.5]];
+    },
+    [pageSpace, width, height]
+  );
+
+  /** The line against a tool from where the finger landed to where it is now. */
   const guidedLine = useCallback(
     (pointer: Vec): Point[] => {
       const guided = guidedRef.current;
-      const svg = svgRef.current;
-      if (!guided || !svg) return [];
-      const rect = svg.getBoundingClientRect();
-      const toPage = ([x, y]: Vec): Vec => [((x - rect.left) / rect.width) * width, ((y - rect.top) / rect.height) * height];
-      const onPage = clipPointsToPage(guided.line.to(pointer).map(toPage), width, height);
-      if (onPage) return onPage.map(([x, y]): Point => [x, y, onPage.length > 2 ? STEADY_PRESSURE : 0.5]);
-      // A line whose whole length is off this page leaves a dot where the finger landed.
-      const [sx, sy] = toPage(guided.start);
-      return [[sx, sy, 0.5]];
+      return guided ? pageLine(guided.line.to(pointer), guided.start) : [];
     },
-    [width, height]
+    [pageLine]
   );
+
+  /** A line starts, from a finger on this page or from a tool. Fading ink keeps its marks from fading until the line ends. */
+  const beginLine = useCallback(() => {
+    isDrawingStroke.current = true;
+    if (fading) {
+      holdingRef.current = true;
+      signalFade("hold");
+    }
+  }, [fading]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -501,17 +527,13 @@ export function AnnotationLayer({
       e.preventDefault();
       e.stopPropagation();
       (e.target as Element).setPointerCapture(e.pointerId);
-      isDrawingStroke.current = true;
-      if (fading) {
-        holdingRef.current = true;
-        signalFade("hold");
-      }
+      beginLine();
       guidedRef.current = startGuidedLine([e.clientX, e.clientY]);
       const first = guidedRef.current ? guidedLine([e.clientX, e.clientY]) : [getPoint(e)];
       currentPointsRef.current = first;
       setCurrentPoints([...first]);
     },
-    [isDrawing, suspended, fading, getPoint, startGuidedLine, guidedLine]
+    [isDrawing, suspended, beginLine, getPoint, startGuidedLine, guidedLine]
   );
 
   const handlePointerMove = useCallback(
@@ -545,19 +567,19 @@ export function AnnotationLayer({
   /** The line being drawn is done: keep it as a stroke, or as fading ink. */
   const finishStroke = useCallback(
     () => {
+      const byTool = guidedRef.current !== null || drivenRef.current;
       isDrawingStroke.current = false;
       drivenRef.current = false;
-      const guided = guidedRef.current;
-      guided?.line.end?.();
+      guidedRef.current?.line.end?.();
       guidedRef.current = null;
 
       let points = currentPointsRef.current;
       currentPointsRef.current = [];
       setCurrentPoints([]);
 
-      // A straight line, or a line against a tool, that has barely moved is a
-      // tap, so it's kept as a dot.
-      if ((straight || guided) && points.length === 2 && Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1]) < 1) {
+      // A straight line, or a line against or drawn by a tool, that has
+      // barely moved is a tap, so it's kept as a dot.
+      if ((straight || byTool) && points.length === 2 && Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1]) < 1) {
         points = [points[0]];
       }
 
@@ -590,12 +612,6 @@ export function AnnotationLayer({
     [finishStroke]
   );
 
-  // A driven line is finished through this, so ink that arrives on the page while it's drawn isn't lost.
-  const finishRef = useRef(finishStroke);
-  useEffect(() => {
-    finishRef.current = finishStroke;
-  });
-
   /**
    * Start a line that a tool draws by itself, such as the compasses as they
    * turn. It's drawn like a line against a tool, but its points come from the
@@ -607,29 +623,31 @@ export function AnnotationLayer({
   const startDrivenLine = useCallback(
     (start: Vec): DrivenLine | null => {
       if (!inkReady || suspended || isDrawingStroke.current) return null;
-      let latest: Vec[] = [start];
-      isDrawingStroke.current = true;
+      beginLine();
       drivenRef.current = true;
-      if (fading) {
-        holdingRef.current = true;
-        signalFade("hold");
-      }
-      guidedRef.current = { line: { to: () => latest }, start };
       return {
         to: (points) => {
           if (!drivenRef.current || points.length === 0) return;
-          latest = points;
-          const line = guidedLine(points[points.length - 1]);
+          const line = pageLine(points, start);
           currentPointsRef.current = line;
           setCurrentPoints(line);
         },
+        // It's finished through the latest render's finishStroke, so ink that arrives on the page while it's drawn isn't lost.
         end: () => {
-          if (drivenRef.current) finishRef.current();
+          if (drivenRef.current) liveRef.current.finishStroke();
         },
       };
     },
-    [inkReady, suspended, fading, guidedLine]
+    [inkReady, suspended, beginLine, pageLine]
   );
+
+  // The page list and a driven line reach the latest strokes, finishStroke
+  // and startDrivenLine through this, so the page doesn't register again with
+  // every stroke.
+  const liveRef = useRef({ strokes, finishStroke, startDrivenLine });
+  useEffect(() => {
+    liveRef.current = { strokes, finishStroke, startDrivenLine };
+  });
 
   /** Erase along the line from the last pointer position to this one. */
   const rubTo = useCallback(
@@ -720,12 +738,8 @@ export function AnnotationLayer({
 
   // While it's showing, a page with a place among the exercise's pages is on
   // the list the lasso's Move button offers, and the compasses draw through
-  // the same list. It reads the page's ink, and starts lines on it, through a
-  // ref, so the page doesn't register again with every stroke.
-  const liveRef = useRef({ strokes, startDrivenLine });
-  useEffect(() => {
-    liveRef.current = { strokes, startDrivenLine };
-  });
+  // the same list. It reads the page's ink, and starts lines on it, through
+  // liveRef, so the page doesn't register again with every stroke.
   const receiveInk = useCallback(
     (moved: Stroke[]) => {
       lassoListeners.forEach((listen) => listen(layerId));
@@ -748,17 +762,15 @@ export function AnnotationLayer({
         return !!box && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
       },
       startLine: (start) => liveRef.current.startDrivenLine(start),
-      snapNear: ([x, y], reach) => {
-        const box = svgRef.current?.getBoundingClientRect();
-        if (!box || box.width === 0 || box.height === 0) return null;
-        // Page units per screen pixel, across and down.
-        const across = width / box.width;
-        const down = height / box.height;
-        const found = snapPoint(liveRef.current.strokes, [(x - box.left) * across, (y - box.top) * down], reach * across);
-        return found && [box.left + found[0] / across, box.top + found[1] / down];
+      // The reach is half a centimetre of this page, whatever its zoom.
+      snapNear: (point) => {
+        const space = pageSpace();
+        if (!space) return null;
+        const found = snapPoint(liveRef.current.strokes, space.toPage(point), SNAP_REACH_CM * CM);
+        return found && space.toScreen(found);
       },
     });
-  }, [layerId, pageIndex, pageLabel, width, height, onPagesChange, receiveInk]);
+  }, [layerId, pageIndex, pageLabel, width, height, onPagesChange, receiveInk, pageSpace]);
 
   /**
    * Move the selection to another page, as one change to both pages. The ink

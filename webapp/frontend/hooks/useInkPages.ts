@@ -47,8 +47,12 @@ export interface InkPage {
    * while two fingers are scrolling it, or while another line is being drawn.
    */
   startLine: (start: Vec) => DrivenLine | null;
-  /** The point in the page's pen ink that a tool snaps onto, within reach of a point on screen, in screen pixels. */
-  snapNear: (point: Vec, reach: number) => Vec | null;
+  /**
+   * The point in the page's pen ink that a tool snaps onto, near a point on
+   * screen, in screen pixels. The page measures the reach, SNAP_REACH_CM, in
+   * its own centimetres, so it's the same on the paper at every zoom.
+   */
+  snapNear: (point: Vec) => Vec | null;
 }
 
 const pages = new Map<string, InkPage>();
@@ -84,9 +88,9 @@ export function inkPageAt(point: Vec): InkPage | undefined {
   return inOrder.find((page) => page.contains(point));
 }
 
-/** The point in the ink of the page under a point on screen that a tool snaps onto, within reach of it, or null. */
-export function inkSnapAt(point: Vec, reach: number): Vec | null {
-  return inkPageAt(point)?.snapNear(point, reach) ?? null;
+/** The point in the ink of the page under a point on screen that a tool snaps onto, near it, or null. */
+export function inkSnapAt(point: Vec): Vec | null {
+  return inkPageAt(point)?.snapNear(point) ?? null;
 }
 
 /**

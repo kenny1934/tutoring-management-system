@@ -1,19 +1,18 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { memo, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool, type OnScreen } from "@/hooks/usePlacedTool";
 import { inkSnapAt } from "@/hooks/useInkPages";
-import { CATCH, type DrawingGuide } from "@/lib/ruler";
+import { CATCH, type DrawingGuide } from "@/lib/drawing-guide";
 import {
   HOLE_SHARE, STRIP_SHARE, arcTo, draggedSize, lineKind, nearProtractor, polar, rayOnto, rayTo, readProtractorSize,
   saveProtractorSize, shownTilt, type ProtractorFrame,
 } from "@/lib/protractor";
-import { SNAP_REACH_CM } from "@/lib/snap";
 import type { Vec } from "@/lib/stroke-select";
-import { SnapRings, usePinnedPoints } from "./SnapRings";
+import { HANDLE_DOT, READING, ROUND_BUTTON, SnapRings, grabPointer, usePinnedPoints } from "./ToolParts";
 
 const LABEL =
   "Protractor: drag it to move it, or turn it with two fingers or the mouse wheel. " +
@@ -60,14 +59,16 @@ const TICKS = Array.from({ length: 181 }, (_, deg) => {
   const inner = onRadius(deg, R - length);
   return `M${outer.x.toFixed(2)} ${outer.y.toFixed(2)}L${inner.x.toFixed(2)} ${inner.y.toFixed(2)}`;
 }).join("");
-const TENS = Array.from({ length: 19 }, (_, n) => n * 10);
+// A number every 10 degrees on each of the two scales, placed once.
+const NUMBERS = Array.from({ length: 19 }, (_, n) => ({ deg: n * 10, outer: onRadius(n * 10, 42), inner: onRadius(n * 10, 36.5) }));
 
 // The plastic, with the hole cut out of it at the centre mark.
 const PLASTIC =
   `M0 ${R}A${R} ${R} 0 0 1 ${2 * R} ${R}V${R + STRIP}H0Z` +
   `M${R - HOLE} ${R}a${HOLE} ${HOLE} 0 1 0 ${2 * HOLE} 0a${HOLE} ${HOLE} 0 1 0 ${-2 * HOLE} 0Z`;
 
-function ProtractorMarks({ held }: { held: boolean }) {
+// The marks only change when the protractor is picked up or put down, so a move doesn't draw them again.
+const ProtractorMarks = memo(function ProtractorMarks({ held }: { held: boolean }) {
   return (
     <svg
       viewBox={`0 0 ${2 * R} ${R + STRIP}`}
@@ -90,24 +91,20 @@ function ProtractorMarks({ held }: { held: boolean }) {
       <path d={`M0 ${R}H${2 * R}M${R} ${R - 5}V${R + 5}`} fill="none" stroke="currentColor" strokeWidth={1} vectorEffect="non-scaling-stroke" />
       {/* Two scales every 10 degrees: the outer one counts from the right, the inner one from the left */}
       <g fill="currentColor" textAnchor="middle" dominantBaseline="central" className="font-mono">
-        {TENS.map((deg) => {
-          const outer = onRadius(deg, 42);
-          const inner = onRadius(deg, 36.5);
-          return (
-            <g key={deg}>
-              <text x={outer.x} y={outer.y} fontSize={3.2} fontWeight={600} transform={`rotate(${outer.turn} ${outer.x} ${outer.y})`}>
-                {deg}
-              </text>
-              <text x={inner.x} y={inner.y} fontSize={2.6} opacity={0.7} transform={`rotate(${inner.turn} ${inner.x} ${inner.y})`}>
-                {180 - deg}
-              </text>
-            </g>
-          );
-        })}
+        {NUMBERS.map(({ deg, outer, inner }) => (
+          <g key={deg}>
+            <text x={outer.x} y={outer.y} fontSize={3.2} fontWeight={600} transform={`rotate(${outer.turn} ${outer.x} ${outer.y})`}>
+              {deg}
+            </text>
+            <text x={inner.x} y={inner.y} fontSize={2.6} opacity={0.7} transform={`rotate(${inner.turn} ${inner.x} ${inner.y})`}>
+              {180 - deg}
+            </text>
+          </g>
+        ))}
       </g>
     </svg>
   );
-}
+});
 
 interface ProtractorProps {
   /** What the protractor lies in, such as the worksheet's stack of pages. It scrolls and zooms along with it. */
@@ -166,7 +163,7 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
     // The centre mark is on the baseline, below the middle of the protractor.
     start: [start[0], start[1] + (radius - strip) / 2],
     near: (at, point) => nearProtractor(protractorFrame(at, radius), point, CATCH),
-    snap: (centre, scale) => inkSnapAt(centre, SNAP_REACH_CM * cm * scale),
+    snap: inkSnapAt,
   });
   const [reading, setReading] = useState<string | null>(null);
   // The point the end of the ray being drawn is pinned to, for the ring that shows it.
@@ -181,15 +178,14 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
         const kind = lineKind(frame, from);
         if (!kind) return null;
         const fromAngle = polar(frame, from).angle;
-        const reach = SNAP_REACH_CM * cm * at.scale;
         return {
           to: (point) => {
             if (kind === "ray") {
               // A ray whose end comes near a point in the ink runs exactly to that point.
               const turned = rayTo(frame, point);
-              const pin = inkSnapAt(turned.ends[1], reach);
+              const pin = inkSnapAt(turned.ends[1]);
               const ray = pin ? rayOnto(frame, pin) : turned;
-              show([pin], at.scale);
+              show([pin]);
               setReading(`${ray.degrees}° / ${180 - ray.degrees}°`);
               return ray.ends;
             }
@@ -208,7 +204,7 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
     return () => {
       guides.delete(guide);
     };
-  }, [guides, onScreen, radius, cm, show, clear]);
+  }, [guides, onScreen, radius, show, clear]);
 
   // A drag of the handle, measured by the finger's distance from the centre
   // mark on screen. The size is saved for this board when the finger lifts.
@@ -256,7 +252,7 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
         {shown && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#2e251c]/80 px-2 py-0.5 font-mono text-[13px] font-semibold tabular-nums text-[#f3e7d3]"
+            className={cn("pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap", READING)}
             style={{ top: radius * 0.55 }}
           >
             {shown}
@@ -269,10 +265,7 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
           aria-label="Drag to resize"
           title="Drag to resize"
           onPointerDown={(e) => {
-            if (e.pointerType === "mouse" && e.button !== 0) return;
-            e.preventDefault();
-            e.stopPropagation();
-            try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* the finger has already lifted */ }
+            if (!grabPointer(e)) return;
             resizeRef.current = { pointerId: e.pointerId, from: distanceFromCentre(e), startCm: across, size: across };
           }}
           onPointerMove={(e) => {
@@ -287,7 +280,7 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
           className="pointer-events-auto absolute grid -translate-y-1/2 place-items-center cursor-ew-resize"
           style={{ left: 0.3 * cm, top: radius + strip / 2, width: control, height: control }}
         >
-          <i className="block h-4 w-4 rounded-full border-2 border-[#a0704b] bg-white" />
+          <i className={HANDLE_DOT} />
         </span>
         {/* The X sits on the strip too, at its right-hand end */}
         <button
@@ -295,7 +288,7 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
           aria-label="Hide the protractor"
           title="Hide the protractor"
           onClick={onHide}
-          className="pointer-events-auto absolute grid -translate-y-1/2 place-items-center rounded-full bg-[#2e251c]/80 text-[#f3e7d3] hover:bg-[#2e251c]"
+          className={cn("pointer-events-auto absolute -translate-y-1/2", ROUND_BUTTON)}
           style={{ right: 0.3 * cm, top: radius + strip / 2, width: control, height: control }}
         >
           {/* The X turns back against the protractor, so it never looks like a plus */}

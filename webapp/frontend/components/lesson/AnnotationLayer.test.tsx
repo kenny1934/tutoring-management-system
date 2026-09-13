@@ -4,7 +4,8 @@ import { useCallback, useState } from "react";
 import { AnnotationLayer } from "./AnnotationLayer";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { inkPageAt } from "@/hooks/useInkPages";
-import { ontoEdge, type DrawingGuide, type RulerEdge } from "@/lib/ruler";
+import { ontoEdge, type RulerEdge } from "@/lib/ruler";
+import type { DrawingGuide } from "@/lib/drawing-guide";
 
 // The layer maps pointer positions through the SVG's on-screen box. jsdom has
 // no layout, so give every element a 100 by 100 box at the origin, which makes
@@ -479,7 +480,7 @@ describe("AnnotationLayer lasso", () => {
 
 describe("AnnotationLayer along the ruler", () => {
   // A level ruler whose bottom edge runs across the page at y = 30, from x = 10 to x = 90.
-  const EDGE: RulerEdge = { origin: [50, 30], along: [1, 0], out: [0, 1], ends: [-40, 40] };
+  const EDGE: RulerEdge = { origin: [50, 30], along: [1, 0], out: [0, 1], halfLength: 40 };
   const ruler: DrawingGuide = {
     lineFrom: (start, offset) =>
       start[1] > 30 && start[1] < 70 ? { to: (point) => [ontoEdge(EDGE, start, offset), ontoEdge(EDGE, point, offset)] } : null,
@@ -589,9 +590,10 @@ describe("AnnotationLayer driven by a tool", () => {
     expect(inkPageAt([50, 50])!.startLine([10, 10])).toBeNull();
   });
 
-  it("tells a tool where the nearest crossing in its pen ink is, in screen pixels", () => {
+  it("tells a tool where the nearest crossing in its pen ink is, within half a centimetre, in screen pixels", () => {
     renderPage({ strokes: [LINE, { ...LINE, points: [[50, 0, 0.5], [50, 100, 0.5]] }] });
-    expect(inkPageAt([50, 50])!.snapNear([53, 48], 5)).toEqual([50, 50]);
-    expect(inkPageAt([50, 50])!.snapNear([70, 30], 5)).toBeNull();
+    // Half a centimetre is about 21 page units, and this page is drawn at a screen pixel to the unit.
+    expect(inkPageAt([50, 50])!.snapNear([53, 48])).toEqual([50, 50]);
+    expect(inkPageAt([50, 50])!.snapNear([70, 30])).toBeNull();
   });
 });

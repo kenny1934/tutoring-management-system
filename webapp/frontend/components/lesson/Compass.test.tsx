@@ -36,13 +36,14 @@ const touch = (pointerId: number, clientX: number, clientY: number) => ({ pointe
 /**
  * A page that takes the whole screen, whose drawing layer hands back this
  * line, or none, and has one point in its ink for the compasses to snap onto.
+ * It snaps within half a centimetre, which is 5 pixels here.
  */
 function registerPage(line: DrivenLine | null, point: Vec = [900, 900]) {
   const startLine = vi.fn(() => line);
   const page: InkPage = {
     index: 0, label: "Page 1", width: 1000, height: 1000, onPagesChange: () => {}, strokes: () => [], receive: () => {},
     contains: () => true, startLine,
-    snapNear: (at, reach) => (Math.hypot(at[0] - point[0], at[1] - point[1]) <= reach ? point : null),
+    snapNear: (at) => (Math.hypot(at[0] - point[0], at[1] - point[1]) <= 5 ? point : null),
   };
   return { startLine, off: registerInkPage("compass-test-page", page) };
 }

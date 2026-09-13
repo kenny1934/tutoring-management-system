@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Hand, Eraser, Lasso, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
-  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds, Ruler, DraftingCompass,
+  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds,
 } from "lucide-react";
 import {
   useFloating, offset, flip, shift, autoUpdate, useDismiss, useInteractions, FloatingPortal,
@@ -16,7 +16,7 @@ import {
 import type { EraserSetting } from "@/lib/stroke-eraser";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
 import { UndoOfferBar } from "./UndoOfferBar";
-import { ProtractorIcon } from "./Protractor";
+import { PANE_TOOLS, paneToolLabel, type PaneToolsMenu } from "./PaneTools";
 
 type Dock = "left" | "center" | "right";
 
@@ -40,12 +40,11 @@ interface AnnotationTrayProps {
    * the cover". Leave it out where pages can't be covered.
    */
   cover?: { covered: boolean; onToggle: () => void };
-  /** The worksheet's ruler, for More's "Show the ruler" and "Hide the ruler". Leave it out where there's no ruler. */
-  ruler?: { shown: boolean; onToggle: () => void };
-  /** The worksheet's protractor, for More's "Show the protractor" and "Hide the protractor". Leave it out where there's none. */
-  protractor?: { shown: boolean; onToggle: () => void };
-  /** The worksheet's compasses, for More's "Show the compasses" and "Hide the compasses". Leave it out where there are none. */
-  compass?: { shown: boolean; onToggle: () => void };
+  /**
+   * The worksheet's ruler, protractor and compasses, for More's rows such as
+   * "Show the ruler" and "Hide the ruler". Leave it out where there are no tools.
+   */
+  paneTools?: PaneToolsMenu;
   /**
    * Anything that changes whenever the ink does, such as the exercise's
    * annotations object. The message offering to undo a clear goes away when
@@ -146,7 +145,7 @@ export function SwatchMark({ swatch, big = false, className }: { swatch: InkSwat
  */
 export function AnnotationTray({
   tools, onUndo, onRedo, inkHidden, onInkHiddenChange, hasInk, onClearAll,
-  pageInView, onClearPage, cover, ruler, protractor, compass, inkRevision, onSaveAnnotated,
+  pageInView, onClearPage, cover, paneTools, inkRevision, onSaveAnnotated,
 }: AnnotationTrayProps) {
   const [{ dock, collapsed }, setTrayState] = useState(readTrayState);
   const [morphing, setMorphing] = useState(false);
@@ -605,27 +604,14 @@ export function AnnotationTray({
                     onClick={() => { setPop(null); cover.onToggle(); }}
                   />
                 )}
-                {ruler && (
+                {paneTools && PANE_TOOLS.map(({ kind, Icon, name }) => (
                   <MenuRow
-                    icon={<Ruler className="h-5 w-5" />}
-                    label={ruler.shown ? "Hide the ruler" : "Show the ruler"}
-                    onClick={() => { setPop(null); ruler.onToggle(); }}
+                    key={kind}
+                    icon={<Icon className="h-5 w-5" />}
+                    label={paneToolLabel(name, paneTools.placed[kind] !== undefined)}
+                    onClick={() => { setPop(null); paneTools.toggle(kind); }}
                   />
-                )}
-                {protractor && (
-                  <MenuRow
-                    icon={<ProtractorIcon className="h-5 w-5" />}
-                    label={protractor.shown ? "Hide the protractor" : "Show the protractor"}
-                    onClick={() => { setPop(null); protractor.onToggle(); }}
-                  />
-                )}
-                {compass && (
-                  <MenuRow
-                    icon={<DraftingCompass className="h-5 w-5" />}
-                    label={compass.shown ? "Hide the compasses" : "Show the compasses"}
-                    onClick={() => { setPop(null); compass.onToggle(); }}
-                  />
-                )}
+                ))}
                 {onClearPage && pageInView && (
                   <MenuRow
                     danger

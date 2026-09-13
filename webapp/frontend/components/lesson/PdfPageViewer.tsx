@@ -10,11 +10,8 @@ import {
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
-import { Ruler, rulerStart } from "./Ruler";
-import { Protractor } from "./Protractor";
-import { Compass } from "./Compass";
-import { CM, type DrawingGuide } from "@/lib/ruler";
-import type { Vec } from "@/lib/stroke-select";
+import { PaneTools, usePaneTools } from "./PaneTools";
+import { CM } from "@/lib/drawing-guide";
 import { AnnotationTray } from "./AnnotationTray";
 import { PageThumbnails } from "./PageThumbnails";
 import { PageCover } from "./PageCover";
@@ -421,17 +418,10 @@ export function PdfPageViewer({
 
   // The ruler, the protractor and the compasses, from More. They lie among
   // the pages, and they're put away when the viewer moves on to another file,
-  // like the strip. The ruler and the protractor join the pane's guides while
-  // they're out, for the drawing layers, and the compasses draw by themselves.
-  const [rulerAt, setRulerAt] = useState<Vec | null>(null);
-  const [protractorAt, setProtractorAt] = useState<Vec | null>(null);
-  const [compassAt, setCompassAt] = useState<Vec | null>(null);
-  const [guides] = useState(() => new Set<DrawingGuide>());
-  useEffect(() => {
-    setRulerAt(null);
-    setProtractorAt(null);
-    setCompassAt(null);
-  }, [exerciseId, pdfData]);
+  // like the strip.
+  const paneTools = usePaneTools(pageStackRef, scrollContainerRef);
+  const { putAway } = paneTools;
+  useEffect(() => { putAway(); }, [exerciseId, pdfData, putAway]);
 
   // Reset retry counter when a genuinely new PDF loads
   useEffect(() => {
@@ -956,10 +946,6 @@ export function PdfPageViewer({
     setCovers(current === undefined ? { ...coversRef.current, [pageIndex]: 0 } : others);
   };
   const pageCovered = covers[currentVisiblePage - 1] !== undefined;
-  const toggleRuler = () => setRulerAt(rulerAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
-  const toggleProtractor = () =>
-    setProtractorAt(protractorAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
-  const toggleCompass = () => setCompassAt(compassAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -1150,7 +1136,7 @@ export function PdfPageViewer({
                     hidden={inkHidden}
                     suspended={gestureActive}
                     uiScale={zoom / 100}
-                    guides={guides}
+                    guides={paneTools.guides}
                     pageIndex={i}
                     pageLabel={`Page ${i + 1}`}
                     onPagesChange={onPagesStrokesChange}
@@ -1168,35 +1154,7 @@ export function PdfPageViewer({
               )}
             </div>
           ))}
-          {tools && rulerAt && (
-            <Ruler
-              containerRef={pageStackRef}
-              cm={CM}
-              start={rulerAt}
-              guides={guides}
-              darkMode={pdfDarkMode}
-              onHide={() => setRulerAt(null)}
-            />
-          )}
-          {tools && protractorAt && (
-            <Protractor
-              containerRef={pageStackRef}
-              cm={CM}
-              start={protractorAt}
-              guides={guides}
-              darkMode={pdfDarkMode}
-              onHide={() => setProtractorAt(null)}
-            />
-          )}
-          {tools && compassAt && (
-            <Compass
-              containerRef={pageStackRef}
-              cm={CM}
-              start={compassAt}
-              darkMode={pdfDarkMode}
-              onHide={() => setCompassAt(null)}
-            />
-          )}
+          {tools && <PaneTools state={paneTools} containerRef={pageStackRef} cm={CM} darkMode={pdfDarkMode} />}
         </div>
       </div>
 
@@ -1214,9 +1172,7 @@ export function PdfPageViewer({
             : undefined}
           onClearPage={onClearPage && (() => onClearPage(currentVisiblePage - 1))}
           cover={{ covered: pageCovered, onToggle: () => toggleCover(currentVisiblePage - 1) }}
-          ruler={{ shown: rulerAt !== null, onToggle: toggleRuler }}
-          protractor={{ shown: protractorAt !== null, onToggle: toggleProtractor }}
-          compass={{ shown: compassAt !== null, onToggle: toggleCompass }}
+          paneTools={paneTools}
           inkRevision={annotations}
           onSaveAnnotated={onSaveAnnotated}
         />,

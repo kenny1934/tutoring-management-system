@@ -1,32 +1,19 @@
 "use client";
 
-import { useLayoutEffect, type RefObject } from "react";
+import { memo, useLayoutEffect, type RefObject } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool, type OnScreen } from "@/hooks/usePlacedTool";
 import { inkSnapAt } from "@/hooks/useInkPages";
+import { CATCH, type DrawingGuide } from "@/lib/drawing-guide";
 import {
-  CATCH, RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, pinnedLine, shownAngle,
-  type DrawingGuide, type RulerFrame,
+  RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, pinnedLine, shownAngle, type RulerFrame,
 } from "@/lib/ruler";
-import { SNAP_REACH_CM } from "@/lib/snap";
 import type { Vec } from "@/lib/stroke-select";
-import { SnapRings, usePinnedPoints } from "./SnapRings";
+import { READING, ROUND_BUTTON, SnapRings, usePinnedPoints } from "./ToolParts";
 
 const LABEL = "Ruler: drag it to move it, or turn it with two fingers or the mouse wheel";
-
-/**
- * Where a new ruler or protractor goes: level across the middle of what the
- * pane is showing, in the container's own pixels.
- */
-export function rulerStart(container: HTMLElement | null, viewport: HTMLElement | null): Vec | null {
-  if (!container || !viewport) return null;
-  const box = container.getBoundingClientRect();
-  const view = viewport.getBoundingClientRect();
-  const scale = container.offsetWidth > 0 ? box.width / container.offsetWidth : 1;
-  return [((view.left + view.right) / 2 - box.left) / scale, ((view.top + view.bottom) / 2 - box.top) / scale];
-}
 
 // The marks, worked out once in millimetres: a tick every millimetre along
 // both long edges, longer ones at every half and whole centimetre, and a
@@ -38,7 +25,8 @@ const TICKS = Array.from({ length: 151 }, (_, mm) => {
 }).join("");
 const NUMBERS = Array.from({ length: 16 }, (_, n) => n);
 
-function RulerMarks() {
+// The marks never change, so a move of the ruler doesn't draw them again.
+const RulerMarks = memo(function RulerMarks() {
   return (
     <svg viewBox="0 0 160 30" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
       <path d={TICKS} fill="none" stroke="currentColor" strokeWidth={1} vectorEffect="non-scaling-stroke" />
@@ -50,7 +38,7 @@ function RulerMarks() {
       </g>
     </svg>
   );
-}
+});
 
 interface RulerProps {
   /** What the ruler lies in, such as the worksheet's stack of pages. It scrolls and zooms along with it. */
@@ -112,14 +100,13 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
         const at = onScreen();
         const edge = at && edgeAt(rulerFrame(at, cm), start);
         if (!at || !edge) return null;
-        const reach = SNAP_REACH_CM * cm * at.scale;
         const from = ontoEdge(edge, start, offset);
-        const pinFrom = inkSnapAt(from, reach);
+        const pinFrom = inkSnapAt(from);
         return {
           to: (point) => {
             const to = ontoEdge(edge, point, offset);
-            const pinTo = inkSnapAt(to, reach);
-            show([pinFrom, pinTo], at.scale);
+            const pinTo = inkSnapAt(to);
+            show([pinFrom, pinTo]);
             return pinnedLine(edge.along, from, to, pinFrom, pinTo);
           },
           end: clear,
@@ -159,10 +146,7 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
         }}
       >
         <RulerMarks />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2e251c]/80 px-2 py-0.5 font-mono text-[13px] font-semibold tabular-nums text-[#f3e7d3]"
-        >
+        <span aria-hidden="true" className={cn("pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2", READING)}>
           {shownAngle(place.angle)}°
         </span>
         {/* The X sits in the clear band between the two rows of marks, at the ruler's far end */}
@@ -171,7 +155,7 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
           aria-label="Hide the ruler"
           title="Hide the ruler"
           onClick={onHide}
-          className="absolute top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-[#2e251c]/80 text-[#f3e7d3] hover:bg-[#2e251c]"
+          className={cn("absolute top-1/2 -translate-y-1/2", ROUND_BUTTON)}
           style={{ right: 0.6 * cm, width: 1.1 * cm, height: 1.1 * cm }}
         >
           {/* The X turns back against the ruler, so it never looks like a plus */}

@@ -2,6 +2,8 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { GripVertical } from "lucide-react";
+import { clamp } from "@/lib/stroke-select";
+import { grabPointer } from "./ToolParts";
 
 const LABEL = "Drag to resize the Draft";
 // Each board remembers how it last shared the space, like the tray's place.
@@ -25,7 +27,7 @@ function readShare(): number {
 /** A share for the Draft, kept so that neither side of a row this wide gets narrower than MIN_PANE. */
 function keepInBounds(rowWidth: number, share: number): number {
   const least = Math.min(MIN_PANE / rowWidth, EVEN);
-  return Math.min(Math.max(share, least), 1 - least);
+  return clamp(share, least, 1 - least);
 }
 
 /**
@@ -48,10 +50,13 @@ export function DraftSplit({ children }: { children: ReactNode }) {
   // Where the line is while the border is being dragged, as the Draft's share.
   const [dragAt, setDragAt] = useState<number | null>(null);
   const borderRef = useRef<HTMLDivElement>(null);
+  // The row's box on screen, read when the border is grabbed. Nothing changes
+  // its size until the finger lifts, so each move doesn't need to measure it again.
+  const rowRef = useRef<DOMRect | null>(null);
 
   /** The Draft's share for a finger at this point across the screen, or null before the row is on the page. */
   const shareAt = (clientX: number) => {
-    const row = borderRef.current?.parentElement?.getBoundingClientRect();
+    const row = rowRef.current;
     return row && row.width > 0 ? keepInBounds(row.width, (row.right - clientX) / row.width) : null;
   };
 
@@ -61,10 +66,8 @@ export function DraftSplit({ children }: { children: ReactNode }) {
   };
 
   const down = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* the finger has already lifted */ }
+    if (!grabPointer(e)) return;
+    rowRef.current = borderRef.current?.parentElement?.getBoundingClientRect() ?? null;
     setDragAt(shareAt(e.clientX));
   };
 

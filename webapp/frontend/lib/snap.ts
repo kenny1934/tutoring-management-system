@@ -12,7 +12,7 @@
  * count either, because handwriting is full of loops.
  */
 import type { Stroke } from "@/hooks/useAnnotations";
-import { distanceToSegment } from "./stroke-eraser";
+import { boundingBox, distanceToSegment } from "./stroke-eraser";
 import { kindOf, type Vec } from "./stroke-select";
 
 /** How close, in centimetres, a tool has to come to a point in the ink to snap onto it. */
@@ -38,8 +38,10 @@ export function crossing(a: Vec, b: Vec, c: Vec, d: Vec): Vec | null {
 /**
  * The point in the ink nearest to `at`, among the crossings, ends and dots
  * within `reach` of it, or null when there's none. Everything is in page
- * units. Only the stretches of line within reach are checked against each
- * other for crossings, so a page full of ink stays quick.
+ * units. It runs on every move of a tool, so a page full of ink has to stay
+ * quick: a stroke whose box is out of reach isn't looked at at all, and only
+ * the stretches of line within reach are checked against each other for
+ * crossings.
  */
 export function snapPoint(strokes: Stroke[], at: Vec, reach: number): Vec | null {
   const points: Vec[] = [];
@@ -47,6 +49,8 @@ export function snapPoint(strokes: Stroke[], at: Vec, reach: number): Vec | null
   strokes.forEach((stroke, i) => {
     const line = stroke.points;
     if (kindOf(stroke) !== "pen" || line.length === 0) return;
+    const box = boundingBox(stroke);
+    if (box.left > at[0] + reach || box.right < at[0] - reach || box.top > at[1] + reach || box.bottom < at[1] - reach) return;
     // A dot is its one point, and a line has its two ends.
     points.push([line[0][0], line[0][1]]);
     if (line.length > 1) points.push([line[line.length - 1][0], line[line.length - 1][1]]);

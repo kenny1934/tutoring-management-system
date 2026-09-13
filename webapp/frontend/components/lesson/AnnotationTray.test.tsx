@@ -94,40 +94,20 @@ describe("AnnotationTray", () => {
     expect(screen.getByRole("button", { name: /Remove the cover/ })).toHaveTextContent("Page 2");
   });
 
-  it("shows the ruler from More, and offers to hide it once it's out", () => {
-    const onToggle = vi.fn();
-    const { rerender } = render(<Harness ruler={{ shown: false, onToggle }} />);
+  it.each([
+    ["ruler", "the ruler"],
+    ["protractor", "the protractor"],
+    ["compass", "the compasses"],
+  ] as const)("shows the %s from More, and offers to hide it once it's out", (kind, name) => {
+    const toggle = vi.fn();
+    const { rerender } = render(<Harness paneTools={{ placed: {}, toggle }} />);
     fireEvent.click(button("More"));
-    fireEvent.click(screen.getByRole("button", { name: /Show the ruler/ }));
-    expect(onToggle).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`Show ${name}`) }));
+    expect(toggle).toHaveBeenCalledWith(kind);
 
-    rerender(<Harness ruler={{ shown: true, onToggle }} />);
+    rerender(<Harness paneTools={{ placed: { [kind]: [0, 0] }, toggle }} />);
     fireEvent.click(button("More"));
-    expect(screen.getByRole("button", { name: /Hide the ruler/ })).toBeInTheDocument();
-  });
-
-  it("shows the compasses from More, and offers to hide them once they're out", () => {
-    const onToggle = vi.fn();
-    const { rerender } = render(<Harness compass={{ shown: false, onToggle }} />);
-    fireEvent.click(button("More"));
-    fireEvent.click(screen.getByRole("button", { name: /Show the compasses/ }));
-    expect(onToggle).toHaveBeenCalledTimes(1);
-
-    rerender(<Harness compass={{ shown: true, onToggle }} />);
-    fireEvent.click(button("More"));
-    expect(screen.getByRole("button", { name: /Hide the compasses/ })).toBeInTheDocument();
-  });
-
-  it("shows the protractor from More, and offers to hide it once it's out", () => {
-    const onToggle = vi.fn();
-    const { rerender } = render(<Harness protractor={{ shown: false, onToggle }} />);
-    fireEvent.click(button("More"));
-    fireEvent.click(screen.getByRole("button", { name: /Show the protractor/ }));
-    expect(onToggle).toHaveBeenCalledTimes(1);
-
-    rerender(<Harness protractor={{ shown: true, onToggle }} />);
-    fireEvent.click(button("More"));
-    expect(screen.getByRole("button", { name: /Hide the protractor/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: new RegExp(`Hide ${name}`) })).toBeInTheDocument();
   });
 
   it("clears only the page in view, and names it", () => {

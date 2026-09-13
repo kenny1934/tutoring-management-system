@@ -18,7 +18,8 @@ export const kindOf = (stroke: Stroke): InkKind => stroke.kind ?? "pen";
 export const MIN_SCALE = 0.25;
 export const MAX_SCALE = 4;
 
-const clamp = (value: number, lo: number, hi: number) => Math.min(Math.max(value, lo), hi);
+/** A number kept between two others. */
+export const clamp = (value: number, lo: number, hi: number) => Math.min(Math.max(value, lo), hi);
 
 function pointsBox(points: readonly (readonly number[])[]): Box {
   const box = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };

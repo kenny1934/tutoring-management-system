@@ -10,14 +10,13 @@ import {
   COMPASS_START_CM, addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, pointAt,
   snapWidth, sweepRange,
 } from "@/lib/compass";
-import { SNAP_REACH_CM } from "@/lib/snap";
 import type { Vec } from "@/lib/stroke-select";
+import { HANDLE_DOT, READING, ROUND_BUTTON, grabPointer } from "./ToolParts";
 
 const LABEL =
   "Compasses: drag the needle to move them, drag the pencil to open or close them, and turn the handle at the top to draw";
 
-const BUTTON_CLASS =
-  "pointer-events-auto absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#2e251c]/80 text-[#f3e7d3] hover:bg-[#2e251c]";
+const BUTTON_CLASS = cn("pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2", ROUND_BUTTON);
 
 interface CompassProps {
   /** What the compasses lie in, such as the worksheet's stack of pages. They scroll and zoom along with it. */
@@ -82,13 +81,7 @@ interface Turn {
  * pencil to the other side of the needle without drawing.
  */
 export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassProps) {
-  const [width, setWidthState] = useState(COMPASS_START_CM);
-  // Handlers read the latest width through this, part way through a drag.
-  const widthRef = useRef(width);
-  const setWidth = (next: number) => {
-    widthRef.current = next;
-    setWidthState(next);
-  };
+  const [width, setWidth] = useState(COMPASS_START_CM);
   const span = width * cm;
   const rise = hingeHeight(width) * cm;
   // The box runs from the needle across to the pencil, and up past the hinge to hold the turn handle.
@@ -98,9 +91,9 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     containerRef,
     // The needle starts left of the middle and below it, so the compasses stand centred on the start.
     start: [start[0] - span / 2, start[1] + rise / 2],
-    // They turn round the needle from the handle at the top, so a second finger beside them isn't caught to turn them.
-    near: () => false,
-    snap: (needle, scale) => inkSnapAt(needle, SNAP_REACH_CM * cm * scale),
+    // They turn round the needle from the handle at the top, so they leave out
+    // `near`, and a second finger beside them isn't caught to turn them.
+    snap: inkSnapAt,
   });
   // Whether the pencil has caught a point in the ink during this drag of its grip.
   const [pencilSnapped, setPencilSnapped] = useState(false);
@@ -122,10 +115,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
 
   /** Take a finger or the mouse on one of the handles. It returns false for the mouse's other buttons. */
   const grabHandle = (e: React.PointerEvent<HTMLSpanElement>) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return false;
-    e.preventDefault();
-    e.stopPropagation();
-    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* the finger has already lifted */ }
+    if (!grabPointer(e)) return false;
     setHeldMirror(mirrored);
     setBusy(true);
     return true;
@@ -135,7 +125,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   const gripDown = (e: React.PointerEvent<HTMLSpanElement>) => {
     const m = measure();
     if (!m || !grabHandle(e)) return;
-    const pencil = pointAt(m.needle, widthRef.current * m.onScreenCm, place.angle);
+    const pencil = pointAt(m.needle, width * m.onScreenCm, place.angle);
     gripRef.current = { pointerId: e.pointerId, offset: [pencil[0] - e.clientX, pencil[1] - e.clientY] };
   };
 
@@ -147,7 +137,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     const dragged: Vec = [e.clientX + grip.offset[0], e.clientY + grip.offset[1]];
     const widthTo = (point: Vec) => Math.hypot(point[0] - m.needle[0], point[1] - m.needle[1]) / m.onScreenCm;
     // A point the compasses can open to sets the width exactly. Anywhere else, the width snaps to a whole millimetre.
-    const found = inkSnapAt(dragged, SNAP_REACH_CM * m.onScreenCm);
+    const found = inkSnapAt(dragged);
     const caught = found && opensTo(widthTo(found)) ? found : null;
     const pencil = caught ?? dragged;
     setPencilSnapped(caught !== null);
@@ -187,7 +177,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     turn.last = direction;
     turn.range = sweepRange(turn.range, turn.swept);
     setPlace({ cx: place.cx, cy: place.cy, angle: turn.from + turn.swept });
-    const radius = widthRef.current * m.onScreenCm;
+    const radius = width * m.onScreenCm;
     const [low, high] = turn.range;
     // The pencil only touches the page once the compasses have really turned, so a tap on the handle leaves no mark.
     if (!turn.started && high - low >= 1) {
@@ -309,7 +299,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
           className="pointer-events-auto absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center cursor-move"
           style={{ left: grip[0], top: grip[1], width: cm, height: cm }}
         >
-          <i className="block h-4 w-4 rounded-full border-2 border-[#a0704b] bg-white" />
+          <i className={HANDLE_DOT} />
         </span>
 
         {/* The handle at the top turns the compasses round the needle, and the pencil draws as it turns */}
@@ -353,7 +343,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
       {inUse && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#2e251c]/80 px-2 py-0.5 font-mono text-[13px] font-semibold tabular-nums text-[#f3e7d3]"
+          className={cn("pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap", READING)}
           style={{ left: labelAt[0], top: labelAt[1], filter: darkMode ? PDF_DARK_FILTER : undefined }}
         >
           {width.toFixed(1)} cm

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vites
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useRef } from "react";
 import { Protractor } from "./Protractor";
-import type { DrawingGuide } from "@/lib/ruler";
+import type { DrawingGuide } from "@/lib/drawing-guide";
 import { registerInkPage, type InkPage } from "@/hooks/useInkPages";
 import type { Vec } from "@/lib/stroke-select";
 
@@ -47,12 +47,15 @@ function renderWithGuide() {
   return { ...utils, guides, guide };
 }
 
-/** A page that takes the whole screen, with these points in its ink for the protractor to snap onto. */
+/**
+ * A page that takes the whole screen, with these points in its ink for the
+ * protractor to snap onto. It snaps within half a centimetre, which is 5 pixels here.
+ */
 function registerPage(points: Vec[]) {
   const page: InkPage = {
     index: 0, label: "Page 1", width: 1000, height: 1000, onPagesChange: () => {}, strokes: () => [], receive: () => {},
     contains: () => true, startLine: () => null,
-    snapNear: (at, reach) => points.find((p) => Math.hypot(p[0] - at[0], p[1] - at[1]) <= reach) ?? null,
+    snapNear: (at) => points.find((p) => Math.hypot(p[0] - at[0], p[1] - at[1]) <= 5) ?? null,
   };
   return registerInkPage("protractor-test-page", page);
 }

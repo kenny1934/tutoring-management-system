@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { Ruler } from "./Ruler";
-import type { DrawingGuide } from "@/lib/ruler";
+import type { DrawingGuide } from "@/lib/drawing-guide";
 import { registerInkPage, type InkPage } from "@/hooks/useInkPages";
 import type { Vec } from "@/lib/stroke-select";
 
@@ -110,11 +110,12 @@ describe("Ruler", () => {
 
   it("pins a line along its edge onto points in the ink near its ends, with a ring at each", () => {
     // A page with two points in its ink, one near each end of the line below.
+    // It snaps within half a centimetre, which is 5 pixels here.
     const points: Vec[] = [[151, 317], [249, 316]];
     const page: InkPage = {
       index: 0, label: "Page 1", width: 1000, height: 1000, onPagesChange: () => {}, strokes: () => [], receive: () => {},
       contains: () => true, startLine: () => null,
-      snapNear: (at, reach) => points.find((p) => Math.hypot(p[0] - at[0], p[1] - at[1]) <= reach) ?? null,
+      snapNear: (at) => points.find((p) => Math.hypot(p[0] - at[0], p[1] - at[1]) <= 5) ?? null,
     };
     const off = registerInkPage("ruler-test-page", page);
     const guides = new Set<DrawingGuide>();

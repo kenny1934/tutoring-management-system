@@ -9,12 +9,12 @@
  * is how CSS turns things and how the screen's y axis runs downwards. Points
  * are in screen pixels, the space pointer events arrive in.
  */
-import type { Vec } from "@/lib/stroke-select";
+import { clamp, type Vec } from "@/lib/stroke-select";
 
 /** Each leg is 7 cm, so the compasses open from 0.5 cm to 13 cm. They start at 4 cm. */
-export const COMPASS_LEG_CM = 7;
-export const COMPASS_MIN_CM = 0.5;
-export const COMPASS_MAX_CM = 13;
+const COMPASS_LEG_CM = 7;
+const COMPASS_MIN_CM = 0.5;
+const COMPASS_MAX_CM = 13;
 export const COMPASS_START_CM = 4;
 
 /** Whether the compasses can open, or close, to this width. */
@@ -24,7 +24,7 @@ export function opensTo(cm: number): boolean {
 
 /** A width kept between 0.5 and 13 cm, and snapped to a whole millimetre so a 4 cm circle comes out exactly. */
 export function snapWidth(cm: number): number {
-  return Math.round(Math.min(Math.max(cm, COMPASS_MIN_CM), COMPASS_MAX_CM) * 10) / 10;
+  return Math.round(clamp(cm, COMPASS_MIN_CM, COMPASS_MAX_CM) * 10) / 10;
 }
 
 /** How high the hinge stands above the line from the needle to the pencil, in centimetres, at this width. */
@@ -51,7 +51,7 @@ export function pointAt(centre: Vec, distance: number, degrees: number): Vec {
 export function addTurn(swept: number, lastDirection: number, direction: number): number {
   let step = direction - lastDirection;
   step -= 360 * Math.round(step / 360);
-  return Math.min(Math.max(swept + step, -360), 360);
+  return clamp(swept + step, -360, 360);
 }
 
 /**

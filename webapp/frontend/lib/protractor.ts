@@ -15,8 +15,8 @@
  * round towards the curved edge, which is how its outer scale reads. Like the
  * ruler's, its frame is in screen pixels, the space pointer events arrive in.
  */
-import { EDGE_REACH } from "@/lib/ruler";
-import type { Vec } from "@/lib/stroke-select";
+import { EDGE_REACH } from "@/lib/drawing-guide";
+import { clamp, type Vec } from "@/lib/stroke-select";
 
 /**
  * The protractor starts 10 cm across, the size of a usual school protractor.
@@ -24,9 +24,9 @@ import type { Vec } from "@/lib/stroke-select";
  * so unlike the ruler it measures truly at any size. Below 8 cm its numbers
  * get too small to read on the board.
  */
-export const PROTRACTOR_ACROSS_CM = 10;
-export const PROTRACTOR_MIN_CM = 8;
-export const PROTRACTOR_MAX_CM = 20;
+const PROTRACTOR_ACROSS_CM = 10;
+const PROTRACTOR_MIN_CM = 8;
+const PROTRACTOR_MAX_CM = 20;
 
 /**
  * The strip of plastic below the baseline, which holds the X and the handle,
@@ -41,7 +41,7 @@ export const HOLE_SHARE = 0.09;
 // Each board remembers the size its protractor was last left at.
 const SIZE_KEY = "csm_protractor_size";
 
-const clampSize = (cm: number) => Math.min(Math.max(cm, PROTRACTOR_MIN_CM), PROTRACTOR_MAX_CM);
+const clampSize = (cm: number) => clamp(cm, PROTRACTOR_MIN_CM, PROTRACTOR_MAX_CM);
 
 /** The size, in centimetres across, the protractor was last left at on this board, or the usual size. */
 export function readProtractorSize(): number {
@@ -93,7 +93,7 @@ export function polar(frame: ProtractorFrame, point: Vec) {
 }
 
 /** The point on screen at this distance from the centre mark and this angle. */
-export function fromPolar(frame: ProtractorFrame, r: number, angle: number): Vec {
+function fromPolar(frame: ProtractorFrame, r: number, angle: number): Vec {
   const turn = (angle * Math.PI) / 180;
   const u = r * Math.cos(turn);
   const v = r * Math.sin(turn);
@@ -140,7 +140,7 @@ export function rayOnto(frame: ProtractorFrame, point: Vec): { ends: [Vec, Vec];
 }
 
 // An angle kept to the curved edge, from 0 to 180. Below the baseline, a point counts as the nearer end.
-const onCurve = (angle: number) => Math.min(Math.max(angle < -90 ? angle + 360 : angle, 0), 180);
+const onCurve = (angle: number) => clamp(angle < -90 ? angle + 360 : angle, 0, 180);
 
 /**
  * An arc along the curved edge, moved out from it by the offset, from the

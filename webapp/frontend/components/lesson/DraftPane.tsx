@@ -1,22 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
-import { DraftingCompass, Plus, Ruler as RulerIcon, Trash2, X } from "lucide-react";
+import { DraftingCompass, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { UndoOfferBar } from "./UndoOfferBar";
-import { Ruler, rulerStart } from "./Ruler";
-import { Protractor, ProtractorIcon } from "./Protractor";
-import { Compass } from "./Compass";
+import { PANE_TOOLS, PaneTools, paneToolLabel, usePaneTools } from "./PaneTools";
 import { TRAY_CLEARANCE } from "./AnnotationTray";
 import { PAGE_BAR_HEIGHT, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
-import { CM, type DrawingGuide } from "@/lib/ruler";
-import type { Vec } from "@/lib/stroke-select";
+import { CM } from "@/lib/drawing-guide";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import {
   DRAFT_GRID_COLOUR, DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SHEET_PT, DRAFT_SQUARE_PT,
@@ -97,15 +94,10 @@ export function DraftPane({
   // its bar. The sheets fit the pane, so a centimetre is measured from a
   // sheet's width while any of them is out.
   const columnRef = useRef<HTMLDivElement>(null);
-  const [rulerAt, setRulerAt] = useState<Vec | null>(null);
-  const [protractorAt, setProtractorAt] = useState<Vec | null>(null);
-  const [compassAt, setCompassAt] = useState<Vec | null>(null);
-  const [guides] = useState(() => new Set<DrawingGuide>());
+  const paneTools = usePaneTools(columnRef, scrollRef);
+  const { putAway } = paneTools;
   const [sheetWidth, setSheetWidth] = useState(0);
-  const rulerOut = rulerAt !== null;
-  const protractorOut = protractorAt !== null;
-  const compassOut = compassAt !== null;
-  const measuring = rulerOut || protractorOut || compassOut;
+  const measuring = paneTools.anyOut;
   useEffect(() => {
     const sheet = sheetRefs.current[0];
     if (!measuring || !sheet) return;
@@ -131,10 +123,8 @@ export function DraftPane({
   // Each exercise's Draft opens at its first sheet, with its tools put away.
   useEffect(() => {
     scrollRef.current?.scrollTo?.({ top: 0 });
-    setRulerAt(null);
-    setProtractorAt(null);
-    setCompassAt(null);
-  }, [exerciseId]);
+    putAway();
+  }, [exerciseId, putAway]);
 
   // A sheet that was just added is scrolled into view, ready to write on.
   useEffect(() => {
@@ -148,9 +138,6 @@ export function DraftPane({
     setSheetsAsked((asked) => ({ ...asked, [exerciseId]: sheetCount + 1 }));
   };
 
-  const toggleRuler = () => setRulerAt(rulerAt ? null : rulerStart(columnRef.current, scrollRef.current));
-  const toggleProtractor = () => setProtractorAt(protractorAt ? null : rulerStart(columnRef.current, scrollRef.current));
-  const toggleCompass = () => setCompassAt(compassAt ? null : rulerStart(columnRef.current, scrollRef.current));
   // A centimetre of the Draft's sheets, on screen.
   const sheetCm = sheetWidth * (CM / DRAFT_SHEET.width);
 
@@ -214,7 +201,7 @@ export function DraftPane({
               type="button"
               {...triggerProps}
               title="Put a ruler, a protractor or compasses on the draft"
-              className={cn(barButton, rulerOut || protractorOut || compassOut ? tbBtnOn : tbBtnIdle)}
+              className={cn(barButton, measuring ? tbBtnOn : tbBtnIdle)}
             >
               <DraftingCompass className="h-5 w-5" />
               Tools
@@ -223,18 +210,12 @@ export function DraftPane({
         >
           {(close) => (
             <>
-              <button type="button" role="menuitem" onClick={() => { close(); toggleRuler(); }} className={toolOption}>
-                <RulerIcon className="h-5 w-5" />
-                {rulerOut ? "Hide the ruler" : "Show the ruler"}
-              </button>
-              <button type="button" role="menuitem" onClick={() => { close(); toggleProtractor(); }} className={toolOption}>
-                <ProtractorIcon className="h-5 w-5" />
-                {protractorOut ? "Hide the protractor" : "Show the protractor"}
-              </button>
-              <button type="button" role="menuitem" onClick={() => { close(); toggleCompass(); }} className={toolOption}>
-                <DraftingCompass className="h-5 w-5" />
-                {compassOut ? "Hide the compasses" : "Show the compasses"}
-              </button>
+              {PANE_TOOLS.map(({ kind, Icon, name }) => (
+                <button key={kind} type="button" role="menuitem" onClick={() => { close(); paneTools.toggle(kind); }} className={toolOption}>
+                  <Icon className="h-5 w-5" />
+                  {paneToolLabel(name, paneTools.placed[kind] !== undefined)}
+                </button>
+              ))}
             </>
           )}
         </DropdownMenu>
@@ -320,7 +301,7 @@ export function DraftPane({
                     {...inkLayerProps(tools)}
                     onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
                     suspended={gestureActive}
-                    guides={guides}
+                    guides={paneTools.guides}
                     pageIndex={pageIndex}
                     pageLabel={`Draft sheet ${n + 1}`}
                     onPagesChange={onPagesStrokesChange}
@@ -337,35 +318,7 @@ export function DraftPane({
             <Plus className="h-5 w-5" />
             Add a sheet
           </button>
-          {rulerAt && (
-            <Ruler
-              containerRef={columnRef}
-              cm={sheetCm}
-              start={rulerAt}
-              guides={guides}
-              darkMode={pdfDarkMode}
-              onHide={() => setRulerAt(null)}
-            />
-          )}
-          {protractorAt && (
-            <Protractor
-              containerRef={columnRef}
-              cm={sheetCm}
-              start={protractorAt}
-              guides={guides}
-              darkMode={pdfDarkMode}
-              onHide={() => setProtractorAt(null)}
-            />
-          )}
-          {compassAt && (
-            <Compass
-              containerRef={columnRef}
-              cm={sheetCm}
-              start={compassAt}
-              darkMode={pdfDarkMode}
-              onHide={() => setCompassAt(null)}
-            />
-          )}
+          <PaneTools state={paneTools} containerRef={columnRef} cm={sheetCm} darkMode={pdfDarkMode} />
         </div>
       </div>
 

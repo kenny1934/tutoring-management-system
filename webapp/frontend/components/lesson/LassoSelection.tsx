@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Ref } from "react";
+import { useMemo, useState, type Ref } from "react";
 import { MoveRight, Palette, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Box } from "@/lib/stroke-eraser";
@@ -90,12 +90,13 @@ export function LassoSelection({
 
   // Each kind of ink in the selection gets its row of colours. A colour shows
   // as picked when all the selected ink of its kind is already that colour.
-  const colourRows = INK_KINDS.flatMap((kind) => {
+  // They only change with the selection, not on each move of a drag.
+  const colourRows = useMemo(() => INK_KINDS.flatMap((kind) => {
     const colours = new Set(strokes.filter((s) => kindOf(s) === kind).map((s) => s.color));
     if (colours.size === 0) return [];
     const picked = colours.size === 1 ? [...colours][0] : null;
     return [{ kind, picked, swatches: INK_SWATCHES.filter((s) => s.kind === kind) }];
-  });
+  }), [strokes]);
 
   return (
     <div className="absolute inset-0 pointer-events-none">
