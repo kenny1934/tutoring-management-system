@@ -5,12 +5,13 @@ import { createPortal } from "react-dom";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   ZoomIn, ZoomOut, UnfoldHorizontal, BookCheck, Moon, Sun,
-  ChevronUp, ChevronDown, Printer, NotebookPen,
+  ChevronUp, ChevronDown, Printer, NotebookPen, GalleryHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { AnnotationTray } from "./AnnotationTray";
+import { PageThumbnails } from "./PageThumbnails";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
@@ -364,6 +365,13 @@ export function PdfPageViewer({
       pageInputRef.current.value = String(currentVisiblePage);
     }
   }, [currentVisiblePage]);
+
+  // The strip of small pages that the page bar's "Show all pages" button
+  // raises. It closes whenever the viewer moves on to another file.
+  const [thumbsOpen, setThumbsOpen] = useState(false);
+  const thumbsButtonRef = useRef<HTMLButtonElement>(null);
+  const closeThumbs = useCallback(() => setThumbsOpen(false), []);
+  useEffect(() => { setThumbsOpen(false); }, [exerciseId, pdfData]);
 
   // Reset retry counter when a genuinely new PDF loads
   useEffect(() => {
@@ -1080,6 +1088,17 @@ export function PdfPageViewer({
           onSaveAnnotated={onSaveAnnotated}
         />,
       )}
+
+      {thumbsOpen && pages.length > 1 && (
+        <PageThumbnails
+          pages={pages}
+          current={currentVisiblePage}
+          darkMode={pdfDarkMode}
+          onPick={(page) => { scrollToPage(page); closeThumbs(); }}
+          onClose={closeThumbs}
+          toggleRef={thumbsButtonRef}
+        />
+      )}
       </div>
 
       {/* Bottom page navigation bar. It's there even for a one-page file, with
@@ -1128,6 +1147,19 @@ export function PdfPageViewer({
         >
           <ChevronDown className="h-5 w-5" />
         </button>
+        {/* The page number box is too small for a finger, so this raises a strip of small pages to pick from */}
+        {pages.length > 1 && (
+          <button
+            ref={thumbsButtonRef}
+            onClick={() => setThumbsOpen((open) => !open)}
+            className={cn(tbBtn, "transition-colors", thumbsOpen ? tbBtnOn : tbBtnIdle)}
+            title="Show all pages"
+            aria-label="Show all pages"
+            aria-expanded={thumbsOpen}
+          >
+            <GalleryHorizontal className="h-5 w-5" />
+          </button>
+        )}
       </div>
     </div>
   );
