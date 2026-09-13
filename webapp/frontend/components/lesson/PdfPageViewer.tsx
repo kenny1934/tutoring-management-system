@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   ZoomIn, ZoomOut, UnfoldHorizontal, BookCheck, Moon, Sun,
-  ChevronUp, ChevronDown, Printer, NotebookPen, GalleryHorizontal,
+  ChevronUp, ChevronDown, Printer, NotebookPen, GalleryHorizontal, Blinds,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
@@ -146,6 +146,16 @@ interface PdfPageViewerProps {
    */
   viewStates?: Map<number, PdfViewState>;
   /**
+   * Which saved view in viewStates this viewer uses, when it isn't keyed by
+   * exerciseId. The answer key's viewer leaves exerciseId out, because the
+   * render cache goes by that id alone and would show an old answer file's
+   * pages when a new one arrives for the same exercise. So it passes the
+   * exercise's id here, to keep its zoom, scroll and covers per exercise.
+   */
+  viewKey?: number;
+  /** Shows a Cover button in the toolbar, for a viewer with no Pen Tray, such as the answer key. */
+  coverButton?: boolean;
+  /**
    * An area to show the Pen Tray in, in place of this viewer's own. While the
    * Draft is open, the lesson views pass one that covers the worksheet and the
    * Draft together. Null means that area isn't on the page yet, so the tray
@@ -212,6 +222,8 @@ export function PdfPageViewer({
   printTitle = "Print this exercise (P)",
   emptyMessage = "Select an exercise to view",
   viewStates,
+  viewKey,
+  coverButton = false,
   trayArea,
   ref,
 }: PdfPageViewerProps) {
@@ -264,10 +276,13 @@ export function PdfPageViewer({
   // recorded while a view is waiting, so the outgoing pages can't overwrite it.
   const restoreRef = useRef<(PdfViewState & { zoomTarget?: number }) | null>(null);
 
+  // The saved view this viewer uses: its own key if it was given one, and otherwise the exercise's.
+  const viewId = viewKey ?? exerciseId;
+
   const saveView = useCallback(() => {
-    if (exerciseId == null || !viewStates || restoreRef.current) return;
+    if (viewId == null || !viewStates || restoreRef.current) return;
     const el = scrollContainerRef.current;
-    viewStates.set(exerciseId, {
+    viewStates.set(viewId, {
       zoom: zoomRef.current,
       userZoomed: userHasZoomed.current,
       scrollTop: el?.scrollTop ?? 0,
@@ -275,7 +290,7 @@ export function PdfPageViewer({
       inkHidden: inkHiddenRef.current,
       covers: coversRef.current,
     });
-  }, [exerciseId, viewStates]);
+  }, [viewId, viewStates]);
 
   const setInkHidden = useCallback((hidden: boolean) => {
     inkHiddenRef.current = hidden;
@@ -582,7 +597,7 @@ export function PdfPageViewer({
   // A new exercise, or new bytes for this one, brings back the view it was
   // left in, or the top of the first page at fit-to-width if it's new.
   useLayoutEffect(() => {
-    const saved = exerciseId != null ? viewStates?.get(exerciseId) : undefined;
+    const saved = viewId != null ? viewStates?.get(viewId) : undefined;
     restoreRef.current = saved
       ? { ...saved }
       : { zoom: 0, userZoomed: false, scrollTop: 0, scrollLeft: 0, inkHidden: false, covers: {} };
@@ -594,7 +609,7 @@ export function PdfPageViewer({
     // Pages that are already this exercise's won't arrive again, so settle now.
     if (exerciseId != null && renderCacheRef.current.get(exerciseId)?.pages === pagesRef.current) settleZoom();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exerciseId, pdfData]);
+  }, [exerciseId, viewId, pdfData]);
 
   // Settle the zoom when pages load, except for hi-res re-renders of the same
   // pages. A layout effect, so the page never shows at the wrong size first.
@@ -905,7 +920,7 @@ export function PdfPageViewer({
 
   const tbBtnClass = cn(tbBtn, tbBtnIdle, "transition-colors");
   const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
-  // The words on the Draft, Answers and Print buttons only show when the pane has room for them.
+  // The words on the Cover, Draft, Answers and Print buttons only show when the pane has room for them.
   const tbLabel = "hidden @[560px]/toolbar:inline";
   // The tray floats over this viewer, unless the lesson view has given it an area of its own.
   const placeTray = (tray: ReactNode) => (trayArea ? createPortal(tray, trayArea) : tray);
@@ -914,6 +929,7 @@ export function PdfPageViewer({
     const { [pageIndex]: current, ...others } = coversRef.current;
     setCovers(current === undefined ? { ...coversRef.current, [pageIndex]: 0 } : others);
   };
+  const pageCovered = covers[currentVisiblePage - 1] !== undefined;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -973,7 +989,21 @@ export function PdfPageViewer({
           </button>
         </div>
 
-        {(onDraftToggle || onAnswerKeyToggle || onPrint) && <div className="flex-none h-6 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />}
+        {(coverButton || onDraftToggle || onAnswerKeyToggle || onPrint) && <div className="flex-none h-6 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />}
+
+        {/* Cover the page in view, for a viewer with no Pen Tray to do it from */}
+        {coverButton && (
+          <button
+            onClick={() => toggleCover(currentVisiblePage - 1)}
+            className={cn(tbBtn, "transition-colors", pageCovered ? tbBtnOn : tbBtnIdle)}
+            title={pageCovered ? "Remove the cover" : "Cover this page"}
+            aria-label="Cover"
+            aria-pressed={pageCovered}
+          >
+            <Blinds className="h-5 w-5" />
+            <span className={tbLabel}>Cover</span>
+          </button>
+        )}
 
         {/* Draft toggle */}
         {onDraftToggle && (
@@ -1092,7 +1122,7 @@ export function PdfPageViewer({
                   />
                 )}
               </div>
-              {tools && covers[i] !== undefined && (
+              {covers[i] !== undefined && (
                 <PageCover
                   top={covers[i]}
                   onMove={(top) => setCovers({ ...coversRef.current, [i]: top })}
@@ -1119,7 +1149,7 @@ export function PdfPageViewer({
             ? { number: currentVisiblePage, hasInk: (annotations[currentVisiblePage - 1]?.length ?? 0) > 0 }
             : undefined}
           onClearPage={onClearPage && (() => onClearPage(currentVisiblePage - 1))}
-          cover={{ covered: covers[currentVisiblePage - 1] !== undefined, onToggle: () => toggleCover(currentVisiblePage - 1) }}
+          cover={{ covered: pageCovered, onToggle: () => toggleCover(currentVisiblePage - 1) }}
           inkRevision={annotations}
           onSaveAnnotated={onSaveAnnotated}
         />,

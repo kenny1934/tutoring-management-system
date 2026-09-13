@@ -71,9 +71,11 @@ export function LessonViewerArea({
   isMobile, top, link, exercise, exerciseLabel, pdf, answer, draft, ink,
   stamp, onSaveAnnotated, onPrint, printing, emptyMessage, toolbarStart, worksheetRef,
 }: LessonViewerAreaProps) {
-  // Each exercise's zoom, scroll position and "Hide ink", so switching between
-  // exercises and back finds each one as the tutor left it.
+  // Each exercise's zoom, scroll position, "Hide ink" and covers, so switching
+  // between exercises and back finds each one as the tutor left it. The answer
+  // key keeps its own, so its zoom and covers stay apart from the worksheet's.
   const [viewStates] = useState(() => new Map<number, PdfViewState>());
+  const [answerViewStates] = useState(() => new Map<number, PdfViewState>());
   const { showAnswerKey, answerPdfData, mobileActiveTab, setMobileActiveTab } = answer;
   const isPrinting = printing.id !== null;
 
@@ -84,6 +86,10 @@ export function LessonViewerArea({
       isLoading={answer.answerLoading}
       error={answer.answerError}
       exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
+      viewStates={answerViewStates}
+      viewKey={exercise?.id}
+      // The answer key has no Pen Tray, so it covers its pages from a toolbar button.
+      coverButton
     />
   );
 

@@ -17,10 +17,13 @@ vi.mock("./DraftPane", () => ({
 
 // PdfPageViewer needs a canvas that jsdom doesn't have. The stub shows the
 // name it was handed, and a worksheet called "Crashes" throws as pdf.js can.
+// It also keeps the props each viewer was last given, by that name.
+const { viewerProps } = vi.hoisted(() => ({ viewerProps: new Map<string | undefined, Record<string, unknown>>() }));
 vi.mock("./PdfPageViewer", () => ({
-  PdfPageViewer: ({ exerciseLabel }: { exerciseLabel?: string }) => {
-    if (exerciseLabel === "Crashes") throw new Error("pdf.js gave up");
-    return <p>{exerciseLabel}</p>;
+  PdfPageViewer: (props: { exerciseLabel?: string }) => {
+    viewerProps.set(props.exerciseLabel, props);
+    if (props.exerciseLabel === "Crashes") throw new Error("pdf.js gave up");
+    return <p>{props.exerciseLabel}</p>;
   },
 }));
 
@@ -75,6 +78,18 @@ describe("LessonViewerArea", () => {
     renderArea({ top: <p>Chan Tai Man</p> });
     expect(screen.getByText("Chan Tai Man")).toBeInTheDocument();
     expect(screen.getByText("Linear equations 3")).toBeInTheDocument();
+  });
+
+  it("gives the answer key a Cover button, and keeps its views apart from the worksheet's", () => {
+    renderArea({ answer: openAnswerKey() });
+    const worksheet = viewerProps.get("Linear equations 3")!;
+    const answers = viewerProps.get("ANS: Linear equations 3")!;
+    expect(answers.coverButton).toBe(true);
+    expect(worksheet.coverButton).toBeFalsy();
+    // Its views are kept per exercise, in a map of its own.
+    expect(answers.viewKey).toBe(1001);
+    expect(answers.viewStates).toBeInstanceOf(Map);
+    expect(answers.viewStates).not.toBe(worksheet.viewStates);
   });
 
   it("shows a link in the worksheet's place", () => {
