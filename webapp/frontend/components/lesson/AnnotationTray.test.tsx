@@ -106,6 +106,18 @@ describe("AnnotationTray", () => {
     expect(screen.getByRole("button", { name: /Hide the ruler/ })).toBeInTheDocument();
   });
 
+  it("shows the compasses from More, and offers to hide them once they're out", () => {
+    const onToggle = vi.fn();
+    const { rerender } = render(<Harness compass={{ shown: false, onToggle }} />);
+    fireEvent.click(button("More"));
+    fireEvent.click(screen.getByRole("button", { name: /Show the compasses/ }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+
+    rerender(<Harness compass={{ shown: true, onToggle }} />);
+    fireEvent.click(button("More"));
+    expect(screen.getByRole("button", { name: /Hide the compasses/ })).toBeInTheDocument();
+  });
+
   it("shows the protractor from More, and offers to hide it once it's out", () => {
     const onToggle = vi.fn();
     const { rerender } = render(<Harness protractor={{ shown: false, onToggle }} />);

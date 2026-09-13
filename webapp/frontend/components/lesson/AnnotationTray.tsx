@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Hand, Eraser, Lasso, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
-  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds, Ruler,
+  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds, Ruler, DraftingCompass,
 } from "lucide-react";
 import {
   useFloating, offset, flip, shift, autoUpdate, useDismiss, useInteractions, FloatingPortal,
@@ -44,6 +44,8 @@ interface AnnotationTrayProps {
   ruler?: { shown: boolean; onToggle: () => void };
   /** The worksheet's protractor, for More's "Show the protractor" and "Hide the protractor". Leave it out where there's none. */
   protractor?: { shown: boolean; onToggle: () => void };
+  /** The worksheet's compasses, for More's "Show the compasses" and "Hide the compasses". Leave it out where there are none. */
+  compass?: { shown: boolean; onToggle: () => void };
   /**
    * Anything that changes whenever the ink does, such as the exercise's
    * annotations object. The message offering to undo a clear goes away when
@@ -144,7 +146,7 @@ export function SwatchMark({ swatch, big = false, className }: { swatch: InkSwat
  */
 export function AnnotationTray({
   tools, onUndo, onRedo, inkHidden, onInkHiddenChange, hasInk, onClearAll,
-  pageInView, onClearPage, cover, ruler, protractor, inkRevision, onSaveAnnotated,
+  pageInView, onClearPage, cover, ruler, protractor, compass, inkRevision, onSaveAnnotated,
 }: AnnotationTrayProps) {
   const [{ dock, collapsed }, setTrayState] = useState(readTrayState);
   const [morphing, setMorphing] = useState(false);
@@ -615,6 +617,13 @@ export function AnnotationTray({
                     icon={<ProtractorIcon className="h-5 w-5" />}
                     label={protractor.shown ? "Hide the protractor" : "Show the protractor"}
                     onClick={() => { setPop(null); protractor.onToggle(); }}
+                  />
+                )}
+                {compass && (
+                  <MenuRow
+                    icon={<DraftingCompass className="h-5 w-5" />}
+                    label={compass.shown ? "Hide the compasses" : "Show the compasses"}
+                    onClick={() => { setPop(null); compass.onToggle(); }}
                   />
                 )}
                 {onClearPage && pageInView && (

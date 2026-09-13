@@ -2,6 +2,17 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import type { PageAnnotations, Stroke } from "./useAnnotations";
+import type { Vec } from "@/lib/stroke-select";
+
+/**
+ * A line that a tool draws on a page by itself, such as an arc the compasses
+ * draw as they turn. The tool gives the line's points in screen pixels, and
+ * the page draws them in the picked ink until the tool ends the line.
+ */
+export interface DrivenLine {
+  to: (points: Vec[]) => void;
+  end: () => void;
+}
 
 /**
  * A page that the lasso's Move button can send selected ink to. The
@@ -27,6 +38,10 @@ export interface InkPage {
   strokes: () => Stroke[];
   /** Selects ink that has just been moved onto the page, and scrolls it into view. */
   receive: (strokes: Stroke[]) => void;
+  /** Whether a point on screen is on the page. */
+  contains: (point: Vec) => boolean;
+  /** Starts a line a tool drives, from this point on screen, or returns null when no pen, highlighter or fading ink is picked. */
+  startLine: (start: Vec) => DrivenLine | null;
 }
 
 const pages = new Map<string, InkPage>();
@@ -56,6 +71,11 @@ const subscribe = (listen: () => void) => {
   };
 };
 const readPages = () => inOrder;
+
+/** The page under a point on screen, if any, such as the one under the compasses' pencil. */
+export function inkPageAt(point: Vec): InkPage | undefined {
+  return inOrder.find((page) => page.contains(point));
+}
 
 /**
  * The other pages that ink on the given page can be moved to, in page order.

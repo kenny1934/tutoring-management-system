@@ -191,7 +191,7 @@ export function usePlacedTool({ containerRef, start, near }: PlacedToolOptions) 
 
   const onPointerDown = (e: React.PointerEvent) => {
     // Buttons and handles on the tool take their own touches, and only the mouse's main button drags.
-    if ((e.target as Element).closest("button, [data-resize-handle]") || (e.pointerType === "mouse" && e.button !== 0)) return;
+    if ((e.target as Element).closest("button, [data-tool-handle]") || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.preventDefault();
     e.stopPropagation();
     grab(e.pointerId, [e.clientX, e.clientY]);
@@ -202,6 +202,8 @@ export function usePlacedTool({ containerRef, start, near }: PlacedToolOptions) 
     place,
     held,
     onScreen,
+    /** Puts the tool somewhere new, for a tool with handles of its own, such as the compasses. */
+    setPlace,
     handlers: { onPointerDown, onPointerMove: follow, onPointerUp: lift, onPointerCancel: lift },
   };
 }

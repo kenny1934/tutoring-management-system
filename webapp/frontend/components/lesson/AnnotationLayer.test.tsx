@@ -3,6 +3,7 @@ import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import { useCallback, useState } from "react";
 import { AnnotationLayer } from "./AnnotationLayer";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
+import { inkPageAt } from "@/hooks/useInkPages";
 import { ontoEdge, type DrawingGuide, type RulerEdge } from "@/lib/ruler";
 
 // The layer maps pointer positions through the SVG's on-screen box. jsdom has
@@ -536,5 +537,46 @@ describe("AnnotationLayer along the ruler", () => {
     const [stroke]: Stroke[] = onStrokesChange.mock.calls[0][0];
     expect(round(stroke)).toEqual([[10, 10, 0.51], [50, 10, 0.51], [80, 10, 0.51], [100, 10, 0.51]]);
     expect(end).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AnnotationLayer driven by a tool", () => {
+  const noop = () => {};
+
+  function renderPage(isDrawing: boolean) {
+    const onStrokesChange = vi.fn();
+    render(
+      <AnnotationLayer
+        width={100}
+        height={100}
+        strokes={[]}
+        isDrawing={isDrawing}
+        isErasing={false}
+        penColor="#2563eb"
+        penSize={3}
+        onStrokesChange={onStrokesChange}
+        pageIndex={0}
+        pageLabel="Page 1"
+        onPagesChange={noop}
+      />
+    );
+    return onStrokesChange;
+  }
+
+  it("draws a line a tool drives through the page list, with a steady pressure, as one change when the tool ends it", () => {
+    const onStrokesChange = renderPage(true);
+    const line = inkPageAt([50, 50])!.startLine([10, 10])!;
+    act(() => line.to([[10, 10], [50, 10], [80, 10]]));
+    expect(onStrokesChange).not.toHaveBeenCalled();
+    act(() => line.end());
+
+    const [stroke]: Stroke[] = onStrokesChange.mock.calls[0][0];
+    expect(stroke.points).toEqual([[10, 10, 0.51], [50, 10, 0.51], [80, 10, 0.51]]);
+    expect(stroke.color).toBe("#2563eb");
+  });
+
+  it("lets no tool draw while no pen is picked", () => {
+    renderPage(false);
+    expect(inkPageAt([50, 50])!.startLine([10, 10])).toBeNull();
   });
 });

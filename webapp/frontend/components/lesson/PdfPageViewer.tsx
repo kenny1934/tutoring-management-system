@@ -12,6 +12,7 @@ import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { Ruler, rulerStart } from "./Ruler";
 import { Protractor } from "./Protractor";
+import { Compass } from "./Compass";
 import { CM, type DrawingGuide } from "@/lib/ruler";
 import type { Vec } from "@/lib/stroke-select";
 import { AnnotationTray } from "./AnnotationTray";
@@ -418,15 +419,18 @@ export function PdfPageViewer({
   const closeThumbs = useCallback(() => setThumbsOpen(false), []);
   useEffect(() => { setThumbsOpen(false); }, [exerciseId, pdfData]);
 
-  // The ruler and the protractor, from More. They lie among the pages, and
-  // they're put away when the viewer moves on to another file, like the strip.
-  // Each joins the pane's guides while it's out, for the drawing layers.
+  // The ruler, the protractor and the compasses, from More. They lie among
+  // the pages, and they're put away when the viewer moves on to another file,
+  // like the strip. The ruler and the protractor join the pane's guides while
+  // they're out, for the drawing layers, and the compasses draw by themselves.
   const [rulerAt, setRulerAt] = useState<Vec | null>(null);
   const [protractorAt, setProtractorAt] = useState<Vec | null>(null);
+  const [compassAt, setCompassAt] = useState<Vec | null>(null);
   const [guides] = useState(() => new Set<DrawingGuide>());
   useEffect(() => {
     setRulerAt(null);
     setProtractorAt(null);
+    setCompassAt(null);
   }, [exerciseId, pdfData]);
 
   // Reset retry counter when a genuinely new PDF loads
@@ -955,6 +959,7 @@ export function PdfPageViewer({
   const toggleRuler = () => setRulerAt(rulerAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
   const toggleProtractor = () =>
     setProtractorAt(protractorAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
+  const toggleCompass = () => setCompassAt(compassAt ? null : rulerStart(pageStackRef.current, scrollContainerRef.current));
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -1183,6 +1188,15 @@ export function PdfPageViewer({
               onHide={() => setProtractorAt(null)}
             />
           )}
+          {tools && compassAt && (
+            <Compass
+              containerRef={pageStackRef}
+              cm={CM}
+              start={compassAt}
+              darkMode={pdfDarkMode}
+              onHide={() => setCompassAt(null)}
+            />
+          )}
         </div>
       </div>
 
@@ -1202,6 +1216,7 @@ export function PdfPageViewer({
           cover={{ covered: pageCovered, onToggle: () => toggleCover(currentVisiblePage - 1) }}
           ruler={{ shown: rulerAt !== null, onToggle: toggleRuler }}
           protractor={{ shown: protractorAt !== null, onToggle: toggleProtractor }}
+          compass={{ shown: compassAt !== null, onToggle: toggleCompass }}
           inkRevision={annotations}
           onSaveAnnotated={onSaveAnnotated}
         />,

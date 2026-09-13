@@ -127,26 +127,31 @@ describe("DraftPane", () => {
     expect(screen.getByRole("status")).toHaveTextContent("The draft was cleared.");
   });
 
-  it("puts a ruler on the draft from its bar, and takes it away again", () => {
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Ruler" }));
-    expect(screen.getByRole("group", { name: /^Ruler:/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ruler" })).toHaveAttribute("aria-pressed", "true");
+  const openTools = () => fireEvent.click(screen.getByRole("button", { name: "Tools" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide the ruler" }));
+  it("puts a ruler on the draft from its Tools menu, and takes it away again", () => {
+    render(<Harness />);
+    openTools();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Show the ruler" }));
+    expect(screen.getByRole("group", { name: /^Ruler:/ })).toBeInTheDocument();
+
+    openTools();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Hide the ruler" }));
     expect(screen.queryByRole("group", { name: /^Ruler:/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "Ruler" })).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("puts a protractor on the draft from its bar, and takes it away again", () => {
+  it("puts the protractor and the compasses out together from the same menu, and each has its own X", () => {
     render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Protractor" }));
+    openTools();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Show the protractor" }));
+    openTools();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Show the compasses" }));
     expect(screen.getByRole("group", { name: /^Protractor:/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Protractor" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("group", { name: /^Compasses:/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide the protractor" }));
-    expect(screen.queryByRole("group", { name: /^Protractor:/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "Protractor" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Hide the compasses" }));
+    expect(screen.queryByRole("group", { name: /^Compasses:/ })).toBeNull();
+    expect(screen.getByRole("group", { name: /^Protractor:/ })).toBeInTheDocument();
   });
 
   it("greys out Clear while the draft has no ink", () => {

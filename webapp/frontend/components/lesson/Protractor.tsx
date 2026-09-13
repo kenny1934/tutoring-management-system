@@ -240,7 +240,7 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
       )}
       {/* The handle sits on the strip below the baseline, at its left-hand end */}
       <span
-        data-resize-handle=""
+        data-tool-handle=""
         role="img"
         aria-label="Drag to resize"
         title="Drag to resize"

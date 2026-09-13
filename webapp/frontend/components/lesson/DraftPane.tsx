@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
-import { Plus, Ruler as RulerIcon, Trash2, X } from "lucide-react";
+import { DraftingCompass, Plus, Ruler as RulerIcon, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { UndoOfferBar } from "./UndoOfferBar";
 import { Ruler, rulerStart } from "./Ruler";
 import { Protractor, ProtractorIcon } from "./Protractor";
+import { Compass } from "./Compass";
 import { TRAY_CLEARANCE } from "./AnnotationTray";
 import { PAGE_BAR_HEIGHT, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
@@ -56,6 +57,10 @@ const TRAY_TOP = PAGE_BAR_HEIGHT + TRAY_CLEARANCE;
 const barButton = cn(tbBtn, "transition-colors");
 // Clear and its options grey out the same way when there's nothing to clear.
 const greyedOut = "disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed";
+const toolOption = cn(
+  menuItemClass,
+  "flex min-h-11 items-center gap-2 text-[#6b4c30] dark:text-[#d4a574] hover:bg-[#f5ebe0] dark:hover:bg-[#3a3228]",
+);
 const clearOption = cn(
   menuItemClass,
   "min-h-11 text-red-700 dark:text-red-400 hover:bg-[#f5ebe0] dark:hover:bg-[#3a3228]",
@@ -88,17 +93,19 @@ export function DraftPane({
   const sheetRefs = useRef<(HTMLDivElement | null)[]>([]);
   const newSheetRef = useRef<number | null>(null);
 
-  // The Draft's own ruler and protractor, from the buttons on its bar. The
-  // sheets fit the pane, so a centimetre is measured from a sheet's width
-  // while either of them is out.
+  // The Draft's own ruler, protractor and compasses, from the Tools menu on
+  // its bar. The sheets fit the pane, so a centimetre is measured from a
+  // sheet's width while any of them is out.
   const columnRef = useRef<HTMLDivElement>(null);
   const [rulerAt, setRulerAt] = useState<Vec | null>(null);
   const [protractorAt, setProtractorAt] = useState<Vec | null>(null);
+  const [compassAt, setCompassAt] = useState<Vec | null>(null);
   const [guides] = useState(() => new Set<DrawingGuide>());
   const [sheetWidth, setSheetWidth] = useState(0);
   const rulerOut = rulerAt !== null;
   const protractorOut = protractorAt !== null;
-  const measuring = rulerOut || protractorOut;
+  const compassOut = compassAt !== null;
+  const measuring = rulerOut || protractorOut || compassOut;
   useEffect(() => {
     const sheet = sheetRefs.current[0];
     if (!measuring || !sheet) return;
@@ -121,11 +128,12 @@ export function DraftPane({
     commitZoom: () => {},
   });
 
-  // Each exercise's Draft opens at its first sheet, with the ruler and the protractor put away.
+  // Each exercise's Draft opens at its first sheet, with its tools put away.
   useEffect(() => {
     scrollRef.current?.scrollTo?.({ top: 0 });
     setRulerAt(null);
     setProtractorAt(null);
+    setCompassAt(null);
   }, [exerciseId]);
 
   // A sheet that was just added is scrolled into view, ready to write on.
@@ -142,6 +150,7 @@ export function DraftPane({
 
   const toggleRuler = () => setRulerAt(rulerAt ? null : rulerStart(columnRef.current, scrollRef.current));
   const toggleProtractor = () => setProtractorAt(protractorAt ? null : rulerStart(columnRef.current, scrollRef.current));
+  const toggleCompass = () => setCompassAt(compassAt ? null : rulerStart(columnRef.current, scrollRef.current));
   // A centimetre of the Draft's sheets, on screen.
   const sheetCm = sheetWidth * (CM / DRAFT_SHEET.width);
 
@@ -185,7 +194,7 @@ export function DraftPane({
 
   return (
     <section aria-label="Draft" className="relative flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
-      <div className={cn(toolbarRow, "@container/draftbar")}>
+      <div className={toolbarRow}>
         <span className="ml-1 text-xs font-medium text-[#8b7355] dark:text-[#a09080]">Draft</span>
         <div className="flex-1" />
         <div role="group" aria-label="Paper" className="flex flex-none gap-0.5">
@@ -196,29 +205,39 @@ export function DraftPane({
             Squared
           </button>
         </div>
-        <button
-          type="button"
-          aria-label="Ruler"
-          aria-pressed={rulerOut}
-          title={rulerOut ? "Hide the ruler" : "Show the ruler on the draft"}
-          onClick={toggleRuler}
-          className={cn(barButton, rulerOut ? tbBtnOn : tbBtnIdle)}
+        {/* The ruler, the protractor and the compasses share one menu, which shows as on while any of them is out */}
+        <DropdownMenu
+          align="right"
+          menuClassName="bg-[#fef9f3] dark:bg-[#2d2618] border-[#e8d4b8] dark:border-[#6b5a4a]"
+          trigger={({ triggerProps }) => (
+            <button
+              type="button"
+              {...triggerProps}
+              title="Put a ruler, a protractor or compasses on the draft"
+              className={cn(barButton, rulerOut || protractorOut || compassOut ? tbBtnOn : tbBtnIdle)}
+            >
+              <DraftingCompass className="h-5 w-5" />
+              Tools
+            </button>
+          )}
         >
-          <RulerIcon className="h-5 w-5" />
-          {/* The words go when the Draft is narrow, and the icons stay */}
-          <span className="hidden @[560px]/draftbar:inline">Ruler</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Protractor"
-          aria-pressed={protractorOut}
-          title={protractorOut ? "Hide the protractor" : "Show the protractor on the draft"}
-          onClick={toggleProtractor}
-          className={cn(barButton, protractorOut ? tbBtnOn : tbBtnIdle)}
-        >
-          <ProtractorIcon className="h-5 w-5" />
-          <span className="hidden @[560px]/draftbar:inline">Protractor</span>
-        </button>
+          {(close) => (
+            <>
+              <button type="button" role="menuitem" onClick={() => { close(); toggleRuler(); }} className={toolOption}>
+                <RulerIcon className="h-5 w-5" />
+                {rulerOut ? "Hide the ruler" : "Show the ruler"}
+              </button>
+              <button type="button" role="menuitem" onClick={() => { close(); toggleProtractor(); }} className={toolOption}>
+                <ProtractorIcon className="h-5 w-5" />
+                {protractorOut ? "Hide the protractor" : "Show the protractor"}
+              </button>
+              <button type="button" role="menuitem" onClick={() => { close(); toggleCompass(); }} className={toolOption}>
+                <DraftingCompass className="h-5 w-5" />
+                {compassOut ? "Hide the compasses" : "Show the compasses"}
+              </button>
+            </>
+          )}
+        </DropdownMenu>
         <DropdownMenu
           align="right"
           menuClassName="bg-[#fef9f3] dark:bg-[#2d2618] border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -336,6 +355,15 @@ export function DraftPane({
               guides={guides}
               darkMode={pdfDarkMode}
               onHide={() => setProtractorAt(null)}
+            />
+          )}
+          {compassAt && (
+            <Compass
+              containerRef={columnRef}
+              cm={sheetCm}
+              start={compassAt}
+              darkMode={pdfDarkMode}
+              onHide={() => setCompassAt(null)}
             />
           )}
         </div>

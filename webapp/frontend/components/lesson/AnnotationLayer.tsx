@@ -12,7 +12,7 @@ import {
   type Vec,
 } from "@/lib/stroke-select";
 import type { InkSwatch } from "@/hooks/useAnnotationTools";
-import { registerInkPage, type InkPage } from "@/hooks/useInkPages";
+import { registerInkPage, type DrivenLine, type InkPage } from "@/hooks/useInkPages";
 import { clipPointsToPage, type DrawingGuide, type GuidedLine } from "@/lib/ruler";
 import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
 
@@ -285,6 +285,8 @@ export function AnnotationLayer({
   // outside the ruler's edge, runs against that tool. This holds the line,
   // and where on screen the finger landed, while it's drawn.
   const guidedRef = useRef<{ line: GuidedLine; start: Vec } | null>(null);
+  // True while a tool, such as the compasses, is driving the line being drawn, not a finger on this page.
+  const drivenRef = useRef(false);
 
   // What a new stroke looks like. Fading ink has its own look, whatever colour is picked.
   const inkColor = fading ? FADING_INK.color : penColor;
@@ -363,6 +365,7 @@ export function AnnotationLayer({
   // setter skips the render when there was nothing to throw away.
   const discardInProgress = useCallback(() => {
     isDrawingStroke.current = false;
+    drivenRef.current = false;
     guidedRef.current?.line.end?.();
     guidedRef.current = null;
     currentPointsRef.current = [];
@@ -468,13 +471,13 @@ export function AnnotationLayer({
    * points, such as an arc, gets a steady pressure, which draws it one width too.
    */
   const guidedLine = useCallback(
-    (e: React.PointerEvent): Point[] => {
+    (pointer: Vec): Point[] => {
       const guided = guidedRef.current;
       const svg = svgRef.current;
       if (!guided || !svg) return [];
       const rect = svg.getBoundingClientRect();
       const toPage = ([x, y]: Vec): Vec => [((x - rect.left) / rect.width) * width, ((y - rect.top) / rect.height) * height];
-      const onPage = clipPointsToPage(guided.line.to([e.clientX, e.clientY]).map(toPage), width, height);
+      const onPage = clipPointsToPage(guided.line.to(pointer).map(toPage), width, height);
       if (onPage) return onPage.map(([x, y]): Point => [x, y, onPage.length > 2 ? STEADY_PRESSURE : 0.5]);
       // A line whose whole length is off this page leaves a dot where the finger landed.
       const [sx, sy] = toPage(guided.start);
@@ -495,7 +498,7 @@ export function AnnotationLayer({
         signalFade("hold");
       }
       guidedRef.current = startGuidedLine([e.clientX, e.clientY]);
-      const first = guidedRef.current ? guidedLine(e) : [getPoint(e)];
+      const first = guidedRef.current ? guidedLine([e.clientX, e.clientY]) : [getPoint(e)];
       currentPointsRef.current = first;
       setCurrentPoints([...first]);
     },
@@ -504,11 +507,12 @@ export function AnnotationLayer({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDrawingStroke.current) return;
+      // A line a tool is driving takes its points from the tool.
+      if (!isDrawingStroke.current || drivenRef.current) return;
       e.preventDefault();
       e.stopPropagation();
       if (guidedRef.current) {
-        const line = guidedLine(e);
+        const line = guidedLine([e.clientX, e.clientY]);
         currentPointsRef.current = line;
         setCurrentPoints(line);
         return;
@@ -529,12 +533,11 @@ export function AnnotationLayer({
     [straight, getPoint, guidedLine]
   );
 
-  const handlePointerUp = useCallback(
-    (e: React.PointerEvent) => {
-      if (!isDrawingStroke.current) return;
-      e.preventDefault();
-      e.stopPropagation();
+  /** The line being drawn is done: keep it as a stroke, or as fading ink. */
+  const finishStroke = useCallback(
+    () => {
       isDrawingStroke.current = false;
+      drivenRef.current = false;
       const guided = guidedRef.current;
       guided?.line.end?.();
       guidedRef.current = null;
@@ -565,6 +568,56 @@ export function AnnotationLayer({
       }
     },
     [strokes, straight, fading, inkColor, inkSize, newInk, releaseFade, onStrokesChange]
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      // A line a tool is driving ends when the tool says so.
+      if (!isDrawingStroke.current || drivenRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      finishStroke();
+    },
+    [finishStroke]
+  );
+
+  // A driven line is finished through this, so ink that arrives on the page while it's drawn isn't lost.
+  const finishRef = useRef(finishStroke);
+  useEffect(() => {
+    finishRef.current = finishStroke;
+  });
+
+  /**
+   * Start a line that a tool draws by itself, such as the compasses as they
+   * turn. It's drawn like a line against a tool, in the picked ink, but its
+   * points come from the tool, in screen pixels, not from a finger on this
+   * page. Nothing starts unless a pen, a highlighter or fading ink is picked.
+   */
+  const startDrivenLine = useCallback(
+    (start: Vec): DrivenLine | null => {
+      if (!isDrawing || suspended || isDrawingStroke.current) return null;
+      let latest: Vec[] = [start];
+      isDrawingStroke.current = true;
+      drivenRef.current = true;
+      if (fading) {
+        holdingRef.current = true;
+        signalFade("hold");
+      }
+      guidedRef.current = { line: { to: () => latest }, start };
+      return {
+        to: (points) => {
+          if (!drivenRef.current || points.length === 0) return;
+          latest = points;
+          const line = guidedLine(points[points.length - 1]);
+          currentPointsRef.current = line;
+          setCurrentPoints(line);
+        },
+        end: () => {
+          if (drivenRef.current) finishRef.current();
+        },
+      };
+    },
+    [isDrawing, suspended, fading, guidedLine]
   );
 
   /** Erase along the line from the last pointer position to this one. */
@@ -655,11 +708,12 @@ export function AnnotationLayer({
   );
 
   // While it's showing, a page with a place among the exercise's pages is on
-  // the list the lasso's Move button offers. The list reads the page's ink
-  // through a ref, so the page doesn't register again with every stroke.
-  const strokesRef = useRef(strokes);
+  // the list the lasso's Move button offers, and the compasses draw through
+  // the same list. It reads the page's ink, and starts lines on it, through a
+  // ref, so the page doesn't register again with every stroke.
+  const liveRef = useRef({ strokes, startDrivenLine });
   useEffect(() => {
-    strokesRef.current = strokes;
+    liveRef.current = { strokes, startDrivenLine };
   });
   const receiveInk = useCallback(
     (moved: Stroke[]) => {
@@ -676,8 +730,13 @@ export function AnnotationLayer({
       width,
       height,
       onPagesChange,
-      strokes: () => strokesRef.current,
+      strokes: () => liveRef.current.strokes,
       receive: receiveInk,
+      contains: ([x, y]) => {
+        const box = svgRef.current?.getBoundingClientRect();
+        return !!box && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
+      },
+      startLine: (start) => liveRef.current.startDrivenLine(start),
     });
   }, [layerId, pageIndex, pageLabel, width, height, onPagesChange, receiveInk]);
 
