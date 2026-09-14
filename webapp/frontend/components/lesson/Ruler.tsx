@@ -6,10 +6,9 @@ import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool, type OnScreen } from "@/hooks/usePlacedTool";
 import { inkSnapAt } from "@/hooks/useInkPages";
-import { CATCH, type DrawingGuide } from "@/lib/drawing-guide";
+import { CATCH, readingFlipped, type DrawingGuide } from "@/lib/drawing-guide";
 import {
-  RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, pinnedLine, readingFlipped, shownAngle, shownLength,
-  type RulerFrame,
+  RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, pinnedLine, shownAngle, shownLength, type RulerFrame,
 } from "@/lib/ruler";
 import type { Vec } from "@/lib/stroke-select";
 import { READING, ROUND_BUTTON, SnapRings, usePinnedPoints } from "./ToolParts";

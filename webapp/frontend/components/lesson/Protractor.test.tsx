@@ -84,6 +84,20 @@ describe("Protractor", () => {
     expect(protractor()).not.toHaveTextContent("°");
   });
 
+  it("flips its reading over once it's turned end over end, so it never reads upside down", () => {
+    render(<Harness guides={new Set()} />);
+    const reading = () => protractor().querySelector("span[aria-hidden]")!;
+    fireEvent.pointerDown(protractor(), touch(1, 200, 270));
+    expect(reading()).not.toHaveClass("rotate-180");
+    fireEvent.pointerUp(protractor(), touch(1, 200, 270));
+
+    // Twelve turns of 15 degrees spin it half a turn, with its curved edge now below the centre mark.
+    for (let i = 0; i < 12; i++) fireEvent.wheel(protractor(), { deltaY: 100, shiftKey: true });
+    fireEvent.pointerDown(protractor(), touch(2, 200, 330));
+    expect(protractor()).toHaveTextContent("180°");
+    expect(reading()).toHaveClass("rotate-180");
+  });
+
   it("resizes about its centre mark from its handle, between 8 and 20 cm, and remembers the size", () => {
     render(<Harness guides={new Set()} />);
     const handle = screen.getByRole("img", { name: "Drag to resize" });

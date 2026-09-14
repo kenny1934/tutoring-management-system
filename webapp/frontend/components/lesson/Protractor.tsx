@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool, type OnScreen } from "@/hooks/usePlacedTool";
 import { inkSnapAt } from "@/hooks/useInkPages";
-import { CATCH, type DrawingGuide } from "@/lib/drawing-guide";
+import { CATCH, readingFlipped, type DrawingGuide } from "@/lib/drawing-guide";
 import {
   HOLE_SHARE, STRIP_SHARE, arcTo, draggedSize, lineKind, nearProtractor, polar, rayOnto, rayTo, readProtractorSize,
   saveProtractorSize, shownTilt, type ProtractorFrame,
@@ -249,10 +249,15 @@ export function Protractor({ containerRef, cm, start, guides, darkMode, onHide }
         }}
       >
         <ProtractorMarks held={held} />
+        {/* The reading turns with the protractor, and flips half a turn whenever it would otherwise be upside down */}
         {shown && (
           <span
             aria-hidden="true"
-            className={cn("pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap", READING)}
+            className={cn(
+              "pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap",
+              readingFlipped(place.angle) && "rotate-180",
+              READING,
+            )}
             style={{ top: radius * 0.55 }}
           >
             {shown}

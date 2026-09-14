@@ -27,6 +27,19 @@ export function snapAngle(angle: number): number {
 }
 
 /**
+ * Whether a tool's reading, such as the ruler's length or the protractor's
+ * angle, needs flipping half a turn so it can be read. The reading sits on
+ * the tool and turns with it, so once the tool is turned a quarter turn or
+ * more either way, its text would be upside down. Flipped about its own
+ * middle, it stays where it was on the tool. On an upright tool it reads from
+ * bottom to top, the way a label up the side of a chart does.
+ */
+export function readingFlipped(angle: number): boolean {
+  const turned = ((angle % 360) + 360) % 360;
+  return turned >= 90 && turned < 270;
+}
+
+/**
  * The part of the line from a to b that's on a page of the given size, in
  * page units, or null when none of it is. A line along the ruler can run past
  * the edge of the page it started on, and whatever runs past is dropped.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CM, clipPointsToPage, clipToPage, snapAngle } from "./drawing-guide";
+import { CM, clipPointsToPage, clipToPage, readingFlipped, snapAngle } from "./drawing-guide";
 
 describe("CM", () => {
   it("is a true centimetre of the printed page", () => {
@@ -13,6 +13,14 @@ describe("snapAngle", () => {
     expect(snapAngle(13)).toBe(15);
     expect(snapAngle(88)).toBe(90);
     expect(snapAngle(87)).toBe(87);
+  });
+});
+
+describe("readingFlipped", () => {
+  it("flips a tool's reading once the tool is turned far enough for it to be upside down", () => {
+    [0, 89, 270, 359, -30, 400].forEach((angle) => expect(readingFlipped(angle)).toBe(false));
+    // Upright either way round, the reading ends up running from bottom to top.
+    [90, 180, 269, -100, -180].forEach((angle) => expect(readingFlipped(angle)).toBe(true));
   });
 });
 

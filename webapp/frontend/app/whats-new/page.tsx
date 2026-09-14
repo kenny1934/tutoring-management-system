@@ -12,18 +12,20 @@ interface ChangelogItem {
   description: string;
 }
 
+// The lists are read-only because the generated changelog data is declared
+// `as const`, so the data can be checked against these types without a cast.
 interface ChangelogSection {
   title: string;
-  items: ChangelogItem[];
+  items: readonly ChangelogItem[];
 }
 
 interface ChangelogRelease {
   version: string;
   date: string;
-  sections: ChangelogSection[];
+  sections: readonly ChangelogSection[];
 }
 
-const releases = changelogData as ChangelogRelease[];
+const releases: readonly ChangelogRelease[] = changelogData;
 
 /** Render basic markdown (bold, code, links) in changelog descriptions. */
 function renderMarkdown(text: string) {

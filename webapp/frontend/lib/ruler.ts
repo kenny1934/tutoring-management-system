@@ -31,19 +31,6 @@ export function shownAngle(angle: number): number {
   return ((Math.round(angle) % 180) + 180) % 180;
 }
 
-/**
- * Whether the ruler's reading needs flipping half a turn so it can be read.
- * The reading lies along the ruler and turns with it, so once the ruler is
- * turned a quarter turn or more either way, its text would be upside down.
- * Flipped, it stays in the clear strip between the two rows of marks. On an
- * upright ruler it reads from bottom to top, the way a label up the side of a
- * chart does.
- */
-export function readingFlipped(angle: number): boolean {
-  const turned = ((angle % 360) + 360) % 360;
-  return turned >= 90 && turned < 270;
-}
-
 /** The ruler on screen: its centre, the direction along it, and half its length and height. */
 export interface RulerFrame {
   cx: number;
