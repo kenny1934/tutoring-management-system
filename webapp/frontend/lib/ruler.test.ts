@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { edgeAt, nearRuler, ontoEdge, pinnedLine, shownAngle, shownLength, type RulerFrame } from "./ruler";
+import { edgeAt, nearRuler, ontoEdge, pinnedLine, readingFlipped, shownAngle, shownLength, type RulerFrame } from "./ruler";
 
 // A level ruler centred at (100, 100), 160 pixels long and 30 tall, so a pixel to the millimetre.
 const LEVEL: RulerFrame = { cx: 100, cy: 100, dx: 1, dy: 0, halfLength: 80, halfHeight: 15 };
@@ -65,6 +65,12 @@ describe("the ruler's angle", () => {
   it("shows from 0 to 179 degrees", () => {
     expect(shownAngle(-30)).toBe(150);
     expect(shownAngle(190)).toBe(10);
+  });
+
+  it("flips the reading once the ruler is turned far enough for it to be upside down", () => {
+    [0, 89, 270, 359, -30, 400].forEach((angle) => expect(readingFlipped(angle)).toBe(false));
+    // Upright either way round, the reading ends up running from bottom to top.
+    [90, 180, 269, -100, -180].forEach((angle) => expect(readingFlipped(angle)).toBe(true));
   });
 });
 

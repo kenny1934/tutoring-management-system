@@ -94,6 +94,17 @@ describe("Ruler", () => {
     expect(x.style.transform).toBe("rotate(-16deg)");
   });
 
+  it("flips its reading over once it's turned end over end, so it never reads upside down", () => {
+    render(<Harness />);
+    const reading = () => ruler().querySelector("span")!;
+    expect(reading()).not.toHaveClass("rotate-180");
+
+    // Twelve turns of 15 degrees spin it half a turn.
+    for (let i = 0; i < 12; i++) fireEvent.wheel(ruler(), { deltaY: 100, shiftKey: true });
+    expect(ruler()).toHaveTextContent("0°");
+    expect(reading()).toHaveClass("rotate-180");
+  });
+
   it("guides a line along its edge for the drawing layers while it's out", () => {
     const guides = new Set<DrawingGuide>();
     const { unmount } = render(<Harness guides={guides} />);

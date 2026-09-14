@@ -8,7 +8,8 @@ import { usePlacedTool, type OnScreen } from "@/hooks/usePlacedTool";
 import { inkSnapAt } from "@/hooks/useInkPages";
 import { CATCH, type DrawingGuide } from "@/lib/drawing-guide";
 import {
-  RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, pinnedLine, shownAngle, shownLength, type RulerFrame,
+  RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, pinnedLine, readingFlipped, shownAngle, shownLength,
+  type RulerFrame,
 } from "@/lib/ruler";
 import type { Vec } from "@/lib/stroke-select";
 import { READING, ROUND_BUTTON, SnapRings, usePinnedPoints } from "./ToolParts";
@@ -160,9 +161,14 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
         }}
       >
         <RulerMarks />
+        {/* The reading turns with the ruler, and flips half a turn whenever it would otherwise be upside down */}
         <span
           aria-hidden="true"
-          className={cn("pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap", READING)}
+          className={cn(
+            "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap",
+            readingFlipped(place.angle) && "rotate-180",
+            READING,
+          )}
         >
           {lineLength ?? `${shownAngle(place.angle)}°`}
         </span>
