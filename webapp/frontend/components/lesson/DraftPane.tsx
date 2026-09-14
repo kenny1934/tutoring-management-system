@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
-import { DraftingCompass, Plus, Trash2, X } from "lucide-react";
+import { DraftingCompass, Moon, Plus, Sun, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { AnnotationLayer } from "./AnnotationLayer";
@@ -98,7 +98,7 @@ export function DraftPane({
   title = "Draft", barStart, ownTray,
 }: DraftPaneProps) {
   const [squared, setSquared] = draftSquared.usePreference();
-  const [pdfDarkMode] = usePdfDarkMode();
+  const [pdfDarkMode, togglePdfDarkMode] = usePdfDarkMode();
   // "Hide ink" on a tray of the Draft's own. Beside a worksheet, the worksheet's tray hides only the worksheet's ink.
   const [inkHidden, setInkHidden] = useState(false);
   // A tray of the Draft's own sits at the bottom of the Draft, with no page bar below it.
@@ -286,6 +286,21 @@ export function DraftPane({
             </>
           )}
         </DropdownMenu>
+        {/* The lesson's own Draft has no worksheet toolbar beside it, so it
+            carries the board's dark switch itself. It's the same one setting,
+            so the whole board stays dark or light together. */}
+        {ownTray && (
+          <button
+            type="button"
+            onClick={togglePdfDarkMode}
+            title={pdfDarkMode ? "Light PDF mode" : "Dark PDF mode"}
+            aria-label="Dark PDF mode"
+            aria-pressed={pdfDarkMode}
+            className={cn(barButton, tbBtnIdle, pdfDarkMode && "!text-yellow-500 dark:!text-yellow-400")}
+          >
+            {pdfDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
+        )}
         <div className="flex-none h-6 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />
         <button
           type="button"

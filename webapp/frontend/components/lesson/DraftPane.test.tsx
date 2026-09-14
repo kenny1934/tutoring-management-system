@@ -160,9 +160,22 @@ describe("DraftPane", () => {
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
   });
 
-  it("leaves the Pen Tray to the worksheet when it sits beside one", () => {
+  it("leaves the Pen Tray and the dark switch to the worksheet when it sits beside one", () => {
     render(<Harness />);
     expect(screen.queryByRole("toolbar", { name: "Annotation tools" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dark PDF mode" })).toBeNull();
+  });
+
+  it("gives the lesson's own Draft the board's one dark switch", () => {
+    render(<Harness title="Lesson draft" ownTray={{}} />);
+    const dark = screen.getByRole("button", { name: "Dark PDF mode" });
+    expect(dark).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(dark);
+    expect(dark).toHaveAttribute("aria-pressed", "true");
+    // It's the same setting the worksheet's button flips, so it's put back for the other tests.
+    fireEvent.click(dark);
+    expect(dark).toHaveAttribute("aria-pressed", "false");
   });
 
   it("takes the lesson's own Draft's name, the view's buttons and a Pen Tray of its own", () => {
