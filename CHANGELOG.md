@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.136](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.135...v2.0.136) (2026-09-14)
+
+
+### New Features
+
+* **Lines along the ruler snap to its millimetre marks**: each end lands on a mark and the ruler shows the line's length as you draw, so a line of a set length, such as 6 cm, comes out exact.
+
 ## [2.0.135](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.134...v2.0.135) (2026-09-13)
 
 
