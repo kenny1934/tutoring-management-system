@@ -174,6 +174,24 @@ describe("AnnotationLayer pen and highlighter", () => {
     expect(line.points.map(([x, y]) => [x, y])).toEqual([[10, 50], [90, 50]]);
   });
 
+  it("lands a straight line's ends exactly on points in the ink near them, with a ring at each while it's drawn", () => {
+    // Two pen lines crossing at (30, 30), and a dot at (80, 70).
+    const ink: Stroke[] = [
+      { points: [[20, 20, 0.5], [40, 40, 0.5]], color: "#000000", size: 2 },
+      { points: [[20, 40, 0.5], [40, 20, 0.5]], color: "#000000", size: 2 },
+      { points: [[80, 70, 0.5]], color: "#000000", size: 2 },
+    ];
+    const { svg, onStrokesChange } = renderDrawing({ straight: true, strokes: ink });
+    fireEvent.pointerDown(svg, { clientX: 31, clientY: 31, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 79, clientY: 72, pointerId: 1 });
+    expect(svg.querySelectorAll("[data-pinned]")).toHaveLength(2);
+    fireEvent.pointerUp(svg, { clientX: 79, clientY: 72, pointerId: 1 });
+
+    const line = (onStrokesChange.mock.calls[0][0] as Stroke[]).at(-1)!;
+    expect(line.points.map(([x, y]) => [x, y])).toEqual([[30, 30], [80, 70]]);
+    expect(svg.querySelectorAll("[data-pinned]")).toHaveLength(0);
+  });
+
   it("leaves a slanted straight line at the angle it was drawn", () => {
     const { svg, onStrokesChange } = renderDrawing({ straight: true });
     fireEvent.pointerDown(svg, { clientX: 10, clientY: 10, pointerId: 1 });

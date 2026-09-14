@@ -4,8 +4,8 @@
  * tapped to mark a point. Two arcs crossing is how most constructions find a
  * point, so the tools can land on one exactly, not just wherever a finger
  * happens to stop. The compasses' needle and pencil snap, and so do the ends
- * of a line along the ruler, the protractor's centre mark, and the end of a
- * ray drawn from it.
+ * of a line along the ruler, the protractor's centre mark, the end of a ray
+ * drawn from it, and the ends of a line drawn with straight lines on.
  *
  * Only pen ink counts. Highlighter strokes are broad, and their edges would
  * catch the compasses in places nobody meant. A line crossing itself doesn't

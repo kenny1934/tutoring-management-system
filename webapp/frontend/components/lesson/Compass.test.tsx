@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useRef } from "react";
 import { Compass } from "./Compass";
@@ -16,6 +16,8 @@ beforeAll(() => {
 afterAll(() => {
   Element.prototype.getBoundingClientRect = originalRect;
 });
+// Each test starts with no width remembered, so the compasses open to their usual 4 cm.
+beforeEach(() => localStorage.clear());
 
 // Compasses at 10 pixels to the centimetre, opened to their usual 4 cm, which
 // is 40 pixels. This start puts the needle at (200, 300) and the pencil at (240, 300).
@@ -49,27 +51,26 @@ function registerPage(line: DrivenLine | null, point: Vec = [900, 900]) {
 }
 
 describe("Compass", () => {
-  it("puts its needle where it starts, shows no width until it's used, and its X hides it", () => {
+  it("puts its needle where it starts, shows its width, and its X hides it", () => {
     const onHide = vi.fn();
     render(<Harness onHide={onHide} />);
     expect(compasses().style.left).toBe("200px");
     expect(compasses().style.width).toBe("40px");
-    expect(screen.queryByText("4.0 cm")).toBeNull();
+    expect(screen.getByText("4.0 cm")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Hide the compasses" }));
     expect(onHide).toHaveBeenCalledTimes(1);
   });
 
-  it("moves by its legs at the same width, and shows the width while it's held", () => {
+  it("moves by its legs at the same width", () => {
     render(<Harness />);
     fireEvent.pointerDown(compasses(), touch(1, 210, 280));
-    expect(screen.getByText("4.0 cm")).toBeInTheDocument();
     fireEvent.pointerMove(compasses(), touch(1, 230, 290));
     fireEvent.pointerUp(compasses(), touch(1, 230, 290));
 
     expect(compasses().style.left).toBe("220px");
     expect(compasses().style.width).toBe("40px");
-    expect(screen.queryByText("4.0 cm")).toBeNull();
+    expect(screen.getByText("4.0 cm")).toBeInTheDocument();
   });
 
   it("opens from the pencil's grip with the needle kept still, snapping to whole millimetres", () => {
@@ -83,6 +84,53 @@ describe("Compass", () => {
 
     expect(compasses().style.left).toBe("200px");
     expect(compasses().style.width).toBe("61px");
+    // The board remembers the width for the next time the compasses come out.
+    expect(localStorage.getItem("csm_compass_width")).toBe("6.1");
+  });
+
+  it("comes back at the width this board last left it at", () => {
+    localStorage.setItem("csm_compass_width", "7.5");
+    render(<Harness />);
+    expect(compasses().style.width).toBe("75px");
+    expect(screen.getByText("7.5 cm")).toBeInTheDocument();
+  });
+
+  it("opens its width out to be set exactly, a millimetre at a time or typed, with the needle kept still", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: /^Width 4\.0 cm/ }));
+    const box = screen.getByRole("textbox", { name: "Width in centimetres" });
+    expect(box).toHaveValue("4.0");
+
+    fireEvent.click(screen.getByRole("button", { name: "A millimetre wider" }));
+    expect(box).toHaveValue("4.1");
+    expect(compasses().style.left).toBe("200px");
+    expect(compasses().style.width).toBe("41px");
+
+    // A typed width is snapped to a millimetre once Enter is pressed, and the box closes.
+    fireEvent.change(box, { target: { value: "6.25" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(compasses().style.width).toBe("63px");
+    expect(screen.getByText("6.3 cm")).toBeInTheDocument();
+    expect(localStorage.getItem("csm_compass_width")).toBe("6.3");
+  });
+
+  it("closes the width's box on a tap elsewhere without the page taking that tap, and Escape forgets what was typed", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: /^Width/ }));
+    const page = vi.fn();
+    document.body.addEventListener("pointerdown", page);
+    fireEvent.pointerDown(document.body, touch(1, 600, 600));
+    expect(page).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    document.body.removeEventListener("pointerdown", page);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Width/ }));
+    const box = screen.getByRole("textbox", { name: "Width in centimetres" });
+    fireEvent.change(box, { target: { value: "9" } });
+    fireEvent.keyDown(box, { key: "Escape" });
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText("4.0 cm")).toBeInTheDocument();
   });
 
   it("turns round the needle from the handle at the top, drawing an arc on the page under the pencil", () => {
@@ -190,6 +238,34 @@ describe("Compass", () => {
     // The X turns back against them, so it still reads as an X.
     const x = screen.getByRole("button", { name: "Hide the compasses" }).querySelector("svg")!;
     expect(x.style.transform).toBe("scaleY(-1) rotate(-180deg)");
+  });
+
+  it("turns without drawing while the pencil is lifted, and draws again once it's put down", () => {
+    const line: DrivenLine = { to: vi.fn(), end: vi.fn() };
+    const { startLine, off } = registerPage(line);
+    const { container } = render(<Harness />);
+    const lift = screen.getByRole("button", { name: "Lift the pencil" });
+    fireEvent.click(lift);
+    expect(lift).toHaveAttribute("aria-pressed", "true");
+    expect(container.querySelector("[data-pencil='lifted']")).not.toBeNull();
+
+    // A quarter turn with the pencil lifted turns the compasses and draws nothing.
+    const turning = screen.getByRole("img", { name: "Turn without drawing" });
+    fireEvent.pointerDown(turning, touch(1, 200, 250));
+    fireEvent.pointerMove(turning, touch(1, 250, 300));
+    fireEvent.pointerUp(turning, touch(1, 250, 300));
+    expect(startLine).not.toHaveBeenCalled();
+    expect(compasses().style.transform).toBe("rotate(90deg)");
+
+    // Put down again, the next quarter turn draws from where the pencil now is, straight below the needle.
+    fireEvent.click(lift);
+    expect(lift).toHaveAttribute("aria-pressed", "false");
+    const drawing = screen.getByRole("img", { name: "Turn to draw" });
+    fireEvent.pointerDown(drawing, touch(2, 250, 300));
+    fireEvent.pointerMove(drawing, touch(2, 200, 350));
+    fireEvent.pointerUp(drawing, touch(2, 200, 350));
+    expect(startLine).toHaveBeenCalledWith([200, 340]);
+    off();
   });
 
   it("flips the pencil to the other side of the needle without drawing", () => {

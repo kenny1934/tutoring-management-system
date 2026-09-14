@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, snapWidth, sweepRange } from "./compass";
+import { describe, it, expect, beforeEach } from "vitest";
+import {
+  addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, readCompassWidth, saveCompassWidth, snapWidth,
+  sweepRange, typedWidth,
+} from "./compass";
 
 describe("sweepRange", () => {
   it("keeps what the pencil has passed over when a turn goes back, and extends it past the start", () => {
@@ -37,6 +40,37 @@ describe("snapWidth", () => {
     expect(snapWidth(4.26)).toBe(4.3);
     expect(snapWidth(0.1)).toBe(0.5);
     expect(snapWidth(20)).toBe(13);
+  });
+});
+
+describe("typedWidth", () => {
+  it("takes a typed width, snapped to a millimetre and kept between 0.5 and 13 cm", () => {
+    expect(typedWidth("6.25")).toBe(6.3);
+    expect(typedWidth(" 5 ")).toBe(5);
+    expect(typedWidth("5 cm")).toBe(5);
+    expect(typedWidth("20")).toBe(13);
+  });
+
+  it("takes nothing that isn't a number", () => {
+    expect(typedWidth("")).toBeNull();
+    expect(typedWidth("abc")).toBeNull();
+  });
+});
+
+describe("the remembered width", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("starts at 4 cm, and comes back at the width it was last left at", () => {
+    expect(readCompassWidth()).toBe(4);
+    saveCompassWidth(6.2);
+    expect(readCompassWidth()).toBe(6.2);
+    // A width pinned onto a point in the ink comes back to the nearest millimetre, within reach.
+    saveCompassWidth(6.234);
+    expect(readCompassWidth()).toBe(6.2);
+    saveCompassWidth(40);
+    expect(readCompassWidth()).toBe(13);
+    localStorage.setItem("csm_compass_width", "nonsense");
+    expect(readCompassWidth()).toBe(4);
   });
 });
 

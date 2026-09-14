@@ -40,7 +40,11 @@ interface AnnotationLayerProps {
   penSize: number;
   /** Whether new strokes are pen or highlighter ink. Defaults to pen. */
   inkKind?: InkKind;
-  /** Draw a straight line from where the finger goes down to where it lifts. */
+  /**
+   * Draw a straight line from where the finger goes down to where it lifts.
+   * Either end that comes within half a centimetre of a point in the pen ink,
+   * such as a dot or where two lines cross, lands exactly on that point.
+   */
   straight?: boolean;
   /**
    * Draw fading ink, for pointing. Its marks fade away a few seconds after you
@@ -121,6 +125,13 @@ const SNAP_DEGREES = 5;
 // the protractor thicken and thin. A steady 0.51 counts as real pressure, so
 // the arc is drawn one width all along, a hair wider than the pen's size.
 const STEADY_PRESSURE = 0.51;
+
+/** Which ends of the straight line being drawn have landed on a point in the ink. */
+interface StraightPins {
+  start: boolean;
+  end: boolean;
+}
+const NO_PINS: StraightPins = { start: false, end: false };
 
 /** Where a straight line from start towards the pointer ends, snapped level or upright when it's nearly there. */
 function straightLineEnd(start: Point, pointer: Point): Point {
@@ -468,6 +479,30 @@ export function AnnotationLayer({
     [pageSpace]
   );
 
+  /**
+   * A straight line's end moved exactly onto the point in the pen ink nearest
+   * it, such as a dot, the end of a line or where two lines cross, keeping its
+   * pressure. It's null when no point is within half a centimetre. This is the
+   * same snapping the ruler and the compasses use, so a line drawn freehand
+   * with straight lines on can join two points of a construction too.
+   */
+  const inkPointNear = useCallback(
+    (point: Point): Point | null => {
+      const found = snapPoint(strokes, [point[0], point[1]], SNAP_REACH_CM * CM);
+      return found && [found[0], found[1], point[2]];
+    },
+    [strokes]
+  );
+
+  // Which ends of the straight line being drawn are on a point in the ink, for the rings that show them.
+  const [straightPins, setStraightPins] = useState<StraightPins>(NO_PINS);
+  const markPins = useCallback((next: Partial<StraightPins>) => {
+    setStraightPins((prev) => {
+      const merged = { ...prev, ...next };
+      return merged.start === prev.start && merged.end === prev.end ? prev : merged;
+    });
+  }, []);
+
   /** Ask each tool on the pane whether a line starting at this screen point runs against it. */
   const startGuidedLine = useCallback(
     (start: Vec) => {
@@ -529,11 +564,15 @@ export function AnnotationLayer({
       (e.target as Element).setPointerCapture(e.pointerId);
       beginLine();
       guidedRef.current = startGuidedLine([e.clientX, e.clientY]);
-      const first = guidedRef.current ? guidedLine([e.clientX, e.clientY]) : [getPoint(e)];
+      const point = getPoint(e);
+      // A straight line that starts near a point in the ink starts exactly on it.
+      const pin = straight && !guidedRef.current ? inkPointNear(point) : null;
+      markPins({ start: pin !== null, end: false });
+      const first = guidedRef.current ? guidedLine([e.clientX, e.clientY]) : [pin ?? point];
       currentPointsRef.current = first;
       setCurrentPoints([...first]);
     },
-    [isDrawing, suspended, beginLine, getPoint, startGuidedLine, guidedLine]
+    [isDrawing, suspended, straight, beginLine, getPoint, inkPointNear, markPins, startGuidedLine, guidedLine]
   );
 
   const handlePointerMove = useCallback(
@@ -551,17 +590,20 @@ export function AnnotationLayer({
       const pt = getPoint(e);
       if (straight) {
         // A straight line only ever has its two ends: where the finger went
-        // down, and where it is now.
+        // down, and where it is now. An end near a point in the ink lands
+        // exactly on it, even where that isn't quite level or upright.
         const start = currentPointsRef.current[0];
-        const line = [start, straightLineEnd(start, pt)];
+        const pin = inkPointNear(pt);
+        const line = [start, pin ?? straightLineEnd(start, pt)];
         currentPointsRef.current = line;
         setCurrentPoints(line);
+        markPins({ end: pin !== null });
         return;
       }
       currentPointsRef.current.push(pt);
       setCurrentPoints((prev) => [...prev, pt]);
     },
-    [straight, getPoint, guidedLine]
+    [straight, getPoint, guidedLine, inkPointNear, markPins]
   );
 
   /** The line being drawn is done: keep it as a stroke, or as fading ink. */
@@ -1084,6 +1126,26 @@ export function AnnotationLayer({
             pointerEvents="none"
           />
         )}
+
+        {/* A ring round each end of the straight line being drawn that has landed on a point in the ink */}
+        {currentPoints.length > 0 &&
+          [straightPins.start && currentPoints[0], straightPins.end && currentPoints[currentPoints.length - 1]].map(
+            (point, i) =>
+              point && (
+                <circle
+                  key={i}
+                  data-pinned=""
+                  cx={point[0]}
+                  cy={point[1]}
+                  r={0.3 * CM}
+                  fill="none"
+                  stroke="#2563eb"
+                  strokeWidth={2}
+                  vectorEffect="non-scaling-stroke"
+                  pointerEvents="none"
+                />
+              )
+          )}
 
         {/* Rubbing eraser circle, the exact area it will erase */}
         {isRubbing && eraserCursor && eraserRadius !== null && (

@@ -28,6 +28,8 @@ export const INK_SWATCHES: InkSwatch[] = [
   { id: "red", kind: "pen", color: "#dc2626", label: "Red pen" },
   { id: "blue", kind: "pen", color: "#2563eb", label: "Blue pen" },
   { id: "black", kind: "pen", color: "#000000", label: "Black pen" },
+  // A pencil grey, for construction lines. It's mid grey, so it still shows clearly on a projected board.
+  { id: "grey", kind: "pen", color: "#6b7280", label: "Grey pencil" },
   { id: "yellow", kind: "highlighter", color: "#facc15", label: "Yellow highlighter" },
   { id: "green", kind: "highlighter", color: "#4ade80", label: "Green highlighter" },
   { id: "pink", kind: "highlighter", color: "#f472b6", label: "Pink highlighter" },
@@ -43,8 +45,9 @@ export const INK_SIZES: Record<InkKind, Record<InkSize, number>> = {
   highlighter: { S: 12, M: 20, L: 30 },
 };
 
+// Every swatch needs a size here, or its strokes would have no width.
 const DEFAULT_SIZES: Record<string, InkSize> = {
-  red: "S", blue: "S", black: "S", yellow: "M", green: "M", pink: "M",
+  red: "S", blue: "S", black: "S", grey: "S", yellow: "M", green: "M", pink: "M",
 };
 
 // The sizes, last colour and eraser are remembered per browser, so the board

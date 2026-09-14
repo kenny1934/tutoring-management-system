@@ -3,7 +3,8 @@
  * side, with a needle and a pencil on two 7 cm legs that meet at a hinge, in
  * true centimetres of the printed page. The needle moves them, the pencil's
  * grip opens or closes them, and the handle on the hinge turns them round the
- * needle, drawing with the pencil when a pen is picked.
+ * needle, drawing with the pencil unless it's lifted. Each board remembers the
+ * width they were last left at.
  *
  * Angles here are in degrees, measured clockwise from pointing right, which
  * is how CSS turns things and how the screen's y axis runs downwards. Points
@@ -25,6 +26,32 @@ export function opensTo(cm: number): boolean {
 /** A width kept between 0.5 and 13 cm, and snapped to a whole millimetre so a 4 cm circle comes out exactly. */
 export function snapWidth(cm: number): number {
   return Math.round(clamp(cm, COMPASS_MIN_CM, COMPASS_MAX_CM) * 10) / 10;
+}
+
+/**
+ * The width typed into the compasses' box, kept between 0.5 and 13 cm and
+ * snapped to a millimetre, or null when what's typed isn't a number.
+ */
+export function typedWidth(text: string): number | null {
+  const value = Number.parseFloat(text);
+  return Number.isFinite(value) ? snapWidth(value) : null;
+}
+
+// Each board remembers the width its compasses were last left at.
+const WIDTH_KEY = "csm_compass_width";
+
+/** The width, in centimetres, the compasses were last left at on this board, or the usual 4 cm. */
+export function readCompassWidth(): number {
+  try {
+    const stored = Number(localStorage.getItem(WIDTH_KEY));
+    return stored > 0 ? snapWidth(stored) : COMPASS_START_CM;
+  } catch {
+    return COMPASS_START_CM;
+  }
+}
+
+export function saveCompassWidth(cm: number) {
+  try { localStorage.setItem(WIDTH_KEY, String(cm)); } catch { /* private window */ }
 }
 
 /** How high the hinge stands above the line from the needle to the pencil, in centimetres, at this width. */
