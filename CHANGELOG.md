@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.138](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.137...v2.0.138) (2026-09-14)
+
+
+### Bug Fixes
+
+* **The protractor's reading stays the right way up**: when the protractor is turned round, the angle it shows no longer appears upside down.
+
 ## [2.0.137](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.136...v2.0.137) (2026-09-14)
 
 
