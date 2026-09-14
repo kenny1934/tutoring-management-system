@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { useState, type ComponentProps } from "react";
 import { DraftPane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { useAnnotationTools, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
-import { DRAFT_PAGE_BASE, DRAFT_SQUARE, draftSheetsInUse, draftSquared } from "@/lib/draft-sheets";
+import { DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SQUARE, draftSheetsInUse, draftSquared } from "@/lib/draft-sheets";
 
 // The drawing layer maps pointer positions through its on-screen box, which
 // jsdom doesn't lay out, so give every element a 100 by 100 box at the origin.
@@ -204,6 +204,138 @@ describe("DraftPane", () => {
     // It's the same setting the worksheet's button flips, so it's put back for the other tests.
     fireEvent.click(dark);
     expect(dark).toHaveAttribute("aria-pressed", "false");
+  });
+
+  describe("drawing axes", () => {
+    const placingLayer = (container: HTMLElement) => container.querySelector<HTMLElement>("[data-axes-placing]");
+    const startPlacing = () => {
+      openTools();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Draw axes" }));
+      fireEvent.click(screen.getByRole("button", { name: "Place the axes" }));
+    };
+    // The crossing of the two pencil lines, which are the axis lines.
+    const crossingOf = (strokes: Stroke[]) => {
+      const lines = strokes.filter((s) => s.kind === "pencil");
+      const across = lines.find((s) => s.points[0][1] === s.points[1][1])!;
+      const up = lines.find((s) => s.points[0][0] === s.points[1][0])!;
+      return [up.points[0][0], across.points[0][1]];
+    };
+
+    it("opens the axes panel from the Tools menu, and Place the axes asks for a tap", () => {
+      render(<Harness />);
+      openTools();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Draw axes" }));
+      expect(screen.getByRole("dialog", { name: "Axes" })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Place the axes" }));
+      expect(screen.queryByRole("dialog", { name: "Axes" })).toBeNull();
+      expect(screen.getByText("Tap where the axes should cross.")).toBeInTheDocument();
+    });
+
+    it("draws the axes in one change on the sheet that was tapped, crossing at the corner of the squares nearest the tap", () => {
+      const onChange = vi.fn();
+      const { container } = render(<Harness onChange={onChange} initial={{ [DRAFT_PAGE_BASE]: [line()] }} />);
+      fireEvent.click(screen.getByRole("button", { name: "Squared" }));
+      startPlacing();
+
+      // The sheet is drawn 100 pixels each way here, so (40, 40) is 8.4 squares across and 11.9 down.
+      const layer = placingLayer(container)!;
+      fireEvent.pointerDown(layer, { clientX: 40, clientY: 40, pointerId: 1 });
+      expect(container.querySelector("[data-axes-preview]")).not.toBeNull();
+      fireEvent.pointerUp(layer, { clientX: 40, clientY: 40, pointerId: 1 });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      const [pageIndex, strokes] = onChange.mock.calls[0] as [number, Stroke[]];
+      expect(pageIndex).toBe(DRAFT_PAGE_BASE);
+      // The ink already on the sheet stays, with the axes after it.
+      expect(strokes[0]).toEqual(line());
+      expect(strokes.filter((s) => s.kind === "scale").length).toBeGreaterThan(20);
+      const [x, y] = crossingOf(strokes);
+      expect(x).toBeCloseTo(8 * DRAFT_SQUARE);
+      expect(y).toBeCloseTo(12 * DRAFT_SQUARE);
+
+      // Placing is over, so the hint and the layer have gone.
+      expect(screen.queryByText("Tap where the axes should cross.")).toBeNull();
+      expect(placingLayer(container)).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Blank" }));
+    });
+
+    it("moves the axes with a drag before the finger lifts, and puts them exactly there on blank paper", () => {
+      const onChange = vi.fn();
+      const { container } = render(<Harness onChange={onChange} />);
+      startPlacing();
+      const layer = placingLayer(container)!;
+      fireEvent.pointerDown(layer, { clientX: 20, clientY: 20, pointerId: 1 });
+      fireEvent.pointerMove(layer, { clientX: 40, clientY: 50, pointerId: 1 });
+      fireEvent.pointerUp(layer, { clientX: 40, clientY: 50, pointerId: 1 });
+
+      const [x, y] = crossingOf(onChange.mock.calls[0][1] as Stroke[]);
+      expect(x).toBeCloseTo(0.4 * DRAFT_SHEET.width);
+      expect(y).toBeCloseTo(0.5 * DRAFT_SHEET.height);
+    });
+
+    it("stops placing on Escape without drawing anything, and keeps Escape from the lesson", () => {
+      const onChange = vi.fn();
+      const lessonKeys = vi.fn();
+      render(<Harness onChange={onChange} />);
+      startPlacing();
+      window.addEventListener("keydown", lessonKeys);
+      fireEvent.keyDown(document.body, { key: "Escape" });
+      window.removeEventListener("keydown", lessonKeys);
+
+      expect(screen.queryByText("Tap where the axes should cross.")).toBeNull();
+      expect(lessonKeys).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("stops placing from the hint's Cancel button, and closes the panel on Escape", () => {
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+      startPlacing();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByText("Tap where the axes should cross.")).toBeNull();
+
+      openTools();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Draw axes" }));
+      fireEvent.keyDown(document.body, { key: "Escape" });
+      expect(screen.queryByRole("dialog", { name: "Axes" })).toBeNull();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("lets the pen draw nothing while the axes are being placed", () => {
+      const onChange = vi.fn();
+      let tools!: AnnotationTools;
+      const { container } = render(<Harness onChange={onChange} onTools={(t) => { tools = t; }} />);
+      act(() => tools.selectSwatch("blue"));
+      startPlacing();
+
+      const svg = sheets()[0].querySelector("svg")!;
+      fireEvent.pointerDown(svg, { clientX: 10, clientY: 10, pointerId: 1 });
+      fireEvent.pointerMove(svg, { clientX: 50, clientY: 40, pointerId: 1 });
+      fireEvent.pointerUp(svg, { clientX: 50, clientY: 40, pointerId: 1 });
+      expect(onChange).not.toHaveBeenCalled();
+
+      // The tap goes to the axes, and no pen stroke comes with them.
+      const layer = placingLayer(container)!;
+      fireEvent.pointerDown(layer, { clientX: 40, clientY: 40, pointerId: 2 });
+      fireEvent.pointerUp(layer, { clientX: 40, clientY: 40, pointerId: 2 });
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect((onChange.mock.calls[0][1] as Stroke[]).every((s) => s.kind === "pencil" || s.kind === "scale")).toBe(true);
+    });
+
+    it("remembers the axes' settings on this board, and opens with them next time", () => {
+      render(<Harness />);
+      openTools();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Draw axes" }));
+      const xAxis = within(screen.getByRole("region", { name: "x axis" }));
+      fireEvent.click(within(xAxis.getByRole("group", { name: "To" })).getByRole("button", { name: "One square higher" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(JSON.parse(localStorage.getItem("csm_draft_axes")!).x.to).toBe(6);
+
+      openTools();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Draw axes" }));
+      expect(within(screen.getByRole("region", { name: "x axis" })).getByRole("textbox", { name: "To" })).toHaveValue("6");
+    });
   });
 
   it("takes the lesson's own Draft's name, the view's buttons and a Pen Tray of its own", () => {

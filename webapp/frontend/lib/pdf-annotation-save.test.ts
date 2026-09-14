@@ -19,10 +19,17 @@ function fakeContext() {
   return {
     beginPath: vi.fn(),
     moveTo: vi.fn(),
+    lineTo: vi.fn(),
     quadraticCurveTo: vi.fn(),
+    arc: vi.fn(),
     closePath: vi.fn(),
     fill: vi.fn(),
+    stroke: vi.fn(),
     fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1,
+    lineCap: "butt",
+    lineJoin: "miter",
     globalAlpha: 1,
   };
 }
@@ -40,6 +47,35 @@ describe("drawStrokeToCanvas", () => {
     for (const [x, y] of ctx.quadraticCurveTo.mock.calls.map(([cx, cy]) => [cx, cy])) {
       expect(Math.hypot(x - 80, y - 120)).toBeLessThan(12);
     }
+  });
+
+  it("draws the scale ink of a pair of axes as a line through its points with rounded corners, as the screen does", () => {
+    const ctx = fakeContext();
+    const tick: Stroke = { points: [[10, 20, 0.5], [10, 30, 0.5], [15, 30, 0.5]], color: "#6b7280", size: 2.5, kind: "scale" };
+
+    drawStrokeToCanvas(ctx as unknown as CanvasRenderingContext2D, tick, 2);
+
+    expect(ctx.moveTo).toHaveBeenCalledWith(20, 40);
+    expect(ctx.lineTo.mock.calls).toEqual([[20, 60], [30, 60]]);
+    expect(ctx.lineWidth).toBe(5);
+    expect(ctx.lineJoin).toBe("round");
+    expect(ctx.lineCap).toBe("round");
+    expect(ctx.strokeStyle).toBe("#6b7280");
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it("draws a single point of scale ink as a dot the stroke's width across", () => {
+    const ctx = fakeContext();
+    const point: Stroke = { points: [[40, 60, 0.5]], color: "#6b7280", size: 2.5, kind: "scale" };
+
+    drawStrokeToCanvas(ctx as unknown as CanvasRenderingContext2D, point, 2);
+
+    expect(ctx.arc).toHaveBeenCalledWith(80, 120, 2.5, 0, 2 * Math.PI);
+    expect(ctx.fillStyle).toBe("#6b7280");
+    expect(ctx.fill).toHaveBeenCalledTimes(1);
+    expect(ctx.stroke).not.toHaveBeenCalled();
   });
 });
 

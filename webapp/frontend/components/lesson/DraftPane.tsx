@@ -1,20 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
+import {
+  useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject,
+} from "react";
 import { DraftingCompass, Moon, Plus, Sun, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
-import { AnnotationLayer } from "./AnnotationLayer";
+import { AnnotationLayer, StrokePath } from "./AnnotationLayer";
 import { UndoOfferBar } from "./UndoOfferBar";
 import { PANE_TOOLS, PaneTools, paneToolLabel, usePaneTools } from "./PaneTools";
 import { AnnotationTray, TRAY_CLEARANCE } from "./AnnotationTray";
+import { AxesIcon, AxesPanel } from "./AxesPanel";
 import { PAGE_BAR_HEIGHT, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
 import { CM } from "@/lib/drawing-guide";
-import { hasInk, type PageAnnotations, type Stroke } from "@/hooks/useAnnotations";
+import { hasInk, inkLayers, type PageAnnotations, type Stroke } from "@/hooks/useAnnotations";
+import {
+  DEFAULT_AXES, axesOrigin, axesStrokes, readAxesSettings, saveAxesSettings, type AxesSettings,
+} from "@/lib/axes";
+import { clamp, type Vec } from "@/lib/stroke-select";
 import {
   DRAFT_GRID_COLOUR, DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SHEET_PT, DRAFT_SQUARE, DRAFT_SQUARE_PT,
   draftSheetsInUse, draftSquared, inkedDraftPages,
@@ -78,6 +85,12 @@ const clearOption = cn(
 );
 
 /**
+ * Drawing a pair of axes goes through two steps. The panel of settings comes
+ * first, and then a tap on a sheet says where the axes cross.
+ */
+type AxesStep = "closed" | "settings" | "placing";
+
+/**
  * The Draft: sheets of blank or squared paper in a pane beside the worksheet,
  * for the tutor's working. It scrolls on its own, so the worksheet can move on
  * to another question while the working stays where it is.
@@ -92,6 +105,10 @@ const clearOption = cn(
  * place, so a tutor can start working before the lesson has any courseware.
  * With no worksheet beside it, it holds its own Pen Tray, and its ink is kept
  * under the lesson in the same way an exercise's is kept under the exercise.
+ *
+ * Its Tools menu also draws a pair of numbered axes, for a graph. They're set
+ * up in a panel, placed with a tap, and drawn as ordinary ink in one change,
+ * so a single undo takes them away again.
  */
 export function DraftPane({
   exerciseId, annotations, onPageStrokesChange, onPagesStrokesChange, onClearPages, onUndo, tools, onClose,
@@ -132,6 +149,42 @@ export function DraftPane({
     return () => observer.disconnect();
   }, [measuring]);
 
+  // ---------- Axes ----------
+  // The settings start at whatever this board used last, each time the panel opens.
+  const [axesStep, setAxesStep] = useState<AxesStep>("closed");
+  const [axesSettings, setAxesSettings] = useState<AxesSettings>(DEFAULT_AXES);
+  const placing = axesStep === "placing";
+  const endAxes = useCallback(() => setAxesStep("closed"), []);
+  const openAxes = () => {
+    setAxesSettings(readAxesSettings());
+    setAxesStep("settings");
+  };
+  const changeAxesSettings = (next: AxesSettings) => {
+    setAxesSettings(next);
+    saveAxesSettings(next);
+  };
+  // The axes go onto the sheet as one change on one page, so one undo takes them all away again.
+  const placeAxes = (sheet: number, origin: Vec) => {
+    const pageIndex = DRAFT_PAGE_BASE + sheet;
+    onPageStrokesChange(pageIndex, [...(annotations[pageIndex] ?? []), ...axesStrokes(origin, axesSettings)]);
+    endAxes();
+  };
+
+  // Escape closes the panel or stops placing. The lesson views listen on the
+  // window, which hears a key after the document does, so it stops here.
+  // Without that, the same key press would also put the pen away or leave
+  // the lesson.
+  useEffect(() => {
+    if (axesStep === "closed") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      endAxes();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [axesStep, endAxes]);
+
   const { gestureActive, handlers } = useViewerTouch({
     scrollRef,
     getAnchor: () => sheetRefs.current[0] ?? null,
@@ -143,11 +196,12 @@ export function DraftPane({
     commitZoom: () => {},
   });
 
-  // Each exercise's Draft opens at its first sheet, with its tools put away.
+  // Each exercise's Draft opens at its first sheet, with its tools put away and no axes half placed.
   useEffect(() => {
     scrollRef.current?.scrollTo?.({ top: 0 });
     putAway();
-  }, [exerciseId, putAway]);
+    endAxes();
+  }, [exerciseId, putAway, endAxes]);
 
   // A sheet that was just added is scrolled into view, ready to write on.
   useEffect(() => {
@@ -216,7 +270,11 @@ export function DraftPane({
             Squared
           </button>
         </div>
-        {/* The ruler, the protractor and the compasses share one menu, which shows as on while any of them is out */}
+        {/* The ruler, the protractor and the compasses share one menu, which
+            shows as on while any of them is out. Draw axes comes after them,
+            set apart by a thin rule, because it draws ink once and puts no
+            tool out. It waits for the lesson's saved ink, so the axes can't
+            replace ink the sheet hasn't received yet. */}
         <DropdownMenu
           align="right"
           menuClassName="bg-[#fef9f3] dark:bg-[#2d2618] border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -224,7 +282,7 @@ export function DraftPane({
             <button
               type="button"
               {...triggerProps}
-              title="Put a ruler, a protractor or compasses on the draft"
+              title="Put a ruler, a protractor or compasses on the draft, or draw axes"
               aria-label="Tools"
               className={cn(barButton, measuring ? tbBtnOn : tbBtnIdle)}
             >
@@ -241,6 +299,17 @@ export function DraftPane({
                   {paneToolLabel(name, paneTools.placed[kind] !== undefined)}
                 </button>
               ))}
+              <div role="separator" className="my-1 h-px bg-[#e8d4b8] dark:bg-[#6b5a4a]" />
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!tools.inkReady}
+                onClick={() => { close(); openAxes(); }}
+                className={cn(toolOption, greyedOut)}
+              >
+                <AxesIcon className="h-5 w-5" />
+                Draw axes
+              </button>
             </>
           )}
         </DropdownMenu>
@@ -313,64 +382,101 @@ export function DraftPane({
         </button>
       </div>
 
-      <div
-        ref={scrollRef}
-        {...handlers}
-        className={cn(
-          "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pt-2 md:px-4 md:pt-4",
-          !tools.drawingEnabled && "cursor-grab active:cursor-grabbing",
-        )}
-        // Every touch is handled here, as in the worksheet viewer: one finger for the tool, two to scroll.
-        // The room at the bottom lets the last sheet and "Add a sheet" scroll clear of the tray.
-        style={{ touchAction: "none", paddingBottom: trayTop + 20 }}
-      >
-        <div ref={columnRef} className="relative flex flex-col items-center gap-4">
-          {Array.from({ length: sheetCount }, (_, n) => {
-            const pageIndex = DRAFT_PAGE_BASE + n;
-            return (
-              <div
-                key={n}
-                ref={(el) => { sheetRefs.current[n] = el; }}
-                aria-label={`Draft sheet ${n + 1}`}
-                className="relative w-full rounded shadow-lg ring-1 ring-black/5 dark:ring-white/5"
-                style={{ aspectRatio: `${DRAFT_SHEET.width} / ${DRAFT_SHEET.height}` }}
-              >
-                {/* The paper and its ink darken together in dark PDF mode, as the worksheet does */}
+      {/* The sheets, with the axes panel and the placing hint floating over the top of them */}
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        <div
+          ref={scrollRef}
+          {...handlers}
+          className={cn(
+            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pt-2 md:px-4 md:pt-4",
+            !tools.drawingEnabled && "cursor-grab active:cursor-grabbing",
+          )}
+          // Every touch is handled here, as in the worksheet viewer: one finger for the tool, two to scroll.
+          // The room at the bottom lets the last sheet and "Add a sheet" scroll clear of the tray.
+          style={{ touchAction: "none", paddingBottom: trayTop + 20 }}
+        >
+          <div ref={columnRef} className="relative flex flex-col items-center gap-4">
+            {Array.from({ length: sheetCount }, (_, n) => {
+              const pageIndex = DRAFT_PAGE_BASE + n;
+              return (
                 <div
-                  className="absolute inset-0 rounded bg-white"
-                  style={{ ...(squared ? SQUARED_PAPER : null), ...(pdfDarkMode ? DARK_PAPER : null) }}
+                  key={n}
+                  ref={(el) => { sheetRefs.current[n] = el; }}
+                  aria-label={`Draft sheet ${n + 1}`}
+                  className="relative w-full rounded shadow-lg ring-1 ring-black/5 dark:ring-white/5"
+                  style={{ aspectRatio: `${DRAFT_SHEET.width} / ${DRAFT_SHEET.height}` }}
                 >
-                  <AnnotationLayer
-                    // A new exercise gets fresh layers, so fading ink from the last one doesn't linger
-                    key={exerciseId}
-                    width={DRAFT_SHEET.width}
-                    height={DRAFT_SHEET.height}
-                    strokes={annotations[pageIndex] || []}
-                    hidden={inkHidden}
-                    {...inkLayerProps(tools)}
-                    onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
-                    suspended={gestureActive}
-                    guides={paneTools.guides}
-                    // On squared paper, straight lines and the tools snap to the squares' corners too.
-                    gridSpacing={squared ? DRAFT_SQUARE : undefined}
-                    pageIndex={pageIndex}
-                    pageLabel={`Draft sheet ${n + 1}`}
-                    onPagesChange={onPagesStrokesChange}
-                  />
+                  {/* The paper and its ink darken together in dark PDF mode, as the worksheet does */}
+                  <div
+                    className="absolute inset-0 rounded bg-white"
+                    style={{ ...(squared ? SQUARED_PAPER : null), ...(pdfDarkMode ? DARK_PAPER : null) }}
+                  >
+                    <AnnotationLayer
+                      // A new exercise gets fresh layers, so fading ink from the last one doesn't linger
+                      key={exerciseId}
+                      width={DRAFT_SHEET.width}
+                      height={DRAFT_SHEET.height}
+                      strokes={annotations[pageIndex] || []}
+                      hidden={inkHidden}
+                      {...inkLayerProps(tools)}
+                      onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
+                      // Nothing draws while the axes are being placed, whatever is picked on the tray.
+                      suspended={gestureActive || placing}
+                      guides={paneTools.guides}
+                      // On squared paper, straight lines and the tools snap to the squares' corners too.
+                      gridSpacing={squared ? DRAFT_SQUARE : undefined}
+                      pageIndex={pageIndex}
+                      pageLabel={`Draft sheet ${n + 1}`}
+                      onPagesChange={onPagesStrokesChange}
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={addSheet}
-            className={cn(barButton, "px-4 border border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]", tbBtnIdle)}
-          >
-            <Plus className="h-5 w-5" />
-            Add a sheet
-          </button>
-          <PaneTools state={paneTools} containerRef={columnRef} cm={sheetCm} darkMode={pdfDarkMode} />
+              );
+            })}
+            <button
+              type="button"
+              onClick={addSheet}
+              className={cn(barButton, "px-4 border border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]", tbBtnIdle)}
+            >
+              <Plus className="h-5 w-5" />
+              Add a sheet
+            </button>
+            <PaneTools state={paneTools} containerRef={columnRef} cm={sheetCm} darkMode={pdfDarkMode} />
+            {placing && (
+              <AxesPlacing
+                sheetRefs={sheetRefs}
+                sheetCount={sheetCount}
+                squared={squared}
+                settings={axesSettings}
+                suspended={gestureActive}
+                darkMode={pdfDarkMode}
+                onPlace={placeAxes}
+              />
+            )}
+          </div>
         </div>
+
+        {axesStep === "settings" && (
+          <AxesPanel
+            settings={axesSettings}
+            onChange={changeAxesSettings}
+            onPlace={() => setAxesStep("placing")}
+            onClose={endAxes}
+          />
+        )}
+        {placing && (
+          <div
+            className={cn(
+              "absolute left-1/2 top-2 z-30 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-2 rounded-lg py-1 pl-4 pr-1",
+              "bg-[#2e251c]/90 text-sm text-[#f3e7d3] shadow-lg",
+            )}
+          >
+            <span>Tap where the axes should cross.</span>
+            <button type="button" onClick={endAxes} className="min-h-11 rounded-md px-3 font-medium hover:bg-white/10">
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       {undoOffer.message && (
@@ -398,6 +504,149 @@ export function DraftPane({
         />
       )}
     </section>
+  );
+}
+
+interface AxesPlacingProps {
+  /** The Draft's sheets, and how many of them are showing. */
+  sheetRefs: RefObject<(HTMLDivElement | null)[]>;
+  sheetCount: number;
+  squared: boolean;
+  settings: AxesSettings;
+  /** True while two fingers are scrolling the Draft, which drops the preview. */
+  suspended: boolean;
+  darkMode: boolean;
+  /** Called once the finger lifts, with the sheet and where on it the axes cross, in page units. */
+  onPlace: (sheet: number, origin: Vec) => void;
+}
+
+/** Where a sheet sits in the column of sheets, which is where the preview goes. */
+interface SheetBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The layer that takes the tap saying where a pair of axes should cross. It
+ * lies over the whole column of sheets while the axes are being placed, above
+ * the drawing layers, so a pen picked on the tray can't draw meanwhile. It's
+ * inside the Draft's scroll box and marked data-takes-one-finger, which tells
+ * useViewerTouch that one finger belongs to it even with the Hand picked,
+ * while two fingers still scroll the Draft.
+ *
+ * A board has no hover, so with a plain tap you'd have no idea where the axes
+ * would land until they were drawn. So a finger going down shows a faint
+ * preview of the axes crossing there, or on the nearest corner of the
+ * squares on squared paper. Dragging moves the preview, and lifting the
+ * finger draws the axes where the preview is. A quick tap still works, and
+ * it places the axes where it landed. A finger that lands between sheets, or
+ * on "Add a sheet", does nothing.
+ */
+function AxesPlacing({ sheetRefs, sheetCount, squared, settings, suspended, darkMode, onPlace }: AxesPlacingProps) {
+  const pressRef = useRef<{ pointerId: number; sheet: number } | null>(null);
+  const [preview, setPreview] = useState<{ sheet: number; origin: Vec; box: SheetBox } | null>(null);
+
+  const dropPreview = useCallback(() => {
+    pressRef.current = null;
+    setPreview(null);
+  }, []);
+  // A second finger turns the touch into a scroll, and the preview goes.
+  useEffect(() => {
+    if (suspended) dropPreview();
+  }, [suspended, dropPreview]);
+
+  const sheetUnder = (x: number, y: number): number | null => {
+    for (let n = 0; n < sheetCount; n++) {
+      const box = sheetRefs.current[n]?.getBoundingClientRect();
+      if (box && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) return n;
+    }
+    return null;
+  };
+
+  /** Where the axes would cross for a finger at this point on screen, kept to the given sheet, in its page units. */
+  const originOn = (sheet: number, x: number, y: number): Vec | null => {
+    const box = sheetRefs.current[sheet]?.getBoundingClientRect();
+    if (!box || box.width === 0 || box.height === 0) return null;
+    return axesOrigin([
+      clamp(((x - box.left) / box.width) * DRAFT_SHEET.width, 0, DRAFT_SHEET.width),
+      clamp(((y - box.top) / box.height) * DRAFT_SHEET.height, 0, DRAFT_SHEET.height),
+    ], squared);
+  };
+
+  // On squared paper the crossing only moves from one corner to the next, so most moves change nothing.
+  const show = (sheet: number, origin: Vec) => {
+    const el = sheetRefs.current[sheet];
+    if (!el) return;
+    setPreview((prev) =>
+      prev && prev.sheet === sheet && prev.origin[0] === origin[0] && prev.origin[1] === origin[1]
+        ? prev
+        : { sheet, origin, box: { left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight } },
+    );
+  };
+
+  const down = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (pressRef.current || (e.pointerType === "mouse" && e.button !== 0)) return;
+    const sheet = sheetUnder(e.clientX, e.clientY);
+    const origin = sheet === null ? null : originOn(sheet, e.clientX, e.clientY);
+    if (sheet === null || !origin) return;
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* the finger has already lifted */ }
+    pressRef.current = { pointerId: e.pointerId, sheet };
+    show(sheet, origin);
+  };
+
+  // A drag keeps to the sheet the finger went down on.
+  const move = (e: React.PointerEvent<HTMLDivElement>) => {
+    const press = pressRef.current;
+    if (!press || press.pointerId !== e.pointerId) return;
+    const origin = originOn(press.sheet, e.clientX, e.clientY);
+    if (origin) show(press.sheet, origin);
+  };
+
+  const up = (e: React.PointerEvent<HTMLDivElement>) => {
+    const press = pressRef.current;
+    if (!press || press.pointerId !== e.pointerId) return;
+    const origin = originOn(press.sheet, e.clientX, e.clientY);
+    dropPreview();
+    if (origin) onPlace(press.sheet, origin);
+  };
+
+  const cancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (pressRef.current?.pointerId === e.pointerId) dropPreview();
+  };
+
+  // In the order the ink's layers paint them, so the axis lines sit over their marks as they will on the sheet.
+  const strokes = useMemo(() => (preview ? inkLayers(axesStrokes(preview.origin, settings)).flat() : []), [preview, settings]);
+
+  return (
+    <>
+      <div
+        data-takes-one-finger=""
+        data-axes-placing=""
+        className="absolute inset-0 z-20 cursor-crosshair"
+        style={{ touchAction: "none" }}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={cancel}
+      />
+      {preview && (
+        <svg
+          data-axes-preview=""
+          aria-hidden="true"
+          viewBox={`0 0 ${DRAFT_SHEET.width} ${DRAFT_SHEET.height}`}
+          className="pointer-events-none absolute z-20"
+          style={{ ...preview.box, filter: darkMode ? PDF_DARK_FILTER : undefined }}
+        >
+          {/* Drawn the same way the ink will be, only fainter */}
+          <g opacity={0.45}>
+            {strokes.map((stroke, i) => <StrokePath key={i} stroke={stroke} />)}
+          </g>
+        </svg>
+      )}
+    </>
   );
 }
 

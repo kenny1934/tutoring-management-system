@@ -48,6 +48,10 @@ interface Gesture {
  * - A finger that lands on something marked `data-touch-owner`, such as a
  *   cover's tab, belongs to that element, which handles it itself. We call
  *   this the Touch Owner rule.
+ * - A finger or the mouse on something marked `data-takes-one-finger`, such
+ *   as the Draft's layer for placing a pair of axes, goes to that element
+ *   whatever tool is picked, so it never pans. Unlike a touch owner's finger,
+ *   it still counts towards a two-finger gesture.
  *
  * The handlers go on the scrolling container in the capture phase, so they
  * see every touch before the drawing layer does and can keep the second
@@ -160,8 +164,13 @@ export function useViewerTouch(options: ViewerTouchOptions) {
     // an ordinary touch, so a tutor can hold something with one hand and draw
     // with the other.
     if ((e.target as Element).closest?.("[data-touch-owner]")) return;
+    // Something marked data-takes-one-finger, such as the Draft's layer for
+    // placing a pair of axes, takes one finger or the mouse whatever tool is
+    // picked, so the viewer never pans with it. Unlike a touch owner, it
+    // still counts towards a two-finger gesture, so two fingers still scroll.
+    const takesOneFinger = !!(e.target as Element).closest?.("[data-takes-one-finger]");
     if (e.pointerType === "mouse") {
-      if (opts.current.handTool && e.button === 0) startPan(e);
+      if (opts.current.handTool && e.button === 0 && !takesOneFinger) startPan(e);
       return;
     }
     // The first finger of a fresh touch clears anything left over from a
@@ -186,7 +195,7 @@ export function useViewerTouch(options: ViewerTouchOptions) {
     if (gesture.current) { e.stopPropagation(); return; }
 
     const onPage = (e.target as Element).closest?.("[data-annotation-layer]");
-    if (opts.current.handTool || !onPage) startPan(e);
+    if (!takesOneFinger && (opts.current.handTool || !onPage)) startPan(e);
   };
 
   const onPointerMoveCapture = (e: React.PointerEvent) => {

@@ -160,6 +160,27 @@ describe("AnnotationLayer pen and highlighter", () => {
     expect(paths[1].getAttribute("opacity")).toBe("0.75");
   });
 
+  it("draws the scale ink of a pair of axes as a line through its points with rounded corners, so no corner of a digit comes out faint", () => {
+    const four: Stroke = { points: [[45, 100, 0.5], [45, 0, 0.5], [0, 70, 0.5], [60, 70, 0.5]], color: "#6b7280", size: 2.5, kind: "scale" };
+    const { svg } = renderDrawing({ isDrawing: false, strokes: [four] });
+    const path = svg.querySelector("path")!;
+    expect(path.getAttribute("d")).toBe("M 45.00 100.00 L 45.00 0.00 L 0.00 70.00 L 60.00 70.00");
+    expect(path.getAttribute("fill")).toBe("none");
+    expect(path.getAttribute("stroke")).toBe("#6b7280");
+    expect(path.getAttribute("stroke-width")).toBe("2.5");
+    expect(path.getAttribute("stroke-linejoin")).toBe("round");
+    expect(path.getAttribute("stroke-linecap")).toBe("round");
+    expect(path.getAttribute("opacity")).toBe("0.75");
+  });
+
+  it("draws a single point of scale ink, such as a decimal point, as a dot the stroke's width across", () => {
+    const point: Stroke = { points: [[40, 60, 0.5]], color: "#6b7280", size: 2.5, kind: "scale" };
+    const { svg } = renderDrawing({ isDrawing: false, strokes: [point] });
+    const path = svg.querySelector("path")!;
+    expect(path.getAttribute("fill")).toBe("#6b7280");
+    expect(path.getAttribute("d")).toBe("M 38.75 60.00 a 1.25 1.25 0 1 0 2.50 0 a 1.25 1.25 0 1 0 -2.50 0 Z");
+  });
+
   it("keeps a tap as a dot, for a decimal point or the dot on an i", () => {
     const { svg, onStrokesChange, rerender } = renderDrawing({ penColor: "#dc2626", penSize: 3 });
     fireEvent.pointerDown(svg, { clientX: 40, clientY: 60, pointerId: 1 });

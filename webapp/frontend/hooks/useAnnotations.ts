@@ -12,38 +12,74 @@ export interface Stroke {
   /**
    * "highlighter" for highlighter ink, which is see-through and sits under
    * everything else. "pencil" for pencil ink, which is fine, even and a
-   * little see-through, and sits under pen ink. Pen strokes leave it out, and
-   * so does every stroke saved before the highlighter existed, so old ink
-   * still loads as pen.
+   * little see-through, and sits under pen ink. "scale" for the ticks,
+   * arrowheads and numbers of a pair of axes drawn on the Draft. Pen strokes
+   * leave it out, and so does every stroke saved before the highlighter
+   * existed, so old ink still loads as pen.
    */
-  kind?: "highlighter" | "pencil";
+  kind?: "highlighter" | "pencil" | "scale";
 }
 
-export type InkKind = "pen" | "pencil" | "highlighter";
+export type InkKind = "pen" | "pencil" | "highlighter" | "scale";
+
+/**
+ * The kinds of ink a tutor can pick up and draw with. Scale ink is only ever
+ * drawn by the Draft's axes, all at once, so it isn't a tool and has no sizes
+ * on the Pen Tray.
+ */
+export type PenKind = Exclude<InkKind, "scale">;
+
+/**
+ * How the tools, and the ends of a straight line, snap to a kind of ink.
+ * "points" snaps to its ends, its dots and the places where it crosses other
+ * such ink. "crossings" only snaps where it crosses ink that snaps to its
+ * points, which is how a tick on a pair of axes is caught where it crosses
+ * its axis (see the tick points in lib/snap). "never" doesn't snap at all.
+ */
+export type SnapRole = "points" | "crossings" | "never";
 
 /**
  * How each kind of ink looks and behaves, on screen and in the saved PDF
  * alike: how opaque it is, whether it keeps one width all the way along
- * instead of swelling and thinning like a pen, whether a line drawn along a
- * tool snaps to it, and whether the lasso offers it other colours.
+ * instead of swelling and thinning like a pen, how the tools snap to it, and
+ * whether the lasso offers it other colours. The last setting, exact, is for
+ * ink whose points the app lays down itself instead of a finger tracing
+ * them. That ink is drawn as a line of its own width joining its points, with
+ * rounded corners and ends, instead of the outline that a finger's stroke
+ * gets (see strokeShape in AnnotationLayer).
  */
-export const INK: Record<InkKind, { opacity: number; evenWidth: boolean; snappedTo: boolean; recolourable: boolean }> = {
-  pen: { opacity: 0.85, evenWidth: false, snappedTo: true, recolourable: true },
+export const INK: Record<InkKind, { opacity: number; evenWidth: boolean; snap: SnapRole; recolourable: boolean; exact: boolean }> = {
+  pen: { opacity: 0.85, evenWidth: false, snap: "points", recolourable: true, exact: false },
   // A pencil only comes in grey, and its fine, even lines are where construction points are found.
-  pencil: { opacity: 0.75, evenWidth: true, snappedTo: true, recolourable: false },
+  pencil: { opacity: 0.75, evenWidth: true, snap: "points", recolourable: false, exact: false },
   // A highlighter is too broad to aim a line at.
-  highlighter: { opacity: 0.35, evenWidth: true, snappedTo: false, recolourable: true },
+  highlighter: { opacity: 0.35, evenWidth: true, snap: "never", recolourable: true, exact: false },
+  // The marks on a pair of axes look like the pencil their axis lines are
+  // drawn in. Their own ends and the corners of their digits would catch
+  // every line drawn near the axes, so only the places where they cross an
+  // axis count. The Draft lays their points down exactly, including every
+  // corner of every digit.
+  scale: { opacity: 0.75, evenWidth: true, snap: "crossings", recolourable: false, exact: true },
 };
 
 /**
  * The order the kinds of ink are painted in, from the bottom up, so pencil
- * construction lines never cover the working in pen. The screen and the saved
- * PDF both paint in this order.
+ * construction lines never cover the working in pen, and a graph drawn on a
+ * pair of axes sits over their numbers. The screen and the saved PDF both
+ * paint in this order.
  */
-export const INK_ORDER: readonly InkKind[] = ["highlighter", "pencil", "pen"];
+export const INK_ORDER: readonly InkKind[] = ["highlighter", "scale", "pencil", "pen"];
 
-/** Which kind of ink a stroke is. Pen strokes carry no kind, like ink saved before the highlighter. */
-export const kindOf = (stroke: Pick<Stroke, "kind">): InkKind => stroke.kind ?? "pen";
+/**
+ * Which kind of ink a stroke is. Pen strokes carry no kind, like ink saved
+ * before the highlighter. A kind this code doesn't know, which a newer tab
+ * could save one day, reads as pen too, so the page still draws instead of
+ * failing on a kind it has no settings for.
+ */
+export const kindOf = (stroke: Pick<Stroke, "kind">): InkKind => {
+  const kind = stroke.kind;
+  return kind !== undefined && (INK_ORDER as readonly string[]).includes(kind) ? kind : "pen";
+};
 
 export const strokeOpacity = (stroke: Pick<Stroke, "kind">) => INK[kindOf(stroke)].opacity;
 
@@ -87,13 +123,16 @@ export function hasInk(annotations: PageAnnotations | undefined): annotations is
  */
 export const RENDER_SCALE = 1.5;
 
-/** Shared perfect-freehand options for consistent stroke rendering. */
+/**
+ * Shared perfect-freehand options for consistent stroke rendering. Exact ink
+ * doesn't use them, because it's drawn as a plain line through its points.
+ */
 export function getStrokeOptions(stroke: Stroke, isComplete: boolean) {
   // A stroke with exactly two points is a straight line. It comes from the
   // Straight lines tool, or it's a short piece the eraser cut from a longer
-  // stroke. Either way it's drawn the same width all the way along. Streamline
-  // is off, because it would pull the far end back towards the start while
-  // the line is still being dragged.
+  // stroke. It's drawn the same width all the way along, straight through
+  // both ends. Streamline is off, because it would pull the far end of the
+  // line back towards the start while the line is still being dragged.
   if (stroke.points.length === 2) {
     return {
       size: stroke.size,

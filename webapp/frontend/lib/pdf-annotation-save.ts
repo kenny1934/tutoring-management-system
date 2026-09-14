@@ -5,7 +5,7 @@
 import getStroke from "perfect-freehand";
 import { extractPagesForPrint } from "./pdf-utils";
 import type { PrintStampInfo } from "./pdf-utils";
-import { RENDER_SCALE, getStrokeOptions, inkLayers, strokeOpacity } from "@/hooks/useAnnotations";
+import { INK, RENDER_SCALE, getStrokeOptions, inkLayers, kindOf, strokeOpacity } from "@/hooks/useAnnotations";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { DRAFT_GRID_COLOUR, DRAFT_SHEET_PT, DRAFT_SQUARE_PT, draftSquared, inkedDraftPages } from "./draft-sheets";
 import type { PDFDocument as PdfDocument, PDFPage, RGB } from "pdf-lib";
@@ -13,12 +13,18 @@ import type { PDFDocument as PdfDocument, PDFPage, RGB } from "pdf-lib";
 /**
  * Draw a single stroke onto a canvas context. A one-point stroke from a tap
  * has a small circle for an outline, so it's drawn as a dot like any other.
+ * Exact ink, the marks and numbers on a pair of axes, is drawn as a line
+ * through its points, as it is on screen.
  */
 export function drawStrokeToCanvas(
   ctx: CanvasRenderingContext2D,
   stroke: Stroke,
   scale: number,
 ) {
+  if (INK[kindOf(stroke)].exact) {
+    drawLineToCanvas(ctx, stroke, scale);
+    return;
+  }
   const outlinePoints = getStroke(stroke.points, getStrokeOptions(stroke, true));
 
   if (outlinePoints.length < 2) return;
@@ -38,6 +44,31 @@ export function drawStrokeToCanvas(
   ctx.fillStyle = stroke.color;
   ctx.globalAlpha = strokeOpacity(stroke);
   ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * Exact ink is a line of the stroke's width joining its points, with rounded
+ * corners and ends, and a single point of it is a dot the same width across.
+ */
+function drawLineToCanvas(ctx: CanvasRenderingContext2D, stroke: Stroke, scale: number) {
+  const [first, ...rest] = stroke.points;
+  if (!first) return;
+  ctx.beginPath();
+  ctx.globalAlpha = strokeOpacity(stroke);
+  if (rest.length === 0) {
+    ctx.arc(first[0] * scale, first[1] * scale, (stroke.size / 2) * scale, 0, 2 * Math.PI);
+    ctx.fillStyle = stroke.color;
+    ctx.fill();
+  } else {
+    ctx.moveTo(first[0] * scale, first[1] * scale);
+    for (const [x, y] of rest) ctx.lineTo(x * scale, y * scale);
+    ctx.lineWidth = stroke.size * scale;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = stroke.color;
+    ctx.stroke();
+  }
   ctx.globalAlpha = 1;
 }
 

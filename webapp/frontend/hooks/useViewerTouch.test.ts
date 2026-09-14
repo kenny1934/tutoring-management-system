@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { createElement, useRef } from "react";
 import { useViewerTouch } from "./useViewerTouch";
 
-// A scroller holding a drawing layer, a bare margin beside it, and a touch owner.
+// A scroller holding a drawing layer, a bare margin beside it, a touch owner, and a layer that takes one finger.
 function Harness({ handTool = false, onLayer, onOwner }: { handTool?: boolean; onLayer?: () => void; onOwner?: () => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { gestureActive, handlers } = useViewerTouch({
@@ -22,6 +22,7 @@ function Harness({ handTool = false, onLayer, onOwner }: { handTool?: boolean; o
     createElement("div", { "data-touch-owner": "", onPointerDown: onOwner },
       createElement("span", { "data-testid": "owner" }),
     ),
+    createElement("div", { "data-takes-one-finger": "", "data-testid": "placer" }),
     createElement("p", null, gestureActive ? "Two fingers" : "One finger"),
   );
 }
@@ -74,6 +75,20 @@ describe("useViewerTouch", () => {
     expect(screen.getByText("Two fingers")).toBeInTheDocument();
     // The second finger is kept away from the drawing layer.
     expect(onLayer).toHaveBeenCalledTimes(1);
+  });
+
+  it("never pans with a finger or the mouse on a layer that takes one finger, even with the Hand picked", () => {
+    render(createElement(Harness, { handTool: true }));
+    fireEvent.pointerDown(screen.getByTestId("placer"), finger(1));
+    fireEvent.pointerDown(screen.getByTestId("placer"), { pointerId: 3, pointerType: "mouse", button: 0 });
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("still turns two fingers on a layer that takes one finger into a gesture", () => {
+    render(createElement(Harness));
+    fireEvent.pointerDown(screen.getByTestId("placer"), finger(1));
+    fireEvent.pointerDown(screen.getByTestId("placer"), finger(2));
+    expect(screen.getByText("Two fingers")).toBeInTheDocument();
   });
 
   it("doesn't start the Hand's mouse drag on a touch owner", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { crossing, gridCorner, snapOnPage, snapPoint } from "./snap";
+import { crossing, gridCorner, snapOnPage, snapPoint, tickPoint } from "./snap";
 import type { Stroke } from "@/hooks/useAnnotations";
 
 const line = (points: [number, number][], kind?: Stroke["kind"]): Stroke => ({
@@ -71,5 +71,42 @@ describe("snapping to squared paper", () => {
     expect(snapOnPage([], [21, 29], cm, grid)).toEqual([20, 30]);
     expect(snapOnPage([], [24, 26], cm, grid)).toBeNull();
     expect(snapOnPage([], [21, 29], cm)).toBeNull();
+  });
+});
+
+describe("tick points on a pair of axes", () => {
+  // A pencil axis along y = 50, with a tick of scale ink across it at x = 50.
+  // A centimetre is 10 page units, so a tick point is caught within 3 units.
+  const cm = 10;
+  const axis = line([[0, 50], [100, 50]], "pencil");
+  const tick = line([[50, 45], [50, 55]], "scale");
+
+  it("never snaps to the scale ink's own ends or dots", () => {
+    expect(snapOnPage([tick], [50, 46], cm)).toBeNull();
+    expect(snapOnPage([line([[30, 30]], "scale")], [31, 29], cm)).toBeNull();
+    expect(snapPoint([axis, tick], [50, 46], 5)).toBeNull();
+  });
+
+  it("snaps to where a tick crosses its axis, within 0.3 cm and not beyond", () => {
+    expect(tickPoint([axis, tick], [52, 51], 3)).toEqual([50, 50]);
+    expect(snapOnPage([axis, tick], [52, 51], cm)).toEqual([50, 50]);
+    expect(snapOnPage([axis, tick], [53, 52], cm)).toBeNull();
+  });
+
+  it("finds nothing where two strokes of scale ink cross", () => {
+    const across = line([[40, 50], [60, 50]], "scale");
+    expect(snapOnPage([tick, across], [51, 51], cm)).toBeNull();
+  });
+
+  it("lets a point in the ink win over a nearer tick point", () => {
+    expect(snapOnPage([axis, tick, line([[54, 50]])], [51, 50], cm)).toEqual([54, 50]);
+  });
+
+  it("takes whichever is nearer of a tick point and a corner of the squares", () => {
+    const grid = { spacing: 10, width: 100, height: 100 };
+    // A tick at x = 53, which isn't on a corner, as after the lasso has moved the axes.
+    const offTheSquares = line([[53, 45], [53, 55]], "scale");
+    expect(snapOnPage([axis, offTheSquares], [52, 50], cm, grid)).toEqual([53, 50]);
+    expect(snapOnPage([axis, offTheSquares], [51, 50], cm, grid)).toEqual([50, 50]);
   });
 });

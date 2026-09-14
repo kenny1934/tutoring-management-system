@@ -58,8 +58,10 @@ class StrokeIn(BaseModel):
     points: List[Tuple[float, float, float]] = Field(..., min_length=1, max_length=20000)
     color: str = Field(..., max_length=32)
     size: float = Field(..., gt=0, le=500)
-    # Pen strokes leave this out, and highlighter and pencil strokes say which they are.
-    kind: Optional[Literal["highlighter", "pencil"]] = None
+    # Pen strokes leave this out, and the other kinds say which they are. A
+    # "scale" stroke is one of the ticks, arrowheads or numbers of a pair of
+    # axes that the Draft draws.
+    kind: Optional[Literal["highlighter", "pencil", "scale"]] = None
 
 
 class InkPageIn(BaseModel):

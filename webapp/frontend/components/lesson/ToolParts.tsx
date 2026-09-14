@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { measureContainer, toContainer } from "@/hooks/usePlacedTool";
 import type { Vec } from "@/lib/stroke-select";
@@ -15,6 +15,39 @@ export const READING =
 
 /** A tool's round, dark button, such as the X that hides it. Each tool adds where it sits, and sets its size. */
 export const ROUND_BUTTON = "grid place-items-center rounded-full bg-[#2e251c]/80 text-[#f3e7d3] hover:bg-[#2e251c]";
+
+// The other controls a tap is left to when it closes something opened out
+// over the page. The Pen Tray's buttons are among them, so picking a pen
+// closes the box and picks the pen with the same tap.
+const OTHER_CONTROLS = "button, input, [role='toolbar'], [role='menu'], [role='dialog']";
+
+/**
+ * Close something opened out over the page, such as the compasses' width box
+ * or the Draft's axes panel, on a tap anywhere outside it. The tap is kept
+ * from the page unless it lands on another control, so closing the box with
+ * a pen picked never leaves a dot. The listener is on the window in the
+ * capture phase, so it sees the tap before anything on the page can stop it.
+ * It reads `close` afresh on every tap, so `close` can use the latest state
+ * without the listener being added again.
+ */
+export function useCloseOnOutsideTap(boxRef: RefObject<HTMLElement | null>, close: () => void) {
+  const closeRef = useRef(close);
+  useEffect(() => {
+    closeRef.current = close;
+  });
+  useEffect(() => {
+    const outside = (e: PointerEvent) => {
+      if (!(e.target instanceof Node) || boxRef.current?.contains(e.target)) return;
+      if (!(e.target instanceof Element && e.target.closest(OTHER_CONTROLS))) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      closeRef.current();
+    };
+    window.addEventListener("pointerdown", outside, true);
+    return () => window.removeEventListener("pointerdown", outside, true);
+  }, [boxRef]);
+}
 
 /** The white dot on a handle that a finger drags, such as the protractor's resize handle. */
 export const HANDLE_DOT = "block h-4 w-4 rounded-full border-2 border-[#a0704b] bg-white";

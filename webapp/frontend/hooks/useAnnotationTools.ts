@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ERASER_RADIUS, type EraserSetting } from "@/lib/stroke-eraser";
-import { INK, type InkKind } from "./useAnnotations";
+import type { PenKind } from "./useAnnotations";
 
 /**
  * Which tool the lesson viewer's Pen Tray has picked. The Hand scrolls the
@@ -10,16 +10,16 @@ import { INK, type InkKind } from "./useAnnotations";
  * is for pointing: its marks fade away by themselves and are never saved. The
  * lasso selects ink, to move it, resize it or delete it.
  */
-type AnnotationTool = "hand" | InkKind | "eraser" | "fade" | "lasso";
+type AnnotationTool = "hand" | PenKind | "eraser" | "fade" | "lasso";
 
-const isInk = (tool: AnnotationTool): tool is InkKind => tool in INK;
+const isInk = (tool: AnnotationTool): tool is PenKind => tool in INK_SIZES;
 
 export type InkSize = "S" | "M" | "L";
 
 /** One colour on the tray. Each pen and highlighter colour is its own swatch. */
 export interface InkSwatch {
   id: string;
-  kind: InkKind;
+  kind: PenKind;
   color: string;
   label: string;
 }
@@ -42,7 +42,7 @@ export const INK_SWATCHES: InkSwatch[] = [
  * pen, which swells and thins. A medium highlighter is about as tall as a line
  * of worksheet text.
  */
-export const INK_SIZES: Record<InkKind, Record<InkSize, number>> = {
+export const INK_SIZES: Record<PenKind, Record<InkSize, number>> = {
   pen: { S: 3, M: 6, L: 12 },
   pencil: { S: 2.5, M: 4, L: 7 },
   highlighter: { S: 12, M: 20, L: 30 },

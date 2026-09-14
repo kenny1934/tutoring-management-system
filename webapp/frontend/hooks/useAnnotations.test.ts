@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { lessonInkAPI, type LessonInkPage } from "@/lib/api";
 import {
   useAnnotations, inkLayers, getStrokeOptions, hasInk, serverPageIndex, viewPageIndex, inkTargetKey, lessonDraftId, lessonOfDraft,
-  roundStroke, type ReplacedInk, type Stroke,
+  roundStroke, kindOf, strokeOpacity, type ReplacedInk, type Stroke,
 } from "./useAnnotations";
 
 vi.mock("@/lib/api", () => ({
@@ -243,14 +243,30 @@ describe("getStrokeOptions", () => {
 });
 
 describe("inkLayers", () => {
-  it("puts highlighter ink at the bottom, pencil ink above it and pen ink on top, keeping each layer's order", () => {
+  it("paints highlighter ink at the bottom, then scale ink, then pencil ink, and pen ink on top, keeping each layer's order", () => {
     const pen1 = stroke("red");
     const hl1: Stroke = { ...stroke("yellow"), kind: "highlighter" };
     const pencil1: Stroke = { ...stroke("grey"), kind: "pencil" };
+    const scale1: Stroke = { ...stroke("grey"), kind: "scale" };
     const pen2 = stroke("blue");
     const hl2: Stroke = { ...stroke("pink"), kind: "highlighter" };
     const pencil2: Stroke = { ...stroke("grey"), kind: "pencil" };
-    expect(inkLayers([pen1, hl1, pencil1, pen2, hl2, pencil2])).toEqual([[hl1, hl2], [pencil1, pencil2], [pen1, pen2]]);
+    const scale2: Stroke = { ...stroke("grey"), kind: "scale" };
+    expect(inkLayers([pen1, scale1, hl1, pencil1, pen2, hl2, scale2, pencil2])).toEqual(
+      [[hl1, hl2], [scale1, scale2], [pencil1, pencil2], [pen1, pen2]],
+    );
+  });
+});
+
+describe("kindOf", () => {
+  it("reads a stroke with no kind as pen, and one of a kind it doesn't know as pen too, so the page still draws", () => {
+    expect(kindOf({})).toBe("pen");
+    expect(kindOf({ kind: "scale" })).toBe("scale");
+    // A newer tab could one day save a kind this code has never heard of.
+    const unknown = { kind: "crayon" } as unknown as Stroke;
+    expect(kindOf(unknown)).toBe("pen");
+    expect(strokeOpacity(unknown)).toBe(0.85);
+    expect(inkLayers([{ ...stroke("red"), ...unknown }]).at(-1)).toHaveLength(1);
   });
 });
 

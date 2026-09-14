@@ -2,8 +2,8 @@
 
 import { Fragment, useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo } from "react";
 import getStroke from "perfect-freehand";
-import { INK_ORDER, getStrokeOptions, inkLayers, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
-import type { InkKind, PageAnnotations, Stroke } from "@/hooks/useAnnotations";
+import { INK, INK_ORDER, getStrokeOptions, inkLayers, kindOf, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
+import type { PageAnnotations, PenKind, Stroke } from "@/hooks/useAnnotations";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { eraseStrokes, type Box } from "@/lib/stroke-eraser";
 import { hasBrowserModifier, isTypingTarget } from "@/lib/lesson-utils";
@@ -39,7 +39,7 @@ interface AnnotationLayerProps {
   /** Current pen size */
   penSize: number;
   /** Whether new strokes are pen, pencil or highlighter ink. Defaults to pen. */
-  inkKind?: InkKind;
+  inkKind?: PenKind;
   /**
    * Draw a straight line from where the finger goes down to where it lifts.
    * Either end that comes within half a centimetre of a point in the pen ink,
@@ -186,6 +186,42 @@ export function getSvgPathFromStroke(outlinePoints: [number, number][]): string 
   return d.join(" ");
 }
 
+const coord = (n: number) => n.toFixed(2);
+
+/**
+ * The SVG path for a finished stroke. Most ink is the outline that
+ * perfect-freehand builds around its points, filled in. Exact ink, the marks
+ * and numbers on a pair of axes, is instead a line of the stroke's width
+ * joining its points, which `line` says, and inkPaint draws it with rounded
+ * corners and ends. An outline folds back on itself at a corner as sharp as
+ * the one in a 4, and the fill leaves the folded parts out, so parts of those
+ * digits came out faint. A single point of exact ink, such as a decimal
+ * point, is a filled dot the stroke's width across.
+ */
+function strokeShape(stroke: Stroke): { d: string; line: boolean } {
+  if (!INK[kindOf(stroke)].exact) {
+    return { d: getSvgPathFromStroke(getStroke(stroke.points, getStrokeOptions(stroke, true))), line: false };
+  }
+  const [first, ...rest] = stroke.points;
+  if (!first) return { d: "", line: false };
+  const [x, y] = first;
+  if (rest.length === 0) {
+    const r = stroke.size / 2;
+    return {
+      d: `M ${coord(x - r)} ${coord(y)} a ${coord(r)} ${coord(r)} 0 1 0 ${coord(2 * r)} 0 a ${coord(r)} ${coord(r)} 0 1 0 ${coord(-2 * r)} 0 Z`,
+      line: false,
+    };
+  }
+  return { d: [`M ${coord(x)} ${coord(y)}`, ...rest.map(([px, py]) => `L ${coord(px)} ${coord(py)}`)].join(" "), line: true };
+}
+
+/** How a stroke's shape is painted: an outline or a dot is filled, and a line is stroked at the stroke's width. */
+function inkPaint(stroke: Stroke, line: boolean) {
+  return line
+    ? { fill: "none", stroke: stroke.color, strokeWidth: stroke.size, strokeLinecap: "round", strokeLinejoin: "round" } as const
+    : { fill: stroke.color };
+}
+
 // Each stroke object gets its own React key the first time it's drawn.
 // Strokes are never changed in place, so when the rubbing eraser splits one,
 // the new pieces get new keys and every other stroke keeps its own, and only
@@ -203,12 +239,15 @@ function strokeKey(stroke: Stroke): number {
   return key;
 }
 
-/** Render a completed stroke as an SVG path element. Memoized to avoid re-rendering unchanged strokes. */
-const StrokePath = memo(function StrokePath({ stroke }: { stroke: Stroke }) {
-  const outlinePoints = getStroke(stroke.points, getStrokeOptions(stroke, true));
-  const pathData = getSvgPathFromStroke(outlinePoints);
-  if (!pathData) return null;
-  return <path d={pathData} fill={stroke.color} opacity={strokeOpacity(stroke)} />;
+/**
+ * Render a completed stroke as an SVG path element. Memoized to avoid
+ * re-rendering unchanged strokes. The Draft's preview of a pair of axes draws
+ * with it too, so the preview looks exactly like the ink it becomes.
+ */
+export const StrokePath = memo(function StrokePath({ stroke }: { stroke: Stroke }) {
+  const { d, line } = strokeShape(stroke);
+  if (!d) return null;
+  return <path d={d} {...inkPaint(stroke, line)} opacity={strokeOpacity(stroke)} />;
 });
 
 /**
@@ -228,9 +267,8 @@ const ErasableStrokePath = memo(function ErasableStrokePath({
   onLeave: () => void;
   onErase: (stroke: Stroke) => void;
 }) {
-  const outlinePoints = getStroke(stroke.points, getStrokeOptions(stroke, true));
-  const pathData = getSvgPathFromStroke(outlinePoints);
-  if (!pathData) return null;
+  const { d, line } = strokeShape(stroke);
+  if (!d) return null;
 
   return (
     <g
@@ -243,25 +281,25 @@ const ErasableStrokePath = memo(function ErasableStrokePath({
       }}
       style={{ cursor: "pointer" }}
     >
-      {/* Invisible wider hit area for easier targeting */}
+      {/* Invisible wider hit area for easier targeting. A line reaches out from its middle, so it takes its own width as well. */}
       <path
-        d={pathData}
+        d={d}
         fill="transparent"
         stroke="transparent"
-        strokeWidth={10}
+        strokeWidth={line ? stroke.size + 10 : 10}
         pointerEvents="stroke"
       />
       {/* Visible stroke with hover effect */}
       <path
-        d={pathData}
-        fill={stroke.color}
+        d={d}
+        {...inkPaint(stroke, line)}
         opacity={isHovered ? strokeOpacity(stroke) * 0.35 : strokeOpacity(stroke)}
         style={{ transition: "opacity 0.1s ease" }}
       />
-      {/* Red outline on hover */}
+      {/* Red outline on hover. A line gets a red line down its middle instead. */}
       {isHovered && (
         <path
-          d={pathData}
+          d={d}
           fill="none"
           stroke="#ef4444"
           strokeWidth={1.5}
@@ -311,7 +349,7 @@ export function AnnotationLayer({
   // What a new stroke looks like. Fading ink has its own look, whatever colour is picked.
   const inkColor = fading ? FADING_INK.color : penColor;
   const inkSize = fading ? FADING_INK.size : penSize;
-  const newInk: InkKind = fading ? "pen" : inkKind;
+  const newInk: PenKind = fading ? "pen" : inkKind;
 
   // Squared paper's squares, whose corners straight lines and the tools snap to after the ink.
   const grid = useMemo(

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
-import { FlipHorizontal2, Minus, MoveDiagonal2, PencilOff, Plus, X } from "lucide-react";
+import { useRef, useState, type RefObject } from "react";
+import { FlipHorizontal2, MoveDiagonal2, PencilOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool } from "@/hooks/usePlacedTool";
@@ -11,7 +11,8 @@ import {
   readCompassWidth, saveCompassLegs, saveCompassWidth, snapWidth, sweepRange, typedWidth, widestFor,
 } from "@/lib/compass";
 import type { Vec } from "@/lib/stroke-select";
-import { HANDLE_DOT, READING, ROUND_BUTTON, grabPointer } from "./ToolParts";
+import { HANDLE_DOT, READING, ROUND_BUTTON, grabPointer, useCloseOnOutsideTap } from "./ToolParts";
+import { Stepper } from "./Stepper";
 
 const LABEL =
   "Compasses: drag the needle to move them, drag the pencil to open or close them, and turn the handle at the top to draw";
@@ -52,9 +53,6 @@ interface Turn {
   line: DrivenLine | null;
 }
 
-// Things a tap elsewhere is left to when it closes the width's box, such as the Pen Tray's buttons.
-const CONTROLS = "button, input, [role='toolbar'], [role='menu'], [role='dialog']";
-
 interface WidthStepperProps {
   /** Where the width sits, in the container's own pixels. */
   at: Vec;
@@ -89,26 +87,12 @@ function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: Widt
     setTyped(next.toFixed(1));
   };
 
-  // The window's listener reads the latest width and typing through this, so it's only added once.
-  const closeRef = useRef(() => {});
-  useEffect(() => {
-    closeRef.current = () => {
-      settle(current());
-      onClose();
-    };
-  });
-  useEffect(() => {
-    const outside = (e: PointerEvent) => {
-      if (!(e.target instanceof Node) || boxRef.current?.contains(e.target)) return;
-      if (!(e.target instanceof Element && e.target.closest(CONTROLS))) {
-        e.stopPropagation();
-        e.preventDefault();
-      }
-      closeRef.current();
-    };
-    window.addEventListener("pointerdown", outside, true);
-    return () => window.removeEventListener("pointerdown", outside, true);
-  }, []);
+  // A tap elsewhere and Enter both keep what was typed, then close the box.
+  const closeKeepingTyped = () => {
+    settle(current());
+    onClose();
+  };
+  useCloseOnOutsideTap(boxRef, closeKeepingTyped);
 
   const control = 0.8 * cm;
   const stepClass = "grid flex-none place-items-center rounded-full hover:bg-[#f3e7d3]/15";
@@ -123,45 +107,27 @@ function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: Widt
       className={cn(READING, "absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center p-0 bg-[#2e251c]/90 shadow-lg")}
       style={{ left: at[0], top: at[1], filter: darkMode ? PDF_DARK_FILTER : undefined }}
     >
-      <button
-        type="button"
-        aria-label="A millimetre narrower"
-        title="A millimetre narrower"
-        onClick={() => settle(snapWidth(current() - 0.1, legs))}
-        className={stepClass}
-        style={{ width: control, height: control }}
-      >
-        <Minus className="h-1/2 w-1/2" />
-      </button>
-      <input
-        aria-label="Width in centimetres"
-        inputMode="decimal"
-        value={typed}
-        onChange={(e) => setTyped(e.target.value)}
+      <Stepper
+        text={typed}
+        onTextChange={setTyped}
+        onLess={() => settle(snapWidth(current() - 0.1, legs))}
+        onMore={() => settle(snapWidth(current() + 0.1, legs))}
         onBlur={() => {
           if (!cancelledRef.current) settle(current());
         }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            closeRef.current();
-          } else if (e.key === "Escape") {
-            cancelledRef.current = true;
-            onClose();
-          }
+        onEnter={closeKeepingTyped}
+        onEscape={() => {
+          cancelledRef.current = true;
+          onClose();
         }}
-        className="w-[4ch] bg-transparent text-center outline-none"
+        lessLabel="A millimetre narrower"
+        moreLabel="A millimetre wider"
+        boxLabel="Width in centimetres"
+        unit={<span className="pr-0.5">cm</span>}
+        buttonClassName={stepClass}
+        buttonStyle={{ width: control, height: control }}
+        inputClassName="w-[4ch] bg-transparent text-center outline-none"
       />
-      <span className="pr-0.5">cm</span>
-      <button
-        type="button"
-        aria-label="A millimetre wider"
-        title="A millimetre wider"
-        onClick={() => settle(snapWidth(current() + 0.1, legs))}
-        className={stepClass}
-        style={{ width: control, height: control }}
-      >
-        <Plus className="h-1/2 w-1/2" />
-      </button>
     </div>
   );
 }
