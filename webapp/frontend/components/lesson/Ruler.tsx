@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useLayoutEffect, type RefObject } from "react";
+import { memo, useLayoutEffect, useState, type RefObject } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
@@ -8,7 +8,7 @@ import { usePlacedTool, type OnScreen } from "@/hooks/usePlacedTool";
 import { inkSnapAt } from "@/hooks/useInkPages";
 import { CATCH, type DrawingGuide } from "@/lib/drawing-guide";
 import {
-  RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, pinnedLine, shownAngle, type RulerFrame,
+  RULER_HEIGHT_CM, RULER_LENGTH_CM, edgeAt, nearRuler, ontoEdge, pinnedLine, shownAngle, shownLength, type RulerFrame,
 } from "@/lib/ruler";
 import type { Vec } from "@/lib/stroke-select";
 import { READING, ROUND_BUTTON, SnapRings, usePinnedPoints } from "./ToolParts";
@@ -77,11 +77,17 @@ function rulerFrame(at: OnScreen, cm: number): RulerFrame {
  * turns it too, and a finger further away is left to the pane, so a tutor can
  * hold the ruler with one hand and draw along it with the other.
  *
+ * Both ends of a line along an edge land on millimetre marks, so the line is
+ * always a whole number of millimetres long. While it's drawn, the middle of
+ * the ruler shows its length, such as "6.0 cm", in place of the angle, so a
+ * tutor can stop on the length they want.
+ *
  * A line along an edge that starts or ends within half a centimetre of a
  * point in the pen ink, such as where two arcs cross, is pinned onto that
- * point, and a ring shows it while the line is drawn. With both ends pinned,
- * the line joins the two points exactly, which is how a construction draws a
- * line through two crossings.
+ * point, and a ring shows it while the line is drawn. With one end pinned,
+ * its length is counted in whole millimetres from that point. With both ends
+ * pinned, the line joins the two points exactly, which is how a construction
+ * draws a line through two crossings.
  */
 export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: RulerProps) {
   const { toolRef, place, held, onScreen, handlers } = usePlacedTool({
@@ -91,9 +97,12 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
   });
   // The points the line being drawn is pinned to, for the rings that show them.
   const { pinned, show, clear } = usePinnedPoints(containerRef);
+  // The length of the line being drawn, which the ruler shows in place of its angle.
+  const [lineLength, setLineLength] = useState<string | null>(null);
 
   // A line that starts just outside either long edge runs along it, half a
-  // pen width out, and stops at the ruler's ends, unless an end is pinned.
+  // pen width out, from mark to mark, and stops at the ruler's ends, unless an
+  // end is pinned.
   useLayoutEffect(() => {
     const guide: DrawingGuide = {
       lineFrom: (start, offset) => {
@@ -107,9 +116,14 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
             const to = ontoEdge(edge, point, offset);
             const pinTo = inkSnapAt(to);
             show([pinFrom, pinTo]);
-            return pinnedLine(edge.along, from, to, pinFrom, pinTo);
+            const line = pinnedLine(edge.along, from, to, pinFrom, pinTo, edge.mm);
+            setLineLength(shownLength(line, edge.mm));
+            return line;
           },
-          end: clear,
+          end: () => {
+            setLineLength(null);
+            clear();
+          },
         };
       },
     };
@@ -146,8 +160,11 @@ export function Ruler({ containerRef, cm, start, guides, darkMode, onHide }: Rul
         }}
       >
         <RulerMarks />
-        <span aria-hidden="true" className={cn("pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2", READING)}>
-          {shownAngle(place.angle)}°
+        <span
+          aria-hidden="true"
+          className={cn("pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap", READING)}
+        >
+          {lineLength ?? `${shownAngle(place.angle)}°`}
         </span>
         {/* The X sits in the clear band between the two rows of marks, at the ruler's far end */}
         <button

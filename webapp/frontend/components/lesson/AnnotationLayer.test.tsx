@@ -479,8 +479,8 @@ describe("AnnotationLayer lasso", () => {
 });
 
 describe("AnnotationLayer along the ruler", () => {
-  // A level ruler whose bottom edge runs across the page at y = 30, from x = 10 to x = 90.
-  const EDGE: RulerEdge = { origin: [50, 30], along: [1, 0], out: [0, 1], halfLength: 40 };
+  // A level ruler whose bottom edge runs across the page at y = 30, from x = 10 to x = 90, with its marks a pixel apart.
+  const EDGE: RulerEdge = { origin: [50, 30], along: [1, 0], out: [0, 1], halfLength: 40, mm: 1 };
   const ruler: DrawingGuide = {
     lineFrom: (start, offset) =>
       start[1] > 30 && start[1] < 70 ? { to: (point) => [ontoEdge(EDGE, start, offset), ontoEdge(EDGE, point, offset)] } : null,

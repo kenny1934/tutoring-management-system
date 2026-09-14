@@ -108,6 +108,23 @@ describe("Ruler", () => {
     expect(guides.size).toBe(0);
   });
 
+  it("draws a line from mark to mark along its edge, and shows its length while it's drawn", () => {
+    const guides = new Set<DrawingGuide>();
+    render(<Harness guides={guides} />);
+    const [guide] = guides;
+
+    // At 10 pixels to the centimetre, each millimetre mark is a whole pixel along the edge.
+    const line = guide.lineFrom([150.4, 330], 0)!;
+    let ends: Vec[] = [];
+    act(() => { ends = line.to([210.6, 340]); });
+    expect(ends).toEqual([[150, 315], [211, 315]]);
+    expect(ruler()).toHaveTextContent("6.1 cm");
+
+    // Once the finger lifts, the ruler shows its angle again.
+    act(() => line.end!());
+    expect(ruler()).toHaveTextContent("0°");
+  });
+
   it("pins a line along its edge onto points in the ink near its ends, with a ring at each", () => {
     // A page with two points in its ink, one near each end of the line below.
     // It snaps within half a centimetre, which is 5 pixels here.
