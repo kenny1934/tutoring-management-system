@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.140](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.139...v2.0.140) (2026-09-14)
+
+
+### New Features
+
+* **Dark mode from the lesson draft**: the lesson draft's bar now has the dark switch, so you can turn the whole board dark or light without leaving the draft.
+
 ## [2.0.139](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.138...v2.0.139) (2026-09-14)
 
 
