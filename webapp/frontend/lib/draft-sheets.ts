@@ -21,6 +21,9 @@ export const DRAFT_SHEET = {
  */
 export const DRAFT_SQUARE_PT = 72 / 2.54;
 
+/** The same square in page units, which is how far apart the corners that lines snap to are. */
+export const DRAFT_SQUARE = DRAFT_SQUARE_PT * RENDER_SCALE;
+
 /** The colour of the squares' lines, on screen and in the saved PDF. */
 export const DRAFT_GRID_COLOUR = { css: "#c9d6e6", rgb: [0xc9 / 255, 0xd6 / 255, 0xe6 / 255] as const };
 

@@ -16,7 +16,7 @@ import { useUndoOffer } from "@/hooks/useUndoOffer";
 import { CM } from "@/lib/drawing-guide";
 import { hasInk, type PageAnnotations, type Stroke } from "@/hooks/useAnnotations";
 import {
-  DRAFT_GRID_COLOUR, DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SHEET_PT, DRAFT_SQUARE_PT,
+  DRAFT_GRID_COLOUR, DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SHEET_PT, DRAFT_SQUARE, DRAFT_SQUARE_PT,
   draftSheetsInUse, draftSquared, inkedDraftPages,
 } from "@/lib/draft-sheets";
 
@@ -351,6 +351,8 @@ export function DraftPane({
                     onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
                     suspended={gestureActive}
                     guides={paneTools.guides}
+                    // On squared paper, straight lines and the tools snap to the squares' corners too.
+                    gridSpacing={squared ? DRAFT_SQUARE : undefined}
                     pageIndex={pageIndex}
                     pageLabel={`Draft sheet ${n + 1}`}
                     onPagesChange={onPagesStrokesChange}

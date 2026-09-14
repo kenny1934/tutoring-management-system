@@ -13,7 +13,7 @@ import {
 } from "@/lib/stroke-select";
 import type { InkSwatch } from "@/hooks/useAnnotationTools";
 import { registerInkPage, type DrivenLine, type InkPage } from "@/hooks/useInkPages";
-import { SNAP_REACH_CM, snapPoint } from "@/lib/snap";
+import { snapOnPage } from "@/lib/snap";
 import { CM, clipPointsToPage, type DrawingGuide, type GuidedLine } from "@/lib/drawing-guide";
 import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
 
@@ -78,6 +78,12 @@ interface AnnotationLayerProps {
    * edge, runs against that tool.
    */
   guides?: ReadonlySet<DrawingGuide>;
+  /**
+   * The size of the page's squares, in page units, when it's squared paper.
+   * Straight lines and the tools then snap to the squares' corners as well as
+   * to the ink.
+   */
+  gridSpacing?: number;
   /**
    * This page's index in the exercise's annotations, its name, and a way to
    * save several pages as one change. With all three, ink the lasso selects
@@ -285,6 +291,7 @@ export function AnnotationLayer({
   suspended = false,
   uiScale = 1,
   guides,
+  gridSpacing,
   pageIndex,
   pageLabel,
   onPagesChange,
@@ -305,6 +312,12 @@ export function AnnotationLayer({
   const inkColor = fading ? FADING_INK.color : penColor;
   const inkSize = fading ? FADING_INK.size : penSize;
   const newInk: InkKind = fading ? "pen" : inkKind;
+
+  // Squared paper's squares, whose corners straight lines and the tools snap to after the ink.
+  const grid = useMemo(
+    () => (gridSpacing ? { spacing: gridSpacing, width, height } : undefined),
+    [gridSpacing, width, height],
+  );
 
   // Fading ink never reaches onStrokesChange, so it stays out of the saved
   // ink, the undo history and the PDF. It lives here until it has faded. The
@@ -481,10 +494,10 @@ export function AnnotationLayer({
    */
   const inkPointNear = useCallback(
     (point: Point): Point | null => {
-      const found = snapPoint(strokes, [point[0], point[1]], SNAP_REACH_CM * CM);
+      const found = snapOnPage(strokes, [point[0], point[1]], CM, grid);
       return found && [found[0], found[1], point[2]];
     },
-    [strokes]
+    [strokes, grid]
   );
 
   // Whether each end of the straight line being drawn is on a point in the ink, for the rings that show them.
@@ -793,15 +806,15 @@ export function AnnotationLayer({
         return !!box && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
       },
       startLine: (start) => liveRef.current.startDrivenLine(start),
-      // The reach is half a centimetre of this page, whatever its zoom.
+      // The reach is measured in this page's centimetres, whatever its zoom.
       snapNear: (point) => {
         const space = pageSpace();
         if (!space) return null;
-        const found = snapPoint(liveRef.current.strokes, space.toPage(point), SNAP_REACH_CM * CM);
+        const found = snapOnPage(liveRef.current.strokes, space.toPage(point), CM, grid);
         return found && space.toScreen(found);
       },
     });
-  }, [layerId, pageIndex, pageLabel, width, height, onPagesChange, receiveInk, pageSpace]);
+  }, [layerId, pageIndex, pageLabel, width, height, onPagesChange, receiveInk, pageSpace, grid]);
 
   /**
    * Move the selection to another page, as one change to both pages. The ink

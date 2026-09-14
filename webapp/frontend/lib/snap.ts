@@ -7,9 +7,12 @@
  * of a line along the ruler, the protractor's centre mark, the end of a ray
  * drawn from it, and the ends of a line drawn with straight lines on.
  *
- * Only pen ink counts. Highlighter strokes are broad, and their edges would
- * catch the compasses in places nobody meant. A line crossing itself doesn't
- * count either, because handwriting is full of loops.
+ * Pen and pencil ink count. Highlighter strokes are broad, and their edges
+ * would catch the compasses in places nobody meant. A line crossing itself
+ * doesn't count either, because handwriting is full of loops.
+ *
+ * On squared paper the corners of the squares count too, after the ink, so a
+ * figure can be built on the grid the way it would be in an exercise book.
  */
 import type { Stroke } from "@/hooks/useAnnotations";
 import { boundingBox, distanceToSegment } from "./stroke-eraser";
@@ -18,6 +21,46 @@ import type { Vec } from "./stroke-select";
 
 /** How close, in centimetres, a tool has to come to a point in the ink to snap onto it. */
 export const SNAP_REACH_CM = 0.5;
+
+/**
+ * How close, in centimetres, a tool has to come to a corner of the squares to
+ * snap onto it. It's shorter than the reach for ink, because every point on
+ * one-centimetre squares is within 0.71 cm of a corner, and a pull as strong
+ * as the ink's would catch almost every tap.
+ */
+export const GRID_REACH_CM = 0.3;
+
+/** A page's squares, in page units: how far apart they are, and the page's size, which they stop at. */
+export interface SnapGrid {
+  spacing: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The nearest corner of a page's squares within `reach` of `at`, or null. The
+ * squares start from the page's top-left corner, as the Draft's squared paper
+ * does on screen and in the saved PDF, and only corners on the page count.
+ */
+export function gridCorner(at: Vec, grid: SnapGrid, reach: number): Vec | null {
+  const { spacing, width, height } = grid;
+  if (spacing <= 0) return null;
+  const x = Math.round(at[0] / spacing) * spacing;
+  const y = Math.round(at[1] / spacing) * spacing;
+  if (x < 0 || y < 0 || x > width || y > height) return null;
+  return Math.hypot(x - at[0], y - at[1]) <= reach ? [x, y] : null;
+}
+
+/**
+ * The point a tool or a straight line snaps onto near `at`, in page units: a
+ * point in the ink within half a centimetre, or failing that, a corner of the
+ * page's squares within 0.3 cm when it has any. The ink wins, so a crossing
+ * just drawn with the compasses is never lost to the squares behind it. `cm`
+ * is a centimetre of the page, in page units.
+ */
+export function snapOnPage(strokes: Stroke[], at: Vec, cm: number, grid?: SnapGrid): Vec | null {
+  return snapPoint(strokes, at, SNAP_REACH_CM * cm) ?? (grid ? gridCorner(at, grid, GRID_REACH_CM * cm) : null);
+}
 
 /** Where the segment from a to b crosses the segment from c to d, or null when they don't meet. */
 export function crossing(a: Vec, b: Vec, c: Vec, d: Vec): Vec | null {

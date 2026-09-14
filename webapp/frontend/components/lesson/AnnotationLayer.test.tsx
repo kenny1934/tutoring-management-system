@@ -208,6 +208,18 @@ describe("AnnotationLayer pen and highlighter", () => {
     expect(svg.querySelectorAll("[data-pinned]")).toHaveLength(0);
   });
 
+  it("lands a straight line's ends on the corners of the page's squares when it has them", () => {
+    // Squares 25 page units apart, so there are corners at (25, 25) and (75, 75).
+    const { svg, onStrokesChange } = renderDrawing({ straight: true, gridSpacing: 25 });
+    fireEvent.pointerDown(svg, { clientX: 27, clientY: 23, pointerId: 1 });
+    fireEvent.pointerMove(svg, { clientX: 73, clientY: 77, pointerId: 1 });
+    expect(svg.querySelectorAll("[data-pinned]")).toHaveLength(2);
+    fireEvent.pointerUp(svg, { clientX: 73, clientY: 77, pointerId: 1 });
+
+    const [line] = onStrokesChange.mock.calls[0][0] as Stroke[];
+    expect(line.points.map(([x, y]) => [x, y])).toEqual([[25, 25], [75, 75]]);
+  });
+
   it("leaves a slanted straight line at the angle it was drawn", () => {
     const { svg, onStrokesChange } = renderDrawing({ straight: true });
     fireEvent.pointerDown(svg, { clientX: 10, clientY: 10, pointerId: 1 });
@@ -578,7 +590,7 @@ describe("AnnotationLayer along the ruler", () => {
 describe("AnnotationLayer driven by a tool", () => {
   const noop = () => {};
 
-  function renderPage({ isDrawing = true, inkReady = true, strokes = [] as Stroke[] } = {}) {
+  function renderPage({ isDrawing = true, inkReady = true, strokes = [] as Stroke[], gridSpacing = undefined as number | undefined } = {}) {
     const onStrokesChange = vi.fn();
     render(
       <AnnotationLayer
@@ -594,6 +606,7 @@ describe("AnnotationLayer driven by a tool", () => {
         pageIndex={0}
         pageLabel="Page 1"
         onPagesChange={noop}
+        gridSpacing={gridSpacing}
       />
     );
     return onStrokesChange;
@@ -629,5 +642,15 @@ describe("AnnotationLayer driven by a tool", () => {
     // Half a centimetre is about 21 page units, and this page is drawn at a screen pixel to the unit.
     expect(inkPageAt([50, 50])!.snapNear([53, 48])).toEqual([50, 50]);
     expect(inkPageAt([50, 50])!.snapNear([70, 30])).toBeNull();
+  });
+
+  it("tells a tool about the corners of squared paper's squares too, but the ink comes first", () => {
+    renderPage({ gridSpacing: 25, strokes: [{ points: [[33, 33, 0.5]], color: "#000000", size: 2 }] });
+    const page = inkPageAt([50, 50])!;
+    // A corner is caught within 0.3 cm, about 13 page units, and a dot in the ink within 0.5 cm.
+    expect(page.snapNear([73, 77])).toEqual([75, 75]);
+    expect(page.snapNear([62, 62])).toBeNull();
+    // This is nearer the corner at (25, 25), but the dot at (33, 33) is in reach, so it wins.
+    expect(page.snapNear([28, 28])).toEqual([33, 33]);
   });
 });

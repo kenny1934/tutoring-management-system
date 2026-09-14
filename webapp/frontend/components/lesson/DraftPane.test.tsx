@@ -5,7 +5,7 @@ import { DraftPane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { useAnnotationTools, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
-import { DRAFT_PAGE_BASE, draftSheetsInUse, draftSquared } from "@/lib/draft-sheets";
+import { DRAFT_PAGE_BASE, DRAFT_SQUARE, draftSheetsInUse, draftSquared } from "@/lib/draft-sheets";
 
 // The drawing layer maps pointer positions through its on-screen box, which
 // jsdom doesn't lay out, so give every element a 100 by 100 box at the origin.
@@ -93,6 +93,34 @@ describe("DraftPane", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Blank" }));
     expect(draftSquared.get()).toBe(false);
+  });
+
+  it("snaps a straight line's start to a corner of the squares on squared paper, and not on blank paper", () => {
+    const onChange = vi.fn();
+    let tools!: AnnotationTools;
+    render(<Harness onChange={onChange} onTools={(t) => { tools = t; }} />);
+    act(() => tools.toggleStraight());
+    // The sheet is drawn 100 pixels across and 100 down here, so a pixel is
+    // about 8.9 page units across and 12.6 down. Each line runs across to x = 30.
+    const drawFrom = (x: number, y: number) => {
+      const svg = sheets()[0].querySelector("svg")!;
+      fireEvent.pointerDown(svg, { clientX: x, clientY: y, pointerId: 1 });
+      fireEvent.pointerMove(svg, { clientX: 30, clientY: y, pointerId: 1 });
+      fireEvent.pointerUp(svg, { clientX: 30, clientY: y, pointerId: 1 });
+      return (onChange.mock.lastCall![1] as Stroke[]).at(-1)!.points[0];
+    };
+
+    // Near the corner 1 cm in from the top-left, on blank paper, the line starts where the finger went down.
+    const [blankX] = drawFrom(5, 3.5);
+    expect(blankX).not.toBeCloseTo(DRAFT_SQUARE);
+
+    // Near the corner 4 cm in, well away from that first line, squared paper puts the start on the corner.
+    fireEvent.click(screen.getByRole("button", { name: "Squared" }));
+    const [x, y] = drawFrom(19.3, 13.6);
+    expect(x).toBeCloseTo(4 * DRAFT_SQUARE);
+    expect(y).toBeCloseTo(4 * DRAFT_SQUARE);
+    // Squared paper is one remembered setting, so it's put back for the other tests.
+    fireEvent.click(screen.getByRole("button", { name: "Blank" }));
   });
 
   it("clears the sheet in view from the Clear menu, then offers to undo it", () => {
