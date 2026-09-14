@@ -20,6 +20,7 @@ TODAY = date.today()
 
 PEN = {"points": [[10.5, 20.25, 0.5], [11, 21, 0.5]], "color": "#dc2626", "size": 4}
 HIGHLIGHT = {"points": [[1, 2, 1], [3, 4, 1]], "color": "#facc15", "size": 18, "kind": "highlighter"}
+PENCIL = {"points": [[5, 6, 0.5], [7, 8, 0.5], [9, 9, 0.5]], "color": "#6b7280", "size": 2.5, "kind": "pencil"}
 
 ME = dict(id=99, user_email="me@example.com", tutor_name="Me", role="Tutor", is_active_tutor=True)
 OTHER = dict(id=5, user_email="other@example.com", tutor_name="Ms Other", role="Tutor", is_active_tutor=True)
@@ -76,11 +77,11 @@ def _read(client: TestClient, *session_ids) -> dict:
 
 
 def test_a_saved_page_reads_back_exactly(client: TestClient, db_session: Session, slot):
-    result = _save(client, _page(strokes=[PEN, HIGHLIGHT]))
+    result = _save(client, _page(strokes=[PEN, HIGHLIGHT, PENCIL]))
 
     assert result == {"saved": [{"session_id": 100, "target_key": "ex:10", "page_index": 0, "version": 1}], "dropped": []}
     page = _read(client, 100)[(100, "ex:10", 0)]
-    assert page["strokes"] == [PEN, HIGHLIGHT]
+    assert page["strokes"] == [PEN, HIGHLIGHT, PENCIL]
     # A pen stroke has no kind, and a pressure of exactly 0.5 means "simulate
     # the pressure" to the views, so both have to survive the round trip.
     assert "kind" not in page["strokes"][0]
@@ -88,6 +89,12 @@ def test_a_saved_page_reads_back_exactly(client: TestClient, db_session: Session
     assert (page["version"], page["pdf_page"], page["pdf_name"]) == (1, 1, "A.pdf")
     assert (page["updated_by"], page["updated_by_name"]) == ("me@example.com", "Me")
     assert db_session.query(LessonInk).one().session_exercise_id == 10
+
+
+def test_a_stroke_of_a_kind_the_views_dont_draw_is_refused(client: TestClient, slot):
+    crayon = {**PEN, "kind": "crayon"}
+    resp = client.put("/api/lesson-ink", json={"pages": [_page(strokes=[crayon])]}, cookies=AUTH_COOKIE)
+    assert resp.status_code == 422
 
 
 def _draft_page(session_id=100, target_key="draft:100", sheet=0):

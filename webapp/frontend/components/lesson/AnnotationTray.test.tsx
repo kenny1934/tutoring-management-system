@@ -135,6 +135,15 @@ describe("AnnotationTray", () => {
     expect(screen.getByRole("button", { name: /You are using fading ink./ })).toBeInTheDocument();
   });
 
+  it("keeps the grey pencil in the pens' row, and picks the pencil with it", () => {
+    let tools!: AnnotationTools;
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    fireEvent.click(button("Grey pencil"));
+    expect(tools.tool).toBe("pencil");
+    expect(tools.swatch.id).toBe("grey");
+    expect(button("Grey pencil")).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("turns straight lines on for the colour you used last, keeps them on across colours, and drops them with the Hand", () => {
     let tools!: AnnotationTools;
     render(<Harness onTools={(t) => { tools = t; }} />);

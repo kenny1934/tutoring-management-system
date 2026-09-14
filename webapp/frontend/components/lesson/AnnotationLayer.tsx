@@ -38,7 +38,7 @@ interface AnnotationLayerProps {
   penColor: string;
   /** Current pen size */
   penSize: number;
-  /** Whether new strokes are pen or highlighter ink. Defaults to pen. */
+  /** Whether new strokes are pen, pencil or highlighter ink. Defaults to pen. */
   inkKind?: InkKind;
   /**
    * Draw a straight line from where the finger goes down to where it lifts.
@@ -1009,13 +1009,14 @@ export function AnnotationLayer({
             onPointerLeave: handlePointerUp,
           };
 
-  // The finished strokes, in their two layers so pen ink always sits on top of
-  // highlighter ink. They are only rebuilt when the ink itself changes, so a
-  // move of the pen re-renders the line being drawn and nothing else. Ink the
-  // lasso has selected is left out, and drawn in a group of its own on top of
-  // its layer, so dragging it moves that group and nothing else.
+  // The finished strokes, in their three layers so pencil ink sits on top of
+  // highlighter ink and pen ink on top of both. They are only rebuilt when the
+  // ink itself changes, so a move of the pen re-renders the line being drawn
+  // and nothing else. Ink the lasso has selected is left out, and drawn in a
+  // group of its own on top of its layer, so dragging it moves that group and
+  // nothing else.
   const selected = useMemo(() => new Set(selection?.strokes), [selection]);
-  const [highlighterPaths, penPaths] = useMemo(() => {
+  const [highlighterPaths, pencilPaths, penPaths] = useMemo(() => {
     const tappable = isErasing && !isRubbing;
     return inkLayers(shownStrokes).map((layer) =>
       layer.filter((stroke) => !selected.has(stroke)).map((stroke) =>
@@ -1038,7 +1039,7 @@ export function AnnotationLayer({
   // The selected ink as it looks part way through a drag. A resize draws it
   // again at its new size, and a move shifts its whole group on screen.
   const selectedPaths = useMemo((): React.ReactNode[][] => {
-    if (!selection) return [[], []];
+    if (!selection) return [[], [], []];
     const shown = drag?.kind === "resize"
       ? resizeStrokes(selection.strokes, [selection.bounds.left, selection.bounds.top], drag.scale)
       : selection.strokes;
@@ -1084,17 +1085,21 @@ export function AnnotationLayer({
         }}
         {...pointerHandlers}
       >
-        {/* Completed strokes, highlighter first, with any selected ink on top of
-            its own layer. The whole-stroke eraser makes each one tappable. "Hide
-            ink" hides these, but not fading ink, which is for pointing at the
-            clean worksheet as much as the marked one. */}
+        {/* Completed strokes, highlighter first, then pencil, then pen, with
+            any selected ink and the line being drawn on top of its own layer.
+            The whole-stroke eraser makes each one tappable. "Hide ink" hides
+            these, but not fading ink, which is for pointing at the clean
+            worksheet as much as the marked one. */}
         <g style={{ opacity: hidden ? 0 : 1, transition: "opacity 0.15s ease" }}>
           {highlighterPaths}
           {selectedGroup(selectedPaths[0])}
           {newInk === "highlighter" && currentSavedInk}
-          {penPaths}
+          {pencilPaths}
           {selectedGroup(selectedPaths[1])}
-          {newInk !== "highlighter" && currentSavedInk}
+          {newInk === "pencil" && currentSavedInk}
+          {penPaths}
+          {selectedGroup(selectedPaths[2])}
+          {newInk === "pen" && currentSavedInk}
         </g>
 
         {/* Fading ink, on top of everything, with a soft glow */}

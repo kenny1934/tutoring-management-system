@@ -233,15 +233,24 @@ describe("getStrokeOptions", () => {
     expect(options.streamline).toBe(0);
     expect(options.simulatePressure).toBe(false);
   });
+
+  it("draws a pencil line the same width all the way along, whatever the pressure", () => {
+    const pencil: Stroke = { points: [[0, 0, 0.5], [50, 5, 0.5], [100, 0, 0.5]], color: "#6b7280", size: 2.5, kind: "pencil" };
+    const options = getStrokeOptions(pencil, true);
+    expect(options.thinning).toBe(0);
+    expect(options.simulatePressure).toBe(false);
+  });
 });
 
 describe("inkLayers", () => {
-  it("puts every highlighter stroke in the layer under the pen strokes, keeping each layer's order", () => {
+  it("puts highlighter ink at the bottom, pencil ink above it and pen ink on top, keeping each layer's order", () => {
     const pen1 = stroke("red");
     const hl1: Stroke = { ...stroke("yellow"), kind: "highlighter" };
+    const pencil1: Stroke = { ...stroke("grey"), kind: "pencil" };
     const pen2 = stroke("blue");
     const hl2: Stroke = { ...stroke("pink"), kind: "highlighter" };
-    expect(inkLayers([pen1, hl1, pen2, hl2])).toEqual([[hl1, hl2], [pen1, pen2]]);
+    const pencil2: Stroke = { ...stroke("grey"), kind: "pencil" };
+    expect(inkLayers([pen1, hl1, pencil1, pen2, hl2, pencil2])).toEqual([[hl1, hl2], [pencil1, pencil2], [pen1, pen2]]);
   });
 });
 

@@ -24,6 +24,14 @@ describe("useAnnotationTools", () => {
     expect(result.current.inkSize).toBe(INK_SIZES.pen.S);
   });
 
+  it("picks the pencil for the grey, at the pencil's own size", () => {
+    const { result } = renderHook(() => useAnnotationTools());
+    act(() => result.current.selectSwatch("grey"));
+    expect(result.current.tool).toBe("pencil");
+    expect(inkLayerProps(result.current)).toMatchObject({ inkKind: "pencil", isDrawing: true });
+    expect(result.current.inkSize).toBe(INK_SIZES.pencil.S);
+  });
+
   it("keeps a size for each colour separately", () => {
     const { result } = renderHook(() => useAnnotationTools());
     act(() => result.current.setSwatchSize("red", "L"));

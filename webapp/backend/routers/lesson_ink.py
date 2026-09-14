@@ -58,8 +58,8 @@ class StrokeIn(BaseModel):
     points: List[Tuple[float, float, float]] = Field(..., min_length=1, max_length=20000)
     color: str = Field(..., max_length=32)
     size: float = Field(..., gt=0, le=500)
-    # Pen strokes leave this out, and highlighter strokes say so.
-    kind: Optional[Literal["highlighter"]] = None
+    # Pen strokes leave this out, and highlighter and pencil strokes say which they are.
+    kind: Optional[Literal["highlighter", "pencil"]] = None
 
 
 class InkPageIn(BaseModel):

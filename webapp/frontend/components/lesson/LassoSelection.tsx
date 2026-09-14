@@ -28,6 +28,8 @@ export const SELECTION_BAR_ROOM = PAD + BUTTON_GAP + BAR_HEIGHT + BUTTON_GAP + P
 
 export type SelectionDragKind = "move" | "resize";
 
+// The kinds of ink the Colour panel offers colours for. A pencil only comes in
+// grey, so pencil ink has no row, and a pen colour never turns it into pen.
 const INK_KINDS: InkKind[] = ["pen", "highlighter"];
 
 interface LassoSelectionProps {
@@ -146,24 +148,27 @@ export function LassoSelection({
             transformOrigin: corner,
           }}
         >
-          <div className="flex overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/10">
-            <button
-              type="button"
-              onClick={() => setPanel(panel === "colour" ? null : "colour")}
-              aria-expanded={panel === "colour"}
-              title="Change the colour of the selected ink"
-              className={cn(barButton, "text-[#6b4c30] hover:bg-[#f5ebe0]", panel === "colour" && "bg-[#f5ebe0]")}
-            >
-              <Palette className="h-5 w-5" />
-              Colour
-            </button>
+          <div className="flex overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/10 divide-x divide-black/10">
+            {/* Pencil ink on its own has no other colour to change to, so it gets no Colour button */}
+            {colourRows.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPanel(panel === "colour" ? null : "colour")}
+                aria-expanded={panel === "colour"}
+                title="Change the colour of the selected ink"
+                className={cn(barButton, "text-[#6b4c30] hover:bg-[#f5ebe0]", panel === "colour" && "bg-[#f5ebe0]")}
+              >
+                <Palette className="h-5 w-5" />
+                Colour
+              </button>
+            )}
             {targets.length > 0 && (
               <button
                 type="button"
                 onClick={() => setPanel(panel === "move" ? null : "move")}
                 aria-expanded={panel === "move"}
                 title="Move the selected ink to another page"
-                className={cn(barButton, "border-l border-black/10 text-[#6b4c30] hover:bg-[#f5ebe0]", panel === "move" && "bg-[#f5ebe0]")}
+                className={cn(barButton, "text-[#6b4c30] hover:bg-[#f5ebe0]", panel === "move" && "bg-[#f5ebe0]")}
               >
                 <MoveRight className="h-5 w-5" />
                 Move
@@ -173,7 +178,7 @@ export function LassoSelection({
               type="button"
               onClick={onDelete}
               title="Delete the selected ink (Delete)"
-              className={cn(barButton, "border-l border-black/10 text-[#b91c1c] hover:bg-[#fdf2f2]")}
+              className={cn(barButton, "text-[#b91c1c] hover:bg-[#fdf2f2]")}
             >
               <Trash2 className="h-5 w-5" />
               Delete

@@ -144,6 +144,22 @@ describe("AnnotationLayer pen and highlighter", () => {
     expect(paths[0].getAttribute("opacity")).toBe("0.35");
   });
 
+  it("marks a stroke drawn with the pencil as pencil ink", () => {
+    const { svg, onStrokesChange } = renderDrawing({ inkKind: "pencil", penColor: "#6b7280", penSize: 2.5 });
+    drawLine(svg);
+    const [stroke] = onStrokesChange.mock.calls[0][0] as Stroke[];
+    expect(stroke.kind).toBe("pencil");
+  });
+
+  it("paints pencil ink over highlighter ink and under pen ink, whatever order they were drawn in", () => {
+    const pencil: Stroke = { ...LINE, color: "#6b7280", size: 2.5, kind: "pencil" };
+    const highlight: Stroke = { ...LINE, color: "#facc15", size: 20, kind: "highlighter" };
+    const { svg } = renderDrawing({ isDrawing: false, strokes: [LINE, pencil, highlight] });
+    const paths = [...svg.querySelectorAll("path")];
+    expect(paths.map((p) => p.getAttribute("fill"))).toEqual(["#facc15", "#6b7280", "#dc2626"]);
+    expect(paths[1].getAttribute("opacity")).toBe("0.75");
+  });
+
   it("keeps a tap as a dot, for a decimal point or the dot on an i", () => {
     const { svg, onStrokesChange, rerender } = renderDrawing({ penColor: "#dc2626", penSize: 3 });
     fireEvent.pointerDown(svg, { clientX: 40, clientY: 60, pointerId: 1 });

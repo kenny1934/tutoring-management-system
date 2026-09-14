@@ -11,36 +11,40 @@ export interface Stroke {
   size: number;
   /**
    * "highlighter" for highlighter ink, which is see-through and sits under
-   * pen ink. Pen strokes leave it out, and so does every stroke saved before
-   * the highlighter existed, so old ink still loads as pen.
+   * everything else. "pencil" for pencil ink, which is fine, even and a
+   * little see-through, and sits under pen ink. Pen strokes leave it out, and
+   * so does every stroke saved before the highlighter existed, so old ink
+   * still loads as pen.
    */
-  kind?: "highlighter";
+  kind?: "highlighter" | "pencil";
 }
 
 // How opaque each kind of ink is, on screen and in the saved PDF alike.
 const PEN_OPACITY = 0.85;
+const PENCIL_OPACITY = 0.75;
 const HIGHLIGHTER_OPACITY = 0.35;
 
 export const strokeOpacity = (stroke: Pick<Stroke, "kind">) =>
-  stroke.kind === "highlighter" ? HIGHLIGHTER_OPACITY : PEN_OPACITY;
+  stroke.kind === "highlighter" ? HIGHLIGHTER_OPACITY : stroke.kind === "pencil" ? PENCIL_OPACITY : PEN_OPACITY;
 
-export type InkKind = "pen" | "highlighter";
+export type InkKind = "pen" | "pencil" | "highlighter";
 
 /** A new stroke in the given ink. Pen strokes carry no kind, like ink saved before the highlighter. */
 export function makeStroke(points: Stroke["points"], color: string, size: number, ink: InkKind): Stroke {
-  return ink === "highlighter" ? { points, color, size, kind: "highlighter" } : { points, color, size };
+  return ink === "pen" ? { points, color, size } : { points, color, size, kind: ink };
 }
 
 /**
- * A page's strokes split into the two layers they're painted in: highlighter
- * ink first, then pen ink on top of it, each keeping the order it was drawn
- * in. The screen and the saved PDF both paint in this order.
+ * A page's strokes split into the three layers they're painted in:
+ * highlighter ink at the bottom, then pencil ink, then pen ink on top, each
+ * keeping the order it was drawn in. Construction lines in pencil so never
+ * cover the working in pen. The screen and the saved PDF both paint in this
+ * order.
  */
-export function inkLayers(strokes: Stroke[]): [highlighter: Stroke[], pen: Stroke[]] {
-  const highlighter: Stroke[] = [];
-  const pen: Stroke[] = [];
-  for (const s of strokes) (s.kind === "highlighter" ? highlighter : pen).push(s);
-  return [highlighter, pen];
+export function inkLayers(strokes: Stroke[]): [highlighter: Stroke[], pencil: Stroke[], pen: Stroke[]] {
+  const layers: [Stroke[], Stroke[], Stroke[]] = [[], [], []];
+  for (const s of strokes) layers[s.kind === "highlighter" ? 0 : s.kind === "pencil" ? 1 : 2].push(s);
+  return layers;
 }
 
 /** Strokes keyed by page index (0-based within the displayed pages). */
@@ -90,9 +94,10 @@ export function getStrokeOptions(stroke: Stroke, isComplete: boolean) {
       last: isComplete,
     };
   }
-  // A highlighter keeps the same width all the way along, like a felt tip, so
-  // it ignores pressure and doesn't thin out when you move fast.
-  if (stroke.kind === "highlighter") {
+  // A highlighter keeps the same width all the way along, like a felt tip, and
+  // so does a pencil, so its construction lines and arcs come out even. Both
+  // ignore pressure and don't thin out when you move fast.
+  if (stroke.kind === "highlighter" || stroke.kind === "pencil") {
     return {
       size: stroke.size,
       thinning: 0,

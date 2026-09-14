@@ -12,7 +12,7 @@ import type { InkKind } from "./useAnnotations";
  */
 type AnnotationTool = "hand" | InkKind | "eraser" | "fade" | "lasso";
 
-const isInk = (tool: AnnotationTool): tool is InkKind => tool === "pen" || tool === "highlighter";
+const isInk = (tool: AnnotationTool): tool is InkKind => tool === "pen" || tool === "pencil" || tool === "highlighter";
 
 export type InkSize = "S" | "M" | "L";
 
@@ -28,8 +28,8 @@ export const INK_SWATCHES: InkSwatch[] = [
   { id: "red", kind: "pen", color: "#dc2626", label: "Red pen" },
   { id: "blue", kind: "pen", color: "#2563eb", label: "Blue pen" },
   { id: "black", kind: "pen", color: "#000000", label: "Black pen" },
-  // A pencil grey, for construction lines. It's mid grey, so it still shows clearly on a projected board.
-  { id: "grey", kind: "pen", color: "#6b7280", label: "Grey pencil" },
+  // A pencil, for construction lines. It's mid grey, so it still shows clearly on a projected board.
+  { id: "grey", kind: "pencil", color: "#6b7280", label: "Grey pencil" },
   { id: "yellow", kind: "highlighter", color: "#facc15", label: "Yellow highlighter" },
   { id: "green", kind: "highlighter", color: "#4ade80", label: "Green highlighter" },
   { id: "pink", kind: "highlighter", color: "#f472b6", label: "Pink highlighter" },
@@ -37,11 +37,14 @@ export const INK_SWATCHES: InkSwatch[] = [
 
 /**
  * Stroke widths in page units, which are the PDF's points times the viewer's
- * render scale. The pen widths are the ones the old toolbar offered. A medium
- * highlighter is about as tall as a line of worksheet text.
+ * render scale. The pen widths are the ones the old toolbar offered. A pencil
+ * line keeps its width all the way along, so it's set a little finer than a
+ * pen, which swells and thins. A medium highlighter is about as tall as a line
+ * of worksheet text.
  */
 export const INK_SIZES: Record<InkKind, Record<InkSize, number>> = {
   pen: { S: 3, M: 6, L: 12 },
+  pencil: { S: 2.5, M: 4, L: 7 },
   highlighter: { S: 12, M: 20, L: 30 },
 };
 
@@ -94,7 +97,7 @@ function readStored(): StoredTools {
  */
 export function useAnnotationTools({ inkReady = true }: { inkReady?: boolean } = {}) {
   const [stored] = useState(readStored);
-  // Straight lines is a switch on the pens and highlighters, so it's kept with
+  // Straight lines is a switch on the pens, the pencil and the highlighters, so it's kept with
   // the tool. Picking the Hand, the eraser, fading ink or the lasso turns it
   // off, so the next colour you pick always starts out freehand.
   const [{ tool, straight }, setMode] = useState<{ tool: AnnotationTool; straight: boolean }>(

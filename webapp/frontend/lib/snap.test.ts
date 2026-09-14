@@ -34,6 +34,12 @@ describe("snapPoint", () => {
     expect(snapPoint([...cross, line([[54, 50]])], [53, 50], 5)).toEqual([54, 50]);
   });
 
+  it("snaps to pencil construction lines the same as pen lines", () => {
+    const inPen = snapPoint(cross, [53, 48], 5);
+    expect(inPen).not.toBeNull();
+    expect(snapPoint(cross.map((s) => ({ ...s, kind: "pencil" as const })), [53, 48], 5)).toEqual(inPen);
+  });
+
   it("finds nothing out of reach, in highlighter ink, or where a line crosses itself", () => {
     expect(snapPoint(cross, [60, 48], 5)).toBeNull();
     expect(snapPoint(cross.map((s) => ({ ...s, kind: "highlighter" as const })), [53, 48], 5)).toBeNull();

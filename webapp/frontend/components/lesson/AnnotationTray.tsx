@@ -68,7 +68,8 @@ const FAB = 60;
 export const TRAY_CLEARANCE = MARGIN + FAB;
 const EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
-const PENS = INK_SWATCHES.filter((s) => s.kind === "pen");
+// The pens and the pencil share a row, and the highlighters have the next one.
+const PENS = INK_SWATCHES.filter((s) => s.kind !== "highlighter");
 const HIGHLIGHTERS = INK_SWATCHES.filter((s) => s.kind === "highlighter");
 
 const SIZE_NAMES: Record<InkSize, string> = { S: "Small", M: "Medium", L: "Large" };
@@ -112,13 +113,13 @@ const btnBase =
 const btnOn = "bg-[#f3e7d3] text-[#2e251c] hover:bg-[#f3e7d3]";
 const Separator = () => <span aria-hidden className="flex-none w-px h-7 mx-1 bg-[#4a3c2e] dark:bg-[#5a4a39]" />;
 
-/** A colour's mark: a dot for a pen, a chisel tip for a highlighter. An outline passed in follows its shape. */
+/** A colour's mark: a dot for a pen or the pencil, a chisel tip for a highlighter. An outline passed in follows its shape. */
 export function SwatchMark({ swatch, big = false, className }: { swatch: InkSwatch; big?: boolean; className?: string }) {
   return (
     <span
       className={cn(
         "block shadow-[0_0_0_1.5px_rgba(243,231,211,0.4)]",
-        swatch.kind === "pen"
+        swatch.kind !== "highlighter"
           ? big ? "w-[26px] h-[26px] rounded-full" : "w-6 h-6 rounded-full"
           : big ? "w-[18px] h-[30px] rounded-[3px_9px_3px_3px]" : "w-4 h-6 rounded-[3px_8px_3px_3px]",
         className,
@@ -722,6 +723,11 @@ function SizeSample({ swatch, size }: { swatch: InkSwatch; size: InkSize }) {
   if (swatch.kind === "pen") {
     const d = { S: 6, M: 11, L: 18 }[size];
     return <span className="block rounded-full shadow-[0_0_0_2px_rgba(243,231,211,0.35)]" style={{ width: d, height: d, backgroundColor: swatch.color }} />;
+  }
+  // A pencil draws an even line, so its sample is a short line as thick as the one it draws.
+  if (swatch.kind === "pencil") {
+    const h = Math.max(2, Math.round(INK_SIZES.pencil[size] * 0.8));
+    return <span className="block w-[34px] rounded-full" style={{ height: h, backgroundColor: swatch.color }} />;
   }
   // The bar's height follows the highlighter's real width, scaled down to fit.
   const h = Math.round(INK_SIZES.highlighter[size] * 0.8);

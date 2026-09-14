@@ -11,7 +11,7 @@ import { boundingBox, type Box } from "@/lib/stroke-eraser";
 
 export type Vec = [number, number];
 
-/** Whether a stroke is pen or highlighter ink. Pen strokes carry no kind, like ink saved before the highlighter. */
+/** Whether a stroke is pen, pencil or highlighter ink. Pen strokes carry no kind, like ink saved before the highlighter. */
 export const kindOf = (stroke: Stroke): InkKind => stroke.kind ?? "pen";
 
 /** A resize can shrink the ink to a quarter of its size, or grow it to four times its size. */
