@@ -40,6 +40,16 @@ describe("lessonKeyAction", () => {
     expect(lessonKeyAction(key(k), calm)).toBe(action);
   });
 
+  it("holds back the keys that work on the worksheet while something else is in its place", () => {
+    const hidden = { ...calm, worksheetHidden: true };
+    for (const k of ["j", "k", "Tab", "+", "-", "p", "a", "s"]) {
+      expect(lessonKeyAction(key(k), hidden)).toBeNull();
+    }
+    for (const k of ["d", "e", "l", "z", "c", "f", "?"]) {
+      expect(lessonKeyAction(key(k), hidden)).not.toBeNull();
+    }
+  });
+
   it("reads Shift+Tab as the previous student, and Shift+z as redo", () => {
     expect(lessonKeyAction(key("Tab", { shiftKey: true }), calm)).toBe("previousStudent");
     expect(lessonKeyAction(key("z", { shiftKey: true }), calm)).toBe("redo");

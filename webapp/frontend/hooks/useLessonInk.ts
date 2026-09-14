@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  lessonDraftId, lessonOfDraft, useAnnotations, type PageAnnotations, type ReplacedInk, type Stroke,
+  lessonOfDraft, useAnnotations, type PageAnnotations, type ReplacedInk, type Stroke,
 } from "@/hooks/useAnnotations";
 import { useAnnotationTools } from "@/hooks/useAnnotationTools";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,11 +27,12 @@ interface LessonInkOptions<Source> {
    */
   openSource: Source | null;
   /**
-   * The lesson whose own Draft is on screen in the open exercise's place, or
-   * null. While it's on screen, the Pen Tray and every handler work on that
-   * Draft's ink, and the exercise is only waiting to be shown again.
+   * The id of the lesson's own Draft while it's on screen in the open
+   * exercise's place, or null. While it's on screen, the Pen Tray and every
+   * handler work on that Draft's ink, and the exercise is only waiting to be
+   * shown again.
    */
-  lessonDraftSession?: number | null;
+  lessonDraftId?: number | null;
 }
 
 /**
@@ -50,12 +51,12 @@ interface LessonInkOptions<Source> {
  * pages they're handed to don't re-render with every stroke.
  */
 export function useLessonInk<Source>({
-  storageKey, sessionIds, exercises, openExercise, openSource, lessonDraftSession = null,
+  storageKey, sessionIds, exercises, openExercise, openSource, lessonDraftId = null,
 }: LessonInkOptions<Source>) {
   const { user } = useAuth();
   const { showToast } = useToast();
   // The ink on screen: the lesson's own Draft while it's shown, and otherwise the open exercise's.
-  const openId = lessonDraftSession !== null ? lessonDraftId(lessonDraftSession) : openExercise?.id ?? null;
+  const openId = lessonDraftId ?? openExercise?.id ?? null;
 
   const locate = useCallback((exerciseId: number) => {
     // A lesson's own Draft is saved under its lesson, with no PDF behind it.
@@ -163,6 +164,8 @@ export function useLessonInk<Source>({
     annotations,
     /** Whether the open exercise has any ink. */
     openHasInk: openId !== null && hasAnnotations(openId),
+    /** Whether there's ink on screen to undo and redo: an exercise's, or the lesson's own Draft's. */
+    inkOpen: openId !== null,
     onPageStrokesChange,
     onPagesStrokesChange,
     onUndo,

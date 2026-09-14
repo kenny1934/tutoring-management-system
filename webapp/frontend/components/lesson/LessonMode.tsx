@@ -42,7 +42,8 @@ import { useFocusMode } from "@/hooks/useFocusMode";
 import { FocusOverlays } from "./FocusOverlays";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import { lessonDraftForZip, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
-import { lessonDraftId, lessonOfDraft } from "@/hooks/useAnnotations";
+import { lessonOfDraft } from "@/hooks/useAnnotations";
+import { lessonDraftEntry } from "./LessonDraftRow";
 import { downloadBlob } from "@/lib/geometry-utils";
 import type { HomeworkStatus, Session, SessionExercise } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -175,7 +176,7 @@ export function LessonMode({
   );
 
   // The Draft beside the worksheet, and the lesson's own Draft in the worksheet's place
-  const draft = useDraft(selectedExercise, isMobile);
+  const draft = useDraft(selectedExercise, isMobile, session.id);
   const lessonDraftOpen = draft.lessonDraftOpen;
 
   // Ink is saved to the server for this lesson and the previous one, which
@@ -186,7 +187,7 @@ export function LessonMode({
     exercises: allExercises,
     openExercise: selectedExercise,
     openSource: openInkSource,
-    lessonDraftSession: lessonDraftOpen ? session.id : null,
+    lessonDraftId: lessonDraftOpen ? draft.lessonDraftId : null,
   });
   const {
     tools, annotations: currentAnnotations, openHasInk: exerciseHasAnnotations, onUndo: handleUndo, onRedo: handleRedo,
@@ -238,7 +239,7 @@ export function LessonMode({
   // Picking an exercise from the mobile sheet or the focus-mode sidebar closes
   // it again, since a finger can't move off it the way a mouse does. Picking
   // one also puts the lesson's own Draft away, so the exercise is on screen.
-  const { closeLessonDraft, openLessonDraft } = draft;
+  const { closeLessonDraft } = draft;
   const handleExerciseSelect = useCallback((exercise: SessionExercise) => {
     setSelectedExercise(exercise);
     closeLessonDraft();
@@ -246,15 +247,10 @@ export function LessonMode({
     if (focusMode) setHoverSidebar(false);
   }, [isMobile, focusMode, setHoverSidebar, closeLessonDraft]);
 
-  // The sidebar's "Lesson draft" row. Phones get no Draft, so they don't get the row either.
-  const lessonDraftRow = isMobile ? undefined : {
-    open: lessonDraftOpen,
-    hasInk: checkHasAnnotations(lessonDraftId(session.id)),
-    onOpen: () => {
-      openLessonDraft();
-      if (focusMode) setHoverSidebar(false);
-    },
-  };
+  // The sidebar's "Lesson draft" row, which a phone doesn't get.
+  const lessonDraftRow = lessonDraftEntry(draft, checkHasAnnotations, () => {
+    if (focusMode) setHoverSidebar(false);
+  });
 
   // --- Printing ---
   // Every exercise here is the one student's, so each prints with the lesson's stamp.
@@ -313,9 +309,8 @@ export function LessonMode({
   // --- Keys ---
   // The key table is shared with the multi-student view, in useLessonKeys. An
   // action left out here is one this view can't do right now, so its key is
-  // left to the browser. While the lesson's own Draft is on screen, the keys
-  // that work on the worksheet wait, because the worksheet is out of sight.
-  const worksheetShown = !lessonDraftOpen;
+  // left to the browser. While the lesson's own Draft is on screen, the key
+  // table itself holds back the keys that work on the worksheet.
   const stepExercise = (direction: 1 | -1) => {
     const index = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
     const target = navigableExercises[index + direction];
@@ -327,33 +322,34 @@ export function LessonMode({
       ...panels.keyState,
       drawing: tools.drawingEnabled,
       focusMode,
+      worksheetHidden: lessonDraftOpen,
     },
     {
       ...panels.keyHandlers,
       // Undo and redo work on whichever ink is on screen, the lesson's Draft included.
-      undo: selectedExercise || lessonDraftOpen ? handleUndo : undefined,
-      redo: selectedExercise || lessonDraftOpen ? handleRedo : undefined,
+      undo: ink.inkOpen ? handleUndo : undefined,
+      redo: ink.inkOpen ? handleRedo : undefined,
       selectHand: tools.selectHand,
       exitFocus: exitFocusMode,
       exit: () => void handleExitAttempt(),
       toggleFocus: isMobile ? undefined : toggleFocusMode,
-      next: worksheetShown ? () => stepExercise(1) : undefined,
-      previous: worksheetShown ? () => stepExercise(-1) : undefined,
+      next: () => stepExercise(1),
+      previous: () => stepExercise(-1),
       pen: () => tools.toggleFromKey("pen"),
       eraser: () => tools.toggleFromKey("eraser"),
       lasso: () => tools.toggleFromKey("lasso"),
       // + and - zoom the worksheet once its file is on screen.
-      zoomIn: pdfData && worksheetShown ? () => worksheetRef.current?.zoomIn() : undefined,
-      zoomOut: pdfData && worksheetShown ? () => worksheetRef.current?.zoomOut() : undefined,
+      zoomIn: pdfData ? () => worksheetRef.current?.zoomIn() : undefined,
+      zoomOut: pdfData ? () => worksheetRef.current?.zoomOut() : undefined,
       editClasswork: () => handleEditExercises(currentSession, "CW"),
       editHomework: () => handleEditExercises(currentSession, "HW"),
       homeworkBlock: homeworkProgress.total > 0 ? toggleHomeworkBlock : undefined,
       // Like the print buttons, p waits while another print is still being prepared.
-      print: selectedExercise?.pdf_name && printing.id === null && worksheetShown
+      print: selectedExercise?.pdf_name && printing.id === null
         ? () => void handlePrintExercise(selectedExercise)
         : undefined,
-      answerKey: answer.answerKeyFound && worksheetShown ? answer.toggleAnswerKey : undefined,
-      save: exerciseHasAnnotations && worksheetShown ? () => void handleSaveAnnotated() : undefined,
+      answerKey: answer.answerKeyFound ? answer.toggleAnswerKey : undefined,
+      save: exerciseHasAnnotations ? () => void handleSaveAnnotated() : undefined,
     },
   );
 
@@ -496,7 +492,6 @@ export function LessonMode({
           emptyMessage={!currentSession?.exercises?.length ? NO_EXERCISES_MESSAGE : undefined}
           toolbarStart={focusButtons}
           worksheetRef={worksheetRef}
-          lessonDraftId={lessonDraftId(session.id)}
         />
       </div>
 

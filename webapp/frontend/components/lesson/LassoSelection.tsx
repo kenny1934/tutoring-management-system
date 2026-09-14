@@ -5,7 +5,7 @@ import { MoveRight, Palette, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Box } from "@/lib/stroke-eraser";
 import { kindOf } from "@/lib/stroke-select";
-import type { InkKind, PageAnnotations, Stroke } from "@/hooks/useAnnotations";
+import { INK, type InkKind, type PageAnnotations, type Stroke } from "@/hooks/useAnnotations";
 import { INK_SWATCHES, type InkSwatch } from "@/hooks/useAnnotationTools";
 import { useMoveTargets, type InkPage } from "@/hooks/useInkPages";
 import { SwatchMark } from "./AnnotationTray";
@@ -28,9 +28,9 @@ export const SELECTION_BAR_ROOM = PAD + BUTTON_GAP + BAR_HEIGHT + BUTTON_GAP + P
 
 export type SelectionDragKind = "move" | "resize";
 
-// The kinds of ink the Colour panel offers colours for. A pencil only comes in
-// grey, so pencil ink has no row, and a pen colour never turns it into pen.
-const INK_KINDS: InkKind[] = ["pen", "highlighter"];
+// The kinds of ink the Colour panel offers colours for, a row each. A pencil only
+// comes in grey, so pencil ink has no row, and a pen colour never turns it into pen.
+const INK_KINDS = (Object.keys(INK) as InkKind[]).filter((kind) => INK[kind].recolourable);
 
 interface LassoSelectionProps {
   /** The selected ink's box in page units, with the ink's width included. */

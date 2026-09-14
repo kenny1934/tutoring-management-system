@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { lessonDraftId } from "@/hooks/useAnnotations";
 import type { SessionExercise } from "@/types";
 
 /**
@@ -15,15 +16,23 @@ import type { SessionExercise } from "@/types";
  * and opening it is remembered, so it comes back when the tutor returns from
  * a link to a worksheet. While the lesson's Draft is on screen, the
  * exercise's is out of sight along with its worksheet.
+ *
+ * `draftSession` is the lesson the lesson's own Draft is kept with. Leave it
+ * null where there's no lesson to keep one with.
  */
-export function useDraft(exercise: Pick<SessionExercise, "url" | "pdf_name"> | null, isMobile: boolean) {
+export function useDraft(
+  exercise: Pick<SessionExercise, "url" | "pdf_name"> | null,
+  isMobile: boolean,
+  draftSession: number | null = null,
+) {
   const [showDraft, setShowDraft] = useState(false);
   const [lessonDraftShown, setLessonDraftShown] = useState(false);
   // While an exercise's Draft is open, the Pen Tray floats in a lane over the
   // worksheet and the Draft together.
   const [trayArea, setTrayArea] = useState<HTMLElement | null>(null);
 
-  const lessonDraftOpen = lessonDraftShown && !isMobile;
+  const ownDraftId = isMobile || draftSession === null ? null : lessonDraftId(draftSession);
+  const lessonDraftOpen = lessonDraftShown && ownDraftId !== null;
   const isLink = !!exercise?.url && !exercise?.pdf_name;
   const draftOpen = showDraft && !isMobile && !!exercise && !isLink && !lessonDraftOpen;
   const toggleDraft = useCallback(() => setShowDraft((open) => !open), []);
@@ -36,6 +45,8 @@ export function useDraft(exercise: Pick<SessionExercise, "url" | "pdf_name"> | n
     draftOpen,
     toggleDraft,
     closeDraft,
+    /** The lesson's own Draft's id in the ink store, or null where it can't open, such as on a phone. */
+    lessonDraftId: ownDraftId,
     /** Whether the lesson's own Draft is on screen, in place of the open exercise. */
     lessonDraftOpen,
     openLessonDraft,

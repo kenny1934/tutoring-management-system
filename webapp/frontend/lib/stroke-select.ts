@@ -6,13 +6,13 @@
  * or the colour is picked. That keeps each one a single step in the undo
  * history, and saving, the server and the PDF don't need to know the lasso exists.
  */
-import type { InkKind, Stroke } from "@/hooks/useAnnotations";
+import { kindOf, type InkKind, type Stroke } from "@/hooks/useAnnotations";
 import { boundingBox, type Box } from "@/lib/stroke-eraser";
 
 export type Vec = [number, number];
 
-/** Whether a stroke is pen, pencil or highlighter ink. Pen strokes carry no kind, like ink saved before the highlighter. */
-export const kindOf = (stroke: Stroke): InkKind => stroke.kind ?? "pen";
+// Which kind of ink a stroke is. It lives beside the kinds of ink, and is passed on for the tools that select ink.
+export { kindOf };
 
 /** A resize can shrink the ink to a quarter of its size, or grow it to four times its size. */
 export const MIN_SCALE = 0.25;

@@ -13,7 +13,8 @@
  */
 import type { Stroke } from "@/hooks/useAnnotations";
 import { boundingBox, distanceToSegment } from "./stroke-eraser";
-import { kindOf, type Vec } from "./stroke-select";
+import { INK, kindOf } from "@/hooks/useAnnotations";
+import type { Vec } from "./stroke-select";
 
 /** How close, in centimetres, a tool has to come to a point in the ink to snap onto it. */
 export const SNAP_REACH_CM = 0.5;
@@ -48,8 +49,7 @@ export function snapPoint(strokes: Stroke[], at: Vec, reach: number): Vec | null
   const near: { stroke: number; a: Vec; b: Vec }[] = [];
   strokes.forEach((stroke, i) => {
     const line = stroke.points;
-    // Pen and pencil lines are snapped to, pencil construction lines above all. Highlighter ink is too broad to aim at.
-    if (kindOf(stroke) === "highlighter" || line.length === 0) return;
+    if (!INK[kindOf(stroke)].snappedTo || line.length === 0) return;
     const box = boundingBox(stroke);
     if (box.left > at[0] + reach || box.right < at[0] - reach || box.top > at[1] + reach || box.bottom < at[1] - reach) return;
     // A dot is its one point, and a line has its two ends.

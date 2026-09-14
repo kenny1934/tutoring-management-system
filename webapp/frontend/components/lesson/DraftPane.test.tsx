@@ -168,7 +168,7 @@ describe("DraftPane", () => {
   it("takes the lesson's own Draft's name, the view's buttons and a Pen Tray of its own", () => {
     const onRedo = vi.fn();
     render(
-      <Harness title="Lesson draft" barStart={<button type="button">Students</button>} ownTray={{ onRedo, hasInk: false }} />,
+      <Harness title="Lesson draft" barStart={<button type="button">Students</button>} ownTray={{ onRedo }} />,
     );
     expect(screen.getByRole("region", { name: "Lesson draft" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close the lesson draft" })).toBeInTheDocument();

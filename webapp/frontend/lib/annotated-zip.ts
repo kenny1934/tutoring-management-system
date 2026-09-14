@@ -9,13 +9,15 @@ import { saveAnnotatedPdf, saveDraftSheetsPdf } from "./pdf-annotation-save";
 import type { PrintStampInfo } from "./pdf-utils";
 import { hasInk, type PageAnnotations } from "@/hooks/useAnnotations";
 
-/** How to save one exercise's ink: which file it goes on, and what the copy in the ZIP is called. */
-export interface AnnotatedExercise {
-  /**
-   * The exercise's file, which is what the loader is asked for. It's null for
-   * a lesson's own Draft, which has no file, so its sheets are saved on their own.
-   */
-  pdfName: string | null;
+/**
+ * How to save one exercise's ink: on its worksheet's file, or, for a lesson's
+ * own Draft, which has no file, as its sheets on their own.
+ */
+export type AnnotatedExercise = WorksheetInk | SheetsOnlyInk;
+
+interface WorksheetInk {
+  /** The exercise's file, which is what the loader is asked for. */
+  pdfName: string;
   /** The pages the exercise uses, 1-indexed, or empty for every page. */
   pageNumbers: number[];
   stamp: PrintStampInfo | undefined;
@@ -25,11 +27,18 @@ export interface AnnotatedExercise {
    * a number added rather than overwriting the first.
    */
   name: string;
+  sheetsOnly?: false;
+}
+
+interface SheetsOnlyInk {
+  sheetsOnly: true;
+  /** The file's name inside the ZIP, without ".pdf". */
+  name: string;
 }
 
 /** How Download All saves a lesson's own Draft: its sheets on their own, under this name in the ZIP. */
 export function lessonDraftForZip(name: string): AnnotatedExercise {
-  return { pdfName: null, pageNumbers: [], stamp: undefined, name };
+  return { sheetsOnly: true, name };
 }
 
 export interface AnnotatedZipResult {
@@ -89,8 +98,9 @@ export async function buildAnnotatedZip(
   const names = uniqueNames(exercises.map((ex) => ex.name));
 
   const loads = new Map<string, Promise<ArrayBuffer | null>>();
-  for (const { pdfName } of exercises) {
-    if (pdfName === null || loads.has(pdfName)) continue;
+  for (const exercise of exercises) {
+    if (exercise.sheetsOnly === true || loads.has(exercise.pdfName)) continue;
+    const { pdfName } = exercise;
     loads.set(pdfName, loadPdf(pdfName).catch((err) => {
       console.error(`Failed to load ${pdfName}:`, err);
       return null;
@@ -100,8 +110,7 @@ export async function buildAnnotatedZip(
   for (const [i, exercise] of exercises.entries()) {
     try {
       let blob: Blob;
-      if (exercise.pdfName === null) {
-        // A lesson's own Draft has no file, so its sheets are saved on their own.
+      if (exercise.sheetsOnly === true) {
         blob = await saveDraftSheetsPdf(exercise.annotations);
       } else {
         const pdf = await loads.get(exercise.pdfName);
@@ -111,7 +120,7 @@ export async function buildAnnotatedZip(
       zip.file(`${names[i]}.pdf`, blob);
       saved++;
     } catch (err) {
-      console.error(`Failed to save annotated PDF for ${exercise.pdfName}:`, err);
+      console.error(`Failed to save annotated PDF for ${exercise.name}:`, err);
       failed++;
     }
   }

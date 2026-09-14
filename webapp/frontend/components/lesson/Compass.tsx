@@ -118,10 +118,9 @@ function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: Widt
       role="group"
       aria-label="Set the width"
       data-touch-owner=""
-      className={cn(
-        "absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center rounded-full bg-[#2e251c]/90 shadow-lg",
-        "font-mono text-[13px] font-semibold tabular-nums text-[#f3e7d3]",
-      )}
+      // It opens out of the width's reading, so it keeps the reading's look, a
+      // little darker, with its own buttons for padding.
+      className={cn(READING, "absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center p-0 bg-[#2e251c]/90 shadow-lg")}
       style={{ left: at[0], top: at[1], filter: darkMode ? PDF_DARK_FILTER : undefined }}
     >
       <button
@@ -144,8 +143,7 @@ function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: Widt
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
-            settle(current());
-            onClose();
+            closeRef.current();
           } else if (e.key === "Escape") {
             cancelledRef.current = true;
             onClose();

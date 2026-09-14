@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo } from "react";
+import { Fragment, useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo } from "react";
 import getStroke from "perfect-freehand";
-import { getStrokeOptions, inkLayers, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
+import { INK_ORDER, getStrokeOptions, inkLayers, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
 import type { InkKind, PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { eraseStrokes, type Box } from "@/lib/stroke-eraser";
@@ -125,13 +125,6 @@ const SNAP_DEGREES = 5;
 // the protractor thicken and thin. A steady 0.51 counts as real pressure, so
 // the arc is drawn one width all along, a hair wider than the pen's size.
 const STEADY_PRESSURE = 0.51;
-
-/** Which ends of the straight line being drawn have landed on a point in the ink. */
-interface StraightPins {
-  start: boolean;
-  end: boolean;
-}
-const NO_PINS: StraightPins = { start: false, end: false };
 
 /** Where a straight line from start towards the pointer ends, snapped level or upright when it's nearly there. */
 function straightLineEnd(start: Point, pointer: Point): Point {
@@ -494,14 +487,9 @@ export function AnnotationLayer({
     [strokes]
   );
 
-  // Which ends of the straight line being drawn are on a point in the ink, for the rings that show them.
-  const [straightPins, setStraightPins] = useState<StraightPins>(NO_PINS);
-  const markPins = useCallback((next: Partial<StraightPins>) => {
-    setStraightPins((prev) => {
-      const merged = { ...prev, ...next };
-      return merged.start === prev.start && merged.end === prev.end ? prev : merged;
-    });
-  }, []);
+  // Whether each end of the straight line being drawn is on a point in the ink, for the rings that show them.
+  const [startPinned, setStartPinned] = useState(false);
+  const [endPinned, setEndPinned] = useState(false);
 
   /** Ask each tool on the pane whether a line starting at this screen point runs against it. */
   const startGuidedLine = useCallback(
@@ -567,12 +555,13 @@ export function AnnotationLayer({
       const point = getPoint(e);
       // A straight line that starts near a point in the ink starts exactly on it.
       const pin = straight && !guidedRef.current ? inkPointNear(point) : null;
-      markPins({ start: pin !== null, end: false });
+      setStartPinned(pin !== null);
+      setEndPinned(false);
       const first = guidedRef.current ? guidedLine([e.clientX, e.clientY]) : [pin ?? point];
       currentPointsRef.current = first;
       setCurrentPoints([...first]);
     },
-    [isDrawing, suspended, straight, beginLine, getPoint, inkPointNear, markPins, startGuidedLine, guidedLine]
+    [isDrawing, suspended, straight, beginLine, getPoint, inkPointNear, startGuidedLine, guidedLine]
   );
 
   const handlePointerMove = useCallback(
@@ -597,13 +586,13 @@ export function AnnotationLayer({
         const line = [start, pin ?? straightLineEnd(start, pt)];
         currentPointsRef.current = line;
         setCurrentPoints(line);
-        markPins({ end: pin !== null });
+        setEndPinned(pin !== null);
         return;
       }
       currentPointsRef.current.push(pt);
       setCurrentPoints((prev) => [...prev, pt]);
     },
-    [straight, getPoint, guidedLine, inkPointNear, markPins]
+    [straight, getPoint, guidedLine, inkPointNear]
   );
 
   /** The line being drawn is done: keep it as a stroke, or as fading ink. */
@@ -1009,14 +998,14 @@ export function AnnotationLayer({
             onPointerLeave: handlePointerUp,
           };
 
-  // The finished strokes, in their three layers so pencil ink sits on top of
-  // highlighter ink and pen ink on top of both. They are only rebuilt when the
-  // ink itself changes, so a move of the pen re-renders the line being drawn
-  // and nothing else. Ink the lasso has selected is left out, and drawn in a
-  // group of its own on top of its layer, so dragging it moves that group and
-  // nothing else.
+  // The finished strokes, a layer for each kind of ink in INK_ORDER, so pen ink
+  // always sits on top of pencil ink and both on top of highlighter ink. They
+  // are only rebuilt when the ink itself changes, so a move of the pen
+  // re-renders the line being drawn and nothing else. Ink the lasso has
+  // selected is left out, and drawn in a group of its own on top of its layer,
+  // so dragging it moves that group and nothing else.
   const selected = useMemo(() => new Set(selection?.strokes), [selection]);
-  const [highlighterPaths, pencilPaths, penPaths] = useMemo(() => {
+  const layerPaths = useMemo(() => {
     const tappable = isErasing && !isRubbing;
     return inkLayers(shownStrokes).map((layer) =>
       layer.filter((stroke) => !selected.has(stroke)).map((stroke) =>
@@ -1039,7 +1028,7 @@ export function AnnotationLayer({
   // The selected ink as it looks part way through a drag. A resize draws it
   // again at its new size, and a move shifts its whole group on screen.
   const selectedPaths = useMemo((): React.ReactNode[][] => {
-    if (!selection) return [[], [], []];
+    if (!selection) return INK_ORDER.map(() => []);
     const shown = drag?.kind === "resize"
       ? resizeStrokes(selection.strokes, [selection.bounds.left, selection.bounds.top], drag.scale)
       : selection.strokes;
@@ -1085,21 +1074,19 @@ export function AnnotationLayer({
         }}
         {...pointerHandlers}
       >
-        {/* Completed strokes, highlighter first, then pencil, then pen, with
-            any selected ink and the line being drawn on top of its own layer.
-            The whole-stroke eraser makes each one tappable. "Hide ink" hides
-            these, but not fading ink, which is for pointing at the clean
+        {/* Completed strokes, a layer for each kind of ink from the bottom up,
+            with any selected ink and the line being drawn on top of its own
+            layer. The whole-stroke eraser makes each one tappable. "Hide ink"
+            hides these, but not fading ink, which is for pointing at the clean
             worksheet as much as the marked one. */}
         <g style={{ opacity: hidden ? 0 : 1, transition: "opacity 0.15s ease" }}>
-          {highlighterPaths}
-          {selectedGroup(selectedPaths[0])}
-          {newInk === "highlighter" && currentSavedInk}
-          {pencilPaths}
-          {selectedGroup(selectedPaths[1])}
-          {newInk === "pencil" && currentSavedInk}
-          {penPaths}
-          {selectedGroup(selectedPaths[2])}
-          {newInk === "pen" && currentSavedInk}
+          {INK_ORDER.map((kind, i) => (
+            <Fragment key={kind}>
+              {layerPaths[i]}
+              {selectedGroup(selectedPaths[i] ?? [])}
+              {newInk === kind && currentSavedInk}
+            </Fragment>
+          ))}
         </g>
 
         {/* Fading ink, on top of everything, with a soft glow */}
@@ -1134,7 +1121,7 @@ export function AnnotationLayer({
 
         {/* A ring round each end of the straight line being drawn that has landed on a point in the ink */}
         {currentPoints.length > 0 &&
-          [straightPins.start && currentPoints[0], straightPins.end && currentPoints[currentPoints.length - 1]].map(
+          [startPinned && currentPoints[0], endPinned && currentPoints[currentPoints.length - 1]].map(
             (point, i) =>
               point && (
                 <circle

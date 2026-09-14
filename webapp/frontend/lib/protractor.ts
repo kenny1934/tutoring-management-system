@@ -17,6 +17,7 @@
  */
 import { EDGE_REACH } from "@/lib/drawing-guide";
 import { clamp, type Vec } from "@/lib/stroke-select";
+import { draggedLength, readToolSize, saveToolSize } from "@/lib/tool-size";
 
 /**
  * The protractor starts 10 cm across, the size of a usual school protractor.
@@ -45,16 +46,11 @@ const clampSize = (cm: number) => clamp(cm, PROTRACTOR_MIN_CM, PROTRACTOR_MAX_CM
 
 /** The size, in centimetres across, the protractor was last left at on this board, or the usual size. */
 export function readProtractorSize(): number {
-  try {
-    const stored = Number(localStorage.getItem(SIZE_KEY));
-    return stored > 0 ? clampSize(stored) : PROTRACTOR_ACROSS_CM;
-  } catch {
-    return PROTRACTOR_ACROSS_CM;
-  }
+  return readToolSize(SIZE_KEY, PROTRACTOR_ACROSS_CM, clampSize);
 }
 
 export function saveProtractorSize(cm: number) {
-  try { localStorage.setItem(SIZE_KEY, String(cm)); } catch { /* private window */ }
+  saveToolSize(SIZE_KEY, cm);
 }
 
 /**
@@ -63,8 +59,7 @@ export function saveProtractorSize(cm: number) {
  * distance from it. It's kept between 8 and 20 cm and rounded to a millimetre.
  */
 export function draggedSize(startCm: number, fromDistance: number, toDistance: number): number {
-  if (fromDistance <= 0) return startCm;
-  return Math.round(clampSize((startCm * toDistance) / fromDistance) * 10) / 10;
+  return draggedLength(startCm, fromDistance, toDistance, clampSize);
 }
 
 /** The protractor on screen: its centre mark, the direction along its baseline, and its sizes. */

@@ -42,14 +42,17 @@ const openAnswerKey = (overrides: Partial<AreaProps["answer"]> = {}): AreaProps[
   ...overrides,
 });
 
-/** The exercise's Draft open or shut, and the lesson's own Draft on screen or not. */
-const draftState = (open: boolean, lessonDraftOpen = false): AreaProps["draft"] => ({
-  draftOpen: open, toggleDraft: vi.fn(), closeDraft: vi.fn(), trayArea: undefined, setTrayArea: vi.fn(),
-  lessonDraftOpen, openLessonDraft: vi.fn(), closeLessonDraft: vi.fn(),
-});
-
 // The lesson's own Draft, for lesson 100.
 const LESSON_DRAFT = lessonDraftId(100);
+
+/**
+ * The exercise's Draft open or shut, and the lesson's own Draft on screen or
+ * not. The view has a lesson's Draft to open unless it's given null, as on a phone.
+ */
+const draftState = (open: boolean, lessonDraftOpen = false, ownDraft: number | null = LESSON_DRAFT): AreaProps["draft"] => ({
+  draftOpen: open, toggleDraft: vi.fn(), closeDraft: vi.fn(), trayArea: undefined, setTrayArea: vi.fn(),
+  lessonDraftId: ownDraft, lessonDraftOpen, openLessonDraft: vi.fn(), closeLessonDraft: vi.fn(),
+});
 
 function renderArea(overrides: Partial<AreaProps> = {}) {
   const props: AreaProps = {
@@ -72,7 +75,6 @@ function renderArea(overrides: Partial<AreaProps> = {}) {
     emptyMessage: undefined,
     toolbarStart: null,
     worksheetRef: null,
-    lessonDraftId: null,
     ...overrides,
   };
   render(<LessonViewerArea {...props} />);
@@ -154,7 +156,7 @@ describe("LessonViewerArea", () => {
 
   it("shows the lesson's own Draft in the worksheet's place, with the answer key put away", () => {
     const draft = draftState(false, true);
-    renderArea({ draft, lessonDraftId: LESSON_DRAFT, answer: openAnswerKey() });
+    renderArea({ draft, answer: openAnswerKey() });
     expect(screen.getByRole("region", { name: "Draft" })).toHaveTextContent(`Draft sheets for exercise ${LESSON_DRAFT}`);
     expect(screen.queryByText("Linear equations 3")).toBeNull();
     expect(screen.queryByText("ANS: Linear equations 3")).toBeNull();
@@ -167,7 +169,7 @@ describe("LessonViewerArea", () => {
 
   it("offers the lesson's own Draft from the worksheet's viewer when there's nothing to show", () => {
     const draft = draftState(false);
-    renderArea({ draft, exercise: null, exerciseLabel: "Nothing open", lessonDraftId: LESSON_DRAFT });
+    renderArea({ draft, exercise: null, exerciseLabel: "Nothing open" });
     const { emptyAction } = viewerProps.get("Nothing open") as { emptyAction: ReactNode };
     render(<>{emptyAction}</>);
 
@@ -175,8 +177,8 @@ describe("LessonViewerArea", () => {
     expect(draft.openLessonDraft).toHaveBeenCalledTimes(1);
   });
 
-  it("offers no lesson draft on a phone", () => {
-    renderArea({ isMobile: true, exercise: null, exerciseLabel: "On a phone", lessonDraftId: LESSON_DRAFT });
+  it("offers no lesson draft where the view has none to open, as on a phone", () => {
+    renderArea({ isMobile: true, draft: draftState(false, false, null), exercise: null, exerciseLabel: "On a phone" });
     expect(viewerProps.get("On a phone")!.emptyAction).toBeUndefined();
   });
 });

@@ -19,31 +19,43 @@ export interface Stroke {
   kind?: "highlighter" | "pencil";
 }
 
-// How opaque each kind of ink is, on screen and in the saved PDF alike.
-const PEN_OPACITY = 0.85;
-const PENCIL_OPACITY = 0.75;
-const HIGHLIGHTER_OPACITY = 0.35;
-
-export const strokeOpacity = (stroke: Pick<Stroke, "kind">) =>
-  stroke.kind === "highlighter" ? HIGHLIGHTER_OPACITY : stroke.kind === "pencil" ? PENCIL_OPACITY : PEN_OPACITY;
-
 export type InkKind = "pen" | "pencil" | "highlighter";
+
+/**
+ * How each kind of ink looks and behaves, on screen and in the saved PDF
+ * alike: how opaque it is, whether it keeps one width all the way along
+ * instead of swelling and thinning like a pen, whether a line drawn along a
+ * tool snaps to it, and whether the lasso offers it other colours.
+ */
+export const INK: Record<InkKind, { opacity: number; evenWidth: boolean; snappedTo: boolean; recolourable: boolean }> = {
+  pen: { opacity: 0.85, evenWidth: false, snappedTo: true, recolourable: true },
+  // A pencil only comes in grey, and its fine, even lines are where construction points are found.
+  pencil: { opacity: 0.75, evenWidth: true, snappedTo: true, recolourable: false },
+  // A highlighter is too broad to aim a line at.
+  highlighter: { opacity: 0.35, evenWidth: true, snappedTo: false, recolourable: true },
+};
+
+/**
+ * The order the kinds of ink are painted in, from the bottom up, so pencil
+ * construction lines never cover the working in pen. The screen and the saved
+ * PDF both paint in this order.
+ */
+export const INK_ORDER: readonly InkKind[] = ["highlighter", "pencil", "pen"];
+
+/** Which kind of ink a stroke is. Pen strokes carry no kind, like ink saved before the highlighter. */
+export const kindOf = (stroke: Pick<Stroke, "kind">): InkKind => stroke.kind ?? "pen";
+
+export const strokeOpacity = (stroke: Pick<Stroke, "kind">) => INK[kindOf(stroke)].opacity;
 
 /** A new stroke in the given ink. Pen strokes carry no kind, like ink saved before the highlighter. */
 export function makeStroke(points: Stroke["points"], color: string, size: number, ink: InkKind): Stroke {
   return ink === "pen" ? { points, color, size } : { points, color, size, kind: ink };
 }
 
-/**
- * A page's strokes split into the three layers they're painted in:
- * highlighter ink at the bottom, then pencil ink, then pen ink on top, each
- * keeping the order it was drawn in. Construction lines in pencil so never
- * cover the working in pen. The screen and the saved PDF both paint in this
- * order.
- */
-export function inkLayers(strokes: Stroke[]): [highlighter: Stroke[], pencil: Stroke[], pen: Stroke[]] {
-  const layers: [Stroke[], Stroke[], Stroke[]] = [[], [], []];
-  for (const s of strokes) layers[s.kind === "highlighter" ? 0 : s.kind === "pencil" ? 1 : 2].push(s);
+/** A page's strokes split into one layer per kind of ink, in INK_ORDER, each keeping the order it was drawn in. */
+export function inkLayers(strokes: Stroke[]): Stroke[][] {
+  const layers = INK_ORDER.map((): Stroke[] => []);
+  for (const s of strokes) layers[INK_ORDER.indexOf(kindOf(s))]?.push(s);
   return layers;
 }
 
@@ -95,9 +107,9 @@ export function getStrokeOptions(stroke: Stroke, isComplete: boolean) {
     };
   }
   // A highlighter keeps the same width all the way along, like a felt tip, and
-  // so does a pencil, so its construction lines and arcs come out even. Both
+  // so does a pencil, so its construction lines and arcs come out even. They
   // ignore pressure and don't thin out when you move fast.
-  if (stroke.kind === "highlighter" || stroke.kind === "pencil") {
+  if (INK[kindOf(stroke)].evenWidth) {
     return {
       size: stroke.size,
       thinning: 0,

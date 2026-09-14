@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ERASER_RADIUS, type EraserSetting } from "@/lib/stroke-eraser";
-import type { InkKind } from "./useAnnotations";
+import { INK, type InkKind } from "./useAnnotations";
 
 /**
  * Which tool the lesson viewer's Pen Tray has picked. The Hand scrolls the
@@ -12,7 +12,7 @@ import type { InkKind } from "./useAnnotations";
  */
 type AnnotationTool = "hand" | InkKind | "eraser" | "fade" | "lasso";
 
-const isInk = (tool: AnnotationTool): tool is InkKind => tool === "pen" || tool === "pencil" || tool === "highlighter";
+const isInk = (tool: AnnotationTool): tool is InkKind => tool in INK;
 
 export type InkSize = "S" | "M" | "L";
 

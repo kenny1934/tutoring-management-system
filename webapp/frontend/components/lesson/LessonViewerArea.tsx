@@ -15,6 +15,7 @@ import { PdfPageViewer, type PdfViewerHandle, type PdfViewState } from "./PdfPag
 import { DraftPane, DraftTrayLane } from "./DraftPane";
 import { DraftSplit } from "./DraftSplit";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
+import { LESSON_DRAFT_DESCRIPTION } from "./LessonDraftRow";
 
 /** The ink handlers the worksheet and the Draft draw through. */
 type ViewerInk = Pick<
@@ -49,11 +50,6 @@ interface LessonViewerAreaProps {
   toolbarStart: ReactNode;
   /** How the view zooms the worksheet from the keyboard. Only the worksheet gets it, so the answer key keeps its own zoom. */
   worksheetRef: Ref<PdfViewerHandle>;
-  /**
-   * The lesson's own Draft's id in the ink store. It opens in the worksheet's
-   * place, from the empty viewer or from the sidebar. Null leaves it out.
-   */
-  lessonDraftId: number | null;
 }
 
 const divider = <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />;
@@ -80,7 +76,7 @@ const tabClass = (active: boolean) => cn(
  */
 export function LessonViewerArea({
   isMobile, top, link, exercise, exerciseLabel, pdf, answer, draft, ink,
-  stamp, onSaveAnnotated, onPrint, printing, emptyMessage, toolbarStart, worksheetRef, lessonDraftId,
+  stamp, onSaveAnnotated, onPrint, printing, emptyMessage, toolbarStart, worksheetRef,
 }: LessonViewerAreaProps) {
   // Each exercise's zoom, scroll position, "Hide ink" and covers, so switching
   // between exercises and back finds each one as the tutor left it. The answer
@@ -91,13 +87,13 @@ export function LessonViewerArea({
   const isPrinting = printing.id !== null;
 
   // The lesson's own Draft, while it's on screen in the worksheet's place.
-  const lessonDraftShown = draft.lessonDraftOpen ? lessonDraftId : null;
-  // With no worksheet to show, the viewer offers the lesson's own Draft. Phones get no Draft.
-  const lessonDraftButton = !isMobile && lessonDraftId !== null ? (
+  const lessonDraftShown = draft.lessonDraftOpen ? draft.lessonDraftId : null;
+  // With no worksheet to show, the viewer offers the lesson's own Draft, wherever the view has one to open.
+  const lessonDraftButton = draft.lessonDraftId !== null ? (
     <button
       type="button"
       onClick={draft.openLessonDraft}
-      title="Blank or squared paper for working. It stays with the lesson, whichever worksheet is open."
+      title={LESSON_DRAFT_DESCRIPTION}
       className="flex items-center gap-1.5 min-h-10 px-4 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
     >
       <NotebookPen className="h-4 w-4" />
@@ -155,7 +151,7 @@ export function LessonViewerArea({
                 onUndo={ink.onUndo}
                 tools={ink.tools}
                 onClose={draft.closeLessonDraft}
-                ownTray={{ onRedo: ink.onRedo, onClearAll: ink.onClearAll, hasInk: ink.openHasInk }}
+                ownTray={{ onRedo: ink.onRedo, onClearAll: ink.onClearAll }}
               />
             ) : link ?? (
               <ErrorBoundary

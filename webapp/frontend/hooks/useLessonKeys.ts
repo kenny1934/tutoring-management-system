@@ -24,6 +24,11 @@ export interface LessonKeyState {
   /** A tool other than the Hand is picked, such as a pen, the eraser or the lasso. */
   drawing: boolean;
   focusMode: boolean;
+  /**
+   * Something else, such as the lesson's own Draft, is on screen in the
+   * worksheet's place, so the keys that work on the worksheet wait.
+   */
+  worksheetHidden?: boolean;
 }
 
 export type LessonKeyEvent = Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey" | "target">;
@@ -37,7 +42,7 @@ export type LessonKeyEvent = Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" 
  * the help, then whichever tool is picked, then focus mode. Only once all of those
  * are closed does it mean leaving the lesson.
  */
-export function lessonKeyAction(e: LessonKeyEvent, state: LessonKeyState): LessonKeyAction | null {
+function keyAction(e: LessonKeyEvent, state: LessonKeyState): LessonKeyAction | null {
   if (state.blocked || isTypingTarget(e.target)) return null;
   // Wolfram takes the keyboard while it's open, apart from Escape to close it.
   if (state.wolframOpen && e.key !== "Escape") return null;
@@ -80,6 +85,17 @@ export function lessonKeyAction(e: LessonKeyEvent, state: LessonKeyState): Lesso
     case "?": return "toggleHelp";
     default: return null;
   }
+}
+
+// The actions that work on the worksheet, which wait while something else is in its place.
+const WORKSHEET_ACTIONS: ReadonlySet<LessonKeyAction> = new Set<LessonKeyAction>([
+  "next", "previous", "nextStudent", "previousStudent", "zoomIn", "zoomOut", "print", "answerKey", "save",
+]);
+
+/** The action a key means in a lesson view right now, or null when it means nothing there. */
+export function lessonKeyAction(e: LessonKeyEvent, state: LessonKeyState): LessonKeyAction | null {
+  const action = keyAction(e, state);
+  return action && state.worksheetHidden && WORKSHEET_ACTIONS.has(action) ? null : action;
 }
 
 /**

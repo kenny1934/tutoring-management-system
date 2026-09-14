@@ -12,6 +12,7 @@
  * are in screen pixels, the space pointer events arrive in.
  */
 import { clamp, type Vec } from "@/lib/stroke-select";
+import { draggedLength, readToolSize, saveToolSize } from "@/lib/tool-size";
 
 /**
  * The legs are 7 cm long until the handle resizes them, from 5 cm up to
@@ -24,7 +25,7 @@ const COMPASS_LEG_CM = 7;
 const COMPASS_LEGS_MIN_CM = 5;
 const COMPASS_LEGS_MAX_CM = 12;
 const COMPASS_MIN_CM = 0.5;
-export const COMPASS_START_CM = 4;
+const COMPASS_START_CM = 4;
 
 /** The widest the compasses open with legs this long. */
 export function widestFor(legs: number): number {
@@ -62,49 +63,32 @@ const clampLegs = (cm: number) => clamp(cm, COMPASS_LEGS_MIN_CM, COMPASS_LEGS_MA
  * kept between 5 and 12 cm and rounded to a millimetre.
  */
 export function draggedLegs(startCm: number, fromDistance: number, toDistance: number): number {
-  if (fromDistance <= 0) return startCm;
-  return Math.round(clampLegs((startCm * toDistance) / fromDistance) * 10) / 10;
+  return draggedLength(startCm, fromDistance, toDistance, clampLegs);
 }
 
 // Each board remembers the width its compasses were last left at, and how long their legs were.
 const WIDTH_KEY = "csm_compass_width";
 const LEGS_KEY = "csm_compass_legs";
 
-/** A positive number this board has stored under this key, or null. */
-function readStored(key: string): number | null {
-  try {
-    const stored = Number(localStorage.getItem(key));
-    return stored > 0 ? stored : null;
-  } catch {
-    return null;
-  }
-}
-
-function store(key: string, value: number) {
-  try { localStorage.setItem(key, String(value)); } catch { /* private window */ }
-}
-
 /**
  * The width, in centimetres, the compasses were last left at on this board,
  * or the usual 4 cm, kept within what legs this long allow.
  */
 export function readCompassWidth(legs = COMPASS_LEG_CM): number {
-  const stored = readStored(WIDTH_KEY);
-  return stored === null ? COMPASS_START_CM : snapWidth(stored, legs);
+  return readToolSize(WIDTH_KEY, COMPASS_START_CM, (cm) => snapWidth(cm, legs));
 }
 
 export function saveCompassWidth(cm: number) {
-  store(WIDTH_KEY, cm);
+  saveToolSize(WIDTH_KEY, cm);
 }
 
 /** How long, in centimetres, the compasses' legs were last left on this board, or the usual 7 cm. */
 export function readCompassLegs(): number {
-  const stored = readStored(LEGS_KEY);
-  return stored === null ? COMPASS_LEG_CM : clampLegs(stored);
+  return readToolSize(LEGS_KEY, COMPASS_LEG_CM, clampLegs);
 }
 
 export function saveCompassLegs(cm: number) {
-  store(LEGS_KEY, cm);
+  saveToolSize(LEGS_KEY, cm);
 }
 
 /** How high the hinge stands above the line from the needle to the pencil, in centimetres, at this width. */

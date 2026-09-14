@@ -104,11 +104,12 @@ describe("useLessonInk", () => {
         exercises: [first, second],
         openExercise: first,
         openSource: null,
-        lessonDraftSession: draftSession,
+        lessonDraftId: draftSession === null ? null : lessonDraftId(draftSession),
       }),
       { initialProps: { draftSession: 100 as number | null } },
     );
     await waitFor(() => expect(result.current.inkReady).toBe(true));
+    expect(result.current.inkOpen).toBe(true);
     act(() => result.current.onPageStrokesChange(1000, [stroke(1)]));
     expect(result.current.openHasInk).toBe(true);
     expect(result.current.hasAnnotations(lessonDraftId(100))).toBe(true);

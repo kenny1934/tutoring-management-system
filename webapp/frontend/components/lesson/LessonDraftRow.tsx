@@ -2,6 +2,7 @@
 
 import { NotebookPen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { useDraft } from "@/hooks/useDraft";
 
 /** The lesson's own Draft, as a lesson sidebar's row shows it. */
 export interface LessonDraftEntry {
@@ -11,7 +12,31 @@ export interface LessonDraftEntry {
   onOpen: () => void;
 }
 
-const DESCRIPTION = "Blank or squared paper for working. It stays with the lesson, whichever worksheet is open.";
+/** What the lesson's own Draft is for, on the sidebar's row and on the empty viewer's button alike. */
+export const LESSON_DRAFT_DESCRIPTION =
+  "Blank or squared paper for working. It stays with the lesson, whichever worksheet is open.";
+
+/**
+ * The sidebar row's entry for a view's own Draft, or undefined where the view
+ * has none to open, such as on a phone. `afterOpen` runs once it's opened,
+ * which is where a view closes anything the row was shown in.
+ */
+export function lessonDraftEntry(
+  draft: Pick<ReturnType<typeof useDraft>, "lessonDraftId" | "lessonDraftOpen" | "openLessonDraft">,
+  hasInk: (id: number) => boolean,
+  afterOpen: () => void,
+): LessonDraftEntry | undefined {
+  const id = draft.lessonDraftId;
+  if (id === null) return undefined;
+  return {
+    open: draft.lessonDraftOpen,
+    hasInk: hasInk(id),
+    onOpen: () => {
+      draft.openLessonDraft();
+      afterOpen();
+    },
+  };
+}
 
 /**
  * The row above a lesson sidebar's exercises that shows the lesson's own
@@ -26,7 +51,7 @@ export function LessonDraftRow({ open, hasInk, onOpen }: LessonDraftEntry) {
       type="button"
       onClick={onOpen}
       aria-current={open || undefined}
-      title={DESCRIPTION}
+      title={LESSON_DRAFT_DESCRIPTION}
       className={cn(
         "w-full flex items-center gap-2 text-left px-2.5 py-2 rounded-md transition-all text-sm border min-h-10",
         open

@@ -14,7 +14,7 @@ import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
 import { CM } from "@/lib/drawing-guide";
-import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
+import { hasInk, type PageAnnotations, type Stroke } from "@/hooks/useAnnotations";
 import {
   DRAFT_GRID_COLOUR, DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SHEET_PT, DRAFT_SQUARE_PT,
   draftSheetsInUse, draftSquared, inkedDraftPages,
@@ -42,7 +42,7 @@ interface DraftPaneProps {
    * own. The lesson's own Draft does, because it's on screen without a
    * worksheet to share one with. An exercise's Draft leaves this out.
    */
-  ownTray?: { onRedo?: () => void; onClearAll?: () => void; hasInk: boolean };
+  ownTray?: { onRedo?: () => void; onClearAll?: () => void };
 }
 
 // The squares are a background sized as a share of the sheet, so they grow
@@ -374,7 +374,7 @@ export function DraftPane({
           onRedo={ownTray.onRedo}
           inkHidden={inkHidden}
           onInkHiddenChange={setInkHidden}
-          hasInk={ownTray.hasInk}
+          hasInk={hasInk(annotations)}
           onClearAll={ownTray.onClearAll}
           paneTools={paneTools}
           inkRevision={annotations}
