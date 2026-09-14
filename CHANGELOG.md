@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.137](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.136...v2.0.137) (2026-09-14)
+
+
+### Bug Fixes
+
+* **The ruler's reading stays the right way up**: when the ruler is turned round, the length and angle it shows no longer appear upside down.
+
 ## [2.0.136](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.135...v2.0.136) (2026-09-14)
 
 
