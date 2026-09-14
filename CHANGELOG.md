@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.139](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.138...v2.0.139) (2026-09-14)
+
+
+### New Features
+
+* **A Draft for the whole lesson**: a lesson with no courseware yet offers its own Draft straight away, and the "Lesson draft" row at the top of the exercise list brings it back once worksheets are added.
+* **A pencil for construction lines**: the grey pencil draws fine, even lines that sit under your pen ink, so ruler lines and compass arcs never cover the working.
+* **Turn the compasses without drawing**: the lift-the-pencil button lets you swing the compasses round to where you want them before you draw.
+* **Set the compasses' width exactly**: tap the width to type a measurement or step it a millimetre at a time.
+* **Bigger or smaller compasses**: drag the handle on the needle's leg to make the compasses smaller for small circles or longer for large ones.
+* **Straight lines snap to your ink**: each end of a straight line lands exactly on a nearby dot, line end or crossing.
+
 ## [2.0.138](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.137...v2.0.138) (2026-09-14)
 
 
