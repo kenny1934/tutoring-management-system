@@ -20,6 +20,7 @@ import { GradeBadge } from "@/components/ui/grade-label";
 import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
 import { PrintIconButton } from "./PrintIconButton";
 import { WithSchoolIfItFits } from "./SchoolBadge";
+import { LessonDraftRow, type LessonDraftEntry } from "./LessonDraftRow";
 
 interface LessonWideSidebarProps {
   sessions: Session[];
@@ -45,6 +46,8 @@ interface LessonWideSidebarProps {
   /** Homework carried in from earlier lessons, keyed by session. */
   homeworkBySession?: Map<number, HomeworkCompletion[]>;
   onHomeworkMarked?: (updated: HomeworkCompletion) => void;
+  /** The slot's own Draft, for its row above the exercises. Leave it out where it can't open, such as on a phone. */
+  lessonDraft?: LessonDraftEntry;
 }
 
 /** A file's block is the file and its type, because one file can be both classwork and homework. */
@@ -558,6 +561,7 @@ export function LessonWideSidebar({
   printing,
   homeworkBySession,
   onHomeworkMarked,
+  lessonDraft,
 }: LessonWideSidebarProps) {
   // Student picker popover state (both modes)
   const [pickerType, setPickerType] = useState<"CW" | "HW" | null>(null);
@@ -634,6 +638,13 @@ export function LessonWideSidebar({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto py-2 px-1">
+        {/* The slot's own Draft, above everything the students have */}
+        {lessonDraft && (
+          <div className="px-1 pb-2">
+            <LessonDraftRow {...lessonDraft} />
+          </div>
+        )}
+
         {/* Summer materials (lang-aware class assignment) */}
         <SummerCoursewareWidePanel
           sessions={students}

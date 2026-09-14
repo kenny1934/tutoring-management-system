@@ -90,6 +90,31 @@ def test_a_saved_page_reads_back_exactly(client: TestClient, db_session: Session
     assert db_session.query(LessonInk).one().session_exercise_id == 10
 
 
+def _draft_page(session_id=100, target_key="draft:100", sheet=0):
+    """A sheet of a lesson's own Draft, which has no exercise and no PDF behind it."""
+    return {
+        "session_id": session_id, "target_key": target_key, "page_index": 1000 + sheet,
+        "pdf_page": None, "pdf_name": None, "strokes": [PEN],
+    }
+
+
+def test_a_lessons_own_draft_is_saved_under_its_session(client: TestClient, db_session: Session, slot):
+    result = _save(client, _draft_page())
+
+    assert result["saved"] == [{"session_id": 100, "target_key": "draft:100", "page_index": 1000, "version": 1}]
+    page = _read(client, 100)[(100, "draft:100", 1000)]
+    assert page["strokes"] == [PEN]
+    assert (page["pdf_page"], page["pdf_name"]) == (None, None)
+    assert db_session.query(LessonInk).one().session_exercise_id is None
+
+
+def test_a_draft_filed_under_another_lesson_is_dropped(client: TestClient, db_session: Session, slot):
+    result = _save(client, _draft_page(session_id=100, target_key="draft:101"))
+
+    assert result == {"saved": [], "dropped": [{"session_id": 100, "target_key": "draft:101", "page_index": 1000}]}
+    assert db_session.query(LessonInk).count() == 0
+
+
 def test_every_save_moves_the_version_on_and_the_later_one_wins(client: TestClient, slot):
     _save(client, _page(strokes=[PEN]))
     _as(**OTHER)

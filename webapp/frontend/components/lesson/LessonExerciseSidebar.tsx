@@ -16,6 +16,7 @@ import { SummerCoursewarePanel } from "./SummerCoursewarePanel";
 import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
 import { HomeworkStatusGlyph, homeworkState } from "@/components/homework/homework-status";
 import { PrintIconButton } from "./PrintIconButton";
+import { LessonDraftRow, type LessonDraftEntry } from "./LessonDraftRow";
 
 interface LessonExerciseSidebarProps {
   currentSession: Session | null;
@@ -51,6 +52,8 @@ interface LessonExerciseSidebarProps {
   onPrint?: (exercise: SessionExercise) => void;
   /** Bundled printing state: which exercise ID is printing + progress message. */
   printing?: PrintingState;
+  /** The lesson's own Draft, for its row above this lesson's exercises. Leave it out where it can't open, such as on a phone. */
+  lessonDraft?: LessonDraftEntry;
 }
 
 function ExerciseItem({
@@ -364,6 +367,7 @@ export function LessonExerciseSidebar({
   onHomeworkExpandedChange,
   onPrint,
   printing,
+  lessonDraft,
 }: LessonExerciseSidebarProps) {
   const hasAnySessions = currentSession || previousSession;
 
@@ -405,6 +409,13 @@ export function LessonExerciseSidebar({
           isReadOnly={isReadOnly}
           onPreview={onExerciseSelect}
         />
+      )}
+
+      {/* The lesson's own Draft, just above this lesson's exercises */}
+      {lessonDraft && (
+        <div className="px-1 pb-1">
+          <LessonDraftRow {...lessonDraft} />
+        </div>
       )}
 
       {currentSession && (

@@ -1969,8 +1969,11 @@ class LessonInk(Base):
     explains each column.
 
     ``target_key`` names what the page belongs to within the lesson. It's
-    ``ex:<exercise id>`` for an exercise, or ``preview:<file id>`` for a
-    parallel-version preview, which has no exercise row. ``page_index`` is the
+    ``ex:<exercise id>`` for an exercise, ``preview:<file id>`` for a
+    parallel-version preview, which has no exercise row, or ``draft:<session
+    id>`` for the lesson's own Draft, which a tutor can open before the lesson
+    has any courseware. The column's comment in the database predates the
+    lesson's Draft and only names the first two. ``page_index`` is the
     page of the PDF counted from 0, which stays put when someone edits the
     exercise's page range, or a Draft sheet's own index, 1000 and up (see
     migration 180). ``version`` goes up on

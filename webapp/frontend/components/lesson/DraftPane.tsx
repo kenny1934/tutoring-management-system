@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import { DraftingCompass, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { UndoOfferBar } from "./UndoOfferBar";
 import { PANE_TOOLS, PaneTools, paneToolLabel, usePaneTools } from "./PaneTools";
-import { TRAY_CLEARANCE } from "./AnnotationTray";
+import { AnnotationTray, TRAY_CLEARANCE } from "./AnnotationTray";
 import { PAGE_BAR_HEIGHT, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
@@ -33,6 +33,16 @@ interface DraftPaneProps {
   onUndo?: () => void;
   tools: AnnotationTools;
   onClose: () => void;
+  /** What the Draft is called on its bar, such as "Lesson draft" for the lesson's own. */
+  title?: string;
+  /** Buttons at the start of the bar, such as focus mode's way out when the Draft stands in for the worksheet. */
+  barStart?: ReactNode;
+  /**
+   * The rest of the Pen Tray's handlers, for a Draft that holds a tray of its
+   * own. The lesson's own Draft does, because it's on screen without a
+   * worksheet to share one with. An exercise's Draft leaves this out.
+   */
+  ownTray?: { onRedo?: () => void; onClearAll?: () => void; hasInk: boolean };
 }
 
 // The squares are a background sized as a share of the sheet, so they grow
@@ -77,12 +87,22 @@ const clearOption = cn(
  * tool, and two fingers scroll. It always fits the pane's width, so a pinch
  * doesn't zoom it. Its ink is part of the exercise's own, so a single undo
  * history covers the worksheet and the Draft together.
+ *
+ * The lesson has a Draft of its own as well, which takes the worksheet's
+ * place, so a tutor can start working before the lesson has any courseware.
+ * With no worksheet beside it, it holds its own Pen Tray, and its ink is kept
+ * under the lesson in the same way an exercise's is kept under the exercise.
  */
 export function DraftPane({
   exerciseId, annotations, onPageStrokesChange, onPagesStrokesChange, onClearPages, onUndo, tools, onClose,
+  title = "Draft", barStart, ownTray,
 }: DraftPaneProps) {
   const [squared, setSquared] = draftSquared.usePreference();
   const [pdfDarkMode] = usePdfDarkMode();
+  // "Hide ink" on a tray of the Draft's own. Beside a worksheet, the worksheet's tray hides only the worksheet's ink.
+  const [inkHidden, setInkHidden] = useState(false);
+  // A tray of the Draft's own sits at the bottom of the Draft, with no page bar below it.
+  const trayTop = ownTray ? TRAY_CLEARANCE : TRAY_TOP;
   // How many sheets each exercise's Draft has been given with "Add a sheet".
   // Sheets with ink on them are counted from the ink, so they survive a reload.
   const [sheetsAsked, setSheetsAsked] = useState<Record<number, number>>({});
@@ -183,9 +203,10 @@ export function DraftPane({
   };
 
   return (
-    <section aria-label="Draft" className="relative flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
+    <section aria-label={title} className="relative flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
       <div className={cn(toolbarRow, "@container/draftbar")}>
-        <span className="ml-1 text-xs font-medium text-[#8b7355] dark:text-[#a09080]">Draft</span>
+        {barStart}
+        <span className="ml-1 whitespace-nowrap text-xs font-medium text-[#8b7355] dark:text-[#a09080]">{title}</span>
         <div className="flex-1" />
         <div role="group" aria-label="Paper" className="flex flex-none gap-0.5">
           <button type="button" aria-pressed={!squared} onClick={() => setSquared(false)} className={cn(barButton, squared ? tbBtnIdle : tbBtnOn)}>
@@ -266,7 +287,13 @@ export function DraftPane({
           )}
         </DropdownMenu>
         <div className="flex-none h-6 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />
-        <button type="button" onClick={onClose} aria-label="Close the draft" title="Close the draft" className={cn(barButton, tbBtnIdle)}>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close the ${title.toLowerCase()}`}
+          title={`Close the ${title.toLowerCase()}`}
+          className={cn(barButton, tbBtnIdle)}
+        >
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -280,7 +307,7 @@ export function DraftPane({
         )}
         // Every touch is handled here, as in the worksheet viewer: one finger for the tool, two to scroll.
         // The room at the bottom lets the last sheet and "Add a sheet" scroll clear of the tray.
-        style={{ touchAction: "none", paddingBottom: TRAY_TOP + 20 }}
+        style={{ touchAction: "none", paddingBottom: trayTop + 20 }}
       >
         <div ref={columnRef} className="relative flex flex-col items-center gap-4">
           {Array.from({ length: sheetCount }, (_, n) => {
@@ -304,6 +331,7 @@ export function DraftPane({
                     width={DRAFT_SHEET.width}
                     height={DRAFT_SHEET.height}
                     strokes={annotations[pageIndex] || []}
+                    hidden={inkHidden}
                     {...inkLayerProps(tools)}
                     onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
                     suspended={gestureActive}
@@ -333,8 +361,23 @@ export function DraftPane({
           message={undoOffer.message}
           onUndo={onUndo && (() => { undoOffer.drop(); onUndo(); })}
           // It sits just above the tray, where the tray's own messages appear.
-          style={{ bottom: TRAY_TOP + 10 }}
+          style={{ bottom: trayTop + 10 }}
           className="absolute left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]"
+        />
+      )}
+
+      {/* The lesson's own Draft has no worksheet beside it to share a Pen Tray with, so it holds one of its own */}
+      {ownTray && (
+        <AnnotationTray
+          tools={tools}
+          onUndo={onUndo}
+          onRedo={ownTray.onRedo}
+          inkHidden={inkHidden}
+          onInkHiddenChange={setInkHidden}
+          hasInk={ownTray.hasInk}
+          onClearAll={ownTray.onClearAll}
+          paneTools={paneTools}
+          inkRevision={annotations}
         />
       )}
     </section>

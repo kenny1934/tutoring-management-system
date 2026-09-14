@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import JSZip from "jszip";
-import { buildAnnotatedZip, saveAllFailedMessage, type AnnotatedExercise } from "./annotated-zip";
+import { buildAnnotatedZip, lessonDraftForZip, saveAllFailedMessage, type AnnotatedExercise } from "./annotated-zip";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 
 // Drawing ink into a real PDF needs a canvas, which jsdom doesn't have, so the
@@ -9,8 +9,11 @@ const saveAnnotatedPdf = vi.fn(async (pdf: ArrayBuffer) => {
   if (new Uint8Array(pdf)[0] === 0) throw new Error("broken PDF");
   return new Blob(["saved"], { type: "application/pdf" });
 });
+// A lesson's own Draft is saved as its sheets on their own, which needs a canvas too.
+const saveDraftSheetsPdf = vi.fn(async (_annotations: PageAnnotations) => new Blob(["draft"], { type: "application/pdf" }));
 vi.mock("./pdf-annotation-save", () => ({
   saveAnnotatedPdf: (...args: Parameters<typeof saveAnnotatedPdf>) => saveAnnotatedPdf(...args),
+  saveDraftSheetsPdf: (...args: Parameters<typeof saveDraftSheetsPdf>) => saveDraftSheetsPdf(...args),
 }));
 
 const DOT: Stroke = { points: [[10, 10, 0.5]], color: "#dc2626", size: 3 };
@@ -43,6 +46,22 @@ describe("buildAnnotatedZip", () => {
     expect(loadPdf.mock.calls.map(([name]) => name)).toEqual(["a.pdf", "b.pdf"]);
     expect(result).toMatchObject({ saved: 2, failed: 0 });
     expect(await zipNames(result.zip)).toEqual(["a.pdf", "b.pdf"]);
+  });
+
+  it("saves a lesson's own Draft as its sheets on their own, with no file to load", async () => {
+    const loadPdf = vi.fn(async (_pdfName: string) => GOOD_PDF);
+    const draftInk: PageAnnotations = { 1000: [DOT] };
+    const ink = new Map<number, PageAnnotations>([[1, { 0: [DOT] }], [-10_000_000_100, draftInk]]);
+    const result = await buildAnnotatedZip(
+      ink,
+      (id) => (id === 1 ? exercise("a.pdf") : lessonDraftForZip("lesson-draft")),
+      loadPdf,
+    );
+
+    expect(loadPdf.mock.calls.map(([name]) => name)).toEqual(["a.pdf"]);
+    expect(saveDraftSheetsPdf).toHaveBeenCalledWith(draftInk);
+    expect(result).toMatchObject({ saved: 2, failed: 0 });
+    expect(await zipNames(result.zip)).toEqual(["a.pdf", "lesson-draft.pdf"]);
   });
 
   it("works through the ink, so only exercises with some are asked about", async () => {

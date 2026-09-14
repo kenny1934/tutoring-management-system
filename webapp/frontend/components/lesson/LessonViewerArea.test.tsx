@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import type { AnnotationTools } from "@/hooks/useAnnotationTools";
+import { lessonDraftId } from "@/hooks/useAnnotations";
 import type { SessionExercise } from "@/types";
 
 // The real Draft needs a full set of pen tools, and DraftPane has tests of its own.
@@ -41,10 +42,14 @@ const openAnswerKey = (overrides: Partial<AreaProps["answer"]> = {}): AreaProps[
   ...overrides,
 });
 
-/** The Draft, open or shut. */
-const draftState = (open: boolean): AreaProps["draft"] => ({
+/** The exercise's Draft open or shut, and the lesson's own Draft on screen or not. */
+const draftState = (open: boolean, lessonDraftOpen = false): AreaProps["draft"] => ({
   draftOpen: open, toggleDraft: vi.fn(), closeDraft: vi.fn(), trayArea: undefined, setTrayArea: vi.fn(),
+  lessonDraftOpen, openLessonDraft: vi.fn(), closeLessonDraft: vi.fn(),
 });
+
+// The lesson's own Draft, for lesson 100.
+const LESSON_DRAFT = lessonDraftId(100);
 
 function renderArea(overrides: Partial<AreaProps> = {}) {
   const props: AreaProps = {
@@ -67,6 +72,7 @@ function renderArea(overrides: Partial<AreaProps> = {}) {
     emptyMessage: undefined,
     toolbarStart: null,
     worksheetRef: null,
+    lessonDraftId: null,
     ...overrides,
   };
   render(<LessonViewerArea {...props} />);
@@ -144,5 +150,33 @@ describe("LessonViewerArea", () => {
     renderArea();
     expect(screen.queryByRole("region", { name: "Draft" })).toBeNull();
     expect(screen.queryByTestId("tray-lane")).toBeNull();
+  });
+
+  it("shows the lesson's own Draft in the worksheet's place, with the answer key put away", () => {
+    const draft = draftState(false, true);
+    renderArea({ draft, lessonDraftId: LESSON_DRAFT, answer: openAnswerKey() });
+    expect(screen.getByRole("region", { name: "Draft" })).toHaveTextContent(`Draft sheets for exercise ${LESSON_DRAFT}`);
+    expect(screen.queryByText("Linear equations 3")).toBeNull();
+    expect(screen.queryByText("ANS: Linear equations 3")).toBeNull();
+    // It has a Pen Tray of its own, so it needs no lane over the worksheet.
+    expect(screen.queryByTestId("tray-lane")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close the draft" }));
+    expect(draft.closeLessonDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers the lesson's own Draft from the worksheet's viewer when there's nothing to show", () => {
+    const draft = draftState(false);
+    renderArea({ draft, exercise: null, exerciseLabel: "Nothing open", lessonDraftId: LESSON_DRAFT });
+    const { emptyAction } = viewerProps.get("Nothing open") as { emptyAction: ReactNode };
+    render(<>{emptyAction}</>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open the lesson draft" }));
+    expect(draft.openLessonDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no lesson draft on a phone", () => {
+    renderArea({ isMobile: true, exercise: null, exerciseLabel: "On a phone", lessonDraftId: LESSON_DRAFT });
+    expect(viewerProps.get("On a phone")!.emptyAction).toBeUndefined();
   });
 });

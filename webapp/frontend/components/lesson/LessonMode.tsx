@@ -41,7 +41,8 @@ import { SidebarPane } from "./SidebarPane";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import { FocusOverlays } from "./FocusOverlays";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
-import { SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
+import { lessonDraftForZip, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
+import { lessonDraftId, lessonOfDraft } from "@/hooks/useAnnotations";
 import { downloadBlob } from "@/lib/geometry-utils";
 import type { HomeworkStatus, Session, SessionExercise } from "@/types";
 import { GradeBadge } from "@/components/ui/grade-label";
@@ -173,6 +174,10 @@ export function LessonMode({
     [selectedExercise, describeForZip]
   );
 
+  // The Draft beside the worksheet, and the lesson's own Draft in the worksheet's place
+  const draft = useDraft(selectedExercise, isMobile);
+  const lessonDraftOpen = draft.lessonDraftOpen;
+
   // Ink is saved to the server for this lesson and the previous one, which
   // this view also shows. The tab keeps whatever hasn't been sent yet.
   const ink = useLessonInk<AnnotatedExercise>({
@@ -181,15 +186,13 @@ export function LessonMode({
     exercises: allExercises,
     openExercise: selectedExercise,
     openSource: openInkSource,
+    lessonDraftSession: lessonDraftOpen ? session.id : null,
   });
   const {
     tools, annotations: currentAnnotations, openHasInk: exerciseHasAnnotations, onUndo: handleUndo, onRedo: handleRedo,
     getAllAnnotations, getInkSource, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
     syncStatus, flushInk,
   } = ink;
-
-  // The Draft beside the worksheet
-  const draft = useDraft(selectedExercise, isMobile);
 
   // The open exercise's answer key
   const answer = useAnswerKey(selectedExercise, pdfCache);
@@ -233,12 +236,25 @@ export function LessonMode({
 
   // Handle exercise selection
   // Picking an exercise from the mobile sheet or the focus-mode sidebar closes
-  // it again, since a finger can't move off it the way a mouse does.
+  // it again, since a finger can't move off it the way a mouse does. Picking
+  // one also puts the lesson's own Draft away, so the exercise is on screen.
+  const { closeLessonDraft, openLessonDraft } = draft;
   const handleExerciseSelect = useCallback((exercise: SessionExercise) => {
     setSelectedExercise(exercise);
+    closeLessonDraft();
     if (isMobile) setMobileExerciseListOpen(false);
     if (focusMode) setHoverSidebar(false);
-  }, [isMobile, focusMode, setHoverSidebar]);
+  }, [isMobile, focusMode, setHoverSidebar, closeLessonDraft]);
+
+  // The sidebar's "Lesson draft" row. Phones get no Draft, so they don't get the row either.
+  const lessonDraftRow = isMobile ? undefined : {
+    open: lessonDraftOpen,
+    hasInk: checkHasAnnotations(lessonDraftId(session.id)),
+    onOpen: () => {
+      openLessonDraft();
+      if (focusMode) setHoverSidebar(false);
+    },
+  };
 
   // --- Printing ---
   // Every exercise here is the one student's, so each prints with the lesson's stamp.
@@ -270,11 +286,14 @@ export function LessonMode({
 
   // Leaving sends any ink still waiting first, and only asks when some pages
   // can't reach the server. The header's Download All and the exit dialog
-  // both save through here.
+  // both save through here. A lesson's own Draft is saved as its sheets on
+  // their own, and the previous lesson's can have some ink too.
   const describeListed = useCallback((exerciseId: number) => {
+    const lesson = lessonOfDraft(exerciseId);
+    if (lesson !== null) return lessonDraftForZip(lesson === session.id ? "Lesson draft" : "Previous lesson draft");
     const listed = allExercises.find((ex) => ex.id === exerciseId);
     return listed ? describeForZip(listed) : undefined;
-  }, [allExercises, describeForZip]);
+  }, [allExercises, describeForZip, session.id]);
   const {
     attemptExit: handleExitAttempt, downloadAllInk, isSavingAll,
     showExitConfirm, saveAllAndExit, exitAnyway, stay,
@@ -294,7 +313,9 @@ export function LessonMode({
   // --- Keys ---
   // The key table is shared with the multi-student view, in useLessonKeys. An
   // action left out here is one this view can't do right now, so its key is
-  // left to the browser.
+  // left to the browser. While the lesson's own Draft is on screen, the keys
+  // that work on the worksheet wait, because the worksheet is out of sight.
+  const worksheetShown = !lessonDraftOpen;
   const stepExercise = (direction: 1 | -1) => {
     const index = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
     const target = navigableExercises[index + direction];
@@ -309,29 +330,30 @@ export function LessonMode({
     },
     {
       ...panels.keyHandlers,
-      undo: selectedExercise ? handleUndo : undefined,
-      redo: selectedExercise ? handleRedo : undefined,
+      // Undo and redo work on whichever ink is on screen, the lesson's Draft included.
+      undo: selectedExercise || lessonDraftOpen ? handleUndo : undefined,
+      redo: selectedExercise || lessonDraftOpen ? handleRedo : undefined,
       selectHand: tools.selectHand,
       exitFocus: exitFocusMode,
       exit: () => void handleExitAttempt(),
       toggleFocus: isMobile ? undefined : toggleFocusMode,
-      next: () => stepExercise(1),
-      previous: () => stepExercise(-1),
+      next: worksheetShown ? () => stepExercise(1) : undefined,
+      previous: worksheetShown ? () => stepExercise(-1) : undefined,
       pen: () => tools.toggleFromKey("pen"),
       eraser: () => tools.toggleFromKey("eraser"),
       lasso: () => tools.toggleFromKey("lasso"),
       // + and - zoom the worksheet once its file is on screen.
-      zoomIn: pdfData ? () => worksheetRef.current?.zoomIn() : undefined,
-      zoomOut: pdfData ? () => worksheetRef.current?.zoomOut() : undefined,
+      zoomIn: pdfData && worksheetShown ? () => worksheetRef.current?.zoomIn() : undefined,
+      zoomOut: pdfData && worksheetShown ? () => worksheetRef.current?.zoomOut() : undefined,
       editClasswork: () => handleEditExercises(currentSession, "CW"),
       editHomework: () => handleEditExercises(currentSession, "HW"),
       homeworkBlock: homeworkProgress.total > 0 ? toggleHomeworkBlock : undefined,
       // Like the print buttons, p waits while another print is still being prepared.
-      print: selectedExercise?.pdf_name && printing.id === null
+      print: selectedExercise?.pdf_name && printing.id === null && worksheetShown
         ? () => void handlePrintExercise(selectedExercise)
         : undefined,
-      answerKey: answer.answerKeyFound ? answer.toggleAnswerKey : undefined,
-      save: exerciseHasAnnotations ? () => void handleSaveAnnotated() : undefined,
+      answerKey: answer.answerKeyFound && worksheetShown ? answer.toggleAnswerKey : undefined,
+      save: exerciseHasAnnotations && worksheetShown ? () => void handleSaveAnnotated() : undefined,
     },
   );
 
@@ -410,7 +432,8 @@ export function LessonMode({
     <LessonExerciseSidebar
       currentSession={currentSession}
       previousSession={previousSession}
-      selectedExerciseId={selectedExercise?.id ?? null}
+      // While the lesson's own Draft is on screen, its row is the one picked out.
+      selectedExerciseId={lessonDraftOpen ? null : selectedExercise?.id ?? null}
       onExerciseSelect={handleExerciseSelect}
       onEditExercises={handleEditExercises}
       isReadOnly={isReadOnly}
@@ -423,6 +446,7 @@ export function LessonMode({
       onHomeworkExpandedChange={setHomeworkOpen}
       onPrint={handlePrintExercise}
       printing={printing}
+      lessonDraft={lessonDraftRow}
     />
   );
 
@@ -472,6 +496,7 @@ export function LessonMode({
           emptyMessage={!currentSession?.exercises?.length ? NO_EXERCISES_MESSAGE : undefined}
           toolbarStart={focusButtons}
           worksheetRef={worksheetRef}
+          lessonDraftId={lessonDraftId(session.id)}
         />
       </div>
 

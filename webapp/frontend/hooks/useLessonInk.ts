@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAnnotations, type PageAnnotations, type ReplacedInk, type Stroke } from "@/hooks/useAnnotations";
+import {
+  lessonDraftId, lessonOfDraft, useAnnotations, type PageAnnotations, type ReplacedInk, type Stroke,
+} from "@/hooks/useAnnotations";
 import { useAnnotationTools } from "@/hooks/useAnnotationTools";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -24,6 +26,12 @@ interface LessonInkOptions<Source> {
    * is, or it's stored again on every render.
    */
   openSource: Source | null;
+  /**
+   * The lesson whose own Draft is on screen in the open exercise's place, or
+   * null. While it's on screen, the Pen Tray and every handler work on that
+   * Draft's ink, and the exercise is only waiting to be shown again.
+   */
+  lessonDraftSession?: number | null;
 }
 
 /**
@@ -41,12 +49,18 @@ interface LessonInkOptions<Source> {
  * The handlers only change when a different exercise is opened, so the
  * pages they're handed to don't re-render with every stroke.
  */
-export function useLessonInk<Source>({ storageKey, sessionIds, exercises, openExercise, openSource }: LessonInkOptions<Source>) {
+export function useLessonInk<Source>({
+  storageKey, sessionIds, exercises, openExercise, openSource, lessonDraftSession = null,
+}: LessonInkOptions<Source>) {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const openId = openExercise?.id ?? null;
+  // The ink on screen: the lesson's own Draft while it's shown, and otherwise the open exercise's.
+  const openId = lessonDraftSession !== null ? lessonDraftId(lessonDraftSession) : openExercise?.id ?? null;
 
   const locate = useCallback((exerciseId: number) => {
+    // A lesson's own Draft is saved under its lesson, with no PDF behind it.
+    const lesson = lessonOfDraft(exerciseId);
+    if (lesson !== null) return { sessionId: lesson, pdfName: null, pdfPages: [] };
     const exercise = exercises.find((ex) => ex.id === exerciseId)
       ?? (openExercise?.id === exerciseId ? openExercise : null);
     return exercise ? inkLocation(exercise) : null;
@@ -81,9 +95,11 @@ export function useLessonInk<Source>({ storageKey, sessionIds, exercises, openEx
     setAnnotations(openId === null ? {} : getAnnotations(openId));
   }, [openId, getAnnotations, inkRevision]);
 
+  // The source is the open exercise's, even while the lesson's Draft is in its place.
+  const openExerciseId = openExercise?.id ?? null;
   useEffect(() => {
-    if (openId !== null && openSource) setInkSource(openId, openSource);
-  }, [openId, openSource, setInkSource]);
+    if (openExerciseId !== null && openSource) setInkSource(openExerciseId, openSource);
+  }, [openExerciseId, openSource, setInkSource]);
 
   const onPageStrokesChange = useCallback((pageIndex: number, strokes: Stroke[]) => {
     if (openId === null) return;

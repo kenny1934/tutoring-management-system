@@ -233,14 +233,37 @@ export function viewPageIndex(serverIndex: number, pdfPages: number[]): number |
   return index === -1 ? null : index;
 }
 
-/** An exercise's key on the server. A preview has a negative id, and is saved by its file. */
-export const inkTargetKey = (exerciseId: number) =>
-  exerciseId < 0 ? `preview:${-exerciseId}` : `ex:${exerciseId}`;
+/**
+ * A lesson's own Draft, the one a tutor can open before the lesson has any
+ * courseware, is kept in the ink store like an exercise's ink, under an id of
+ * its own. Exercises have positive ids, and a preview has its file's id made
+ * negative. The server keeps a target's number to ten digits, so no file id
+ * reaches this offset, and a lesson's Draft id is always past every preview's.
+ */
+const LESSON_DRAFT_OFFSET = 10_000_000_000;
+
+/** The ink store's id for a lesson's own Draft. */
+export const lessonDraftId = (sessionId: number) => -(LESSON_DRAFT_OFFSET + sessionId);
+
+/** The lesson whose own Draft this ink store id is, or null when it's an exercise or a preview. */
+export const lessonOfDraft = (id: number): number | null =>
+  id <= -LESSON_DRAFT_OFFSET ? -id - LESSON_DRAFT_OFFSET : null;
+
+/**
+ * An exercise's key on the server. A preview has a negative id, and is saved
+ * by its file. A lesson's own Draft is saved by its lesson.
+ */
+export const inkTargetKey = (exerciseId: number) => {
+  const lesson = lessonOfDraft(exerciseId);
+  if (lesson !== null) return `draft:${lesson}`;
+  return exerciseId < 0 ? `preview:${-exerciseId}` : `ex:${exerciseId}`;
+};
 
 function exerciseIdFromTarget(targetKey: string): number | null {
   const [kind, value] = targetKey.split(":");
   const id = Number(value);
   if (!Number.isInteger(id) || id <= 0) return null;
+  if (kind === "draft") return lessonDraftId(id);
   return kind === "ex" ? id : kind === "preview" ? -id : null;
 }
 

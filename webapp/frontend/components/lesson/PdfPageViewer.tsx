@@ -150,6 +150,8 @@ interface PdfPageViewerProps {
   printTitle?: string;
   /** What to say when there's nothing to show. Defaults to asking for an exercise. */
   emptyMessage?: string;
+  /** Something to offer under the empty message, such as the button that opens the lesson's own Draft. */
+  emptyAction?: ReactNode;
   /**
    * Where each exercise's zoom, scroll position, "Hide ink" and covers are
    * kept, keyed by exercise id. Pass the same map on every render.
@@ -232,6 +234,7 @@ export function PdfPageViewer({
   isPrinting = false,
   printTitle = "Print this exercise (P)",
   emptyMessage = "Select an exercise to view",
+  emptyAction,
   viewStates,
   viewKey,
   coverButton = false,
@@ -931,6 +934,7 @@ export function PdfPageViewer({
           <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
             {emptyMessage}
           </p>
+          {emptyAction}
         </div>
       </div>
     );

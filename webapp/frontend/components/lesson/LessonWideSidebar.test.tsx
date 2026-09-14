@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 
 // The lesson number badge saves through these, and nothing here saves.
 vi.mock("@/contexts/ToastContext", () => ({ useToast: () => ({ showToast: () => {} }) }));
@@ -21,7 +22,10 @@ const allEntries = sessions.flatMap((session) => (session.exercises ?? []).map((
 }))) as unknown as StudentExerciseEntry[];
 const fileGroups: FileGroup[] = [{ pdfName: PDF, displayName: "Linear equations 3", exerciseType: "CW", entries: allEntries }];
 
-function renderSidebar(sidebarMode: "by-student" | "by-file") {
+function renderSidebar(
+  sidebarMode: "by-student" | "by-file",
+  extra: Partial<ComponentProps<typeof LessonWideSidebar>> = {},
+) {
   render(
     <LessonWideSidebar
       sessions={sessions}
@@ -35,9 +39,35 @@ function renderSidebar(sidebarMode: "by-student" | "by-file") {
       onStudentOpen={() => {}}
       onEditExercises={() => {}}
       selectedLocation="MSA"
+      {...extra}
     />,
   );
 }
+
+describe("LessonWideSidebar lesson draft", () => {
+  const draftRow = () => screen.getByRole("button", { name: /^Lesson draft/ });
+
+  it("offers the slot's own Draft above the students, with the ink dot when it has some", () => {
+    const onOpen = vi.fn();
+    renderSidebar("by-student", { lessonDraft: { open: false, hasInk: true, onOpen } });
+    expect(within(draftRow()).getByTitle("Has annotations")).toBeInTheDocument();
+    expect(draftRow()).not.toHaveAttribute("aria-current");
+
+    fireEvent.click(draftRow());
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the row while the Draft is on screen", () => {
+    renderSidebar("by-file", { lessonDraft: { open: true, hasInk: false, onOpen: () => {} } });
+    expect(draftRow()).toHaveAttribute("aria-current", "true");
+    expect(within(draftRow()).queryByTitle("Has annotations")).toBeNull();
+  });
+
+  it("has no row when the view leaves the Draft out, as on a phone", () => {
+    renderSidebar("by-student");
+    expect(screen.queryByRole("button", { name: /^Lesson draft/ })).toBeNull();
+  });
+});
 
 describe("LessonWideSidebar schools", () => {
   it("shows a student's school after their grade when grouped by student", () => {

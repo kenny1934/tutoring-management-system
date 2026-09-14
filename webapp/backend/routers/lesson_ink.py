@@ -8,11 +8,14 @@ the one before it, and the multi-student view asks for every session in the
 slot, so the read takes a list of sessions.
 
 A page is named by its session, a target and its page index. The target is
-``ex:<exercise id>`` for an exercise, or ``preview:<file id>`` for a
-parallel-version preview, which isn't an exercise row. The multi-student view
-files a preview under the slot's first session. The page index is the page of
-the PDF counted from 0, or a Draft sheet's own index, 1000 and up, so ink
-stays on its page when someone edits an exercise's page range.
+``ex:<exercise id>`` for an exercise, ``preview:<file id>`` for a
+parallel-version preview, which isn't an exercise row, or ``draft:<session
+id>`` for the lesson's own Draft. That's the Draft a tutor can open before
+the lesson has any courseware, so it belongs to no exercise, and it names its
+own session. The multi-student view files a preview, and the slot's Draft,
+under the slot's first session. The page index is the page of the PDF
+counted from 0, or a Draft sheet's own index, 1000 and up, so ink stays on
+its page when someone edits an exercise's page range.
 
 When two people change the same page, the later save wins. Every write puts
 the page's version up by one, and the views remember the version they last
@@ -61,7 +64,7 @@ class StrokeIn(BaseModel):
 
 class InkPageIn(BaseModel):
     session_id: int
-    target_key: str = Field(..., pattern=r"^(ex|preview):[1-9][0-9]{0,9}$")
+    target_key: str = Field(..., pattern=r"^(ex|preview|draft):[1-9][0-9]{0,9}$")
     page_index: int = Field(..., ge=0, le=9999)
     pdf_page: Optional[int] = Field(None, gt=0)
     pdf_name: Optional[str] = Field(None, max_length=500)
@@ -83,6 +86,12 @@ def _key_out(key: PageKey) -> dict:
 def _exercise_id(target_key: str) -> Optional[int]:
     kind, _, value = target_key.partition(":")
     return int(value) if kind == "ex" else None
+
+
+def _draft_session(target_key: str) -> Optional[int]:
+    """The session a lesson's own Draft names, or None for any other target."""
+    kind, _, value = target_key.partition(":")
+    return int(value) if kind == "draft" else None
 
 
 def _parse_session_ids(raw: str) -> List[int]:
@@ -157,12 +166,14 @@ def _save_pages(db: Session, pages: List[InkPageIn], user: Tutor) -> dict:
     dropped: List[PageKey] = []
     for key, page in by_key.items():
         exercise_id = _exercise_id(page.target_key)
+        draft_session = _draft_session(page.target_key)
         # An exercise that has been taken off its lesson has lost its ink
         # already, so a page still on its way is dropped. The view is told, so
-        # it stops trying to send it.
+        # it stops trying to send it. A lesson's own Draft only ever belongs
+        # to the session it names, so one filed under any other is dropped too.
         if page.session_id not in known_sessions or (
             exercise_id is not None and exercise_session.get(exercise_id) != page.session_id
-        ):
+        ) or (draft_session is not None and draft_session != page.session_id):
             dropped.append(key)
             continue
 

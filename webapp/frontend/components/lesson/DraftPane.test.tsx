@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { DraftPane } from "./DraftPane";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { useAnnotationTools, type AnnotationTools } from "@/hooks/useAnnotationTools";
@@ -24,18 +24,19 @@ beforeEach(() => localStorage.clear());
 
 const line = (): Stroke => ({ points: [[0, 0, 0.5], [10, 10, 0.5]], color: "#000", size: 3 });
 
-function Harness({ initial = {}, onChange = vi.fn(), onTools, onClearPages = vi.fn(), onUndo }: {
+function Harness({ initial = {}, onChange = vi.fn(), onTools, onClearPages = vi.fn(), onUndo, ...rest }: {
   initial?: PageAnnotations;
   onChange?: (pageIndex: number, strokes: Stroke[]) => void;
   onTools?: (tools: AnnotationTools) => void;
   onClearPages?: (pageIndices: number[]) => void;
   onUndo?: () => void;
-}) {
+} & Pick<ComponentProps<typeof DraftPane>, "title" | "barStart" | "ownTray">) {
   const tools = useAnnotationTools();
   onTools?.(tools);
   const [annotations, setAnnotations] = useState(initial);
   return (
     <DraftPane
+      {...rest}
       exerciseId={7}
       annotations={annotations}
       tools={tools}
@@ -157,6 +158,25 @@ describe("DraftPane", () => {
   it("greys out Clear while the draft has no ink", () => {
     render(<Harness />);
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
+  });
+
+  it("leaves the Pen Tray to the worksheet when it sits beside one", () => {
+    render(<Harness />);
+    expect(screen.queryByRole("toolbar", { name: "Annotation tools" })).toBeNull();
+  });
+
+  it("takes the lesson's own Draft's name, the view's buttons and a Pen Tray of its own", () => {
+    const onRedo = vi.fn();
+    render(
+      <Harness title="Lesson draft" barStart={<button type="button">Students</button>} ownTray={{ onRedo, hasInk: false }} />,
+    );
+    expect(screen.getByRole("region", { name: "Lesson draft" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close the lesson draft" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Students" })).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Annotation tools" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Redo" }));
+    expect(onRedo).toHaveBeenCalledTimes(1);
   });
 });
 

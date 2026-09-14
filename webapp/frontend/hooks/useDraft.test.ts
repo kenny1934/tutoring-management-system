@@ -45,6 +45,29 @@ describe("useDraft", () => {
     expect(result.current.trayArea).toBe(lane);
   });
 
+  it("shows the lesson's own Draft in the exercise's place, and brings the exercise's back when it's put away", () => {
+    const { result } = renderHook(() => useDraft(worksheet, false));
+    act(() => result.current.toggleDraft());
+    act(() => result.current.openLessonDraft());
+    expect(result.current.lessonDraftOpen).toBe(true);
+    expect(result.current.draftOpen).toBe(false);
+
+    act(() => result.current.closeLessonDraft());
+    expect(result.current.lessonDraftOpen).toBe(false);
+    expect(result.current.draftOpen).toBe(true);
+  });
+
+  it("opens the lesson's own Draft with no exercise open, but never on a phone", () => {
+    const { result, rerender } = renderHook(
+      ({ isMobile }: { isMobile: boolean }) => useDraft(null, isMobile),
+      { initialProps: { isMobile: false } },
+    );
+    act(() => result.current.openLessonDraft());
+    expect(result.current.lessonDraftOpen).toBe(true);
+    rerender({ isMobile: true });
+    expect(result.current.lessonDraftOpen).toBe(false);
+  });
+
   it("keeps its functions the same between renders", () => {
     const { result, rerender } = renderHook(() => useDraft(worksheet, false));
     const first = result.current;

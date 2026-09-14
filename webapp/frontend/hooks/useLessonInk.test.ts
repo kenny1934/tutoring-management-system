@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import type { SessionExercise } from "@/types";
-import type { Stroke } from "@/hooks/useAnnotations";
+import { lessonDraftId, type Stroke } from "@/hooks/useAnnotations";
 
 const h = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn(), saveOnExit: vi.fn(), showToast: vi.fn() }));
 vi.mock("@/lib/api", () => ({ lessonInkAPI: { read: h.read, save: h.save, saveOnExit: h.saveOnExit } }));
@@ -94,6 +94,30 @@ describe("useLessonInk", () => {
     act(() => result.current.onUndo());
     expect(result.current.annotations[0]).toEqual([moved]);
     expect(result.current.annotations[1000]).toEqual([]);
+  });
+
+  it("draws on the lesson's own Draft while it's on screen, and keeps that ink apart from the exercise's", async () => {
+    const { result, rerender } = renderHook(
+      ({ draftSession }: { draftSession: number | null }) => useLessonInk({
+        storageKey: "lesson-ink-test",
+        sessionIds: [100],
+        exercises: [first, second],
+        openExercise: first,
+        openSource: null,
+        lessonDraftSession: draftSession,
+      }),
+      { initialProps: { draftSession: 100 as number | null } },
+    );
+    await waitFor(() => expect(result.current.inkReady).toBe(true));
+    act(() => result.current.onPageStrokesChange(1000, [stroke(1)]));
+    expect(result.current.openHasInk).toBe(true);
+    expect(result.current.hasAnnotations(lessonDraftId(100))).toBe(true);
+    expect(result.current.hasAnnotations(first.id)).toBe(false);
+
+    // Putting the Draft away shows the exercise's own ink again.
+    rerender({ draftSession: null });
+    expect(result.current.annotations).toEqual({});
+    expect(result.current.openHasInk).toBe(false);
   });
 
   it("keeps its handlers the same while the same exercise is open", async () => {

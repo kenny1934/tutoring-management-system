@@ -42,7 +42,8 @@ import { SidebarPane } from "./SidebarPane";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import { FocusOverlays } from "./FocusOverlays";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
-import { SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
+import { lessonDraftForZip, SAVE_FAILED_MESSAGE, type AnnotatedExercise } from "@/lib/annotated-zip";
+import { lessonDraftId, lessonOfDraft } from "@/hooks/useAnnotations";
 import { downloadBlob } from "@/lib/geometry-utils";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { WolframPanel } from "./WolframPanel";
@@ -175,6 +176,14 @@ export function LessonWideMode({
     return entries;
   }, [sessions]);
 
+  // The Draft beside the worksheet, and the slot's own Draft in the worksheet's place
+  const draft = useDraft(openExercise, isMobile);
+  const lessonDraftOpen = draft.lessonDraftOpen;
+  // The slot's own Draft is kept with one of its lessons, as a preview's ink
+  // is. It's the one with the lowest id, so it stays the same one however the
+  // students are listed.
+  const slotDraftSession = sessions.length > 0 ? Math.min(...sessions.map((s) => s.id)) : null;
+
   // --- Drawing / Annotations ---
   // Ink is saved to the server for every lesson in the slot. The tab keeps
   // whatever hasn't been sent yet, under one key for the whole slot.
@@ -186,15 +195,13 @@ export function LessonWideMode({
     exercises: listedExercises,
     openExercise,
     openSource: openInkSource,
+    lessonDraftSession: lessonDraftOpen ? slotDraftSession : null,
   });
   const {
     tools, annotations: currentAnnotations, openHasInk: exerciseHasAnnotations, onUndo: handleUndo, onRedo: handleRedo,
     getAllAnnotations, getInkSource, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
     syncStatus, flushInk,
   } = ink;
-
-  // The Draft beside the worksheet
-  const draft = useDraft(openExercise, isMobile);
 
   // --- The open worksheet's answer key ---
   const answer = useAnswerKey(openExercise, pdfCache);
@@ -371,10 +378,18 @@ export function LessonWideMode({
     window.close();
     if (!window.closed) router.push("/sessions");
   }, [router]);
+  // A lesson's own Draft is saved as its sheets on their own. Besides the
+  // slot's, a student's lesson can have one from the one-student view, which
+  // is named after the student.
   const describeListed = useCallback((exerciseId: number) => {
+    const lesson = lessonOfDraft(exerciseId);
+    if (lesson !== null) {
+      const student = sessions.find((s) => s.id === lesson)?.student_name;
+      return lessonDraftForZip(lesson === slotDraftSession || !student ? "Lesson draft" : `Lesson draft-${student}`);
+    }
     const listed = allEntries.find((entry) => entry.exercise.id === exerciseId);
     return listed ? describeForZip(listed) : undefined;
-  }, [allEntries]);
+  }, [allEntries, sessions, slotDraftSession]);
   // Leaving sends any ink still waiting first, and only asks when some pages
   // can't reach the server. The header's Download All and the exit dialog
   // both save through here.
@@ -500,7 +515,9 @@ export function LessonWideMode({
   // The key table is shared with the one-student view, in useLessonKeys. An
   // action left out here is one this view can't do right now, so its key is
   // left to the browser. There's no exit, because this view is its own tab
-  // and Escape never closes it.
+  // and Escape never closes it. While the slot's own Draft is on screen, the
+  // keys that work on a student's worksheet wait, because it's out of sight.
+  const entryShown = lessonDraftOpen ? null : selectedEntry;
   useLessonKeys(
     {
       blocked: !!editing || !!bulkAssignType || showExitConfirm,
@@ -510,29 +527,30 @@ export function LessonWideMode({
     },
     {
       ...panels.keyHandlers,
-      undo: selectedEntry ? handleUndo : undefined,
-      redo: selectedEntry ? handleRedo : undefined,
+      // Undo and redo work on whichever ink is on screen, the slot's Draft included.
+      undo: selectedEntry || lessonDraftOpen ? handleUndo : undefined,
+      redo: selectedEntry || lessonDraftOpen ? handleRedo : undefined,
       selectHand: tools.selectHand,
       exitFocus: exitFocusMode,
       toggleFocus: isMobile ? undefined : toggleFocusMode,
-      next: () => navigateExercise(1),
-      previous: () => navigateExercise(-1),
+      next: entryShown ? () => navigateExercise(1) : undefined,
+      previous: entryShown ? () => navigateExercise(-1) : undefined,
       // Tab and Shift+Tab step through the students, like the strip's arrows.
-      nextStudent: canStep ? () => navigateStudent(1) : undefined,
-      previousStudent: canStep ? () => navigateStudent(-1) : undefined,
+      nextStudent: canStep && entryShown ? () => navigateStudent(1) : undefined,
+      previousStudent: canStep && entryShown ? () => navigateStudent(-1) : undefined,
       pen: () => tools.toggleFromKey("pen"),
       eraser: () => tools.toggleFromKey("eraser"),
       lasso: () => tools.toggleFromKey("lasso"),
       // + and - zoom the worksheet once its file is on screen.
-      zoomIn: pdfData ? () => worksheetRef.current?.zoomIn() : undefined,
-      zoomOut: pdfData ? () => worksheetRef.current?.zoomOut() : undefined,
+      zoomIn: pdfData && entryShown ? () => worksheetRef.current?.zoomIn() : undefined,
+      zoomOut: pdfData && entryShown ? () => worksheetRef.current?.zoomOut() : undefined,
       // c and h edit the exercises of the student on screen.
-      editClasswork: selectedEntry ? () => handleEditExercises(selectedEntry.session, "CW") : undefined,
-      editHomework: selectedEntry ? () => handleEditExercises(selectedEntry.session, "HW") : undefined,
+      editClasswork: entryShown ? () => handleEditExercises(entryShown.session, "CW") : undefined,
+      editHomework: entryShown ? () => handleEditExercises(entryShown.session, "HW") : undefined,
       // Like the print buttons, p waits while another print is still being prepared.
-      print: selectedEntry?.exercise.pdf_name && printing.id === null ? () => handlePrint() : undefined,
-      answerKey: answer.answerKeyFound ? answer.toggleAnswerKey : undefined,
-      save: exerciseHasAnnotations ? () => void handleSaveAnnotated() : undefined,
+      print: entryShown?.exercise.pdf_name && printing.id === null ? () => handlePrint() : undefined,
+      answerKey: answer.answerKeyFound && entryShown ? answer.toggleAnswerKey : undefined,
+      save: exerciseHasAnnotations && entryShown ? () => void handleSaveAnnotated() : undefined,
     },
   );
 
@@ -591,9 +609,9 @@ export function LessonWideMode({
   );
 
   // In focus mode, the Students button and the way out sit at the two ends of
-  // the student strip. With no worksheet picked there's no strip, so they go at
-  // the start of the worksheet's toolbar.
-  const focusButtons = focusMode && !selectedEntry ? (
+  // the student strip. With no worksheet on screen there's no strip, so they
+  // go at the start of the worksheet's toolbar, or of the slot's Draft's bar.
+  const focusButtons = focusMode && !entryShown ? (
     <>
       <FocusSidebarButton icon={Users} label="Students" open={hoverSidebar} onOpen={() => setHoverSidebar(true)} />
       <LeaveFocusButton onLeave={exitFocusMode} />
@@ -601,10 +619,22 @@ export function LessonWideMode({
   ) : null;
 
   // Picking something from the focus-mode sidebar closes it again, since a
-  // finger can't move off it the way a mouse does.
+  // finger can't move off it the way a mouse does. Picking a worksheet or a
+  // student also puts the slot's own Draft away, so the worksheet is on screen.
   const selectEntry = (entry: StudentExerciseEntry) => {
     setSelectedEntry(entry);
+    draft.closeLessonDraft();
     if (focusMode) setHoverSidebar(false);
+  };
+
+  // The sidebar's "Lesson draft" row. Phones get no Draft, so they don't get the row either.
+  const lessonDraftRow = isMobile || slotDraftSession === null ? undefined : {
+    open: lessonDraftOpen,
+    hasInk: checkHasAnnotations(lessonDraftId(slotDraftSession)),
+    onOpen: () => {
+      draft.openLessonDraft();
+      if (focusMode) setHoverSidebar(false);
+    },
   };
 
   // Shared sidebar props (rendered in 3 locations: main, focus overlay, mobile sheet)
@@ -615,10 +645,12 @@ export function LessonWideMode({
     allEntries,
     sidebarMode,
     onSidebarModeChange: setSidebarMode,
-    selectedEntry,
+    // While the slot's own Draft is on screen, its row is the one picked out.
+    selectedEntry: entryShown,
     onEntrySelect: selectEntry,
     onStudentOpen: (session: Session) => {
       openStudent(session);
+      draft.closeLessonDraft();
       if (focusMode) setHoverSidebar(false);
     },
     onEditExercises: handleEditExercises,
@@ -632,6 +664,7 @@ export function LessonWideMode({
     printing,
     homeworkBySession,
     onHomeworkMarked: handleHomeworkMarked,
+    lessonDraft: lessonDraftRow,
   };
 
   return (
@@ -660,10 +693,11 @@ export function LessonWideMode({
         {/* The open exercise, with its Draft and its answer key */}
         <LessonViewerArea
           isMobile={isMobile}
-          // Whose worksheet this is, in large letters, with arrows to the next student
-          top={selectedEntry && (
+          // Whose worksheet this is, in large letters, with arrows to the next student.
+          // The slot's own Draft is nobody's, so it has no strip.
+          top={entryShown && (
             <StudentStrip
-              entry={selectedEntry}
+              entry={entryShown}
               position={stepIndex >= 0 ? { index: stepIndex + 1, total: stepCount } : null}
               onPrevious={canStep ? () => navigateStudent(-1) : undefined}
               onNext={canStep ? () => navigateStudent(1) : undefined}
@@ -695,6 +729,7 @@ export function LessonWideMode({
           emptyMessage={allEntries.length === 0 ? NO_EXERCISES_MESSAGE : undefined}
           toolbarStart={focusButtons}
           worksheetRef={worksheetRef}
+          lessonDraftId={slotDraftSession === null ? null : lessonDraftId(slotDraftSession)}
         />
       </div>
 

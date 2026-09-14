@@ -8,7 +8,7 @@ import type { PrintStampInfo } from "./pdf-utils";
 import { RENDER_SCALE, getStrokeOptions, inkLayers, strokeOpacity } from "@/hooks/useAnnotations";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { DRAFT_GRID_COLOUR, DRAFT_SHEET_PT, DRAFT_SQUARE_PT, draftSquared, inkedDraftPages } from "./draft-sheets";
-import type { PDFPage, RGB } from "pdf-lib";
+import type { PDFDocument as PdfDocument, PDFPage, RGB } from "pdf-lib";
 
 /**
  * Draw a single stroke onto a canvas context. A one-point stroke from a tap
@@ -141,16 +141,34 @@ export async function saveAnnotatedPdf(
   }
 
   // Step 4: Add the Draft's sheets that have ink, blank or squared as they are on screen
-  const squared = draftSquared.get();
-  for (const pageIndex of inkedDraftPages(annotations)) {
-    const { width, height } = DRAFT_SHEET_PT;
-    const sheet = pdfDoc.addPage([width, height]);
-    if (squared) ruleSquares(sheet, rgb(...DRAFT_GRID_COLOUR.rgb));
-    const pngData = await renderPageAnnotations(annotations[pageIndex], width, height);
-    if (pngData) sheet.drawImage(await pdfDoc.embedPng(pngData), { x: 0, y: 0, width, height });
-  }
+  await addDraftSheets(pdfDoc, rgb(...DRAFT_GRID_COLOUR.rgb), annotations);
 
   // Step 5: Save
   const finalBytes = await pdfDoc.save();
   return new Blob([finalBytes], { type: "application/pdf" });
+}
+
+/** Add the Draft's sheets that have ink to the end of a PDF, blank or squared as they are on screen. */
+async function addDraftSheets(pdfDoc: PdfDocument, grid: RGB, annotations: PageAnnotations) {
+  const squared = draftSquared.get();
+  for (const pageIndex of inkedDraftPages(annotations)) {
+    const { width, height } = DRAFT_SHEET_PT;
+    const sheet = pdfDoc.addPage([width, height]);
+    if (squared) ruleSquares(sheet, grid);
+    const pngData = await renderPageAnnotations(annotations[pageIndex], width, height);
+    if (pngData) sheet.drawImage(await pdfDoc.embedPng(pngData), { x: 0, y: 0, width, height });
+  }
+}
+
+/**
+ * A PDF of nothing but Draft sheets, for a lesson's own Draft, which has no
+ * worksheet behind it. As with an exercise's Draft, only the sheets with ink
+ * are kept.
+ */
+export async function saveDraftSheetsPdf(annotations: PageAnnotations): Promise<Blob> {
+  const { PDFDocument, rgb } = await import("pdf-lib");
+  const pdfDoc = await PDFDocument.create();
+  await addDraftSheets(pdfDoc, rgb(...DRAFT_GRID_COLOUR.rgb), annotations);
+  const bytes = await pdfDoc.save();
+  return new Blob([bytes as BlobPart], { type: "application/pdf" });
 }

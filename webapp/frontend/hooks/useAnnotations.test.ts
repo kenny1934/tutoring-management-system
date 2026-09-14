@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { lessonInkAPI, type LessonInkPage } from "@/lib/api";
 import {
-  useAnnotations, inkLayers, getStrokeOptions, hasInk, serverPageIndex, viewPageIndex, inkTargetKey,
+  useAnnotations, inkLayers, getStrokeOptions, hasInk, serverPageIndex, viewPageIndex, inkTargetKey, lessonDraftId, lessonOfDraft,
   roundStroke, type ReplacedInk, type Stroke,
 } from "./useAnnotations";
 
@@ -272,6 +272,15 @@ describe("server keys and rounding", () => {
   it("keys a preview by its file", () => {
     expect(inkTargetKey(12)).toBe("ex:12");
     expect(inkTargetKey(-345)).toBe("preview:345");
+  });
+
+  it("keys a lesson's own Draft by its lesson, apart from every exercise and preview", () => {
+    expect(inkTargetKey(lessonDraftId(100))).toBe("draft:100");
+    expect(lessonOfDraft(lessonDraftId(100))).toBe(100);
+    expect(lessonOfDraft(12)).toBeNull();
+    // The largest file id the server allows is still a preview.
+    expect(lessonOfDraft(-9_999_999_999)).toBeNull();
+    expect(inkTargetKey(-9_999_999_999)).toBe("preview:9999999999");
   });
 
   it("rounds points for saving, and keeps a pressure of exactly 0.5", () => {

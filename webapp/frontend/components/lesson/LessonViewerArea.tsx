@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode, type Ref } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, NotebookPen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { getPrintButtonTitle, NO_FILE_ERROR, type PrintingState } from "@/lib/lesson-utils";
@@ -49,6 +49,11 @@ interface LessonViewerAreaProps {
   toolbarStart: ReactNode;
   /** How the view zooms the worksheet from the keyboard. Only the worksheet gets it, so the answer key keeps its own zoom. */
   worksheetRef: Ref<PdfViewerHandle>;
+  /**
+   * The lesson's own Draft's id in the ink store. It opens in the worksheet's
+   * place, from the empty viewer or from the sidebar. Null leaves it out.
+   */
+  lessonDraftId: number | null;
 }
 
 const divider = <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />;
@@ -66,12 +71,16 @@ const tabClass = (active: boolean) => cn(
  * key folds away when there isn't room for all of them. On a phone the
  * worksheet and the answer key take turns on two tabs.
  *
+ * The lesson's own Draft can take the worksheet's place, with the answer key
+ * put away while it's there. When there's no worksheet to show, as in a
+ * lesson with no courseware yet, the empty viewer offers it.
+ *
  * Each view hands over its hooks' results and the few things that differ
  * between the views, such as the stamp and what printing does.
  */
 export function LessonViewerArea({
   isMobile, top, link, exercise, exerciseLabel, pdf, answer, draft, ink,
-  stamp, onSaveAnnotated, onPrint, printing, emptyMessage, toolbarStart, worksheetRef,
+  stamp, onSaveAnnotated, onPrint, printing, emptyMessage, toolbarStart, worksheetRef, lessonDraftId,
 }: LessonViewerAreaProps) {
   // Each exercise's zoom, scroll position, "Hide ink" and covers, so switching
   // between exercises and back finds each one as the tutor left it. The answer
@@ -80,6 +89,21 @@ export function LessonViewerArea({
   const [answerViewStates] = useState(() => new Map<number, PdfViewState>());
   const { showAnswerKey, answerPdfData, mobileActiveTab, setMobileActiveTab } = answer;
   const isPrinting = printing.id !== null;
+
+  // The lesson's own Draft, while it's on screen in the worksheet's place.
+  const lessonDraftShown = draft.lessonDraftOpen ? lessonDraftId : null;
+  // With no worksheet to show, the viewer offers the lesson's own Draft. Phones get no Draft.
+  const lessonDraftButton = !isMobile && lessonDraftId !== null ? (
+    <button
+      type="button"
+      onClick={draft.openLessonDraft}
+      title="Blank or squared paper for working. It stays with the lesson, whichever worksheet is open."
+      className="flex items-center gap-1.5 min-h-10 px-4 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+    >
+      <NotebookPen className="h-4 w-4" />
+      Open the lesson draft
+    </button>
+  ) : undefined;
 
   const answerViewer = (
     <PdfPageViewer
@@ -117,7 +141,23 @@ export function LessonViewerArea({
       )}>
         {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
           <div className={cn("relative flex flex-1 min-h-0 min-w-0", draft.draftOpen && "@[1100px]/viewers:flex-[2]")}>
-            {link ?? (
+            {/* The lesson's own Draft takes the worksheet's place, with a Pen Tray of its own */}
+            {lessonDraftShown !== null ? (
+              <DraftPane
+                exerciseId={lessonDraftShown}
+                title="Lesson draft"
+                // Focus mode's way out sits on the worksheet's toolbar, so it moves onto the Draft's bar.
+                barStart={toolbarStart}
+                annotations={ink.annotations}
+                onPageStrokesChange={ink.onPageStrokesChange}
+                onPagesStrokesChange={ink.onPagesStrokesChange}
+                onClearPages={ink.onClearPages}
+                onUndo={ink.onUndo}
+                tools={ink.tools}
+                onClose={draft.closeLessonDraft}
+                ownTray={{ onRedo: ink.onRedo, onClearAll: ink.onClearAll, hasInk: ink.openHasInk }}
+              />
+            ) : link ?? (
               <ErrorBoundary
                 onReset={pdf.retry}
                 fallback={
@@ -170,6 +210,7 @@ export function LessonViewerArea({
                   isPrinting={isPrinting}
                   printTitle={getPrintButtonTitle(isPrinting, printing.progress, "Print this exercise (P)")}
                   emptyMessage={emptyMessage}
+                  emptyAction={lessonDraftButton}
                   viewStates={viewStates}
                   trayArea={draft.trayArea}
                 />
@@ -199,7 +240,7 @@ export function LessonViewerArea({
         )}
 
         {/* The answer key is read-only. With the Draft open, it folds away when there isn't room for three columns. */}
-        {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
+        {showAnswerKey && lessonDraftShown === null && (!isMobile || mobileActiveTab === "answer") && (
           draft.draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
             <>
               {!isMobile && divider}
