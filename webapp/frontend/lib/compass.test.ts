@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, readCompassWidth, saveCompassWidth, snapWidth,
-  sweepRange, typedWidth,
+  addTurn, arcPoints, directionOf, draggedLegs, hingeHeight, mirroredAt, opensTo, readCompassLegs, readCompassWidth,
+  saveCompassLegs, saveCompassWidth, snapWidth, sweepRange, typedWidth, widestFor,
 } from "./compass";
 
 describe("sweepRange", () => {
@@ -72,12 +72,48 @@ describe("the remembered width", () => {
     localStorage.setItem("csm_compass_width", "nonsense");
     expect(readCompassWidth()).toBe(4);
   });
+
+  it("keeps a remembered width within what the legs allow", () => {
+    saveCompassWidth(13);
+    expect(readCompassWidth(5)).toBe(9);
+  });
+
+  it("remembers the legs' length, starting at 7 cm", () => {
+    expect(readCompassLegs()).toBe(7);
+    saveCompassLegs(10);
+    expect(readCompassLegs()).toBe(10);
+    saveCompassLegs(30);
+    expect(readCompassLegs()).toBe(12);
+  });
 });
 
 describe("hingeHeight", () => {
   it("stands the hinge lower as the compasses open", () => {
     expect(hingeHeight(0)).toBe(7);
     expect(hingeHeight(4)).toBeCloseTo(Math.sqrt(45));
+  });
+
+  it("stands it higher on longer legs", () => {
+    expect(hingeHeight(4, 10)).toBeCloseTo(Math.sqrt(96));
+  });
+});
+
+describe("the legs' length", () => {
+  it("sets how wide the compasses can open, a centimetre short of the legs laid end to end", () => {
+    expect(widestFor(7)).toBe(13);
+    expect(widestFor(12)).toBe(23);
+    expect(opensTo(15)).toBe(false);
+    expect(opensTo(15, 12)).toBe(true);
+    expect(snapWidth(20, 12)).toBe(20);
+    expect(snapWidth(20, 5)).toBe(9);
+    expect(typedWidth("20", 12)).toBe(20);
+  });
+
+  it("grows and shrinks with a drag of the handle, between 5 and 12 cm", () => {
+    expect(draggedLegs(7, 24.5, 35)).toBe(10);
+    expect(draggedLegs(7, 10, 100)).toBe(12);
+    expect(draggedLegs(7, 50, 10)).toBe(5);
+    expect(draggedLegs(7, 0, 10)).toBe(7);
   });
 });
 

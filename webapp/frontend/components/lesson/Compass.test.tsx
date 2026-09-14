@@ -240,6 +240,44 @@ describe("Compass", () => {
     expect(x.style.transform).toBe("scaleY(-1) rotate(-180deg)");
   });
 
+  it("grows from the handle on the needle's leg with the needle kept still, and remembers the size", () => {
+    render(<Harness />);
+    // With 7 cm legs opened to 4 cm, the hinge is at (220, 300 - 67.1), and
+    // the handle is 24.5 pixels up the needle's leg towards it.
+    const hingeRise = hingeHeight(4) * 10;
+    const handle = screen.getByRole("img", { name: "Drag to resize" });
+    fireEvent.pointerDown(handle, touch(1, 200 + (20 * 24.5) / 70, 300 - (hingeRise * 24.5) / 70));
+    // 35 pixels from the needle makes the legs 10 cm.
+    fireEvent.pointerMove(handle, touch(1, 200, 265));
+    fireEvent.pointerUp(handle, touch(1, 200, 265));
+
+    expect(compasses().style.left).toBe("200px");
+    expect(compasses().style.width).toBe("40px");
+    expect(parseFloat(compasses().style.height)).toBeCloseTo(hingeHeight(4, 10) * 10 + 15);
+    expect(localStorage.getItem("csm_compass_legs")).toBe("10");
+  });
+
+  it("closes up to fit legs made too short for the width", () => {
+    localStorage.setItem("csm_compass_legs", "10");
+    localStorage.setItem("csm_compass_width", "12");
+    render(<Harness />);
+    expect(screen.getByText("12.0 cm")).toBeInTheDocument();
+
+    // The needle starts 60 pixels left of the start, at (160, 300 + the difference in the hinge's height).
+    const needle: Vec = [START[0] - 60, parseFloat(compasses().style.top) + parseFloat(compasses().style.height)];
+    // The hinge is at (60, -80) from the needle, and the handle 35 pixels along towards it.
+    const handle = screen.getByRole("img", { name: "Drag to resize" });
+    fireEvent.pointerDown(handle, touch(1, needle[0] + 21, needle[1] - 28));
+    // Half as far from the needle makes the legs 5 cm, which open to 9 cm at most.
+    fireEvent.pointerMove(handle, touch(1, needle[0] + 10.5, needle[1] - 14));
+    fireEvent.pointerUp(handle, touch(1, needle[0] + 10.5, needle[1] - 14));
+
+    expect(compasses().style.width).toBe("90px");
+    expect(screen.getByText("9.0 cm")).toBeInTheDocument();
+    expect(localStorage.getItem("csm_compass_legs")).toBe("5");
+    expect(localStorage.getItem("csm_compass_width")).toBe("9");
+  });
+
   it("turns without drawing while the pencil is lifted, and draws again once it's put down", () => {
     const line: DrivenLine = { to: vi.fn(), end: vi.fn() };
     const { startLine, off } = registerPage(line);

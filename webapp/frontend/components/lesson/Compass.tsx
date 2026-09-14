@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { FlipHorizontal2, Minus, PencilOff, Plus, X } from "lucide-react";
+import { FlipHorizontal2, Minus, MoveDiagonal2, PencilOff, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool } from "@/hooks/usePlacedTool";
 import { inkPageAt, inkSnapAt, type DrivenLine } from "@/hooks/useInkPages";
 import {
-  addTurn, arcPoints, directionOf, hingeHeight, mirroredAt, opensTo, pointAt, readCompassWidth, saveCompassWidth,
-  snapWidth, sweepRange, typedWidth,
+  addTurn, arcPoints, directionOf, draggedLegs, hingeHeight, mirroredAt, opensTo, pointAt, readCompassLegs,
+  readCompassWidth, saveCompassLegs, saveCompassWidth, snapWidth, sweepRange, typedWidth, widestFor,
 } from "@/lib/compass";
 import type { Vec } from "@/lib/stroke-select";
 import { HANDLE_DOT, READING, ROUND_BUTTON, grabPointer } from "./ToolParts";
@@ -59,6 +59,8 @@ interface WidthStepperProps {
   /** Where the width sits, in the container's own pixels. */
   at: Vec;
   width: number;
+  /** How long the legs are, which sets how wide the compasses can open. */
+  legs: number;
   /** A centimetre in the container's own pixels, which sizes the buttons for a finger. */
   cm: number;
   darkMode: boolean;
@@ -69,19 +71,19 @@ interface WidthStepperProps {
 /**
  * The compasses' width, opened out so it can be set exactly. The − and +
  * buttons move it a millimetre at a time, which suits a finger at the board,
- * and the box takes a typed width. What's typed is kept between 0.5 and 13 cm
- * and snapped to a millimetre once Enter is pressed or the box loses focus,
- * and Escape closes the box and forgets it. A tap anywhere else closes it too,
- * and that tap is kept from the page, so closing it with a pen picked never
- * leaves a dot.
+ * and the box takes a typed width. What's typed is kept between 0.5 cm and
+ * the widest the legs allow, and snapped to a millimetre once Enter is
+ * pressed or the box loses focus, and Escape closes the box and forgets it. A
+ * tap anywhere else closes it too, and that tap is kept from the page, so
+ * closing it with a pen picked never leaves a dot.
  */
-function WidthStepper({ at, width, cm, darkMode, onChange, onClose }: WidthStepperProps) {
+function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: WidthStepperProps) {
   const [typed, setTyped] = useState(width.toFixed(1));
   const boxRef = useRef<HTMLDivElement>(null);
   // Set once Escape has closed the box, so the box losing focus as it goes doesn't keep what was typed.
   const cancelledRef = useRef(false);
   // A width typed but not yet confirmed counts, so + straight after typing 6 goes to 6.1.
-  const current = () => typedWidth(typed) ?? width;
+  const current = () => typedWidth(typed, legs) ?? width;
   const settle = (next: number) => {
     onChange(next);
     setTyped(next.toFixed(1));
@@ -126,7 +128,7 @@ function WidthStepper({ at, width, cm, darkMode, onChange, onClose }: WidthStepp
         type="button"
         aria-label="A millimetre narrower"
         title="A millimetre narrower"
-        onClick={() => settle(snapWidth(current() - 0.1))}
+        onClick={() => settle(snapWidth(current() - 0.1, legs))}
         className={stepClass}
         style={{ width: control, height: control }}
       >
@@ -156,7 +158,7 @@ function WidthStepper({ at, width, cm, darkMode, onChange, onClose }: WidthStepp
         type="button"
         aria-label="A millimetre wider"
         title="A millimetre wider"
-        onClick={() => settle(snapWidth(current() + 0.1))}
+        onClick={() => settle(snapWidth(current() + 0.1, legs))}
         className={stepClass}
         style={{ width: control, height: control }}
       >
@@ -199,15 +201,23 @@ function WidthStepper({ at, width, cm, darkMode, onChange, onClose }: WidthStepp
  * opens it out into − and + buttons and a box to type a width, for setting it
  * exactly. Each board remembers the width the compasses were last left at.
  *
+ * The handle with diagonal arrows, part way up the needle's leg, makes the
+ * compasses bigger or smaller. Their legs grow or shrink with the finger's
+ * distance from the needle, from 5 cm to 12 cm, which changes how wide they
+ * can open: up to 13 cm with the usual 7 cm legs, and up to 23 cm with the
+ * longest. Legs made too short for the width close the compasses up to fit.
+ * Each board remembers the size too.
+ *
  * Like a real pair, they can work with the pencil on either side of the
  * needle. Whenever the pencil is on the left they're drawn mirrored, so the
  * hinge and the handle stay on top, and the button beside the hinge flips the
  * pencil to the other side of the needle without drawing.
  */
 export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassProps) {
-  const [width, setWidth] = useState(readCompassWidth);
+  const [legs, setLegs] = useState(readCompassLegs);
+  const [width, setWidth] = useState(() => readCompassWidth(readCompassLegs()));
   const span = width * cm;
-  const rise = hingeHeight(width) * cm;
+  const rise = hingeHeight(width, legs) * cm;
   // The box runs from the needle across to the pencil, and up past the hinge to hold the turn handle.
   const boxHeight = rise + 1.5 * cm;
 
@@ -267,10 +277,10 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     const widthTo = (point: Vec) => Math.hypot(point[0] - m.needle[0], point[1] - m.needle[1]) / m.onScreenCm;
     // A point the compasses can open to sets the width exactly. Anywhere else, the width snaps to a whole millimetre.
     const found = inkSnapAt(dragged);
-    const caught = found && opensTo(widthTo(found)) ? found : null;
+    const caught = found && opensTo(widthTo(found), legs) ? found : null;
     const pencil = caught ?? dragged;
     setPencilSnapped(caught !== null);
-    grip.width = caught ? widthTo(caught) : snapWidth(widthTo(dragged));
+    grip.width = caught ? widthTo(caught) : snapWidth(widthTo(dragged), legs);
     setWidth(grip.width);
     setPlace({ cx: place.cx, cy: place.cy, angle: directionOf(m.needle, pencil) });
   };
@@ -332,6 +342,39 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
     setBusy(false);
   };
 
+  // A drag of the resize handle, measured by the finger's distance from the
+  // needle on screen. It remembers the width it started at, so legs shortened
+  // past the width and lengthened again in the same drag open back out to it.
+  const resizeRef = useRef<{ pointerId: number; from: number; startLegs: number; startWidth: number; legs: number; width: number } | null>(null);
+
+  const resizeDown = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const m = measure();
+    if (!m || !grabHandle(e)) return;
+    const from = Math.hypot(e.clientX - m.needle[0], e.clientY - m.needle[1]);
+    resizeRef.current = { pointerId: e.pointerId, from, startLegs: legs, startWidth: width, legs, width };
+  };
+
+  const resizeMove = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const drag = resizeRef.current;
+    const m = measure();
+    if (!drag || drag.pointerId !== e.pointerId || !m) return;
+    e.stopPropagation();
+    drag.legs = draggedLegs(drag.startLegs, drag.from, Math.hypot(e.clientX - m.needle[0], e.clientY - m.needle[1]));
+    drag.width = Math.min(drag.startWidth, widestFor(drag.legs));
+    setLegs(drag.legs);
+    setWidth(drag.width);
+  };
+
+  const resizeUp = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const drag = resizeRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    resizeRef.current = null;
+    saveCompassLegs(drag.legs);
+    saveCompassWidth(drag.width);
+    setBusy(false);
+  };
+
   // The pencil swings round to the other side of the needle, at the same width, and draws nothing.
   const flip = () => setPlace({ cx: place.cx, cy: place.cy, angle: (place.angle + 180) % 360 });
 
@@ -343,6 +386,8 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   const hinge: Vec = [span / 2, boxHeight - rise];
   const knob: Vec = [span / 2, boxHeight - rise - 0.9 * cm];
   const grip = along(pencil, hinge, 2.1 * cm);
+  // The resize handle sits a little over a third of the way up the needle's leg, so it moves out as the legs grow.
+  const resizeAt = along(needle, hinge, 0.35 * legs * cm);
   const needleShoulder = along(needle, hinge, 0.6 * cm);
   const pencilShoulder = along(pencil, hinge, 1.3 * cm);
   const lead = along(pencil, hinge, 0.35 * cm);
@@ -438,6 +483,24 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
           <i className={HANDLE_DOT} />
         </span>
 
+        {/* The handle on the needle's leg makes the compasses bigger or smaller. Its arrows set it apart from the grip */}
+        <span
+          data-tool-handle=""
+          role="img"
+          aria-label="Drag to resize"
+          title="Drag to resize"
+          onPointerDown={resizeDown}
+          onPointerMove={resizeMove}
+          onPointerUp={resizeUp}
+          onPointerCancel={resizeUp}
+          className="pointer-events-auto absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center cursor-nesw-resize"
+          style={{ left: resizeAt[0], top: resizeAt[1], width: cm, height: cm }}
+        >
+          <i className="grid h-5 w-5 place-items-center rounded-full border-2 border-[#a0704b] bg-white text-[#a0704b]">
+            <MoveDiagonal2 className="h-3 w-3" strokeWidth={2.5} />
+          </i>
+        </span>
+
         {/* The handle at the top turns the compasses round the needle, and the pencil draws as it turns unless it's lifted */}
         <span
           data-tool-handle=""
@@ -491,6 +554,7 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
         <WidthStepper
           at={labelAt}
           width={width}
+          legs={legs}
           cm={cm}
           darkMode={darkMode}
           onChange={(next) => {

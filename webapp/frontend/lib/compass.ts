@@ -1,7 +1,8 @@
 /**
  * The compasses for lesson annotations: a pair of compasses drawn from the
- * side, with a needle and a pencil on two 7 cm legs that meet at a hinge, in
- * true centimetres of the printed page. The needle moves them, the pencil's
+ * side, with a needle and a pencil on two legs that meet at a hinge, in true
+ * centimetres of the printed page. The legs are 7 cm long until a handle on
+ * the needle's leg resizes them. The needle moves them, the pencil's
  * grip opens or closes them, and the handle on the hinge turns them round the
  * needle, drawing with the pencil unless it's lifted. Each board remembers the
  * width they were last left at.
@@ -12,51 +13,103 @@
  */
 import { clamp, type Vec } from "@/lib/stroke-select";
 
-/** Each leg is 7 cm, so the compasses open from 0.5 cm to 13 cm. They start at 4 cm. */
+/**
+ * The legs are 7 cm long until the handle resizes them, from 5 cm up to
+ * 12 cm. Shorter legs take less room on the board for small circles, and
+ * longer ones reach further. The compasses open from 0.5 cm to a centimetre
+ * short of their two legs laid end to end, so 13 cm with 7 cm legs, and they
+ * start at 4 cm.
+ */
 const COMPASS_LEG_CM = 7;
+const COMPASS_LEGS_MIN_CM = 5;
+const COMPASS_LEGS_MAX_CM = 12;
 const COMPASS_MIN_CM = 0.5;
-const COMPASS_MAX_CM = 13;
 export const COMPASS_START_CM = 4;
 
-/** Whether the compasses can open, or close, to this width. */
-export function opensTo(cm: number): boolean {
-  return cm >= COMPASS_MIN_CM && cm <= COMPASS_MAX_CM;
+/** The widest the compasses open with legs this long. */
+export function widestFor(legs: number): number {
+  return 2 * legs - 1;
 }
 
-/** A width kept between 0.5 and 13 cm, and snapped to a whole millimetre so a 4 cm circle comes out exactly. */
-export function snapWidth(cm: number): number {
-  return Math.round(clamp(cm, COMPASS_MIN_CM, COMPASS_MAX_CM) * 10) / 10;
+/** Whether the compasses, with legs this long, can open or close to this width. */
+export function opensTo(cm: number, legs = COMPASS_LEG_CM): boolean {
+  return cm >= COMPASS_MIN_CM && cm <= widestFor(legs);
 }
 
 /**
- * The width typed into the compasses' box, kept between 0.5 and 13 cm and
- * snapped to a millimetre, or null when what's typed isn't a number.
+ * A width kept between 0.5 cm and the widest legs this long allow, and
+ * snapped to a whole millimetre so a 4 cm circle comes out exactly.
  */
-export function typedWidth(text: string): number | null {
-  const value = Number.parseFloat(text);
-  return Number.isFinite(value) ? snapWidth(value) : null;
+export function snapWidth(cm: number, legs = COMPASS_LEG_CM): number {
+  return Math.round(clamp(cm, COMPASS_MIN_CM, widestFor(legs)) * 10) / 10;
 }
 
-// Each board remembers the width its compasses were last left at.
-const WIDTH_KEY = "csm_compass_width";
+/**
+ * The width typed into the compasses' box, kept within what legs this long
+ * allow and snapped to a millimetre, or null when what's typed isn't a number.
+ */
+export function typedWidth(text: string, legs = COMPASS_LEG_CM): number | null {
+  const value = Number.parseFloat(text);
+  return Number.isFinite(value) ? snapWidth(value, legs) : null;
+}
 
-/** The width, in centimetres, the compasses were last left at on this board, or the usual 4 cm. */
-export function readCompassWidth(): number {
+const clampLegs = (cm: number) => clamp(cm, COMPASS_LEGS_MIN_CM, COMPASS_LEGS_MAX_CM);
+
+/**
+ * How long a drag of the resize handle makes the legs. The handle sits part
+ * way up the needle's leg, so the legs grow or shrink with the finger's
+ * distance from the needle, the way the protractor's handle works. They're
+ * kept between 5 and 12 cm and rounded to a millimetre.
+ */
+export function draggedLegs(startCm: number, fromDistance: number, toDistance: number): number {
+  if (fromDistance <= 0) return startCm;
+  return Math.round(clampLegs((startCm * toDistance) / fromDistance) * 10) / 10;
+}
+
+// Each board remembers the width its compasses were last left at, and how long their legs were.
+const WIDTH_KEY = "csm_compass_width";
+const LEGS_KEY = "csm_compass_legs";
+
+/** A positive number this board has stored under this key, or null. */
+function readStored(key: string): number | null {
   try {
-    const stored = Number(localStorage.getItem(WIDTH_KEY));
-    return stored > 0 ? snapWidth(stored) : COMPASS_START_CM;
+    const stored = Number(localStorage.getItem(key));
+    return stored > 0 ? stored : null;
   } catch {
-    return COMPASS_START_CM;
+    return null;
   }
 }
 
+function store(key: string, value: number) {
+  try { localStorage.setItem(key, String(value)); } catch { /* private window */ }
+}
+
+/**
+ * The width, in centimetres, the compasses were last left at on this board,
+ * or the usual 4 cm, kept within what legs this long allow.
+ */
+export function readCompassWidth(legs = COMPASS_LEG_CM): number {
+  const stored = readStored(WIDTH_KEY);
+  return stored === null ? COMPASS_START_CM : snapWidth(stored, legs);
+}
+
 export function saveCompassWidth(cm: number) {
-  try { localStorage.setItem(WIDTH_KEY, String(cm)); } catch { /* private window */ }
+  store(WIDTH_KEY, cm);
+}
+
+/** How long, in centimetres, the compasses' legs were last left on this board, or the usual 7 cm. */
+export function readCompassLegs(): number {
+  const stored = readStored(LEGS_KEY);
+  return stored === null ? COMPASS_LEG_CM : clampLegs(stored);
+}
+
+export function saveCompassLegs(cm: number) {
+  store(LEGS_KEY, cm);
 }
 
 /** How high the hinge stands above the line from the needle to the pencil, in centimetres, at this width. */
-export function hingeHeight(widthCm: number): number {
-  return Math.sqrt(Math.max(COMPASS_LEG_CM ** 2 - (widthCm / 2) ** 2, 0));
+export function hingeHeight(widthCm: number, legs = COMPASS_LEG_CM): number {
+  return Math.sqrt(Math.max(legs ** 2 - (widthCm / 2) ** 2, 0));
 }
 
 /** The direction from one point to another. */
