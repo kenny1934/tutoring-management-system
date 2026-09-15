@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { PaneTools, usePaneTools } from "./PaneTools";
+import { MAX_ZOOM, MIN_ZOOM, ZOOM_STEP, computeFitZoom, stackZoomStyles } from "@/lib/zoom";
 import { CM } from "@/lib/drawing-guide";
 import { AnnotationTray } from "./AnnotationTray";
 import { PageThumbnails } from "./PageThumbnails";
@@ -53,6 +54,53 @@ export const toolbarRow = cn(
 export const tbBtn = "min-w-11 h-11 px-2.5 flex flex-none items-center justify-center gap-1.5 rounded text-sm font-medium";
 export const tbBtnIdle = "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]";
 export const tbBtnOn = "bg-[#a0704b] text-white";
+const tbBtnClass = cn(tbBtn, tbBtnIdle, "transition-colors");
+const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
+
+/**
+ * The zoom buttons on a pane's bar: zoom out, the zoom level, zoom in, and
+ * fit to width. The worksheet and the Draft both have them, so the two bars
+ * match. `shortcuts` names the keys in the tooltips, for the worksheet, which
+ * the + and - keys zoom.
+ */
+export function ZoomControls({ zoom, onZoomOut, onZoomIn, onFitWidth, shortcuts = false }: {
+  zoom: number;
+  onZoomOut: () => void;
+  onZoomIn: () => void;
+  onFitWidth: () => void;
+  shortcuts?: boolean;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onZoomOut}
+        disabled={zoom <= MIN_ZOOM}
+        className={zoom <= MIN_ZOOM ? tbBtnDisabled : tbBtnClass}
+        title={shortcuts ? "Zoom out (-)" : "Zoom out"}
+        aria-label="Zoom out"
+      >
+        <ZoomOut className="h-5 w-5" />
+      </button>
+      <span className="text-xs text-[#8b7355] dark:text-[#a09080] min-w-[2.75rem] text-center tabular-nums">
+        {zoom}%
+      </span>
+      <button
+        type="button"
+        onClick={onZoomIn}
+        disabled={zoom >= MAX_ZOOM}
+        className={zoom >= MAX_ZOOM ? tbBtnDisabled : tbBtnClass}
+        title={shortcuts ? "Zoom in (+)" : "Zoom in"}
+        aria-label="Zoom in"
+      >
+        <ZoomIn className="h-5 w-5" />
+      </button>
+      <button type="button" onClick={onFitWidth} className={tbBtnClass} title="Fit to width" aria-label="Fit to width">
+        <UnfoldHorizontal className="h-5 w-5" />
+      </button>
+    </>
+  );
+}
 // The page bar under the pages, in pixels. While the Draft is open, the lesson
 // views float the Pen Tray over the worksheet and the Draft together from this
 // far up, so the tray still sits just above the page bar.
@@ -189,19 +237,7 @@ export interface PdfViewerHandle {
   zoomOut: () => void;
 }
 
-const MIN_ZOOM = 25;
-const MAX_ZOOM = 200;
-const ZOOM_STEP = 25;
 const MAX_RENDER_CACHE_SIZE = 30;
-
-/** Compute fit-to-width zoom for a container and page width. */
-function computeFitZoom(container: HTMLElement, pageWidth: number): number {
-  const style = getComputedStyle(container);
-  const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-  const containerWidth = container.clientWidth - paddingX;
-  const rawZoom = Math.floor((containerWidth / pageWidth) * 100);
-  return Math.min(rawZoom, MAX_ZOOM);
-}
 
 export function PdfPageViewer({
   pdfData,
@@ -331,22 +367,11 @@ export function PdfPageViewer({
 
   // Every style that follows the zoom level. React applies them once a zoom
   // settles, and previewZoom writes the very same ones during a pinch.
-  const zoomStyles = useCallback((z: number): { stack: React.CSSProperties; scroller: React.CSSProperties } => {
-    const scale = z / 100;
+  const zoomStyles = useCallback((z: number) => {
     const pagesNow = pagesRef.current;
     // gap-4 = 16px between pages
     const naturalHeight = pagesNow.reduce((sum, p) => sum + p.height, 0) + Math.max(0, pagesNow.length - 1) * 16;
-    // Past fit-to-width the pages line up on the left so they can scroll sideways.
-    const pastFit = z > fitZoomRef.current;
-    return {
-      stack: {
-        transform: `scale(${scale})`,
-        width: `${(100 / z) * 100}%`,
-        marginBottom: scale < 1 ? `${naturalHeight * (scale - 1)}px` : "",
-        alignItems: pastFit ? "flex-start" : "center",
-      },
-      scroller: { overflowX: pastFit ? "auto" : "hidden" },
-    };
+    return stackZoomStyles(z, fitZoomRef.current, naturalHeight);
   }, []);
 
   const previewZoom = useCallback((z: number) => {
@@ -940,8 +965,6 @@ export function PdfPageViewer({
     );
   }
 
-  const tbBtnClass = cn(tbBtn, tbBtnIdle, "transition-colors");
-  const tbBtnDisabled = cn(tbBtn, "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
   // The words on the Cover, Draft, Answers and Print buttons only show when the pane has room for them.
   const tbLabel = "hidden @[560px]/toolbar:inline";
   // The tray floats over this viewer, unless the lesson view has given it an area of its own.
@@ -971,35 +994,7 @@ export function PdfPageViewer({
         <div className="flex-1" />
         {/* Zoom controls */}
         <div className="flex flex-none items-center gap-0.5">
-          <button
-            onClick={handleZoomOut}
-            disabled={zoom <= MIN_ZOOM}
-            className={zoom <= MIN_ZOOM ? tbBtnDisabled : tbBtnClass}
-            title="Zoom out (-)"
-            aria-label="Zoom out"
-          >
-            <ZoomOut className="h-5 w-5" />
-          </button>
-          <span className="text-xs text-[#8b7355] dark:text-[#a09080] min-w-[2.75rem] text-center tabular-nums">
-            {zoom}%
-          </span>
-          <button
-            onClick={handleZoomIn}
-            disabled={zoom >= MAX_ZOOM}
-            className={zoom >= MAX_ZOOM ? tbBtnDisabled : tbBtnClass}
-            title="Zoom in (+)"
-            aria-label="Zoom in"
-          >
-            <ZoomIn className="h-5 w-5" />
-          </button>
-          <button
-            onClick={handleFitWidth}
-            className={tbBtnClass}
-            title="Fit to width"
-            aria-label="Fit to width"
-          >
-            <UnfoldHorizontal className="h-5 w-5" />
-          </button>
+          <ZoomControls zoom={zoom} onZoomOut={handleZoomOut} onZoomIn={handleZoomIn} onFitWidth={handleFitWidth} shortcuts />
           <button
             onClick={togglePdfDarkMode}
             className={cn(tbBtnClass, pdfDarkMode && "!text-yellow-500 dark:!text-yellow-400")}

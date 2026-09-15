@@ -109,6 +109,8 @@ vi.mock("./PdfPageViewer", async () => {
     tbBtn: "",
     tbBtnIdle: "",
     tbBtnOn: "",
+    // The Draft's zoom buttons show nothing here, so their zoom level can't be mistaken for the worksheet's.
+    ZoomControls: () => null,
     PdfPageViewer: (props: ViewerProps) => {
       const [zoom, setZoom] = useState(100);
       useImperativeHandle(props.ref, () => ({

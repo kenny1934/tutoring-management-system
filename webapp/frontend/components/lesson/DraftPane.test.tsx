@@ -60,6 +60,38 @@ function Harness({ initial = {}, onChange = vi.fn(), onTools, onClearPages = vi.
 
 const sheets = () => screen.getAllByLabelText(/^Draft sheet \d+$/);
 
+describe("DraftPane zoom", () => {
+  const zoomLevel = () => screen.getByText(/^\d+%$/);
+
+  it("opens at fit to width, steps by a quarter with the buttons, and the board remembers the choice", () => {
+    // A pane 1000 pixels across fits an A4 sheet at 111%.
+    const width = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(1000);
+    try {
+      render(<Harness />);
+      expect(zoomLevel()).toHaveTextContent("111%");
+
+      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      expect(zoomLevel()).toHaveTextContent("136%");
+      expect(localStorage.getItem("csm_draft_zoom")).toBe("136");
+
+      fireEvent.click(screen.getByRole("button", { name: "Fit to width" }));
+      expect(zoomLevel()).toHaveTextContent("111%");
+      expect(localStorage.getItem("csm_draft_zoom")).toBe("fit");
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("opens at the zoom the board last used, with the sheets at A4 and the column scaled", () => {
+    localStorage.setItem("csm_draft_zoom", "75");
+    render(<Harness />);
+    expect(zoomLevel()).toHaveTextContent("75%");
+    const sheet = sheets()[0];
+    expect(sheet.style.width).toBe(`${DRAFT_SHEET.width}px`);
+    expect(sheet.parentElement!.style.transform).toBe("scale(0.75)");
+  });
+});
+
 describe("DraftPane", () => {
   it("starts with one sheet, and keeps its ink as the exercise's page 1000", () => {
     const onChange = vi.fn();

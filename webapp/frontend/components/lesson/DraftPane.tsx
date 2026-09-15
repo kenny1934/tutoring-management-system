@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject,
+  useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject,
 } from "react";
 import { DraftingCompass, Moon, Plus, Sun, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,7 @@ import { UndoOfferBar } from "./UndoOfferBar";
 import { PANE_TOOLS, PaneTools, paneToolLabel, usePaneTools } from "./PaneTools";
 import { AnnotationTray, TRAY_CLEARANCE } from "./AnnotationTray";
 import { AxesIcon, AxesPanel } from "./AxesPanel";
-import { PAGE_BAR_HEIGHT, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
+import { PAGE_BAR_HEIGHT, ZoomControls, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
@@ -24,8 +24,9 @@ import {
 import { clamp, type Vec } from "@/lib/stroke-select";
 import {
   DRAFT_GRID_COLOUR, DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SHEET_PT, DRAFT_SQUARE, DRAFT_SQUARE_PT,
-  draftSheetsInUse, draftSquared, inkedDraftPages,
+  draftSheetsInUse, draftSquared, inkedDraftPages, readDraftZoom, saveDraftZoom, type DraftZoom,
 } from "@/lib/draft-sheets";
+import { MAX_ZOOM, MIN_ZOOM, ZOOM_STEP, computeFitZoom, stackZoomStyles } from "@/lib/zoom";
 
 interface DraftPaneProps {
   exerciseId: number;
@@ -63,6 +64,9 @@ const SQUARED_PAPER: CSSProperties = {
 
 const DARK_PAPER: CSSProperties = { filter: PDF_DARK_FILTER };
 
+// The gap between sheets in the column, its gap-4, in pixels.
+const SHEET_GAP = 16;
+
 // The Pen Tray floats in DraftTrayLane, at the end of this file, which stops
 // at the top of the worksheet's page bar. This is how far the tray's top sits
 // above the bottom of the Draft.
@@ -97,9 +101,10 @@ type AxesStep = "closed" | "settings" | "placing";
  *
  * It shares the worksheet's Pen Tray, which floats across both panes while
  * the Draft is open, and it follows the same touch rules: one finger uses the
- * tool, and two fingers scroll. It always fits the pane's width, so a pinch
- * doesn't zoom it. Its ink is part of the exercise's own, so a single undo
- * history covers the worksheet and the Draft together.
+ * tool, and two fingers scroll or pinch to zoom. It zooms the way the
+ * worksheet does, and each board remembers its zoom (see useSheetZoom). Its
+ * ink is part of the exercise's own, so a single undo history covers the
+ * worksheet and the Draft together.
  *
  * The lesson has a Draft of its own as well, which takes the worksheet's
  * place, so a tutor can start working before the lesson has any courseware.
@@ -131,23 +136,12 @@ export function DraftPane({
   const newSheetRef = useRef<number | null>(null);
 
   // The Draft's own ruler, protractor and compasses, from the Tools menu on
-  // its bar. The sheets fit the pane, so a centimetre is measured from a
-  // sheet's width while any of them is out.
+  // its bar. They lie in the column of sheets and zoom along with it, so a
+  // centimetre on them is always a centimetre of the sheets.
   const columnRef = useRef<HTMLDivElement>(null);
   const paneTools = usePaneTools(columnRef, scrollRef);
   const { putAway } = paneTools;
-  const [sheetWidth, setSheetWidth] = useState(0);
-  const measuring = paneTools.anyOut;
-  useEffect(() => {
-    const sheet = sheetRefs.current[0];
-    if (!measuring || !sheet) return;
-    const measure = () => setSheetWidth(sheet.offsetWidth);
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(sheet);
-    return () => observer.disconnect();
-  }, [measuring]);
+  const sheetZoom = useSheetZoom(scrollRef, columnRef, sheetCount);
 
   // ---------- Axes ----------
   // The settings start at whatever this board used last, each time the panel opens.
@@ -189,11 +183,11 @@ export function DraftPane({
     scrollRef,
     getAnchor: () => sheetRefs.current[0] ?? null,
     handTool: !tools.drawingEnabled,
-    zoom: 100,
-    minZoom: 100,
-    maxZoom: 100,
-    previewZoom: () => {},
-    commitZoom: () => {},
+    zoom: sheetZoom.zoom,
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+    previewZoom: sheetZoom.previewZoom,
+    commitZoom: sheetZoom.commitZoom,
   });
 
   // Each exercise's Draft opens at its first sheet, with its tools put away and no axes half placed.
@@ -214,9 +208,6 @@ export function DraftPane({
     newSheetRef.current = sheetCount;
     setSheetsAsked((asked) => ({ ...asked, [exerciseId]: sheetCount + 1 }));
   };
-
-  // A centimetre of the Draft's sheets, on screen.
-  const sheetCm = sheetWidth * (CM / DRAFT_SHEET.width);
 
   // ---------- Clearing ----------
   // Both clears can be undone, and a message at the bottom of the pane offers
@@ -262,6 +253,9 @@ export function DraftPane({
         {barStart}
         <span className="ml-1 whitespace-nowrap text-xs font-medium text-[#8b7355] dark:text-[#a09080]">{title}</span>
         <div className="flex-1" />
+        <div className="flex flex-none items-center gap-0.5">
+          <ZoomControls zoom={sheetZoom.zoom} onZoomOut={sheetZoom.zoomOut} onZoomIn={sheetZoom.zoomIn} onFitWidth={sheetZoom.fitWidth} />
+        </div>
         <div role="group" aria-label="Paper" className="flex flex-none gap-0.5">
           <button type="button" aria-pressed={!squared} onClick={() => setSquared(false)} className={cn(barButton, squared ? tbBtnIdle : tbBtnOn)}>
             Blank
@@ -284,7 +278,7 @@ export function DraftPane({
               {...triggerProps}
               title="Put a ruler, a protractor or compasses on the draft, or draw axes"
               aria-label="Tools"
-              className={cn(barButton, measuring ? tbBtnOn : tbBtnIdle)}
+              className={cn(barButton, paneTools.anyOut ? tbBtnOn : tbBtnIdle)}
             >
               <DraftingCompass className="h-5 w-5" />
               <span className={barLabel}>Tools</span>
@@ -388,14 +382,15 @@ export function DraftPane({
           ref={scrollRef}
           {...handlers}
           className={cn(
-            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pt-2 md:px-4 md:pt-4",
+            "flex-1 min-h-0 overflow-y-auto px-2 pt-2 md:px-4 md:pt-4",
             !tools.drawingEnabled && "cursor-grab active:cursor-grabbing",
           )}
-          // Every touch is handled here, as in the worksheet viewer: one finger for the tool, two to scroll.
+          // Every touch is handled here, as in the worksheet viewer: one finger for the tool, two to scroll or pinch.
           // The room at the bottom lets the last sheet and "Add a sheet" scroll clear of the tray.
-          style={{ touchAction: "none", paddingBottom: trayTop + 20 }}
+          style={{ touchAction: "none", paddingBottom: trayTop + 20, ...sheetZoom.styles.scroller }}
         >
-          <div ref={columnRef} className="relative flex flex-col items-center gap-4">
+          {/* The sheets are laid out at their natural size, A4 at the same scale as a worksheet's page, and the whole column is scaled */}
+          <div ref={columnRef} className="relative flex flex-col gap-4" style={{ ...sheetZoom.styles.stack, transformOrigin: "top left" }}>
             {Array.from({ length: sheetCount }, (_, n) => {
               const pageIndex = DRAFT_PAGE_BASE + n;
               return (
@@ -403,8 +398,8 @@ export function DraftPane({
                   key={n}
                   ref={(el) => { sheetRefs.current[n] = el; }}
                   aria-label={`Draft sheet ${n + 1}`}
-                  className="relative w-full rounded shadow-lg ring-1 ring-black/5 dark:ring-white/5"
-                  style={{ aspectRatio: `${DRAFT_SHEET.width} / ${DRAFT_SHEET.height}` }}
+                  className="relative flex-none rounded shadow-lg ring-1 ring-black/5 dark:ring-white/5"
+                  style={{ width: DRAFT_SHEET.width, height: DRAFT_SHEET.height }}
                 >
                   {/* The paper and its ink darken together in dark PDF mode, as the worksheet does */}
                   <div
@@ -422,6 +417,7 @@ export function DraftPane({
                       onStrokesChange={(strokes) => onPageStrokesChange(pageIndex, strokes)}
                       // Nothing draws while the axes are being placed, whatever is picked on the tray.
                       suspended={gestureActive || placing}
+                      uiScale={sheetZoom.zoom / 100}
                       guides={paneTools.guides}
                       // On squared paper, straight lines and the tools snap to the squares' corners too.
                       gridSpacing={squared ? DRAFT_SQUARE : undefined}
@@ -433,15 +429,7 @@ export function DraftPane({
                 </div>
               );
             })}
-            <button
-              type="button"
-              onClick={addSheet}
-              className={cn(barButton, "px-4 border border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]", tbBtnIdle)}
-            >
-              <Plus className="h-5 w-5" />
-              Add a sheet
-            </button>
-            <PaneTools state={paneTools} containerRef={columnRef} cm={sheetCm} darkMode={pdfDarkMode} />
+            <PaneTools state={paneTools} containerRef={columnRef} cm={CM} darkMode={pdfDarkMode} />
             {placing && (
               <AxesPlacing
                 sheetRefs={sheetRefs}
@@ -453,6 +441,17 @@ export function DraftPane({
                 onPlace={placeAxes}
               />
             )}
+          </div>
+          {/* "Add a sheet" comes after the scaled column, so it stays the size of a finger at any zoom */}
+          <div className="flex justify-center pt-4">
+            <button
+              type="button"
+              onClick={addSheet}
+              className={cn(barButton, "px-4 border border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]", tbBtnIdle)}
+            >
+              <Plus className="h-5 w-5" />
+              Add a sheet
+            </button>
           </div>
         </div>
 
@@ -505,6 +504,82 @@ export function DraftPane({
       )}
     </section>
   );
+}
+
+/**
+ * The Draft's zoom, which works like the worksheet's. The buttons on its bar
+ * step it, a pinch sets it, and Fit to width goes back to following the
+ * pane's width as the pane changes size. It opens at fit-to-width, and each
+ * board remembers what was chosen last, so moving to another exercise, or
+ * coming back after a reload, keeps it. The column of sheets is laid out at
+ * their natural size and scaled (see stackZoomStyles), and during a pinch the
+ * zoom is written straight onto the column without a React render.
+ */
+function useSheetZoom(
+  scrollRef: RefObject<HTMLDivElement | null>,
+  columnRef: RefObject<HTMLDivElement | null>,
+  sheetCount: number,
+) {
+  const [choice, setChoice] = useState<DraftZoom>("fit");
+  const [fit, setFit] = useState(100);
+  const zoom = choice === "fit" ? fit : choice;
+
+  // The board's choice is read once the Draft is on screen. The fit is
+  // measured before the sheets are first painted, and again whenever the pane
+  // changes size. A pane with no width yet, such as a hidden one, keeps the
+  // fit it had.
+  useLayoutEffect(() => {
+    setChoice(readDraftZoom());
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const measure = () => {
+      if (scroller.clientWidth > 0) setFit(clamp(computeFitZoom(scroller, DRAFT_SHEET.width), MIN_ZOOM, MAX_ZOOM));
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, [scrollRef]);
+
+  // Back at the pane's width or narrower, there's nothing to scroll sideways to.
+  useEffect(() => {
+    if (zoom <= fit && scrollRef.current) scrollRef.current.scrollLeft = 0;
+  }, [zoom, fit, scrollRef]);
+
+  const naturalHeight = sheetCount * DRAFT_SHEET.height + (sheetCount - 1) * SHEET_GAP;
+  const stylesAt = (z: number) => stackZoomStyles(z, fit, naturalHeight);
+
+  const choose = (next: DraftZoom) => {
+    setChoice(next);
+    saveDraftZoom(next);
+  };
+
+  const previewZoom = (z: number) => {
+    const column = columnRef.current;
+    const scroller = scrollRef.current;
+    if (!column || !scroller) return;
+    const styles = stylesAt(z);
+    Object.assign(column.style, styles.stack);
+    Object.assign(scroller.style, styles.scroller);
+  };
+
+  return {
+    zoom,
+    styles: stylesAt(zoom),
+    previewZoom,
+    // The whole-number zoom that's kept is shown straight away, so the sheets
+    // already match what React renders next, even when a pinch ends back
+    // where it started.
+    commitZoom: (z: number) => {
+      const settled = Math.round(z);
+      previewZoom(settled);
+      choose(settled);
+    },
+    zoomIn: () => choose(Math.min(zoom + ZOOM_STEP, MAX_ZOOM)),
+    zoomOut: () => choose(Math.max(zoom - ZOOM_STEP, MIN_ZOOM)),
+    fitWidth: () => choose("fit"),
+  };
 }
 
 interface AxesPlacingProps {

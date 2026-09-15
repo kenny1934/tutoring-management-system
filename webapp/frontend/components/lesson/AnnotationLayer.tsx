@@ -67,9 +67,9 @@ interface AnnotationLayerProps {
    */
   suspended?: boolean;
   /**
-   * How much the page is scaled on screen, such as the worksheet's zoom. The
-   * lasso's handle and its bar of buttons are divided by it, so they stay the
-   * size of a finger at any zoom. The Draft never zooms, so it leaves this at 1.
+   * How much the page is scaled on screen, which is the zoom of the worksheet
+   * or the Draft. The lasso's handle and its bar of buttons are divided by
+   * it, so they stay the size of a finger at any zoom.
    */
   uiScale?: number;
   /**

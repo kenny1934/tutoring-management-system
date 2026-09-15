@@ -1,5 +1,6 @@
 import { DRAFT_PAGE_BASE, RENDER_SCALE, type PageAnnotations } from "@/hooks/useAnnotations";
 import { createBooleanPreference } from "./boolean-preference";
+import { MAX_ZOOM, MIN_ZOOM } from "./zoom";
 
 // The page index the Draft's sheets start at. The ink hook defines it, because
 // saving ink to the server needs it too, and it's re-exported here for the Draft.
@@ -29,6 +30,28 @@ export const DRAFT_GRID_COLOUR = { css: "#c9d6e6", rgb: [0xc9 / 255, 0xd6 / 255,
 
 /** Whether the Draft is squared or blank. It's one switch, remembered per browser. */
 export const draftSquared = createBooleanPreference("csm_draft_squared");
+
+/**
+ * The zoom the Draft's sheets are shown at, remembered per browser like the
+ * paper. "fit" follows the pane's width as the pane changes size, and a number
+ * is a zoom the tutor chose, as a percentage.
+ */
+export type DraftZoom = "fit" | number;
+const DRAFT_ZOOM_KEY = "csm_draft_zoom";
+
+/** The Draft's remembered zoom. Anything this code wouldn't have saved reads as "fit". */
+export function readDraftZoom(): DraftZoom {
+  try {
+    const saved = Number(localStorage.getItem(DRAFT_ZOOM_KEY));
+    return Number.isInteger(saved) && saved >= MIN_ZOOM && saved <= MAX_ZOOM ? saved : "fit";
+  } catch {
+    return "fit";
+  }
+}
+
+export function saveDraftZoom(zoom: DraftZoom) {
+  try { localStorage.setItem(DRAFT_ZOOM_KEY, String(zoom)); } catch { /* private window */ }
+}
 
 const isDraftPage = (pageIndex: number) => pageIndex >= DRAFT_PAGE_BASE;
 
