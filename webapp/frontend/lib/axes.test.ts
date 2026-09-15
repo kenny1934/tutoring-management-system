@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  DEFAULT_AXES, axesOrigin, axesParts, axesStrokes, axisNumber, nearestPerSquare, readAxesSettings, saveAxesSettings,
-  stepPerSquare, withEnd, type AxesPart, type AxesSettings, type AxisName,
+  DEFAULT_AXES, axesOrigin, axesParts, axesStrokes, axisNumber, graphSpan, nearestPerSquare, readAxesSettings,
+  saveAxesSettings, stepPerSquare, withDegrees, withEnd, type AxesPart, type AxesSettings, type AxisName,
 } from "./axes";
 import { DRAFT_SHEET, DRAFT_SQUARE } from "./draft-sheets";
 import { CM } from "./drawing-guide";
@@ -81,6 +81,32 @@ describe("the axes' settings", () => {
     expect(axisNumber(-5, 0.5)).toBe("-2.5");
     expect(axisNumber(4, 0.5)).toBe("2");
     expect(axisNumber(3, 100)).toBe("300");
+    expect(axisNumber(-3, 30, true)).toBe("-90°");
+  });
+
+  it("switches the x axis into degrees at 30° a square, and back to 1 a square, keeping its ends", () => {
+    const inDegrees = withDegrees({ ...DEFAULT_AXES.x, from: 0, to: 12 }, true);
+    expect(inDegrees).toEqual({ from: 0, to: 12, perSquare: 30, numbers: 1, degrees: true });
+    expect(withDegrees(inDegrees, false)).toEqual({ from: 0, to: 12, perSquare: 1, numbers: 1 });
+  });
+
+  it("steps through 15°, 30°, 45° and 90° a square in degrees, and takes the nearest of them to a typed value", () => {
+    expect(stepPerSquare(30, 1, true)).toBe(45);
+    expect(stepPerSquare(15, -1, true)).toBe(15);
+    expect(stepPerSquare(90, 1, true)).toBe(90);
+    expect(nearestPerSquare(60, true)).toBe(45);
+    expect(nearestPerSquare(70, true)).toBe(90);
+  });
+
+  it("remembers an x axis in degrees, but never a y axis, and puts a scale that isn't in degrees back to 30°", () => {
+    localStorage.setItem("csm_draft_axes", JSON.stringify({
+      x: { from: 0, to: 12, perSquare: 2, numbers: 1, degrees: true },
+      y: { from: -5, to: 5, perSquare: 30, numbers: 1, degrees: true },
+    }));
+    expect(readAxesSettings()).toEqual({
+      x: { from: 0, to: 12, perSquare: 30, numbers: 1, degrees: true },
+      y: DEFAULT_AXES.y,
+    });
   });
 });
 
@@ -183,6 +209,29 @@ describe("the ink for a pair of axes", () => {
     expect(centreOf(minusTwo.lines.slice(1))).toBeCloseTo(8 * SQ);
     const two = ofRole(parts, "number", "x").find((p) => p.square === 2)!;
     expect(centreOf(two.lines)).toBeCloseTo(12 * SQ);
+  });
+
+  it("writes a degree sign on each number of an axis in degrees, with the digits centred under the tick", () => {
+    const settings: AxesSettings = { x: { ...withDegrees(DEFAULT_AXES.x, true), from: 0, to: 12 }, y: DEFAULT_AXES.y };
+    const origin: Vec = [4 * SQ, 14 * SQ];
+    const parts = partsAt(origin, settings);
+    expect(texts(parts, "number", "x")).toEqual(["30°", "60°", "90°", "120°", "150°", "180°", "210°", "240°", "270°", "300°", "330°", "360°"]);
+    // The last line of each number is its degree sign.
+    const ninety = ofRole(parts, "number", "x").find((p) => p.text === "90°")!;
+    const xs = ninety.lines.slice(0, -1).flat().map(([x]) => x);
+    expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(origin[0] + 3 * SQ, 0);
+    // The degree sign is drawn at half the width of the digits, so it stays open.
+    const strokes = axesStrokes(origin, settings);
+    const ring = ninety.lines.at(-1)!;
+    expect(strokes.find((s) => s.points[0][0] === ring[0][0] && s.points[0][1] === ring[0][1])!.size).toBe(1.25);
+  });
+
+  it("gives a graph the stretch of each axis from its start to its last square, as far as the sheet allows", () => {
+    expect(graphSpan("x", MIDDLE, DEFAULT_AXES.x)).toEqual([-5, 5]);
+    // Crossing 17 squares across leaves room for three and a half squares, and the graph stops half a square short of the arrow.
+    const [start, end] = graphSpan("x", [17 * SQ, 14 * SQ], DEFAULT_AXES.x);
+    expect(start).toBe(-5);
+    expect(end).toBeCloseTo(3);
   });
 
   it("writes a single 0 at the origin and none at either axis's ticks", () => {

@@ -22,6 +22,9 @@ afterAll(() => {
 });
 beforeEach(() => localStorage.clear());
 
+// The real MathLive needs a browser's layout. Without it, the Graph panel's field is a plain element whose value the tests set.
+vi.mock("mathlive", () => ({}));
+
 const line = (): Stroke => ({ points: [[0, 0, 0.5], [10, 10, 0.5]], color: "#000", size: 3 });
 
 function Harness({ initial = {}, onChange = vi.fn(), onTools, onClearPages = vi.fn(), onUndo, ...rest }: {
@@ -238,8 +241,9 @@ describe("DraftPane", () => {
     expect(dark).toHaveAttribute("aria-pressed", "false");
   });
 
+  const placingLayer = (container: HTMLElement) => container.querySelector<HTMLElement>("[data-placing]");
+
   describe("drawing axes", () => {
-    const placingLayer = (container: HTMLElement) => container.querySelector<HTMLElement>("[data-axes-placing]");
     const startPlacing = () => {
       openTools();
       fireEvent.click(screen.getByRole("menuitem", { name: "Draw axes" }));
@@ -273,7 +277,7 @@ describe("DraftPane", () => {
       // The sheet is drawn 100 pixels each way here, so (40, 40) is 8.4 squares across and 11.9 down.
       const layer = placingLayer(container)!;
       fireEvent.pointerDown(layer, { clientX: 40, clientY: 40, pointerId: 1 });
-      expect(container.querySelector("[data-axes-preview]")).not.toBeNull();
+      expect(container.querySelector("[data-placing-preview]")).not.toBeNull();
       fireEvent.pointerUp(layer, { clientX: 40, clientY: 40, pointerId: 1 });
 
       expect(onChange).toHaveBeenCalledTimes(1);
@@ -367,6 +371,119 @@ describe("DraftPane", () => {
       openTools();
       fireEvent.click(screen.getByRole("menuitem", { name: "Draw axes" }));
       expect(within(screen.getByRole("region", { name: "x axis" })).getByRole("textbox", { name: "To" })).toHaveValue("6");
+    });
+  });
+
+  describe("plotting a graph", () => {
+    const openGraph = () => {
+      openTools();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Plot a graph" }));
+    };
+    const type = async (latex: string) => {
+      const field = (await screen.findByLabelText("Function of x")) as HTMLElement & { value: string };
+      field.value = latex;
+      fireEvent.input(field);
+    };
+    const tap = (container: HTMLElement, x: number, y: number) => {
+      const layer = placingLayer(container)!;
+      fireEvent.pointerDown(layer, { clientX: x, clientY: y, pointerId: 1 });
+      fireEvent.pointerUp(layer, { clientX: x, clientY: y, pointerId: 1 });
+    };
+    const hasPoint = (strokes: Stroke[], [x, y]: [number, number]) =>
+      strokes.some((s) => s.points.some(([px, py]) => Math.abs(px - x) < 1e-6 && Math.abs(py - y) < 1e-6));
+
+    it("opens the Graph panel from the Tools menu, with Plot greyed out until the function can be plotted", async () => {
+      render(<Harness />);
+      openGraph();
+      expect(screen.getByRole("dialog", { name: "Graph" })).toBeInTheDocument();
+      const plot = screen.getByRole("button", { name: "Plot" });
+      expect(plot).toBeDisabled();
+
+      await type("x^");
+      expect(plot).toBeDisabled();
+      await type("x^2");
+      fireEvent.click(plot);
+      expect(screen.queryByRole("dialog", { name: "Graph" })).toBeNull();
+      expect(screen.getByText("Tap where the axes cross.")).toBeInTheDocument();
+    });
+
+    it("draws the curve and its equation in one change on the sheet tapped, in the pen picked, crossing on the squares", async () => {
+      const onChange = vi.fn();
+      let tools!: AnnotationTools;
+      const { container } = render(
+        <Harness onChange={onChange} onTools={(t) => { tools = t; }} initial={{ [DRAFT_PAGE_BASE]: [line()] }} />,
+      );
+      act(() => tools.selectSwatch("blue"));
+      fireEvent.click(screen.getByRole("button", { name: "Squared" }));
+      openGraph();
+      await type("x^2");
+      fireEvent.click(screen.getByRole("button", { name: "Plot" }));
+
+      // The sheet is drawn 100 pixels each way here, so (40, 40) is nearest the corner 8 squares across and 12 down.
+      const layer = placingLayer(container)!;
+      fireEvent.pointerDown(layer, { clientX: 40, clientY: 40, pointerId: 1 });
+      expect(container.querySelector("[data-placing-preview]")).not.toBeNull();
+      fireEvent.pointerUp(layer, { clientX: 40, clientY: 40, pointerId: 1 });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      const [pageIndex, strokes] = onChange.mock.calls[0] as [number, Stroke[]];
+      expect(pageIndex).toBe(DRAFT_PAGE_BASE);
+      expect(strokes[0]).toEqual(line());
+      const added = strokes.slice(1);
+      const labels = added.filter((s) => s.kind === "text");
+      expect(labels.map((s) => s.text)).toEqual(["𝑦 = 𝑥²"]);
+      const curve = added.filter((s) => s.kind !== "text");
+      expect(curve.length).toBeGreaterThan(0);
+      expect(curve.every((s) => s.kind === undefined && s.color === "#2563eb")).toBe(true);
+      // The bottom of y = x² sits on the crossing.
+      expect(hasPoint(curve, [8 * DRAFT_SQUARE, 12 * DRAFT_SQUARE])).toBe(true);
+      expect(placingLayer(container)).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Blank" }));
+    });
+
+    it("catches the crossing of the axes already drawn on blank paper", async () => {
+      const onChange = vi.fn();
+      const { container } = render(<Harness onChange={onChange} />);
+      openTools();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Draw axes" }));
+      fireEvent.click(screen.getByRole("button", { name: "Place the axes" }));
+      tap(container, 40, 50);
+
+      openGraph();
+      await type("x^2");
+      fireEvent.click(screen.getByRole("button", { name: "Plot" }));
+      // A pixel off the crossing, which is about a fifth of a centimetre.
+      tap(container, 41, 50);
+      const graph = (onChange.mock.lastCall![1] as Stroke[]).filter((s) => s.kind === undefined);
+      expect(hasPoint(graph, [0.4 * DRAFT_SHEET.width, 0.5 * DRAFT_SHEET.height])).toBe(true);
+    });
+
+    it("draws nothing on Escape or Cancel, and keeps the function typed for the next graph", async () => {
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+      openGraph();
+      await type("x^2");
+      fireEvent.keyDown(document.body, { key: "Escape" });
+      expect(screen.queryByRole("dialog", { name: "Graph" })).toBeNull();
+
+      openGraph();
+      expect(await screen.findByRole("button", { name: "Plot" })).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "Plot" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByText("Tap where the axes cross.")).toBeNull();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("plots on the axes this board drew last, and starts on Degrees when those are in degrees", () => {
+      render(<Harness />);
+      openGraph();
+      fireEvent.click(screen.getByRole("button", { name: "Radians" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      localStorage.setItem("csm_draft_axes", JSON.stringify({ x: { from: 0, to: 12, perSquare: 30, numbers: 1, degrees: true } }));
+      openGraph();
+      expect(screen.getByRole("button", { name: "Degrees" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByText(/x from 0° to 360° at 30° a square and y from −5 to 5/)).toBeInTheDocument();
     });
   });
 

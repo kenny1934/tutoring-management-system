@@ -24,6 +24,7 @@ function Harness({ handTool = false, onLayer, onOwner }: { handTool?: boolean; o
     ),
     createElement("div", { "data-takes-one-finger": "", "data-testid": "placer" }),
     createElement("textarea", { "data-testid": "text", "aria-label": "Text" }),
+    createElement("math-field", { "data-testid": "maths" }),
     createElement("p", null, gestureActive ? "Two fingers" : "One finger"),
   );
 }
@@ -44,12 +45,13 @@ afterEach(() => {
 const finger = (id: number) => ({ pointerId: id, pointerType: "touch", isPrimary: id === 1, clientX: 10 * id, clientY: 10 });
 
 describe("useViewerTouch", () => {
-  it("never opens the right-click menu on the page, so a finger held still keeps its dot, but leaves a text box its menu", () => {
+  it("never opens the right-click menu on the page, so a finger held still keeps its dot, but leaves a text box and a maths field their menus", () => {
     render(createElement(Harness));
     // fireEvent says false when the event's default, here the menu, was stopped.
     expect(fireEvent.contextMenu(screen.getByTestId("layer"))).toBe(false);
     expect(fireEvent.contextMenu(screen.getByTestId("margin"))).toBe(false);
     expect(fireEvent.contextMenu(screen.getByTestId("text"))).toBe(true);
+    expect(fireEvent.contextMenu(screen.getByTestId("maths"))).toBe(true);
   });
 
   it("scrolls with a finger that lands beside the pages", () => {

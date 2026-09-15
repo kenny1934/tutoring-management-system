@@ -67,6 +67,8 @@ describe("ReasonsPanel", () => {
     const onTextSize = vi.fn();
     const onTextColour = vi.fn();
     render(<Panel onTextSize={onTextSize} onTextColour={onTextColour} />);
+    // Searching for something no reason says empties the list, and the header stays.
+    search("zzz");
     expect(byRole("button", "Medium text")).toHaveAttribute("aria-pressed", "true");
     expect(byRole("button", "Black text")).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(byRole("button", "Large text"));

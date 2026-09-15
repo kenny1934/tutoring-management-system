@@ -134,12 +134,18 @@ export function hasBrowserModifier(e: Pick<KeyboardEvent, "ctrlKey" | "metaKey" 
   return e.ctrlKey || e.metaKey || e.altKey;
 }
 
-/** Whether a key was typed into a text box or a dropdown, where it belongs to that field. */
+/**
+ * Whether a key was typed into a text box, a dropdown or a maths field, where
+ * it belongs to that field. A maths field keeps its caret inside its own
+ * shadow DOM, so a key typed in it reaches the page with the field itself as
+ * its target.
+ */
 export function isTypingTarget(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
+    target instanceof HTMLSelectElement ||
+    (target instanceof Element && target.localName === "math-field")
   );
 }
 

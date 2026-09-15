@@ -31,6 +31,17 @@ export type AxisName = "x" | "y";
 /** The values one square can stand for, from smallest to largest. */
 export const PER_SQUARE = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100] as const;
 
+/**
+ * The values one square can stand for on an x axis numbered in degrees, for
+ * the graph of a trigonometric function. At 30° or 45° a square, 0° to 360°
+ * fits across the sheet.
+ */
+export const DEGREES_PER_SQUARE = [15, 30, 45, 90] as const;
+const DEFAULT_DEGREES = 30;
+
+/** The values a square can stand for on an axis, in degrees or not. */
+export const scaleSteps = (degrees: boolean | undefined): readonly number[] => (degrees ? DEGREES_PER_SQUARE : PER_SQUARE);
+
 /** How often a number is written beside the ticks: on every square, every 2, every 5, or none at all, which is 0. */
 export const NUMBERING = [1, 2, 5, 0] as const;
 export type Numbering = (typeof NUMBERING)[number];
@@ -40,10 +51,16 @@ export interface AxisSettings {
   from: number;
   /** Where the axis ends, in squares from the origin, so 1 or above. Its arrow goes half a square further on. */
   to: number;
-  /** What one square stands for, one of PER_SQUARE. */
+  /** What one square stands for, one of PER_SQUARE, or one of DEGREES_PER_SQUARE when the axis is in degrees. */
   perSquare: number;
   /** A number on every this many squares, or none at 0. */
   numbers: Numbering;
+  /**
+   * True when the axis is numbered in degrees, with a degree sign on each
+   * number. Only the x axis ever is. Settings a board stored before degrees
+   * existed leave it out, and so does every axis that isn't in degrees.
+   */
+  degrees?: boolean;
 }
 
 export type AxesSettings = Record<AxisName, AxisSettings>;
@@ -76,11 +93,14 @@ function checkedAxis(stored: unknown, axis: AxisName): AxisSettings {
   let to = isWhole(raw.to, 1, most) ? raw.to : usual.to;
   // Two ends that are each fine by themselves can still make an axis too long for the sheet.
   if (to - from > most) ({ from, to } = usual);
+  const degrees = axis === "x" && raw.degrees === true;
+  const steps: readonly unknown[] = scaleSteps(degrees);
   return {
     from,
     to,
-    perSquare: (PER_SQUARE as readonly unknown[]).includes(raw.perSquare) ? (raw.perSquare as number) : usual.perSquare,
+    perSquare: steps.includes(raw.perSquare) ? (raw.perSquare as number) : degrees ? DEFAULT_DEGREES : usual.perSquare,
     numbers: (NUMBERING as readonly unknown[]).includes(raw.numbers) ? (raw.numbers as Numbering) : usual.numbers,
+    ...(degrees && { degrees: true }),
   };
 }
 
@@ -124,9 +144,9 @@ export function withEnd(axis: AxisName, settings: AxisSettings, end: "from" | "t
 }
 
 /** The next value a square can stand for, down or up the list, stopping at either end of it. */
-export function stepPerSquare(perSquare: number, direction: -1 | 1): number {
-  const index = PER_SQUARE.indexOf(perSquare as (typeof PER_SQUARE)[number]);
-  return PER_SQUARE[clamp(index + direction, 0, PER_SQUARE.length - 1)];
+export function stepPerSquare(perSquare: number, direction: -1 | 1, degrees = false): number {
+  const steps = scaleSteps(degrees);
+  return steps[clamp(steps.indexOf(perSquare) + direction, 0, steps.length - 1)];
 }
 
 /**
@@ -134,21 +154,31 @@ export function stepPerSquare(perSquare: number, direction: -1 | 1): number {
  * so 3 goes to 2 and 4 goes to 5. It's null when what was typed isn't a
  * number above 0.
  */
-export function nearestPerSquare(typed: number): number | null {
+export function nearestPerSquare(typed: number, degrees = false): number | null {
   if (!(typed > 0) || !Number.isFinite(typed)) return null;
   const off = (value: number) => Math.abs(Math.log(value / typed));
-  return PER_SQUARE.reduce((best, value) => (off(value) < off(best) ? value : best), PER_SQUARE[0]);
+  const steps = scaleSteps(degrees);
+  return steps.reduce((best, value) => (off(value) < off(best) ? value : best), steps[0]);
+}
+
+/**
+ * An x axis switched into degrees or out of them. Its ends stay the same
+ * number of squares from the origin, and a square goes to 30° or back to 1.
+ */
+export function withDegrees(settings: AxisSettings, degrees: boolean): AxisSettings {
+  const { from, to, numbers } = settings;
+  return degrees ? { from, to, numbers, perSquare: DEFAULT_DEGREES, degrees: true } : { from, to, numbers, perSquare: 1 };
 }
 
 /**
  * A number as the axes write it: the value that many squares from the origin
- * stands for. It's written without the noise of binary fractions, so three
- * squares at 0.1 each is 0.3, not 0.30000000000000004, and a whole number
- * never gets a ".0".
+ * stands for, with a degree sign on an axis in degrees. It's written without
+ * the noise of binary fractions, so three squares at 0.1 each is 0.3, not
+ * 0.30000000000000004, and a whole number never gets a ".0".
  */
-export function axisNumber(squares: number, perSquare: number): string {
+export function axisNumber(squares: number, perSquare: number, degrees = false): string {
   const decimals = perSquare < 1 ? 1 : 0;
-  return String(Number((squares * perSquare).toFixed(decimals)));
+  return `${Number((squares * perSquare).toFixed(decimals))}${degrees ? "°" : ""}`;
 }
 
 // ---------- Where the axes go ----------
@@ -185,6 +215,34 @@ export function toPage(frame: AxesFrame, x: number, y: number): Vec {
  */
 export function axesOrigin(point: Vec, squared: boolean): Vec {
   return squared ? nearestCorner(point, { spacing: DRAFT_SQUARE, ...DRAFT_SHEET }) : point;
+}
+
+/**
+ * How far an axis crossing at `origin` runs each way, in squares from the
+ * origin: from `start`, which is 0 or below, to `tip`, the tip of its arrow.
+ * The x axis runs to the right and the y axis runs up the page. Where the
+ * sheet leaves less room than the settings ask for, the axis stops half a
+ * square short of the sheet's edge.
+ */
+export function axisSpan(axis: AxisName, origin: Vec, settings: AxisSettings): { start: number; tip: number } {
+  const edge = EDGE_ROOM * DRAFT_SQUARE;
+  const ahead = axis === "x" ? (DRAFT_SHEET.width - edge - origin[0]) / DRAFT_SQUARE : (origin[1] - edge) / DRAFT_SQUARE;
+  const behind = axis === "x" ? (origin[0] - edge) / DRAFT_SQUARE : (DRAFT_SHEET.height - edge - origin[1]) / DRAFT_SQUARE;
+  return {
+    start: Math.min(0, Math.max(settings.from, -behind)),
+    tip: Math.max(0, Math.min(settings.to + ARROW_ROOM, ahead)),
+  };
+}
+
+/**
+ * The stretch of an axis that a graph on it covers, in squares from the
+ * origin: from where the axis starts to its last square, or to half a square
+ * short of its arrow's tip when the sheet cut the axis short. When the axis
+ * has no room at all, the stretch ends before it starts.
+ */
+export function graphSpan(axis: AxisName, origin: Vec, settings: AxisSettings): [number, number] {
+  const { start, tip } = axisSpan(axis, origin, settings);
+  return [start, Math.min(settings.to, tip - ARROW_ROOM)];
 }
 
 // ---------- What gets drawn ----------
@@ -251,9 +309,9 @@ export interface AxesPart {
   text?: string;
   lines: Vec[][];
   /**
-   * For a letter, how heavy each line is, as a share of the pen the marks are
-   * drawn with, because its hairlines are thinner than its thick strokes.
-   * Every other part's lines are the full weight.
+   * For a letter or a number, how heavy each line is, as a share of the pen
+   * the marks are drawn with, because a letter's hairlines and a degree sign
+   * are thinner than everything else. Every other part's lines are the full weight.
    */
   weights?: number[];
 }
@@ -285,14 +343,7 @@ function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): Ax
     return axis === "x" ? [x, y + across] : [x + across, y];
   };
 
-  // How many squares there's room for on each side of the origin, stopping
-  // half a square short of the sheet's edge. The x axis runs to the right,
-  // and the y axis runs up the page.
-  const edge = EDGE_ROOM * square;
-  const ahead = axis === "x" ? (DRAFT_SHEET.width - edge - origin[0]) / square : (origin[1] - edge) / square;
-  const behind = axis === "x" ? (origin[0] - edge) / square : (DRAFT_SHEET.height - edge - origin[1]) / square;
-  const start = Math.min(0, Math.max(settings.from, -behind));
-  const tip = Math.max(0, Math.min(settings.to + ARROW_ROOM, ahead));
+  const { start, tip } = axisSpan(axis, origin, settings);
   if (tip - start <= 0) return [];
 
   const parts: AxesPart[] = [{ role: "axis", axis, lines: [[at(start), at(tip)]] }];
@@ -315,17 +366,19 @@ function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): Ax
   // The number at the tick `n` squares out, or null when it would run off the sheet.
   const numberHeight = NUMBER_CM * CM;
   const numberAt = (n: number): AxesPart | null => {
-    const text = axisNumber(n, settings.perSquare);
+    const text = axisNumber(n, settings.perSquare, settings.degrees);
     const [x, y] = at(n);
     // Along the x axis, a negative number's minus sign hangs out to its left,
-    // as it does in a textbook, so its digits sit centred under the tick.
-    // Centring the whole of "−0.5" would push it so close to the 0 at the
-    // origin that the two would read as "−0.50".
-    const hang = text.startsWith("-") ? (textWidth(text, numberHeight) - textWidth(text.slice(1), numberHeight)) / 2 : 0;
+    // and a degree sign out to its right, as they do in a textbook, so its
+    // digits sit centred under the tick. Centring the whole of "−0.5" would
+    // push it so close to the 0 at the origin that the two would read as "−0.50".
+    const digits = text.replace(/^-/, "").replace(/°$/, "");
+    const before = textWidth(text.startsWith("-") ? `-${digits}` : digits, numberHeight) - textWidth(digits, numberHeight);
+    const shift = textWidth(text, numberHeight) / 2 - before - textWidth(digits, numberHeight) / 2;
     const lines = axis === "x"
-      ? textStrokes(text, [x - hang, y + NUMBER_GAP_CM * CM], numberHeight, "center")
+      ? textStrokes(text, [x + shift, y + NUMBER_GAP_CM * CM], numberHeight, "center")
       : textStrokes(text, [x - NUMBER_GAP_CM * CM, y - numberHeight / 2], numberHeight, "right");
-    return onSheet(lines) ? { role: "number", axis, square: n, text, lines } : null;
+    return onSheet(lines) ? { role: "number", axis, square: n, text, lines, weights: textWeights(text) } : null;
   };
 
   // Numbers too wide to sit a square apart, such as 1000 and 1100, are

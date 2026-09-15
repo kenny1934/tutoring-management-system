@@ -11,6 +11,14 @@ const key = (k: string, init: Partial<LessonKeyEvent> = {}): LessonKeyEvent => (
   key: k, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, target: null, ...init,
 });
 
+describe("keys typed in a maths field", () => {
+  it("leave the tools alone, so typing d or e in the Graph panel picks up neither the pen nor the eraser", () => {
+    const target = document.createElement("math-field");
+    expect(lessonKeyAction(key("d", { target }), calm)).toBeNull();
+    expect(lessonKeyAction(key("e", { target }), calm)).toBeNull();
+  });
+});
+
 describe("lessonKeyAction", () => {
   it.each([
     ["j", "next"],

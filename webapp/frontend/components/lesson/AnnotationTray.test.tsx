@@ -53,6 +53,8 @@ describe("AnnotationTray", () => {
     let tools!: AnnotationTools;
     render(<Harness onTools={(t) => { tools = t; }} />);
     fireEvent.click(button("Proof reasons"));
+    // Searching for something no reason says empties the list, so finding the header's buttons by name is quick.
+    fireEvent.change(screen.getByRole("searchbox", { name: "Find a reason", hidden: true }), { target: { value: "zzz" } });
     fireEvent.click(screen.getByRole("button", { name: "Small text", hidden: true }));
     fireEvent.click(screen.getByRole("button", { name: "Grey text", hidden: true }));
     expect(tools.textSize).toBe("S");

@@ -53,7 +53,7 @@ interface Gesture {
  *   whatever tool is picked, so it never pans. Unlike a touch owner's finger,
  *   it still counts towards a two-finger gesture.
  * - A long press never opens the browser's right-click menu, except in a text
- *   box. Chrome takes a finger held still for a right click, and opening the
+ *   box or a maths field. Chrome takes a finger held still for a right click, and opening the
  *   menu cancels the touch, so a tutor holding a finger down to draw a dot
  *   would lose the dot to the menu.
  *
@@ -239,9 +239,10 @@ export function useViewerTouch(options: ViewerTouchOptions) {
     }
   };
 
-  // A text box keeps its menu, so a tutor can still paste into it with a right click.
+  // A text box keeps its menu, so a tutor can still paste into it with a right
+  // click, and so does a maths field, where MathLive puts a menu of its own.
   const onContextMenu = (e: React.MouseEvent) => {
-    if (!(e.target as Element).closest?.("input, textarea, [contenteditable]")) e.preventDefault();
+    if (!(e.target as Element).closest?.("input, textarea, [contenteditable], math-field")) e.preventDefault();
   };
 
   return {

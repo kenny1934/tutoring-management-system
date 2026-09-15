@@ -92,6 +92,10 @@ describe("isTypingTarget", () => {
     }
   });
 
+  it("is true for a maths field, which is the target of every key typed in it", () => {
+    expect(isTypingTarget(document.createElement("math-field"))).toBe(true);
+  });
+
   it("is false for anything else, or for no target at all", () => {
     expect(isTypingTarget(document.createElement("div"))).toBe(false);
     expect(isTypingTarget(null)).toBe(false);

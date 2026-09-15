@@ -1,6 +1,7 @@
 /**
  * A tiny stroke font for the numbers and letters on a pair of axes: the
- * digits 0 to 9, the minus sign, the decimal point, and the letters x and y.
+ * digits 0 to 9, the minus sign, the decimal point, the degree sign, and the
+ * letters x and y.
  * The axes write their numbers in ink, so the numbers save, print, undo and
  * move with the lasso like everything else on the page, and that needs a font
  * made of lines, not one a browser draws.
@@ -26,6 +27,8 @@ interface Glyph {
    * the full weight.
    */
   weights?: number[];
+  /** The space before it, as a share of the text's height, for a glyph that sits closer to the one before than GAP. */
+  gapBefore?: number;
 }
 
 /**
@@ -132,6 +135,10 @@ export const GLYPHS: Record<string, Glyph> = {
   "-": { width: 0.5, lines: [[[0.05, 0.5], [0.45, 0.5]]] },
   // A stroke of one point draws as a round dot.
   ".": { width: 0.2, lines: [[[0.1, 0.95]]] },
+  // A small ring level with the top of the digits, drawn at the hairlines'
+  // weight so it stays open in the middle. It sits close to the number, as it
+  // does in print, which keeps a number such as 270° from running into the next.
+  "°": { width: 0.3, lines: [arc(0.15, 0.15, 0.13, 0.13, 0, 360)], weights: [HAIRLINE], gapBefore: 0 },
   "x": ITALIC_X,
   "y": ITALIC_Y,
 };
@@ -144,11 +151,12 @@ export type TextAlign = "center" | "right";
 /** The glyphs of a piece of text. A character the font doesn't have is left out. */
 const glyphsOf = (text: string) => [...text].map((c) => GLYPHS[c]).filter((g): g is Glyph => g !== undefined);
 
+/** The space before the `i`th glyph of some text, as a share of the text's height. */
+const gapBefore = (glyph: Glyph, i: number) => (i === 0 ? 0 : glyph.gapBefore ?? GAP);
+
 /** How wide a piece of text is when it's written this tall, in the same units as the height. */
 export function textWidth(text: string, height: number): number {
-  const glyphs = glyphsOf(text);
-  if (glyphs.length === 0) return 0;
-  return (glyphs.reduce((sum, g) => sum + g.width, 0) + GAP * (glyphs.length - 1)) * height;
+  return glyphsOf(text).reduce((sum, g, i) => sum + gapBefore(g, i) + g.width, 0) * height;
 }
 
 /**
@@ -160,11 +168,11 @@ export function textStrokes(text: string, at: Vec, height: number, align: TextAl
   const width = textWidth(text, height);
   let x = align === "center" ? at[0] - width / 2 : at[0] - width;
   const lines: Vec[][] = [];
-  for (const glyph of glyphsOf(text)) {
-    const left = x;
+  glyphsOf(text).forEach((glyph, i) => {
+    const left = x + gapBefore(glyph, i) * height;
     for (const line of glyph.lines) lines.push(line.map(([gx, gy]): Vec => [left + gx * height, at[1] + gy * height]));
-    x += (glyph.width + GAP) * height;
-  }
+    x = left + glyph.width * height;
+  });
   return lines;
 }
 

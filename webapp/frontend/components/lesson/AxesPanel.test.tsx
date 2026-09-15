@@ -97,6 +97,24 @@ describe("AxesPanel", () => {
     expect(section("y").getByRole("combobox", { name: "Numbers" })).toHaveValue("1");
   });
 
+  it("numbers the x axis in degrees when Degrees is ticked, stepping through 15°, 30°, 45° and 90° a square", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    // Only the x axis can be in degrees.
+    expect(section("y").queryByRole("checkbox", { name: "Degrees" })).toBeNull();
+
+    fireEvent.click(section("x").getByRole("checkbox", { name: "Degrees" }));
+    expect(box("x", "Scale")).toHaveValue("30°");
+    expect(box("x", "From")).toHaveValue("-150°");
+    fireEvent.click(field("x", "Scale").getByRole("button", { name: "Each square worth more" }));
+    expect(box("x", "Scale")).toHaveValue("45°");
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_AXES, x: { ...DEFAULT_AXES.x, perSquare: 45, degrees: true } });
+
+    fireEvent.click(section("x").getByRole("checkbox", { name: "Degrees" }));
+    expect(box("x", "Scale")).toHaveValue("1");
+    expect(box("x", "From")).toHaveValue("-5");
+  });
+
   it("goes on to placing from Place the axes, and closes from Cancel", () => {
     const onPlace = vi.fn();
     const onClose = vi.fn();
