@@ -4,6 +4,7 @@ import {
   stepPerSquare, withEnd, type AxesPart, type AxesSettings, type AxisName,
 } from "./axes";
 import { DRAFT_SHEET, DRAFT_SQUARE } from "./draft-sheets";
+import { CM } from "./drawing-guide";
 import { kindOf } from "@/hooks/useAnnotations";
 import type { Vec } from "./stroke-select";
 
@@ -138,6 +139,36 @@ describe("the ink for a pair of axes", () => {
     expect(squares(parts, "tick", "y")).toHaveLength(10);
 
     expect(ofRole(partsAt(MIDDLE, withAxis("x", { numbers: 0 })), "number", "x")).toHaveLength(0);
+  });
+
+  const boxOf = (lines: Vec[][]) => {
+    const xs = lines.flat().map(([x]) => x);
+    return { left: Math.min(...xs), right: Math.max(...xs) };
+  };
+
+  it("numbers every other square when numbers a square apart would run together, such as 1000 and 1100", () => {
+    const parts = partsAt([5 * SQ, 14 * SQ], withAxis("x", { perSquare: 100, from: -4, to: 12 }));
+    expect(texts(parts, "number", "x")).toEqual(["-400", "-200", "200", "400", "600", "800", "1000", "1200"]);
+    // The ticks stay on every square.
+    expect(squares(parts, "tick", "x")).toHaveLength(16);
+    // Every number has room round it.
+    const boxes = ofRole(parts, "number", "x").map((p) => boxOf(p.lines));
+    boxes.slice(1).forEach((box, i) => expect(box.left - boxes[i].right).toBeGreaterThanOrEqual(0.15 * CM));
+  });
+
+  it("moves the x right, clear of a wide last number", () => {
+    const parts = partsAt(MIDDLE, withAxis("x", { perSquare: 20 }));
+    const last = ofRole(parts, "number", "x").at(-1)!;
+    expect(last.text).toBe("100");
+    const letter = ofRole(parts, "letter", "x")[0];
+    expect(boxOf(letter.lines).left - boxOf(last.lines).right).toBeCloseTo(0.15 * CM);
+
+    // With a narrow last number, it stays centred under the tip of the arrow,
+    // as nearly as the x's own strokes allow.
+    const plain = partsAt(MIDDLE);
+    const [, tip] = axisLine(plain, "x");
+    const { left, right } = boxOf(ofRole(plain, "letter", "x")[0].lines);
+    expect((left + right) / 2).toBeCloseTo(tip[0], 1);
   });
 
   it("hangs a negative number's minus sign to the left on the x axis, so its digits sit centred under the tick", () => {

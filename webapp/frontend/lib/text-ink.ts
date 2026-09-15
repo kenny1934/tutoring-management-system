@@ -26,6 +26,9 @@ export const TEXT_FONT = '"Times New Roman", "Cambria Math", SimSun, serif';
 
 /** A line of text is this many times as tall as the size of its writing. */
 export const TEXT_LINE_HEIGHT = 1.25;
+
+/** The most characters the text box takes. It's far more than a board needs, and well within the 2,000 the server keeps. */
+export const TEXT_MAX_LENGTH = 1000;
 // A line's baseline sits this far below the middle of the line, as a share of
 // the writing's size, which puts a Chinese character in the middle of its line.
 const BASELINE_BELOW_MIDDLE = 0.35;
@@ -220,4 +223,20 @@ export function textAt(strokes: Stroke[], [x, y]: Vec): Stroke | null {
     if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) return stroke;
   }
   return null;
+}
+
+/**
+ * Where a text stroke is among a page's strokes, or -1 when it's gone. Ink
+ * arriving from another laptop replaces the page's strokes with copies,
+ * rounded for saving, so a text stroke with the same words in the same place
+ * counts as the same one.
+ */
+export function indexOfText(strokes: Stroke[], text: Stroke): number {
+  const at = strokes.indexOf(text);
+  if (at !== -1) return at;
+  const near = (a: readonly number[], b: readonly number[]) => Math.abs(a[0] - b[0]) <= 0.1 && Math.abs(a[1] - b[1]) <= 0.1;
+  return strokes.findIndex((stroke) =>
+    isText(stroke) && stroke.text === text.text && stroke.points.length === text.points.length
+    && stroke.points.every((point, i) => near(point, text.points[i])),
+  );
 }

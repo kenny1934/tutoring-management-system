@@ -8,11 +8,14 @@ import { cn } from "@/lib/utils";
 import { DropdownMenu, menuItemClass } from "@/components/ui/dropdown-menu";
 import { AnnotationLayer, StrokePath } from "./AnnotationLayer";
 import { UndoOfferBar } from "./UndoOfferBar";
+import { PlacingHint } from "./PlacingHint";
 import { PANE_TOOLS, PaneTools, paneToolLabel, usePaneTools } from "./PaneTools";
 import { AnnotationTray, TRAY_CLEARANCE } from "./AnnotationTray";
 import { AxesIcon, AxesPanel } from "./AxesPanel";
 import { PAGE_BAR_HEIGHT, ZoomControls, tbBtn, tbBtnIdle, tbBtnOn, toolbarRow } from "./PdfPageViewer";
 import { useViewerTouch } from "@/hooks/useViewerTouch";
+import { useLessonEscape } from "@/hooks/useLessonEscape";
+import { usePlacingPress } from "@/hooks/usePlacingPress";
 import { PDF_DARK_FILTER, usePdfDarkMode } from "@/hooks/usePdfDarkMode";
 import { inkLayerProps, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
@@ -164,20 +167,8 @@ export function DraftPane({
     endAxes();
   };
 
-  // Escape closes the panel or stops placing. The lesson views listen on the
-  // window, which hears a key after the document does, so it stops here.
-  // Without that, the same key press would also put the pen away or leave
-  // the lesson.
-  useEffect(() => {
-    if (axesStep === "closed") return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      endAxes();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [axesStep, endAxes]);
+  // Escape closes the panel or stops placing.
+  useLessonEscape(axesStep !== "closed", endAxes);
 
   const { gestureActive, handlers } = useViewerTouch({
     scrollRef,
@@ -464,17 +455,11 @@ export function DraftPane({
           />
         )}
         {placing && (
-          <div
-            className={cn(
-              "absolute left-1/2 top-2 z-30 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-2 rounded-lg py-1 pl-4 pr-1",
-              "bg-[#2e251c]/90 text-sm text-[#f3e7d3] shadow-lg",
-            )}
-          >
-            <span>Tap where the axes should cross.</span>
-            <button type="button" onClick={endAxes} className="min-h-11 rounded-md px-3 font-medium hover:bg-white/10">
-              Cancel
-            </button>
-          </div>
+          <PlacingHint
+            message="Tap where the axes should cross."
+            onCancel={endAxes}
+            className="absolute left-1/2 top-2 z-30 max-w-[calc(100%-1rem)] -translate-x-1/2"
+          />
         )}
       </div>
 
@@ -595,6 +580,13 @@ interface AxesPlacingProps {
   onPlace: (sheet: number, origin: Vec) => void;
 }
 
+/** Where the axes would cross, on which sheet, and where that sheet sits for the preview. */
+interface AxesSpot {
+  sheet: number;
+  origin: Vec;
+  box: SheetBox;
+}
+
 /** Where a sheet sits in the column of sheets, which is where the preview goes. */
 interface SheetBox {
   left: number;
@@ -620,18 +612,6 @@ interface SheetBox {
  * on "Add a sheet", does nothing.
  */
 function AxesPlacing({ sheetRefs, sheetCount, squared, settings, suspended, darkMode, onPlace }: AxesPlacingProps) {
-  const pressRef = useRef<{ pointerId: number; sheet: number } | null>(null);
-  const [preview, setPreview] = useState<{ sheet: number; origin: Vec; box: SheetBox } | null>(null);
-
-  const dropPreview = useCallback(() => {
-    pressRef.current = null;
-    setPreview(null);
-  }, []);
-  // A second finger turns the touch into a scroll, and the preview goes.
-  useEffect(() => {
-    if (suspended) dropPreview();
-  }, [suspended, dropPreview]);
-
   const sheetUnder = (x: number, y: number): number | null => {
     for (let n = 0; n < sheetCount; n++) {
       const box = sheetRefs.current[n]?.getBoundingClientRect();
@@ -650,47 +630,21 @@ function AxesPlacing({ sheetRefs, sheetCount, squared, settings, suspended, dark
     ], squared);
   };
 
-  // On squared paper the crossing only moves from one corner to the next, so most moves change nothing.
-  const show = (sheet: number, origin: Vec) => {
-    const el = sheetRefs.current[sheet];
-    if (!el) return;
-    setPreview((prev) =>
-      prev && prev.sheet === sheet && prev.origin[0] === origin[0] && prev.origin[1] === origin[1]
-        ? prev
-        : { sheet, origin, box: { left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight } },
-    );
-  };
-
-  const down = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (pressRef.current || (e.pointerType === "mouse" && e.button !== 0)) return;
-    const sheet = sheetUnder(e.clientX, e.clientY);
-    const origin = sheet === null ? null : originOn(sheet, e.clientX, e.clientY);
-    if (sheet === null || !origin) return;
-    e.preventDefault();
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* the finger has already lifted */ }
-    pressRef.current = { pointerId: e.pointerId, sheet };
-    show(sheet, origin);
-  };
-
   // A drag keeps to the sheet the finger went down on.
-  const move = (e: React.PointerEvent<HTMLDivElement>) => {
-    const press = pressRef.current;
-    if (!press || press.pointerId !== e.pointerId) return;
-    const origin = originOn(press.sheet, e.clientX, e.clientY);
-    if (origin) show(press.sheet, origin);
+  const spotAt = (e: React.PointerEvent, from: AxesSpot | null): AxesSpot | null => {
+    const sheet = from ? from.sheet : sheetUnder(e.clientX, e.clientY);
+    const el = sheet === null ? null : sheetRefs.current[sheet];
+    const origin = sheet === null ? null : originOn(sheet, e.clientX, e.clientY);
+    if (sheet === null || !el || !origin) return null;
+    return { sheet, origin, box: { left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight } };
   };
-
-  const up = (e: React.PointerEvent<HTMLDivElement>) => {
-    const press = pressRef.current;
-    if (!press || press.pointerId !== e.pointerId) return;
-    const origin = originOn(press.sheet, e.clientX, e.clientY);
-    dropPreview();
-    if (origin) onPlace(press.sheet, origin);
-  };
-
-  const cancel = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (pressRef.current?.pointerId === e.pointerId) dropPreview();
-  };
+  const { preview, handlers } = usePlacingPress<AxesSpot>({
+    suspended,
+    spotAt,
+    onPlace: (spot) => onPlace(spot.sheet, spot.origin),
+    // On squared paper the crossing only moves from one corner to the next, so most moves change nothing.
+    same: (a, b) => a.sheet === b.sheet && a.origin[0] === b.origin[0] && a.origin[1] === b.origin[1],
+  });
 
   // In the order the ink's layers paint them, so the axis lines sit over their marks as they will on the sheet.
   const strokes = useMemo(() => (preview ? inkLayers(axesStrokes(preview.origin, settings)).flat() : []), [preview, settings]);
@@ -702,10 +656,7 @@ function AxesPlacing({ sheetRefs, sheetCount, squared, settings, suspended, dark
         data-axes-placing=""
         className="absolute inset-0 z-20 cursor-crosshair"
         style={{ touchAction: "none" }}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={cancel}
+        {...handlers}
       />
       {preview && (
         <svg

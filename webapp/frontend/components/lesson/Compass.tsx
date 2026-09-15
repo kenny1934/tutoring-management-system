@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { FlipHorizontal2, MoveDiagonal2, PencilOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
@@ -86,6 +86,14 @@ interface WidthStepperProps {
  */
 function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose, measureRef }: WidthStepperProps) {
   const [typed, setTyped] = useState(width.toFixed(1));
+  // A width changed from outside the box, such as by the grip still held
+  // while the box opened, replaces what the box shows. Otherwise closing the
+  // box would put back the width it opened with.
+  const [shownWidth, setShownWidth] = useState(width);
+  if (width !== shownWidth) {
+    setShownWidth(width);
+    setTyped(width.toFixed(1));
+  }
   const boxRef = useRef<HTMLDivElement>(null);
   // Set once Escape has closed the box, so the box losing focus as it goes doesn't keep what was typed.
   const cancelledRef = useRef(false);
@@ -223,6 +231,14 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
   // A drag of the grip, with the width it has reached, which is remembered once the finger lifts.
   const gripRef = useRef<{ pointerId: number; offset: Vec; width: number } | null>(null);
   const turnRef = useRef<Turn | null>(null);
+  // A drag of the resize handle, measured by the finger's distance from the
+  // needle on screen. It remembers the width it started at, so legs shortened
+  // past the width and lengthened again in the same drag open back out to it.
+  const resizeRef = useRef<{ pointerId: number; from: number; startLegs: number; startWidth: number; legs: number; width: number } | null>(null);
+  // Whether any handle is held is worked out from the drags themselves each
+  // time one starts or ends, so lifting one handle never counts as letting go
+  // of another that's still held.
+  const updateBusy = () => setBusy(gripRef.current !== null || turnRef.current !== null || resizeRef.current !== null);
 
   /** The needle on screen, and a centimetre in screen pixels, or null before the container is on the page. */
   const measure = () => {
@@ -230,20 +246,29 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
     return at && cm > 0 ? { needle: [at.cx, at.cy] as Vec, onScreenCm: cm * at.scale } : null;
   };
 
-  /** Take a finger or the mouse on one of the handles. It returns false for the mouse's other buttons. */
-  const grabHandle = (e: React.PointerEvent<HTMLSpanElement>) => {
+  /**
+   * Take a finger or the mouse on one of the handles, whose drag is kept in
+   * `drag`. It returns false for the mouse's other buttons, and for a second
+   * finger on a handle that's already held, which is kept from moving the
+   * compasses as well.
+   */
+  const grabHandle = (e: React.PointerEvent<HTMLSpanElement>, drag: { readonly current: unknown }) => {
+    if (drag.current !== null) {
+      e.stopPropagation();
+      return false;
+    }
     if (!grabPointer(e)) return false;
     setHeldMirror(mirrored);
-    setBusy(true);
     return true;
   };
 
   // The grip follows the finger with the pencil, so the pencil doesn't jump to where the finger is.
   const gripDown = (e: React.PointerEvent<HTMLSpanElement>) => {
     const m = measure();
-    if (!m || !grabHandle(e)) return;
+    if (!m || !grabHandle(e, gripRef)) return;
     const pencil = pointAt(m.needle, width * m.onScreenCm, place.angle);
     gripRef.current = { pointerId: e.pointerId, offset: [pencil[0] - e.clientX, pencil[1] - e.clientY], width };
+    updateBusy();
   };
 
   const gripMove = (e: React.PointerEvent<HTMLSpanElement>) => {
@@ -270,12 +295,12 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
     saveCompassWidth(grip.width);
     gripRef.current = null;
     setPencilSnapped(false);
-    setBusy(false);
+    updateBusy();
   };
 
   const turnDown = (e: React.PointerEvent<HTMLSpanElement>) => {
     const m = measure();
-    if (!m || !grabHandle(e)) return;
+    if (!m || !grabHandle(e, turnRef)) return;
     turnRef.current = {
       pointerId: e.pointerId,
       last: directionOf(m.needle, [e.clientX, e.clientY]),
@@ -286,6 +311,7 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
       draws: !lifted,
       line: null,
     };
+    updateBusy();
   };
 
   const turnMove = (e: React.PointerEvent<HTMLSpanElement>) => {
@@ -317,19 +343,20 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
     e.stopPropagation();
     turnRef.current = null;
     turn.line?.end();
-    setBusy(false);
+    updateBusy();
   };
 
-  // A drag of the resize handle, measured by the finger's distance from the
-  // needle on screen. It remembers the width it started at, so legs shortened
-  // past the width and lengthened again in the same drag open back out to it.
-  const resizeRef = useRef<{ pointerId: number; from: number; startLegs: number; startWidth: number; legs: number; width: number } | null>(null);
+  // Hiding the compasses part way through a turn finishes its arc. Otherwise
+  // the page under the pencil would go on waiting for the rest of the arc, and
+  // take no more ink from the pens.
+  useEffect(() => () => turnRef.current?.line?.end(), []);
 
   const resizeDown = (e: React.PointerEvent<HTMLSpanElement>) => {
     const m = measure();
-    if (!m || !grabHandle(e)) return;
+    if (!m || !grabHandle(e, resizeRef)) return;
     const from = Math.hypot(e.clientX - m.needle[0], e.clientY - m.needle[1]);
     resizeRef.current = { pointerId: e.pointerId, from, startLegs: legs, startWidth: width, legs, width };
+    updateBusy();
   };
 
   const resizeMove = (e: React.PointerEvent<HTMLSpanElement>) => {
@@ -350,7 +377,7 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
     resizeRef.current = null;
     saveCompassLegs(drag.legs);
     saveCompassWidth(drag.width);
-    setBusy(false);
+    updateBusy();
   };
 
   // The pencil swings round to the other side of the needle, at the same width, and draws nothing.

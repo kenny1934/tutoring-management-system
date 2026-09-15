@@ -6,7 +6,7 @@ import { INK, INK_ORDER, getStrokeOptions, inkLayers, isText, kindOf, makeStroke
 import type { InkKind, PageAnnotations, PenKind, Stroke } from "@/hooks/useAnnotations";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { boundingBox, eraseStrokes, type Box } from "@/lib/stroke-eraser";
-import { TEXT_FONT, TEXT_LINE_HEIGHT, isCjk, makeTextStrokes, textAt, textLayout, type TextPart } from "@/lib/text-ink";
+import { TEXT_FONT, TEXT_LINE_HEIGHT, indexOfText, isCjk, makeTextStrokes, textAt, textLayout, type TextPart } from "@/lib/text-ink";
 import { hasBrowserModifier, isTypingTarget } from "@/lib/lesson-utils";
 import {
   clampMove, clampScale, dragScale, fitOnPage, moveStrokes, recolourStrokes, resizeStrokes, selectionBounds, strokesInLoop,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/stroke-select";
 import { TEXT_SIZES, type InkSwatch } from "@/hooks/useAnnotationTools";
 import { registerInkPage, type DrivenLine, type InkPage } from "@/hooks/useInkPages";
+import { usePlacingPress } from "@/hooks/usePlacingPress";
 import { snapOnPage } from "@/lib/snap";
 import { CM, clipPointsToPage, type DrawingGuide, type GuidedLine } from "@/lib/drawing-guide";
 import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
@@ -503,11 +504,9 @@ export function AnnotationLayer({
   const [drag, setDrag] = useState<SelectionDrag | null>(null);
   const dragRef = useRef<{ from: Vec; pointerId: number; preview: SelectionDrag } | null>(null);
 
-  // A proof reason waiting to be placed, and its faint copy under the finger.
-  // Nothing is placed before the lessons' saved ink has loaded.
+  // Whether a proof reason is waiting to be placed. Nothing is placed before
+  // the lessons' saved ink has loaded.
   const placing = !!placingText && placingText.length > 0 && inkReady;
-  const [ghost, setGhost] = useState<Stroke[] | null>(null);
-  const placeRef = useRef<number | null>(null);
   // The Text tool's box, and the finger whose tap will open one.
   const [editor, setEditor] = useState<TextEditor | null>(null);
   const editorRef = useRef<TextEditor | null>(null);
@@ -533,8 +532,6 @@ export function AnnotationLayer({
     lastRubPointRef.current = null;
     setRubbedStrokes(null);
     setEraserCursor(null);
-    placeRef.current = null;
-    setGhost((prev) => (prev ? null : prev));
     typeTapRef.current = null;
     releaseFade();
   }, [releaseFade]);
@@ -554,16 +551,9 @@ export function AnnotationLayer({
     setSelection(null);
   }, []);
 
-  // A reason waiting to be placed lets go of any selection, so a tap on it
-  // places the reason. Once the reason is placed, on this page or another, or
-  // cancelled, its faint copy goes too.
+  // A reason waiting to be placed lets go of any selection, so a tap on it places the reason.
   useEffect(() => {
-    if (placing) {
-      dropSelection();
-      return;
-    }
-    placeRef.current = null;
-    setGhost((prev) => (prev ? null : prev));
+    if (placing) dropSelection();
   }, [placing, dropSelection]);
 
   // Starting a loop on another page lets go of this page's selection.
@@ -1117,47 +1107,24 @@ export function AnnotationLayer({
     [placingText, textStyle, getPoint, width, height]
   );
 
-  const handlePlaceDown = useCallback(
-    (e: React.PointerEvent) => {
-      if (suspended || placeRef.current !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      svgRef.current?.setPointerCapture(e.pointerId);
-      placeRef.current = e.pointerId;
-      setGhost(reasonAt(e));
-    },
-    [suspended, reasonAt]
-  );
-
-  // A drag moves the faint copy. A mouse shows it before it's pressed too, because there's a pointer to follow.
-  const handlePlaceMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (placeRef.current === null ? e.pointerType !== "mouse" || suspended : placeRef.current !== e.pointerId) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setGhost(reasonAt(e));
-    },
-    [suspended, reasonAt]
-  );
-
-  const handlePlaceUp = useCallback(
-    (e: React.PointerEvent) => {
-      if (placeRef.current !== e.pointerId) return;
-      e.preventDefault();
-      e.stopPropagation();
-      placeRef.current = null;
-      setGhost(null);
+  // The waiting reason's faint copy under the finger. A mouse shows it before
+  // it's pressed too, because there's a pointer to follow. Once the reason is
+  // placed, on this page or another, or cancelled, its faint copy goes too.
+  const { preview: ghost, handlers: placeHandlers, drop: dropPlacing } = usePlacingPress<Stroke[]>({
+    suspended,
+    hover: true,
+    spotAt: (e) => {
       const placed = reasonAt(e);
-      if (placed.length === 0) return;
+      return placed.length > 0 ? placed : null;
+    },
+    onPlace: (placed) => {
       onStrokesChange([...strokes, ...placed]);
       onTextPlaced?.();
     },
-    [reasonAt, strokes, onStrokesChange, onTextPlaced]
-  );
-
-  const handlePlaceLeave = useCallback(() => {
-    if (placeRef.current === null) setGhost(null);
-  }, []);
+  });
+  useEffect(() => {
+    if (!placing) dropPlacing();
+  }, [placing, dropPlacing]);
 
   // ---------- The Text tool ----------
 
@@ -1184,7 +1151,7 @@ export function AnnotationLayer({
       current.at,
       { size: current.size, color: current.color, pageWidth: width, pageHeight: height },
     );
-    const at = editing ? strokes.indexOf(editing) : -1;
+    const at = editing ? indexOfText(strokes, editing) : -1;
     if (at !== -1) onStrokesChange([...strokes.slice(0, at), ...placed, ...strokes.slice(at + 1)]);
     else if (placed.length > 0) onStrokesChange([...strokes, ...placed]);
   }, [showEditor, strokes, width, height, onStrokesChange]);
@@ -1211,6 +1178,15 @@ export function AnnotationLayer({
   useEffect(() => {
     if (!isTyping) commitText();
   }, [isTyping, commitText]);
+
+  // A box still open as the page goes, such as when another exercise opens,
+  // puts its text on the page it was typed on. The layer's last props still
+  // belong to that page, because a new exercise gets fresh layers.
+  const commitTextRef = useRef(commitText);
+  useEffect(() => {
+    commitTextRef.current = commitText;
+  });
+  useEffect(() => () => commitTextRef.current(), []);
 
   // The box opens when the finger lifts, so a finger that turns into a two-finger scroll opens nothing.
   const handleTypeDown = useCallback(
@@ -1283,13 +1259,7 @@ export function AnnotationLayer({
   // because each stroke handles its own tap.
   let pointerHandlers: Partial<Record<"onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel" | "onPointerLeave", (e: React.PointerEvent) => void>>;
   if (placing) {
-    pointerHandlers = {
-      onPointerDown: handlePlaceDown,
-      onPointerMove: handlePlaceMove,
-      onPointerUp: handlePlaceUp,
-      onPointerCancel: discardInProgress,
-      onPointerLeave: handlePlaceLeave,
-    };
+    pointerHandlers = placeHandlers;
   } else if (isRubbing) {
     pointerHandlers = {
       onPointerDown: handleRubDown,
@@ -1327,7 +1297,11 @@ export function AnnotationLayer({
   // so dragging it moves that group and nothing else. Text whose box is open to
   // change it is left out too, because the box shows it.
   const selected = useMemo(() => new Set(selection?.strokes), [selection]);
-  const editing = editor?.editing ?? null;
+  // Ink from another laptop can bring a copy of the text while its box is open, and the copy is left out as well.
+  const editing = useMemo(() => {
+    const open = editor?.editing;
+    return open ? shownStrokes[indexOfText(shownStrokes, open)] ?? null : null;
+  }, [editor, shownStrokes]);
   const layerPaths = useMemo(() => {
     const tappable = isErasing && !isRubbing && !placing;
     return inkLayers(shownStrokes).map((layer) =>

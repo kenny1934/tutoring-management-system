@@ -92,6 +92,8 @@ function describeForZip(entry: StudentExerciseEntry): AnnotatedExercise | null {
 
 interface LessonWideModeProps {
   sessions: Session[];
+  /** Every lesson in the slot, whatever its status. The slot's own Draft is kept with one of them. */
+  slotSessionIds: number[];
   date: string;
   slot: string;
   tutorId: number;
@@ -103,6 +105,7 @@ const SHORTCUTS = lessonShortcuts("multi-student");
 
 export function LessonWideMode({
   sessions,
+  slotSessionIds,
   date,
   slot,
   tutorId,
@@ -178,9 +181,11 @@ export function LessonWideMode({
   }, [sessions]);
 
   // The slot's own Draft is kept with one of its lessons, as a preview's ink
-  // is. It's the one with the lowest id, so it stays the same one however the
-  // students are listed.
-  const slotDraftSession = sessions.length > 0 ? Math.min(...sessions.map((s) => s.id)) : null;
+  // is. It's the one with the lowest id of every lesson in the slot, cancelled
+  // and rescheduled ones included, so it stays the same one however the
+  // students are listed, and when one of them is marked absent part way
+  // through the lesson.
+  const slotDraftSession = slotSessionIds.length > 0 ? Math.min(...slotSessionIds) : null;
   // The Draft beside the worksheet, and the slot's own Draft in the worksheet's place
   const draft = useDraft(openExercise, isMobile, slotDraftSession);
   const lessonDraftOpen = draft.lessonDraftOpen;
@@ -192,7 +197,8 @@ export function LessonWideMode({
   const openInkSource = useMemo(() => (selectedEntry ? describeForZip(selectedEntry) : null), [selectedEntry]);
   const ink = useLessonInk<AnnotatedExercise>({
     storageKey: `lesson-wide-annotations-${date}-${slot}-${tutorId}`,
-    sessionIds: sessions.map((s) => s.id),
+    // The Draft's lesson can be one that isn't listed, such as a cancelled one, so its ink is fetched too.
+    sessionIds: slotDraftSession === null ? sessions.map((s) => s.id) : [...sessions.map((s) => s.id), slotDraftSession],
     exercises: listedExercises,
     openExercise,
     openSource: openInkSource,

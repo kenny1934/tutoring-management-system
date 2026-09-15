@@ -348,13 +348,21 @@ const roundTo = (value: number, places: number) => {
  * is far below anything anyone can see, and pressure to two places. That cuts
  * a heavy page to about a third of its size. A pressure of exactly 0.5 means
  * "simulate the pressure", and rounding keeps it exactly 0.5.
+ *
+ * Text is cut to the most the server keeps. The text box stops well short of
+ * that, but a longer text would get its page turned away, and a page that's
+ * turned away holds up every page sent with it.
  */
 export function roundStroke(stroke: Stroke): Stroke {
   return {
     ...stroke,
     points: stroke.points.map(([x, y, p]) => [roundTo(x, 1), roundTo(y, 1), roundTo(p, 2)]),
+    ...(stroke.text !== undefined && { text: stroke.text.slice(0, SAVED_TEXT_LENGTH) }),
   };
 }
+
+/** The most characters of text the server keeps in one stroke. */
+const SAVED_TEXT_LENGTH = 2000;
 
 const pageKey = (exerciseId: number, pageIndex: number) => `${exerciseId}:${pageIndex}`;
 

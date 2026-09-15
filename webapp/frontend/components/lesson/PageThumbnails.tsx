@@ -4,6 +4,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
+import { useLessonEscape } from "@/hooks/useLessonEscape";
 
 // How tall each small page is. At this height a finger can pick one out at the board.
 const THUMB_HEIGHT = 120;
@@ -57,20 +58,15 @@ export function PageThumbnails({ pages, current, darkMode, onPick, onClose, togg
       if (stripRef.current?.contains(target) || toggleRef.current?.contains(target)) return;
       onClose();
     };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      // The lesson views listen on the window, which hears a key after the document does.
-      e.stopPropagation();
-      toggleRef.current?.focus();
-      onClose();
-    };
     document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
   }, [onClose, toggleRef]);
+
+  // Escape closes the strip, with the keyboard back on the button that opened it.
+  useLessonEscape(true, () => {
+    toggleRef.current?.focus();
+    onClose();
+  });
 
   return (
     <div

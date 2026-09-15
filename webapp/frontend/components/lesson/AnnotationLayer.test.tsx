@@ -117,19 +117,22 @@ describe("AnnotationLayer text", () => {
 
   function renderTyping(strokes: Stroke[] = []) {
     const onStrokesChange = vi.fn();
-    const utils = render(
+    const layer = (shown: Stroke[]) => (
       <AnnotationLayer
-        width={100} height={100} strokes={strokes} isDrawing={false} isErasing={false} isTyping
+        width={100} height={100} strokes={shown} isDrawing={false} isErasing={false} isTyping
         penColor="#dc2626" penSize={2} onStrokesChange={onStrokesChange} textStyle={{ size: 8, color: "#000000" }}
       />
     );
+    const utils = render(layer(strokes));
+    // The page's strokes replaced from outside, as ink from another laptop does.
+    const receive = (next: Stroke[]) => utils.rerender(layer(next));
     const svg = utils.container.querySelector("svg")!;
     const tap = (x: number, y: number) => {
       fireEvent.pointerDown(svg, { clientX: x, clientY: y, pointerId: 1 });
       fireEvent.pointerUp(svg, { clientX: x, clientY: y, pointerId: 1 });
     };
     const textBox = () => screen.getByRole("textbox", { name: "Text" });
-    return { ...utils, onStrokesChange, tap, textBox };
+    return { ...utils, onStrokesChange, tap, textBox, receive };
   }
 
   it("opens a box where the Text tool taps, and places what's typed on Enter", () => {
@@ -204,6 +207,39 @@ describe("AnnotationLayer text", () => {
     fireEvent.change(textBox(), { target: { value: "" } });
     fireEvent.keyDown(textBox(), { key: "Enter" });
     expect(onStrokesChange).toHaveBeenCalledWith([LINE]);
+  });
+
+  it("changes text in its place when ink from another laptop has brought copies of the page's strokes", () => {
+    const text: Stroke = { points: [[10, 20, 0.5], [30, 30, 0.5]], color: "#2563eb", size: 1, kind: "text", text: "AB" };
+    const { tap, textBox, onStrokesChange, receive, container } = renderTyping([text, LINE]);
+    tap(15, 25);
+    // The copies are rounded for saving, so they're not quite where the originals were.
+    const copy: Stroke = { ...text, points: [[10.04, 20, 0.5], [30, 29.96, 0.5]] };
+    receive([copy, { ...LINE }]);
+    expect(container.querySelector("[data-text-ink]")).toBeNull();
+
+    fireEvent.change(textBox(), { target: { value: "ABCD" } });
+    fireEvent.keyDown(textBox(), { key: "Enter" });
+    const change = onStrokesChange.mock.calls[0][0] as Stroke[];
+    expect(change).toHaveLength(2);
+    expect(change[0]).toMatchObject({ kind: "text", text: "ABCD" });
+  });
+
+  it("puts what's typed on the page when the page goes with its box still open", () => {
+    const { tap, textBox, onStrokesChange, unmount } = renderTyping();
+    tap(20, 30);
+    fireEvent.change(textBox(), { target: { value: "AB" } });
+    unmount();
+    expect(onStrokesChange).toHaveBeenCalledWith([expect.objectContaining({ kind: "text", text: "AB" })]);
+  });
+
+  it("holds up to 1,000 characters, and a symbol never takes the text past that", () => {
+    const { tap, textBox } = renderTyping();
+    tap(20, 30);
+    expect(textBox()).toHaveAttribute("maxlength", "1000");
+    fireEvent.change(textBox(), { target: { value: "a".repeat(1000) } });
+    fireEvent.click(screen.getByRole("button", { name: "Angle" }));
+    expect(textBox()).toHaveValue("a".repeat(1000));
   });
 });
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Vec } from "@/lib/stroke-select";
-import { TEXT_FONT, TEXT_LINE_HEIGHT, textWidth, wrapText, wrapWidth } from "@/lib/text-ink";
+import { TEXT_FONT, TEXT_LINE_HEIGHT, TEXT_MAX_LENGTH, textWidth, wrapText, wrapWidth } from "@/lib/text-ink";
 
 // The symbols a proof needs that a keyboard doesn't have, with what a screen reader calls each one.
 const SYMBOLS: readonly [symbol: string, name: string][] = [
@@ -41,7 +41,9 @@ interface TextBoxProps {
  *
  * Enter puts the text on the page, and Shift+Enter starts a new line. An Enter
  * that confirms the characters Windows' Chinese input is offering doesn't
- * count. Escape closes the box and forgets what was typed.
+ * count. Escape closes the box and forgets what was typed. It holds up to
+ * 1,000 characters, far more than a board needs and well within what the
+ * server keeps.
  *
  * It sits on the page, inside the dark PDF filter with the ink, so it darkens
  * along with the page. It's a touch owner, so a finger on it types, and never
@@ -80,7 +82,10 @@ export function TextBox({ at, size, color, italic, text, width, uiScale, onChang
     const box = ref.current;
     if (!box) return;
     const { selectionStart: start, selectionEnd: end } = box;
-    onChange(text.slice(0, start) + symbol + text.slice(end));
+    const next = text.slice(0, start) + symbol + text.slice(end);
+    // A symbol never takes the text past the box's limit, just as typing can't.
+    if (next.length > TEXT_MAX_LENGTH) return;
+    onChange(next);
     const caret = start + symbol.length;
     requestAnimationFrame(() => {
       box.focus({ preventScroll: true });
@@ -121,6 +126,7 @@ export function TextBox({ at, size, color, italic, text, width, uiScale, onChang
           ref={ref}
           aria-label="Text"
           value={text}
+          maxLength={TEXT_MAX_LENGTH}
           placeholder={PLACEHOLDER}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}

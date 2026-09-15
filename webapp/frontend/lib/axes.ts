@@ -212,6 +212,18 @@ const LETTER_CM = 0.6;
 const LETTER_GAP_CM = 0.2;
 /** How far down its box a letter's x and the short arm of its y sit on their line, as a share of its height. */
 const LETTER_BASELINE = 0.75;
+/**
+ * The least room between two numbers along an axis, and between the last
+ * number on the x axis and its letter. Numbers that would come closer are
+ * spread out, and the letter moves along.
+ */
+const LABEL_ROOM_CM = 0.15;
+/**
+ * How many times further apart numbers go when they'd run together at the
+ * spacing asked for. It's every other number first, then every fifth and
+ * every tenth, the way a textbook spaces a crowded scale.
+ */
+const NUMBER_SPREADS = [1, 2, 5, 10];
 
 // Lengths along an axis, in squares.
 /** How far past the last square an axis runs, to the tip of its arrow. */
@@ -251,6 +263,19 @@ const onSheet = (lines: Vec[][]) =>
 
 const keepOnSheet = ([x, y]: Vec): Vec => [clamp(x, 0, DRAFT_SHEET.width), clamp(y, 0, DRAFT_SHEET.height)];
 
+/** The box round some lines. */
+function boxOf(lines: Vec[][]) {
+  const xs = lines.flat().map(([x]) => x);
+  const ys = lines.flat().map(([, y]) => y);
+  return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
+}
+
+type LabelBox = ReturnType<typeof boxOf>;
+
+/** Whether two boxes are at least `room` apart, side by side or one above the other. */
+const apart = (a: LabelBox, b: LabelBox, room: number) =>
+  b.left - a.right >= room || a.left - b.right >= room || b.top - a.bottom >= room || a.top - b.bottom >= room;
+
 /** The parts of one axis. */
 function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): AxesPart[] {
   const { origin, square } = frame;
@@ -276,14 +301,20 @@ function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): Ax
   // crosses. Near the tip there has to be room for the arrowhead, so a tick
   // that would sit under it is left off, along with its number.
   const lastTick = Math.min(settings.to, Math.floor(tip - (ARROW_CM * CM) / square + 1e-9));
-  const numberHeight = NUMBER_CM * CM;
+  const ticks: number[] = [];
   for (let n = Math.ceil(start - 1e-9); n <= lastTick; n++) {
-    if (n === 0) continue;
+    if (n !== 0) ticks.push(n);
+  }
+  for (const n of ticks) {
     parts.push({
       role: "tick", axis, square: n,
       lines: [[keepOnSheet(at(n, -TICK_CM * CM)), keepOnSheet(at(n, TICK_CM * CM))]],
     });
-    if (settings.numbers === 0 || n % settings.numbers !== 0) continue;
+  }
+
+  // The number at the tick `n` squares out, or null when it would run off the sheet.
+  const numberHeight = NUMBER_CM * CM;
+  const numberAt = (n: number): AxesPart | null => {
     const text = axisNumber(n, settings.perSquare);
     const [x, y] = at(n);
     // Along the x axis, a negative number's minus sign hangs out to its left,
@@ -294,9 +325,21 @@ function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): Ax
     const lines = axis === "x"
       ? textStrokes(text, [x - hang, y + NUMBER_GAP_CM * CM], numberHeight, "center")
       : textStrokes(text, [x - NUMBER_GAP_CM * CM, y - numberHeight / 2], numberHeight, "right");
-    // A number that would run off the sheet is left off.
-    if (onSheet(lines)) parts.push({ role: "number", axis, square: n, text, lines });
+    return onSheet(lines) ? { role: "number", axis, square: n, text, lines } : null;
+  };
+
+  // Numbers too wide to sit a square apart, such as 1000 and 1100, are
+  // written every other time they're due instead, or further apart still, so
+  // the scale stays even and every number reads on its own.
+  const room = LABEL_ROOM_CM * CM;
+  let numbers: AxesPart[] = [];
+  for (const spread of settings.numbers === 0 ? [] : NUMBER_SPREADS) {
+    const every = settings.numbers * spread;
+    numbers = ticks.filter((n) => n % every === 0).map(numberAt).filter((part): part is AxesPart => part !== null);
+    const boxes = numbers.map((part) => boxOf(part.lines));
+    if (boxes.every((box, i) => i === 0 || apart(boxes[i - 1], box, room))) break;
   }
+  parts.push(...numbers);
 
   // An open arrowhead at the positive end, and the axis's letter beside it.
   if (tip > 0) {
@@ -306,14 +349,20 @@ function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): Ax
       role: "arrow", axis,
       lines: [[keepOnSheet(at(tip - back, -side)), at(tip), keepOnSheet(at(tip - back, side))]],
     });
-    // The x goes just below the tip of its arrow. The y goes just left of the
-    // tip of its arrow, sitting on the tip's level, so its tail stays clear of
-    // the top number on the axis.
+    // The x goes just below the tip of its arrow, and moves right when a wide
+    // last number, such as a 100, would run into it. The y goes just left of
+    // the tip of its arrow, sitting on the tip's level, so its tail stays
+    // clear of the top number on the axis.
     const [x, y] = at(tip);
     const letterHeight = LETTER_CM * CM;
-    const lines = axis === "x"
+    let lines = axis === "x"
       ? textStrokes("x", [x, y + LETTER_GAP_CM * CM], letterHeight, "center")
       : textStrokes("y", [x - LETTER_GAP_CM * CM, y - LETTER_BASELINE * letterHeight], letterHeight, "right");
+    const last = numbers[numbers.length - 1];
+    if (axis === "x" && last) {
+      const crowding = boxOf(last.lines).right + room - boxOf(lines).left;
+      if (crowding > 0) lines = lines.map((line) => line.map(([px, py]): Vec => [px + crowding, py]));
+    }
     if (onSheet(lines)) parts.push({ role: "letter", axis, text: axis, lines, weights: textWeights(axis) });
   }
   return parts;
@@ -324,6 +373,7 @@ function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): Ax
  * the tap leaves less room than an axis needs, the axis stops half a square
  * short of the sheet's edge and its arrow goes there. The ticks and numbers
  * beyond that are left off, and so is any number that would run off the sheet.
+ * Numbers too wide to fit where they're due are spread out evenly instead.
  */
 export function axesParts(origin: Vec, settings: AxesSettings): AxesPart[] {
   const frame = axesFrame(origin, settings);

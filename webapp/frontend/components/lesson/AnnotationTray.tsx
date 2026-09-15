@@ -17,6 +17,8 @@ import type { EraserSetting } from "@/lib/stroke-eraser";
 import { TEXT_FONT, type TextPart } from "@/lib/text-ink";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
 import { UndoOfferBar } from "./UndoOfferBar";
+import { PlacingHint } from "./PlacingHint";
+import { useLessonEscape } from "@/hooks/useLessonEscape";
 import { PANE_TOOLS, paneToolLabel, type PaneToolsMenu } from "./PaneTools";
 import { ReasonsPanel } from "./ReasonsPanel";
 
@@ -294,21 +296,11 @@ export function AnnotationTray({
     tools.placeText(parts);
   };
 
-  // Escape closes the list, or stops placing a reason. The lesson views
-  // listen on the window, which hears a key after the document does, so it
-  // stops here. Without that, the same key press would also put the tool
-  // down or leave the lesson.
-  useEffect(() => {
-    if (!placingReason && !reasonsOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      if (reasonsOpen) setPop(null);
-      else cancelPlacing();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [placingReason, reasonsOpen, cancelPlacing]);
+  // Escape closes the list, or stops placing a reason.
+  useLessonEscape(placingReason || reasonsOpen, () => {
+    if (reasonsOpen) setPop(null);
+    else cancelPlacing();
+  });
 
   // ---------- Tools ----------
 
@@ -795,17 +787,13 @@ export function AnnotationTray({
 
       {placingReason && (
         <FloatingPortal>
-          <div
-            ref={hintFloating.refs.setFloating}
+          <PlacingHint
+            message="Tap where the reason should go."
+            onCancel={cancelPlacing}
+            floatingRef={hintFloating.refs.setFloating}
             style={hintFloating.floatingStyles}
-            role="status"
-            className="z-[200] flex max-w-[calc(100vw-1rem)] items-center gap-2 rounded-lg bg-[#2e251c]/90 py-1 pl-4 pr-1 text-sm text-[#f3e7d3] shadow-lg"
-          >
-            <span>Tap where the reason should go.</span>
-            <button type="button" onClick={cancelPlacing} className="min-h-11 rounded-md px-3 font-medium hover:bg-white/10">
-              Cancel
-            </button>
-          </div>
+            className="z-[200] max-w-[calc(100vw-1rem)]"
+          />
         </FloatingPortal>
       )}
     </>

@@ -314,6 +314,12 @@ describe("server keys and rounding", () => {
     const rounded = roundStroke({ points: [[1.234, 5.678, 0.5], [2.25, 3.96, 0.4567]], color: "red", size: 2 });
     expect(rounded.points).toEqual([[1.2, 5.7, 0.5], [2.3, 4, 0.46]]);
   });
+
+  it("cuts text to the 2,000 characters the server keeps, so its page is never turned away", () => {
+    const text: Stroke = { points: [[0, 0, 0.5], [10, 10, 0.5]], color: "red", size: 1, kind: "text", text: "a".repeat(2500) };
+    expect(roundStroke(text).text).toHaveLength(2000);
+    expect(roundStroke({ ...text, text: "AB" }).text).toBe("AB");
+  });
 });
 
 describe("useAnnotations saving to the server", () => {

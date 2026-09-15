@@ -208,10 +208,16 @@ function renderOneStudent({ session = chan, ...props }: { isReadOnly?: boolean; 
   return { onExit };
 }
 
-function renderSlot({ sessions = [chan, wong], ...props }: { isReadOnly?: boolean; sessions?: Session[] } = {}) {
+function renderSlot({ sessions = [chan, wong], slotSessionIds, ...props }: {
+  isReadOnly?: boolean;
+  sessions?: Session[];
+  /** Every lesson in the slot, whatever its status. It's the listed lessons unless a test says otherwise. */
+  slotSessionIds?: number[];
+} = {}) {
   render(
     <LessonWideMode
       sessions={sessions}
+      slotSessionIds={slotSessionIds ?? sessions.map((s) => s.id)}
       date="2026-09-11"
       slot="16:45 - 18:15"
       tutorId={7}
@@ -760,6 +766,13 @@ describe("The multi-student view", () => {
     renderSlot();
     await opened("Linear equations 3");
     expect(worksheet()).toHaveTextContent("Stamped for Chan Tai Man");
+  });
+
+  it("keeps the slot's Draft with the lowest id of every lesson in the slot, and fetches its ink even when that lesson isn't listed", async () => {
+    // Lesson 99 is in the slot but not listed, as a student marked absent part way through the lesson isn't.
+    renderSlot({ slotSessionIds: [99, chan.id, wong.id] });
+    await opened("Linear equations 3");
+    await waitFor(() => expect(h.inkRead).toHaveBeenCalledWith(expect.arrayContaining([99, chan.id, wong.id])));
   });
 
   it("moves through every student's worksheets in turn with j and k, and stops at each end", async () => {

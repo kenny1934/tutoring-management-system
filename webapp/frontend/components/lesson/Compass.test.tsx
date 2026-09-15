@@ -212,6 +212,57 @@ describe("Compass", () => {
     off();
   });
 
+  it("ignores a second finger on the handle part way through a turn, and finishes the arc if the compasses are hidden then", () => {
+    const line: DrivenLine = { to: vi.fn(), end: vi.fn() };
+    const { startLine, off } = registerPage(line);
+    const { unmount } = render(<Harness />);
+    const handle = screen.getByRole("img", { name: "Turn to draw" });
+    fireEvent.pointerDown(handle, touch(1, 200, 250));
+    fireEvent.pointerMove(handle, touch(1, 250, 300));
+
+    // The second finger neither starts a turn of its own nor moves the compasses.
+    fireEvent.pointerDown(handle, touch(2, 200, 250));
+    fireEvent.pointerMove(handle, touch(2, 150, 300));
+    expect(compasses().style.left).toBe("200px");
+    fireEvent.pointerMove(handle, touch(1, 200, 350));
+    expect(compasses().style.transform).toBe("rotate(180deg)");
+    expect(startLine).toHaveBeenCalledTimes(1);
+
+    unmount();
+    expect(line.end).toHaveBeenCalledTimes(1);
+    off();
+  });
+
+  it("keeps the way it stood while the handle is still held, when a finger on the grip lifts", () => {
+    render(<Harness />);
+    const handle = screen.getByRole("img", { name: "Turn to draw" });
+    const grip = screen.getByRole("img", { name: "Drag to open or close" });
+    fireEvent.pointerDown(handle, touch(1, 200, 250));
+    fireEvent.pointerMove(handle, touch(1, 250, 300));
+    fireEvent.pointerMove(handle, touch(1, 200, 350));
+    // A tap on the grip part way through the turn doesn't count as letting the turn go, so they don't flip under the finger.
+    fireEvent.pointerDown(grip, touch(2, 0, 0));
+    fireEvent.pointerUp(grip, touch(2, 0, 0));
+    expect(compasses().style.transform).toBe("rotate(180deg)");
+
+    fireEvent.pointerUp(handle, touch(1, 200, 350));
+    expect(compasses().style.transform).toBe("rotate(180deg) scaleY(-1)");
+  });
+
+  it("shows the width the grip sets while the width's box is open, and keeps it when the box closes", () => {
+    render(<Harness />);
+    const grip = screen.getByRole("img", { name: "Drag to open or close" });
+    fireEvent.pointerDown(grip, touch(1, 235, 280));
+    fireEvent.click(screen.getByRole("button", { name: /^Width 4\.0 cm/ }));
+    fireEvent.pointerMove(grip, touch(1, 256.3, 280));
+    fireEvent.pointerUp(grip, touch(1, 256.3, 280));
+    const box = screen.getByRole("textbox", { name: "Width in centimetres" });
+    expect(box).toHaveValue("6.1");
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(screen.getByText("6.1 cm")).toBeInTheDocument();
+  });
+
   it("snaps the needle onto a point in the ink as it's dragged near, and shows a ring there", () => {
     const { off } = registerPage(null, [300, 300]);
     const { container } = render(<Harness />);

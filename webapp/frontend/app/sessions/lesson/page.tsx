@@ -30,6 +30,14 @@ export default function LessonWidePage() {
     limit: 50,
   });
 
+  // Every lesson in the slot, whatever its status. The slot's own Draft is
+  // kept with one of them, so a student marked absent part way through the
+  // lesson never moves it.
+  const slotSessionIds = useMemo(
+    () => (allSessions && slot ? allSessions.filter((s) => s.time_slot === slot).map((s) => s.id) : []),
+    [allSessions, slot],
+  );
+
   // Filter to only sessions in the specified time slot
   const sessions = useMemo(() => {
     if (!allSessions || !slot) return [];
@@ -115,6 +123,7 @@ export default function LessonWidePage() {
     <DeskSurface fullHeight>
       <LessonWideMode
         sessions={sessions}
+        slotSessionIds={slotSessionIds}
         date={date}
         slot={slot}
         tutorId={parseInt(tutorId, 10)}
