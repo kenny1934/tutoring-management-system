@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.141](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.140...v2.0.141) (2026-09-15)
+
+
+### New Features
+
+* **Lines snap to the squares**: on squared paper, the ends of straight lines and the tools snap to the corners of the squares.
+* **Draw axes on the Draft**: the Draft's Tools menu draws a pair of numbered axes wherever you tap, with the range and scale you choose.
+* **Zoom the Draft**: the Draft now zooms like the worksheet, with the zoom buttons or a pinch, so you can see a whole sheet at once.
+
+
+### Bug Fixes
+
+* **The compasses' width stays in view**: near the top of the page, the width now shows below the compasses instead of going off screen.
+
 ## [2.0.140](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.139...v2.0.140) (2026-09-14)
 
 
