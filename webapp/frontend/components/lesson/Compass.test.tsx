@@ -50,6 +50,46 @@ function registerPage(line: DrivenLine | null, point: Vec = [900, 900]) {
   return { startLine, off: registerInkPage("compass-test-page", page) };
 }
 
+describe("Compass width reading", () => {
+  // A pane whose scroller shows the container from this far down the screen.
+  function InPane({ viewTop }: { viewTop: number }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const viewportRef = useRef<HTMLDivElement | null>(null);
+    return (
+      <div
+        ref={(el) => {
+          viewportRef.current = el;
+          if (el) {
+            el.getBoundingClientRect = () =>
+              ({ left: 0, top: viewTop, width: 1000, height: 1000 - viewTop, right: 1000, bottom: 1000, x: 0, y: viewTop, toJSON: () => ({}) }) as DOMRect;
+          }
+        }}
+      >
+        <div ref={containerRef}>
+          <Compass containerRef={containerRef} viewportRef={viewportRef} cm={10} start={START} darkMode={false} onHide={() => {}} />
+        </div>
+      </div>
+    );
+  }
+  const rise = hingeHeight(4) * 10;
+  const top = (el: HTMLElement) => parseFloat(el.style.top);
+
+  it("sits beyond the handle while there's room for it there", () => {
+    render(<InPane viewTop={0} />);
+    // The needle is at 300 down, and the width sits 2 cm beyond the hinge.
+    expect(top(screen.getByText("4.0 cm"))).toBeCloseTo(300 - rise - 20);
+  });
+
+  it("goes below the needle and the pencil when the top of the pane would hide it, and the box to set it opens there too", () => {
+    // The pane's top edge is level with the hinge, so the width beyond it is out of view.
+    render(<InPane viewTop={300 - rise} />);
+    expect(top(screen.getByText("4.0 cm"))).toBeCloseTo(312);
+
+    fireEvent.click(screen.getByText("4.0 cm"));
+    expect(top(screen.getByRole("group", { name: "Set the width" }))).toBeCloseTo(312);
+  });
+});
+
 describe("Compass", () => {
   it("puts its needle where it starts, shows its width, and its X hides it", () => {
     const onHide = vi.fn();

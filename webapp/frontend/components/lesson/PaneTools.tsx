@@ -41,8 +41,9 @@ function toolStart(container: HTMLElement | null, viewport: HTMLElement | null):
  * The tools out on one pane, such as the worksheet or the Draft: where each
  * one was put, and the guides that the ruler and the protractor join while
  * they're out, for the pane's drawing layers. `containerRef` is what the tools
- * lie in, and a new one is put in the middle of what `viewportRef` shows.
- * `putAway` takes them all away, for a pane that moves on to another exercise.
+ * lie in, and a new one is put in the middle of what `viewportRef` shows. The
+ * compasses keep their width's reading inside what it shows too. `putAway`
+ * takes them all away, for a pane that moves on to another exercise.
  */
 export function usePaneTools(containerRef: RefObject<HTMLElement | null>, viewportRef: RefObject<HTMLElement | null>) {
   const [placed, setPlaced] = useState<Placed>({});
@@ -63,7 +64,7 @@ export function usePaneTools(containerRef: RefObject<HTMLElement | null>, viewpo
     const start = toolStart(containerRef.current, viewportRef.current);
     if (start) setPlaced((prev) => ({ ...prev, [kind]: start }));
   };
-  return { placed, guides, hide, toggle, putAway, anyOut: Object.keys(placed).length > 0 };
+  return { placed, guides, hide, toggle, putAway, anyOut: Object.keys(placed).length > 0, viewportRef };
 }
 
 interface PaneToolsProps {
@@ -78,7 +79,7 @@ interface PaneToolsProps {
 }
 
 /** Each tool that's out on a pane, lying in its container among the pages, with its own X to put it away. */
-export function PaneTools({ state: { placed, guides, hide }, containerRef, cm, darkMode }: PaneToolsProps) {
+export function PaneTools({ state: { placed, guides, hide, viewportRef }, containerRef, cm, darkMode }: PaneToolsProps) {
   return (
     <>
       {placed.ruler && (
@@ -95,7 +96,14 @@ export function PaneTools({ state: { placed, guides, hide }, containerRef, cm, d
         />
       )}
       {placed.compass && (
-        <Compass containerRef={containerRef} cm={cm} start={placed.compass} darkMode={darkMode} onHide={() => hide("compass")} />
+        <Compass
+          containerRef={containerRef}
+          viewportRef={viewportRef}
+          cm={cm}
+          start={placed.compass}
+          darkMode={darkMode}
+          onHide={() => hide("compass")}
+        />
       )}
     </>
   );

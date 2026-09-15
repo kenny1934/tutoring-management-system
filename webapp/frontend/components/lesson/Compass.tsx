@@ -11,7 +11,7 @@ import {
   readCompassWidth, saveCompassLegs, saveCompassWidth, snapWidth, sweepRange, typedWidth, widestFor,
 } from "@/lib/compass";
 import type { Vec } from "@/lib/stroke-select";
-import { HANDLE_DOT, READING, ROUND_BUTTON, grabPointer, useCloseOnOutsideTap } from "./ToolParts";
+import { HANDLE_DOT, READING, ROUND_BUTTON, grabPointer, useCloseOnOutsideTap, useReadingInView } from "./ToolParts";
 import { Stepper } from "./Stepper";
 
 const LABEL =
@@ -22,6 +22,13 @@ const BUTTON_CLASS = cn("pointer-events-auto absolute -translate-x-1/2 -translat
 interface CompassProps {
   /** What the compasses lie in, such as the worksheet's stack of pages. They scroll and zoom along with it. */
   containerRef: RefObject<HTMLElement | null>;
+  /**
+   * The pane's scroller. The width's reading keeps to the part of the pane
+   * it's showing, so it moves to the other side of the compasses when there's
+   * no room for it beyond the handle. Left out, the reading always sits
+   * beyond the handle.
+   */
+  viewportRef?: RefObject<HTMLElement | null>;
   /** A centimetre in the container's own pixels, before any zoom. */
   cm: number;
   /** Where the middle of the compasses starts, in the container's own pixels. */
@@ -64,6 +71,8 @@ interface WidthStepperProps {
   darkMode: boolean;
   onChange: (width: number) => void;
   onClose: () => void;
+  /** Given the box, so the compasses can measure it and keep it in view. */
+  measureRef: (el: HTMLElement | null) => void;
 }
 
 /**
@@ -75,7 +84,7 @@ interface WidthStepperProps {
  * tap anywhere else closes it too, and that tap is kept from the page, so
  * closing it with a pen picked never leaves a dot.
  */
-function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: WidthStepperProps) {
+function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose, measureRef }: WidthStepperProps) {
   const [typed, setTyped] = useState(width.toFixed(1));
   const boxRef = useRef<HTMLDivElement>(null);
   // Set once Escape has closed the box, so the box losing focus as it goes doesn't keep what was typed.
@@ -98,7 +107,10 @@ function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: Widt
   const stepClass = "grid flex-none place-items-center rounded-full hover:bg-[#f3e7d3]/15";
   return (
     <div
-      ref={boxRef}
+      ref={(el) => {
+        boxRef.current = el;
+        measureRef(el);
+      }}
       role="group"
       aria-label="Set the width"
       data-touch-owner=""
@@ -163,7 +175,9 @@ function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: Widt
  *
  * The width shows above the handle, always the right way up, and a tap on it
  * opens it out into − and + buttons and a box to type a width, for setting it
- * exactly. Each board remembers the width the compasses were last left at.
+ * exactly. When there's no room above the handle, such as with the compasses
+ * up at the top of the pane, the width shows below the needle and the pencil
+ * instead. Each board remembers the width the compasses were last left at.
  *
  * The handle with diagonal arrows, part way up the needle's leg, makes the
  * compasses bigger or smaller. Their legs grow or shrink with the finger's
@@ -177,7 +191,7 @@ function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose }: Widt
  * hinge and the handle stay on top, and the button beside the hinge flips the
  * pencil to the other side of the needle without drawing.
  */
-export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassProps) {
+export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide }: CompassProps) {
   const [legs, setLegs] = useState(readCompassLegs);
   const [width, setWidth] = useState(() => readCompassWidth(readCompassLegs()));
   const span = width * cm;
@@ -361,13 +375,22 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
   // The buttons' icons turn back against the compasses, so an X never looks like a plus.
   const upright = `${mirrored ? "scaleY(-1) " : ""}rotate(${-place.angle}deg)`;
 
-  // The width sits beyond the turn handle, outside the turned box, so it always reads upright.
+  // The width sits beyond the turn handle, outside the turned box, so it
+  // always reads upright. When that's out of view, such as with the handle up
+  // at the top of the pane, it goes on the other side of the compasses
+  // instead, just past the needle and the pencil.
   const turnRadians = (place.angle * Math.PI) / 180;
-  const labelOut = (rise + 2 * cm) * (mirrored ? -1 : 1);
-  const labelAt: Vec = [
-    place.cx + (span / 2) * Math.cos(turnRadians) + labelOut * Math.sin(turnRadians),
-    place.cy + (span / 2) * Math.sin(turnRadians) - labelOut * Math.cos(turnRadians),
+  const hingeSide = mirrored ? -1 : 1;
+  const outFromPoints = (out: number): Vec => [
+    place.cx + (span / 2) * Math.cos(turnRadians) + out * Math.sin(turnRadians),
+    place.cy + (span / 2) * Math.sin(turnRadians) - out * Math.cos(turnRadians),
   ];
+  const reading = useReadingInView(
+    containerRef,
+    viewportRef,
+    outFromPoints((rise + 2 * cm) * hingeSide),
+    outFromPoints(-1.2 * cm * hingeSide),
+  );
 
   return (
     <>
@@ -516,7 +539,8 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
 
       {settingWidth ? (
         <WidthStepper
-          at={labelAt}
+          at={reading.at}
+          measureRef={reading.ref}
           width={width}
           legs={legs}
           cm={cm}
@@ -529,13 +553,14 @@ export function Compass({ containerRef, cm, start, darkMode, onHide }: CompassPr
         />
       ) : (
         <button
+          ref={reading.ref}
           type="button"
           data-touch-owner=""
           aria-label={`Width ${width.toFixed(1)} cm, tap to set it exactly`}
           title="Tap to set the width exactly"
           onClick={() => setSettingWidth(true)}
           className={cn("absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap hover:bg-[#2e251c]", READING)}
-          style={{ left: labelAt[0], top: labelAt[1], filter: darkMode ? PDF_DARK_FILTER : undefined }}
+          style={{ left: reading.at[0], top: reading.at[1], filter: darkMode ? PDF_DARK_FILTER : undefined }}
         >
           {width.toFixed(1)} cm
         </button>

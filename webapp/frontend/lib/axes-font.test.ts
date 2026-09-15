@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { GLYPHS, textStrokes, textWidth } from "./axes-font";
+import { GLYPHS, textStrokes, textWeights, textWidth } from "./axes-font";
 
 const xs = (lines: [number, number][][]) => lines.flat().map(([x]) => x);
 
@@ -21,6 +21,23 @@ describe("the axes' stroke font", () => {
   it("writes the decimal point as a single dot", () => {
     expect(GLYPHS["."].lines).toHaveLength(1);
     expect(GLYPHS["."].lines[0]).toHaveLength(1);
+  });
+
+  it("writes the italic letters with thick strokes, hairlines at half the weight, and a dot for each round end", () => {
+    for (const c of "xy") {
+      const weights = textWeights(c);
+      expect(weights, `the weights of "${c}"`).toHaveLength(GLYPHS[c].lines.length);
+      expect(new Set(weights)).toEqual(new Set([1, 0.5]));
+      // The round ends are single points, drawn as dots at the full weight.
+      const dots = GLYPHS[c].lines.flatMap((line, i) => (line.length === 1 ? [weights[i]] : []));
+      expect(dots, `the round ends of "${c}"`).toEqual([1, 1]);
+    }
+  });
+
+  it("gives every line of text its weight, in the order the lines are written", () => {
+    // A digit is all one weight, so its line comes first at the full weight, then the x's lines.
+    expect(textWeights("2x")).toEqual([1, ...textWeights("x")]);
+    expect(textWeights("-0.5")).toEqual([1, 1, 1, 1]);
   });
 
   it("adds up the width of a piece of text from its glyphs and the gaps between them", () => {

@@ -200,4 +200,14 @@ describe("the ink for a pair of axes", () => {
     expect(strokes.filter((s) => kindOf(s) !== "pencil").every((s) => kindOf(s) === "scale")).toBe(true);
     expect(new Set(strokes.map((s) => s.color))).toEqual(new Set(["#6b7280"]));
   });
+
+  it("draws the letters' hairlines at half the width of every other mark", () => {
+    const parts = partsAt(MIDDLE);
+    const strokes = axesStrokes(MIDDLE, DEFAULT_AXES);
+    const marks = strokes.filter((s) => kindOf(s) === "scale");
+    // The marks are the finest pencil, 2.5 wide, and a hairline is half of that.
+    expect(new Set(marks.map((s) => s.size))).toEqual(new Set([2.5, 1.25]));
+    const hairlines = ofRole(parts, "letter").flatMap((p) => p.weights!.filter((w) => w === 0.5));
+    expect(marks.filter((s) => s.size === 1.25)).toHaveLength(hairlines.length);
+  });
 });

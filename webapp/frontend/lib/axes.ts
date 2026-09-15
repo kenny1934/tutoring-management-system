@@ -22,7 +22,7 @@ import { makeStroke, type Stroke } from "@/hooks/useAnnotations";
 import { INK_SIZES, INK_SWATCHES } from "@/hooks/useAnnotationTools";
 import { CM } from "./drawing-guide";
 import { DRAFT_SHEET, DRAFT_SQUARE } from "./draft-sheets";
-import { textStrokes, textWidth } from "./axes-font";
+import { textStrokes, textWeights, textWidth } from "./axes-font";
 import { nearestCorner } from "./snap";
 import { clamp, type Vec } from "./stroke-select";
 
@@ -201,7 +201,14 @@ const NUMBER_CM = 0.35;
  * a clear gap between a number and the end of its tick.
  */
 const NUMBER_GAP_CM = 0.25;
-const LETTER_CM = 0.45;
+/**
+ * How tall a letter's box is. Only the middle half of it is the letter's
+ * x-height, so an x comes out a little under the height of a digit, as it
+ * does on a textbook's axes. At this size, the pen that writes the numbers
+ * matches the thick strokes of Times New Roman Italic, and half of it matches
+ * the hairlines.
+ */
+const LETTER_CM = 0.6;
 const LETTER_GAP_CM = 0.2;
 /** How far down its box a letter's x and the short arm of its y sit on their line, as a share of its height. */
 const LETTER_BASELINE = 0.75;
@@ -231,6 +238,12 @@ export interface AxesPart {
   /** For a number or a letter, what it says. */
   text?: string;
   lines: Vec[][];
+  /**
+   * For a letter, how heavy each line is, as a share of the pen the marks are
+   * drawn with, because its hairlines are thinner than its thick strokes.
+   * Every other part's lines are the full weight.
+   */
+  weights?: number[];
 }
 
 const onSheet = (lines: Vec[][]) =>
@@ -301,7 +314,7 @@ function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): Ax
     const lines = axis === "x"
       ? textStrokes("x", [x, y + LETTER_GAP_CM * CM], letterHeight, "center")
       : textStrokes("y", [x - LETTER_GAP_CM * CM, y - LETTER_BASELINE * letterHeight], letterHeight, "right");
-    if (onSheet(lines)) parts.push({ role: "letter", axis, text: axis, lines });
+    if (onSheet(lines)) parts.push({ role: "letter", axis, text: axis, lines, weights: textWeights(axis) });
   }
   return parts;
 }
@@ -328,11 +341,11 @@ export function axesParts(origin: Vec, settings: AxesSettings): AxesPart[] {
 /** The ink for a pair of axes crossing at `origin`, drawn all at once as one change. */
 export function axesStrokes(origin: Vec, settings: AxesSettings): Stroke[] {
   return axesParts(origin, settings).flatMap((part) =>
-    part.lines.map((line) =>
+    part.lines.map((line, i) =>
       makeStroke(
         line.map(([x, y]): Stroke["points"][number] => [x, y, 0.5]),
         AXES_COLOUR,
-        part.role === "axis" ? LINE_SIZE : MARK_SIZE,
+        part.role === "axis" ? LINE_SIZE : MARK_SIZE * (part.weights?.[i] ?? 1),
         part.role === "axis" ? "pencil" : "scale",
       ),
     ),

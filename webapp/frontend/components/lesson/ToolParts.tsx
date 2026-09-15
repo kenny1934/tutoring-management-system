@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { measureContainer, toContainer } from "@/hooks/usePlacedTool";
-import type { Vec } from "@/lib/stroke-select";
+import { clamp, type Vec } from "@/lib/stroke-select";
 
 // The parts that the tools lying on a pane share: the look of their readings,
 // buttons and handles, how a handle takes a finger, and the blue rings that
@@ -47,6 +47,99 @@ export function useCloseOnOutsideTap(boxRef: RefObject<HTMLElement | null>, clos
     window.addEventListener("pointerdown", outside, true);
     return () => window.removeEventListener("pointerdown", outside, true);
   }, [boxRef]);
+}
+
+/** An area in a container's own pixels, such as the part of it that a pane is showing. */
+export interface Area {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** How far inside the edge of what a pane shows a reading is kept, in the container's own pixels. */
+const READING_MARGIN = 4;
+
+/**
+ * Where a tool's reading goes so that all of it can be seen, given its size
+ * and the area the pane is showing. It stays in its usual place if it fits
+ * there, and goes to its other place, on the far side of the tool, if it fits
+ * there instead. If it fits in neither, such as on a tool bigger than the
+ * pane, it goes to its usual place moved just far enough to come into view.
+ * With no area known, it stays in its usual place. Everything is in the
+ * container's own pixels.
+ */
+export function readingPlace(usual: Vec, other: Vec, size: Vec, view: Area | null): Vec {
+  if (!view) return usual;
+  const halfWidth = size[0] / 2 + READING_MARGIN;
+  const halfHeight = size[1] / 2 + READING_MARGIN;
+  const fits = ([x, y]: Vec) =>
+    x - halfWidth >= view.left && x + halfWidth <= view.right && y - halfHeight >= view.top && y + halfHeight <= view.bottom;
+  if (fits(usual)) return usual;
+  if (fits(other)) return other;
+  // In an area too small for the reading, it's centred in the area instead.
+  const into = (value: number, low: number, high: number) => (low > high ? (low + high) / 2 : clamp(value, low, high));
+  return [
+    into(usual[0], view.left + halfWidth, view.right - halfWidth),
+    into(usual[1], view.top + halfHeight, view.bottom - halfHeight),
+  ];
+}
+
+const sameArea = (a: Area, b: Area) =>
+  Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5 &&
+  Math.abs(a.right - b.right) < 0.5 && Math.abs(a.bottom - b.bottom) < 0.5;
+
+/**
+ * Keep a tool's reading in view, using readingPlace. `usual` and `other` are
+ * the reading's two places, in the container's own pixels, and `ref` goes on
+ * whatever shows the reading, so its size can be measured. The area the pane
+ * is showing is measured after every render, because the tool may have moved
+ * or its reading changed size, and again whenever the pane scrolls or changes
+ * size. With no viewport, the reading stays in its usual place.
+ */
+export function useReadingInView(
+  containerRef: RefObject<HTMLElement | null>,
+  viewportRef: RefObject<HTMLElement | null> | undefined,
+  usual: Vec,
+  other: Vec,
+) {
+  const readingRef = useRef<HTMLElement | null>(null);
+  const [size, setSize] = useState<Vec>([0, 0]);
+  const [view, setView] = useState<Area | null>(null);
+
+  const measure = useCallback(() => {
+    const reading = readingRef.current;
+    if (reading) {
+      const next: Vec = [reading.offsetWidth, reading.offsetHeight];
+      setSize((prev) => (prev[0] === next[0] && prev[1] === next[1] ? prev : next));
+    }
+    const container = containerRef.current;
+    const viewport = viewportRef?.current;
+    if (!container || !viewport) return;
+    const box = measureContainer(container);
+    const shown = viewport.getBoundingClientRect();
+    const [left, top] = toContainer(box, [shown.left, shown.top]);
+    const [right, bottom] = toContainer(box, [shown.right, shown.bottom]);
+    const next = { left, top, right, bottom };
+    setView((prev) => (prev && sameArea(prev, next) ? prev : next));
+  }, [containerRef, viewportRef]);
+
+  useLayoutEffect(measure);
+  useEffect(() => {
+    const viewport = viewportRef?.current;
+    if (!viewport) return;
+    measure();
+    viewport.addEventListener("scroll", measure, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(viewport);
+    return () => {
+      viewport.removeEventListener("scroll", measure);
+      observer?.disconnect();
+    };
+  }, [viewportRef, measure]);
+
+  const ref = useCallback((el: HTMLElement | null) => { readingRef.current = el; }, []);
+  return { at: readingPlace(usual, other, size, view), ref };
 }
 
 /** The white dot on a handle that a finger drags, such as the protractor's resize handle. */
