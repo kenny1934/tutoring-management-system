@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.142](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.141...v2.0.142) (2026-09-15)
+
+
+### New Features
+
+* **Proof reasons at a tap**: the ∴ button on the Pen Tray lists the reasons from the F1-F3 proof sheet in English and Chinese, and a tap puts one on the worksheet or the Draft.
+* **Type on the page**: the Text tool (T) types any text onto the worksheet or the Draft, Chinese included, with symbols such as ∠ and △ a tap away.
+
+
+### Bug Fixes
+
+* **Clearer pencil lines**: pencil lines and the marks on axes are a little darker, so they stay easy to see in dark mode.
+* **No right-click menu on the page**: a long press on the worksheet or the Draft now draws, instead of opening the right-click menu.
+
 ## [2.0.141](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.140...v2.0.141) (2026-09-15)
 
 
