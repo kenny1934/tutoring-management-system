@@ -243,17 +243,19 @@ describe("getStrokeOptions", () => {
 });
 
 describe("inkLayers", () => {
-  it("paints highlighter ink at the bottom, then scale ink, then pencil ink, and pen ink on top, keeping each layer's order", () => {
+  it("paints highlighter ink at the bottom, then scale ink, pencil ink and text, and pen ink on top, keeping each layer's order", () => {
     const pen1 = stroke("red");
     const hl1: Stroke = { ...stroke("yellow"), kind: "highlighter" };
     const pencil1: Stroke = { ...stroke("grey"), kind: "pencil" };
     const scale1: Stroke = { ...stroke("grey"), kind: "scale" };
+    const text1: Stroke = { ...stroke("black"), kind: "text", text: "vert. opp. ∠s" };
     const pen2 = stroke("blue");
     const hl2: Stroke = { ...stroke("pink"), kind: "highlighter" };
     const pencil2: Stroke = { ...stroke("grey"), kind: "pencil" };
     const scale2: Stroke = { ...stroke("grey"), kind: "scale" };
-    expect(inkLayers([pen1, scale1, hl1, pencil1, pen2, hl2, scale2, pencil2])).toEqual(
-      [[hl1, hl2], [scale1, scale2], [pencil1, pencil2], [pen1, pen2]],
+    const text2: Stroke = { ...stroke("black"), kind: "text", text: "對頂角相等" };
+    expect(inkLayers([pen1, text1, scale1, hl1, pencil1, pen2, hl2, text2, scale2, pencil2])).toEqual(
+      [[hl1, hl2], [scale1, scale2], [pencil1, pencil2], [text1, text2], [pen1, pen2]],
     );
   });
 });

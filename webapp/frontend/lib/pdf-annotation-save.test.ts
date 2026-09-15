@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { PDFDocument } from "pdf-lib";
 import { drawStrokeToCanvas, saveAnnotatedPdf } from "./pdf-annotation-save";
 import { DRAFT_PAGE_BASE, DRAFT_SHEET_PT } from "./draft-sheets";
+import { textFont } from "./text-ink";
 import type { Stroke } from "@/hooks/useAnnotations";
 
 // The worksheet the export starts from: a single page, 300 by 400 points.
@@ -25,6 +26,10 @@ function fakeContext() {
     closePath: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
+    fillText: vi.fn(),
+    font: "",
+    textAlign: "start",
+    textBaseline: "alphabetic",
     fillStyle: "",
     strokeStyle: "",
     lineWidth: 1,
@@ -64,6 +69,26 @@ describe("drawStrokeToCanvas", () => {
     expect(ctx.stroke).toHaveBeenCalledTimes(1);
     expect(ctx.fill).not.toHaveBeenCalled();
     expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it("writes text in its fonts a line at a time, on the same baselines as the screen", () => {
+    const ctx = fakeContext();
+    const text: Stroke = {
+      points: [[100, 187.5, 0.5], [170, 237.5, 0.5]], color: "#2563eb", size: 1, kind: "text", text: "alt. ∠s,\nAB // CD", italic: true,
+    };
+
+    drawStrokeToCanvas(ctx as unknown as CanvasRenderingContext2D, text, 2);
+
+    // Two lines in a box 50 tall make each line 25 tall and the writing 20,
+    // and the canvas is at twice the scale.
+    expect(ctx.font).toBe(textFont(40, true));
+    expect(ctx.fillStyle).toBe("#2563eb");
+    const calls = ctx.fillText.mock.calls;
+    expect(calls.map(([line]) => line)).toEqual(["alt. ∠s,", "AB // CD"]);
+    expect(calls.map(([, x]) => x)).toEqual([200, 200]);
+    expect(calls[0][2]).toBeCloseTo(2 * (187.5 + 12.5 + 7));
+    expect(calls[1][2]).toBeCloseTo(2 * (187.5 + 37.5 + 7));
+    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
   it("draws a single point of scale ink as a dot the stroke's width across", () => {

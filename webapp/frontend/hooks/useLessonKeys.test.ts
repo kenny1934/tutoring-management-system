@@ -21,6 +21,7 @@ describe("lessonKeyAction", () => {
     ["d", "pen"],
     ["e", "eraser"],
     ["l", "lasso"],
+    ["t", "text"],
     ["+", "zoomIn"],
     ["=", "zoomIn"],
     ["-", "zoomOut"],

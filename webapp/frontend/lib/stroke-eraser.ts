@@ -5,7 +5,8 @@
  * strokes. The erased ink is really gone, which keeps undo, the saved PDF and
  * the sessionStorage copy working without knowing an eraser exists.
  */
-import type { Stroke } from "@/hooks/useAnnotations";
+import { isText, type Stroke } from "@/hooks/useAnnotations";
+import { clipToPage } from "@/lib/drawing-guide";
 
 /**
  * Eraser radius for each size, in the same page units as stroke points and
@@ -106,6 +107,22 @@ export function boundingBox(stroke: Stroke): Box {
   return box;
 }
 
+/**
+ * Whether the eraser, dragged from one point to the next, comes within reach
+ * of a box. That's whether the line it's dragged along crosses the box grown
+ * by the reach on every side. The grown box is treated as a page, with its
+ * top-left corner as the page's corner, and the line is clipped to it the way
+ * a line along the ruler is clipped to its page. The grown box has square
+ * corners where the eraser's reach is round, so it reaches a little further at
+ * the corners, which no one will notice.
+ */
+function sweepReachesBox(box: Box, from: Vec, to: Vec, reach: number): boolean {
+  const left = box.left - reach;
+  const top = box.top - reach;
+  const onBox = ([x, y]: Vec): Vec => [x - left, y - top];
+  return clipToPage(onBox(from), onBox(to), box.right + reach - left, box.bottom + reach - top) !== null;
+}
+
 function pathLength(points: Point[]): number {
   let length = 0;
   for (let i = 1; i < points.length; i++) {
@@ -120,6 +137,9 @@ function pathLength(points: Point[]): number {
  * none at all.
  */
 function eraseStroke(stroke: Stroke, from: Vec, to: Vec, radius: number): Stroke[] | null {
+  // Text goes all at once, as soon as the eraser comes within reach of its box.
+  if (isText(stroke)) return sweepReachesBox(boundingBox(stroke), from, to, radius) ? [] : null;
+
   // The ink spreads half the pen width either side of the stroke's centre
   // line, so the eraser reaches that much further. That makes the gap you see
   // match the eraser circle, once the rounded ends of the pieces are drawn.

@@ -31,7 +31,7 @@ from datetime import timedelta
 from typing import List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, defer
@@ -60,8 +60,22 @@ class StrokeIn(BaseModel):
     size: float = Field(..., gt=0, le=500)
     # Pen strokes leave this out, and the other kinds say which they are. A
     # "scale" stroke is one of the ticks, arrowheads or numbers of a pair of
-    # axes that the Draft draws.
-    kind: Optional[Literal["highlighter", "pencil", "scale"]] = None
+    # axes that the Draft draws. A "text" stroke is typed text or a proof
+    # reason, and its two points are the corners of its box.
+    kind: Optional[Literal["highlighter", "pencil", "scale", "text"]] = None
+    # What a text stroke says, with a line break between its lines, and
+    # whether it's in italic, which only the English proof reasons are.
+    text: Optional[str] = Field(None, max_length=2000)
+    italic: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def _only_text_has_words(self):
+        if self.kind == "text":
+            if not (self.text or "").strip() or len(self.points) != 2:
+                raise ValueError("A text stroke needs its words and the two corners of its box")
+        elif self.text is not None or self.italic is not None:
+            raise ValueError("Only a text stroke has words")
+        return self
 
 
 class InkPageIn(BaseModel):

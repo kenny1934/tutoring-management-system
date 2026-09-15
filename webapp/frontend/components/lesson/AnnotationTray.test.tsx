@@ -29,6 +29,79 @@ const tray = () => screen.getByRole("toolbar", { hidden: true });
 const button = (name: string) => within(tray()).getByRole("button", { name });
 
 describe("AnnotationTray", () => {
+  it("picks the Text tool on the first tap and opens its sizes on the second", () => {
+    let tools!: AnnotationTools;
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    fireEvent.click(button("Text"));
+    expect(tools.tool).toBe("text");
+    fireEvent.click(button("Text"));
+    fireEvent.click(screen.getByRole("button", { name: "Large text", hidden: true }));
+    expect(tools.textSize).toBe("L");
+  });
+
+  it("picks the colour of text beside the Text tool's sizes, apart from the pens' colour", () => {
+    let tools!: AnnotationTools;
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    fireEvent.click(button("Text"));
+    fireEvent.click(button("Text"));
+    fireEvent.click(screen.getByRole("button", { name: "Blue text", hidden: true }));
+    expect(tools.textStyle.color).toBe("#2563eb");
+    expect(tools.swatch.id).toBe("red");
+  });
+
+  it("sets the size and colour of text from the list of reasons too", () => {
+    let tools!: AnnotationTools;
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    fireEvent.click(button("Proof reasons"));
+    fireEvent.click(screen.getByRole("button", { name: "Small text", hidden: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Grey text", hidden: true }));
+    expect(tools.textSize).toBe("S");
+    expect(tools.textColour).toBe("grey");
+  });
+
+  it("puts a proof reason picked from the list in waiting, with a hint that can cancel it", () => {
+    let tools!: AnnotationTools;
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    fireEvent.click(button("Proof reasons"));
+    // Searching first keeps the list short, because finding a button by its name looks at every one.
+    fireEvent.change(screen.getByRole("searchbox", { name: "Find a reason", hidden: true }), { target: { value: "對頂" } });
+    fireEvent.click(screen.getByRole("button", { name: "對頂角相等", hidden: true }));
+
+    expect(screen.queryByRole("dialog", { name: "Proof reasons", hidden: true })).toBeNull();
+    expect(tools.pendingText).toEqual([{ text: "對頂角相等", italic: false }]);
+    const hint = screen.getByRole("status", { hidden: true });
+    expect(hint).toHaveTextContent("Tap where the reason should go.");
+
+    fireEvent.click(within(hint).getByRole("button", { name: "Cancel", hidden: true }));
+    expect(tools.pendingText).toBeNull();
+    expect(screen.queryByRole("status", { hidden: true })).toBeNull();
+  });
+
+  it("opens the list of reasons again as it was left, with its search", () => {
+    render(<Harness onTools={() => {}} />);
+    const searchBox = () => screen.getByRole("searchbox", { name: "Find a reason", hidden: true });
+    fireEvent.click(button("Proof reasons"));
+    fireEvent.change(searchBox(), { target: { value: "內錯" } });
+    fireEvent.click(button("Proof reasons"));
+    expect(screen.queryByRole("dialog", { name: "Proof reasons", hidden: true })).toBeNull();
+
+    fireEvent.click(button("Proof reasons"));
+    expect(searchBox()).toHaveValue("內錯");
+  });
+
+  it("stops a reason waiting on Escape, and the key goes no further", () => {
+    let tools!: AnnotationTools;
+    const lessonKeys = vi.fn();
+    window.addEventListener("keydown", lessonKeys);
+    render(<Harness onTools={(t) => { tools = t; }} />);
+    act(() => tools.placeText([{ text: "公共邊" }]));
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(tools.pendingText).toBeNull();
+    expect(lessonKeys).not.toHaveBeenCalled();
+    window.removeEventListener("keydown", lessonKeys);
+  });
+
   it("opens on the Hand", () => {
     render(<Harness />);
     expect(button("Hand: scroll the worksheet with one finger")).toHaveAttribute("aria-pressed", "true");

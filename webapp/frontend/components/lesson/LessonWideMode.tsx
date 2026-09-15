@@ -544,6 +544,7 @@ export function LessonWideMode({
       pen: () => tools.toggleFromKey("pen"),
       eraser: () => tools.toggleFromKey("eraser"),
       lasso: () => tools.toggleFromKey("lasso"),
+      text: () => tools.toggleFromKey("text"),
       // + and - zoom the worksheet once its file is on screen.
       zoomIn: pdfData ? () => worksheetRef.current?.zoomIn() : undefined,
       zoomOut: pdfData ? () => worksheetRef.current?.zoomOut() : undefined,

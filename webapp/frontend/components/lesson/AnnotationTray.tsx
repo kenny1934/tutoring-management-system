@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Hand, Eraser, Lasso, Undo2, Redo2, Ellipsis, ChevronsDown, GripVertical,
-  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds,
+  Eye, EyeOff, Trash2, Download, WandSparkles, ChevronLeft, ChevronRight, Blinds, Type,
 } from "lucide-react";
 import {
   useFloating, offset, flip, shift, autoUpdate, useDismiss, useInteractions, FloatingPortal,
@@ -11,12 +11,14 @@ import {
 import { useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
-  INK_SWATCHES, INK_SIZES, type AnnotationTools, type InkSize, type InkSwatch,
+  INK_SWATCHES, INK_SIZES, TEXT_SWATCHES, textColourName, type AnnotationTools, type InkSize, type InkSwatch,
 } from "@/hooks/useAnnotationTools";
 import type { EraserSetting } from "@/lib/stroke-eraser";
+import { TEXT_FONT, type TextPart } from "@/lib/text-ink";
 import { useUndoOffer } from "@/hooks/useUndoOffer";
 import { UndoOfferBar } from "./UndoOfferBar";
 import { PANE_TOOLS, paneToolLabel, type PaneToolsMenu } from "./PaneTools";
+import { ReasonsPanel } from "./ReasonsPanel";
 
 type Dock = "left" | "center" | "right";
 
@@ -81,7 +83,10 @@ const ERASER_CHOICES: { value: EraserSetting; title: string; circle?: number }[]
   { value: "stroke", title: "Whole-stroke eraser: tap a stroke to remove all of it" },
 ];
 
-type Pop = "sizes" | "eraser" | "more";
+// The Text tool's sizes are shown as a letter at three sizes, in pixels.
+const TEXT_SAMPLE = { S: 14, M: 20, L: 28 } as const;
+
+type Pop = "sizes" | "eraser" | "more" | "textSizes" | "reasons";
 
 function readTrayState(): { dock: Dock; collapsed: boolean } {
   try {
@@ -262,6 +267,49 @@ export function AnnotationTray({
     setPop(next);
   };
 
+  // ---------- Proof reasons ----------
+  // A reason picked from the list waits for a tap on the page, and a hint
+  // above the tray says so, with a way to cancel.
+
+  const placingReason = tools.pendingText !== null;
+  const reasonsOpen = pop === "reasons";
+  // The list opens as it was left, with its search and how far down it was
+  // scrolled, until the lesson closes. After placing a reason's English, its
+  // Chinese is then one tap away. It keeps the letters typed for each reason
+  // too, such as PQ and RS, since a proof often uses the same lines again.
+  const [reasonsQuery, setReasonsQuery] = useState("");
+  const reasonsScroll = useRef(0);
+  const [reasonLetters, setReasonLetters] = useState<Record<string, string[]>>({});
+  const { cancelPlacing } = tools;
+  const hintFloating = useFloating({
+    open: placingReason,
+    placement: "top",
+    middleware: [offset(10), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const pickReason = (parts: TextPart[]) => {
+    setPop(null);
+    hintFloating.refs.setReference(trayRef.current);
+    tools.placeText(parts);
+  };
+
+  // Escape closes the list, or stops placing a reason. The lesson views
+  // listen on the window, which hears a key after the document does, so it
+  // stops here. Without that, the same key press would also put the tool
+  // down or leave the lesson.
+  useEffect(() => {
+    if (!placingReason && !reasonsOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      if (reasonsOpen) setPop(null);
+      else cancelPlacing();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [placingReason, reasonsOpen, cancelPlacing]);
+
   // ---------- Tools ----------
 
   const isPicked = (swatch: InkSwatch) => tools.tool === swatch.kind && tools.swatch.id === swatch.id;
@@ -276,6 +324,12 @@ export function AnnotationTray({
     if (tools.tool === "eraser") { togglePop("eraser", anchor); return; }
     setPop(null);
     tools.selectEraser();
+  };
+
+  const handleText = (anchor: HTMLElement) => {
+    if (tools.tool === "text") { togglePop("textSizes", anchor); return; }
+    setPop(null);
+    tools.selectText();
   };
 
   // ---------- Dragging ----------
@@ -319,6 +373,8 @@ export function AnnotationTray({
   const collapse = () => {
     setPop(null);
     dropUndoOffer();
+    // The hint about placing a reason sits over the tray, so collapsing it gives up on the reason.
+    cancelPlacing();
     const tray = trayRef.current;
     morphRef.current?.cancel();
     if (!canAnimate(tray, reducedMotion)) { setTrayState((s) => ({ ...s, collapsed: true })); return; }
@@ -374,6 +430,7 @@ export function AnnotationTray({
     tools.tool === "hand" ? "the Hand"
     : tools.tool === "eraser" ? "the eraser"
     : tools.tool === "lasso" ? "the lasso"
+    : tools.tool === "text" ? "the Text tool"
     : tools.fading ? "fading ink"
     : `the ${tools.swatch.label.toLowerCase()}${tools.straight ? " with straight lines on" : ""}`;
 
@@ -477,6 +534,31 @@ export function AnnotationTray({
         <Separator />
         <button
           type="button"
+          aria-label="Text"
+          title={tools.tool === "text" ? "Text: tap again for size and colour (T)" : "Text: tap the page to type (T)"}
+          aria-pressed={tools.tool === "text"}
+          onClick={(e) => handleText(e.currentTarget)}
+          className={cn(btnBase, tools.tool === "text" && btnOn)}
+        >
+          <Type className="h-[22px] w-[22px]" />
+          {tools.tool === "text" && <SizeBadge>{tools.textSize}</SizeBadge>}
+        </button>
+        {/* The list waits for the lessons' saved ink, so a reason can't replace ink a page hasn't received yet */}
+        <button
+          type="button"
+          aria-label="Proof reasons"
+          title="Proof reasons: pick one to put on the page"
+          aria-haspopup="dialog"
+          aria-expanded={reasonsOpen}
+          disabled={!tools.inkReady}
+          onClick={(e) => togglePop("reasons", e.currentTarget)}
+          className={cn(btnBase, (reasonsOpen || placingReason) && btnOn)}
+        >
+          <span aria-hidden className="text-[26px] leading-none" style={{ fontFamily: TEXT_FONT }}>∴</span>
+        </button>
+        <Separator />
+        <button
+          type="button"
           aria-label="Eraser"
           title={tools.tool === "eraser" ? "Eraser: tap again for sizes (E)" : "Eraser (E)"}
           aria-pressed={tools.tool === "eraser"}
@@ -541,6 +623,7 @@ export function AnnotationTray({
           {tools.tool === "hand" ? <Hand className="h-6 w-6" />
             : tools.tool === "eraser" ? <Eraser className="h-6 w-6" />
             : tools.tool === "lasso" ? <Lasso className="h-6 w-6" />
+            : tools.tool === "text" ? <Type className="h-6 w-6" />
             : tools.fading ? <WandSparkles className="h-6 w-6" />
             : <SwatchMark swatch={tools.swatch} big className="outline outline-[3px] outline-offset-[3px] outline-[#f3e7d3]" />}
         </button>
@@ -553,10 +636,54 @@ export function AnnotationTray({
             style={floatingStyles}
             {...getFloatingProps()}
             className={cn(
-              "z-[200] rounded-[14px] p-1.5 bg-[#2e251c] dark:bg-[#3b3025] text-[#f3e7d3] shadow-[0_12px_32px_rgba(46,30,14,0.35)]",
-              pop === "more" ? "flex flex-col min-w-[240px]" : "flex gap-1",
+              "z-[200]",
+              // The list of reasons is a light panel of its own, for reading.
+              pop !== "reasons" && "rounded-[14px] p-1.5 bg-[#2e251c] dark:bg-[#3b3025] text-[#f3e7d3] shadow-[0_12px_32px_rgba(46,30,14,0.35)]",
+              pop === "more" ? "flex flex-col min-w-[240px]" : pop !== "reasons" && "flex gap-1",
             )}
           >
+            {pop === "reasons" && (
+              <ReasonsPanel
+                onPick={pickReason}
+                textSize={tools.textSize}
+                textColour={tools.textColour}
+                onTextSize={tools.setTextSize}
+                onTextColour={tools.setTextColour}
+                query={reasonsQuery}
+                onQueryChange={setReasonsQuery}
+                scrollRef={reasonsScroll}
+                letters={reasonLetters}
+                onLetters={(line, letters) => setReasonLetters((prev) => ({ ...prev, [line]: letters }))}
+              />
+            )}
+
+            {/* The Text tool's sizes, then the colours text comes in, which are its own and not the pens'. */}
+            {pop === "textSizes" && (
+              <>
+                {(["S", "M", "L"] as InkSize[]).map((size) => (
+                  <PopOption
+                    key={size}
+                    title={`${SIZE_NAMES[size]} text`}
+                    on={tools.textSize === size}
+                    onClick={() => { tools.setTextSize(size); setPop(null); }}
+                  >
+                    <span className="leading-none" style={{ fontSize: TEXT_SAMPLE[size], fontFamily: TEXT_FONT }}>A</span>
+                  </PopOption>
+                ))}
+                <span aria-hidden className="mx-1 my-3 w-px flex-none bg-[#4a3c2e] dark:bg-[#5a4a39]" />
+                {TEXT_SWATCHES.map((swatch) => (
+                  <PopOption
+                    key={swatch.id}
+                    title={textColourName(swatch)}
+                    on={tools.textColour === swatch.id}
+                    onClick={() => { tools.setTextColour(swatch.id); setPop(null); }}
+                  >
+                    <SwatchMark swatch={swatch} />
+                  </PopOption>
+                ))}
+              </>
+            )}
+
             {pop === "sizes" && (["S", "M", "L"] as InkSize[]).map((size) => (
               <PopOption
                 key={size}
@@ -663,6 +790,22 @@ export function AnnotationTray({
             floatingRef={offerFloating.refs.setFloating}
             style={offerFloating.floatingStyles}
           />
+        </FloatingPortal>
+      )}
+
+      {placingReason && (
+        <FloatingPortal>
+          <div
+            ref={hintFloating.refs.setFloating}
+            style={hintFloating.floatingStyles}
+            role="status"
+            className="z-[200] flex max-w-[calc(100vw-1rem)] items-center gap-2 rounded-lg bg-[#2e251c]/90 py-1 pl-4 pr-1 text-sm text-[#f3e7d3] shadow-lg"
+          >
+            <span>Tap where the reason should go.</span>
+            <button type="button" onClick={cancelPlacing} className="min-h-11 rounded-md px-3 font-medium hover:bg-white/10">
+              Cancel
+            </button>
+          </div>
         </FloatingPortal>
       )}
     </>

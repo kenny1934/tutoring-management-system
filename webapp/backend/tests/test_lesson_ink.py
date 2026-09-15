@@ -94,6 +94,38 @@ def test_a_saved_page_reads_back_exactly(client: TestClient, db_session: Session
     assert db_session.query(LessonInk).one().session_exercise_id == 10
 
 
+# A proof reason placed in both languages: the English in italic, and the Chinese under it on two lines.
+TEXT_EN = {
+    "points": [[100, 187.5, 0.5], [220, 212.5, 0.5]], "color": "#000000", "size": 1,
+    "kind": "text", "text": "alt. ∠s, AB // CD", "italic": True,
+}
+TEXT_ZH = {
+    "points": [[100, 212.5, 0.5], [160, 262.5, 0.5]], "color": "#000000", "size": 1,
+    "kind": "text", "text": "兩直線平行，\n內錯角相等",
+}
+
+
+def test_text_reads_back_with_its_words(client: TestClient, slot):
+    _save(client, _page(strokes=[PEN, TEXT_EN, TEXT_ZH]))
+
+    page = _read(client, 100)[(100, "ex:10", 0)]
+    assert page["strokes"] == [PEN, TEXT_EN, TEXT_ZH]
+    # Text that isn't italic leaves the flag out, the way the views send it.
+    assert "italic" not in page["strokes"][2]
+
+
+@pytest.mark.parametrize("stroke", [
+    {**TEXT_EN, "text": "   "},
+    {key: value for key, value in TEXT_EN.items() if key != "text"},
+    {**TEXT_EN, "points": [*TEXT_EN["points"], [300, 300, 0.5]]},
+    {**PEN, "text": "hello"},
+    {**HIGHLIGHT, "italic": True},
+])
+def test_text_needs_its_words_and_its_box_and_nothing_else_has_words(client: TestClient, slot, stroke):
+    resp = client.put("/api/lesson-ink", json={"pages": [_page(strokes=[stroke])]}, cookies=AUTH_COOKIE)
+    assert resp.status_code == 422
+
+
 def test_a_stroke_of_a_kind_the_views_dont_draw_is_refused(client: TestClient, slot):
     crayon = {**PEN, "kind": "crayon"}
     resp = client.put("/api/lesson-ink", json={"pages": [_page(strokes=[crayon])]}, cookies=AUTH_COOKIE)

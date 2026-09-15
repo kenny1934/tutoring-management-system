@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import type { Box } from "@/lib/stroke-eraser";
 import { kindOf } from "@/lib/stroke-select";
 import { INK, type InkKind, type PageAnnotations, type Stroke } from "@/hooks/useAnnotations";
-import { INK_SWATCHES, type InkSwatch } from "@/hooks/useAnnotationTools";
+import { INK_SWATCHES, TEXT_SWATCHES, type InkSwatch } from "@/hooks/useAnnotationTools";
 import { useMoveTargets, type InkPage } from "@/hooks/useInkPages";
 import { SwatchMark } from "./AnnotationTray";
 
@@ -30,7 +30,9 @@ export type SelectionDragKind = "move" | "resize";
 
 // The kinds of ink the Colour panel offers colours for, a row each. A pencil only
 // comes in grey, so pencil ink has no row, and a pen colour never turns it into pen.
+// Text has no swatches of its own, and comes in the pens' colours and the pencil's grey.
 const INK_KINDS = (Object.keys(INK) as InkKind[]).filter((kind) => INK[kind].recolourable);
+const swatchesFor = (kind: InkKind) => (kind === "text" ? TEXT_SWATCHES : INK_SWATCHES.filter((s) => s.kind === kind));
 
 interface LassoSelectionProps {
   /** The selected ink's box in page units, with the ink's width included. */
@@ -49,7 +51,8 @@ interface LassoSelectionProps {
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerCancel: () => void;
-  onRecolour: (swatch: InkSwatch) => void;
+  /** A colour picked for one kind of the selected ink, from that kind's row. */
+  onRecolour: (kind: InkKind, swatch: InkSwatch) => void;
   onDelete: () => void;
   /** The box itself, so the page can scroll it into view. */
   boxRef?: Ref<HTMLDivElement>;
@@ -97,7 +100,7 @@ export function LassoSelection({
     const colours = new Set(strokes.filter((s) => kindOf(s) === kind).map((s) => s.color));
     if (colours.size === 0) return [];
     const picked = colours.size === 1 ? [...colours][0] : null;
-    return [{ kind, picked, swatches: INK_SWATCHES.filter((s) => s.kind === kind) }];
+    return [{ kind, picked, swatches: swatchesFor(kind) }];
   }), [strokes]);
 
   return (
@@ -197,7 +200,7 @@ export function LassoSelection({
                       aria-label={swatch.label}
                       title={swatch.label}
                       aria-pressed={picked === swatch.color}
-                      onClick={() => onRecolour(swatch)}
+                      onClick={() => onRecolour(kind, swatch)}
                       className={cn(
                         "grid h-11 w-11 place-items-center rounded-lg hover:bg-[#f5ebe0]",
                         picked === swatch.color && "bg-[#f5ebe0] ring-2 ring-inset ring-[#a0704b]",

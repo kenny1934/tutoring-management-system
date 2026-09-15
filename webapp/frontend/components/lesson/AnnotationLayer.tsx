@@ -2,20 +2,22 @@
 
 import { Fragment, useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, useId, memo } from "react";
 import getStroke from "perfect-freehand";
-import { INK, INK_ORDER, getStrokeOptions, inkLayers, kindOf, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
-import type { PageAnnotations, PenKind, Stroke } from "@/hooks/useAnnotations";
+import { INK, INK_ORDER, getStrokeOptions, inkLayers, isText, kindOf, makeStroke, strokeOpacity } from "@/hooks/useAnnotations";
+import type { InkKind, PageAnnotations, PenKind, Stroke } from "@/hooks/useAnnotations";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
-import { eraseStrokes, type Box } from "@/lib/stroke-eraser";
+import { boundingBox, eraseStrokes, type Box } from "@/lib/stroke-eraser";
+import { TEXT_FONT, TEXT_LINE_HEIGHT, isCjk, makeTextStrokes, textAt, textLayout, type TextPart } from "@/lib/text-ink";
 import { hasBrowserModifier, isTypingTarget } from "@/lib/lesson-utils";
 import {
   clampMove, clampScale, dragScale, fitOnPage, moveStrokes, recolourStrokes, resizeStrokes, selectionBounds, strokesInLoop,
   type Vec,
 } from "@/lib/stroke-select";
-import type { InkSwatch } from "@/hooks/useAnnotationTools";
+import { TEXT_SIZES, type InkSwatch } from "@/hooks/useAnnotationTools";
 import { registerInkPage, type DrivenLine, type InkPage } from "@/hooks/useInkPages";
 import { snapOnPage } from "@/lib/snap";
 import { CM, clipPointsToPage, type DrawingGuide, type GuidedLine } from "@/lib/drawing-guide";
 import { LassoSelection, SELECTION_BAR_ROOM, type SelectionDragKind } from "./LassoSelection";
+import { TextBox } from "./TextBox";
 
 interface AnnotationLayerProps {
   /** Page width in CSS pixels */
@@ -101,6 +103,21 @@ interface AnnotationLayerProps {
    * hasn't received yet. Defaults to true.
    */
   inkReady?: boolean;
+  /**
+   * The Text tool is picked. A tap on the page opens a box there to type in,
+   * and a tap on text already on the page opens it to change it.
+   */
+  isTyping?: boolean;
+  /** How new text looks: the size of its writing, in page units, and its colour. */
+  textStyle?: { size: number; color: string };
+  /**
+   * A proof reason waiting to be placed. Whatever tool is picked, a finger on
+   * the page shows it faintly under the finger, and lifting the finger puts
+   * it there, as one change.
+   */
+  placingText?: TextPart[] | null;
+  /** Called once the waiting reason has been placed on this page. */
+  onTextPlaced?: () => void;
 }
 
 type Point = Stroke["points"][number];
@@ -143,6 +160,25 @@ function straightLineEnd(start: Point, pointer: Point): Point {
 // Only one page holds a selection at a time. A layer that starts a new loop
 // tells the others, on the worksheet and in the Draft, to let go of theirs.
 const lassoListeners = new Set<(from: string) => void>();
+
+// Only one page has a text box open at a time. A layer that opens one tells
+// the others, on the worksheet and in the Draft, to put their text on the page.
+const typingListeners = new Set<(from: string) => void>();
+
+const DEFAULT_TEXT_STYLE = { size: TEXT_SIZES.M, color: "#000000" };
+
+/** The Text tool's box while it's open. */
+interface TextEditor {
+  /** Where the text starts: the left edge of its first line, and the middle of that line. */
+  at: Vec;
+  size: number;
+  color: string;
+  italic: boolean;
+  /** What's typed so far. */
+  text: string;
+  /** The text stroke being changed, which is hidden while its box is open, or null for new text. */
+  editing: Stroke | null;
+}
 
 // The lasso's loop and the glow round selected ink are in the tray's brown.
 const LASSO_COLOUR = "#a0704b";
@@ -240,11 +276,39 @@ function strokeKey(stroke: Stroke): number {
 }
 
 /**
- * Render a completed stroke as an SVG path element. Memoized to avoid
- * re-rendering unchanged strokes. The Draft's preview of a pair of axes draws
- * with it too, so the preview looks exactly like the ink it becomes.
+ * Text ink, a line at a time in the text's fonts (see lib/text-ink). Each line
+ * starts at the box's left edge, and keeps its spaces as they were typed. It
+ * takes no taps itself, so they go to the page, or to the whole-stroke
+ * eraser's box round it.
+ */
+function TextShape({ stroke, opacity = strokeOpacity(stroke) }: { stroke: Stroke; opacity?: number }) {
+  const { size, italic, lines } = textLayout(stroke);
+  return (
+    <text
+      data-text-ink=""
+      fill={stroke.color}
+      fontSize={size}
+      fontFamily={TEXT_FONT}
+      fontStyle={italic ? "italic" : undefined}
+      opacity={opacity}
+      pointerEvents="none"
+      style={{ whiteSpace: "pre", userSelect: "none", transition: "opacity 0.1s ease" }}
+    >
+      {lines.map((line, i) => (
+        <tspan key={i} x={line.x} y={line.baseline}>{line.text}</tspan>
+      ))}
+    </text>
+  );
+}
+
+/**
+ * Render a completed stroke as an SVG path element, or text as text.
+ * Memoized to avoid re-rendering unchanged strokes. The Draft's preview of a
+ * pair of axes draws with it too, so the preview looks exactly like the ink it
+ * becomes, and so does the faint copy of a proof reason being placed.
  */
 export const StrokePath = memo(function StrokePath({ stroke }: { stroke: Stroke }) {
+  if (isText(stroke)) return <TextShape stroke={stroke} />;
   const { d, line } = strokeShape(stroke);
   if (!d) return null;
   return <path d={d} {...inkPaint(stroke, line)} opacity={strokeOpacity(stroke)} />;
@@ -267,8 +331,48 @@ const ErasableStrokePath = memo(function ErasableStrokePath({
   onLeave: () => void;
   onErase: (stroke: Stroke) => void;
 }) {
-  const { d, line } = strokeShape(stroke);
-  if (!d) return null;
+  const opacity = isHovered ? strokeOpacity(stroke) * 0.35 : strokeOpacity(stroke);
+  let shape: React.ReactNode;
+  if (isText(stroke)) {
+    // Text is tapped anywhere in its box, and the box goes red under the pointer.
+    const box = boundingBox(stroke);
+    const area = { x: box.left, y: box.top, width: box.right - box.left, height: box.bottom - box.top };
+    shape = (
+      <>
+        <rect {...area} fill="transparent" pointerEvents="all" />
+        <TextShape stroke={stroke} opacity={opacity} />
+        {isHovered && <rect {...area} fill="none" stroke="#ef4444" strokeWidth={1.5} opacity={0.7} pointerEvents="none" />}
+      </>
+    );
+  } else {
+    const { d, line } = strokeShape(stroke);
+    if (!d) return null;
+    shape = (
+      <>
+        {/* Invisible wider hit area for easier targeting. A line reaches out from its middle, so it takes its own width as well. */}
+        <path
+          d={d}
+          fill="transparent"
+          stroke="transparent"
+          strokeWidth={line ? stroke.size + 10 : 10}
+          pointerEvents="stroke"
+        />
+        {/* Visible stroke with hover effect */}
+        <path d={d} {...inkPaint(stroke, line)} opacity={opacity} style={{ transition: "opacity 0.1s ease" }} />
+        {/* Red outline on hover. A line gets a red line down its middle instead. */}
+        {isHovered && (
+          <path
+            d={d}
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth={1.5}
+            opacity={0.7}
+            pointerEvents="none"
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <g
@@ -281,32 +385,7 @@ const ErasableStrokePath = memo(function ErasableStrokePath({
       }}
       style={{ cursor: "pointer" }}
     >
-      {/* Invisible wider hit area for easier targeting. A line reaches out from its middle, so it takes its own width as well. */}
-      <path
-        d={d}
-        fill="transparent"
-        stroke="transparent"
-        strokeWidth={line ? stroke.size + 10 : 10}
-        pointerEvents="stroke"
-      />
-      {/* Visible stroke with hover effect */}
-      <path
-        d={d}
-        {...inkPaint(stroke, line)}
-        opacity={isHovered ? strokeOpacity(stroke) * 0.35 : strokeOpacity(stroke)}
-        style={{ transition: "opacity 0.1s ease" }}
-      />
-      {/* Red outline on hover. A line gets a red line down its middle instead. */}
-      {isHovered && (
-        <path
-          d={d}
-          fill="none"
-          stroke="#ef4444"
-          strokeWidth={1.5}
-          opacity={0.7}
-          pointerEvents="none"
-        />
-      )}
+      {shape}
     </g>
   );
 });
@@ -334,6 +413,10 @@ export function AnnotationLayer({
   pageLabel,
   onPagesChange,
   inkReady = true,
+  isTyping = false,
+  textStyle = DEFAULT_TEXT_STYLE,
+  placingText = null,
+  onTextPlaced,
 }: AnnotationLayerProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [currentPoints, setCurrentPoints] = useState<[number, number, number][]>([]);
@@ -420,6 +503,16 @@ export function AnnotationLayer({
   const [drag, setDrag] = useState<SelectionDrag | null>(null);
   const dragRef = useRef<{ from: Vec; pointerId: number; preview: SelectionDrag } | null>(null);
 
+  // A proof reason waiting to be placed, and its faint copy under the finger.
+  // Nothing is placed before the lessons' saved ink has loaded.
+  const placing = !!placingText && placingText.length > 0 && inkReady;
+  const [ghost, setGhost] = useState<Stroke[] | null>(null);
+  const placeRef = useRef<number | null>(null);
+  // The Text tool's box, and the finger whose tap will open one.
+  const [editor, setEditor] = useState<TextEditor | null>(null);
+  const editorRef = useRef<TextEditor | null>(null);
+  const typeTapRef = useRef<number | null>(null);
+
   // Reset hover when leaving eraser mode
   useEffect(() => {
     if (!isErasing) setHoveredStroke(null);
@@ -440,6 +533,9 @@ export function AnnotationLayer({
     lastRubPointRef.current = null;
     setRubbedStrokes(null);
     setEraserCursor(null);
+    placeRef.current = null;
+    setGhost((prev) => (prev ? null : prev));
+    typeTapRef.current = null;
     releaseFade();
   }, [releaseFade]);
 
@@ -457,6 +553,18 @@ export function AnnotationLayer({
     setDrag(null);
     setSelection(null);
   }, []);
+
+  // A reason waiting to be placed lets go of any selection, so a tap on it
+  // places the reason. Once the reason is placed, on this page or another, or
+  // cancelled, its faint copy goes too.
+  useEffect(() => {
+    if (placing) {
+      dropSelection();
+      return;
+    }
+    placeRef.current = null;
+    setGhost((prev) => (prev ? null : prev));
+  }, [placing, dropSelection]);
 
   // Starting a loop on another page lets go of this page's selection.
   useEffect(() => {
@@ -982,9 +1090,9 @@ export function AnnotationLayer({
 
   // A colour that changes none of the selected ink, because it's all that colour already, changes nothing.
   const recolourSelection = useCallback(
-    (swatch: InkSwatch) => {
+    (kind: InkKind, swatch: InkSwatch) => {
       if (!selection) return;
-      const changed = recolourStrokes(selection.strokes, swatch.kind, swatch.color);
+      const changed = recolourStrokes(selection.strokes, kind, swatch.color);
       if (changed.some((s, i) => s !== selection.strokes[i])) replaceSelection(changed);
     },
     [selection, replaceSelection]
@@ -996,6 +1104,154 @@ export function AnnotationLayer({
     dropSelection();
     onStrokesChange(strokes.filter((s) => !gone.has(s)));
   }, [selection, strokes, dropSelection, onStrokesChange]);
+
+  // ---------- Placing a proof reason ----------
+
+  /** The waiting reason as it would be placed for a pointer at this point. */
+  const reasonAt = useCallback(
+    (e: React.PointerEvent): Stroke[] => {
+      if (!placingText) return [];
+      const [x, y] = getPoint(e);
+      return makeTextStrokes(placingText, [x, y], { ...textStyle, pageWidth: width, pageHeight: height });
+    },
+    [placingText, textStyle, getPoint, width, height]
+  );
+
+  const handlePlaceDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (suspended || placeRef.current !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      svgRef.current?.setPointerCapture(e.pointerId);
+      placeRef.current = e.pointerId;
+      setGhost(reasonAt(e));
+    },
+    [suspended, reasonAt]
+  );
+
+  // A drag moves the faint copy. A mouse shows it before it's pressed too, because there's a pointer to follow.
+  const handlePlaceMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (placeRef.current === null ? e.pointerType !== "mouse" || suspended : placeRef.current !== e.pointerId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setGhost(reasonAt(e));
+    },
+    [suspended, reasonAt]
+  );
+
+  const handlePlaceUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (placeRef.current !== e.pointerId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      placeRef.current = null;
+      setGhost(null);
+      const placed = reasonAt(e);
+      if (placed.length === 0) return;
+      onStrokesChange([...strokes, ...placed]);
+      onTextPlaced?.();
+    },
+    [reasonAt, strokes, onStrokesChange, onTextPlaced]
+  );
+
+  const handlePlaceLeave = useCallback(() => {
+    if (placeRef.current === null) setGhost(null);
+  }, []);
+
+  // ---------- The Text tool ----------
+
+  const showEditor = useCallback((next: TextEditor | null) => {
+    editorRef.current = next;
+    setEditor(next);
+  }, []);
+
+  /**
+   * Put what's typed on the page, as one change, and close the box. Changed
+   * text keeps its place among the page's strokes, and text emptied of words
+   * is deleted. Typed text is never italic, and an English reason that has
+   * Chinese typed into it stops being italic, so Chinese is never slanted.
+   */
+  const commitText = useCallback(() => {
+    const current = editorRef.current;
+    if (!current) return;
+    showEditor(null);
+    const { editing } = current;
+    const words = current.text.replace(/^\n+/, "").trimEnd();
+    if (editing && words === editing.text) return;
+    const placed = makeTextStrokes(
+      [{ text: words, italic: current.italic && ![...words].some(isCjk) }],
+      current.at,
+      { size: current.size, color: current.color, pageWidth: width, pageHeight: height },
+    );
+    const at = editing ? strokes.indexOf(editing) : -1;
+    if (at !== -1) onStrokesChange([...strokes.slice(0, at), ...placed, ...strokes.slice(at + 1)]);
+    else if (placed.length > 0) onStrokesChange([...strokes, ...placed]);
+  }, [showEditor, strokes, width, height, onStrokesChange]);
+
+  const changeText = useCallback((text: string) => {
+    const current = editorRef.current;
+    if (current) showEditor({ ...current, text });
+  }, [showEditor]);
+
+  const cancelText = useCallback(() => showEditor(null), [showEditor]);
+
+  // Opening a text box on another page puts this page's text on the page first.
+  useEffect(() => {
+    const listen = (from: string) => {
+      if (from !== layerId) commitText();
+    };
+    typingListeners.add(listen);
+    return () => {
+      typingListeners.delete(listen);
+    };
+  }, [layerId, commitText]);
+
+  // Putting the Text tool down puts what's typed on the page.
+  useEffect(() => {
+    if (!isTyping) commitText();
+  }, [isTyping, commitText]);
+
+  // The box opens when the finger lifts, so a finger that turns into a two-finger scroll opens nothing.
+  const handleTypeDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (suspended || (e.pointerType === "mouse" && e.button !== 0)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      typeTapRef.current = e.pointerId;
+    },
+    [suspended]
+  );
+
+  /**
+   * A tap with the Text tool. With a box already open, it puts what's typed
+   * on the page and does nothing else. Otherwise it opens a box, on the text
+   * under the tap to change it, or where the tap landed for new text.
+   */
+  const handleTypeUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (typeTapRef.current !== e.pointerId) return;
+      typeTapRef.current = null;
+      e.preventDefault();
+      e.stopPropagation();
+      if (editorRef.current) {
+        commitText();
+        return;
+      }
+      const [x, y] = getPoint(e);
+      typingListeners.forEach((listen) => listen(layerId));
+      const existing = textAt(strokes, [x, y]);
+      if (existing) {
+        const { size, italic } = textLayout(existing);
+        const box = boundingBox(existing);
+        const at: Vec = [box.left, box.top + (size * TEXT_LINE_HEIGHT) / 2];
+        showEditor({ at, size, color: existing.color, italic, text: existing.text ?? "", editing: existing });
+      } else {
+        showEditor({ at: [x, y], size: textStyle.size, color: textStyle.color, italic: false, text: "", editing: null });
+      }
+    },
+    [commitText, getPoint, layerId, strokes, showEditor, textStyle]
+  );
 
   // On a laptop, the Delete and Backspace keys delete the selection too.
   useStableKeyboardHandler((e) => {
@@ -1020,46 +1276,62 @@ export function AnnotationLayer({
   );
   const currentSavedInk = fading ? null : currentPathEl;
 
-  const active = isDrawing || isErasing || isSelecting;
+  const active = isDrawing || isErasing || isSelecting || isTyping || placing;
 
-  // The page's pointer handlers depend on the tool. The whole-stroke eraser
-  // needs none here, because each stroke handles its own tap.
-  const pointerHandlers = isRubbing
-    ? {
-        onPointerDown: handleRubDown,
-        onPointerMove: handleRubMove,
-        onPointerUp: handleRubEnd,
-        onPointerCancel: handleRubEnd,
-        onPointerLeave: handleRubLeave,
-      }
-    : isErasing
-      ? {}
-      : isSelecting
-        ? {
-            onPointerDown: handleLassoDown,
-            onPointerMove: handleLassoMove,
-            onPointerUp: handleLassoUp,
-            onPointerCancel: discardInProgress,
-            onPointerLeave: handleLassoUp,
-          }
-        : {
-            onPointerDown: handlePointerDown,
-            onPointerMove: handlePointerMove,
-            onPointerUp: handlePointerUp,
-            onPointerLeave: handlePointerUp,
-          };
+  // The page's pointer handlers depend on the tool, but a reason waiting to
+  // be placed comes before any tool. The whole-stroke eraser needs none here,
+  // because each stroke handles its own tap.
+  let pointerHandlers: Partial<Record<"onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel" | "onPointerLeave", (e: React.PointerEvent) => void>>;
+  if (placing) {
+    pointerHandlers = {
+      onPointerDown: handlePlaceDown,
+      onPointerMove: handlePlaceMove,
+      onPointerUp: handlePlaceUp,
+      onPointerCancel: discardInProgress,
+      onPointerLeave: handlePlaceLeave,
+    };
+  } else if (isRubbing) {
+    pointerHandlers = {
+      onPointerDown: handleRubDown,
+      onPointerMove: handleRubMove,
+      onPointerUp: handleRubEnd,
+      onPointerCancel: handleRubEnd,
+      onPointerLeave: handleRubLeave,
+    };
+  } else if (isErasing) {
+    pointerHandlers = {};
+  } else if (isSelecting) {
+    pointerHandlers = {
+      onPointerDown: handleLassoDown,
+      onPointerMove: handleLassoMove,
+      onPointerUp: handleLassoUp,
+      onPointerCancel: discardInProgress,
+      onPointerLeave: handleLassoUp,
+    };
+  } else if (isTyping) {
+    pointerHandlers = { onPointerDown: handleTypeDown, onPointerUp: handleTypeUp, onPointerCancel: discardInProgress };
+  } else {
+    pointerHandlers = {
+      onPointerDown: handlePointerDown,
+      onPointerMove: handlePointerMove,
+      onPointerUp: handlePointerUp,
+      onPointerLeave: handlePointerUp,
+    };
+  }
 
   // The finished strokes, a layer for each kind of ink in INK_ORDER, so pen ink
   // always sits on top of pencil ink and both on top of highlighter ink. They
   // are only rebuilt when the ink itself changes, so a move of the pen
   // re-renders the line being drawn and nothing else. Ink the lasso has
   // selected is left out, and drawn in a group of its own on top of its layer,
-  // so dragging it moves that group and nothing else.
+  // so dragging it moves that group and nothing else. Text whose box is open to
+  // change it is left out too, because the box shows it.
   const selected = useMemo(() => new Set(selection?.strokes), [selection]);
+  const editing = editor?.editing ?? null;
   const layerPaths = useMemo(() => {
-    const tappable = isErasing && !isRubbing;
+    const tappable = isErasing && !isRubbing && !placing;
     return inkLayers(shownStrokes).map((layer) =>
-      layer.filter((stroke) => !selected.has(stroke)).map((stroke) =>
+      layer.filter((stroke) => !selected.has(stroke) && stroke !== editing).map((stroke) =>
         tappable ? (
           <ErasableStrokePath
             key={strokeKey(stroke)}
@@ -1074,7 +1346,7 @@ export function AnnotationLayer({
         ),
       ),
     );
-  }, [shownStrokes, isErasing, isRubbing, hoveredStroke, handleHoverLeave, handleEraseStroke, selected]);
+  }, [shownStrokes, isErasing, isRubbing, placing, hoveredStroke, handleHoverLeave, handleEraseStroke, selected, editing]);
 
   // The selected ink as it looks part way through a drag. A resize draws it
   // again at its new size, and a move shifts its whole group on screen.
@@ -1117,10 +1389,12 @@ export function AnnotationLayer({
         data-annotation-layer=""
         viewBox={`0 0 ${width} ${height}`}
         className="absolute inset-0 w-full h-full"
+        // While a reason waits to be placed, one finger places it whatever tool is picked, so the viewer never pans with it.
+        data-takes-one-finger={placing ? "" : undefined}
         style={{
           pointerEvents: active ? "auto" : "none",
           // The rubbing eraser draws its own circle, so the system cursor is hidden
-          cursor: isRubbing ? "none" : isErasing ? "pointer" : isDrawing || isSelecting ? "crosshair" : "default",
+          cursor: placing ? "crosshair" : isRubbing ? "none" : isErasing ? "pointer" : isTyping ? "text" : isDrawing || isSelecting ? "crosshair" : "default",
           touchAction: active ? "none" : "auto",
         }}
         {...pointerHandlers}
@@ -1139,6 +1413,13 @@ export function AnnotationLayer({
             </Fragment>
           ))}
         </g>
+
+        {/* A proof reason waiting to be placed, faintly, where it would go. It shows even with the ink hidden. */}
+        {ghost && ghost.length > 0 && (
+          <g data-text-ghost="" opacity={0.45} pointerEvents="none">
+            {ghost.map((stroke, i) => <StrokePath key={i} stroke={stroke} />)}
+          </g>
+        )}
 
         {/* Fading ink, on top of everything, with a soft glow */}
         {(fadingStrokes.length > 0 || (fading && currentPathEl)) && (
@@ -1222,6 +1503,20 @@ export function AnnotationLayer({
           pageIndex={pageIndex}
           onPagesChange={onPagesChange}
           onMove={moveSelection}
+        />
+      )}
+      {editor && (
+        <TextBox
+          at={editor.at}
+          size={editor.size}
+          color={editor.color}
+          italic={editor.italic}
+          text={editor.text}
+          width={width}
+          uiScale={uiScale}
+          onChange={changeText}
+          onDone={commitText}
+          onCancel={cancelText}
         />
       )}
     </>

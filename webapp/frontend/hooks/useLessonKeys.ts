@@ -10,7 +10,7 @@ export type LessonKeyAction =
   | "closeWolfram" | "closePrintMenu" | "closeHelp" | "selectHand" | "exitFocus" | "exit"
   | "toggleHelp" | "toggleFocus" | "toggleWolfram"
   | "next" | "previous" | "nextStudent" | "previousStudent"
-  | "pen" | "eraser" | "lasso" | "zoomIn" | "zoomOut"
+  | "pen" | "eraser" | "lasso" | "text" | "zoomIn" | "zoomOut"
   | "editClasswork" | "editHomework" | "homeworkBlock"
   | "print" | "answerKey" | "save";
 
@@ -70,6 +70,7 @@ function keyAction(e: LessonKeyEvent, state: LessonKeyState): LessonKeyAction | 
     case "d": return "pen";
     case "e": return "eraser";
     case "l": return "lasso";
+    case "t": return "text";
     case "+":
     case "=":
       return "zoomIn";
@@ -114,6 +115,7 @@ export function lessonShortcuts(view: "one-student" | "multi-student"): readonly
     ["d", "Pen, or back to the Hand"],
     ["e", "Eraser, or back to the Hand"],
     ["l", "Lasso, or back to the Hand"],
+    ["t", "Text, or back to the Hand"],
     ["z / Z", "Undo / Redo"],
     ["s", "Save annotated PDF"],
     ["c / h", "Edit CW / HW"],

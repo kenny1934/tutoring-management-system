@@ -6,7 +6,7 @@
  * or the colour is picked. That keeps each one a single step in the undo
  * history, and saving, the server and the PDF don't need to know the lasso exists.
  */
-import { kindOf, type InkKind, type Stroke } from "@/hooks/useAnnotations";
+import { isText, kindOf, type InkKind, type Stroke } from "@/hooks/useAnnotations";
 import { boundingBox, type Box } from "@/lib/stroke-eraser";
 
 export type Vec = [number, number];
@@ -47,10 +47,22 @@ export function insideLoop([px, py]: Vec, loop: Vec[]): boolean {
 }
 
 /**
+ * Points along the middle of a text stroke's box, which the lasso counts as
+ * its points. A loop drawn round some writing is usually rounder than its box,
+ * so the box's own corners would often be left outside it.
+ */
+export function textMidline(stroke: Stroke): Vec[] {
+  const box = boundingBox(stroke);
+  const middle = (box.top + box.bottom) / 2;
+  return [0.1, 0.3, 0.5, 0.7, 0.9].map((share): Vec => [box.left + (box.right - box.left) * share, middle]);
+}
+
+/**
  * The strokes a loop catches. A stroke counts when more than half of its
  * points are inside the loop, so a loop that clips the end of a word still
  * takes the whole word, and a line that only passes through the loop stays
- * where it is. The loop is closed from its last point back to its first.
+ * where it is. Text counts by points along the middle of its box. The loop is
+ * closed from its last point back to its first.
  */
 export function strokesInLoop(strokes: Stroke[], loop: Vec[]): Stroke[] {
   if (loop.length < 3) return [];
@@ -59,9 +71,10 @@ export function strokesInLoop(strokes: Stroke[], loop: Vec[]): Stroke[] {
     // Most strokes on a page are nowhere near the loop, so rule them out by their bounding box first.
     const box = boundingBox(stroke);
     if (box.right < area.left || box.left > area.right || box.bottom < area.top || box.top > area.bottom) return false;
+    const points = isText(stroke) ? textMidline(stroke) : stroke.points;
     let inside = 0;
-    for (const [x, y] of stroke.points) if (insideLoop([x, y], loop)) inside++;
-    return inside > stroke.points.length / 2;
+    for (const [x, y] of points) if (insideLoop([x, y], loop)) inside++;
+    return inside > points.length / 2;
   });
 }
 

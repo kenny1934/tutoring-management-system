@@ -13,21 +13,26 @@ export interface Stroke {
    * "highlighter" for highlighter ink, which is see-through and sits under
    * everything else. "pencil" for pencil ink, which is fine, even and a
    * little see-through, and sits under pen ink. "scale" for the ticks,
-   * arrowheads and numbers of a pair of axes drawn on the Draft. Pen strokes
-   * leave it out, and so does every stroke saved before the highlighter
-   * existed, so old ink still loads as pen.
+   * arrowheads and numbers of a pair of axes drawn on the Draft. "text" for
+   * typed text and placed proof reasons, whose two points are the corners of
+   * its box (see lib/text-ink). Pen strokes leave it out, and so does every
+   * stroke saved before the highlighter existed, so old ink still loads as pen.
    */
-  kind?: "highlighter" | "pencil" | "scale";
+  kind?: "highlighter" | "pencil" | "scale" | "text";
+  /** What a text stroke says, with a line break between its lines. Only text has it. */
+  text?: string;
+  /** Set on a text stroke in italic, which only the English proof reasons are. */
+  italic?: boolean;
 }
 
-export type InkKind = "pen" | "pencil" | "highlighter" | "scale";
+export type InkKind = "pen" | "pencil" | "highlighter" | "scale" | "text";
 
 /**
  * The kinds of ink a tutor can pick up and draw with. Scale ink is only ever
- * drawn by the Draft's axes, all at once, so it isn't a tool and has no sizes
- * on the Pen Tray.
+ * drawn by the Draft's axes, all at once, and text is typed or placed, so
+ * neither is drawn with a finger or has pen sizes on the Pen Tray.
  */
-export type PenKind = Exclude<InkKind, "scale">;
+export type PenKind = Exclude<InkKind, "scale" | "text">;
 
 /**
  * How the tools, and the ends of a straight line, snap to a kind of ink.
@@ -51,7 +56,7 @@ export type SnapRole = "points" | "crossings" | "never";
 export const INK: Record<InkKind, { opacity: number; evenWidth: boolean; snap: SnapRole; recolourable: boolean; exact: boolean }> = {
   pen: { opacity: 0.85, evenWidth: false, snap: "points", recolourable: true, exact: false },
   // A pencil only comes in grey, and its fine, even lines are where construction points are found.
-  pencil: { opacity: 0.75, evenWidth: true, snap: "points", recolourable: false, exact: false },
+  pencil: { opacity: 0.9, evenWidth: true, snap: "points", recolourable: false, exact: false },
   // A highlighter is too broad to aim a line at.
   highlighter: { opacity: 0.35, evenWidth: true, snap: "never", recolourable: true, exact: false },
   // The marks on a pair of axes look like the pencil their axis lines are
@@ -59,16 +64,23 @@ export const INK: Record<InkKind, { opacity: number; evenWidth: boolean; snap: S
   // every line drawn near the axes, so only the places where they cross an
   // axis count. The Draft lays their points down exactly, including every
   // corner of every digit.
-  scale: { opacity: 0.75, evenWidth: true, snap: "crossings", recolourable: false, exact: true },
+  scale: { opacity: 0.9, evenWidth: true, snap: "crossings", recolourable: false, exact: true },
+  // Typed text and proof reasons are written in a font (see lib/text-ink), so
+  // the settings for how a line of ink is drawn, evenWidth and exact, don't
+  // apply. Both renderers check isText before they read them. Their snap does
+  // matter: the corners of a text's box aren't places a line should catch on.
+  // The lasso offers text the pens' colours and the pencil's grey.
+  text: { opacity: 1, evenWidth: true, snap: "never", recolourable: true, exact: false },
 };
 
 /**
  * The order the kinds of ink are painted in, from the bottom up, so pencil
  * construction lines never cover the working in pen, and a graph drawn on a
- * pair of axes sits over their numbers. The screen and the saved PDF both
- * paint in this order.
+ * pair of axes sits over their numbers. Text sits over pencil and under pen,
+ * so a tutor can underline or circle part of a reason in pen. The screen and
+ * the saved PDF both paint in this order.
  */
-export const INK_ORDER: readonly InkKind[] = ["highlighter", "scale", "pencil", "pen"];
+export const INK_ORDER: readonly InkKind[] = ["highlighter", "scale", "pencil", "text", "pen"];
 
 /**
  * Which kind of ink a stroke is. Pen strokes carry no kind, like ink saved
@@ -82,6 +94,9 @@ export const kindOf = (stroke: Pick<Stroke, "kind">): InkKind => {
 };
 
 export const strokeOpacity = (stroke: Pick<Stroke, "kind">) => INK[kindOf(stroke)].opacity;
+
+/** Whether a stroke is typed text or a placed proof reason. */
+export const isText = (stroke: Pick<Stroke, "kind">) => stroke.kind === "text";
 
 /** A new stroke in the given ink. Pen strokes carry no kind, like ink saved before the highlighter. */
 export function makeStroke(points: Stroke["points"], color: string, size: number, ink: InkKind): Stroke {

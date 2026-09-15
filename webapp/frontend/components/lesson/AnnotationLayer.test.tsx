@@ -46,6 +46,167 @@ function renderLayer(eraserRadius: number | null, onStrokesChange = vi.fn()) {
   return { svg: container.querySelector("svg")!, onStrokesChange };
 }
 
+describe("AnnotationLayer text", () => {
+  // Two lines in a box 25 tall, so each line is 12.5 tall and the writing is 10.
+  const TEXT: Stroke = { points: [[10, 20, 0.5], [60, 45, 0.5]], color: "#000000", size: 1, kind: "text", text: "AB\nCD" };
+
+  it("writes text as text, a line at a time from the left edge of its box", () => {
+    const { container } = render(
+      <AnnotationLayer
+        width={100} height={100} strokes={[TEXT]} isDrawing={false} isErasing={false}
+        penColor="#dc2626" penSize={2} onStrokesChange={vi.fn()}
+      />
+    );
+    const text = container.querySelector("[data-text-ink]")!;
+    expect(text.getAttribute("font-size")).toBe("10");
+    expect([...text.querySelectorAll("tspan")].map((line) => [line.textContent, line.getAttribute("x")])).toEqual([["AB", "10"], ["CD", "10"]]);
+  });
+
+  it("removes the whole text with one tap anywhere in its box, with the whole-stroke eraser", () => {
+    const onStrokesChange = vi.fn();
+    const { container } = render(
+      <AnnotationLayer
+        width={100} height={100} strokes={[LINE, TEXT]} isDrawing={false} isErasing eraserRadius={null}
+        penColor="#dc2626" penSize={2} onStrokesChange={onStrokesChange}
+      />
+    );
+    fireEvent.pointerDown(container.querySelector("rect")!);
+    expect(onStrokesChange).toHaveBeenCalledWith([LINE]);
+  });
+
+  it("shows a waiting reason faintly under the finger, whatever tool is picked, and places it where the finger lifts", () => {
+    const onStrokesChange = vi.fn();
+    const onTextPlaced = vi.fn();
+    const { container } = render(
+      <AnnotationLayer
+        width={100} height={100} strokes={[LINE]} isDrawing={false} isErasing={false}
+        penColor="#dc2626" penSize={2} onStrokesChange={onStrokesChange}
+        placingText={[{ text: "AB" }]} textStyle={{ size: 8, color: "#2563eb" }} onTextPlaced={onTextPlaced}
+      />
+    );
+    const svg = container.querySelector("svg")!;
+    expect(svg).toHaveAttribute("data-takes-one-finger");
+
+    fireEvent.pointerDown(svg, { clientX: 20, clientY: 30, pointerId: 1 });
+    expect(container.querySelector("[data-text-ghost]")).not.toBeNull();
+    fireEvent.pointerMove(svg, { clientX: 30, clientY: 40, pointerId: 1 });
+    fireEvent.pointerUp(svg, { clientX: 30, clientY: 40, pointerId: 1 });
+
+    expect(container.querySelector("[data-text-ghost]")).toBeNull();
+    const [line, placed] = onStrokesChange.mock.calls[0][0] as Stroke[];
+    expect(line).toBe(LINE);
+    // "AB" at size 8 is 8 wide and 10 tall, with the middle of its line where the finger lifted.
+    expect(placed).toMatchObject({ kind: "text", text: "AB", color: "#2563eb", points: [[30, 35, 0.5], [38, 45, 0.5]] });
+    expect(onTextPlaced).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops a waiting reason's faint copy when a second finger turns the touch into a scroll", () => {
+    const onStrokesChange = vi.fn();
+    const props = {
+      width: 100, height: 100, strokes: [], isDrawing: false, isErasing: false, penColor: "#dc2626", penSize: 2,
+      onStrokesChange, placingText: [{ text: "AB" }],
+    };
+    const { container, rerender } = render(<AnnotationLayer {...props} />);
+    const svg = container.querySelector("svg")!;
+    fireEvent.pointerDown(svg, { clientX: 20, clientY: 30, pointerId: 1 });
+    rerender(<AnnotationLayer {...props} suspended />);
+    expect(container.querySelector("[data-text-ghost]")).toBeNull();
+    fireEvent.pointerUp(svg, { clientX: 20, clientY: 30, pointerId: 1 });
+    expect(onStrokesChange).not.toHaveBeenCalled();
+  });
+
+  function renderTyping(strokes: Stroke[] = []) {
+    const onStrokesChange = vi.fn();
+    const utils = render(
+      <AnnotationLayer
+        width={100} height={100} strokes={strokes} isDrawing={false} isErasing={false} isTyping
+        penColor="#dc2626" penSize={2} onStrokesChange={onStrokesChange} textStyle={{ size: 8, color: "#000000" }}
+      />
+    );
+    const svg = utils.container.querySelector("svg")!;
+    const tap = (x: number, y: number) => {
+      fireEvent.pointerDown(svg, { clientX: x, clientY: y, pointerId: 1 });
+      fireEvent.pointerUp(svg, { clientX: x, clientY: y, pointerId: 1 });
+    };
+    const textBox = () => screen.getByRole("textbox", { name: "Text" });
+    return { ...utils, onStrokesChange, tap, textBox };
+  }
+
+  it("opens a box where the Text tool taps, and places what's typed on Enter", () => {
+    const { tap, textBox, onStrokesChange } = renderTyping();
+    tap(20, 30);
+    fireEvent.change(textBox(), { target: { value: "∠ABC" } });
+    fireEvent.keyDown(textBox(), { key: "Enter" });
+
+    expect(screen.queryByRole("textbox", { name: "Text" })).toBeNull();
+    expect(onStrokesChange).toHaveBeenCalledWith([
+      expect.objectContaining({ kind: "text", text: "∠ABC", points: [[20, 25, 0.5], [36, 35, 0.5]] }),
+    ]);
+  });
+
+  it("leaves Enter for a new line with Shift, and to the Chinese input while it's choosing characters", () => {
+    const { tap, textBox, onStrokesChange } = renderTyping();
+    tap(20, 30);
+    fireEvent.change(textBox(), { target: { value: "三角" } });
+    fireEvent.keyDown(textBox(), { key: "Enter", isComposing: true });
+    fireEvent.keyDown(textBox(), { key: "Enter", keyCode: 229 });
+    fireEvent.keyDown(textBox(), { key: "Enter", shiftKey: true });
+    expect(onStrokesChange).not.toHaveBeenCalled();
+    expect(textBox()).toBeInTheDocument();
+  });
+
+  it("closes the box on Escape without placing anything", () => {
+    const { tap, textBox, onStrokesChange } = renderTyping();
+    tap(20, 30);
+    fireEvent.change(textBox(), { target: { value: "gone" } });
+    fireEvent.keyDown(textBox(), { key: "Escape" });
+    expect(screen.queryByRole("textbox", { name: "Text" })).toBeNull();
+    expect(onStrokesChange).not.toHaveBeenCalled();
+  });
+
+  it("places what's typed when the page is tapped outside the box, and that tap opens nothing", () => {
+    const { tap, textBox, onStrokesChange } = renderTyping();
+    tap(20, 30);
+    fireEvent.change(textBox(), { target: { value: "AB" } });
+    tap(70, 80);
+    expect(onStrokesChange).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("textbox", { name: "Text" })).toBeNull();
+  });
+
+  it("puts a symbol in where the caret is", () => {
+    const { tap, textBox } = renderTyping();
+    tap(20, 30);
+    fireEvent.change(textBox(), { target: { value: "ABC" } });
+    (textBox() as HTMLTextAreaElement).setSelectionRange(0, 0);
+    fireEvent.click(screen.getByRole("button", { name: "Angle" }));
+    expect(textBox()).toHaveValue("∠ABC");
+  });
+
+  it("opens text already on the page to change it, and puts the change in its place as one change", () => {
+    const text: Stroke = { points: [[10, 20, 0.5], [30, 30, 0.5]], color: "#2563eb", size: 1, kind: "text", text: "AB" };
+    const { tap, textBox, onStrokesChange, container } = renderTyping([text, LINE]);
+    tap(15, 25);
+    expect(textBox()).toHaveValue("AB");
+    // The text itself is hidden while its box shows it.
+    expect(container.querySelector("[data-text-ink]")).toBeNull();
+
+    fireEvent.change(textBox(), { target: { value: "ABCD" } });
+    fireEvent.keyDown(textBox(), { key: "Enter" });
+    const [changed, line] = onStrokesChange.mock.calls[0][0] as Stroke[];
+    expect(line).toBe(LINE);
+    expect(changed).toMatchObject({ kind: "text", text: "ABCD", color: "#2563eb", points: [[10, 20, 0.5], [26, 30, 0.5]] });
+  });
+
+  it("deletes text when all its words are taken out", () => {
+    const text: Stroke = { points: [[10, 20, 0.5], [30, 30, 0.5]], color: "#2563eb", size: 1, kind: "text", text: "AB" };
+    const { tap, textBox, onStrokesChange } = renderTyping([text, LINE]);
+    tap(15, 25);
+    fireEvent.change(textBox(), { target: { value: "" } });
+    fireEvent.keyDown(textBox(), { key: "Enter" });
+    expect(onStrokesChange).toHaveBeenCalledWith([LINE]);
+  });
+});
+
 describe("AnnotationLayer rubbing eraser", () => {
   it("saves one whole drag as a single change, with the line cut in two", () => {
     const { svg, onStrokesChange } = renderLayer(5);
@@ -157,7 +318,7 @@ describe("AnnotationLayer pen and highlighter", () => {
     const { svg } = renderDrawing({ isDrawing: false, strokes: [LINE, pencil, highlight] });
     const paths = [...svg.querySelectorAll("path")];
     expect(paths.map((p) => p.getAttribute("fill"))).toEqual(["#facc15", "#6b7280", "#dc2626"]);
-    expect(paths[1].getAttribute("opacity")).toBe("0.75");
+    expect(paths[1].getAttribute("opacity")).toBe("0.9");
   });
 
   it("draws the scale ink of a pair of axes as a line through its points with rounded corners, so no corner of a digit comes out faint", () => {
@@ -170,7 +331,7 @@ describe("AnnotationLayer pen and highlighter", () => {
     expect(path.getAttribute("stroke-width")).toBe("2.5");
     expect(path.getAttribute("stroke-linejoin")).toBe("round");
     expect(path.getAttribute("stroke-linecap")).toBe("round");
-    expect(path.getAttribute("opacity")).toBe("0.75");
+    expect(path.getAttribute("opacity")).toBe("0.9");
   });
 
   it("draws a single point of scale ink, such as a decimal point, as a dot the stroke's width across", () => {

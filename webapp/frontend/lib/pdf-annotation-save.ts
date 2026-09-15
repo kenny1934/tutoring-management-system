@@ -5,22 +5,27 @@
 import getStroke from "perfect-freehand";
 import { extractPagesForPrint } from "./pdf-utils";
 import type { PrintStampInfo } from "./pdf-utils";
-import { INK, RENDER_SCALE, getStrokeOptions, inkLayers, kindOf, strokeOpacity } from "@/hooks/useAnnotations";
+import { INK, RENDER_SCALE, getStrokeOptions, inkLayers, isText, kindOf, strokeOpacity } from "@/hooks/useAnnotations";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { DRAFT_GRID_COLOUR, DRAFT_SHEET_PT, DRAFT_SQUARE_PT, draftSquared, inkedDraftPages } from "./draft-sheets";
+import { textFont, textLayout } from "./text-ink";
 import type { PDFDocument as PdfDocument, PDFPage, RGB } from "pdf-lib";
 
 /**
  * Draw a single stroke onto a canvas context. A one-point stroke from a tap
  * has a small circle for an outline, so it's drawn as a dot like any other.
  * Exact ink, the marks and numbers on a pair of axes, is drawn as a line
- * through its points, as it is on screen.
+ * through its points, as it is on screen, and text is written in its font.
  */
 export function drawStrokeToCanvas(
   ctx: CanvasRenderingContext2D,
   stroke: Stroke,
   scale: number,
 ) {
+  if (isText(stroke)) {
+    drawTextToCanvas(ctx, stroke, scale);
+    return;
+  }
   if (INK[kindOf(stroke)].exact) {
     drawLineToCanvas(ctx, stroke, scale);
     return;
@@ -69,6 +74,18 @@ function drawLineToCanvas(ctx: CanvasRenderingContext2D, stroke: Stroke, scale: 
     ctx.strokeStyle = stroke.color;
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
+}
+
+/** Text is written a line at a time, in its fonts, on the same baselines as on screen. */
+function drawTextToCanvas(ctx: CanvasRenderingContext2D, stroke: Stroke, scale: number) {
+  const { size, italic, lines } = textLayout(stroke);
+  ctx.font = textFont(size * scale, italic);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = stroke.color;
+  ctx.globalAlpha = strokeOpacity(stroke);
+  for (const line of lines) ctx.fillText(line.text, line.x * scale, line.baseline * scale);
   ctx.globalAlpha = 1;
 }
 
