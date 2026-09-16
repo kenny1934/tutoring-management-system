@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.0.143](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.142...v2.0.143) (2026-09-16)
+
+
+### New Features
+
+* **Plot a graph on the Draft**: type a function of x in the Tools menu and tap where the axes cross, and the curve is drawn in your pen with its equation beside it, in degrees or radians.
+* **Mark the key points**: tick the box when you plot, and every place the curve crosses an axis or turns gets a dot and its coordinates.
+
+
+### Bug Fixes
+
+* **The compasses always leave ink**: the compasses no longer leave a page unable to draw, and putting them away part way through a turn finishes the arc.
+* **Steadier compasses**: a second finger on the turn handle is ignored, letting go of one handle no longer counts as letting go of another, and the width box follows the width as the grip changes it.
+* **Text is kept when you change exercise**: text still being typed goes onto the page instead of disappearing.
+* **Editing text after ink arrives**: changing a piece of text once another laptop's ink has arrived now edits it in place, instead of leaving a second copy behind.
+* **The right Draft in the multi-student view**: marking a student absent during a lesson no longer switches the Draft the slot is working on.
+* **Axes numbers that don't run together**: crowded numbers are written every other square, or further apart still, and the x moves clear of a wide last number.
+
 ## [2.0.142](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.141...v2.0.142) (2026-09-15)
 
 
