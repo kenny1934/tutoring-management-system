@@ -10,7 +10,7 @@ export type LessonKeyAction =
   | "closeWolfram" | "closePrintMenu" | "closeHelp" | "selectHand" | "exitFocus" | "exit"
   | "toggleHelp" | "toggleFocus" | "toggleWolfram"
   | "next" | "previous" | "nextStudent" | "previousStudent"
-  | "pen" | "eraser" | "lasso" | "text" | "zoomIn" | "zoomOut"
+  | "pen" | "eraser" | "lasso" | "text" | "liftPencil" | "zoomIn" | "zoomOut"
   | "editClasswork" | "editHomework" | "homeworkBlock"
   | "print" | "answerKey" | "save";
 
@@ -31,7 +31,7 @@ export interface LessonKeyState {
   worksheetHidden?: boolean;
 }
 
-export type LessonKeyEvent = Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey" | "target">;
+export type LessonKeyEvent = Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey" | "repeat" | "target">;
 
 /**
  * The key table both lesson views share. It says which action a key means,
@@ -71,6 +71,9 @@ function keyAction(e: LessonKeyEvent, state: LessonKeyState): LessonKeyAction | 
     case "e": return "eraser";
     case "l": return "lasso";
     case "t": return "text";
+    case "u":
+      // A held key repeats, and the compasses' pencil must not bounce up and down, so only the press counts.
+      return e.repeat ? null : "liftPencil";
     case "+":
     case "=":
       return "zoomIn";
@@ -116,6 +119,7 @@ export function lessonShortcuts(view: "one-student" | "multi-student"): readonly
     ["e", "Eraser, or back to the Hand"],
     ["l", "Lasso, or back to the Hand"],
     ["t", "Text, or back to the Hand"],
+    ["u", "Lift the compasses' pencil"],
     ["z / Z", "Undo / Redo"],
     ["s", "Save annotated PDF"],
     ["c / h", "Edit CW / HW"],

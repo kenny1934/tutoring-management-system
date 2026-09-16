@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, renderHook, screen, fireEvent } from "@testing-library/react";
 import { useRef } from "react";
 import { Compass } from "./Compass";
 import { registerInkPage, type DrivenLine, type InkPage } from "@/hooks/useInkPages";
+import { useCompassPencilKey } from "@/hooks/useCompassPencil";
 import { hingeHeight } from "@/lib/compass";
 import type { Vec } from "@/lib/stroke-select";
 
@@ -395,6 +396,54 @@ describe("Compass", () => {
     fireEvent.pointerUp(drawing, touch(2, 200, 350));
     expect(startLine).toHaveBeenCalledWith([200, 340]);
     off();
+  });
+
+  it("lifts the pencil from the key part way through a turn, ending the arc there, and puts it down to start a fresh one", () => {
+    const line: DrivenLine = { to: vi.fn(), end: vi.fn() };
+    const { startLine, off } = registerPage(line);
+    const { container } = render(<Harness />);
+    const { result: key } = renderHook(() => useCompassPencilKey());
+    expect(key.current.out).toBe(true);
+    const handle = screen.getByRole("img", { name: "Turn to draw" });
+
+    // A quarter turn draws an arc.
+    fireEvent.pointerDown(handle, touch(1, 200, 250));
+    fireEvent.pointerMove(handle, touch(1, 250, 300));
+    expect(startLine).toHaveBeenCalledTimes(1);
+
+    // Lifted part way through, the arc ends where the pencil is, and the compasses go on turning without drawing.
+    act(() => key.current.toggle());
+    expect(container.querySelector("[data-pencil='lifted']")).not.toBeNull();
+    expect(line.end).toHaveBeenCalledTimes(1);
+    fireEvent.pointerMove(handle, touch(1, 200, 350));
+    expect(line.to).toHaveBeenCalledTimes(1);
+
+    // Put down again, a fresh arc starts from where the pencil is now, left of the needle.
+    act(() => key.current.toggle());
+    expect(container.querySelector("[data-pencil='down']")).not.toBeNull();
+    fireEvent.pointerMove(handle, touch(1, 150, 300));
+    expect(startLine).toHaveBeenCalledTimes(2);
+    expect(startLine).toHaveBeenLastCalledWith([160, 300]);
+    fireEvent.pointerUp(handle, touch(1, 150, 300));
+    expect(line.end).toHaveBeenCalledTimes(2);
+    off();
+  });
+
+  it("gives the key to the pair shown last, until a finger lands on another", () => {
+    render(<><Harness /><Harness /></>);
+    const { result: key } = renderHook(() => useCompassPencilKey());
+    const [first, second] = screen.getAllByRole("button", { name: "Lift the pencil" });
+    act(() => key.current.toggle());
+    expect(first).toHaveAttribute("aria-pressed", "false");
+    expect(second).toHaveAttribute("aria-pressed", "true");
+
+    // A finger on the first pair's leg takes the key back to it.
+    const [body] = screen.getAllByRole("group", { name: /^Compasses:/ });
+    fireEvent.pointerDown(body, touch(1, 220, 300));
+    fireEvent.pointerUp(body, touch(1, 220, 300));
+    act(() => key.current.toggle());
+    expect(first).toHaveAttribute("aria-pressed", "true");
+    expect(second).toHaveAttribute("aria-pressed", "true");
   });
 
   it("flips the pencil to the other side of the needle without drawing", () => {

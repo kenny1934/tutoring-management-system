@@ -5,6 +5,7 @@ import { FlipHorizontal2, MoveDiagonal2, PencilOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PDF_DARK_FILTER } from "@/hooks/usePdfDarkMode";
 import { usePlacedTool } from "@/hooks/usePlacedTool";
+import { useCompassPencil } from "@/hooks/useCompassPencil";
 import { inkPageAt, inkSnapAt, type DrivenLine } from "@/hooks/useInkPages";
 import {
   addTurn, arcPoints, directionOf, draggedLegs, hingeHeight, mirroredAt, opensTo, pointAt, readCompassLegs,
@@ -49,13 +50,15 @@ interface Turn {
   pointerId: number;
   /** The finger's last direction from the needle. */
   last: number;
+  /** How far the compasses have turned since the arc began. */
   swept: number;
   /** The stretch of the turn the pencil has passed over, as the lowest and highest amounts turned. */
   range: [number, number];
-  /** Which way the compasses pointed when the handle was grabbed. */
+  /** Which way the compasses pointed when the arc began: when the handle was grabbed, or when the pencil was put down part way through. */
   from: number;
+  /** Whether the compasses have turned a whole degree since the arc began, which is when the pencil touches the page. */
   started: boolean;
-  /** Whether the pencil was down when the handle was grabbed, so the turn draws. */
+  /** Whether the pencil is down, so the turn draws. It changes when the pencil is lifted or put down part way through. */
   draws: boolean;
   line: DrivenLine | null;
 }
@@ -179,7 +182,11 @@ function WidthStepper({ at, width, legs, cm, darkMode, onChange, onClose, measur
  * The button with the crossed-out pencil lifts the pencil off the page, so
  * the handle turns the compasses without drawing, such as to set where an arc
  * will begin. The pencil looks faded while it's lifted, and a second tap puts
- * it down again.
+ * it down again. The u key does the same, through useCompassPencil, so a
+ * tutor with a finger on the handle can lift or put down the pencil with the
+ * other hand. Either way it takes effect at once: lifted part way through a
+ * turn, the pencil leaves its arc where it is, and put down part way
+ * through, it starts a fresh arc from where it is now.
  *
  * The width shows above the handle, always the right way up, and a tap on it
  * opens it out into − and + buttons and a box to type a width, for setting it
@@ -351,6 +358,31 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
   // take no more ink from the pens.
   useEffect(() => () => turnRef.current?.line?.end(), []);
 
+  /**
+   * Lifts the pencil, or puts it down again, from the button or the u key.
+   * Part way through a turn it takes effect at once: the arc ends where the
+   * pencil is, or a fresh one begins there, with the turn counted again from
+   * nought so the new arc stops after one full circle of its own.
+   */
+  const toggleLifted = () => {
+    const up = !lifted;
+    setLifted(up);
+    const turn = turnRef.current;
+    if (!turn) return;
+    if (up) {
+      turn.line?.end();
+      turn.line = null;
+    } else {
+      turn.from += turn.swept;
+      turn.swept = 0;
+      turn.range = [0, 0];
+      turn.started = false;
+    }
+    turn.draws = !up;
+  };
+  // The u key reaches the pair shown or touched last, so a finger anywhere on these compasses claims it.
+  const touched = useCompassPencil(toggleLifted);
+
   const resizeDown = (e: React.PointerEvent<HTMLSpanElement>) => {
     const m = measure();
     if (!m || !grabHandle(e, resizeRef)) return;
@@ -428,6 +460,7 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
         title={LABEL}
         data-touch-owner=""
         {...handlers}
+        onPointerDownCapture={touched}
         // A new drag keeps the way up the compasses have now.
         onPointerDown={(e) => {
           setHeldMirror(mirrored);
@@ -535,8 +568,8 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
           type="button"
           aria-label="Lift the pencil"
           aria-pressed={lifted}
-          title={lifted ? "Put the pencil down, so turning draws again" : "Lift the pencil, so turning doesn't draw"}
-          onClick={() => setLifted((up) => !up)}
+          title={lifted ? "Put the pencil down, so turning draws again (U)" : "Lift the pencil, so turning doesn't draw (U)"}
+          onClick={toggleLifted}
           className={cn(BUTTON_CLASS, lifted && "bg-[#a0704b] text-white hover:bg-[#8a5f3f]")}
           style={{ left: hinge[0] - 2.2 * cm, top: hinge[1], width: 0.8 * cm, height: 0.8 * cm }}
         >
@@ -585,6 +618,7 @@ export function Compass({ containerRef, viewportRef, cm, start, darkMode, onHide
           data-touch-owner=""
           aria-label={`Width ${width.toFixed(1)} cm, tap to set it exactly`}
           title="Tap to set the width exactly"
+          onPointerDownCapture={touched}
           onClick={() => setSettingWidth(true)}
           className={cn("absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap hover:bg-[#2e251c]", READING)}
           style={{ left: reading.at[0], top: reading.at[1], filter: darkMode ? PDF_DARK_FILTER : undefined }}

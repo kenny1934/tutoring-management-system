@@ -8,7 +8,7 @@ const calm: LessonKeyState = {
 };
 
 const key = (k: string, init: Partial<LessonKeyEvent> = {}): LessonKeyEvent => ({
-  key: k, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, target: null, ...init,
+  key: k, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, repeat: false, target: null, ...init,
 });
 
 describe("keys typed in a maths field", () => {
@@ -30,6 +30,7 @@ describe("lessonKeyAction", () => {
     ["e", "eraser"],
     ["l", "lasso"],
     ["t", "text"],
+    ["u", "liftPencil"],
     ["+", "zoomIn"],
     ["=", "zoomIn"],
     ["-", "zoomOut"],
@@ -54,7 +55,7 @@ describe("lessonKeyAction", () => {
     for (const k of ["j", "k", "Tab", "+", "-", "p", "a", "s"]) {
       expect(lessonKeyAction(key(k), hidden)).toBeNull();
     }
-    for (const k of ["d", "e", "l", "z", "c", "f", "?"]) {
+    for (const k of ["d", "e", "l", "u", "z", "c", "f", "?"]) {
       expect(lessonKeyAction(key(k), hidden)).not.toBeNull();
     }
   });
@@ -62,6 +63,10 @@ describe("lessonKeyAction", () => {
   it("reads Shift+Tab as the previous student, and Shift+z as redo", () => {
     expect(lessonKeyAction(key("Tab", { shiftKey: true }), calm)).toBe("previousStudent");
     expect(lessonKeyAction(key("z", { shiftKey: true }), calm)).toBe("redo");
+  });
+
+  it("reads u once while it's held down, so the compasses' pencil doesn't bounce", () => {
+    expect(lessonKeyAction(key("u", { repeat: true }), calm)).toBeNull();
   });
 
   it("leaves every other key alone", () => {

@@ -26,6 +26,7 @@ import { WolframPanel } from "./WolframPanel";
 import { useLessonInk } from "@/hooks/useLessonInk";
 import { useLessonExit } from "@/hooks/useLessonExit";
 import { usePrintExercise } from "@/hooks/usePrintExercise";
+import { useCompassPencilKey } from "@/hooks/useCompassPencil";
 import { lessonShortcuts, useLessonKeys } from "@/hooks/useLessonKeys";
 import { useLessonPanels } from "@/hooks/useLessonPanels";
 import { ShortcutHelpPanel } from "./ShortcutHelpPanel";
@@ -108,6 +109,7 @@ export function LessonMode({
 
   // Wolfram, the print menu and the shortcut help
   const panels = useLessonPanels();
+  const compassPencil = useCompassPencilKey();
 
   // --- Homework carried in from earlier lessons ---
   // Already on the session detail response: the same open backlog every other
@@ -339,6 +341,8 @@ export function LessonMode({
       eraser: () => tools.toggleFromKey("eraser"),
       lasso: () => tools.toggleFromKey("lasso"),
       text: () => tools.toggleFromKey("text"),
+      // u lifts or puts down the pencil of the compasses that are out, on the worksheet or the Draft.
+      liftPencil: compassPencil.out ? compassPencil.toggle : undefined,
       // + and - zoom the worksheet once its file is on screen.
       zoomIn: pdfData ? () => worksheetRef.current?.zoomIn() : undefined,
       zoomOut: pdfData ? () => worksheetRef.current?.zoomOut() : undefined,
