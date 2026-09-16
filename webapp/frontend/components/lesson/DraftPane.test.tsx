@@ -6,6 +6,7 @@ import { FoldingAnswerKey } from "./FoldingAnswerKey";
 import { useAnnotationTools, type AnnotationTools } from "@/hooks/useAnnotationTools";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 import { DRAFT_PAGE_BASE, DRAFT_SHEET, DRAFT_SQUARE, draftSheetsInUse, draftSquared } from "@/lib/draft-sheets";
+import { draftKeyPoints } from "@/lib/plot";
 
 // The drawing layer maps pointer positions through its on-screen box, which
 // jsdom doesn't lay out, so give every element a 100 by 100 box at the origin.
@@ -20,7 +21,13 @@ afterAll(() => {
   Element.prototype.getBoundingClientRect = originalRect;
   Element.prototype.setPointerCapture = originalCapture;
 });
-beforeEach(() => localStorage.clear());
+// Both of these keep what they last read in the module itself, so clearing
+// localStorage alone would leave the setting from the test before in place.
+beforeEach(() => {
+  localStorage.clear();
+  draftSquared.set(false);
+  draftKeyPoints.set(false);
+});
 
 // The real MathLive needs a browser's layout. Without it, the Graph panel's field is a plain element whose value the tests set.
 vi.mock("mathlive", () => ({}));
@@ -484,6 +491,23 @@ describe("DraftPane", () => {
       openGraph();
       expect(screen.getByRole("button", { name: "Degrees" })).toHaveAttribute("aria-pressed", "true");
       expect(screen.getByText(/x from 0° to 360° at 30° a square and y from −5 to 5/)).toBeInTheDocument();
+    });
+
+    it("marks the key points when the box is ticked, in the same change as the curve", async () => {
+      const onChange = vi.fn();
+      const { container } = render(<Harness onChange={onChange} />);
+      openGraph();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Mark the key points" }));
+      await type("x^2-2x-3");
+      fireEvent.click(screen.getByRole("button", { name: "Plot" }));
+      tap(container, 40, 50);
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      const strokes = onChange.mock.lastCall![1] as Stroke[];
+      expect(strokes.filter((s) => s.kind === "text").map((s) => s.text))
+        .toEqual(["𝑦 = 𝑥² − 2𝑥 − 3", "(−1, 0)", "(0, −3)", "(1, −4)", "(3, 0)"]);
+      // A dot for each of the four points, each one stroke of a single point.
+      expect(strokes.filter((s) => s.kind === undefined && s.points.length === 1)).toHaveLength(4);
     });
   });
 

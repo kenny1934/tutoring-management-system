@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PlotPanel } from "./PlotPanel";
 import { DEFAULT_AXES, withDegrees, type AxesSettings } from "@/lib/axes";
 import { readFunction, type AngleUnit } from "@/lib/plot-expression";
+import { draftKeyPoints } from "@/lib/plot";
 
 // The real MathLive needs a browser's layout. Without it, the field is a plain element whose value the tests set.
 vi.mock("mathlive", () => ({}));
@@ -81,6 +82,23 @@ describe("PlotPanel", () => {
 
     rerender(<Harness axes={{ ...DEFAULT_AXES, x: { ...withDegrees(DEFAULT_AXES.x, true), from: 0, to: 12 } }} />);
     expect(screen.getByText("Plots on the last axes drawn here: x from 0° to 360° at 30° a square and y from −5 to 5.")).toBeInTheDocument();
+  });
+
+  it("remembers the tick box for marking the key points on this board", () => {
+    draftKeyPoints.set(false);
+    const { unmount } = render(<Harness />);
+    const box = screen.getByRole("checkbox", { name: "Mark the key points" });
+    expect(box).not.toBeChecked();
+
+    fireEvent.click(box);
+    expect(draftKeyPoints.get()).toBe(true);
+    unmount();
+
+    // A second graph on the same board opens with the box as it was left.
+    const second = render(<Harness />);
+    expect(screen.getByRole("checkbox", { name: "Mark the key points" })).toBeChecked();
+    second.unmount();
+    draftKeyPoints.set(false);
   });
 
   it("switches between degrees and radians, and closes from Cancel", () => {

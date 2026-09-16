@@ -25,7 +25,7 @@ import { hasInk, inkLayers, type PageAnnotations, type Stroke } from "@/hooks/us
 import {
   DEFAULT_AXES, axesOrigin, axesStrokes, readAxesSettings, saveAxesSettings, type AxesSettings,
 } from "@/lib/axes";
-import { graphStrokes, type GraphInk } from "@/lib/plot";
+import { draftKeyPoints, graphStrokes, type GraphInk } from "@/lib/plot";
 import { evaluate, readFunction, type AngleUnit } from "@/lib/plot-expression";
 import { snapOnPage } from "@/lib/snap";
 import { clamp, type Vec } from "@/lib/stroke-select";
@@ -161,6 +161,8 @@ export function DraftPane({
   // The function typed last and the angle switch stay as they were for the next graph.
   const [latex, setLatex] = useState("");
   const [unit, setUnit] = useState<AngleUnit>("degrees");
+  // The Graph panel's tick box for marking the key points, which this board remembers between graphs.
+  const [markKeyPoints] = draftKeyPoints.usePreference();
   const reading = useMemo(() => readFunction(latex), [latex]);
   const task = step?.task;
   const placing = step?.stage === "placing";
@@ -200,19 +202,22 @@ export function DraftPane({
     return snapOnPage(annotations[DRAFT_PAGE_BASE + sheet] ?? [], point, CM) ?? point;
   }, [squared, task, annotations]);
 
-  // The ink for axes, or for a graph, crossing at `origin`.
-  const strokesAt = useCallback((origin: Vec): Stroke[] => {
+  // The ink for axes, or for a graph, crossing at `origin` on a sheet. A
+  // graph's key points keep their coordinates clear of the ink already on that
+  // sheet, so this has to know which sheet the graph is going on.
+  const strokesAt = useCallback((sheet: number, origin: Vec): Stroke[] => {
     if (task === "axes") return axesStrokes(origin, axesSettings);
     if (reading.status !== "ready") return [];
     const { expression, label } = reading;
     return graphStrokes({
       f: (x) => evaluate(expression, x, unit), label, origin, settings: axesSettings, ink: graphInk, textSize,
+      keyPoints: markKeyPoints, existing: annotations[DRAFT_PAGE_BASE + sheet] ?? [],
     });
-  }, [task, axesSettings, reading, unit, graphInk, textSize]);
+  }, [task, axesSettings, reading, unit, graphInk, textSize, markKeyPoints, annotations]);
 
   // What's placed goes onto the sheet as one change on one page, so one undo takes all of it away again.
   const placeOnSheet = (sheet: number, origin: Vec) => {
-    const strokes = strokesAt(origin);
+    const strokes = strokesAt(sheet, origin);
     const pageIndex = DRAFT_PAGE_BASE + sheet;
     if (strokes.length > 0) onPageStrokesChange(pageIndex, [...(annotations[pageIndex] ?? []), ...strokes]);
     endStep();
@@ -649,8 +654,8 @@ interface SheetPlacingProps {
   sheetCount: number;
   /** Where the axes cross for a finger at `point` on the sheet, in its page units. */
   crossingAt: (sheet: number, point: Vec) => Vec;
-  /** The ink for a crossing at `origin`, which the preview shows faintly. */
-  strokesAt: (origin: Vec) => Stroke[];
+  /** The ink for a crossing at `origin` on a sheet, which the preview shows faintly. */
+  strokesAt: (sheet: number, origin: Vec) => Stroke[];
   /** True while two fingers are scrolling the Draft, which drops the preview. */
   suspended: boolean;
   darkMode: boolean;
@@ -725,7 +730,10 @@ function SheetPlacing({ what, sheetRefs, sheetCount, crossingAt, strokesAt, susp
   });
 
   // In the order the ink's layers paint them, so the preview stacks up as the ink will on the sheet.
-  const strokes = useMemo(() => (preview ? inkLayers(strokesAt(preview.origin)).flat() : []), [preview, strokesAt]);
+  const strokes = useMemo(
+    () => (preview ? inkLayers(strokesAt(preview.sheet, preview.origin)).flat() : []),
+    [preview, strokesAt],
+  );
 
   return (
     <>

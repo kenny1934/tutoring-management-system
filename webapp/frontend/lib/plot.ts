@@ -19,11 +19,21 @@
  * jumps, as tan x does at 90°. Each of those places is narrowed down by
  * halving, so a piece reaches the edge of the axes, or the last x the
  * function has a value at, and not a point short of it.
+ *
+ * The graph can be drawn with its key points marked as well, which is a tick
+ * box in the Graph panel. Each of them gets a dot and its coordinates, and
+ * they go on in the same change as the curve, because once the ink is on the
+ * sheet nothing knows which function drew it. Finding them is lib/key-points,
+ * and what's here is where each label goes, which is the part that has to know
+ * what else is on the sheet.
  */
-import { makeStroke, type InkKind, type Stroke } from "@/hooks/useAnnotations";
-import { axesFrame, graphSpan, toPage, type AxesSettings } from "./axes";
+import { isText, makeStroke, type InkKind, type Stroke } from "@/hooks/useAnnotations";
+import { axesFrame, graphSpan, toPage, type AxesFrame, type AxesSettings } from "./axes";
+import { createBooleanPreference } from "./boolean-preference";
 import { CM } from "./drawing-guide";
 import { DRAFT_SHEET } from "./draft-sheets";
+import { keyPoints as findKeyPoints, type KeyPoint } from "./key-points";
+import { boundingBox, boxesApart, segmentReachesBox, type Box } from "./stroke-eraser";
 import { TEXT_LINE_HEIGHT, makeTextStrokes, textWidth } from "./text-ink";
 import type { Vec } from "./stroke-select";
 
@@ -54,6 +64,26 @@ const PRESSURE = 0.6;
 const LABEL_GAP_CM = 0.15;
 /** How far short of the sheet's right edge the equation stops, in centimetres. */
 const LABEL_EDGE_CM = 0.5;
+/** How wide a key point's dot is, next to the curve it sits on. */
+const DOT_WIDTH = 2;
+/** How far a key point's coordinates sit from its dot, corner to corner, in centimetres. */
+const POINT_GAP_CM = 0.12;
+/** The least room a key point's coordinates keep between themselves and anything else on the sheet, in centimetres. */
+const POINT_ROOM_CM = 0.05;
+/**
+ * How many steps further out a key point's coordinates will go to find room,
+ * past the four places closest to its dot. Each step is one line of writing,
+ * so two points too close together for both labels end up with one above the
+ * other, and a label never wanders more than about three lines from its point.
+ */
+const MOST_STEPS = 3;
+
+/**
+ * Whether a graph is drawn with its key points marked. It's one tick box in
+ * the Graph panel, and each board remembers it, so a tutor teaching quadratics
+ * can leave it on for a whole lesson.
+ */
+export const draftKeyPoints = createBooleanPreference("csm_draft_key_points");
 
 /** Where a value of the function is: within the y axis, above or below it, or nowhere, where the function has no value. */
 type Place = "in" | "above" | "below" | "none";
@@ -228,6 +258,142 @@ interface GraphOptions {
   ink: GraphInk;
   /** How big the equation's writing is, in page units. */
   textSize: number;
+  /** True when the key points are marked as well: where the curve crosses the axes, and where it turns. */
+  keyPoints?: boolean;
+  /** The ink already on the sheet, which the key points' coordinates keep clear of where they can. */
+  existing?: Stroke[];
+}
+
+/** One of the four corners round a dot that its coordinates can sit at. */
+type Corner = "above-left" | "above-right" | "below-left" | "below-right";
+
+/**
+ * The corners a point's coordinates are tried at, the likeliest first. Where
+ * they end up depends on what kind of point it is, because each kind has one
+ * side with room on it and one side with something in the way.
+ */
+function cornerOrder({ kind, rising }: KeyPoint): Corner[] {
+  switch (kind) {
+    // The curve is above the bottom of a dip and below the top of a hump, so
+    // in each case the coordinates go on the empty side.
+    case "bottom": return ["below-right", "below-left", "above-right", "above-left"];
+    case "top": return ["above-right", "above-left", "below-right", "below-left"];
+    // The x axis's own numbers sit under it, so a crossing goes above the
+    // axis, on the side the curve isn't: to the left where the curve rises
+    // through the axis, and to the right where it falls.
+    case "crossing": return rising
+      ? ["above-left", "above-right", "below-left", "below-right"]
+      : ["above-right", "above-left", "below-right", "below-left"];
+    // The y axis's own numbers sit to the left of it, so the y-intercept goes to its right.
+    default: return ["above-right", "below-right", "above-left", "below-left"];
+  }
+}
+
+/**
+ * Where a label of this size sits when it's put at one corner of the dot at
+ * `at`. A label `step` steps out stands that many lines further up, or further
+ * down, than it otherwise would, keeping to the same side of the dot. That's
+ * what lets the coordinates of two points too close together stack up instead
+ * of landing on each other.
+ */
+function labelBox([px, py]: Vec, corner: Corner, width: number, height: number, gap: number, step: number): Box {
+  const out = gap + step * (height + gap);
+  const left = corner.endsWith("right") ? px + gap : px - gap - width;
+  const top = corner.startsWith("above") ? py - out - height : py + out;
+  return { left, right: left + width, top, bottom: top + height };
+}
+
+/** Whether a label's box would land on any of these strokes, keeping `room` clear around it. */
+function touches(box: Box, strokes: Stroke[], room: number): boolean {
+  const left = box.left - room;
+  const right = box.right + room;
+  const top = box.top - room;
+  const bottom = box.bottom + room;
+  return strokes.some((stroke) => {
+    // Most strokes are nowhere near, and the box around a stroke settles that in one go.
+    if (boxesApart(box, boundingBox(stroke), room)) return false;
+    // A text stroke's two points are the corners of its box, so its box is all of it.
+    if (isText(stroke)) return true;
+    const points = stroke.points;
+    if (points.length === 1) return segmentReachesBox(box, points[0], points[0], room);
+    // A curve runs right across the sheet in hundreds of short pieces, and
+    // hardly any of them are near this one label, so each is thrown out by the
+    // two ends it lies between before the line itself is measured.
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1];
+      const b = points[i];
+      if (Math.max(a[0], b[0]) < left || Math.min(a[0], b[0]) > right) continue;
+      if (Math.max(a[1], b[1]) < top || Math.min(a[1], b[1]) > bottom) continue;
+      if (segmentReachesBox(box, a, b, room)) return true;
+    }
+    return false;
+  });
+}
+
+interface PointOptions {
+  /**
+   * Everything the coordinates have to keep clear of: the curve itself, its
+   * equation, and the ink that was already on the sheet, such as the axes and
+   * their numbers. Text among it counts as the whole of its box.
+   */
+  obstacles: Stroke[];
+  frame: AxesFrame;
+  ink: GraphInk;
+  textSize: number;
+}
+
+/**
+ * A dot for each key point and its coordinates beside it. The dot is twice as
+ * wide as the curve, in the curve's own ink, so it reads as a point on the
+ * curve from the back of the room and the tools still snap onto it.
+ *
+ * The coordinates try the four corners closest to their dot first, and then
+ * the same four corners a line further out, and so on. They take the first
+ * place that stays on the sheet and keeps clear of the curve, of the labels
+ * already placed, and of the ink that was already on the sheet, such as the
+ * axes and their numbers. So the two roots of a parabola, whose labels are
+ * wider together than the gap between them, end up with one above the other,
+ * both in the clear space between the curve and the axis.
+ *
+ * Where nothing is clear anywhere, they take the first place that at least
+ * keeps off the other labels. Two labels on top of each other can't be read at
+ * all, while one sitting over an axis number still can, and the tutor can
+ * always move it with the lasso.
+ */
+function pointStrokes(points: KeyPoint[], { obstacles, frame, ink, textSize }: PointOptions): Stroke[] {
+  const gap = POINT_GAP_CM * CM;
+  const room = POINT_ROOM_CM * CM;
+  const height = textSize * TEXT_LINE_HEIGHT;
+  const fitsSheet = (box: Box) =>
+    box.left >= 0 && box.top >= 0 && box.right <= DRAFT_SHEET.width && box.bottom <= DRAFT_SHEET.height;
+
+  const taken: Box[] = [];
+  const dots: Stroke[] = [];
+  const texts: Stroke[] = [];
+  for (const point of points) {
+    const at = toPage(frame, point.at[0], point.at[1]);
+    dots.push(makeStroke([[at[0], at[1], PRESSURE]], ink.color, ink.size * DOT_WIDTH, ink.kind));
+
+    const width = textWidth(point.text, textSize);
+    const corners = cornerOrder(point);
+    const boxes: Box[] = [];
+    for (let step = 0; step <= MOST_STEPS; step++) {
+      for (const corner of corners) boxes.push(labelBox(at, corner, width, height, gap, step));
+    }
+    // Room for a label means room on the sheet and room beside every label
+    // already placed. What else it has to keep off depends on how hard it is
+    // to find anywhere at all, so that's asked separately.
+    const roomFor = (candidate: Box) =>
+      fitsSheet(candidate) && taken.every((other) => boxesApart(candidate, other, room));
+    const box = boxes.find((candidate) => roomFor(candidate) && !touches(candidate, obstacles, room))
+      ?? boxes.find(roomFor)
+      ?? boxes[0];
+    taken.push(box);
+    texts.push(...makeTextStrokes([{ text: point.text }], [box.left, box.top + height / 2], {
+      size: textSize, color: ink.color, pageWidth: DRAFT_SHEET.width, pageHeight: DRAFT_SHEET.height,
+    }));
+  }
+  return [...dots, ...texts];
 }
 
 /**
@@ -237,8 +403,13 @@ interface GraphOptions {
  * starts there and runs to the right, unless it would run past the sheet's
  * edge, when it moves left. A graph with no piece on the axes at all is
  * nothing, without its equation either.
+ *
+ * With `keyPoints` on, a dot and its coordinates follow for each point where
+ * the curve crosses an axis or turns.
  */
-export function graphStrokes({ f, label, origin, settings, ink, textSize }: GraphOptions): Stroke[] {
+export function graphStrokes(
+  { f, label, origin, settings, ink, textSize, keyPoints = false, existing = [] }: GraphOptions,
+): Stroke[] {
   const lines = curveLines(f, origin, settings);
   if (lines.length === 0) return [];
   const curve = lines.flatMap(pieces).map((line) =>
@@ -252,5 +423,10 @@ export function graphStrokes({ f, label, origin, settings, ink, textSize }: Grap
   const text = makeTextStrokes([{ text: label }], [left, middle], {
     size: textSize, color: ink.color, pageWidth: DRAFT_SHEET.width, pageHeight: DRAFT_SHEET.height,
   });
-  return [...curve, ...text];
+  if (!keyPoints) return [...curve, ...text];
+
+  const frame = axesFrame(origin, settings);
+  const points = findKeyPoints(lines, f, frame, settings);
+  const obstacles = [...curve, ...text, ...existing];
+  return [...curve, ...text, ...pointStrokes(points, { obstacles, frame, ink, textSize })];
 }

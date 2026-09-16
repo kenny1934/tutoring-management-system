@@ -6,7 +6,6 @@
  * the sessionStorage copy working without knowing an eraser exists.
  */
 import { isText, type Stroke } from "@/hooks/useAnnotations";
-import { clipToPage } from "@/lib/drawing-guide";
 
 /**
  * Eraser radius for each size, in the same page units as stroke points and
@@ -107,20 +106,47 @@ export function boundingBox(stroke: Stroke): Box {
   return box;
 }
 
+/** Whether two boxes are at least `room` apart, side by side or one above the other. */
+export const boxesApart = (a: Box, b: Box, room: number) =>
+  b.left - a.right >= room || a.left - b.right >= room || b.top - a.bottom >= room || a.top - b.bottom >= room;
+
 /**
- * Whether the eraser, dragged from one point to the next, comes within reach
- * of a box. That's whether the line it's dragged along crosses the box grown
- * by the reach on every side. The grown box is treated as a page, with its
- * top-left corner as the page's corner, and the line is clipped to it the way
- * a line along the ruler is clipped to its page. The grown box has square
- * corners where the eraser's reach is round, so it reaches a little further at
- * the corners, which no one will notice.
+ * Whether the line from one point to the next comes within `reach` of a box.
+ * The box is grown by the reach on every side, and the stretch of the line
+ * inside it is narrowed down a pair of edges at a time, first left and right
+ * and then top and bottom. The line touches the box when some stretch of it
+ * survives both pairs. The grown box has square corners where a reach is
+ * round, so it reaches a little further at the corners, which no one will
+ * notice. A line that starts and ends in the same place is a single point, and
+ * the question becomes whether that point is inside.
+ *
+ * Both the eraser and a graph's labels ask this of every segment of every
+ * stroke near them, so it works in plain numbers and builds nothing as it
+ * goes. The two ends are read by index rather than unpacked, so a stroke's own
+ * points, which carry a pressure as well, can be handed straight in.
  */
-function sweepReachesBox(box: Box, from: Vec, to: Vec, reach: number): boolean {
-  const left = box.left - reach;
-  const top = box.top - reach;
-  const onBox = ([x, y]: Vec): Vec => [x - left, y - top];
-  return clipToPage(onBox(from), onBox(to), box.right + reach - left, box.bottom + reach - top) !== null;
+export function segmentReachesBox(box: Box, from: readonly number[], to: readonly number[], reach: number): boolean {
+  let start = 0;
+  let end = 1;
+  for (let axis = 0; axis < 2; axis++) {
+    const at = from[axis];
+    const speed = to[axis] - at;
+    const near = (axis === 0 ? box.left : box.top) - reach;
+    const far = (axis === 0 ? box.right : box.bottom) + reach;
+    // A line going nowhere along this axis is either inside this pair of edges the whole way, or outside it the whole way.
+    if (speed === 0) {
+      if (at < near || at > far) return false;
+      continue;
+    }
+    const toNear = (near - at) / speed;
+    const toFar = (far - at) / speed;
+    const first = Math.min(toNear, toFar);
+    const last = Math.max(toNear, toFar);
+    if (first > start) start = first;
+    if (last < end) end = last;
+    if (start > end) return false;
+  }
+  return true;
 }
 
 function pathLength(points: Point[]): number {
@@ -138,7 +164,7 @@ function pathLength(points: Point[]): number {
  */
 function eraseStroke(stroke: Stroke, from: Vec, to: Vec, radius: number): Stroke[] | null {
   // Text goes all at once, as soon as the eraser comes within reach of its box.
-  if (isText(stroke)) return sweepReachesBox(boundingBox(stroke), from, to, radius) ? [] : null;
+  if (isText(stroke)) return segmentReachesBox(boundingBox(stroke), from, to, radius) ? [] : null;
 
   // The ink spreads half the pen width either side of the stroke's centre
   // line, so the eraser reaches that much further. That makes the gap you see

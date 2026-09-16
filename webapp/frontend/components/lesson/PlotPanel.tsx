@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
 import { patchMathLiveMenu } from "@/lib/mathlive-utils";
 import { axisNumber, type AxesSettings, type AxisName, type AxisSettings } from "@/lib/axes";
+import { draftKeyPoints } from "@/lib/plot";
 import type { AngleUnit, Reading } from "@/lib/plot-expression";
 import { FIELD, MAIN_BUTTON, PANEL_CARD, TEXT_BUTTON } from "./AxesPanel";
 
@@ -64,9 +65,9 @@ interface PlotPanelProps {
  * The Draft's Graph panel, where a tutor types the function to plot before a
  * tap on a sheet says where the axes cross. "y =" sits in front of a MathLive
  * maths field, which turns sin, pi and sqrt into maths and a slash into a
- * fraction as they're typed on the laptop's keyboard. Below it are the
- * switch between degrees and radians, and a line naming the axes the graph
- * will go on.
+ * fraction as they're typed on the laptop's keyboard. Below it are the switch
+ * between degrees and radians, the tick box for marking the key points, which
+ * each board remembers, and a line naming the axes the graph will go on.
  *
  * Plot stays greyed out until the function can be plotted, and a line under
  * the field says why. Enter in the field plots too, once Plot would. The
@@ -80,6 +81,7 @@ interface PlotPanelProps {
  * because they keep the key to themselves.
  */
 export function PlotPanel({ latex, onLatexChange, reading, unit, onUnitChange, axes, onPlot, onClose }: PlotPanelProps) {
+  const [markKeyPoints, setMarkKeyPoints] = draftKeyPoints.usePreference();
   const fieldRef = useRef<MathField | null>(null);
   const [loaded, setLoaded] = useState(false);
   const ready = reading.status === "ready";
@@ -159,6 +161,15 @@ export function PlotPanel({ latex, onLatexChange, reading, unit, onUnitChange, a
           </button>
         ))}
       </div>
+      <label className="mt-2 flex min-h-11 items-center gap-2">
+        <input
+          type="checkbox"
+          checked={markKeyPoints}
+          onChange={(e) => setMarkKeyPoints(e.target.checked)}
+          className="h-5 w-5 accent-[#a0704b]"
+        />
+        Mark the key points
+      </label>
       <p className="mt-2 text-xs opacity-80">
         Plots on the last axes drawn here: {axisWords("x", axes.x)} and {axisWords("y", axes.y)}.
       </p>

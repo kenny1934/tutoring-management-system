@@ -24,6 +24,7 @@ import { CM } from "./drawing-guide";
 import { DRAFT_SHEET, DRAFT_SQUARE } from "./draft-sheets";
 import { textStrokes, textWeights, textWidth } from "./axes-font";
 import { nearestCorner } from "./snap";
+import { boxesApart } from "./stroke-eraser";
 import { clamp, type Vec } from "./stroke-select";
 
 export type AxisName = "x" | "y";
@@ -207,6 +208,18 @@ export function toPage(frame: AxesFrame, x: number, y: number): Vec {
 }
 
 /**
+ * Which point on the graph a place on the page is, which is what toPage was
+ * given. It's how the key points of a graph are read back off the curve that
+ * was drawn, rather than working the function out all over again.
+ */
+export function fromPage(frame: AxesFrame, [px, py]: Vec): Vec {
+  return [
+    ((px - frame.origin[0]) / frame.square) * frame.perSquare.x,
+    ((frame.origin[1] - py) / frame.square) * frame.perSquare.y,
+  ];
+}
+
+/**
  * Where the axes cross for a finger at `point`, in page units. On blank
  * paper it's the point itself. On squared paper it's the nearest corner of
  * the squares on the sheet, however far away that is, because the ticks have
@@ -328,12 +341,6 @@ function boxOf(lines: Vec[][]) {
   return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
 }
 
-type LabelBox = ReturnType<typeof boxOf>;
-
-/** Whether two boxes are at least `room` apart, side by side or one above the other. */
-const apart = (a: LabelBox, b: LabelBox, room: number) =>
-  b.left - a.right >= room || a.left - b.right >= room || b.top - a.bottom >= room || a.top - b.bottom >= room;
-
 /** The parts of one axis. */
 function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): AxesPart[] {
   const { origin, square } = frame;
@@ -390,7 +397,7 @@ function axisParts(axis: AxisName, frame: AxesFrame, settings: AxisSettings): Ax
     const every = settings.numbers * spread;
     numbers = ticks.filter((n) => n % every === 0).map(numberAt).filter((part): part is AxesPart => part !== null);
     const boxes = numbers.map((part) => boxOf(part.lines));
-    if (boxes.every((box, i) => i === 0 || apart(boxes[i - 1], box, room))) break;
+    if (boxes.every((box, i) => i === 0 || boxesApart(boxes[i - 1], box, room))) break;
   }
   parts.push(...numbers);
 
