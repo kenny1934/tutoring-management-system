@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.144](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.143...v2.0.144) (2026-09-16)
+
+
+### New Features
+
+* **Lift the compasses' pencil from the keyboard**: press U to lift the pencil or put it down again, so a finger can stay on the turn handle while you set where an arc will begin.
+* **The pencil lifts at once**: lifting or lowering the pencil part way through a turn now ends the arc where the pencil is, or starts a fresh one there, whether from the key or the button.
+
 ## [2.0.143](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.142...v2.0.143) (2026-09-16)
 
 
