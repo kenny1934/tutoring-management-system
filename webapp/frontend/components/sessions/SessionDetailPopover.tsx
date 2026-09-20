@@ -457,6 +457,8 @@ export function SessionDetailPopover({
   // Tests and Recap section state (using SWR for caching)
   const [testsExpanded, setTestsExpanded] = useState(false);
   const [recapExpanded, setRecapExpanded] = useState(false);
+  // The P6 handover note starts folded to its heading, like the sections below.
+  const [handoverExpanded, setHandoverExpanded] = useState(false);
   const [expandedTest, setExpandedTest] = useState<string | null>(null);
 
   // Fetch upcoming tests with SWR caching
@@ -783,30 +785,42 @@ export function SessionDetailPopover({
         </div>
 
         {detailedSession?.show_handover_first_lesson && detailedSession?.handover_prospect && (
-          <div className="mb-3 flex gap-2.5 px-3 py-2.5 rounded-lg border-2 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700">
-            <StickyNote className="h-4 w-4 mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+          <div className="mb-3 px-3 py-2.5 rounded-lg border-2 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700">
+            <button
+              type="button"
+              onClick={() => setHandoverExpanded(!handoverExpanded)}
+              aria-expanded={handoverExpanded}
+              className="flex items-start gap-2.5 w-full text-left"
+            >
+              <StickyNote className="h-4 w-4 mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" />
+              <p className="flex-1 min-w-0 text-xs font-semibold text-amber-800 dark:text-amber-200">
                 First lesson — handover from {formatProspectCode(
                   detailedSession.handover_prospect.source_branch,
                   detailedSession.handover_prospect.primary_student_id,
                 )}
                 {detailedSession.handover_prospect.student_name && ` ${detailedSession.handover_prospect.student_name}`}
               </p>
-              {detailedSession.handover_prospect.tutor_remark ? (
-                <p className="mt-1 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                  {detailedSession.handover_prospect.tutor_remark}
+              {handoverExpanded
+                ? <ChevronDown className="h-3 w-3 mt-1 shrink-0 text-amber-700 dark:text-amber-300" />
+                : <ChevronRight className="h-3 w-3 mt-1 shrink-0 text-amber-700 dark:text-amber-300" />}
+            </button>
+            {handoverExpanded && (
+              <div className="pl-[26px]">
+                {detailedSession.handover_prospect.tutor_remark ? (
+                  <p className="mt-1 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                    {detailedSession.handover_prospect.tutor_remark}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs italic text-gray-500 dark:text-gray-400">
+                    No handover notes were left.
+                  </p>
+                )}
+                <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+                  {detailedSession.handover_prospect.tutor_name && `— ${detailedSession.handover_prospect.tutor_name}`}
+                  {detailedSession.handover_prospect.submitted_at && ` · ${formatShortDate(detailedSession.handover_prospect.submitted_at)}`}
                 </p>
-              ) : (
-                <p className="mt-1 text-xs italic text-gray-500 dark:text-gray-400">
-                  No handover notes were left.
-                </p>
-              )}
-              <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
-                {detailedSession.handover_prospect.tutor_name && `— ${detailedSession.handover_prospect.tutor_name}`}
-                {detailedSession.handover_prospect.submitted_at && ` · ${formatShortDate(detailedSession.handover_prospect.submitted_at)}`}
-              </p>
-            </div>
+              </div>
+            )}
           </div>
         )}
 

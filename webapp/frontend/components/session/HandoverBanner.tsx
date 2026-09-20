@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { StickyNote } from "lucide-react";
+import { ChevronDown, StickyNote } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { HandoverProspect } from "@/types";
 import { formatShortDate } from "@/lib/formatters";
 import { formatProspectCode } from "@/lib/summer-utils";
@@ -19,8 +21,12 @@ interface HandoverBannerProps {
  * which route it was. The session popover shows a tighter version of the same
  * thing; this one has room for the parent's preferences and the sibling note as
  * well, which are the other things worth knowing before you meet a new student.
+ *
+ * It starts folded to just the heading, so the page isn't taken over by a long
+ * note on every visit. Click the heading to read it.
  */
 export function HandoverBanner({ prospect }: HandoverBannerProps) {
+  const [collapsed, setCollapsed] = useState(true);
   const extras = [
     { label: "Sibling info", value: prospect.sibling_info },
     { label: "Preferred tutor", value: prospect.preferred_tutor_note },
@@ -52,7 +58,12 @@ export function HandoverBanner({ prospect }: HandoverBannerProps) {
       <div className="absolute top-0 right-0 w-0 h-0 border-t-[30px] border-t-amber-600 dark:border-t-amber-700 border-l-[30px] border-l-transparent" />
 
       <div className="relative p-3 sm:p-5">
-        <div className="flex items-center gap-2 sm:gap-3 mb-3">
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          className={cn("w-full flex items-center gap-2 sm:gap-3 text-left", !collapsed && "mb-3")}
+        >
           <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-amber-500 dark:bg-amber-600 rounded-full shadow-md shrink-0">
             <StickyNote className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
           </div>
@@ -67,19 +78,27 @@ export function HandoverBanner({ prospect }: HandoverBannerProps) {
               </p>
             )}
           </div>
-        </div>
+          <ChevronDown
+            className={cn(
+              "h-5 w-5 text-amber-700 dark:text-amber-300 ml-auto mr-6 shrink-0 transition-transform",
+              collapsed && "-rotate-90",
+            )}
+          />
+        </button>
 
-        {prospect.tutor_remark && prospect.tutor_remark.trim().length > 0 ? (
-          <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-            {prospect.tutor_remark}
-          </p>
-        ) : (
-          <p className="text-sm italic text-gray-500 dark:text-gray-400">
-            No handover notes were left.
-          </p>
+        {!collapsed && (
+          prospect.tutor_remark && prospect.tutor_remark.trim().length > 0 ? (
+            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+              {prospect.tutor_remark}
+            </p>
+          ) : (
+            <p className="text-sm italic text-gray-500 dark:text-gray-400">
+              No handover notes were left.
+            </p>
+          )
         )}
 
-        {extras.length > 0 && (
+        {!collapsed && extras.length > 0 && (
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             {extras.map((e) => (
               <div key={e.label}>

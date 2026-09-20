@@ -1445,17 +1445,19 @@ function ProfileTab({
 }
 
 function HandoverFromP6Card({ prospect }: { prospect: HandoverProspect }) {
-  const storageKey = `handover-card-collapsed:${prospect.id}`;
+  // The card starts folded so it doesn't push the rest of the page down every
+  // visit. If you open it, the browser remembers that for this student.
+  const storageKey = `handover-card-expanded:${prospect.id}`;
   const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(storageKey) === 'true';
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem(storageKey) !== 'true';
   });
 
   const toggle = () => {
     const next = !collapsed;
     setCollapsed(next);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(storageKey, String(next));
+      window.localStorage.setItem(storageKey, String(!next));
     }
   };
 
