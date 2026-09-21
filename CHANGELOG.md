@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.145](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.144...v2.0.145) (2026-09-21)
+
+
+### New Features
+
+* **Check homework against its answers**: the Answers button on any homework still to check opens the worksheet and its answer key side by side, at the pages that were set, in lessons, when rating a lesson and on the student page.
+* **Mark as you go**: mark each piece of homework and add photos of it without leaving the answers, then move to the next or previous one with the arrow keys, carrying on to the next student's homework when you work through a whole slot.
+* **The handover note starts folded**: the note from the primary branch now shows just its heading on the student page, the session page and the session popover until you open it.
+
+
+### Bug Fixes
+
+* **Photos answer their own keys**: a photo of handed-in work opened while rating a lesson now turns with the arrow keys, and Escape closes just the photo.
+
 ## [2.0.144](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.143...v2.0.144) (2026-09-16)
 
 
