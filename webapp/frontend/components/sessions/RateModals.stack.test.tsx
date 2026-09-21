@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import ImageLightbox from "@/components/inbox/ImageLightbox";
 import { RateSessionModal } from "./RateSessionModal";
 import { BulkRateModal } from "./BulkRateModal";
 import type { Session } from "@/types";
@@ -38,5 +39,20 @@ describe.each([
     );
     fireEvent.keyDown(document.body, { key: "3" });
     expect(screen.queryByText("(3/5)")).not.toBeInTheDocument();
+  });
+
+  it("lets a photo of handed-in work opened over it take its own keys", () => {
+    const onChangeIndex = vi.fn();
+    const onPhotoClose = vi.fn();
+    render(
+      <>
+        {modal()}
+        <ImageLightbox images={["a.jpg", "b.jpg"]} currentIndex={0} onClose={onPhotoClose} onChangeIndex={onChangeIndex} />
+      </>,
+    );
+    fireEvent.keyDown(document.body, { key: "ArrowRight" });
+    expect(onChangeIndex).toHaveBeenCalledWith(1);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onPhotoClose).toHaveBeenCalledTimes(1);
   });
 });

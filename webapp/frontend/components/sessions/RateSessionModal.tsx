@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
-import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import { keyIsForOverlayAbove, useOverlayLayer } from "@/hooks/useOverlayLayer";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
@@ -105,14 +105,8 @@ export function RateSessionModal({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Something is open over this modal, such as the homework Check Viewer
-      // or a photo. None of the shortcuts below may reach through it: a
-      // number key would quietly change a rating the tutor can't see. Escape
-      // travels on to whatever is on top, and every other key is still kept
-      // from the page underneath.
-      if (!overlayLayer.isTopmost) {
-        if (e.key !== 'Escape') e.stopPropagation();
-        return;
-      }
+      // or a photo.
+      if (keyIsForOverlayAbove(e, overlayLayer.isTopmost)) return;
 
       // Skip if focused on textarea (allow normal typing)
       const isTextarea = (e.target as HTMLElement)?.tagName === 'TEXTAREA';

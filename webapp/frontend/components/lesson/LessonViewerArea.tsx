@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode, type Ref } from "react";
-import { AlertTriangle, NotebookPen } from "lucide-react";
+import { NotebookPen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { getPrintButtonTitle, NO_FILE_ERROR, type PrintingState } from "@/lib/lesson-utils";
@@ -12,6 +12,7 @@ import type { useDraft } from "@/hooks/useDraft";
 import type { useLessonInk } from "@/hooks/useLessonInk";
 import type { SessionExercise } from "@/types";
 import { PdfPageViewer, type PdfViewerHandle, type PdfViewState } from "./PdfPageViewer";
+import { PdfRenderFailure, viewerDivider, viewerTabClass } from "./ViewerParts";
 import { DraftPane, DraftTrayLane } from "./DraftPane";
 import { DraftSplit } from "./DraftSplit";
 import { FoldingAnswerKey } from "./FoldingAnswerKey";
@@ -51,15 +52,6 @@ interface LessonViewerAreaProps {
   /** How the view zooms the worksheet from the keyboard. Only the worksheet gets it, so the answer key keeps its own zoom. */
   worksheetRef: Ref<PdfViewerHandle>;
 }
-
-const divider = <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />;
-
-const tabClass = (active: boolean) => cn(
-  "flex-1 py-2.5 text-xs font-semibold text-center transition-colors",
-  active
-    ? "text-[#6b4c30] dark:text-[#d4a574] border-b-2 border-[#a0704b]"
-    : "text-[#8b7355] dark:text-[#a09080]"
-);
 
 /**
  * Where the lesson views show the open exercise: its worksheet, its Draft and
@@ -122,10 +114,10 @@ export function LessonViewerArea({
       {/* A phone only gets the tabs once the answer key's file has loaded. */}
       {isMobile && showAnswerKey && answerPdfData && (
         <div className="flex border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
-          <button onClick={() => setMobileActiveTab("exercise")} className={tabClass(mobileActiveTab === "exercise")}>
+          <button onClick={() => setMobileActiveTab("exercise")} className={viewerTabClass(mobileActiveTab === "exercise")}>
             Exercise
           </button>
-          <button onClick={() => setMobileActiveTab("answer")} className={tabClass(mobileActiveTab === "answer")}>
+          <button onClick={() => setMobileActiveTab("answer")} className={viewerTabClass(mobileActiveTab === "answer")}>
             Answer Key
           </button>
         </div>
@@ -156,22 +148,7 @@ export function LessonViewerArea({
             ) : link ?? (
               <ErrorBoundary
                 onReset={pdf.retry}
-                fallback={
-                  <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
-                    <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-                      <AlertTriangle className="h-10 w-10 text-amber-500" />
-                      <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-                        Something went wrong rendering the PDF
-                      </p>
-                      <button
-                        onClick={pdf.retry}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
-                      >
-                        Try again
-                      </button>
-                    </div>
-                  </div>
-                }
+                fallback={<PdfRenderFailure onRetry={pdf.retry} />}
               >
                 <PdfPageViewer
                   ref={worksheetRef}
@@ -239,7 +216,7 @@ export function LessonViewerArea({
         {showAnswerKey && lessonDraftShown === null && (!isMobile || mobileActiveTab === "answer") && (
           draft.draftOpen ? <FoldingAnswerKey>{answerViewer}</FoldingAnswerKey> : (
             <>
-              {!isMobile && divider}
+              {!isMobile && viewerDivider}
               {answerViewer}
             </>
           )

@@ -133,7 +133,7 @@ export function HomeworkCheckRow({
 
   // Only offered where a surface has put a viewer above the row, and only for
   // homework with a worksheet to show.
-  const canOpen = !inCheckViewer && !!checkViewer && canOpenInCheckViewer(state);
+  const canOpen = !!checkViewer && canOpenInCheckViewer(state);
 
   return (
     <div className={cn(inCheckViewer ? "py-2" : "py-1.5", saving && "opacity-70")}>

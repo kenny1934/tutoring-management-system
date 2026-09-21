@@ -3213,7 +3213,7 @@ function CoursewareTab({
     );
   }
 
-  return (
+  const tab = (
     <div className="space-y-4">
       {/* Progress Summary */}
       <div className="px-4 py-2.5 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg space-y-2">
@@ -3487,14 +3487,12 @@ function CoursewareTab({
                               </div>
                               {marking && homework && (
                                 <div className="ml-7 mr-2 mb-1 px-2 rounded border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10">
-                                  <CheckViewerProvider items={checkList} readOnly={isReadOnly} onMarked={onMarked}>
-                                    <HomeworkCheckRow
-                                      homework={homework}
-                                      sessionId={homework.current_session_id}
-                                      readOnly={isReadOnly}
-                                      onMarked={onMarked}
-                                    />
-                                  </CheckViewerProvider>
+                                  <HomeworkCheckRow
+                                    homework={homework}
+                                    sessionId={homework.current_session_id}
+                                    readOnly={isReadOnly}
+                                    onMarked={onMarked}
+                                  />
                                 </div>
                               )}
                             </div>
@@ -3570,14 +3568,12 @@ function CoursewareTab({
                       </div>
                       {marking && homework && (
                         <div className="mx-3 mb-2 px-2 rounded border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10">
-                          <CheckViewerProvider items={checkList} readOnly={isReadOnly} onMarked={onMarked}>
-                            <HomeworkCheckRow
-                              homework={homework}
-                              sessionId={homework.current_session_id}
-                              readOnly={isReadOnly}
-                              onMarked={onMarked}
-                            />
-                          </CheckViewerProvider>
+                          <HomeworkCheckRow
+                            homework={homework}
+                            sessionId={homework.current_session_id}
+                            readOnly={isReadOnly}
+                            onMarked={onMarked}
+                          />
                         </div>
                       )}
                     </div>
@@ -3600,6 +3596,14 @@ function CoursewareTab({
         />
       )}
     </div>
+  );
+
+  // One viewer for the whole tab, so the files and answer keys it has
+  // already found are still there when another row is opened for marking.
+  return (
+    <CheckViewerProvider items={checkList} readOnly={isReadOnly} onMarked={onMarked}>
+      {tab}
+    </CheckViewerProvider>
   );
 }
 

@@ -414,14 +414,20 @@ arrow keys) step through the list it was opened from.
 **Where it opens from.** `HomeworkCheckRow` shows an Answers button whenever a
 `CheckViewerProvider` sits above it and the homework has a worksheet file. Every
 marking surface except Zen renders that row, so one button reaches them all.
-The widest provider wins: a provider that finds another above it steps aside.
-That's how bulk rate and wide lesson mode step across every student in the
-slot, even though each student's panel brings a provider of its own. The
-student page puts one around its single expanded row, carrying the tab's whole
-visible homework list in display order.
+Most surfaces draw their rows through `HomeworkCheckList`, which puts the
+provider and the rows together. The widest provider wins: a provider that finds
+another above it steps aside. That's how bulk rate and wide lesson mode step
+across every student in the slot (`slotCheckItems` builds that list), even
+though each student's panel brings a provider of its own. The student page puts
+one around its whole Courseware tab, carrying the visible homework in display
+order, so the files it has found survive moving between rows. The provider
+keeps the downloaded files and the answer-key searches for as long as the
+surface is open.
 
 **Which answer key.** The one a tutor chose for the homework, when there is
 one, and otherwise a search by the worksheet's file name, as lesson mode does.
+`useHomeworkAnswer` does the choosing and loads the file through
+`useExercisePdf`, the worksheet's own loader.
 In the 60 days to 2026-09-21, 1,021 of 1,469 homework items had one chosen by
 hand, which is why migration 182 exists: the view used to drop those columns.
 The migration only adds columns, so it can land before the code, but **the code
@@ -442,17 +448,29 @@ does. Without that, Escape would also leave a lesson underneath, and the
 lesson's letter shortcuts would fire. Escape in the comment box blurs it first,
 which saves the comment, and only a second Escape closes the viewer.
 
-Two fixes came with it, both about sharing the keyboard with something on top:
+The rule for an overlay's own window-capture key handler now lives in one
+place, `keyIsForOverlayAbove` in `hooks/useOverlayLayer.ts`: while something is
+stacked above, run no shortcuts, let Escape travel on, and keep every other key
+from the page. The exercise modal, both rate modals and the viewer all start
+their handlers with it.
+
+Fixes that came with it, all about sharing the keyboard with something on top:
 
 - `RateSessionModal` and `BulkRateModal` listened for keys at the window in the
   capture phase without asking whether anything was stacked above them, so a
   number key pressed in the viewer quietly changed the lesson rating of the
-  student underneath. Both now join the stack themselves, hand the layer to
-  `Modal`, and step aside while they're not topmost, exactly as `ExerciseModal`
-  already did.
+  student underneath. Both now join the stack themselves and hand the layer to
+  `Modal`, as `ExerciseModal` already did.
 - `ImageLightbox` painted at `z-[100]`, below every modal, so a photo of handed-in
-  work opened from the rate modal appeared behind it. It now joins the stack
-  too, which also covers its inbox and Wolfram uses.
+  work opened from the rate modal appeared behind it, and its keys listened on
+  the document, where a modal that keeps keys from the page never let them
+  arrive. It now joins the stack, and while it's on top it takes its keys at
+  the window and keeps them. That also covers its inbox and Wolfram uses, where
+  Escape now closes only the photo.
+- `useExercisePdf` only hands out the bytes of the open exercise's own file.
+  Before, the render that opened a new exercise still carried the last one's
+  file, and the viewer started drawing it for nothing. A download that finishes
+  after the tutor has moved on is now kept in the cache, too.
 
 ## Phase 4: reporting
 

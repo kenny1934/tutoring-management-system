@@ -88,6 +88,36 @@ describe("useExercisePdf", () => {
     expect(result.current.pdfData).toBe(newer);
   });
 
+  it("never hands the last exercise's file to the render that opens the next one", async () => {
+    const cache = new Map<string, ArrayBuffer>();
+    const seen: (ArrayBuffer | null)[] = [];
+    load.mockImplementation(async (name: string) =>
+      name === "A.pdf" ? { data: new ArrayBuffer(8), source: "local" } : heldLoad().promise);
+    const { result, rerender } = renderHook(({ open }) => {
+      const pdf = useExercisePdf(open, cache);
+      seen.push(pdf.pdfData);
+      return pdf;
+    }, { initialProps: { open: exercise(1, "A.pdf") } });
+    await waitFor(() => expect(result.current.pdfData).not.toBeNull());
+
+    seen.length = 0;
+    rerender({ open: exercise(2, "B.pdf") });
+    expect(seen.every((data) => data === null)).toBe(true);
+  });
+
+  it("keeps a file that finishes loading after the tutor has moved on", async () => {
+    const slow = heldLoad();
+    const late = new ArrayBuffer(9);
+    load.mockImplementation(async (name: string) =>
+      name === "A.pdf" ? slow.promise : { data: new ArrayBuffer(2), source: "local" });
+    const cache = new Map<string, ArrayBuffer>();
+    const { rerender } = renderPdf(exercise(1, "A.pdf"), cache);
+    rerender({ open: exercise(2, "B.pdf") });
+
+    await act(async () => slow.settle({ data: late, source: "local" }));
+    expect(cache.get("A.pdf")).toBe(late);
+  });
+
   it("stops loading when it moves to a file already in the cache while another is loading", async () => {
     const held = heldLoad();
     load.mockImplementation(async (_name: string, onProgress?: (message: string) => void) => {

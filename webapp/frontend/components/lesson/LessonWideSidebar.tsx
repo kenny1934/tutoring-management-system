@@ -19,7 +19,7 @@ import type { StudentExerciseEntry, FileGroup } from "./LessonWideMode";
 import { GradeBadge } from "@/components/ui/grade-label";
 import { HomeworkCheckSection } from "@/components/homework/HomeworkCheckSection";
 import { CheckViewerProvider } from "@/components/homework/CheckViewerProvider";
-import { checkItems } from "@/lib/homework-check";
+import { slotCheckItems } from "@/lib/homework-check";
 import { PrintIconButton } from "./PrintIconButton";
 import { WithSchoolIfItFits } from "./SchoolBadge";
 import { LessonDraftRow, type LessonDraftEntry } from "./LessonDraftRow";
@@ -588,10 +588,7 @@ export function LessonWideSidebar({
   const hwFileGroups = useMemo(() => fileGroups.filter(g => g.exerciseType === "HW"), [fileGroups]);
 
   // Every student's homework to check, in the order the students are listed.
-  const slotHomework = useMemo(
-    () => students.flatMap((s) => checkItems(homeworkBySession?.get(s.id) ?? [], s.id, s.student_name)),
-    [students, homeworkBySession]
-  );
+  const slotHomework = useMemo(() => slotCheckItems(students, homeworkBySession), [students, homeworkBySession]);
 
   if (sessions.length === 0) {
     return (

@@ -2,52 +2,29 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, BookCheck, BookX, ChevronLeft, ChevronRight, Files, Search, X } from "lucide-react";
+import { BookCheck, ChevronLeft, ChevronRight, Files, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PdfPageViewer, tbBtn, tbBtnIdle, tbBtnOn, type PdfViewState } from "@/components/lesson/PdfPageViewer";
+import { PdfRenderFailure, viewerDivider, viewerTabClass } from "@/components/lesson/ViewerParts";
 import { useExercisePdf } from "@/hooks/useExercisePdf";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useOverlayLayer } from "@/hooks/useOverlayLayer";
+import { keyIsForOverlayAbove, useOverlayLayer } from "@/hooks/useOverlayLayer";
 import type { AnswerSearchResult } from "@/lib/answer-file-utils";
 import { getDisplayName, getExerciseDisplayName } from "@/lib/exercise-utils";
 import { canOpenInCheckViewer, homeworkAsExercise, type CheckItem } from "@/lib/homework-check";
 import { assignedLabel } from "@/lib/homework-utils";
-import { getPageLabel, isTypingTarget, NO_FILE_ERROR } from "@/lib/lesson-utils";
+import { getPageLabel, hasBrowserModifier, isTypingTarget, NO_FILE_ERROR } from "@/lib/lesson-utils";
 import { HomeworkCheckRow } from "./HomeworkCheckRow";
 import { useHomeworkAnswer } from "./useHomeworkAnswer";
 import type { HomeworkCompletion, SessionExercise } from "@/types";
 
 /** Tells items apart even when a list covers several lessons. */
-export const checkItemKey = (item: CheckItem) => `${item.sessionId}:${item.homework.session_exercise_id}`;
+const checkItemKey = (item: CheckItem) => `${item.sessionId}:${item.homework.session_exercise_id}`;
 
-const divider = <div className="w-px flex-shrink-0 bg-[#d4c4a8] dark:bg-[#3a3228]" />;
-
-const tabClass = (active: boolean) => cn(
-  "flex-1 py-2.5 text-xs font-semibold text-center transition-colors",
-  active
-    ? "text-[#6b4c30] dark:text-[#d4a574] border-b-2 border-[#a0704b]"
-    : "text-[#8b7355] dark:text-[#a09080]",
-);
-
-/** What shows in a pane whose file broke the renderer, with a way to try again. */
-function renderFailure(onRetry: () => void) {
-  return (
-    <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
-      <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-        <AlertTriangle className="h-10 w-10 text-amber-500" />
-        <p className="text-sm text-[#8b7355] dark:text-[#a09080]">Something went wrong showing this file.</p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
-        >
-          Try again
-        </button>
-      </div>
-    </div>
-  );
-}
+// Every page of the answer key. One list for good, since the viewer draws the
+// whole book again whenever it's handed a new one.
+const ALL_PAGES: number[] = [];
 
 interface CheckViewerProps {
   items: CheckItem[];
@@ -117,13 +94,9 @@ export function CheckViewer({
   );
   const pdf = useExercisePdf(exercise, cache);
   const { answer, retry: retryAnswer } = useHomeworkAnswer(hw, cache, searches);
-  // Each item starts on the pages that were set.
-  const [allAnswerPages, setAllAnswerPages] = useState(false);
-  const [pagesFor, setPagesFor] = useState(key);
-  if (pagesFor !== key) {
-    setPagesFor(key);
-    setAllAnswerPages(false);
-  }
+  // The item whose answer key shows every page. Any other starts on the pages that were set.
+  const [allPagesFor, setAllPagesFor] = useState<string | null>(null);
+  const allAnswerPages = allPagesFor === key;
   // Zoom and scroll per item, kept apart for the worksheet and the answers.
   const [worksheetViews] = useState(() => new Map<number, PdfViewState>());
   const [answerViews] = useState(() => new Map<number, PdfViewState>());
@@ -145,9 +118,10 @@ export function CheckViewer({
 
   // --- Keys ---
   useEffect(() => {
-    // On the window, before anything else hears the key.
-    const onWindowKey = (e: KeyboardEvent) => {
-      if (!isTopmost) return;
+    // On the window, before anything else hears the key. While a photo is
+    // open over the viewer, the photo answers the keys instead.
+    const onKey = (e: KeyboardEvent) => {
+      if (keyIsForOverlayAbove(e, isTopmost)) return;
       e.stopPropagation();
       if (e.key === "Escape") {
         e.preventDefault();
@@ -155,7 +129,7 @@ export function CheckViewer({
         else onClose();
         return;
       }
-      if (isTypingTarget(e.target) || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (isTypingTarget(e.target) || hasBrowserModifier(e)) return;
       if (e.key === "ArrowLeft" && previous) {
         e.preventDefault();
         onNavigate(previous);
@@ -164,18 +138,8 @@ export function CheckViewer({
         onNavigate(next);
       }
     };
-    // With a photo or a dialog open over the viewer, that one answers the key
-    // on the document. This stops it there, so it doesn't carry on to a
-    // lesson underneath, where Escape would mean leaving the lesson.
-    const onDocumentKey = (e: KeyboardEvent) => {
-      if (!isTopmost) e.stopPropagation();
-    };
-    window.addEventListener("keydown", onWindowKey, true);
-    document.addEventListener("keydown", onDocumentKey);
-    return () => {
-      window.removeEventListener("keydown", onWindowKey, true);
-      document.removeEventListener("keydown", onDocumentKey);
-    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [isTopmost, onClose, onNavigate, previous, next]);
 
   // Focus moves into the viewer, and goes back to whatever opened it afterwards.
@@ -188,11 +152,7 @@ export function CheckViewer({
   if (typeof document === "undefined") return null;
 
   const name = getExerciseDisplayName(hw);
-  const pageLabel = getPageLabel({
-    page_start: hw.page_start,
-    page_end: hw.page_end,
-    remarks: hw.assignment_remarks,
-  } as SessionExercise);
+  const pageLabel = getPageLabel(exercise);
   const source = assignedLabel(hw);
   const showNav = openable.length > 1 || index < 0;
 
@@ -265,7 +225,7 @@ export function CheckViewer({
 
   const worksheetPane = (
     <div className="relative flex flex-1 min-h-0 min-w-0">
-      <ErrorBoundary key={key} onReset={pdf.retry} fallback={renderFailure(pdf.retry)}>
+      <ErrorBoundary resetKey={key} onReset={pdf.retry} fallback={<PdfRenderFailure onRetry={pdf.retry} />}>
         <PdfPageViewer
           pdfData={pdf.pdfData}
           pageNumbers={pdf.pageNumbers}
@@ -289,7 +249,7 @@ export function CheckViewer({
   const allPagesButton = narrowed ? (
     <button
       type="button"
-      onClick={() => setAllAnswerPages((all) => !all)}
+      onClick={() => setAllPagesFor(allAnswerPages ? null : key)}
       aria-pressed={allAnswerPages}
       title={allAnswerPages ? "Show only the pages for this homework" : "Show every page of the answer key"}
       className={cn(tbBtn, allAnswerPages ? tbBtnOn : tbBtnIdle, "transition-colors")}
@@ -301,53 +261,47 @@ export function CheckViewer({
 
   const answerPane = (
     <div className="relative flex flex-1 min-h-0 min-w-0">
-      {answer.kind === "none" ? (
-        <div className="flex-1 flex items-center justify-center px-6 bg-[#e8dcc8] dark:bg-[#1e1a14]">
-          <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-            <BookX className="h-10 w-10 text-[#c4a882]" />
-            <p className="text-sm font-medium text-[#6b4c30] dark:text-[#d4a574]">
-              We couldn&apos;t find an answer key for this worksheet.
-            </p>
-            <p className="text-xs text-[#8b7355] dark:text-[#a09080]">
-              Nobody chose one when the homework was set, and there isn&apos;t one under the usual name in your
-              connected folders or in Shelv.
-            </p>
-            <button
-              type="button"
-              onClick={retryAnswer}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
-            >
-              <Search className="h-3.5 w-3.5" />
-              Search again
-            </button>
-          </div>
-        </div>
-      ) : (
-        <ErrorBoundary key={key} onReset={retryAnswer} fallback={renderFailure(retryAnswer)}>
-          <PdfPageViewer
-            pdfData={answer.kind === "ready" ? answer.data : null}
-            pageNumbers={answer.kind === "ready" && !showingAll ? answer.pageNumbers : []}
-            // The renders are remembered per item, so every page gets a key of its own.
-            exerciseId={showingAll ? undefined : id}
-            isLoading={answer.kind === "idle" || answer.kind === "searching" || answer.kind === "loading"}
-            loadingMessage={
-              answer.kind === "searching" ? "Looking for the answer key…"
-                : answer.kind === "loading" ? answer.message
-                : null
-            }
-            error={answer.kind === "failed" ? "We couldn't open the answer key" : null}
-            onRetry={answer.kind === "failed" ? retryAnswer : undefined}
-            exerciseLabel={
-              answer.kind === "ready" || answer.kind === "failed" ? `ANS: ${getDisplayName(answer.path)}` : "Answer key"
-            }
-            viewStates={answerViews}
-            viewKey={showingAll ? undefined : id}
-            // A tutor going through the answers with a student can cover what's still to come.
-            coverButton
-            toolbarStart={allPagesButton}
-          />
-        </ErrorBoundary>
-      )}
+      <ErrorBoundary resetKey={key} onReset={retryAnswer} fallback={<PdfRenderFailure onRetry={retryAnswer} />}>
+        <PdfPageViewer
+          pdfData={answer.kind === "ready" ? answer.data : null}
+          pageNumbers={answer.kind === "ready" && !showingAll ? answer.pageNumbers : ALL_PAGES}
+          // The renders are remembered per item, so every page gets a key of its own.
+          exerciseId={showingAll ? undefined : id}
+          isLoading={answer.kind === "searching" || answer.kind === "loading"}
+          loadingMessage={
+            answer.kind === "searching" ? "Looking for the answer key…"
+              : answer.kind === "loading" ? answer.message
+              : null
+          }
+          error={answer.kind === "failed" ? "We couldn't open the answer key" : null}
+          onRetry={answer.kind === "failed" ? retryAnswer : undefined}
+          exerciseLabel={
+            answer.kind === "ready" || answer.kind === "failed" ? `ANS: ${getDisplayName(answer.path)}` : "Answer key"
+          }
+          emptyMessage="We couldn't find an answer key for this worksheet."
+          emptyAction={
+            <>
+              <p className="max-w-sm px-6 text-xs text-[#8b7355] dark:text-[#a09080]">
+                Nobody chose one when the homework was set, and there isn&apos;t one under the usual name in your
+                connected folders or in Shelv.
+              </p>
+              <button
+                type="button"
+                onClick={retryAnswer}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+              >
+                <Search className="h-3.5 w-3.5" />
+                Search again
+              </button>
+            </>
+          }
+          viewStates={answerViews}
+          viewKey={showingAll ? undefined : id}
+          // A tutor going through the answers with a student can cover what's still to come.
+          coverButton
+          toolbarStart={allPagesButton}
+        />
+      </ErrorBoundary>
     </div>
   );
 
@@ -372,10 +326,10 @@ export function CheckViewer({
 
         {isMobile && (
           <div className="flex border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
-            <button type="button" onClick={() => setTab("answer")} className={tabClass(tab === "answer")}>
+            <button type="button" onClick={() => setTab("answer")} className={viewerTabClass(tab === "answer")}>
               Answers
             </button>
-            <button type="button" onClick={() => setTab("worksheet")} className={tabClass(tab === "worksheet")}>
+            <button type="button" onClick={() => setTab("worksheet")} className={viewerTabClass(tab === "worksheet")}>
               Worksheet
             </button>
           </div>
@@ -383,7 +337,7 @@ export function CheckViewer({
 
         <div className="flex flex-1 min-h-0 min-w-0">
           {(!isMobile || tab === "worksheet") && worksheetPane}
-          {!isMobile && divider}
+          {!isMobile && viewerDivider}
           {(!isMobile || tab === "answer") && answerPane}
         </div>
 

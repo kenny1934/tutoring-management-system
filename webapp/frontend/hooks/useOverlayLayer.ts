@@ -119,3 +119,23 @@ export function useOverlayLayer(
     zIndex: BASE_Z + Math.min(Math.max(depth, 0), MAX_LAYERS - 1) * Z_STEP,
   };
 }
+
+/**
+ * The first thing an overlay's own key handler asks, when that handler
+ * listens on the window in the capture phase: is this key meant for something
+ * stacked above me? When it is, the handler should return straight away and
+ * run none of its shortcuts, because they all act on an overlay the tutor
+ * can't see. A number key would otherwise change a hidden rating.
+ *
+ * Every key but Escape is still stopped here, so it can't reach the page
+ * underneath either. Escape travels on, since the overlay on top may be one
+ * that listens for it on the document. An overlay on top that listens on the
+ * window, as the Check Viewer and the photo lightbox do, still hears every
+ * key, because stopping a key at the window doesn't stop the window's other
+ * listeners.
+ */
+export function keyIsForOverlayAbove(e: KeyboardEvent, isTopmost: boolean): boolean {
+  if (isTopmost) return false;
+  if (e.key !== "Escape") e.stopPropagation();
+  return true;
+}
